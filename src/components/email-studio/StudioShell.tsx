@@ -164,8 +164,11 @@ export default function StudioShell({ scope, basePath }: Props) {
         creatingRef.current = true;
         // Le brouillon est créé immédiatement : l'autosave et le compteur
         // d'audience ont besoin d'une ligne en base dès la première seconde.
+        // Pas de logo figé dans le bloc : le header hérite automatiquement du
+        // logo du compte au rendu (RenderCtx.logoUrl). Un logo téléversé à la
+        // main dans l'inspecteur prend le dessus, et lui seul.
         const initialBlocks = [
-          makeBlock('header', { venueName: scope.name, logoUrl: scope.logoUrl || undefined }),
+          makeBlock('header', { venueName: scope.name }),
           makeBlock('text'),
         ];
         // Thème du club sauvegardé depuis le panneau Thème, sinon preset 1.
@@ -183,7 +186,7 @@ export default function StudioShell({ scope, basePath }: Props) {
           blocks_version: 2,
           theme_json: initialTheme,
           social_links_json: {},
-          logo_url: scope.logoUrl || null,
+          logo_url: null,
           audiences_json: [],
           exclusions_json: {},
           status: 'draft',
@@ -209,7 +212,7 @@ export default function StudioShell({ scope, basePath }: Props) {
         return;
       }
       const campaign = rowToCampaign(data as unknown as CampaignRow, scope.name);
-      setStore(createStudioStore(campaign, { venueName: scope.name, logoUrl: scope.logoUrl || undefined }));
+      setStore(createStudioStore(campaign, { venueName: scope.name }));
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -438,7 +441,13 @@ function StudioBody({ scope, basePath, saveNow }: {
                 ]}
               />
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '16px 14px 26px' }}>
-                {inspectorTab === 'block' && <Inspector events={events} bucketFolder={bucketFolder} />}
+                {inspectorTab === 'block' && (
+                  <Inspector
+                    events={events}
+                    bucketFolder={bucketFolder}
+                    brand={{ name: scope.name, logoUrl: scope.logoUrl }}
+                  />
+                )}
                 {inspectorTab === 'theme' && <ThemePanel />}
                 {inspectorTab === 'data' && <DataPanel scope={scope} />}
               </div>

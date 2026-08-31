@@ -16,11 +16,23 @@ interface Props {
   previewBg?: string;
   /** Logo display shape in the preview thumbnail. */
   previewShape?: 'free' | 'rounded' | 'circle';
+  /**
+   * Image héritée (logo du club / de l'organisateur) affichée quand aucune
+   * image n'a été choisie : le pro voit ce que l'email affichera sans rien faire.
+   */
+  autoUrl?: string | null;
+  /** Légende de l'image héritée. */
+  autoLabel?: string;
+  /** Libellé du bouton qui remplace l'image héritée. */
+  autoOverrideLabel?: string;
+  /** Libellé du bouton « retirer » — dit où l'on retombe quand un héritage existe. */
+  removeLabel?: string;
 }
 
 export default function ImageUploader({
   value, onChange, bucketFolder, label, helper,
   preview = 'wide', previewBg, previewShape = 'free',
+  autoUrl, autoLabel, autoOverrideLabel, removeLabel,
 }: Props) {
   const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,7 +85,8 @@ export default function ImageUploader({
               type="button"
               onClick={() => onChange(null)}
               className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md hover:scale-110 transition-transform"
-              aria-label={t('em.iu.remove')}
+              aria-label={removeLabel || t('em.iu.remove')}
+              title={removeLabel || t('em.iu.remove')}
             >
               <X className="w-3 h-3" />
             </button>
@@ -82,6 +95,31 @@ export default function ImageUploader({
             {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
             {t('em.iu.replace')}
           </Button>
+        </div>
+      ) : autoUrl ? (
+        <div className="flex items-center gap-3">
+          <div
+            className="relative inline-flex items-center justify-center p-3"
+            style={{
+              background: previewBg || 'transparent',
+              borderRadius: '12px',
+              border: '1px dashed hsl(var(--border))',
+            }}
+          >
+            <img
+              src={autoUrl}
+              alt=""
+              className={preview === 'logo' ? 'h-20 w-20 object-contain' : 'max-h-40 object-contain'}
+              style={{ borderRadius: radius, background: 'transparent' }}
+            />
+          </div>
+          <div className="min-w-0 space-y-1.5">
+            {autoLabel && <p className="text-xs text-muted-foreground">{autoLabel}</p>}
+            <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              {autoOverrideLabel || t('em.iu.replace')}
+            </Button>
+          </div>
         </div>
       ) : (
         <button

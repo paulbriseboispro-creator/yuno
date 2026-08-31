@@ -149,10 +149,34 @@ export default function OrgAppCampaigns() {
   );
 }
 
+/**
+ * Logo de l'organisateur : `profiles.organization_logo_url` d'abord, repli sur
+ * l'avatar de `organizer_profiles` — même ordre que resolveSender() côté envoi,
+ * pour que l'aperçu et l'email reçu montrent la même marque.
+ */
+function useOrganizerLogo(userId: string | undefined, fromProfile: string | null): string | null {
+  const [fallback, setFallback] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId || fromProfile) return;
+    let cancelled = false;
+    supabase.from('organizer_profiles').select('avatar_url').eq('user_id', userId).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setFallback(data?.avatar_url || null); });
+    return () => { cancelled = true; };
+  }, [userId, fromProfile]);
+  return fromProfile || fallback;
+}
+
 export function OrgAppCampaignEditor() {
   const { user } = useAuth();
-  const { profile } = useProfileType();
-  if (!user?.id) {
+  const { profile, loading } = useProfileType();
+  const logoUrl = useOrganizerLogo(
+    user?.id,
+    (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+  );
+  // On attend le profil AVANT de monter le Studio : sinon le brouillon est créé
+  // avec « Mon organisation » et sans logo, et ces valeurs restent figées dans
+  // les blocs de la campagne.
+  if (!user?.id || loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
   return (
@@ -162,7 +186,7 @@ export function OrgAppCampaignEditor() {
         kind: 'organizer',
         organizerId: user.id,
         name: profile?.organizationName || 'Mon organisation',
-        logoUrl: (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+        logoUrl,
         city: null,
       }}
     />

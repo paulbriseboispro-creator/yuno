@@ -42,7 +42,7 @@ export default function BlockPalette({ scope }: { scope: StudioScope }) {
   }, [query, t]);
 
   const applyTemplate = (tpl: TemplatePreset) => {
-    const v1 = tpl.blocks({ name: scope.name, logoUrl: scope.logoUrl });
+    const v1 = tpl.blocks({ name: scope.name });
     setBlocks(migrateV1Blocks(v1, scope.name));
     if (!subject.trim() || subject === '—') patchContent({ subject: tpl.subject });
     setTemplatesOpen(false);

@@ -129,6 +129,8 @@ function unsubHeaders(token?: string | null): Record<string, string> {
 interface Sender {
   name: string;
   city: string | null;
+  /** Logo du compte — repli de marque du bloc header (voir email-studio-html.ts). */
+  logoUrl: string | null;
   ownerUserId: string;
   from: string;
   replyTo: string | null;
@@ -140,22 +142,30 @@ interface Sender {
 async function resolveSender(admin: Admin, campaign: Record<string, unknown>): Promise<Sender> {
   let name = '';
   let city: string | null = null;
+  let logoUrl: string | null = null;
   let ownerUserId: string | null = null;
   const venueId = (campaign.venue_id as string) || null;
   const organizerUserId = (campaign.organizer_user_id as string) || null;
 
   if (venueId) {
     const { data: venue } = await admin
-      .from('venues').select('id, name, city, owner_id').eq('id', venueId).single();
+      .from('venues').select('id, name, city, owner_id, logo_url').eq('id', venueId).single();
     if (!venue) throw new Error('Venue not found');
     name = venue.name; city = venue.city; ownerUserId = venue.owner_id;
+    logoUrl = (venue as { logo_url?: string | null }).logo_url ?? null;
   } else if (organizerUserId) {
     const { data: p } = await admin
-      .from('profiles').select('id, organization_name, first_name, last_name, city')
+      .from('profiles').select('id, organization_name, organization_logo_url, first_name, last_name, city')
       .eq('id', organizerUserId).single();
     if (!p) throw new Error('Organizer not found');
     name = p.organization_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Organisateur';
     city = (p as { city?: string | null }).city ?? null;
+    logoUrl = (p as { organization_logo_url?: string | null }).organization_logo_url ?? null;
+    if (!logoUrl) {
+      const { data: op } = await admin
+        .from('organizer_profiles').select('avatar_url').eq('user_id', organizerUserId).maybeSingle();
+      logoUrl = (op as { avatar_url?: string | null } | null)?.avatar_url ?? null;
+    }
     ownerUserId = p.id;
   } else {
     throw new Error('Campaign has no owner');
@@ -165,7 +175,7 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
     .from('profiles').select('email, first_name, last_name').eq('id', ownerUserId!).single();
 
   return {
-    name, city, ownerUserId: ownerUserId!,
+    name, city, logoUrl, ownerUserId: ownerUserId!,
     from: `${name} <${slugifyVenueName(name)}@${marketingDomain()}>`,
     replyTo: ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
@@ -198,6 +208,7 @@ async function makeStudioHtmlBuilder(
   return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
     venueName: sender.name,
     city: sender.city,
+    logoUrl: campaignLogo || sender.logoUrl,
     emailType: campaign.type as 'promotional' | 'informational',
     subject: subjectForRecipient(campaign, r),
     preheader: (campaign.preheader as string) || undefined,
