@@ -16,7 +16,7 @@
 import type {
   BlockCond, EmailBlock, EmailTheme, RenderCtx, SocialLinks, TicketRow,
   HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock,
-  TicketsBlock, TableBlock, CountdownBlock, SpacerBlock, HtmlBlock,
+  TicketsBlock, TableBlock, CountdownBlock, SpacerBlock, HtmlBlock, DividerBlock,
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import { interpolateVariables } from './variables';
@@ -149,9 +149,17 @@ function blockPad(b: EmailBlock): { px: number; py: number } {
 }
 
 function blockBg(b: EmailBlock, theme: EmailTheme): string {
+  if (isHexColor(b.bgc)) return b.bgc.trim();
   if (b.bg === 'tile') return theme.tile;
   if (b.bg === 'accent') return theme.dark ? 'rgba(212,175,55,0.07)' : 'rgba(232,25,44,0.05)';
   return 'transparent';
+}
+
+/** Icônes simpleicons : hex SANS # obligatoire — tout le reste retombe sur un gris sûr. */
+function iconHex(custom: unknown, themeFallback: string): string {
+  const src = isHexColor(custom) ? custom : themeFallback;
+  const m = /^#([0-9a-fA-F]{6})$/.exec(String(src).trim());
+  return m ? m[1] : '7a7a7a';
 }
 
 /** Un bloc conditionnel s'efface pour les destinataires hors règle. */
@@ -197,12 +205,13 @@ function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
 
 function renderText(b: TextBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const size = Math.max(11, Math.min(28, b.size || 16));
+  const color = isHexColor(b.color) ? b.color.trim() : theme.text;
   const raw = interpolateVariables(b.body || '', ctx);
   const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
-  const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text, markup);
+  const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, color, markup);
   return td(
     inner,
-    `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`,
+    `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${color};text-align:${b.align || 'left'};`,
   );
 }
 
@@ -246,7 +255,8 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const priceRow = b.price && priceLabel
     ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${escapeHtml(priceLabel)}</p>`
     : '';
-  const btn = buttonHtml({ href: url, label: b.ctaLabel || "Voir l'événement", bg: theme.accent, color: theme.btnText, radius: 6, full: false, ctx, small: true });
+  const btnColors = ctaColors(b.accent, theme);
+  const btn = buttonHtml({ href: url, label: b.ctaLabel || "Voir l'événement", bg: btnColors.bg, color: btnColors.color, radius: 6, full: false, ctx, small: true });
   const cardBg = theme.dark ? theme.tile : '#ffffff';
   return td(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
@@ -264,7 +274,7 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   );
 }
 
-function renderTicketRows(rows: TicketRow[], theme: EmailTheme): string {
+function renderTicketRows(rows: TicketRow[], theme: EmailTheme, accent: string): string {
   return rows.map((r, i) => `
     <tr>
       <td style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};">
@@ -272,7 +282,7 @@ function renderTicketRows(rows: TicketRow[], theme: EmailTheme): string {
         ${r.s ? `<p style="margin:2px 0 0;font-size:12px;color:${theme.muted};">${escapeHtml(r.s)}</p>` : ''}
       </td>
       <td align="right" style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};white-space:nowrap;">
-        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : theme.accent};${r.out ? 'text-decoration:line-through;' : ''}">${escapeHtml(r.p)}</span>
+        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${escapeHtml(r.p)}</span>
       </td>
     </tr>`).join('');
 }
@@ -284,10 +294,11 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   const rows = (b.live && live) ? (live.tickets || []) : b.rows;
   if (!rows || rows.length === 0) return '';
   const url = live?.url || ctx.baseUrl;
-  const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: theme.accent, color: theme.btnText, radius: 8, full: true, ctx, small: true });
+  const btnColors = ctaColors(b.accent, theme);
+  const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
   return td(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
-      ${renderTicketRows(rows, theme)}
+      ${renderTicketRows(rows, theme, btnColors.bg)}
     </table>
     <div style="height:12px;line-height:12px;font-size:0;">&nbsp;</div>
     ${btn}`,
@@ -299,16 +310,18 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
   const url = live?.url || b.ctaUrl || ctx.baseUrl;
   const left = live?.tablesLeft;
+  const btnColors = ctaColors(b.accent, theme);
+  const accent = btnColors.bg;
   const leftRow = typeof left === 'number' && left >= 0
-    ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12.5px;font-weight:700;color:${theme.accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
+    ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12.5px;font-weight:700;color:${accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
     : '';
-  const btn = buttonHtml({ href: url, label: b.ctaLabel || 'Réserver une table', bg: theme.accent, color: theme.btnText, radius: 6, full: false, ctx, small: true });
+  const btn = buttonHtml({ href: url, label: b.ctaLabel || 'Réserver une table', bg: btnColors.bg, color: btnColors.color, radius: 6, full: false, ctx, small: true });
   const cardBorder = theme.dark ? 'rgba(212,175,55,0.28)' : theme.divider;
   const cardBg = theme.dark ? 'rgba(212,175,55,0.06)' : theme.tile;
   return td(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${cardBorder};border-radius:12px;background:${cardBg};">
       <tr><td style="padding:18px;">
-        <p style="margin:0 0 8px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${theme.accent};">${escapeHtml(b.kicker || 'Bottle service')}</p>
+        <p style="margin:0 0 8px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent};">${escapeHtml(b.kicker || 'Bottle service')}</p>
         <h2 style="margin:0 0 6px;font-family:${FONT};font-size:17px;line-height:23px;mso-line-height-rule:exactly;font-weight:600;color:${theme.text};">${escapeHtml(interpolateVariables(b.title, ctx))}</h2>
         <p style="margin:0 0 12px;font-family:${FONT};font-size:13.5px;line-height:1.6;color:${theme.muted};">${escapeHtml(interpolateVariables(b.sub, ctx))}</p>
         ${leftRow}
@@ -329,9 +342,10 @@ function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, p
     // compte à rebours faux — un countdown figé est pire que pas de countdown.
     return '';
   }
+  const accent = isHexColor(b.accent) ? b.accent.trim() : theme.accent;
   const cell = (num: string, unit: string) =>
     `<td width="33%" style="padding:0 5px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:10px 0;border-radius:9px;background:${theme.tile};text-align:center;">
-      <p style="margin:0;font-family:${FONT};font-size:24px;font-weight:700;color:${theme.accent};">${num}</p>
+      <p style="margin:0;font-family:${FONT};font-size:24px;font-weight:700;color:${accent};">${num}</p>
       <p style="margin:2px 0 0;font-family:${FONT};font-size:10px;letter-spacing:.1em;color:${theme.muted};">${unit}</p>
     </td></tr></table></td>`;
   return td(
@@ -349,26 +363,36 @@ const SOCIAL_SLUG: Record<keyof SocialLinks, string> = {
   instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
 };
 
-function renderSocial(theme: EmailTheme, ctx: RenderCtx, standalone: boolean, pad?: Pad): string {
+function renderSocial(
+  theme: EmailTheme,
+  ctx: RenderCtx,
+  standalone: boolean,
+  opts: { pad?: Pad; iconColor?: unknown; bg?: string } = {},
+): string {
   const entries = (Object.entries(ctx.socialLinks || {}) as [keyof SocialLinks, string | undefined][])
     .filter(([, url]) => url && url.trim().length > 0);
   if (entries.length === 0) return '';
-  const color = theme.muted.replace('#', '');
+  const color = iconHex(opts.iconColor, theme.muted);
   const cells = entries.map(([key, url]) => {
     const href = url!.startsWith('http') ? url! : `https://${url}`;
     return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key]}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
   }).join('');
-  const padding = standalone && pad ? `${pad.py}px ${pad.px}px` : '18px 24px 4px';
-  return td(cells, `padding:${padding};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
+  const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
+  // Le bloc autonome respecte le fond choisi (bgc / tile / accent), sinon la carte.
+  const bg = standalone
+    ? (opts.bg && opts.bg !== 'transparent' ? opts.bg : theme.card)
+    : theme.footerBg;
+  return td(cells, `padding:${padding};text-align:center;background:${bg};`);
 }
 
-function renderSpacer(b: SpacerBlock): string {
+function renderSpacer(b: SpacerBlock, bg: string): string {
   const h = SPACER_SIZES[b.size] || SPACER_SIZES.md;
-  return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;">&nbsp;</td></tr>`;
+  return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;background:${bg};">&nbsp;</td></tr>`;
 }
 
-function renderDivider(pad: Pad, theme: EmailTheme): string {
-  return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;`);
+function renderDivider(b: DividerBlock, pad: Pad, theme: EmailTheme, bg: string): string {
+  const color = isHexColor(b.color) ? b.color.trim() : theme.divider;
+  return td(`<hr style="border:none;border-top:1px solid ${color};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
 }
 
 function renderHtmlBlock(b: HtmlBlock, ctx: RenderCtx, pad: Pad, bg: string): string {
@@ -389,9 +413,9 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
     case 'tickets': return renderTickets(b, theme, ctx, pad, bg);
     case 'table': return renderTable(b, theme, ctx, pad, bg);
     case 'countdown': return renderCountdown(b, theme, ctx, pad, bg);
-    case 'social': return renderSocial(theme, ctx, true, pad);
-    case 'divider': return renderDivider(pad, theme);
-    case 'spacer': return renderSpacer(b);
+    case 'social': return renderSocial(theme, ctx, true, { pad, iconColor: b.color, bg });
+    case 'divider': return renderDivider(b, pad, theme, bg);
+    case 'spacer': return renderSpacer(b, bg);
     case 'html': return renderHtmlBlock(b, ctx, pad, bg);
   }
 }

@@ -27,6 +27,8 @@ export interface BlockBase {
   py?: number;
   /** Fond du bloc : teinte du thème ou accent léger. Défaut : transparent. */
   bg?: 'tile' | 'accent';
+  /** Fond personnalisé (hex #rrggbb) — prime sur `bg`. */
+  bgc?: string;
   /** Visibilité conditionnelle — null/absent = toujours visible. */
   cond?: BlockCond | null;
 }
@@ -61,6 +63,8 @@ export interface TextBlock extends BlockBase {
   body: string;
   size: number;
   align: 'left' | 'center' | 'right';
+  /** Couleur de base du texte (hex). Absent = texte du thème. */
+  color?: string;
 }
 
 export interface CtaBlock extends BlockBase {
@@ -88,6 +92,8 @@ export interface ColumnsBlock extends BlockBase {
 export interface EventBlock extends BlockBase {
   type: 'event';
   eventId?: string;
+  /** Couleur d'accent du bloc (bouton) — hex. Absent = accent du thème. */
+  accent?: string;
   title: string;
   dateLabel: string;
   venueLabel: string;
@@ -105,6 +111,8 @@ export interface TicketRow { n: string; s: string; p: string; out: boolean }
 export interface TicketsBlock extends BlockBase {
   type: 'tickets';
   eventId?: string;
+  /** Couleur d'accent (prix + bouton) — hex. Absent = accent du thème. */
+  accent?: string;
   /** true = les lignes sont rafraîchies depuis la base au moment de l'envoi. */
   live: boolean;
   rows: TicketRow[];
@@ -114,6 +122,8 @@ export interface TicketsBlock extends BlockBase {
 export interface TableBlock extends BlockBase {
   type: 'table';
   eventId?: string;
+  /** Couleur d'accent (kicker, compteur, bouton) — hex. Absent = thème. */
+  accent?: string;
   /** Kicker affiché au-dessus du titre (ex. « Bottle service »). */
   kicker: string;
   title: string;
@@ -127,6 +137,8 @@ export interface CountdownBlock extends BlockBase {
   type: 'countdown';
   eventId?: string;
   label: string;
+  /** Couleur d'accent (chiffres) — hex. Absent = accent du thème. */
+  accent?: string;
   /**
    * Date cible manuelle (ISO UTC) — utilisée quand aucun événement n'est
    * relié (teaser, ouverture de billetterie…). L'événement live prime.
@@ -134,8 +146,16 @@ export interface CountdownBlock extends BlockBase {
   targetAt?: string;
 }
 
-export interface SocialBlock extends BlockBase { type: 'social' }
-export interface DividerBlock extends BlockBase { type: 'divider' }
+export interface SocialBlock extends BlockBase {
+  type: 'social';
+  /** Couleur des icônes (hex). Absent = muted du thème. */
+  color?: string;
+}
+export interface DividerBlock extends BlockBase {
+  type: 'divider';
+  /** Couleur du trait (hex). Absent = divider du thème. */
+  color?: string;
+}
 
 export interface SpacerBlock extends BlockBase {
   type: 'spacer';

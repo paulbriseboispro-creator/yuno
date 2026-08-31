@@ -281,6 +281,64 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
     expect(html).toContain('>03<');
   });
 
+  it('couleurs par élément : texte, icônes sociales, trait du séparateur', () => {
+    const txt = makeBlock('text');
+    if (txt.type === 'text') { txt.body = 'coucou'; txt.color = '#ff8800'; }
+    expect(renderOne(txt)).toContain('color:#ff8800');
+
+    const soc = makeBlock('social');
+    if (soc.type === 'social') soc.color = '#ffffff';
+    expect(renderOne(soc)).toContain('cdn.simpleicons.org/instagram/ffffff');
+
+    const div = makeBlock('divider');
+    if (div.type === 'divider') div.color = '#333333';
+    expect(renderOne(div)).toContain('border-top:1px solid #333333');
+  });
+
+  it('icônes sociales : couleur du thème invalide → gris sûr, jamais une URL cassée', () => {
+    const soc = makeBlock('social');
+    const html = renderOne(soc, { }); // muted du thème = hex valide
+    expect(html).toContain(`cdn.simpleicons.org/instagram/${theme.muted.slice(1)}`);
+    const weird = renderBlock(soc, { ...theme, muted: 'rgba(255,255,255,0.5)' }, ctx);
+    expect(weird).toContain('cdn.simpleicons.org/instagram/7a7a7a');
+  });
+
+  it('fond personnalisé par bloc (bgc) : prime sur bg, appliqué au social/spacer/divider', () => {
+    const txt = makeBlock('text');
+    if (txt.type === 'text') { txt.bgc = '#0a0a0a'; txt.bg = 'tile'; }
+    expect(renderOne(txt)).toContain('background:#0a0a0a');
+
+    const soc = makeBlock('social');
+    soc.bgc = '#111111';
+    expect(renderOne(soc)).toContain('background:#111111');
+
+    const sp = makeBlock('spacer');
+    sp.bgc = '#222222';
+    expect(renderOne(sp)).toContain('background:#222222');
+
+    const div = makeBlock('divider');
+    div.bgc = '#331111';
+    expect(renderOne(div)).toContain('background:#331111');
+  });
+
+  it('accent par bloc Yuno : billets, countdown, table', () => {
+    const tk = makeBlock('tickets', { eventId: 'ev-1' });
+    if (tk.type === 'tickets') tk.accent = '#3b82f6';
+    const tkHtml = renderOne(tk);
+    expect(tkHtml).toContain('color:#3b82f6'); // prix actifs
+    expect(tkHtml).toContain('background:#3b82f6'); // bouton
+
+    const cd = makeBlock('countdown', { eventId: 'ev-1' });
+    if (cd.type === 'countdown') cd.accent = '#d4af37';
+    expect(renderOne(cd)).toContain('color:#d4af37');
+
+    const tb = makeBlock('table', { eventId: 'ev-1' });
+    if (tb.type === 'table') tb.accent = '#16a34a';
+    const tbHtml = renderOne(tb);
+    expect(tbHtml).toContain('color:#16a34a'); // kicker + compteur
+    expect(tbHtml).toContain('background:#16a34a'); // bouton
+  });
+
   it('image : coins arrondis optionnels, bornés', () => {
     const b = makeBlock('image');
     if (b.type === 'image') { b.url = 'https://cdn.x/a.jpg'; b.label = 'aff'; b.radius = 12; }

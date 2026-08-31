@@ -245,9 +245,17 @@ function blockPad(b: StudioBlock): { px: number; py: number } {
 }
 
 function blockBg(b: StudioBlock, theme: StudioTheme): string {
+  if (isHexColor(b.bgc)) return (b.bgc as string).trim();
   if (b.bg === 'tile') return theme.tile;
   if (b.bg === 'accent') return theme.dark ? 'rgba(212,175,55,0.07)' : 'rgba(232,25,44,0.05)';
   return 'transparent';
+}
+
+/** Icônes simpleicons : hex SANS # obligatoire — sinon gris sûr (miroir render.ts). */
+function iconHex(custom: unknown, themeFallback: string): string {
+  const src = isHexColor(custom) ? custom : themeFallback;
+  const m = /^#([0-9a-fA-F]{6})$/.exec(String(src).trim());
+  return m ? m[1] : '7a7a7a';
 }
 
 function condVisible(b: StudioBlock, ctx: StudioRenderCtx): boolean {
@@ -259,7 +267,7 @@ function td(inner: string, style: string): string {
   return `<tr><td style="${style}">${inner}</td></tr>`;
 }
 
-function renderTicketRows(rows: StudioTicketRow[], theme: StudioTheme): string {
+function renderTicketRows(rows: StudioTicketRow[], theme: StudioTheme, accent: string): string {
   return rows.map((r, i) => `
     <tr>
       <td style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};">
@@ -267,7 +275,7 @@ function renderTicketRows(rows: StudioTicketRow[], theme: StudioTheme): string {
         ${r.s ? `<p style="margin:2px 0 0;font-size:12px;color:${theme.muted};">${esc(r.s)}</p>` : ''}
       </td>
       <td align="right" style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};white-space:nowrap;">
-        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : theme.accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>
+        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>
       </td>
     </tr>`).join('');
 }
@@ -276,17 +284,26 @@ const SOCIAL_SLUG: Record<string, string> = {
   instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
 };
 
-function renderSocial(theme: StudioTheme, ctx: StudioRenderCtx, standalone: boolean, pad?: { px: number; py: number }): string {
+function renderSocial(
+  theme: StudioTheme,
+  ctx: StudioRenderCtx,
+  standalone: boolean,
+  opts: { pad?: { px: number; py: number }; iconColor?: unknown; bg?: string } = {},
+): string {
   const entries = Object.entries(ctx.socialLinks || {})
     .filter(([, url]) => typeof url === 'string' && url.trim().length > 0) as [string, string][];
   if (entries.length === 0) return '';
-  const color = theme.muted.replace('#', '');
+  const color = iconHex(opts.iconColor, theme.muted);
   const cells = entries.map(([key, url]) => {
     const href = url.startsWith('http') ? url : `https://${url}`;
     return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key] || key}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
   }).join('');
-  const padding = standalone && pad ? `${pad.py}px ${pad.px}px` : '18px 24px 4px';
-  return td(cells, `padding:${padding};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
+  const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
+  // Le bloc autonome respecte le fond choisi (bgc / tile / accent), sinon la carte.
+  const bg = standalone
+    ? (opts.bg && opts.bg !== 'transparent' ? opts.bg : theme.card)
+    : theme.footerBg;
+  return td(cells, `padding:${padding};text-align:center;background:${bg};`);
 }
 
 export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: StudioRenderCtx): string {
@@ -318,10 +335,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'text': {
       const size = Math.max(11, Math.min(28, Number(b.size) || 16));
+      const color = isHexColor(b.color) ? (b.color as string).trim() : theme.text;
       const raw = interpolate((b.body as string) || '', ctx);
       const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
-      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text, markup);
-      return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`);
+      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, color, markup);
+      return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${color};text-align:${b.align || 'left'};`);
     }
     case 'cta': {
       const colors = ctaColors(b.color, theme);
@@ -360,7 +378,8 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const priceRow = b.price && priceLabel
         ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${esc(priceLabel)}</p>`
         : '';
-      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || "Voir l'événement", bg: theme.accent, color: theme.btnText, radius: 6, full: false, ctx, small: true });
+      const btnColors = ctaColors(b.accent, theme);
+      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || "Voir l'événement", bg: btnColors.bg, color: btnColors.color, radius: 6, full: false, ctx, small: true });
       const cardBg = theme.dark ? theme.tile : '#ffffff';
       return td(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
@@ -386,10 +405,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         : ((b.rows as StudioTicketRow[]) || []);
       if (!rows || rows.length === 0) return '';
       const url = live?.url || ctx.baseUrl;
-      const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: theme.accent, color: theme.btnText, radius: 8, full: true, ctx, small: true });
+      const btnColors = ctaColors(b.accent, theme);
+      const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
       return td(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
-          ${renderTicketRows(rows, theme)}
+          ${renderTicketRows(rows, theme, btnColors.bg)}
         </table>
         <div style="height:12px;line-height:12px;font-size:0;">&nbsp;</div>
         ${btn}`,
@@ -400,16 +420,18 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
       const url = live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const left = live?.tablesLeft;
+      const btnColors = ctaColors(b.accent, theme);
+      const accent = btnColors.bg;
       const leftRow = typeof left === 'number' && left >= 0
-        ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12.5px;font-weight:700;color:${theme.accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
+        ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12.5px;font-weight:700;color:${accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
         : '';
-      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || 'Réserver une table', bg: theme.accent, color: theme.btnText, radius: 6, full: false, ctx, small: true });
+      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || 'Réserver une table', bg: btnColors.bg, color: btnColors.color, radius: 6, full: false, ctx, small: true });
       const cardBorder = theme.dark ? 'rgba(212,175,55,0.28)' : theme.divider;
       const cardBg = theme.dark ? 'rgba(212,175,55,0.06)' : theme.tile;
       return td(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${cardBorder};border-radius:12px;background:${cardBg};">
           <tr><td style="padding:18px;">
-            <p style="margin:0 0 8px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${theme.accent};">${esc(b.kicker || 'Bottle service')}</p>
+            <p style="margin:0 0 8px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent};">${esc(b.kicker || 'Bottle service')}</p>
             <h2 style="margin:0 0 6px;font-family:${FONT};font-size:17px;line-height:23px;mso-line-height-rule:exactly;font-weight:600;color:${theme.text};">${esc(interpolate((b.title as string) || '', ctx))}</h2>
             <p style="margin:0 0 12px;font-family:${FONT};font-size:13.5px;line-height:1.6;color:${theme.muted};">${esc(interpolate((b.sub as string) || '', ctx))}</p>
             ${leftRow}
@@ -425,9 +447,10 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const startIso = live?.startAt || (typeof b.targetAt === 'string' ? b.targetAt : '');
       const parts = startIso ? countdownParts(startIso, ctx.now || new Date()) : null;
       if (!parts) return '';
+      const accent = isHexColor(b.accent) ? (b.accent as string).trim() : theme.accent;
       const cell = (num: string, unit: string) =>
         `<td width="33%" style="padding:0 5px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:10px 0;border-radius:9px;background:${theme.tile};text-align:center;">
-          <p style="margin:0;font-family:${FONT};font-size:24px;font-weight:700;color:${theme.accent};">${num}</p>
+          <p style="margin:0;font-family:${FONT};font-size:24px;font-weight:700;color:${accent};">${num}</p>
           <p style="margin:2px 0 0;font-family:${FONT};font-size:10px;letter-spacing:.1em;color:${theme.muted};">${unit}</p>
         </td></tr></table></td>`;
       return td(
@@ -441,12 +464,14 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       );
     }
     case 'social':
-      return renderSocial(theme, ctx, true, pad);
-    case 'divider':
-      return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;`);
+      return renderSocial(theme, ctx, true, { pad, iconColor: b.color, bg });
+    case 'divider': {
+      const color = isHexColor(b.color) ? (b.color as string).trim() : theme.divider;
+      return td(`<hr style="border:none;border-top:1px solid ${color};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+    }
     case 'spacer': {
       const h = SPACER_SIZES[b.size as string] || SPACER_SIZES.md;
-      return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;">&nbsp;</td></tr>`;
+      return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;background:${bg};">&nbsp;</td></tr>`;
     }
     case 'html':
       return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${interpolate((b.code as string) || '', ctx)}</td></tr>`;
