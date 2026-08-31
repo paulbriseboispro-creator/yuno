@@ -397,7 +397,12 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
 - **Personnalisation par bloc** : `CtaBlock.color` (hex) surclasse l'accent du
   thème, texte auto-contrasté via `ctaColors()`/`contrastText()` (dupliqués
   edge) ; `ImageBlock.radius` (coins, borné 40) ; `CountdownBlock.targetAt`
-  (ISO UTC, saisi en datetime-local et converti — l'événement live prime).
+  (ISO UTC, saisi en datetime-local et converti — l'événement live prime) ;
+  `TextBlock.color`, `SocialBlock.color` (icônes — URL simpleicons assainie
+  par `iconHex`, jamais de non-hex dans l'URL), `DividerBlock.color`,
+  `accent` sur les 4 blocs Yuno, et `BlockBase.bgc` (fond hex custom, prime
+  sur `bg` ; le social autonome respecte bg/bgc au lieu de forcer la carte).
+  Inspecteur : composant `ThemedColor` (persiste seulement si ≠ thème).
 - **Rapport de campagne** (`CampaignReport.tsx`) : l'onglet Design route sur
   `blocks_version` (v2 = `renderEmailHtml` + `useStudioLiveData`, JAMAIS le
   renderer v1) ; carte A/B via la RPC `get_campaign_ab_stats` (garde
