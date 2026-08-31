@@ -366,6 +366,12 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
 - **Blocs Yuno (event, tickets, table, countdown) = données live** : lues en
   base AU RENDU (une requête par tranche d'envoi, `fetchStudioLiveData`),
   jamais figées à la composition. Source des tarifs : `ticket_rounds`.
+  **Live = la base fait foi** (2026-08-31) : un événement SANS billetterie
+  (guest list seule) EFFACE le bloc billets et le prix de la carte événement —
+  ne jamais retomber sur les lignes placeholder quand l'événement est résolu.
+  Contrat : `live.tickets` est un tableau (vide = pas de billetterie) ;
+  `undefined` = événement non résolu, seul cas où les props figées servent.
+  Le canvas hérite de l'événement de la campagne comme l'edge (`liveFor`).
 - **Audience v2** : `audiences_json` (multi-segments, union) +
   `exclusions_json` dans `resolve_campaign_audience` ; le net réel vient de
   `count_campaign_audience(p_campaign_id)` qui lit la campagne SAUVEGARDÉE
@@ -375,10 +381,19 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   (`assign_campaign_ab_variants`, déterministe), phase de test gatée dans
   `claim_campaign_recipients`, gagnant déclaré à l'ouverture par le cron
   (`resolve_campaign_ab_winner`) puis le drain repart avec l'objet gagnant.
-- **Le corps des blocs texte est du TEXTE BRUT** (`\n` = paragraphe,
-  variables `{{…}}`) ; les brouillons v1 migrés peuvent encore contenir du
-  HTML, le rendu accepte les deux (`looksLikeHtml`). Ne pas réintroduire de
-  rich-text : le prototype édite en textarea.
+- **Le corps des blocs texte est du TEXTE BRUT + mini-markup inline**
+  (2026-08-31) : `\n` = paragraphe, variables `{{…}}`, et depuis la passe
+  d'amélioration `**gras**`, `*italique*`, `~~barré~~`, `__souligné__`,
+  `[c=#hex|accent]…[/c]`, `[s=px]…[/s]`, `[url=…]…[/url]` — rendus par
+  `inlineMarkup()` (appliqué APRÈS `escapeHtml`, jamais de HTML utilisateur),
+  dupliqué à l'identique dans le port Deno. La barre de mise en forme de
+  l'inspecteur enveloppe la sélection avec ces tokens ; l'édition reste un
+  textarea, ne pas introduire de rich-text WYSIWYG/contenteditable. Les
+  brouillons v1 migrés peuvent encore contenir du HTML (`looksLikeHtml`).
+- **Marges par bloc = `TYPE_PAD_DEFAULTS`** (types.ts, miroir edge) : défauts
+  PAR TYPE (header 30/24, image 0/0, divider 10/24, cta 24/24, html 0/24…),
+  `py: 0` est un choix légitime (blocs collés). Ne jamais recoder un padding
+  en dur dans un renderer ou une vue canvas — tout passe par `blockPad`.
 - **Règles de visibilité par bloc** (`cond`: vip_table / new_subscribers /
   buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
   `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
