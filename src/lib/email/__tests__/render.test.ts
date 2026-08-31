@@ -178,11 +178,13 @@ describe('blocs — un rendu par type', () => {
     expect(renderOne(makeBlock('countdown'))).toBe('');
   });
 
-  it('social : liens TEXTE stylés depuis les liens campagne — aucune image externe', () => {
+  it('social : pastilles avec les vrais logos, PNG servis par NOTRE domaine', () => {
     const html = renderOne(makeBlock('social'));
-    expect(html).toContain('>Instagram</a>');
     expect(html).toContain('href="https://instagram.com/lesilo"');
-    expect(html).not.toContain('<img'); // plus de CDN d'icônes (Gmail bloquait les SVG)
+    expect(html).toContain('https://yunoapp.eu/email-social/instagram-');
+    expect(html).toContain('alt="Instagram"');
+    expect(html).toContain('border-radius:50%');
+    expect(html).not.toContain('simpleicons'); // plus jamais de CDN tiers
   });
 
   it('divider et spacer', () => {
@@ -292,19 +294,27 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
     const soc = makeBlock('social');
     if (soc.type === 'social') soc.color = '#020448';
     const socHtml = renderOne(soc);
-    expect(socHtml).toContain('color:#020448');
-    expect(socHtml).toContain('>Instagram</a>');
+    expect(socHtml).toContain('background:#020448'); // pastille bleue foncée…
+    expect(socHtml).toContain('instagram-w.png'); // …glyphe blanc auto-contrasté
 
     const div = makeBlock('divider');
     if (div.type === 'divider') div.color = '#333333';
     expect(renderOne(div)).toContain('border-top:1px solid #333333');
   });
 
-  it('social : le libellé du site web est son domaine', () => {
-    const html = renderOne(makeBlock('social'), {
-      socialLinks: { website: 'https://www.lesilo.fr/agenda' },
-    });
-    expect(html).toContain('>lesilo.fr</a>');
+  it('social : le libellé du site web est son domaine, pastille claire → glyphe foncé', () => {
+    const soc = makeBlock('social');
+    if (soc.type === 'social') soc.color = '#f5f5f5';
+    const html = renderOne(soc, { socialLinks: { website: 'https://www.lesilo.fr/agenda' } });
+    expect(html).toContain('alt="lesilo.fr"');
+    expect(html).toContain('website-d.png');
+  });
+
+  it('footer : le trait clair disparaît sur un footer sombre', () => {
+    const dark = renderEmailHtml([makeBlock('text')], { ...theme, footerBg: '#000000' }, ctx);
+    expect(dark).not.toContain(`border-top:1px solid ${theme.divider};font-family`);
+    const light = renderEmailHtml([makeBlock('text')], theme, ctx);
+    expect(light).toContain(`border-top:1px solid ${theme.divider};font-family`);
   });
 
   it('fond personnalisé par bloc (bgc) : prime sur bg, appliqué au social/spacer/divider', () => {

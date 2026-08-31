@@ -1,38 +1,46 @@
 import type { EmailTheme, SocialBlock, SocialLinks } from '@/lib/email';
-import { isHexColor, socialLabel } from '@/lib/email';
-import { EMAIL_FONT, blockBgColor, blockPad, type CanvasCtx } from './common';
+import { socialChip, socialLabel } from '@/lib/email';
+import { blockBgColor, blockPad, type CanvasCtx } from './common';
 
 /**
- * Réseaux = liens texte stylés (miroir exact de renderSocial dans render.ts).
- * Plus d'icônes-images : les SVG d'un CDN tiers étaient bloqués par Gmail et
- * invisibles dès que le CDN ne répondait pas. Pastilles quand aucun lien.
+ * Réseaux = pastilles rondes avec les vrais logos (PNG transparents servis
+ * par NOTRE domaine, /email-social/*.png — miroir exact de renderSocial).
+ * Pastilles grises vides quand aucun lien n'est renseigné.
  */
 export default function SocialView({ block, theme, ctx }: { block: SocialBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
   const entries = (Object.entries(ctx.socialLinks) as [keyof SocialLinks, string | undefined][])
     .filter(([, url]) => url && url.trim().length > 0);
-  const color = isHexColor(block.color) ? block.color.trim() : theme.muted;
+  const { chip, glyph } = socialChip(block.color, theme);
   const bg = blockBgColor(block, theme);
   return (
     <div style={{
       padding: `${pad.py}px ${pad.px}px`, display: 'flex', justifyContent: 'center',
-      alignItems: 'center', flexWrap: 'wrap', columnGap: 0,
+      alignItems: 'center', gap: 10, flexWrap: 'wrap',
       background: bg === 'transparent' ? theme.card : bg,
     }}>
       {entries.length === 0 ? (
         [0, 1, 2].map((i) => (
           <span key={i} style={{
-            width: 22, height: 22, borderRadius: 6, margin: '0 7px',
+            width: 34, height: 34, borderRadius: '50%',
             background: theme.dark ? '#262626' : '#e6e6e6',
           }} />
         ))
-      ) : entries.map(([key, url], i) => (
-        <span key={key} style={{ display: 'inline-flex', alignItems: 'center' }}>
-          {i > 0 && <span style={{ color, opacity: 0.45, fontFamily: EMAIL_FONT, fontSize: 12.5 }}>&nbsp;·&nbsp;</span>}
-          <span style={{
-            margin: '0 4px', fontFamily: EMAIL_FONT, fontSize: 12.5, fontWeight: 700,
-            letterSpacing: '0.08em', textTransform: 'uppercase', color,
-          }}>{socialLabel(key, url!)}</span>
+      ) : entries.map(([key, url]) => (
+        <span
+          key={key}
+          title={socialLabel(key, url!)}
+          style={{
+            width: 34, height: 34, borderRadius: '50%', background: chip,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <img
+            src={`/email-social/${key}-${glyph}.png`}
+            alt={socialLabel(key, url!)}
+            width={16} height={16}
+            style={{ display: 'block' }}
+          />
         </span>
       ))}
     </div>

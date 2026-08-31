@@ -365,10 +365,17 @@ function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, p
   );
 }
 
+/** Pastille + glyphe des réseaux : couleur choisie, glyphe auto-contrasté. */
+export function socialChip(color: unknown, theme: EmailTheme): { chip: string; glyph: 'w' | 'd' } {
+  const chip = isHexColor(color) ? color.trim() : (isHexColor(theme.muted) ? theme.muted : '#7a7a7a');
+  return { chip, glyph: contrastText(chip) === '#111111' ? 'd' : 'w' };
+}
+
 /**
- * Réseaux = LIENS TEXTE stylés, pas d'images. Les icônes SVG d'un CDN tiers
- * étaient invisibles dans Gmail (SVG bloqué) et mortes dès que le CDN ne
- * répondait pas — du texte s'affiche partout, se colore librement, et clique.
+ * Réseaux = pastilles rondes avec les VRAIS logos, en PNG transparents
+ * hébergés par NOUS (`/email-social/*.png`) : Gmail bloque les SVG, et un
+ * CDN tiers meurt sans prévenir. La pastille prend la couleur choisie, le
+ * glyphe passe en blanc ou foncé selon le contraste.
  */
 function renderSocial(
   theme: EmailTheme,
@@ -379,12 +386,12 @@ function renderSocial(
   const entries = (Object.entries(ctx.socialLinks || {}) as [keyof SocialLinks, string | undefined][])
     .filter(([, url]) => url && url.trim().length > 0);
   if (entries.length === 0) return '';
-  const color = isHexColor(opts.iconColor) ? opts.iconColor.trim() : (standalone ? theme.muted : theme.footerText);
-  const sep = `<span style="color:${color};opacity:0.45;">&nbsp;&middot;&nbsp;</span>`;
+  const { chip, glyph } = socialChip(opts.iconColor, theme);
   const cells = entries.map(([key, url]) => {
     const href = url!.startsWith('http') ? url! : `https://${url}`;
-    return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 4px;font-family:${FONT};font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${color};text-decoration:none;">${escapeHtml(socialLabel(key, url!))}</a>`;
-  }).join(sep);
+    const label = escapeHtml(socialLabel(key, url!));
+    return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 5px;text-decoration:none;"><table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;"><tr><td width="34" height="34" style="width:34px;height:34px;border-radius:50%;background:${chip};text-align:center;vertical-align:middle;font-size:0;line-height:0;"><img src="${ctx.baseUrl}/email-social/${key}-${glyph}.png" width="16" height="16" alt="${label}" style="display:inline-block;border:0;vertical-align:middle;" /></td></tr></table></a>`;
+  }).join('');
   const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
   // Le bloc autonome respecte le fond choisi (bgc / tile / accent), sinon la carte.
   const bg = standalone
@@ -440,12 +447,17 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx): string {
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
     ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${escapeHtml(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
     : '';
+  // Trait de séparation : seulement quand le footer est CLAIR. Sur un footer
+  // sombre, le divider clair du thème dessinait une ligne blanche criarde
+  // entre le contenu et le footer.
+  const border = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
+    ? '' : `border-top:1px solid ${theme.divider};`;
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${ctx.city ? ' — ' + escapeHtml(ctx.city) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${escapeHtml(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
      <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${escapeHtml(ctx.venueName)}${viaPlatform}. Tous droits réservés.</p>
      ${unsub}`,
-    `padding:22px 24px;background:${theme.footerBg};border-top:1px solid ${theme.divider};font-family:${FONT};text-align:center;`,
+    `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
   );
 }
 

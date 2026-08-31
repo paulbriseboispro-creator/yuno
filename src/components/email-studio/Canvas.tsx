@@ -5,7 +5,8 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  renderEmailHtml, runChecklist, checklistBlocksSend, BLOCK_COND_LABELS,
+  contrastText, isHexColor, renderEmailHtml, runChecklist, checklistBlocksSend,
+  BLOCK_COND_LABELS,
   type BlockType, type ChecklistItem, type LiveData, type RenderRecipient,
 } from '@/lib/email';
 import { useStudio } from './store';
@@ -396,8 +397,12 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 </div>
               )}
 
-              {/* Footer légal (aperçu) */}
-              <div style={{ padding: '22px 24px', background: theme.footerBg, borderTop: `1px solid ${theme.divider}`, textAlign: 'center' }}>
+              {/* Footer légal (aperçu) — trait seulement sur footer clair (miroir render.ts) */}
+              <div style={{
+                padding: '22px 24px', background: theme.footerBg, textAlign: 'center',
+                borderTop: isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
+                  ? 'none' : `1px solid ${theme.divider}`,
+              }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6, fontFamily: FONT_UI }}>
                   {scope.name}{scope.city ? ` — ${scope.city}` : ''}
                 </div>
