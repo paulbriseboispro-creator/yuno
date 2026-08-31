@@ -394,6 +394,19 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   PAR TYPE (header 30/24, image 0/0, divider 10/24, cta 24/24, html 0/24…),
   `py: 0` est un choix légitime (blocs collés). Ne jamais recoder un padding
   en dur dans un renderer ou une vue canvas — tout passe par `blockPad`.
+- **Personnalisation par bloc** : `CtaBlock.color` (hex) surclasse l'accent du
+  thème, texte auto-contrasté via `ctaColors()`/`contrastText()` (dupliqués
+  edge) ; `ImageBlock.radius` (coins, borné 40) ; `CountdownBlock.targetAt`
+  (ISO UTC, saisi en datetime-local et converti — l'événement live prime).
+- **Rapport de campagne** (`CampaignReport.tsx`) : l'onglet Design route sur
+  `blocks_version` (v2 = `renderEmailHtml` + `useStudioLiveData`, JAMAIS le
+  renderer v1) ; carte A/B via la RPC `get_campaign_ab_stats` (garde
+  d'ownership identique à `get_campaign_send_progress`) ; top des liens
+  cliqués agrégé depuis `email_campaign_events.metadata.click.link` (payload
+  Resend), référence `yc=` retirée à l'affichage.
+- **CSP** : `https://cdn.simpleicons.org` est dans `img-src`
+  (`public/_headers` + `vite.config.ts`) pour les icônes sociales de
+  l'éditeur et du rendu — le retirer casse le bloc Réseaux dans le canvas.
 - **Règles de visibilité par bloc** (`cond`: vip_table / new_subscribers /
   buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
   `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
