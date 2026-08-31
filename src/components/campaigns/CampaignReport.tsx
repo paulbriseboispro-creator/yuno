@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Loader2, Mail, Users, Eye, MousePointerClick,
+  ArrowLeft, Link2, Loader2, Mail, Users, Eye, MousePointerClick, Split, Trophy,
   UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette, Euro,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +11,11 @@ import {
   buildPreviewHtml, DEFAULT_THEME,
   type EmailBlock, type EmailTheme, type SocialLinks,
 } from '@/lib/emailCampaign';
-import type { StudioScope as SenderScope } from '@/components/email-studio/hooks';
+import {
+  normalizeTheme, normalizeV2Blocks, renderEmailHtml,
+  type SocialLinks as StudioSocialLinks,
+} from '@/lib/email';
+import { useStudioLiveData, type StudioScope as SenderScope } from '@/components/email-studio/hooks';
 
 // ─── Yuno Design Tokens (match OwnerCampaigns) ───────────────────────────────
 const RED         = '#E8192C';
@@ -35,6 +39,9 @@ type CampaignRow = {
   id: string;
   name: string;
   subject: string;
+  subject_b: string | null;
+  ab_enabled: boolean | null;
+  ab_winner: string | null;
   preheader: string | null;
   type: string | null;
   status: string;
@@ -45,10 +52,27 @@ type CampaignRow = {
   clicks_count: number;
   unsubscribes_count: number;
   blocks_json: unknown;
+  blocks_version: number | null;
   theme_json: unknown;
   social_links_json: unknown;
   logo_url: string | null;
+  event_id: string | null;
 };
+
+interface AbStats { sent_a: number; sent_b: number; opens_a: number; opens_b: number; winner: string | null }
+interface LinkStat { url: string; n: number }
+
+/** URL de clic → libellé lisible (référence campagne retirée, origine raccourcie). */
+function prettyLink(raw: string): string {
+  try {
+    const u = new URL(raw);
+    u.searchParams.delete('yc');
+    const path = `${u.pathname}${u.search}`.replace(/\/$/, '') || '/';
+    return u.hostname.replace(/^www\./, '') + (path === '/' ? '' : path);
+  } catch {
+    return raw;
+  }
+}
 
 function MetricTile({
   icon: Icon, label, value, sub, accent,
@@ -101,6 +125,10 @@ export default function CampaignReport({ scope, basePath }: Props) {
   const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0 });
   // Attribution clic→achat 72 h (get_email_campaign_attribution, net de frais).
   const [attribution, setAttribution] = useState<{ revenue: number; buyers: number } | null>(null);
+  // Test A/B d'objet : échantillons + ouvertures par variante (RPC dédiée).
+  const [ab, setAb] = useState<AbStats | null>(null);
+  // Liens les plus cliqués — agrégés depuis le payload Resend des événements.
+  const [topLinks, setTopLinks] = useState<LinkStat[]>([]);
   const [tab, setTab] = useState<'performance' | 'design'>('performance');
 
   useEffect(() => {
@@ -110,7 +138,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
       setLoading(true);
       const { data } = await supabase.from('email_campaigns').select('*').eq('id', id).maybeSingle();
       if (cancelled) return;
-      setCampaign((data as CampaignRow) || null);
+      setCampaign((data as unknown as CampaignRow) || null);
 
       if (data) {
         const evCount = (eventType: string) =>
@@ -135,6 +163,46 @@ export default function CampaignReport({ scope, basePath }: Props) {
             failed: f.count || 0,
           });
         }
+        // Test A/B : stats par variante — best-effort, carte absente sans A/B.
+        const row = data as unknown as CampaignRow;
+        if (row.ab_enabled && (row.subject_b || '').trim()) {
+          try {
+            const { data: abData } = await supabase.rpc('get_campaign_ab_stats' as never, { p_campaign_id: id } as never);
+            const payload = abData as ({ supported?: boolean } & AbStats) | null;
+            if (!cancelled && payload?.supported) {
+              setAb({
+                sent_a: payload.sent_a || 0, sent_b: payload.sent_b || 0,
+                opens_a: payload.opens_a || 0, opens_b: payload.opens_b || 0,
+                winner: payload.winner || null,
+              });
+            }
+          } catch { /* carte absente */ }
+        }
+
+        // Top des liens cliqués — le payload Resend porte l'URL de chaque clic.
+        try {
+          const { data: clickRows } = await supabase
+            .from('email_campaign_events')
+            .select('metadata')
+            .eq('campaign_id', id)
+            .eq('event_type', 'clicked')
+            .limit(2000);
+          if (!cancelled && clickRows && clickRows.length > 0) {
+            const counts = new Map<string, number>();
+            for (const r of clickRows) {
+              const meta = r.metadata as { click?: { link?: string }; link?: string } | null;
+              const link = meta?.click?.link || meta?.link;
+              if (typeof link !== 'string' || !link) continue;
+              const key = prettyLink(link);
+              counts.set(key, (counts.get(key) || 0) + 1);
+            }
+            setTopLinks([...counts.entries()]
+              .map(([url, n]) => ({ url, n }))
+              .sort((a, b) => b.n - a.n)
+              .slice(0, 6));
+          }
+        } catch { /* carte absente */ }
+
         // Revenus attribués — best-effort : sans donnée, les tuiles n'apparaissent pas.
         try {
           const subject = (data as { venue_id?: string | null; organizer_user_id?: string | null });
@@ -158,8 +226,35 @@ export default function CampaignReport({ scope, basePath }: Props) {
     return () => { cancelled = true; };
   }, [id]);
 
+  // Campagne v2 (Email Studio) : MÊME renderer que l'éditeur et l'envoi, avec
+  // les données live des blocs Yuno. Le renderer v1 ne sert plus qu'aux
+  // anciennes campagnes (blocks_version 1) — le router à l'aveugle affichait
+  // un aperçu faux pour toutes les campagnes Studio.
+  const isV2 = Number(campaign?.blocks_version || 1) >= 2;
+  const v2Blocks = useMemo(
+    () => (campaign && isV2 ? normalizeV2Blocks(campaign.blocks_json) : []),
+    [campaign, isV2],
+  );
+  const v2Live = useStudioLiveData(v2Blocks, campaign?.event_id ?? null);
+
   const designHtml = useMemo(() => {
     if (!campaign) return '';
+    if (isV2) {
+      return renderEmailHtml(v2Blocks, normalizeTheme(campaign.theme_json), {
+        venueName: scope.name,
+        city: scope.city,
+        logoUrl: campaign.logo_url || scope.logoUrl,
+        emailType: (campaign.type as 'promotional' | 'informational') || 'promotional',
+        subject: campaign.subject,
+        preheader: campaign.preheader || '',
+        recipient: { email: 'aperçu@exemple.com', firstName: 'Camille' },
+        unsubscribeUrl: '#',
+        socialLinks: (campaign.social_links_json as StudioSocialLinks) || {},
+        baseUrl: 'https://yunoapp.eu',
+        live: v2Live,
+        ignoreConds: true,
+      });
+    }
     const blocks = ((campaign.blocks_json as EmailBlock[]) || []).map(b =>
       b.type === 'header' && !(b as { logo_url?: string }).logo_url && campaign.logo_url
         ? { ...b, logo_url: campaign.logo_url }
@@ -175,7 +270,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
       socialLinks: (campaign.social_links_json as SocialLinks) || {},
       flush: true,
     });
-  }, [campaign, scope]);
+  }, [campaign, scope, isV2, v2Blocks, v2Live]);
 
   const rc = campaign?.recipients_count || 0;
   const opens = campaign?.opens_count || 0;
@@ -275,6 +370,55 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   <p style={{ color: T3, fontSize: 11, lineHeight: 1.5, marginTop: -8 }}>{t('em.report.attributionNote')}</p>
                 )}
 
+                {/* Test A/B d'objet : échantillons, ouvertures, gagnant */}
+                {ab && campaign.subject_b && (
+                  <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>
+                    <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: '0 0 4px' }}>
+                      <Split className="w-4 h-4" style={{ color: RED }} /> {t('em.report.abTitle')}
+                    </h3>
+                    <p style={{ color: T3, fontSize: 11.5, margin: '0 0 14px' }}>
+                      {ab.winner ? t('em.report.abResolved') : t('em.report.abPending')}
+                    </p>
+                    <div className="space-y-4">
+                      {([
+                        { variant: 'a' as const, subject: campaign.subject, sent: ab.sent_a, opens: ab.opens_a },
+                        { variant: 'b' as const, subject: campaign.subject_b, sent: ab.sent_b, opens: ab.opens_b },
+                      ]).map(({ variant, subject, sent, opens }) => {
+                        const isWinner = ab.winner === variant;
+                        const rate = sent > 0 ? (opens / sent) * 100 : 0;
+                        return (
+                          <div key={variant}>
+                            <div className="flex items-center justify-between gap-3 mb-1">
+                              <span className="flex items-center gap-2 min-w-0" style={{ color: T2, fontSize: 12.5 }}>
+                                <span style={{
+                                  width: 18, height: 18, borderRadius: 6, flex: 'none',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  background: isWinner ? 'rgba(52,211,153,0.15)' : INNER_BG,
+                                  border: `1px solid ${isWinner ? 'rgba(52,211,153,0.35)' : BORDER}`,
+                                  color: isWinner ? POS : T2, fontSize: 10, fontWeight: 700,
+                                }}>{variant.toUpperCase()}</span>
+                                <span className="truncate">{subject}</span>
+                                {isWinner && (
+                                  <span className="inline-flex items-center gap-1 shrink-0" style={{ color: POS, fontSize: 11, fontWeight: 600 }}>
+                                    <Trophy className="w-3 h-3" /> {t('em.report.abWinner')}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+                                {rate.toFixed(1)}% <span style={{ color: T3, fontWeight: 400 }}>· {opens}/{sent}</span>
+                              </span>
+                            </div>
+                            <div style={{ height: 8, borderRadius: 6, background: INNER_BG, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${Math.min(100, rate)}%`, background: isWinner ? POS : RED, borderRadius: 6 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p style={{ color: T3, fontSize: 11, lineHeight: 1.5, margin: '12px 0 0' }}>{t('em.report.abNote')}</p>
+                  </div>
+                )}
+
                 {/* Funnel */}
                 <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>
                   <h3 style={{ color: T1, fontSize: 14, fontWeight: 600, margin: '0 0 14px' }}>{t('em.report.funnel')}</h3>
@@ -299,6 +443,33 @@ export default function CampaignReport({ scope, basePath }: Props) {
                     </div>
                   )}
                 </div>
+
+                {/* Liens les plus cliqués : où l'audience est vraiment allée */}
+                {topLinks.length > 0 && (
+                  <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>
+                    <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: '0 0 14px' }}>
+                      <Link2 className="w-4 h-4" style={{ color: RED }} /> {t('em.report.topLinks')}
+                    </h3>
+                    <div className="space-y-3">
+                      {topLinks.map((l) => {
+                        const max = topLinks[0].n;
+                        return (
+                          <div key={l.url}>
+                            <div className="flex items-center justify-between gap-3 mb-1">
+                              <span className="truncate" style={{ color: T2, fontSize: 12.5, fontFamily: 'ui-monospace,Menlo,monospace' }}>{l.url}</span>
+                              <span className="shrink-0" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+                                {l.n.toLocaleString()} <span style={{ color: T3, fontWeight: 400 }}>{t('em.report.topLinksClicks')}</span>
+                              </span>
+                            </div>
+                            <div style={{ height: 6, borderRadius: 6, background: INNER_BG, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${(l.n / max) * 100}%`, background: '#A78BFA', borderRadius: 6 }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: 16 }}>
