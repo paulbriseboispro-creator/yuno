@@ -351,7 +351,10 @@ pour Excel FR/ES).
 
 La couche design/composition des campagnes est l'**Email Studio**
 (`src/components/email-studio/`, modèle + rendu dans `src/lib/email/`).
-Plan : `docs/designs/EMAIL_STUDIO_PLAN.md`. Points structurants :
+Plan : `docs/designs/EMAIL_STUDIO_PLAN.md`. **Source de vérité visuelle :**
+le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
+`~/Downloads/Outil design email Yuno/`) — la passe de fidélité a été faite
+écran par écran le 31/08. Points structurants :
 
 - **Modèle v2 versionné** : `email_campaigns.blocks_version` (1 = ancien
   modèle, 2 = Studio). Les brouillons v1 migrent à l'ouverture
@@ -372,9 +375,17 @@ Plan : `docs/designs/EMAIL_STUDIO_PLAN.md`. Points structurants :
   (`assign_campaign_ab_variants`, déterministe), phase de test gatée dans
   `claim_campaign_recipients`, gagnant déclaré à l'ouverture par le cron
   (`resolve_campaign_ab_winner`) puis le drain repart avec l'objet gagnant.
-- **Quiet hours (22 h → 9 h Paris) et throttling par heure glissante** sont
+- **Le corps des blocs texte est du TEXTE BRUT** (`\n` = paragraphe,
+  variables `{{…}}`) ; les brouillons v1 migrés peuvent encore contenir du
+  HTML, le rendu accepte les deux (`looksLikeHtml`). Ne pas réintroduire de
+  rich-text : le prototype édite en textarea.
+- **Règles de visibilité par bloc** (`cond`: vip_table / new_subscribers /
+  buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
+  `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
+  conditionnels masqués). Les envois de TEST rendent tout (`ignoreConds`).
+- **Quiet hours (23 h → 9 h Paris) et throttling par heure glissante** sont
   des portes de sortie propres de `drainSlice` (comme le quota) : le cron
-  reprend, ce ne sont jamais des échecs.
+  reprend, ce ne sont jamais des échecs. Fenêtre A/B par défaut : 4 h.
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
