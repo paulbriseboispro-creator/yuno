@@ -409,9 +409,14 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   d'ownership identique à `get_campaign_send_progress`) ; top des liens
   cliqués agrégé depuis `email_campaign_events.metadata.click.link` (payload
   Resend), référence `yc=` retirée à l'affichage.
-- **CSP** : `https://cdn.simpleicons.org` est dans `img-src`
-  (`public/_headers` + `vite.config.ts`) pour les icônes sociales de
-  l'éditeur et du rendu — le retirer casse le bloc Réseaux dans le canvas.
+- **Bloc Réseaux = LIENS TEXTE, jamais d'icônes-images** (2026-08-31 soir).
+  Les SVG de cdn.simpleicons.org étaient bloqués par Gmail et invisibles dès
+  que le CDN ne répondait pas (il résout vers la plage Cloudflare
+  188.114.96.x, sujette aux trous de routage FAI). `renderSocial` rend des
+  liens capitales espacées (`socialLabel` : nom du réseau, domaine pour le
+  site), couleur = `SocialBlock.color` sinon muted/footerText. Ne JAMAIS
+  réintroduire d'images externes dans les emails sans hébergement propre en
+  PNG. (`cdn.simpleicons.org` reste dans la CSP img-src, inoffensif.)
 - **Règles de visibilité par bloc** (`cond`: vip_table / new_subscribers /
   buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
   `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
