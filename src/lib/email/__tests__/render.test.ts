@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  makeBlock, renderEmailHtml, renderBlock, formatCountdown,
-  THEME_PRESETS, DEFAULT_STUDIO_THEME,
+  makeBlock, renderEmailHtml, renderBlock, countdownParts, looksLikeHtml,
+  THEME_PRESETS, THEME_SWATCHES, DEFAULT_STUDIO_THEME,
   interpolateVariables, usesVariables,
   runChecklist, checklistBlocksSend,
-  migrateV1Blocks, migrateV1Theme, migrateV1Audience,
+  migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -12,13 +12,14 @@ const theme = DEFAULT_STUDIO_THEME;
 
 const ctx: RenderCtx = {
   venueName: 'Le Silo',
-  city: 'Marseille',
+  city: 'Bordeaux',
   emailType: 'promotional',
-  subject: 'Samedi au Silo',
-  preheader: 'Ta table t’attend',
+  subject: 'Amélie Lens débarque au Silo',
+  preheader: 'Vendredi 12 septembre · ouverture 23h30',
   recipient: {
-    email: 'clara@example.com', firstName: 'Clara', lastName: 'Moreau',
-    city: 'Marseille', lastEventTitle: 'NUIT ROUGE', loyaltyPoints: 240,
+    email: 'camille@example.com', firstName: 'Camille', lastName: 'Moreau',
+    city: 'Bordeaux', lastEventTitle: 'NUIT ROUGE', loyaltyPoints: 240,
+    conds: ['vip_table'],
   },
   unsubscribeUrl: 'https://yunoapp.eu/unsubscribe?token=t',
   socialLinks: { instagram: 'https://instagram.com/lesilo' },
@@ -27,21 +28,21 @@ const ctx: RenderCtx = {
   now: new Date('2026-08-31T12:00:00Z'),
   live: {
     'ev-1': {
-      title: 'NUIT ROUGE II', startAt: '2026-09-03T21:00:00Z',
-      dateLabel: 'Jeudi 3 sept · 23:00', venueLabel: 'Le Silo — Marseille',
+      title: 'Nuit Blanche — Amélie Lens', startAt: '2026-09-03T21:30:00Z',
+      dateLabel: 'Jeudi 3 sept · 23:30', venueLabel: 'Le Silo — Bordeaux',
       coverUrl: 'https://cdn.example.com/cover.jpg',
-      url: 'https://yunoapp.eu/event/ev-1', priceFromLabel: 'Dès 12 €',
+      url: 'https://yunoapp.eu/event/ev-1', priceFromLabel: 'À partir de 18 €',
       tickets: [
-        { n: 'Early bird', s: '', p: '12 €', out: true },
-        { n: 'Standard', s: 'Toute la nuit', p: '18 €', out: false },
+        { n: 'Early bird', s: 'épuisé', p: '12 €', out: true },
+        { n: 'Prévente 1', s: 'il reste 84 places', p: '18 €', out: false },
       ],
       tablesLeft: 3,
     },
   },
 };
 
-function renderOne(b: EmailBlock): string {
-  return renderBlock(b, theme, ctx);
+function renderOne(b: EmailBlock, overrides: Partial<RenderCtx> = {}): string {
+  return renderBlock(b, theme, { ...ctx, ...overrides });
 }
 
 describe('renderEmailHtml — enveloppe', () => {
@@ -63,13 +64,14 @@ describe('renderEmailHtml — enveloppe', () => {
   });
 
   it('cache le preheader avec padding d’entités', () => {
-    expect(html).toContain('Ta table t’attend');
+    expect(html).toContain('Vendredi 12 septembre');
     expect(html).toContain('&#8199;&#847;');
   });
 
-  it('footer légal : désinscription un clic pour le promotionnel', () => {
-    expect(html).toContain('Se désabonner en un clic');
-    expect(html).toContain('clara@example.com');
+  it('footer légal : désinscription en couleur accent pour le promotionnel', () => {
+    expect(html).toContain('Se désabonner');
+    expect(html).toContain(`color:${theme.accent};text-decoration:underline`);
+    expect(html).toContain('camille@example.com');
   });
 
   it('footer informationnel : pas de lien de désinscription', () => {
@@ -85,26 +87,35 @@ describe('blocs — un rendu par type', () => {
     const html = renderOne(b);
     expect(html).toContain('LE SILO');
     expect(html).toContain('width="54"'); // md = 54px
+    expect(html).toContain('border-radius:14px'); // rounded (prototype)
   });
 
-  it('image sans url : placeholder avec label', () => {
-    const b = makeBlock('image');
-    if (b.type === 'image') b.label = 'Affiche';
-    expect(renderOne(b)).toContain('Affiche');
+  it('image sans url : rien dans l’email (placeholder = éditeur seulement)', () => {
+    expect(renderOne(makeBlock('image'))).toBe('');
   });
 
-  it('image avec url : alt obligatoire présent', () => {
+  it('image avec url : alt obligatoire présent, pleine largeur', () => {
     const b = makeBlock('image');
     if (b.type === 'image') { b.url = 'https://cdn.x/a.jpg'; b.label = 'Affiche de la soirée'; }
-    expect(renderOne(b)).toContain('alt="Affiche de la soirée"');
+    const html = renderOne(b);
+    expect(html).toContain('alt="Affiche de la soirée"');
+    expect(html).toContain('width="600"');
   });
 
-  it('text : interpole les variables avec repli', () => {
+  it('text : texte brut, \\n = paragraphe, variables interpolées avec repli', () => {
     const b = makeBlock('text');
-    if (b.type === 'text') b.body = '<p>Salut {{prénom}}, tu as {{points_fidélité}} points.</p>';
+    if (b.type === 'text') b.body = 'Salut {{prénom}},\nTu as {{points_fidélité}} points.';
     const html = renderOne(b);
-    expect(html).toContain('Salut Clara');
-    expect(html).toContain('240 points');
+    expect(html).toContain('Salut Camille,');
+    expect(html).toContain('Tu as 240 points.');
+    expect((html.match(/<p /g) || []).length).toBe(2);
+  });
+
+  it('text : un corps HTML migré du v1 passe tel quel', () => {
+    const b = makeBlock('text');
+    if (b.type === 'text') b.body = '<p>Bonjour <strong>{{prénom}}</strong></p>';
+    const html = renderOne(b);
+    expect(html).toContain('<strong>Camille</strong>');
   });
 
   it('cta : bouton VML pour Outlook + lien tracké', () => {
@@ -119,34 +130,47 @@ describe('blocs — un rendu par type', () => {
     const html = renderOne(makeBlock('columns'));
     expect(html).toContain('yn-col');
     expect((html.match(/width="50%"/g) || []).length).toBe(2);
+    expect(html).toContain('Warm-up');
   });
 
   it('event : les données live priment sur les props figées', () => {
     const b = makeBlock('event', { eventId: 'ev-1' });
     const html = renderOne(b);
-    expect(html).toContain('NUIT ROUGE II');
+    expect(html).toContain('Nuit Blanche — Amélie Lens');
     expect(html).toContain('Jeudi 3 sept');
   });
 
-  it('tickets : lignes live, épuisé barré', () => {
+  it('tickets : lignes live, épuisé = prix barré et nom éteint', () => {
     const b = makeBlock('tickets', { eventId: 'ev-1' });
     const html = renderOne(b);
     expect(html).toContain('Early bird');
-    expect(html).toContain('Épuisé');
-    expect(html).toContain('line-through');
+    expect(html).toContain('text-decoration:line-through');
+    expect(html).toContain(`color:${theme.accent}`); // prix actif en accent
     expect(html).toContain('18 €');
   });
 
-  it('table : condition + tables restantes live', () => {
+  it('table : kicker + tables restantes live (destinataire VIP)', () => {
     const b = makeBlock('table', { eventId: 'ev-1' });
     const html = renderOne(b);
-    expect(html).toContain('VIP · Table');
+    expect(html).toContain('Bottle service');
     expect(html).toContain('3 tables encore libres');
   });
 
-  it('countdown : calculé au rendu, jamais figé', () => {
+  it('table : bloc conditionnel effacé pour un destinataire hors règle', () => {
+    const b = makeBlock('table', { eventId: 'ev-1' });
+    const hidden = renderOne(b, { recipient: { ...ctx.recipient, conds: [] } });
+    expect(hidden).toBe('');
+    const editor = renderOne(b, { recipient: { ...ctx.recipient, conds: [] }, ignoreConds: true });
+    expect(editor).toContain('Bottle service');
+  });
+
+  it('countdown : 3 cellules JOURS/HEURES/MIN calculées au rendu', () => {
     const b = makeBlock('countdown', { eventId: 'ev-1' });
-    expect(renderOne(b)).toContain('J-3');
+    const html = renderOne(b);
+    expect(html).toContain('JOURS');
+    expect(html).toContain('HEURES');
+    expect(html).toContain('MIN');
+    expect(html).toContain('>03<'); // 3 jours et des poussières
   });
 
   it('countdown sans événement : le bloc s’efface', () => {
@@ -169,21 +193,32 @@ describe('blocs — un rendu par type', () => {
     if (b.type === 'html') b.code = '<b>{{nom_club}}</b>';
     expect(renderOne(b)).toContain('<b>Le Silo</b>');
   });
+
+  it('marges et fond par bloc (px/py/bg du prototype)', () => {
+    const b = makeBlock('text');
+    if (b.type === 'text') { b.px = 40; b.py = 32; b.bg = 'tile'; }
+    const html = renderOne(b);
+    expect(html).toContain('padding:32px 40px');
+    expect(html).toContain(`background:${theme.tile}`);
+  });
 });
 
-describe('formatCountdown', () => {
+describe('countdownParts / looksLikeHtml', () => {
   const now = new Date('2026-08-31T12:00:00Z');
-  it('jours, heures, minutes, passé', () => {
-    expect(formatCountdown('2026-09-05T12:00:00Z', now)).toBe('J-5');
-    expect(formatCountdown('2026-09-01T02:30:00Z', now)).toContain('Dans 14 h');
-    expect(formatCountdown('2026-08-31T12:20:00Z', now)).toBe('Dans 20 min');
-    expect(formatCountdown('2026-08-31T11:00:00Z', now)).toBe('C’est maintenant');
+  it('décompose jours/heures/minutes, borné à zéro', () => {
+    expect(countdownParts('2026-09-02T23:48:00Z', now)).toEqual({ days: 2, hours: 11, mins: 48 });
+    expect(countdownParts('2026-08-31T11:00:00Z', now)).toEqual({ days: 0, hours: 0, mins: 0 });
+    expect(countdownParts('invalide', now)).toBeNull();
+  });
+  it('détecte le HTML hérité', () => {
+    expect(looksLikeHtml('<p>coucou</p>')).toBe(true);
+    expect(looksLikeHtml('2 > 1 et un saut\nde ligne')).toBe(false);
   });
 });
 
 describe('variables', () => {
   it('accepte les alias sans accent et les héritées v1', () => {
-    expect(interpolateVariables('{{prenom}} / {{points_fidelite}}', ctx)).toBe('Clara / 240');
+    expect(interpolateVariables('{{prenom}} / {{points_fidelite}}', ctx)).toBe('Camille / 240');
   });
   it('variable vide → repli, variable inconnue → laissée visible', () => {
     const anon: RenderCtx = { ...ctx, recipient: { email: 'x@y.z' } };
@@ -197,23 +232,23 @@ describe('variables', () => {
 });
 
 describe('checklist pré-envoi', () => {
-  const blocks = [makeBlock('header'), makeBlock('cta')];
-  it('tout au vert sur une campagne saine', () => {
-    const items = runChecklist({ subject: 'Court', preheader: 'ok', type: 'promotional', blocks });
-    expect(items).toHaveLength(7);
+  const blocks = [makeBlock('header'), makeBlock('cta'), makeBlock('text')];
+  it('tout au vert sur une campagne saine (8 items)', () => {
+    const items = runChecklist({
+      subject: 'Court', preheader: 'ok', type: 'promotional', blocks, renderedBytes: 24_000,
+    });
+    expect(items).toHaveLength(8);
     expect(items.filter((i) => i.status === 'warn')).toHaveLength(0);
     expect(checklistBlocksSend(items)).toBe(false);
   });
-  it('objet trop long + image sans alt → warn non bloquant', () => {
+  it('objet trop long, image sans alt, poids Gmail → warn non bloquant', () => {
     const img = makeBlock('image');
-    if (img.type === 'image') img.url = 'https://x/y.jpg';
+    if (img.type === 'image') { img.url = 'https://x/y.jpg'; img.label = ''; }
     const items = runChecklist({
-      subject: 'x'.repeat(80), preheader: '', type: 'promotional', blocks: [img],
+      subject: 'x'.repeat(80), preheader: '', type: 'promotional', blocks: [img], renderedBytes: 150_000,
     });
     const warned = items.filter((i) => i.status === 'warn').map((i) => i.id);
-    expect(warned).toContain('subject_length');
-    expect(warned).toContain('img_alt');
-    expect(warned).toContain('cta');
+    expect(warned).toEqual(expect.arrayContaining(['subject_length', 'img_alt', 'cta', 'weight', 'variables']));
     expect(checklistBlocksSend(items)).toBe(false);
   });
   it('domaine non authentifié → bloque l’envoi', () => {
@@ -224,11 +259,11 @@ describe('checklist pré-envoi', () => {
   });
 });
 
-describe('migration v1 → v2', () => {
-  it('convertit chaque type v1 et jette l’inconnu', () => {
+describe('migration v1 → v2 + normalisation', () => {
+  it('convertit chaque type v1, texte HTML → texte brut', () => {
     const v1 = [
       { id: '1', type: 'header', venue_name: 'Club X', logo_shape: 'circle', logo_size: 'lg' },
-      { id: '2', type: 'text', html: '<p>Bonjour {{prenom}}</p>' },
+      { id: '2', type: 'text', html: '<p>Bonjour {{prenom}}</p><p>À vendredi&nbsp;!</p>' },
       { id: '3', type: 'image', url: 'https://x/i.jpg', alt: 'aff' },
       { id: '4', type: 'cta', label: 'Go', url: 'https://x' },
       { id: '5', type: 'event', event_id: 'ev-9', title: 'Soirée' },
@@ -238,13 +273,26 @@ describe('migration v1 → v2', () => {
     ];
     const out = migrateV1Blocks(v1, 'Le Silo');
     expect(out.map((b) => b.type)).toEqual(['header', 'text', 'image', 'cta', 'event', 'divider', 'spacer']);
-    const header = out[0];
-    if (header.type === 'header') {
-      expect(header.venueName).toBe('Club X');
-      expect(header.logoShape).toBe('circle');
+    const text = out[1];
+    if (text.type === 'text') expect(text.body).toBe('Bonjour {{prenom}}\nÀ vendredi !');
+  });
+
+  it('htmlToPlain : br, paragraphes, entités', () => {
+    expect(htmlToPlain('l1<br>l2</p><p>l3 &amp; l4')).toBe('l1\nl2\nl3 & l4');
+  });
+
+  it('normalizeV2Blocks : kicker par défaut + cond héritée en clé', () => {
+    const raw = [
+      { id: 'a', type: 'table', title: 't', sub: 's', ctaLabel: 'c', cond: 'VIP · Table' },
+      { id: 'b', type: 'text', body: 'x', size: 16, align: 'left', cond: 'nawak' },
+    ];
+    const out = normalizeV2Blocks(raw);
+    const table = out[0];
+    if (table.type === 'table') {
+      expect(table.kicker).toBe('Bottle service');
+      expect(table.cond).toBe('vip_table');
     }
-    const ev = out[4];
-    if (ev.type === 'event') expect(ev.eventId).toBe('ev-9');
+    expect(out[1].cond).toBeNull();
   });
 
   it('rapproche le thème v1 du preset le plus proche', () => {
@@ -263,10 +311,11 @@ describe('migration v1 → v2', () => {
     expect(migrateV1Audience(null, null)).toEqual([]);
   });
 
-  it('presets : 4 thèmes complets', () => {
+  it('presets : 4 thèmes complets + pastilles', () => {
     expect(THEME_PRESETS).toHaveLength(4);
     for (const p of THEME_PRESETS) {
       expect(p.bg && p.card && p.accent && p.footerBg).toBeTruthy();
+      expect(THEME_SWATCHES[p.name]).toHaveLength(3);
     }
   });
 });

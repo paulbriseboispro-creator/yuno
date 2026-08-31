@@ -1,8 +1,9 @@
 import type { EmailBlock, StudioCampaign } from './types';
 import { usesVariables } from './variables';
 
-// Checklist pré-envoi (écran Récap). Les ⚠️ n'empêchent pas l'envoi, sauf les
-// items critiques (désinscription, authentification du domaine d'envoi).
+// Checklist pré-envoi (tiroir « Contrôles avant envoi » + écran Récap).
+// Items du prototype claude.design + l'authentification du domaine. Les ⚠️
+// n'empêchent pas l'envoi, sauf les items critiques (désinscription, domaine).
 
 export type ChecklistStatus = 'ok' | 'warn' | 'info';
 
@@ -16,12 +17,16 @@ export interface ChecklistItem {
 }
 
 export const SUBJECT_MAX = 62;
+/** Au-delà, Gmail tronque l'email (« clipped ») : ~102 Ko. */
+export const GMAIL_CLIP_BYTES = 102_400;
 
 export interface ChecklistInput {
   subject: string;
   preheader: string;
   type: StudioCampaign['type'];
   blocks: EmailBlock[];
+  /** Taille du HTML rendu (octets) — item « poids de l'email ». */
+  renderedBytes?: number;
   /** Posé par l'appelant s'il sait vérifier le DNS ; défaut true (yunoapp.eu). */
   domainAuthenticated?: boolean;
 }
@@ -32,7 +37,7 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
   const items: ChecklistItem[] = [];
 
   // 1. Objet ≤ 62 caractères (troncature mobile)
-  const subjectLen = (input.subject || '').length;
+  const subjectLen = (input.subject || '').trim().length;
   items.push({
     id: 'subject_length', critical: false, labelKey: 'studio.check.subject',
     status: subjectLen > 0 && subjectLen <= SUBJECT_MAX ? 'ok' : 'warn',
@@ -45,7 +50,7 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
     status: (input.preheader || '').trim().length > 0 ? 'ok' : 'warn',
   });
 
-  // 3. Au moins un CTA (bouton, événement, billetterie ou table)
+  // 3. Au moins un lien d'action (bouton, événement, billetterie ou table)
   items.push({
     id: 'cta', critical: false, labelKey: 'studio.check.cta',
     status: input.blocks.some((b) => CTA_TYPES.has(b.type)) ? 'ok' : 'warn',
@@ -68,7 +73,16 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
     status: input.type === 'promotional' ? 'ok' : 'info',
   });
 
-  // 6. Variables de personnalisation utilisées (info)
+  // 6. Poids de l'email — au-delà de ~102 Ko Gmail tronque le message.
+  if (typeof input.renderedBytes === 'number') {
+    items.push({
+      id: 'weight', critical: false, labelKey: 'studio.check.weight',
+      status: input.renderedBytes <= GMAIL_CLIP_BYTES ? 'ok' : 'warn',
+      detail: `${(input.renderedBytes / 1024).toFixed(1).replace('.', ',')} Ko`,
+    });
+  }
+
+  // 7. Variables de personnalisation utilisées
   const texts: string[] = [input.subject, input.preheader];
   for (const b of input.blocks) {
     if (b.type === 'text') texts.push(b.body);
@@ -78,11 +92,10 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
   }
   items.push({
     id: 'variables', critical: false, labelKey: 'studio.check.vars',
-    status: 'info',
-    detail: usesVariables(texts) ? 'yes' : 'no',
+    status: usesVariables(texts) ? 'ok' : 'warn',
   });
 
-  // 7. Domaine d'envoi authentifié (SPF/DKIM/DMARC). Critique.
+  // 8. Domaine d'envoi authentifié (SPF/DKIM/DMARC). Critique.
   items.push({
     id: 'domain_auth', critical: true, labelKey: 'studio.check.domain',
     status: input.domainAuthenticated === false ? 'warn' : 'ok',

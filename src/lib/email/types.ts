@@ -5,6 +5,7 @@
 // les templates admin ; les campagnes migrent vers ce modèle-ci à l'ouverture
 // dans le Studio (voir migrate.ts). Toute évolution de forme ici doit être
 // répercutée dans le port Deno : supabase/functions/_shared/email-studio-html.ts.
+// Source de vérité visuelle : prototype claude.design « Email Studio Yuno ».
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BlockType =
@@ -12,8 +13,26 @@ export type BlockType =
   | 'event' | 'tickets' | 'table' | 'countdown' | 'social'
   | 'divider' | 'spacer' | 'html';
 
-export interface HeaderBlock {
-  id: string; type: 'header';
+/** Règle de visibilité par destinataire, résolue À L'ENVOI (jamais figée). */
+export type BlockCond = 'vip_table' | 'new_subscribers' | 'buyers';
+
+export const BLOCK_CONDS: readonly BlockCond[] = ['vip_table', 'new_subscribers', 'buyers'];
+
+/** Props communes à tous les blocs (prototype : marges + fond + règle). */
+export interface BlockBase {
+  id: string;
+  /** Marge horizontale interne (px). Défaut : 24. */
+  px?: number;
+  /** Marge verticale interne (px). Défaut : 18. */
+  py?: number;
+  /** Fond du bloc : teinte du thème ou accent léger. Défaut : transparent. */
+  bg?: 'tile' | 'accent';
+  /** Visibilité conditionnelle — null/absent = toujours visible. */
+  cond?: BlockCond | null;
+}
+
+export interface HeaderBlock extends BlockBase {
+  type: 'header';
   venueName: string;
   showName: boolean;
   logoSize: 'sm' | 'md' | 'lg';
@@ -21,8 +40,8 @@ export interface HeaderBlock {
   logoUrl?: string;
 }
 
-export interface ImageBlock {
-  id: string; type: 'image';
+export interface ImageBlock extends BlockBase {
+  type: 'image';
   url?: string;
   /** Texte alternatif — obligatoire pour la checklist pré-envoi. */
   label: string;
@@ -30,32 +49,37 @@ export interface ImageBlock {
   linkUrl?: string;
 }
 
-export interface TextBlock {
-  id: string; type: 'text';
-  /** HTML restreint (p, br, strong, em, a) produit par RichTextField. */
+export interface TextBlock extends BlockBase {
+  type: 'text';
+  /**
+   * Texte BRUT avec retours à la ligne (\n = nouveau paragraphe) et
+   * variables {{…}}. Les brouillons v1 migrés peuvent encore contenir du
+   * HTML : le rendu détecte et accepte les deux (voir render.ts).
+   */
   body: string;
   size: number;
   align: 'left' | 'center' | 'right';
 }
 
-export interface CtaBlock {
-  id: string; type: 'cta';
+export interface CtaBlock extends BlockBase {
+  type: 'cta';
   label: string;
   url: string;
   align: 'left' | 'center' | 'right';
+  /** 0 = carré, 8 = doux, 999 = pilule (options du prototype). */
   radius: number;
   full: boolean;
 }
 
-export interface ColumnsBlock {
-  id: string; type: 'columns';
+export interface ColumnsBlock extends BlockBase {
+  type: 'columns';
   left: { title: string; body: string };
   right: { title: string; body: string };
 }
 
 /** Bloc Yuno — carte événement à données live. */
-export interface EventBlock {
-  id: string; type: 'event';
+export interface EventBlock extends BlockBase {
+  type: 'event';
   eventId?: string;
   title: string;
   dateLabel: string;
@@ -71,8 +95,8 @@ export interface EventBlock {
 export interface TicketRow { n: string; s: string; p: string; out: boolean }
 
 /** Bloc Yuno — billetterie live (jauge, prix courant, épuisé). */
-export interface TicketsBlock {
-  id: string; type: 'tickets';
+export interface TicketsBlock extends BlockBase {
+  type: 'tickets';
   eventId?: string;
   /** true = les lignes sont rafraîchies depuis la base au moment de l'envoi. */
   live: boolean;
@@ -80,33 +104,33 @@ export interface TicketsBlock {
 }
 
 /** Bloc Yuno — upsell table VIP. */
-export interface TableBlock {
-  id: string; type: 'table';
+export interface TableBlock extends BlockBase {
+  type: 'table';
   eventId?: string;
+  /** Kicker affiché au-dessus du titre (ex. « Bottle service »). */
+  kicker: string;
   title: string;
   sub: string;
   ctaLabel: string;
   ctaUrl?: string;
-  /** Segment requis, affiché comme condition (ex. 'VIP · Table'). */
-  cond: string;
 }
 
 /** Bloc Yuno — compte à rebours, calculé au rendu (jamais figé). */
-export interface CountdownBlock {
-  id: string; type: 'countdown';
+export interface CountdownBlock extends BlockBase {
+  type: 'countdown';
   eventId?: string;
   label: string;
 }
 
-export interface SocialBlock { id: string; type: 'social' }
-export interface DividerBlock { id: string; type: 'divider' }
+export interface SocialBlock extends BlockBase { type: 'social' }
+export interface DividerBlock extends BlockBase { type: 'divider' }
 
-export interface SpacerBlock {
-  id: string; type: 'spacer';
+export interface SpacerBlock extends BlockBase {
+  type: 'spacer';
   size: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export interface HtmlBlock { id: string; type: 'html'; code: string }
+export interface HtmlBlock extends BlockBase { type: 'html'; code: string }
 
 export type EmailBlock =
   | HeaderBlock | ImageBlock | TextBlock | CtaBlock | ColumnsBlock
@@ -118,6 +142,10 @@ export const YUNO_BLOCK_TYPES: readonly BlockType[] = ['event', 'tickets', 'tabl
 
 export const LOGO_SIZES: Record<HeaderBlock['logoSize'], number> = { sm: 42, md: 54, lg: 72 };
 export const SPACER_SIZES: Record<SpacerBlock['size'], number> = { sm: 8, md: 16, lg: 32, xl: 56 };
+
+/** Marges par défaut d'un bloc (prototype : 18px / 24px). */
+export const DEFAULT_PY = 18;
+export const DEFAULT_PX = 24;
 
 // ── Thème email (tokens du MAIL, distincts des tokens UI du Studio) ─────────
 
@@ -155,6 +183,8 @@ export interface RenderRecipient {
   city?: string | null;
   lastEventTitle?: string | null;
   loyaltyPoints?: number | null;
+  /** Règles de visibilité satisfaites par CE destinataire (résolues à l'envoi). */
+  conds?: ReadonlySet<BlockCond> | BlockCond[];
 }
 
 /** Données live d'un événement, résolues AU RENDU (jamais à la composition). */
@@ -187,6 +217,11 @@ export interface RenderCtx {
   live?: LiveData;
   /** Horloge injectable — countdown déterministe en test. */
   now?: Date;
+  /**
+   * true (aperçu Studio) = les blocs conditionnels sont TOUS rendus ;
+   * false/absent (envoi réel) = un bloc avec `cond` non satisfaite s'efface.
+   */
+  ignoreConds?: boolean;
 }
 
 // ── Campagne côté Studio ─────────────────────────────────────────────────────
@@ -208,6 +243,8 @@ export interface AudienceExclusions {
   /** Exclut ceux qui ont déjà acheté un billet pour l'événement de la campagne. */
   excludeEventBuyers?: boolean;
 }
+
+export type ScheduleMode = 'now' | 'schedule';
 
 export interface StudioCampaign {
   id: string;

@@ -28,7 +28,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
 import {
-  renderStudioEmailHtml, fetchStudioLiveData, type StudioBlock, type StudioSocialLinks,
+  renderStudioEmailHtml, fetchStudioLiveData, fetchRecipientConds, collectStudioConds,
+  type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
 import { sendResendBatch, batchIdempotencyKey, sleep, type ResendEmail } from '../_shared/resend-batch.ts';
@@ -62,10 +63,12 @@ interface Recipient {
   unsubscribe_token?: string | null;
   /** 'a' | 'b' pendant la phase de test A/B, null = suit le gagnant. */
   ab_variant?: string | null;
+  /** Règles de visibilité satisfaites (résolues par lot avant le rendu). */
+  conds?: Set<string>;
 }
 
 // ── Quiet hours (Europe/Paris) — opt-in par campagne ───────────────────────
-const QUIET_START_HOUR = 22;
+const QUIET_START_HOUR = 23;
 const QUIET_END_HOUR = 9;
 
 function inQuietHours(now: Date = new Date()): boolean {
@@ -176,7 +179,12 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
  * Builder v2 (Email Studio) : renderer studio + données live des blocs Yuno,
  * résolues UNE FOIS par tranche — jamais par destinataire.
  */
-async function makeStudioHtmlBuilder(admin: Admin, campaign: Record<string, unknown>, sender: Sender) {
+async function makeStudioHtmlBuilder(
+  admin: Admin,
+  campaign: Record<string, unknown>,
+  sender: Sender,
+  opts: { ignoreConds?: boolean } = {},
+) {
   const blocks = (((campaign.blocks_json as StudioBlock[]) || [])).map((b) => ({ ...b }));
   const campaignLogo = campaign.logo_url as string | null;
   if (campaignLogo) {
@@ -193,20 +201,26 @@ async function makeStudioHtmlBuilder(admin: Admin, campaign: Record<string, unkn
     emailType: campaign.type as 'promotional' | 'informational',
     subject: subjectForRecipient(campaign, r),
     preheader: (campaign.preheader as string) || undefined,
-    recipient: { email: r.email, firstName: r.first_name, lastName: r.last_name },
+    recipient: { email: r.email, firstName: r.first_name, lastName: r.last_name, conds: r.conds },
     unsubscribeUrl: r.unsubscribe_token ? `${PUBLIC_URL}/unsubscribe?token=${r.unsubscribe_token}` : undefined,
     socialLinks: (campaign.social_links_json || {}) as StudioSocialLinks,
     hideBranding,
     baseUrl: PUBLIC_URL,
     campaignId: campaign.id as string,
     live,
+    ignoreConds: !!opts.ignoreConds,
   });
 }
 
 /** Route vers le builder selon la version du modèle de blocs. */
-async function makeBuilder(admin: Admin, campaign: Record<string, unknown>, sender: Sender) {
+async function makeBuilder(
+  admin: Admin,
+  campaign: Record<string, unknown>,
+  sender: Sender,
+  opts: { ignoreConds?: boolean } = {},
+) {
   if (Number(campaign.blocks_version || 1) >= 2) {
-    return makeStudioHtmlBuilder(admin, campaign, sender);
+    return makeStudioHtmlBuilder(admin, campaign, sender, opts);
   }
   return makeHtmlBuilder(admin, campaign, sender);
 }
@@ -260,6 +274,11 @@ async function drainSlice(
   sender: Sender,
 ): Promise<SliceResult> {
   const buildHtml = await makeBuilder(admin, campaign, sender);
+  // Règles de visibilité utilisées par la campagne — résolues PAR LOT plus
+  // bas (une RPC par salve de 100, jamais par destinataire).
+  const usedConds = Number(campaign.blocks_version || 1) >= 2
+    ? collectStudioConds((campaign.blocks_json as StudioBlock[]) || [])
+    : [];
   const deadline = Date.now() + SLICE_MS;
 
   let sent = 0;
@@ -351,6 +370,12 @@ async function drainSlice(
         && !campaign.ab_winner;
       stopped = abGate ? 'ab_wait' : 'done';
       break;
+    }
+
+    // 3 bis. Blocs conditionnels : quelles règles CE lot satisfait-il ?
+    if (usedConds.length > 0) {
+      const condMap = await fetchRecipientConds(admin, campaignId, rows.map((r) => r.email), usedConds);
+      for (const r of rows) r.conds = condMap.get(r.email.toLowerCase()) || new Set();
     }
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
@@ -514,7 +539,9 @@ async function sendTest(
   }
   if (targets.length === 0) throw new Error('No test email available');
 
-  const buildHtml = await makeBuilder(admin, campaign, sender);
+  // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
+  // doit voir l'email complet.
+  const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true });
   const payload: ResendEmail[] = targets.map((email) => ({
     from: sender.from,
     to: [email],
@@ -633,7 +660,7 @@ Deno.serve(async (req) => {
 
       // Un premier aperçu du rendu, conservé pour le rapport de campagne.
       if (!campaign.html_body) {
-        const buildHtml = await makeBuilder(admin, campaign, sender);
+        const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true });
         await admin.from('email_campaigns')
           .update({ html_body: buildHtml({ email: 'apercu@yunoapp.eu' }) })
           .eq('id', campaign_id);

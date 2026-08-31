@@ -26,6 +26,48 @@ interface V1Theme {
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
 
+/**
+ * HTML v1 (RichTextField) → texte brut du Studio (\n = paragraphe).
+ * Le gras/italique est perdu, le contenu jamais — le Studio édite du texte
+ * brut avec variables, comme le prototype.
+ */
+export function htmlToPlain(html: string): string {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+/**
+ * Filet de normalisation des lignes déjà en v2 : anciens brouillons Studio
+ * (avant l'alignement prototype) où `cond` portait un libellé affiché et où
+ * le bloc table n'avait pas de kicker.
+ */
+export function normalizeV2Blocks(raw: unknown): EmailBlock[] {
+  const blocks = Array.isArray(raw) ? (raw as (EmailBlock & { cond?: unknown })[]) : [];
+  const condMap: Record<string, EmailBlock['cond']> = {
+    'vip_table': 'vip_table', 'new_subscribers': 'new_subscribers', 'buyers': 'buyers',
+    'VIP · Table': 'vip_table', 'Nouveaux abonnés': 'new_subscribers', 'A déjà acheté': 'buyers',
+  };
+  return blocks.map((b) => {
+    const next = { ...b } as EmailBlock & { cond?: unknown };
+    if (typeof next.cond === 'string') next.cond = condMap[next.cond] ?? null;
+    else if (next.cond != null) next.cond = null;
+    if (next.type === 'table' && !('kicker' in next && typeof next.kicker === 'string' && next.kicker)) {
+      (next as { kicker?: string }).kicker = 'Bottle service';
+    }
+    return next as EmailBlock;
+  });
+}
+
 export function migrateV1Blocks(raw: unknown, venueName: string): EmailBlock[] {
   const v1 = Array.isArray(raw) ? (raw as V1Block[]) : [];
   const out: EmailBlock[] = [];
@@ -44,7 +86,7 @@ export function migrateV1Blocks(raw: unknown, venueName: string): EmailBlock[] {
       }
       case 'text': {
         const block = makeBlock('text');
-        if (block.type === 'text') block.body = str(b.html, block.body);
+        if (block.type === 'text') block.body = htmlToPlain(str(b.html)) || block.body;
         out.push(block);
         break;
       }

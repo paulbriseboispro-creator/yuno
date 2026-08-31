@@ -5,11 +5,12 @@
 // Les edge functions ne peuvent pas importer depuis src/ : toute modification
 // du renderer front DOIT être répercutée ici, et inversement. Les tests
 // unitaires du front (src/lib/email/__tests__) sont la référence de
-// comportement.
+// comportement. Visuels par bloc : prototype claude.design « Email Studio ».
 //
 // Les blocs Yuno (event, tickets, table, countdown) lisent la base AU RENDU :
 // fetchStudioLiveData() est appelé une fois par tranche d'envoi, jamais par
-// destinataire.
+// destinataire. Les règles de visibilité (cond) sont résolues par LOT via la
+// RPC get_recipient_block_conds — jamais une requête par destinataire.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // deno-lint-ignore-file no-explicit-any
@@ -41,6 +42,8 @@ export interface StudioRecipient {
   city?: string | null;
   lastEventTitle?: string | null;
   loyaltyPoints?: number | null;
+  /** Règles de visibilité satisfaites par CE destinataire. */
+  conds?: Set<string>;
 }
 
 export interface StudioRenderCtx {
@@ -57,6 +60,8 @@ export interface StudioRenderCtx {
   campaignId?: string;
   live?: StudioLiveData;
   now?: Date;
+  /** true = envoi de test : les blocs conditionnels sont tous rendus. */
+  ignoreConds?: boolean;
 }
 
 export type StudioBlock = { id: string; type: string } & Record<string, any>;
@@ -64,10 +69,10 @@ export type StudioBlock = { id: string; type: string } & Record<string, any>;
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 
 const THEME_PRESETS: StudioTheme[] = [
-  { name: 'classic_dark', bg: '#f3f4f6', card: '#ffffff', headerBg: '#0a0a0a', headerText: '#ffffff', text: '#1a1a1a', muted: '#6b7280', accent: '#dc2626', btnText: '#ffffff', divider: '#e5e7eb', tile: '#f9fafb', footerBg: '#f9fafb', footerText: '#6b7280', dark: false },
-  { name: 'clean_light', bg: '#fafafa', card: '#ffffff', headerBg: '#ffffff', headerText: '#0a0a0a', text: '#111111', muted: '#6b7280', accent: '#000000', btnText: '#ffffff', divider: '#ececec', tile: '#f5f5f5', footerBg: '#fafafa', footerText: '#6b7280', dark: false },
-  { name: 'yuno_red', bg: '#1a0606', card: '#ffffff', headerBg: '#dc2626', headerText: '#ffffff', text: '#1a1a1a', muted: '#6b7280', accent: '#dc2626', btnText: '#ffffff', divider: '#f3dcdc', tile: '#fff7f7', footerBg: '#1a0606', footerText: '#9ca3af', dark: false },
-  { name: 'gold_night', bg: '#0a0a0a', card: '#0f0f0f', headerBg: '#0f0f0f', headerText: '#d4af37', text: '#f5f5f5', muted: '#9ca3af', accent: '#d4af37', btnText: '#0a0a0a', divider: '#262626', tile: '#171717', footerBg: '#0a0a0a', footerText: '#9ca3af', dark: true },
+  { name: 'classic_dark', bg: '#f3f4f6', card: '#ffffff', headerBg: '#0a0a0a', headerText: '#ffffff', text: '#1a1a1a', muted: '#7a7a7a', accent: '#dc2626', btnText: '#ffffff', divider: '#e5e7eb', tile: '#fafafa', footerBg: '#f9fafb', footerText: '#6b7280', dark: false },
+  { name: 'clean_light', bg: '#fafafa', card: '#ffffff', headerBg: '#ffffff', headerText: '#0a0a0a', text: '#111111', muted: '#8a8a8a', accent: '#000000', btnText: '#ffffff', divider: '#ececec', tile: '#fbfbfb', footerBg: '#ffffff', footerText: '#9ca3af', dark: false },
+  { name: 'yuno_red', bg: '#1a0606', card: '#ffffff', headerBg: '#dc2626', headerText: '#ffffff', text: '#1a1a1a', muted: '#7a7a7a', accent: '#dc2626', btnText: '#ffffff', divider: '#f0dede', tile: '#fff7f7', footerBg: '#fff5f5', footerText: '#9b6b6b', dark: false },
+  { name: 'gold_night', bg: '#0a0a0a', card: '#0f0f0f', headerBg: '#0f0f0f', headerText: '#d4af37', text: '#f5f5f5', muted: '#8a8a8a', accent: '#d4af37', btnText: '#0a0a0a', divider: '#262626', tile: '#161616', footerBg: '#0a0a0a', footerText: '#9ca3af', dark: true },
 ];
 
 export function normalizeStudioTheme(raw: unknown): StudioTheme {
@@ -78,6 +83,8 @@ export function normalizeStudioTheme(raw: unknown): StudioTheme {
 
 const LOGO_SIZES: Record<string, number> = { sm: 42, md: 54, lg: 72 };
 const SPACER_SIZES: Record<string, number> = { sm: 8, md: 16, lg: 32, xl: 56 };
+const DEFAULT_PX = 24;
+const DEFAULT_PY = 18;
 
 function esc(s: unknown): string {
   return String(s ?? '')
@@ -127,6 +134,17 @@ function interpolate(input: string, ctx: StudioRenderCtx): string {
 
 // ── Briques de rendu (miroir strict de src/lib/email/render.ts) ─────────────
 
+function looksLikeHtml(body: string): boolean {
+  return /<\s*(p|br|strong|em|b|i|a|u|ul|ol|li|span|div)[\s/>]/i.test(body || '');
+}
+
+function plainToParagraphs(body: string, fontSize: number, color: string): string {
+  const lines = String(body || '').split('\n');
+  return lines
+    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${esc(line)}</p>`)
+    .join('');
+}
+
 function trackUrl(url: string, ctx: StudioRenderCtx): string {
   if (!url) return ctx.baseUrl;
   if (!ctx.campaignId) return url;
@@ -141,29 +159,43 @@ function buttonHtml(opts: {
 }): string {
   const href = esc(trackUrl(opts.href, opts.ctx));
   const label = esc(opts.label);
-  const height = opts.small ? 40 : 46;
-  const fontSize = opts.small ? 14 : 15;
-  const arc = Math.max(0, Math.min(50, Math.round((opts.radius / height) * 100)));
+  const height = opts.small ? 42 : 50;
+  const fontSize = opts.small ? 14 : 16;
+  const radius = Math.min(opts.radius, height);
+  const arc = Math.max(0, Math.min(50, Math.round((radius / height) * 100)));
   const widthAttr = opts.full ? 'width:100%;' : 'width:240px;';
   const aWidth = opts.full ? 'display:block;' : 'display:inline-block;';
   return `<!--[if mso]>
 <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${height}px;v-text-anchor:middle;${widthAttr}" arcsize="${arc}%" strokecolor="${opts.bg}" fillcolor="${opts.bg}"><w:anchorlock/><center style="color:${opts.color};font-family:${FONT};font-size:${fontSize}px;font-weight:700;">${label}</center></v:roundrect>
-<![endif]--><!--[if !mso]><!--><a href="${href}" target="_blank" rel="noreferrer" style="${aWidth}background:${opts.bg};color:${opts.color};text-decoration:none;font-family:${FONT};font-weight:700;font-size:${fontSize}px;line-height:${height}px;mso-line-height-rule:exactly;padding:0 ${opts.small ? 20 : 32}px;border-radius:${opts.radius}px;text-align:center;">${label}</a><!--<![endif]-->`;
+<![endif]--><!--[if !mso]><!--><a href="${href}" target="_blank" rel="noreferrer" style="${aWidth}background:${opts.bg};color:${opts.color};text-decoration:none;font-family:${FONT};font-weight:700;font-size:${fontSize}px;line-height:${height}px;mso-line-height-rule:exactly;padding:0 ${opts.small ? 20 : 40}px;border-radius:${radius}px;text-align:center;">${label}</a><!--<![endif]-->`;
 }
 
-export function formatCountdown(startAtIso: string, now: Date): string {
+export function countdownParts(startAtIso: string, now: Date): { days: number; hours: number; mins: number } | null {
   const start = new Date(startAtIso).getTime();
-  if (!Number.isFinite(start)) return '';
-  const diff = start - now.getTime();
-  if (diff <= 0) return 'C’est maintenant';
-  const totalHours = Math.floor(diff / 3_600_000);
-  const days = Math.floor(totalHours / 24);
-  if (days >= 2) return `J-${days}`;
-  if (totalHours >= 1) {
-    const mins = Math.floor((diff % 3_600_000) / 60_000);
-    return totalHours >= 10 ? `Dans ${totalHours} h` : `Dans ${totalHours} h ${String(mins).padStart(2, '0')}`;
-  }
-  return `Dans ${Math.max(1, Math.floor(diff / 60_000))} min`;
+  if (!Number.isFinite(start)) return null;
+  const diff = Math.max(0, start - now.getTime());
+  return {
+    days: Math.floor(diff / 86_400_000),
+    hours: Math.floor((diff % 86_400_000) / 3_600_000),
+    mins: Math.floor((diff % 3_600_000) / 60_000),
+  };
+}
+
+const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
+
+function blockPad(b: StudioBlock): { px: number; py: number } {
+  return { px: typeof b.px === 'number' ? b.px : DEFAULT_PX, py: typeof b.py === 'number' ? b.py : DEFAULT_PY };
+}
+
+function blockBg(b: StudioBlock, theme: StudioTheme): string {
+  if (b.bg === 'tile') return theme.tile;
+  if (b.bg === 'accent') return theme.dark ? 'rgba(212,175,55,0.07)' : 'rgba(232,25,44,0.05)';
+  return 'transparent';
+}
+
+function condVisible(b: StudioBlock, ctx: StudioRenderCtx): boolean {
+  if (!b.cond || ctx.ignoreConds) return true;
+  return !!ctx.recipient.conds && ctx.recipient.conds.has(String(b.cond));
 }
 
 function td(inner: string, style: string): string {
@@ -173,14 +205,12 @@ function td(inner: string, style: string): string {
 function renderTicketRows(rows: StudioTicketRow[], theme: StudioTheme): string {
   return rows.map((r, i) => `
     <tr>
-      <td style="padding:12px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};">
-        <p style="margin:0;font-size:14px;font-weight:700;color:${theme.text};${r.out ? 'text-decoration:line-through;opacity:.55;' : ''}">${esc(r.n)}</p>
+      <td style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};">
+        <p style="margin:0;font-size:14.5px;font-weight:600;color:${r.out ? theme.muted : theme.text};">${esc(r.n)}</p>
         ${r.s ? `<p style="margin:2px 0 0;font-size:12px;color:${theme.muted};">${esc(r.s)}</p>` : ''}
       </td>
-      <td align="right" style="padding:12px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};white-space:nowrap;">
-        ${r.out
-      ? `<span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:${theme.muted};text-transform:uppercase;">Épuisé</span>`
-      : `<span style="font-size:14px;font-weight:700;color:${theme.text};">${esc(r.p)}</span>`}
+      <td align="right" style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};white-space:nowrap;">
+        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : theme.accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>
       </td>
     </tr>`).join('');
 }
@@ -198,34 +228,38 @@ function renderSocial(theme: StudioTheme, ctx: StudioRenderCtx, standalone: bool
     const href = url.startsWith('http') ? url : `https://${url}`;
     return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key] || key}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
   }).join('');
-  return td(cells, `padding:${standalone ? '18px' : '20px'} 24px 4px;text-align:center;${standalone ? '' : `background:${theme.footerBg};`}`);
+  return td(cells, `padding:18px 24px${standalone ? '' : ' 4px'};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
 }
 
 export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: StudioRenderCtx): string {
+  if (!condVisible(b, ctx)) return '';
+  const pad = blockPad(b);
+  const bg = blockBg(b, theme);
   switch (b.type) {
     case 'header': {
       const size = LOGO_SIZES[b.logoSize as string] || LOGO_SIZES.md;
-      const radius = b.logoShape === 'circle' ? '50%' : b.logoShape === 'rounded' ? '12px' : '0';
+      const radius = b.logoShape === 'circle' ? '50%' : b.logoShape === 'rounded' ? '14px' : '0';
       const logo = b.logoUrl
         ? `<img src="${esc(b.logoUrl)}" alt="${esc(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
         : '';
       const name = b.showName
-        ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${theme.headerText};letter-spacing:1px;">${esc(b.venueName || ctx.venueName)}</h1>`
+        ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${theme.headerText};letter-spacing:0.06em;">${esc(b.venueName || ctx.venueName)}</h1>`
         : '';
       return td(logo + name, `padding:30px 24px;text-align:center;background:${theme.headerBg};`);
     }
     case 'image': {
       if (!b.url) return '';
-      const img = `<img src="${esc(b.url)}" alt="${esc(b.label || '')}" width="552" style="width:100%;max-width:552px;height:auto;display:block;border:0;border-radius:8px;" class="yn-img" />`;
+      const img = `<img src="${esc(b.url)}" alt="${esc(b.label || '')}" width="600" style="width:100%;height:auto;display:block;border:0;" class="yn-img" />`;
       const linked = b.linkUrl
         ? `<a href="${esc(trackUrl(b.linkUrl as string, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
         : img;
-      return td(linked, 'padding:16px 24px;');
+      return `<tr><td style="padding:0;font-size:0;line-height:0;">${linked}</td></tr>`;
     }
     case 'text': {
-      const body = interpolate((b.body as string) || '', ctx);
       const size = Math.max(11, Math.min(28, Number(b.size) || 16));
-      return td(body, `padding:20px 24px;font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`);
+      const raw = interpolate((b.body as string) || '', ctx);
+      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text);
+      return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`);
     }
     case 'cta': {
       const btn = buttonHtml({
@@ -233,17 +267,17 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         bg: theme.accent, color: theme.btnText,
         radius: Number(b.radius ?? 8), full: !!b.full, ctx,
       });
-      return td(btn, `padding:20px 24px;text-align:${b.align || 'center'};`);
+      return td(btn, `padding:${pad.py + 6}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
     }
     case 'columns': {
-      const col = (c: { title?: string; body?: string } | undefined, pad: string) =>
-        `<td class="yn-col" width="50%" valign="top" style="${pad}font-family:${FONT};">
-          <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:${theme.text};">${esc(interpolate(c?.title || '', ctx))}</p>
+      const col = (c: { title?: string; body?: string } | undefined, side: 'l' | 'r') =>
+        `<td class="yn-col" width="50%" valign="top" style="${side === 'l' ? 'padding:0 7px 0 0;' : 'padding:0 0 0 7px;'}font-family:${FONT};">
+          <p style="margin:0 0 3px;font-size:15px;font-weight:600;color:${theme.text};">${esc(interpolate(c?.title || '', ctx))}</p>
           <p style="margin:0;font-size:13px;line-height:1.6;color:${theme.muted};">${esc(interpolate(c?.body || '', ctx))}</p>
         </td>`;
       return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${col(b.left, 'padding:0 10px 0 0;')}${col(b.right, 'padding:0 0 0 10px;')}</tr></table>`,
-        'padding:16px 24px;',
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${col(b.left, 'l')}${col(b.right, 'r')}</tr></table>`,
+        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
     }
     case 'event': {
@@ -255,27 +289,29 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const url = live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const priceLabel = live?.priceFromLabel;
       const cover = b.cover !== false && coverUrl
-        ? `<tr><td><img src="${esc(coverUrl)}" alt="${esc(title)}" width="552" style="width:100%;max-width:552px;height:auto;display:block;border:0;" /></td></tr>`
-        : '';
-      const priceRow = b.price && priceLabel
-        ? `<p style="margin:0 0 14px;font-family:${FONT};font-size:13px;font-weight:700;color:${theme.accent};">${esc(priceLabel)}</p>`
+        ? `<tr><td style="font-size:0;line-height:0;"><img src="${esc(coverUrl)}" alt="${esc(title)}" width="552" style="width:100%;max-width:552px;height:auto;display:block;border:0;" /></td></tr>`
         : '';
       const venueRow = b.venue !== false
-        ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:13px;color:${theme.muted};">${esc(venueLabel)}</p>`
+        ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${esc(venueLabel)}</p>`
         : '';
-      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || 'Voir la soirée', bg: theme.accent, color: theme.btnText, radius: 8, full: false, ctx, small: true });
+      const priceRow = b.price && priceLabel
+        ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${esc(priceLabel)}</p>`
+        : '';
+      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || "Voir l'événement", bg: theme.accent, color: theme.btnText, radius: 6, full: false, ctx, small: true });
+      const cardBg = theme.dark ? theme.tile : '#ffffff';
       return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${theme.tile};">
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
           ${cover}
-          <tr><td style="padding:18px 20px;">
-            <h2 style="margin:0 0 6px;font-family:${FONT};font-size:19px;line-height:24px;mso-line-height-rule:exactly;color:${theme.text};">${esc(title)}</h2>
-            <p style="margin:0 0 4px;font-family:${FONT};font-size:13px;color:${theme.muted};">${esc(dateLabel)}</p>
+          <tr><td style="padding:20px;">
+            <h2 style="margin:0 0 8px;font-family:${FONT};font-size:20px;line-height:26px;mso-line-height-rule:exactly;font-weight:700;color:${theme.text};">${esc(title)}</h2>
+            <p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${esc(dateLabel)}</p>
             ${venueRow}
-            ${priceRow || '<div style="height:10px;line-height:10px;font-size:0;">&nbsp;</div>'}
+            ${priceRow}
+            <div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>
             ${btn}
           </td></tr>
         </table>`,
-        'padding:16px 24px;',
+        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
     }
     case 'tickets': {
@@ -287,11 +323,12 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const url = live?.url || ctx.baseUrl;
       const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: theme.accent, color: theme.btnText, radius: 8, full: true, ctx, small: true });
       return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${theme.tile};">
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
           ${renderTicketRows(rows, theme)}
-          <tr><td colspan="2" style="padding:14px 16px 16px;">${btn}</td></tr>
-        </table>`,
-        'padding:16px 24px;',
+        </table>
+        <div style="height:12px;line-height:12px;font-size:0;">&nbsp;</div>
+        ${btn}`,
+        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
     }
     case 'table': {
@@ -299,42 +336,53 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const url = live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const left = live?.tablesLeft;
       const leftRow = typeof left === 'number' && left >= 0
-        ? `<p style="margin:0 0 12px;font-family:${FONT};font-size:12px;font-weight:700;color:${theme.accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
+        ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12.5px;font-weight:700;color:${theme.accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
         : '';
-      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || 'Réserver une table', bg: theme.accent, color: theme.btnText, radius: 8, full: false, ctx, small: true });
+      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || 'Réserver une table', bg: theme.accent, color: theme.btnText, radius: 6, full: false, ctx, small: true });
+      const cardBorder = theme.dark ? 'rgba(212,175,55,0.28)' : theme.divider;
+      const cardBg = theme.dark ? 'rgba(212,175,55,0.06)' : theme.tile;
       return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${theme.tile};">
-          <tr><td style="padding:18px 20px;">
-            <p style="margin:0 0 4px;font-family:${FONT};font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${theme.muted};">${esc(b.cond || 'VIP · Table')}</p>
-            <h2 style="margin:0 0 6px;font-family:${FONT};font-size:18px;line-height:23px;mso-line-height-rule:exactly;color:${theme.text};">${esc(interpolate((b.title as string) || '', ctx))}</h2>
-            <p style="margin:0 0 12px;font-family:${FONT};font-size:13px;line-height:1.5;color:${theme.muted};">${esc(interpolate((b.sub as string) || '', ctx))}</p>
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${cardBorder};border-radius:12px;background:${cardBg};">
+          <tr><td style="padding:18px;">
+            <p style="margin:0 0 8px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${theme.accent};">${esc(b.kicker || 'Bottle service')}</p>
+            <h2 style="margin:0 0 6px;font-family:${FONT};font-size:17px;line-height:23px;mso-line-height-rule:exactly;font-weight:600;color:${theme.text};">${esc(interpolate((b.title as string) || '', ctx))}</h2>
+            <p style="margin:0 0 12px;font-family:${FONT};font-size:13.5px;line-height:1.6;color:${theme.muted};">${esc(interpolate((b.sub as string) || '', ctx))}</p>
             ${leftRow}
             ${btn}
           </td></tr>
         </table>`,
-        'padding:16px 24px;',
+        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
     }
     case 'countdown': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      const value = live?.startAt ? formatCountdown(live.startAt, ctx.now || new Date()) : '';
-      if (!value) return '';
+      const parts = live?.startAt ? countdownParts(live.startAt, ctx.now || new Date()) : null;
+      if (!parts) return '';
+      const cell = (num: string, unit: string) =>
+        `<td width="33%" style="padding:0 5px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:10px 0;border-radius:9px;background:${theme.tile};text-align:center;">
+          <p style="margin:0;font-family:${FONT};font-size:24px;font-weight:700;color:${theme.accent};">${num}</p>
+          <p style="margin:2px 0 0;font-family:${FONT};font-size:10px;letter-spacing:.1em;color:${theme.muted};">${unit}</p>
+        </td></tr></table></td>`;
       return td(
-        `<p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${theme.muted};">${esc(b.label || '')}</p>
-         <p style="margin:0;font-family:${FONT};font-size:34px;line-height:40px;mso-line-height-rule:exactly;font-weight:800;color:${theme.accent};">${esc(value)}</p>`,
-        'padding:22px 24px;text-align:center;',
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;"><tr><td style="padding:18px;text-align:center;">
+          <p style="margin:0 0 12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${theme.muted};">${esc(b.label || '')}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            ${cell(pad2(parts.days), 'JOURS')}${cell(pad2(parts.hours), 'HEURES')}${cell(pad2(parts.mins), 'MIN')}
+          </tr></table>
+        </td></tr></table>`,
+        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
     }
     case 'social':
       return renderSocial(theme, ctx, true);
     case 'divider':
-      return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, 'padding:8px 24px;');
+      return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:10px ${pad.px}px;`);
     case 'spacer': {
       const h = SPACER_SIZES[b.size as string] || SPACER_SIZES.md;
       return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;">&nbsp;</td></tr>`;
     }
     case 'html':
-      return `<tr><td style="padding:0 24px;">${interpolate((b.code as string) || '', ctx)}</td></tr>`;
+      return `<tr><td style="padding:0 ${pad.px}px;background:${bg};">${interpolate((b.code as string) || '', ctx)}</td></tr>`;
     default:
       return '';
   }
@@ -348,14 +396,14 @@ function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx): string {
   const onPlatform = ctx.hideBranding ? '' : ' sur Yuno';
   const viaPlatform = ctx.hideBranding ? '' : ' via Yuno';
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
-    ? `<p style="margin:12px 0 0;font-size:11px;color:${theme.footerText};">Vous ne souhaitez plus recevoir ces emails ? <a href="${esc(ctx.unsubscribeUrl)}" style="color:${theme.footerText};text-decoration:underline;">Se désabonner en un clic</a></p>`
+    ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${esc(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
     : '';
   return td(
-    `<p style="margin:0 0 8px;font-weight:700;color:${theme.footerText};">${esc(ctx.venueName)}${ctx.city ? ' — ' + esc(ctx.city) : ''}</p>
-     <p style="margin:0 0 8px;">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
-     <p style="margin:0;">© ${year} ${esc(ctx.venueName)}${viaPlatform}. Tous droits réservés.</p>
+    `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${ctx.city ? ' — ' + esc(ctx.city) : ''}</p>
+     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${esc(ctx.venueName)}${viaPlatform}. Tous droits réservés.</p>
      ${unsub}`,
-    `padding:22px 24px;background:${theme.footerBg};border-top:1px solid ${theme.divider};font-family:${FONT};font-size:12px;line-height:1.6;color:${theme.footerText};text-align:center;`,
+    `padding:22px 24px;background:${theme.footerBg};border-top:1px solid ${theme.divider};font-family:${FONT};text-align:center;`,
   );
 }
 
@@ -389,7 +437,6 @@ export function renderStudioEmailHtml(
   @media only screen and (max-width:620px){
     .yn-container{width:100%!important;max-width:100%!important;border-radius:0!important;}
     .yn-col{display:block!important;width:100%!important;padding:0 0 14px!important;}
-    .yn-img{border-radius:6px!important;}
   }
   @media (prefers-color-scheme:dark){
     .yn-bg{background:${theme.dark ? theme.bg : '#101012'}!important;}
@@ -400,7 +447,7 @@ export function renderStudioEmailHtml(
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
   <tr><td align="center" style="padding:24px 8px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:12px;overflow:hidden;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:12px;overflow:hidden;${theme.dark ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}
     </table>
@@ -426,6 +473,45 @@ export function collectStudioEventIds(blocks: StudioBlock[], fallbackEventId?: s
     }
   }
   return [...ids];
+}
+
+/** Règles de visibilité utilisées par la campagne (pour la résolution par lot). */
+export function collectStudioConds(blocks: StudioBlock[]): string[] {
+  const out = new Set<string>();
+  for (const b of blocks) {
+    if (typeof b.cond === 'string' && b.cond) out.add(b.cond);
+  }
+  return [...out];
+}
+
+/**
+ * Résout les règles de visibilité pour UN LOT de destinataires via la RPC
+ * get_recipient_block_conds. Échec ⇒ map vide : les blocs conditionnels
+ * s'effacent (l'audience rétrécit, jamais l'inverse).
+ */
+export async function fetchRecipientConds(
+  admin: any,
+  campaignId: string,
+  emails: string[],
+  usedConds: string[],
+): Promise<Map<string, Set<string>>> {
+  const map = new Map<string, Set<string>>();
+  if (usedConds.length === 0 || emails.length === 0) return map;
+  try {
+    const { data, error } = await admin.rpc('get_recipient_block_conds', {
+      p_campaign_id: campaignId,
+      p_emails: emails,
+    });
+    if (error) throw error;
+    for (const row of (data || []) as { email: string; cond: string }[]) {
+      const key = String(row.email || '').toLowerCase();
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(row.cond);
+    }
+  } catch (e) {
+    console.error('fetchRecipientConds failed (blocs conditionnels masqués):', e instanceof Error ? e.message : e);
+  }
+  return map;
 }
 
 export async function fetchStudioLiveData(
@@ -495,19 +581,16 @@ export async function fetchStudioLiveData(
       const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
 
       const evRounds = (rounds || []).filter((r: any) => r.event_id === e.id);
-      const visible = evRounds.filter((r: any) => {
-        const out = r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets));
-        return r.is_active || out;
-      }).slice(0, 4);
+      const isOut = (r: any) => !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)));
+      const visible = evRounds.filter((r: any) => r.is_active || isOut(r)).slice(0, 4);
       const tickets: StudioTicketRow[] = visible.map((r: any) => ({
         n: r.name || 'Billet',
         s: r.description || '',
         p: euro(Number(r.price || 0)),
-        out: !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets))),
+        out: isOut(r),
       }));
       const activePrices = evRounds
-        .filter((r: any) => r.is_active && !r.manually_sold_out
-          && !(r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)))
+        .filter((r: any) => r.is_active && !isOut(r))
         .map((r: any) => Number(r.price || 0));
       const priceFrom = activePrices.length ? Math.min(...activePrices) : null;
 
@@ -523,7 +606,7 @@ export async function fetchStudioLiveData(
         venueLabel: city ? `${venueName} — ${city}` : venueName,
         coverUrl: e.poster_url || e.image_url || null,
         url: `${publicUrl}/event/${e.slug || e.id}`,
-        priceFromLabel: priceFrom != null ? `Dès ${euro(priceFrom)}` : null,
+        priceFromLabel: priceFrom != null ? `À partir de ${euro(priceFrom)}` : null,
         tickets: tickets.length ? tickets : undefined,
         tablesLeft,
       };
