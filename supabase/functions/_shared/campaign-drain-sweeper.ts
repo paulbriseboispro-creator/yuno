@@ -43,7 +43,7 @@ export async function sweepSendingCampaigns(admin: any, supabaseUrl: string, ser
   //    auto-chaînage n'a pas besoin qu'on la double.
   const { data: campaigns, error } = await admin
     .from('email_campaigns')
-    .select('id, last_slice_at')
+    .select('id, last_slice_at, ab_enabled, subject_b, ab_winner')
     .eq('status', 'sending')
     .order('last_slice_at', { ascending: true, nullsFirst: true })
     .limit(MAX_CAMPAIGNS_PER_RUN);
@@ -54,6 +54,19 @@ export async function sweepSendingCampaigns(admin: any, supabaseUrl: string, ser
   }
 
   for (const c of campaigns || []) {
+    // A/B d'objet : si la phase de test est partie et que la fenêtre
+    // d'observation est écoulée, déclarer le gagnant AVANT de relancer une
+    // tranche (la RPC se garde toute seule : test en vol ou fenêtre ouverte
+    // → resolved:false, on retentera au prochain balayage).
+    if (c.ab_enabled && c.subject_b && !c.ab_winner) {
+      try {
+        const { data: ab } = await admin.rpc('resolve_campaign_ab_winner', { p_campaign_id: c.id });
+        if (ab?.resolved) console.log(`A/B winner campagne ${c.id}: ${ab.winner}`);
+      } catch (e) {
+        out.errors.push(`ab ${c.id}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
     // Une tranche fraîche (< 2 min) signifie qu'un worker est probablement
     // encore dessus. Le SKIP LOCKED empêcherait le doublon de toute façon,
     // mais inutile de brûler une invocation.

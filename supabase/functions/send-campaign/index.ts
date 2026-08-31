@@ -27,6 +27,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
+import {
+  renderStudioEmailHtml, fetchStudioLiveData, type StudioBlock, type StudioSocialLinks,
+} from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
 import { sendResendBatch, batchIdempotencyKey, sleep, type ResendEmail } from '../_shared/resend-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
@@ -57,6 +60,28 @@ interface Recipient {
   first_name?: string | null;
   last_name?: string | null;
   unsubscribe_token?: string | null;
+  /** 'a' | 'b' pendant la phase de test A/B, null = suit le gagnant. */
+  ab_variant?: string | null;
+}
+
+// ── Quiet hours (Europe/Paris) — opt-in par campagne ───────────────────────
+const QUIET_START_HOUR = 22;
+const QUIET_END_HOUR = 9;
+
+function inQuietHours(now: Date = new Date()): boolean {
+  const hour = Number(new Intl.DateTimeFormat('fr-FR', {
+    hour: 'numeric', hour12: false, timeZone: 'Europe/Paris',
+  }).format(now));
+  return hour >= QUIET_START_HOUR || hour < QUIET_END_HOUR;
+}
+
+/** Sujet du destinataire : variante de test, sinon le gagnant déclaré, sinon A. */
+function subjectForRecipient(campaign: Record<string, unknown>, r: Recipient): string {
+  const subjectA = campaign.subject as string;
+  const subjectB = (campaign.subject_b as string) || '';
+  if (!campaign.ab_enabled || !subjectB) return subjectA;
+  const variant = r.ab_variant || (campaign.ab_winner as string) || 'a';
+  return variant === 'b' ? subjectB : subjectA;
 }
 
 const makeAdmin = () => createClient(SUPABASE_URL, SERVICE_KEY);
@@ -147,6 +172,45 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
 
 // ── Rendu ──────────────────────────────────────────────────────────────────
 
+/**
+ * Builder v2 (Email Studio) : renderer studio + données live des blocs Yuno,
+ * résolues UNE FOIS par tranche — jamais par destinataire.
+ */
+async function makeStudioHtmlBuilder(admin: Admin, campaign: Record<string, unknown>, sender: Sender) {
+  const blocks = (((campaign.blocks_json as StudioBlock[]) || [])).map((b) => ({ ...b }));
+  const campaignLogo = campaign.logo_url as string | null;
+  if (campaignLogo) {
+    for (const b of blocks) {
+      if (b.type === 'header' && !b.logoUrl) b.logoUrl = campaignLogo;
+    }
+  }
+  const hideBranding = sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
+  const live = await fetchStudioLiveData(admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL);
+
+  return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
+    venueName: sender.name,
+    city: sender.city,
+    emailType: campaign.type as 'promotional' | 'informational',
+    subject: subjectForRecipient(campaign, r),
+    preheader: (campaign.preheader as string) || undefined,
+    recipient: { email: r.email, firstName: r.first_name, lastName: r.last_name },
+    unsubscribeUrl: r.unsubscribe_token ? `${PUBLIC_URL}/unsubscribe?token=${r.unsubscribe_token}` : undefined,
+    socialLinks: (campaign.social_links_json || {}) as StudioSocialLinks,
+    hideBranding,
+    baseUrl: PUBLIC_URL,
+    campaignId: campaign.id as string,
+    live,
+  });
+}
+
+/** Route vers le builder selon la version du modèle de blocs. */
+async function makeBuilder(admin: Admin, campaign: Record<string, unknown>, sender: Sender) {
+  if (Number(campaign.blocks_version || 1) >= 2) {
+    return makeStudioHtmlBuilder(admin, campaign, sender);
+  }
+  return makeHtmlBuilder(admin, campaign, sender);
+}
+
 async function makeHtmlBuilder(admin: Admin, campaign: Record<string, unknown>, sender: Sender) {
   const blocks = ((campaign.blocks_json as EmailBlock[]) || []).slice();
   const campaignLogo = campaign.logo_url as string | null;
@@ -185,7 +249,7 @@ interface SliceResult {
   failed: number;
   remaining: number;
   status: string;
-  stopped: 'done' | 'deadline' | 'quota' | 'paused' | 'error';
+  stopped: 'done' | 'deadline' | 'quota' | 'paused' | 'error' | 'quiet' | 'throttle' | 'ab_wait';
   detail?: string;
 }
 
@@ -195,8 +259,7 @@ async function drainSlice(
   campaign: Record<string, unknown>,
   sender: Sender,
 ): Promise<SliceResult> {
-  const buildHtml = await makeHtmlBuilder(admin, campaign, sender);
-  const subject = campaign.subject as string;
+  const buildHtml = await makeBuilder(admin, campaign, sender);
   const deadline = Date.now() + SLICE_MS;
 
   let sent = 0;
@@ -226,10 +289,34 @@ async function drainSlice(
 
     if (Date.now() >= deadline) { stopped = 'deadline'; break; }
 
+    // 1 bis. Quiet hours (opt-in par campagne) : pas d'envoi la nuit, le cron
+    // reprend la campagne au créneau suivant.
+    if (campaign.quiet_hours === true && inQuietHours()) {
+      stopped = 'quiet';
+      detail = `quiet hours ${QUIET_START_HOUR}h→${QUIET_END_HOUR}h Europe/Paris`;
+      break;
+    }
+
+    // 1 ter. Throttling (lissage du débit) : plafond d'envois par heure
+    // glissante, opt-in par campagne. Même philosophie que le quota : on
+    // s'arrête proprement, le cron reprend quand le budget se libère.
+    let want = batchSize;
+    if (campaign.throttle_per_hour != null) {
+      const { count: sentLastHour } = await admin
+        .from('email_campaign_recipients')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', campaignId)
+        .eq('status', 'sent')
+        .gte('sent_at', new Date(Date.now() - 3_600_000).toISOString());
+      const hourBudget = Number(campaign.throttle_per_hour) - (sentLastHour ?? 0);
+      if (hourBudget <= 0) { stopped = 'throttle'; break; }
+      want = Math.max(1, Math.min(want, hourBudget));
+    }
+
     // 2. Quota du jour (expéditeur + plateforme), consommé AVANT de réserver.
     const { data: grantedRaw, error: qErr } = await admin.rpc('consume_email_send_quota', {
       p_scope_key: sender.scopeKey,
-      p_requested: batchSize,
+      p_requested: want,
       p_venue_id: sender.venueId,
       p_organizer_user_id: sender.organizerUserId,
     });
@@ -254,7 +341,17 @@ async function drainSlice(
         p_scope_key: sender.scopeKey, p_amount: granted - rows.length,
       });
     }
-    if (rows.length === 0) { stopped = 'done'; break; }
+    if (rows.length === 0) {
+      // File « vide » mais phase de test A/B en cours : les lignes sans
+      // variante ne sont pas réclamables tant que le gagnant n'est pas
+      // déclaré (claim_campaign_recipients les gate). Le cron appellera
+      // resolve_campaign_ab_winner à la fin de la fenêtre, puis reprendra.
+      const abGate = campaign.ab_enabled === true
+        && !!(campaign.subject_b as string)
+        && !campaign.ab_winner;
+      stopped = abGate ? 'ab_wait' : 'done';
+      break;
+    }
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
     //    peut faire exploser la taille du payload : on adapte plutôt que de se
@@ -262,7 +359,7 @@ async function drainSlice(
     const payload: ResendEmail[] = rows.map((r) => ({
       from: sender.from,
       to: [r.email],
-      subject,
+      subject: subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
       headers: unsubHeaders(r.unsubscribe_token),
@@ -417,7 +514,7 @@ async function sendTest(
   }
   if (targets.length === 0) throw new Error('No test email available');
 
-  const buildHtml = await makeHtmlBuilder(admin, campaign, sender);
+  const buildHtml = await makeBuilder(admin, campaign, sender);
   const payload: ResendEmail[] = targets.map((email) => ({
     from: sender.from,
     to: [email],
@@ -529,9 +626,14 @@ Deno.serve(async (req) => {
         }).eq('id', campaign_id);
         return new Response(JSON.stringify({ error: 'No recipients found for this audience', detail: enq }), { status: 400, headers: jsonHeaders });
       }
+      // A/B d'objet : assigner les variantes de la phase de test (no-op si la
+      // campagne n'est pas en A/B ou si le gagnant est déjà déclaré).
+      const { error: abErr } = await admin.rpc('assign_campaign_ab_variants', { p_campaign_id: campaign_id });
+      if (abErr) console.error('assign_campaign_ab_variants:', abErr.message);
+
       // Un premier aperçu du rendu, conservé pour le rapport de campagne.
       if (!campaign.html_body) {
-        const buildHtml = await makeHtmlBuilder(admin, campaign, sender);
+        const buildHtml = await makeBuilder(admin, campaign, sender);
         await admin.from('email_campaigns')
           .update({ html_body: buildHtml({ email: 'apercu@yunoapp.eu' }) })
           .eq('id', campaign_id);
