@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CountdownBlock, EmailTheme } from '@/lib/email';
-import { countdownParts } from '@/lib/email';
+import { countdownParts, isHexColor } from '@/lib/email';
 import { EMAIL_FONT, blockPad, liveFor, type CanvasCtx } from './common';
 
 /**
@@ -35,7 +35,7 @@ export default function CountdownView({ block, theme, ctx }: { block: CountdownB
         <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
           {cells.map(([num, unit]) => (
             <div key={unit} style={{ minWidth: 62, padding: '10px 0', borderRadius: 9, background: theme.tile }}>
-              <div style={{ fontFamily: EMAIL_FONT, fontSize: 24, fontWeight: 700, color: theme.accent, fontVariantNumeric: 'tabular-nums' }}>{num}</div>
+              <div style={{ fontFamily: EMAIL_FONT, fontSize: 24, fontWeight: 700, color: isHexColor(block.accent) ? block.accent.trim() : theme.accent, fontVariantNumeric: 'tabular-nums' }}>{num}</div>
               <div style={{ fontFamily: EMAIL_FONT, fontSize: 10, color: theme.muted, letterSpacing: '0.1em', marginTop: 2 }}>{unit}</div>
             </div>
           ))}

@@ -1,10 +1,13 @@
 import { Fragment } from 'react';
 import type { EmailTheme, TableBlock } from '@/lib/email';
+import { ctaColors } from '@/lib/email';
 import { EMAIL_FONT, blockPad, emailBtnStyle, liveFor, splitVariables, varChipStyle, type CanvasCtx } from './common';
 
 export default function TableView({ block, theme, ctx }: { block: TableBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
   const live = liveFor(block, ctx);
+  const btnColors = ctaColors(block.accent, theme);
+  const accent = btnColors.bg;
   const left = live?.tablesLeft;
   const chip = varChipStyle(theme, 14);
   const withVars = (text: string) => splitVariables(text).map((part, pi) => (
@@ -19,7 +22,7 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
       }}>
         <div style={{
           fontFamily: EMAIL_FONT, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
-          color: theme.accent, marginBottom: 8,
+          color: accent, marginBottom: 8,
         }}>{block.kicker || 'Bottle service'}</div>
         <div style={{ fontFamily: EMAIL_FONT, fontSize: 17, fontWeight: 600, color: theme.text, marginBottom: 6 }}>
           {withVars(block.title)}
@@ -28,12 +31,12 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
           {withVars(block.sub)}
         </div>
         {typeof left === 'number' && (
-          <div style={{ fontFamily: EMAIL_FONT, fontSize: 12.5, fontWeight: 700, color: theme.accent, marginTop: 10 }}>
+          <div style={{ fontFamily: EMAIL_FONT, fontSize: 12.5, fontWeight: 700, color: accent, marginTop: 10 }}>
             {left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}
           </div>
         )}
         <div style={{ marginTop: 14 }}>
-          <span style={emailBtnStyle(theme, { small: true })}>{block.ctaLabel}</span>
+          <span style={{ ...emailBtnStyle(theme, { small: true }), background: btnColors.bg, color: btnColors.color }}>{block.ctaLabel}</span>
         </div>
       </div>
     </div>

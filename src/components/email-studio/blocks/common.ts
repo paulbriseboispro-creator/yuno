@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { EmailBlock, EmailTheme, LiveData, LiveEventData, SocialLinks } from '@/lib/email';
-import { blockPadDefaults } from '@/lib/email';
+import { blockPadDefaults, isHexColor } from '@/lib/email';
 
 /** Contexte de rendu du canvas (aperçu d'édition, PAS l'email final). */
 export interface CanvasCtx {
@@ -29,8 +29,9 @@ export function liveFor(block: { eventId?: string }, ctx: CanvasCtx): LiveEventD
   return id ? ctx.live[id] : undefined;
 }
 
-/** Fond du bloc (Auto / Teinte / Accent). */
+/** Fond du bloc (Custom / Auto / Teinte / Accent) — miroir de blockBg (render.ts). */
 export function blockBgColor(b: EmailBlock, theme: EmailTheme): string {
+  if (isHexColor(b.bgc)) return b.bgc.trim();
   if (b.bg === 'tile') return theme.tile;
   if (b.bg === 'accent') return theme.dark ? 'rgba(212,175,55,0.07)' : 'rgba(232,25,44,0.05)';
   return 'transparent';

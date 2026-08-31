@@ -35,6 +35,7 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
   const duplicate = useStudio((s) => s.duplicate);
   const removeBlock = useStudio((s) => s.removeBlock);
 
+  const theme = useStudio((s) => s.campaign.theme);
   const block = blocks.find((b) => b.id === selectedId);
   if (!block) {
     return (
@@ -108,8 +109,49 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
             { value: 'accent', label: t('studio.inspector.bgAccent') },
           ]}
         />
+        <ThemedColor
+          label={t('studio.inspector.blockBgc')}
+          value={block.bgc}
+          themeDefault={theme.card}
+          onChange={(v) => patch({ bgc: v })}
+        />
       </PanelCard>
     </div>
+  );
+}
+
+/**
+ * Champ couleur avec retour au thème : la valeur n'est persistée sur le bloc
+ * que si elle diffère de la couleur du thème (sinon le bloc suit le thème).
+ */
+function ThemedColor({ label, value, themeDefault, onChange }: {
+  label: string;
+  value: string | undefined;
+  themeDefault: string;
+  onChange: (v: string | undefined) => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <>
+      <MicroLabel>{label}</MicroLabel>
+      <ColorField
+        label={label}
+        value={value || themeDefault}
+        defaultValue={themeDefault}
+        onChange={(v) => onChange(v && v.toLowerCase() !== themeDefault.toLowerCase() ? v : undefined)}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          style={{
+            alignSelf: 'flex-start', padding: '5px 10px', borderRadius: 8,
+            border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer',
+            color: 'rgba(255,255,255,0.58)', fontSize: 11.5, fontFamily: FONT_UI,
+          }}
+        >{t('studio.inspector.ctaColorAuto')}</button>
+      )}
+    </>
   );
 }
 
@@ -328,6 +370,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
             />
             <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
             {alignPills(b.align, (v) => patch({ align: v }))}
+            <ThemedColor
+              label={t('studio.inspector.textColor')}
+              value={b.color}
+              themeDefault={theme.text}
+              onChange={(v) => patch({ color: v })}
+            />
           </PanelCard>
         </>
       );
@@ -357,26 +405,13 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
             <ToggleRow checked={b.full} onChange={(v) => patch({ full: v })} label={t('studio.inspector.fullWidth')} />
           </PanelCard>
           <PanelCard>
-            <MicroLabel>{t('studio.inspector.ctaColor')}</MicroLabel>
-            <ColorField
+            <ThemedColor
               label={t('studio.inspector.ctaColor')}
-              value={b.color || theme.accent}
-              defaultValue={theme.accent}
-              onChange={(v) => patch({ color: v && v.toLowerCase() !== theme.accent.toLowerCase() ? v : undefined })}
+              value={b.color}
+              themeDefault={theme.accent}
+              onChange={(v) => patch({ color: v })}
             />
-            {b.color ? (
-              <button
-                type="button"
-                onClick={() => patch({ color: undefined })}
-                style={{
-                  alignSelf: 'flex-start', padding: '5px 10px', borderRadius: 8,
-                  border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer',
-                  color: 'rgba(255,255,255,0.58)', fontSize: 11.5, fontFamily: FONT_UI,
-                }}
-              >{t('studio.inspector.ctaColorAuto')}</button>
-            ) : (
-              <Help>{t('studio.inspector.ctaColorHelp')}</Help>
-            )}
+            {!b.color && <Help>{t('studio.inspector.ctaColorHelp')}</Help>}
           </PanelCard>
         </>
       );
@@ -401,6 +436,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
           <PanelCard>
             <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
             <TextInput value={b.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} />
+            <ThemedColor
+              label={t('studio.inspector.accentColor')}
+              value={b.accent}
+              themeDefault={theme.accent}
+              onChange={(v) => patch({ accent: v })}
+            />
           </PanelCard>
           {!b.eventId && (
             <PanelCard>
@@ -427,6 +468,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
               onChange={(v) => patch({ live: v })}
               label={t('studio.inspector.ticketsLive')}
               help={t('studio.inspector.ticketsLiveHelp')}
+            />
+            <ThemedColor
+              label={t('studio.inspector.accentColor')}
+              value={b.accent}
+              themeDefault={theme.accent}
+              onChange={(v) => patch({ accent: v })}
             />
           </PanelCard>
           <PanelCard>
@@ -483,6 +530,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
           <TextInput value={b.sub} onChange={(e) => patch({ sub: e.target.value })} />
           <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
           <TextInput value={b.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} />
+          <ThemedColor
+            label={t('studio.inspector.accentColor')}
+            value={b.accent}
+            themeDefault={theme.accent}
+            onChange={(v) => patch({ accent: v })}
+          />
           <Banner tone="red" icon={<Zap size={13} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />}>
             {t('studio.inspector.tableLive')}
           </Banner>
@@ -618,6 +671,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
               />
             </>
           )}
+          <ThemedColor
+            label={t('studio.inspector.accentColor')}
+            value={b.accent}
+            themeDefault={theme.accent}
+            onChange={(v) => patch({ accent: v })}
+          />
           <Help>{t('studio.inspector.countdownHelp')}</Help>
         </PanelCard>
       );
@@ -654,6 +713,7 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
       );
     }
     case 'social': {
+      const b = block;
       return (
         <PanelCard>
           <MicroLabel>{t('studio.inspector.socialLinks')}</MicroLabel>
@@ -667,6 +727,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
               style={inputStyle}
             />
           ))}
+          <ThemedColor
+            label={t('studio.inspector.socialColor')}
+            value={b.color}
+            themeDefault={theme.muted}
+            onChange={(v) => patch({ color: v })}
+          />
           <Help>{t('studio.inspector.socialHelp')}</Help>
         </PanelCard>
       );
@@ -691,6 +757,12 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
     case 'divider':
       return (
         <PanelCard>
+          <ThemedColor
+            label={t('studio.inspector.dividerColor')}
+            value={block.color}
+            themeDefault={theme.divider}
+            onChange={(v) => patch({ color: v })}
+          />
           <span style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, lineHeight: 1.55, fontFamily: FONT_UI }}>
             {t('studio.inspector.dividerHelp')}
           </span>

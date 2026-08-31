@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import type { EmailTheme, TextBlock } from '@/lib/email';
-import { escapeHtml, inlineMarkup, looksLikeHtml } from '@/lib/email';
+import { escapeHtml, inlineMarkup, isHexColor, looksLikeHtml } from '@/lib/email';
 import { EMAIL_FONT, blockPad, varChipStyle } from './common';
 
 /**
@@ -12,13 +12,14 @@ export default function TextView({ block, theme }: { block: TextBlock; theme: Em
   const size = Math.max(11, Math.min(28, block.size || 16));
   const pad = blockPad(block);
   const chip = varChipStyle(theme, size);
+  const baseColor = isHexColor(block.color) ? block.color.trim() : theme.text;
 
   if (looksLikeHtml(block.body)) {
     return (
       <div
         style={{
           padding: `${pad.py}px ${pad.px}px`, fontFamily: EMAIL_FONT, fontSize: size,
-          lineHeight: 1.6, color: theme.text, textAlign: block.align || 'left', overflowWrap: 'break-word',
+          lineHeight: 1.6, color: baseColor, textAlign: block.align || 'left', overflowWrap: 'break-word',
         }}
         dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(block.body || '', {
@@ -48,7 +49,7 @@ export default function TextView({ block, theme }: { block: TextBlock; theme: Em
     <div
       style={{
         padding: `${pad.py}px ${pad.px}px`, textAlign: block.align || 'left',
-        fontFamily: EMAIL_FONT, color: theme.text,
+        fontFamily: EMAIL_FONT, color: baseColor,
       }}
       dangerouslySetInnerHTML={{
         __html: DOMPurify.sanitize(html, {

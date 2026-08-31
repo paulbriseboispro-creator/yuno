@@ -1,9 +1,11 @@
 import type { EmailTheme, EventBlock } from '@/lib/email';
+import { ctaColors } from '@/lib/email';
 import { EMAIL_FONT, blockPad, emailBtnStyle, liveFor, placeholderLabelStyle, stripesBg, type CanvasCtx } from './common';
 
 export default function EventView({ block, theme, ctx }: { block: EventBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
   const live = liveFor(block, ctx);
+  const btnColors = ctaColors(block.accent, theme);
   const title = live?.title || block.title;
   const dateLabel = live?.dateLabel || block.dateLabel;
   const venueLabel = live?.venueLabel || block.venueLabel;
@@ -45,7 +47,7 @@ export default function EventView({ block, theme, ctx }: { block: EventBlock; th
               {live?.priceFromLabel || 'À partir de 18 €'}
             </div>
           )}
-          <span style={{ ...emailBtnStyle(theme, { small: true }), marginTop: 14 }}>{block.ctaLabel}</span>
+          <span style={{ ...emailBtnStyle(theme, { small: true }), background: btnColors.bg, color: btnColors.color, marginTop: 14 }}>{block.ctaLabel}</span>
         </div>
       </div>
     </div>

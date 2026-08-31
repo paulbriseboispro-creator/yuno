@@ -1,6 +1,7 @@
 import { EyeOff } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailTheme, TicketsBlock } from '@/lib/email';
+import { ctaColors } from '@/lib/email';
 import { EMAIL_FONT, blockPad, liveFor, type CanvasCtx } from './common';
 
 /**
@@ -12,6 +13,7 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
   const { t } = useLanguage();
   const pad = blockPad(block);
   const live = liveFor(block, ctx);
+  const accent = ctaColors(block.accent, theme).bg;
   const rows = (block.live && live) ? (live.tickets || []) : block.rows;
 
   if (!rows || rows.length === 0) {
@@ -46,7 +48,7 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
             </div>
             <div style={{
               fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap',
-              color: r.out ? theme.muted : theme.accent,
+              color: r.out ? theme.muted : accent,
               textDecoration: r.out ? 'line-through' : 'none',
             }}>{r.p}</div>
           </div>
