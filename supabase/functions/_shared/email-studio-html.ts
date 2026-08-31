@@ -251,11 +251,17 @@ function blockBg(b: StudioBlock, theme: StudioTheme): string {
   return 'transparent';
 }
 
-/** Icônes simpleicons : hex SANS # obligatoire — sinon gris sûr (miroir render.ts). */
-function iconHex(custom: unknown, themeFallback: string): string {
-  const src = isHexColor(custom) ? custom : themeFallback;
-  const m = /^#([0-9a-fA-F]{6})$/.exec(String(src).trim());
-  return m ? m[1] : '7a7a7a';
+/** Libellé d'un lien réseau (miroir de socialLabel dans render.ts). */
+function socialLabel(key: string, url: string): string {
+  const names: Record<string, string> = {
+    instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', x: 'X', website: 'Site',
+  };
+  if (key !== 'website') return names[key] || key;
+  try {
+    return new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '');
+  } catch {
+    return names.website;
+  }
 }
 
 function condVisible(b: StudioBlock, ctx: StudioRenderCtx): boolean {
@@ -280,10 +286,10 @@ function renderTicketRows(rows: StudioTicketRow[], theme: StudioTheme, accent: s
     </tr>`).join('');
 }
 
-const SOCIAL_SLUG: Record<string, string> = {
-  instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
-};
-
+/**
+ * Réseaux = LIENS TEXTE stylés, pas d'images (miroir strict de render.ts) :
+ * les SVG d'un CDN tiers étaient bloqués par Gmail et morts sans le CDN.
+ */
 function renderSocial(
   theme: StudioTheme,
   ctx: StudioRenderCtx,
@@ -293,11 +299,12 @@ function renderSocial(
   const entries = Object.entries(ctx.socialLinks || {})
     .filter(([, url]) => typeof url === 'string' && url.trim().length > 0) as [string, string][];
   if (entries.length === 0) return '';
-  const color = iconHex(opts.iconColor, theme.muted);
+  const color = isHexColor(opts.iconColor) ? (opts.iconColor as string).trim() : (standalone ? theme.muted : theme.footerText);
+  const sep = `<span style="color:${color};opacity:0.45;">&nbsp;&middot;&nbsp;</span>`;
   const cells = entries.map(([key, url]) => {
     const href = url.startsWith('http') ? url : `https://${url}`;
-    return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key] || key}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
-  }).join('');
+    return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 4px;font-family:${FONT};font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${color};text-decoration:none;">${esc(socialLabel(key, url))}</a>`;
+  }).join(sep);
   const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
   // Le bloc autonome respecte le fond choisi (bgc / tile / accent), sinon la carte.
   const bg = standalone

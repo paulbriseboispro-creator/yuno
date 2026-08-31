@@ -155,11 +155,17 @@ function blockBg(b: EmailBlock, theme: EmailTheme): string {
   return 'transparent';
 }
 
-/** Icônes simpleicons : hex SANS # obligatoire — tout le reste retombe sur un gris sûr. */
-function iconHex(custom: unknown, themeFallback: string): string {
-  const src = isHexColor(custom) ? custom : themeFallback;
-  const m = /^#([0-9a-fA-F]{6})$/.exec(String(src).trim());
-  return m ? m[1] : '7a7a7a';
+/** Libellé d'un lien réseau : nom du réseau, ou domaine pour le site web. */
+export function socialLabel(key: keyof SocialLinks, url: string): string {
+  const names: Record<keyof SocialLinks, string> = {
+    instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', x: 'X', website: 'Site',
+  };
+  if (key !== 'website') return names[key];
+  try {
+    return new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '');
+  } catch {
+    return names.website;
+  }
 }
 
 /** Un bloc conditionnel s'efface pour les destinataires hors règle. */
@@ -359,10 +365,11 @@ function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, p
   );
 }
 
-const SOCIAL_SLUG: Record<keyof SocialLinks, string> = {
-  instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
-};
-
+/**
+ * Réseaux = LIENS TEXTE stylés, pas d'images. Les icônes SVG d'un CDN tiers
+ * étaient invisibles dans Gmail (SVG bloqué) et mortes dès que le CDN ne
+ * répondait pas — du texte s'affiche partout, se colore librement, et clique.
+ */
 function renderSocial(
   theme: EmailTheme,
   ctx: RenderCtx,
@@ -372,11 +379,12 @@ function renderSocial(
   const entries = (Object.entries(ctx.socialLinks || {}) as [keyof SocialLinks, string | undefined][])
     .filter(([, url]) => url && url.trim().length > 0);
   if (entries.length === 0) return '';
-  const color = iconHex(opts.iconColor, theme.muted);
+  const color = isHexColor(opts.iconColor) ? opts.iconColor.trim() : (standalone ? theme.muted : theme.footerText);
+  const sep = `<span style="color:${color};opacity:0.45;">&nbsp;&middot;&nbsp;</span>`;
   const cells = entries.map(([key, url]) => {
     const href = url!.startsWith('http') ? url! : `https://${url}`;
-    return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key]}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
-  }).join('');
+    return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 4px;font-family:${FONT};font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${color};text-decoration:none;">${escapeHtml(socialLabel(key, url!))}</a>`;
+  }).join(sep);
   const padding = standalone && opts.pad ? `${opts.pad.py}px ${opts.pad.px}px` : '18px 24px 4px';
   // Le bloc autonome respecte le fond choisi (bgc / tile / accent), sinon la carte.
   const bg = standalone

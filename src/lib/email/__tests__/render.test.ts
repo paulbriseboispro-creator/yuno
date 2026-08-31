@@ -178,8 +178,11 @@ describe('blocs — un rendu par type', () => {
     expect(renderOne(makeBlock('countdown'))).toBe('');
   });
 
-  it('social : icônes depuis les liens campagne', () => {
-    expect(renderOne(makeBlock('social'))).toContain('instagram');
+  it('social : liens TEXTE stylés depuis les liens campagne — aucune image externe', () => {
+    const html = renderOne(makeBlock('social'));
+    expect(html).toContain('>Instagram</a>');
+    expect(html).toContain('href="https://instagram.com/lesilo"');
+    expect(html).not.toContain('<img'); // plus de CDN d'icônes (Gmail bloquait les SVG)
   });
 
   it('divider et spacer', () => {
@@ -287,20 +290,21 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
     expect(renderOne(txt)).toContain('color:#ff8800');
 
     const soc = makeBlock('social');
-    if (soc.type === 'social') soc.color = '#ffffff';
-    expect(renderOne(soc)).toContain('cdn.simpleicons.org/instagram/ffffff');
+    if (soc.type === 'social') soc.color = '#020448';
+    const socHtml = renderOne(soc);
+    expect(socHtml).toContain('color:#020448');
+    expect(socHtml).toContain('>Instagram</a>');
 
     const div = makeBlock('divider');
     if (div.type === 'divider') div.color = '#333333';
     expect(renderOne(div)).toContain('border-top:1px solid #333333');
   });
 
-  it('icônes sociales : couleur du thème invalide → gris sûr, jamais une URL cassée', () => {
-    const soc = makeBlock('social');
-    const html = renderOne(soc, { }); // muted du thème = hex valide
-    expect(html).toContain(`cdn.simpleicons.org/instagram/${theme.muted.slice(1)}`);
-    const weird = renderBlock(soc, { ...theme, muted: 'rgba(255,255,255,0.5)' }, ctx);
-    expect(weird).toContain('cdn.simpleicons.org/instagram/7a7a7a');
+  it('social : le libellé du site web est son domaine', () => {
+    const html = renderOne(makeBlock('social'), {
+      socialLinks: { website: 'https://www.lesilo.fr/agenda' },
+    });
+    expect(html).toContain('>lesilo.fr</a>');
   });
 
   it('fond personnalisé par bloc (bgc) : prime sur bg, appliqué au social/spacer/divider', () => {
