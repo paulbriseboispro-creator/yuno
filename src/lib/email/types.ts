@@ -47,6 +47,8 @@ export interface ImageBlock extends BlockBase {
   label: string;
   h: number;
   linkUrl?: string;
+  /** Coins arrondis (px). Outlook l'ignore proprement. Défaut : 0. */
+  radius?: number;
 }
 
 export interface TextBlock extends BlockBase {
@@ -69,6 +71,11 @@ export interface CtaBlock extends BlockBase {
   /** 0 = carré, 8 = doux, 999 = pilule (options du prototype). */
   radius: number;
   full: boolean;
+  /**
+   * Couleur de fond de CE bouton (hex #rrggbb). Absent = accent du thème.
+   * Le texte est auto-contrasté (contrastText) quand la couleur est custom.
+   */
+  color?: string;
 }
 
 export interface ColumnsBlock extends BlockBase {
@@ -120,6 +127,11 @@ export interface CountdownBlock extends BlockBase {
   type: 'countdown';
   eventId?: string;
   label: string;
+  /**
+   * Date cible manuelle (ISO UTC) — utilisée quand aucun événement n'est
+   * relié (teaser, ouverture de billetterie…). L'événement live prime.
+   */
+  targetAt?: string;
 }
 
 export interface SocialBlock extends BlockBase { type: 'social' }

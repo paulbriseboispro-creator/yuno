@@ -3,6 +3,7 @@ import {
   makeBlock, renderEmailHtml, renderBlock, countdownParts, looksLikeHtml,
   THEME_PRESETS, THEME_SWATCHES, DEFAULT_STUDIO_THEME,
   interpolateVariables, usesVariables, inlineMarkup, escapeHtml,
+  contrastText, ctaColors,
   runChecklist, checklistBlocksSend,
   migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
 } from '../index';
@@ -234,6 +235,60 @@ describe('blocs — un rendu par type', () => {
   it('tickets : sans données live du tout, les lignes figées restent le repli', () => {
     const b = makeBlock('tickets', { eventId: 'ev-inconnu' });
     expect(renderOne(b, { live: {} })).toContain('Early bird');
+  });
+});
+
+describe('personnalisation — couleur CTA, countdown manuel, image arrondie', () => {
+  it('cta : couleur custom + texte auto-contrasté', () => {
+    const light = makeBlock('cta');
+    if (light.type === 'cta') light.color = '#f5e642'; // jaune clair → texte foncé
+    const htmlLight = renderOne(light);
+    expect(htmlLight).toContain('background:#f5e642');
+    expect(htmlLight).toContain('color:#111111');
+    const dark = makeBlock('cta');
+    if (dark.type === 'cta') dark.color = '#1a1a2e'; // sombre → texte blanc
+    const htmlDark = renderOne(dark);
+    expect(htmlDark).toContain('background:#1a1a2e');
+    expect(htmlDark).toContain('color:#ffffff');
+  });
+
+  it('cta : sans couleur custom, le thème garde la main', () => {
+    const html = renderOne(makeBlock('cta'));
+    expect(html).toContain(`background:${theme.accent}`);
+    expect(html).toContain(`color:${theme.btnText}`);
+  });
+
+  it('ctaColors : couleur invalide ou égale à l\'accent → thème', () => {
+    expect(ctaColors('nawak', theme)).toEqual({ bg: theme.accent, color: theme.btnText });
+    expect(ctaColors(theme.accent.toUpperCase(), theme)).toEqual({ bg: theme.accent, color: theme.btnText });
+    expect(contrastText('#ffffff')).toBe('#111111');
+    expect(contrastText('#000000')).toBe('#ffffff');
+  });
+
+  it('countdown : date cible manuelle quand aucun événement n\'est relié', () => {
+    const b = makeBlock('countdown');
+    if (b.type === 'countdown') b.targetAt = '2026-09-02T23:48:00Z'; // ctx.now = 31/08 12:00 UTC
+    const html = renderOne(b);
+    expect(html).toContain('JOURS');
+    expect(html).toContain('>02<');
+    expect(html).toContain('>11<');
+  });
+
+  it('countdown : l\'événement live prime sur la date manuelle', () => {
+    const b = makeBlock('countdown', { eventId: 'ev-1' });
+    if (b.type === 'countdown') b.targetAt = '2030-01-01T00:00:00Z';
+    const html = renderOne(b); // startAt live = 03/09 → 3 jours, pas des années
+    expect(html).toContain('>03<');
+  });
+
+  it('image : coins arrondis optionnels, bornés', () => {
+    const b = makeBlock('image');
+    if (b.type === 'image') { b.url = 'https://cdn.x/a.jpg'; b.label = 'aff'; b.radius = 12; }
+    expect(renderOne(b)).toContain('border-radius:12px');
+    if (b.type === 'image') b.radius = 99;
+    expect(renderOne(b)).toContain('border-radius:40px');
+    if (b.type === 'image') b.radius = undefined;
+    expect(renderOne(b)).not.toContain('border-radius');
   });
 });
 

@@ -195,6 +195,27 @@ function buttonHtml(opts: {
 <![endif]--><!--[if !mso]><!--><a href="${href}" target="_blank" rel="noreferrer" style="${aWidth}background:${opts.bg};color:${opts.color};text-decoration:none;font-family:${FONT};font-weight:700;font-size:${fontSize}px;line-height:${height}px;mso-line-height-rule:exactly;padding:0 ${opts.small ? 20 : 40}px;border-radius:${radius}px;text-align:center;">${label}</a><!--<![endif]-->`;
 }
 
+/** Miroir strict de isHexColor / contrastText / ctaColors (src/lib/email/render.ts). */
+function isHexColor(c: unknown): c is string {
+  return typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c.trim());
+}
+
+function contrastText(hex: string): '#111111' | '#ffffff' {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 150 ? '#111111' : '#ffffff';
+}
+
+function ctaColors(blockColor: unknown, theme: { accent: string; btnText: string }): { bg: string; color: string } {
+  if (isHexColor(blockColor) && blockColor.trim().toLowerCase() !== theme.accent.toLowerCase()) {
+    const bg = blockColor.trim();
+    return { bg, color: contrastText(bg) };
+  }
+  return { bg: theme.accent, color: theme.btnText };
+}
+
 export function countdownParts(startAtIso: string, now: Date): { days: number; hours: number; mins: number } | null {
   const start = new Date(startAtIso).getTime();
   if (!Number.isFinite(start)) return null;
@@ -288,7 +309,8 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'image': {
       if (!b.url) return '';
-      const img = `<img src="${esc(b.url)}" alt="${esc(b.label || '')}" width="600" style="width:100%;height:auto;display:block;border:0;" class="yn-img" />`;
+      const radius = typeof b.radius === 'number' && b.radius > 0 ? `border-radius:${Math.min(40, b.radius)}px;` : '';
+      const img = `<img src="${esc(b.url)}" alt="${esc(b.label || '')}" width="600" style="width:100%;height:auto;display:block;border:0;${radius}" class="yn-img" />`;
       const linked = b.linkUrl
         ? `<a href="${esc(trackUrl(b.linkUrl as string, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
         : img;
@@ -302,9 +324,10 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`);
     }
     case 'cta': {
+      const colors = ctaColors(b.color, theme);
       const btn = buttonHtml({
         href: (b.url as string) || ctx.baseUrl, label: interpolate((b.label as string) || '', ctx),
-        bg: theme.accent, color: theme.btnText,
+        bg: colors.bg, color: colors.color,
         radius: Number(b.radius ?? 8), full: !!b.full, ctx,
       });
       return td(btn, `padding:${pad.py}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
@@ -398,7 +421,9 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'countdown': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      const parts = live?.startAt ? countdownParts(live.startAt, ctx.now || new Date()) : null;
+      // L'événement live prime ; sinon la date cible manuelle (ISO UTC).
+      const startIso = live?.startAt || (typeof b.targetAt === 'string' ? b.targetAt : '');
+      const parts = startIso ? countdownParts(startIso, ctx.now || new Date()) : null;
       if (!parts) return '';
       const cell = (num: string, unit: string) =>
         `<td width="33%" style="padding:0 5px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:10px 0;border-radius:9px;background:${theme.tile};text-align:center;">

@@ -104,6 +104,29 @@ function buttonHtml(opts: {
 <![endif]--><!--[if !mso]><!--><a href="${href}" target="_blank" rel="noreferrer" style="${aWidth}background:${opts.bg};color:${opts.color};text-decoration:none;font-family:${FONT};font-weight:700;font-size:${fontSize}px;line-height:${height}px;mso-line-height-rule:exactly;padding:0 ${opts.small ? 20 : 40}px;border-radius:${radius}px;text-align:center;">${label}</a><!--<![endif]-->`;
 }
 
+/** true si la chaîne est une couleur hex 6 chiffres utilisable en style inline. */
+export function isHexColor(c: unknown): c is string {
+  return typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c.trim());
+}
+
+/** Texte lisible sur un fond donné (luminance perceptuelle sRGB simple). */
+export function contrastText(hex: string): '#111111' | '#ffffff' {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 150 ? '#111111' : '#ffffff';
+}
+
+/** Fond + texte du bouton CTA : couleur du bloc si custom, sinon le thème. */
+export function ctaColors(blockColor: unknown, theme: { accent: string; btnText: string }): { bg: string; color: string } {
+  if (isHexColor(blockColor) && blockColor.trim().toLowerCase() !== theme.accent.toLowerCase()) {
+    const bg = blockColor.trim();
+    return { bg, color: contrastText(bg) };
+  }
+  return { bg: theme.accent, color: theme.btnText };
+}
+
 /** Décompte {jours, heures, minutes} — rendu en 3 cellules comme le prototype. */
 export function countdownParts(startAtIso: string, now: Date): { days: number; hours: number; mins: number } | null {
   const start = new Date(startAtIso).getTime();
@@ -164,7 +187,8 @@ function renderHeader(b: HeaderBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pa
 
 function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   if (!b.url) return '';
-  const img = `<img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.label)}" width="600" style="width:100%;height:auto;display:block;border:0;" class="yn-img" />`;
+  const radius = typeof b.radius === 'number' && b.radius > 0 ? `border-radius:${Math.min(40, b.radius)}px;` : '';
+  const img = `<img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.label)}" width="600" style="width:100%;height:auto;display:block;border:0;${radius}" class="yn-img" />`;
   const linked = b.linkUrl
     ? `<a href="${escapeHtml(trackUrl(b.linkUrl, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
     : img;
@@ -183,9 +207,10 @@ function renderText(b: TextBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, b
 }
 
 function renderCta(b: CtaBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
+  const colors = ctaColors(b.color, theme);
   const btn = buttonHtml({
     href: b.url, label: interpolateVariables(b.label, ctx),
-    bg: theme.accent, color: theme.btnText,
+    bg: colors.bg, color: colors.color,
     radius: b.radius ?? 8, full: !!b.full, ctx,
   });
   return td(btn, `padding:${pad.py}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
@@ -296,9 +321,11 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
 
 function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
-  const parts = live?.startAt ? countdownParts(live.startAt, ctx.now || new Date()) : null;
+  // L'événement live prime ; sinon la date cible manuelle du bloc.
+  const startIso = live?.startAt || (typeof b.targetAt === 'string' ? b.targetAt : '');
+  const parts = startIso ? countdownParts(startIso, ctx.now || new Date()) : null;
   if (!parts) {
-    // Pas d'événement branché : le bloc s'efface plutôt que d'afficher un
+    // Ni événement ni date cible : le bloc s'efface plutôt que d'afficher un
     // compte à rebours faux — un countdown figé est pire que pas de countdown.
     return '';
   }
