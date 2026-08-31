@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Upload } from '
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileType } from '@/hooks/useProfileType';
-import CampaignBuilder from '@/components/campaigns/CampaignBuilder';
+import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
 import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
@@ -156,7 +156,7 @@ export function OrgAppCampaignEditor() {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
   return (
-    <CampaignBuilder
+    <StudioShell
       basePath="/organizer-app/campaigns"
       scope={{
         kind: 'organizer',

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import CampaignBuilder from '@/components/campaigns/CampaignBuilder';
+import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
-import { slugifyVenueName } from '@/lib/emailCampaign';
+import { slugifyName } from '@/lib/email';
 import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 
@@ -28,6 +28,7 @@ const NEG       = '#FF5C63';
 type Campaign = {
   id: string; name: string; type: 'promotional' | 'informational';
   subject: string; status: string; recipients_count: number; opens_count: number; clicks_count: number;
+  created_at: string; sent_at: string | null; scheduled_at: string | null;
 };
 
 const STATUS_CFG: Record<string, { labelKey: string; color: string; bg: string; border: string }> = {
@@ -56,21 +57,54 @@ export default function OwnerCampaigns() {
   const { t } = useLanguage();
   const { venueId, venue } = useVenueContext();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [revenue, setRevenue] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     if (!venueId) return;
-    supabase.from('email_campaigns').select('id,name,type,subject,status,recipients_count,opens_count,clicks_count')
+    supabase.from('email_campaigns')
+      .select('id,name,type,subject,status,recipients_count,opens_count,clicks_count,created_at,sent_at,scheduled_at')
       .eq('venue_id', venueId).order('created_at', { ascending: false })
-      .then(({ data }) => { setCampaigns((data || []) as any); setLoading(false); });
+      .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
+
+    // Revenu attribué (clic → achat 72 h) : un appel pour toute la liste.
+    supabase.rpc('get_email_campaign_attribution' as never, {
+      p_subject_type: 'venue', p_subject_id: venueId,
+    } as never).then(({ data }) => {
+      const payload = data as unknown as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number }> } | null;
+      if (payload?.supported) {
+        const map: Record<string, number> = {};
+        for (const row of payload.campaigns || []) map[row.id] = row.revenue;
+        setRevenue(map);
+      }
+    });
   }, [venueId]);
 
-  const fromAddr = venue?.name ? `${slugifyVenueName(venue.name)}@yunoapp.eu` : 'votre-club@yunoapp.eu';
+  const fromAddr = venue?.name ? `${slugifyName(venue.name)}@yunoapp.eu` : 'votre-club@yunoapp.eu';
+
+  const fmtDate = (c: Campaign) => {
+    const iso = c.sent_at || c.scheduled_at || c.created_at;
+    return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
+  };
+  const rate = (n: number, total: number) => (total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—');
+  const fmtRevenue = (id: string) => {
+    const value = revenue[id];
+    if (value == null || value === 0) return '—';
+    return `${value.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`;
+  };
+
+  const colHeader: React.CSSProperties = {
+    fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+    color: T3, textAlign: 'right', whiteSpace: 'nowrap',
+  };
+  const cellNum: React.CSSProperties = {
+    fontSize: 12.5, color: T2, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+  };
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 py-6">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
@@ -108,6 +142,7 @@ export default function OwnerCampaigns() {
               style={{
                 background: RED, color: '#fff', border: 'none',
                 padding: '9px 16px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+                boxShadow: '0 0 18px -6px #E8192C',
               }}
             >
               <Plus className="w-4 h-4" />
@@ -146,54 +181,64 @@ export default function OwnerCampaigns() {
             <p style={{ color: T3, fontSize: 14 }}>{t('em.empty')}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {campaigns.map((c) => {
+          <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
+            {/* En-têtes du tableau dense */}
+            <div
+              className="hidden md:grid"
+              style={{
+                gridTemplateColumns: 'minmax(0,1fr) 92px 64px 76px 76px 66px 84px',
+                gap: 12, padding: '10px 16px', borderBottom: `1px solid ${F_BORDER}`,
+              }}
+            >
+              <span style={{ ...colHeader, textAlign: 'left' }}>{t('studio.list.name')}</span>
+              <span style={{ ...colHeader, textAlign: 'left' }}>{t('studio.list.status')}</span>
+              <span style={colHeader}>{t('studio.list.date')}</span>
+              <span style={colHeader}>{t('studio.list.sent')}</span>
+              <span style={colHeader}>{t('studio.list.opens')}</span>
+              <span style={colHeader}>{t('studio.list.clicks')}</span>
+              <span style={colHeader}>{t('studio.list.revenue')}</span>
+            </div>
+            {campaigns.map((c, i) => {
               const s = STATUS_CFG[c.status] || { labelKey: c.status, color: T3, bg: INNER_BG, border: BORDER };
-              const openRate = c.recipients_count > 0 ? ((c.opens_count / c.recipients_count) * 100).toFixed(1) : '0';
               const inFlight = c.status === 'sending' || c.status === 'paused';
               return (
-                <div key={c.id} className="space-y-2">
-                <button
-                  onClick={() => navigate(['sent', 'sending', 'paused'].includes(c.status)
-                    ? `/owner/campaigns/${c.id}/report`
-                    : `/owner/campaigns/${c.id}/edit`)}
-                  className="w-full text-left cursor-pointer transition-all duration-150"
-                  style={{
-                    background: CARD_BG,
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: 14,
-                    boxShadow: CARD_SHADOW,
-                    padding: '14px 16px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{c.name}</h3>
-                      <Chip
-                        label={c.type === 'promotional' ? t('em.typeMarketing') : t('em.typeInfo')}
-                        color={T3} bg={TILE_BG} border={F_BORDER}
+                <div key={c.id} style={{ borderTop: i > 0 ? `1px solid ${F_BORDER}` : 'none' }}>
+                  <button
+                    onClick={() => navigate(['sent', 'sending', 'paused'].includes(c.status)
+                      ? `/owner/campaigns/${c.id}/report`
+                      : `/owner/campaigns/${c.id}/edit`)}
+                    className="w-full text-left cursor-pointer transition-all duration-150 grid grid-cols-2 md:[grid-template-columns:minmax(0,1fr)_92px_64px_76px_76px_66px_84px]"
+                    style={{ gap: 12, padding: '12px 16px', alignItems: 'center', background: 'transparent', border: 'none' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div className="min-w-0 col-span-2 md:col-span-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{c.name}</span>
+                        <Chip
+                          label={c.type === 'promotional' ? t('em.typeMarketing') : t('em.typeInfo')}
+                          color={T3} bg={TILE_BG} border={F_BORDER}
+                        />
+                      </div>
+                      <p className="truncate" style={{ color: T3, fontSize: 11.5, margin: 0 }}>{c.subject}</p>
+                    </div>
+                    <div><Chip label={t(s.labelKey)} color={s.color} bg={s.bg} border={s.border} /></div>
+                    <span className="hidden md:block" style={cellNum}>{fmtDate(c)}</span>
+                    <span className="hidden md:block" style={cellNum}>{c.recipients_count || '—'}</span>
+                    <span className="hidden md:block" style={cellNum}>{rate(c.opens_count, c.recipients_count)}</span>
+                    <span className="hidden md:block" style={cellNum}>{rate(c.clicks_count, c.recipients_count)}</span>
+                    <span className="hidden md:block" style={{ ...cellNum, color: revenue[c.id] ? POS : T3, fontWeight: revenue[c.id] ? 700 : 400 }}>
+                      {fmtRevenue(c.id)}
+                    </span>
+                  </button>
+                  {inFlight && (
+                    <div style={{ padding: '0 16px 12px' }}>
+                      <CampaignSendProgress
+                        campaignId={c.id}
+                        onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
                       />
-                      <Chip label={t(s.labelKey)} color={s.color} bg={s.bg} border={s.border} />
                     </div>
-                    <p className="truncate" style={{ color: T3, fontSize: 12.5, margin: 0 }}>{c.subject}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
-                      <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{c.recipients_count} {t('em.recipients')}</p>
-                      <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>{openRate}% {t('em.openRate')}</p>
-                    </div>
-                    {c.status === 'sent' && <BarChart3 className="w-4 h-4" style={{ color: T3 }} />}
-                  </div>
-                </button>
-                {inFlight && (
-                  <CampaignSendProgress
-                    campaignId={c.id}
-                    onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
-                  />
-                )}
+                  )}
                 </div>
               );
             })}
@@ -216,7 +261,7 @@ export function OwnerCampaignEditor() {
   const { venueId, venue, loading } = useVenueContext();
   if (loading || !venueId) return <OwnerPageSkeleton />;
   return (
-    <CampaignBuilder
+    <StudioShell
       basePath="/owner/campaigns"
       scope={{
         kind: 'venue',
