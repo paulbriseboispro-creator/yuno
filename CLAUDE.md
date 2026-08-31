@@ -347,6 +347,38 @@ pour Excel FR/ES).
 - **Export audience pub** (`export_venue_ad_audience`) : contacts CONSENTANTS
   uniquement (opt-in newsletter ∪ SMS), gate owner — jamais la base brute.
 
+## Email Studio (design + composition + flow — 2026-08-31)
+
+La couche design/composition des campagnes est l'**Email Studio**
+(`src/components/email-studio/`, modèle + rendu dans `src/lib/email/`).
+Plan : `docs/designs/EMAIL_STUDIO_PLAN.md`. Points structurants :
+
+- **Modèle v2 versionné** : `email_campaigns.blocks_version` (1 = ancien
+  modèle, 2 = Studio). Les brouillons v1 migrent à l'ouverture
+  (`src/lib/email/migrate.ts`) ; l'edge route vers le bon renderer.
+- **Le renderer existe en DEUX exemplaires synchronisés** :
+  `src/lib/email/render.ts` (canonique, testé par `npm test`) et son port
+  Deno `supabase/functions/_shared/email-studio-html.ts`. Toute modification
+  de l'un DOIT être répercutée dans l'autre.
+- **Blocs Yuno (event, tickets, table, countdown) = données live** : lues en
+  base AU RENDU (une requête par tranche d'envoi, `fetchStudioLiveData`),
+  jamais figées à la composition. Source des tarifs : `ticket_rounds`.
+- **Audience v2** : `audiences_json` (multi-segments, union) +
+  `exclusions_json` dans `resolve_campaign_audience` ; le net réel vient de
+  `count_campaign_audience(p_campaign_id)` qui lit la campagne SAUVEGARDÉE
+  (le Studio recompte après chaque autosave). La porte opt-in newsletter
+  reste non négociable ; condition inconnue ⇒ FAUX.
+- **A/B d'objet** : variantes assignées à l'enqueue
+  (`assign_campaign_ab_variants`, déterministe), phase de test gatée dans
+  `claim_campaign_recipients`, gagnant déclaré à l'ouverture par le cron
+  (`resolve_campaign_ab_winner`) puis le drain repart avec l'objet gagnant.
+- **Quiet hours (22 h → 9 h Paris) et throttling par heure glissante** sont
+  des portes de sortie propres de `drainSlice` (comme le quota) : le cron
+  reprend, ce ne sont jamais des échecs.
+- `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
+  templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
+  utiliser pour les campagnes.
+
 ## Envoi de masse email (2026-08-29)
 
 Doc complète + runbook DNS : `docs/EMAIL_DELIVERABILITY.md`. Les règles
