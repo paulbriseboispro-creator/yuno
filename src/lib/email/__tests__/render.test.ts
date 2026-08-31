@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   makeBlock, renderEmailHtml, renderBlock, countdownParts, looksLikeHtml,
   THEME_PRESETS, THEME_SWATCHES, DEFAULT_STUDIO_THEME,
-  interpolateVariables, usesVariables,
+  interpolateVariables, usesVariables, inlineMarkup, escapeHtml,
   runChecklist, checklistBlocksSend,
   migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
 } from '../index';
@@ -200,6 +200,116 @@ describe('blocs — un rendu par type', () => {
     const html = renderOne(b);
     expect(html).toContain('padding:32px 40px');
     expect(html).toContain(`background:${theme.tile}`);
+  });
+
+  it('marge zéro : les blocs se collent réellement (py=0 respecté partout)', () => {
+    const txt = makeBlock('text');
+    if (txt.type === 'text') { txt.px = 0; txt.py = 0; }
+    expect(renderOne(txt)).toContain('padding:0px 0px');
+    const cta = makeBlock('cta');
+    if (cta.type === 'cta') { cta.px = 0; cta.py = 0; }
+    expect(renderOne(cta)).toContain('padding:0px 0px'); // plus de +6 caché
+    const head = makeBlock('header');
+    head.px = 0; head.py = 0;
+    expect(renderOne(head)).toContain('padding:0px 0px');
+    const div = makeBlock('divider');
+    div.py = 0;
+    expect(renderOne(div)).toContain('padding:0px 24px');
+  });
+
+  it('défauts de marge PAR TYPE : header 30/24, cta 24/24, divider 10/24', () => {
+    expect(renderOne(makeBlock('header'))).toContain('padding:30px 24px');
+    expect(renderOne(makeBlock('cta'))).toContain('padding:24px 24px');
+    expect(renderOne(makeBlock('divider'))).toContain('padding:10px 24px');
+  });
+
+  it('tickets : événement live SANS billetterie → bloc effacé, jamais les placeholders', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-1' });
+    const html = renderOne(b, {
+      live: { 'ev-1': { ...ctx.live!['ev-1'], tickets: [] } },
+    });
+    expect(html).toBe('');
+  });
+
+  it('tickets : sans données live du tout, les lignes figées restent le repli', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-inconnu' });
+    expect(renderOne(b, { live: {} })).toContain('Early bird');
+  });
+});
+
+describe('inlineMarkup — mise en forme inline du texte', () => {
+  const opts = { accent: '#dc2626' };
+
+  it('gras, italique, barré, souligné', () => {
+    expect(inlineMarkup('**gras**', opts)).toBe('<strong>gras</strong>');
+    expect(inlineMarkup('*ita*', opts)).toBe('<em>ita</em>');
+    expect(inlineMarkup('~~barré~~', opts)).toContain('line-through');
+    expect(inlineMarkup('__sous__', opts)).toContain('text-decoration:underline');
+  });
+
+  it('couleur hex + couleur accent + taille bornée', () => {
+    expect(inlineMarkup('[c=#ff0000]rouge[/c]', opts)).toContain('color:#ff0000');
+    expect(inlineMarkup('[c=accent]thème[/c]', opts)).toContain('color:#dc2626');
+    expect(inlineMarkup('[s=22]grand[/s]', opts)).toContain('font-size:22px');
+    expect(inlineMarkup('[s=99]borné[/s]', opts)).toContain('font-size:40px');
+  });
+
+  it('lien : URL traquée + couleur accent', () => {
+    const out = inlineMarkup('[url=https://yunoapp.eu/event/x]billets[/url]', {
+      accent: '#dc2626', track: (u) => `${u}?yc=camp-1`,
+    });
+    expect(out).toContain('href="https://yunoapp.eu/event/x?yc=camp-1"');
+    expect(out).toContain('>billets</a>');
+  });
+
+  it('imbrication : couleur DANS du gras', () => {
+    const out = inlineMarkup('**[c=#ff0000]rouge gras[/c]**', opts);
+    expect(out).toContain('<strong><span style="color:#ff0000;">rouge gras</span></strong>');
+  });
+
+  it('le HTML utilisateur reste échappé (markup appliqué après escapeHtml)', () => {
+    const out = inlineMarkup(escapeHtml('**gras** <script>alert(1)</script>'), opts);
+    expect(out).toContain('<strong>gras</strong>');
+    expect(out).not.toContain('<script>');
+    expect(out).toContain('&lt;script&gt;');
+  });
+
+  it('bout en bout : bloc texte avec markup + variables', () => {
+    const b = makeBlock('text');
+    if (b.type === 'text') b.body = 'Salut **{{prénom}}**, [c=accent]soirée[/c] à ~~25 €~~ [s=20]18 €[/s] !';
+    const html = renderBlock(b, theme, ctx);
+    expect(html).toContain('<strong>Camille</strong>');
+    expect(html).toContain(`color:${theme.accent};">soirée</span>`);
+    expect(html).toContain('line-through;">25 €</span>');
+    expect(html).toContain('font-size:20px');
+  });
+});
+
+describe('header — marque héritée du compte', () => {
+  it("affiche le logo du compte quand le bloc n'en a pas", () => {
+    const html = renderOne(makeBlock('header', { venueName: 'Le Silo' }), {
+      logoUrl: 'https://cdn.example.com/logo-club.png',
+    });
+    expect(html).toContain('https://cdn.example.com/logo-club.png');
+  });
+
+  it('laisse le logo choisi à la main gagner sur celui du compte', () => {
+    const html = renderOne(
+      makeBlock('header', { venueName: 'Le Silo', logoUrl: 'https://cdn.example.com/custom.png' }),
+      { logoUrl: 'https://cdn.example.com/logo-club.png' },
+    );
+    expect(html).toContain('https://cdn.example.com/custom.png');
+    expect(html).not.toContain('logo-club.png');
+  });
+
+  it("n'affiche aucune image quand ni le bloc ni le compte n'ont de logo", () => {
+    const html = renderOne(makeBlock('header', { venueName: 'Le Silo' }), { logoUrl: null });
+    expect(html).not.toContain('<img');
+  });
+
+  it('hérite aussi du nom du compte quand le bloc ne le porte pas', () => {
+    const b = { ...makeBlock('header', {}), venueName: '' } as EmailBlock;
+    expect(renderOne(b)).toContain('Le Silo');
   });
 });
 

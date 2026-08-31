@@ -49,6 +49,8 @@ export interface StudioRecipient {
 export interface StudioRenderCtx {
   venueName: string;
   city?: string | null;
+  /** Logo du compte expéditeur — repli du bloc header (voir render.ts). */
+  logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
   subject: string;
   preheader?: string;
@@ -138,10 +140,33 @@ function looksLikeHtml(body: string): boolean {
   return /<\s*(p|br|strong|em|b|i|a|u|ul|ol|li|span|div)[\s/>]/i.test(body || '');
 }
 
-function plainToParagraphs(body: string, fontSize: number, color: string): string {
+interface InlineMarkupOpts { accent: string; track?: (url: string) => string }
+
+/** Mini-markup inline (miroir strict de inlineMarkup dans src/lib/email/render.ts). */
+function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
+  let s = escaped;
+  s = s.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, (_m, rawHref: string, label: string) => {
+    const href = rawHref.replace(/&amp;/g, '&').trim();
+    const url = opts.track ? opts.track(href) : href;
+    return `<a href="${esc(url)}" target="_blank" rel="noreferrer" style="color:${opts.accent};text-decoration:underline;">${label}</a>`;
+  });
+  s = s.replace(/\[c=(accent|#[0-9a-fA-F]{3,8})\]([\s\S]*?)\[\/c\]/gi, (_m, c: string, inner: string) =>
+    `<span style="color:${c.toLowerCase() === 'accent' ? opts.accent : c};">${inner}</span>`);
+  s = s.replace(/\[s=(\d{1,3})\]([\s\S]*?)\[\/s\]/gi, (_m, n: string, inner: string) => {
+    const px = Math.max(10, Math.min(40, Number(n)));
+    return `<span style="font-size:${px}px;line-height:1.4;">${inner}</span>`;
+  });
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/~~([^~]+)~~/g, '<span style="text-decoration:line-through;">$1</span>');
+  s = s.replace(/__([^_]+)__/g, '<span style="text-decoration:underline;">$1</span>');
+  s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  return s;
+}
+
+function plainToParagraphs(body: string, fontSize: number, color: string, markup: InlineMarkupOpts): string {
   const lines = String(body || '').split('\n');
   return lines
-    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${esc(line)}</p>`)
+    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${inlineMarkup(esc(line), markup)}</p>`)
     .join('');
 }
 
@@ -183,8 +208,19 @@ export function countdownParts(startAtIso: string, now: Date): { days: number; h
 
 const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
 
+/** Marges par défaut PAR TYPE (miroir de TYPE_PAD_DEFAULTS dans src/lib/email/types.ts). */
+const TYPE_PAD_DEFAULTS: Record<string, { px: number; py: number }> = {
+  header: { px: 24, py: 30 },
+  image: { px: 0, py: 0 },
+  divider: { px: 24, py: 10 },
+  social: { px: 24, py: 18 },
+  cta: { px: 24, py: 24 },
+  html: { px: 24, py: 0 },
+};
+
 function blockPad(b: StudioBlock): { px: number; py: number } {
-  return { px: typeof b.px === 'number' ? b.px : DEFAULT_PX, py: typeof b.py === 'number' ? b.py : DEFAULT_PY };
+  const d = TYPE_PAD_DEFAULTS[b.type] || { px: DEFAULT_PX, py: DEFAULT_PY };
+  return { px: typeof b.px === 'number' ? b.px : d.px, py: typeof b.py === 'number' ? b.py : d.py };
 }
 
 function blockBg(b: StudioBlock, theme: StudioTheme): string {
@@ -219,7 +255,7 @@ const SOCIAL_SLUG: Record<string, string> = {
   instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
 };
 
-function renderSocial(theme: StudioTheme, ctx: StudioRenderCtx, standalone: boolean): string {
+function renderSocial(theme: StudioTheme, ctx: StudioRenderCtx, standalone: boolean, pad?: { px: number; py: number }): string {
   const entries = Object.entries(ctx.socialLinks || {})
     .filter(([, url]) => typeof url === 'string' && url.trim().length > 0) as [string, string][];
   if (entries.length === 0) return '';
@@ -228,7 +264,8 @@ function renderSocial(theme: StudioTheme, ctx: StudioRenderCtx, standalone: bool
     const href = url.startsWith('http') ? url : `https://${url}`;
     return `<a href="${esc(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key] || key}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
   }).join('');
-  return td(cells, `padding:18px 24px${standalone ? '' : ' 4px'};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
+  const padding = standalone && pad ? `${pad.py}px ${pad.px}px` : '18px 24px 4px';
+  return td(cells, `padding:${padding};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
 }
 
 export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: StudioRenderCtx): string {
@@ -239,13 +276,15 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     case 'header': {
       const size = LOGO_SIZES[b.logoSize as string] || LOGO_SIZES.md;
       const radius = b.logoShape === 'circle' ? '50%' : b.logoShape === 'rounded' ? '14px' : '0';
-      const logo = b.logoUrl
-        ? `<img src="${esc(b.logoUrl)}" alt="${esc(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
+      // Repli automatique sur le logo du compte (miroir de render.ts).
+      const logoSrc = (b.logoUrl as string) || ctx.logoUrl || '';
+      const logo = logoSrc
+        ? `<img src="${esc(logoSrc)}" alt="${esc(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
         : '';
       const name = b.showName
         ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${theme.headerText};letter-spacing:0.06em;">${esc(b.venueName || ctx.venueName)}</h1>`
         : '';
-      return td(logo + name, `padding:30px 24px;text-align:center;background:${theme.headerBg};`);
+      return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${theme.headerBg};`);
     }
     case 'image': {
       if (!b.url) return '';
@@ -253,12 +292,13 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const linked = b.linkUrl
         ? `<a href="${esc(trackUrl(b.linkUrl as string, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
         : img;
-      return `<tr><td style="padding:0;font-size:0;line-height:0;">${linked}</td></tr>`;
+      return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};font-size:0;line-height:0;">${linked}</td></tr>`;
     }
     case 'text': {
       const size = Math.max(11, Math.min(28, Number(b.size) || 16));
       const raw = interpolate((b.body as string) || '', ctx);
-      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text);
+      const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
+      const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text, markup);
       return td(inner, `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`);
     }
     case 'cta': {
@@ -267,7 +307,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         bg: theme.accent, color: theme.btnText,
         radius: Number(b.radius ?? 8), full: !!b.full, ctx,
       });
-      return td(btn, `padding:${pad.py + 6}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
+      return td(btn, `padding:${pad.py}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
     }
     case 'columns': {
       const col = (c: { title?: string; body?: string } | undefined, side: 'l' | 'r') =>
@@ -316,8 +356,10 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'tickets': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      const rows: StudioTicketRow[] = (b.live !== false && live?.tickets && live.tickets.length > 0)
-        ? live.tickets
+      // Live branché : la base fait foi. Un événement SANS billetterie (guest
+      // list seule) efface le bloc — jamais de tarifs inventés (miroir render.ts).
+      const rows: StudioTicketRow[] = (b.live !== false && live)
+        ? (live.tickets || [])
         : ((b.rows as StudioTicketRow[]) || []);
       if (!rows || rows.length === 0) return '';
       const url = live?.url || ctx.baseUrl;
@@ -374,15 +416,15 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       );
     }
     case 'social':
-      return renderSocial(theme, ctx, true);
+      return renderSocial(theme, ctx, true, pad);
     case 'divider':
-      return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:10px ${pad.px}px;`);
+      return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;`);
     case 'spacer': {
       const h = SPACER_SIZES[b.size as string] || SPACER_SIZES.md;
       return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;">&nbsp;</td></tr>`;
     }
     case 'html':
-      return `<tr><td style="padding:0 ${pad.px}px;background:${bg};">${interpolate((b.code as string) || '', ctx)}</td></tr>`;
+      return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${interpolate((b.code as string) || '', ctx)}</td></tr>`;
     default:
       return '';
   }
@@ -607,7 +649,9 @@ export async function fetchStudioLiveData(
         coverUrl: e.poster_url || e.image_url || null,
         url: `${publicUrl}/event/${e.slug || e.id}`,
         priceFromLabel: priceFrom != null ? `À partir de ${euro(priceFrom)}` : null,
-        tickets: tickets.length ? tickets : undefined,
+        // Tableau TOUJOURS présent : vide = pas de billetterie (bloc effacé),
+        // undefined = événement non résolu (le bloc retombe sur ses props).
+        tickets,
         tablesLeft,
       };
     }

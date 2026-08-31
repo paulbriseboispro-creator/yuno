@@ -147,6 +147,24 @@ export const SPACER_SIZES: Record<SpacerBlock['size'], number> = { sm: 8, md: 16
 export const DEFAULT_PY = 18;
 export const DEFAULT_PX = 24;
 
+/**
+ * Marges par défaut PAR TYPE. Le rendu (front + edge), le canvas et
+ * l'inspecteur lisent la même table : un bloc sans px/py explicites garde le
+ * visuel du prototype, et poser 0 colle réellement les blocs entre eux.
+ */
+export const TYPE_PAD_DEFAULTS: Partial<Record<BlockType, { px: number; py: number }>> = {
+  header: { px: 24, py: 30 },
+  image: { px: 0, py: 0 },
+  divider: { px: 24, py: 10 },
+  social: { px: 24, py: 18 },
+  cta: { px: 24, py: 24 },
+  html: { px: 24, py: 0 },
+};
+
+export function blockPadDefaults(type: BlockType): { px: number; py: number } {
+  return TYPE_PAD_DEFAULTS[type] || { px: DEFAULT_PX, py: DEFAULT_PY };
+}
+
 // ── Thème email (tokens du MAIL, distincts des tokens UI du Studio) ─────────
 
 export interface EmailTheme {
@@ -205,6 +223,12 @@ export type LiveData = Record<string, LiveEventData>;
 export interface RenderCtx {
   venueName: string;
   city?: string | null;
+  /**
+   * Logo du club / de l'organisateur, résolu par l'appelant (scope Studio en
+   * aperçu, expéditeur en envoi). Sert de repli au bloc header : un header
+   * sans logo choisi à la main affiche automatiquement la marque du compte.
+   */
+  logoUrl?: string | null;
   emailType: 'promotional' | 'informational';
   subject: string;
   preheader?: string;

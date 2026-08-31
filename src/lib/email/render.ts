@@ -18,7 +18,7 @@ import type {
   HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock,
   TicketsBlock, TableBlock, CountdownBlock, SpacerBlock, HtmlBlock,
 } from './types';
-import { DEFAULT_PX, DEFAULT_PY, LOGO_SIZES, SPACER_SIZES } from './types';
+import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import { interpolateVariables } from './variables';
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
@@ -36,11 +36,44 @@ export function looksLikeHtml(body: string): boolean {
   return /<\s*(p|br|strong|em|b|i|a|u|ul|ol|li|span|div)[\s/>]/i.test(body || '');
 }
 
+export interface InlineMarkupOpts {
+  accent: string;
+  /** Traqueur de liens (attribution clic→achat). Absent = URL brute. */
+  track?: (url: string) => string;
+}
+
+/**
+ * Mini-markup inline des blocs texte — s'applique APRÈS échappement HTML,
+ * donc aucun HTML utilisateur ne passe. Syntaxe (une ligne à la fois) :
+ *   **gras**   *italique*   ~~barré~~   __souligné__
+ *   [c=#ff0000]couleur[/c]   [c=accent]couleur du thème[/c]
+ *   [s=22]taille en px[/s]   [url=https://…]lien[/url]
+ */
+export function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
+  let s = escaped;
+  s = s.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, (_m, rawHref: string, label: string) => {
+    const href = rawHref.replace(/&amp;/g, '&').trim();
+    const url = opts.track ? opts.track(href) : href;
+    return `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer" style="color:${opts.accent};text-decoration:underline;">${label}</a>`;
+  });
+  s = s.replace(/\[c=(accent|#[0-9a-fA-F]{3,8})\]([\s\S]*?)\[\/c\]/gi, (_m, c: string, inner: string) =>
+    `<span style="color:${c.toLowerCase() === 'accent' ? opts.accent : c};">${inner}</span>`);
+  s = s.replace(/\[s=(\d{1,3})\]([\s\S]*?)\[\/s\]/gi, (_m, n: string, inner: string) => {
+    const px = Math.max(10, Math.min(40, Number(n)));
+    return `<span style="font-size:${px}px;line-height:1.4;">${inner}</span>`;
+  });
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/~~([^~]+)~~/g, '<span style="text-decoration:line-through;">$1</span>');
+  s = s.replace(/__([^_]+)__/g, '<span style="text-decoration:underline;">$1</span>');
+  s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  return s;
+}
+
 /** Corps texte brut → paragraphes HTML (variables interpolées par l'appelant). */
-function plainToParagraphs(body: string, fontSize: number, color: string): string {
+function plainToParagraphs(body: string, fontSize: number, color: string, markup: InlineMarkupOpts): string {
   const lines = String(body || '').split('\n');
   return lines
-    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${escapeHtml(line)}</p>`)
+    .map((line, i) => `<p style="margin:0${i < lines.length - 1 ? ' 0 10px' : ''};font-size:${fontSize}px;line-height:1.6;color:${color};">${inlineMarkup(escapeHtml(line), markup)}</p>`)
     .join('');
 }
 
@@ -88,7 +121,8 @@ const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
 // ── Enveloppe de bloc : marges + fond + règle de visibilité ─────────────────
 
 function blockPad(b: EmailBlock): { px: number; py: number } {
-  return { px: b.px ?? DEFAULT_PX, py: b.py ?? DEFAULT_PY };
+  const d = blockPadDefaults(b.type);
+  return { px: b.px ?? d.px, py: b.py ?? d.py };
 }
 
 function blockBg(b: EmailBlock, theme: EmailTheme): string {
@@ -114,31 +148,34 @@ function td(inner: string, style: string): string {
 
 // ── Rendu par type de bloc ───────────────────────────────────────────────────
 
-function renderHeader(b: HeaderBlock, theme: EmailTheme, ctx: RenderCtx): string {
+function renderHeader(b: HeaderBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad): string {
   const size = LOGO_SIZES[b.logoSize] || LOGO_SIZES.md;
   const radius = b.logoShape === 'circle' ? '50%' : b.logoShape === 'rounded' ? '14px' : '0';
-  const logo = b.logoUrl
-    ? `<img src="${escapeHtml(b.logoUrl)}" alt="${escapeHtml(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
+  // Repli automatique sur le logo du compte : le pro n'a rien à re-téléverser.
+  const logoSrc = b.logoUrl || ctx.logoUrl || '';
+  const logo = logoSrc
+    ? `<img src="${escapeHtml(logoSrc)}" alt="${escapeHtml(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
     : '';
   const name = b.showName
     ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${theme.headerText};letter-spacing:0.06em;">${escapeHtml(b.venueName || ctx.venueName)}</h1>`
     : '';
-  return td(logo + name, `padding:30px 24px;text-align:center;background:${theme.headerBg};`);
+  return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${theme.headerBg};`);
 }
 
-function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx): string {
+function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   if (!b.url) return '';
   const img = `<img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.label)}" width="600" style="width:100%;height:auto;display:block;border:0;" class="yn-img" />`;
   const linked = b.linkUrl
     ? `<a href="${escapeHtml(trackUrl(b.linkUrl, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
     : img;
-  return `<tr><td style="padding:0;font-size:0;line-height:0;">${linked}</td></tr>`;
+  return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};font-size:0;line-height:0;">${linked}</td></tr>`;
 }
 
 function renderText(b: TextBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const size = Math.max(11, Math.min(28, b.size || 16));
   const raw = interpolateVariables(b.body || '', ctx);
-  const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text);
+  const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
+  const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, theme.text, markup);
   return td(
     inner,
     `padding:${pad.py}px ${pad.px}px;background:${bg};font-family:${FONT};font-size:${size}px;line-height:1.6;color:${theme.text};text-align:${b.align || 'left'};`,
@@ -151,7 +188,7 @@ function renderCta(b: CtaBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg:
     bg: theme.accent, color: theme.btnText,
     radius: b.radius ?? 8, full: !!b.full, ctx,
   });
-  return td(btn, `padding:${pad.py + 6}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
+  return td(btn, `padding:${pad.py}px ${pad.px}px;background:${bg};text-align:${b.align || 'center'};`);
 }
 
 function renderColumns(b: ColumnsBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
@@ -217,7 +254,9 @@ function renderTicketRows(rows: TicketRow[], theme: EmailTheme): string {
 
 function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
-  const rows = (b.live && live?.tickets && live.tickets.length > 0) ? live.tickets : b.rows;
+  // Live branché : la base fait foi. Un événement SANS billetterie (guest list
+  // seule) efface le bloc — jamais de tarifs inventés depuis les placeholders.
+  const rows = (b.live && live) ? (live.tickets || []) : b.rows;
   if (!rows || rows.length === 0) return '';
   const url = live?.url || ctx.baseUrl;
   const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: theme.accent, color: theme.btnText, radius: 8, full: true, ctx, small: true });
@@ -283,7 +322,7 @@ const SOCIAL_SLUG: Record<keyof SocialLinks, string> = {
   instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
 };
 
-function renderSocial(theme: EmailTheme, ctx: RenderCtx, standalone: boolean): string {
+function renderSocial(theme: EmailTheme, ctx: RenderCtx, standalone: boolean, pad?: Pad): string {
   const entries = (Object.entries(ctx.socialLinks || {}) as [keyof SocialLinks, string | undefined][])
     .filter(([, url]) => url && url.trim().length > 0);
   if (entries.length === 0) return '';
@@ -292,7 +331,8 @@ function renderSocial(theme: EmailTheme, ctx: RenderCtx, standalone: boolean): s
     const href = url!.startsWith('http') ? url! : `https://${url}`;
     return `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer" style="display:inline-block;margin:0 7px;text-decoration:none;"><img src="https://cdn.simpleicons.org/${SOCIAL_SLUG[key]}/${color}" alt="${key}" width="20" height="20" style="display:inline-block;border:0;" /></a>`;
   }).join('');
-  return td(cells, `padding:18px 24px${standalone ? '' : ' 4px'};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
+  const padding = standalone && pad ? `${pad.py}px ${pad.px}px` : '18px 24px 4px';
+  return td(cells, `padding:${padding};text-align:center;background:${standalone ? theme.card : theme.footerBg};`);
 }
 
 function renderSpacer(b: SpacerBlock): string {
@@ -300,13 +340,12 @@ function renderSpacer(b: SpacerBlock): string {
   return `<tr><td style="height:${h}px;line-height:${h}px;mso-line-height-rule:exactly;font-size:0;">&nbsp;</td></tr>`;
 }
 
-function renderDivider(b: DividerBlockLike, theme: EmailTheme): string {
-  return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:10px ${b.px ?? DEFAULT_PX}px;`);
+function renderDivider(pad: Pad, theme: EmailTheme): string {
+  return td(`<hr style="border:none;border-top:1px solid ${theme.divider};margin:0;" />`, `padding:${pad.py}px ${pad.px}px;`);
 }
-interface DividerBlockLike { px?: number }
 
 function renderHtmlBlock(b: HtmlBlock, ctx: RenderCtx, pad: Pad, bg: string): string {
-  return `<tr><td style="padding:0 ${pad.px}px;background:${bg};">${interpolateVariables(b.code || '', ctx)}</td></tr>`;
+  return `<tr><td style="padding:${pad.py}px ${pad.px}px;background:${bg};">${interpolateVariables(b.code || '', ctx)}</td></tr>`;
 }
 
 export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): string {
@@ -314,8 +353,8 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
   const pad = blockPad(b);
   const bg = blockBg(b, theme);
   switch (b.type) {
-    case 'header': return renderHeader(b, theme, ctx);
-    case 'image': return renderImage(b, theme, ctx);
+    case 'header': return renderHeader(b, theme, ctx, pad);
+    case 'image': return renderImage(b, theme, ctx, pad, bg);
     case 'text': return renderText(b, theme, ctx, pad, bg);
     case 'cta': return renderCta(b, theme, ctx, pad, bg);
     case 'columns': return renderColumns(b, theme, ctx, pad, bg);
@@ -323,8 +362,8 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
     case 'tickets': return renderTickets(b, theme, ctx, pad, bg);
     case 'table': return renderTable(b, theme, ctx, pad, bg);
     case 'countdown': return renderCountdown(b, theme, ctx, pad, bg);
-    case 'social': return renderSocial(theme, ctx, true);
-    case 'divider': return renderDivider(b, theme);
+    case 'social': return renderSocial(theme, ctx, true, pad);
+    case 'divider': return renderDivider(pad, theme);
     case 'spacer': return renderSpacer(b);
     case 'html': return renderHtmlBlock(b, ctx, pad, bg);
   }
