@@ -1,25 +1,37 @@
 import type { CountdownBlock, EmailTheme } from '@/lib/email';
-import { formatCountdown } from '@/lib/email';
-import { EMAIL_FONT, type CanvasCtx } from './common';
+import { countdownParts } from '@/lib/email';
+import { EMAIL_FONT, blockPad, type CanvasCtx } from './common';
 
+/** 3 cellules JOURS / HEURES / MIN (cdCard du prototype). */
 export default function CountdownView({ block, theme, ctx }: { block: CountdownBlock; theme: EmailTheme; ctx: CanvasCtx }) {
+  const pad = blockPad(block);
   const live = block.eventId ? ctx.live[block.eventId] : undefined;
-  const value = live?.startAt ? formatCountdown(live.startAt, new Date()) : null;
+  const parts = live?.startAt ? countdownParts(live.startAt, new Date()) : null;
+  const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
+  const cells: [string, string][] = parts
+    ? [[pad2(parts.days), 'JOURS'], [pad2(parts.hours), 'HEURES'], [pad2(parts.mins), 'MIN']]
+    : [['02', 'JOURS'], ['11', 'HEURES'], ['48', 'MIN']];
   return (
-    <div style={{ padding: '22px 24px', textAlign: 'center' }}>
-      <p style={{
-        margin: '0 0 6px', fontFamily: EMAIL_FONT, fontSize: 11, fontWeight: 700,
-        letterSpacing: '.08em', textTransform: 'uppercase', color: theme.muted,
-      }}>{block.label}</p>
-      <p style={{
-        margin: 0, fontFamily: EMAIL_FONT, fontSize: 34, lineHeight: '40px',
-        fontWeight: 800, color: theme.accent,
-      }}>{value || 'J-?'}</p>
-      {!value && (
-        <p style={{ margin: '6px 0 0', fontFamily: EMAIL_FONT, fontSize: 11, color: theme.muted }}>
-          Relie un événement pour calculer le compte à rebours à l’envoi
-        </p>
-      )}
+    <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
+      <div style={{ border: `1px solid ${theme.divider}`, borderRadius: 12, padding: 18, textAlign: 'center' }}>
+        <div style={{
+          fontFamily: EMAIL_FONT, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+          color: theme.muted, marginBottom: 12,
+        }}>{block.label}</div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
+          {cells.map(([num, unit]) => (
+            <div key={unit} style={{ minWidth: 62, padding: '10px 0', borderRadius: 9, background: theme.tile }}>
+              <div style={{ fontFamily: EMAIL_FONT, fontSize: 24, fontWeight: 700, color: theme.accent, fontVariantNumeric: 'tabular-nums' }}>{num}</div>
+              <div style={{ fontFamily: EMAIL_FONT, fontSize: 10, color: theme.muted, letterSpacing: '0.1em', marginTop: 2 }}>{unit}</div>
+            </div>
+          ))}
+        </div>
+        {!parts && (
+          <div style={{ fontFamily: EMAIL_FONT, fontSize: 11, color: theme.muted, marginTop: 10 }}>
+            Relie un événement : le compteur sera calculé à l’envoi
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,21 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { StoreApi } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   makeBlock, migrateV1Audience, migrateV1Blocks, migrateV1SocialLinks, migrateV1Theme,
-  normalizeTheme, DEFAULT_STUDIO_THEME,
+  normalizeTheme, normalizeV2Blocks, DEFAULT_STUDIO_THEME,
   type AudienceExclusions, type AudienceSel, type EmailBlock, type SocialLinks, type StudioCampaign,
 } from '@/lib/email';
-import { createStudioStore, StudioStoreContext, useStudio, useStudioApi, type StudioState, type StudioStep } from './store';
+import {
+  createStudioStore, StudioStoreContext, useStudio, useStudioApi,
+  type StudioState, type StudioStep,
+} from './store';
 import { useSavedSegments, useStudioEvents, useStudioLiveData, type StudioScope } from './hooks';
-import { StudioGlobalStyles, APP_BG, BORDER, FONT_UI, GhostBtn, IconBtn, PANEL_BG, PrimaryBtn, RED, T1, T3, UnderlineTabs } from './ui';
+import {
+  StudioGlobalStyles, APP_BG, BORDER, FONT_UI, GhostBtn, PANEL_BG, PAGE_HALO,
+  PrimaryBtn, RED, SUBTLE, T1, T2, T3, TOPBAR_BG, UnderlineTabs,
+} from './ui';
 import TopBar from './TopBar';
 import BlockPalette from './BlockPalette';
-import Canvas from './Canvas';
+import CanvasColumn from './Canvas';
 import Inspector from './Inspector';
 import ThemePanel from './ThemePanel';
 import DataPanel from './DataPanel';
@@ -57,7 +63,7 @@ interface CampaignRow {
 function rowToCampaign(row: CampaignRow, venueName: string): StudioCampaign {
   const isV2 = Number(row.blocks_version || 1) >= 2;
   const blocks: EmailBlock[] = isV2
-    ? ((row.blocks_json as EmailBlock[]) || [])
+    ? normalizeV2Blocks(row.blocks_json)
     : migrateV1Blocks(row.blocks_json, venueName);
   const theme = isV2 ? normalizeTheme(row.theme_json) : migrateV1Theme(row.theme_json);
   const rawAudiences = Array.isArray(row.audiences_json) ? (row.audiences_json as AudienceSel[]) : [];
@@ -162,6 +168,12 @@ export default function StudioShell({ scope, basePath }: Props) {
           makeBlock('header', { venueName: scope.name, logoUrl: scope.logoUrl || undefined }),
           makeBlock('text'),
         ];
+        // Thème du club sauvegardé depuis le panneau Thème, sinon preset 1.
+        let initialTheme = DEFAULT_STUDIO_THEME;
+        try {
+          const saved = localStorage.getItem('yn-studio-club-theme');
+          if (saved) initialTheme = normalizeTheme(JSON.parse(saved));
+        } catch { /* stockage indisponible */ }
         const insert: Record<string, unknown> = {
           name: t('studio.newName'),
           type: 'promotional',
@@ -169,7 +181,7 @@ export default function StudioShell({ scope, basePath }: Props) {
           preheader: '',
           blocks_json: initialBlocks,
           blocks_version: 2,
-          theme_json: DEFAULT_STUDIO_THEME,
+          theme_json: initialTheme,
           social_links_json: {},
           logo_url: scope.logoUrl || null,
           audiences_json: [],
@@ -265,6 +277,46 @@ export default function StudioShell({ scope, basePath }: Props) {
   );
 }
 
+/** Chips d'étapes numérotées du parcours (prototype stepSt). */
+function StepChips({ current, onGo }: { current: StudioStep; onGo: (s: StudioStep) => void }) {
+  const { t } = useLanguage();
+  const items: { n: number; step: StudioStep; labelKey: string }[] = [
+    { n: 1, step: 'studio', labelKey: 'studio.step.studio' },
+    { n: 2, step: 'audience', labelKey: 'studio.step.audience' },
+    { n: 3, step: 'schedule', labelKey: 'studio.step.schedule' },
+    { n: 4, step: 'review', labelKey: 'studio.step.review' },
+  ];
+  const cur = STEP_ORDER.indexOf(current) + 1;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {items.map((it) => {
+        const on = it.n === cur;
+        const done = it.n < cur;
+        return (
+          <button
+            key={it.step} type="button" onClick={() => onGo(it.step)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 13px',
+              borderRadius: 999, fontSize: 12.5, fontWeight: 560, cursor: 'pointer', fontFamily: FONT_UI,
+              color: on ? T1 : done ? T2 : T3,
+              background: on ? 'rgba(232,25,44,0.10)' : 'transparent',
+              border: `1px solid ${on ? 'rgba(232,25,44,0.28)' : 'transparent'}`,
+            }}
+          >
+            <span style={{
+              width: 17, height: 17, borderRadius: '50%', display: 'inline-flex',
+              alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+              background: on ? RED : done ? 'rgba(52,211,153,0.22)' : 'rgba(255,255,255,0.08)',
+              color: on ? '#fff' : done ? '#34D399' : T3,
+            }}>{it.n}</span>
+            {t(it.labelKey)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function StudioBody({ scope, basePath, saveNow }: {
   scope: StudioScope; basePath: string;
   saveNow: (status?: string) => Promise<string | null>;
@@ -296,32 +348,37 @@ function StudioBody({ scope, basePath, saveNow }: {
       );
       const s = api.getState();
       const mod = e.metaKey || e.ctrlKey;
+      const key = (e.key || '').toLowerCase();
 
-      if (mod && e.key.toLowerCase() === 'z') {
+      if (inField) {
+        if (e.key === 'Escape' && target && 'blur' in target) (target as HTMLElement).blur();
+        return;
+      }
+      if (mod && key === 'z') {
         e.preventDefault();
         if (e.shiftKey) s.redo(); else s.undo();
         return;
       }
-      if (mod && e.key.toLowerCase() === 'd' && s.selectedId) {
+      if (mod && key === 'd' && s.selectedId) {
         e.preventDefault();
         s.duplicate(s.selectedId);
         return;
       }
-      if (inField) return;
       if ((e.key === 'Backspace' || e.key === 'Delete') && s.selectedId) {
         e.preventDefault();
         s.removeBlock(s.selectedId);
-      } else if (e.key === 'ArrowUp' && s.selectedId) {
+      } else if (e.altKey && e.key === 'ArrowUp' && s.selectedId) {
         e.preventDefault();
         s.moveBlock(s.selectedId, -1);
-      } else if (e.key === 'ArrowDown' && s.selectedId) {
+      } else if (e.altKey && e.key === 'ArrowDown' && s.selectedId) {
         e.preventDefault();
         s.moveBlock(s.selectedId, 1);
-      } else if (e.key.toLowerCase() === 'p') {
+      } else if (key === 'p' && !mod) {
         e.preventDefault();
         s.setPreview(!s.preview);
       } else if (e.key === 'Escape') {
         if (s.insertIndex != null) s.setInsertIndex(null);
+        else if (s.drawer) s.setDrawer(null);
         else if (s.selectedId) s.select(null);
         else if (s.preview) s.setPreview(false);
       }
@@ -330,21 +387,32 @@ function StudioBody({ scope, basePath, saveNow }: {
     return () => window.removeEventListener('keydown', onKey);
   }, [step, api]);
 
-  const stepIndex = STEP_ORDER.indexOf(step);
-  const goNext = () => {
-    if (step === 'studio') setStep('audience');
-    else if (step === 'audience') setStep('schedule');
-    else if (step === 'schedule') setStep('review');
-  };
   const audienceValid = campaign.type === 'informational'
     ? !!campaign.eventId && campaign.audiences.length > 0
     : campaign.audiences.length > 0;
 
+  // ── Écran Envoi : plein écran, sans en-tête de parcours ───────────────────
+  if (step === 'sending') {
+    return (
+      <div className="yn-studio" style={{ height: '100vh', background: APP_BG, overflow: 'hidden', position: 'relative' }}>
+        <SendingStep onExit={() => navigate(basePath)} onStudio={() => setStep('studio')} />
+        <TestEmailDialog
+          open={testOpen}
+          campaignId={campaign.id}
+          onSave={async () => (await saveNow()) != null}
+          onClose={() => setTestOpen(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="yn-studio" style={{
       height: '100vh', display: 'flex', flexDirection: 'column',
-      background: APP_BG, overflow: 'hidden',
+      background: APP_BG, overflow: 'hidden', position: 'relative',
     }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: PAGE_HALO }} />
+
       {step === 'studio' ? (
         <>
           <TopBar
@@ -353,11 +421,11 @@ function StudioBody({ scope, basePath, saveNow }: {
             onTestEmail={() => setTestOpen(true)}
             onContinue={() => setStep('audience')}
           />
-          <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-            <BlockPalette />
-            <Canvas scope={scope} live={live} />
+          <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', minHeight: 0 }}>
+            <BlockPalette scope={scope} />
+            <CanvasColumn scope={scope} live={live} />
             <aside style={{
-              width: 300, flex: 'none', display: 'flex', flexDirection: 'column',
+              width: 318, flex: 'none', display: 'flex', flexDirection: 'column',
               background: PANEL_BG, borderLeft: `1px solid ${BORDER}`, minHeight: 0,
             }}>
               <UnderlineTabs
@@ -369,7 +437,7 @@ function StudioBody({ scope, basePath, saveNow }: {
                   { value: 'data', label: t('studio.tabs.data') },
                 ]}
               />
-              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '16px 14px 26px' }}>
                 {inspectorTab === 'block' && <Inspector events={events} bucketFolder={bucketFolder} />}
                 {inspectorTab === 'theme' && <ThemePanel />}
                 {inspectorTab === 'data' && <DataPanel scope={scope} />}
@@ -379,62 +447,58 @@ function StudioBody({ scope, basePath, saveNow }: {
         </>
       ) : (
         <>
-          {/* En-tête du parcours (écrans Audience → Envoi) */}
+          {/* En-tête du parcours (Audience / Planification / Récap) */}
           <header style={{
-            height: 58, flex: 'none', display: 'flex', alignItems: 'center', gap: 12,
-            padding: '0 16px', background: PANEL_BG, borderBottom: `1px solid ${BORDER}`,
+            position: 'relative', zIndex: 1, height: 58, flex: 'none',
+            display: 'flex', alignItems: 'center', gap: 14, padding: '0 18px',
+            background: TOPBAR_BG, borderBottom: `1px solid ${BORDER}`,
           }}>
-            <IconBtn
-              ariaLabel={t('studio.flow.back')}
-              onClick={() => setStep(step === 'sending' ? 'sending' : STEP_ORDER[Math.max(0, stepIndex - 1)])}
-              disabled={step === 'sending'}
-              size={30}
+            <GhostBtn
+              onClick={() => setStep(STEP_ORDER[Math.max(0, STEP_ORDER.indexOf(step) - 1)])}
+              style={{ background: SUBTLE, padding: '7px 12px' }}
             >
-              <ArrowLeft size={16} strokeWidth={1.75} />
-            </IconBtn>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: T1, fontFamily: FONT_UI }}>{campaign.name}</span>
-            <div style={{ flex: 1 }} />
-            {/* Barre de progression du parcours */}
-            <nav aria-label={t('studio.flow.steps')} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {STEP_ORDER.map((s, i) => (
-                <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, fontFamily: FONT_UI,
-                    color: i === stepIndex ? T1 : i < stepIndex ? 'rgba(255,255,255,0.5)' : T3,
-                  }}>{t(`studio.step.${s}`)}</span>
-                  {i < STEP_ORDER.length - 1 && (
-                    <span style={{
-                      width: 18, height: 2, borderRadius: 2,
-                      background: i < stepIndex ? RED : 'rgba(255,255,255,0.1)',
-                    }} />
-                  )}
-                </span>
-              ))}
-            </nav>
-            <div style={{ flex: 1 }} />
-            {(step === 'audience' || step === 'schedule') && (
-              <PrimaryBtn onClick={goNext} disabled={step === 'audience' && !audienceValid}>
-                {t('studio.top.continue')}
+              <ChevronLeft size={15} strokeWidth={1.75} />
+              {t(`studio.step.${STEP_ORDER[Math.max(0, STEP_ORDER.indexOf(step) - 1)]}` as const)}
+            </GhostBtn>
+            <span style={{ color: T3, fontSize: 12.5, fontFamily: FONT_UI, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {campaign.name}
+            </span>
+            <span style={{ flex: 1 }} />
+            <StepChips current={step} onGo={(s2) => {
+              if (s2 === 'review' && !audienceValid) return;
+              setStep(s2);
+            }} />
+            <span style={{ flex: 1 }} />
+            {step === 'audience' && (
+              <PrimaryBtn onClick={() => setStep('schedule')} disabled={!audienceValid}>
+                {t('studio.step.schedule')} <ArrowRight size={14} strokeWidth={1.75} />
               </PrimaryBtn>
             )}
+            {step === 'schedule' && (
+              <PrimaryBtn onClick={() => setStep('review')}>
+                {t('studio.step.review')} <ArrowRight size={14} strokeWidth={1.75} />
+              </PrimaryBtn>
+            )}
+            {step === 'review' && <span style={{ width: 120 }} />}
           </header>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '22px 24px 60px', minHeight: 0 }}>
-            <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: '26px 28px 60px', minHeight: 0 }}>
+            <div style={{ maxWidth: 1160, margin: '0 auto' }}>
               {step === 'audience' && <AudienceStep scope={scope} events={events} segments={segments} />}
               {step === 'schedule' && <ScheduleStep />}
               {step === 'review' && (
                 <ReviewStep
                   scope={scope}
                   events={events}
+                  live={live}
                   onSave={saveNow}
                   onSent={() => {
                     if (campaign.scheduledAt) navigate(basePath);
                     else setStep('sending');
                   }}
+                  onEditContent={() => setStep('studio')}
                 />
               )}
-              {step === 'sending' && <SendingStep onExit={() => navigate(basePath)} />}
             </div>
           </div>
         </>

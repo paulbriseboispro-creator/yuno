@@ -1,32 +1,33 @@
 import { useState } from 'react';
-import { GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailBlock } from '@/lib/email';
 import { useStudio } from './store';
 import { blockMeta } from './meta';
-import { BORDER, FONT_UI, RED, SUBTLE, T1, T3 } from './ui';
+import { FONT_UI, RED, T1, T3 } from './ui';
 
 function blockSnippet(b: EmailBlock): string {
   switch (b.type) {
     case 'header': return b.venueName;
-    case 'text': return b.body.replace(/<[^>]+>/g, ' ').trim().slice(0, 42);
+    case 'text': return b.body.replace(/<[^>]+>/g, ' ').trim().slice(0, 34);
     case 'image': return b.label || '';
     case 'cta': return b.label;
     case 'event': return b.title;
-    case 'tickets': return `${b.rows.length}`;
     case 'table': return b.title;
     case 'countdown': return b.label;
-    case 'html': return b.code.slice(0, 42);
+    case 'html': return b.code.slice(0, 34);
     default: return '';
   }
 }
 
-/** Arborescence des blocs — sélection synchronisée avec le canvas, réordonnable. */
+/** Arborescence des blocs — sélection synchronisée, réordonnable (prototype). */
 export default function StructureTree() {
   const { t } = useLanguage();
   const blocks = useStudio((s) => s.campaign.blocks);
   const selectedId = useStudio((s) => s.selectedId);
   const select = useStudio((s) => s.select);
+  const moveBlock = useStudio((s) => s.moveBlock);
+  const removeBlock = useStudio((s) => s.removeBlock);
   const reorderBlock = useStudio((s) => s.reorderBlock);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
@@ -47,8 +48,9 @@ export default function StructureTree() {
             {dropAt === i && dragFrom != null && (
               <div style={{ height: 2, background: RED, borderRadius: 2, margin: '2px 4px' }} />
             )}
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               draggable
               onDragStart={(e) => { setDragFrom(i); e.dataTransfer.effectAllowed = 'move'; }}
               onDragOver={(e) => {
@@ -65,25 +67,40 @@ export default function StructureTree() {
               }}
               onDragEnd={() => { setDragFrom(null); setDropAt(null); }}
               onClick={() => select(b.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter') select(b.id); }}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                background: selected ? 'rgba(232,25,44,0.10)' : SUBTLE,
-                border: `1px solid ${selected ? 'rgba(232,25,44,0.4)' : BORDER}`,
-                borderRadius: 8, padding: '7px 8px', cursor: 'pointer', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 9, padding: '8px 9px', borderRadius: 11,
+                cursor: 'pointer',
+                background: selected ? 'rgba(232,25,44,0.09)' : 'transparent',
+                border: `1px solid ${selected ? 'rgba(232,25,44,0.22)' : 'transparent'}`,
               }}
             >
-              <GripVertical size={12} strokeWidth={1.75} style={{ color: T3, flex: 'none', cursor: 'grab' }} />
-              <Icon size={14} strokeWidth={1.75} style={{ color: meta.group === 'yuno' ? RED : T3, flex: 'none' }} />
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: T1, fontFamily: FONT_UI, flex: 'none' }}>
-                {t(meta.labelKey)}
+              <GripVertical size={13} strokeWidth={1.75} style={{ color: 'rgba(255,255,255,0.18)', flex: 'none', cursor: 'grab' }} />
+              <Icon size={14} strokeWidth={1.75} style={{ color: selected ? RED : 'rgba(255,255,255,0.35)', flex: 'none' }} />
+              <span style={{
+                flex: 1, fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI,
+                color: selected ? T1 : 'rgba(255,255,255,0.55)',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {t(meta.labelKey)}{snippet ? ` · ${snippet}` : ''}
               </span>
-              {snippet && (
+              {b.cond && (
                 <span style={{
-                  fontSize: 11, color: T3, fontFamily: FONT_UI, overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
-                }}>{snippet}</span>
+                  fontSize: 9.5, padding: '1px 6px', borderRadius: 5,
+                  background: 'rgba(232,25,44,0.14)', color: RED, fontWeight: 600,
+                  flex: 'none', fontFamily: FONT_UI,
+                }}>{t('studio.structure.rule')}</span>
               )}
-            </button>
+              <RowBtn label={t('studio.canvas.moveUp')} onClick={() => moveBlock(b.id, -1)}>
+                <ChevronUp size={12} strokeWidth={1.75} />
+              </RowBtn>
+              <RowBtn label={t('studio.canvas.moveDown')} onClick={() => moveBlock(b.id, 1)}>
+                <ChevronDown size={12} strokeWidth={1.75} />
+              </RowBtn>
+              <RowBtn label={t('studio.canvas.delete')} danger onClick={() => removeBlock(b.id)}>
+                <Trash2 size={12} strokeWidth={1.75} />
+              </RowBtn>
+            </div>
           </div>
         );
       })}
@@ -91,5 +108,23 @@ export default function StructureTree() {
         <div style={{ height: 2, background: RED, borderRadius: 2, margin: '2px 4px' }} />
       )}
     </div>
+  );
+}
+
+function RowBtn({ children, onClick, label, danger }: {
+  children: React.ReactNode; onClick: () => void; label: string; danger?: boolean;
+}) {
+  return (
+    <button
+      type="button" aria-label={label} title={label}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = danger ? '#FF5C63' : T1; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.28)'; }}
+      style={{
+        width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 6, color: 'rgba(255,255,255,0.28)', cursor: 'pointer', flex: 'none',
+        background: 'transparent', border: 'none',
+      }}
+    >{children}</button>
   );
 }

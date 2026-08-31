@@ -1,35 +1,49 @@
 import type { EmailTheme, EventBlock } from '@/lib/email';
-import { EMAIL_FONT, emailBtnStyle, type CanvasCtx } from './common';
+import { EMAIL_FONT, blockPad, emailBtnStyle, placeholderLabelStyle, stripesBg, type CanvasCtx } from './common';
 
 export default function EventView({ block, theme, ctx }: { block: EventBlock; theme: EmailTheme; ctx: CanvasCtx }) {
+  const pad = blockPad(block);
   const live = block.eventId ? ctx.live[block.eventId] : undefined;
   const title = live?.title || block.title;
   const dateLabel = live?.dateLabel || block.dateLabel;
   const venueLabel = live?.venueLabel || block.venueLabel;
   const coverUrl = live?.coverUrl || block.coverUrl;
   return (
-    <div style={{ padding: '16px 24px' }}>
-      <div style={{ border: `1px solid ${theme.divider}`, borderRadius: 12, background: theme.tile, overflow: 'hidden' }}>
+    <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
+      <div style={{
+        border: `1px solid ${theme.divider}`, borderRadius: 12, overflow: 'hidden',
+        background: theme.dark ? theme.tile : '#fff',
+      }}>
         {block.cover && (coverUrl ? (
           <img src={coverUrl} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
         ) : (
           <div style={{
-            height: 120, background: `linear-gradient(135deg, ${theme.accent}22, transparent)`,
+            height: 150, background: stripesBg(theme, true),
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.muted, fontFamily: EMAIL_FONT, fontSize: 12,
-          }}>Visuel de la soirée</div>
+          }}>
+            <span style={placeholderLabelStyle(theme)}>
+              {block.eventId ? `cover auto — ${title}` : 'cover auto — relie un événement'}
+            </span>
+          </div>
         ))}
-        <div style={{ padding: '18px 20px' }}>
-          <h2 style={{ margin: '0 0 6px', fontFamily: EMAIL_FONT, fontSize: 19, lineHeight: '24px', color: theme.text }}>{title}</h2>
-          <p style={{ margin: '0 0 4px', fontFamily: EMAIL_FONT, fontSize: 13, color: theme.muted }}>{dateLabel}</p>
+        <div style={{ padding: 20 }}>
+          <div style={{
+            display: 'inline-block', padding: '3px 8px', borderRadius: 999,
+            background: theme.dark ? 'rgba(212,175,55,0.14)' : 'rgba(232,25,44,0.09)',
+            color: theme.accent, fontFamily: EMAIL_FONT, fontSize: 10.5, fontWeight: 700,
+            letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10,
+          }}>Dynamique</div>
+          <div style={{ fontFamily: EMAIL_FONT, fontSize: 20, fontWeight: 700, color: theme.text, marginBottom: 8 }}>{title}</div>
+          <div style={{ fontFamily: EMAIL_FONT, fontSize: 14, color: theme.muted, marginBottom: 4 }}>{dateLabel}</div>
           {block.venue && (
-            <p style={{ margin: '0 0 4px', fontFamily: EMAIL_FONT, fontSize: 13, color: theme.muted }}>{venueLabel}</p>
+            <div style={{ fontFamily: EMAIL_FONT, fontSize: 14, color: theme.muted, marginBottom: 4 }}>{venueLabel}</div>
           )}
-          {block.price && live?.priceFromLabel && (
-            <p style={{ margin: '0 0 14px', fontFamily: EMAIL_FONT, fontSize: 13, fontWeight: 700, color: theme.accent }}>{live.priceFromLabel}</p>
+          {block.price && (
+            <div style={{ fontFamily: EMAIL_FONT, fontSize: 14, color: theme.muted, marginBottom: 4 }}>
+              {live?.priceFromLabel || 'À partir de 18 €'}
+            </div>
           )}
-          <div style={{ height: 10 }} />
-          <span style={emailBtnStyle(theme, { small: true })}>{block.ctaLabel}</span>
+          <span style={{ ...emailBtnStyle(theme, { small: true }), marginTop: 14 }}>{block.ctaLabel}</span>
         </div>
       </div>
     </div>

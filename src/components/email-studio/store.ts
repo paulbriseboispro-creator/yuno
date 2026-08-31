@@ -36,6 +36,8 @@ export interface StudioState {
   preview: boolean;
   paletteTab: 'blocks' | 'structure';
   inspectorTab: 'block' | 'theme' | 'data';
+  /** Tiroir bas du canvas : contrôles pré-envoi ou modèle JSON. */
+  drawer: 'checks' | 'json' | null;
   past: ContentSnapshot[];
   future: ContentSnapshot[];
   /** Suivi autosave (rempli par StudioShell). */
@@ -53,6 +55,7 @@ export interface StudioState {
   setPreview: (v: boolean) => void;
   setPaletteTab: (t: 'blocks' | 'structure') => void;
   setInspectorTab: (t: 'block' | 'theme' | 'data') => void;
+  setDrawer: (d: 'checks' | 'json' | null) => void;
 
   // Campagne (hors contenu — pas d'historique)
   patchCampaign: (patch: Partial<StudioCampaign>) => void;
@@ -108,6 +111,7 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
       preview: false,
       paletteTab: 'blocks',
       inspectorTab: 'block',
+      drawer: null,
       past: [],
       future: [],
       dirty: false,
@@ -126,6 +130,7 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
       setPreview: (preview) => set({ preview, ...(preview ? { selectedId: null, insertIndex: null } : {}) }),
       setPaletteTab: (paletteTab) => set({ paletteTab }),
       setInspectorTab: (inspectorTab) => set({ inspectorTab }),
+      setDrawer: (drawer) => set({ drawer }),
 
       patchCampaign: (patch) => set((s) => ({ campaign: { ...s.campaign, ...patch }, dirty: true })),
       setAudiences: (audiences) => set((s) => ({ campaign: { ...s.campaign, audiences }, dirty: true })),

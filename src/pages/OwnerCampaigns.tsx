@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, Upload } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,19 +11,21 @@ import { slugifyName } from '@/lib/email';
 import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 
-// ─── Yuno Design Tokens ──────────────────────────────────────────────────────
-const RED       = '#E8192C';
-const T1        = 'rgba(255,255,255,0.96)';
-const T2        = 'rgba(255,255,255,0.58)';
-const T3        = 'rgba(255,255,255,0.36)';
-const BORDER    = 'rgba(255,255,255,0.085)';
-const F_BORDER  = 'rgba(255,255,255,0.055)';
-const INNER_BG  = 'rgba(255,255,255,0.032)';
-const TILE_BG   = 'rgba(255,255,255,0.025)';
-const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+// ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
+const RED = '#E8192C';
+const T1 = 'rgba(255,255,255,0.96)';
+const T2 = 'rgba(255,255,255,0.58)';
+const T3 = 'rgba(255,255,255,0.36)';
+const BORDER = 'rgba(255,255,255,0.085)';
+const F_BORDER = 'rgba(255,255,255,0.055)';
+const INNER_BG = 'rgba(255,255,255,0.032)';
+const SUBTLE = 'rgba(255,255,255,0.025)';
+const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const POS       = '#34D399';
-const NEG       = '#FF5C63';
+const RED_CARD_BG = 'radial-gradient(ellipse 70% 60% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c';
+const POS = '#34D399';
+const WARN = '#FCD34D';
+const NEG = '#FF5C63';
 
 type Campaign = {
   id: string; name: string; type: 'promotional' | 'informational';
@@ -31,26 +33,17 @@ type Campaign = {
   created_at: string; sent_at: string | null; scheduled_at: string | null;
 };
 
-const STATUS_CFG: Record<string, { labelKey: string; color: string; bg: string; border: string }> = {
-  draft:     { labelKey: 'em.status.draft',     color: T3,  bg: INNER_BG,                      border: BORDER },
-  scheduled: { labelKey: 'em.status.scheduled', color: T2,  bg: 'rgba(255,255,255,0.06)',       border: BORDER },
-  sending:   { labelKey: 'em.status.sending',   color: '#FCD34D', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.25)' },
-  sent:      { labelKey: 'em.status.sent',      color: POS, bg: 'rgba(52,211,153,0.10)',        border: 'rgba(52,211,153,0.25)' },
-  paused:    { labelKey: 'em.status.paused',    color: '#FCD34D', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.25)' },
-  failed:    { labelKey: 'em.status.failed',    color: NEG, bg: 'rgba(255,92,99,0.08)',         border: 'rgba(255,92,99,0.20)' },
-  cancelled: { labelKey: 'em.status.cancelled', color: T3,  bg: INNER_BG,                       border: BORDER },
+const STATUS_PILL: Record<string, { labelKey: string; color: string; bg: string; border: string }> = {
+  draft:     { labelKey: 'em.status.draft',     color: T2, bg: 'rgba(255,255,255,0.05)', border: BORDER },
+  scheduled: { labelKey: 'em.status.scheduled', color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
+  sending:   { labelKey: 'em.status.sending',   color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
+  paused:    { labelKey: 'em.status.paused',    color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
+  sent:      { labelKey: 'em.status.sent',      color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' },
+  failed:    { labelKey: 'em.status.failed',    color: NEG, bg: 'rgba(255,92,99,0.08)', border: 'rgba(255,92,99,0.20)' },
+  cancelled: { labelKey: 'em.status.cancelled', color: T3, bg: 'rgba(255,255,255,0.05)', border: BORDER },
 };
 
-function Chip({ label, color, bg, border }: { label: string; color: string; bg: string; border: string }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center',
-      padding: '2px 8px', borderRadius: 6,
-      fontSize: 10.5, fontWeight: 600,
-      color, background: bg, border: `1px solid ${border}`,
-    }}>{label}</span>
-  );
-}
+const nf = (n: number) => n.toLocaleString('fr-FR');
 
 export default function OwnerCampaigns() {
   const navigate = useNavigate();
@@ -81,169 +74,230 @@ export default function OwnerCampaigns() {
     });
   }, [venueId]);
 
-  const fromAddr = venue?.name ? `${slugifyName(venue.name)}@yunoapp.eu` : 'votre-club@yunoapp.eu';
+  // KPIs 30 jours — calculés depuis les campagnes réelles, jamais inventés.
+  const kpis = useMemo(() => {
+    const cutoff = Date.now() - 30 * 86_400_000;
+    const recent = campaigns.filter((c) => c.status === 'sent' && c.sent_at && new Date(c.sent_at).getTime() >= cutoff);
+    const sent = recent.reduce((a, c) => a + c.recipients_count, 0);
+    const opens = recent.reduce((a, c) => a + c.opens_count, 0);
+    const clicks = recent.reduce((a, c) => a + c.clicks_count, 0);
+    const rev = recent.reduce((a, c) => a + (revenue[c.id] || 0), 0);
+    return {
+      sent,
+      openRate: sent > 0 ? (opens / sent) * 100 : null,
+      clickRate: sent > 0 ? (clicks / sent) * 100 : null,
+      revenue: rev,
+    };
+  }, [campaigns, revenue]);
 
-  const fmtDate = (c: Campaign) => {
+  const fromAddr = venue?.name ? `${slugifyName(venue.name)}@yunoapp.eu` : 'votre-club@yunoapp.eu';
+  const maxOpen = Math.max(1, ...campaigns.map((c) => (c.recipients_count > 0 ? (c.opens_count / c.recipients_count) * 100 : 0)));
+
+  const whenLabel = (c: Campaign) => {
+    const statusLabel = t(STATUS_PILL[c.status]?.labelKey || c.status);
     const iso = c.sent_at || c.scheduled_at || c.created_at;
-    return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short' });
-  };
-  const rate = (n: number, total: number) => (total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—');
-  const fmtRevenue = (id: string) => {
-    const value = revenue[id];
-    if (value == null || value === 0) return '—';
-    return `${value.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`;
+    const date = new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', hour: c.scheduled_at && !c.sent_at ? '2-digit' : undefined, minute: c.scheduled_at && !c.sent_at ? '2-digit' : undefined });
+    return `${statusLabel} · ${date}`;
   };
 
   const colHeader: React.CSSProperties = {
-    fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
-    color: T3, textAlign: 'right', whiteSpace: 'nowrap',
-  };
-  const cellNum: React.CSSProperties = {
-    fontSize: 12.5, color: T2, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+    color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase',
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
-      <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="min-h-screen pb-24" style={{ background: '#000', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+      <div className="max-w-[1340px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/owner/dashboard')}
-              className="w-9 h-9 flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
-              style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
-            >
-              <ArrowLeft className="w-4 h-4" style={{ color: T2 }} />
-            </button>
-            <div>
-              <h1 className="flex items-center gap-2" style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-                <Mail className="w-5 h-5" style={{ color: RED }} />
-                {t('em.title')}
-              </h1>
-              <p style={{ color: T3, fontSize: 13, margin: 0 }}>{t('em.subtitle')}</p>
+        {/* ── En-tête ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          <button
+            onClick={() => navigate('/owner/dashboard')}
+            aria-label={t('studio.top.back')}
+            className="cursor-pointer"
+            style={{
+              width: 34, height: 34, borderRadius: 11, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', background: INNER_BG, border: `1px solid ${BORDER}`,
+              flex: 'none', marginBottom: 2,
+            }}
+          >
+            <ArrowLeft className="w-4 h-4" style={{ color: T2 }} />
+          </button>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              {venue?.name || ''}{(venue as { city?: string | null } | null)?.city ? ` — ${(venue as { city?: string | null }).city}` : ''}
             </div>
+            <h1 style={{ margin: '6px 0 0', color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>
+              {t('em.title')}
+            </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-2 cursor-pointer transition-all duration-150"
+              className="cursor-pointer"
               style={{
-                background: INNER_BG, color: T2, border: `1px solid ${BORDER}`,
-                padding: '9px 14px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px',
+                borderRadius: 10, border: `1px solid ${BORDER}`, background: SUBTLE,
+                color: T2, fontSize: 12.5, fontWeight: 500,
               }}
             >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('em.import.button')}</span>
+              <Upload className="w-4 h-4" /> {t('em.import.button')}
             </button>
             <button
               onClick={() => navigate('/owner/campaigns/new')}
-              className="flex items-center gap-2 cursor-pointer transition-all duration-150"
+              className="cursor-pointer"
               style={{
-                background: RED, color: '#fff', border: 'none',
-                padding: '9px 16px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-                boxShadow: '0 0 18px -6px #E8192C',
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px',
+                borderRadius: 10, background: RED, color: '#fff', fontSize: 12.5, fontWeight: 600,
+                border: 'none', boxShadow: '0 0 18px -6px #E8192C',
               }}
             >
-              <Plus className="w-4 h-4" />
-              {t('em.new')}
+              <Plus className="w-4 h-4" /> {t('em.new')}
             </button>
           </div>
         </div>
 
-        {/* RGPD notice */}
-        <div
-          className="flex items-start gap-3 mb-5"
-          style={{
-            background: 'rgba(251,191,36,0.06)',
-            border: '1px solid rgba(251,191,36,0.22)',
-            borderRadius: 12, padding: '12px 14px',
-          }}
-        >
-          <AlertCircle className="w-4 h-4 mt-0.5 flex-none" style={{ color: '#FCD34D' }} />
-          <p style={{ color: T2, fontSize: 13, margin: 0 }}>
-            {t('em.fromPrefix')} <span style={{ fontFamily: 'monospace', fontWeight: 700, color: T1 }}>{fromAddr}</span>.{' '}
+        {/* ── KPIs 30 j ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12 }}>
+          <KpiCard label={t('studio.list.kpiSent')} value={nf(kpis.sent)} sub={t('studio.list.kpi30d')} />
+          <KpiCard label={t('studio.list.kpiOpen')} value={kpis.openRate != null ? `${kpis.openRate.toFixed(1).replace('.', ',')} %` : '—'} sub={t('studio.list.kpi30d')} />
+          <KpiCard label={t('studio.list.kpiClick')} value={kpis.clickRate != null ? `${kpis.clickRate.toFixed(1).replace('.', ',')} %` : '—'} sub={t('studio.list.kpi30d')} />
+          <KpiCard red label={t('studio.list.kpiRevenue')} value={`${nf(Math.round(kpis.revenue))} €`} sub={t('studio.list.kpiRevenueSub')} />
+        </div>
+
+        {/* ── RGPD ── */}
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.22)',
+          borderRadius: 12, padding: '10px 14px',
+        }}>
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-none" style={{ color: WARN }} />
+          <p style={{ color: T2, fontSize: 12.5, margin: 0 }}>
+            {t('em.fromPrefix')} <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontWeight: 700, color: T1 }}>{fromAddr}</span>.{' '}
             {t('em.gdprNote')}
           </p>
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: T3 }} />
-          </div>
-        ) : campaigns.length === 0 ? (
-          <div
-            className="text-center py-16"
-            style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}
-          >
-            <Mail className="w-12 h-12 mx-auto mb-4" style={{ color: T3 }} />
-            <p style={{ color: T3, fontSize: 14 }}>{t('em.empty')}</p>
-          </div>
-        ) : (
-          <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
-            {/* En-têtes du tableau dense */}
-            <div
-              className="hidden md:grid"
-              style={{
-                gridTemplateColumns: 'minmax(0,1fr) 92px 64px 76px 76px 66px 84px',
-                gap: 12, padding: '10px 16px', borderBottom: `1px solid ${F_BORDER}`,
-              }}
-            >
-              <span style={{ ...colHeader, textAlign: 'left' }}>{t('studio.list.name')}</span>
-              <span style={{ ...colHeader, textAlign: 'left' }}>{t('studio.list.status')}</span>
-              <span style={colHeader}>{t('studio.list.date')}</span>
-              <span style={colHeader}>{t('studio.list.sent')}</span>
-              <span style={colHeader}>{t('studio.list.opens')}</span>
-              <span style={colHeader}>{t('studio.list.clicks')}</span>
-              <span style={colHeader}>{t('studio.list.revenue')}</span>
+        {/* ── Tableau des campagnes ── */}
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', background: 'rgba(255,255,255,0.06)',
+              border: `1px solid ${BORDER}`, color: T2,
+            }}><Mail className="w-4 h-4" /></div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: 0, color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                {t('studio.list.allCampaigns')}
+              </h3>
+              <p style={{ margin: '2px 0 0', color: T3, fontSize: 11.5 }}>{t('studio.list.rowHint')}</p>
             </div>
-            {campaigns.map((c, i) => {
-              const s = STATUS_CFG[c.status] || { labelKey: c.status, color: T3, bg: INNER_BG, border: BORDER };
-              const inFlight = c.status === 'sending' || c.status === 'paused';
-              return (
-                <div key={c.id} style={{ borderTop: i > 0 ? `1px solid ${F_BORDER}` : 'none' }}>
-                  <button
-                    onClick={() => navigate(['sent', 'sending', 'paused'].includes(c.status)
-                      ? `/owner/campaigns/${c.id}/report`
-                      : `/owner/campaigns/${c.id}/edit`)}
-                    className="w-full text-left cursor-pointer transition-all duration-150 grid grid-cols-2 md:[grid-template-columns:minmax(0,1fr)_92px_64px_76px_76px_66px_84px]"
-                    style={{ gap: 12, padding: '12px 16px', alignItems: 'center', background: 'transparent', border: 'none' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div className="min-w-0 col-span-2 md:col-span-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{c.name}</span>
-                        <Chip
-                          label={c.type === 'promotional' ? t('em.typeMarketing') : t('em.typeInfo')}
-                          color={T3} bg={TILE_BG} border={F_BORDER}
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-14">
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: T3 }} />
+            </div>
+          ) : campaigns.length === 0 ? (
+            <div className="text-center py-14">
+              <Mail className="w-10 h-10 mx-auto mb-3" style={{ color: T3 }} />
+              <p style={{ color: T3, fontSize: 13 }}>{t('em.empty')}</p>
+            </div>
+          ) : (
+            <>
+              <div
+                className="hidden md:grid"
+                style={{
+                  gridTemplateColumns: '2.2fr 0.9fr 1.3fr 1.3fr 0.9fr 0.8fr',
+                  gap: 14, padding: '0 12px 10px', borderBottom: `1px solid ${F_BORDER}`,
+                }}
+              >
+                <span style={colHeader}>{t('studio.list.name')}</span>
+                <span style={{ ...colHeader, textAlign: 'right' }}>{t('studio.list.sent')}</span>
+                <span style={colHeader}>{t('studio.list.opens')}</span>
+                <span style={colHeader}>{t('studio.list.clicks')}</span>
+                <span style={{ ...colHeader, textAlign: 'right' }}>{t('studio.list.revenue')}</span>
+                <span style={{ ...colHeader, textAlign: 'right' }}>{t('studio.list.status')}</span>
+              </div>
+              {campaigns.map((c) => {
+                const pill = STATUS_PILL[c.status] || STATUS_PILL.draft;
+                const openPct = c.recipients_count > 0 ? (c.opens_count / c.recipients_count) * 100 : 0;
+                const clickPct = c.recipients_count > 0 ? (c.clicks_count / c.recipients_count) * 100 : 0;
+                const rev = revenue[c.id];
+                const inFlight = c.status === 'sending' || c.status === 'paused';
+                return (
+                  <div key={c.id}>
+                    <div
+                      role="button" tabIndex={0}
+                      onClick={() => navigate(['sent', 'sending', 'paused'].includes(c.status)
+                        ? `/owner/campaigns/${c.id}/report`
+                        : `/owner/campaigns/${c.id}/edit`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.click(); }}
+                      className="grid grid-cols-2 md:[grid-template-columns:2.2fr_0.9fr_1.3fr_1.3fr_0.9fr_0.8fr] cursor-pointer"
+                      style={{
+                        gap: 14, alignItems: 'center', padding: '14px 12px',
+                        borderBottom: `1px solid ${F_BORDER}`, borderRadius: 10,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div className="min-w-0 col-span-2 md:col-span-1">
+                        <div className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{c.name}</div>
+                        <div style={{ color: T3, fontSize: 11, marginTop: 3 }}>{whenLabel(c)}</div>
+                      </div>
+                      <div className="hidden md:block" style={{ color: T1, fontSize: 13, fontWeight: 620, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {c.recipients_count ? nf(c.recipients_count) : '—'}
+                      </div>
+                      <div className="hidden md:block">
+                        <div style={{ color: T1, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+                          {c.recipients_count ? `${openPct.toFixed(0)} %` : '—'}
+                        </div>
+                        <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', marginTop: 6, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', width: `${Math.min(100, (openPct / maxOpen) * 100)}%`,
+                            borderRadius: 999, background: 'linear-gradient(90deg,rgba(232,25,44,0.75),rgba(232,25,44,0.35))',
+                          }} />
+                        </div>
+                      </div>
+                      <div className="hidden md:block">
+                        <div style={{ color: T1, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+                          {c.recipients_count ? `${clickPct.toFixed(1).replace('.', ',')} %` : '—'}
+                        </div>
+                        <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', marginTop: 6, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', width: `${Math.min(100, clickPct * 4)}%`,
+                            borderRadius: 999, background: 'rgba(255,255,255,0.4)',
+                          }} />
+                        </div>
+                      </div>
+                      <div className="hidden md:block" style={{
+                        color: rev ? T1 : T3, fontSize: 13, fontWeight: rev ? 620 : 400,
+                        textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {rev ? `${nf(Math.round(rev))} €` : '—'}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px',
+                          borderRadius: 999, fontSize: 10.5, fontWeight: 600,
+                          color: pill.color, background: pill.bg, border: `1px solid ${pill.border}`,
+                        }}>{t(pill.labelKey)}</span>
+                      </div>
+                    </div>
+                    {inFlight && (
+                      <div style={{ padding: '0 12px 12px' }}>
+                        <CampaignSendProgress
+                          campaignId={c.id}
+                          onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
                         />
                       </div>
-                      <p className="truncate" style={{ color: T3, fontSize: 11.5, margin: 0 }}>{c.subject}</p>
-                    </div>
-                    <div><Chip label={t(s.labelKey)} color={s.color} bg={s.bg} border={s.border} /></div>
-                    <span className="hidden md:block" style={cellNum}>{fmtDate(c)}</span>
-                    <span className="hidden md:block" style={cellNum}>{c.recipients_count || '—'}</span>
-                    <span className="hidden md:block" style={cellNum}>{rate(c.opens_count, c.recipients_count)}</span>
-                    <span className="hidden md:block" style={cellNum}>{rate(c.clicks_count, c.recipients_count)}</span>
-                    <span className="hidden md:block" style={{ ...cellNum, color: revenue[c.id] ? POS : T3, fontWeight: revenue[c.id] ? 700 : 400 }}>
-                      {fmtRevenue(c.id)}
-                    </span>
-                  </button>
-                  {inFlight && (
-                    <div style={{ padding: '0 16px 12px' }}>
-                      <CampaignSendProgress
-                        campaignId={c.id}
-                        onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
       </div>
 
       {venueId && (
@@ -253,6 +307,26 @@ export default function OwnerCampaigns() {
           scope={{ kind: 'venue', venueId }}
         />
       )}
+    </div>
+  );
+}
+
+function KpiCard({ label, value, sub, red }: { label: string; value: string; sub: string; red?: boolean }) {
+  return (
+    <div style={{
+      background: red ? RED_CARD_BG : CARD_BG,
+      border: `1px solid ${red ? 'rgba(232,25,44,0.22)' : BORDER}`,
+      borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20,
+    }}>
+      <div style={{
+        color: red ? RED : T3, fontSize: 11, fontWeight: 600,
+        letterSpacing: '0.08em', textTransform: 'uppercase',
+      }}>{label}</div>
+      <div style={{
+        color: T1, fontSize: 30, fontWeight: 640, letterSpacing: '-0.025em',
+        marginTop: 8, fontVariantNumeric: 'tabular-nums',
+      }}>{value}</div>
+      <div style={{ color: T3, fontSize: 12, marginTop: 6 }}>{sub}</div>
     </div>
   );
 }

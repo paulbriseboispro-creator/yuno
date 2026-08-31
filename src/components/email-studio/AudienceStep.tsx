@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Lock, Users } from 'lucide-react';
+import { Check, Loader2, Lock, UserMinus, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { AudienceKind } from '@/lib/email';
 import { useStudio } from './store';
 import { useAudienceCount, type SavedSegment, type StudioEvent, type StudioScope } from './hooks';
 import {
-  BORDER, Field, FONT_UI, Help, MicroLabel, RED, SegBtns, SUBTLE, T1, T2, T3, Toggle,
+  BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, RED, RED_SOFT_GRAD, SegBtns,
+  SUBTLE, Switch, T1, T2, T3, inputStyle,
 } from './ui';
 
 const PROMO_KINDS: { kind: AudienceKind; labelKey: string; descKey: string }[] = [
@@ -25,7 +26,9 @@ const INFO_KINDS: { kind: AudienceKind; labelKey: string }[] = [
   { kind: 'event_all_buyers', labelKey: 'em.seg.event_all_buyers' },
 ];
 
-/** Écran Audience : segments multiples + exclusions + net réel. */
+interface Projection { openRate: number; clickRate: number; revPerSent: number | null }
+
+/** Écran Audience : segments cumulables + exclusions + portée finale (prototype). */
 export default function AudienceStep({ scope, events, segments }: {
   scope: StudioScope; events: StudioEvent[]; segments: SavedSegment[];
 }) {
@@ -37,6 +40,7 @@ export default function AudienceStep({ scope, events, segments }: {
   const setExclusions = useStudio((s) => s.setExclusions);
 
   const [perKindCounts, setPerKindCounts] = useState<Record<string, number>>({});
+  const [projection, setProjection] = useState<Projection | null>(null);
 
   const hasAudience = campaign.audiences.length > 0;
   const { count, loading } = useAudienceCount(campaign.id, saveSeq, hasAudience);
@@ -67,6 +71,43 @@ export default function AudienceStep({ scope, events, segments }: {
     return () => { cancelled = true; };
   }, [scope, campaign.type, campaign.eventId, segments, saveSeq]);
 
+  // Projection : moyennes des 5 dernières campagnes envoyées de CE compte
+  // (jamais des moyennes marché) + revenu attribué par email envoyé.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let query = supabase.from('email_campaigns')
+        .select('id, recipients_count, opens_count, clicks_count')
+        .eq('status', 'sent').gt('recipients_count', 0)
+        .order('sent_at', { ascending: false }).limit(5);
+      query = scope.kind === 'venue'
+        ? query.eq('venue_id', scope.venueId)
+        : query.eq('organizer_user_id', scope.organizerId);
+      const { data: past } = await query;
+      if (cancelled || !past || past.length === 0) return;
+      const sent = past.reduce((a, c) => a + Number(c.recipients_count || 0), 0);
+      const opens = past.reduce((a, c) => a + Number(c.opens_count || 0), 0);
+      const clicks = past.reduce((a, c) => a + Number(c.clicks_count || 0), 0);
+      let revPerSent: number | null = null;
+      try {
+        const { data: attr } = await supabase.rpc('get_email_campaign_attribution' as never, {
+          p_subject_type: scope.kind === 'venue' ? 'venue' : 'organizer',
+          p_subject_id: scope.kind === 'venue' ? scope.venueId : scope.organizerId,
+        } as never);
+        const payload = attr as unknown as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number }> } | null;
+        if (payload?.supported) {
+          const ids = new Set(past.map((c) => c.id));
+          const rev = (payload.campaigns || []).filter((c) => ids.has(c.id)).reduce((a, c) => a + Number(c.revenue || 0), 0);
+          revPerSent = sent > 0 ? rev / sent : null;
+        }
+      } catch { /* tuiles absentes */ }
+      if (!cancelled && sent > 0) {
+        setProjection({ openRate: opens / sent, clickRate: clicks / sent, revPerSent });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [scope]);
+
   const isSelected = (kind: AudienceKind, segmentId?: string) =>
     campaign.audiences.some((a) => a.kind === kind && (kind !== 'segment' || a.segmentId === segmentId));
 
@@ -81,173 +122,310 @@ export default function AudienceStep({ scope, events, segments }: {
       : [...campaign.audiences, segmentId ? { kind, segmentId } : { kind }]);
   };
 
-  const needsEvent = campaign.type === 'informational'
-    || campaign.audiences.some((a) => a.kind === 'event_subscribers')
-    || campaign.exclusions.excludeEventBuyers;
+  const nf = (n: number) => n.toLocaleString('fr-FR');
+  const grossSum = campaign.type === 'promotional'
+    ? campaign.audiences.reduce((acc, a) => {
+      const key = a.kind === 'segment' ? `seg:${a.segmentId}` : a.kind;
+      return acc + (perKindCounts[key] || 0);
+    }, 0)
+    : (count?.gross ?? 0);
+  const maxCount = Math.max(1, ...Object.values(perKindCounts));
+  const net = count?.net ?? 0;
+  const dedupAndExcl = Math.max(0, grossSum - (count?.gross ?? grossSum));
+  const baseAll = perKindCounts['all_subscribers'] || 0;
 
   return (
-    <div className="yn-in" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 18, alignItems: 'start' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {/* Type d'email */}
-        <section style={{ background: SUBTLE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 }}>
-          <MicroLabel style={{ marginBottom: 8 }}>{t('studio.aud.type')}</MicroLabel>
-          <SegBtns
-            value={campaign.type}
-            onChange={(v) => {
-              patchCampaign({ type: v });
-              setAudiences(v === 'informational' ? [{ kind: 'event_buyers' }] : []);
-            }}
-            options={[
-              { value: 'informational', label: t('em.builder.info') },
-              { value: 'promotional', label: t('em.builder.marketing') },
-            ]}
-          />
-          <Help style={{ marginTop: 8 }}>
-            {campaign.type === 'informational' ? t('em.builder.infoHelp') : t('em.builder.marketingHelp')}
-          </Help>
-        </section>
+    <div className="yn-in" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* ── Segments ── */}
+        <FlowCard>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', background: 'rgba(232,25,44,0.1)',
+              border: '1px solid rgba(232,25,44,0.2)', color: RED,
+            }}><Users size={16} strokeWidth={1.75} /></div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: 0, color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', fontFamily: FONT_UI }}>
+                {t('studio.aud.segments')}
+              </h3>
+              <p style={{ margin: '2px 0 0', color: T3, fontSize: 11.5, fontFamily: FONT_UI }}>
+                {t('studio.aud.selectedCount').replace('{n}', String(campaign.audiences.length))}
+              </p>
+            </div>
+            <SegBtns
+              value={campaign.type}
+              onChange={(v) => {
+                patchCampaign({ type: v });
+                setAudiences(v === 'informational' ? [{ kind: 'event_buyers' }] : []);
+              }}
+              options={[
+                { value: 'promotional', label: t('em.builder.marketing') },
+                { value: 'informational', label: t('em.builder.info') },
+              ]}
+            />
+          </div>
 
-        {/* Événement lié */}
-        <section style={{ background: SUBTLE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 }}>
-          <Field label={`${t('studio.aud.event')}${needsEvent ? ' *' : ''}`}>
+          {/* Événement lié */}
+          <div style={{ marginBottom: 12 }}>
+            <MicroLabel style={{ marginBottom: 7 }}>
+              {t('studio.aud.event')}{campaign.type === 'informational' ? ' *' : ''}
+            </MicroLabel>
             <select
               value={campaign.eventId || ''}
               onChange={(e) => patchCampaign({ eventId: e.target.value || null })}
               aria-label={t('studio.aud.event')}
-              style={{
-                width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`,
-                borderRadius: 7, color: T1, fontSize: 12.5, fontFamily: FONT_UI, padding: '8px 8px', outline: 'none',
-              }}
+              style={{ ...inputStyle, appearance: 'auto' as const }}
             >
               <option value="">{t('studio.aud.eventNone')}</option>
               {events.map((e) => (
                 <option key={e.id} value={e.id}>{e.title} — {new Date(e.start_at).toLocaleDateString()}</option>
               ))}
             </select>
-          </Field>
-          <Help style={{ marginTop: 6 }}>{t('studio.aud.eventHelp')}</Help>
-        </section>
+          </div>
 
-        {/* Segments */}
-        <section style={{ background: SUBTLE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 }}>
-          <MicroLabel style={{ marginBottom: 10 }}>
-            {campaign.type === 'promotional' ? t('studio.aud.segments') : t('studio.aud.audience')}
-          </MicroLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(campaign.type === 'promotional' ? PROMO_KINDS : INFO_KINDS).map((k) => {
-              const selected = isSelected(k.kind);
+              const on = isSelected(k.kind);
               const eff = perKindCounts[k.kind];
               return (
-                <SegmentCard
+                <SegmentRow
                   key={k.kind}
-                  selected={selected}
+                  on={on}
                   onClick={() => toggleAudience(k.kind)}
-                  title={t(k.labelKey)}
-                  description={'descKey' in k ? t((k as { descKey: string }).descKey) : undefined}
-                  effectif={campaign.type === 'promotional' ? eff : undefined}
+                  name={t(k.labelKey)}
+                  desc={'descKey' in k ? t((k as { descKey: string }).descKey) : undefined}
+                  count={campaign.type === 'promotional' ? eff : undefined}
+                  barPct={typeof eff === 'number' ? Math.round((eff / maxCount) * 100) : undefined}
                 />
               );
             })}
-            {campaign.type === 'promotional' && segments.map((sg) => (
-              <SegmentCard
-                key={sg.id}
-                selected={isSelected('segment', sg.id)}
-                onClick={() => toggleAudience('segment', sg.id)}
-                title={sg.name}
-                description={sg.description || t('studio.aud.desc.saved')}
-                effectif={perKindCounts[`seg:${sg.id}`]}
-              />
-            ))}
+            {campaign.type === 'promotional' && segments.map((sg) => {
+              const eff = perKindCounts[`seg:${sg.id}`];
+              return (
+                <SegmentRow
+                  key={sg.id}
+                  on={isSelected('segment', sg.id)}
+                  onClick={() => toggleAudience('segment', sg.id)}
+                  name={sg.name}
+                  desc={sg.description || t('studio.aud.desc.saved')}
+                  count={eff}
+                  barPct={typeof eff === 'number' ? Math.round((eff / maxCount) * 100) : undefined}
+                />
+              );
+            })}
           </div>
           {campaign.type === 'promotional' && !hasAudience && (
             <Help style={{ marginTop: 10, color: RED }}>{t('studio.aud.pickOne')}</Help>
           )}
-        </section>
+        </FlowCard>
 
-        {/* Exclusions */}
+        {/* ── Exclusions ── */}
         {campaign.type === 'promotional' && (
-          <section style={{ background: SUBTLE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <MicroLabel>{t('studio.aud.exclusions')}</MicroLabel>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <Lock size={14} strokeWidth={1.75} style={{ color: T3, marginTop: 2, flex: 'none' }} />
+          <FlowCard>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', background: 'rgba(255,255,255,0.06)',
+                border: `1px solid ${BORDER}`, color: T2,
+              }}><UserMinus size={16} strokeWidth={1.75} /></div>
               <div>
-                <div style={{ fontSize: 12.5, color: T1, fontWeight: 600, fontFamily: FONT_UI }}>{t('studio.aud.exclBounces')}</div>
-                <div style={{ fontSize: 11.5, color: T3, fontFamily: FONT_UI, lineHeight: 1.45 }}>{t('studio.aud.exclBouncesHelp')}</div>
+                <h3 style={{ margin: 0, color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', fontFamily: FONT_UI }}>
+                  {t('studio.aud.exclusions')}
+                </h3>
+                <p style={{ margin: '2px 0 0', color: T3, fontSize: 11.5, fontFamily: FONT_UI }}>
+                  {t('studio.aud.exclusionsSub')}
+                </p>
               </div>
             </div>
-            <Toggle
-              checked={campaign.exclusions.recentDays != null}
-              onChange={(v) => setExclusions({ ...campaign.exclusions, recentDays: v ? 7 : null })}
-              label={t('studio.aud.exclRecent')}
-              help={t('studio.aud.exclRecentHelp')}
-            />
-            {campaign.exclusions.recentDays != null && (
-              <SegBtns
-                value={String(campaign.exclusions.recentDays)}
-                onChange={(v) => setExclusions({ ...campaign.exclusions, recentDays: Number(v) })}
-                options={[3, 7, 14, 30].map((d) => ({ value: String(d), label: `${d} j` }))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <ExclusionRow
+                label={t('studio.aud.exclUnsub')}
+                note={t('studio.aud.exclUnsubNote')}
+                locked on
+                count={count?.suppressed}
               />
-            )}
-            <Toggle
-              checked={!!campaign.exclusions.excludeEventBuyers}
-              onChange={(v) => setExclusions({ ...campaign.exclusions, excludeEventBuyers: v })}
-              label={t('studio.aud.exclBuyers')}
-              help={t('studio.aud.exclBuyersHelp')}
-            />
-          </section>
+              <ExclusionRow
+                label={t('studio.aud.exclRecent')}
+                note={t('studio.aud.exclRecentHelp')}
+                on={campaign.exclusions.recentDays != null}
+                onToggle={(v) => setExclusions({ ...campaign.exclusions, recentDays: v ? 7 : null })}
+                extra={campaign.exclusions.recentDays != null ? (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {[3, 7, 14, 30].map((d) => (
+                      <button
+                        key={d} type="button"
+                        onClick={(e) => { e.stopPropagation(); setExclusions({ ...campaign.exclusions, recentDays: d }); }}
+                        style={{
+                          padding: '3px 8px', borderRadius: 7, fontSize: 10.5, fontWeight: 600,
+                          fontFamily: FONT_UI, cursor: 'pointer',
+                          color: campaign.exclusions.recentDays === d ? T1 : T3,
+                          background: campaign.exclusions.recentDays === d ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          border: `1px solid ${campaign.exclusions.recentDays === d ? 'rgba(255,255,255,0.16)' : BORDER}`,
+                        }}
+                      >{d} j</button>
+                    ))}
+                  </div>
+                ) : undefined}
+              />
+              <ExclusionRow
+                label={t('studio.aud.exclBuyers')}
+                note={t('studio.aud.exclBuyersHelp')}
+                on={!!campaign.exclusions.excludeEventBuyers}
+                onToggle={(v) => setExclusions({ ...campaign.exclusions, excludeEventBuyers: v })}
+                disabled={!campaign.eventId}
+              />
+            </div>
+          </FlowCard>
         )}
       </div>
 
-      {/* Net réel */}
-      <aside style={{
-        position: 'sticky', top: 16, background: SUBTLE, border: `1px solid ${BORDER}`,
-        borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 8,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Users size={15} strokeWidth={1.75} style={{ color: T3 }} />
-          <MicroLabel>{t('studio.aud.netTitle')}</MicroLabel>
-        </div>
-        <div style={{ fontSize: 34, fontWeight: 800, color: T1, fontFamily: FONT_UI, lineHeight: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
-          {loading ? <Loader2 size={22} className="animate-spin" style={{ color: T3 }} /> : (count?.net ?? '—')}
-        </div>
-        {count && (
-          <div style={{ fontSize: 11.5, color: T3, fontFamily: FONT_UI, lineHeight: 1.6 }}>
-            {t('studio.aud.netDetail')
-              .replace('{gross}', String(count.gross))
-              .replace('{suppressed}', String(count.suppressed))}
+      {/* ── Colonne droite : portée + projection ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 0 }}>
+        <FlowCard red>
+          <MicroLabel style={{ fontSize: 11 }}>{t('studio.aud.netTitle')}</MicroLabel>
+          <div style={{
+            color: T1, fontSize: 38, fontWeight: 640, letterSpacing: '-0.03em', marginTop: 8,
+            fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI,
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            {loading ? <Loader2 size={24} className="animate-spin" style={{ color: T3 }} /> : nf(net)}
           </div>
-        )}
-        <Help>{t('studio.aud.netHelp')}</Help>
-      </aside>
+          {baseAll > 0 && (
+            <div style={{ color: T3, fontSize: 12, marginTop: 4, fontFamily: FONT_UI }}>
+              {t('studio.aud.netPct').replace('{pct}', String(Math.round((net / Math.max(1, baseAll)) * 100)))}
+            </div>
+          )}
+          <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <ReachRow label={t('studio.aud.reachRaw')} value={nf(grossSum)} />
+            <ReachRow label={t('studio.aud.reachDedup')} value={`−${nf(dedupAndExcl)}`} muted />
+            <ReachRow label={t('studio.aud.reachSuppressed')} value={`−${nf(count?.suppressed ?? 0)}`} negative />
+          </div>
+        </FlowCard>
+
+        <FlowCard>
+          <MicroLabel style={{ fontSize: 11, marginBottom: 14 }}>{t('studio.aud.projection')}</MicroLabel>
+          {projection ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <div style={{ color: T3, fontSize: 11, fontFamily: FONT_UI }}>{t('studio.aud.projOpens')}</div>
+                  <div style={{ color: T1, fontSize: 22, fontWeight: 640, letterSpacing: '-0.02em', marginTop: 3, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
+                    {nf(Math.round(net * projection.openRate))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: T3, fontSize: 11, fontFamily: FONT_UI }}>{t('studio.aud.projClicks')}</div>
+                  <div style={{ color: T1, fontSize: 22, fontWeight: 640, letterSpacing: '-0.02em', marginTop: 3, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
+                    {nf(Math.round(net * projection.clickRate))}
+                  </div>
+                </div>
+              </div>
+              {projection.revPerSent != null && projection.revPerSent > 0 && (
+                <div style={{
+                  marginTop: 14, padding: '12px 14px', borderRadius: 12,
+                  background: RED_SOFT_GRAD, border: '1px solid rgba(232,25,44,0.22)',
+                }}>
+                  <div style={{ color: RED, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', fontFamily: FONT_UI }}>
+                    {t('studio.aud.projRev')}
+                  </div>
+                  <div style={{ color: T1, fontSize: 20, fontWeight: 640, marginTop: 4, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
+                    ≈ {nf(Math.round(net * projection.revPerSent))} €
+                  </div>
+                </div>
+              )}
+              <Help style={{ marginTop: 12 }}>{t('studio.aud.projNote')}</Help>
+            </>
+          ) : (
+            <Help>{t('studio.aud.projEmpty')}</Help>
+          )}
+        </FlowCard>
+      </div>
     </div>
   );
 }
 
-function SegmentCard({ selected, onClick, title, description, effectif }: {
-  selected: boolean; onClick: () => void; title: string; description?: string; effectif?: number;
+function SegmentRow({ on, onClick, name, desc, count, barPct }: {
+  on: boolean; onClick: () => void; name: string; desc?: string; count?: number; barPct?: number;
 }) {
   return (
     <button
-      type="button" onClick={onClick} aria-pressed={selected}
+      type="button" onClick={onClick} aria-pressed={on}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left',
-        background: selected ? 'rgba(232,25,44,0.08)' : 'rgba(255,255,255,0.02)',
-        border: `1px solid ${selected ? 'rgba(232,25,44,0.45)' : BORDER}`,
-        borderRadius: 10, padding: '10px 12px', cursor: 'pointer', transition: 'all .12s',
+        display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', borderRadius: 14,
+        cursor: 'pointer', textAlign: 'left', transition: 'all .15s', width: '100%',
+        background: on ? RED_SOFT_GRAD : SUBTLE,
+        border: `1px solid ${on ? 'rgba(232,25,44,0.28)' : BORDER}`,
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: T1, fontFamily: FONT_UI }}>{title}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {typeof effectif === 'number' && (
-            <span style={{ fontSize: 11, color: T3, fontFamily: FONT_UI, fontVariantNumeric: 'tabular-nums' }}>{effectif}</span>
-          )}
-          {selected && <Check size={13} strokeWidth={2.25} style={{ color: RED }} />}
-        </span>
+      <span style={{
+        width: 18, height: 18, borderRadius: 6, flex: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: on ? RED : 'transparent',
+        border: `1px solid ${on ? RED : 'rgba(255,255,255,0.2)'}`, color: '#fff',
+      }}>
+        {on && <Check size={12} strokeWidth={2.5} />}
       </span>
-      {description && (
-        <span style={{ fontSize: 11, color: T2, fontFamily: FONT_UI, lineHeight: 1.45 }}>{description}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: on ? T1 : T2, fontSize: 13.5, fontWeight: 560, fontFamily: FONT_UI }}>{name}</div>
+        {desc && <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI }}>{desc}</div>}
+        {typeof barPct === 'number' && (
+          <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${barPct}%`, borderRadius: 999,
+              background: on ? 'linear-gradient(90deg,rgba(232,25,44,0.8),rgba(232,25,44,0.3))' : 'rgba(255,255,255,0.22)',
+            }} />
+          </div>
+        )}
+      </div>
+      {typeof count === 'number' && (
+        <div style={{ color: on ? T1 : T2, fontSize: 14, fontWeight: 620, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
+          {count.toLocaleString('fr-FR')}
+        </div>
       )}
     </button>
+  );
+}
+
+function ExclusionRow({ label, note, on, locked, onToggle, count, extra, disabled }: {
+  label: string; note: string; on: boolean; locked?: boolean;
+  onToggle?: (v: boolean) => void; count?: number; extra?: React.ReactNode; disabled?: boolean;
+}) {
+  return (
+    <div
+      role="presentation"
+      onClick={() => { if (!locked && !disabled) onToggle?.(!on); }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px', borderRadius: 12,
+        background: SUBTLE, border: `1px solid ${BORDER}`,
+        cursor: locked || disabled ? 'default' : 'pointer', opacity: disabled ? 0.55 : 1,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ color: T1, fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI }}>{label}</span>
+          {locked && <Lock size={11} strokeWidth={1.75} style={{ color: 'rgba(255,255,255,0.3)' }} />}
+        </div>
+        <div style={{ color: T3, fontSize: 11, marginTop: 2, fontFamily: FONT_UI }}>{note}</div>
+        {extra && <div style={{ marginTop: 7 }}>{extra}</div>}
+      </div>
+      {typeof count === 'number' && count > 0 && (
+        <span style={{ color: T2, fontSize: 12, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>−{count.toLocaleString('fr-FR')}</span>
+      )}
+      <Switch checked={on} onChange={locked || disabled ? undefined : onToggle} disabled={locked || disabled} ariaLabel={label} />
+    </div>
+  );
+}
+
+function ReachRow({ label, value, muted, negative }: { label: string; value: string; muted?: boolean; negative?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ color: T2, fontSize: 12.5, fontFamily: FONT_UI }}>{label}</span>
+      <span style={{
+        color: negative ? NEG : muted ? T2 : T1, fontSize: 12.5,
+        fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI,
+      }}>{value}</span>
+    </div>
   );
 }
