@@ -153,7 +153,13 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
       onImported?.(totals);
       toast.success(t('em.import.done').replace('{n}', String(totals.inserted + totals.reactivated)));
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      // PostgrestError est un objet nu, pas une instance d'Error : sans
+      // extraction du .message, String(e) affiche « [object Object] ».
+      const msg = e instanceof Error
+        ? e.message
+        : (e && typeof e === 'object' && 'message' in e)
+          ? String((e as { message: unknown }).message)
+          : String(e);
       toast.error(msg.includes('support') ? t('em.import.errSupport') : msg);
     } finally {
       setBusy(false);
