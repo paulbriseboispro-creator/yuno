@@ -409,14 +409,22 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   d'ownership identique à `get_campaign_send_progress`) ; top des liens
   cliqués agrégé depuis `email_campaign_events.metadata.click.link` (payload
   Resend), référence `yc=` retirée à l'affichage.
-- **Bloc Réseaux = LIENS TEXTE, jamais d'icônes-images** (2026-08-31 soir).
-  Les SVG de cdn.simpleicons.org étaient bloqués par Gmail et invisibles dès
-  que le CDN ne répondait pas (il résout vers la plage Cloudflare
-  188.114.96.x, sujette aux trous de routage FAI). `renderSocial` rend des
-  liens capitales espacées (`socialLabel` : nom du réseau, domaine pour le
-  site), couleur = `SocialBlock.color` sinon muted/footerText. Ne JAMAIS
-  réintroduire d'images externes dans les emails sans hébergement propre en
-  PNG. (`cdn.simpleicons.org` reste dans la CSP img-src, inoffensif.)
+- **Bloc Réseaux = pastilles avec logos PNG AUTO-HÉBERGÉS** (2026-08-31
+  soir). Les SVG de cdn.simpleicons.org étaient bloqués par Gmail et
+  invisibles dès que le CDN ne répondait pas (il résout vers la plage
+  Cloudflare 188.114.96.x, sujette aux trous de routage FAI). Les vrais
+  logos vivent en PNG transparents 64px dans `public/email-social/`
+  (`{instagram,tiktok,facebook,x,website}-{w,d}.png`, générés depuis
+  simple-icons via AppKit/Swift — recette dans le commit 2731708).
+  `renderSocial` rend une pastille ronde couleur `SocialBlock.color`
+  (sinon muted) avec le glyphe auto-contrasté (`socialChip`) ; alt =
+  `socialLabel` (domaine pour le site). Emails : URL absolue
+  `${baseUrl}/email-social/…` ; canvas : chemin relatif. Ne JAMAIS
+  réintroduire d'images tierces dans les emails.
+- **Footer : pas de border-top sur footer sombre** — le trait
+  `theme.divider` clair ne se dessine que si `contrastText(footerBg)`
+  est foncé (footer clair). Sinon il traçait une ligne blanche entre un
+  contenu sombre et le footer noir (email + aperçu Canvas).
 - **Règles de visibilité par bloc** (`cond`: vip_table / new_subscribers /
   buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
   `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
