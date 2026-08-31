@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ImageUploader from '@/components/campaigns/ImageUploader';
+import ColorField from '@/components/campaigns/ColorField';
 import type {
   CtaBlock, EmailBlock, EventBlock, HeaderBlock, HtmlBlock, ImageBlock,
   SpacerBlock, TableBlock, TextBlock, TicketRow, TicketsBlock, ColumnsBlock, CountdownBlock,
@@ -110,6 +111,15 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
       </PanelCard>
     </div>
   );
+}
+
+/** ISO UTC → valeur d'un input datetime-local (heure locale du navigateur). */
+function isoToLocalInput(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /** Nuancier de la barre de mise en forme (accent du thème + tons utiles). */
@@ -282,6 +292,7 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
   const { t } = useLanguage();
   const setSocialLinks = useStudio((s) => s.setSocialLinks);
   const socialLinks = useStudio((s) => s.campaign.socialLinks);
+  const theme = useStudio((s) => s.campaign.theme);
 
   const alignPills = (value: 'left' | 'center' | 'right', onChange: (v: 'left' | 'center' | 'right') => void) => (
     <OptionPills
@@ -344,6 +355,28 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
             />
             {alignPills(b.align, (v) => patch({ align: v }))}
             <ToggleRow checked={b.full} onChange={(v) => patch({ full: v })} label={t('studio.inspector.fullWidth')} />
+          </PanelCard>
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.ctaColor')}</MicroLabel>
+            <ColorField
+              label={t('studio.inspector.ctaColor')}
+              value={b.color || theme.accent}
+              defaultValue={theme.accent}
+              onChange={(v) => patch({ color: v && v.toLowerCase() !== theme.accent.toLowerCase() ? v : undefined })}
+            />
+            {b.color ? (
+              <button
+                type="button"
+                onClick={() => patch({ color: undefined })}
+                style={{
+                  alignSelf: 'flex-start', padding: '5px 10px', borderRadius: 8,
+                  border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.58)', fontSize: 11.5, fontFamily: FONT_UI,
+                }}
+              >{t('studio.inspector.ctaColorAuto')}</button>
+            ) : (
+              <Help>{t('studio.inspector.ctaColorHelp')}</Help>
+            )}
           </PanelCard>
         </>
       );
@@ -527,6 +560,16 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
           />
           <MicroLabel>{t('studio.inspector.linkUrl')}</MicroLabel>
           <TextInput value={b.linkUrl || ''} onChange={(e) => patch({ linkUrl: e.target.value || undefined })} placeholder="https://…" />
+          <MicroLabel>{t('studio.inspector.imgRadius')}</MicroLabel>
+          <OptionPills
+            value={b.radius ?? 0}
+            onChange={(v) => patch({ radius: v === 0 ? undefined : v })}
+            options={[
+              { value: 0, label: t('studio.inspector.shapeSquare') },
+              { value: 12, label: t('studio.inspector.shapeSoft') },
+              { value: 20, label: t('studio.inspector.shapeRounded') },
+            ]}
+          />
         </PanelCard>
       );
     }
@@ -560,6 +603,21 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
               ))}
             </select>
           </div>
+          {!b.eventId && (
+            <>
+              <MicroLabel>{t('studio.inspector.countdownDate')}</MicroLabel>
+              <input
+                type="datetime-local"
+                value={isoToLocalInput(b.targetAt)}
+                onChange={(e) => patch({
+                  // Stocké en ISO UTC : le rendu edge (Deno, UTC) tombe juste.
+                  targetAt: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                })}
+                aria-label={t('studio.inspector.countdownDate')}
+                style={{ ...inputStyle, colorScheme: 'dark' }}
+              />
+            </>
+          )}
           <Help>{t('studio.inspector.countdownHelp')}</Help>
         </PanelCard>
       );

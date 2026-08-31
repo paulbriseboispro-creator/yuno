@@ -506,6 +506,7 @@ function StudioBody({ scope, basePath, saveNow }: {
                     else setStep('sending');
                   }}
                   onEditContent={() => setStep('studio')}
+                  onTest={() => setTestOpen(true)}
                 />
               )}
             </div>

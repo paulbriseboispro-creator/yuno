@@ -18,7 +18,9 @@ export default function CountdownView({ block, theme, ctx }: { block: CountdownB
     return () => clearInterval(t);
   }, []);
 
-  const parts = live?.startAt ? countdownParts(live.startAt, now) : null;
+  // L'événement live prime ; sinon la date cible manuelle (miroir render.ts).
+  const startIso = live?.startAt || (typeof block.targetAt === 'string' ? block.targetAt : '');
+  const parts = startIso ? countdownParts(startIso, now) : null;
   const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
   const cells: [string, string][] = parts
     ? [[pad2(parts.days), 'JOURS'], [pad2(parts.hours), 'HEURES'], [pad2(parts.mins), 'MIN']]
@@ -40,7 +42,7 @@ export default function CountdownView({ block, theme, ctx }: { block: CountdownB
         </div>
         {!parts && (
           <div style={{ fontFamily: EMAIL_FONT, fontSize: 11, color: theme.muted, marginTop: 10 }}>
-            Relie un événement : le compteur sera calculé à l’envoi
+            Relie un événement ou choisis une date : le compteur sera calculé à l’envoi
           </div>
         )}
       </div>

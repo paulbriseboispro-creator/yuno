@@ -14,13 +14,15 @@ import {
 } from './ui';
 
 /** Écran Récap : résumé + contrôles + aperçu final + envoi (prototype). */
-export default function ReviewStep({ scope, events, live, onSave, onSent, onEditContent }: {
+export default function ReviewStep({ scope, events, live, onSave, onSent, onEditContent, onTest }: {
   scope: StudioScope;
   events: StudioEvent[];
   live: LiveData;
   onSave: (status?: string) => Promise<string | null>;
   onSent: () => void;
   onEditContent: () => void;
+  /** Ouvre le dialogue d'email de test (le dernier contrôle avant le vrai départ). */
+  onTest: () => void;
 }) {
   const { t } = useLanguage();
   const campaign = useStudio((s) => s.campaign);
@@ -176,6 +178,9 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
 
         {/* ── Envoi ── */}
         <FlowCard style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <GhostBtn onClick={onTest} style={{ justifyContent: 'center', padding: '9px 16px' }}>
+            {t('studio.review.sendTest')}
+          </GhostBtn>
           {campaign.scheduledAt ? (
             <PrimaryBtn onClick={schedule} disabled={!canSend} style={{ justifyContent: 'center', padding: '11px 18px', fontSize: 13 }}>
               <Send size={14} strokeWidth={1.75} /> {t('em.builder.scheduleSend')}
