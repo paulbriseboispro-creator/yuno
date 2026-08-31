@@ -47,7 +47,7 @@ export default function OrgAppCampaigns() {
     if (!user?.id) return;
     supabase.from('email_campaigns').select('id,name,type,subject,status,recipients_count,opens_count,clicks_count')
       .eq('organizer_user_id', user.id).order('created_at', { ascending: false })
-      .then(({ data }) => { setCampaigns((data || []) as any); setLoading(false); });
+      .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
   }, [user?.id]);
 
   const orgName = profile?.organizationName || 'Mon organisation';
@@ -162,7 +162,7 @@ export function OrgAppCampaignEditor() {
         kind: 'organizer',
         organizerId: user.id,
         name: profile?.organizationName || 'Mon organisation',
-        logoUrl: (profile as any)?.organizationLogoUrl || null,
+        logoUrl: (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
         city: null,
       }}
     />
@@ -182,7 +182,7 @@ export function OrgAppCampaignReport() {
         kind: 'organizer',
         organizerId: user.id,
         name: profile?.organizationName || 'Mon organisation',
-        logoUrl: (profile as any)?.organizationLogoUrl || null,
+        logoUrl: (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
         city: null,
       }}
     />

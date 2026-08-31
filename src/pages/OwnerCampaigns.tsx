@@ -267,8 +267,9 @@ export function OwnerCampaignEditor() {
         kind: 'venue',
         venueId,
         name: venue?.name || 'Mon club',
-        logoUrl: (venue as any)?.logoUrl || (venue as any)?.logo_url || null,
-        city: (venue as any)?.city || null,
+        logoUrl: (venue as { logoUrl?: string | null; logo_url?: string | null } | null)?.logoUrl
+          || (venue as { logo_url?: string | null } | null)?.logo_url || null,
+        city: (venue as { city?: string | null } | null)?.city || null,
       }}
     />
   );
@@ -284,8 +285,9 @@ export function OwnerCampaignReport() {
         kind: 'venue',
         venueId,
         name: venue?.name || 'Mon club',
-        logoUrl: (venue as any)?.logoUrl || (venue as any)?.logo_url || null,
-        city: (venue as any)?.city || null,
+        logoUrl: (venue as { logoUrl?: string | null; logo_url?: string | null } | null)?.logoUrl
+          || (venue as { logo_url?: string | null } | null)?.logo_url || null,
+        city: (venue as { city?: string | null } | null)?.city || null,
       }}
     />
   );
