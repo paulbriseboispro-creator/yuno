@@ -515,7 +515,9 @@ intouchables :
   `filename` n'est jamais réécrit, c'est une pièce du dossier de consentement.
   Ajouter un paramètre à `import_email_contacts` = **DROP + CREATE**, jamais
   `CREATE OR REPLACE` : une surcharge rendrait ambigu l'appel à 8 arguments
-  nommés des bundles en cache (erreur 300).
+  nommés des bundles en cache (erreur 300). Renommage après coup via
+  `rename_email_list_import` (la table n'a AUCUNE policy d'écriture) ; un nom
+  vide remet à NULL et réaffiche le nom de fichier.
 - **Le front ne décide plus du statut d'une campagne.** `sendNow` ne force plus
   `status='failed'` en cas d'erreur réseau : l'envoi est asynchrone, il continue
   côté serveur. Le serveur est seul maître du statut.
