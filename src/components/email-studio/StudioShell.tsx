@@ -6,15 +6,17 @@ import type { StoreApi } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  makeBlock, migrateV1Audience, migrateV1Blocks, migrateV1SocialLinks, migrateV1Theme,
-  normalizeTheme, normalizeV2Blocks, DEFAULT_STUDIO_THEME,
+  campaignToTemplateContent, migrateV1Audience, migrateV1Blocks, migrateV1SocialLinks,
+  migrateV1Theme, normalizeTheme, normalizeV2Blocks,
   type AudienceExclusions, type AudienceSel, type EmailBlock, type SocialLinks, type StudioCampaign,
 } from '@/lib/email';
 import {
   createStudioStore, StudioStoreContext, useStudio, useStudioApi,
   type StudioState, type StudioStep,
 } from './store';
-import { useSavedSegments, useStudioEvents, useStudioLiveData, type StudioScope } from './hooks';
+import {
+  useEmailTemplates, useSavedSegments, useStudioEvents, useStudioLiveData, type StudioScope,
+} from './hooks';
 import {
   StudioGlobalStyles, APP_BG, BORDER, FONT_UI, GhostBtn, PANEL_BG, PAGE_HALO,
   PrimaryBtn, RED, SUBTLE, T1, T2, T3, TOPBAR_BG, UnderlineTabs,
@@ -30,6 +32,8 @@ import AudienceStep from './AudienceStep';
 import ScheduleStep from './ScheduleStep';
 import ReviewStep from './ReviewStep';
 import SendingStep from './SendingStep';
+import TemplateGallery from './TemplateGallery';
+import SaveTemplateDialog from './TemplateDialogs';
 
 interface Props {
   scope: StudioScope;
@@ -156,57 +160,14 @@ export default function StudioShell({ scope, basePath }: Props) {
 
   const [store, setStore] = useState<StoreApi<StudioState> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const creatingRef = useRef(false);
 
-  // ── Chargement / création ──────────────────────────────────────────────────
+  // ── Chargement ─────────────────────────────────────────────────────────────
+  // Une campagne neuve passe d'abord par la galerie de modèles : c'est elle qui
+  // insère la ligne, avec le design choisi et la soirée du moment.
   useEffect(() => {
+    if (isNew) return;
     let cancelled = false;
     (async () => {
-      if (isNew) {
-        if (creatingRef.current) return;
-        creatingRef.current = true;
-        // Le brouillon est créé immédiatement : l'autosave et le compteur
-        // d'audience ont besoin d'une ligne en base dès la première seconde.
-        // Pas de logo figé dans le bloc : le header hérite automatiquement du
-        // logo du compte au rendu (RenderCtx.logoUrl). Un logo téléversé à la
-        // main dans l'inspecteur prend le dessus, et lui seul.
-        const initialBlocks = [
-          makeBlock('header', { venueName: scope.name }),
-          makeBlock('text'),
-        ];
-        // Thème du club sauvegardé depuis le panneau Thème, sinon preset 1.
-        let initialTheme = DEFAULT_STUDIO_THEME;
-        try {
-          const saved = localStorage.getItem('yn-studio-club-theme');
-          if (saved) initialTheme = normalizeTheme(JSON.parse(saved));
-        } catch { /* stockage indisponible */ }
-        const insert: Record<string, unknown> = {
-          name: t('studio.newName'),
-          type: 'promotional',
-          subject: '—',
-          preheader: '',
-          blocks_json: initialBlocks,
-          blocks_version: 2,
-          theme_json: initialTheme,
-          social_links_json: {},
-          logo_url: null,
-          audiences_json: [],
-          exclusions_json: {},
-          status: 'draft',
-        };
-        if (scope.kind === 'venue') insert.venue_id = scope.venueId;
-        else insert.organizer_user_id = scope.organizerId;
-        const { data, error } = await supabase.from('email_campaigns')
-          .insert(insert as never).select('id').single();
-        if (cancelled) return;
-        if (error || !data) {
-          setLoadError(error?.message || 'insert failed');
-          return;
-        }
-        navigate(`${basePath}/${data.id}/edit`, { replace: true });
-        return;
-      }
-
       const { data, error } = await supabase.from('email_campaigns')
         .select('*').eq('id', params.id!).maybeSingle();
       if (cancelled) return;
@@ -257,6 +218,8 @@ export default function StudioShell({ scope, basePath }: Props) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [store, saveNow]);
+
+  if (isNew) return <TemplateGallery scope={scope} basePath={basePath} />;
 
   if (loadError) {
     return (
@@ -335,6 +298,8 @@ function StudioBody({ scope, basePath, saveNow }: {
   const inspectorTab = useStudio((s) => s.inspectorTab);
   const setInspectorTab = useStudio((s) => s.setInspectorTab);
   const [testOpen, setTestOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const { templates, create: createTemplate, overwrite: overwriteTemplate } = useEmailTemplates(scope);
 
   const events = useStudioEvents(scope, campaign.eventId);
   const segments = useSavedSegments(scope);
@@ -425,6 +390,7 @@ function StudioBody({ scope, basePath, saveNow }: {
             scope={scope}
             onBack={() => navigate(basePath)}
             onTestEmail={() => setTestOpen(true)}
+            onSaveTemplate={() => setTemplateOpen(true)}
             onContinue={() => setStep('audience')}
           />
           <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', minHeight: 0 }}>
@@ -522,6 +488,25 @@ function StudioBody({ scope, basePath, saveNow }: {
         campaignId={campaign.id}
         onSave={async () => (await saveNow()) != null}
         onClose={() => setTestOpen(false)}
+      />
+
+      <SaveTemplateDialog
+        open={templateOpen}
+        campaign={campaign}
+        templates={templates}
+        onClose={() => setTemplateOpen(false)}
+        onCreate={async (name, description) => {
+          const id = await createTemplate(name, description, campaignToTemplateContent(campaign));
+          if (!id) { toast.error(t('studio.tpl.saveError')); return false; }
+          toast.success(t('studio.tpl.saved'));
+          return true;
+        }}
+        onOverwrite={async (id, name, description) => {
+          const ok = await overwriteTemplate(id, campaignToTemplateContent(campaign), name, description);
+          if (!ok) { toast.error(t('studio.tpl.saveError')); return false; }
+          toast.success(t('studio.tpl.savedUpdate'));
+          return true;
+        }}
       />
     </div>
   );

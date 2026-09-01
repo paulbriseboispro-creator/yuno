@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, ChevronLeft, Eye, Monitor, Pencil, Redo2, SendHorizontal, Smartphone, Undo2 } from 'lucide-react';
+import {
+  ArrowRight, ChevronLeft, Eye, LayoutTemplate, Monitor, Pencil, Redo2, SendHorizontal,
+  Smartphone, Undo2,
+} from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStudio } from './store';
 import type { StudioScope } from './hooks';
@@ -28,10 +31,12 @@ function useSavedLabel(): string {
   return '';
 }
 
-export default function TopBar({ scope, onBack, onTestEmail, onContinue }: {
+export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onContinue }: {
   scope: StudioScope;
   onBack: () => void;
   onTestEmail: () => void;
+  /** Fige le design courant en modèle réutilisable. */
+  onSaveTemplate: () => void;
   onContinue: () => void;
 }) {
   const { t } = useLanguage();
@@ -135,6 +140,9 @@ export default function TopBar({ scope, onBack, onTestEmail, onContinue }: {
       <VSep />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <GhostBtn onClick={onSaveTemplate} style={{ background: SUBTLE }} ariaLabel={t('studio.tpl.saveTitle')}>
+          <LayoutTemplate size={14} strokeWidth={1.75} /> {t('studio.tpl.save')}
+        </GhostBtn>
         <GhostBtn onClick={onTestEmail} style={{ background: SUBTLE }}>
           <SendHorizontal size={14} strokeWidth={1.75} /> {t('studio.top.testEmail')}
         </GhostBtn>

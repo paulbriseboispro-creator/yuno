@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { EmailBlock, LiveData, TicketRow } from '@/lib/email';
-import { YUNO_BLOCK_TYPES } from '@/lib/email';
+import type {
+  EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
+} from '@/lib/email';
+import { rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES } from '@/lib/email';
 
 export type StudioScope =
   | { kind: 'venue'; venueId: string; name: string; logoUrl?: string | null; city?: string | null }
@@ -297,4 +299,95 @@ export function useSendProgress(campaignId: string | null, active: boolean): Sen
     };
   }, [campaignId, active]);
   return progress;
+}
+
+// ── Modèles d'email ──────────────────────────────────────────────────────────
+
+/**
+ * Modèles enregistrés de la portée. Le hook porte AUSSI les écritures : la
+ * galerie et la boîte de dialogue « enregistrer comme modèle » partagent la
+ * même liste et le même rafraîchissement, sans dupliquer les requêtes.
+ */
+export function useEmailTemplates(scope: StudioScope) {
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const scopeKind = scope.kind;
+
+  const load = useCallback(async () => {
+    const q = supabase.from('email_campaign_templates')
+      .select('id,name,description,type,subject,preheader,blocks_json,theme_json,social_links_json,logo_url,use_count,last_used_at,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(60);
+    const { data } = scopeKind === 'venue'
+      ? await q.eq('venue_id', scopeId)
+      : await q.eq('organizer_user_id', scopeId);
+    setTemplates(((data || []) as unknown as EmailTemplateRow[]).map(rowToTemplate));
+    setLoading(false);
+  }, [scopeKind, scopeId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  /** Crée un modèle depuis le design courant. Renvoie l'id, ou null en échec. */
+  const create = useCallback(async (
+    name: string, description: string, content: TemplateContent,
+  ): Promise<string | null> => {
+    const { data: auth } = await supabase.auth.getUser();
+    const payload: Record<string, unknown> = {
+      ...templateContentToRow(content),
+      name: name.trim().slice(0, 80),
+      description: description.trim().slice(0, 240),
+      created_by: auth.user?.id || null,
+    };
+    if (scopeKind === 'venue') payload.venue_id = scopeId;
+    else payload.organizer_user_id = scopeId;
+    const { data, error } = await supabase.from('email_campaign_templates')
+      .insert(payload as never).select('id').single();
+    if (error || !data) return null;
+    await load();
+    return (data as { id: string }).id;
+  }, [scopeKind, scopeId, load]);
+
+  /** Remplace le design d'un modèle existant (et son libellé si fourni). */
+  const overwrite = useCallback(async (
+    id: string, content: TemplateContent, name?: string, description?: string,
+  ): Promise<boolean> => {
+    const payload: Record<string, unknown> = { ...templateContentToRow(content) };
+    if (name != null) payload.name = name.trim().slice(0, 80);
+    if (description != null) payload.description = description.trim().slice(0, 240);
+    const { error } = await supabase.from('email_campaign_templates')
+      .update(payload as never).eq('id', id);
+    if (error) return false;
+    await load();
+    return true;
+  }, [load]);
+
+  /** Copie un modèle sous un nouveau nom — le point de départ d'une variante. */
+  const duplicate = useCallback(async (tpl: EmailTemplate, name: string): Promise<boolean> => {
+    const id = await create(name, tpl.description, tpl);
+    return id != null;
+  }, [create]);
+
+  const rename = useCallback(async (id: string, name: string, description: string): Promise<boolean> => {
+    const { error } = await supabase.from('email_campaign_templates')
+      .update({ name: name.trim().slice(0, 80), description: description.trim().slice(0, 240) } as never)
+      .eq('id', id);
+    if (error) return false;
+    await load();
+    return true;
+  }, [load]);
+
+  const remove = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('email_campaign_templates').delete().eq('id', id);
+    if (error) return false;
+    setTemplates((prev) => prev.filter((tpl) => tpl.id !== id));
+    return true;
+  }, []);
+
+  /** Compteur d'utilisation — best-effort : il ne doit jamais bloquer une création. */
+  const bumpUsage = useCallback(async (id: string) => {
+    await supabase.rpc('bump_email_template_usage' as never, { p_template_id: id } as never);
+  }, []);
+
+  return { templates, loading, reload: load, create, overwrite, duplicate, rename, remove, bumpUsage };
 }

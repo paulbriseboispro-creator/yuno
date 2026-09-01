@@ -117,9 +117,10 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
     subject: campaign.subject, preheader: campaign.preheader,
     type: campaign.type, blocks: campaign.blocks, renderedBytes,
     footerSocial: footerSocialEnabled(theme), hasSocialLinks: footerSocialLinks.length > 0,
+    campaignEventId: campaign.eventId,
   }), [
     campaign.subject, campaign.preheader, campaign.type, campaign.blocks, renderedBytes,
-    theme, footerSocialLinks.length,
+    campaign.eventId, theme, footerSocialLinks.length,
   ]);
   const warnCount = checks.filter((c) => c.status === 'warn').length;
   const blocked = checklistBlocksSend(checks);

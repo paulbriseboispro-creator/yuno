@@ -60,9 +60,10 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
     renderedBytes: previewHtml.length,
     footerSocial: footerSocialEnabled(campaign.theme),
     hasSocialLinks: Object.values(campaign.socialLinks).some((v) => !!v && v.trim().length > 0),
+    campaignEventId: campaign.eventId,
   }), [
     campaign.subject, campaign.preheader, campaign.type, campaign.blocks,
-    campaign.theme, campaign.socialLinks, previewHtml.length,
+    campaign.theme, campaign.socialLinks, campaign.eventId, previewHtml.length,
   ]);
 
   const blocked = checklistBlocksSend(checklist);
