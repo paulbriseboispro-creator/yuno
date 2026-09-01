@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -4528,6 +4503,7 @@ export type Database = {
       }
       email_campaign_recipients: {
         Row: {
+          ab_variant: string | null
           attempts: number
           campaign_id: string
           claimed_at: string | null
@@ -4545,6 +4521,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          ab_variant?: string | null
           attempts?: number
           campaign_id: string
           claimed_at?: string | null
@@ -4562,6 +4539,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          ab_variant?: string | null
           attempts?: number
           campaign_id?: string
           claimed_at?: string | null
@@ -4590,8 +4568,14 @@ export type Database = {
       }
       email_campaigns: {
         Row: {
+          ab_enabled: boolean
+          ab_split_pct: number
+          ab_window_minutes: number
+          ab_winner: string | null
           audience_type: string | null
+          audiences_json: Json
           blocks_json: Json
+          blocks_version: number
           bounced_count: number
           clicks_count: number
           complained_count: number
@@ -4600,6 +4584,7 @@ export type Database = {
           delivered_count: number
           error_message: string | null
           event_id: string | null
+          exclusions_json: Json
           failed_count: number
           html_body: string | null
           id: string
@@ -4610,6 +4595,7 @@ export type Database = {
           organizer_user_id: string | null
           paused_reason: string | null
           preheader: string | null
+          quiet_hours: boolean
           recipients_count: number
           scheduled_at: string | null
           segment_id: string | null
@@ -4618,8 +4604,10 @@ export type Database = {
           social_links_json: Json | null
           status: string
           subject: string
+          subject_b: string | null
           suppressed_count: number
           theme_json: Json | null
+          throttle_per_hour: number | null
           total_recipients: number
           type: string | null
           unsubscribes_count: number
@@ -4627,8 +4615,14 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          ab_enabled?: boolean
+          ab_split_pct?: number
+          ab_window_minutes?: number
+          ab_winner?: string | null
           audience_type?: string | null
+          audiences_json?: Json
           blocks_json?: Json
+          blocks_version?: number
           bounced_count?: number
           clicks_count?: number
           complained_count?: number
@@ -4637,6 +4631,7 @@ export type Database = {
           delivered_count?: number
           error_message?: string | null
           event_id?: string | null
+          exclusions_json?: Json
           failed_count?: number
           html_body?: string | null
           id?: string
@@ -4647,6 +4642,7 @@ export type Database = {
           organizer_user_id?: string | null
           paused_reason?: string | null
           preheader?: string | null
+          quiet_hours?: boolean
           recipients_count?: number
           scheduled_at?: string | null
           segment_id?: string | null
@@ -4655,8 +4651,10 @@ export type Database = {
           social_links_json?: Json | null
           status?: string
           subject: string
+          subject_b?: string | null
           suppressed_count?: number
           theme_json?: Json | null
+          throttle_per_hour?: number | null
           total_recipients?: number
           type?: string | null
           unsubscribes_count?: number
@@ -4664,8 +4662,14 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          ab_enabled?: boolean
+          ab_split_pct?: number
+          ab_window_minutes?: number
+          ab_winner?: string | null
           audience_type?: string | null
+          audiences_json?: Json
           blocks_json?: Json
+          blocks_version?: number
           bounced_count?: number
           clicks_count?: number
           complained_count?: number
@@ -4674,6 +4678,7 @@ export type Database = {
           delivered_count?: number
           error_message?: string | null
           event_id?: string | null
+          exclusions_json?: Json
           failed_count?: number
           html_body?: string | null
           id?: string
@@ -4684,6 +4689,7 @@ export type Database = {
           organizer_user_id?: string | null
           paused_reason?: string | null
           preheader?: string | null
+          quiet_hours?: boolean
           recipients_count?: number
           scheduled_at?: string | null
           segment_id?: string | null
@@ -4692,8 +4698,10 @@ export type Database = {
           social_links_json?: Json | null
           status?: string
           subject?: string
+          subject_b?: string | null
           suppressed_count?: number
           theme_json?: Json | null
+          throttle_per_hour?: number | null
           total_recipients?: number
           type?: string | null
           unsubscribes_count?: number
@@ -4798,6 +4806,7 @@ export type Database = {
           id: string
           inserted_count: number
           invalid_count: number
+          list_name: string | null
           organizer_user_id: string | null
           reactivated_count: number
           submitted_count: number
@@ -4817,6 +4826,7 @@ export type Database = {
           id?: string
           inserted_count?: number
           invalid_count?: number
+          list_name?: string | null
           organizer_user_id?: string | null
           reactivated_count?: number
           submitted_count?: number
@@ -4836,6 +4846,7 @@ export type Database = {
           id?: string
           inserted_count?: number
           invalid_count?: number
+          list_name?: string | null
           organizer_user_id?: string | null
           reactivated_count?: number
           submitted_count?: number
@@ -9337,6 +9348,45 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           visitor_hash?: string
+        }
+        Relationships: []
+      }
+      pro_contact_leads: {
+        Row: {
+          city: string | null
+          club_name: string | null
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          name: string
+          phone: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          city?: string | null
+          club_name?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          name: string
+          phone?: string | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          city?: string | null
+          club_name?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          name?: string
+          phone?: string | null
+          source?: string
+          status?: string
         }
         Relationships: []
       }
@@ -15604,6 +15654,10 @@ export type Database = {
         Args: { p_assign?: boolean; p_event_id: string; p_promoter_id: string }
         Returns: undefined
       }
+      assign_campaign_ab_variants: {
+        Args: { p_campaign_id: string }
+        Returns: number
+      }
       assign_promoters_to_group: {
         Args: { p_group_id: string; p_promoter_ids: string[] }
         Returns: undefined
@@ -15677,6 +15731,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_manage_email_assets: { Args: never; Returns: boolean }
       can_manage_event_guestlist_house: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -15745,6 +15800,7 @@ export type Database = {
       claim_campaign_recipients: {
         Args: { p_campaign_id: string; p_limit?: number }
         Returns: {
+          ab_variant: string
           attempts: number
           email: string
           first_name: string
@@ -15828,6 +15884,10 @@ export type Database = {
       consume_sms_credits: {
         Args: { p_amount: number; p_balance_id: string }
         Returns: boolean
+      }
+      count_campaign_audience: {
+        Args: { p_campaign_id: string }
+        Returns: Json
       }
       count_campaign_recipients: {
         Args: {
@@ -16439,6 +16499,7 @@ export type Database = {
           sent_total: number
         }[]
       }
+      get_campaign_ab_stats: { Args: { p_campaign_id: string }; Returns: Json }
       get_campaign_send_progress: {
         Args: { p_campaign_id: string }
         Returns: Json
@@ -16920,6 +16981,13 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_recipient_block_conds: {
+        Args: { p_campaign_id: string; p_emails: string[] }
+        Returns: {
+          cond: string
+          email: string
+        }[]
+      }
       get_reservation_venue_id: {
         Args: { _reservation_id: string }
         Returns: string
@@ -17137,6 +17205,7 @@ export type Database = {
           p_contacts: Json
           p_filename?: string
           p_import_id?: string
+          p_list_name?: string
           p_organizer_user_id?: string
           p_venue_id?: string
         }
@@ -17185,6 +17254,10 @@ export type Database = {
         Args: { p_event_id: string; p_user: string }
         Returns: boolean
       }
+      is_event_door_staff: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_event_organizer: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -17199,6 +17272,10 @@ export type Database = {
       }
       is_event_partner_venue_staff: {
         Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_guest_list_door_staff: {
+        Args: { _guest_list_id: string; _user_id: string }
         Returns: boolean
       }
       is_night_staff_of_venue: {
@@ -17515,6 +17592,10 @@ export type Database = {
         Args: { p_amount: number; p_credit_id: string }
         Returns: undefined
       }
+      rename_email_list_import: {
+        Args: { p_import_id: string; p_name: string }
+        Returns: string
+      }
       request_club_yuno_lead: {
         Args: { p_affiliate_venue_id: string }
         Returns: Json
@@ -17585,6 +17666,10 @@ export type Database = {
         }[]
       }
       resolve_affiliate_slug: { Args: { p_slug: string }; Returns: string }
+      resolve_campaign_ab_winner: {
+        Args: { p_campaign_id: string; p_force?: boolean }
+        Returns: Json
+      }
       resolve_campaign_audience: {
         Args: { p_campaign_id: string }
         Returns: {
@@ -17915,6 +18000,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      sweep_orphan_profiles: { Args: never; Returns: Json }
       sync_offline_scans: { Args: { p_scans: Json }; Returns: Json }
       sync_promoter_guestlist_parts: {
         Args: { p_promoter_id: string }
@@ -18205,9 +18291,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: [
