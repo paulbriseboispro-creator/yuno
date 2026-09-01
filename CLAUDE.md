@@ -491,6 +491,15 @@ intouchables :
   obligatoire et horodatée, jamais de réactivation d'un désabonné explicite,
   bloqué en session support. Envoyer une campagne l'est aussi
   (`isSupportSessionToken` dans `send-campaign`) ; l'envoi de TEST reste ouvert.
+- **Chaque fichier importé reste un segment d'audience.** La séparation vit
+  dans `newsletter_subscriptions.import_id` (→ `email_list_imports`), exposée
+  par le kind d'audience v2 `{"kind":"import","importId":"<uuid>"}` dans
+  `resolve_campaign_audience` — **les deux portées, club ET organisateur**
+  (c'est le seul ciblage fin d'un organisateur, `venue_segments` étant
+  venue-only). Comparaison en TEXTE, jamais un cast uuid : un importId
+  malformé ne matche rien au lieu de casser toute la résolution. Le miroir
+  hérité `audience_type = 'imported_list'` n'a AUCUN chemin v1 : audiences_json
+  vide ⇒ la campagne ne part à personne, jamais à toute la base.
 - **Le front ne décide plus du statut d'une campagne.** `sendNow` ne force plus
   `status='failed'` en cas d'erreur réseau : l'envoi est asynchrone, il continue
   côté serveur. Le serveur est seul maître du statut.
