@@ -86,11 +86,15 @@ export default function AffiliateLayout() {
     );
   }
 
-  // Fusion : le cockpit du chef d'agence est /agency-app. L'index /affiliate
-  // n'est plus une destination pour l'admin — seules ses sous-pages (clubs
-  // externes, linktree, analytics trafic…) restent servies ici.
-  if (shell.role === 'admin' && location.pathname === '/affiliate') {
-    return <Navigate to="/agency-app" replace />;
+  // L'index /affiliate n'est une destination pour personne : le cockpit du
+  // chef d'agence est /agency-app (fusion), le manager vit sur /affiliate/manager
+  // et le promoteur sur /affiliate/promoteur. Sans cet aiguillage, un membre
+  // atterrissant ici (post-invitation, post-PIN, retour arrière) tombait sur
+  // le dashboard admin, vide pour lui.
+  if (location.pathname === '/affiliate') {
+    if (shell.role === 'admin') return <Navigate to="/agency-app" replace />;
+    if (shell.role === 'manager') return <Navigate to="/affiliate/manager" replace />;
+    return <Navigate to="/affiliate/promoteur" replace />;
   }
 
   return (
