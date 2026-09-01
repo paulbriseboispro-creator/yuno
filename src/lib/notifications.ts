@@ -56,6 +56,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 🤝 People
   partner_request:     { icon: Handshake, category: 'people', label: 'notif.type.partner_request' },
   partner_accepted:    { icon: Handshake, category: 'people', label: 'notif.type.partner_accepted' },
+  // Lead pro déposé via le formulaire « Ouvrir un club » (Explore faible densité)
+  admin_pro_lead:      { icon: Handshake, category: 'people', label: 'notif.type.admin_pro_lead' },
   // co-event collaboration (per-night)
   collab_request:          { icon: Handshake,     category: 'people', label: 'notif.type.collab_request' },
   collab_accepted:         { icon: Handshake,     category: 'people', label: 'notif.type.collab_accepted' },
@@ -493,6 +495,11 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_agency_club_lead':
       return '/admin/affiliates';
+
+    // Lead pro « Ouvrir un club » : les coordonnées vivent dans le corps de
+    // l'alerte elle-même — on reste sur la page des alertes.
+    case 'admin_pro_lead':
+      return '/admin/alerts';
 
     // Demande d'activation d'un compte vitrine : la section « Demandes
     // d'activation » et le bouton Inviter vivent sur la page des accès démo.

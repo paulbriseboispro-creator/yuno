@@ -235,6 +235,148 @@ function MarketAlertDialog({
   );
 }
 
+/* ── Formulaire de contact pro (« Tu fais la nuit ici ? ») ──
+   /pro exige un compte : un gérant de club qui découvre Yuno depuis une ville
+   vide n'en a pas. On capte le lead ici (table pro_contact_leads, alerte
+   super admin émise côté base) — zéro compte, zéro friction. */
+
+function ProLeadDialog({
+  open,
+  onOpenChange,
+  city,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  city: string;
+}) {
+  const { t } = useLanguage();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [club, setClub] = useState('');
+  const [leadCity, setLeadCity] = useState(city);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { setLeadCity(prev => prev || city); }, [city]);
+  useEffect(() => {
+    if (!open) return;
+    supabase.auth.getUser().then(({ data }) => {
+      const userEmail = data.user?.email;
+      if (userEmail) setEmail(prev => prev || userEmail);
+    });
+  }, [open]);
+
+  const valid = name.trim().length > 0 && /^\S+@\S+\.\S+$/.test(email.trim());
+
+  const submit = async () => {
+    if (!valid) return;
+    setLoading(true);
+    try {
+      // Pas de .select() : la lecture de la table est réservée au super admin,
+      // un RETURNING ferait échouer l'insert anon sous RLS.
+      const { error } = await supabase.from('pro_contact_leads').insert([{
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim() || null,
+        club_name: club.trim() || null,
+        city: leadCity.trim() || null,
+        message: message.trim() || null,
+        source: 'explore',
+      }]);
+      if (error) {
+        toast.error(t('common.error'));
+      } else {
+        toast.success(t('explore.ld.proDone'));
+        onOpenChange(false);
+      }
+    } catch {
+      toast.error(t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm bg-card border-border">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-bold uppercase tracking-wider">
+            {t('explore.ld.proTitle')}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm" style={{ color: '#9A9A9A' }}>
+            {t('explore.ld.proBody')}
+          </p>
+          <Input
+            placeholder={t('explore.ld.proName')}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="text-sm bg-background/90 border-border/50 focus:border-primary"
+          />
+          <Input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder={t('explore.ld.dlgEmail')}
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className="text-sm bg-background/90 border-border/50 focus:border-primary"
+          />
+          <Input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder={t('explore.ld.proPhone')}
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            className="text-sm bg-background/90 border-border/50 focus:border-primary"
+          />
+          <div className="flex gap-2">
+            <Input
+              placeholder={t('explore.ld.proClub')}
+              value={club}
+              onChange={e => setClub(e.target.value)}
+              className="flex-1 text-sm bg-background/90 border-border/50 focus:border-primary"
+            />
+            <Input
+              placeholder={t('explore.ld.proCity')}
+              value={leadCity}
+              onChange={e => setLeadCity(e.target.value)}
+              className="w-28 text-sm bg-background/90 border-border/50 focus:border-primary"
+            />
+          </div>
+          <textarea
+            placeholder={t('explore.ld.proMessage')}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            className="w-full rounded-md border px-3 py-2 text-sm bg-background/90 border-border/50 focus:border-primary focus:outline-none resize-none"
+          />
+          <button
+            onClick={submit}
+            disabled={loading || !valid}
+            className="w-full font-semibold disabled:opacity-50"
+            style={{
+              height: 44,
+              borderRadius: 999,
+              background: '#E8192C',
+              color: '#fff',
+              fontSize: 14,
+              border: 'none',
+              boxShadow: '0 10px 28px rgba(232,25,44,.32)',
+            }}
+          >
+            {t('explore.ld.proSubmit')}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── Grande carte 1:1 de la soirée mise en avant ── */
 
 function FeaturedNightCard({ event, variant }: { event: DensityEvent; variant: 'single' | 'low' }) {
@@ -629,6 +771,7 @@ export function ExploreEmptyMarket({
   const { t, language } = useLanguage();
   const locale = dfLocale(language);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [proOpen, setProOpen] = useState(false);
   const [alertSet, setAlertSet] = useState(() => hasAlertFlag(city));
   useEffect(() => { setAlertSet(hasAlertFlag(city)); }, [city]);
 
@@ -724,13 +867,13 @@ export function ExploreEmptyMarket({
         </FadeInView>
       )}
 
-      {/* Tu fais la nuit ici ? */}
+      {/* Tu fais la nuit ici ? — formulaire de contact, pas /pro (qui exige un compte) */}
       <FadeInView style={{ padding: '26px 20px 0' }}>
         <div
           role="button"
           tabIndex={0}
-          onClick={() => navigate('/pro')}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/pro'); } }}
+          onClick={() => setProOpen(true)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProOpen(true); } }}
           className="flex items-center justify-between gap-3 cursor-pointer"
           style={{ padding: '16px 18px', background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4 }}
         >
@@ -747,6 +890,7 @@ export function ExploreEmptyMarket({
       </FadeInView>
 
       <MarketAlertDialog open={alertOpen} onOpenChange={setAlertOpen} city={city} onRegistered={() => setAlertSet(true)} />
+      <ProLeadDialog open={proOpen} onOpenChange={setProOpen} city={city} />
     </div>
   );
 }

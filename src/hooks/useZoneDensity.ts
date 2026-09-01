@@ -167,11 +167,16 @@ async function fetchZoneDensity(
     );
   }
 
-  const allCards: DensityEvent[] = (eventsRes.data || []).map(e => {
+  const allCards: DensityEvent[] = (eventsRes.data || []).flatMap(e => {
     const isOrganizerLed = !!e.organizer_user_id;
     const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
     const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
     const organizerInfo = isOrganizerLed && e.organizer_user_id ? organizerMap.get(e.organizer_user_id) : undefined;
+
+    // Soirée de club dont le lieu n'est pas un club visible (club démo womber,
+    // club masqué, orphelin) : elle n'existe sur AUCUNE surface publique — on
+    // la jette, on ne la laisse pas fuir dans « ailleurs sur Yuno ».
+    if (!isOrganizerLed && !venue) return [];
 
     const sm = soldMap[e.id];
     const percentSold = sm && sm.max > 0 ? (sm.sold / sm.max) * 100 : 0;
@@ -194,7 +199,7 @@ async function fetchZoneDensity(
 
     const hasTickets = !!e.ticketing_enabled && minPriceMap[e.id] !== undefined;
 
-    return {
+    return [{
       id: e.id,
       slug: e.slug ?? null,
       organizerSlug: organizerInfo?.slug ?? null,
@@ -224,7 +229,7 @@ async function fetchZoneDensity(
       displayVenueId,
       venueAddress: venue?.address || e.location_address || null,
       locationName: e.location_name || null,
-    };
+    }];
   });
 
   const affiliateCards: DensityEvent[] = (affRes.data ?? []).flatMap(ae => {
@@ -281,8 +286,13 @@ async function fetchZoneDensity(
   const weekCount = upcoming.filter(e => new Date(e.startAt).getTime() <= weekEnd.getTime()).length;
 
   // Ailleurs sur Yuno : les 7 prochains jours hors zone (rail de l'état vide).
+  // Une soirée sans ville ne peut être « ailleurs » nulle part — exclue.
+  // Les soirées natives Yuno passent devant les partenaires (affiliées).
   const elsewhere = merged
-    .filter(e => !inZone(e) && new Date(e.startAt).getTime() <= weekEnd.getTime())
+    .filter(e => !inZone(e) && !!e.venueCity && new Date(e.startAt).getTime() <= weekEnd.getTime())
+    .sort((a, b) =>
+      (a.isAffiliate ? 1 : 0) - (b.isAffiliate ? 1 : 0)
+      || new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
     .slice(0, 8);
   const elsewhereCityCount = new Set(
     elsewhere.map(e => e.venueCity.toLowerCase()).filter(Boolean),
