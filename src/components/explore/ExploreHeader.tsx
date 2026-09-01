@@ -25,9 +25,12 @@ interface ExploreHeaderProps {
   onFiltersOpen: () => void;
   onCityChange: (city: string, coords?: { lat: number; lng: number }) => void;
   activeFiltersCount?: number;
+  /** Poignée impérative pour ouvrir le sélecteur de ville depuis la page
+      (bouton « Ailleurs sur Yuno » des écrans faible densité). */
+  openCityPickerRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDateSelect, onSearchFocus, onFiltersOpen, onCityChange, activeFiltersCount = 0 }: ExploreHeaderProps) {
+export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDateSelect, onSearchFocus, onFiltersOpen, onCityChange, activeFiltersCount = 0, openCityPickerRef }: ExploreHeaderProps) {
   const { t, language } = useLanguage();
   const calendarLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -36,6 +39,12 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
   const [citySuggestions, setCitySuggestions] = useState<Array<{ name: string; displayName: string; lat: number; lng: number }>>([]);
   const [geoLoading, setGeoLoading] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (!openCityPickerRef) return;
+    openCityPickerRef.current = () => setCityDialogOpen(true);
+    return () => { openCityPickerRef.current = null; };
+  }, [openCityPickerRef]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {

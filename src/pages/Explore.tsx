@@ -25,7 +25,9 @@ import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { FadeInView } from '@/components/motion';
 import { useForYouFeed } from '@/hooks/useForYouFeed';
+import { useZoneDensity } from '@/hooks/useZoneDensity';
 import { ExploreForYouRail } from '@/components/explore/ExploreForYouRail';
+import { MarketTicker, ExploreSingleNight, ExploreEmptyMarket, ExploreFewDates } from '@/components/explore/ExploreLowDensity';
 import { ExploreMomentBanner } from '@/components/explore/ExploreMomentBanner';
 import { activeMomentForCity } from '@/data/featuredMoments';
 import { PublicPage } from '@/components/PublicPage';
@@ -216,6 +218,14 @@ export default function Explore() {
   //    recommander, la section se masque d'elle-même.
   const forYouItems = useForYouFeed(city);
 
+  // ── Densité de la zone : bascule automatique vers les écrans « faible
+  //    densité » (0 soirée / 1 soirée / semaine creuse). Fail-open : en cas
+  //    d'erreur le hook renvoie 'full' et le feed standard reprend la main.
+  const { density, isLoading: densityLoading } = useZoneDensity(city, userLocation);
+
+  // Poignée pour ouvrir le sélecteur de ville depuis les écrans faible densité.
+  const cityPickerRef = useRef<(() => void) | null>(null);
+
   // ── Moment éditorial (Freshers Week…) : bannière affiche en tête de feed
   //    quand la ville du visiteur a un temps fort en cours ou qui approche.
   const activeMoment = useMemo(() => activeMomentForCity(city), [city]);
@@ -236,6 +246,9 @@ export default function Explore() {
   const venueFavCounts = exploreMainQuery.data?.venueFavCounts ?? EMPTY_COUNTS;
   const filterDynamicData = exploreMainQuery.data?.filterDynamicData ?? DEFAULT_FILTER_DYNAMIC;
   const loading = exploreMainQuery.isLoading;
+  // La densité de zone décide de l'écran rendu : on attend les deux requêtes
+  // avant de peindre (le skeleton couvre, pas de bascule visible après coup).
+  const pageLoading = loading || densityLoading;
 
   // Réseau instable en soirée : on signale l'échec avec un « Réessayer » plutôt
   // que de laisser un accueil vide et silencieux.
@@ -1133,6 +1146,7 @@ export default function Explore() {
         onFiltersOpen={() => setFiltersOpen(true)}
         onCityChange={handleCityChange}
         activeFiltersCount={activeFiltersCount}
+        openCityPickerRef={cityPickerRef}
       />
 
       {/* Scrollable main — le padding bas dégage la BottomNav flottante, la
@@ -1143,25 +1157,55 @@ export default function Explore() {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 168px)' }}
       >
 
-        {/* ── Chip filter row ── */}
-        <div style={{ padding: '12px 0 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <ExploreChipRow
-            dateFilter={dateFilter}
-            onDateChip={handleDateChip}
-            genreFilter={chipGenres}
-            onGenreToggle={handleGenreToggle}
-            freeOnly={freeOnly}
-            onFreeToggle={handleFreeToggle}
-          />
-        </div>
+        {/* ── Chip filter row (feed standard uniquement) ── */}
+        {(pageLoading || density.status === 'full') && (
+          <div style={{ padding: '12px 0 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <ExploreChipRow
+              dateFilter={dateFilter}
+              onDateChip={handleDateChip}
+              genreFilter={chipGenres}
+              onGenreToggle={handleGenreToggle}
+              freeOnly={freeOnly}
+              onFreeToggle={handleFreeToggle}
+            />
+          </div>
+        )}
+
+        {/* ── Bandeau marché des écrans faible densité ── */}
+        {!pageLoading && density.status !== 'full' && <MarketTicker density={density} city={city} />}
 
         {/* ── Loading skeleton ── */}
-        {loading && <ExploreCardsSkeleton />}
+        {pageLoading && <ExploreCardsSkeleton />}
+
+        {/* ══════════════════════════════════════════
+            FAIBLE DENSITÉ — 0 soirée (demande), 1 soirée
+            (découverte), semaine creuse (arbitrage).
+            ══════════════════════════════════════════ */}
+        {!pageLoading && density.status !== 'full' && (
+          <PublicPage variant="discovery">
+            {density.status === 'single' && density.upcoming[0] && (
+              <ExploreSingleNight
+                event={density.upcoming[0]}
+                venue={density.venues[0] ?? null}
+                city={city}
+                onOpenCityPicker={() => cityPickerRef.current?.()}
+              />
+            )}
+            {density.status === 'empty' && (
+              <ExploreEmptyMarket
+                city={city}
+                elsewhere={density.elsewhere}
+                elsewhereCityCount={density.elsewhereCityCount}
+              />
+            )}
+            {density.status === 'low' && <ExploreFewDates density={density} />}
+          </PublicPage>
+        )}
 
         {/* ══════════════════════════════════════════
             MAIN FEED — sectioned editorial layout
             ══════════════════════════════════════════ */}
-        {!loading && (
+        {!pageLoading && density.status === 'full' && (
           <PublicPage variant="discovery">
             {/* ═══ MODULE 0 : Bannière moment (Freshers Week…) — se masque
                 toute seule hors fenêtre / hors ville / sans matière. ═══ */}
@@ -1290,8 +1334,8 @@ export default function Explore() {
         )}
       </main>
 
-      {/* ── Pill button: tous les events ── */}
-      {showAllEventsPill && (
+      {/* ── Pill button: tous les events (feed standard uniquement) ── */}
+      {showAllEventsPill && density.status === 'full' && (
         <button
           onClick={() => navigate('/events')}
           style={{
