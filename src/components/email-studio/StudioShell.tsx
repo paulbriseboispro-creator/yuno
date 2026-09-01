@@ -112,6 +112,9 @@ function legacyAudienceType(c: StudioCampaign): { audience_type: string | null; 
   if (c.audiences.length === 1) {
     const a = c.audiences[0];
     if (a.kind === 'segment') return { audience_type: 'custom_segment', segment_id: a.segmentId || null };
+    // 'imported_list' n'a AUCUN chemin de résolution v1 : si audiences_json
+    // se vidait, la campagne ne partirait à personne — jamais à toute la base.
+    if (a.kind === 'import') return { audience_type: 'imported_list', segment_id: null };
     return { audience_type: a.kind, segment_id: null };
   }
   return { audience_type: c.audiences.length > 0 ? 'all_subscribers' : null, segment_id: null };

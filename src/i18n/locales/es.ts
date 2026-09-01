@@ -14262,6 +14262,8 @@ const es: Record<string, string> = {
   'studio.aud.desc.new': "Primera visita",
   'studio.aud.desc.dormant': "Sin visitas en 90 días",
   'studio.aud.desc.saved': "Segmento guardado",
+  'studio.aud.imported': "Listas importadas",
+  'studio.aud.desc.imported': "Importada el {date}",
   'studio.sched.when': "¿Cuándo enviar?",
   'studio.sched.now': "Envío inmediato",
   'studio.sched.nowHelp': "Sale en cuanto confirmes el resumen.",

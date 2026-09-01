@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Check, Loader2, Lock, UserMinus, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { AudienceKind } from '@/lib/email';
+import type { AudienceKind, AudienceSel } from '@/lib/email';
 import { useStudio } from './store';
-import { useAudienceCount, type SavedSegment, type StudioEvent, type StudioScope } from './hooks';
+import { useAudienceCount, useImportedLists, type SavedSegment, type StudioEvent, type StudioScope } from './hooks';
 import {
   BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, RED, RED_SOFT_GRAD, SegBtns,
   SUBTLE, Switch, T1, T2, T3, inputStyle,
@@ -44,6 +44,7 @@ export default function AudienceStep({ scope, events, segments }: {
 
   const hasAudience = campaign.audiences.length > 0;
   const { count, loading } = useAudienceCount(campaign.id, saveSeq, hasAudience);
+  const imports = useImportedLists(scope);
 
   // Effectifs par segment (clubs uniquement — la RPC v1 est venue-scopée).
   useEffect(() => {
@@ -108,28 +109,38 @@ export default function AudienceStep({ scope, events, segments }: {
     return () => { cancelled = true; };
   }, [scope]);
 
-  const isSelected = (kind: AudienceKind, segmentId?: string) =>
-    campaign.audiences.some((a) => a.kind === kind && (kind !== 'segment' || a.segmentId === segmentId));
+  // Une sélection = son kind + la référence qui la distingue (segment
+  // sauvegardé ou lot d'import). Deux listes importées sont deux cases.
+  const selKey = (a: AudienceSel) => `${a.kind}:${a.segmentId || a.importId || ''}`;
 
-  const toggleAudience = (kind: AudienceKind, segmentId?: string) => {
+  const isSelected = (kind: AudienceKind, refId?: string) =>
+    campaign.audiences.some((a) => selKey(a) === `${kind}:${refId || ''}`);
+
+  const toggleAudience = (kind: AudienceKind, refId?: string) => {
     if (campaign.type === 'informational') {
       setAudiences([{ kind }]);
       return;
     }
-    const selected = isSelected(kind, segmentId);
-    setAudiences(selected
-      ? campaign.audiences.filter((a) => !(a.kind === kind && (kind !== 'segment' || a.segmentId === segmentId)))
-      : [...campaign.audiences, segmentId ? { kind, segmentId } : { kind }]);
+    const key = `${kind}:${refId || ''}`;
+    if (campaign.audiences.some((a) => selKey(a) === key)) {
+      setAudiences(campaign.audiences.filter((a) => selKey(a) !== key));
+      return;
+    }
+    const added: AudienceSel = kind === 'import' ? { kind, importId: refId }
+      : kind === 'segment' ? { kind, segmentId: refId }
+      : { kind };
+    setAudiences([...campaign.audiences, added]);
   };
 
   const nf = (n: number) => n.toLocaleString('fr-FR');
   const grossSum = campaign.type === 'promotional'
     ? campaign.audiences.reduce((acc, a) => {
+      if (a.kind === 'import') return acc + (imports.find((l) => l.id === a.importId)?.count || 0);
       const key = a.kind === 'segment' ? `seg:${a.segmentId}` : a.kind;
       return acc + (perKindCounts[key] || 0);
     }, 0)
     : (count?.gross ?? 0);
-  const maxCount = Math.max(1, ...Object.values(perKindCounts));
+  const maxCount = Math.max(1, ...Object.values(perKindCounts), ...imports.map((l) => l.count));
   const net = count?.net ?? 0;
   const dedupAndExcl = Math.max(0, grossSum - (count?.gross ?? grossSum));
   const baseAll = perKindCounts['all_subscribers'] || 0;
@@ -215,6 +226,27 @@ export default function AudienceStep({ scope, events, segments }: {
               );
             })}
           </div>
+
+          {/* Listes importées : un fichier = un segment, aux deux portées. */}
+          {campaign.type === 'promotional' && imports.length > 0 && (
+            <>
+              <MicroLabel style={{ margin: '14px 0 7px' }}>{t('studio.aud.imported')}</MicroLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {imports.map((l) => (
+                  <SegmentRow
+                    key={l.id}
+                    on={isSelected('import', l.id)}
+                    onClick={() => toggleAudience('import', l.id)}
+                    name={l.name}
+                    desc={t('studio.aud.desc.imported').replace(
+                      '{date}', new Date(l.createdAt).toLocaleDateString())}
+                    count={l.count}
+                    barPct={Math.round((l.count / maxCount) * 100)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
           {campaign.type === 'promotional' && !hasAudience && (
             <Help style={{ marginTop: 10, color: RED }}>{t('studio.aud.pickOne')}</Help>
           )}

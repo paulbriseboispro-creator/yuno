@@ -158,6 +158,51 @@ export function useSavedSegments(scope: StudioScope): SavedSegment[] {
   return segments;
 }
 
+export interface ImportedList { id: string; name: string; createdAt: string; count: number }
+
+/**
+ * Listes importées de la portée — un fichier importé reste un segment à part.
+ * Disponible aux DEUX portées, contrairement aux segments sauvegardés qui sont
+ * venue-only. L'effectif est recompté en direct (un désabonnement le fait
+ * baisser), jamais lu dans le rapport d'import figé.
+ */
+export function useImportedLists(scope: StudioScope): ImportedList[] {
+  const [lists, setLists] = useState<ImportedList[]>([]);
+  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let q = supabase.from('email_list_imports')
+        .select('id, filename, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      q = scope.kind === 'venue' ? q.eq('venue_id', scopeId) : q.eq('organizer_user_id', scopeId);
+      const { data } = await q;
+      if (cancelled) return;
+      const rows = (data || []) as Array<{ id: string; filename: string | null; created_at: string }>;
+      const counted = await Promise.all(rows.map(async (r) => {
+        const { count } = await supabase.from('newsletter_subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('import_id', r.id)
+          .eq('opted_in', true);
+        return {
+          id: r.id,
+          name: (r.filename || '').replace(/\.[a-z0-9]+$/i, '').trim() || 'Import',
+          createdAt: r.created_at,
+          count: count || 0,
+        };
+      }));
+      // Un lot dont plus personne n'est abonné n'est pas une cible : on ne
+      // propose pas une case qui n'ajoute personne.
+      if (!cancelled) setLists(counted.filter((l) => l.count > 0));
+    })();
+    return () => { cancelled = true; };
+  }, [scope.kind, scopeId]);
+
+  return lists;
+}
+
 export interface AudienceCount { gross: number; net: number; suppressed: number }
 
 /**

@@ -13991,6 +13991,8 @@ const fr: Record<string, string> = {
   'studio.aud.desc.new': "Première visite",
   'studio.aud.desc.dormant': "Sans visite depuis 90 jours",
   'studio.aud.desc.saved': "Segment sauvegardé",
+  'studio.aud.imported': "Listes importées",
+  'studio.aud.desc.imported': "Importée le {date}",
   'studio.sched.when': "Quand envoyer ?",
   'studio.sched.now': "Envoi immédiat",
   'studio.sched.nowHelp': "Part dès la confirmation du récap.",
