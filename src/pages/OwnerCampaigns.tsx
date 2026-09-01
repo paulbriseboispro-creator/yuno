@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Upload } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Trash2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -53,6 +58,8 @@ export default function OwnerCampaigns() {
   const [revenue, setRevenue] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!venueId) return;
@@ -73,6 +80,23 @@ export default function OwnerCampaigns() {
       }
     });
   }, [venueId]);
+
+  // Suppression d'un brouillon. Le serveur a le dernier mot (trigger
+  // guard_email_campaign_delete) : on ne retire la ligne de l'écran qu'après
+  // un aller-retour réussi.
+  const deleteDraft = async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const { error } = await supabase.from('email_campaigns').delete().eq('id', pendingDelete.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(t('em.del.error'));
+      return;
+    }
+    setCampaigns((prev) => prev.filter((x) => x.id !== pendingDelete.id));
+    setPendingDelete(null);
+    toast.success(t('em.del.done'));
+  };
 
   // KPIs 30 jours — calculés depuis les campagnes réelles, jamais inventés.
   const kpis = useMemo(() => {
@@ -276,12 +300,32 @@ export default function OwnerCampaigns() {
                       }}>
                         {rev ? `${nf(Math.round(rev))} €` : '—'}
                       </div>
-                      <div style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px',
                           borderRadius: 999, fontSize: 10.5, fontWeight: 600,
                           color: pill.color, background: pill.bg, border: `1px solid ${pill.border}`,
                         }}>{t(pill.labelKey)}</span>
+                        {/* Corbeille sur les brouillons seulement : une campagne
+                            partie garde ses statistiques et son revenu attribué. */}
+                        {c.status === 'draft' && (
+                          <button
+                            type="button"
+                            aria-label={t('em.del.button')}
+                            title={t('em.del.button')}
+                            onClick={(e) => { e.stopPropagation(); setPendingDelete(c); }}
+                            className="cursor-pointer"
+                            style={{
+                              width: 26, height: 26, borderRadius: 8, flex: 'none',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: 'transparent', border: `1px solid ${F_BORDER}`, color: T3,
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = NEG; e.currentTarget.style.borderColor = 'rgba(255,92,99,0.35)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = T3; e.currentTarget.style.borderColor = F_BORDER; }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     {inFlight && (
@@ -307,6 +351,27 @@ export default function OwnerCampaigns() {
           scope={{ kind: 'venue', venueId }}
         />
       )}
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('em.del.title').replace('{name}', pendingDelete?.name || '')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t('em.del.desc')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void deleteDraft(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

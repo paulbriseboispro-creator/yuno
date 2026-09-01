@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CheckCircle2, LayoutTemplate, Loader2, Pencil, X } from 'lucide-react';
+import { CheckCircle2, LayoutTemplate, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { campaignToTemplateContent, eventBoundBlocks, type EmailTemplate, type StudioCampaign } from '@/lib/email';
 import {
-  BORDER, FONT_UI, GhostBtn, PrimaryBtn, RED, SUBTLE, T1, T2, T3, TextArea, TextInput,
+  BORDER, FONT_UI, GhostBtn, NEG, PrimaryBtn, RED, SUBTLE, T1, T2, T3, TextArea, TextInput,
 } from './ui';
 
 /** Coque de modale du Studio — mêmes tokens que « Envoyer un test ». */
@@ -228,6 +228,43 @@ export function RenameTemplateDialog({ template, onClose, onSubmit }: {
           {busy ? <Loader2 size={14} className="animate-spin" /> : null}
           {t('studio.tpl.saveBtn')}
         </PrimaryBtn>
+      </div>
+    </Shell>
+  );
+}
+
+/** Confirmation de suppression d'un modèle — jamais un window.confirm nu. */
+export function DeleteTemplateDialog({ template, busy, onClose, onConfirm }: {
+  template: EmailTemplate | null;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useLanguage();
+  if (!template) return null;
+  return (
+    <Shell
+      title={t('studio.tpl.deleteTitle').replace('{name}', template.name)}
+      help={t('studio.tpl.deleteHelp')}
+      icon={<Trash2 size={16} strokeWidth={1.75} />}
+      onClose={onClose}
+    >
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <GhostBtn onClick={onClose}>{t('studio.tpl.cancel')}</GhostBtn>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={busy}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px',
+            borderRadius: 10, cursor: busy ? 'default' : 'pointer', fontFamily: FONT_UI,
+            fontSize: 12.5, fontWeight: 600, color: '#fff', border: 'none',
+            background: NEG, opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.75} />}
+          {t('studio.tpl.delete')}
+        </button>
       </div>
     </Shell>
   );

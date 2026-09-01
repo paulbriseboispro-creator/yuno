@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Trash2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileType } from '@/hooks/useProfileType';
@@ -42,6 +47,8 @@ export default function OrgAppCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -49,6 +56,22 @@ export default function OrgAppCampaigns() {
       .eq('organizer_user_id', user.id).order('created_at', { ascending: false })
       .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
   }, [user?.id]);
+
+  // Suppression d'un brouillon. Le trigger guard_email_campaign_delete a le
+  // dernier mot : la ligne ne quitte l'écran qu'après un aller-retour réussi.
+  const deleteDraft = async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const { error } = await supabase.from('email_campaigns').delete().eq('id', pendingDelete.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(t('Impossible de supprimer ce brouillon.', 'Could not delete this draft.', 'No se ha podido eliminar este borrador.'));
+      return;
+    }
+    setCampaigns((prev) => prev.filter((x) => x.id !== pendingDelete.id));
+    setPendingDelete(null);
+    toast.success(t('Brouillon supprimé', 'Draft deleted', 'Borrador eliminado'));
+  };
 
   const orgName = profile?.organizationName || 'Mon organisation';
   const fromAddr = `${slugifyVenueName(orgName)}@yunoapp.eu`;
@@ -122,6 +145,20 @@ export default function OrgAppCampaigns() {
                         <div style={{ color: T3, fontSize: 11.5 }}>{openRate}% {t('ouvertures', 'opens', 'aperturas')}</div>
                       </div>
                       {c.status === 'sent' && <BarChart3 className="h-4 w-4" style={{ color: T3 }} />}
+                      {/* Corbeille sur les brouillons seulement : une campagne
+                          partie garde ses destinataires et ses statistiques. */}
+                      {c.status === 'draft' && (
+                        <button
+                          type="button"
+                          aria-label={t('Supprimer le brouillon', 'Delete draft', 'Eliminar el borrador')}
+                          title={t('Supprimer le brouillon', 'Delete draft', 'Eliminar el borrador')}
+                          onClick={(e) => { e.stopPropagation(); setPendingDelete(c); }}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/5"
+                          style={{ color: T3 }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </OrgCard>
@@ -145,6 +182,33 @@ export default function OrgAppCampaigns() {
           scope={{ kind: 'organizer', organizerId: user.id }}
         />
       )}
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Supprimer « ', 'Delete « ', 'Eliminar « ')}{pendingDelete?.name || ''}{t(' » ?', ' »?', ' »?')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "Ce brouillon n'a jamais été envoyé : rien ne part, rien n'est perdu côté statistiques. La suppression est définitive.",
+                'This draft was never sent: nothing goes out, no stats are lost. Deletion is permanent.',
+                'Este borrador nunca se envió: no sale nada y no se pierde ninguna estadística. La eliminación es definitiva.',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Annuler', 'Cancel', 'Cancelar')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void deleteDraft(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : t('Supprimer', 'Delete', 'Eliminar')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </OrgPage>
   );
 }

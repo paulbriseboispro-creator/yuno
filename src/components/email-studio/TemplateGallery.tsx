@@ -12,7 +12,7 @@ import {
   type EmailTemplate, type StarterKey, type TemplateContent,
 } from '@/lib/email';
 import { useEmailTemplates, useStudioEvents, type StudioEvent, type StudioScope } from './hooks';
-import { RenameTemplateDialog } from './TemplateDialogs';
+import { DeleteTemplateDialog, RenameTemplateDialog } from './TemplateDialogs';
 import {
   APP_BG, BORDER, BORDER_FAINT, FONT_UI, FLOW_CARD_BG, FLOW_CARD_SHADOW, GhostBtn, PAGE_HALO,
   PrimaryBtn, RED, SUBTLE, T1, T2, T3, TextInput, TOPBAR_BG,
@@ -51,6 +51,8 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
   const [eventId, setEventId] = useState<string>('');
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<EmailTemplate | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<EmailTemplate | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const theme = useMemo(clubTheme, []);
 
   const starters = useMemo(
@@ -122,11 +124,14 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
     toast.success(t('studio.tpl.duplicated'));
   };
 
-  const deleteTemplate = async (tpl: EmailTemplate) => {
-    if (!window.confirm(t('studio.tpl.deleteConfirm').replace('{name}', tpl.name))) return;
-    const ok = await remove(tpl.id);
+  const deleteTemplate = async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const ok = await remove(pendingDelete.id);
+    setDeleting(false);
     if (!ok) { toast.error(t('studio.tpl.deleteError')); return; }
-    if (choice?.templateId === tpl.id) setChoice(null);
+    if (choice?.templateId === pendingDelete.id) setChoice(null);
+    setPendingDelete(null);
     toast.success(t('studio.tpl.deleted'));
   };
 
@@ -220,7 +225,7 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
                     actions={[
                       { icon: <Pencil size={13} strokeWidth={1.75} />, label: t('studio.tpl.rename'), run: () => setRenaming(tpl) },
                       { icon: <Copy size={13} strokeWidth={1.75} />, label: t('studio.tpl.duplicate'), run: () => { void duplicateTemplate(tpl); } },
-                      { icon: <Trash2 size={13} strokeWidth={1.75} />, label: t('studio.tpl.delete'), danger: true, run: () => { void deleteTemplate(tpl); } },
+                      { icon: <Trash2 size={13} strokeWidth={1.75} />, label: t('studio.tpl.delete'), danger: true, run: () => setPendingDelete(tpl) },
                     ]}
                   />
                 ))}
@@ -276,6 +281,13 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
           </div>
         </div>
       )}
+
+      <DeleteTemplateDialog
+        template={pendingDelete}
+        busy={deleting}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => { void deleteTemplate(); }}
+      />
 
       <RenameTemplateDialog
         template={renaming}
