@@ -6,6 +6,8 @@ import {
   contrastText, ctaColors,
   runChecklist, checklistBlocksSend,
   migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
+  stripEventBindings, eventBoundBlocks, needsEventBinding,
+  campaignToTemplateContent, templateToCampaignContent, buildStarter, STARTER_TEMPLATES,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -603,5 +605,99 @@ describe('migration v1 → v2 + normalisation', () => {
       expect(p.bg && p.card && p.accent && p.footerBg).toBeTruthy();
       expect(THEME_SWATCHES[p.name]).toHaveLength(3);
     }
+  });
+});
+
+describe("modèles d'email", () => {
+  const partyBound = (): EmailBlock[] => {
+    const ev = makeBlock('event', { eventId: 'ev-1' });
+    if (ev.type === 'event') { ev.coverUrl = 'https://cdn/affiche-septembre.jpg'; ev.ctaUrl = 'https://yunoapp.eu/e/vieille'; }
+    const tk = makeBlock('tickets', { eventId: 'ev-1' });
+    const cd = makeBlock('countdown', { eventId: 'ev-1' });
+    if (cd.type === 'countdown') cd.targetAt = '2026-09-12T21:00:00.000Z';
+    return [makeBlock('header'), makeBlock('text'), ev, tk, cd];
+  };
+
+  it('efface tout ce qui appartient à une soirée, garde le design', () => {
+    const stripped = stripEventBindings(partyBound());
+    for (const b of stripped) {
+      expect((b as { eventId?: string }).eventId).toBeUndefined();
+    }
+    const ev = stripped.find((b) => b.type === 'event');
+    expect(ev && ev.type === 'event' ? ev.coverUrl : 'x').toBeUndefined();
+    expect(ev && ev.type === 'event' ? ev.ctaUrl : 'x').toBeUndefined();
+    // Le libellé du bouton est du design : il survit.
+    expect(ev && ev.type === 'event' ? ev.ctaLabel : '').toBeTruthy();
+    const cd = stripped.find((b) => b.type === 'countdown');
+    expect(cd && cd.type === 'countdown' ? cd.targetAt : 'x').toBeUndefined();
+  });
+
+  it('ne mute pas la campagne source', () => {
+    const blocks = partyBound();
+    const campaign = {
+      id: 'c1', name: 'Invitation', type: 'promotional' as const, status: 'draft',
+      subject: 'Samedi', subjectB: '', abOn: false, preheader: 'p',
+      blocks, theme, socialLinks: {}, logoUrl: null, eventId: 'ev-1',
+      audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, quietHours: false,
+    };
+    const content = campaignToTemplateContent(campaign);
+    expect(content.blocks.some((b) => 'eventId' in b && b.eventId)).toBe(false);
+    // la campagne d'origine garde sa soirée
+    expect(blocks.filter((b) => 'eventId' in b && b.eventId)).toHaveLength(3);
+  });
+
+  it('regénère les ids de blocs à la réutilisation', () => {
+    const content = campaignToTemplateContent({
+      id: 'c1', name: 'n', type: 'promotional', status: 'draft', subject: 's', subjectB: '',
+      abOn: false, preheader: '', blocks: partyBound(), theme, socialLinks: {}, logoUrl: null,
+      eventId: null, audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, quietHours: false,
+    });
+    const reused = templateToCampaignContent(content);
+    const before = content.blocks.map((b) => b.id);
+    const after = reused.blocks.map((b) => b.id);
+    expect(after).toHaveLength(before.length);
+    expect(after.some((id) => before.includes(id))).toBe(false);
+    // deux campagnes issues du même modèle ne partagent aucun id
+    expect(templateToCampaignContent(content).blocks.map((b) => b.id)).not.toEqual(after);
+  });
+
+  it('repère les blocs Yuno orphelins de soirée', () => {
+    const orphans = stripEventBindings(partyBound());
+    expect(eventBoundBlocks(orphans)).toHaveLength(3);
+    expect(needsEventBinding(orphans, null)).toBe(true);
+    // la soirée de la campagne suffit : les blocs en héritent au rendu
+    expect(needsEventBinding(orphans, 'ev-2')).toBe(false);
+    // un compte à rebours daté à la main se suffit
+    const cd = makeBlock('countdown');
+    if (cd.type === 'countdown') cd.targetAt = '2026-12-31T22:00:00.000Z';
+    expect(needsEventBinding([cd], null)).toBe(false);
+  });
+
+  it('la checklist avertit (sans bloquer) quand aucune soirée n’alimente les blocs Yuno', () => {
+    const blocks = stripEventBindings(partyBound());
+    const warned = runChecklist({ subject: 's', preheader: 'p', type: 'promotional', blocks });
+    expect(warned.map((i) => i.id)).toContain('event_link');
+    expect(checklistBlocksSend(warned)).toBe(false);
+
+    const bound = runChecklist({
+      subject: 's', preheader: 'p', type: 'promotional', blocks, campaignEventId: 'ev-9',
+    });
+    expect(bound.map((i) => i.id)).not.toContain('event_link');
+  });
+
+  it('les modèles Yuno prêts à l’emploi ne figent aucune soirée', () => {
+    for (const meta of STARTER_TEMPLATES) {
+      const content = buildStarter(meta.key, { venueName: 'Le Silo', theme, t: (k) => k });
+      expect(content.blocks.length).toBeGreaterThan(1);
+      expect(content.blocks.some((b) => 'eventId' in b && b.eventId)).toBe(false);
+      // aucun bloc Réseaux : le pied de page les porte déjà
+      expect(content.blocks.some((b) => b.type === 'social')).toBe(false);
+    }
+  });
+
+  it('un bloc billetterie sans soirée retombe sur ses lignes d’exemple — d’où l’avertissement', () => {
+    const tickets = stripEventBindings([makeBlock('tickets')])[0];
+    const html = renderBlock(tickets, theme, { ...ctx, live: {} });
+    expect(html).toContain('Early bird');
   });
 });

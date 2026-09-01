@@ -1,4 +1,5 @@
 import type { EmailBlock, StudioCampaign } from './types';
+import { needsEventBinding } from './templates';
 import { usesVariables } from './variables';
 
 // Checklist pré-envoi (tiroir « Contrôles avant envoi » + écran Récap).
@@ -33,6 +34,8 @@ export interface ChecklistInput {
   footerSocial?: boolean;
   /** Au moins un lien de réseau renseigné sur la campagne. */
   hasSocialLinks?: boolean;
+  /** Soirée de la campagne — les blocs Yuno sans eventId propre en héritent. */
+  campaignEventId?: string | null;
 }
 
 const CTA_TYPES = new Set(['cta', 'event', 'tickets', 'table']);
@@ -109,7 +112,17 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
     });
   }
 
-  // 9. Domaine d'envoi authentifié (SPF/DKIM/DMARC). Critique.
+  // 9. Blocs Yuno reliés à une soirée. Un modèle rejoué sans choisir la
+  //    soirée laisse un bloc billetterie sur ses lignes de démonstration —
+  //    des tarifs inventés partiraient à toute la base.
+  if (needsEventBinding(input.blocks, input.campaignEventId)) {
+    items.push({
+      id: 'event_link', critical: false, labelKey: 'studio.check.eventLink',
+      status: 'warn',
+    });
+  }
+
+  // 10. Domaine d'envoi authentifié (SPF/DKIM/DMARC). Critique.
   items.push({
     id: 'domain_auth', critical: true, labelKey: 'studio.check.domain',
     status: input.domainAuthenticated === false ? 'warn' : 'ok',

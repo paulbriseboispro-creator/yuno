@@ -5,3 +5,5 @@ export * from './variables';
 export * from './render';
 export * from './checklist';
 export * from './migrate';
+export * from './templates';
+export * from './starters';
