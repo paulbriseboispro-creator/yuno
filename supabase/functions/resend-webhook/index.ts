@@ -96,6 +96,14 @@ Deno.serve(async (req) => {
     }
 
     if (!campaignId) {
+      // Observabilité du quota mensuel : un événement terminal sans campagne
+      // est un email TRANSACTIONNEL (billet, MFA, invitation…). Le compter ici
+      // mesure la consommation réelle de la réserve de 10 000 sans toucher aux
+      // 33 fonctions qui envoient en direct. Best-effort : l'échec du compteur
+      // ne doit jamais faire échouer l'accusé de réception du webhook.
+      if (evt === 'delivered' || evt === 'bounced') {
+        try { await admin.rpc('count_transactional_email'); } catch { /* compteur best-effort */ }
+      }
       return new Response(JSON.stringify({ ok: true, suppressed: isHardBounce || evt === 'complained' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

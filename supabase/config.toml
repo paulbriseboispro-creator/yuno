@@ -39,6 +39,10 @@ verify_jwt = true
 [functions.sms-purchase-verify]
 verify_jwt = true
 
+# Achat de crédits email (checkout + verify en une fonction, un seul slot edge).
+[functions.email-credits]
+verify_jwt = true
+
 [functions.send-order-confirmation]
 verify_jwt = false
 
