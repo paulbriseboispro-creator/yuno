@@ -455,6 +455,26 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
 - **Quiet hours (23 h → 9 h Paris) et throttling par heure glissante** sont
   des portes de sortie propres de `drainSlice` (comme le quota) : le cron
   reprend, ce ne sont jamais des échecs. Fenêtre A/B par défaut : 4 h.
+- **Modèles d'email** (2026-09-01) — `email_campaign_templates` (portée club OU
+  organisateur, même RLS qu'`email_campaigns`) + `src/lib/email/templates.ts`.
+  Un modèle enregistre le DESIGN (blocs, thème, objet, pré-en-tête, réseaux) et
+  **JAMAIS une soirée** : `stripEventBindings` efface l'`eventId` des blocs
+  Yuno, l'`coverUrl`/`ctaUrl` figés d'une carte événement et le `targetAt` d'un
+  compte à rebours. La soirée est choisie à la CRÉATION de la campagne
+  (`email_campaigns.event_id`) et l'edge relie les blocs sans eventId propre à
+  cet événement (`fetchStudioLiveData`) — c'est ce qui rend un modèle rejouable
+  sur toutes les soirées avec les vrais tarifs. Ne jamais figer une soirée dans
+  un modèle, ni y stocker l'audience ou la planification (reprises à chaque
+  envoi). Les ids de blocs sont regénérés à la réutilisation
+  (`templateToCampaignContent`) : deux campagnes issues du même modèle ne
+  partagent aucun id. Les départs rapides Yuno sont des CONSTRUCTIONS i18n
+  (`src/lib/email/starters.ts`), pas des lignes en base : rien à semer.
+  L'écran « Nouvelle campagne » (`TemplateGallery`) est désormais la porte des
+  DEUX portées — `/owner/campaigns/new` et `/organizer-app/campaigns/new` ne
+  créent plus de brouillon en douce, c'est la galerie qui insère la ligne.
+  Garde-fou : la checklist pré-envoi lève `event_link` quand des blocs Yuno
+  restent sans soirée (un bloc Billetterie retomberait sur ses lignes d'exemple
+  et enverrait des tarifs inventés).
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
