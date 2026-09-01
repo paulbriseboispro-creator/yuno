@@ -52,8 +52,17 @@ Deno.serve(async (req) => {
     const payload = JSON.parse(rawBody);
     const eventType: string = payload.type || '';
     const data = payload.data || {};
-    const tags: Array<{ name: string; value: string }> = data.tags || [];
-    const campaignId = tags.find((t) => t.name === 'campaign_id')?.value;
+    // L'API d'ENVOI prend les tags en tableau [{name, value}], mais les webhooks
+    // les renvoient en OBJET PLAT ({"campaign_id": "..."}). Accepter les deux :
+    // un `.find` sur l'objet levait TypeError → 500 → tous les événements de
+    // campagne (delivered/opened/clicked/bounced) étaient perdus, et avec eux
+    // la suppression des bounces et le disjoncteur.
+    const rawTags: unknown = data.tags;
+    const campaignId: string | undefined = Array.isArray(rawTags)
+      ? rawTags.find((t) => t?.name === 'campaign_id')?.value
+      : rawTags && typeof rawTags === 'object'
+        ? (rawTags as Record<string, string>).campaign_id
+        : undefined;
     const recipient = Array.isArray(data.to) ? data.to[0] : data.to;
     const resendEmailId = data.email_id || data.id;
 
@@ -107,13 +116,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, suppressed: isHardBounce || evt === 'complained' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    await admin.from('email_campaign_events').insert({
+    const { error: insertErr } = await admin.from('email_campaign_events').insert({
       campaign_id: campaignId,
       recipient_email: recipient || 'unknown',
       event_type: evt,
       resend_email_id: resendEmailId,
       metadata: data,
     });
+    if (insertErr) console.error('email_campaign_events insert failed:', insertErr.message);
 
     // ── Compteurs de campagne ───────────────────────────────────────────────
     // delivered / bounced / complained alimentent le disjoncteur : ils doivent
