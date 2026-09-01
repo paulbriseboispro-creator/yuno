@@ -247,6 +247,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.campaigns.s1h', bodyKey: 'ohelp.org.campaigns.s1b' },
           { headingKey: 'ohelp.org.campaigns.s2h', bodyKey: 'ohelp.org.campaigns.s2b', screenshotUrl: '/help/org-campaigns.png' },
           { headingKey: 'ohelp.org.campaigns.s3h', bodyKey: 'ohelp.org.campaigns.s3b', type: 'steps' },
+          { headingKey: 'ohelp.org.campaigns.s6h', bodyKey: 'ohelp.org.campaigns.s6b' },
           { headingKey: 'ohelp.org.campaigns.s4h', bodyKey: 'ohelp.org.campaigns.s4b' },
           { headingKey: 'ohelp.org.campaigns.s5h', bodyKey: 'ohelp.org.campaigns.s5b', type: 'tip' },
         ],
