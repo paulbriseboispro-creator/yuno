@@ -809,7 +809,7 @@ export function ExploreEmptyMarket({
                 {t('explore.ld.elsewhere')}
               </p>
               <h2 className="font-display font-bold" style={{ fontSize: 21, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>
-                {t('filter.thisWeek')}
+                {t('explore.ld.upcomingNights')}
               </h2>
             </div>
             <span className="font-mono uppercase" style={{ fontSize: '11px', color: '#65656F' }}>

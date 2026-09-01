@@ -1955,6 +1955,7 @@ const en: Record<string, string> = {
   'explore.ld.demandBody': "Yuno opens cities where the demand shows up. Leave your email — we'll write you the moment the night opens in {city}.",
   'explore.ld.notifyCta': 'Tell me when it opens',
   'explore.ld.city': 'city',
+  'explore.ld.upcomingNights': 'Upcoming dates',
   'explore.ld.cities': 'cities',
   'explore.ld.doYouRunNight': 'Do you run the night here?',
   'explore.ld.openClub': 'List your club',

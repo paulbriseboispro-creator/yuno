@@ -2221,6 +2221,7 @@ const es: Record<string, string> = {
   'explore.ld.demandBody': 'Yuno abre las ciudades donde la demanda aparece. Deja tu email: te escribimos en cuanto la noche se abra en {city}.',
   'explore.ld.notifyCta': 'Avisadme cuando abra',
   'explore.ld.city': 'ciudad',
+  'explore.ld.upcomingNights': 'Próximas fechas',
   'explore.ld.cities': 'ciudades',
   'explore.ld.doYouRunNight': '¿Haces la noche aquí?',
   'explore.ld.openClub': 'Abre tu club',

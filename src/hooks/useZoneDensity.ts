@@ -31,6 +31,9 @@ export interface DensityEvent extends EventCardData {
   venueAddress: string | null;
   /** Nom du lieu saisi sur l'event (soirées org-led sans club Yuno). */
   locationName: string | null;
+  /** Coordonnées du lieu (tri de proximité du rail « ailleurs sur Yuno »). */
+  venueLat: number | null;
+  venueLng: number | null;
   /** Avatar public de l'organisateur (soirées org-led). */
   organizerAvatarUrl?: string | null;
   /** Profil organisateur publiable (/o/:slug) — false = pas de lien. */
@@ -99,7 +102,27 @@ async function fetchZoneDensity(
   const horizon = new Date(now.getTime() + DENSITY_HORIZON_DAYS * 86400000);
   const weekEnd = new Date(now.getTime() + 7 * 86400000);
 
-  const [eventsRes, venuesRes, roundsRes, glRes, affRes] = await Promise.all([
+  // Centre de la zone pour le tri de proximité : les coordonnées de l'appareil
+  // quand on les a, sinon un géocodage léger de la ville (best-effort — sans
+  // réponse, le rail « ailleurs » retombe sur le tri par date).
+  const zoneCenterPromise: Promise<{ lat: number; lng: number } | null> = userLocation
+    ? Promise.resolve(userLocation)
+    : (async () => {
+        try {
+          const token = import.meta.env.VITE_MAPBOX_TOKEN;
+          if (!token || !city) return null;
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(city)}.json?access_token=${token}&types=place&limit=1`,
+          );
+          const data = await res.json();
+          const f = data.features?.[0];
+          return f?.center ? { lat: f.center[1], lng: f.center[0] } : null;
+        } catch {
+          return null;
+        }
+      })();
+
+  const [eventsRes, venuesRes, roundsRes, glRes, affRes, zoneCenter] = await Promise.all([
     supabase
       .from('events')
       .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_name, location_address')
@@ -123,6 +146,7 @@ async function fetchZoneDensity(
       .gte('event_date', toLocalDate(now))
       .lte('event_date', toLocalDate(horizon))
       .order('event_date', { ascending: true }),
+    zoneCenterPromise,
   ]);
 
   const venueMap = new Map((venuesRes.data || []).map(v => [v.id, v]));
@@ -229,6 +253,8 @@ async function fetchZoneDensity(
       displayVenueId,
       venueAddress: venue?.address || e.location_address || null,
       locationName: e.location_name || null,
+      venueLat: venue?.latitude ?? null,
+      venueLng: venue?.longitude ?? null,
     }];
   });
 
@@ -268,6 +294,8 @@ async function fetchZoneDensity(
       displayVenueId: `aff:${venue.id}`,
       venueAddress: null,
       locationName: null,
+      venueLat: venue.lat ?? null,
+      venueLng: venue.lng ?? null,
       affiliateVenueSlug: venue.slug ?? null,
     }];
   });
@@ -285,13 +313,21 @@ async function fetchZoneDensity(
   const upcoming = merged.filter(inZone);
   const weekCount = upcoming.filter(e => new Date(e.startAt).getTime() <= weekEnd.getTime()).length;
 
-  // Ailleurs sur Yuno : les 7 prochains jours hors zone (rail de l'état vide).
+  // Ailleurs sur Yuno : les prochaines dates hors zone (rail de l'état vide),
+  // sur tout l'horizon — une borne à 7 jours cachait la seule soirée native
+  // (WOH 11.09) au profit des partenaires de la semaine.
   // Une soirée sans ville ne peut être « ailleurs » nulle part — exclue.
-  // Les soirées natives Yuno passent devant les partenaires (affiliées).
+  // Tri : natives Yuno devant les partenaires, puis au plus près de la zone
+  // vide (coordonnées inconnues = en queue de groupe), puis par date.
+  const distToZone = (e: DensityEvent): number =>
+    zoneCenter && e.venueLat != null && e.venueLng != null
+      ? haversineKm(zoneCenter.lat, zoneCenter.lng, e.venueLat, e.venueLng)
+      : Number.POSITIVE_INFINITY;
   const elsewhere = merged
-    .filter(e => !inZone(e) && !!e.venueCity && new Date(e.startAt).getTime() <= weekEnd.getTime())
+    .filter(e => !inZone(e) && !!e.venueCity)
     .sort((a, b) =>
       (a.isAffiliate ? 1 : 0) - (b.isAffiliate ? 1 : 0)
+      || distToZone(a) - distToZone(b)
       || new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
     .slice(0, 8);
   const elsewhereCityCount = new Set(

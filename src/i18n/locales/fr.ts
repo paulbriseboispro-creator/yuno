@@ -1992,6 +1992,7 @@ const fr: Record<string, string> = {
   'explore.ld.demandBody': "Yuno ouvre les villes là où la demande se montre. Laisse ton email : on t'écrit dès que la nuit s'ouvre à {city}.",
   'explore.ld.notifyCta': "Me prévenir à l'ouverture",
   'explore.ld.city': 'ville',
+  'explore.ld.upcomingNights': 'Les prochaines dates',
   'explore.ld.cities': 'villes',
   'explore.ld.doYouRunNight': 'Tu fais la nuit ici ?',
   'explore.ld.openClub': 'Ouvrir un club',
