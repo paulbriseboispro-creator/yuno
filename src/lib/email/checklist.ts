@@ -29,6 +29,10 @@ export interface ChecklistInput {
   renderedBytes?: number;
   /** Posé par l'appelant s'il sait vérifier le DNS ; défaut true (yunoapp.eu). */
   domainAuthenticated?: boolean;
+  /** Réseaux affichés au pied de page (theme.footerSocial ; défaut true). */
+  footerSocial?: boolean;
+  /** Au moins un lien de réseau renseigné sur la campagne. */
+  hasSocialLinks?: boolean;
 }
 
 const CTA_TYPES = new Set(['cta', 'event', 'tickets', 'table']);
@@ -95,7 +99,17 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
     status: usesVariables(texts) ? 'ok' : 'warn',
   });
 
-  // 8. Domaine d'envoi authentifié (SPF/DKIM/DMARC). Critique.
+  // 8. Réseaux en double — le pied de page les porte déjà quand un bloc
+  //    « Réseaux » est posé dans le corps. L'item n'apparaît que dans ce cas.
+  const hasSocialBlock = input.blocks.some((b) => b.type === 'social');
+  if (hasSocialBlock && input.footerSocial !== false && input.hasSocialLinks !== false) {
+    items.push({
+      id: 'social_duplicate', critical: false, labelKey: 'studio.check.socialDup',
+      status: 'warn',
+    });
+  }
+
+  // 9. Domaine d'envoi authentifié (SPF/DKIM/DMARC). Critique.
   items.push({
     id: 'domain_auth', critical: true, labelKey: 'studio.check.domain',
     status: input.domainAuthenticated === false ? 'warn' : 'ok',

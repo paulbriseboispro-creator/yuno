@@ -311,10 +311,37 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
   });
 
   it('footer : le trait clair disparaît sur un footer sombre', () => {
-    const dark = renderEmailHtml([makeBlock('text')], { ...theme, footerBg: '#000000' }, ctx);
+    const noSocial = { ...theme, footerSocial: false };
+    const dark = renderEmailHtml([makeBlock('text')], { ...noSocial, footerBg: '#000000' }, ctx);
     expect(dark).not.toContain(`border-top:1px solid ${theme.divider};font-family`);
-    const light = renderEmailHtml([makeBlock('text')], theme, ctx);
+    const light = renderEmailHtml([makeBlock('text')], noSocial, ctx);
     expect(light).toContain(`border-top:1px solid ${theme.divider};font-family`);
+  });
+
+  it('footer : les réseaux sont affichés par défaut et portent le trait', () => {
+    const html = renderEmailHtml([makeBlock('text')], theme, ctx);
+    expect(html).toContain('instagram-w.png');
+    // La rangée de réseaux ouvre la bande du footer : le trait lui revient,
+    // il ne coupe plus entre les icônes et le texte légal.
+    expect(html).toContain(`background:${theme.footerBg};border-top:1px solid ${theme.divider};`);
+    expect(html).not.toContain(`border-top:1px solid ${theme.divider};font-family`);
+  });
+
+  it('footer : footerSocial=false coupe les réseaux SANS toucher au texte légal', () => {
+    const html = renderEmailHtml([makeBlock('text')], { ...theme, footerSocial: false }, ctx);
+    expect(html).not.toContain('instagram-w.png');
+    expect(html).toContain('Se désabonner');
+    expect(html).toContain('Tous droits réservés');
+  });
+
+  it('footer : un bloc « Réseaux » reste rendu même quand le footer les coupe', () => {
+    const html = renderEmailHtml(
+      [makeBlock('text'), makeBlock('social')],
+      { ...theme, footerSocial: false },
+      ctx,
+    );
+    // Une seule occurrence : le bloc du corps, pas le doublon du footer.
+    expect(html.match(/instagram-w\.png/g)).toHaveLength(1);
   });
 
   it('fond personnalisé par bloc (bgc) : prime sur bg, appliqué au social/spacer/divider', () => {
@@ -487,6 +514,28 @@ describe('checklist pré-envoi', () => {
     const warned = items.filter((i) => i.status === 'warn').map((i) => i.id);
     expect(warned).toEqual(expect.arrayContaining(['subject_length', 'img_alt', 'cta', 'weight', 'variables']));
     expect(checklistBlocksSend(items)).toBe(false);
+  });
+  it('bloc Réseaux + réseaux au pied de page → warn de doublon, levé par la coupure', () => {
+    const withSocial = [...blocks, makeBlock('social')];
+    const doubled = runChecklist({
+      subject: 's', preheader: 'p', type: 'promotional', blocks: withSocial,
+      footerSocial: true, hasSocialLinks: true,
+    });
+    expect(doubled.filter((i) => i.status === 'warn').map((i) => i.id)).toContain('social_duplicate');
+    expect(checklistBlocksSend(doubled)).toBe(false); // avertit, ne bloque pas
+
+    const cut = runChecklist({
+      subject: 's', preheader: 'p', type: 'promotional', blocks: withSocial,
+      footerSocial: false, hasSocialLinks: true,
+    });
+    expect(cut.map((i) => i.id)).not.toContain('social_duplicate');
+
+    // Sans bloc Réseaux dans le corps, le pied de page seul ne double rien.
+    const footerOnly = runChecklist({
+      subject: 's', preheader: 'p', type: 'promotional', blocks,
+      footerSocial: true, hasSocialLinks: true,
+    });
+    expect(footerOnly.map((i) => i.id)).not.toContain('social_duplicate');
   });
   it('domaine non authentifié → bloque l’envoi', () => {
     const items = runChecklist({

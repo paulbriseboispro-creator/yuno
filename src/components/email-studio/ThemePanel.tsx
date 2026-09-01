@@ -5,8 +5,11 @@ import ColorField from '@/components/campaigns/ColorField';
 import { THEME_LABELS, THEME_PRESETS, THEME_SWATCHES, type EmailTheme } from '@/lib/email';
 import { useStudio } from './store';
 import {
-  BORDER, FONT_UI, Help, MicroLabel, PanelCard, RED_SOFT_GRAD, SUBTLE, T1, T2, ToggleRow,
+  BORDER, FONT_UI, Help, MicroLabel, PanelCard, RED_SOFT_GRAD, SUBTLE, T1, T2, TextInput,
+  ToggleRow, inputStyle,
 } from './ui';
+
+const SOCIAL_KEYS = ['instagram', 'tiktok', 'facebook', 'x', 'website'] as const;
 
 const COLOR_FIELDS: { key: keyof EmailTheme; labelKey: string }[] = [
   { key: 'bg', labelKey: 'studio.theme.bg' },
@@ -29,6 +32,9 @@ export default function ThemePanel() {
   const theme = useStudio((s) => s.campaign.theme);
   const applyThemePreset = useStudio((s) => s.applyThemePreset);
   const patchTheme = useStudio((s) => s.patchTheme);
+  const socialLinks = useStudio((s) => s.campaign.socialLinks);
+  const setSocialLinks = useStudio((s) => s.setSocialLinks);
+  const footerSocial = theme.footerSocial !== false;
 
   const saveClubTheme = () => {
     try {
@@ -88,6 +94,29 @@ export default function ThemePanel() {
           label={t('studio.theme.dark')}
           help={t('studio.theme.darkHelp')}
         />
+      </PanelCard>
+
+      {/* Pied de page — les réseaux y sont OPTIONNELS : une campagne qui pose
+          un bloc « Réseaux » dans le corps les coupe ici pour ne pas doubler. */}
+      <PanelCard style={{ gap: 11 }}>
+        <MicroLabel>{t('studio.theme.footer')}</MicroLabel>
+        <ToggleRow
+          checked={footerSocial}
+          onChange={(v) => patchTheme({ footerSocial: v })}
+          label={t('studio.theme.footerSocial')}
+          help={t('studio.theme.footerSocialHelp')}
+        />
+        {footerSocial && SOCIAL_KEYS.map((key) => (
+          <TextInput
+            key={key}
+            value={socialLinks[key] || ''}
+            onChange={(e) => setSocialLinks({ ...socialLinks, [key]: e.target.value || undefined })}
+            placeholder={key === 'website' ? 'lesilo.fr' : `${key}.com/lesilo`}
+            aria-label={key}
+            style={inputStyle}
+          />
+        ))}
+        {footerSocial && <Help>{t('studio.theme.footerLinksHelp')}</Help>}
       </PanelCard>
 
       <PanelCard style={{ gap: 10 }}>

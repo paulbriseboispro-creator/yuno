@@ -195,7 +195,9 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
       applyThemePreset: (name) => {
         const preset = themePreset(name);
         if (!preset) return;
-        withHistory((c) => ({ ...c, theme: { ...preset } }));
+        // Un preset change la PALETTE ; les choix de structure (réseaux au
+        // pied de page) survivent au changement de couleurs.
+        withHistory((c) => ({ ...c, theme: { ...preset, footerSocial: c.theme.footerSocial } }));
       },
 
       patchTheme: (patch) => withHistory((c) => ({ ...c, theme: { ...c.theme, ...patch } })),

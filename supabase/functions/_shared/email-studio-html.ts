@@ -19,6 +19,8 @@ export interface StudioTheme {
   name: string; bg: string; card: string; headerBg: string; headerText: string;
   text: string; muted: string; accent: string; btnText: string;
   divider: string; tile: string; footerBg: string; footerText: string; dark: boolean;
+  /** Réseaux au pied de page. Absent = affichés (miroir de render.ts). */
+  footerSocial?: boolean;
 }
 
 export interface StudioSocialLinks {
@@ -317,7 +319,16 @@ function renderSocial(
   const bg = standalone
     ? (opts.bg && opts.bg !== 'transparent' ? opts.bg : theme.card)
     : theme.footerBg;
-  return td(cells, `padding:${padding};text-align:center;background:${bg};`);
+  // Dans le pied de page, la rangée de réseaux ouvre la bande : le trait de
+  // séparation lui revient (miroir de render.ts).
+  const border = standalone ? '' : footerBorder(theme);
+  return td(cells, `padding:${padding};text-align:center;background:${bg};${border}`);
+}
+
+/** Trait du pied de page : seulement sur footer CLAIR (miroir de render.ts). */
+function footerBorder(theme: StudioTheme): string {
+  return isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
+    ? '' : `border-top:1px solid ${theme.divider};`;
 }
 
 export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: StudioRenderCtx): string {
@@ -494,7 +505,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
   }
 }
 
-function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx): string {
+function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
   const reason = ctx.emailType === 'promotional'
     ? 'vous êtes abonné à sa newsletter'
@@ -504,9 +515,7 @@ function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx): string {
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
     ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${esc(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
     : '';
-  // Trait de séparation : seulement quand le footer est CLAIR (miroir render.ts).
-  const border = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
-    ? '' : `border-top:1px solid ${theme.divider};`;
+  const border = socialAbove ? '' : footerBorder(theme);
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${ctx.city ? ' — ' + esc(ctx.city) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
@@ -527,7 +536,10 @@ export function renderStudioEmailHtml(
   const preheader = preheaderText
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${theme.bg};">${esc(preheaderText)}${'&#8199;&#847; '.repeat(30)}</div>`
     : '';
-  const chrome = `${renderSocial(theme, ctx, false)}\n${renderFooter(theme, ctx)}`;
+  // Réseaux au pied de page : affichés sauf refus explicite du thème (une
+  // campagne avec un bloc « Réseaux » les coupe ici pour ne pas doubler).
+  const footerSocial = theme.footerSocial === false ? '' : renderSocial(theme, ctx, false);
+  const chrome = `${footerSocial}\n${renderFooter(theme, ctx, footerSocial !== '')}`;
 
   return `<!DOCTYPE html>
 <html lang="fr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">

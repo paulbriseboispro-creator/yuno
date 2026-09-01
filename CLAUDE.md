@@ -421,6 +421,18 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   `socialLabel` (domaine pour le site). Emails : URL absolue
   `${baseUrl}/email-social/…` ; canvas : chemin relatif. Ne JAMAIS
   réintroduire d'images tierces dans les emails.
+- **Réseaux au pied de page = OPTIONNELS et VISIBLES au canvas** (2026-09-01).
+  Le pied de page portait les pastilles dès qu'un lien était renseigné, sans
+  jamais les montrer dans l'aperçu Canvas : un bloc « Réseaux » posé dans le
+  corps les affichait donc DEUX fois, invisible jusqu'à la réception. Le
+  drapeau vit dans le thème (`EmailTheme.footerSocial`, absent = affichés) —
+  il suit donc le thème club sauvegardé et survit à un changement de preset
+  (`applyThemePreset` le préserve). Le Canvas rend la rangée exactement comme
+  `renderSocial(standalone=false)`, l'onglet Thème porte l'interrupteur ET les
+  5 champs de liens (seul endroit où les remplir sans bloc « Réseaux »), et la
+  checklist pré-envoi lève `social_duplicate` quand bloc + pied de page
+  coexistent. Quand la rangée de réseaux est là, c'est ELLE qui porte le trait
+  de séparation du footer (`footerBorder`), plus le texte légal.
 - **Footer : pas de border-top sur footer sombre** — le trait
   `theme.divider` clair ne se dessine que si `contrastText(footerBg)`
   est foncé (footer clair). Sinon il traçait une ligne blanche entre un

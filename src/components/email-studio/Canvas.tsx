@@ -6,8 +6,9 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   contrastText, isHexColor, renderEmailHtml, runChecklist, checklistBlocksSend,
-  BLOCK_COND_LABELS,
+  BLOCK_COND_LABELS, footerSocialEnabled, socialChip, socialLabel,
   type BlockType, type ChecklistItem, type LiveData, type RenderRecipient,
+  type SocialLinks,
 } from '@/lib/email';
 import { useStudio } from './store';
 import type { StudioScope } from './hooks';
@@ -99,10 +100,26 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
   }), [campaign, theme, scope, live, persona]);
   const renderedBytes = renderedHtml.length;
 
+  // Réseaux du pied de page : mêmes règles que le rendu email (thème + liens).
+  const footerSocialLinks = useMemo(
+    () => (footerSocialEnabled(theme)
+      ? (Object.entries(campaign.socialLinks) as [keyof SocialLinks, string | undefined][])
+        .filter((entry): entry is [keyof SocialLinks, string] => !!entry[1] && entry[1].trim().length > 0)
+      : []),
+    [theme, campaign.socialLinks],
+  );
+  const footerChip = socialChip(undefined, theme);
+  const footerBorderCss = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
+    ? 'none' : `1px solid ${theme.divider}`;
+
   const checks = useMemo(() => runChecklist({
     subject: campaign.subject, preheader: campaign.preheader,
     type: campaign.type, blocks: campaign.blocks, renderedBytes,
-  }), [campaign.subject, campaign.preheader, campaign.type, campaign.blocks, renderedBytes]);
+    footerSocial: footerSocialEnabled(theme), hasSocialLinks: footerSocialLinks.length > 0,
+  }), [
+    campaign.subject, campaign.preheader, campaign.type, campaign.blocks, renderedBytes,
+    theme, footerSocialLinks.length,
+  ]);
   const warnCount = checks.filter((c) => c.status === 'warn').length;
   const blocked = checklistBlocksSend(checks);
 
@@ -397,11 +414,39 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 </div>
               )}
 
+              {/* Réseaux du pied de page (aperçu) — miroir de renderSocial(standalone=false).
+                  Rendus ICI et pas seulement dans l'email : invisibles au canvas, ils
+                  doublaient en silence le bloc « Réseaux » posé dans le corps. */}
+              {footerSocialLinks.length > 0 && (
+                <div style={{
+                  padding: '18px 24px 4px', background: theme.footerBg, textAlign: 'center',
+                  borderTop: footerBorderCss,
+                }}>
+                  {footerSocialLinks.map(([key, url]) => (
+                    <span
+                      key={key}
+                      title={socialLabel(key, url)}
+                      style={{
+                        width: 34, height: 34, borderRadius: '50%', margin: '0 5px',
+                        background: footerChip.chip, display: 'inline-flex',
+                        alignItems: 'center', justifyContent: 'center', verticalAlign: 'middle',
+                      }}
+                    >
+                      <img
+                        src={`/email-social/${key}-${footerChip.glyph}.png`}
+                        alt={socialLabel(key, url)}
+                        width={16} height={16}
+                        style={{ display: 'block' }}
+                      />
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Footer légal (aperçu) — trait seulement sur footer clair (miroir render.ts) */}
               <div style={{
                 padding: '22px 24px', background: theme.footerBg, textAlign: 'center',
-                borderTop: isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
-                  ? 'none' : `1px solid ${theme.divider}`,
+                borderTop: footerSocialLinks.length > 0 ? 'none' : footerBorderCss,
               }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: theme.footerText, marginBottom: 6, fontFamily: FONT_UI }}>
                   {scope.name}{scope.city ? ` — ${scope.city}` : ''}

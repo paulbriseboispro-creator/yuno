@@ -397,7 +397,11 @@ function renderSocial(
   const bg = standalone
     ? (opts.bg && opts.bg !== 'transparent' ? opts.bg : theme.card)
     : theme.footerBg;
-  return td(cells, `padding:${padding};text-align:center;background:${bg};`);
+  // Dans le pied de page, c'est la rangée de réseaux qui ouvre la bande : le
+  // trait de séparation lui revient, sinon il coupe entre les icônes et le
+  // texte légal.
+  const border = standalone ? '' : footerBorder(theme);
+  return td(cells, `padding:${padding};text-align:center;background:${bg};${border}`);
 }
 
 function renderSpacer(b: SpacerBlock, bg: string): string {
@@ -437,7 +441,22 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
 
 // ── Footer légal ─────────────────────────────────────────────────────────────
 
-function renderFooter(theme: EmailTheme, ctx: RenderCtx): string {
+/**
+ * Trait de séparation du pied de page : seulement quand le footer est CLAIR.
+ * Sur un footer sombre, le divider clair du thème dessinait une ligne blanche
+ * criarde entre le contenu et le footer.
+ */
+function footerBorder(theme: EmailTheme): string {
+  return isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
+    ? '' : `border-top:1px solid ${theme.divider};`;
+}
+
+/** Réseaux au pied de page : affichés sauf refus explicite du thème. */
+export function footerSocialEnabled(theme: EmailTheme): boolean {
+  return theme.footerSocial !== false;
+}
+
+function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
   const reason = ctx.emailType === 'promotional'
     ? 'vous êtes abonné à sa newsletter'
@@ -447,11 +466,7 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx): string {
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
     ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${escapeHtml(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
     : '';
-  // Trait de séparation : seulement quand le footer est CLAIR. Sur un footer
-  // sombre, le divider clair du thème dessinait une ligne blanche criarde
-  // entre le contenu et le footer.
-  const border = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
-    ? '' : `border-top:1px solid ${theme.divider};`;
+  const border = socialAbove ? '' : footerBorder(theme);
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${ctx.city ? ' — ' + escapeHtml(ctx.city) : ''}</p>
      <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${escapeHtml(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
@@ -481,7 +496,12 @@ export function renderEmailHtml(
   const preheader = preheaderText
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${theme.bg};">${escapeHtml(preheaderText)}${'&#8199;&#847; '.repeat(30)}</div>`
     : '';
-  const chrome = options.omitFooter ? '' : `${renderSocial(theme, ctx, false)}\n${renderFooter(theme, ctx)}`;
+  // Le pied de page ne porte les réseaux que si le thème le demande : une
+  // campagne qui pose déjà un bloc « Réseaux » les coupe ici.
+  const footerSocial = footerSocialEnabled(theme) ? renderSocial(theme, ctx, false) : '';
+  const chrome = options.omitFooter
+    ? ''
+    : `${footerSocial}\n${renderFooter(theme, ctx, footerSocial !== '')}`;
 
   return `<!DOCTYPE html>
 <html lang="fr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">

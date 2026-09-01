@@ -214,6 +214,13 @@ export interface EmailTheme {
   footerBg: string;
   footerText: string;
   dark: boolean;
+  /**
+   * Réseaux sociaux dans le pied de page. Absent = affichés (comportement
+   * historique). `false` = pied de page purement légal — c'est la porte de
+   * sortie quand la campagne pose déjà un bloc « Réseaux » dans le corps,
+   * sinon les pastilles apparaissent deux fois.
+   */
+  footerSocial?: boolean;
 }
 
 export interface SocialLinks {
@@ -285,12 +292,14 @@ export interface RenderCtx {
 export type AudienceKind =
   | 'all_subscribers' | 'event_subscribers'
   | 'vip' | 'big_spenders' | 'regulars' | 'new_customers' | 'dormant'
-  | 'segment'
+  | 'segment' | 'import'
   | 'event_buyers' | 'event_table_buyers' | 'event_all_buyers';
 
 export interface AudienceSel {
   kind: AudienceKind;
   segmentId?: string;
+  /** kind 'import' : le lot d'import (email_list_imports.id) — un fichier = un segment. */
+  importId?: string;
 }
 
 export interface AudienceExclusions {

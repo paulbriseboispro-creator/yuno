@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  checklistBlocksSend, renderEmailHtml, runChecklist, slugifyName, type LiveData,
+  checklistBlocksSend, footerSocialEnabled, renderEmailHtml, runChecklist, slugifyName,
+  type LiveData,
 } from '@/lib/email';
 import { useStudio } from './store';
 import { useAudienceCount, type StudioEvent, type StudioScope } from './hooks';
@@ -57,7 +58,12 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
     type: campaign.type,
     blocks: campaign.blocks,
     renderedBytes: previewHtml.length,
-  }), [campaign.subject, campaign.preheader, campaign.type, campaign.blocks, previewHtml.length]);
+    footerSocial: footerSocialEnabled(campaign.theme),
+    hasSocialLinks: Object.values(campaign.socialLinks).some((v) => !!v && v.trim().length > 0),
+  }), [
+    campaign.subject, campaign.preheader, campaign.type, campaign.blocks,
+    campaign.theme, campaign.socialLinks, previewHtml.length,
+  ]);
 
   const blocked = checklistBlocksSend(checklist);
   const warnCount = checklist.filter((c) => c.status === 'warn').length;
