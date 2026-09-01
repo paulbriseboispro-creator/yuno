@@ -28,6 +28,7 @@ import Inspector from './Inspector';
 import ThemePanel from './ThemePanel';
 import DataPanel from './DataPanel';
 import TestEmailDialog from './TestEmailDialog';
+import { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import AudienceStep from './AudienceStep';
 import ScheduleStep from './ScheduleStep';
 import ReviewStep from './ReviewStep';
@@ -303,6 +304,8 @@ function StudioBody({ scope, basePath, saveNow }: {
 
   const events = useStudioEvents(scope, campaign.eventId);
   const segments = useSavedSegments(scope);
+  // Retour Stripe d'un achat d'emails lancé depuis l'écran Planification.
+  useEmailCreditsReturn();
   const live = useStudioLiveData(campaign.blocks, campaign.eventId);
 
   const bucketFolder = scope.kind === 'venue' ? `venue/${scope.venueId}` : `org/${scope.organizerId}`;
@@ -463,7 +466,7 @@ function StudioBody({ scope, basePath, saveNow }: {
           <div style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: '26px 28px 60px', minHeight: 0 }}>
             <div style={{ maxWidth: 1160, margin: '0 auto' }}>
               {step === 'audience' && <AudienceStep scope={scope} events={events} segments={segments} />}
-              {step === 'schedule' && <ScheduleStep />}
+              {step === 'schedule' && <ScheduleStep scope={scope} />}
               {step === 'review' && (
                 <ReviewStep
                   scope={scope}

@@ -29,6 +29,11 @@ export interface SendProgress {
   suppressed: number;
   daily_cap: number;
   daily_used: number;
+  monthly_used: number;
+  monthly_free: number;
+  monthly_credits: number;
+  /** Calculé SERVEUR (reliquat gratuit + crédits) — jamais recalculé ici. */
+  monthly_remaining: number;
 }
 
 async function fetchSendProgress(campaignId: string): Promise<SendProgress | null> {
@@ -44,11 +49,13 @@ interface Props {
   /** Appelé quand la campagne quitte l'état « en vol ». */
   onSettled?: (status: string) => void;
   compact?: boolean;
+  /** Ouvre l'achat d'emails supplémentaires (fourni par la page hôte). */
+  onBuyCredits?: () => void;
 }
 
 const ACTIVE = ['sending', 'paused'];
 
-export default function CampaignSendProgress({ campaignId, onSettled, compact }: Props) {
+export default function CampaignSendProgress({ campaignId, onSettled, compact, onBuyCredits }: Props) {
   const { t } = useLanguage();
   const [p, setP] = useState<SendProgress | null>(null);
   const [acting, setActing] = useState(false);
@@ -100,7 +107,8 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact }:
 
   const done = p.sent + p.failed;
   const pct = p.total > 0 ? Math.min(100, Math.round((done / p.total) * 100)) : 0;
-  const capReached = p.status === 'sending' && p.daily_cap > 0 && p.daily_used >= p.daily_cap;
+  const monthReached = p.status === 'sending' && (p.monthly_remaining ?? 1) <= 0 && done < p.total;
+  const capReached = !monthReached && p.status === 'sending' && p.daily_cap > 0 && p.daily_used >= p.daily_cap;
   const breaker = p.paused_reason === 'complaint_rate' || p.paused_reason === 'bounce_rate';
 
   const rate = (n: number) => (p.sent > 0 ? ((n / p.sent) * 100).toFixed(2) : '0.00');
@@ -146,6 +154,26 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact }:
             <p className="font-semibold" style={{ color: '#FF5C63' }}>{t('em.send.errorTitle')}</p>
             <p className="mt-0.5 opacity-70">{p.error_message}</p>
           </div>
+        </div>
+      )}
+
+      {/* Quota du MOIS épuisé : prioritaire sur le message journalier — dire
+          « ça reprend demain » quand ça reprend le 1er serait un mensonge. */}
+      {monthReached && (
+        <div className="mt-2.5 flex items-center gap-2 rounded-lg p-2.5 text-[12px]"
+             style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)' }}>
+          <Clock className="h-4 w-4 flex-shrink-0" style={{ color: '#FCD34D' }} />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold" style={{ color: '#FCD34D' }}>{t('em.send.monthlyCapTitle')}</p>
+            <p className="mt-0.5 opacity-70">
+              {t('em.send.monthlyCapBody').replace('{date}', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString())}
+            </p>
+          </div>
+          {onBuyCredits && (
+            <Button size="sm" variant="outline" onClick={onBuyCredits} className="flex-none">
+              {t('em.send.monthlyCapBuy')}
+            </Button>
+          )}
         </div>
       )}
 

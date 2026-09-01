@@ -237,6 +237,43 @@ export function useImportedLists(scope: StudioScope): {
   return { lists, rename };
 }
 
+
+export interface EmailQuota {
+  used: number;
+  free: number;
+  credits: number;
+  remaining: number;
+  resetsOn: string;
+}
+
+/**
+ * Quota email du mois pour la portée (allocation offerte + crédits achetés).
+ * `remaining` vient du SERVEUR — le front ne refait jamais cap − utilisé, la
+ * formule crédits/dépassement vit dans get_email_quota_status.
+ */
+export function useEmailQuota(scope: StudioScope): { quota: EmailQuota | null; refresh: () => void } {
+  const [quota, setQuota] = useState<EmailQuota | null>(null);
+  const [seq, setSeq] = useState(0);
+  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.rpc('get_email_quota_status' as never, {
+      p_venue_id: scope.kind === 'venue' ? scopeId : null,
+      p_organizer_user_id: scope.kind === 'organizer' ? scopeId : null,
+    } as never).then(({ data }) => {
+      if (cancelled || !data) return;
+      const d = (data as unknown) as { used: number; free: number; credits: number; remaining: number; resets_on: string };
+      if (typeof d.remaining !== 'number') return;
+      setQuota({ used: d.used, free: d.free, credits: d.credits, remaining: d.remaining, resetsOn: d.resets_on });
+    });
+    return () => { cancelled = true; };
+  }, [scope.kind, scopeId, seq]);
+
+  const refresh = useCallback(() => setSeq((s) => s + 1), []);
+  return { quota, refresh };
+}
+
 export interface AudienceCount { gross: number; net: number; suppressed: number }
 
 /**

@@ -13,6 +13,7 @@ import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
 import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
+import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
@@ -47,6 +48,8 @@ export default function OrgAppCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  useEmailCreditsReturn();
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -166,6 +169,7 @@ export default function OrgAppCampaigns() {
                   <CampaignSendProgress
                     campaignId={c.id}
                     onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
+                    onBuyCredits={() => setCreditsOpen(true)}
                   />
                 )}
                 </div>
@@ -175,6 +179,13 @@ export default function OrgAppCampaigns() {
         )}
       </div>
 
+      {user?.id && (
+        <EmailCreditsDialog
+          open={creditsOpen}
+          onClose={() => setCreditsOpen(false)}
+          scope={{ kind: 'organizer', organizerId: user.id }}
+        />
+      )}
       {user?.id && (
         <ImportContactsDialog
           open={importOpen}

@@ -14,6 +14,7 @@ import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyName } from '@/lib/email';
 import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
+import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
@@ -58,6 +59,8 @@ export default function OwnerCampaigns() {
   const [revenue, setRevenue] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  useEmailCreditsReturn();
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -333,6 +336,7 @@ export default function OwnerCampaigns() {
                         <CampaignSendProgress
                           campaignId={c.id}
                           onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
+                          onBuyCredits={() => setCreditsOpen(true)}
                         />
                       </div>
                     )}
@@ -344,6 +348,13 @@ export default function OwnerCampaigns() {
         </div>
       </div>
 
+      {venueId && (
+        <EmailCreditsDialog
+          open={creditsOpen}
+          onClose={() => setCreditsOpen(false)}
+          scope={{ kind: 'venue', venueId }}
+        />
+      )}
       {venueId && (
         <ImportContactsDialog
           open={importOpen}

@@ -522,11 +522,21 @@ intouchables :
   anti-emballement, PAS un objectif d'envoi. Dépasser le plan ne ralentit pas
   l'envoi : Resend renvoie des 429, les destinataires épuisent leurs tentatives
   et finissent en `failed` — on PERD des gens.
-- **La vraie limite est désormais MENSUELLE, et personne ne la surveille.**
-  Pro = 50 000 emails/mois, tout transactionnel compris ; `email_send_quota` ne
-  compte qu'à la journée. Deux journées pleines à 25 000 vident le plan. Tant
-  qu'un plafond mensuel n'est pas écrit, vérifier le tableau de bord Resend
-  avant toute campagne de plusieurs milliers d'adresses.
+- **Quota MENSUEL (2026-09-01, migrations `20260901190000`+`191000`)** : pool
+  marketing plateforme 40 000/mois (le plan Pro fait 50 000, la réserve
+  transactionnelle de 10 000 existe PAR CONSTRUCTION — le marketing est plafonné
+  en dessous du plan, les 33 fonctions transactionnelles ne sont pas comptées),
+  15 000 offerts par compte, crédits au-delà via `email_packs` (10 €/10 000,
+  24 €/25 000 — PRIX COÛTANT : overage Resend 0,90 $/1 000 + frais Stripe,
+  aucune marge, décision produit). `email_sender_state.credit_balance` est le
+  solde ; formule d'autorisation `GREATEST(0, gratuit − envoyés) + crédits`
+  (JAMAIS `gratuit + crédits − envoyés` : les crédits consommés seraient
+  comptés deux fois, bug corrigé en `191000`). Le front ne recalcule jamais un
+  reste — `remaining` vient du serveur. Achat via l'edge `email-credits`
+  (checkout+verify en UNE fonction, idempotence portée par l'index unique sur
+  la session Stripe). Quota atteint = la campagne ATTEND (comme le plafond
+  journalier), rien n'échoue. `resend-webhook` compte le transactionnel réel
+  dans `email_send_quota_month` scope `transactional` (observabilité).
 - **Warm-up non contournable côté client** : `email_sender_daily_cap()`
   (300 → 25 000 sur 6 jours) + plafond plateforme. Les quotas se consomment via
   `consume_email_send_quota` (service_role only) ; un plafond atteint met la

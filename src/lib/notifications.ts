@@ -58,6 +58,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   partner_accepted:    { icon: Handshake, category: 'people', label: 'notif.type.partner_accepted' },
   // Lead pro déposé via le formulaire « Ouvrir un club » (Explore faible densité)
   admin_pro_lead:      { icon: Handshake, category: 'people', label: 'notif.type.admin_pro_lead' },
+  // Quota email mensuel d'un compte pro (émis par consume_email_send_quota)
+  admin_email_quota_80:  { icon: AlertTriangle, category: 'capacity', label: 'notif.type.admin_email_quota_80' },
+  admin_email_quota_100: { icon: AlertTriangle, category: 'capacity', label: 'notif.type.admin_email_quota_100' },
   // co-event collaboration (per-night)
   collab_request:          { icon: Handshake,     category: 'people', label: 'notif.type.collab_request' },
   collab_accepted:         { icon: Handshake,     category: 'people', label: 'notif.type.collab_accepted' },
@@ -492,6 +495,14 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_new_agency':
       return '/admin/directory';
+
+    // Quota email : atterrir sur la fiche du compte concerné.
+    case 'admin_email_quota_80':
+    case 'admin_email_quota_100': {
+      const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
+      const o = typeof n.metadata?.organizer_user_id === 'string' ? n.metadata.organizer_user_id : null;
+      return v ? `/admin/directory/venue/${v}` : o ? `/admin/directory/user/${o}` : '/admin/directory';
+    }
 
     case 'admin_agency_club_lead':
       return '/admin/affiliates';

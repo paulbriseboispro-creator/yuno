@@ -1,16 +1,21 @@
-import { CalendarClock, ShieldCheck, Sparkles, Split, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarClock, Plus, ShieldCheck, Sparkles, Split, Zap } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import EmailCreditsDialog from '@/components/campaigns/EmailCreditsDialog';
 import { useStudio } from './store';
+import { useEmailQuota, type StudioScope } from './hooks';
 import {
   BORDER, FlowCard, FONT_UI, MicroLabel, RED, RED_SOFT_GRAD, StatusBadge, SUBTLE,
   Switch, T1, T2, T3, ToggleRow, inputStyle,
 } from './ui';
 
-/** Écran Planification : quand partir, délivrabilité, A/B (prototype). */
-export default function ScheduleStep() {
+/** Écran Planification : quand partir, quota du mois, délivrabilité, A/B. */
+export default function ScheduleStep({ scope }: { scope: StudioScope }) {
   const { t } = useLanguage();
   const campaign = useStudio((s) => s.campaign);
   const patchCampaign = useStudio((s) => s.patchCampaign);
+  const { quota, refresh } = useEmailQuota(scope);
+  const [creditsOpen, setCreditsOpen] = useState(false);
 
   const mode: 'now' | 'later' = campaign.scheduledAt ? 'later' : 'now';
   const [datePart, timePart] = (campaign.scheduledAt || 'T').split('T');
@@ -92,6 +97,76 @@ export default function ScheduleStep() {
         <h3 style={{ margin: 0, color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', fontFamily: FONT_UI }}>
           {t('studio.sched.deliverability')}
         </h3>
+        {/* ── Quota du mois — discret tant que tout va bien ──────────────
+            <80 % : une ligne neutre, rien d'autre. ≥80 % : la barre passe en
+            ambre + le reste dispo + un lien texte. Épuisé : état factuel (pas
+            une erreur) + la date de reprise + le bouton d'achat. */}
+        {quota && (() => {
+          const pctFree = Math.min(1, quota.used / Math.max(1, quota.free));
+          const exhausted = quota.remaining <= 0;
+          const warn = !exhausted && pctFree >= 0.8;
+          const barColor = exhausted ? RED : warn ? '#FCD34D' : 'rgba(255,255,255,0.35)';
+          const resetDate = new Date(quota.resetsOn).toLocaleDateString();
+          const nf = (n: number) => n.toLocaleString('fr-FR');
+          return (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
+                <MicroLabel>{t('studio.sched.quotaTitle')}</MicroLabel>
+                <span style={{ flex: 1 }} />
+                {quota.credits > 0 && (
+                  <span style={{
+                    color: T2, fontSize: 10.5, fontWeight: 600, fontFamily: FONT_UI, padding: '2px 7px',
+                    borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>{t('studio.sched.quotaCredits').replace('{n}', nf(quota.credits))}</span>
+                )}
+                <span style={{ color: warn || exhausted ? T1 : T2, fontSize: 12, fontWeight: 560, fontFamily: FONT_UI, fontVariantNumeric: 'tabular-nums' }}>
+                  {nf(quota.used)} / {nf(quota.free)}
+                </span>
+              </div>
+              <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${Math.round(pctFree * 100)}%`, borderRadius: 999,
+                  background: barColor, transition: 'width .3s, background .3s',
+                }} />
+              </div>
+              {warn && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <span style={{ color: T3, fontSize: 11.5, fontFamily: FONT_UI, flex: 1 }}>
+                    {t('studio.sched.quotaLeft').replace('{n}', nf(quota.remaining))}
+                  </span>
+                  <button
+                    type="button" onClick={() => setCreditsOpen(true)}
+                    style={{
+                      background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                      color: T2, fontSize: 11.5, fontWeight: 600, fontFamily: FONT_UI,
+                      textDecoration: 'underline', textUnderlineOffset: 3,
+                    }}
+                  >{t('studio.sched.quotaBuy')}</button>
+                </div>
+              )}
+              {exhausted && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, padding: '10px 12px',
+                  borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}`,
+                }}>
+                  <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.45, fontFamily: FONT_UI, flex: 1 }}>
+                    {t('studio.sched.quotaFull').replace('{date}', resetDate)}
+                  </span>
+                  <button
+                    type="button" onClick={() => setCreditsOpen(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, flex: 'none', cursor: 'pointer',
+                      padding: '7px 12px', borderRadius: 10, background: RED, border: `1px solid ${RED}`,
+                      color: '#fff', fontSize: 11.5, fontWeight: 600, fontFamily: FONT_UI,
+                    }}
+                  ><Plus size={13} strokeWidth={2.25} />{t('studio.sched.quotaBuy')}</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <ToggleRow
           checked={campaign.throttlePerHour != null}
           onChange={(v) => patchCampaign({ throttlePerHour: v ? 1000 : null })}
@@ -132,6 +207,13 @@ export default function ScheduleStep() {
           ariaLabel={t('studio.data.abToggle')}
         />
       </FlowCard>
+
+      <EmailCreditsDialog
+        open={creditsOpen}
+        onClose={() => setCreditsOpen(false)}
+        scope={scope.kind === 'venue' ? { kind: 'venue', venueId: scope.venueId } : { kind: 'organizer', organizerId: scope.organizerId }}
+        onCredited={refresh}
+      />
     </div>
   );
 }
