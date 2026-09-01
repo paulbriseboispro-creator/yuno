@@ -4566,6 +4566,91 @@ export type Database = {
           },
         ]
       }
+      email_campaign_templates: {
+        Row: {
+          blocks_json: Json
+          blocks_version: number
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          last_used_at: string | null
+          logo_url: string | null
+          name: string
+          organizer_user_id: string | null
+          preheader: string
+          social_links_json: Json
+          subject: string
+          theme_json: Json
+          type: string
+          updated_at: string
+          use_count: number
+          venue_id: string | null
+        }
+        Insert: {
+          blocks_json?: Json
+          blocks_version?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          last_used_at?: string | null
+          logo_url?: string | null
+          name: string
+          organizer_user_id?: string | null
+          preheader?: string
+          social_links_json?: Json
+          subject?: string
+          theme_json?: Json
+          type?: string
+          updated_at?: string
+          use_count?: number
+          venue_id?: string | null
+        }
+        Update: {
+          blocks_json?: Json
+          blocks_version?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          last_used_at?: string | null
+          logo_url?: string | null
+          name?: string
+          organizer_user_id?: string | null
+          preheader?: string
+          social_links_json?: Json
+          subject?: string
+          theme_json?: Json
+          type?: string
+          updated_at?: string
+          use_count?: number
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_templates_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaign_templates_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaign_templates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_campaigns: {
         Row: {
           ab_enabled: boolean
@@ -15695,6 +15780,10 @@ export type Database = {
       build_payout_reference: {
         Args: { p_promoter_id: string }
         Returns: string
+      }
+      bump_email_template_usage: {
+        Args: { p_template_id: string }
+        Returns: undefined
       }
       bump_guest_signup_throttle: {
         Args: {
