@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { EmailBlock, LiveData, TicketRow } from '@/lib/email';
 import { YUNO_BLOCK_TYPES } from '@/lib/email';
@@ -158,7 +158,15 @@ export function useSavedSegments(scope: StudioScope): SavedSegment[] {
   return segments;
 }
 
-export interface ImportedList { id: string; name: string; createdAt: string; count: number }
+export interface ImportedList {
+  id: string;
+  /** Nom affiché : celui du pro, sinon le nom de fichier sans extension. */
+  name: string;
+  /** Ce vers quoi on retombe si le pro efface son nom. */
+  fallbackName: string;
+  createdAt: string;
+  count: number;
+}
 
 /**
  * Listes importées de la portée — un fichier importé reste un segment à part.
@@ -166,7 +174,10 @@ export interface ImportedList { id: string; name: string; createdAt: string; cou
  * venue-only. L'effectif est recompté en direct (un désabonnement le fait
  * baisser), jamais lu dans le rapport d'import figé.
  */
-export function useImportedLists(scope: StudioScope): ImportedList[] {
+export function useImportedLists(scope: StudioScope): {
+  lists: ImportedList[];
+  rename: (id: string, name: string) => Promise<boolean>;
+} {
   const [lists, setLists] = useState<ImportedList[]>([]);
   const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
 
@@ -188,13 +199,13 @@ export function useImportedLists(scope: StudioScope): ImportedList[] {
           .select('id', { count: 'exact', head: true })
           .eq('import_id', r.id)
           .eq('opted_in', true);
+        // Le nom donné par le pro à l'import ; à défaut (imports d'avant
+        // le champ, ou nom effacé), le nom de fichier sans son extension.
+        const fallbackName = (r.filename || '').replace(/\.[a-z0-9]+$/i, '').trim() || 'Import';
         return {
           id: r.id,
-          // Le nom donné par le pro à l'import ; à défaut (imports d'avant
-          // le champ), le nom de fichier sans son extension.
-          name: (r.list_name || '').trim()
-            || (r.filename || '').replace(/\.[a-z0-9]+$/i, '').trim()
-            || 'Import',
+          name: (r.list_name || '').trim() || fallbackName,
+          fallbackName,
           createdAt: r.created_at,
           count: count || 0,
         };
@@ -206,7 +217,22 @@ export function useImportedLists(scope: StudioScope): ImportedList[] {
     return () => { cancelled = true; };
   }, [scope.kind, scopeId]);
 
-  return lists;
+  // Renommage : `email_list_imports` n'a aucune policy d'écriture, la RPC
+  // SECURITY DEFINER est le seul chemin. Un nom vide remet la valeur à NULL,
+  // donc l'affichage retombe sur le nom de fichier.
+  const rename = useCallback(async (id: string, name: string) => {
+    const { data, error } = await supabase.rpc('rename_email_list_import' as never, {
+      p_import_id: id, p_name: name,
+    } as never);
+    if (error) return false;
+    const applied = ((data as unknown) as string | null) || '';
+    setLists((prev) => prev.map((l) => (
+      l.id === id ? { ...l, name: applied.trim() || l.fallbackName } : l
+    )));
+    return true;
+  }, []);
+
+  return { lists, rename };
 }
 
 export interface AudienceCount { gross: number; net: number; suppressed: number }

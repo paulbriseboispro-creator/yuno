@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Lock, UserMinus, Users } from 'lucide-react';
+import { Check, Loader2, Lock, Pencil, UserMinus, Users, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { AudienceKind, AudienceSel } from '@/lib/email';
@@ -44,7 +45,7 @@ export default function AudienceStep({ scope, events, segments }: {
 
   const hasAudience = campaign.audiences.length > 0;
   const { count, loading } = useAudienceCount(campaign.id, saveSeq, hasAudience);
-  const imports = useImportedLists(scope);
+  const { lists: imports, rename: renameImport } = useImportedLists(scope);
 
   // Effectifs par segment (clubs uniquement — la RPC v1 est venue-scopée).
   useEffect(() => {
@@ -233,15 +234,17 @@ export default function AudienceStep({ scope, events, segments }: {
               <MicroLabel style={{ margin: '14px 0 7px' }}>{t('studio.aud.imported')}</MicroLabel>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {imports.map((l) => (
-                  <SegmentRow
+                  <ImportRow
                     key={l.id}
                     on={isSelected('import', l.id)}
-                    onClick={() => toggleAudience('import', l.id)}
+                    onToggle={() => toggleAudience('import', l.id)}
                     name={l.name}
                     desc={t('studio.aud.desc.imported').replace(
                       '{date}', new Date(l.createdAt).toLocaleDateString())}
                     count={l.count}
                     barPct={Math.round((l.count / maxCount) * 100)}
+                    onRename={(v) => renameImport(l.id, v)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -416,6 +419,118 @@ function SegmentRow({ on, onClick, name, desc, count, barPct }: {
           {count.toLocaleString('fr-FR')}
         </div>
       )}
+    </button>
+  );
+}
+
+/**
+ * Ligne d'une liste importée : la même carte qu'un segment, plus un crayon.
+ * Le nom donné à l'import doit pouvoir se corriger — sinon un pro réimporte
+ * son fichier « pour le renommer » et se retrouve avec un segment en double.
+ * La carte porte le fond et la bordure ; le bouton de sélection et le crayon
+ * sont deux boutons frères à l'intérieur (jamais un bouton dans un bouton).
+ */
+function ImportRow({ on, onToggle, name, desc, count, barPct, onRename, t }: {
+  on: boolean; onToggle: () => void; name: string; desc: string;
+  count: number; barPct: number;
+  onRename: (value: string) => Promise<boolean>;
+  t: (k: string) => string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [saving, setSaving] = useState(false);
+
+  const open = () => { setDraft(name); setEditing(true); };
+
+  const commit = async () => {
+    setSaving(true);
+    const ok = await onRename(draft);
+    setSaving(false);
+    if (!ok) { toast.error(t('studio.aud.renameError')); return; }
+    setEditing(false);
+  };
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, padding: '13px 15px', borderRadius: 14,
+      transition: 'all .15s', width: '100%',
+      background: on ? RED_SOFT_GRAD : SUBTLE,
+      border: `1px solid ${on ? 'rgba(232,25,44,0.28)' : BORDER}`,
+    }}>
+      {editing ? (
+        <>
+          <input
+            autoFocus value={draft} maxLength={60} disabled={saving}
+            aria-label={t('studio.aud.rename')}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); void commit(); }
+              if (e.key === 'Escape') { e.preventDefault(); setEditing(false); }
+            }}
+            style={{ ...inputStyle, flex: 1, height: 34 }}
+          />
+          <IconBtn label={t('common.save')} onClick={() => void commit()} disabled={saving} accent>
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} strokeWidth={2.5} />}
+          </IconBtn>
+          <IconBtn label={t('common.cancel')} onClick={() => setEditing(false)} disabled={saving}>
+            <X size={13} strokeWidth={2.5} />
+          </IconBtn>
+        </>
+      ) : (
+        <>
+          <button
+            type="button" onClick={onToggle} aria-pressed={on}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0,
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <span style={{
+              width: 18, height: 18, borderRadius: 6, flex: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: on ? RED : 'transparent',
+              border: `1px solid ${on ? RED : 'rgba(255,255,255,0.2)'}`, color: '#fff',
+            }}>
+              {on && <Check size={12} strokeWidth={2.5} />}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ color: on ? T1 : T2, fontSize: 13.5, fontWeight: 560, fontFamily: FONT_UI }}>{name}</div>
+              <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI }}>{desc}</div>
+              <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${barPct}%`, borderRadius: 999,
+                  background: on ? 'linear-gradient(90deg,rgba(232,25,44,0.8),rgba(232,25,44,0.3))' : 'rgba(255,255,255,0.22)',
+                }} />
+              </div>
+            </div>
+            <div style={{ color: on ? T1 : T2, fontSize: 14, fontWeight: 620, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
+              {count.toLocaleString('fr-FR')}
+            </div>
+          </button>
+          <IconBtn label={t('studio.aud.rename')} onClick={open}>
+            <Pencil size={13} strokeWidth={1.75} />
+          </IconBtn>
+        </>
+      )}
+    </div>
+  );
+}
+
+function IconBtn({ label, onClick, disabled, accent, children }: {
+  label: string; onClick: () => void; disabled?: boolean; accent?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label}
+      style={{
+        width: 28, height: 28, borderRadius: 9, flex: 'none', cursor: disabled ? 'default' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: accent ? RED : 'rgba(255,255,255,0.06)',
+        border: `1px solid ${accent ? RED : BORDER}`,
+        color: accent ? '#fff' : T2, opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {children}
     </button>
   );
 }

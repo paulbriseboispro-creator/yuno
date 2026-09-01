@@ -14006,6 +14006,8 @@ const fr: Record<string, string> = {
   'studio.aud.desc.new': "Première visite",
   'studio.aud.desc.dormant': "Sans visite depuis 90 jours",
   'studio.aud.desc.saved': "Segment sauvegardé",
+  'studio.aud.rename': "Renommer la liste",
+  'studio.aud.renameError': "Impossible de renommer cette liste.",
   'studio.aud.imported': "Listes importées",
   'studio.aud.desc.imported': "Importée le {date}",
   'studio.sched.when': "Quand envoyer ?",

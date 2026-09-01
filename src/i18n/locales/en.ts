@@ -13935,6 +13935,8 @@ const en: Record<string, string> = {
   'studio.aud.desc.new': "First visit",
   'studio.aud.desc.dormant': "No visit in 90 days",
   'studio.aud.desc.saved': "Saved segment",
+  'studio.aud.rename': "Rename list",
+  'studio.aud.renameError': "Could not rename this list.",
   'studio.aud.imported': "Imported lists",
   'studio.aud.desc.imported': "Imported on {date}",
   'studio.sched.when': "When to send?",
