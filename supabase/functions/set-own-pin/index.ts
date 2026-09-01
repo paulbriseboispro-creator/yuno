@@ -59,13 +59,14 @@ serve(async (req) => {
       });
     }
 
-    // Check user has dj, promoter, organizer, or affiliate role
+    // Check user has a talent (dj, promoter, organizer, affiliate,
+    // affiliate_member) or staff role
     const { data: roles, error: rolesError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .in("role", [
-        "dj", "promoter", "organizer", "affiliate",
+        "dj", "promoter", "organizer", "affiliate", "affiliate_member",
         "barman", "bouncer", "cloakroom", "vip_host", "manager",
       ]);
 

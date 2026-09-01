@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { PremiumPinPad } from '@/components/PremiumPinPad';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { storePinSession } from '@/components/RequirePinSession';
 import { storeStaffSession } from '@/components/RequireStaffSession';
@@ -13,11 +15,13 @@ import { Navigate } from 'react-router-dom';
 type Step = 'create' | 'confirm';
 
 // Roles whose holders set their own PIN.
-const TALENT_ROLES = ['dj', 'promoter', 'organizer', 'affiliate'];
+const TALENT_ROLES = ['dj', 'promoter', 'organizer', 'affiliate', 'affiliate_member'];
 const STAFF_ROLES = ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'];
 
 export default function SetupPinPage() {
   const { user, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const tt = useCallback((fr: string, en: string, es?: string) => translate(language, fr, en, es), [language]);
   const { roles, loading: rolesLoading } = useUserRoles();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('create');
@@ -34,6 +38,7 @@ export default function SetupPinPage() {
     if (roles.includes('promoter')) return '/promoter';
     if (roles.includes('organizer')) return '/organizer-app';
     if (roles.includes('affiliate')) return '/affiliate';
+    if (roles.includes('affiliate_member')) return '/affiliate/promoteur';
     if (roles.includes('manager')) return '/manager/dashboard';
     if (roles.includes('vip_host')) return '/vip-host';
     if (roles.includes('bouncer')) return '/bouncer';
@@ -50,7 +55,7 @@ export default function SetupPinPage() {
 
   const handleConfirmPin = useCallback(async (pin: string) => {
     if (pin !== firstPin) {
-      setError('Les codes PIN ne correspondent pas');
+      setError(tt('Les codes PIN ne correspondent pas', "The PINs don't match", 'Los PIN no coinciden'));
       return;
     }
 
@@ -77,18 +82,18 @@ export default function SetupPinPage() {
         } else if (talentRole) {
           storePinSession(talentRole);
         }
-        toast.success('Code PIN créé avec succès !');
+        toast.success(tt('Code PIN créé avec succès !', 'PIN created successfully!', '¡PIN creado correctamente!'));
         navigate(staffNeedsOnboarding ? '/staff/welcome' : getDashboardPath(), { replace: true });
       } else {
-        setError(data?.error || 'Erreur lors de la création du PIN');
+        setError(data?.error || tt('Erreur lors de la création du PIN', 'Error creating the PIN', 'Error al crear el PIN'));
       }
     } catch (err) {
       console.error('Set PIN error:', err);
-      setError('Erreur serveur');
+      setError(tt('Erreur serveur', 'Server error', 'Error del servidor'));
     } finally {
       setLoading(false);
     }
-  }, [firstPin, talentRole, staffRole, user, navigate]);
+  }, [firstPin, talentRole, staffRole, user, navigate, tt]);
 
   if (authLoading || rolesLoading) {
     return (
@@ -104,8 +109,8 @@ export default function SetupPinPage() {
   if (step === 'create') {
     return (
       <PremiumPinPad
-        title="Créer ton code PIN"
-        subtitle="Choisis un code à 6 chiffres pour sécuriser ton espace"
+        title={tt('Créer ton code PIN', 'Create your PIN', 'Crea tu PIN')}
+        subtitle={tt('Choisis un code à 6 chiffres pour sécuriser ton espace', 'Choose a 6-digit code to secure your space', 'Elige un código de 6 dígitos para proteger tu espacio')}
         icon={
           <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <KeyRound className="h-8 w-8 text-primary" />
@@ -120,8 +125,8 @@ export default function SetupPinPage() {
 
   return (
     <PremiumPinPad
-      title="Confirme ton code PIN"
-      subtitle="Re-entre le même code à 6 chiffres"
+      title={tt('Confirme ton code PIN', 'Confirm your PIN', 'Confirma tu PIN')}
+      subtitle={tt('Re-entre le même code à 6 chiffres', 'Enter the same 6-digit code again', 'Vuelve a introducir el mismo código')}
       icon={
         <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
           <ShieldCheck className="h-8 w-8 text-emerald-400" />
