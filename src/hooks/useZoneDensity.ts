@@ -29,6 +29,12 @@ export interface DensityEvent extends EventCardData {
   hasGuestList: boolean;
   displayVenueId: string | null;
   venueAddress: string | null;
+  /** Nom du lieu saisi sur l'event (soirées org-led sans club Yuno). */
+  locationName: string | null;
+  /** Avatar public de l'organisateur (soirées org-led). */
+  organizerAvatarUrl?: string | null;
+  /** Profil organisateur publiable (/o/:slug) — false = pas de lien. */
+  organizerIsPublic?: boolean;
   /** Slug public du lieu affilié (navigation /affiliate-venue/:slug). */
   affiliateVenueSlug?: string | null;
 }
@@ -40,6 +46,8 @@ export interface DensityVenue {
   coverUrl: string | null;
   logoUrl: string | null;
   isAffiliate: boolean;
+  /** Groupe « organisateur » (soirées org-led sans club) — navigue vers /o/:slug. */
+  isOrganizer?: boolean;
   slug?: string | null;
   dateCount: number;
   nextStartAt: string;
@@ -94,7 +102,7 @@ async function fetchZoneDensity(
   const [eventsRes, venuesRes, roundsRes, glRes, affRes] = await Promise.all([
     supabase
       .from('events')
-      .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_address')
+      .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_name, location_address')
       .eq('is_active', true)
       .eq('visibility', 'public')
       .eq('is_discoverable', true)
@@ -143,14 +151,19 @@ async function fetchZoneDensity(
   const organizerUserIds = Array.from(
     new Set((eventsRes.data || []).map(e => e.organizer_user_id).filter(Boolean) as string[]),
   );
-  const organizerMap = new Map<string, { display_name: string; slug: string | null }>();
+  const organizerMap = new Map<string, { display_name: string; slug: string | null; avatar_url: string | null; is_public: boolean }>();
   if (organizerUserIds.length > 0) {
     const { data: orgProfiles } = await supabase
       .from('organizer_profiles')
-      .select('user_id, display_name, slug')
+      .select('user_id, display_name, slug, avatar_url, is_public')
       .in('user_id', organizerUserIds);
     (orgProfiles || []).forEach(op =>
-      organizerMap.set(op.user_id, { display_name: op.display_name, slug: op.slug }),
+      organizerMap.set(op.user_id, {
+        display_name: op.display_name,
+        slug: op.slug,
+        avatar_url: op.avatar_url,
+        is_public: !!op.is_public,
+      }),
     );
   }
 
@@ -203,11 +216,14 @@ async function fetchZoneDensity(
       isLive: e.start_at <= nowIso,
       isOrganizerLed,
       organizerName: organizerInfo?.display_name,
+      organizerAvatarUrl: organizerInfo?.avatar_url ?? null,
+      organizerIsPublic: organizerInfo?.is_public ?? false,
       hasTickets,
       hasTables: !!e.tables_enabled,
       hasGuestList: publicGuestList.has(e.id),
       displayVenueId,
       venueAddress: venue?.address || e.location_address || null,
+      locationName: e.location_name || null,
     };
   });
 
@@ -246,6 +262,7 @@ async function fetchZoneDensity(
       hasGuestList: false,
       displayVenueId: `aff:${venue.id}`,
       venueAddress: null,
+      locationName: null,
       affiliateVenueSlug: venue.slug ?? null,
     }];
   });
@@ -271,18 +288,21 @@ async function fetchZoneDensity(
     elsewhere.map(e => e.venueCity.toLowerCase()).filter(Boolean),
   ).size;
 
-  // Agrégat par lieu (rail « les clubs de la zone » du design 3c).
+  // Agrégat par « maison » (rail du design 3c) : club Yuno, lieu affilié, ou
+  // — pour les soirées org-led sans club — l'organisateur lui-même.
   const venueAgg = new Map<string, DensityVenue>();
   for (const e of upcoming) {
-    if (!e.displayVenueId) continue;
-    const existing = venueAgg.get(e.displayVenueId);
+    const groupKey = e.displayVenueId
+      || (e.isOrganizerLed && e.organizerName ? `org:${e.organizerSlug || e.organizerName}` : null);
+    if (!groupKey) continue;
+    const existing = venueAgg.get(groupKey);
     if (existing) {
       existing.dateCount += 1;
       if (e.minPrice !== null && (existing.minPrice === null || e.minPrice < existing.minPrice)) {
         existing.minPrice = e.minPrice;
       }
     } else if (e.isAffiliate) {
-      venueAgg.set(e.displayVenueId, {
+      venueAgg.set(groupKey, {
         id: e.venueSlug,
         name: e.venueName,
         city: e.venueCity,
@@ -295,10 +315,26 @@ async function fetchZoneDensity(
         minPrice: e.minPrice,
         tablesOnly: !!e.tablesOnly,
       });
+    } else if (!e.displayVenueId) {
+      // Soirée org-led sans club : la « maison », c'est l'organisateur.
+      venueAgg.set(groupKey, {
+        id: groupKey,
+        name: e.organizerName || e.venueName,
+        city: e.venueCity,
+        coverUrl: e.organizerAvatarUrl || e.posterUrl,
+        logoUrl: e.organizerAvatarUrl ?? null,
+        isAffiliate: false,
+        isOrganizer: true,
+        slug: e.organizerIsPublic ? e.organizerSlug ?? null : null,
+        dateCount: 1,
+        nextStartAt: e.startAt,
+        minPrice: e.minPrice,
+        tablesOnly: false,
+      });
     } else {
       const venue = venueMap.get(e.displayVenueId);
       if (!venue) continue;
-      venueAgg.set(e.displayVenueId, {
+      venueAgg.set(groupKey, {
         id: venue.id,
         name: venue.name,
         city: venue.city,

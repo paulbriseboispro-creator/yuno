@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Armchair, ArrowRight, Bell, Building2, Check, ChevronRight, Heart, Martini, Ticket, Zap } from 'lucide-react';
+import { Armchair, ArrowRight, Bell, Building2, Check, ChevronRight, Heart, Martini, Ticket, Users, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -76,7 +76,10 @@ export function MarketTicker({ density, city }: { density: ZoneDensity; city: st
   } else if (density.status === 'empty') {
     right = t('explore.ld.openDates0');
   } else {
-    right = `${density.upcoming.length} ${t('explore.ld.dates')} · ${density.offersCount} ${t('explore.ld.offers')} · ${density.clubsCount} ${t('explore.ld.clubs')}`;
+    const hostsUnit = density.venues.some(v => v.isOrganizer)
+      ? t('explore.ld.hostsShort')
+      : t('explore.ld.clubs');
+    right = `${density.upcoming.length} ${t('explore.ld.dates')} · ${density.offersCount} ${t('explore.ld.offers')} · ${density.clubsCount} ${hostsUnit}`;
   }
   const live = density.status !== 'empty';
 
@@ -325,7 +328,9 @@ function FeaturedNightCard({ event, variant }: { event: DensityEvent; variant: '
           <div className="flex items-center gap-2 flex-wrap">
             {event.venueName && (
               <span className="flex items-center gap-1.5 font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#E5E5E5', padding: '5px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                <Building2 className="h-[11px] w-[11px]" style={{ color: '#9A9A9A' }} />
+                {event.isOrganizerLed
+                  ? <Users className="h-[11px] w-[11px]" style={{ color: '#9A9A9A' }} />
+                  : <Building2 className="h-[11px] w-[11px]" style={{ color: '#9A9A9A' }} />}
                 {event.venueName}
               </span>
             )}
@@ -411,18 +416,42 @@ export function ExploreSingleNight({
   const entriesValue = event.tablesOnly
     ? t('explore.tablesOnly')
     : offers[0] || t('explore.ld.onSpot');
-  const entriesSub = [offers.slice(1).join(' + '), priceLabel].filter(Boolean).join(' · ') || '—';
+  // Guest list seule = entrée gratuite : on l'écrit, on ne laisse pas un tiret.
+  const entriesSub =
+    [offers.slice(1).join(' + '), priceLabel].filter(Boolean).join(' · ')
+    || (event.hasGuestList && !event.tablesOnly ? t('explore.free') : '—');
 
-  const statusValue = soldOut ? t('explore.ld.soldOut') : event.isLive ? t('explore.ld.liveNow') : t('explore.ld.onSale');
+  // « En vente » seulement quand il y a des billets ; une guest list ouverte
+  // ne vend rien, elle est « ouverte ».
+  const statusValue = soldOut
+    ? t('explore.ld.soldOut')
+    : event.isLive
+      ? t('explore.ld.liveNow')
+      : event.hasTickets || event.tablesOnly || event.hasTables
+        ? t('explore.ld.onSale')
+        : t('explore.ld.open');
   const statusSub = soldOut ? t('explore.ld.comeBack') : t('explore.ld.openToAll');
 
+  // Le lieu physique : club Yuno (cliquable), sinon le lieu saisi sur l'event.
+  const placeName = venue && !venue.isOrganizer ? venue.name : event.locationName;
+  const placeClickable = !!venue && !venue.isOrganizer;
+  const showPlace = !!placeName || !!event.venueAddress;
+
+  // L'organisateur (soirées org-led) : sa propre carte, cliquable si profil public.
+  const showOrganizer = !!event.isOrganizerLed && !!event.organizerName;
+  const organizerClickable = !!event.organizerIsPublic && !!event.organizerSlug;
+
   const goVenue = () => {
-    if (!venue) return;
+    if (!placeClickable || !venue) return;
     if (venue.isAffiliate) {
       if (venue.slug) navigate(`/affiliate-venue/${venue.slug}`);
     } else {
       navigate(`/club/${venue.id}`);
     }
+  };
+
+  const goOrganizer = () => {
+    if (organizerClickable) navigate(`/o/${event.organizerSlug}`);
   };
 
   return (
@@ -460,20 +489,57 @@ export function ExploreSingleNight({
         </div>
       </FadeInView>
 
+      {/* L'organisateur — les soirées org-led ont leur propre maison */}
+      {showOrganizer && (
+        <FadeInView style={{ padding: '22px 20px 0' }}>
+          <SectionKicker>{t('explore.ld.organizer')}</SectionKicker>
+          <div
+            role={organizerClickable ? 'button' : undefined}
+            tabIndex={organizerClickable ? 0 : undefined}
+            onClick={goOrganizer}
+            onKeyDown={e => { if (organizerClickable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goOrganizer(); } }}
+            className={cn('flex items-center gap-3', organizerClickable && 'cursor-pointer')}
+            style={{ padding: '13px 14px', background: '#0E0E10', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }}
+          >
+            <div className="relative flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: 999, background: 'linear-gradient(145deg,#3a1020,#12070c)' }}>
+              {event.organizerAvatarUrl ? (
+                <img
+                  src={getOptimizedImageUrl(event.organizerAvatarUrl, { width: 104, height: 104, quality: 75, resize: 'cover' })}
+                  alt={event.organizerName || ''}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <Users className="h-5 w-5" style={{ color: '#9A9A9A' }} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-bold truncate" style={{ fontSize: 16, lineHeight: 1.1, color: '#fff', margin: '0 0 4px' }}>
+                {event.organizerName}
+              </p>
+              <p className="font-mono truncate uppercase" style={{ fontSize: '10px', lineHeight: 1.4, color: '#65656F', margin: 0, letterSpacing: '0.04em' }}>
+                {t('explore.ld.organizerRole')}
+              </p>
+            </div>
+            {organizerClickable && <ChevronRight className="h-4 w-4 shrink-0" style={{ color: '#5A5A5E' }} />}
+          </div>
+        </FadeInView>
+      )}
+
       {/* Le lieu, deuxième porte d'entrée quand il n'y a qu'une date */}
-      {(venue || event.venueAddress) && (
+      {showPlace && (
         <FadeInView style={{ padding: '22px 20px 0' }}>
           <SectionKicker>{t('explore.ld.venue')}</SectionKicker>
           <div
-            role={venue ? 'button' : undefined}
-            tabIndex={venue ? 0 : undefined}
+            role={placeClickable ? 'button' : undefined}
+            tabIndex={placeClickable ? 0 : undefined}
             onClick={goVenue}
-            onKeyDown={e => { if (venue && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goVenue(); } }}
-            className={cn('flex items-center gap-3', venue && 'cursor-pointer')}
+            onKeyDown={e => { if (placeClickable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goVenue(); } }}
+            className={cn('flex items-center gap-3', placeClickable && 'cursor-pointer')}
             style={{ padding: '13px 14px', background: '#0E0E10', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }}
           >
             <div className="relative shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: 12, background: 'linear-gradient(145deg,#3b1158,#0f0712)' }}>
-              {(venue?.logoUrl || venue?.coverUrl) && (
+              {placeClickable && (venue?.logoUrl || venue?.coverUrl) && (
                 <img
                   src={getOptimizedImageUrl(venue.logoUrl || venue.coverUrl!, { width: 104, height: 104, quality: 75, resize: 'cover' })}
                   alt={venue.name}
@@ -484,13 +550,15 @@ export function ExploreSingleNight({
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-display font-bold truncate" style={{ fontSize: 16, lineHeight: 1.1, color: '#fff', margin: '0 0 4px' }}>
-                {venue?.name || event.venueName}
+                {placeName || event.venueAddress}
               </p>
               <p className="font-mono truncate" style={{ fontSize: '10px', lineHeight: 1.4, color: '#65656F', margin: 0, letterSpacing: '0.04em' }}>
-                {[event.venueAddress, event.venueCity].filter(Boolean).join(' · ')}
+                {placeName
+                  ? [event.venueAddress, event.venueCity].filter(Boolean).join(' · ')
+                  : event.venueCity}
               </p>
             </div>
-            {venue && <ChevronRight className="h-4 w-4 shrink-0" style={{ color: '#5A5A5E' }} />}
+            {placeClickable && <ChevronRight className="h-4 w-4 shrink-0" style={{ color: '#5A5A5E' }} />}
           </div>
         </FadeInView>
       )}
@@ -646,7 +714,7 @@ export function ExploreEmptyMarket({
                       {format(new Date(e.startAt), 'HH:mm')}
                     </span>
                     <span className="font-mono font-bold" style={{ fontSize: 13, color: '#E8192C' }}>
-                      {eventPriceLabel(e, t)}
+                      {eventPriceLabel(e, t) || (e.hasGuestList ? t('explore.ld.guestList') : '')}
                     </span>
                   </div>
                 </div>
@@ -720,12 +788,17 @@ export function ExploreFewDates({ density }: { density: ZoneDensity }) {
   ];
 
   const goVenue = (v: DensityVenue) => {
-    if (v.isAffiliate) {
+    if (v.isOrganizer) {
+      if (v.slug) navigate(`/o/${v.slug}`);
+    } else if (v.isAffiliate) {
       if (v.slug) navigate(`/affiliate-venue/${v.slug}`);
     } else {
       navigate(`/club/${v.id}`);
     }
   };
+
+  // Des orgas dans le rail ? Les titres suivent (« clubs & orgas »).
+  const hasOrgGroups = density.venues.some(v => v.isOrganizer);
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', width: '100%' }}>
@@ -828,7 +901,9 @@ export function ExploreFewDates({ density }: { density: ZoneDensity }) {
                         : ''}
                     </span>
                     <span className="font-mono font-bold" style={{ fontSize: '12.5px', color: '#E8192C' }}>
-                      {e.tablesOnly ? t('explore.ld.tables').toLowerCase() : eventPriceLabel(e, t)}
+                      {e.tablesOnly
+                        ? t('explore.ld.tables').toLowerCase()
+                        : eventPriceLabel(e, t) || (e.hasGuestList ? t('explore.ld.guestList') : '')}
                     </span>
                   </div>
                 </div>
@@ -847,11 +922,11 @@ export function ExploreFewDates({ density }: { density: ZoneDensity }) {
                 {t('explore.ld.otherWay')}
               </p>
               <h2 className="font-display font-bold" style={{ fontSize: 21, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>
-                {t('explore.ld.clubsOfZone').replace('{n}', String(density.venues.length))}
+                {t(hasOrgGroups ? 'explore.ld.hostsOfZone' : 'explore.ld.clubsOfZone').replace('{n}', String(density.venues.length))}
               </h2>
             </div>
             <span className="font-mono uppercase" style={{ fontSize: '11px', color: '#65656F' }}>
-              {density.venues.length} {t('explore.ld.places')}
+              {density.venues.length} {t(hasOrgGroups ? 'explore.ld.hostsShort' : 'explore.ld.places')}
             </span>
           </div>
           <div className="flex overflow-x-auto items-start" style={{ gap: 10, padding: '0 20px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
