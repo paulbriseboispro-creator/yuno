@@ -74,6 +74,7 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
 
   const [raw, setRaw] = useState('');
   const [filename, setFilename] = useState<string | null>(null);
+  const [listName, setListName] = useState('');
   const [consentSource, setConsentSource] = useState<ConsentSource | ''>('');
   const [consentDetails, setConsentDetails] = useState('');
   const [collectedSince, setCollectedSince] = useState('');
@@ -88,7 +89,7 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
   );
 
   const reset = useCallback(() => {
-    setRaw(''); setFilename(null); setConsentSource(''); setConsentDetails('');
+    setRaw(''); setFilename(null); setListName(''); setConsentSource(''); setConsentDetails('');
     setCollectedSince(''); setAttested(false); setBusy(false); setProgress(0); setSummary(null);
   }, []);
 
@@ -103,6 +104,9 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
     }
     const text = await file.text();
     setFilename(file.name);
+    // Le nom de fichier est une première proposition, pas une fatalité :
+    // le pro le réécrit, et c'est CE nom qu'il retrouvera dans ses audiences.
+    setListName((prev) => prev || file.name.replace(/\.[a-z0-9]+$/i, '').slice(0, 60));
     setRaw(text);
   }, [t]);
 
@@ -123,7 +127,7 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
 
     try {
       for (let i = 0; i < chunks.length; i++) {
-        const { data, error } = await supabase.rpc('import_email_contacts', {
+        const { data, error } = await supabase.rpc('import_email_contacts' as never, {
           // jsonb côté Postgres : la signature générée attend `Json`, et une
           // interface TS sans index signature n'y est pas assignable telle quelle.
           p_contacts: chunks[i] as unknown as Json,
@@ -136,7 +140,9 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
           // Les lots suivants se rattachent à la MÊME ligne d'import : un
           // fichier = une attestation, pas cinq.
           p_import_id: importId,
-        });
+          // Lu au 1er lot seulement, celui qui crée la ligne d'import.
+          p_list_name: listName.trim() || null,
+        } as never);
         if (error) throw error;
 
         const r = (data ?? {}) as unknown as Record<string, number | string>;
@@ -164,7 +170,7 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
     } finally {
       setBusy(false);
     }
-  }, [parsed, canImport, consentSource, scope, filename, consentDetails, collectedSince, onImported, t]);
+  }, [parsed, canImport, consentSource, scope, filename, listName, consentDetails, collectedSince, onImported, t]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
@@ -209,6 +215,17 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
                 disabled={busy || !!filename}
                 onChange={(e) => setRaw(e.target.value)}
               />
+              {parsed && parsed.contacts.length > 0 && (
+                <div className="mt-3">
+                  <Label className="text-[12px]">{t('em.import.listName')}</Label>
+                  <Input
+                    className="mt-1" value={listName} disabled={busy} maxLength={60}
+                    placeholder={t('em.import.listNamePlaceholder')}
+                    onChange={(e) => setListName(e.target.value)}
+                  />
+                  <p className="mt-1 text-[11px] opacity-50">{t('em.import.listNameHint')}</p>
+                </div>
+              )}
             </div>
 
             {/* ── Rapport de lecture ────────────────────────────────────── */}

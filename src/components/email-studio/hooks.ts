@@ -173,14 +173,16 @@ export function useImportedLists(scope: StudioScope): ImportedList[] {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let q = supabase.from('email_list_imports')
-        .select('id, filename, created_at')
+      let q = supabase.from('email_list_imports' as never)
+        .select('id, filename, list_name, created_at')
         .order('created_at', { ascending: false })
         .limit(50);
       q = scope.kind === 'venue' ? q.eq('venue_id', scopeId) : q.eq('organizer_user_id', scopeId);
       const { data } = await q;
       if (cancelled) return;
-      const rows = (data || []) as Array<{ id: string; filename: string | null; created_at: string }>;
+      const rows = ((data as unknown) || []) as Array<{
+        id: string; filename: string | null; list_name: string | null; created_at: string;
+      }>;
       const counted = await Promise.all(rows.map(async (r) => {
         const { count } = await supabase.from('newsletter_subscriptions')
           .select('id', { count: 'exact', head: true })
@@ -188,7 +190,11 @@ export function useImportedLists(scope: StudioScope): ImportedList[] {
           .eq('opted_in', true);
         return {
           id: r.id,
-          name: (r.filename || '').replace(/\.[a-z0-9]+$/i, '').trim() || 'Import',
+          // Le nom donné par le pro à l'import ; à défaut (imports d'avant
+          // le champ), le nom de fichier sans son extension.
+          name: (r.list_name || '').trim()
+            || (r.filename || '').replace(/\.[a-z0-9]+$/i, '').trim()
+            || 'Import',
           createdAt: r.created_at,
           count: count || 0,
         };
