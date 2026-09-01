@@ -485,11 +485,16 @@ intouchables :
   `campaign_id` (donc depuis un transactionnel), et coupe `opted_in`. Un billet
   de confirmation part toujours, même vers une adresse supprimée.
 - **Le plafond plateforme doit refléter le PLAN RESEND.** Semé à 90/jour (plan
-  gratuit : 100/jour, 3 000/mois, partagés avec TOUT le transactionnel). Passer
-  en Pro exige un `UPDATE email_sender_state SET daily_cap_override = 25000
-  WHERE scope_key = 'platform'`, sinon tout reste bridé. Dépasser le plan ne
-  ralentit pas l'envoi : Resend renvoie des 429, les destinataires épuisent
-  leurs tentatives et finissent en `failed` — on PERD des gens.
+  gratuit), passé à **25 000/jour le 2026-09-01** avec la souscription du plan
+  Pro (migration `20260901160000`). Ce chiffre est un garde-fou
+  anti-emballement, PAS un objectif d'envoi. Dépasser le plan ne ralentit pas
+  l'envoi : Resend renvoie des 429, les destinataires épuisent leurs tentatives
+  et finissent en `failed` — on PERD des gens.
+- **La vraie limite est désormais MENSUELLE, et personne ne la surveille.**
+  Pro = 50 000 emails/mois, tout transactionnel compris ; `email_send_quota` ne
+  compte qu'à la journée. Deux journées pleines à 25 000 vident le plan. Tant
+  qu'un plafond mensuel n'est pas écrit, vérifier le tableau de bord Resend
+  avant toute campagne de plusieurs milliers d'adresses.
 - **Warm-up non contournable côté client** : `email_sender_daily_cap()`
   (300 → 25 000 sur 6 jours) + plafond plateforme. Les quotas se consomment via
   `consume_email_send_quota` (service_role only) ; un plafond atteint met la
