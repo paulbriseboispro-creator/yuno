@@ -743,22 +743,22 @@ export default function TicketSelection() {
                       'relative w-full rounded border p-4 text-left transition-all',
                       isFull
                         ? 'opacity-45 cursor-default border-white/[0.06]'
-                        : cn('active:scale-[0.99]', isSel ? 'border-emerald-500/50' : 'border-emerald-500/20 hover:border-emerald-500/35')
+                        : cn('active:scale-[0.99]', isSel ? 'border-orange-500/50' : 'border-orange-500/20 hover:border-orange-500/35')
                     )}
-                    style={{ backgroundColor: isFull ? '#141414' : isSel ? 'rgba(16,185,129,0.10)' : 'rgba(16,185,129,0.04)' }}
+                    style={{ backgroundColor: isFull ? '#141414' : isSel ? 'rgba(249,115,22,0.10)' : 'rgba(249,115,22,0.04)' }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm">{c.symbol ? `${c.symbol} ` : ''}{c.label}</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
                         </div>
                         <p className="text-[11px] text-white/60 flex items-center gap-1.5">
                           <Clock className="h-3 w-3" />
                           {t('guestList.freeBeforeTime')} {guestList.freeBeforeTime}
                         </p>
                         {guestList.includesDrink && (
-                          <p className="text-[11px] text-emerald-400/80 flex items-center gap-1.5">
+                          <p className="text-[11px] text-orange-400/80 flex items-center gap-1.5">
                             <Wine className="h-3 w-3" />
                             {t('guestList.drinkIncluded')}
                           </p>
@@ -768,11 +768,11 @@ export default function TicketSelection() {
                         {isFull ? (
                           <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2 py-0.5 rounded-sm">{t('tables.soldOut')}</span>
                         ) : isSel ? (
-                          <span className="h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <span className="h-7 w-7 rounded-full bg-orange-500 flex items-center justify-center">
                             <Check className="h-4 w-4 text-black" strokeWidth={3} />
                           </span>
                         ) : (
-                          <p className="text-2xl font-bold text-emerald-400">0 €</p>
+                          <p className="text-2xl font-bold text-orange-400">0 €</p>
                         )}
                         {!isFull && guestList.showRemaining && <p className="text-[10px] text-white/60">{c.remaining} {t('guestList.spotsLeft')}</p>}
                       </div>
@@ -791,14 +791,14 @@ export default function TicketSelection() {
             <SectionDivider icon={<Music className="h-2.5 w-2.5" />} label={t('guestList.dj.guestOf').replace('{name}', djGuestList.djName)} />
             <button
               onClick={() => navigate(`${basePath}/guestlist?token=${djGuestList.shareToken}`, { state: { eventId } })}
-              className="relative w-full rounded border p-4 text-left transition-all active:scale-[0.99] border-emerald-500/20 hover:border-emerald-500/35"
-              style={{ backgroundColor: 'rgba(16,185,129,0.04)' }}
+              className="relative w-full rounded border p-4 text-left transition-all active:scale-[0.99] border-orange-500/20 hover:border-orange-500/35"
+              style={{ backgroundColor: 'rgba(249,115,22,0.04)' }}
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm">{t('guestList.title')}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
                   </div>
                   <p className="text-[11px] text-white/60 flex items-center gap-1.5">
                     <Music className="h-3 w-3" />
@@ -809,14 +809,14 @@ export default function TicketSelection() {
                     {t('guestList.freeBeforeTime')} {djGuestList.freeBeforeTime}
                   </p>
                   {djGuestList.includesDrink && (
-                    <p className="text-[11px] text-emerald-400/80 flex items-center gap-1.5">
+                    <p className="text-[11px] text-orange-400/80 flex items-center gap-1.5">
                       <Wine className="h-3 w-3" />
                       {t('guestList.drinkIncluded')}
                     </p>
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-2xl font-bold text-emerald-400">0 €</p>
+                  <p className="text-2xl font-bold text-orange-400">0 €</p>
                 </div>
               </div>
             </button>

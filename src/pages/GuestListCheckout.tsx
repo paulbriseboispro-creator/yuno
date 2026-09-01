@@ -452,18 +452,18 @@ export default function GuestListCheckout() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-6 border border-emerald-500/25 bg-[#141414] p-6 text-center space-y-4"
-            style={{ borderRadius: 12, backgroundColor: 'rgba(16,185,129,0.04)' }}
+            className="mt-6 border border-orange-500/25 bg-[#141414] p-6 text-center space-y-4"
+            style={{ borderRadius: 12, backgroundColor: 'rgba(249,115,22,0.04)' }}
           >
-            <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
-              <CheckCircle className="h-9 w-9 text-emerald-400" />
+            <div className="w-16 h-16 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto">
+              <CheckCircle className="h-9 w-9 text-orange-400" />
             </div>
             <h2 className="text-xl font-bold">{t('guestList.confirmed')}</h2>
             <p className="text-sm text-white/45">{guestList.eventTitle}</p>
             <div className="text-sm space-y-1 text-white/55">
               <p><Clock className="h-3.5 w-3.5 inline mr-1" />{t('guestList.freeBefore')} {guestList.freeBeforeTime}</p>
               {guestList.includesDrink && (
-                <p className="text-emerald-400"><Wine className="h-3.5 w-3.5 inline mr-1" />{t('guestList.drinkIncluded')}</p>
+                <p className="text-orange-400"><Wine className="h-3.5 w-3.5 inline mr-1" />{t('guestList.drinkIncluded')}</p>
               )}
             </div>
             {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />}
@@ -520,9 +520,9 @@ export default function GuestListCheckout() {
                   <li key={label} className="flex items-center gap-3">
                     <span
                       className="flex items-center justify-center flex-shrink-0"
-                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16,185,129,0.09)', border: '1px solid rgba(16,185,129,0.22)' }}
+                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(249,115,22,0.09)', border: '1px solid rgba(249,115,22,0.22)' }}
                     >
-                      <Icon style={{ width: 15, height: 15, color: '#10B981' }} />
+                      <Icon style={{ width: 15, height: 15, color: '#F97316' }} />
                     </span>
                     <span className="font-sans text-left" style={{ fontSize: '13.5px', color: '#E5E5E5' }}>{label}</span>
                   </li>
@@ -633,14 +633,14 @@ export default function GuestListCheckout() {
 
         {/* Perks */}
         <div className="mt-3 flex flex-wrap gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-sm">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-sm">
             {t('guestList.free')} — 0 €
           </span>
           <span className="text-[11px] font-medium text-white/55 bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 rounded-sm flex items-center gap-1.5">
             <Clock className="h-3 w-3" />{t('guestList.freeBefore')} {guestList.freeBeforeTime}
           </span>
           {guestList.includesDrink && (
-            <span className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-sm flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-sm flex items-center gap-1.5">
               <Wine className="h-3 w-3" />{t('guestList.drinkIncluded')}
             </span>
           )}
@@ -648,14 +648,14 @@ export default function GuestListCheckout() {
 
         {/* Spots — chiffre masqué si le club a coupé show_remaining (ou part illimitée). */}
         {!isFull && (showCounter || timeLeft) && (
-          <div className="mt-3 border border-emerald-500/15 p-4 text-center" style={{ backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: 10 }}>
+          <div className="mt-3 border border-orange-500/15 p-4 text-center" style={{ backgroundColor: 'rgba(249,115,22,0.06)', borderRadius: 10 }}>
             {showCounter ? (
               <>
-                <p className="text-3xl font-bold text-emerald-400">{remaining}</p>
+                <p className="text-3xl font-bold text-orange-400">{remaining}</p>
                 <p className="text-sm text-white/45">{t('guestList.spotsLeft')}</p>
               </>
             ) : (
-              <p className="text-sm font-semibold text-emerald-400">{t('guestList.listOpen')}</p>
+              <p className="text-sm font-semibold text-orange-400">{t('guestList.listOpen')}</p>
             )}
             {timeLeft && <p className="text-xs text-white/40 mt-1">⏱ {timeLeft}</p>}
           </div>
@@ -670,9 +670,9 @@ export default function GuestListCheckout() {
             </Button>
           </div>
         ) : alreadyRegistered ? (
-          <div className="mt-4 border border-emerald-500/25 p-6 text-center space-y-3" style={{ backgroundColor: 'rgba(16,185,129,0.05)', borderRadius: 10 }}>
-            <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
-              <CheckCircle className="h-8 w-8 text-emerald-400" />
+          <div className="mt-4 border border-orange-500/25 p-6 text-center space-y-3" style={{ backgroundColor: 'rgba(249,115,22,0.05)', borderRadius: 10 }}>
+            <div className="w-14 h-14 rounded-full bg-orange-500/15 flex items-center justify-center mx-auto">
+              <CheckCircle className="h-8 w-8 text-orange-400" />
             </div>
             <h3 className="text-base font-bold">{t('guestList.alreadyOnList')}</h3>
             <p className="text-sm text-white/45">{t('guestList.alreadyOnListDesc')}</p>
@@ -694,9 +694,9 @@ export default function GuestListCheckout() {
               onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
               className="flex items-center gap-1.5 text-[12px] text-white/55 hover:text-white transition-colors"
             >
-              <LogIn className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <LogIn className="h-3.5 w-3.5 text-orange-400 shrink-0" />
               <span>{t('guest.haveAccountQuestion')}{' '}
-                <span className="text-emerald-400 font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
+                <span className="text-orange-400 font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
               </span>
             </button>
 
@@ -740,7 +740,7 @@ export default function GuestListCheckout() {
             <div className="border-t border-white/[0.08] pt-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-white/70">{displayTitle} — {guestList.eventTitle}</span>
-                <span className="font-bold text-emerald-400">0 €</span>
+                <span className="font-bold text-orange-400">0 €</span>
               </div>
               {guestList.includesDrink && (
                 <div className="flex justify-between text-sm text-white/45">
@@ -780,7 +780,7 @@ export default function GuestListCheckout() {
             <div className="border-t border-white/[0.08] pt-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-white/70">{displayTitle} — {guestList.eventTitle}</span>
-                <span className="font-bold text-emerald-400">0 €</span>
+                <span className="font-bold text-orange-400">0 €</span>
               </div>
               {guestList.includesDrink && (
                 <div className="flex justify-between text-sm text-white/45">

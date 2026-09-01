@@ -967,14 +967,14 @@ export default function EventDetails() {
             {guestListWithPaid && (
               <button
                 onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
-                className="w-full text-left mb-2.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-                style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '13px 16px', background: 'rgba(16,185,129,0.05)', minHeight: 60, transition: 'background 160ms ease, border-color 160ms ease' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16,185,129,0.09)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.45)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16,185,129,0.05)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.28)'; }}
+                className="w-full text-left mb-2.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/70"
+                style={{ border: '1px solid rgba(249,115,22,0.28)', borderRadius: 4, padding: '13px 16px', background: 'rgba(249,115,22,0.05)', minHeight: 60, transition: 'background 160ms ease, border-color 160ms ease' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(249,115,22,0.09)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.45)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(249,115,22,0.05)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.28)'; }}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#10B981', letterSpacing: '0.14em' }}>
+                    <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#F97316', letterSpacing: '0.14em' }}>
                       {t('guestList.title')}
                     </p>
                     {/* Jamais `truncate` ici : « Gratis antes de las … » coupe
@@ -988,7 +988,7 @@ export default function EventDetails() {
                     <span className="font-display font-bold text-white" style={{ fontSize: '19px', letterSpacing: '-0.02em' }}>
                       {t('guestList.free')}
                     </span>
-                    <ChevronRight className="h-4 w-4" style={{ color: '#10B981' }} />
+                    <ChevronRight className="h-4 w-4" style={{ color: '#F97316' }} />
                   </span>
                 </div>
               </button>
@@ -1070,7 +1070,7 @@ export default function EventDetails() {
         {guestListOnly && (
           <section style={{ padding: '20px 20px 0' }}>
             <p className="section-label-ruled mb-3">{t('guestList.title')}</p>
-            <div style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '18px 20px 20px', background: 'rgba(16,185,129,0.04)' }}>
+            <div style={{ border: '1px solid rgba(249,115,22,0.28)', borderRadius: 4, padding: '18px 20px 20px', background: 'rgba(249,115,22,0.04)' }}>
               {/* Le « gratuit » est la valeur d'affiche de la soirée : il se lit
                   au barème de la date géante du bloc Infos, pas au barème d'un
                   sous-titre. Le badge boisson prend la place que le mot laisse
@@ -1082,7 +1082,7 @@ export default function EventDetails() {
                   {t('guestList.free')}
                 </p>
                 {publicGuestList?.includes_drink && (
-                  <span className="font-mono font-bold uppercase shrink-0" style={{ fontSize: '9.5px', color: '#10B981', letterSpacing: '0.10em', border: '1px solid rgba(16,185,129,0.45)', borderRadius: 999, padding: '4px 10px', marginTop: 3, whiteSpace: 'nowrap' }}>
+                  <span className="font-mono font-bold uppercase shrink-0" style={{ fontSize: '9.5px', color: '#F97316', letterSpacing: '0.10em', border: '1px solid rgba(249,115,22,0.45)', borderRadius: 999, padding: '4px 10px', marginTop: 3, whiteSpace: 'nowrap' }}>
                     {t('guestList.drinkIncluded')}
                   </span>
                 )}
@@ -1093,7 +1093,7 @@ export default function EventDetails() {
                   d'infos juste en dessous. Avant, « Free entry before 01:00 »
                   se cassait n'importe où dans une colonne étranglée. */}
               {publicGuestList?.free_before_time && (
-                <div className="flex items-baseline justify-between gap-4 mt-4 pt-3.5" style={{ borderTop: '1px solid rgba(16,185,129,0.16)' }}>
+                <div className="flex items-baseline justify-between gap-4 mt-4 pt-3.5" style={{ borderTop: '1px solid rgba(249,115,22,0.16)' }}>
                   <span className="font-mono uppercase" style={{ fontSize: '10px', color: '#9A9A9A', letterSpacing: '0.12em', lineHeight: 1.5 }}>
                     {t('guestList.freeBefore')}
                   </span>
@@ -1111,7 +1111,7 @@ export default function EventDetails() {
               <button
                 onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
                 className="w-full mt-5 flex items-center justify-center gap-2 font-mono font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                style={{ minHeight: 46, padding: '0 14px', background: '#10B981', color: '#04120C', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.08em', lineHeight: 1.3, transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                style={{ minHeight: 46, padding: '0 14px', background: '#F97316', color: '#140A03', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.08em', lineHeight: 1.3, transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                 onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
                 onMouseUp={(e) => (e.currentTarget.style.transform = '')}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
@@ -1501,7 +1501,7 @@ export default function EventDetails() {
               label=""
               buttonText={t('guestList.register')}
               icon={<UserCheck className="h-4 w-4" />}
-              accentColor="#10B981"
+              accentColor="#F97316"
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
             />
           );
