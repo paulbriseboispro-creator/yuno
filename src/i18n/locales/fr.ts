@@ -13168,6 +13168,7 @@ const fr: Record<string, string> = {
   'aff.pdash.storyReady': "Story téléchargée — poste-la !",
   'aff.pdash.storyError': "Impossible de générer la story",
   'aff.pdash.submit': "Soumettre",
+  'aff.pdash.urlPlaceholder': "https://billetterie.com/ton-lien-promo…",
   'aff.pdash.yourPromoterPage': "Ta page promoteur",
   'aff.pdash.viewMyPage': "Voir ma page",
   'aff.pdash.viewAgenda': "Agenda complet",

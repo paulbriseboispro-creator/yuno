@@ -215,7 +215,7 @@ function LinktreeFilters({
       <div style={{ display: 'flex', gap: '7px', overflowX: 'auto', paddingBottom: '4px' }} role="group" aria-label={t('promoterLinktree.filterByDay')}>
         {(['today', 'tomorrow', 'weekend'] as const).map((d) => (
           <button key={d} onClick={() => setDayFilter(dayFilter === d ? null : d)} style={chipStyle(dayFilter === d)}>
-            {d === 'today' ? t('promoterLinktree.today') : d === 'tomorrow' ? t('promoterLinktree.tomorrow') : t('promoterLinktree.thisWeekend')}
+            {d === 'today' ? t('promoterLinktree.today') : d === 'tomorrow' ? t('promoterLinktree.tomorrow') : t('promoterLinktree.weekend')}
           </button>
         ))}
       </div>

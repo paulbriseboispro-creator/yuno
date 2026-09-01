@@ -13211,6 +13211,7 @@ const es: Record<string, string> = {
   'aff.pdash.storyReady': "Story descargada. ¡Publícala!",
   'aff.pdash.storyError': "No se pudo generar la story",
   'aff.pdash.submit': "Enviar",
+  'aff.pdash.urlPlaceholder': "https://entradas.com/tu-enlace-promo…",
   'aff.pdash.yourPromoterPage': "Tu página de promotor",
   'aff.pdash.viewMyPage': "Ver mi página",
   'aff.pdash.viewAgenda': "Agenda completa",

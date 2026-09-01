@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 import { PremiumPinPad } from './PremiumPinPad';
 import { Lock, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
@@ -46,6 +48,8 @@ export function clearPinSession(): void {
 
 export function RequirePinSession({ children, allowedRoles, dashboardPath }: RequirePinSessionProps) {
   const { user, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const tt = useCallback((fr: string, en: string, es?: string) => translate(language, fr, en, es), [language]);
   const navigate = useNavigate();
   const [state, setState] = useState<'loading' | 'no-pin' | 'need-verify' | 'authorized'>('loading');
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -94,15 +98,15 @@ export function RequirePinSession({ children, allowedRoles, dashboardPath }: Req
         storePinSession(data.role);
         setState('authorized');
       } else {
-        setVerifyError(data?.message || 'Code PIN incorrect');
+        setVerifyError(tt('Code PIN incorrect', 'Incorrect PIN', 'PIN incorrecto'));
       }
     } catch (err) {
       console.error('PIN verification error:', err);
-      setVerifyError('Erreur de vérification');
+      setVerifyError(tt('Erreur de vérification', 'Verification error', 'Error de verificación'));
     } finally {
       setVerifyLoading(false);
     }
-  }, [allowedRoles]);
+  }, [allowedRoles, tt]);
 
   const handleForgotPin = useCallback(async () => {
     if (forgotLoading) return;
@@ -116,17 +120,17 @@ export function RequirePinSession({ children, allowedRoles, dashboardPath }: Req
       if (error) throw error;
 
       if (data?.success) {
-        toast.success('Un email de réinitialisation a été envoyé !');
+        toast.success(tt('Un email de réinitialisation a été envoyé !', 'A reset email has been sent!', '¡Se ha enviado un correo de restablecimiento!'));
       } else {
-        toast.error(data?.error || 'Erreur');
+        toast.error(data?.error || tt('Erreur', 'Error', 'Error'));
       }
     } catch (err) {
       console.error('Forgot PIN error:', err);
-      toast.error('Erreur lors de l\'envoi de l\'email');
+      toast.error(tt("Erreur lors de l'envoi de l'email", 'Could not send the email', 'No se pudo enviar el correo'));
     } finally {
       setForgotLoading(false);
     }
-  }, [forgotLoading]);
+  }, [forgotLoading, tt]);
 
   if (authLoading || state === 'loading') {
     return (
@@ -147,8 +151,8 @@ export function RequirePinSession({ children, allowedRoles, dashboardPath }: Req
   if (state === 'need-verify') {
     return (
       <PremiumPinPad
-        title="Code PIN requis"
-        subtitle="Entre ton code PIN à 6 chiffres pour accéder à ton espace"
+        title={tt('Code PIN requis', 'PIN required', 'PIN requerido')}
+        subtitle={tt('Entre ton code PIN à 6 chiffres pour accéder à ton espace', 'Enter your 6-digit PIN to access your space', 'Introduce tu PIN de 6 dígitos para acceder a tu espacio')}
         icon={
           <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <Lock className="h-8 w-8 text-primary" />
@@ -164,7 +168,9 @@ export function RequirePinSession({ children, allowedRoles, dashboardPath }: Req
             disabled={forgotLoading}
             className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
           >
-            {forgotLoading ? 'Envoi en cours...' : 'J\'ai oublié mon code PIN'}
+            {forgotLoading
+              ? tt('Envoi en cours...', 'Sending...', 'Enviando...')
+              : tt("J'ai oublié mon code PIN", 'I forgot my PIN', 'Olvidé mi PIN')}
           </button>
         }
       />

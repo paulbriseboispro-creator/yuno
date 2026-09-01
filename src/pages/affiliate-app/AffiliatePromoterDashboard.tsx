@@ -370,7 +370,7 @@ export default function AffiliatePromoterDashboard() {
                 <div className="flex gap-2">
                   <DarkInput
                     type="url"
-                    placeholder="https://billetreduc.com/ton-lien-promo…"
+                    placeholder={t('aff.pdash.urlPlaceholder')}
                     value={urlInputs[a.id] ?? ''}
                     onChange={(v) => setUrlInputs(prev => ({ ...prev, [a.id]: v }))}
                   />

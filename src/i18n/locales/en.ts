@@ -13097,6 +13097,7 @@ const en: Record<string, string> = {
   'aff.pdash.storyReady': "Story downloaded — post it!",
   'aff.pdash.storyError': "Couldn't generate the story",
   'aff.pdash.submit': "Submit",
+  'aff.pdash.urlPlaceholder': "https://ticketing.com/your-promo-link…",
   'aff.pdash.yourPromoterPage': "Your promoter page",
   'aff.pdash.viewMyPage': "View my page",
   'aff.pdash.viewAgenda': "Full agenda",
