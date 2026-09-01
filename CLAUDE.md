@@ -475,6 +475,18 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   Garde-fou : la checklist pré-envoi lève `event_link` quand des blocs Yuno
   restent sans soirée (un bloc Billetterie retomberait sur ses lignes d'exemple
   et enverrait des tarifs inventés).
+- **Supprimer une campagne = brouillon uniquement** (2026-09-01). Le trigger
+  `guard_email_campaign_delete` (`BEFORE DELETE`, **SECURITY INVOKER** — un
+  trigger de garde SECURITY DEFINER se désactiverait lui-même) refuse toute
+  suppression de campagne non-`draft` venant d'un client `authenticated`. Il
+  discrimine sur `current_user`, donc les cascades serveur passent : la
+  décommission d'un club (`DELETE FROM venues`, cron postgres) et la
+  suppression de compte (edge `delete-account`, service_role) doivent pouvoir
+  purger cette table. Une campagne partie garde ses destinataires, ses
+  statistiques et son revenu attribué — `email_campaign_recipients` et
+  `email_campaign_events` sont en CASCADE, la suppression serait irréversible.
+  `email_suppressions.campaign_id` est en SET NULL : supprimer une campagne ne
+  ressuscite jamais un désabonné.
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
