@@ -500,6 +500,11 @@ intouchables :
   malformé ne matche rien au lieu de casser toute la résolution. Le miroir
   hérité `audience_type = 'imported_list'` n'a AUCUN chemin v1 : audiences_json
   vide ⇒ la campagne ne part à personne, jamais à toute la base.
+  Le pro **nomme sa liste au moment de l'import** (`list_name`, lu au 1er lot) ;
+  `filename` n'est jamais réécrit, c'est une pièce du dossier de consentement.
+  Ajouter un paramètre à `import_email_contacts` = **DROP + CREATE**, jamais
+  `CREATE OR REPLACE` : une surcharge rendrait ambigu l'appel à 8 arguments
+  nommés des bundles en cache (erreur 300).
 - **Le front ne décide plus du statut d'une campagne.** `sendNow` ne force plus
   `status='failed'` en cas d'erreur réseau : l'envoi est asynchrone, il continue
   côté serveur. Le serveur est seul maître du statut.
