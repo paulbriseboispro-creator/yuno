@@ -34,6 +34,14 @@ export const BLOCK_META: readonly BlockMeta[] = [
   { type: 'html', labelKey: 'studio.block.html', icon: Code2, group: 'advanced' },
 ];
 
+/**
+ * Sélection du PIED DE PAGE dans le canvas. Ce n'est pas un bloc : il n'est ni
+ * déplaçable, ni supprimable, ni dupliquable — l'email doit toujours porter
+ * l'identité de l'expéditeur et le lien de désinscription. L'id sert seulement
+ * à router l'inspecteur vers les réglages du footer.
+ */
+export const FOOTER_SELECTION_ID = '__footer';
+
 export function blockMeta(type: BlockType): BlockMeta {
   return BLOCK_META.find((m) => m.type === type) || BLOCK_META[0];
 }

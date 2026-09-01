@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical, Lock, PanelBottom, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailBlock } from '@/lib/email';
 import { useStudio } from './store';
-import { blockMeta } from './meta';
+import { blockMeta, FOOTER_SELECTION_ID } from './meta';
 import { FONT_UI, RED, T1, T3 } from './ui';
 
 function blockSnippet(b: EmailBlock): string {
@@ -32,8 +32,42 @@ export default function StructureTree() {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
 
+  const footerSelected = selectedId === FOOTER_SELECTION_ID;
+
+  /** Le pied de page ferme toujours la liste : ni déplaçable, ni supprimable. */
+  const footerRow = (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => select(FOOTER_SELECTION_ID)}
+      onKeyDown={(e) => { if (e.key === 'Enter') select(FOOTER_SELECTION_ID); }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9, padding: '8px 9px', borderRadius: 11,
+        cursor: 'pointer', marginTop: blocks.length > 0 ? 4 : 0,
+        background: footerSelected ? 'rgba(232,25,44,0.09)' : 'transparent',
+        border: `1px solid ${footerSelected ? 'rgba(232,25,44,0.22)' : 'transparent'}`,
+      }}
+    >
+      <span style={{ width: 13, flex: 'none' }} />
+      <PanelBottom size={14} strokeWidth={1.75} style={{ color: footerSelected ? RED : 'rgba(255,255,255,0.35)', flex: 'none' }} />
+      <span style={{
+        flex: 1, fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI,
+        color: footerSelected ? T1 : 'rgba(255,255,255,0.55)',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
+        {t('studio.footer.label')}
+      </span>
+      <Lock size={12} strokeWidth={1.75} style={{ color: 'rgba(255,255,255,0.22)', flex: 'none' }} />
+    </div>
+  );
+
   if (blocks.length === 0) {
-    return <p style={{ fontSize: 11.5, color: T3, fontFamily: FONT_UI, padding: '4px 2px' }}>{t('studio.structure.empty')}</p>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <p style={{ fontSize: 11.5, color: T3, fontFamily: FONT_UI, padding: '4px 2px' }}>{t('studio.structure.empty')}</p>
+        {footerRow}
+      </div>
+    );
   }
 
   return (
@@ -107,6 +141,7 @@ export default function StructureTree() {
       {dropAt === blocks.length && dragFrom != null && (
         <div style={{ height: 2, background: RED, borderRadius: 2, margin: '2px 4px' }} />
       )}
+      {footerRow}
     </div>
   );
 }

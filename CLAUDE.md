@@ -428,11 +428,22 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   drapeau vit dans le thème (`EmailTheme.footerSocial`, absent = affichés) —
   il suit donc le thème club sauvegardé et survit à un changement de preset
   (`applyThemePreset` le préserve). Le Canvas rend la rangée exactement comme
-  `renderSocial(standalone=false)`, l'onglet Thème porte l'interrupteur ET les
-  5 champs de liens (seul endroit où les remplir sans bloc « Réseaux »), et la
-  checklist pré-envoi lève `social_duplicate` quand bloc + pied de page
-  coexistent. Quand la rangée de réseaux est là, c'est ELLE qui porte le trait
-  de séparation du footer (`footerBorder`), plus le texte légal.
+  `renderSocial(standalone=false)`, et la checklist pré-envoi lève
+  `social_duplicate` quand bloc + pied de page coexistent. Quand la rangée de
+  réseaux est là, c'est ELLE qui porte le trait de séparation du footer
+  (`footerBorder`), plus le texte légal.
+- **Le pied de page est SÉLECTIONNABLE mais n'est pas un bloc** (2026-09-01).
+  `FOOTER_SELECTION_ID` (`meta.ts`) est un id sentinelle : le Canvas et
+  l'onglet Structure le sélectionnent, l'Inspecteur route vers `FooterFields`
+  (réseaux + couleurs de bande) AVANT la recherche dans `campaign.blocks`. Il
+  n'a ni duplication, ni suppression, ni déplacement, et n'entre jamais dans
+  `campaign.blocks` — ne pas le transformer en vrai bloc. **Les mentions
+  légales (identité de l'expéditeur, raison de réception, copyright, lien de
+  désinscription) sont AFFICHÉES en lecture seule et ne doivent jamais devenir
+  éditables** : elles sont écrites par `renderFooter` et par personne d'autre
+  (RGPD / CAN-SPAM). Toute nouvelle option de footer se branche sur le thème
+  et se règle dans `FooterFields`, pas dans l'onglet Thème (qui ne garde que
+  les couleurs).
 - **Footer : pas de border-top sur footer sombre** — le trait
   `theme.divider` clair ne se dessine que si `contrastText(footerBg)`
   est foncé (footer clair). Sinon il traçait une ligne blanche entre un

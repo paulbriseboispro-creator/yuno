@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import {
   AlertTriangle, Braces, Check, ChevronDown, Copy, Eye, GripVertical, Inbox,
-  Layers, ShieldCheck, Trash2, Users, X, ArrowUp, ArrowDown,
+  Layers, Lock, ShieldCheck, Trash2, Users, X, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -14,7 +14,7 @@ import { useStudio } from './store';
 import type { StudioScope } from './hooks';
 import BlockRenderer from './blocks/BlockRenderer';
 import { blockBgColor, type CanvasCtx } from './blocks/common';
-import { blockMeta } from './meta';
+import { blockMeta, FOOTER_SELECTION_ID } from './meta';
 import {
   BORDER, BORDER_FAINT, CANVAS_BG, FONT_UI, MONO, PANEL_BG, POS, RED, SUBTLE,
   T1, T2, T3, WARN,
@@ -108,6 +108,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
       : []),
     [theme, campaign.socialLinks],
   );
+  const footerSelected = selectedId === FOOTER_SELECTION_ID;
   const footerChip = socialChip(undefined, theme);
   const footerBorderCss = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
     ? 'none' : `1px solid ${theme.divider}`;
@@ -414,6 +415,37 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 </div>
               )}
 
+              {/* Pied de page — SÉLECTIONNABLE mais pas un bloc : ni déplaçable, ni
+                  supprimable. Le clic ouvre ses réglages (réseaux, couleurs) ;
+                  les mentions légales, elles, ne s'éditent nulle part. */}
+              <div
+                onMouseEnter={() => setHoverId(FOOTER_SELECTION_ID)}
+                onMouseLeave={() => setHoverId((h) => (h === FOOTER_SELECTION_ID ? null : h))}
+                onClick={(e) => { e.stopPropagation(); select(FOOTER_SELECTION_ID); }}
+                style={{
+                  position: 'relative', cursor: 'pointer',
+                  outline: footerSelected
+                    ? `2px solid ${RED}`
+                    : (hoverId === FOOTER_SELECTION_ID ? '2px dashed rgba(232,25,44,.45)' : '2px dashed transparent'),
+                  outlineOffset: -2,
+                  transition: 'outline-color .15s',
+                }}
+              >
+                {footerSelected && (
+                  <div style={{
+                    position: 'absolute', top: -13, right: 10, zIndex: 5,
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '0 9px', height: 26,
+                    borderRadius: 9, background: '#141416', border: '1px solid rgba(255,255,255,0.13)',
+                    boxShadow: '0 10px 24px -14px #000',
+                  }}>
+                    <span style={{
+                      color: RED, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
+                      textTransform: 'uppercase', fontFamily: FONT_UI,
+                    }}>{t('studio.footer.label')}</span>
+                    <Lock size={11} strokeWidth={2} style={{ color: 'rgba(255,255,255,0.35)' }} />
+                  </div>
+                )}
+
               {/* Réseaux du pied de page (aperçu) — miroir de renderSocial(standalone=false).
                   Rendus ICI et pas seulement dans l'email : invisibles au canvas, ils
                   doublaient en silence le bloc « Réseaux » posé dans le corps. */}
@@ -457,6 +489,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 <div style={{ fontSize: 11.5, color: theme.accent, marginTop: 4, textDecoration: 'underline', fontFamily: FONT_UI }}>
                   {t('studio.canvas.footerUnsub')}
                 </div>
+              </div>
               </div>
             </div>
           )}

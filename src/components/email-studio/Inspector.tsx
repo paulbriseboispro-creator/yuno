@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import {
-  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, Italic, Link2,
-  MousePointer, Plus, RefreshCw, Strikethrough, Trash2, Underline, Zap,
+  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, Italic, Link2, Lock,
+  MousePointer, PanelBottom, Plus, RefreshCw, Strikethrough, Trash2, Underline, Zap,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ImageUploader from '@/components/campaigns/ImageUploader';
@@ -13,7 +13,7 @@ import type {
 import { blockPadDefaults } from '@/lib/email';
 import { useStudio } from './store';
 import type { StudioEvent } from './hooks';
-import { blockMeta } from './meta';
+import { blockMeta, FOOTER_SELECTION_ID } from './meta';
 import {
   BORDER, FONT_UI, Help, IconBtn, MicroLabel, MONO, OptionPills, PanelCard, POS,
   RED, SUBTLE, T1, T3, TextArea, TextInput, ToggleRow, inputStyle,
@@ -36,6 +36,10 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
   const removeBlock = useStudio((s) => s.removeBlock);
 
   const theme = useStudio((s) => s.campaign.theme);
+  // Le pied de page se sélectionne dans le canvas mais n'est PAS un bloc :
+  // il a son propre panneau, sans dupliquer/supprimer.
+  if (selectedId === FOOTER_SELECTION_ID) return <FooterFields />;
+
   const block = blocks.find((b) => b.id === selectedId);
   if (!block) {
     return (
@@ -115,6 +119,104 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
           themeDefault={theme.card}
           onChange={(v) => patch({ bgc: v })}
         />
+      </PanelCard>
+    </div>
+  );
+}
+
+const SOCIAL_KEYS = ['instagram', 'tiktok', 'facebook', 'x', 'website'] as const;
+
+/**
+ * Réglages du PIED DE PAGE. Ce qu'on peut toucher : les réseaux (affichés ou
+ * non, et leurs liens) et les deux couleurs de la bande. Ce qu'on ne peut PAS
+ * toucher, et c'est volontaire : l'identité de l'expéditeur, la raison de
+ * réception et le lien de désinscription — ce sont des obligations légales
+ * (RGPD / CAN-SPAM), écrites par le rendu et par personne d'autre.
+ */
+function FooterFields() {
+  const { t } = useLanguage();
+  const theme = useStudio((s) => s.campaign.theme);
+  const patchTheme = useStudio((s) => s.patchTheme);
+  const socialLinks = useStudio((s) => s.campaign.socialLinks);
+  const setSocialLinks = useStudio((s) => s.setSocialLinks);
+  const emailType = useStudio((s) => s.campaign.type);
+  const footerSocial = theme.footerSocial !== false;
+
+  const legalLines = [
+    t('studio.footer.legalSender'),
+    t('studio.footer.legalReason'),
+    t('studio.footer.legalCopyright'),
+    ...(emailType === 'promotional' ? [t('studio.footer.legalUnsub')] : []),
+  ];
+
+  return (
+    <div className="yn-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', background: 'rgba(232,25,44,0.1)',
+          border: '1px solid rgba(232,25,44,0.2)', color: RED, flex: 'none',
+        }}><PanelBottom size={16} strokeWidth={1.75} /></div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', fontFamily: FONT_UI }}>
+            {t('studio.footer.label')}
+          </div>
+          <div style={{ color: T3, fontSize: 11, fontFamily: FONT_UI }}>{t('studio.footer.sub')}</div>
+        </div>
+      </div>
+
+      <PanelCard style={{ gap: 11 }}>
+        <MicroLabel>{t('studio.footer.social')}</MicroLabel>
+        <ToggleRow
+          checked={footerSocial}
+          onChange={(v) => patchTheme({ footerSocial: v })}
+          label={t('studio.theme.footerSocial')}
+          help={t('studio.theme.footerSocialHelp')}
+        />
+        {footerSocial && SOCIAL_KEYS.map((key) => (
+          <TextInput
+            key={key}
+            value={socialLinks[key] || ''}
+            onChange={(e) => setSocialLinks({ ...socialLinks, [key]: e.target.value || undefined })}
+            placeholder={key === 'website' ? 'lesilo.fr' : `${key}.com/lesilo`}
+            aria-label={key}
+            style={inputStyle}
+          />
+        ))}
+        {footerSocial && <Help>{t('studio.theme.footerLinksHelp')}</Help>}
+      </PanelCard>
+
+      <PanelCard style={{ gap: 11 }}>
+        <MicroLabel>{t('studio.theme.colors')}</MicroLabel>
+        <ColorField
+          label={t('studio.theme.footerBg')}
+          value={theme.footerBg}
+          onChange={(v) => patchTheme({ footerBg: v })}
+        />
+        <ColorField
+          label={t('studio.theme.footerText')}
+          value={theme.footerText}
+          onChange={(v) => patchTheme({ footerText: v })}
+        />
+      </PanelCard>
+
+      {/* Mentions légales — affichées, jamais éditables. */}
+      <PanelCard style={{ gap: 9 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <Lock size={12} strokeWidth={2} style={{ color: T3, flex: 'none' }} />
+          <MicroLabel style={{ margin: 0 }}>{t('studio.footer.legal')}</MicroLabel>
+        </div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 11px',
+          borderRadius: 10, background: SUBTLE, border: `1px solid ${BORDER}`,
+        }}>
+          {legalLines.map((line) => (
+            <span key={line} style={{
+              color: 'rgba(255,255,255,0.42)', fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI,
+            }}>{line}</span>
+          ))}
+        </div>
+        <Help>{t('studio.footer.legalHelp')}</Help>
       </PanelCard>
     </div>
   );
