@@ -134,6 +134,10 @@ export default function OwnerEvents() {
   const [locationName, setLocationName] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
+  // Logo du LIEU en texte libre : un endroit qui n'est pas un club Yuno n'a
+  // aucune ligne `venues` où poser son identité visuelle.
+  const [locationLogoFile, setLocationLogoFile] = useState<File | null>(null);
+  const [locationLogoPreview, setLocationLogoPreview] = useState('');
   const [locationIsSecret, setLocationIsSecret] = useState(false);
   // Secret-location reveal: true = address in the booking confirmation email,
   // false = the organizer reveals it via their own scheduled/manual email.
@@ -286,10 +290,10 @@ export default function OwnerEvents() {
   };
 
   // Upload an organizer event photo (single 1:1 square poster) to the 'event-posters' bucket.
-  const uploadOrgImage = async (file: File): Promise<string | null> => {
+  const uploadOrgImage = async (file: File, kind: 'poster' | 'venue-logo' = 'poster'): Promise<string | null> => {
     const bucket = 'event-posters';
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${organizerUserId}/${Date.now()}-poster.${ext}`;
+    const path = `${organizerUserId}/${Date.now()}-${kind}.${ext}`;
     const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type });
     if (error) { toast.error(error.message || t('owner.toastPosterUploadError')); return null; }
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
@@ -337,6 +341,9 @@ export default function OwnerEvents() {
     let posterUrl = sanitize(posterPreview);
     if (posterFile) { const u = await uploadOrgImage(posterFile); if (u) posterUrl = u; else throw new Error('poster upload failed'); }
 
+    let locationLogoUrl = sanitize(locationLogoPreview);
+    if (locationLogoFile) { const u = await uploadOrgImage(locationLogoFile, 'venue-logo'); if (u) locationLogoUrl = u; else throw new Error('venue logo upload failed'); }
+
     const visibility = eventKind === 'private_event' ? 'private' : 'public';
     const payload: TablesInsert<'events'> = {
       organizer_user_id: organizerUserId,
@@ -348,6 +355,7 @@ export default function OwnerEvents() {
       location_name: locationName.trim() || null,
       location_city: locationCity.trim() || null,
       location_address: locationAddress.trim() || null,
+      location_logo_url: locationLogoUrl || null,
       location_is_secret: (isOrganizerScope && !requiresPartner) ? locationIsSecret : false,
       reveal_address_in_email: (isOrganizerScope && !requiresPartner && locationIsSecret) ? revealAddressInEmail : true,
       is_active: formData.isActive,
@@ -761,7 +769,7 @@ export default function OwnerEvents() {
     if (isOrganizerScope) {
       const { data: ev } = await supabase
         .from('events')
-        .select('event_kind, partner_venue_id, event_mode, collab_responsibilities, location_name, location_city, location_address, location_is_secret')
+        .select('event_kind, partner_venue_id, event_mode, collab_responsibilities, location_name, location_city, location_address, location_logo_url, location_is_secret')
         .eq('id', event.id)
         .maybeSingle();
       if (ev) {
@@ -777,6 +785,7 @@ export default function OwnerEvents() {
         setLocationName(ev.location_name || '');
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
+        setLocationLogoPreview(ev.location_logo_url || '');
         setLocationIsSecret(!!ev.location_is_secret);
         // reveal_address_in_email n'est pas dans le select : undefined → true (comportement historique conservé).
         setRevealAddressInEmail((ev as Partial<Tables<'events'>>).reveal_address_in_email !== false);
@@ -790,7 +799,7 @@ export default function OwnerEvents() {
     setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setCollabResponsibilities(defaultResponsibilities('co_event')); setLiveContract(null);
-    setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
+    setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationLogoFile(null); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
   };
 
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1379,6 +1388,40 @@ export default function OwnerEvents() {
                     <input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.addressPlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>
+                  {/* Logo du lieu — seulement pour un lieu en texte libre : quand la
+                      soirée se tient chez un club partenaire, c'est SON logo qui fait foi. */}
+                  {!lockedToPartner && (
+                    <div className="sm:col-span-2">
+                      <FieldLabel>{t('owner.ev.venueLogo')}</FieldLabel>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center shrink-0 overflow-hidden"
+                          style={{ width: 48, height: 48, borderRadius: 10, border: `1px solid ${BORDER}`, background: INNER_BG }}>
+                          {locationLogoPreview
+                            ? <img src={locationLogoPreview} alt="" className="h-full w-full object-cover" />
+                            : <Building2 className="w-4 h-4" style={{ color: T3 }} />}
+                        </div>
+                        <input id="owner-loc-logo" type="file" accept="image/*" className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setLocationLogoFile(file);
+                            setLocationLogoPreview(URL.createObjectURL(file));
+                          }} />
+                        <button type="button" onClick={() => document.getElementById('owner-loc-logo')?.click()}
+                          className="inline-flex items-center gap-2 text-[12px]" style={{ color: T3 }}>
+                          <Upload className="w-4 h-4" />
+                          {locationLogoPreview ? t('owner.ev.venueLogoChange') : t('owner.ev.venueLogoAdd')}
+                        </button>
+                        {locationLogoPreview && (
+                          <button type="button" className="text-[12px]" style={{ color: T3 }}
+                            onClick={() => { setLocationLogoFile(null); setLocationLogoPreview(''); }}>
+                            {t('owner.ev.venueLogoRemove')}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] mt-1.5" style={{ color: T3 }}>{t('owner.ev.venueLogoHint')}</p>
+                    </div>
+                  )}
                 </div>
               );
             })()}

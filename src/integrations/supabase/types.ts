@@ -6112,6 +6112,7 @@ export type Database = {
           location_address: string | null
           location_city: string | null
           location_is_secret: boolean | null
+          location_logo_url: string | null
           location_name: string | null
           max_tickets: number | null
           max_tickets_per_person: number | null
@@ -6180,6 +6181,7 @@ export type Database = {
           location_address?: string | null
           location_city?: string | null
           location_is_secret?: boolean | null
+          location_logo_url?: string | null
           location_name?: string | null
           max_tickets?: number | null
           max_tickets_per_person?: number | null
@@ -6248,6 +6250,7 @@ export type Database = {
           location_address?: string | null
           location_city?: string | null
           location_is_secret?: boolean | null
+          location_logo_url?: string | null
           location_name?: string | null
           max_tickets?: number | null
           max_tickets_per_person?: number | null

@@ -577,6 +577,10 @@ export function ExploreSingleNight({
   // Le lieu physique : club Yuno (cliquable), sinon le lieu saisi sur l'event.
   const placeName = venue && !venue.isOrganizer ? venue.name : event.locationName;
   const placeClickable = !!venue && !venue.isOrganizer;
+  // Le lieu porte son logo qu'il soit cliquable ou non : un club Yuno le tient
+  // de `venues`, un lieu en texte libre de la soirée elle-même. Sans logo,
+  // une icône — jamais un cadre vide.
+  const placeLogoUrl = (venue && !venue.isOrganizer ? venue.logoUrl || venue.coverUrl : null) || event.locationLogoUrl;
   const showPlace = !!placeName || !!event.venueAddress;
 
   // L'organisateur (soirées org-led) : sa propre carte, cliquable si profil public.
@@ -680,14 +684,16 @@ export function ExploreSingleNight({
             className={cn('flex items-center gap-3', placeClickable && 'cursor-pointer')}
             style={{ padding: '13px 14px', background: '#0E0E10', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }}
           >
-            <div className="relative shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: 12, background: 'linear-gradient(145deg,#3b1158,#0f0712)' }}>
-              {placeClickable && (venue?.logoUrl || venue?.coverUrl) && (
+            <div className="relative flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: 12, background: 'linear-gradient(145deg,#3b1158,#0f0712)' }}>
+              {placeLogoUrl ? (
                 <img
-                  src={getOptimizedImageUrl(venue.logoUrl || venue.coverUrl!, { width: 104, height: 104, quality: 75, resize: 'cover' })}
-                  alt={venue.name}
+                  src={getOptimizedImageUrl(placeLogoUrl, { width: 104, height: 104, quality: 75, resize: 'cover' })}
+                  alt={placeName || ''}
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
+              ) : (
+                <Building2 className="h-5 w-5" style={{ color: '#9A9A9A' }} />
               )}
             </div>
             <div className="flex-1 min-w-0">

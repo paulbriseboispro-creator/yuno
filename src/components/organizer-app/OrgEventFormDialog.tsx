@@ -164,6 +164,10 @@ export function OrgEventFormDialog({
   const [locationName, setLocationName] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
+  // Logo du LIEU en texte libre : un endroit qui n'est pas un club Yuno n'a
+  // aucune ligne `venues` où poser son identité visuelle.
+  const [locationLogoFile, setLocationLogoFile] = useState<File | null>(null);
+  const [locationLogoPreview, setLocationLogoPreview] = useState('');
   /** Hide the exact venue name + address on the public page (revealed to confirmed
    *  attendees). The city stays visible so the event still appears in the right city. */
   const [locationIsSecret, setLocationIsSecret] = useState(false);
@@ -259,6 +263,8 @@ export function OrgEventFormDialog({
       setLocationName('');
       setLocationCity('');
       setLocationAddress('');
+      setLocationLogoFile(null);
+      setLocationLogoPreview('');
       setLocationIsSecret(false);
       setRevealAddressInEmail(true);
       setHideYunoNavigation(false);
@@ -275,6 +281,8 @@ export function OrgEventFormDialog({
       setPosterFile(null);
       setPosterPreview('');
       setPosterPosition(null);
+      setLocationLogoFile(null);
+      setLocationLogoPreview('');
       return;
     }
     // Load existing event
@@ -295,6 +303,7 @@ export function OrgEventFormDialog({
         setLocationName(ev.location_name || '');
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
+        setLocationLogoPreview(ev.location_logo_url || '');
         setLocationIsSecret(!!(ev as any).location_is_secret);
         setRevealAddressInEmail((ev as any).reveal_address_in_email !== false);
         setHideYunoNavigation(!!(ev as any).hide_yuno_navigation);
@@ -349,12 +358,12 @@ export function OrgEventFormDialog({
     setPosterPosition(null);
   };
 
-  const uploadImage = async (file: File): Promise<string | null> => {
+  const uploadImage = async (file: File, kind: 'poster' | 'venue-logo' = 'poster'): Promise<string | null> => {
     // Events use a single 1:1 square photo, stored in the 'event-posters' bucket.
     // Path is scoped to the organizer's user id so RLS allows the upload.
     const bucket = 'event-posters';
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${organizerUserId}/${Date.now()}-poster.${ext}`;
+    const path = `${organizerUserId}/${Date.now()}-${kind}.${ext}`;
     const { error } = await supabase.storage
       .from(bucket)
       .upload(path, file, { upsert: false, contentType: file.type });
@@ -419,6 +428,16 @@ export function OrgEventFormDialog({
       }
 
       const startAtUTC = fromWallClockInTz(startAt, timezone);
+      let locationLogoUrl = sanitize(locationLogoPreview);
+      if (locationLogoFile) {
+        const url = await uploadImage(locationLogoFile, 'venue-logo');
+        if (url) locationLogoUrl = url;
+        else {
+          setSaving(false);
+          return;
+        }
+      }
+
       const endAtUTC = fromWallClockInTz(endAt, timezone);
 
       const visibility = eventKind === 'private_event' ? 'private' : 'public';
@@ -445,6 +464,7 @@ export function OrgEventFormDialog({
         location_name: locationName.trim() || null,
         location_city: locationCity.trim() || null,
         location_address: locationAddress.trim() || null,
+        location_logo_url: locationLogoUrl || null,
         location_is_secret: !requiresPartner ? locationIsSecret : false,
         reveal_address_in_email: (!requiresPartner && locationIsSecret) ? revealAddressInEmail : true,
         hide_yuno_navigation: eventKind === 'private_event' ? hideYunoNavigation : false,
@@ -968,6 +988,62 @@ export function OrgEventFormDialog({
                       disabled={lockedToPartner}
                     />
                   </div>
+                  {/* Logo du lieu — seulement pour un lieu en texte libre : quand la
+                      soirée se tient chez un club partenaire, c'est SON logo qui fait foi. */}
+                  {!lockedToPartner && (
+                    <div className="sm:col-span-2">
+                      <FieldLabel>{t('Logo du lieu', 'Venue logo', 'Logo del lugar')}</FieldLabel>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center justify-center shrink-0 overflow-hidden"
+                          style={{ width: 48, height: 48, borderRadius: 10, border: '1px solid rgba(255,255,255,0.10)', background: '#141416' }}
+                        >
+                          {locationLogoPreview
+                            ? <img src={locationLogoPreview} alt="" className="h-full w-full object-cover" />
+                            : <Building2 className="w-4 h-4" style={{ color: T3 }} />}
+                        </div>
+                        <input
+                          id="loc-logo-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setLocationLogoFile(file);
+                            setLocationLogoPreview(URL.createObjectURL(file));
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('loc-logo-input')?.click()}
+                          className="inline-flex items-center gap-2"
+                          style={{ color: T3, fontSize: 12 }}
+                        >
+                          <Upload className="w-4 h-4" />
+                          {locationLogoPreview
+                            ? t('Changer le logo', 'Change logo', 'Cambiar el logo')
+                            : t('Ajouter le logo', 'Add logo', 'Añadir el logo')}
+                        </button>
+                        {locationLogoPreview && (
+                          <button
+                            type="button"
+                            onClick={() => { setLocationLogoFile(null); setLocationLogoPreview(''); }}
+                            style={{ color: T3, fontSize: 12 }}
+                          >
+                            {t('Retirer', 'Remove', 'Quitar')}
+                          </button>
+                        )}
+                      </div>
+                      <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>
+                        {t(
+                          'Affiché à côté du nom du lieu sur la page de la soirée. Carré, fond visible.',
+                          'Shown next to the venue name on the event page. Square, visible background.',
+                          'Se muestra junto al nombre del lugar en la página de la fiesta. Cuadrado, fondo visible.'
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })()}

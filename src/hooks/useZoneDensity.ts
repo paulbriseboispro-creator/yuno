@@ -31,6 +31,8 @@ export interface DensityEvent extends EventCardData {
   venueAddress: string | null;
   /** Nom du lieu saisi sur l'event (soirées org-led sans club Yuno). */
   locationName: string | null;
+  /** Logo d'un lieu en texte libre (soirée sans club Yuno) — `venues.logo_url` n'existe pas ici. */
+  locationLogoUrl: string | null;
   /** Coordonnées du lieu (tri de proximité du rail « ailleurs sur Yuno »). */
   venueLat: number | null;
   venueLng: number | null;
@@ -125,7 +127,7 @@ async function fetchZoneDensity(
   const [eventsRes, venuesRes, roundsRes, glRes, affRes, zoneCenter] = await Promise.all([
     supabase
       .from('events')
-      .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_name, location_address')
+      .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_name, location_address, location_logo_url')
       .eq('is_active', true)
       .eq('visibility', 'public')
       .eq('is_discoverable', true)
@@ -253,6 +255,7 @@ async function fetchZoneDensity(
       displayVenueId,
       venueAddress: venue?.address || e.location_address || null,
       locationName: e.location_name || null,
+      locationLogoUrl: e.location_logo_url || null,
       venueLat: venue?.latitude ?? null,
       venueLng: venue?.longitude ?? null,
     }];
@@ -294,6 +297,7 @@ async function fetchZoneDensity(
       displayVenueId: `aff:${venue.id}`,
       venueAddress: null,
       locationName: null,
+      locationLogoUrl: null,
       venueLat: venue.lat ?? null,
       venueLng: venue.lng ?? null,
       affiliateVenueSlug: venue.slug ?? null,
