@@ -102,6 +102,7 @@ function resolveApps(flag) {
 // ne PAS l'ajouter ici.
 const NATIVE_FAMILY = {
   'eu.yunoapp.pro': { '1.0.1': '1.0' },
+  'eu.yunoapp.app': { '1.0.1': '1.0' },
 };
 
 function nativeVersionOf(app) {
