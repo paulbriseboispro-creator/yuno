@@ -51,6 +51,9 @@ type CampaignRow = {
   opens_count: number;
   clicks_count: number;
   unsubscribes_count: number;
+  delivered_count: number;
+  bounced_count: number;
+  complained_count: number;
   blocks_json: unknown;
   blocks_version: number | null;
   theme_json: unknown;
@@ -141,26 +144,22 @@ export default function CampaignReport({ scope, basePath }: Props) {
       setCampaign((data as unknown as CampaignRow) || null);
 
       if (data) {
-        const evCount = (eventType: string) =>
-          supabase.from('email_campaign_events')
-            .select('id', { count: 'exact', head: true })
-            .eq('campaign_id', id)
-            .eq('event_type', eventType);
-        const [d, b, c, f] = await Promise.all([
-          evCount('delivered'),
-          evCount('bounced'),
-          evCount('complained'),
-          supabase.from('email_campaign_recipients')
-            .select('id', { count: 'exact', head: true })
-            .eq('campaign_id', id)
-            .in('status', ['failed', 'bounced']),
-        ]);
+        // delivered/bounced/complained viennent des compteurs de la campagne
+        // (recalculés serveur par destinataire unique de la file) — jamais d'un
+        // count sur email_campaign_events : les lignes brutes incluent les
+        // envois de test et les doublons de retries, et affichaient plus de
+        // délivrés que de destinataires.
+        const counters = data as unknown as CampaignRow;
+        const { count: failedCount } = await supabase.from('email_campaign_recipients')
+          .select('id', { count: 'exact', head: true })
+          .eq('campaign_id', id)
+          .in('status', ['failed', 'bounced']);
         if (!cancelled) {
           setExtra({
-            delivered: d.count || 0,
-            bounced: b.count || 0,
-            complained: c.count || 0,
-            failed: f.count || 0,
+            delivered: counters.delivered_count || 0,
+            bounced: counters.bounced_count || 0,
+            complained: counters.complained_count || 0,
+            failed: failedCount || 0,
           });
         }
         // Test A/B : stats par variante — best-effort, carte absente sans A/B.
