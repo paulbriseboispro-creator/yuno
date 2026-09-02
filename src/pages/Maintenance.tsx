@@ -21,7 +21,7 @@ import {
   EyeOff,
   Globe
 } from 'lucide-react';
-import yunoLogo from '@/assets/yuno-logo.png';
+import yunoLogo from '@/assets/yuno-logo.webp';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import {
   Popover,

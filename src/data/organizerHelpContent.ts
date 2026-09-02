@@ -47,7 +47,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['onboarding', 'setup', 'configuration', 'démarrage', 'stripe', 'steps', 'étapes', 'empezar'],
         sections: [
           { headingKey: 'ohelp.org.onboarding.s1h', bodyKey: 'ohelp.org.onboarding.s1b' },
-          { headingKey: 'ohelp.org.onboarding.s2h', bodyKey: 'ohelp.org.onboarding.s2b', screenshotUrl: '/help/org-onboarding.png' },
+          { headingKey: 'ohelp.org.onboarding.s2h', bodyKey: 'ohelp.org.onboarding.s2b', screenshotUrl: '/help/org-onboarding.webp' },
           { headingKey: 'ohelp.org.onboarding.s3h', bodyKey: 'ohelp.org.onboarding.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.onboarding.s4h', bodyKey: 'ohelp.org.onboarding.s4b', type: 'tip' },
         ],
@@ -61,7 +61,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['dashboard', 'menu', 'navigation', 'sidebar', 'tour', 'visite', 'recorrido'],
         sections: [
           { headingKey: 'ohelp.org.dashtour.s1h', bodyKey: 'ohelp.org.dashtour.s1b' },
-          { headingKey: 'ohelp.org.dashtour.s2h', bodyKey: 'ohelp.org.dashtour.s2b', screenshotUrl: '/help/org-dashboard.png' },
+          { headingKey: 'ohelp.org.dashtour.s2h', bodyKey: 'ohelp.org.dashtour.s2b', screenshotUrl: '/help/org-dashboard.webp' },
           { headingKey: 'ohelp.org.dashtour.s3h', bodyKey: 'ohelp.org.dashtour.s3b' },
           { headingKey: 'ohelp.org.dashtour.s4h', bodyKey: 'ohelp.org.dashtour.s4b', type: 'tip' },
         ],
@@ -85,7 +85,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['dashboard', 'tableau de bord', 'kpi', 'revenue', 'revenu', 'next event', 'panel'],
         sections: [
           { headingKey: 'ohelp.org.dashboard.s1h', bodyKey: 'ohelp.org.dashboard.s1b' },
-          { headingKey: 'ohelp.org.dashboard.s2h', bodyKey: 'ohelp.org.dashboard.s2b', screenshotUrl: '/help/org-dashboard.png' },
+          { headingKey: 'ohelp.org.dashboard.s2h', bodyKey: 'ohelp.org.dashboard.s2b', screenshotUrl: '/help/org-dashboard.webp' },
           { headingKey: 'ohelp.org.dashboard.s3h', bodyKey: 'ohelp.org.dashboard.s3b' },
           { headingKey: 'ohelp.org.dashboard.s4h', bodyKey: 'ohelp.org.dashboard.s4b', type: 'tip' },
         ],
@@ -100,7 +100,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['analytics', 'analytique', 'stats', 'reports', 'rapports', 'funnel', 'conversion', 'analítica'],
         sections: [
           { headingKey: 'ohelp.org.analytics.s1h', bodyKey: 'ohelp.org.analytics.s1b' },
-          { headingKey: 'ohelp.org.analytics.s2h', bodyKey: 'ohelp.org.analytics.s2b', screenshotUrl: '/help/org-analytics.png' },
+          { headingKey: 'ohelp.org.analytics.s2h', bodyKey: 'ohelp.org.analytics.s2b', screenshotUrl: '/help/org-analytics.webp' },
           { headingKey: 'ohelp.org.analytics.s3h', bodyKey: 'ohelp.org.analytics.s3b' },
           { headingKey: 'ohelp.org.analytics.s4h', bodyKey: 'ohelp.org.analytics.s4b', type: 'tip' },
         ],
@@ -125,7 +125,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['events', 'événements', 'soirées', 'create event', 'créer', 'co-event', 'eventos'],
         sections: [
           { headingKey: 'ohelp.org.events.s1h', bodyKey: 'ohelp.org.events.s1b' },
-          { headingKey: 'ohelp.org.events.s2h', bodyKey: 'ohelp.org.events.s2b', screenshotUrl: '/help/org-events.png' },
+          { headingKey: 'ohelp.org.events.s2h', bodyKey: 'ohelp.org.events.s2b', screenshotUrl: '/help/org-events.webp' },
           { headingKey: 'ohelp.org.events.s3h', bodyKey: 'ohelp.org.events.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.events.s4h', bodyKey: 'ohelp.org.events.s4b' },
           { headingKey: 'ohelp.org.events.s5h', bodyKey: 'ohelp.org.events.s5b', type: 'tip' },
@@ -142,7 +142,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['ticketing', 'billetterie', 'tickets', 'billets', 'rounds', 'paliers', 'presale', 'prévente', 'entradas'],
         sections: [
           { headingKey: 'ohelp.org.ticketing.s1h', bodyKey: 'ohelp.org.ticketing.s1b' },
-          { headingKey: 'ohelp.org.ticketing.s2h', bodyKey: 'ohelp.org.ticketing.s2b', screenshotUrl: '/help/org-ticketing.png' },
+          { headingKey: 'ohelp.org.ticketing.s2h', bodyKey: 'ohelp.org.ticketing.s2b', screenshotUrl: '/help/org-ticketing.webp' },
           { headingKey: 'ohelp.org.ticketing.s3h', bodyKey: 'ohelp.org.ticketing.s3b' },
           { headingKey: 'ohelp.org.ticketing.s4h', bodyKey: 'ohelp.org.ticketing.s4b', type: 'steps' },
           { headingKey: 'ohelp.org.ticketing.s5h', bodyKey: 'ohelp.org.ticketing.s5b', type: 'tip' },
@@ -159,7 +159,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['guest list', 'liste invités', 'quota', 'free entry', 'entrée gratuite', 'lista de invitados'],
         sections: [
           { headingKey: 'ohelp.org.guestlist.s1h', bodyKey: 'ohelp.org.guestlist.s1b' },
-          { headingKey: 'ohelp.org.guestlist.s2h', bodyKey: 'ohelp.org.guestlist.s2b', screenshotUrl: '/help/org-guest-list.png' },
+          { headingKey: 'ohelp.org.guestlist.s2h', bodyKey: 'ohelp.org.guestlist.s2b', screenshotUrl: '/help/org-guest-list.webp' },
           { headingKey: 'ohelp.org.guestlist.s3h', bodyKey: 'ohelp.org.guestlist.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.guestlist.s4h', bodyKey: 'ohelp.org.guestlist.s4b' },
           { headingKey: 'ohelp.org.guestlist.s5h', bodyKey: 'ohelp.org.guestlist.s5b', type: 'tip' },
@@ -176,7 +176,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['check-in', 'checkin', 'scan', 'qr', 'door', 'porte', 'entrée', 'bouncer', 'videur', 'escaneo'],
         sections: [
           { headingKey: 'ohelp.org.checkin.s1h', bodyKey: 'ohelp.org.checkin.s1b' },
-          { headingKey: 'ohelp.org.checkin.s2h', bodyKey: 'ohelp.org.checkin.s2b', screenshotUrl: '/help/org-checkin.png' },
+          { headingKey: 'ohelp.org.checkin.s2h', bodyKey: 'ohelp.org.checkin.s2b', screenshotUrl: '/help/org-checkin.webp' },
           { headingKey: 'ohelp.org.checkin.s3h', bodyKey: 'ohelp.org.checkin.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.checkin.s4h', bodyKey: 'ohelp.org.checkin.s4b' },
           { headingKey: 'ohelp.org.checkin.s5h', bodyKey: 'ohelp.org.checkin.s5b', type: 'warning' },
@@ -192,7 +192,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['djs', 'lineup', 'programmation', 'set', 'music', 'musique'],
         sections: [
           { headingKey: 'ohelp.org.djs.s1h', bodyKey: 'ohelp.org.djs.s1b' },
-          { headingKey: 'ohelp.org.djs.s2h', bodyKey: 'ohelp.org.djs.s2b', screenshotUrl: '/help/org-djs.png' },
+          { headingKey: 'ohelp.org.djs.s2h', bodyKey: 'ohelp.org.djs.s2b', screenshotUrl: '/help/org-djs.webp' },
           { headingKey: 'ohelp.org.djs.s3h', bodyKey: 'ohelp.org.djs.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.djs.s4h', bodyKey: 'ohelp.org.djs.s4b', type: 'tip' },
         ],
@@ -230,7 +230,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['customers', 'clients', 'crm', 'segments', 'export', 'clientes'],
         sections: [
           { headingKey: 'ohelp.org.customers.s1h', bodyKey: 'ohelp.org.customers.s1b' },
-          { headingKey: 'ohelp.org.customers.s2h', bodyKey: 'ohelp.org.customers.s2b', screenshotUrl: '/help/org-customers.png' },
+          { headingKey: 'ohelp.org.customers.s2h', bodyKey: 'ohelp.org.customers.s2b', screenshotUrl: '/help/org-customers.webp' },
           { headingKey: 'ohelp.org.customers.s3h', bodyKey: 'ohelp.org.customers.s3b' },
           { headingKey: 'ohelp.org.customers.s4h', bodyKey: 'ohelp.org.customers.s4b', type: 'tip' },
         ],
@@ -245,7 +245,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['campaigns', 'campagnes', 'email', 'newsletter', 'marketing', 'campañas'],
         sections: [
           { headingKey: 'ohelp.org.campaigns.s1h', bodyKey: 'ohelp.org.campaigns.s1b' },
-          { headingKey: 'ohelp.org.campaigns.s2h', bodyKey: 'ohelp.org.campaigns.s2b', screenshotUrl: '/help/org-campaigns.png' },
+          { headingKey: 'ohelp.org.campaigns.s2h', bodyKey: 'ohelp.org.campaigns.s2b', screenshotUrl: '/help/org-campaigns.webp' },
           { headingKey: 'ohelp.org.campaigns.s3h', bodyKey: 'ohelp.org.campaigns.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.campaigns.s6h', bodyKey: 'ohelp.org.campaigns.s6b' },
           { headingKey: 'ohelp.org.campaigns.s4h', bodyKey: 'ohelp.org.campaigns.s4b' },
@@ -265,7 +265,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['promoters', 'promoteurs', 'commission', 'guest list', 'sales', 'ventes', 'promotores'],
         sections: [
           { headingKey: 'ohelp.org.promoters.s1h', bodyKey: 'ohelp.org.promoters.s1b' },
-          { headingKey: 'ohelp.org.promoters.s2h', bodyKey: 'ohelp.org.promoters.s2b', screenshotUrl: '/help/org-promoters.png' },
+          { headingKey: 'ohelp.org.promoters.s2h', bodyKey: 'ohelp.org.promoters.s2b', screenshotUrl: '/help/org-promoters.webp' },
           { headingKey: 'ohelp.org.promoters.s3h', bodyKey: 'ohelp.org.promoters.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.promoters.s4h', bodyKey: 'ohelp.org.promoters.s4b' },
           { headingKey: 'ohelp.org.promoters.s5h', bodyKey: 'ohelp.org.promoters.s5b', type: 'tip' },
@@ -291,7 +291,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['partners', 'partenaires', 'clubs', 'venue', 'lieu', 'co-event', 'split', 'socios'],
         sections: [
           { headingKey: 'ohelp.org.partners.s1h', bodyKey: 'ohelp.org.partners.s1b' },
-          { headingKey: 'ohelp.org.partners.s2h', bodyKey: 'ohelp.org.partners.s2b', screenshotUrl: '/help/org-partners.png' },
+          { headingKey: 'ohelp.org.partners.s2h', bodyKey: 'ohelp.org.partners.s2b', screenshotUrl: '/help/org-partners.webp' },
           { headingKey: 'ohelp.org.partners.s3h', bodyKey: 'ohelp.org.partners.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.partners.s4h', bodyKey: 'ohelp.org.partners.s4b' },
           { headingKey: 'ohelp.org.partners.s5h', bodyKey: 'ohelp.org.partners.s5b', type: 'tip' },
@@ -308,7 +308,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['collaboration', 'collaborations', 'co-event', 'co-soirée', 'propose', 'proposer', 'contract', 'contrat', 'split', 'partage', 'club', 'colaboración'],
         sections: [
           { headingKey: 'ohelp.org.collab.s1h', bodyKey: 'ohelp.org.collab.s1b' },
-          { headingKey: 'ohelp.org.collab.s2h', bodyKey: 'ohelp.org.collab.s2b', screenshotUrl: '/help/org-partners.png' },
+          { headingKey: 'ohelp.org.collab.s2h', bodyKey: 'ohelp.org.collab.s2b', screenshotUrl: '/help/org-partners.webp' },
           { headingKey: 'ohelp.org.collab.s3h', bodyKey: 'ohelp.org.collab.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.collab.s4h', bodyKey: 'ohelp.org.collab.s4b' },
           { headingKey: 'ohelp.org.collab.s5h', bodyKey: 'ohelp.org.collab.s5b' },
@@ -325,7 +325,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['team', 'équipe', 'staff', 'roles', 'permissions', 'pin', 'equipo'],
         sections: [
           { headingKey: 'ohelp.org.team.s1h', bodyKey: 'ohelp.org.team.s1b' },
-          { headingKey: 'ohelp.org.team.s2h', bodyKey: 'ohelp.org.team.s2b', screenshotUrl: '/help/org-team.png' },
+          { headingKey: 'ohelp.org.team.s2h', bodyKey: 'ohelp.org.team.s2b', screenshotUrl: '/help/org-team.webp' },
           { headingKey: 'ohelp.org.team.s3h', bodyKey: 'ohelp.org.team.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.team.s4h', bodyKey: 'ohelp.org.team.s4b', type: 'tip' },
         ],
@@ -340,7 +340,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['profile', 'profil', 'public', 'page', 'followers', 'abonnés', 'perfil'],
         sections: [
           { headingKey: 'ohelp.org.profile.s1h', bodyKey: 'ohelp.org.profile.s1b' },
-          { headingKey: 'ohelp.org.profile.s2h', bodyKey: 'ohelp.org.profile.s2b', screenshotUrl: '/help/org-profile.png' },
+          { headingKey: 'ohelp.org.profile.s2h', bodyKey: 'ohelp.org.profile.s2b', screenshotUrl: '/help/org-profile.webp' },
           { headingKey: 'ohelp.org.profile.s3h', bodyKey: 'ohelp.org.profile.s3b' },
           { headingKey: 'ohelp.org.profile.s4h', bodyKey: 'ohelp.org.profile.s4b', type: 'tip' },
         ],
@@ -365,7 +365,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['payments', 'paiements', 'stripe', 'connect', 'payout', 'virement', 'pagos', 'versement', 'retenu', 'co-event', 'co-soirée', 'quand suis-je payé', 'délai'],
         sections: [
           { headingKey: 'ohelp.org.payments.s1h', bodyKey: 'ohelp.org.payments.s1b' },
-          { headingKey: 'ohelp.org.payments.s2h', bodyKey: 'ohelp.org.payments.s2b', screenshotUrl: '/help/org-payments.png' },
+          { headingKey: 'ohelp.org.payments.s2h', bodyKey: 'ohelp.org.payments.s2b', screenshotUrl: '/help/org-payments.webp' },
           { headingKey: 'ohelp.org.payments.s3h', bodyKey: 'ohelp.org.payments.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.payments.s4h', bodyKey: 'ohelp.org.payments.s4b' },
           { headingKey: 'ohelp.org.payments.s5h', bodyKey: 'ohelp.org.payments.s5b', type: 'warning' },
@@ -382,7 +382,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['invoices', 'factures', 'csv', 'export', 'vat', 'tva', 'facturas'],
         sections: [
           { headingKey: 'ohelp.org.invoices.s1h', bodyKey: 'ohelp.org.invoices.s1b' },
-          { headingKey: 'ohelp.org.invoices.s2h', bodyKey: 'ohelp.org.invoices.s2b', screenshotUrl: '/help/org-invoices.png' },
+          { headingKey: 'ohelp.org.invoices.s2h', bodyKey: 'ohelp.org.invoices.s2b', screenshotUrl: '/help/org-invoices.webp' },
           { headingKey: 'ohelp.org.invoices.s3h', bodyKey: 'ohelp.org.invoices.s3b' },
           { headingKey: 'ohelp.org.invoices.s4h', bodyKey: 'ohelp.org.invoices.s4b', type: 'tip' },
         ],
@@ -397,7 +397,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['accounting', 'comptabilité', 'compta', 'revenue', 'revenu', 'fees', 'frais', 'contabilidad'],
         sections: [
           { headingKey: 'ohelp.org.accounting.s1h', bodyKey: 'ohelp.org.accounting.s1b' },
-          { headingKey: 'ohelp.org.accounting.s2h', bodyKey: 'ohelp.org.accounting.s2b', screenshotUrl: '/help/org-accounting.png' },
+          { headingKey: 'ohelp.org.accounting.s2h', bodyKey: 'ohelp.org.accounting.s2b', screenshotUrl: '/help/org-accounting.webp' },
           { headingKey: 'ohelp.org.accounting.s3h', bodyKey: 'ohelp.org.accounting.s3b' },
           { headingKey: 'ohelp.org.accounting.s4h', bodyKey: 'ohelp.org.accounting.s4b', type: 'tip' },
         ],
@@ -412,7 +412,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['refunds', 'remboursements', 'refund', 'cancel', 'annuler', 'reembolsos'],
         sections: [
           { headingKey: 'ohelp.org.refunds.s1h', bodyKey: 'ohelp.org.refunds.s1b' },
-          { headingKey: 'ohelp.org.refunds.s2h', bodyKey: 'ohelp.org.refunds.s2b', screenshotUrl: '/help/org-refunds.png' },
+          { headingKey: 'ohelp.org.refunds.s2h', bodyKey: 'ohelp.org.refunds.s2b', screenshotUrl: '/help/org-refunds.webp' },
           { headingKey: 'ohelp.org.refunds.s3h', bodyKey: 'ohelp.org.refunds.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.refunds.s4h', bodyKey: 'ohelp.org.refunds.s4b', type: 'warning' },
         ],
@@ -436,7 +436,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['organization', 'organisation', 'settings', 'réglages', 'legal', 'siret', 'tva', 'organización'],
         sections: [
           { headingKey: 'ohelp.org.organization.s1h', bodyKey: 'ohelp.org.organization.s1b' },
-          { headingKey: 'ohelp.org.organization.s2h', bodyKey: 'ohelp.org.organization.s2b', screenshotUrl: '/help/org-organization.png' },
+          { headingKey: 'ohelp.org.organization.s2h', bodyKey: 'ohelp.org.organization.s2b', screenshotUrl: '/help/org-organization.webp' },
           { headingKey: 'ohelp.org.organization.s3h', bodyKey: 'ohelp.org.organization.s3b' },
           { headingKey: 'ohelp.org.organization.s4h', bodyKey: 'ohelp.org.organization.s4b', type: 'tip' },
         ],

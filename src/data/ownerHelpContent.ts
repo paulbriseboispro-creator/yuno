@@ -203,7 +203,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'panel'],
         sections: [
           { headingKey: 'ohelp.pg.dashboard.s1h', bodyKey: 'ohelp.pg.dashboard.s1b' },
-          { headingKey: 'ohelp.pg.dashboard.s2h', bodyKey: 'ohelp.pg.dashboard.s2b', screenshotUrl: '/help/owner-dashboard.png' },
+          { headingKey: 'ohelp.pg.dashboard.s2h', bodyKey: 'ohelp.pg.dashboard.s2b', screenshotUrl: '/help/owner-dashboard.webp' },
           { headingKey: 'ohelp.pg.dashboard.s3h', bodyKey: 'ohelp.pg.dashboard.s3b' },
           { headingKey: 'ohelp.pg.dashboard.s4h', bodyKey: 'ohelp.pg.dashboard.s4b' },
           { headingKey: 'ohelp.pg.dashboard.s5h', bodyKey: 'ohelp.pg.dashboard.s5b', type: 'steps' },
@@ -237,7 +237,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité'],
         sections: [
           { headingKey: 'ohelp.pg.analytics.s1h', bodyKey: 'ohelp.pg.analytics.s1b' },
-          { headingKey: 'ohelp.pg.analytics.s2h', bodyKey: 'ohelp.pg.analytics.s2b', screenshotUrl: '/help/owner-analytics.png' },
+          { headingKey: 'ohelp.pg.analytics.s2h', bodyKey: 'ohelp.pg.analytics.s2b', screenshotUrl: '/help/owner-analytics.webp' },
           { headingKey: 'ohelp.pg.analytics.s3h', bodyKey: 'ohelp.pg.analytics.s3b' },
           { headingKey: 'ohelp.pg.analytics.s4h', bodyKey: 'ohelp.pg.analytics.s4b' },
           { headingKey: 'ohelp.pg.analytics.s5h', bodyKey: 'ohelp.pg.analytics.s5b' },
@@ -257,7 +257,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['live', 'temps réel', 'real-time', 'tonight', 'ce soir', 'monitoring', 'attendance', 'throughput', 'activity feed', 'entrées', 'vivo', 'commandement', 'command center', 'jauge', 'capacité', 'incidents', 'radio', 'alertes', 'briefing', 'rupture', 'stock'],
         sections: [
           { headingKey: 'ohelp.pg.live.s1h', bodyKey: 'ohelp.pg.live.s1b' },
-          { headingKey: 'ohelp.pg.live.s2h', bodyKey: 'ohelp.pg.live.s2b', screenshotUrl: '/help/owner-live.png' },
+          { headingKey: 'ohelp.pg.live.s2h', bodyKey: 'ohelp.pg.live.s2b', screenshotUrl: '/help/owner-live.webp' },
           { headingKey: 'ohelp.pg.live.s3h', bodyKey: 'ohelp.pg.live.s3b' },
           { headingKey: 'ohelp.pg.live.s4h', bodyKey: 'ohelp.pg.live.s4b' },
           { headingKey: 'ohelp.pg.live.s5h', bodyKey: 'ohelp.pg.live.s5b' },
@@ -275,7 +275,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['hype', 'score', 'forecast', 'prévision', 'attendance', 'fréquentation', 'sellout', 'demand', 'demande', 'pace', 'prediction', 'calibrate'],
         sections: [
           { headingKey: 'ohelp.pg.hype.s1h', bodyKey: 'ohelp.pg.hype.s1b' },
-          { headingKey: 'ohelp.pg.hype.s2h', bodyKey: 'ohelp.pg.hype.s2b', screenshotUrl: '/help/owner-hype.png' },
+          { headingKey: 'ohelp.pg.hype.s2h', bodyKey: 'ohelp.pg.hype.s2b', screenshotUrl: '/help/owner-hype.webp' },
           { headingKey: 'ohelp.pg.hype.s3h', bodyKey: 'ohelp.pg.hype.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.hype.s4h', bodyKey: 'ohelp.pg.hype.s4b' },
           { headingKey: 'ohelp.pg.hype.s5h', bodyKey: 'ohelp.pg.hype.s5b' },
@@ -303,8 +303,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'nuevo evento'],
         sections: [
           { headingKey: 'ohelp.ev.events.s1h', bodyKey: 'ohelp.ev.events.s1b' },
-          { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.png' },
-          { headingKey: 'ohelp.ev.events.s3h', bodyKey: 'ohelp.ev.events.s3b', type: 'steps', screenshotUrl: '/help/owner-events-create.png' },
+          { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.webp' },
+          { headingKey: 'ohelp.ev.events.s3h', bodyKey: 'ohelp.ev.events.s3b', type: 'steps', screenshotUrl: '/help/owner-events-create.webp' },
           { headingKey: 'ohelp.ev.events.s4h', bodyKey: 'ohelp.ev.events.s4b' },
           { headingKey: 'ohelp.ev.events.s5h', bodyKey: 'ohelp.ev.events.s5b' },
           { headingKey: 'ohelp.ev.events.s6h', bodyKey: 'ohelp.ev.events.s6b' },
@@ -323,7 +323,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance'],
         sections: [
           { headingKey: 'ohelp.ev.ticketing.s1h', bodyKey: 'ohelp.ev.ticketing.s1b' },
-          { headingKey: 'ohelp.ev.ticketing.s2h', bodyKey: 'ohelp.ev.ticketing.s2b', screenshotUrl: '/help/owner-ticketing.png' },
+          { headingKey: 'ohelp.ev.ticketing.s2h', bodyKey: 'ohelp.ev.ticketing.s2b', screenshotUrl: '/help/owner-ticketing.webp' },
           { headingKey: 'ohelp.ev.ticketing.s3h', bodyKey: 'ohelp.ev.ticketing.s3b' },
           { headingKey: 'ohelp.ev.ticketing.s4h', bodyKey: 'ohelp.ev.ticketing.s4b' },
           { headingKey: 'ohelp.ev.ticketing.s5h', bodyKey: 'ohelp.ev.ticketing.s5b' },
@@ -345,7 +345,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados', 'places restantes', 'remaining spots', 'compteur', 'counter', 'modèle', 'template', 'récurrente', 'recurring', 'automatique', 'automatic', 'lien unique', 'unique link', 'invite link', 'ajout direct', 'boisson', 'vip', 'types proposés', 'agence', 'agency', 'enveloppe', 'envelope', 'partition', 'pool', 'répartition'],
         sections: [
           { headingKey: 'ohelp.ev.guestlist.s1h', bodyKey: 'ohelp.ev.guestlist.s1b' },
-          { headingKey: 'ohelp.ev.guestlist.s2h', bodyKey: 'ohelp.ev.guestlist.s2b', screenshotUrl: '/help/owner-guest-list.png' },
+          { headingKey: 'ohelp.ev.guestlist.s2h', bodyKey: 'ohelp.ev.guestlist.s2b', screenshotUrl: '/help/owner-guest-list.webp' },
           { headingKey: 'ohelp.ev.guestlist.s3h', bodyKey: 'ohelp.ev.guestlist.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.guestlist.s4h', bodyKey: 'ohelp.ev.guestlist.s4b' },
           { headingKey: 'ohelp.ev.guestlist.s5h', bodyKey: 'ohelp.ev.guestlist.s5b' },
@@ -375,14 +375,14 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['table', 'VIP', 'réservation', 'reservation', 'zone', 'pack', 'minimum', 'bouteille', 'bottle', 'carré', 'floor plan', 'plan de salle', 'gold', 'platinum', 'silver', 'diamond', 'mesa', 'heure d\'arrivée', 'arrivée limite', 'arrival cutoff', 'retard', 'late'],
         sections: [
           { headingKey: 'ohelp.ev.tables.s1h', bodyKey: 'ohelp.ev.tables.s1b' },
-          { headingKey: 'ohelp.ev.tables.s2h', bodyKey: 'ohelp.ev.tables.s2b', screenshotUrl: '/help/owner-tables.png' },
+          { headingKey: 'ohelp.ev.tables.s2h', bodyKey: 'ohelp.ev.tables.s2b', screenshotUrl: '/help/owner-tables.webp' },
           { headingKey: 'ohelp.ev.tables.s3h', bodyKey: 'ohelp.ev.tables.s3b' },
           { headingKey: 'ohelp.ev.tables.s4h', bodyKey: 'ohelp.ev.tables.s4b', type: 'steps' },
           { headingKey: 'ohelp.ev.tables.s5h', bodyKey: 'ohelp.ev.tables.s5b' },
           { headingKey: 'ohelp.ev.tables.s6h', bodyKey: 'ohelp.ev.tables.s6b' },
           { headingKey: 'ohelp.ev.tables.s7h', bodyKey: 'ohelp.ev.tables.s7b' },
           { headingKey: 'ohelp.ev.tables.s12h', bodyKey: 'ohelp.ev.tables.s12b' },
-          { headingKey: 'ohelp.ev.tables.s10h', bodyKey: 'ohelp.ev.tables.s10b', screenshotUrl: '/help/owner-menu.png' },
+          { headingKey: 'ohelp.ev.tables.s10h', bodyKey: 'ohelp.ev.tables.s10b', screenshotUrl: '/help/owner-menu.webp' },
           { headingKey: 'ohelp.ev.tables.s11h', bodyKey: 'ohelp.ev.tables.s11b' },
           { headingKey: 'ohelp.ev.tables.s8h', bodyKey: 'ohelp.ev.tables.s8b', type: 'tip' },
           { headingKey: 'ohelp.ev.tables.s9h', bodyKey: 'ohelp.ev.tables.s9b', type: 'example' },
@@ -398,7 +398,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['DJ', 'lineup', 'set', 'calendar', 'calendrier', 'booking', 'résident', 'resident', 'guest', 'planning', 'agenda'],
         sections: [
           { headingKey: 'ohelp.ev.djs.s1h', bodyKey: 'ohelp.ev.djs.s1b' },
-          { headingKey: 'ohelp.ev.djs.s2h', bodyKey: 'ohelp.ev.djs.s2b', screenshotUrl: '/help/owner-djs.png' },
+          { headingKey: 'ohelp.ev.djs.s2h', bodyKey: 'ohelp.ev.djs.s2b', screenshotUrl: '/help/owner-djs.webp' },
           { headingKey: 'ohelp.ev.djs.s3h', bodyKey: 'ohelp.ev.djs.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.djs.s4h', bodyKey: 'ohelp.ev.djs.s4b', type: 'steps' },
           { headingKey: 'ohelp.ev.djs.s5h', bodyKey: 'ohelp.ev.djs.s5b' },
@@ -417,7 +417,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once', 'qui fait quoi', 'who does what', 'quien hace que', 'responsabilites', 'responsibilities', 'responsabilidades', 'design', 'logistique', 'operations', 'operaciones', 'chacun son metier', 'location de salle', 'venue rental', 'heberge', 'org hosted', 'pilier', 'pillar', 'hors du deal', 'que les tables', 'tables only', 'bloquer billets', 'bloquer boissons', 'périmètre', 'scope', 'total dépensé', 'total spend', 'gasto total', 'acompte', 'deposit', 'complément', 'top-up', 'virement fin de soirée', 'règlement tables', 'double vérification', 'iban organisateur'],
         sections: [
           { headingKey: 'ohelp.ev.collab.s1h', bodyKey: 'ohelp.ev.collab.s1b' },
-          { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.png' },
+          { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.webp' },
           { headingKey: 'ohelp.ev.collab.s3h', bodyKey: 'ohelp.ev.collab.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.collab.s4h', bodyKey: 'ohelp.ev.collab.s4b' },
           // Périmètre par pilier + base tables : ces deux réglages vivent dans le
@@ -446,7 +446,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['scarcity', 'rareté', 'fomo', 'urgency', 'urgence', 'few left', 'counter', 'compteur', 'demand', 'demande', 'pressure', 'pression', 'badge', 'escasez'],
         sections: [
           { headingKey: 'ohelp.ev.scarcity.s1h', bodyKey: 'ohelp.ev.scarcity.s1b' },
-          { headingKey: 'ohelp.ev.scarcity.s2h', bodyKey: 'ohelp.ev.scarcity.s2b', screenshotUrl: '/help/owner-scarcity.png' },
+          { headingKey: 'ohelp.ev.scarcity.s2h', bodyKey: 'ohelp.ev.scarcity.s2b', screenshotUrl: '/help/owner-scarcity.webp' },
           { headingKey: 'ohelp.ev.scarcity.s3h', bodyKey: 'ohelp.ev.scarcity.s3b' },
           { headingKey: 'ohelp.ev.scarcity.s4h', bodyKey: 'ohelp.ev.scarcity.s4b', type: 'steps' },
           { headingKey: 'ohelp.ev.scarcity.s5h', bodyKey: 'ohelp.ev.scarcity.s5b' },
@@ -474,7 +474,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['CRM', 'client', 'customer', 'segment', 'rfm', 'champions', 'loyal', 'ban', 'bannir', 'minor', 'mineur', 'tier', 'lifetime value', 'fiche client', 'clientes'],
         sections: [
           { headingKey: 'ohelp.pg.customers.s1h', bodyKey: 'ohelp.pg.customers.s1b' },
-          { headingKey: 'ohelp.pg.customers.s2h', bodyKey: 'ohelp.pg.customers.s2b', screenshotUrl: '/help/owner-customers.png' },
+          { headingKey: 'ohelp.pg.customers.s2h', bodyKey: 'ohelp.pg.customers.s2b', screenshotUrl: '/help/owner-customers.webp' },
           { headingKey: 'ohelp.pg.customers.s3h', bodyKey: 'ohelp.pg.customers.s3b' },
           { headingKey: 'ohelp.pg.customers.s4h', bodyKey: 'ohelp.pg.customers.s4b' },
           { headingKey: 'ohelp.pg.customers.s5h', bodyKey: 'ohelp.pg.customers.s5b', type: 'steps' },
@@ -492,7 +492,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['fidélité', 'loyalty', 'points', 'récompense', 'reward', 'programme', 'tier', 'palier', 'bronze', 'silver', 'gold', 'platinum', 'cadeau', 'lealtad'],
         sections: [
           { headingKey: 'ohelp.pg.loyalty.s1h', bodyKey: 'ohelp.pg.loyalty.s1b' },
-          { headingKey: 'ohelp.pg.loyalty.s2h', bodyKey: 'ohelp.pg.loyalty.s2b', screenshotUrl: '/help/owner-loyalty.png' },
+          { headingKey: 'ohelp.pg.loyalty.s2h', bodyKey: 'ohelp.pg.loyalty.s2b', screenshotUrl: '/help/owner-loyalty.webp' },
           { headingKey: 'ohelp.pg.loyalty.s3h', bodyKey: 'ohelp.pg.loyalty.s3b' },
           { headingKey: 'ohelp.pg.loyalty.s4h', bodyKey: 'ohelp.pg.loyalty.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.loyalty.s6h', bodyKey: 'ohelp.pg.loyalty.s6b', type: 'tip' },
@@ -509,7 +509,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi', 'importer', 'import', 'liste', 'list', 'csv', 'base email', 'spam', 'delivrabilite', 'deliverability', 'masse', 'bulk', 'importar', 'lista', 'modele', 'modèle', 'template', 'plantilla', 'reutiliser', 'reutilizar', 'invitation', 'gabarit', 'supprimer', 'brouillon', 'delete', 'draft', 'eliminar', 'borrador', 'corbeille'],
         sections: [
           { headingKey: 'ohelp.pg.campaigns.s1h', bodyKey: 'ohelp.pg.campaigns.s1b' },
-          { headingKey: 'ohelp.pg.campaigns.s2h', bodyKey: 'ohelp.pg.campaigns.s2b', screenshotUrl: '/help/owner-campaigns.png' },
+          { headingKey: 'ohelp.pg.campaigns.s2h', bodyKey: 'ohelp.pg.campaigns.s2b', screenshotUrl: '/help/owner-campaigns.webp' },
           { headingKey: 'ohelp.pg.campaigns.s3h', bodyKey: 'ohelp.pg.campaigns.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.campaigns.s12h', bodyKey: 'ohelp.pg.campaigns.s12b', type: 'tip' },
           { headingKey: 'ohelp.pg.campaigns.s13h', bodyKey: 'ohelp.pg.campaigns.s13b', type: 'warning' },
@@ -564,7 +564,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['sms', 'texto', 'crédit', 'credit', 'top up', 'recharge', 'pack', 'coming soon', 'bientôt', 'message', 'mensaje'],
         sections: [
           { headingKey: 'ohelp.pg.sms.s1h', bodyKey: 'ohelp.pg.sms.s1b' },
-          { headingKey: 'ohelp.pg.sms.s2h', bodyKey: 'ohelp.pg.sms.s2b', screenshotUrl: '/help/owner-sms.png' },
+          { headingKey: 'ohelp.pg.sms.s2h', bodyKey: 'ohelp.pg.sms.s2b', screenshotUrl: '/help/owner-sms.webp' },
           { headingKey: 'ohelp.pg.sms.s3h', bodyKey: 'ohelp.pg.sms.s3b' },
           { headingKey: 'ohelp.pg.sms.s4h', bodyKey: 'ohelp.pg.sms.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.sms.s5h', bodyKey: 'ohelp.pg.sms.s5b', type: 'tip' },
@@ -599,7 +599,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['promoter', 'promoteur', 'commission', 'sales force', 'invite', 'inviter', 'quota', 'payout', 'paiement', 'conversion', 'rabatteur', 'promotor'],
         sections: [
           { headingKey: 'ohelp.pg.promoters.s1h', bodyKey: 'ohelp.pg.promoters.s1b' },
-          { headingKey: 'ohelp.pg.promoters.s2h', bodyKey: 'ohelp.pg.promoters.s2b', screenshotUrl: '/help/owner-promoters.png' },
+          { headingKey: 'ohelp.pg.promoters.s2h', bodyKey: 'ohelp.pg.promoters.s2b', screenshotUrl: '/help/owner-promoters.webp' },
           { headingKey: 'ohelp.pg.promoters.s3h', bodyKey: 'ohelp.pg.promoters.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.promoters.s4h', bodyKey: 'ohelp.pg.promoters.s4b' },
           { headingKey: 'ohelp.pg.promoters.s5h', bodyKey: 'ohelp.pg.promoters.s5b' },
@@ -696,7 +696,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['order', 'commande', 'drinks', 'boissons', 'tickets', 'tables', 'statut', 'status', 'paid', 'payé', 'served', 'servi', 'token', 'historique'],
         sections: [
           { headingKey: 'ohelp.pg.orders.s1h', bodyKey: 'ohelp.pg.orders.s1b' },
-          { headingKey: 'ohelp.pg.orders.s2h', bodyKey: 'ohelp.pg.orders.s2b', screenshotUrl: '/help/owner-orders.png' },
+          { headingKey: 'ohelp.pg.orders.s2h', bodyKey: 'ohelp.pg.orders.s2b', screenshotUrl: '/help/owner-orders.webp' },
           { headingKey: 'ohelp.pg.orders.s3h', bodyKey: 'ohelp.pg.orders.s3b' },
           { headingKey: 'ohelp.pg.orders.s4h', bodyKey: 'ohelp.pg.orders.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.orders.s5h', bodyKey: 'ohelp.pg.orders.s5b', type: 'tip' },
@@ -751,7 +751,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['invoice', 'facture', 'export', 'csv', 'pdf', 'comptable', 'accounting', 'tva', 'vat', 'legal', 'historique', 'factura'],
         sections: [
           { headingKey: 'ohelp.pg.invoices.s1h', bodyKey: 'ohelp.pg.invoices.s1b' },
-          { headingKey: 'ohelp.pg.invoices.s2h', bodyKey: 'ohelp.pg.invoices.s2b', screenshotUrl: '/help/owner-invoices.png' },
+          { headingKey: 'ohelp.pg.invoices.s2h', bodyKey: 'ohelp.pg.invoices.s2b', screenshotUrl: '/help/owner-invoices.webp' },
           { headingKey: 'ohelp.pg.invoices.s3h', bodyKey: 'ohelp.pg.invoices.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.invoices.s4h', bodyKey: 'ohelp.pg.invoices.s4b' },
           { headingKey: 'ohelp.pg.invoices.s5h', bodyKey: 'ohelp.pg.invoices.s5b', type: 'tip' },
@@ -767,7 +767,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['refund', 'remboursement', 'rembourser', 'cancel', 'annulation', 'stripe', 'partial', 'partiel', 'reembolso'],
         sections: [
           { headingKey: 'ohelp.pg.refunds.s1h', bodyKey: 'ohelp.pg.refunds.s1b' },
-          { headingKey: 'ohelp.pg.refunds.s2h', bodyKey: 'ohelp.pg.refunds.s2b', screenshotUrl: '/help/owner-refunds.png' },
+          { headingKey: 'ohelp.pg.refunds.s2h', bodyKey: 'ohelp.pg.refunds.s2b', screenshotUrl: '/help/owner-refunds.webp' },
           { headingKey: 'ohelp.pg.refunds.s3h', bodyKey: 'ohelp.pg.refunds.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.refunds.s4h', bodyKey: 'ohelp.pg.refunds.s4b' },
           { headingKey: 'ohelp.pg.refunds.s5h', bodyKey: 'ohelp.pg.refunds.s5b', type: 'warning' },
@@ -784,7 +784,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['staff', 'employé', 'employee', 'ajouter', 'add', 'barman', 'bouncer', 'videur', 'vestiaire', 'cloakroom', 'vip host', 'manager', 'PIN', 'équipe', 'team', 'personnel', 'c&c', 'notification', 'push', 'alerte', 'alert', 'yuno pro', 'mon compte', 'profil staff', 'personnalisation', 'surnom', 'photo', 'emoji', 'couleur', 'stats staff', 'plusieurs barmans', 'plusieurs videurs'],
         sections: [
           { headingKey: 'ohelp.pg.staff.s1h', bodyKey: 'ohelp.pg.staff.s1b' },
-          { headingKey: 'ohelp.pg.staff.s2h', bodyKey: 'ohelp.pg.staff.s2b', screenshotUrl: '/help/owner-staff.png' },
+          { headingKey: 'ohelp.pg.staff.s2h', bodyKey: 'ohelp.pg.staff.s2b', screenshotUrl: '/help/owner-staff.webp' },
           { headingKey: 'ohelp.pg.staff.s3h', bodyKey: 'ohelp.pg.staff.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.staff.s4h', bodyKey: 'ohelp.pg.staff.s4b' },
           { headingKey: 'ohelp.pg.staff.s5h', bodyKey: 'ohelp.pg.staff.s5b' },
@@ -807,7 +807,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['menu', 'carte', 'boisson', 'drink', 'cocktail', 'shot', 'soft', 'prix', 'price', 'click collect', 'commande', 'order', 'catalogue', 'reorder', 'bebida'],
         sections: [
           { headingKey: 'ohelp.pg.menu.s1h', bodyKey: 'ohelp.pg.menu.s1b' },
-          { headingKey: 'ohelp.pg.menu.s2h', bodyKey: 'ohelp.pg.menu.s2b', screenshotUrl: '/help/owner-menu.png' },
+          { headingKey: 'ohelp.pg.menu.s2h', bodyKey: 'ohelp.pg.menu.s2b', screenshotUrl: '/help/owner-menu.webp' },
           { headingKey: 'ohelp.pg.menu.s3h', bodyKey: 'ohelp.pg.menu.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.menu.s4h', bodyKey: 'ohelp.pg.menu.s4b' },
           { headingKey: 'ohelp.pg.menu.s5h', bodyKey: 'ohelp.pg.menu.s5b', type: 'tip' },
@@ -840,12 +840,12 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['vip service', 'service vip', 'bottle', 'bouteille', 'reservation', 'réservation', 'placement', 'deposit', 'acompte', 'consumption', 'host', 'servicio vip'],
         sections: [
           { headingKey: 'ohelp.pg.vipservice.s1h', bodyKey: 'ohelp.pg.vipservice.s1b' },
-          { headingKey: 'ohelp.pg.vipservice.s2h', bodyKey: 'ohelp.pg.vipservice.s2b', screenshotUrl: '/help/owner-vip-service.png' },
+          { headingKey: 'ohelp.pg.vipservice.s2h', bodyKey: 'ohelp.pg.vipservice.s2b', screenshotUrl: '/help/owner-vip-service.webp' },
           { headingKey: 'ohelp.pg.vipservice.s3h', bodyKey: 'ohelp.pg.vipservice.s3b' },
           { headingKey: 'ohelp.pg.vipservice.s4h', bodyKey: 'ohelp.pg.vipservice.s4b' },
           { headingKey: 'ohelp.pg.vipservice.s5h', bodyKey: 'ohelp.pg.vipservice.s5b' },
-          { headingKey: 'ohelp.pg.vipservice.s7h', bodyKey: 'ohelp.pg.vipservice.s7b', screenshotUrl: '/help/owner-analytics.png' },
-          { headingKey: 'ohelp.pg.vipservice.s8h', bodyKey: 'ohelp.pg.vipservice.s8b', screenshotUrl: '/help/owner-vip-service.png' },
+          { headingKey: 'ohelp.pg.vipservice.s7h', bodyKey: 'ohelp.pg.vipservice.s7b', screenshotUrl: '/help/owner-analytics.webp' },
+          { headingKey: 'ohelp.pg.vipservice.s8h', bodyKey: 'ohelp.pg.vipservice.s8b', screenshotUrl: '/help/owner-vip-service.webp' },
           { headingKey: 'ohelp.pg.vipservice.s9h', bodyKey: 'ohelp.pg.vipservice.s9b' },
           { headingKey: 'ohelp.pg.vipservice.s6h', bodyKey: 'ohelp.pg.vipservice.s6b', type: 'tip' },
         ],
@@ -875,7 +875,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['upsell', 'offre', 'offer', 'cart', 'panier', 'promo', 'discount', 'réduction', 'bundle', 'pack', 'basket', 'oferta'],
         sections: [
           { headingKey: 'ohelp.pg.upsell.s1h', bodyKey: 'ohelp.pg.upsell.s1b' },
-          { headingKey: 'ohelp.pg.upsell.s2h', bodyKey: 'ohelp.pg.upsell.s2b', screenshotUrl: '/help/owner-upsell.png' },
+          { headingKey: 'ohelp.pg.upsell.s2h', bodyKey: 'ohelp.pg.upsell.s2b', screenshotUrl: '/help/owner-upsell.webp' },
           { headingKey: 'ohelp.pg.upsell.s3h', bodyKey: 'ohelp.pg.upsell.s3b' },
           { headingKey: 'ohelp.pg.upsell.s4h', bodyKey: 'ohelp.pg.upsell.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.upsell.s5h', bodyKey: 'ohelp.pg.upsell.s5b', type: 'tip' },
@@ -901,7 +901,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['venue', 'club', 'customization', 'personnalisation', 'logo', 'banner', 'bannière', 'gallery', 'galerie', 'adresse', 'address', 'hours', 'horaires', 'social', 'public page', 'club', 'publier', 'publish', 'visible', 'cachée', 'hidden', 'vitrine'],
         sections: [
           { headingKey: 'ohelp.pg.venue.s1h', bodyKey: 'ohelp.pg.venue.s1b' },
-          { headingKey: 'ohelp.pg.venue.s2h', bodyKey: 'ohelp.pg.venue.s2b', screenshotUrl: '/help/owner-venue.png' },
+          { headingKey: 'ohelp.pg.venue.s2h', bodyKey: 'ohelp.pg.venue.s2b', screenshotUrl: '/help/owner-venue.webp' },
           { headingKey: 'ohelp.pg.venue.s3h', bodyKey: 'ohelp.pg.venue.s3b' },
           { headingKey: 'ohelp.pg.venue.s4h', bodyKey: 'ohelp.pg.venue.s4b' },
           { headingKey: 'ohelp.pg.venue.s5h', bodyKey: 'ohelp.pg.venue.s5b', type: 'steps' },

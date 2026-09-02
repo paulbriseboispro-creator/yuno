@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import yunoLogo from '@/assets/yuno-logo-red.png';
+import yunoLogo from '@/assets/yuno-logo-red.webp';
 
 interface YunoAssistantProps {
   firstName?: string | null;

@@ -3,7 +3,7 @@ import { Search, SlidersHorizontal, ChevronDown, MapPin, Navigation, Loader2 } f
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import yunoLogo from '@/assets/yuno-logo-red.png';
+import yunoLogo from '@/assets/yuno-logo-red.webp';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { getCurrentPosition } from '@/lib/geolocation';
