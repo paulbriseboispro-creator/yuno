@@ -15,6 +15,7 @@ import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 // EventWaitlistForm moved to dedicated page
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { shareContent } from '@/lib/share';
+import { publicUrl } from '@/lib/native';
 import { toast } from 'sonner';
 import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
@@ -586,7 +587,7 @@ export default function EventDetails() {
   }, [event?.description, language]);
 
   const handleShare = async () => {
-    const url = window.location.href;
+    const url = publicUrl();
     const shareData = { title: event?.title || '', url };
     const outcome = await shareContent(shareData);
     if (outcome === 'copied') toast.success(t('share.copied'));

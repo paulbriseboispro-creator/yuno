@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { getOptimizedImageUrl, getResponsiveSrcSet } from '@/lib/imageOptimization';
 import { eventPath } from '@/lib/eventUrl';
 import { shareContent } from '@/lib/share';
+import { publicUrl } from '@/lib/native';
 import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
@@ -300,7 +301,7 @@ export default function OrganizerPublicProfile() {
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
+    const url = publicUrl();
     const outcome = await shareContent({ title: profile?.display_name || '', url });
     if (outcome === 'copied') toast.success(t('share.copied') || 'Lien copié');
   };

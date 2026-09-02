@@ -1,4 +1,4 @@
-import { isNative } from '@/lib/native';
+import { isNative, publicUrl } from '@/lib/native';
 
 /**
  * Partage unifié — feuille de partage NATIVE iOS via @capacitor/share dans
@@ -38,7 +38,11 @@ async function blobToBase64(file: Blob): Promise<string> {
  *  - 'dismissed' : l'utilisateur a annulé — ne pas afficher de toast d'erreur
  */
 export async function shareContent(payload: SharePayload): Promise<ShareOutcome> {
-  const { title, text, url, files } = payload;
+  const { title, text, files } = payload;
+  // Garde-fou du point de passage : un appelant qui passe `window.location.href`
+  // enverrait `capacitor://localhost/...` depuis l'app. On normalise ici pour que
+  // AUCUN chemin de partage ne puisse sortir un lien inouvrable.
+  const url = payload.url ? publicUrl(payload.url) : undefined;
 
   if (isNative()) {
     try {

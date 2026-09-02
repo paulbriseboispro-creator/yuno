@@ -4,6 +4,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { Role } from '@/types';
 import { clearStaffSession } from '@/components/RequireStaffSession';
 import { clearMFASession } from '@/components/RequireMFA';
+import { publicUrl } from '@/lib/native';
 
 /**
  * État d'authentification PARTAGÉ par toute l'app. `useAuth()` est appelé depuis
@@ -177,7 +178,9 @@ export function useAuth() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    // Lien envoyé par email : domaine public obligatoire (dans l'app native,
+    // `window.location.origin` vaut `capacitor://localhost`, injoignable).
+    const redirectUrl = publicUrl('/');
     const { error } = await supabase.auth.signUp({
       email,
       password,

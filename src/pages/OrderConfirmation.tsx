@@ -26,6 +26,8 @@ import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
 import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
 import { PublicPage } from '@/components/PublicPage';
+import { publicUrl } from '@/lib/native';
+
 interface UpsellSelection {
   name: string;
   price: number;
@@ -574,11 +576,12 @@ export default function OrderConfirmation() {
 
   // Public, shareable event URL (NOT this private confirmation page). Lets friends
   // grab their own spot — the viral loop. Degrades gracefully if the deep-link is unknown.
+  // Ce lien part hors du téléphone (feuille de partage, fichier .ics) : il doit
+  // pointer le domaine public, jamais l'origine locale de la WebView.
   const buildEventUrl = (): string => {
-    const origin = window.location.origin;
-    if (data?.eventId && data?.venueId) return `${origin}/club/${data.venueId}/event/${data.eventId}`;
-    if (data?.eventId) return `${origin}/event/${data.eventId}`;
-    return origin;
+    if (data?.eventId && data?.venueId) return publicUrl(`/club/${data.venueId}/event/${data.eventId}`);
+    if (data?.eventId) return publicUrl(`/event/${data.eventId}`);
+    return publicUrl('/');
   };
 
   /**

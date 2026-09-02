@@ -17,7 +17,7 @@ import { shareContent } from '@/lib/share';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
-import { openExternal } from '@/lib/native';
+import { openExternal, publicUrl } from '@/lib/native';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 
 type AffiliateEvent = {
@@ -193,7 +193,7 @@ export default function AffiliateEventPage() {
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
+    const url = publicUrl();
     const shareData = { title: event?.name || '', url };
     const outcome = await shareContent(shareData);
     if (outcome === 'copied') toast.success(t('share.copied'));

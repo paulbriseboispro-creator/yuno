@@ -92,6 +92,45 @@ export function toAppPath(url: string | undefined | null): string | null {
 }
 
 /**
+ * Origine PUBLIQUE de tout lien qui SORT du téléphone : feuille de partage,
+ * QR code scanné à la porte, lien posé dans un email, fichier .ics.
+ *
+ * Jamais `window.location.origin` : dans la WebView Capacitor il vaut
+ * `capacitor://localhost`, un schéma que personne d'autre que l'app ne sait
+ * ouvrir. Un lien partagé depuis l'app arrivait donc mort chez le destinataire.
+ */
+export const PUBLIC_BASE_URL = (
+  (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu'
+).replace(/\/+$/, '');
+
+/**
+ * Rend une URL publiquement ouvrable. Inverse de `toAppPath`.
+ *
+ *  - sans argument     → l'URL courante, réécrite sur le domaine public ;
+ *  - path (`/event/1`) → préfixé du domaine public ;
+ *  - URL de la WebView (`capacitor://localhost/...`) → même chemin sur le domaine ;
+ *  - toute autre URL absolue → rendue telle quelle (un lien externe reste externe,
+ *    et le dev web garde son propre origin).
+ */
+export function publicUrl(pathOrUrl?: string | null): string {
+  const raw = pathOrUrl ?? (typeof window !== 'undefined' ? window.location.href : '');
+  if (!raw) return PUBLIC_BASE_URL;
+  if (raw.startsWith('/')) return PUBLIC_BASE_URL + raw;
+  try {
+    const u = new URL(raw);
+    // `capacitor:`/`ionic:` sont toujours des origines de WebView. `localhost`
+    // en http n'est réécrit qu'en natif : sur le web c'est le serveur de dev.
+    const isWebViewOrigin =
+      u.protocol === 'capacitor:' ||
+      u.protocol === 'ionic:' ||
+      (isNative() && (u.hostname === 'localhost' || u.hostname === '127.0.0.1'));
+    return isWebViewOrigin ? PUBLIC_BASE_URL + u.pathname + u.search + u.hash : raw;
+  } catch {
+    return `${PUBLIC_BASE_URL}/${raw.replace(/^\/+/, '')}`;
+  }
+}
+
+/**
  * Ouvre une URL hors du bundle local : navigateur in-app (SFSafariViewController)
  * en natif, nouvel onglet sur le web. Fire-and-forget.
  */

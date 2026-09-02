@@ -14,10 +14,10 @@ import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
-import { isNative } from '@/lib/native';
+import { isNative, publicUrl } from '@/lib/native';
 import { isNativeSocialAvailable } from '@/lib/nativeAuth';
 import { Check } from 'lucide-react';
-import yunoLogo from '@/assets/yuno-logo.png';
+import yunoLogo from '@/assets/yuno-logo.webp';
 import { checkEmailAccount } from '@/hooks/useExistingAccountCheck';
 
 const getAuthSchema = (t: (key: string) => string) => z.object({
@@ -306,7 +306,7 @@ export default function Auth() {
         }
 
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth?reset=true`,
+          redirectTo: publicUrl('/auth?reset=true'),
         });
 
         if (error) throw error;
@@ -358,7 +358,7 @@ export default function Auth() {
             email,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/auth`,
+              emailRedirectTo: publicUrl('/auth'),
               data: {
                 first_name: firstNamePart || undefined,
                 last_name: lastNamePart || undefined,

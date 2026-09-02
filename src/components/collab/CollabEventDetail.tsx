@@ -51,6 +51,7 @@ import {
 } from '@/components/org-ui';
 import type { Tables } from '@/integrations/supabase/types';
 import type { LucideIcon } from 'lucide-react';
+import { publicUrl } from '@/lib/native';
 
 type ViewerRole = 'venue' | 'organizer';
 type Phase = 'before' | 'live' | 'after';
@@ -263,7 +264,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     return 'unknown';
   }, [isVenue, event, myVenue]);
 
-  const eventLink = event ? `${window.location.origin}/event/${event.id}` : '';
+  const eventLink = event ? publicUrl(`/event/${event.id}`) : '';
   const copyLink = () => { navigator.clipboard.writeText(eventLink); toast.success(t('Lien copié', 'Link copied', 'Enlace copiado')); };
   const fmtWhen = (iso: string) => new Date(iso).toLocaleString(
     language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US',

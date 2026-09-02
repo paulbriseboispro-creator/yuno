@@ -14,6 +14,7 @@ import { fr, es, enUS, type Locale } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { shareContent } from '@/lib/share';
+import { publicUrl } from '@/lib/native';
 import { smartOpenEvent } from '@/lib/appDeepLink';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
@@ -445,7 +446,7 @@ export default function AgencyPublicPage() {
   };
 
   const handleShare = async () => {
-    const outcome = await shareContent({ title: profile?.name || '', url: window.location.href });
+    const outcome = await shareContent({ title: profile?.name || '', url: publicUrl() });
     if (outcome === 'copied') toast.success(t('share.copied'));
   };
 

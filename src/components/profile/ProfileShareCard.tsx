@@ -11,6 +11,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
 import { UserBadge } from '@/hooks/useNightlifeProfile';
+import { publicUrl } from '@/lib/native';
 
 interface ProfileShareCardProps {
   open: boolean;
@@ -48,7 +49,7 @@ export function ProfileShareCard({
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = window.location.origin + '/profile';
+  const shareUrl = publicUrl('/profile');
 
   const shareText = `${firstName || 'Someone'} — ${nightsAttended} ${t('profile.shareNights')}, ${venuesVisited} clubs${currentStreak > 0 ? `, ${currentStreak}🔥` : ''} | Yuno`;
 

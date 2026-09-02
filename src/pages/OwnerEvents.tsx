@@ -41,6 +41,7 @@ import {
 } from '@/components/owner/events/events-ui';
 import { cropToSquare } from '@/components/owner/events/events-utils';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
+import { publicUrl } from '@/lib/native';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
 type PresetRound = {
@@ -1512,7 +1513,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   };
 
   const copyPrivateLink = () => {
-    const url = `${window.location.origin}/event/${event.id}`;
+    const url = publicUrl(`/event/${event.id}`);
     navigator.clipboard.writeText(url).then(
       () => toast.success(t('owner.ev.privateLinkCopied')),
       () => toast.error(t('owner.ev.copyLinkFailed')),
@@ -1585,7 +1586,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: RED_C }} />
               <div className="min-w-0 text-left">
                 <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.privateLink')}</p>
-                <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{`${window.location.origin}/event/${event.id}`}</p>
+                <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{publicUrl(`/event/${event.id}`)}</p>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg flex-shrink-0"

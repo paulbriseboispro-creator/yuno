@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { saveGuestTicket } from '@/lib/guestTickets';
 import QRCode from 'qrcode';
+import { publicUrl } from '@/lib/native';
 
 // Ligne d'article d'une commande boissons renvoyée par claim-guest-order
 // (les deux paires de clés existent selon la génération de la commande).
@@ -137,9 +138,8 @@ export default function ClaimOrder() {
 
       const qrValue = data.order?.qrCode || data.order?.token;
       if (qrValue) {
-        const origin = window.location.origin;
         const qrUrl = purchaseType === 'order'
-          ? `${origin}/order/${data.order.id}/qr`
+          ? publicUrl(`/order/${data.order.id}/qr`)
           : qrValue;
         const url = await QRCode.toDataURL(qrUrl, { width: 280, margin: 2 });
         setQrDataUrl(url);
