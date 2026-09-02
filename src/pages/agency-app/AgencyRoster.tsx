@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
@@ -49,6 +49,21 @@ function CheckRow({ checked, onClick, icon: Icon, label, bold }: {
   );
 }
 
+/** Invitation envoyée mais pas encore acceptée (RPC dédiée — jamais le token). */
+type PendingInvite = {
+  kind: 'yuno' | 'external';
+  invitation_id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  member_role: string;
+  scope_all: boolean;
+  venue_count: number | null;
+  venue_name: string | null;
+  created_at: string;
+  expires_at: string | null;
+};
+
 type PersonGroup = {
   userId: string;
   name: string;
@@ -89,6 +104,43 @@ export default function AgencyRoster() {
   const [sending, setSending] = useState(false);
   const [settling, setSettling] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+
+  // Invitations envoyées mais pas encore acceptées : sans cette liste, on
+  // invitait puis on regardait « Aucun promoteur » en se demandant si
+  // l'envoi avait marché.
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const loadInvites = useCallback(async () => {
+    if (!agency?.id) { setPendingInvites([]); return; }
+    const { data, error } = await (supabase as any).rpc('get_agency_pending_invitations', { p_agency_id: agency.id });
+    if (!error) setPendingInvites((data as PendingInvite[] | null) ?? []);
+  }, [agency?.id]);
+  useEffect(() => { loadInvites(); }, [loadInvites]);
+
+  // Une carte par email : le même humain peut porter des lignes Yuno ET une
+  // ligne externe issues du même envoi.
+  const inviteGroups = useMemo(() => {
+    const byEmail = new Map<string, PendingInvite[]>();
+    for (const inv of pendingInvites) {
+      const k = inv.email.toLowerCase();
+      if (!byEmail.has(k)) byEmail.set(k, []);
+      byEmail.get(k)!.push(inv);
+    }
+    return [...byEmail.values()];
+  }, [pendingInvites]);
+
+  const handleRevoke = async (group: PendingInvite[]) => {
+    setRevoking(group[0].email);
+    try {
+      for (const inv of group) {
+        await (supabase as any).rpc('revoke_agency_invitation', { p_kind: inv.kind, p_invitation_id: inv.invitation_id });
+      }
+      toast.success(tt('Invitation révoquée', 'Invitation revoked'));
+    } finally {
+      setRevoking(null);
+    }
+    loadInvites();
+  };
 
   const activeContracts = contracts.filter(c => c.status === 'active');
 
@@ -263,6 +315,7 @@ export default function AgencyRoster() {
     setEmail(''); setFirstName(''); setLastName(''); setTicketValue(''); setTableValue('');
     setSelectedContracts(new Set()); setExtAll(false); setExtVenues(new Set()); setInviteOpen(false);
     refetch();
+    loadInvites();
   };
 
   // Règlement en trois temps (comme les clubs) : ici on PRÉPARE le lot — IBAN,
@@ -478,14 +531,77 @@ export default function AgencyRoster() {
         </PromoCard>
       )}
 
+      {inviteGroups.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel>{tt('Invitations en attente', 'Pending invitations')}</SectionLabel>
+          {inviteGroups.map(group => {
+            const inv = group[0];
+            const name = [inv.first_name, inv.last_name].filter(Boolean).join(' ').trim();
+            const scopeBits: string[] = [];
+            const yunoRows = group.filter(g => g.kind === 'yuno');
+            if (yunoRows.length > 0) {
+              scopeBits.push(yunoRows.map(r => r.venue_name || tt('Organisateur', 'Organizer')).join(', '));
+            }
+            const ext = group.find(g => g.kind === 'external');
+            if (ext) {
+              scopeBits.push(ext.scope_all
+                ? tt('Tous les clubs externes', 'All external clubs')
+                : `${ext.venue_count} ${tt('clubs externes', 'external clubs')}`);
+            }
+            const expiresAt = group.reduce<string | null>((min, g) =>
+              g.expires_at && (!min || g.expires_at < min) ? g.expires_at : min, null);
+            return (
+              <PromoCard key={inv.email} style={{ padding: 12 }}>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="flex-none flex items-center justify-center"
+                    style={{ width: 42, height: 42, borderRadius: '50%', background: INNER_BG, border: `1px solid ${BORDER}` }}
+                  >
+                    <Mail className="h-4 w-4" style={{ color: T3 }} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{name || inv.email}</p>
+                      <PromoPill tone="warn">{tt('En attente', 'Pending')}</PromoPill>
+                    </div>
+                    <p className="truncate" style={{ color: T3, fontSize: 12 }}>{inv.email}</p>
+                    {scopeBits.length > 0 && (
+                      <p className="truncate" style={{ color: T3, fontSize: 11 }}>{scopeBits.join(' · ')}</p>
+                    )}
+                  </div>
+                  <div className="flex-none text-right space-y-1">
+                    {expiresAt && (
+                      <p style={{ color: T3, fontSize: 11 }}>
+                        {tt('Expire le', 'Expires')} {new Date(expiresAt).toLocaleDateString(language)}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => handleRevoke(group)}
+                      disabled={revoking === inv.email}
+                      style={{ color: T3, fontSize: 12, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                    >
+                      {revoking === inv.email ? tt('Révocation…', 'Revoking…') : tt('Révoquer', 'Revoke')}
+                    </button>
+                  </div>
+                </div>
+              </PromoCard>
+            );
+          })}
+        </div>
+      )}
+
       {loading ? (
         <div className="py-10 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
       ) : filtered.length === 0 ? (
-        <PromoEmpty
-          icon={Users}
-          title={tt('Aucun promoteur', 'No promoters')}
-          description={tt('Invitez votre premier promoteur.', 'Invite your first promoter.')}
-        />
+        // Une invitation en attente au-dessus = l'équipe arrive : l'état vide
+        // « Invitez votre premier promoteur » serait un contresens.
+        inviteGroups.length === 0 ? (
+          <PromoEmpty
+            icon={Users}
+            title={tt('Aucun promoteur', 'No promoters')}
+            description={tt('Invitez votre premier promoteur.', 'Invite your first promoter.')}
+          />
+        ) : null
       ) : (
         <div className="space-y-2">
           {filtered.map(pg => {
