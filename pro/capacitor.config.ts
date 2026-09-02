@@ -19,7 +19,9 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     SplashScreen: {
-      launchAutoHide: true,
+      // Voir capacitor.config.ts (client) : le splash natif est tenu par Capgo
+      // le temps d'appliquer la MàJ OTA au premier lancement post-installation.
+      launchAutoHide: false,
       backgroundColor: '#050505',
     },
     CapacitorUpdater: {
@@ -27,7 +29,21 @@ const config: CapacitorConfig = {
       // MÊME zip de bundle est référencé que le B2C (stockage content-addressed),
       // mais l'app_id eu.yunoapp.pro a ses propres lignes ota_bundles/canaux, donc
       // on peut promouvoir/rollback Pro indépendamment. Voir docs/OTA_CAPGO.md.
-      autoUpdate: true,
+      // `atInstall` : au TOUT PREMIER lancement après une installation depuis
+      // l'App Store (ou une MàJ native), le bundle OTA est téléchargé ET
+      // appliqué AVANT que l'utilisateur voie l'app — plus besoin de fermer et
+      // rouvrir. Ensuite, comportement normal (`atBackground`) : téléchargement
+      // au premier plan, application au passage en arrière-plan, donc aucun
+      // délai sur les lancements quotidiens.
+      autoUpdate: 'atInstall',
+      // Le splash natif couvre ce téléchargement (17-18 Mo) au lieu de laisser
+      // flasher l'ancien bundle embarqué puis recharger.
+      autoSplashscreen: true,
+      autoSplashscreenLoader: true,
+      // Réseau lent : au-delà de 12 s on rend la main, le téléchargement finit
+      // en arrière-plan et s'applique au prochain démarrage (= comportement
+      // d'avant). Jamais de splash bloqué.
+      autoSplashscreenTimeout: 12000,
       updateUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-updates',
       statsUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-stats',
       channelUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-channel',

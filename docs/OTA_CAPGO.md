@@ -14,7 +14,7 @@ Auto-hébergé sur Supabase : **aucun abonnement Capgo Cloud**.
 ## Comment ça marche
 
 ```
- App installée (plugin @capgo/capacitor-updater, autoUpdate:true)
+ App installée (plugin @capgo/capacitor-updater, autoUpdate:'atInstall')
         │  au lancement / retour au 1er plan : POST InfoObject
         ▼
  ┌───────────────────────────────────────────────────────────────┐
@@ -24,7 +24,10 @@ Auto-hébergé sur Supabase : **aucun abonnement Capgo Cloud**.
  │   → répond { version, url, checksum }  ou  "no_new_version"   │
  └───────────────────────────────────────────────────────────────┘
         │  si MàJ : télécharge le zip depuis Storage `ota-bundles`
-        │  vérifie SHA-256 == checksum, applique au prochain démarrage
+        │  vérifie SHA-256 == checksum, puis applique :
+        │    · 1er lancement après installation / MàJ App Store → TOUT DE SUITE
+        │      (splash natif tenu par le plugin, voir plus bas)
+        │    · les autres fois → au prochain passage en arrière-plan
         ▼
  notifyAppReady()  (NativeBridge.tsx) confirme que le bundle démarre.
    Sans cet appel sous ~10s → ROLLBACK AUTO au bundle précédent.
@@ -160,18 +163,41 @@ script **saute** une publication si le bundle actif a déjà le même contenu
 Le bundle web embarqué dans le binaire App Store se déclare **toujours**
 `version_name = "builtin"` (constante `ID_BUILTIN` du plugin), jamais son numéro
 de version. Conséquence : dès qu'un bundle est **actif en production**, une
-nouvelle installation le télécharge **une fois** (en arrière-plan, non bloquant :
-le 1er lancement utilise le bundle baké, la MàJ s'applique au lancement suivant),
-même si le contenu est identique.
+nouvelle installation le télécharge **une fois**, même si le contenu est
+identique.
 
-Deux postures, au choix :
-- **Production active en permanence** (état actuel) : chaque install fait un
-  download OTA initial. Garantit que tout le monde tourne sur le bundle servi.
-- **Production vide entre deux vraies MàJ** : les installs utilisent le bundle
-  baké, zéro download tant qu'aucun `ota:publish` n'a livré de nouveauté. Pour
-  revenir à cet état : désactiver le bundle actif (ré-publier plus tard livrera
-  la 1re vraie MàJ). Utile si on veut éviter tout transfert redondant tant que le
-  contenu OTA == le contenu baké.
+**Ce téléchargement est appliqué avant le premier écran** (`autoUpdate:
+'atInstall'`, réglé dans `capacitor.config.ts` ET `pro/capacitor.config.ts`).
+Sans ça — c'était le comportement jusqu'au 2026-09-02 — le premier lancement
+tournait sur le bundle baké et la MàJ n'arrivait qu'après avoir fermé puis
+rouvert l'app : quelqu'un qui installe l'app le jour de la publication voyait
+d'abord le code du jour de la soumission (jusqu'à plusieurs semaines de retard).
+
+Les quatre réglages qui portent ce comportement, à ne pas dissocier :
+
+| Réglage | Valeur | Rôle |
+|---------|--------|------|
+| `CapacitorUpdater.autoUpdate` | `'atInstall'` | Applique tout de suite **uniquement** après une install / MàJ store. Les lancements suivants gardent le comportement `atBackground` → aucun délai au démarrage quotidien. |
+| `CapacitorUpdater.autoSplashscreen` | `true` | Le plugin tient le splash natif pendant le téléchargement, puis le cache. Sans lui, on verrait l'ancien bundle s'afficher puis l'app se recharger. |
+| `CapacitorUpdater.autoSplashscreenLoader` | `true` | Indicateur de chargement natif par-dessus le splash (le zip fait ~17-18 Mo). |
+| `SplashScreen.launchAutoHide` | `false` | **Requis** : sinon le splash disparaît tout seul et `autoSplashscreen` n'a plus rien à tenir. Le splash est caché par le plugin quand le bundle appelle `notifyAppReady()`, quel que soit le résultat de la MàJ. |
+
+Filet de sécurité : `autoSplashscreenTimeout: 12000`. Réseau lent, au-delà de
+12 s → le splash est rendu, le téléchargement finit en arrière-plan et
+s'applique au prochain démarrage (exactement l'ancien comportement). Un splash
+bloqué n'est donc pas un mode d'échec possible. Deuxième garde, natif aussi :
+`appReadyTimeout` (10 s) libère l'attente si le bundle n'appelle jamais
+`notifyAppReady()`.
+
+⚠️ **Ces réglages vivent dans le binaire, pas dans le bundle web** :
+`capacitor.config.json` est à la racine de `App.app`, à côté (et non dedans) du
+dossier `public/` que l'OTA remplace. Les modifier n'a d'effet qu'à partir de la
+**prochaine version publiée sur l'App Store** — jamais sur les apps déjà
+installées.
+
+Reste vrai : plus le binaire soumis est récent, moins il y a à télécharger au
+premier lancement. Publier le build depuis le code du jour reste la meilleure
+façon de rendre ce premier lancement instantané.
 
 Le numéro `native_version` (garde anti-downgrade), lui, vient bien de la
 `MARKETING_VERSION` native (`version_build`), indépendant de ce `"builtin"`.
