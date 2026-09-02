@@ -149,6 +149,13 @@ interprété (JS/HTML/CSS) est livré, jamais du natif.
   script ou les fonctions.
 - **⚠️ Avant toute soumission App Store** : `npm run cap:sync` + `cap:sync:pro`
   pour compiler les `updateUrl` dans le JSON natif — sinon l'OTA est muet.
+- **Le 1er lancement après installation applique l'OTA AVANT le premier écran**
+  (`autoUpdate: 'atInstall'` + `autoSplashscreen` + `SplashScreen.launchAutoHide:
+  false`, les trois indissociables, dans les DEUX `capacitor.config.ts`). Sans
+  ça il fallait fermer et rouvrir l'app pour voir la version à jour. Ces
+  réglages vivent dans le binaire (`capacitor.config.json` est à côté de
+  `public/`, pas dedans) : les changer n'a d'effet qu'à la prochaine version
+  publiée, jamais sur les apps déjà installées.
 - **Les `VITE_*` des builds Xcode Cloud viennent de `scripts/ci-web-env.sh`
   (committé), jamais de l'UI Xcode Cloud.** Le 25/08, Apple a rejeté le
   build 28 : les env vars du workflow avaient disparu (édition du 14/08) et le
@@ -317,6 +324,13 @@ pour Excel FR/ES).
   d'un flux existant) DOIT mettre à jour le mode d'emploi owner (`/owner/help`) dans le
   même chantier — clés `ohelp.*` dans `src/i18n/data.ts` (les 3 langues EN/FR/ES) et
   structure dans `src/data/ownerHelpContent.ts`. Une feature sans doc n'est pas finie.
+- **Toute capture d'écran d'aide entre en WebP, largeur ≤ 1280 px** :
+  `cwebp -q 85 -m 6 -resize 1280 0 in.png -o out.webp`, et on ne commite JAMAIS
+  une capture pleine page d'une longue liste (garder l'en-tête + une dizaine de
+  lignes). `public/help/` est embarqué dans le bundle OTA que CHAQUE app
+  télécharge à sa première ouverture : 50 captures PNG y pesaient 12 Mo sur les
+  17,5 Mo du zip (une seule faisait 1440 × 67 221 px). Après conversion :
+  1,9 Mo, zip à 8,3 Mo. Le SW web, lui, ignore déjà `help/**` (`globIgnores`).
 
 ## CRM club v2 (segments, attribution, automations — 2026-08-28)
 
