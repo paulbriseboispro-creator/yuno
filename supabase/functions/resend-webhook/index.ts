@@ -116,75 +116,50 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, suppressed: isHardBounce || evt === 'complained' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Le svix-id est stable à travers les retries d'une même livraison :
+    // l'index unique fait échouer l'insert du doublon (23505) et on s'arrête
+    // là — sans lui, une rafale de retries dupliquait les lignes et faussait
+    // les compteurs.
     const { error: insertErr } = await admin.from('email_campaign_events').insert({
       campaign_id: campaignId,
       recipient_email: recipient || 'unknown',
       event_type: evt,
       resend_email_id: resendEmailId,
+      svix_id: req.headers.get('svix-id'),
       metadata: data,
     });
+    if (insertErr?.code === '23505') {
+      return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
     if (insertErr) console.error('email_campaign_events insert failed:', insertErr.message);
 
     // ── Compteurs de campagne ───────────────────────────────────────────────
-    // delivered / bounced / complained alimentent le disjoncteur : ils doivent
-    // être exacts, donc comptés une seule fois par destinataire.
-    if (evt === 'delivered' || evt === 'bounced' || evt === 'complained') {
-      const { count } = await admin
-        .from('email_campaign_events')
-        .select('id', { count: 'exact', head: true })
+    // RECALCULÉS depuis les événements (destinataires uniques de la file, les
+    // tests exclus) — jamais incrémentés : le pattern « compter puis +1 »
+    // perdait des unités sous les livraisons concurrentes.
+    const { error: recountErr } = await admin.rpc('recount_campaign_email_counters', { p_campaign_id: campaignId });
+    if (recountErr) console.error('recount_campaign_email_counters failed:', recountErr.message);
+
+    if (recipient && (evt === 'bounced' || evt === 'complained')) {
+      // `.eq` en minuscules, PAS `.ilike` : dans un motif LIKE, le `_` d'une
+      // adresse (jean_bon@x.fr) est un joker et marquerait le mauvais
+      // destinataire. La file stocke déjà les adresses en minuscules
+      // (enqueue_campaign_recipients normalise), donc l'égalité suffit.
+      await admin.from('email_campaign_recipients')
+        .update({ status: evt })
         .eq('campaign_id', campaignId)
-        .eq('event_type', evt)
-        .eq('recipient_email', recipient);
-
-      if (count === 1) {
-        const column = evt === 'delivered' ? 'delivered_count' : evt === 'bounced' ? 'bounced_count' : 'complained_count';
-        const { data: c } = await admin.from('email_campaigns').select(column).eq('id', campaignId).single();
-        await admin.from('email_campaigns')
-          .update({ [column]: Number((c as Record<string, unknown> | null)?.[column] || 0) + 1 })
-          .eq('id', campaignId);
-      }
-
-      if (recipient && (evt === 'bounced' || evt === 'complained')) {
-        // `.eq` en minuscules, PAS `.ilike` : dans un motif LIKE, le `_` d'une
-        // adresse (jean_bon@x.fr) est un joker et marquerait le mauvais
-        // destinataire. La file stocke déjà les adresses en minuscules
-        // (enqueue_campaign_recipients normalise), donc l'égalité suffit.
-        await admin.from('email_campaign_recipients')
-          .update({ status: evt })
-          .eq('campaign_id', campaignId)
-          .eq('email', String(recipient).toLowerCase());
-      }
-
-      // Disjoncteur : c'est ICI qu'il compte vraiment. Les signaux arrivent en
-      // différé, donc une campagne encore en vol peut se couper toute seule
-      // avant d'avoir vidé la file.
-      if (evt === 'bounced' || evt === 'complained') {
-        try {
-          const { data: verdict } = await admin.rpc('campaign_circuit_breaker', { p_campaign_id: campaignId });
-          if (verdict?.paused) {
-            console.warn(`circuit breaker: campagne ${campaignId} en pause (${verdict.reason})`);
-          }
-        } catch (e) {
-          console.error('circuit breaker failed:', e);
-        }
-      }
+        .eq('email', String(recipient).toLowerCase());
     }
 
-    // Ouvertures / clics : premier événement par destinataire seulement.
-    if (evt === 'opened') {
-      const { count } = await admin
-        .from('email_campaign_events')
-        .select('id', { count: 'exact', head: true })
-        .eq('campaign_id', campaignId)
-        .eq('event_type', 'opened')
-        .eq('recipient_email', recipient);
-      if (count === 1) {
-        const { data: c } = await admin.from('email_campaigns').select('opens_count').eq('id', campaignId).single();
-        await admin.from('email_campaigns').update({ opens_count: (c?.opens_count || 0) + 1 }).eq('id', campaignId);
+    // Disjoncteur : c'est ICI qu'il compte vraiment. Les signaux arrivent en
+    // différé, donc une campagne encore en vol peut se couper toute seule
+    // avant d'avoir vidé la file.
+    if (evt === 'bounced' || evt === 'complained') {
+      const { data: verdict, error: breakerErr } = await admin.rpc('campaign_circuit_breaker', { p_campaign_id: campaignId });
+      if (breakerErr) console.error('circuit breaker failed:', breakerErr.message);
+      if (verdict?.paused) {
+        console.warn(`circuit breaker: campagne ${campaignId} en pause (${verdict.reason})`);
       }
-    } else if (evt === 'clicked') {
-      const { data: c } = await admin.from('email_campaigns').select('clicks_count').eq('id', campaignId).single();
-      await admin.from('email_campaigns').update({ clicks_count: (c?.clicks_count || 0) + 1 }).eq('id', campaignId);
     }
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
