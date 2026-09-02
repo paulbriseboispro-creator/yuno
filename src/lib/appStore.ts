@@ -13,7 +13,7 @@ export const APP_STORE_ID = '6799487527';
 export const APP_STORE_URL = `https://apps.apple.com/app/id${APP_STORE_ID}`;
 
 /** ⬅️ Passer à true dès que l'app client est approuvée par Apple. */
-export const APP_STORE_READY = false;
+export const APP_STORE_READY = true;
 
 /** iPhone / iPad (iPadOS 13+ se déclare MacIntel mais garde le multi-touch). */
 export function isIOSDevice(): boolean {
