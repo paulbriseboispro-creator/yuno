@@ -44,19 +44,39 @@ import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
 import { publishNextEventFromTickets } from '@/lib/widgetData';
 
+// ── Instantané du dernier chargement, par utilisateur (stale-while-revalidate) ──
+// Revenir sur l'onglet Commandes affichait un squelette complet à CHAQUE fois,
+// le temps de rejouer ~15 requêtes. On garde en mémoire (module, donc pour la
+// durée de la session) ce qui a été affiché la dernière fois : réouverture
+// instantanée, et les requêtes rafraîchissent en arrière-plan.
+type OrdersSnapshot = {
+  orders: Order[];
+  tickets: TicketWithDetails[];
+  vipReservations: VipReservationWithDetails[];
+  guestListEntries: GuestListEntryWithDetails[];
+  waitlistEntries: WaitlistEntryRow[];
+  loyaltyPoints: Record<string, number>;
+  pendingRewards: PendingReward[];
+  drinkImages: Record<string, string>;
+  venueBarCounts: Record<string, number>;
+};
+type WaitlistEntryRow = { id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string };
+const ordersSnapshot = new Map<string, OrdersSnapshot>();
+
 export default function MyOrders() {
   const { user, loading: authLoading } = useAuth();
+  const snap = user ? ordersSnapshot.get(user.id) : undefined;
   const { language, t } = useLanguage();
   const { isAppleDevice } = useWalletDetection();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [tickets, setTickets] = useState<TicketWithDetails[]>([]);
-  const [vipReservations, setVipReservations] = useState<VipReservationWithDetails[]>([]);
-  const [guestListEntries, setGuestListEntries] = useState<GuestListEntryWithDetails[]>([]);
-  const [drinkImages, setDrinkImages] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>(() => snap?.orders ?? []);
+  const [tickets, setTickets] = useState<TicketWithDetails[]>(() => snap?.tickets ?? []);
+  const [vipReservations, setVipReservations] = useState<VipReservationWithDetails[]>(() => snap?.vipReservations ?? []);
+  const [guestListEntries, setGuestListEntries] = useState<GuestListEntryWithDetails[]>(() => snap?.guestListEntries ?? []);
+  const [drinkImages, setDrinkImages] = useState<Record<string, string>>(() => snap?.drinkImages ?? {});
+  const [loading, setLoading] = useState(!snap);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [editItems, setEditItems] = useState<OrderItem[]>([]);
   const [showArchivedTickets, setShowArchivedTickets] = useState(false);
@@ -68,12 +88,12 @@ export default function MyOrders() {
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
   const [ticketToCancel, setTicketToCancel] = useState<TicketWithDetails | null>(null);
   const [cancellingTicket, setCancellingTicket] = useState(false);
-  const [loyaltyPoints, setLoyaltyPoints] = useState<Record<string, number>>({});
-  const [pendingRewards, setPendingRewards] = useState<PendingReward[]>([]);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<Record<string, number>>(() => snap?.loyaltyPoints ?? {});
+  const [pendingRewards, setPendingRewards] = useState<PendingReward[]>(() => snap?.pendingRewards ?? []);
   const [selectedReward, setSelectedReward] = useState<PendingReward | null>(null);
   const [barSelectionOrder, setBarSelectionOrder] = useState<Order | null>(null);
   const [prepWithItemsBarOrder, setPrepWithItemsBarOrder] = useState<{ order: Order; indices: number[] } | null>(null);
-  const [venueBarCounts, setVenueBarCounts] = useState<Record<string, number>>({});
+  const [venueBarCounts, setVenueBarCounts] = useState<Record<string, number>>(() => snap?.venueBarCounts ?? {});
   const [selectedGuestEntry, setSelectedGuestEntry] = useState<GuestListEntryWithDetails | null>(null);
   // When we land here from a "View event" round-trip (Back), an opaque cover
   // hides the list until the restored overlay is on screen — no list flash,
@@ -82,7 +102,13 @@ export default function MyOrders() {
     () => ['ticket_id', 'reservation_id', 'guest_id', 'reward_id'].some(k => searchParams.get(k))
       && searchParams.get('success') !== 'true',
   );
-  const [waitlistEntries, setWaitlistEntries] = useState<{ id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string }[]>([]);
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntryRow[]>(() => snap?.waitlistEntries ?? []);
+
+  // Mémorise l'état affiché pour la prochaine ouverture (voir ordersSnapshot).
+  useEffect(() => {
+    if (!user || loading) return;
+    ordersSnapshot.set(user.id, { orders, tickets, vipReservations, guestListEntries, waitlistEntries, loyaltyPoints, pendingRewards, drinkImages, venueBarCounts });
+  }, [user, loading, orders, tickets, vipReservations, guestListEntries, waitlistEntries, loyaltyPoints, pendingRewards, drinkImages, venueBarCounts]);
   const [seg, setSeg] = useState<OrderBucket>('pending');
   // Guest purchases claimed via /claim and saved to this device's local cache.
   const [guestTickets, setGuestTickets] = useState<GuestTicket[]>([]);

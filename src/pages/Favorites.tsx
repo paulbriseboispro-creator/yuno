@@ -15,6 +15,7 @@ import { FavoritePosterCard } from '@/components/favorites/FavoritePosterCard';
 import { FavoriteListRow } from '@/components/favorites/FavoriteListRow';
 import { FavoritesHeader } from '@/components/favorites/FavoritesHeader';
 import { D, shuffleSeed, formatCompact, FILTER_OF_KIND, type FavItem, type Filter } from '@/components/favorites/shared';
+import { useAuth } from '@/hooks/useAuth';
 
 /* Upcoming-events label, pluralised + interpolated (t() returns the raw string). */
 function upcomingNightsLabel(n: number, t: (k: string) => string): string {
@@ -220,6 +221,13 @@ function DiscoverCTA({ title, desc, onClick }: { title: string; desc: string; on
   );
 }
 
+type FavoritesSnapshot = {
+  venues: FavoriteVenue[]; events: FavoriteEvent[]; drinks: FavoriteDrink[]; djs: FavoriteDJ[];
+  followedOrganizers: FollowedOrganizer[]; followedAgencies: FollowedAgency[];
+  upcomingByEntity: Record<string, number>; djFollowers: Record<string, number>;
+};
+const favoritesSnapshot = new Map<string, FavoritesSnapshot>();
+
 /* ── Skeleton ──
    Un spinner ne dit rien : il tourne au centre d'un écran noir et l'utilisateur
    attend sans savoir ce qui arrive. Le skeleton dessine déjà la mosaïque, donc la
@@ -284,16 +292,26 @@ export default function Favorites() {
     return localStorage.getItem('yuno.favorites.view') === 'list' ? 'list' : 'grid';
   });
 
-  const [venues, setVenues] = useState<FavoriteVenue[]>([]);
-  const [events, setEvents] = useState<FavoriteEvent[]>([]);
-  const [drinks, setDrinks] = useState<FavoriteDrink[]>([]);
-  const [djs, setDJs] = useState<FavoriteDJ[]>([]);
-  const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
-  const [followedAgencies, setFollowedAgencies] = useState<FollowedAgency[]>([]);
+  // Instantané du dernier affichage (stale-while-revalidate, voir MyOrders) :
+  // revenir sur l'onglet Favoris est instantané, le réseau rafraîchit derrière.
+  const { user: authUser } = useAuth();
+  const snapKey = authUser?.id ?? 'anon';
+  const snap = favoritesSnapshot.get(snapKey);
+  const [venues, setVenues] = useState<FavoriteVenue[]>(() => snap?.venues ?? []);
+  const [events, setEvents] = useState<FavoriteEvent[]>(() => snap?.events ?? []);
+  const [drinks, setDrinks] = useState<FavoriteDrink[]>(() => snap?.drinks ?? []);
+  const [djs, setDJs] = useState<FavoriteDJ[]>(() => snap?.djs ?? []);
+  const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>(() => snap?.followedOrganizers ?? []);
+  const [followedAgencies, setFollowedAgencies] = useState<FollowedAgency[]>(() => snap?.followedAgencies ?? []);
   // Upcoming-events count per club id / organizer user id (keys never collide — both UUIDs).
-  const [upcomingByEntity, setUpcomingByEntity] = useState<Record<string, number>>({});
-  const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const [upcomingByEntity, setUpcomingByEntity] = useState<Record<string, number>>(() => snap?.upcomingByEntity ?? {});
+  const [djFollowers, setDjFollowers] = useState<Record<string, number>>(() => snap?.djFollowers ?? {});
+  const [loading, setLoading] = useState(!snap);
+
+  useEffect(() => {
+    if (loading) return;
+    favoritesSnapshot.set(snapKey, { venues, events, drinks, djs, followedOrganizers, followedAgencies, upcomingByEntity, djFollowers });
+  }, [snapKey, loading, venues, events, drinks, djs, followedOrganizers, followedAgencies, upcomingByEntity, djFollowers]);
 
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
