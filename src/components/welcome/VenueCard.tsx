@@ -68,7 +68,7 @@ const VenueCard = ({
               height={270}
               loading={priority ? 'eager' : 'lazy'}
               decoding={priority ? 'sync' : 'async'}
-              fetchpriority={priority ? 'high' : undefined}
+              {...(priority ? ({ fetchpriority: 'high' } as Record<string, string>) : {})}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
             />
             <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.10)' }} />

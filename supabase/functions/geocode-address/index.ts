@@ -35,12 +35,13 @@ serve(async (req) => {
         return new Response(JSON.stringify({ skipped: true, reason: "lookup_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const update: Record<string, unknown> = {};
+      // Seules les colonnes qui EXISTENT sur visitor_sessions (country, region,
+      // city) : country_code / latitude / longitude n'y ont jamais été ajoutées
+      // et faisaient échouer l'UPDATE — 500 « Unknown error » sur chaque
+      // nouvelle session, donc aucun pays jamais enregistré.
       if (geo.country_name) update.country = geo.country_name;
-      if (geo.country) update.country_code = geo.country;
       if (geo.region) update.region = geo.region;
       if (geo.city) update.city = geo.city;
-      if (geo.latitude) update.latitude = geo.latitude;
-      if (geo.longitude) update.longitude = geo.longitude;
       if (Object.keys(update).length === 0) {
         return new Response(JSON.stringify({ skipped: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }

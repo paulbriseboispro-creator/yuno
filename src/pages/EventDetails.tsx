@@ -568,6 +568,11 @@ export default function EventDetails() {
     }
     let cancelled = false;
     const translate = async () => {
+      // La fonction exige un utilisateur connecté (elle coûte un appel OpenAI
+      // par vue) : un visiteur anonyme lit la description d'origine, sans
+      // requête vouée à l'échec ni spinner.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || cancelled) return;
       setTranslatingDesc(true);
       try {
         const { data, error } = await supabase.functions.invoke('translate-text', {
@@ -782,7 +787,7 @@ export default function EventDetails() {
           <img
             src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
             alt={event.title}
-            fetchPriority="high"
+            {...({ fetchpriority: "high" } as Record<string, string>)}
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
         ) : (
