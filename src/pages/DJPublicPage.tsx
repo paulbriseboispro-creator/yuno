@@ -334,7 +334,7 @@ export default function DJPublicPage() {
               style={{ width: 92, height: 92, borderRadius: 14, border: '3px solid #0A0A0A', boxShadow: '0 0 0 1px rgba(255,255,255,0.12)', background: '#191919', marginTop: -62, marginBottom: 14, position: 'relative', zIndex: 10 }}
             >
               <img
-                src={dj.profile_image_url}
+                src={getOptimizedImageUrl(dj.profile_image_url, { width: 240, height: 240, quality: 80, resize: 'cover' })}
                 alt={djName}
                 className="w-full h-full object-cover object-top"
                 onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
@@ -583,7 +583,7 @@ export default function DJPublicPage() {
                 >
                   <div className="h-14 w-12 shrink-0 overflow-hidden" style={{ borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
                     {event.poster_url ? (
-                      <img src={event.poster_url} alt="" className="w-full h-full object-cover" />
+                      <img src={getOptimizedImageUrl(event.poster_url, { width: 96, height: 112, quality: 75, resize: 'cover' })} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Calendar className="h-4 w-4" style={{ color: '#5A5A5E' }} />

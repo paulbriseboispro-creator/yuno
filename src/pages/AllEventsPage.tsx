@@ -11,6 +11,8 @@ import { eventTargetPath } from '@/lib/eventNavigation';
 import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { Seo } from '@/components/Seo';
 import { PublicPage } from '@/components/PublicPage';
+import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -723,9 +725,11 @@ function EventRow({ event }: { event: EventCardData }) {
       {/* Thumbnail */}
       <div style={{ position: 'relative', width: 72, height: 72, borderRadius: 4, overflow: 'hidden', background: '#191919', flexShrink: 0 }}>
         {event.posterUrl ? (
-          <img
-            src={event.posterUrl}
+          <FadeImage
+            src={cardImage(event.posterUrl, 160)}
             alt={event.title}
+            loading="lazy"
+            decoding="async"
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
           />
         ) : (

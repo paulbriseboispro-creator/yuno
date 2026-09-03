@@ -727,8 +727,10 @@ export default function OrganizerPublicProfile() {
                   <div className="h-14 w-12 shrink-0 overflow-hidden" style={{ borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
                     {event.poster_url ? (
                       <img
-                        src={event.poster_url}
+                        src={getOptimizedImageUrl(event.poster_url, { width: 96, height: 112, quality: 75, resize: 'cover' })}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     ) : (
