@@ -72,7 +72,11 @@ export function cityFromUrl(search: string = window.location.search): string | n
 export function setManualLocation(city: string, coords?: Coords): void {
   localStorage.setItem(CITY_KEY, city);
   sessionStorage.setItem(MANUAL_CITY_KEY, city);
+  // Une ville SANS coordonnées efface celles de la ville précédente : le rayon
+  // de 50 km prime sur le nom de ville dans le filtrage, et garder les anciennes
+  // coordonnées faisait afficher les soirées de Madrid sous le titre « Paris ».
   if (coords) sessionStorage.setItem(MANUAL_COORDS_KEY, JSON.stringify(coords));
+  else sessionStorage.removeItem(MANUAL_COORDS_KEY);
   void persistCityToProfile(city);
 }
 

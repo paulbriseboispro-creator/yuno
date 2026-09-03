@@ -463,7 +463,8 @@ export default function Explore() {
   const handleCityChange = (newCity: string, coords?: { lat: number; lng: number }) => {
     setCity(newCity);
     setManualLocation(newCity, coords);
-    if (coords) setUserLocation(coords);
+    // Pas de coordonnées = la ville fait foi (jamais les coordonnées de l'ancienne).
+    setUserLocation(coords ?? null);
     // Nouvelle ville = nouveau feed : on repart du haut, comme une app native.
     mainRef.current?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
