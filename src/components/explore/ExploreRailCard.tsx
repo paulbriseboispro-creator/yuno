@@ -8,6 +8,7 @@ import { EventCardData } from './EventCard';
 import { eventPriceLabel as priceLabel } from '@/lib/eventPriceLabel';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : enUS);
 
@@ -58,7 +59,7 @@ export function ExploreRailCard({ event }: { event: EventCardData }) {
       {/* Image area — carré 1:1 */}
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
-          <img
+          <FadeImage
             src={cardImage(event.posterUrl, 480)}
             alt={event.title}
             loading="lazy"

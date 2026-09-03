@@ -7,6 +7,7 @@ import { EventCardData } from './EventCard';
 import { eventPriceLabel as priceLabel } from '@/lib/eventPriceLabel';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 
 
@@ -53,7 +54,7 @@ export function ExploreListRow({ event }: { event: EventCardData }) {
         style={{ width: 74, height: 74, borderRadius: '14px' }}
       >
         {event.posterUrl ? (
-          <img
+          <FadeImage
             src={cardImage(event.posterUrl, 160)}
             alt={event.title}
             loading="lazy"

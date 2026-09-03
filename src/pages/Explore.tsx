@@ -35,6 +35,9 @@ import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubC
 import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { FadeInView } from '@/components/motion';
+import { motion } from 'framer-motion';
+import { transitions } from '@/lib/motion';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useForYouFeed } from '@/hooks/useForYouFeed';
 import { useZoneDensity } from '@/hooks/useZoneDensity';
 import { ExploreForYouRail } from '@/components/explore/ExploreForYouRail';
@@ -243,6 +246,18 @@ export default function Explore() {
     enabled: dayOutside,
     placeholderData: keepPreviousData,
   });
+
+  // Tirer vers le bas pour rafraîchir (tactile) : invalide catalogue, densité
+  // et « Pour toi » — react-query recharge en arrière-plan, le feed reste
+  // affiché, l'indicateur se retire quand tout est revenu.
+  const { pull, refreshing, threshold } = usePullToRefresh(mainRef, () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['explore-catalog'] }),
+      queryClient.invalidateQueries({ queryKey: ['zone-density-source'] }),
+      queryClient.invalidateQueries({ queryKey: ['for-you'] }),
+      queryClient.invalidateQueries({ queryKey: ['public-favorite-counts'] }),
+    ]),
+  );
 
   // Squelette : uniquement tant que RIEN n'est encore affichable (premier
   // chargement). Ensuite le contenu reste à l'écran et se remplace en place.
@@ -744,6 +759,33 @@ export default function Explore() {
         className="flex-1 overflow-y-auto"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 168px)' }}
       >
+        {/* ── Indicateur « tirer pour rafraîchir » : descend avec le doigt (friction),
+            tourne pendant le rechargement, se retire en ressort. transform/opacity
+            seulement. ── */}
+        <div
+          aria-hidden
+          className="pointer-events-none flex justify-center"
+          style={{
+            height: 0,
+            overflow: 'visible',
+            opacity: pull > 0 ? Math.min(1, pull / threshold) : 0,
+            transform: `translateY(${pull - 36}px)`,
+            transition: refreshing || pull === 0 ? 'transform 260ms cubic-bezier(0.16,1,0.3,1), opacity 200ms ease' : 'none',
+          }}
+        >
+          <div
+            className={refreshing ? 'animate-spin' : undefined}
+            style={{
+              width: 28, height: 28, borderRadius: 999,
+              background: '#141414', border: '1px solid rgba(255,255,255,0.10)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transform: refreshing ? undefined : `rotate(${Math.min(1, pull / threshold) * 270}deg) scale(${0.6 + Math.min(1, pull / threshold) * 0.4})`,
+            }}
+          >
+            <div style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid rgba(255,255,255,0.15)', borderTopColor: '#E8192C' }} />
+          </div>
+        </div>
 
         {/* ── Chip filter row (feed standard uniquement) ── */}
         {(pageLoading || density.status === 'full') && (
@@ -800,11 +842,20 @@ export default function Explore() {
             {activeMoment && <ExploreMomentBanner moment={activeMoment} />}
 
             {/* ═══ MODULE 1 : Carrousel de toutes les soirées de la période ═══ */}
-            <ExploreEventCarousel
-              events={carouselEvents}
-              city={city}
-              periodLabel={periodLabel}
-            />
+            {/* Changement de période (Ce soir → Demain) : le carrousel fond
+                en 180 ms plutôt que de se remplacer sec. */}
+            <motion.div
+              key={periodLabel}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={transitions.pop}
+            >
+              <ExploreEventCarousel
+                events={carouselEvents}
+                city={city}
+                periodLabel={periodLabel}
+              />
+            </motion.div>
 
             {/* ═══ MODULE 1bis : « Pour toi » — module de reco autonome ═══
                 Se masque tout seul quand rien ne passe sa porte. */}

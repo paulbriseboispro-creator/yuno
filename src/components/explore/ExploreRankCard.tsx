@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { EventCardData } from './EventCard';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNavigate>) {
   navigate(eventTargetPath(event));
@@ -43,7 +44,7 @@ export function ExploreRankCard({ event, rank }: { event: EventCardData; rank: n
       {/* Image carrée (1:1) avec numéro en overlay */}
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
-          <img
+          <FadeImage
             src={cardImage(event.posterUrl, 400)}
             alt={event.title}
             loading="lazy"

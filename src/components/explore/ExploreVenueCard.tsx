@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 export interface ExploreVenueItem {
   id: string;
@@ -47,7 +48,7 @@ export function ExploreVenueCard({ venue }: { venue: ExploreVenueItem }) {
         style={{ height: 148, borderRadius: '16px' }}
       >
         {imgSrc ? (
-          <img
+          <FadeImage
             src={imgSrc}
             alt={venue.name}
             loading="lazy"

@@ -71,7 +71,15 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
       label: t('nav.exploreTab') || 'Explorer',
       icon: Search,
       isActive: path === '/' || path === '/explore',
-      onSelect: () => navigate('/'),
+      // Re-tap sur l'onglet déjà actif = remonter en haut (geste iOS).
+      onSelect: () => {
+        if (path === '/' || path === '/explore') {
+          document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        navigate('/');
+      },
     },
     {
       key: 'favorites',

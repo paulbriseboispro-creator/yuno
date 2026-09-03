@@ -8,6 +8,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { format } from 'date-fns';
+import { FadeImage } from '@/components/ui/fade-image';
 
 export interface EventCardData {
   id: string;
@@ -87,7 +88,7 @@ export function EventCard({ event }: { event: EventCardData }) {
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1/1' }}>
         {posterSrc ? (
           <>
-            <img
+            <FadeImage
               src={posterSrc}
               alt={event.title}
               className="event-card-img h-full w-full object-cover"

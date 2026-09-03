@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { formatCompactCount } from '@/components/formater';
+import { FadeImage } from '@/components/ui/fade-image';
 
 export interface ExploreDJItem {
   id: string;
@@ -60,7 +61,7 @@ export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank?: number }
       {/* Portrait carré 1:1 + overlays */}
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {dj.profileImageUrl ? (
-          <img
+          <FadeImage
             src={getOptimizedImageUrl(dj.profileImageUrl, { width: 280, height: 280 })}
             alt={dj.stageName}
             loading="lazy"

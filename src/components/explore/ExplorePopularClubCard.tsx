@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 const FALLBACK_GRADIENTS = [
   'linear-gradient(145deg, #3b1158 0%, #0f0712 100%)',
@@ -63,7 +64,7 @@ export function ExplorePopularClubCard({ id, name, coverUrl, logoUrl, city, prim
       >
         {/* Background: photo or gradient */}
         {imgSrc ? (
-          <img
+          <FadeImage
             src={imgSrc}
             alt={name}
             loading="lazy"

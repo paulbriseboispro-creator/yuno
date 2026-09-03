@@ -8,6 +8,7 @@ import { EventCardData } from './EventCard';
 import { eventPriceLabel as priceLabel } from '@/lib/eventPriceLabel';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { cardImage } from '@/lib/imageOptimization';
+import { FadeImage } from '@/components/ui/fade-image';
 
 const dfLocale = (language: string) => (language === 'fr' ? fr : language === 'es' ? es : enUS);
 
@@ -60,7 +61,7 @@ function CarouselCard({ event }: { event: EventCardData }) {
       {/* Image zone — carré 1:1 */}
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
-          <img
+          <FadeImage
             src={cardImage(event.posterUrl, 720)}
             alt={event.title}
             decoding="async"
@@ -193,7 +194,7 @@ function HeroCard({ event }: { event: EventCardData }) {
       style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 18px 40px -20px rgba(0,0,0,0.7)', aspectRatio: '1 / 1' }}
     >
       {event.posterUrl ? (
-        <img src={cardImage(event.posterUrl, 720)} alt={event.title} decoding="async" className="absolute inset-0 w-full h-full object-cover" />
+        <FadeImage src={cardImage(event.posterUrl, 720)} alt={event.title} decoding="async" className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg,#1a0f12,#3a1020 70%,#0f0f12)' }} />
       )}
