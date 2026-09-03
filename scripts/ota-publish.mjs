@@ -101,8 +101,8 @@ function resolveApps(flag) {
 // changement natif (nouveau plugin, breaking change) = nouvelle famille :
 // ne PAS l'ajouter ici.
 const NATIVE_FAMILY = {
-  'eu.yunoapp.pro': { '1.0.1': '1.0' },
-  'eu.yunoapp.app': { '1.0.1': '1.0' },
+  'eu.yunoapp.pro': { '1.0.1': '1.0', '1.0.2': '1.0' },
+  'eu.yunoapp.app': { '1.0.1': '1.0', '1.0.2': '1.0' },
 };
 
 function nativeVersionOf(app) {
