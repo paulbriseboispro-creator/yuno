@@ -133,7 +133,7 @@ export function AvatarCropperDialog({ open, onOpenChange, imageFile, onCrop }: A
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Repositionner la photo</DialogTitle>
+          <DialogTitle>{t('profile.cropTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
@@ -150,7 +150,7 @@ export function AvatarCropperDialog({ open, onOpenChange, imageFile, onCrop }: A
             {imageSrc && (
               <img
                 src={imageSrc}
-                alt="Crop preview"
+                alt=""
                 onLoad={handleImageLoad}
                 draggable={false}
                 className="absolute pointer-events-none"
@@ -200,7 +200,7 @@ export function AvatarCropperDialog({ open, onOpenChange, imageFile, onCrop }: A
           {/* Reset */}
           <Button variant="ghost" size="sm" onClick={handleReset} className="text-xs">
             <RotateCcw className="h-3 w-3 mr-1" />
-            Réinitialiser
+            {t('profile.cropReset')}
           </Button>
         </div>
 
@@ -208,11 +208,11 @@ export function AvatarCropperDialog({ open, onOpenChange, imageFile, onCrop }: A
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={!imageLoaded}>
             <Check className="h-4 w-4 mr-1" />
-            Confirmer
+            {t('common.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

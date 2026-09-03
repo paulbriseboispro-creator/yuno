@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Camera, MapPin, Crown, Star, Sparkles, Settings, Share2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, MapPin, Crown, Star, Sparkles, Settings, Share2, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,15 @@ import type { UserBadge } from '@/hooks/useNightlifeProfile';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { AvatarCropperDialog } from '@/components/AvatarCropperDialog';
+import { compressImage } from '@/lib/compressImage';
+import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+
+// Une photo de téléphone moderne pèse 3 à 8 Mo : on la RÉDUIT sur l'appareil
+// avant de l'envoyer (fond 1600 px, ~250 Ko) — sinon l'envoi en 4G prend des
+// dizaines de secondes et l'image de fond met autant à se recharger. La porte
+// n'existe que pour les fichiers absurdes (décodage impossible en mémoire).
+const MAX_SOURCE_BYTES = 40 * 1024 * 1024;
+const BACKGROUND_MAX_WIDTH = 1600;
 
 interface ProfileHeaderProps {
   firstName: string | null;
@@ -40,6 +49,11 @@ export function ProfileHeader({
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
+  // Aperçu local immédiat (blob) : la nouvelle photo s'affiche à la seconde
+  // où le recadrage est validé, l'envoi se fait en coulisses.
+  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [previewBackground, setPreviewBackground] = useState<string | null>(null);
+  const [bgLoaded, setBgLoaded] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,7 +90,7 @@ export function ProfileHeader({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_SOURCE_BYTES) {
       toast.error(t('profile.photoTooLarge'));
       return;
     }
@@ -90,40 +104,58 @@ export function ProfileHeader({
   const handleCroppedUpload = async (croppedFile: File) => {
     if (!selectedFile) return;
     setUploading(true);
+    // Aperçu immédiat, avant tout réseau.
+    const localAvatar = URL.createObjectURL(croppedFile);
+    setPreviewAvatar(localAvatar);
     try {
-      // Upload original (full-size) for background
+      // Fond = photo d'origine réduite sur l'appareil (jamais l'original brut).
+      const background = await compressImage(selectedFile, BACKGROUND_MAX_WIDTH, 0.82);
+      const localBackground = URL.createObjectURL(background);
+      setPreviewBackground(localBackground);
+
       const originalPath = `${userId}/original.jpg`;
-      const { error: origError } = await supabase.storage
-        .from('profile-photos')
-        .upload(originalPath, selectedFile, { upsert: true });
-      if (origError) throw origError;
-
-      const { data: { publicUrl: originalPublicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(originalPath);
-
-      // Upload cropped for avatar circle
       const avatarPath = `${userId}/avatar.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(avatarPath, croppedFile, { upsert: true });
-      if (uploadError) throw uploadError;
+      const uploadOpts = { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' } as const;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(avatarPath);
+      // Les deux envois partent EN PARALLÈLE (l'un n'attend pas l'autre).
+      const [origRes, avatarRes] = await Promise.all([
+        supabase.storage.from('profile-photos').upload(originalPath, background, uploadOpts),
+        supabase.storage.from('profile-photos').upload(avatarPath, croppedFile, uploadOpts),
+      ]);
+      if (origRes.error) throw origRes.error;
+      if (avatarRes.error) throw avatarRes.error;
 
-      const avatarWithCache = `${publicUrl}?t=${Date.now()}`;
-      const bgWithCache = `${originalPublicUrl}?t=${Date.now()}`;
-      onAvatarUpdate(avatarWithCache, bgWithCache);
+      const { data: { publicUrl: originalPublicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(originalPath);
+      const { data: { publicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(avatarPath);
+
+      const stamp = Date.now();
+      onAvatarUpdate(`${publicUrl}?t=${stamp}`, `${originalPublicUrl}?t=${stamp}`);
       toast.success(t('profile.photoUpdated'));
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast.error(t('profile.photoError'));
+      setPreviewAvatar(null);
+      setPreviewBackground(null);
     } finally {
       setUploading(false);
     }
   };
+
+  // Les aperçus locaux cèdent la place aux URLs serveur dès qu'elles changent
+  // (et les blobs sont libérés).
+  useEffect(() => {
+    setPreviewAvatar((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setPreviewBackground((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setBgLoaded(false);
+  }, [avatarUrl, backgroundUrl]);
+
+  // Images servies redimensionnées (WebP) par le transform Supabase : l'avatar
+  // affiché en 128 px ne télécharge plus le fichier 512 px, et le fond de
+  // 380 px de haut ne charge plus une photo pleine résolution.
+  const shownAvatar = previewAvatar
+    ?? (avatarUrl ? getOptimizedImageUrl(avatarUrl, { width: 256, height: 256, quality: 80, resize: 'cover' }) : null);
+  const shownBackground = previewBackground
+    ?? ((backgroundUrl || avatarUrl) ? getOptimizedImageUrl(backgroundUrl || avatarUrl!, { width: 1080, quality: 70 }) : null);
 
   const getBadgeConfig = () => {
     switch (badge) {
@@ -145,12 +177,15 @@ export function ProfileHeader({
       {/* Immersive hero area */}
       <div className="relative" style={{ minHeight: '380px', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         {/* Background: original photo or gradient */}
-        {(backgroundUrl || avatarUrl) ? (
+        {shownBackground ? (
           <>
             <img
-              src={backgroundUrl || avatarUrl!}
+              src={shownBackground}
               alt=""
+              decoding="async"
+              onLoad={() => setBgLoaded(true)}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ opacity: bgLoaded || !!previewBackground ? 1 : 0, transition: 'opacity 400ms cubic-bezier(0.16,1,0.3,1)' }}
             />
             {/* Dark overlay gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/50 to-background" />
@@ -195,7 +230,7 @@ export function ProfileHeader({
             <div className="absolute inset-0 bg-primary/30 rounded-full blur-3xl scale-150 pointer-events-none" />
             
             <Avatar className="h-32 w-32 ring-2 ring-white/20 relative shadow-2xl">
-              <AvatarImage src={avatarUrl || undefined} alt={firstName || 'Profile'} />
+              <AvatarImage src={shownAvatar || undefined} alt={firstName || 'Profile'} />
               <AvatarFallback className="bg-primary/20 text-primary text-4xl font-bold">
                 {firstName?.charAt(0)?.toUpperCase() || '?'}
               </AvatarFallback>
@@ -208,7 +243,7 @@ export function ProfileHeader({
               className="absolute -bottom-1 -right-1 h-10 w-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center cursor-pointer hover:bg-white/20 transition-colors"
               disabled={uploading}
             >
-              <Camera className="h-4 w-4 text-white" />
+              {uploading ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Camera className="h-4 w-4 text-white" />}
             </button>
             <input
               ref={fileInputRef}

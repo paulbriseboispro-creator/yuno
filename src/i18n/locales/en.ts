@@ -2341,7 +2341,9 @@ const en: Record<string, string> = {
 
   // Profile Hub
   'profile.title': 'Profile',
-  'profile.photoTooLarge': 'Photo must be less than 5MB',
+  'profile.photoTooLarge': 'Photo too large (max 40 MB)',
+  'profile.cropTitle': 'Adjust your photo',
+  'profile.cropReset': 'Reset',
   'profile.photoUpdated': 'Photo updated!',
   'profile.photoError': 'Failed to upload photo',
   'profile.confirmDisable2FA': 'Are you sure you want to disable 2FA?',
