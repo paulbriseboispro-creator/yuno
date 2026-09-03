@@ -19,6 +19,7 @@ import type {
   TicketsBlock, TableBlock, CountdownBlock, SpacerBlock, HtmlBlock, DividerBlock,
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
+import { ticketsCtaLabel } from './live';
 import { interpolateVariables } from './variables';
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
@@ -295,13 +296,17 @@ function renderTicketRows(rows: TicketRow[], theme: EmailTheme, accent: string):
 
 function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
-  // Live branché : la base fait foi. Un événement SANS billetterie (guest list
-  // seule) efface le bloc — jamais de tarifs inventés depuis les placeholders.
+  // Live branché : la base fait foi. Les lignes couvrent les tranches de
+  // billetterie ET la liste invités publique. Vide = la soirée n'a AUCUNE
+  // entrée ouverte, le bloc s'efface — jamais de tarifs inventés.
   const rows = (b.live && live) ? (live.tickets || []) : b.rows;
   if (!rows || rows.length === 0) return '';
   const url = live?.url || ctx.baseUrl;
   const btnColors = ctaColors(b.accent, theme);
-  const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
+  // Une soirée en liste invités seule n'a pas de billet à prendre : le bouton
+  // dit ce que le clic fait vraiment.
+  const label = ticketsCtaLabel(!!b.live && live?.guestListOnly);
+  const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
   return td(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
       ${renderTicketRows(rows, theme, btnColors.bg)}

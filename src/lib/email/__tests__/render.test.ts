@@ -8,6 +8,8 @@ import {
   migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
   stripEventBindings, eventBoundBlocks, needsEventBinding,
   campaignToTemplateContent, templateToCampaignContent, buildStarter, STARTER_TEMPLATES,
+  buildEntryRows, pickPublicGuestList, guestListTicketRow, priceFromLabel, formatEuro,
+  ticketsCtaLabel,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -242,6 +244,90 @@ describe('blocs — un rendu par type', () => {
   it('tickets : sans données live du tout, les lignes figées restent le repli', () => {
     const b = makeBlock('tickets', { eventId: 'ev-inconnu' });
     expect(renderOne(b, { live: {} })).toContain('Early bird');
+  });
+
+  // La liste invités est une façon d'entrer, pas un détail : une soirée qui
+  // n'ouvre qu'une guest list voyait son bloc Billetterie s'effacer.
+  it('tickets : soirée en liste invités seule → la ligne s’affiche, le bouton change', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-1' });
+    const html = renderOne(b, {
+      live: {
+        'ev-1': {
+          ...ctx.live!['ev-1'],
+          tickets: [{ n: 'Liste invités', s: 'avant 02:00 · boisson offerte', p: 'Gratuit', out: false }],
+          guestListOnly: true,
+        },
+      },
+    });
+    expect(html).toContain('Liste invités');
+    expect(html).toContain('Gratuit');
+    expect(html).toContain('boisson offerte');
+    expect(html).toContain('M’inscrire à la liste');
+    expect(html).not.toContain('Prendre mes billets');
+  });
+
+  it('tickets : billets ET liste invités → le bouton reste « Prendre mes billets »', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-1' });
+    const html = renderOne(b, {
+      live: {
+        'ev-1': {
+          ...ctx.live!['ev-1'],
+          tickets: [
+            ...ctx.live!['ev-1'].tickets!,
+            { n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false },
+          ],
+        },
+      },
+    });
+    expect(html).toContain('Prendre mes billets');
+    expect(html).toContain('Liste invités');
+  });
+});
+
+describe('liste invités = un type d’entrée (live.ts)', () => {
+  it('la part maison passe devant les parts déléguées', () => {
+    const picked = pickPublicGuestList([
+      { holder_type: 'promoter', free_before_time: '01:00:00' },
+      { holder_type: 'club', free_before_time: '02:00:00' },
+    ]);
+    expect(picked?.holder_type).toBe('club');
+    expect(pickPublicGuestList([])).toBeNull();
+  });
+
+  it('la ligne porte l’heure limite et la boisson, jamais un prix inventé', () => {
+    expect(guestListTicketRow({ free_before_time: '02:00:00', includes_drink: true }))
+      .toEqual({ n: 'Liste invités', s: 'avant 02:00 · boisson offerte', p: 'Gratuit', out: false });
+    expect(guestListTicketRow({ free_before_time: null, includes_drink: false }).s).toBe('');
+  });
+
+  it('guestListOnly seulement quand aucun billet n’est en vente', () => {
+    const gl = { holder_type: 'club', free_before_time: '02:00:00' };
+    const seule = buildEntryRows([], gl);
+    expect(seule.tickets).toHaveLength(1);
+    expect(seule.guestListOnly).toBe(true);
+
+    const mixte = buildEntryRows([{ n: 'Prévente', s: '', p: '18 €', out: false }], gl);
+    expect(mixte.tickets).toHaveLength(2);
+    expect(mixte.guestListOnly).toBe(false);
+
+    const sansListe = buildEntryRows([], null);
+    expect(sansListe.tickets).toHaveLength(0);
+    expect(sansListe.guestListOnly).toBe(false);
+  });
+
+  it('le libellé de prix dit « Gratuit », jamais « À partir de 0 € », et se tait s’il ne sait pas', () => {
+    expect(priceFromLabel([18, 25], false)).toBe('À partir de 18 €');
+    expect(priceFromLabel([], true)).toBe('Gratuit');
+    expect(priceFromLabel([0], false)).toBe('Gratuit');
+    expect(priceFromLabel([], false)).toBeNull();
+    expect(formatEuro(12)).toBe('12 €');
+    expect(formatEuro(12.5)).toBe('12,50 €');
+  });
+
+  it('le bouton du bloc dit ce que le clic fait', () => {
+    expect(ticketsCtaLabel(true)).toBe('M’inscrire à la liste');
+    expect(ticketsCtaLabel(false)).toBe('Prendre mes billets');
+    expect(ticketsCtaLabel(undefined)).toBe('Prendre mes billets');
   });
 });
 

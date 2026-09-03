@@ -1,8 +1,8 @@
 import { EyeOff } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailTheme, TicketsBlock } from '@/lib/email';
-import { ctaColors } from '@/lib/email';
-import { EMAIL_FONT, blockPad, liveFor, type CanvasCtx } from './common';
+import { ctaColors, ticketsCtaLabel } from '@/lib/email';
+import { EMAIL_FONT, blockPad, emailBtnStyle, liveFor, type CanvasCtx } from './common';
 
 /**
  * Lignes de tarifs (rowsEl du prototype) : prix accent, épuisé barré.
@@ -13,7 +13,8 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
   const { t } = useLanguage();
   const pad = blockPad(block);
   const live = liveFor(block, ctx);
-  const accent = ctaColors(block.accent, theme).bg;
+  const btnColors = ctaColors(block.accent, theme);
+  const accent = btnColors.bg;
   const rows = (block.live && live) ? (live.tickets || []) : block.rows;
 
   if (!rows || rows.length === 0) {
@@ -54,6 +55,13 @@ export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock
           </div>
         ))}
       </div>
+      {/* L'email pose un bouton pleine largeur sous les lignes : l'aperçu doit
+          le montrer, ne serait-ce que pour lire le libellé — une soirée en
+          liste invités seule n'invite pas à « prendre ses billets ». */}
+      <span style={{
+        ...emailBtnStyle(theme, { radius: 8, full: true, small: true }),
+        background: btnColors.bg, color: btnColors.color, marginTop: 12,
+      }}>{ticketsCtaLabel(block.live && live?.guestListOnly)}</span>
     </div>
   );
 }

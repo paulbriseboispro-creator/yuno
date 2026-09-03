@@ -32,7 +32,11 @@ export interface StudioTicketRow { n: string; s: string; p: string; out: boolean
 export interface StudioLiveEventData {
   title: string; startAt: string; dateLabel: string; venueLabel: string;
   coverUrl?: string | null; url: string; priceFromLabel?: string | null;
-  tickets?: StudioTicketRow[]; tablesLeft?: number | null;
+  /** Tranches de billetterie ET liste invités publique (une entrée = une ligne). */
+  tickets?: StudioTicketRow[];
+  /** true = la seule entrée publique est une liste invités gratuite. */
+  guestListOnly?: boolean;
+  tablesLeft?: number | null;
 }
 
 export type StudioLiveData = Record<string, StudioLiveEventData>;
@@ -423,15 +427,19 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'tickets': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      // Live branché : la base fait foi. Un événement SANS billetterie (guest
-      // list seule) efface le bloc — jamais de tarifs inventés (miroir render.ts).
+      // Live branché : la base fait foi. Les lignes couvrent les tranches de
+      // billetterie ET la liste invités publique. Vide = aucune entrée ouverte,
+      // le bloc s'efface — jamais de tarifs inventés (miroir render.ts).
       const rows: StudioTicketRow[] = (b.live !== false && live)
         ? (live.tickets || [])
         : ((b.rows as StudioTicketRow[]) || []);
       if (!rows || rows.length === 0) return '';
       const url = live?.url || ctx.baseUrl;
       const btnColors = ctaColors(b.accent, theme);
-      const btn = buttonHtml({ href: url, label: 'Prendre mes billets', bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
+      // Une soirée en liste invités seule n'a pas de billet à prendre
+      // (miroir de ticketsCtaLabel dans src/lib/email/live.ts).
+      const label = (b.live !== false && live?.guestListOnly) ? 'M’inscrire à la liste' : 'Prendre mes billets';
+      const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
       return td(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
           ${renderTicketRows(rows, theme, btnColors.bg)}
@@ -585,6 +593,49 @@ function euro(amount: number): string {
   return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace('.', ',')} €`;
 }
 
+// ── Liste invités = un type d'entrée (miroir de src/lib/email/live.ts) ───────
+// Une soirée qui n'ouvre qu'une guest list a bien quelque chose à proposer :
+// sans ces trois fonctions, le bloc Billetterie s'effaçait et l'email partait
+// amputé de sa seule porte d'entrée.
+
+interface GuestListOffer {
+  holder_type?: string | null;
+  free_before_time?: string | null;
+  includes_drink?: boolean | null;
+}
+
+/** Part maison d'abord, sinon la première publique — miroir de la page billetterie. */
+function pickPublicGuestList<T extends GuestListOffer>(parts: T[]): T | null {
+  if (!parts || parts.length === 0) return null;
+  return parts.find((p) => p.holder_type === 'club') ?? parts[0] ?? null;
+}
+
+const GUEST_LIST_PRICE = 'Gratuit';
+
+function guestListTicketRow(part: GuestListOffer): StudioTicketRow {
+  const before = String(part.free_before_time || '').slice(0, 5);
+  const bits: string[] = [];
+  if (before) bits.push(`avant ${before}`);
+  if (part.includes_drink) bits.push('boisson offerte');
+  return { n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
+}
+
+function buildEntryRows(
+  ticketRows: StudioTicketRow[],
+  guestList: GuestListOffer | null,
+): { tickets: StudioTicketRow[]; guestListOnly: boolean } {
+  const tickets = [...ticketRows];
+  if (guestList) tickets.push(guestListTicketRow(guestList));
+  return { tickets, guestListOnly: ticketRows.length === 0 && !!guestList };
+}
+
+function priceFromLabel(activePrices: number[], hasGuestList: boolean): string | null {
+  const paid = activePrices.filter((p) => p > 0);
+  if (paid.length) return `À partir de ${euro(Math.min(...paid))}`;
+  if (hasGuestList || activePrices.length) return GUEST_LIST_PRICE;
+  return null;
+}
+
 export function collectStudioEventIds(blocks: StudioBlock[], fallbackEventId?: string | null): string[] {
   const ids = new Set<string>();
   for (const b of blocks) {
@@ -663,6 +714,16 @@ export async function fetchStudioLiveData(
       .in('event_id', ids)
       .order('position', { ascending: true });
 
+    // Même filtre que la page publique : seules les parts marquées « visible
+    // sur la page club » entrent dans l'email. Les parts déléguées ne vivent
+    // que derrière leur propre lien, on ne les révèle pas à toute une audience.
+    const { data: guestLists } = await admin
+      .from('guest_lists')
+      .select('event_id, holder_type, free_before_time, includes_drink')
+      .in('event_id', ids)
+      .eq('is_active', true)
+      .eq('visible_on_club_page', true);
+
     const needTables = blocks.some((b) => b.type === 'table');
     let packsByEvent = new Map<string, number>();
     let reservedByEvent = new Map<string, number>();
@@ -704,7 +765,7 @@ export async function fetchStudioLiveData(
       const evRounds = (rounds || []).filter((r: any) => r.event_id === e.id);
       const isOut = (r: any) => !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)));
       const visible = evRounds.filter((r: any) => r.is_active || isOut(r)).slice(0, 4);
-      const tickets: StudioTicketRow[] = visible.map((r: any) => ({
+      const roundRows: StudioTicketRow[] = visible.map((r: any) => ({
         n: r.name || 'Billet',
         s: r.description || '',
         p: euro(Number(r.price || 0)),
@@ -713,7 +774,10 @@ export async function fetchStudioLiveData(
       const activePrices = evRounds
         .filter((r: any) => r.is_active && !isOut(r))
         .map((r: any) => Number(r.price || 0));
-      const priceFrom = activePrices.length ? Math.min(...activePrices) : null;
+      const guestList = pickPublicGuestList(
+        ((guestLists || []) as any[]).filter((g: any) => g.event_id === e.id),
+      );
+      const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
 
       const totalTables = packsByEvent.get(e.id) || 0;
       const tablesLeft = needTables && totalTables > 0
@@ -727,10 +791,11 @@ export async function fetchStudioLiveData(
         venueLabel: city ? `${venueName} — ${city}` : venueName,
         coverUrl: e.poster_url || e.image_url || null,
         url: `${publicUrl}/event/${e.slug || e.id}`,
-        priceFromLabel: priceFrom != null ? `À partir de ${euro(priceFrom)}` : null,
-        // Tableau TOUJOURS présent : vide = pas de billetterie (bloc effacé),
+        priceFromLabel: priceFromLabel(activePrices, !!guestList),
+        // Tableau TOUJOURS présent : vide = aucune entrée ouverte (bloc effacé),
         // undefined = événement non résolu (le bloc retombe sur ses props).
         tickets,
+        guestListOnly,
         tablesLeft,
       };
     }

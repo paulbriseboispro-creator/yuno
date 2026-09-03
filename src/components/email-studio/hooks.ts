@@ -3,7 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type {
   EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
 } from '@/lib/email';
-import { rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES } from '@/lib/email';
+import {
+  buildEntryRows, formatEuro, pickPublicGuestList, priceFromLabel, rowToTemplate,
+  templateContentToRow, YUNO_BLOCK_TYPES, type GuestListOffer,
+} from '@/lib/email';
 
 export type StudioScope =
   | { kind: 'venue'; venueId: string; name: string; logoUrl?: string | null; city?: string | null }
@@ -47,10 +50,6 @@ export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | nul
   return events;
 }
 
-function euro(amount: number): string {
-  return `${Number.isInteger(amount) ? amount : amount.toFixed(2).replace(',', '.').replace('.', ',')} €`;
-}
-
 /**
  * Données live des blocs Yuno pour le CANVAS (aperçu). Le rendu d'envoi refait
  * ses propres requêtes côté edge — ici c'est purement visuel.
@@ -75,7 +74,11 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
     let cancelled = false;
     (async () => {
       const wanted = idsKey.split(',');
-      const [{ data: events }, { data: rounds }] = await Promise.all([
+      // La liste invités est une entrée comme une autre : sans elle, une soirée
+      // en guest list seule affichait « aucune billetterie » et le bloc partait
+      // à la poubelle. Même filtre que la page publique — seules les parts
+      // marquées « visible sur la page club » comptent.
+      const [{ data: events }, { data: rounds }, { data: guestLists }] = await Promise.all([
         supabase.from('events')
           .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city')
           .in('id', wanted),
@@ -83,6 +86,11 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position')
           .in('event_id', wanted)
           .order('position', { ascending: true }),
+        supabase.from('guest_lists')
+          .select('event_id,holder_type,free_before_time,includes_drink')
+          .in('event_id', wanted)
+          .eq('is_active', true)
+          .eq('visible_on_club_page', true),
       ]);
       if (cancelled || !events) return;
 
@@ -113,11 +121,15 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         }>;
         const isOut = (r: typeof evRounds[number]) =>
           !!r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets));
-        const tickets: TicketRow[] = evRounds
+        const roundRows: TicketRow[] = evRounds
           .filter((r) => r.is_active || isOut(r))
           .slice(0, 4)
-          .map((r) => ({ n: r.name || 'Billet', s: r.description || '', p: euro(Number(r.price || 0)), out: isOut(r) }));
+          .map((r) => ({ n: r.name || 'Billet', s: r.description || '', p: formatEuro(Number(r.price || 0)), out: isOut(r) }));
         const activePrices = evRounds.filter((r) => r.is_active && !isOut(r)).map((r) => Number(r.price || 0));
+        const guestList = pickPublicGuestList(
+          ((guestLists || []) as (GuestListOffer & { event_id: string })[]).filter((g) => g.event_id === e.id),
+        );
+        const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
         const venueName = venue?.name || e.location_name || '';
         const city = venue?.city || e.location_city || '';
 
@@ -128,10 +140,11 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           venueLabel: city ? `${venueName} — ${city}` : venueName,
           coverUrl: e.poster_url || e.image_url || null,
           url: `https://yunoapp.eu/event/${e.slug || e.id}`,
-          priceFromLabel: activePrices.length ? `Dès ${euro(Math.min(...activePrices))}` : null,
-          // Tableau TOUJOURS présent : vide = « pas de billetterie » (le bloc
+          priceFromLabel: priceFromLabel(activePrices, !!guestList),
+          // Tableau TOUJOURS présent : vide = « aucune entrée ouverte » (le bloc
           // s'efface), undefined = « données pas encore résolues » (fallback).
           tickets,
+          guestListOnly,
           tablesLeft: null,
         };
       }

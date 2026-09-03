@@ -253,7 +253,19 @@ export interface LiveEventData {
   coverUrl?: string | null;
   url: string;
   priceFromLabel?: string | null;
+  /**
+   * Offre d'entrée de la soirée : les tranches de billetterie ET la liste
+   * invités publique, qui est une façon d'entrer comme une autre. Tableau vide
+   * = rien à vendre ni à offrir (le bloc s'efface) ; `undefined` = événement
+   * non résolu (le bloc retombe sur ses lignes figées).
+   */
   tickets?: TicketRow[];
+  /**
+   * true quand la seule entrée publique est une liste invités gratuite. Le
+   * bloc Billetterie change alors son bouton : on ne dit pas « Prendre mes
+   * billets » pour une inscription gratuite.
+   */
+  guestListOnly?: boolean;
   tablesLeft?: number | null;
 }
 
