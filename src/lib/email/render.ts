@@ -186,18 +186,25 @@ function td(inner: string, style: string): string {
 
 // ── Rendu par type de bloc ───────────────────────────────────────────────────
 
-function renderHeader(b: HeaderBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad): string {
+function renderHeader(b: HeaderBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const size = LOGO_SIZES[b.logoSize] || LOGO_SIZES.md;
   const radius = b.logoShape === 'circle' ? '50%' : b.logoShape === 'rounded' ? '14px' : '0';
   // Repli automatique sur le logo du compte : le pro n'a rien à re-téléverser.
   const logoSrc = b.logoUrl || ctx.logoUrl || '';
+  // Le header suit theme.headerBg tant que le bloc ne choisit rien ; dès qu'un
+  // fond est posé (Teinte / Accent / couleur), c'est le sien qui gagne — sinon
+  // le champ « Fond personnalisé » de l'inspecteur ne changeait rien du tout.
+  const headerBg = bg === 'transparent' ? theme.headerBg : bg;
+  // Sur une couleur choisie à la main, le nom se re-contraste seul : un fond
+  // blanc ne doit pas avaler un headerText blanc hérité du thème.
+  const nameColor = isHexColor(b.bgc) ? contrastText(b.bgc.trim()) : theme.headerText;
   const logo = logoSrc
     ? `<img src="${escapeHtml(logoSrc)}" alt="${escapeHtml(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
     : '';
   const name = b.showName
-    ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${theme.headerText};letter-spacing:0.06em;">${escapeHtml(b.venueName || ctx.venueName)}</h1>`
+    ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${nameColor};letter-spacing:0.06em;">${escapeHtml(b.venueName || ctx.venueName)}</h1>`
     : '';
-  return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${theme.headerBg};`);
+  return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${headerBg};`);
 }
 
 function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
@@ -428,7 +435,7 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
   const pad = blockPad(b);
   const bg = blockBg(b, theme);
   switch (b.type) {
-    case 'header': return renderHeader(b, theme, ctx, pad);
+    case 'header': return renderHeader(b, theme, ctx, pad, bg);
     case 'image': return renderImage(b, theme, ctx, pad, bg);
     case 'text': return renderText(b, theme, ctx, pad, bg);
     case 'cta': return renderCta(b, theme, ctx, pad, bg);

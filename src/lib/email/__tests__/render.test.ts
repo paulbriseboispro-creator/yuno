@@ -227,6 +227,25 @@ describe('blocs — un rendu par type', () => {
     expect(renderOne(div)).toContain('padding:0px 24px');
   });
 
+  // Le champ « Fond personnalisé » de l'inspecteur ne faisait rien sur le
+  // header : il rendait toujours theme.headerBg.
+  it('header : le fond du bloc gagne sur le thème, et le nom se re-contraste', () => {
+    const auto = makeBlock('header');
+    expect(renderOne(auto)).toContain(`background:${theme.headerBg}`);
+    expect(renderOne(auto)).toContain(`color:${theme.headerText}`);
+
+    const custom = makeBlock('header');
+    custom.bgc = '#ffffff';
+    const html = renderOne(custom);
+    expect(html).toContain('background:#ffffff');
+    expect(html).toContain('color:#111111'); // texte noir sur fond blanc
+    expect(html).not.toContain(`background:${theme.headerBg}`);
+
+    const tile = makeBlock('header');
+    tile.bg = 'tile';
+    expect(renderOne(tile)).toContain(`background:${theme.tile}`);
+  });
+
   it('défauts de marge PAR TYPE : header 30/24, cta 24/24, divider 10/24', () => {
     expect(renderOne(makeBlock('header'))).toContain('padding:30px 24px');
     expect(renderOne(makeBlock('cta'))).toContain('padding:24px 24px');

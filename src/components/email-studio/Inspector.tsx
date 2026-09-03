@@ -113,10 +113,12 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
             { value: 'accent', label: t('studio.inspector.bgAccent') },
           ]}
         />
+        {/* Le header a sa propre couleur de thème : lui proposer `card` comme
+            valeur de départ laissait croire que le champ ne faisait rien. */}
         <ThemedColor
           label={t('studio.inspector.blockBgc')}
           value={block.bgc}
-          themeDefault={theme.card}
+          themeDefault={block.type === 'header' ? theme.headerBg : theme.card}
           onChange={(v) => patch({ bgc: v })}
         />
       </PanelCard>

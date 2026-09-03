@@ -345,13 +345,18 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const radius = b.logoShape === 'circle' ? '50%' : b.logoShape === 'rounded' ? '14px' : '0';
       // Repli automatique sur le logo du compte (miroir de render.ts).
       const logoSrc = (b.logoUrl as string) || ctx.logoUrl || '';
+      // Le header suit theme.headerBg tant que le bloc ne choisit rien ; dès
+      // qu'un fond est posé, c'est le sien qui gagne, et le nom se re-contraste
+      // seul sur une couleur custom (miroir render.ts).
+      const headerBg = bg === 'transparent' ? theme.headerBg : bg;
+      const nameColor = isHexColor(b.bgc) ? contrastText((b.bgc as string).trim()) : theme.headerText;
       const logo = logoSrc
         ? `<img src="${esc(logoSrc)}" alt="${esc(b.venueName || ctx.venueName)}" width="${size}" height="${size}" style="width:${size}px;height:${size}px;object-fit:cover;display:block;margin:0 auto${b.showName ? ' 12px' : ''};border:0;border-radius:${radius};" />`
         : '';
       const name = b.showName
-        ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${theme.headerText};letter-spacing:0.06em;">${esc(b.venueName || ctx.venueName)}</h1>`
+        ? `<h1 style="margin:0;font-family:${FONT};font-size:22px;line-height:28px;mso-line-height-rule:exactly;font-weight:700;color:${nameColor};letter-spacing:0.06em;">${esc(b.venueName || ctx.venueName)}</h1>`
         : '';
-      return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${theme.headerBg};`);
+      return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${headerBg};`);
     }
     case 'image': {
       if (!b.url) return '';

@@ -1,6 +1,6 @@
 import type { EmailTheme, HeaderBlock } from '@/lib/email';
-import { LOGO_SIZES } from '@/lib/email';
-import { EMAIL_FONT, blockPad, type CanvasCtx } from './common';
+import { LOGO_SIZES, contrastText, isHexColor } from '@/lib/email';
+import { EMAIL_FONT, blockBgColor, blockPad, type CanvasCtx } from './common';
 
 export default function HeaderView({ block, theme, ctx }: { block: HeaderBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
@@ -10,8 +10,13 @@ export default function HeaderView({ block, theme, ctx }: { block: HeaderBlock; 
   // Repli automatique sur le logo du compte (miroir de render.ts).
   const logoSrc = block.logoUrl || ctx.logoUrl || '';
   const initial = String(name || 'Y').trim().charAt(0).toUpperCase();
+  // Le header suit theme.headerBg tant que le bloc ne choisit rien ; un fond
+  // posé sur le bloc gagne, et le nom se re-contraste (miroir de render.ts).
+  const canvasBg = blockBgColor(block, theme);
+  const headerBg = canvasBg === 'transparent' ? theme.headerBg : canvasBg;
+  const nameColor = isHexColor(block.bgc) ? contrastText(block.bgc.trim()) : theme.headerText;
   return (
-    <div style={{ padding: `${pad.py}px ${pad.px}px`, textAlign: 'center', background: theme.headerBg }}>
+    <div style={{ padding: `${pad.py}px ${pad.px}px`, textAlign: 'center', background: headerBg }}>
       {logoSrc ? (
         <img
           src={logoSrc} alt=""
@@ -31,7 +36,7 @@ export default function HeaderView({ block, theme, ctx }: { block: HeaderBlock; 
       {block.showName && (
         <div style={{
           fontFamily: EMAIL_FONT, fontSize: 22, fontWeight: 700,
-          color: theme.headerText, letterSpacing: '0.06em',
+          color: nameColor, letterSpacing: '0.06em',
         }}>{name}</div>
       )}
     </div>
