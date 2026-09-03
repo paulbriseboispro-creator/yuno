@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { haptics } from '@/lib/haptics';
 
 /* ============================================================
    usePullToRefresh — tirer vers le bas pour rafraîchir (app native).
@@ -72,6 +73,8 @@ export function usePullToRefresh(
       pulling.current = false;
       if (!wasPulling) return;
       if (!reached) { setPull(0); return; }
+      // Le seuil franchi se sent sous le doigt (natif uniquement, no-op sur le web).
+      haptics.selection();
       setRefreshing(true);
       setPull(THRESHOLD);
       try { await onRefreshRef.current(); } catch { /* le rafraîchissement est best-effort */ }
