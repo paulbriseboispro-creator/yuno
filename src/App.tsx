@@ -373,14 +373,14 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Le statut super-admin ne sert QU'À contourner la maintenance : on ne le
+  // demande que si elle est active (une RPC de moins au boot de chaque client).
   const checkStatus = async () => {
-    await Promise.all([
-      checkMaintenanceStatus(),
-      checkSuperAdminStatus(),
-    ]);
+    const maintenanceOn = await checkMaintenanceStatus();
+    if (maintenanceOn) await checkSuperAdminStatus();
   };
 
-  const checkMaintenanceStatus = async () => {
+  const checkMaintenanceStatus = async (): Promise<boolean> => {
     try {
       const { data, error } = await supabase
         .from('app_settings')
@@ -390,10 +390,12 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
 
       if (!error && data) {
         setIsMaintenanceMode(data.maintenance_mode);
+        return !!data.maintenance_mode;
       }
     } catch (error) {
       console.error('Error checking maintenance status:', error);
     }
+    return false;
   };
 
   const checkSuperAdminStatus = async () => {
