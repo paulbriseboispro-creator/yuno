@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery, useQueryClient, keepPreviousData, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { affiliateMinPrice } from '@/lib/eventPriceLabel';
+import { fetchPublicVenues, haversineKm, toLocalDate, type PublicVenueRow } from '@/lib/explore/catalog';
 import type { EventCardData } from '@/components/explore/EventCard';
 
 /**
@@ -16,6 +18,11 @@ import type { EventCardData } from '@/components/explore/EventCard';
  * La « zone » suit exactement la règle du feed : rayon 50 km quand on a des
  * coordonnées, sinon correspondance de ville. « À venir » = fenêtre de
  * DENSITY_HORIZON_DAYS jours, soirées live incluses (end_at dans le futur).
+ *
+ * Architecture (2026-09-03) : la SOURCE (toutes les soirées de l'horizon,
+ * toutes villes) est chargée une fois et mise en cache ; la ville et la
+ * position se résolvent EN MÉMOIRE. Changer de ville ne relance aucune
+ * requête — c'est ce qui rend le sélecteur de ville instantané.
  */
 export const LOW_DENSITY_WEEK_MAX = 4;
 const DENSITY_HORIZON_DAYS = 60;
@@ -82,49 +89,20 @@ const FULL_FALLBACK: ZoneDensity = {
   elsewhereCityCount: 0,
 };
 
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+/** Source brute (toutes villes) : cartes sans distance + lieux. */
+interface DensitySource {
+  cards: DensityEvent[];
+  venues: PublicVenueRow[];
 }
 
-const toLocalDate = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// ── Source (réseau) ──────────────────────────────────────────────────
 
-async function fetchZoneDensity(
-  city: string,
-  userLocation: { lat: number; lng: number } | null,
-): Promise<ZoneDensity> {
+async function fetchZoneDensitySource(qc: QueryClient): Promise<DensitySource> {
   const now = new Date();
   const nowIso = now.toISOString();
   const horizon = new Date(now.getTime() + DENSITY_HORIZON_DAYS * 86400000);
-  const weekEnd = new Date(now.getTime() + 7 * 86400000);
 
-  // Centre de la zone pour le tri de proximité : les coordonnées de l'appareil
-  // quand on les a, sinon un géocodage léger de la ville (best-effort — sans
-  // réponse, le rail « ailleurs » retombe sur le tri par date).
-  const zoneCenterPromise: Promise<{ lat: number; lng: number } | null> = userLocation
-    ? Promise.resolve(userLocation)
-    : (async () => {
-        try {
-          const token = import.meta.env.VITE_MAPBOX_TOKEN;
-          if (!token || !city) return null;
-          const res = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(city)}.json?access_token=${token}&types=place&limit=1`,
-          );
-          const data = await res.json();
-          const f = data.features?.[0];
-          return f?.center ? { lat: f.center[1], lng: f.center[0] } : null;
-        } catch {
-          return null;
-        }
-      })();
-
-  const [eventsRes, venuesRes, roundsRes, glRes, affRes, zoneCenter] = await Promise.all([
+  const [eventsRes, venues, glRes, affRes] = await Promise.all([
     supabase
       .from('events')
       .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_name, location_address, location_logo_url')
@@ -135,11 +113,7 @@ async function fetchZoneDensity(
       .lte('start_at', horizon.toISOString())
       .order('start_at', { ascending: true })
       .limit(400),
-    supabase
-      .from('venues')
-      .select('id, name, city, address, logo_url, cover_url, latitude, longitude')
-      .eq('is_hidden', false),
-    supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active'),
+    fetchPublicVenues(qc),
     supabase.from('guest_lists').select('event_id').eq('is_active', true).eq('visible_on_club_page', true),
     supabase
       .from('affiliate_events')
@@ -148,10 +122,26 @@ async function fetchZoneDensity(
       .gte('event_date', toLocalDate(now))
       .lte('event_date', toLocalDate(horizon))
       .order('event_date', { ascending: true }),
-    zoneCenterPromise,
+  ]);
+  if (eventsRes.error) throw eventsRes.error;
+
+  const events = eventsRes.data || [];
+  const eventIds = events.map(e => e.id);
+  const organizerUserIds = Array.from(
+    new Set(events.map(e => e.organizer_user_id).filter(Boolean) as string[]),
+  );
+
+  // Bornées aux soirées de l'horizon — jamais « toute la table ».
+  const [roundsRes, orgRes] = await Promise.all([
+    eventIds.length
+      ? supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active').in('event_id', eventIds)
+      : Promise.resolve({ data: [] as { event_id: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean | null }[] }),
+    organizerUserIds.length
+      ? supabase.from('organizer_profiles').select('user_id, display_name, slug, avatar_url, is_public').in('user_id', organizerUserIds)
+      : Promise.resolve({ data: [] as { user_id: string; display_name: string; slug: string | null; avatar_url: string | null; is_public: boolean | null }[] }),
   ]);
 
-  const venueMap = new Map((venuesRes.data || []).map(v => [v.id, v]));
+  const venueMap = new Map(venues.map(v => [v.id, v]));
 
   const minPriceMap: Record<string, number> = {};
   const soldMap: Record<string, { sold: number; max: number }> = {};
@@ -174,26 +164,17 @@ async function fetchZoneDensity(
   });
 
   // Organisateurs (nom affiché + slug d'URL propre), comme le feed principal.
-  const organizerUserIds = Array.from(
-    new Set((eventsRes.data || []).map(e => e.organizer_user_id).filter(Boolean) as string[]),
-  );
   const organizerMap = new Map<string, { display_name: string; slug: string | null; avatar_url: string | null; is_public: boolean }>();
-  if (organizerUserIds.length > 0) {
-    const { data: orgProfiles } = await supabase
-      .from('organizer_profiles')
-      .select('user_id, display_name, slug, avatar_url, is_public')
-      .in('user_id', organizerUserIds);
-    (orgProfiles || []).forEach(op =>
-      organizerMap.set(op.user_id, {
-        display_name: op.display_name,
-        slug: op.slug,
-        avatar_url: op.avatar_url,
-        is_public: !!op.is_public,
-      }),
-    );
-  }
+  (orgRes.data || []).forEach(op =>
+    organizerMap.set(op.user_id, {
+      display_name: op.display_name,
+      slug: op.slug,
+      avatar_url: op.avatar_url,
+      is_public: !!op.is_public,
+    }),
+  );
 
-  const allCards: DensityEvent[] = (eventsRes.data || []).flatMap(e => {
+  const allCards: DensityEvent[] = events.flatMap(e => {
     const isOrganizerLed = !!e.organizer_user_id;
     const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
     const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
@@ -206,11 +187,6 @@ async function fetchZoneDensity(
 
     const sm = soldMap[e.id];
     const percentSold = sm && sm.max > 0 ? (sm.sold / sm.max) * 100 : 0;
-
-    let distance: number | null = null;
-    if (userLocation && venue?.latitude && venue?.longitude) {
-      distance = haversineKm(userLocation.lat, userLocation.lng, venue.latitude, venue.longitude);
-    }
 
     const genres =
       e.music_genres && e.music_genres.length > 0
@@ -242,7 +218,7 @@ async function fetchZoneDensity(
       percentSold,
       tablesRemaining: null,
       isTrending: false,
-      distance,
+      distance: null,
       eventType: e.event_type || 'club',
       isLive: e.start_at <= nowIso,
       isOrganizerLed,
@@ -266,10 +242,6 @@ async function fetchZoneDensity(
     if (!venue) return [];
     const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
     const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
-    let distance: number | null = null;
-    if (userLocation && venue.lat && venue.lng) {
-      distance = haversineKm(userLocation.lat, userLocation.lng, venue.lat, venue.lng);
-    }
     const minPrice = affiliateMinPrice(ae);
     return [{
       id: ae.id,
@@ -287,7 +259,7 @@ async function fetchZoneDensity(
       percentSold: 0,
       tablesRemaining: null,
       isTrending: false,
-      distance,
+      distance: null,
       eventType: 'affiliate',
       isAffiliate: true,
       affiliateEventSlug: ae.slug,
@@ -304,18 +276,46 @@ async function fetchZoneDensity(
     }];
   });
 
-  const merged = [...allCards, ...affiliateCards]
-    .filter(e => new Date(e.endAt).getTime() > now.getTime())
+  const cards = [...allCards, ...affiliateCards]
     .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+
+  return { cards, venues };
+}
+
+// ── Résolution de zone (mémoire) ─────────────────────────────────────
+
+function computeZoneDensity(
+  source: DensitySource,
+  city: string,
+  userLocation: { lat: number; lng: number } | null,
+  zoneCenter: { lat: number; lng: number } | null,
+): ZoneDensity {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const weekEnd = now + 7 * 86400000;
+  const cityLc = city.toLowerCase();
+  const venueMap = new Map(source.venues.map(v => [v.id, v]));
+
+  // Distance au visiteur + statut live recalculés au rendu (jamais figés au fetch).
+  const merged: DensityEvent[] = source.cards
+    .filter(e => new Date(e.endAt).getTime() > now)
+    .map(e => ({
+      ...e,
+      distance:
+        userLocation && e.venueLat != null && e.venueLng != null
+          ? haversineKm(userLocation.lat, userLocation.lng, e.venueLat, e.venueLng)
+          : null,
+      isLive: !e.isAffiliate && e.startAt <= nowIso,
+    }));
 
   const inZone = (e: DensityEvent): boolean => {
     if (userLocation && e.distance != null) return e.distance <= MAX_DIST_KM;
-    if (city) return e.venueCity.toLowerCase().includes(city.toLowerCase());
+    if (cityLc) return e.venueCity.toLowerCase().includes(cityLc);
     return true;
   };
 
   const upcoming = merged.filter(inZone);
-  const weekCount = upcoming.filter(e => new Date(e.startAt).getTime() <= weekEnd.getTime()).length;
+  const weekCount = upcoming.filter(e => new Date(e.startAt).getTime() <= weekEnd).length;
 
   // Ailleurs sur Yuno : les prochaines dates hors zone (rail de l'état vide),
   // sur tout l'horizon — une borne à 7 jours cachait la seule soirée native
@@ -323,9 +323,10 @@ async function fetchZoneDensity(
   // Une soirée sans ville ne peut être « ailleurs » nulle part — exclue.
   // Tri : natives Yuno devant les partenaires, puis au plus près de la zone
   // vide (coordonnées inconnues = en queue de groupe), puis par date.
+  const center = userLocation ?? zoneCenter;
   const distToZone = (e: DensityEvent): number =>
-    zoneCenter && e.venueLat != null && e.venueLng != null
-      ? haversineKm(zoneCenter.lat, zoneCenter.lng, e.venueLat, e.venueLng)
+    center && e.venueLat != null && e.venueLng != null
+      ? haversineKm(center.lat, center.lng, e.venueLat, e.venueLng)
       : Number.POSITIVE_INFINITY;
   const elsewhere = merged
     .filter(e => !inZone(e) && !!e.venueCity)
@@ -428,13 +429,57 @@ async function fetchZoneDensity(
   };
 }
 
+/** Géocodage léger d'un nom de ville (centre du tri « ailleurs ») — best-effort. */
+async function geocodeCity(city: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (!token || !city) return null;
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(city)}.json?access_token=${token}&types=place&limit=1`,
+    );
+    const data = await res.json();
+    const f = data.features?.[0];
+    return f?.center ? { lat: f.center[1], lng: f.center[0] } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useZoneDensity(city: string, userLocation: { lat: number; lng: number } | null) {
-  const query = useQuery({
-    queryKey: ['explore-density', city, userLocation?.lat ?? null, userLocation?.lng ?? null],
-    queryFn: () => fetchZoneDensity(city, userLocation),
+  const qc = useQueryClient();
+  // `todayKey` fait tourner l'horizon à minuit pour une app laissée ouverte.
+  const todayKey = toLocalDate(new Date());
+  const source = useQuery({
+    queryKey: ['zone-density-source', todayKey],
+    queryFn: () => fetchZoneDensitySource(qc),
+    placeholderData: keepPreviousData,
   });
+
+  // Première passe sans centre géocodé : suffit pour le statut et tous les
+  // écrans sauf l'ordre du rail « ailleurs » de l'état vide.
+  const base = useMemo(
+    () => (source.data ? computeZoneDensity(source.data, city, userLocation, null) : null),
+    [source.data, city, userLocation],
+  );
+
+  // Le géocodage de la ville ne sert QU'À trier « ailleurs » quand la zone
+  // est vide et qu'on n'a pas de coordonnées : on ne le demande que là.
+  const needCenter = !!base && base.status === 'empty' && !userLocation && !!city;
+  const center = useQuery({
+    queryKey: ['zone-center', city],
+    queryFn: () => geocodeCity(city),
+    enabled: needCenter,
+    staleTime: Infinity,
+  });
+
+  const density = useMemo(() => {
+    if (!base || !source.data) return FULL_FALLBACK;
+    if (needCenter && center.data) return computeZoneDensity(source.data, city, userLocation, center.data);
+    return base;
+  }, [base, source.data, needCenter, center.data, city, userLocation]);
+
   // Échec réseau -> feed standard (fail-open : ne jamais masquer l'Explore
   // derrière un écran de densité qu'on n'a pas pu calculer).
-  const data = query.isError ? FULL_FALLBACK : query.data;
-  return { density: data ?? FULL_FALLBACK, isLoading: query.isLoading && !query.isError };
+  if (source.isError && !source.data) return { density: FULL_FALLBACK, isLoading: false };
+  return { density, isLoading: source.isPending };
 }

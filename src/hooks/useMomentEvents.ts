@@ -39,7 +39,7 @@ async function fetchMomentEvents(moment: FeaturedMoment): Promise<MomentEventsDa
   const startIso = new Date(`${fromDate}T00:00:00`).toISOString();
   const endIso = new Date(`${toDate}T23:59:59.999`).toISOString();
 
-  const [eventsRes, venuesRes, ticketRes, affiliateRes] = await Promise.all([
+  const [eventsRes, venuesRes, affiliateRes] = await Promise.all([
     supabase
       .from('events')
       .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
@@ -53,7 +53,6 @@ async function fetchMomentEvents(moment: FeaturedMoment): Promise<MomentEventsDa
     supabase
       .from('venues')
       .select('id, name, city, cover_url, logo_url'),
-    supabase.from('ticket_rounds').select('event_id, price, is_active'),
     supabase
       .from('affiliate_events')
       .select('id, name, slug, event_date, start_time, flyer_url, genres, price_from, is_free, tables_only, affiliate_venues(id, name, city)')
@@ -70,13 +69,17 @@ async function fetchMomentEvents(moment: FeaturedMoment): Promise<MomentEventsDa
     new Set((eventsRes.data || []).map(e => e.organizer_user_id).filter(Boolean) as string[]),
   );
   const organizerSlugMap = new Map<string, string | null>();
-  if (organizerUserIds.length > 0) {
-    const { data: orgProfiles } = await supabase
-      .from('organizer_profiles')
-      .select('user_id, slug')
-      .in('user_id', organizerUserIds);
-    (orgProfiles || []).forEach(op => organizerSlugMap.set(op.user_id, op.slug));
-  }
+  const eventIds = (eventsRes.data || []).map(e => e.id);
+  // Bornés aux soirées du moment — jamais « toute la table » des tarifs.
+  const [orgRes, ticketRes] = await Promise.all([
+    organizerUserIds.length > 0
+      ? supabase.from('organizer_profiles').select('user_id, slug').in('user_id', organizerUserIds)
+      : Promise.resolve({ data: [] as { user_id: string; slug: string | null }[] }),
+    eventIds.length > 0
+      ? supabase.from('ticket_rounds').select('event_id, price, is_active').in('event_id', eventIds)
+      : Promise.resolve({ data: [] as { event_id: string; price: number; is_active: boolean | null }[] }),
+  ]);
+  (orgRes.data || []).forEach(op => organizerSlugMap.set(op.user_id, op.slug));
 
   const minPriceMap: Record<string, number> = {};
   (ticketRes.data || []).forEach(tr => {

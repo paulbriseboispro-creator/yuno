@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +7,18 @@ import { cityFromUrl, getManualCoords, getStoredCity, hasManualCity, setManualLo
 import { markAppReady } from '@/lib/appReady';
 import { getCurrentPositionIfGranted, GEOLOC_GRANTED_EVENT } from '@/lib/geolocation';
 import { genresMatch } from '@/lib/musicGenres';
-import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
+import {
+  fetchExploreCatalog,
+  fetchCatalogDjs,
+  placeInZone,
+  haversineKm,
+  startOfLocalDay,
+  endOfLocalDay,
+  toLocalDate,
+  ZONE_RADIUS_KM,
+  type PlacedCard,
+  type CatalogDjs,
+} from '@/lib/explore/catalog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { EventCardData } from '@/components/explore/EventCard';
@@ -35,7 +46,6 @@ import { markWebEngaged } from '@/lib/webHome';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import type { Tables } from '@/integrations/supabase/types';
 
 type DateFilter = 'today' | 'tomorrow' | 'weekend' | 'week';
 
@@ -45,42 +55,26 @@ type DateFilter = 'today' | 'tomorrow' | 'weekend' | 'week';
 const matchesAny = (stored: string[], selected: string[]) =>
   stored.some(g => selected.some(sel => genresMatch(g, sel)));
 
-// Lignes venues/affiliate_venues telles que sélectionnées par fetchData.
-type ExploreVenueRow = Pick<Tables<'venues'>,
-  'id' | 'name' | 'city' | 'address' | 'logo_url' | 'cover_url' | 'latitude' | 'longitude' | 'is_hidden' | 'hidden_from_map'>;
-type ExploreAffiliateVenueRow = Pick<Tables<'affiliate_venues'>,
-  'id' | 'name' | 'city' | 'slug' | 'cover_image_url' | 'logo_url' | 'lat' | 'lng' | 'genres' | 'is_active'>;
-type ExploreTicketRoundRow = Pick<Tables<'ticket_rounds'>,
-  'event_id' | 'price' | 'tickets_sold' | 'max_tickets' | 'is_active'>;
-
-function getDateRange(filter: DateFilter | Date): { start: string; end: string } {
+/** Fenêtre [start, end] (Date) d'un préréglage ou d'un jour précis. */
+function getDateRange(filter: DateFilter | Date): { start: Date; end: Date } {
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = startOfLocalDay(now);
 
   if (filter instanceof Date) {
-    const start = new Date(filter.getFullYear(), filter.getMonth(), filter.getDate());
-    const end = new Date(start);
-    end.setHours(23, 59, 59, 999);
-    return { start: start.toISOString(), end: end.toISOString() };
+    return { start: startOfLocalDay(filter), end: endOfLocalDay(filter) };
   }
-
   if (filter === 'today') {
-    const end = new Date(today);
-    end.setHours(23, 59, 59, 999);
-    return { start: today.toISOString(), end: end.toISOString() };
+    return { start: today, end: endOfLocalDay(today) };
   }
   if (filter === 'tomorrow') {
     const start = new Date(today);
     start.setDate(start.getDate() + 1);
-    const end = new Date(start);
-    end.setHours(23, 59, 59, 999);
-    return { start: start.toISOString(), end: end.toISOString() };
+    return { start, end: endOfLocalDay(start) };
   }
   if (filter === 'week') {
     const end = new Date(today);
     end.setDate(end.getDate() + 7);
-    end.setHours(23, 59, 59, 999);
-    return { start: today.toISOString(), end: end.toISOString() };
+    return { start: today, end: endOfLocalDay(end) };
   }
   // weekend: Thursday evening → Saturday evening
   const dayOfWeek = today.getDay();
@@ -93,18 +87,7 @@ function getDateRange(filter: DateFilter | Date): { start: string; end: string }
   thu.setDate(thu.getDate() + daysUntilThu);
   const endSat = new Date(thu);
   endSat.setDate(endSat.getDate() + 2); // Saturday
-  endSat.setHours(23, 59, 59, 999);
-  return { start: thu.toISOString(), end: endSat.toISOString() };
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return { start: thu, end: endOfLocalDay(endSat) };
 }
 
 // Pick the date-fns locale matching the active app language (EN/ES/FR).
@@ -113,10 +96,7 @@ const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : en
 // Défauts stables (référence constante) pour les données dérivées de react-query
 // tant que la requête n'a pas résolu : évite un nouveau tableau/objet à chaque
 // rendu, donc pas de recalcul superflu des useMemo qui en dépendent.
-const EMPTY_CARDS: EventCardData[] = [];
-const EMPTY_VENUES: ExploreVenueRow[] = [];
-const EMPTY_AFF_VENUES: ExploreAffiliateVenueRow[] = [];
-const EMPTY_COUNTS: Record<string, number> = {};
+const EMPTY_PLACED: PlacedCard[] = [];
 const EMPTY_WEEK: WeekDayData[] = [];
 const EMPTY_DJS: ExploreDJItem[] = [];
 const DEFAULT_FILTER_DYNAMIC: FilterDynamicData = {
@@ -131,6 +111,7 @@ const DEFAULT_FILTER_DYNAMIC: FilterDynamicData = {
 export default function Explore() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
+  const queryClient = useQueryClient();
 
   // Accueil monté et peint : signale l'app « prête » pour que l'écran de
   // lancement lance sa sortie (soulèvement) et révèle l'Explorer.
@@ -179,9 +160,6 @@ export default function Explore() {
   const [chipGenres, setChipGenres] = useState<string[]>([]);
   const [freeOnly, setFreeOnly] = useState(false);
 
-  // Les données (events, venues, week, topDjs) sont désormais servies par
-  // react-query plus bas (après `city`) — plus de useState/useEffect manuels.
-
   // ── UI state ──
   const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -196,7 +174,6 @@ export default function Explore() {
     dateFilter: 'today',
     timeRange: [0, 12],
   });
-  // filterDynamicData est dérivé de la requête principale (défaut ci-dessous).
 
   // ── Location / city ── (shared with ClubMap via @/lib/userLocation)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => getManualCoords());
@@ -221,6 +198,8 @@ export default function Explore() {
   // ── Densité de la zone : bascule automatique vers les écrans « faible
   //    densité » (0 soirée / 1 soirée / semaine creuse). Fail-open : en cas
   //    d'erreur le hook renvoie 'full' et le feed standard reprend la main.
+  //    Source chargée une fois (60 j, toutes villes) ; la ville se résout en
+  //    mémoire — changer de ville ne recharge rien.
   const { density, isLoading: densityLoading } = useZoneDensity(city, userLocation);
 
   // Poignée pour ouvrir le sélecteur de ville depuis les écrans faible densité.
@@ -230,30 +209,50 @@ export default function Explore() {
   //    quand la ville du visiteur a un temps fort en cours ou qui approche.
   const activeMoment = useMemo(() => activeMomentForCity(city), [city]);
 
-  // ── Data (react-query) ──
-  // Migré de useEffect+useState : le cache par défaut (staleTime 5 min du
-  // QueryClient d'App.tsx) rend le retour de navigation instantané — plus de
-  // re-fetch intégral à chaque montage. fetchExploreMain/Week/TopDjs sont des
-  // déclarations de fonction hoistées (définies plus bas), donc référençables ici.
-  const exploreMainQuery = useQuery({
-    queryKey: ['explore-main', dateFilter, selectedDate?.getTime() ?? null, city, userLocation?.lat ?? null, userLocation?.lng ?? null],
-    queryFn: fetchExploreMain,
+  // ══════════════════════════════════════════════════
+  // DATA — catalogue unique (react-query), sections dérivées en mémoire
+  // ══════════════════════════════════════════════════
+  // Le catalogue couvre aujourd'hui → J+7 (fin de journée) + les soirées en
+  // cours, TOUTES villes confondues. Il ne dépend ni de la ville ni du
+  // préréglage de date : changer l'un ou l'autre ne coûte aucune requête.
+  // `todayKey` fait tourner la fenêtre à minuit pour une app laissée ouverte.
+  const todayKey = toLocalDate(new Date());
+  const catalogRange = useMemo(() => {
+    const start = startOfLocalDay(new Date());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return { start, end: endOfLocalDay(end) };
+  }, [todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const catalogQuery = useQuery({
+    queryKey: ['explore-catalog', todayKey],
+    queryFn: () => fetchExploreCatalog(queryClient, catalogRange, { includeLive: true }),
+    placeholderData: keepPreviousData,
   });
-  const events = exploreMainQuery.data?.events ?? EMPTY_CARDS;
-  const allEvents = exploreMainQuery.data?.allEvents ?? EMPTY_CARDS;
-  const venues = exploreMainQuery.data?.venues ?? EMPTY_VENUES;
-  const affiliateVenues = exploreMainQuery.data?.affiliateVenues ?? EMPTY_AFF_VENUES;
-  const venueFavCounts = exploreMainQuery.data?.venueFavCounts ?? EMPTY_COUNTS;
-  const filterDynamicData = exploreMainQuery.data?.filterDynamicData ?? DEFAULT_FILTER_DYNAMIC;
-  const loading = exploreMainQuery.isLoading;
-  // La densité de zone décide de l'écran rendu : on attend les deux requêtes
-  // avant de peindre (le skeleton couvre, pas de bascule visible après coup).
+  const catalog = catalogQuery.data;
+
+  // Jour choisi au calendrier HORS de la fenêtre du catalogue : une requête
+  // dédiée, bornée à ce jour. Le feed précédent reste affiché pendant le
+  // chargement (placeholder), jamais de squelette après le premier rendu.
+  const dayOutside =
+    !!selectedDate && (selectedDate.getTime() > catalogRange.end.getTime() || selectedDate.getTime() < catalogRange.start.getTime());
+  const dayQuery = useQuery({
+    queryKey: ['explore-day', selectedDate ? toLocalDate(selectedDate) : null],
+    queryFn: () =>
+      fetchExploreCatalog(queryClient, { start: startOfLocalDay(selectedDate!), end: endOfLocalDay(selectedDate!) }),
+    enabled: dayOutside,
+    placeholderData: keepPreviousData,
+  });
+
+  // Squelette : uniquement tant que RIEN n'est encore affichable (premier
+  // chargement). Ensuite le contenu reste à l'écran et se remplace en place.
+  const loading = catalogQuery.isPending || (dayOutside && dayQuery.isPending);
   const pageLoading = loading || densityLoading;
 
   // Réseau instable en soirée : on signale l'échec avec un « Réessayer » plutôt
   // que de laisser un accueil vide et silencieux.
   useEffect(() => {
-    if (!exploreMainQuery.isError) return;
+    if (!catalogQuery.isError) return;
     toast.error(t('common.error'), {
       description:
         language === 'fr' ? 'Impossible de charger les événements.'
@@ -261,25 +260,119 @@ export default function Explore() {
         : 'Could not load events.',
       action: {
         label: language === 'fr' ? 'Réessayer' : language === 'es' ? 'Reintentar' : 'Retry',
-        onClick: () => { exploreMainQuery.refetch(); },
+        onClick: () => { catalogQuery.refetch(); },
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exploreMainQuery.isError]);
+  }, [catalogQuery.isError]);
 
-  const exploreWeekQuery = useQuery({
-    queryKey: ['explore-week', city, userLocation?.lat ?? null, userLocation?.lng ?? null, language],
-    queryFn: fetchExploreWeek,
-  });
-  const weekData = exploreWeekQuery.data ?? EMPTY_WEEK;
+  // ── Zone du visiteur (mémoire) : rayon 50 km avec coordonnées, sinon ville ──
+  const zoneCards = useMemo<PlacedCard[]>(
+    () => (catalog ? placeInZone(catalog.cards, city, userLocation) : EMPTY_PLACED),
+    [catalog, city, userLocation],
+  );
+  const dayZoneCards = useMemo<PlacedCard[]>(
+    () => (dayOutside && dayQuery.data ? placeInZone(dayQuery.data.cards, city, userLocation) : EMPTY_PLACED),
+    [dayOutside, dayQuery.data, city, userLocation],
+  );
 
-  // topDjs dérive des soirées de la semaine : sa clé suit les ids non-affiliés.
-  const weekEventIdsKey = weekData.flatMap(d => d.events).filter(e => !e.isAffiliate).map(e => e.id).join(',');
-  const exploreTopDjsQuery = useQuery({
-    queryKey: ['explore-topdjs', weekEventIdsKey],
-    queryFn: () => fetchExploreTopDjs(weekData),
+  // ── Carrousel : soirées de la période choisie (Ce soir / Demain / Week-end / jour) ──
+  // « Ce soir » = à partir de MAINTENANT + les soirées en cours (commencées
+  // hier, pas finies). Les autres périodes = début dans la fenêtre. Une soirée
+  // terminée n'apparaît jamais.
+  const events = useMemo<PlacedCard[]>(() => {
+    const source = dayOutside ? dayZoneCards : zoneCards;
+    const { start, end } = getDateRange(selectedDate || dateFilter);
+    const now = Date.now();
+    const lower = Math.max(start.getTime(), now);
+    const upper = end.getTime();
+    const includeLive = !selectedDate ? dateFilter === 'today' || dateFilter === 'week' : start.getTime() <= now && upper >= now;
+    return source
+      .map(c => {
+        const s = new Date(c.startAt).getTime();
+        const e = new Date(c.endAt).getTime();
+        const live = !c.isAffiliate && s <= now && e > now;
+        return { card: c, s, e, live };
+      })
+      .filter(({ s, e, live }) => (live ? includeLive && e > now : s >= lower && s <= upper))
+      .map(({ card, live }) => (card.isLive === live ? card : { ...card, isLive: live }));
+  }, [dayOutside, dayZoneCards, zoneCards, selectedDate, dateFilter]);
+  const allEvents = events;
+
+  // ── Cette semaine : 7 onglets (jour courant inclus), regroupés par jour ──
+  const weekData = useMemo<WeekDayData[]>(() => {
+    if (!catalog) return EMPTY_WEEK;
+    const byDay = new Map<string, EventCardData[]>();
+    for (const c of zoneCards) {
+      (byDay.get(c.dayKey) ?? byDay.set(c.dayKey, []).get(c.dayKey)!).push(c);
+    }
+    const days: WeekDayData[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(catalogRange.start);
+      date.setDate(date.getDate() + i);
+      const dayStr = toLocalDate(date);
+      const key = i === 0
+        ? (language === 'fr' ? 'AUJ' : language === 'es' ? 'HOY' : 'TODAY')
+        : format(date, 'EEE', { locale: dfLocale(language) }).toUpperCase();
+      days.push({ key, date, events: byDay.get(dayStr) ?? [] });
+    }
+    return days;
+  }, [catalog, zoneCards, catalogRange, language]);
+
+  // ── Bornes dynamiques des filtres (prix / horaires) sur la période affichée ──
+  const filterDynamicData = useMemo<FilterDynamicData>(() => {
+    if (events.length === 0) return DEFAULT_FILTER_DYNAMIC;
+    const prices: number[] = [];
+    const hours: number[] = [];
+    for (const e of events) {
+      if (e.priceMin != null) prices.push(e.priceMin);
+      if (e.priceMax != null) prices.push(e.priceMax);
+      hours.push(new Date(e.startAt).getHours(), new Date(e.endAt).getHours());
+    }
+    const nightHours = hours.filter(h => h >= 18 || h <= 6);
+    const earlyPool = nightHours.length > 0 ? nightHours : hours;
+    const lateHours = hours.filter(h => h <= 6);
+    return {
+      ticketPriceMin: prices.length ? Math.floor(Math.min(...prices)) : 0,
+      ticketPriceMax: prices.length ? Math.ceil(Math.max(...prices)) : 200,
+      vipPriceMin: 0,
+      vipPriceMax: 200,
+      earliestHour: hours.length ? Math.min(...earlyPool) : 18,
+      latestHour: hours.length ? Math.max(...(lateHours.length ? lateHours : [6])) : 6,
+    };
+  }, [events]);
+
+  // ── DJs du catalogue (toutes villes) — filtrés par zone en mémoire ──
+  const catalogEventIdsKey = useMemo(
+    () => (catalog ? catalog.cards.filter(c => !c.isAffiliate).map(c => c.id).sort().join(',') : ''),
+    [catalog],
+  );
+  const djsQuery = useQuery({
+    queryKey: ['explore-djs', catalogEventIdsKey],
+    queryFn: () => fetchCatalogDjs(queryClient, catalogEventIdsKey.split(',')),
+    enabled: catalogEventIdsKey.length > 0,
+    placeholderData: keepPreviousData,
   });
-  const topDjs = exploreTopDjsQuery.data ?? EMPTY_DJS;
+  const topDjs = useMemo<ExploreDJItem[]>(() => {
+    const data: CatalogDjs | undefined = djsQuery.data;
+    if (!data || data.djs.length === 0) return EMPTY_DJS;
+    const zoneIds = new Set(zoneCards.filter(c => !c.isAffiliate).map(c => c.id));
+    const ranked = data.djs
+      .filter(d => (data.eventsByDj[d.id] ?? []).some(id => zoneIds.has(id)))
+      .sort((a, b) => b.followersCount - a.followersCount);
+    // Dédoublonnage par personne (un même DJ a une ligne par club/orga ; on
+    // garde la plus suivie).
+    const seen = new Set<string>();
+    const deduped: ExploreDJItem[] = [];
+    for (const d of ranked) {
+      const key = d.stageName.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(d);
+      if (deduped.length === 10) break;
+    }
+    return deduped;
+  }, [djsQuery.data, zoneCards]);
 
   // ── Geolocation init ──
   // Init automatique au mount : ne doit JAMAIS déclencher le dialogue système
@@ -343,9 +436,6 @@ export default function Explore() {
     return () => window.removeEventListener(GEOLOC_GRANTED_EVENT, onGranted);
   }, []);
 
-  // ── Main data fetch ──
-  // (Les fetch sont pilotés par les useQuery ci-dessus — plus d'effets manuels.)
-
   const handleDateSelect = (date: Date | null, preset?: string) => {
     if (preset) {
       setSelectedDate(null);
@@ -359,6 +449,9 @@ export default function Explore() {
     setCity(newCity);
     setManualLocation(newCity, coords);
     if (coords) setUserLocation(coords);
+    // Nouvelle ville = nouveau feed : on repart du haut, comme une app native.
+    mainRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
   };
 
   const handleApplyFilters = (newFilters: ExploreFilters) => {
@@ -403,7 +496,7 @@ export default function Explore() {
 
   // ── FilterPage-filtered events ──
   const filteredEvents = useMemo(() => {
-    let result = [...events];
+    let result: EventCardData[] = [...events];
     if (filters.eventTypes.length > 0) {
       // affiliate events have no mapped type — include them regardless
       result = result.filter(e =>
@@ -535,6 +628,10 @@ export default function Explore() {
   }, [allEvents]);
 
   const venueItems = useMemo<ExploreVenueItem[]>(() => {
+    if (!catalog) return [];
+    const { venues, affiliateVenues, venueFavCounts } = catalog;
+    const cityLc = city.toLowerCase();
+
     const regularItems = venues
       .filter(v => !v.hidden_from_map)
       .map(v => {
@@ -555,11 +652,8 @@ export default function Explore() {
         } as ExploreVenueItem & { distance: number | null; followersCount: number };
       })
       .filter(v => {
-        if (userLocation && v.distance != null) return v.distance <= 50;
-        if (city) {
-          const venue = venues.find(ven => ven.id === v.id);
-          return venue?.city?.toLowerCase().includes(city.toLowerCase());
-        }
+        if (userLocation && v.distance != null) return v.distance <= ZONE_RADIUS_KM;
+        if (cityLc) return (v.city || '').toLowerCase().includes(cityLc);
         return true;
       });
 
@@ -583,8 +677,8 @@ export default function Explore() {
         } as ExploreVenueItem & { distance: number | null; followersCount: number };
       })
       .filter(v => {
-        if (userLocation && v.distance != null) return v.distance <= 50;
-        if (city) return (v.city || '').toLowerCase().includes(city.toLowerCase());
+        if (userLocation && v.distance != null) return v.distance <= ZONE_RADIUS_KM;
+        if (cityLc) return (v.city || '').toLowerCase().includes(cityLc);
         return true;
       });
 
@@ -600,7 +694,7 @@ export default function Explore() {
         return 0;
       })
       .slice(0, 10);
-  }, [venues, affiliateVenues, userLocation, city, venueGenreMap, venueFavCounts]);
+  }, [catalog, userLocation, city, venueGenreMap]);
 
   // ── Period label for carousel heading ──
   const periodLabel = useMemo(() => {
@@ -623,512 +717,6 @@ export default function Explore() {
     if (sel.getTime() === tomorrow.getTime()) return t('explore.tomorrow');
     return format(selectedDate, 'd MMM', { locale: dfLocale(language) });
   }, [selectedDate, dateFilter, t, language]);
-
-  // ══════════════════════════════════════════════════
-  // FETCH: main events
-  // ══════════════════════════════════════════════════
-  async function fetchExploreMain() {
-    const dateSource = selectedDate || dateFilter;
-    const { start, end } = getDateRange(dateSource);
-
-    try {
-      const filterStartAt = selectedDate || dateFilter !== 'today' ? start : new Date().toISOString();
-      const nowIso = new Date().toISOString();
-      const toLocalDate = (iso: string) => {
-        const d = new Date(iso);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      };
-      const startDate = toLocalDate(start);
-      const endDate = toLocalDate(end);
-
-      const [eventsRes, liveEventsRes, venuesRes, favCountsRes, djSetsRes, tableZonesRes, clubFavCountsRes, affiliateEventsRes, affiliateVenuesRes, affiliateFavCountsRes] =
-        await Promise.all([
-          supabase
-            .from('events')
-            .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
-            .eq('is_active', true)
-            .eq('visibility', 'public')
-            .eq('is_discoverable', true)
-            .gte('start_at', filterStartAt)
-            .lte('start_at', end)
-            .order('start_at', { ascending: true }),
-          supabase
-            .from('events')
-            .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
-            .eq('is_active', true)
-            .eq('visibility', 'public')
-            .eq('is_discoverable', true)
-            .lt('start_at', nowIso)
-            .gt('end_at', nowIso)
-            .order('start_at', { ascending: true }),
-          supabase
-            .from('venues')
-            .select('id, name, city, address, logo_url, cover_url, latitude, longitude, is_hidden, hidden_from_map')
-            .eq('is_hidden', false),
-          supabase.rpc('get_public_favorite_counts', { _favorite_type: 'event' }),
-          supabase.from('dj_sets').select('event_id, music_genre'),
-          supabase.from('table_zones').select('venue_id, tables_count'),
-          supabase.rpc('get_public_favorite_counts', { _favorite_type: 'club' }),
-          supabase
-            .from('affiliate_events')
-            .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, tables_only, external_ticket_url, affiliate_venues(id, name, city, neighborhood, lat, lng)')
-            .in('status', ['published', 'featured'])
-            .gte('event_date', startDate)
-            .lte('event_date', endDate)
-            .order('event_date', { ascending: true }),
-          supabase
-            .from('affiliate_venues')
-            .select('id, name, city, slug, cover_image_url, logo_url, lat, lng, genres, is_active')
-            .eq('is_active', true),
-          supabase.rpc('get_public_favorite_counts', { _favorite_type: 'affiliate_event' }),
-        ]);
-
-      const venuesList = venuesRes.data || [];
-
-      const venueFavCounts: Record<string, number> = {};
-      (clubFavCountsRes.data || []).forEach(f => {
-        if (f.target_id) venueFavCounts[f.target_id] = f.total_count;
-      });
-
-      const venueMap = new Map(venuesList.map(v => [v.id, v]));
-
-      const favCounts: Record<string, number> = {};
-      (favCountsRes.data || []).forEach(f => {
-        if (f.target_id) favCounts[f.target_id] = f.total_count;
-      });
-
-      const affiliateFavCounts: Record<string, number> = {};
-      (affiliateFavCountsRes.data || []).forEach(f => {
-        if (f.target_id) affiliateFavCounts[f.target_id] = f.total_count;
-      });
-
-      const genreMap: Record<string, Set<string>> = {};
-      (djSetsRes.data || []).forEach(ds => {
-        if (ds.event_id && ds.music_genre) {
-          if (!genreMap[ds.event_id]) genreMap[ds.event_id] = new Set();
-          genreMap[ds.event_id].add(ds.music_genre);
-        }
-      });
-
-      const tablesPerVenue: Record<string, number> = {};
-      (tableZonesRes.data || []).forEach(tz => {
-        tablesPerVenue[tz.venue_id] = (tablesPerVenue[tz.venue_id] || 0) + tz.tables_count;
-      });
-
-      const regularEvents = eventsRes.data || [];
-      const liveEvents = liveEventsRes.data || [];
-      const liveEventIds = new Set(liveEvents.map(e => e.id));
-      const mergedEvents = [...liveEvents, ...regularEvents.filter(e => !liveEventIds.has(e.id))];
-
-      const organizerUserIds = Array.from(
-        new Set(mergedEvents.map(e => e.organizer_user_id).filter(Boolean) as string[])
-      );
-      const organizerMap = new Map<string, { display_name: string; slug: string | null }>();
-      if (organizerUserIds.length > 0) {
-        const { data: orgProfiles } = await supabase
-          .from('organizer_profiles')
-          .select('user_id, display_name, slug')
-          .in('user_id', organizerUserIds);
-        (orgProfiles || []).forEach(op => organizerMap.set(op.user_id, { display_name: op.display_name, slug: op.slug }));
-      }
-
-      const eventIds = mergedEvents.map(e => e.id);
-      let ticketRounds: ExploreTicketRoundRow[] = [];
-      if (eventIds.length > 0) {
-        const { data } = await supabase
-          .from('ticket_rounds')
-          .select('event_id, price, tickets_sold, max_tickets, is_active')
-          .in('event_id', eventIds);
-        ticketRounds = data || [];
-      }
-
-      const minPriceMap: Record<string, number> = {};
-      const soldMap: Record<string, { sold: number; max: number }> = {};
-      ticketRounds.forEach(tr => {
-        if (tr.is_active) {
-          const prev = minPriceMap[tr.event_id];
-          if (prev === undefined || tr.price < prev) minPriceMap[tr.event_id] = tr.price;
-        }
-        if (!soldMap[tr.event_id]) soldMap[tr.event_id] = { sold: 0, max: 0 };
-        soldMap[tr.event_id].sold += tr.tickets_sold || 0;
-        soldMap[tr.event_id].max += tr.max_tickets || 0;
-      });
-
-      const allTicketPrices = ticketRounds.filter(tr => tr.is_active).map(tr => tr.price);
-      const ticketPriceMin = allTicketPrices.length > 0 ? Math.min(...allTicketPrices) : 0;
-      const ticketPriceMax = allTicketPrices.length > 0 ? Math.max(...allTicketPrices) : 200;
-      const eventHours = mergedEvents.flatMap(e => [new Date(e.start_at).getHours(), new Date(e.end_at).getHours()]);
-      const earliestHour = eventHours.length > 0 ? Math.min(...eventHours.filter(h => h >= 18 || h <= 6).length > 0 ? eventHours.filter(h => h >= 18 || h <= 6) : eventHours) : 18;
-      const latestHour = eventHours.length > 0 ? Math.max(...eventHours.filter(h => h <= 6).length > 0 ? eventHours.filter(h => h <= 6) : [6]) : 6;
-
-      const filterDynamicData: FilterDynamicData = {
-        ticketPriceMin: Math.floor(ticketPriceMin),
-        ticketPriceMax: Math.ceil(ticketPriceMax),
-        vipPriceMin: 0,
-        vipPriceMax: 200,
-        earliestHour,
-        latestHour,
-      };
-
-      const MAX_DIST = 50;
-
-      const allCards: EventCardData[] = mergedEvents.map(e => {
-        const isOrganizerLed = !!e.organizer_user_id;
-        const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
-        const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
-        const organizerInfo = isOrganizerLed && e.organizer_user_id ? organizerMap.get(e.organizer_user_id) : undefined;
-
-        const sm = soldMap[e.id];
-        const percentSold = sm && sm.max > 0 ? (sm.sold / sm.max) * 100 : 0;
-        const interestedCount = favCounts[e.id] || 0;
-        const tablesRem = e.tables_enabled && displayVenueId ? (tablesPerVenue[displayVenueId] || null) : null;
-
-        let distance: number | null = null;
-        if (userLocation && venue?.latitude && venue?.longitude) {
-          distance = haversineKm(userLocation.lat, userLocation.lng, venue.latitude, venue.longitude);
-        }
-
-        const eventGenres =
-          e.music_genres && e.music_genres.length > 0
-            ? e.music_genres
-            : e.music_genre
-            ? [e.music_genre]
-            : Array.from(genreMap[e.id] || []);
-
-        const venueName = isOrganizerLed && organizerInfo
-          ? `${organizerInfo.display_name}${venue ? ` · ${venue.name}` : ''}`
-          : venue?.name || '';
-
-        return {
-          id: e.id,
-          slug: e.slug ?? null,
-          organizerSlug: organizerInfo?.slug ?? null,
-          title: e.title,
-          posterUrl: e.poster_url,
-          startAt: e.start_at,
-          endAt: e.end_at,
-          venueName,
-          venueSlug: venue?.id || '',
-          // Organizer-led events without a club venue carry their own city in
-          // events.location_city. Fall back to it so they filter by city instead
-          // of slipping through with an empty city.
-          venueCity: venue?.city || e.location_city || '',
-          minPrice: minPriceMap[e.id] ?? null,
-          genres: eventGenres,
-          interestedCount,
-          percentSold,
-          tablesRemaining: tablesRem,
-          isTrending: percentSold > 60 || interestedCount > 100,
-          distance,
-          eventType: e.event_type || 'club',
-          isLive: liveEventIds.has(e.id),
-          isOrganizerLed,
-          organizerName: organizerInfo?.display_name,
-        };
-      });
-
-      const cards = allCards.filter(e => {
-        if (userLocation && e.distance != null) return e.distance <= MAX_DIST;
-        if (city) return e.venueCity.toLowerCase().includes(city.toLowerCase());
-        return true;
-      });
-
-      cards.sort((a, b) => {
-        if (a.isTrending !== b.isTrending) return a.isTrending ? -1 : 1;
-        if (a.distance != null && b.distance != null) return a.distance - b.distance;
-        return 0;
-      });
-
-      // Merge affiliate events
-      const affiliateCards: EventCardData[] = (affiliateEventsRes.data ?? []).flatMap(ae => {
-        const venue = ae.affiliate_venues;
-        if (!venue) return [];
-        const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
-        const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
-        let distance: number | null = null;
-        if (userLocation && venue.lat && venue.lng) {
-          distance = haversineKm(userLocation.lat, userLocation.lng, venue.lat, venue.lng);
-        }
-        return [{
-          id: ae.id,
-          title: ae.name,
-          posterUrl: ae.flyer_url,
-          startAt,
-          endAt,
-          venueName: venue.name,
-          venueSlug: venue.id,
-          venueCity: venue.city || '',
-          minPrice: affiliateMinPrice(ae),
-          // Une soirée qui ne vend que des tables n'a pas de prix d'entrée :
-          // sans ce drapeau elle s'affichait « Gratuit ».
-          tablesOnly: !!ae.tables_only,
-          genres: ae.genres || [],
-          interestedCount: affiliateFavCounts[ae.id] || 0,
-          percentSold: 0,
-          tablesRemaining: null,
-          isTrending: false,
-          distance,
-          eventType: 'affiliate',
-          isAffiliate: true,
-          affiliateEventSlug: ae.slug,
-        }];
-      }).filter(ae => {
-        if (userLocation && ae.distance != null) return ae.distance <= MAX_DIST;
-        if (city) return ae.venueCity.toLowerCase().includes(city.toLowerCase());
-        return true;
-      });
-
-      const mergedCards = [...cards, ...affiliateCards].sort(
-        (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
-      );
-
-      return {
-        events: mergedCards,
-        allEvents: mergedCards,
-        venues: venuesList,
-        affiliateVenues: affiliateVenuesRes.data || [],
-        venueFavCounts,
-        filterDynamicData,
-      };
-    } catch (err) {
-      console.error('Error fetching explore data:', err);
-      // L'erreur remonte à react-query (retry/refetch) ; le toast « Réessayer »
-      // est déclenché par l'effet qui observe exploreMainQuery.isError.
-      throw err;
-    }
-  }
-
-  // ══════════════════════════════════════════════════
-  // FETCH: week events for "Cette semaine" section
-  // ══════════════════════════════════════════════════
-  async function fetchExploreWeek() {
-    try {
-      const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const weekEnd = new Date(todayStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      const startDate = format(todayStart, 'yyyy-MM-dd');
-      const endDate = format(weekEnd, 'yyyy-MM-dd');
-
-      const [eventsRes, venuesRes, ticketRes, affiliateEventsRes, favCountsRes, affiliateFavCountsRes] = await Promise.all([
-        supabase
-          .from('events')
-          .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
-          .eq('is_active', true)
-          .eq('visibility', 'public')
-          .eq('is_discoverable', true)
-          .gte('start_at', todayStart.toISOString())
-          .lte('start_at', weekEnd.toISOString())
-          .order('start_at', { ascending: true })
-          .limit(300),
-        supabase
-          .from('venues')
-          .select('id, name, city, cover_url, logo_url, latitude, longitude'),
-        supabase.from('ticket_rounds').select('event_id, price, is_active'),
-        supabase
-          .from('affiliate_events')
-          .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, tables_only, affiliate_venues(id, name, city, neighborhood, lat, lng)')
-          .in('status', ['published', 'featured'])
-          .gte('event_date', startDate)
-          .lte('event_date', endDate)
-          .order('event_date', { ascending: true }),
-        supabase.rpc('get_public_favorite_counts', { _favorite_type: 'event' }),
-        supabase.rpc('get_public_favorite_counts', { _favorite_type: 'affiliate_event' }),
-      ]);
-
-      const venueMap = new Map((venuesRes.data || []).map(v => [v.id, v]));
-
-      const minPriceMap: Record<string, number> = {};
-      (ticketRes.data || []).forEach(tr => {
-        if (tr.is_active) {
-          const prev = minPriceMap[tr.event_id];
-          if (prev === undefined || tr.price < prev) minPriceMap[tr.event_id] = tr.price;
-        }
-      });
-
-      const weekFavCounts: Record<string, number> = {};
-      (favCountsRes.data || []).forEach(f => {
-        if (f.target_id) weekFavCounts[f.target_id] = f.total_count;
-      });
-
-      const weekAffiliateFavCounts: Record<string, number> = {};
-      (affiliateFavCountsRes.data || []).forEach(f => {
-        if (f.target_id) weekAffiliateFavCounts[f.target_id] = f.total_count;
-      });
-
-      // Group affiliate events by date
-      const affiliateByDate: Record<string, EventCardData[]> = {};
-      (affiliateEventsRes.data ?? []).forEach(ae => {
-        const venue = ae.affiliate_venues;
-        if (!venue) return;
-        if (city && !(venue.city || '').toLowerCase().includes(city.toLowerCase())) return;
-        const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
-        const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
-        const card: EventCardData = {
-          id: ae.id,
-          title: ae.name,
-          posterUrl: ae.flyer_url,
-          startAt,
-          endAt,
-          venueName: venue.name,
-          venueSlug: venue.id,
-          venueCity: venue.city || '',
-          minPrice: affiliateMinPrice(ae),
-          // Une soirée qui ne vend que des tables n'a pas de prix d'entrée :
-          // sans ce drapeau elle s'affichait « Gratuit ».
-          tablesOnly: !!ae.tables_only,
-          genres: ae.genres || [],
-          interestedCount: weekAffiliateFavCounts[ae.id] || 0,
-          percentSold: 0,
-          tablesRemaining: null,
-          isTrending: false,
-          eventType: 'affiliate',
-          isAffiliate: true,
-          affiliateEventSlug: ae.slug,
-        };
-        if (!affiliateByDate[ae.event_date]) affiliateByDate[ae.event_date] = [];
-        affiliateByDate[ae.event_date].push(card);
-      });
-
-      const days: WeekDayData[] = [];
-
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(todayStart);
-        date.setDate(date.getDate() + i);
-        const dayStr = format(date, 'yyyy-MM-dd');
-        const key = i === 0
-          ? (language === 'fr' ? 'AUJ' : language === 'es' ? 'HOY' : 'TODAY')
-          : format(date, 'EEE', { locale: dfLocale(language) }).toUpperCase();
-
-        const regularEvents = (eventsRes.data || [])
-          .filter(e => e.start_at.startsWith(dayStr))
-          .map(e => {
-            const isOrganizerLed = !!e.organizer_user_id;
-            const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
-            const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
-            // Resolve city from the venue, falling back to the event's own
-            // location_city (organizer-led events without a club venue). Filter
-            // strictly: an event we can't place in the selected city is hidden,
-            // not shown in every city.
-            const venueCity = venue?.city || e.location_city || '';
-            if (city && !venueCity.toLowerCase().includes(city.toLowerCase())) return null;
-            const genres =
-              (e.music_genres && e.music_genres.length > 0)
-                ? (e.music_genres as string[])
-                : e.music_genre
-                ? [e.music_genre]
-                : [];
-
-            return {
-              id: e.id,
-              slug: e.slug ?? null,
-              title: e.title,
-              posterUrl: e.poster_url,
-              startAt: e.start_at,
-              endAt: e.end_at,
-              venueName: venue?.name || '',
-              venueSlug: displayVenueId || '',
-              venueCity,
-              minPrice: minPriceMap[e.id] ?? null,
-              genres,
-              interestedCount: weekFavCounts[e.id] || 0,
-              percentSold: 0,
-              tablesRemaining: null,
-              isTrending: false,
-              eventType: e.event_type || 'club',
-              isOrganizerLed,
-            } as EventCardData;
-          })
-          .filter((e): e is EventCardData => e !== null);
-
-        const affiliateDay = affiliateByDate[dayStr] || [];
-        const allDayEvents = [...regularEvents, ...affiliateDay].sort(
-          (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
-        );
-
-        days.push({ key, date, events: allDayEvents });
-      }
-
-      return days;
-    } catch (err) {
-      console.error('Error fetching week data:', err);
-      return EMPTY_WEEK;
-    }
-  }
-
-  // ══════════════════════════════════════════════════
-  // FETCH: top DJs — les plus suivis qui jouent cette semaine dans la zone
-  // ══════════════════════════════════════════════════
-  async function fetchExploreTopDjs(weekDataArg: WeekDayData[]) {
-    try {
-      // Soirées club + orga de la semaine, déjà filtrées par ville/fenêtre/visibilité
-      // dans weekData. On exclut les affiliés (table séparée, pas de line-up DJ).
-      const eventIds = [...new Set(
-        weekDataArg.flatMap(d => d.events).filter(e => !e.isAffiliate).map(e => e.id)
-      )];
-      if (eventIds.length === 0) {
-        return EMPTY_DJS;
-      }
-
-      // Quels DJs jouent l'une de ces soirées ? (event_djs : lecture publique)
-      const { data: links } = await supabase
-        .from('event_djs')
-        .select('dj_id')
-        .in('event_id', eventIds);
-      const djIds = [...new Set((links || []).map(l => l.dj_id).filter(Boolean))];
-      if (djIds.length === 0) {
-        return EMPTY_DJS;
-      }
-
-      // Nombre d'abonnés par DJ + profils publics (vue djs_public, definer), en parallèle.
-      const [countsRes, djsRes] = await Promise.all([
-        supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' }),
-        supabase
-          .from('djs_public')
-          .select('id, slug, handle, stage_name, first_name, last_name, profile_image_url, music_genres, is_verified, is_active')
-          .in('id', djIds)
-          .eq('is_active', true),
-      ]);
-
-      const followerMap: Record<string, number> = {};
-      (countsRes.data || []).forEach(f => {
-        if (f.target_id) followerMap[f.target_id] = f.total_count;
-      });
-
-      // Classement par abonnés décroissant, puis dédoublonnage par personne
-      // (un même DJ a une ligne par club/orga ; on garde la plus suivie).
-      const ranked = (djsRes.data || [])
-        .map(d => ({
-          // La vue djs_public expose id nullable, mais .in('id', djIds) garantit sa présence.
-          id: d.id as string,
-          slug: d.slug,
-          handle: d.handle ?? null,
-          stageName: (d.stage_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`).trim(),
-          profileImageUrl: d.profile_image_url,
-          musicGenres: d.music_genres || [],
-          isVerified: !!d.is_verified,
-          followersCount: followerMap[d.id] || 0,
-        }))
-        .filter(d => d.stageName)
-        .sort((a, b) => b.followersCount - a.followersCount);
-
-      const seen = new Set<string>();
-      const deduped: ExploreDJItem[] = [];
-      for (const d of ranked) {
-        const key = d.stageName.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduped.push(d);
-        if (deduped.length === 10) break;
-      }
-      return deduped;
-    } catch (err) {
-      console.error('Error fetching top DJs:', err);
-      return EMPTY_DJS;
-    }
-  }
 
   // ══════════════════════════════════════════════════
   // RENDER
@@ -1182,7 +770,7 @@ export default function Explore() {
             (découverte), semaine creuse (arbitrage).
             ══════════════════════════════════════════ */}
         {!pageLoading && density.status !== 'full' && (
-          <PublicPage variant="discovery">
+          <PublicPage variant="discovery" key={city}>
             {density.status === 'single' && density.upcoming[0] && (
               <ExploreSingleNight
                 event={density.upcoming[0]}
@@ -1206,7 +794,7 @@ export default function Explore() {
             MAIN FEED — sectioned editorial layout
             ══════════════════════════════════════════ */}
         {!pageLoading && density.status === 'full' && (
-          <PublicPage variant="discovery">
+          <PublicPage variant="discovery" key={city}>
             {/* ═══ MODULE 0 : Bannière moment (Freshers Week…) — se masque
                 toute seule hors fenêtre / hors ville / sans matière. ═══ */}
             {activeMoment && <ExploreMomentBanner moment={activeMoment} />}

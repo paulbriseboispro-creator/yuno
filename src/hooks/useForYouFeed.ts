@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import type { EventCardData } from '@/components/explore/EventCard';
 
 // Module « Pour toi » (Explore) — données autonomes.
@@ -84,60 +85,65 @@ function assignDiverseReasons(rows: ForYouRow[]): RawReason[] {
   });
 }
 
+const EMPTY_ITEMS: ForYouItem[] = [];
+
+async function fetchForYou(city: string | null, limit: number): Promise<ForYouItem[]> {
+  const { data, error } = await supabase.rpc('get_for_you_feed', {
+    p_city: city || undefined,
+    p_limit: limit,
+  });
+  if (error) {
+    console.error('for-you feed error:', error.message);
+    return EMPTY_ITEMS;
+  }
+  if (!Array.isArray(data)) return EMPTY_ITEMS;
+
+  const rows = data as unknown as ForYouRow[];
+  const reasons = assignDiverseReasons(rows);
+
+  return rows.map((r, i) => ({
+    event: {
+      id: r.event_id,
+      slug: r.event_slug,
+      organizerSlug: r.organizer_slug,
+      title: r.event_title,
+      posterUrl: r.poster_url,
+      startAt: r.starts_at,
+      endAt: r.ends_at,
+      // Même composition que l'Explorer : « Organisateur · Club » quand la
+      // soirée est portée par un organisateur dans un club partenaire.
+      venueName: r.organizer_name
+        ? `${r.organizer_name}${r.venue_name ? ` · ${r.venue_name}` : ''}`
+        : r.venue_name || '',
+      venueSlug: r.venue_id || '',
+      venueCity: r.venue_city || '',
+      minPrice: r.min_price,
+      genres: r.genres || [],
+      interestedCount: 0,
+      percentSold: 0,
+      tablesRemaining: null,
+      isTrending: false,
+      isOrganizerLed: Boolean(r.organizer_name),
+      organizerName: r.organizer_name ?? undefined,
+    },
+    reasonCode: reasons[i].code,
+    reasonValue: reasons[i].value,
+  }));
+}
+
+/**
+ * Cache react-query (clé = utilisateur + ville) : revenir sur l'Explore ou
+ * rebasculer sur une ville déjà vue ne relance pas la RPC, et pendant le
+ * chargement d'une nouvelle ville la rangée précédente reste affichée
+ * plutôt que de disparaître.
+ */
 export function useForYouFeed(city: string | null, limit = 12) {
-  const [items, setItems] = useState<ForYouItem[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session || cancelled) return;
-
-      const { data, error } = await supabase.rpc('get_for_you_feed', {
-        p_city: city || undefined,
-        p_limit: limit,
-      });
-      if (cancelled || error || !Array.isArray(data)) {
-        if (error) console.error('for-you feed error:', error.message);
-        return;
-      }
-
-      const rows = data as unknown as ForYouRow[];
-      const reasons = assignDiverseReasons(rows);
-
-      setItems(rows.map((r, i) => ({
-        event: {
-          id: r.event_id,
-          slug: r.event_slug,
-          organizerSlug: r.organizer_slug,
-          title: r.event_title,
-          posterUrl: r.poster_url,
-          startAt: r.starts_at,
-          endAt: r.ends_at,
-          // Même composition que l'Explorer : « Organisateur · Club » quand la
-          // soirée est portée par un organisateur dans un club partenaire.
-          venueName: r.organizer_name
-            ? `${r.organizer_name}${r.venue_name ? ` · ${r.venue_name}` : ''}`
-            : r.venue_name || '',
-          venueSlug: r.venue_id || '',
-          venueCity: r.venue_city || '',
-          minPrice: r.min_price,
-          genres: r.genres || [],
-          interestedCount: 0,
-          percentSold: 0,
-          tablesRemaining: null,
-          isTrending: false,
-          isOrganizerLed: Boolean(r.organizer_name),
-          organizerName: r.organizer_name ?? undefined,
-        },
-        reasonCode: reasons[i].code,
-        reasonValue: reasons[i].value,
-      })));
-    })();
-
-    return () => { cancelled = true; };
-  }, [city, limit]);
-
-  return items;
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ['for-you', user?.id ?? null, city || null, limit],
+    queryFn: () => fetchForYou(city, limit),
+    enabled: !!user,
+    placeholderData: keepPreviousData,
+  });
+  return query.data ?? EMPTY_ITEMS;
 }
