@@ -36,3 +36,45 @@ export async function loadLocale(lang: Language): Promise<Record<string, string>
   cache[lang] = mod.default;
   return mod.default;
 }
+
+// ── Sections à la demande ────────────────────────────────────────────
+// Le dictionnaire principal ne contient que ce qu'un client ou un pro voit au
+// quotidien. Les gros blocs réservés à une surface précise (mode d'emploi pro,
+// 2 000 clés `ohelp.*`) vivent dans des chunks séparés, fusionnés dans le
+// dictionnaire de la langue UNIQUEMENT quand la surface se monte.
+
+export type LocaleSection = 'help';
+
+const sectionCache: Partial<Record<Language, Partial<Record<LocaleSection, Record<string, string>>>>> = {};
+
+/** Sections déjà fusionnées dans une langue (lecture synchrone). */
+export function hasLocaleSection(lang: Language, section: LocaleSection): boolean {
+  return !!sectionCache[lang]?.[section];
+}
+
+/**
+ * Charge une section et la FUSIONNE dans le dictionnaire de la langue. Retourne
+ * le dictionnaire fusionné (nouvel objet : React peut détecter le changement).
+ */
+export async function loadLocaleSection(lang: Language, section: LocaleSection): Promise<Record<string, string>> {
+  const base = await loadLocale(lang);
+  const already = sectionCache[lang]?.[section];
+  if (already) return cache[lang] ?? base;
+  let mod: { default: Record<string, string> };
+  // Imports explicites (pas de template string) : un chunk par langue.
+  switch (lang) {
+    case 'fr':
+      mod = await import('./locales/help/fr');
+      break;
+    case 'es':
+      mod = await import('./locales/help/es');
+      break;
+    default:
+      mod = await import('./locales/help/en');
+      break;
+  }
+  (sectionCache[lang] ??= {})[section] = mod.default;
+  const merged = { ...(cache[lang] ?? base), ...mod.default };
+  cache[lang] = merged;
+  return merged;
+}

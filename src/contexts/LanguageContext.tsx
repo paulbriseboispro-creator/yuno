@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { loadLocale, getLoadedLocale, type Language } from '../i18n/data';
+import { loadLocale, getLoadedLocale, loadLocaleSection, hasLocaleSection, type Language, type LocaleSection } from '../i18n/data';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { deviceLanguage, VALID_LANGS } from '@/lib/deviceLanguage';
 
@@ -10,6 +10,8 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  /** Charge une section de dictionnaire à la demande (mode d'emploi pro…). */
+  ensureSection: (section: LocaleSection) => Promise<void>;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -34,10 +36,28 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [strings, setStrings] = useState<Record<string, string> | null>(() => getLoadedLocale(persistedLanguage()) ?? null);
   const [enStrings, setEnStrings] = useState<Record<string, string> | null>(() => getLoadedLocale('en') ?? null);
 
+  // Sections chargées à la demande (mode d'emploi…) : on les rejoue quand la
+  // langue change, pour que le centre d'aide reste traduit après une bascule.
+  const sectionsRef = useRef<Set<LocaleSection>>(new Set());
+
+  const ensureSection = useCallback(async (section: LocaleSection) => {
+    sectionsRef.current.add(section);
+    const merged = await loadLocaleSection(language, section);
+    setStrings(merged);
+    if (language !== 'en') {
+      // Fallback EN de la section, en tâche de fond.
+      loadLocaleSection('en', section).then(setEnStrings).catch(() => {});
+    }
+  }, [language]);
+
   // Charger le dictionnaire de la langue active (et suivre ses changements).
   useEffect(() => {
     let cancelled = false;
-    loadLocale(language).then((dict) => {
+    const sections = Array.from(sectionsRef.current);
+    const load = sections.length
+      ? Promise.all(sections.map((sec) => loadLocaleSection(language, sec))).then((dicts) => dicts[dicts.length - 1])
+      : loadLocale(language);
+    load.then((dict) => {
       if (!cancelled) setStrings(dict);
     }).catch((e) => {
       console.error('[i18n] locale load failed:', e);
@@ -146,7 +166,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   if (!strings) return null;
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, ensureSection }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -165,7 +185,30 @@ export function useLanguage() {
       setLanguage: () => {},
       t: (key: string) =>
         getLoadedLocale(fallbackLang)?.[key] ?? getLoadedLocale('en')?.[key] ?? key,
+      ensureSection: async () => {},
     } as LanguageContextType;
   }
   return context;
+}
+
+/**
+ * Monte une section de dictionnaire chargée à la demande et dit quand elle est
+ * prête. Tant que `false`, la surface affiche son squelette plutôt que des
+ * clés brutes.
+ *
+ *   const helpReady = useLocaleSection('help');
+ */
+export function useLocaleSection(section: LocaleSection): boolean {
+  const { language, ensureSection } = useLanguage();
+  const [ready, setReady] = useState(() => hasLocaleSection(language, section));
+  useEffect(() => {
+    let cancelled = false;
+    if (hasLocaleSection(language, section)) { setReady(true); return; }
+    setReady(false);
+    ensureSection(section)
+      .then(() => { if (!cancelled) setReady(true); })
+      .catch(() => { if (!cancelled) setReady(true); /* fail-open : clés EN ou brutes plutôt qu'un écran vide */ });
+    return () => { cancelled = true; };
+  }, [language, section, ensureSection]);
+  return ready;
 }

@@ -322,8 +322,11 @@ pour Excel FR/ES).
   visible par un client ou un owner DOIT mettre à jour la connaissance des assistants IA.
 - **Tenir le mode d'emploi à jour** : toute nouvelle fonctionnalité pro (ou changement
   d'un flux existant) DOIT mettre à jour le mode d'emploi owner (`/owner/help`) dans le
-  même chantier — clés `ohelp.*` dans `src/i18n/data.ts` (les 3 langues EN/FR/ES) et
-  structure dans `src/data/ownerHelpContent.ts`. Une feature sans doc n'est pas finie.
+  même chantier — clés `ohelp.*` dans **`src/i18n/locales/help/{en,fr,es}.ts`**
+  (section chargée à la demande par `useLocaleSection('help')`, JAMAIS dans le
+  dictionnaire principal : elle pesait 40 % du chunk de langue que chaque client
+  téléchargeait avant son premier écran) et structure dans
+  `src/data/ownerHelpContent.ts`. Une feature sans doc n'est pas finie.
 - **Toute capture d'écran d'aide entre en WebP, largeur ≤ 1280 px** :
   `cwebp -q 85 -m 6 -resize 1280 0 in.png -o out.webp`, et on ne commite JAMAIS
   une capture pleine page d'une longue liste (garder l'en-tête + une dizaine de

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage, useLocaleSection } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { ownerHelpCategories, OwnerHelpArticle, OwnerHelpCategory, OwnerHelpSection, glossaryTerms } from '@/data/ownerHelpContent';
@@ -137,6 +137,10 @@ function GlossaryText({ text, t }: { text: string; t: (key: string) => string })
 
 export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { categories?: OwnerHelpCategory[] } = {}) {
   const { t } = useLanguage();
+  // Les 2 000 clés `ohelp.*` vivent dans un chunk à part (src/i18n/locales/help/) :
+  // on le fusionne dans le dictionnaire au montage, et on tient le squelette
+  // tant qu'il n'est pas là — jamais de clés brutes à l'écran.
+  const helpReady = useLocaleSection('help');
   const navigate = useNavigate();
   const { basePath } = useDashboardMode();
   const [search, setSearch] = useState('');
@@ -396,6 +400,14 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
   }
 
   // ─── MAIN HELP CENTER VIEW ───
+  if (!helpReady) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center" aria-busy="true">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] bg-background" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>

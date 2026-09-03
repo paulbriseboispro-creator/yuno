@@ -63,10 +63,13 @@ if (ternHits.length) {
 // Les dictionnaires vivent dans src/i18n/locales/{en,fr,es}.ts (un fichier par
 // langue, chargés en chunks dynamiques par src/i18n/data.ts).
 try {
+  // Dictionnaire principal + sections à la demande (locales/help/*.ts).
   const sec = (name) => {
-    const data = fs.readFileSync(path.join(SRC, `i18n/locales/${name}.ts`), "utf8").split("\n");
     const set = new Set();
-    for (const l of data) { const m = l.match(/^\s*['"]([^'"]+)['"]\s*:/); if (m) set.add(m[1]); }
+    for (const file of [`i18n/locales/${name}.ts`, `i18n/locales/help/${name}.ts`]) {
+      const data = fs.readFileSync(path.join(SRC, file), "utf8").split("\n");
+      for (const l of data) { const m = l.match(/^\s*['"]([^'"]+)['"]\s*:/); if (m) set.add(m[1]); }
+    }
     return set;
   };
   const en = sec("en"), es = sec("es"), fr = sec("fr");
