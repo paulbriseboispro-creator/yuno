@@ -188,14 +188,23 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          if (id.includes('react-dom') || id.includes('/react/') || id.includes('react-router') || id.includes('scheduler')) {
-            return 'react-vendor';
-          }
-          if (id.includes('@supabase')) return 'supabase-vendor';
-          if (id.includes('@radix-ui')) return 'radix-vendor';
-          if (id.includes('date-fns')) return 'date-fns-vendor';
+        // Rolldown : `codeSplitting` (ex-advancedChunks) remplace manualChunks. Sans regroupement,
+        // chaque icône lucide et chaque petit module partagé sortaient en chunk
+        // séparé : 85 fichiers JS pour peindre l'Explore (200 à 700 octets chacun),
+        // autant de requêtes sur le web et de lectures/évaluations de modules en
+        // natif. Les icônes, le moteur d'animation et react-query sont réunis ;
+        // `minSize` fusionne les miettes restantes dans leur importeur.
+        codeSplitting: {
+          minSize: 12_000,
+          groups: [
+            { name: 'react-vendor', test: /node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\// },
+            { name: 'supabase-vendor', test: /node_modules\/@supabase\// },
+            { name: 'radix-vendor', test: /node_modules\/@radix-ui\// },
+            { name: 'date-fns-vendor', test: /node_modules\/date-fns/ },
+            { name: 'icons', test: /node_modules\/lucide-react\// },
+            { name: 'motion', test: /node_modules\/(framer-motion|motion-dom|motion-utils)\// },
+            { name: 'query', test: /node_modules\/@tanstack\// },
+          ],
         },
       },
     },
