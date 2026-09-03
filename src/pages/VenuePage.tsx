@@ -731,7 +731,7 @@ export default function VenuePage() {
                 transition={{ duration: 0.7, ease: 'easeOut' }}
                 src={getOptimizedImageUrl(venue.coverUrl, { width: 1200, quality: 82 })}
                 alt={venue.name}
-                fetchPriority="high"
+                fetchpriority="high"
                 className="absolute inset-0 w-full h-full object-cover"
                 style={{
                   objectPosition: venue.coverPosition
