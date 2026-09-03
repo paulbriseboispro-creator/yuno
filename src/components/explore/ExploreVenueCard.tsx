@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { cardImage } from '@/lib/imageOptimization';
 
 export interface ExploreVenueItem {
   id: string;
@@ -23,7 +24,7 @@ export function ExploreVenueCard({ venue }: { venue: ExploreVenueItem }) {
     }
   };
 
-  const imgSrc = venue.coverUrl || venue.logoUrl;
+  const imgSrc = cardImage(venue.coverUrl || venue.logoUrl, 320);
 
   return (
     <div
@@ -49,6 +50,8 @@ export function ExploreVenueCard({ venue }: { venue: ExploreVenueItem }) {
           <img
             src={imgSrc}
             alt={venue.name}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (

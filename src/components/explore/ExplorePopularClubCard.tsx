@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { cardImage } from '@/lib/imageOptimization';
 
 const FALLBACK_GRADIENTS = [
   'linear-gradient(145deg, #3b1158 0%, #0f0712 100%)',
@@ -28,7 +29,7 @@ interface ExplorePopularClubCardProps {
 
 export function ExplorePopularClubCard({ id, name, coverUrl, logoUrl, city, primaryGenre, isAffiliate, slug }: ExplorePopularClubCardProps) {
   const navigate = useNavigate();
-  const imgSrc = coverUrl || logoUrl;
+  const imgSrc = cardImage(coverUrl || logoUrl, 600);
   const subtitle = [primaryGenre, city].filter(Boolean).join(' · ');
 
   const handleOpen = () => {
@@ -65,6 +66,8 @@ export function ExplorePopularClubCard({ id, name, coverUrl, logoUrl, city, prim
           <img
             src={imgSrc}
             alt={name}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (

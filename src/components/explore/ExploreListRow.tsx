@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { EventCardData } from './EventCard';
 import { eventPriceLabel as priceLabel } from '@/lib/eventPriceLabel';
 import { eventTargetPath } from '@/lib/eventNavigation';
+import { cardImage } from '@/lib/imageOptimization';
 
 
 
@@ -53,8 +54,10 @@ export function ExploreListRow({ event }: { event: EventCardData }) {
       >
         {event.posterUrl ? (
           <img
-            src={event.posterUrl}
+            src={cardImage(event.posterUrl, 160)}
             alt={event.title}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (

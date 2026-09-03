@@ -66,6 +66,17 @@ export function getOptimizedImageUrl(
 }
 
 /**
+ * Vignette carrée d'une carte (posters, couvertures) : crop `size`×`size` en
+ * WebP, qualité 75. `size` = largeur CSS × 2 (retina). Les URLs hors Supabase
+ * Storage passent inchangées. C'est LA porte des images de cartes de l'app
+ * cliente : une carte qui affiche `posterUrl` brut télécharge un poster de
+ * ~300 Ko là où 20 Ko suffisent — sur le feed, ça fait des Mo par écran.
+ */
+export function cardImage(url: string | undefined | null, size: number, quality = 75): string {
+  return getOptimizedImageUrl(url, { width: size, height: size, quality, resize: 'cover' });
+}
+
+/**
  * Generates srcSet for responsive images
  */
 export function getResponsiveSrcSet(

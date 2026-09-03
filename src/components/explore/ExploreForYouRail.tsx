@@ -11,6 +11,7 @@ import { ExploreSectionTitle } from './ExploreSectionTitle';
 import type { EventCardData } from './EventCard';
 import type { ForYouItem, ForYouReasonCode } from '@/hooks/useForYouFeed';
 import { eventPriceLabel } from '@/lib/eventPriceLabel';
+import { cardImage } from '@/lib/imageOptimization';
 
 // Module « Pour toi » — DESIGN_SYSTEM_PUBLIC (éditorial, noir, mono trackée).
 //
@@ -98,7 +99,7 @@ function ForYouCard({ item }: { item: ForYouItem }) {
     >
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
-          <img src={event.posterUrl} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={cardImage(event.posterUrl, 480)} alt={event.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0f12, #0f0f12)' }} />
         )}

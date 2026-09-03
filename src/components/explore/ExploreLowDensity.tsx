@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { eventPriceLabel } from '@/lib/eventPriceLabel';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { getOptimizedImageUrl, cardImage } from '@/lib/imageOptimization';
 import { FadeInView } from '@/components/motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -410,7 +410,7 @@ function FeaturedNightCard({ event, variant }: { event: DensityEvent; variant: '
       }}
     >
       {poster && (
-        <img src={poster} alt={event.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+        <img src={cardImage(poster, 800)} alt={event.title} className="absolute inset-0 h-full w-full object-cover" decoding="async" />
       )}
       <div
         className="absolute inset-0"

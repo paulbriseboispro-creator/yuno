@@ -7,6 +7,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { EventCardData } from './EventCard';
 import { eventPriceLabel as priceLabel } from '@/lib/eventPriceLabel';
 import { eventTargetPath } from '@/lib/eventNavigation';
+import { cardImage } from '@/lib/imageOptimization';
 
 const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : enUS);
 
@@ -58,8 +59,10 @@ export function ExploreRailCard({ event }: { event: EventCardData }) {
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
           <img
-            src={event.posterUrl}
+            src={cardImage(event.posterUrl, 480)}
             alt={event.title}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (

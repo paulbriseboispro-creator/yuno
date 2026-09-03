@@ -5,6 +5,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EventCardData } from './EventCard';
 import { eventTargetPath } from '@/lib/eventNavigation';
+import { cardImage } from '@/lib/imageOptimization';
 
 function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNavigate>) {
   navigate(eventTargetPath(event));
@@ -43,8 +44,10 @@ export function ExploreRankCard({ event, rank }: { event: EventCardData; rank: n
       <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
           <img
-            src={event.posterUrl}
+            src={cardImage(event.posterUrl, 400)}
             alt={event.title}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover"
             style={{ opacity: 0.75 }}
           />

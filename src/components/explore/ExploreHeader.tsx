@@ -134,7 +134,7 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
           const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(citySearch)}.json?access_token=${token}&types=place&limit=5&autocomplete=true`);
           const data = await res.json();
           if (data.features) {
-            setCitySuggestions(data.features.map((f: any) => ({
+            setCitySuggestions((data.features as Array<{ text?: string; place_name?: string; center: [number, number] }>).map((f) => ({
               name: f.text || f.place_name?.split(',')[0] || 'Unknown',
               displayName: f.place_name || f.text || 'Unknown',
               lat: f.center[1],
@@ -146,7 +146,7 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
             body: { query: citySearch }
           });
           if (data?.results) {
-            setCitySuggestions(data.results.slice(0, 5).map((r: any) => ({
+            setCitySuggestions((data.results as Array<{ city?: string; name?: string; place_name?: string; lat?: number; latitude?: number; lng?: number; longitude?: number }>).slice(0, 5).map((r) => ({
               name: r.city || r.name?.split(',')[0] || 'Unknown',
               displayName: r.name || r.place_name || r.city || 'Unknown',
               lat: r.lat || r.latitude,
