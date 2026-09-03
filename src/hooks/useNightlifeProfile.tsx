@@ -129,16 +129,31 @@ interface Profile {
 
 export type UserBadge = 'new' | 'regular' | 'vip';
 
+// Instantané du dernier profil chargé, par utilisateur (stale-while-revalidate,
+// même mécanique que Commandes / Favoris) : l'onglet Profil rouvre sur son
+// contenu, jamais sur un squelette, et se rafraîchit en arrière-plan.
+type ProfileSnapshot = {
+  profile: Profile | null; stats: NightlifeStats | null; loyaltyCards: LoyaltyCard[];
+  tasteProfile: TasteProfile | null; badge: UserBadge; streak: StreakData;
+};
+const profileSnapshot = new Map<string, ProfileSnapshot>();
+
 export function useNightlifeProfile() {
   const { user, loading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [dataFetched, setDataFetched] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [stats, setStats] = useState<NightlifeStats | null>(null);
-  const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>([]);
-  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(null);
-  const [badge, setBadge] = useState<UserBadge>('new');
-  const [streak, setStreak] = useState<StreakData>({ currentStreak: 0, longestStreak: 0 });
+  const snap = user ? profileSnapshot.get(user.id) : undefined;
+  const [loading, setLoading] = useState(!snap);
+  const [dataFetched, setDataFetched] = useState(!!snap);
+  const [profile, setProfile] = useState<Profile | null>(() => snap?.profile ?? null);
+  const [stats, setStats] = useState<NightlifeStats | null>(() => snap?.stats ?? null);
+  const [loyaltyCards, setLoyaltyCards] = useState<LoyaltyCard[]>(() => snap?.loyaltyCards ?? []);
+  const [tasteProfile, setTasteProfile] = useState<TasteProfile | null>(() => snap?.tasteProfile ?? null);
+  const [badge, setBadge] = useState<UserBadge>(() => snap?.badge ?? 'new');
+  const [streak, setStreak] = useState<StreakData>(() => snap?.streak ?? { currentStreak: 0, longestStreak: 0 });
+
+  useEffect(() => {
+    if (!user || loading) return;
+    profileSnapshot.set(user.id, { profile, stats, loyaltyCards, tasteProfile, badge, streak });
+  }, [user, loading, profile, stats, loyaltyCards, tasteProfile, badge, streak]);
 
   const refreshTimerRef = useRef<number | null>(null);
 
