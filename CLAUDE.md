@@ -308,6 +308,14 @@ qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
   ~3,5 Mo (le PNG ne compresse pas le bruit d'un flyer).
 - **Les champs classiques restent obligatoires même en poster** : sans eux le
   pass s'affiche vide sur iOS 17. Un seul `.pkpass` porte les deux layouts.
+- **Un QR gris et illisible = pass PÉRIMÉ, pas un bug de couleur.** Wallet
+  estompe tout pass dont l'`expirationDate` (fin de soirée + 6 h) est passée,
+  code-barres compris — et la couleur du QR n'est réglable par AUCUNE clé de
+  `pass.json`. Tester avec un billet d'une soirée à venir avant de chercher
+  ailleurs : sur un pass vivant le QR sort en noir franc.
+- **Le titre part en CAPITALES** (choix produit du 2026-09-04, assumé) : Wallet
+  tronque donc au-delà de ~15 caractères, là où la casse normale en passait ~20.
+  SF n'est pas Space Grotesk, et le champ principal ne revient jamais à la ligne.
 - Émission idempotente via `ensureWalletPass` ; le `authenticationToken` du
   premier appel est embarqué dans les passes déjà ajoutés, ne jamais le faire
   tourner.
