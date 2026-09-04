@@ -1,17 +1,33 @@
 #!/usr/bin/env python3
-"""Régénère les images des passes Apple Wallet et les réinjecte en base64 dans
-supabase/functions/_shared/wallet/assets.ts.
+"""Régénère les images FIXES des passes Apple Wallet et les réinjecte en base64
+dans supabase/functions/_shared/wallet/assets.ts.
 
     python3 scripts/gen-wallet-assets.py
 
-Contraintes Apple (eventTicket) qui pilotent les choix ci-dessous :
-  - logo       : plafonné à 160x50pt. Une image qui remplit ce cadre rend au
-                 maximum absolu. On garde donc le canvas 160x50 (le header
-                 conserve sa hauteur, donc son air) mais on n'y dessine le
-                 wordmark qu'à ~72pt de large, calé à gauche et centré
-                 verticalement. Le reste est transparent.
-  - background : 180x220pt, étiré plein cadre par Wallet (qui pose le QR blanc
-                 dans le tiers bas, sur le rouge plein du bas de rampe).
+L'affiche de la soirée, elle, change à chaque pass : elle est produite à la
+volée par supabase/functions/_shared/wallet/artwork.ts, pas ici.
+
+Contraintes Apple (Human Interface Guidelines › Wallet › Pass images) qui
+pilotent les choix ci-dessous. Les tailles sont en POINTS, et Apple ne demande
+que @2x et @3x pour les passes modernes — on garde @1x, il ne coûte rien et
+couvre les vieux simulateurs.
+
+  - icon 38x38          : ce que Wallet montre dans la liste des passes, dans
+                          les notifications et sur l'écran verrouillé. C'est
+                          l'icône de l'app, pas un glyphe abstrait : un pass
+                          qu'on ne reconnaît pas dans une liste de dix est un
+                          pass qu'on ne sort pas à la porte.
+  - logo h50, w 50..160 : en-tête du eventTicket CLASSIQUE (iOS 17 et
+                          antérieurs). Le cadre reste 160x50 pour que l'en-tête
+                          garde sa hauteur, mais le wordmark n'y occupe que
+                          ~72pt de large, calé à gauche, le reste transparent.
+  - primaryLogo h30,
+    w 30..126           : en-tête du POSTER event ticket (iOS 18+). Ici Apple
+                          cadre au plus juste : le PNG doit être le wordmark
+                          détouré, sans marge — watchOS rogne les blancs.
+
+Il n'y a plus de background.png : le design 2026-09 pose un noir plein
+(`backgroundColor`), et Wallet ne sait pas faire de dégradé.
 
 Le wordmark n'est pas re-dessiné : on réutilise les glyphes déjà embarqués
 (LOGO3X), simplement remis à l'échelle. Aucune police requise.
@@ -24,28 +40,22 @@ import re
 import textwrap
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS_TS = ROOT / "supabase/functions/_shared/wallet/assets.ts"
+APP_ICON = ROOT / "public/icon-512.png"
 
-# --- Logo -------------------------------------------------------------------
+# --- Icône -----------------------------------------------------------------
+ICON_PT = 38
+
+# --- Logo eventTicket classique --------------------------------------------
 LOGO_BOX = (160, 50)  # cadre Apple, en points
 LOGO_MARK_W = 72      # largeur visible du wordmark, en points (~45% du cadre)
 LOGO_INSET_X = 3      # marge gauche, en points
 
-# --- Fond -------------------------------------------------------------------
-BG_BOX = (180, 220)   # cadre Apple, en points
-# Rampe verticale noir -> rouge de marque, choisie par Paul : le pass s'embrase
-# vers le bas et le QR se détache en blanc sur le rouge plein. Paliers linéaires,
-# pas de vignette — c'est la reprise exacte du dégradé d'origine.
-BG_STOPS = [
-    (0.00, (16, 3, 9)),
-    (0.30, (38, 7, 16)),
-    (0.60, (118, 14, 29)),
-    (0.80, (182, 19, 37)),
-    (1.00, (232, 25, 44)),
-]
+# --- primaryLogo (poster event ticket) --------------------------------------
+PRIMARY_LOGO_H = 30   # hauteur Apple, en points — largeur déduite du ratio
 
 
 def _read_const(src: str, name: str) -> bytes:
@@ -55,10 +65,14 @@ def _read_const(src: str, name: str) -> bytes:
     return base64.b64decode("".join(re.findall(r"'([^']*)'", m.group(1))))
 
 
+def _trim(mark: Image.Image) -> Image.Image:
+    return mark.crop(mark.getchannel("A").getbbox())
+
+
 def build_logo(mark: Image.Image, scale: int) -> Image.Image:
     """Wordmark redimensionné, calé à gauche et centré dans le cadre Apple."""
     box_w, box_h = LOGO_BOX[0] * scale, LOGO_BOX[1] * scale
-    mark = mark.crop(mark.getchannel("A").getbbox())
+    mark = _trim(mark)
     w = LOGO_MARK_W * scale
     h = round(mark.height * w / mark.width)
     mark = mark.resize((w, h), Image.LANCZOS)
@@ -68,22 +82,18 @@ def build_logo(mark: Image.Image, scale: int) -> Image.Image:
     return canvas
 
 
-def build_background(scale: int) -> Image.Image:
-    w, h = BG_BOX[0] * scale, BG_BOX[1] * scale
-    img = Image.new("RGB", (w, h))
-    d = ImageDraw.Draw(img)
+def build_primary_logo(mark: Image.Image, scale: int) -> Image.Image:
+    """Wordmark détouré au ras — le poster layout cadre lui-même."""
+    mark = _trim(mark)
+    h = PRIMARY_LOGO_H * scale
+    w = round(mark.width * h / mark.height)
+    return mark.resize((w, h), Image.LANCZOS)
 
-    for y in range(h):
-        t = y / (h - 1)
-        for i in range(len(BG_STOPS) - 1):
-            t0, c0 = BG_STOPS[i]
-            t1, c1 = BG_STOPS[i + 1]
-            if t <= t1 or i == len(BG_STOPS) - 2:
-                k = 0.0 if t1 == t0 else min(max((t - t0) / (t1 - t0), 0.0), 1.0)
-                d.line([(0, y), (w, y)],
-                       fill=tuple(round(c0[j] + (c1[j] - c0[j]) * k) for j in range(3)))
-                break
-    return img
+
+def build_icon(scale: int) -> Image.Image:
+    icon = Image.open(APP_ICON).convert("RGB")
+    s = ICON_PT * scale
+    return icon.resize((s, s), Image.LANCZOS)
 
 
 def to_b64_literal(img: Image.Image, name: str) -> str:
@@ -100,18 +110,23 @@ def main() -> None:
     mark = Image.open(io.BytesIO(_read_const(src, "LOGO3X"))).convert("RGBA")
 
     out = {
+        "ICON": build_icon(1),
+        "ICON2X": build_icon(2),
+        "ICON3X": build_icon(3),
         "LOGO": build_logo(mark, 1),
         "LOGO2X": build_logo(mark, 2),
         "LOGO3X": build_logo(mark, 3),
-        "BG": build_background(1),
-        "BG2X": build_background(2),
-        "BG3X": build_background(3),
+        "PLOGO": build_primary_logo(mark, 1),
+        "PLOGO2X": build_primary_logo(mark, 2),
+        "PLOGO3X": build_primary_logo(mark, 3),
     }
 
     for name, img in out.items():
         pattern = re.compile(r"const %s\s*=\s*(?:\s*'[^']*'\s*\+?)+;" % name)
+        if not pattern.search(src):
+            raise SystemExit(f"constante {name} absente d'assets.ts — l'ajouter d'abord")
         src = pattern.sub(lambda _m, n=name, i=img: to_b64_literal(i, n), src, count=1)
-        print(f"{name:<7} {img.size[0]}x{img.size[1]}")
+        print(f"{name:<8} {img.size[0]}x{img.size[1]}")
 
     ASSETS_TS.write_text(src)
     print(f"\n→ {ASSETS_TS.relative_to(ROOT)} mis à jour")
