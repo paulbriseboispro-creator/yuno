@@ -97,6 +97,15 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   arrivées ; réutilise les composants `owner/vip/*` via `useOrganizerVipData`).
   La page événement n'affiche qu'un résumé (`OrgEventTablesPanel
   variant="summary"`) : jamais de chiffres d'argent dans l'atelier.
+  **Règlement sur place** (`table_packs.payment_mode = 'on_site'`, migration
+  `20260904180000`) : le client réserve SANS payer via Yuno — pas d'acompte,
+  pas de compte Stripe, pas de commission ; `create-table-checkout` confirme
+  la résa (`status='paid'`, acompte 0, `table_reservations.payment_mode =
+  'on_site'`) sans session Stripe. Ces packs ne sont JAMAIS gatés par la porte
+  « paiements prêts » (page soirée, billetterie, checkout) : c'est ce qui
+  permet à un lieu de tester Yuno sans encaisser en ligne. Export des tables
+  (PDF porte / détail / Excel) depuis le Service VIP orga, avec paiement,
+  email, remarques, référence.
 - **Revenu club** : « CA Club / Net », fee Stripe 1.5 %, helpers dans `utils/fees.ts`. Refund côté club.
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
