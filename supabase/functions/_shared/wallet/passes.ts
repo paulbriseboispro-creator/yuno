@@ -18,9 +18,11 @@
 //    ne sait pas faire de dégradé : l'ancienne rampe noir→rouge était une
 //    image `background.png` étirée, elle écrasait le QR et cassait le contraste
 //    des labels. Le rouge n'est plus qu'un accent (les labels).
-//  - Le rouge de marque #E8192C est LE labelColor des billets et de la guest
-//    list ; la table VIP passe en or #F2B23C — c'est la seule différence
-//    chromatique entre les trois piliers, et elle se lit d'un coup d'œil.
+//  - Le rouge de marque #E8192C est LE labelColor des TROIS piliers. La table
+//    VIP a porté un or #F2B23C pendant une itération : sur un pass déjà dense
+//    en capitales, ça virait au mur jaune. Un seul accent, comme le dit le
+//    design system public — c'est le contenu qui distingue les piliers, pas
+//    la couleur.
 //
 // Deux layouts dans UN SEUL .pkpass, comme Apple le recommande :
 //  - eventTicket classique — le socle, celui que rendent iOS 17 et antérieurs,
@@ -167,8 +169,6 @@ const TEAM_ID = () => Deno.env.get('WALLET_TEAM_ID') ?? '';
 
 /** Rouge de marque — labels des billets et de la guest list. */
 const RED = 'rgb(232,25,44)';
-/** Or VIP — labels des tables, seule variation chromatique du système. */
-const GOLD = 'rgb(242,178,60)';
 /** Noir Yuno plein. Aucun dégradé : Wallet n'en fait pas. */
 const BLACK = 'rgb(10,10,10)';
 
@@ -668,8 +668,7 @@ export async function buildVipPass(
       expirationDate: expiration(event.end_at),
       location,
       voided: resa.status === 'refunded',
-      // La seule variation chromatique du système : la table VIP est en or.
-      labelColor: GOLD,
+      labelColor: RED,
     }),
     ...eventSemantics({
       eventName: event.title,
@@ -702,7 +701,9 @@ export async function buildVipPass(
           ? [{
               key: 'table',
               label: wl(lang, 'table'),
-              value: meta(zoneName),
+              // Le nom de zone est donné par le club (« Gold », « Carré VIP ») :
+              // c'est un nom propre, on ne le passe pas en capitales.
+              value: zoneName,
               textAlignment: 'PKTextAlignmentRight',
             }]
           : event.start_at
