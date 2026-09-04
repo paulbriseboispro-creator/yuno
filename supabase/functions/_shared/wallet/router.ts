@@ -164,7 +164,12 @@ async function renderPass(admin: WalletAdminClient, row: { serial: string; pass_
       : row.pass_type === 'guestlist'
       ? await buildGuestListPass(admin, row.reference_id, row.auth_token)
       : await buildTicketPass(admin, row.reference_id, row.auth_token);
-  return await buildPkpass(build.passJson, walletAssets(), walletCertsFromEnv());
+  // Images fixes (icône, wordmark) + affiche de la soirée, propre au pass.
+  return await buildPkpass(
+    build.passJson,
+    { ...walletAssets(), ...build.assets },
+    walletCertsFromEnv(),
+  );
 }
 
 function pkpassResponse(bytes: Uint8Array, serial: string): Response {
