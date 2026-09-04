@@ -109,13 +109,7 @@ const help: Record<string, string> = {
   'ohelp.org.tables.s2h': "With or without a club",
   'ohelp.org.tables.s2b': "Solo event (venue rented outside Yuno): you are your own club. You create your zones (VIP area, Mezzanine…), your packs with price, capacity and deposit, and your floor plan — the same interactive editor clubs use. Money lands on your Stripe account, like tickets. Co-event with a club: the plan and zones come from the club and are locked; you only set your packs and prices, and if the club has an interactive plan the event uses it directly.",
   'ohelp.org.tables.s3h': "Put tables on sale",
-  'ohelp.org.tables.s3b': "1. In VIP Tables, flip the event's switch (or tap Enable table sales on its page), then Configure.
-2. If you already played at this venue, pick a VIP room under “Reuse a VIP room” and Apply: zones, packs and plan come back at once.
-3. Otherwise, Zones tab: create at least one zone with its maximum number of tables (the sales cap).
-4. Packs tab: one pack per offer (price, capacity, deposit, what's included, arrival cutoff).
-5. Floor plan tab: upload an image, or Build the plan to place your tables zone by zone; turn on “Guests pick their table on the plan” for interactive placement.
-6. Tap “Save as VIP room” to keep this setup in your history.
-7. On the night: open VIP Service to follow reservations, approve placements and record arrivals.",
+  'ohelp.org.tables.s3b': "1. In VIP Tables, flip the event's switch (or tap Enable table sales on its page), then Configure.\n2. If you already played at this venue, pick a VIP room under “Reuse a VIP room” and Apply: zones, packs and plan come back at once.\n3. Otherwise, Zones tab: create at least one zone with its maximum number of tables (the sales cap).\n4. Packs tab: one pack per offer (price, capacity, deposit, what's included, arrival cutoff).\n5. Floor plan tab: upload an image, or Build the plan to place your tables zone by zone; turn on “Guests pick their table on the plan” for interactive placement.\n6. Tap “Save as VIP room” to keep this setup in your history.\n7. On the night: open VIP Service to follow reservations, approve placements and record arrivals.",
   'ohelp.org.tables.s4h': "Basic or interactive plan",
   'ohelp.org.tables.s4b': "Basic: guests book a pack in a zone without choosing a specific table — simple and fast, ideal for a first event. Interactive plan: guests see your plan, already-taken tables are greyed out, they point at theirs. The number of tables placed in a zone updates its sales cap automatically. You can switch between the two whenever you want; the interactive plan requires at least one placed table.",
   'ohelp.org.tables.s5h': "Tip: the deposit",
