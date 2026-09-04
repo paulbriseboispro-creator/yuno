@@ -11790,6 +11790,8 @@ const fr: Record<string, string> = {
   'roster.fmt.doorDesc': "Gros noms de A à Z avec une case à cocher. Ni email, ni téléphone, ni montants — faite pour être donnée à l'entrée.",
   'roster.fmt.detail': 'Liste complète (PDF)',
   'roster.fmt.detailDesc': 'Toutes les colonnes en tableau : contacts, statut, heures d\'entrée. Pour vous et votre équipe.',
+  'roster.fmt.xlsx': "Excel (.xlsx)",
+  'roster.fmt.xlsxDesc': "Fichier Excel prêt à l'emploi : en-tête figé, filtres, colonnes ajustées.",
   'roster.fmt.csv': 'Tableur (CSV)',
   'roster.fmt.csvDesc': "S'ouvre directement dans Excel ou Google Sheets, accents compris.",
   'roster.done': 'Fichier téléchargé.',

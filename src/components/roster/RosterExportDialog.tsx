@@ -51,13 +51,16 @@ const META: Record<RosterFormat, { icon: typeof Printer; titleKey: string; descK
   door:   { icon: Printer,         titleKey: 'roster.fmt.door',   descKey: 'roster.fmt.doorDesc' },
   detail: { icon: FileText,        titleKey: 'roster.fmt.detail', descKey: 'roster.fmt.detailDesc' },
   csv:    { icon: FileSpreadsheet, titleKey: 'roster.fmt.csv',    descKey: 'roster.fmt.csvDesc' },
+  xlsx:   { icon: FileSpreadsheet, titleKey: 'roster.fmt.xlsx',   descKey: 'roster.fmt.xlsxDesc' },
 };
 
 export function RosterExportDialog({ open, onClose, build, formats, title, eventChoices }: Props) {
   const { t, language } = useLanguage();
   const [busy, setBusy] = useState<RosterFormat | null>(null);
   const [eventId, setEventId] = useState<string>(eventChoices?.[0]?.id ?? '');
-  const list = formats ?? (['door', 'detail', 'csv'] as RosterFormat[]);
+  // Par défaut le tableur est un vrai .xlsx (Excel l'ouvre proprement, sans
+  // assistant d'import) ; le CSV reste disponible pour qui le demande.
+  const list = formats ?? (['door', 'detail', 'xlsx'] as RosterFormat[]);
   const needsPicker = (eventChoices?.length ?? 0) > 1;
 
   const run = async (format: RosterFormat) => {

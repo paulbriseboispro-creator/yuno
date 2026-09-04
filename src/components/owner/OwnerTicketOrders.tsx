@@ -446,7 +446,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
               language,
               // Porte : une ligne par personne qui se présente. Tableur : une
               // ligne par achat, c'est la vue comptable.
-              format === 'csv' ? 'buyers' : 'attendees',
+              format === 'csv' || format === 'xlsx' ? 'buyers' : 'attendees',
             );
           }}
         />

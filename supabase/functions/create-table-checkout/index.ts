@@ -549,12 +549,22 @@ serve(async (req) => {
         throw new Error(onSiteErr?.message || "Failed to create reservation");
       }
       const onSiteReservationId = onSiteId as string;
+      // Placement DÉFINITIF : rien n'est encaissé, l'organisateur ne « valide »
+      // pas une demande — la table choisie sur le plan est assignée d'office
+      // (reserve_table_slot a déjà refusé un doublon sous verrou). L'export
+      // donné au club porte ainsi la table finale, pas une demande en attente.
+      const onSiteAssigned = !!requestedTableId && placementStatus === 'requested';
       await supabaseAdmin.from("table_reservations").update({
         payment_mode: "on_site",
         tracked_link_id: safeTrackedLinkId || null,
         age_declared_at: ageRecord.declaredAt,
         age_declaration_birth_date: ageRecord.birthDate,
         age_declaration_ip: ageRecord.ip,
+        ...(onSiteAssigned ? {
+          assigned_table_id: requestedTableId,
+          placement_status: 'approved',
+          placed_at: new Date().toISOString(),
+        } : {}),
       }).eq("id", onSiteReservationId);
 
       if (smsOptIn) {

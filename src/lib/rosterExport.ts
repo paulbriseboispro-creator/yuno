@@ -20,10 +20,11 @@
 
 import jsPDF from 'jspdf';
 import { deliverDocument, downloadBlob, type DeliverOutcome } from '@/lib/generateDocuments';
+import { buildXlsx } from '@/lib/xlsx';
 import { isNative } from '@/lib/native';
 import { shareContent } from '@/lib/share';
 
-export type RosterFormat = 'door' | 'detail' | 'csv';
+export type RosterFormat = 'door' | 'detail' | 'csv' | 'xlsx';
 
 export interface RosterColumn {
   key: string;
@@ -391,16 +392,25 @@ export async function deliverRoster(
   printedAtLabel: string,
 ): Promise<DeliverOutcome> {
   const base = `${slugify(d.kind)}-${slugify(d.eventTitle)}`;
-  if (format === 'csv') {
-    const blob = buildCsv(d);
-    const filename = `${base}.csv`;
+  if (format === 'csv' || format === 'xlsx') {
+    // Tableur : .xlsx natif (en-tête figé, filtres, largeurs) ou CSV historique.
+    const isXlsx = format === 'xlsx';
+    const blob = isXlsx
+      ? await buildXlsx(
+          d.kind,
+          d.columns.map((c) => ({ label: c.label, width: Math.round((c.weight ?? 10) * 1.6), align: c.align })),
+          d.rows.map((row) => d.columns.map((c) => row[c.key] ?? '')),
+        )
+      : buildCsv(d);
+    const mime = isXlsx ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv';
+    const filename = `${base}.${isXlsx ? 'xlsx' : 'csv'}`;
     // deliverDocument force le type PDF côté natif : on refait le branchement ici
-    // pour que le fichier parte bien en .csv dans la feuille de partage.
+    // pour que le fichier parte avec la bonne extension dans la feuille de partage.
     if (!isNative()) {
       downloadBlob(blob, filename);
       return 'downloaded';
     }
-    const file = new File([blob], filename, { type: 'text/csv' });
+    const file = new File([blob], filename, { type: mime });
     const outcome = await shareContent({ title: d.eventTitle, files: [file] });
     return outcome === 'shared' ? 'shared' : outcome === 'dismissed' ? 'dismissed' : 'failed';
   }

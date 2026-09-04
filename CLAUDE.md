@@ -315,9 +315,10 @@ qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
 ## Listes imprimables (guest list, tables VIP, billetterie)
 
 `src/lib/rosterExport.ts` (rendu) + `src/lib/rosterBuilders.ts` (données) + le dialogue
-`RosterExportDialog`. Trois formats : `door` (PDF de porte, gros noms A→Z, **jamais**
-email/téléphone/montant), `detail` (PDF complet) et `csv` (BOM UTF-8 + séparateur `;`
-pour Excel FR/ES).
+`RosterExportDialog`. Formats : `door` (PDF de porte, gros noms A→Z, **jamais**
+email/téléphone/montant), `detail` (PDF complet), `xlsx` (vrai classeur Excel écrit
+par `src/lib/xlsx.ts` — zip OOXML minimal via `fflate`, en-tête figé + filtres,
+proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
 
 - Livraison via `deliverDocument` : `<a download>` est un no-op dans la WebView iOS,
   le natif passe par la feuille de partage (qui contient « Imprimer »).

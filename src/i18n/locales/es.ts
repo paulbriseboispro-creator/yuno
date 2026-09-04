@@ -12157,6 +12157,8 @@ const es: Record<string, string> = {
   'roster.fmt.doorDesc': 'Nombres grandes de la A a la Z con casilla. Sin email, sin teléfono, sin importes: hecha para entregarla en la puerta.',
   'roster.fmt.detail': 'Lista completa (PDF)',
   'roster.fmt.detailDesc': 'Todas las columnas en tabla: contactos, estado, horas de entrada. Para ti y tu equipo.',
+  'roster.fmt.xlsx': "Excel (.xlsx)",
+  'roster.fmt.xlsxDesc': "Archivo Excel listo para usar: cabecera fija, filtros, columnas ajustadas.",
   'roster.fmt.csv': 'Hoja de cálculo (CSV)',
   'roster.fmt.csvDesc': 'Se abre directamente en Excel o Google Sheets, con los acentos correctos.',
   'roster.done': 'Archivo descargado.',

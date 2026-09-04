@@ -11815,6 +11815,8 @@ const en: Record<string, string> = {
   'roster.fmt.doorDesc': 'Big names A to Z with a tick box. No email, no phone, no amounts — made to be handed to the door.',
   'roster.fmt.detail': 'Full list (PDF)',
   'roster.fmt.detailDesc': 'Every column in a table: contacts, status, check-in times. For you and your team.',
+  'roster.fmt.xlsx': "Excel (.xlsx)",
+  'roster.fmt.xlsxDesc': "Ready-to-use Excel file: frozen header, filters, sized columns.",
   'roster.fmt.csv': 'Spreadsheet (CSV)',
   'roster.fmt.csvDesc': 'Opens straight in Excel or Google Sheets, accents included.',
   'roster.done': 'File downloaded.',
