@@ -702,8 +702,11 @@ export default function EventDetails() {
   );
   // La page ne bascule en « bientôt » que s'il ne reste RIEN à proposer :
   // paiements fermés ET aucune liste invités gratuite ouverte.
+  // Un pack « règlement sur place » est vendable sans Stripe : il tient la
+  // page ouverte au même titre qu'une guest list gratuite.
+  const hasOnSitePacks = !!event?.tablesEnabled && packs.some(p => p.isActive && p.paymentMode === 'on_site');
   const paymentsGateClosed =
-    paidBlocked && !hasPublicGuestList && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+    paidBlocked && !hasPublicGuestList && !hasOnSitePacks && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
   const eventSalesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   // Cette page pose son propre CTA d'achat collant en bas d'écran dès qu'il y a

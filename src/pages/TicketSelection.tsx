@@ -346,8 +346,11 @@ export default function TicketSelection() {
   const paidBlocked = !paymentsReady;
   const hasFreeEntry = !!guestList || !!djGuestList;
   // La page ne bascule en « bientôt » que s'il ne reste RIEN à proposer.
+  // Un pack « règlement sur place » se réserve sans Stripe : il tient la page
+  // ouverte, comme une entrée gratuite.
+  const hasOnSitePacks = !!eventData?.tablesEnabled && packs.some(p => p.isActive && p.paymentMode === 'on_site');
   const paymentsGateClosed =
-    paidBlocked && !hasFreeEntry && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+    paidBlocked && !hasFreeEntry && !hasOnSitePacks && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
   const salesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   const visibility = eventData?.roundsVisibility ?? 'sequential';
