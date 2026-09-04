@@ -1,4 +1,4 @@
-import type { ReactNode, CSSProperties } from 'react';
+import type { ReactNode, CSSProperties, ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 
 /**
@@ -84,7 +84,8 @@ export function OrgEmptyState({
   description,
   action,
 }: {
-  icon: any;
+  /** Composant d'icône (lucide), jamais un élément déjà rendu. */
+  icon: ComponentType<{ className?: string; style?: CSSProperties }>;
   title: string;
   description?: string;
   action?: ReactNode;

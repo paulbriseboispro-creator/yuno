@@ -201,7 +201,7 @@ export default function OrgAppTables() {
             {tab === 'events' && !selectedEvent && (
               events.length === 0 ? (
                 <OrgEmptyState
-                  icon={<Crown className="h-6 w-6" style={{ color: RED }} />}
+                  icon={Crown}
                   title={tt('Aucune soirée à venir', 'No upcoming events', 'Ninguna noche próxima')}
                   description={tt('Créez une soirée pour configurer ses tables VIP.', 'Create an event to set up its VIP tables.', 'Crea una noche para configurar sus mesas VIP.')}
                   action={<OrgButton variant="primary" onClick={() => navigate('/organizer-app/events')}>{tt('Mes soirées', 'My events', 'Mis noches')}</OrgButton>}
@@ -275,7 +275,7 @@ export default function OrgAppTables() {
             {tab === 'rooms' && (
               rooms.length === 0 ? (
                 <OrgEmptyState
-                  icon={<Building2 className="h-6 w-6" style={{ color: RED }} />}
+                  icon={Building2}
                   title={tt('Aucune salle VIP enregistrée', 'No VIP room saved yet', 'Ninguna sala VIP guardada')}
                   description={tt(
                     'Depuis l’atelier d’une soirée, « Enregistrer comme salle VIP » garde son plan, ses zones et ses packs pour les rejouer dans le même établissement.',
