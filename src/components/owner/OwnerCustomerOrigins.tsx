@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
-import worldTopo from 'world-atlas/countries-110m.json';
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { motion } from 'framer-motion';
-import type { Feature, MultiPolygon } from 'geojson';
+import type { Feature, MultiPolygon, Polygon } from 'geojson';
 import { Globe, Users, MapPin, Plane, Building2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { COUNTRY_BY_NUMERIC, countryFromPhone, getCountryName, type Country } from '@/lib/countries';
+import { COUNTRIES, COUNTRY_BY_NUMERIC, countryFromPhone, getCountryName, type Country } from '@/lib/countries';
 
 // Lazy so mapbox-gl stays out of the main bundle (only loaded when the City tab opens).
 const CityGlobe = lazy(() => import('@/components/analytics/CityGlobe'));
@@ -43,18 +42,37 @@ interface Props {
   scope?: Scope;
 }
 
-// Natural Earth livre certains pays en UN seul multipolygone qui embarque leurs
-// territoires lointains : la France y contient la Guyane. Colorier la France
-// parce que le club a deux clients parisiens allumait donc aussi une tache
-// rouge en Amérique du Sud, et le patron y lit un bug de données, pas un
-// département d'outre-mer. On ne garde que les polygones proches du territoire
-// principal, et uniquement pour les pays concernés — à cette résolution (110m)
-// la France est le seul cas : les morceaux lointains du Canada, des États-Unis
-// et de la Russie SONT leur propre territoire continental, et le Groenland, le
-// Svalbard ou les Malouines portent déjà leur propre code ISO.
-const MAINLAND_ONLY: Record<number, { lon: number; lat: number; maxDeg: number }> = {
-  250: { lon: 2.5, lat: 46.5, maxDeg: 20 }, // France : métropole + Corse
+// Natural Earth range la France d'outre-mer DANS le polygone de la France : un
+// seul multipolygone porte la métropole, la Corse, la Guadeloupe, la
+// Martinique, la Guyane, La Réunion et Mayotte. Colorier « France » allumait
+// donc une tache en Amérique du Sud sans jamais dire de quoi il s'agissait.
+//
+// On découpe ces morceaux et on leur rend leur propre code ISO : la Guyane
+// devient la Guyane, avec sa couleur, son survol et son propre compte de
+// clients. C'est une information de terrain — un club ne recrute pas de la
+// même façon des Antillais et des Parisiens.
+//
+// Les autres territoires (Nouvelle-Calédonie, Polynésie, Groenland, Aruba,
+// Porto Rico…) portent déjà leur propre géométrie dans l'atlas : rien à
+// découper, ils s'allument tout seuls dès que `countryFromPhone` les reconnaît.
+interface TerritoryPiece { numeric: number; lon: number; lat: number; maxDeg: number }
+const TERRITORY_SPLITS: Record<number, TerritoryPiece[]> = {
+  250: [ // France
+    { numeric: 254, lon: -53.3, lat: 3.5, maxDeg: 4 },     // Guyane
+    { numeric: 312, lon: -61.4, lat: 16.3, maxDeg: 1.5 },  // Guadeloupe (+ dépendances)
+    { numeric: 474, lon: -61.0, lat: 14.6, maxDeg: 1.2 },  // Martinique
+    { numeric: 638, lon: 55.6, lat: -21.1, maxDeg: 2 },    // La Réunion
+    { numeric: 175, lon: 45.1, lat: -12.8, maxDeg: 2 },    // Mayotte
+  ],
 };
+
+// « Guadeloupe · France » dans le classement : le territoire compte pour
+// lui-même, mais le club voit d'où il relève.
+function parentName(country: Country, language: string): string | null {
+  if (!country.parentCode) return null;
+  const parent = COUNTRIES.find(c => c.code === country.parentCode);
+  return parent ? getCountryName(parent, language) : null;
+}
 
 function ringCenter(ring: number[][]): [number, number] {
   let lon = 0, lat = 0;
@@ -63,19 +81,62 @@ function ringCenter(ring: number[][]): [number, number] {
 }
 
 // Passé à <Geographies parseGeographies> : react-simple-maps calcule le tracé
-// SVG APRÈS ce filtre, donc retirer un polygone ici le retire vraiment du rendu.
-function trimDistantTerritories(features: Feature[]): Feature[] {
-  return features.map((f) => {
-    const rule = MAINLAND_ONLY[Number(f.id)];
-    if (!rule || f.geometry?.type !== 'MultiPolygon') return f;
+// SVG APRÈS cette passe, donc un polygone déplacé ici l'est vraiment au rendu.
+function splitTerritories(features: Feature[]): Feature[] {
+  const out: Feature[] = [];
+  for (const f of features) {
+    const pieces = TERRITORY_SPLITS[Number(f.id)];
+    if (!pieces || f.geometry?.type !== 'MultiPolygon') { out.push(f); continue; }
     const geometry = f.geometry as MultiPolygon;
-    const kept = geometry.coordinates.filter((poly) => {
+    const mainland: MultiPolygon['coordinates'] = [];
+    const carved = new Map<number, MultiPolygon['coordinates']>();
+    for (const poly of geometry.coordinates) {
       const [lon, lat] = ringCenter(poly[0]);
-      return Math.hypot(lon - rule.lon, lat - rule.lat) <= rule.maxDeg;
-    });
-    if (!kept.length || kept.length === geometry.coordinates.length) return f;
-    return { ...f, geometry: { ...geometry, coordinates: kept } };
-  });
+      // Au plus proche, et seulement dans son rayon : un îlot non réclamé
+      // reste à la métropole plutôt que de disparaître.
+      let best: TerritoryPiece | null = null;
+      let bestDist = Infinity;
+      for (const piece of pieces) {
+        const d = Math.hypot(lon - piece.lon, lat - piece.lat);
+        if (d <= piece.maxDeg && d < bestDist) { best = piece; bestDist = d; }
+      }
+      if (!best) { mainland.push(poly); continue; }
+      const bucket = carved.get(best.numeric) ?? [];
+      bucket.push(poly);
+      carved.set(best.numeric, bucket);
+    }
+    out.push({ ...f, geometry: { ...geometry, coordinates: mainland } });
+    for (const [numeric, coordinates] of carved) {
+      out.push({ ...f, id: numeric, geometry: { type: 'MultiPolygon', coordinates } });
+    }
+  }
+  return out;
+}
+
+// Une île de 1000 km² fait deux pixels sur une carte du monde. Quand elle a des
+// clients, on pose un point à sa place : Monaco, la Martinique ou Aruba doivent
+// se voir, sinon la carte ment par omission.
+// 3° ≈ 7 px de large sur cette carte : en dessous, un pays est un pixel. La
+// Guyane (3,7°) se voit toute seule, le Luxembourg et la Martinique non.
+const TINY_SPAN_DEG = 3;
+function featureCenterIfTiny(geo: Feature): [number, number] | null {
+  const g = geo.geometry;
+  const polys = g?.type === 'MultiPolygon' ? (g as MultiPolygon).coordinates
+    : g?.type === 'Polygon' ? [(g as Polygon).coordinates] : [];
+  if (!polys.length) return null;
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  let biggest = polys[0][0];
+  for (const poly of polys) {
+    if (poly[0].length > biggest.length) biggest = poly[0];
+    for (const [lon, lat] of poly[0]) {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+  }
+  if (Math.max(maxLon - minLon, maxLat - minLat) > TINY_SPAN_DEG) return null;
+  return ringCenter(biggest);
 }
 
 // Interpolate from a faint red to full Yuno red based on density t∈[0,1].
@@ -94,6 +155,19 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
   const [view, setView] = useState<'country' | 'city'>('country');
   const [hover, setHover] = useState<{ name: string; flag: string; count: number; revenue: number; x: number; y: number } | null>(null);
   const [activeCode, setActiveCode] = useState<string | null>(null);
+
+  // L'atlas 50m est le seul qui porte les polygones d'outre-mer (le 110m ne
+  // connaît ni la Martinique ni La Réunion). Il pèse 7 fois plus lourd : on ne
+  // le télécharge qu'à l'ouverture de la carte, jamais avec la page Clients.
+  const [worldTopo, setWorldTopo] = useState<unknown>(null);
+  useEffect(() => {
+    if (view !== 'country' || worldTopo) return;
+    let cancelled = false;
+    import('world-atlas/countries-50m.json')
+      .then(m => { if (!cancelled) setWorldTopo(m.default); })
+      .catch(() => { /* carte indisponible : le classement par pays reste lisible */ });
+    return () => { cancelled = true; };
+  }, [view, worldTopo]);
 
   // ── City data (lazy: only fetched once the City tab is opened) ──
   const [cityData, setCityData] = useState<CityResponse | null>(null);
@@ -209,9 +283,11 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                   height={420}
                   style={{ width: '100%', height: 'auto' }}
                 >
-                  <Geographies geography={worldTopo as any} parseGeographies={trimDistantTerritories}>
-                    {({ geographies }: { geographies: any[] }) =>
-                      geographies.map((geo) => {
+                  {worldTopo != null && (
+                  <Geographies geography={worldTopo as any} parseGeographies={splitTerritories}>
+                    {({ geographies }: { geographies: any[] }) => (
+                      <>
+                      {geographies.map((geo) => {
                         const numeric = Number(geo.id);
                         const stat = byNumeric.get(numeric);
                         const country = COUNTRY_BY_NUMERIC.get(numeric);
@@ -235,9 +311,49 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                             }}
                           />
                         );
-                      })
-                    }
+                      })}
+                      {/* Épingles des territoires trop petits pour se voir.
+                          Un seul balayage, et seulement sur les pays qui ont
+                          des clients. Un pays reste sans épingle dès qu'il a
+                          une géométrie visible : l'atlas range par exemple les
+                          récifs d'Ashmore sous le code de l'Australie, et une
+                          pastille en mer de Timor pour un client de Sydney
+                          serait le même mensonge que la Guyane pour Paris. */}
+                      {(() => {
+                        const centers = new Map<number, [number, number]>();
+                        const visible = new Set<number>();
+                        for (const geo of geographies) {
+                          const n = Number(geo.id);
+                          if (!byNumeric.has(n)) continue;
+                          const c = featureCenterIfTiny(geo as Feature);
+                          if (!c) visible.add(n);
+                          else if (!centers.has(n)) centers.set(n, c);
+                        }
+                        return [...centers].filter(([n]) => !visible.has(n)).map(([numeric, center]) => {
+                          const stat = byNumeric.get(numeric)!;
+                          const country = COUNTRY_BY_NUMERIC.get(numeric);
+                          if (!country) return null;
+                          const t = maxCount ? stat.count / maxCount : 0;
+                          const isActive = activeCode === country.code;
+                          return (
+                            <Marker
+                              key={`pin-${numeric}`}
+                              coordinates={center}
+                              onMouseEnter={(e: React.MouseEvent) => setHover({ name: getCountryName(country, language), flag: country.flag, count: stat.count, revenue: stat.revenue, x: e.clientX, y: e.clientY })}
+                              onMouseMove={(e: React.MouseEvent) => setHover(h => h ? { ...h, x: e.clientX, y: e.clientY } : h)}
+                              onClick={() => selectCountry(country.code)}
+                              style={{ default: { cursor: 'pointer', outline: 'none' }, hover: { cursor: 'pointer', outline: 'none' }, pressed: { outline: 'none' } }}
+                            >
+                              <circle r={5.5} fill="none" stroke={isActive ? RED : 'rgba(232,25,44,0.45)'} strokeWidth={0.8} />
+                              <circle r={3} fill={densityFill(Math.max(t, 0.35))} stroke={RED} strokeWidth={0.6} />
+                            </Marker>
+                          );
+                        });
+                      })()}
+                      </>
+                    )}
                   </Geographies>
+                  )}
                 </ComposableMap>
 
                 {/* Tooltip */}
@@ -291,7 +407,13 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                         <span style={{ fontSize: 20 }}>{s.country.flag}</span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{getCountryName(s.country, language)}</span>
+                            <span className="truncate flex items-baseline gap-1.5" style={{ color: T1, fontSize: 13, fontWeight: 500 }}>
+                              {getCountryName(s.country, language)}
+                              {/* « Guadeloupe · France » : l'origine est distincte, le rattachement reste lisible. */}
+                              {parentName(s.country, language) && (
+                                <span style={{ color: T3, fontSize: 11, fontWeight: 400 }}>· {parentName(s.country, language)}</span>
+                              )}
+                            </span>
                             <span style={{ color: T1, fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
