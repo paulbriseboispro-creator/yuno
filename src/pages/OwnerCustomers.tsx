@@ -19,6 +19,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { motion, AnimatePresence } from 'framer-motion';
 import { TierBadge } from '@/components/loyalty/TierBadge';
 import { CustomerTimelineSheet } from '@/components/crm/CustomerTimelineSheet';
+import { CustomerContactBlock } from '@/components/crm/CustomerContactBlock';
 import { SavedSegments, type SegmentDefinition } from '@/components/crm/SavedSegments';
 import { OwnerCustomerOrigins } from '@/components/owner/OwnerCustomerOrigins';
 import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
@@ -904,10 +905,7 @@ export default function OwnerCustomers() {
                   </SheetTitle>
                 </SheetHeader>
 
-                <div className="space-y-1">
-                  <p style={{ color: T3, fontSize: 12 }}>{selectedCustomer.email}</p>
-                  {selectedCustomer.phone && <p style={{ color: T3, fontSize: 12 }}>{selectedCustomer.phone}</p>}
-                </div>
+                <CustomerContactBlock email={selectedCustomer.email} phone={selectedCustomer.phone} />
 
                 {/* Minor ticket → birth date + signed authorization */}
                 {(() => {
