@@ -425,6 +425,17 @@ pour Excel FR/ES).
   triplication historique a déjà fait cibler 0 personne en push). Les invités
   (guest checkout) sont des lignes synthétiques UNION lecture (`is_guest`,
   id = md5, user_id NULL) — le chemin paiement n'est pas touché.
+  **Côté organisateur, même règle au mot près** : `get_organizer_customer_segments`
+  sert elle aussi `rfm_*` depuis 2026-09-04 (le front recalculait ses propres
+  quintiles). Toute évolution de la règle se fait dans les DEUX fonctions.
+- **La RÉCENCE n'est pas relative** (2026-09-04) : bandes calendaires 14 / 30 /
+  60 / 90 jours, exactement celles promises dans `ohelp.pg.customers.s3b`.
+  Un quintile pur faisait tomber en « Perdu » la moins récente de deux
+  personnes inscrites l'avant-veille. La fréquence garde une part relative mais
+  bornée à ±1 autour de sa bande absolue en nuits ; seul le montant reste
+  purement relatif au lieu. Et « À risque » se teste AVANT « Fidèle » : un
+  habitué muet depuis trois mois est le client à rappeler, pas une ligne
+  rassurante dans le camembert.
 - **Segments sauvegardés** : `venue_segments` (definition jsonb v1, AND plat) +
   résolveur unique `resolve_venue_segment` (membership dynamique, résolu à
   l'envoi). Consommé par le scope push `segment:<uuid>` et l'audience email
