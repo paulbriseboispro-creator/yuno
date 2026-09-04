@@ -260,6 +260,58 @@ mécanique vit dans la migration `20260824120000_admin_support_access.sql`.
   au contournement de `RequireMFA` (le support n'a pas le téléphone du pro). Ce n'est
   jamais la sécurité : tout refus est serveur.
 
+## Passes Apple Wallet (design 2026-09-04)
+
+Un seul système pour les trois piliers — billet, guest list, table VIP.
+`supabase/functions/_shared/wallet/` : `passes.ts` (pass.json), `artwork.ts`
+(affiche de la soirée), `assets.ts` (images fixes en base64, régénérées par
+`scripts/gen-wallet-assets.py`), `signer.ts`, `router.ts`. Les deux fonctions
+qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
+`/wallet`) et `send-vip-confirmation` — doivent être redéployées ENSEMBLE :
+`_shared` est bundlé par fonction.
+
+- **Fond noir plein `#0A0A0A`, jamais de dégradé.** `backgroundColor` est une
+  couleur unie ; l'ancienne rampe noir → rouge était une image `background.png`
+  étirée qui noyait le QR et faisait tomber le contraste des labels sous AA
+  dans le bas du pass. Il n'y a plus de `background.png` du tout.
+- **Le rouge `#E8192C` est le `labelColor` du billet et de la guest list ; la
+  table VIP passe en or `#F2B23C`.** C'est la seule variation chromatique du
+  système, et elle se lit d'un coup d'œil. `labelColor` est global au pass :
+  on ne peut pas colorer un label plus qu'un autre.
+- **Grille commune** : en-tête `DATE | PORTES` (guest list : `GRATUIT AVANT`,
+  VIP : `TABLE`), principal `SOIRÉE` = le titre, secondaire `CLUB | TYPE`,
+  auxiliaire `PORTEUR | PLACES` (VIP : `PACK | CONVIVES`, guest list :
+  `INVITÉ PAR | PORTEUR`). Le dos porte référence, adresse, line-up, genre.
+- **Jamais de texte ni de QR composité dans une image.** HIG Apple : « Reserve
+  pass images for visual content. Embedded text isn't accessible ». Le titre
+  reste un champ natif — traduit FR/EN/ES et lu par VoiceOver.
+- **PassKit n'accepte que du PNG.** Les affiches sont en JPEG/WebP :
+  `artwork.ts` recadre côté Supabase (transform `render/image`, gratuit et mis
+  en cache) puis ré-encode en PNG avec `imagescript` (WASM pur — `sharp` et
+  `canvas` sont des binaires natifs, exclus de l'edge). **L'import
+  d'imagescript est DYNAMIQUE** : un import statique pénaliserait chaque envoi
+  d'email de `send-ticket-confirmation`, qui est d'abord une fonction d'emails.
+  Toute panne d'affiche est silencieuse : un pass sans image reste valide, un
+  pass non émis est un client à la porte sans QR.
+- **Le layout poster iOS 18 est écrit mais ÉTEINT** (`WALLET_POSTER_LAYOUT=1`
+  pour l'allumer, aucun redéploiement nécessaire). Apple écrit « Poster event
+  tickets aren't compatible with tickets that require a QR code or barcode for
+  entry » et contredit cette phrase ailleurs dans le même article ; toute la
+  porte Yuno étant un scan de QR, on ne bascule pas avant d'avoir vu sur un
+  vrai iPhone iOS 18 où atterrit le code-barres. Contrairement à ce qu'affirme
+  la session WWDC24, **l'entitlement NFC ne conditionne PAS le layout** — il ne
+  conditionne que l'entrée sans contact. Quand on l'allumera : `artwork.png`
+  fait **358×448 pt (4:5)**, pas 3:4, et les cinq balises `semantics`
+  `eventName` / `venueName` / `venueRoom` / `venueRegionName` /
+  `performerNames` sont TOUTES exigées — il en manque une, Wallet retombe sur
+  le classique sans un mot. Un pass classique pèse ~250 Ko, un pass poster
+  ~3,5 Mo (le PNG ne compresse pas le bruit d'un flyer).
+- **Les champs classiques restent obligatoires même en poster** : sans eux le
+  pass s'affiche vide sur iOS 17. Un seul `.pkpass` porte les deux layouts.
+- Émission idempotente via `ensureWalletPass` ; le `authenticationToken` du
+  premier appel est embarqué dans les passes déjà ajoutés, ne jamais le faire
+  tourner.
+
 ## Listes imprimables (guest list, tables VIP, billetterie)
 
 `src/lib/rosterExport.ts` (rendu) + `src/lib/rosterBuilders.ts` (données) + le dialogue
