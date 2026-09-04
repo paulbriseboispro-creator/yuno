@@ -49,6 +49,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const [open, setOpen] = useState(defaultOpen ?? (isClub && !part));
   const [saving, setSaving] = useState(false);
   const [addGuestOpen, setAddGuestOpen] = useState(false);
+  const [visSaving, setVisSaving] = useState(false);
 
   const [quota, setQuota] = useState(part?.quota ?? (isClub ? 100 : 20));
   // quota NULL = part illimitée (déléguées uniquement).
@@ -149,6 +150,23 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
     catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.deleteError')); }
   };
 
+  // Visibilité : choix structurant (la liste s'affiche sur la page publique de
+  // la soirée, ou vit seulement derrière son lien). Enregistré au clic, hors du
+  // formulaire, pour qu'il ne dépende pas d'un « Enregistrer » jamais atteint.
+  const toggleVisible = async (v: boolean) => {
+    if (!part || !onUpdate) { setVisibleOnClubPage(v); return; }
+    setVisibleOnClubPage(v);
+    setVisSaving(true);
+    try {
+      await onUpdate(part.id, { visible_on_club_page: v });
+    } catch (e) {
+      setVisibleOnClubPage(!v);
+      toast.error(e instanceof Error ? e.message : t('guestList.saveError'));
+    } finally {
+      setVisSaving(false);
+    }
+  };
+
   const shareLink = (gender?: 'female' | 'male') =>
     part ? buildShareLink({ slug, eventId, token: part.share_token, gender }) : '';
   const copy = (gender?: 'female' | 'male') => { navigator.clipboard.writeText(shareLink(gender)); toast.success(t('common.copied')); };
@@ -167,7 +185,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
           <div className="min-w-0">
             <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{displayName}</p>
             <p style={{ color: T3, fontSize: 11, margin: 0 }}>
-              {t(`guestList.holderType.${holderType}`)}
+              {isClub ? t('guestList.holderType.house') : t(`guestList.holderType.${holderType}`)}
               {part && <> · {activeEntries.length}/{part.quota ?? '∞'}{full && <span style={{ color: NEG, fontWeight: 600 }}> · {t('guestList.quotaFull')}</span>}</>}
             </p>
           </div>
@@ -181,6 +199,22 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
           </button>
         </div>
       </div>
+
+      {/* Visibilité sur la page de la soirée — hors du panneau repliable : c'est
+          le réglage qu'on veut lire d'un coup d'œil et changer d'un clic. */}
+      {part && (
+        <div className="mt-3" style={{ padding: '10px 12px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}` }}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
+              <Eye className="h-4 w-4" style={{ color: T3 }} />{t('guestList.visibleOnPage')}
+            </p>
+            <YunoSwitch checked={visibleOnClubPage} onChange={toggleVisible} disabled={visSaving || !onUpdate} />
+          </div>
+          <p style={{ color: T3, fontSize: 11, marginTop: 4, marginBottom: 0 }}>
+            {visibleOnClubPage ? t('guestList.parts.visibleHintOn') : t('guestList.parts.visibleHintOff')}
+          </p>
+        </div>
+      )}
 
       {open && (
         <div className="mt-4 space-y-4">
@@ -302,18 +336,20 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
             </div>
           )}
 
-          {/* Visibilité — publique sur la page de la soirée, ou seulement via le lien de la part */}
-          <div>
-            <div className="flex items-center justify-between">
-              <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
-                <Eye className="h-4 w-4" style={{ color: T3 }} />{t('guestList.visibleOnPage')}
-              </p>
-              <YunoSwitch checked={visibleOnClubPage} onChange={setVisibleOnClubPage} />
-            </div>
-            {!isClub && (
+          {/* Visibilité — une part déjà créée porte ce choix au-dessus du panneau
+              (enregistré au clic) ; le brouillon maison n'a encore aucune ligne à
+              mettre à jour, il le garde donc dans le formulaire. */}
+          {!part && (
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
+                  <Eye className="h-4 w-4" style={{ color: T3 }} />{t('guestList.visibleOnPage')}
+                </p>
+                <YunoSwitch checked={visibleOnClubPage} onChange={setVisibleOnClubPage} />
+              </div>
               <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>{visibleOnClubPage ? t('guestList.parts.visibleHintOn') : t('guestList.parts.visibleHintOff')}</p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Compteur public — « X places restantes » ou seulement ouvert/complet */}
           <div>

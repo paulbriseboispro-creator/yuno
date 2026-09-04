@@ -184,7 +184,8 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
           p.holder_type === 'dj' ? (p.dj_id ? djNames.get(p.dj_id) : '')
           : p.holder_type === 'promoter' ? (p.promoter_id ? promoterNames.get(p.promoter_id) : '')
           : '';
-        const label = p.holder_label || resolved || t(`guestList.holderType.${p.holder_type}`);
+        // La part maison n'est pas « Club » : une soirée d'organisateur en a une aussi.
+        const label = p.holder_label || resolved || t(p.holder_type === 'club' ? 'guestList.holderType.house' : `guestList.holderType.${p.holder_type}`);
         return [p.id, { eventId: p.event_id, label }] as const;
       }));
 

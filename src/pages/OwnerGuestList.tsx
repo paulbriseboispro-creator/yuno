@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
+import { useProfileType } from '@/hooks/useProfileType';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { ChevronDown, Plus, QrCode, Calendar, FolderOpen, Printer } from 'lucide-react';
@@ -85,6 +86,10 @@ export default function OwnerGuestList() {
   const { t, language } = useLanguage();
   const { venueId, venue, organizerUserId, scope, loading: venueLoading } = useVenueContext();
   const isOrganizerScope = scope === 'organizer';
+  // La part maison porte le nom de celui qui la tient : le club quand il y en a
+  // un, sinon l'organisateur. « Club » en dur mentait à toute soirée d'orga.
+  const { profile } = useProfileType();
+  const houseName = venue?.name || (isOrganizerScope ? (profile?.organizationName || '') : '') || t('guestList.holderType.house');
   const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
 
   const [events, setEvents] = useState<EventOption[]>([]);
@@ -177,7 +182,7 @@ export default function OwnerGuestList() {
   const totalSignups = Object.values(entriesByPart).flat().filter(e => e.status !== 'cancelled').length;
 
   const displayName = (p: Part) =>
-    p.holder_type === 'club' ? (venue?.name || t('guestList.holderType.club'))
+    p.holder_type === 'club' ? houseName
     : p.holder_type === 'custom' ? (p.holder_label || '')
     : (p.displayName || p.holder_label || '');
 
@@ -345,7 +350,7 @@ export default function OwnerGuestList() {
               <PartCard
                 part={clubPart}
                 holderType="club"
-                displayName={venue?.name || t('guestList.holderType.club')}
+                displayName={houseName}
                 entries={clubPart ? (entriesByPart[clubPart.id] || []) : []}
                 slug={slug}
                 eventId={selectedEventId}
