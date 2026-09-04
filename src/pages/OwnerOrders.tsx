@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Wine, Ticket, Crown } from 'lucide-react';
+import { Wine, Ticket, Crown, ClipboardList } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerTicketOrders } from '@/components/owner/OwnerTicketOrders';
 import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
+import { OwnerGuestListOrders } from '@/components/owner/OwnerGuestListOrders';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED  = '#E8192C';
@@ -20,6 +21,9 @@ const BORDER = 'rgba(255,255,255,0.085)';
 const ALL_TABS = [
   { key: 'drinks',  labelKey: 'owner.drinks', fallback: 'Drinks',     Icon: Wine   },
   { key: 'tickets', labelKey: null,           fallback: 'Tickets',    Icon: Ticket },
+  // La guest list est un pilier de la soirée, pas une annexe de la billetterie :
+  // elle a sa colonne d'entrées comme les billets ont la leur.
+  { key: 'guestlist', labelKey: 'owner.gl.tab', fallback: 'Guest list', Icon: ClipboardList },
   { key: 'vip',     labelKey: null,           fallback: 'VIP Tables', Icon: Crown  },
 ] as const;
 
@@ -83,6 +87,11 @@ export default function OwnerOrders() {
         isOrganizerScope
           ? <OwnerTicketOrders eventIds={orgEventIds ?? []} focusOrderId={focusOrderId} />
           : <OwnerTicketOrders venueId={venueId} focusOrderId={focusOrderId} />
+      )}
+      {activeTab === 'guestlist' && (
+        isOrganizerScope
+          ? <OwnerGuestListOrders eventIds={orgEventIds ?? []} focusOrderId={focusOrderId} />
+          : <OwnerGuestListOrders venueId={venueId} focusOrderId={focusOrderId} />
       )}
       {activeTab === 'vip' && (
         isOrganizerScope
