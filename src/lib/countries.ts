@@ -11,6 +11,15 @@ export interface Country {
   format: string;      // placeholder format for the phone input
   isoNumeric: number;  // ISO 3166-1 numeric — matches world-atlas geography ids
   names: { en: string; es: string; fr: string };
+  /** Longer, more specific prefixes that also belong to this entry. Mayotte and
+   *  La Réunion share +262, Porto Rico lives inside the +1 plan : c'est le
+   *  préfixe le PLUS LONG qui gagne, donc un numéro mahorais ne tombe pas chez
+   *  son voisin. */
+  altDialCodes?: string[];
+  /** Territoire rattaché : la France d'outre-mer compte comme une origine à
+   *  part (un client de Fort-de-France n'est pas un client parisien), mais le
+   *  club veut voir le lien. */
+  parentCode?: string;
 }
 
 export const COUNTRIES: Country[] = [
@@ -52,15 +61,48 @@ export const COUNTRIES: Country[] = [
   { code: 'RU', dialCode: '+7', flag: '🇷🇺', format: '912 345-67-89', isoNumeric: 643, names: { en: 'Russia', es: 'Rusia', fr: 'Russie' } },
   { code: 'TR', dialCode: '+90', flag: '🇹🇷', format: '532 123 45 67', isoNumeric: 792, names: { en: 'Turkey', es: 'Turquía', fr: 'Turquie' } },
   { code: 'AE', dialCode: '+971', flag: '🇦🇪', format: '50 123 4567', isoNumeric: 784, names: { en: 'United Arab Emirates', es: 'Emiratos Árabes Unidos', fr: 'Émirats arabes unis' } },
-  { code: 'SA', dialCode: '+966', flag: '🇸🇦', format: '50 123 4567', isoNumeric: 682, names: { en: 'Saudi Arabia', es: 'Arabia Saudita', fr: 'Arabia Saudí' } },
+  { code: 'SA', dialCode: '+966', flag: '🇸🇦', format: '50 123 4567', isoNumeric: 682, names: { en: 'Saudi Arabia', es: 'Arabia Saudita', fr: 'Arabie saoudite' } },
+
+  // ── Territoires : une origine à part entière ────────────────────────────────
+  // Un client guadeloupéen n'est pas un client parisien — pour un club, savoir
+  // qu'une partie de sa salle vient des Antilles ou de La Réunion vaut autant
+  // que de savoir qu'elle vient d'Espagne. Chacun porte son propre code ISO,
+  // donc sa propre couleur sur la carte des origines.
+  //
+  // On ne liste QUE les territoires qui ont leur propre indicatif : l'origine
+  // se déduit du numéro de téléphone. Les Canaries (+34), Madère et les Açores
+  // (+351), la Corse (+33), Jersey (+44) ou l'Alaska (+1) partagent celui de
+  // leur métropole — les distinguer est impossible depuis un numéro, et
+  // inventer une répartition serait pire que de ne rien dire.
+  { code: 'GP', dialCode: '+590', flag: '🇬🇵', format: '690 12 34 56', isoNumeric: 312, parentCode: 'FR', names: { en: 'Guadeloupe', es: 'Guadalupe', fr: 'Guadeloupe' } },
+  { code: 'MQ', dialCode: '+596', flag: '🇲🇶', format: '696 12 34 56', isoNumeric: 474, parentCode: 'FR', names: { en: 'Martinique', es: 'Martinica', fr: 'Martinique' } },
+  { code: 'GF', dialCode: '+594', flag: '🇬🇫', format: '694 12 34 56', isoNumeric: 254, parentCode: 'FR', names: { en: 'French Guiana', es: 'Guayana Francesa', fr: 'Guyane' } },
+  // La Réunion passe AVANT Mayotte : à préfixe de même longueur, c'est l'ordre
+  // de la liste qui tranche, et +262 seul est réunionnais dans l'immense
+  // majorité des cas. Un vrai numéro mahorais (269/639) est capté ci-dessous.
+  { code: 'RE', dialCode: '+262', flag: '🇷🇪', format: '692 12 34 56', isoNumeric: 638, parentCode: 'FR', names: { en: 'Réunion', es: 'Reunión', fr: 'La Réunion' } },
+  { code: 'YT', dialCode: '+262', altDialCodes: ['+262269', '+262639'], flag: '🇾🇹', format: '639 12 34 56', isoNumeric: 175, parentCode: 'FR', names: { en: 'Mayotte', es: 'Mayotte', fr: 'Mayotte' } },
+  { code: 'PM', dialCode: '+508', flag: '🇵🇲', format: '55 12 34', isoNumeric: 666, parentCode: 'FR', names: { en: 'Saint Pierre and Miquelon', es: 'San Pedro y Miquelón', fr: 'Saint-Pierre-et-Miquelon' } },
+  { code: 'NC', dialCode: '+687', flag: '🇳🇨', format: '75 12 34', isoNumeric: 540, parentCode: 'FR', names: { en: 'New Caledonia', es: 'Nueva Caledonia', fr: 'Nouvelle-Calédonie' } },
+  { code: 'PF', dialCode: '+689', flag: '🇵🇫', format: '87 12 34 56', isoNumeric: 258, parentCode: 'FR', names: { en: 'French Polynesia', es: 'Polinesia Francesa', fr: 'Polynésie française' } },
+  { code: 'WF', dialCode: '+681', flag: '🇼🇫', format: '82 12 34', isoNumeric: 876, parentCode: 'FR', names: { en: 'Wallis and Futuna', es: 'Wallis y Futuna', fr: 'Wallis-et-Futuna' } },
+  { code: 'GL', dialCode: '+299', flag: '🇬🇱', format: '22 12 34', isoNumeric: 304, parentCode: 'DK', names: { en: 'Greenland', es: 'Groenlandia', fr: 'Groenland' } },
+  { code: 'FO', dialCode: '+298', flag: '🇫🇴', format: '21 12 34', isoNumeric: 234, parentCode: 'DK', names: { en: 'Faroe Islands', es: 'Islas Feroe', fr: 'Îles Féroé' } },
+  { code: 'AW', dialCode: '+297', flag: '🇦🇼', format: '560 1234', isoNumeric: 533, parentCode: 'NL', names: { en: 'Aruba', es: 'Aruba', fr: 'Aruba' } },
+  { code: 'CW', dialCode: '+599', flag: '🇨🇼', format: '9 518 1234', isoNumeric: 531, parentCode: 'NL', names: { en: 'Curaçao', es: 'Curazao', fr: 'Curaçao' } },
+  { code: 'PR', dialCode: '+1787', altDialCodes: ['+1939'], flag: '🇵🇷', format: '(787) 555-0123', isoNumeric: 630, parentCode: 'US', names: { en: 'Puerto Rico', es: 'Puerto Rico', fr: 'Porto Rico' } },
 ];
 
 export function getCountryName(country: Country, language: Language | string): string {
   return country.names[language as keyof Country['names']] || country.names.en;
 }
 
-// Dial codes sorted longest-first so "+351" matches before "+3x" collisions.
-const BY_DIAL_LEN = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+// Tous les préfixes (indicatif + variantes longues), triés du plus long au plus
+// court : "+351" gagne sur "+3x", "+262639" sur "+262", "+1787" sur "+1". À
+// longueur égale, l'ordre de COUNTRIES tranche (le tri est stable).
+const BY_DIAL_LEN: { prefix: string; country: Country }[] = COUNTRIES
+  .flatMap(c => [c.dialCode, ...(c.altDialCodes ?? [])].map(prefix => ({ prefix, country: c })))
+  .sort((a, b) => b.prefix.length - a.prefix.length);
 
 /**
  * Derive a customer's country of origin from their stored phone number.
@@ -72,8 +114,8 @@ export function countryFromPhone(phone: string | null | undefined): Country | nu
   if (!phone) return null;
   const normalized = phone.replace(/\s+/g, '');
   if (!normalized.startsWith('+')) return null;
-  for (const c of BY_DIAL_LEN) {
-    if (normalized.startsWith(c.dialCode)) return c;
+  for (const { prefix, country } of BY_DIAL_LEN) {
+    if (normalized.startsWith(prefix)) return country;
   }
   return null;
 }
