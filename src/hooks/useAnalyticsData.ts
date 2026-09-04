@@ -160,20 +160,40 @@ function getWindowMs(dateRange: DateRange): number | null {
 }
 
 /**
- * Fetch aggregate club totals for the period strictly before `start` of equal length,
+ * Fetch aggregate totals for the period strictly before `start` of equal length,
  * so the KPI cards can show a real "vs previous period" delta (not a hardcoded number).
- * Venue/global scope only — deltas aren't meaningful for a single event or all-time.
+ * Global scope only — deltas aren't meaningful for a single event or all-time.
+ * Venue scope sums drinks + tickets + tables; organizer scope (event ids) sums
+ * tickets + tables, the same base as its current-period KPIs.
  */
-async function fetchPreviousTotals(venueId: string, prevStart: Date, prevEnd: Date): Promise<PeriodTotals> {
+async function fetchPreviousTotals(
+  scope: { venueId: string } | { eventIds: string[] },
+  prevStart: Date,
+  prevEnd: Date,
+): Promise<PeriodTotals> {
   const lo = prevStart.toISOString();
   const hi = prevEnd.toISOString();
+  const byVenue = 'venueId' in scope;
+  let ticketsQ = supabase.from('tickets')
+    .select('total_price, service_fee, insurance_fee, refund_amount, quantity, user_email, events!inner(venue_id)')
+    .eq('status', 'paid').gte('created_at', lo).lt('created_at', hi);
+  let tablesQ = supabase.from('table_reservations')
+    .select('total_price, service_fee, management_fee, refund_amount, user_email, events!inner(venue_id)')
+    .eq('status', 'paid').gte('created_at', lo).lt('created_at', hi);
+  if (byVenue) {
+    ticketsQ = ticketsQ.eq('events.venue_id', scope.venueId);
+    tablesQ = tablesQ.eq('events.venue_id', scope.venueId);
+  } else {
+    ticketsQ = ticketsQ.in('event_id', scope.eventIds);
+    tablesQ = tablesQ.in('event_id', scope.eventIds);
+  }
   const [ordersRes, ticketsRes, tablesRes] = await Promise.all([
-    supabase.from('orders').select('total, service_fee, refund_amount, user_email, status')
-      .eq('venue_id', venueId).gte('created_at', lo).lt('created_at', hi),
-    supabase.from('tickets').select('total_price, service_fee, insurance_fee, refund_amount, quantity, user_email, events!inner(venue_id)')
-      .eq('status', 'paid').eq('events.venue_id', venueId).gte('created_at', lo).lt('created_at', hi),
-    supabase.from('table_reservations').select('total_price, service_fee, management_fee, refund_amount, user_email, events!inner(venue_id)')
-      .eq('status', 'paid').eq('events.venue_id', venueId).gte('created_at', lo).lt('created_at', hi),
+    byVenue
+      ? supabase.from('orders').select('total, service_fee, refund_amount, user_email, status')
+          .eq('venue_id', scope.venueId).gte('created_at', lo).lt('created_at', hi)
+      : Promise.resolve({ data: [] as { total: number; service_fee: number | null; refund_amount: number | null; user_email: string | null; status: string }[] }),
+    ticketsQ,
+    tablesQ,
   ]);
   const paidOrders = (ordersRes.data || []).filter(o => o.status === 'paid' || o.status === 'served');
   const tickets = ticketsRes.data || [];
@@ -768,13 +788,16 @@ export function useAnalyticsData({
       };
       setCurrentTotals(totalsNow);
 
-      // Real "vs previous period" deltas — only meaningful in global venue mode with a fixed window.
+      // Real "vs previous period" deltas — only meaningful in global mode with a fixed window.
       const windowMs = getWindowMs(dateRange);
-      if (!isOrganizerScope && venueId && mode === 'global' && startDate && windowMs) {
+      const prevScope = isOrganizerScope
+        ? (scopedEventIds && scopedEventIds.length > 0 ? { eventIds: scopedEventIds } : null)
+        : (venueId ? { venueId } : null);
+      if (prevScope && mode === 'global' && startDate && windowMs) {
         const prevEnd = startDate;
         const prevStart = new Date(startDate.getTime() - windowMs);
         try {
-          setPreviousTotals(await fetchPreviousTotals(venueId, prevStart, prevEnd));
+          setPreviousTotals(await fetchPreviousTotals(prevScope, prevStart, prevEnd));
         } catch { setPreviousTotals(null); }
       } else {
         setPreviousTotals(null);

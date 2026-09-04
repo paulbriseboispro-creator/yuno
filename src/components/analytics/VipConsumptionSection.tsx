@@ -42,7 +42,10 @@ interface VipAnalytics {
 }
 
 interface Props {
-  venueId: string;
+  /** Club scope. Either venueId or organizerUserId must be set. */
+  venueId?: string | null;
+  /** Organizer scope: consumption served at tables of the organizer's events. */
+  organizerUserId?: string | null;
   eventId?: string | null;
   from?: string;
   to?: string;
@@ -89,7 +92,7 @@ function Kpi({ icon: Icon, label, value }: { icon: typeof Wine; label: string; v
   );
 }
 
-export function VipConsumptionSection({ venueId, eventId, from, to }: Props) {
+export function VipConsumptionSection({ venueId, organizerUserId, eventId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<VipAnalytics | null>(null);
@@ -100,7 +103,8 @@ export function VipConsumptionSection({ venueId, eventId, from, to }: Props) {
     (async () => {
       setLoading(true);
       const { data: res } = await supabase.rpc('get_vip_consumption_analytics', {
-        p_venue_id: venueId,
+        p_venue_id: venueId ?? undefined,
+        p_organizer_user_id: venueId ? undefined : (organizerUserId ?? undefined),
         p_event_id: eventId ?? undefined,
         p_from: from ?? undefined,
         p_to: to ?? undefined,
@@ -111,7 +115,7 @@ export function VipConsumptionSection({ venueId, eventId, from, to }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [venueId, eventId, from, to]);
+  }, [venueId, organizerUserId, eventId, from, to]);
 
   if (loading) {
     return <div className="h-40 flex items-center justify-center text-sm" style={{ color: T3 }}>{tt('Chargement…', 'Loading…', 'Cargando…')}</div>;

@@ -22,15 +22,20 @@ export interface CustomerAnalytics {
 
 const DAY = 86_400_000;
 
-export function useCustomerAnalytics({ venueId }: { venueId?: string | null }) {
+export function useCustomerAnalytics({ venueId, organizerUserId }: { venueId?: string | null; organizerUserId?: string | null }) {
   const [data, setData] = useState<CustomerAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
-    if (!venueId) return;
+    if (!venueId && !organizerUserId) return;
     setLoading(true);
     try {
-      const { data: rows, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: venueId });
+      // Same RFM contract on both sides (visit_nights, total_spent, revenue_90d,
+      // revenue_prev_90d, first/last activity) — the organizer RPC mirrors the
+      // venue one, so the loyalty zone reads identically in both dashboards.
+      const { data: rows, error } = venueId
+        ? await supabase.rpc('get_venue_customer_segments', { p_venue_id: venueId })
+        : await supabase.rpc('get_organizer_customer_segments', { p_organizer_user_id: organizerUserId! });
       if (error) throw error;
 
       const customers = rows || [];
@@ -91,9 +96,9 @@ export function useCustomerAnalytics({ venueId }: { venueId?: string | null }) {
     } finally {
       setLoading(false);
     }
-  }, [venueId]);
+  }, [venueId, organizerUserId]);
 
-  useEffect(() => { if (venueId) fetch(); }, [venueId, fetch]);
+  useEffect(() => { if (venueId || organizerUserId) fetch(); }, [venueId, organizerUserId, fetch]);
 
   return { customerAnalytics: data, loading };
 }

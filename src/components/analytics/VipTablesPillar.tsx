@@ -55,7 +55,10 @@ export interface VipTableAnalytics {
 }
 
 interface Props {
-  venueId: string;
+  /** Club scope. Either venueId or organizerUserId must be set. */
+  venueId?: string | null;
+  /** Organizer scope: reservations across the organizer's events (lead or partner). */
+  organizerUserId?: string | null;
   eventId?: string | null;
   from?: string;
   to?: string;
@@ -120,7 +123,7 @@ function BucketBars({ title, icon: Icon, rows, subtitle }: {
   );
 }
 
-export function VipTablesPillar({ venueId, eventId, from, to, tableAnalytics, hasVipTables }: Props) {
+export function VipTablesPillar({ venueId, organizerUserId, eventId, from, to, tableAnalytics, hasVipTables }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [res, setRes] = useState<VipTableAnalytics | null>(null);
@@ -131,7 +134,8 @@ export function VipTablesPillar({ venueId, eventId, from, to, tableAnalytics, ha
     (async () => {
       setLoading(true);
       const { data } = await supabase.rpc('get_vip_table_analytics', {
-        p_venue_id: venueId,
+        p_venue_id: venueId ?? undefined,
+        p_organizer_user_id: venueId ? undefined : (organizerUserId ?? undefined),
         p_event_id: eventId ?? undefined,
         p_from: from ?? undefined,
         p_to: to ?? undefined,
@@ -142,7 +146,7 @@ export function VipTablesPillar({ venueId, eventId, from, to, tableAnalytics, ha
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [venueId, eventId, from, to]);
+  }, [venueId, organizerUserId, eventId, from, to]);
 
   // ── Plan lock ────────────────────────────────────────────────────────────────
   if (!hasVipTables) {
@@ -322,11 +326,11 @@ export function VipTablesPillar({ venueId, eventId, from, to, tableAnalytics, ha
 
       {/* ── Consumption detail (bottle service served) ─────────────────────── */}
       <div className="pt-1">
-        <VipConsumptionSection venueId={venueId} eventId={eventId} from={from} to={to} />
+        <VipConsumptionSection venueId={venueId} organizerUserId={organizerUserId} eventId={eventId} from={from} to={to} />
       </div>
 
-      {/* ── VIP host leaderboard ──────────────────────────────────────────── */}
-      <VipHostLeaderboard venueId={venueId} eventId={eventId} from={from} to={to} />
+      {/* ── VIP host leaderboard — club staff only (an organizer has no VIP hosts) ── */}
+      {venueId && <VipHostLeaderboard venueId={venueId} eventId={eventId} from={from} to={to} />}
     </div>
   );
 }

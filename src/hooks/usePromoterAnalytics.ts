@@ -43,23 +43,28 @@ function getStartDate(dateRange: DateRange): Date | null {
 
 interface UsePromoterAnalyticsProps {
   venueId?: string | null;
+  /** Organizer scope: promoters recruited by this organizer (promoters.organizer_user_id). */
+  organizerUserId?: string | null;
   dateRange: DateRange;
   mode: AnalyticsMode;
   selectedEventId: string | null;
 }
 
-export function usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId }: UsePromoterAnalyticsProps) {
+export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode, selectedEventId }: UsePromoterAnalyticsProps) {
   const [data, setData] = useState<PromoterAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
-    if (!venueId) return;
+    if (!venueId && !organizerUserId) return;
     setLoading(true);
     try {
-      const { data: promoters } = await supabase
+      // A promoter belongs to exactly one recruiter: a club (venue_id) or an
+      // organizer (organizer_user_id) — same column switch as OwnerPromoters.
+      let pq = supabase
         .from('promoters')
-        .select('id, first_name, last_name, promo_code, profile_image_url')
-        .eq('venue_id', venueId);
+        .select('id, first_name, last_name, promo_code, profile_image_url');
+      pq = venueId ? pq.eq('venue_id', venueId) : pq.eq('organizer_user_id', organizerUserId!);
+      const { data: promoters } = await pq;
 
       const ids = (promoters || []).map(p => p.id);
       if (ids.length === 0) {
@@ -124,9 +129,9 @@ export function usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId
     } finally {
       setLoading(false);
     }
-  }, [venueId, dateRange, mode, selectedEventId]);
+  }, [venueId, organizerUserId, dateRange, mode, selectedEventId]);
 
-  useEffect(() => { if (venueId) fetch(); }, [venueId, fetch]);
+  useEffect(() => { if (venueId || organizerUserId) fetch(); }, [venueId, organizerUserId, fetch]);
 
   return { promoterAnalytics: data, loading };
 }

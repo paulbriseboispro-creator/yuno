@@ -37,7 +37,10 @@ interface EventPnl {
 interface EventsPnl { ok: boolean; events: EventPnl[] }
 
 interface Props {
-  venueId: string;
+  /** Club scope. Either venueId or organizerUserId must be set. */
+  venueId?: string | null;
+  /** Organizer scope: one line per night the organizer runs (tickets + tables, no drinks). */
+  organizerUserId?: string | null;
   from?: string;
   to?: string;
 }
@@ -51,18 +54,22 @@ function Chip({ icon: Icon, value, color }: { icon: typeof Ticket; value: string
   );
 }
 
-export function EventsPnlLedger({ venueId, from, to }: Props) {
+export function EventsPnlLedger({ venueId, organizerUserId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<EventsPnl | null>(null);
   const [loading, setLoading] = useState(true);
+  // Organizers don't sell drinks: the RPC returns 0 for that pillar, and the
+  // legend/chips drop it so the bar never shows an empty "Boissons" entry.
+  const showDrinks = !!venueId;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       const { data: res } = await supabase.rpc('get_events_pnl', {
-        p_venue_id: venueId,
+        p_venue_id: venueId ?? undefined,
+        p_organizer_user_id: venueId ? undefined : (organizerUserId ?? undefined),
         p_from: from ?? undefined,
         p_to: to ?? undefined,
       });
@@ -72,7 +79,7 @@ export function EventsPnlLedger({ venueId, from, to }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [venueId, from, to]);
+  }, [venueId, organizerUserId, from, to]);
 
   if (loading) {
     return <div className="h-32 flex items-center justify-center text-sm" style={{ color: T3 }}>{tt('Chargement…', 'Loading…', 'Cargando…')}</div>;
@@ -97,7 +104,9 @@ export function EventsPnlLedger({ venueId, from, to }: Props) {
             {tt('Bilan par soirée', 'Per-night ledger', 'Balance por noche')}
           </h3>
           <p className="m-0 mt-0.5 text-xs" style={{ color: T3 }}>
-            {tt('Billets + boissons + tables, net par nuit', 'Tickets + drinks + tables, net per night', 'Entradas + bebidas + mesas, neto por noche')}
+            {showDrinks
+              ? tt('Billets + boissons + tables, net par nuit', 'Tickets + drinks + tables, net per night', 'Entradas + bebidas + mesas, neto por noche')
+              : tt('Billets + tables, net par nuit', 'Tickets + tables, net per night', 'Entradas + mesas, neto por noche')}
           </p>
         </div>
         <div className="text-right">
@@ -109,7 +118,7 @@ export function EventsPnlLedger({ venueId, from, to }: Props) {
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
         <Chip icon={Ticket} value={tt('Billets', 'Tickets', 'Entradas')} color={C_TICKETS} />
-        <Chip icon={Wine} value={tt('Boissons', 'Drinks', 'Bebidas')} color={C_DRINKS} />
+        {showDrinks && <Chip icon={Wine} value={tt('Boissons', 'Drinks', 'Bebidas')} color={C_DRINKS} />}
         <Chip icon={Sofa} value={tt('Tables', 'Tables', 'Mesas')} color={C_TABLES} />
       </div>
 
@@ -144,7 +153,7 @@ export function EventsPnlLedger({ venueId, from, to }: Props) {
               {/* Pillar figures + attendance */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5">
                 <Chip icon={Ticket} value={`${fmtPrice(e.tickets_revenue)} · ${e.tickets_count}`} color={C_TICKETS} />
-                <Chip icon={Wine} value={`${fmtPrice(e.drinks_revenue)} · ${e.drinks_orders}`} color={C_DRINKS} />
+                {showDrinks && <Chip icon={Wine} value={`${fmtPrice(e.drinks_revenue)} · ${e.drinks_orders}`} color={C_DRINKS} />}
                 <Chip icon={Sofa} value={`${fmtPrice(e.tables_revenue)} · ${e.tables_count}`} color={C_TABLES} />
                 <span className="inline-flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 flex-none" style={{ color: T3 }} />

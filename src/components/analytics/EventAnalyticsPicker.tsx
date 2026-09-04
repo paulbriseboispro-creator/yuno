@@ -39,7 +39,9 @@ function statusOf(e: EventRow): Status {
 
 interface Props {
   /** Venue scope. While null (venue still loading) the picker shows a skeleton. */
-  venueId: string | null;
+  venueId?: string | null;
+  /** Organizer scope: nights where the user is lead or partner organizer. */
+  organizerUserId?: string | null;
   /** Fired with the chosen event id — caller opens that event's analysis. */
   onSelect: (eventId: string) => void;
 }
@@ -49,19 +51,22 @@ interface Props {
  * <select>: events render as full cards (poster, date, sold + fill), grouped by
  * month, most recent first. Picking a card opens that night's analysis.
  */
-export function EventAnalyticsPicker({ venueId, onSelect }: Props) {
+export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Props) {
   const { t, language } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [rows, setRows] = useState<EventRow[] | null>(null);
 
   useEffect(() => {
-    if (!venueId) return;
+    if (!venueId && !organizerUserId) return;
     let cancelled = false;
     (async () => {
-      const { data: evs } = await supabase
+      let q = supabase
         .from('events')
-        .select('id, title, start_at, end_at, poster_url, max_tickets')
-        .eq('venue_id', venueId)
+        .select('id, title, start_at, end_at, poster_url, max_tickets');
+      q = venueId
+        ? q.eq('venue_id', venueId)
+        : q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+      const { data: evs } = await q
         .order('start_at', { ascending: false })
         .limit(60);
       const list = evs || [];
@@ -81,7 +86,7 @@ export function EventAnalyticsPicker({ venueId, onSelect }: Props) {
       setRows(list.map((e) => ({ ...e, sold: soldByEvent[e.id] || 0 })));
     })();
     return () => { cancelled = true; };
-  }, [venueId]);
+  }, [venueId, organizerUserId]);
 
   // — Loading skeleton
   if (!rows) {

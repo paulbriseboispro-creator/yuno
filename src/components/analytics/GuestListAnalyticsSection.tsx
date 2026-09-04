@@ -92,7 +92,12 @@ interface GuestListAnalytics {
 }
 
 interface Props {
-  venueId: string;
+  /** Club scope. Either venueId or organizerUserId must be set. */
+  venueId?: string | null;
+  /** Organizer scope: every list on the organizer's nights (lead or partner).
+   *  No bar data on this side — spend is VIP tables only and the paying-ticket
+   *  benchmark (a bar metric) is hidden. */
+  organizerUserId?: string | null;
   eventId?: string | null;
   from?: string;
   to?: string;
@@ -318,20 +323,22 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
   );
 }
 
-export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props) {
+export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<GuestListAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   // Un seul propriétaire déplié à la fois — la liste reste lisible.
   const [openHolder, setOpenHolder] = useState<string | null>(null);
+  const hasBar = !!venueId;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       const { data: res } = await supabase.rpc('get_guest_list_analytics', {
-        p_venue_id: venueId,
+        p_venue_id: venueId ?? undefined,
+        p_organizer_user_id: venueId ? undefined : (organizerUserId ?? undefined),
         p_event_id: eventId ?? undefined,
         p_from: from ?? undefined,
         p_to: to ?? undefined,
@@ -342,7 +349,7 @@ export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props)
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [venueId, eventId, from, to]);
+  }, [venueId, organizerUserId, eventId, from, to]);
 
   if (loading) {
     return <div className="h-40 flex items-center justify-center text-sm" style={{ color: T3 }}>{tt('Chargement…', 'Loading…', 'Cargando…')}</div>;
@@ -400,13 +407,18 @@ export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props)
           tone={totals.no_show_rate > 40 ? NEG : T1} />
         <Kpi icon={TrendingUp} label={tt('Valeur / invité', 'Value / guest', 'Valor / invitado')}
           value={fmtPrice(spend.avg_per_arrived)}
-          sub={tt('consommé une fois entré', 'spent once inside', 'consumido una vez dentro')} />
+          sub={hasBar
+            ? tt('consommé une fois entré', 'spent once inside', 'consumido una vez dentro')
+            : tt('réservé en VIP une fois entré', 'booked in VIP once inside', 'reservado en VIP una vez dentro')} />
         <Kpi icon={Wine} label={tt('CA généré', 'Revenue generated', 'Ingresos generados')}
           value={fmtPrice(spend.total_revenue)}
-          sub={`${fmtPrice(spend.bar_revenue)} ${tt('bar', 'bar', 'barra')} · ${fmtPrice(spend.vip_revenue)} VIP`} />
+          sub={hasBar
+            ? `${fmtPrice(spend.bar_revenue)} ${tt('bar', 'bar', 'barra')} · ${fmtPrice(spend.vip_revenue)} VIP`
+            : `${spend.vip_reservations} ${tt('tables VIP', 'VIP tables', 'mesas VIP')}`} />
       </div>
 
-      {/* ── Verdict : guest list vs billet payant ────────────────────────── */}
+      {/* ── Verdict : guest list vs billet payant (bar benchmark — club only) ── */}
+      {hasBar && (
       <div style={{ ...crd, padding: '20px 22px' }}>
         <h3 className="text-[15px] font-semibold mb-1 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
           <Scale className="h-4 w-4 flex-none" style={{ color: RED }} />
@@ -462,6 +474,7 @@ export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props)
           </div>
         </div>
       </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* ── Entonnoir inscrits → venus → consommateurs ─────────────────── */}

@@ -46,29 +46,55 @@ function getStartDate(dateRange: DateRange): Date | null {
 
 interface UseNightAnalyticsProps {
   venueId?: string | null;
+  /** Organizer scope: every event where the user is lead or partner organizer. */
+  organizerUserId?: string | null;
   dateRange: DateRange;
   mode: AnalyticsMode;
   selectedEventId: string | null;
 }
 
-export function useNightAnalytics({ venueId, dateRange, mode, selectedEventId }: UseNightAnalyticsProps) {
+const EMPTY: NightAnalytics = {
+  ticketsSold: 0, ticketsScanned: 0, ticketNoShowRate: 0,
+  tablesBooked: 0, tablesArrived: 0, tableNoShowRate: 0,
+  guestlistSize: 0, guestlistArrived: 0, guestlistFillRate: 0,
+  attendance: 0, arrivalsByHour: [],
+};
+
+export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, selectedEventId }: UseNightAnalyticsProps) {
   const [data, setData] = useState<NightAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const isOrganizerScope = !venueId && !!organizerUserId;
 
   const fetch = useCallback(async () => {
-    if (!venueId) return;
+    if (!venueId && !organizerUserId) return;
     setLoading(true);
     try {
       const startDate = mode === 'event' ? null : getStartDate(dateRange);
       const eventFilter = mode === 'event' && selectedEventId ? selectedEventId : null;
 
-      // Tickets (entry_scanned). Scope to venue events / period / single event.
+      // Organizer scope: resolve the authorized event ids once (lead OR partner
+      // organizer), then filter every table on event_id — same rule as
+      // useAnalyticsData, so the night figures foot with the KPIs.
+      let orgEventIds: string[] | null = null;
+      if (isOrganizerScope) {
+        const { data: evs } = await supabase
+          .from('events')
+          .select('id')
+          .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+        orgEventIds = (evs ?? []).map(e => e.id);
+        if (orgEventIds.length === 0) { setData(EMPTY); return; }
+      }
+
+      // Tickets (entry_scanned). Scope to venue events / organizer events / period / single event.
       let tq = supabase
         .from('tickets')
         .select('quantity, entry_scanned, entry_scanned_at, events!inner(venue_id)')
         .eq('status', 'paid');
       if (eventFilter) tq = tq.eq('event_id', eventFilter);
-      else { tq = tq.eq('events.venue_id', venueId); if (startDate) tq = tq.gte('created_at', startDate.toISOString()); }
+      else {
+        tq = orgEventIds ? tq.in('event_id', orgEventIds) : tq.eq('events.venue_id', venueId!);
+        if (startDate) tq = tq.gte('created_at', startDate.toISOString());
+      }
       const { data: tickets } = await tq;
 
       // Table reservations (checked_in_at / entry_scanned).
@@ -77,15 +103,18 @@ export function useNightAnalytics({ venueId, dateRange, mode, selectedEventId }:
         .select('guest_count, checked_in_at, entry_scanned, entry_scanned_at, events!inner(venue_id)')
         .eq('status', 'paid');
       if (eventFilter) rq = rq.eq('event_id', eventFilter);
-      else { rq = rq.eq('events.venue_id', venueId); if (startDate) rq = rq.gte('created_at', startDate.toISOString()); }
+      else {
+        rq = orgEventIds ? rq.in('event_id', orgEventIds) : rq.eq('events.venue_id', venueId!);
+        if (startDate) rq = rq.gte('created_at', startDate.toISOString());
+      }
       const { data: tables } = await rq;
 
-      // Guestlist entries (joined through guest_lists for venue/event scope).
+      // Guestlist entries (joined through guest_lists for venue/organizer/event scope).
       let gq = supabase
         .from('guest_list_entries')
-        .select('entry_scanned, entry_scanned_at, guest_lists!inner(venue_id, event_id)')
-        .eq('guest_lists.venue_id', venueId);
+        .select('entry_scanned, entry_scanned_at, guest_lists!inner(venue_id, event_id)');
       if (eventFilter) gq = gq.eq('guest_lists.event_id', eventFilter);
+      else gq = orgEventIds ? gq.in('guest_lists.event_id', orgEventIds) : gq.eq('guest_lists.venue_id', venueId!);
       const { data: guestlist } = await gq;
 
       const tk = tickets || [];
@@ -132,9 +161,9 @@ export function useNightAnalytics({ venueId, dateRange, mode, selectedEventId }:
     } finally {
       setLoading(false);
     }
-  }, [venueId, dateRange, mode, selectedEventId]);
+  }, [venueId, organizerUserId, isOrganizerScope, dateRange, mode, selectedEventId]);
 
-  useEffect(() => { if (venueId) fetch(); }, [venueId, fetch]);
+  useEffect(() => { if (venueId || organizerUserId) fetch(); }, [venueId, organizerUserId, fetch]);
 
   return { nightAnalytics: data, loading };
 }
