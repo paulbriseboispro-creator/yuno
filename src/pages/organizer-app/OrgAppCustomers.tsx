@@ -10,12 +10,13 @@ import {
   Crown, TrendingUp, TrendingDown, Calendar, Star, Target, ShoppingBag, Download, Filter, X,
   Activity, History, ArrowDownRight, Mail, Globe, ShieldAlert, FileText,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TierBadge } from '@/components/loyalty/TierBadge';
 import { CustomerTimelineSheet } from '@/components/crm/CustomerTimelineSheet';
+import { CustomerContactBlock } from '@/components/crm/CustomerContactBlock';
 import { OwnerCustomerOrigins } from '@/components/owner/OwnerCustomerOrigins';
 import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
 import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
@@ -50,6 +51,10 @@ interface OrgCustomer {
   revenue_30d: number; revenue_90d: number; revenue_prev_90d: number; avg_basket: number;
   visit_nights: number; visits_per_month: number; last_activity_at: string | null;
   preferred_dow: number | null; preferred_event_title: string | null;
+  guest_list_count: number;
+  // Scoring RFM : calculé par get_organizer_customer_segments, jamais ici.
+  recency_days: number; rfm_r: number; rfm_f: number; rfm_m: number;
+  rfm_segment: SegmentKey; rfm_tier: Tier; churn_risk: boolean;
   emailOnly?: boolean;
 }
 
@@ -58,7 +63,7 @@ interface Scored {
   segment: SegmentKey; tier: Tier;
   recencyDays: number; trendPct: number;
   churnRisk: boolean;
-  preferredCategory: 'tickets' | 'tables' | 'mixed';
+  preferredCategory: 'tickets' | 'tables' | 'guestlist' | 'mixed';
 }
 type ScoredCustomer = OrgCustomer & { _s: Scored };
 
@@ -73,37 +78,15 @@ interface SegmentFilters {
 }
 const emptyFilters: SegmentFilters = { segment: '', recency: '', value: '', category: '', churn: false, origin: '' };
 
-// ─── Scoring helpers (identical to owner — venue/organizer-relative RFM) ─────────
-function quintile(value: number, sortedAsc: number[], invert = false): number {
-  const n = sortedAsc.length;
-  if (n <= 1) return 3;
-  let below = 0;
-  for (let i = 0; i < n; i++) { if (sortedAsc[i] < value) below++; else break; }
-  const pct = below / (n - 1);
-  const score = Math.min(5, Math.max(1, Math.floor(pct * 5) + 1));
-  return invert ? 6 - score : score;
-}
-function tierFromM(m: number): Tier {
-  if (m >= 5) return 'platinum';
-  if (m >= 4) return 'gold';
-  if (m >= 2) return 'silver';
-  return 'bronze';
-}
-function segmentOf(r: number, f: number, m: number): SegmentKey {
-  if (r >= 4 && f >= 4) return 'champions';
-  if (f >= 4) return 'loyal';
-  if (r <= 2 && f >= 3) return 'at_risk';
-  if (r >= 4 && f <= 2) return m >= 3 ? 'promising' : 'new';
-  if (r >= 3) return 'loyal';
-  if (r === 2) return 'dormant';
-  return 'lost';
-}
+// Le scoring RFM (quintiles + bandes absolues + segment + tier) vit dans
+// get_organizer_customer_segments, exactement comme côté club. Ne jamais le
+// recalculer ici : deux moteurs de segmentation divergent toujours.
 function preferredCategory(c: OrgCustomer): Scored['preferredCategory'] {
-  const mx = Math.max(c.ticket_count || 0, c.table_count || 0);
+  const mx = Math.max(c.ticket_count || 0, c.table_count || 0, c.guest_list_count || 0);
   if (mx === 0) return 'mixed';
   if (mx === (c.table_count || 0)) return 'tables';
   if (mx === (c.ticket_count || 0)) return 'tickets';
-  return 'mixed';
+  return 'guestlist';
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -183,6 +166,11 @@ export default function OrgAppCustomers() {
         avg_basket: num(r.avg_basket), visit_nights: r.visit_nights || 0, visits_per_month: num(r.visits_per_month),
         last_activity_at: r.last_activity_at, preferred_dow: r.preferred_dow,
         preferred_event_title: r.preferred_event_title,
+        guest_list_count: r.guest_list_count || 0,
+        recency_days: r.recency_days ?? 9999,
+        rfm_r: r.rfm_r ?? 1, rfm_f: r.rfm_f ?? 1, rfm_m: r.rfm_m ?? 1,
+        rfm_segment: (r.rfm_segment || 'new') as SegmentKey, rfm_tier: (r.rfm_tier || 'bronze') as Tier,
+        churn_risk: !!r.churn_risk,
       }));
       setAllCustomers(mapped);
     } catch {
@@ -216,7 +204,10 @@ export default function OrgAppCustomers() {
         ticket_count: 0, order_count: 0, table_count: 0, is_banned: true, banned_at: b.banned_at,
         ban_reason: b.ban_reason, notes: null, revenue_30d: 0, revenue_90d: 0, revenue_prev_90d: 0,
         avg_basket: 0, visit_nights: 0, visits_per_month: 0, last_activity_at: b.banned_at,
-        preferred_dow: null, preferred_event_title: null, emailOnly: true,
+        preferred_dow: null, preferred_event_title: null, guest_list_count: 0,
+        recency_days: 9999, rfm_r: 1, rfm_f: 1, rfm_m: 1,
+        rfm_segment: 'lost' as SegmentKey, rfm_tier: 'bronze' as Tier, churn_risk: false,
+        emailOnly: true,
       }));
     return [...accountRows, ...emailOnly];
   }, [allCustomers, incidentEmails, emailBans]);
@@ -278,27 +269,20 @@ export default function OrgAppCustomers() {
     finally { setSavingNotes(false); }
   };
 
-  // ─── Organizer-relative RFM scoring ──────────────────────────────────────────
-  const scored = useMemo<ScoredCustomer[]>(() => {
-    const now = new Date();
-    const recencyOf = (c: OrgCustomer) => differenceInDays(now, new Date(c.last_activity_at || c.last_visit_at || c.first_visit_at));
-    const freqOf = (c: OrgCustomer) => c.visit_nights || ((c.ticket_count || 0) + (c.table_count || 0));
-    const recArr = allCustomers.map(recencyOf).sort((a, b) => a - b);
-    const freqArr = allCustomers.map(freqOf).sort((a, b) => a - b);
-    const monArr = allCustomers.map(c => c.total_spent).sort((a, b) => a - b);
-    return allCustomers.map(c => {
-      const recencyDays = recencyOf(c);
-      const r = quintile(recencyDays, recArr, true);
-      const f = quintile(freqOf(c), freqArr);
-      const m = quintile(c.total_spent, monArr);
-      const segment = segmentOf(r, f, m);
-      const trendPct = c.revenue_prev_90d > 0
-        ? ((c.revenue_90d - c.revenue_prev_90d) / c.revenue_prev_90d) * 100
-        : (c.revenue_90d > 0 ? 100 : 0);
-      const churnRisk = f >= 3 && recencyDays > 45 && recencyDays <= 180;
-      return { ...c, _s: { r, f, m, segment, tier: tierFromM(m), recencyDays, trendPct, churnRisk, preferredCategory: preferredCategory(c) } };
-    });
-  }, [allCustomers]);
+  // ─── RFM : lu du serveur, jamais recalculé ───────────────────────────────────
+  const scored = useMemo<ScoredCustomer[]>(() => allCustomers.map(c => {
+    const trendPct = c.revenue_prev_90d > 0
+      ? ((c.revenue_90d - c.revenue_prev_90d) / c.revenue_prev_90d) * 100
+      : (c.revenue_90d > 0 ? 100 : 0);
+    return {
+      ...c,
+      _s: {
+        r: c.rfm_r, f: c.rfm_f, m: c.rfm_m, segment: c.rfm_segment, tier: c.rfm_tier,
+        recencyDays: c.recency_days, trendPct, churnRisk: c.churn_risk,
+        preferredCategory: preferredCategory(c),
+      },
+    };
+  }), [allCustomers]);
 
   const scoredById = useMemo(() => {
     const map = new Map<string, ScoredCustomer>();
@@ -308,7 +292,7 @@ export default function OrgAppCustomers() {
 
   const analytics = useMemo(() => {
     const segments: Record<SegmentKey, number> = { champions: 0, loyal: 0, promising: 0, new: 0, at_risk: 0, dormant: 0, lost: 0 };
-    const categories = { tickets: 0, tables: 0, mixed: 0 };
+    const categories = { tickets: 0, tables: 0, guestlist: 0, mixed: 0 };
     let churn = 0, revenue30 = 0;
     scored.forEach(c => {
       segments[c._s.segment]++;
@@ -375,6 +359,7 @@ export default function OrgAppCustomers() {
   const categoryChartData = [
     { name: t('customers.tickets'), value: analytics.categories.tickets },
     { name: t('customers.tables'), value: analytics.categories.tables },
+    { name: t('owner.cust.guestListPref'), value: analytics.categories.guestlist },
     { name: t('customers.mixed'), value: analytics.categories.mixed },
   ].filter(d => d.value > 0);
 
@@ -768,10 +753,7 @@ export default function OrgAppCustomers() {
                   </SheetTitle>
                 </SheetHeader>
 
-                <div className="space-y-1">
-                  <p style={{ color: T3, fontSize: 12 }}>{selectedCustomer.email}</p>
-                  {selectedCustomer.phone && <p style={{ color: T3, fontSize: 12 }}>{selectedCustomer.phone}</p>}
-                </div>
+                <CustomerContactBlock email={selectedCustomer.email} phone={selectedCustomer.phone} />
 
                 {/* Minor ticket → birth date + signed authorization */}
                 {(() => {
