@@ -22,6 +22,11 @@ const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,2
 const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+// Entête et lignes partagent la même grille : un `gap` réel (les colonnes se
+// touchaient) et des colonnes assez larges pour que le titre d'une soirée
+// s'écrête proprement au lieu de mordre sur la colonne voisine.
+const GRID_COLS = 'minmax(0,1fr) minmax(0,150px) minmax(0,120px) 92px 32px';
+
 /**
  * Une inscription guest list n'a pas de statut « payé » : elle vaut une place à
  * la porte. L'état qui compte pour le club, c'est « inscrit / entré / annulé »,
@@ -336,9 +341,9 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
           </div>
         ) : (
           <div>
-            <div className="grid items-center px-5 py-3" style={{ gridTemplateColumns: '1fr 120px 100px 100px 40px', borderBottom: `1px solid ${F_BORDER}` }}>
+            <div className="grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: GRID_COLS, borderBottom: `1px solid ${F_BORDER}` }}>
               {[t('owner.th.client'), t('owner.th.event'), t('owner.gl.th.list'), t('owner.th.status'), ''].map((h, idx) => (
-                <span key={idx} style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</span>
+                <span key={idx} className="truncate" style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</span>
               ))}
             </div>
             {filtered.map((entry, i) => {
@@ -349,22 +354,25 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
                   initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: Math.min(i, 20) * 0.025 }}
-                  className="grid items-center px-5 py-3.5 cursor-pointer transition-colors duration-150"
-                  style={{ gridTemplateColumns: '1fr 120px 100px 100px 40px', borderBottom: i < filtered.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}
+                  className="grid items-center gap-3 px-5 py-3.5 cursor-pointer transition-colors duration-150"
+                  style={{ gridTemplateColumns: GRID_COLS, borderBottom: i < filtered.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}
                   onClick={() => setSelected(entry)}
                 >
                   <div className="min-w-0">
                     <div style={{ color: T1, fontSize: 13, fontWeight: 560 }} className="truncate">{entry.fullName}</div>
-                    <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }} className="flex items-center gap-1">
-                      <TypeIcon ty={entry.entryType} />
-                      {typeLabel(entry.entryType)}
-                    </div>
+                    <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }} className="truncate">{entry.email}</div>
                   </div>
                   <div className="min-w-0">
-                    <div style={{ color: T2, fontSize: 12 }} className="truncate">{entry.eventTitle}</div>
-                    <div style={{ color: T3, fontSize: 11 }}>{format(new Date(entry.createdAt), 'dd/MM HH:mm', { locale: dateLocale })}</div>
+                    <div style={{ color: T2, fontSize: 12 }} className="truncate" title={entry.eventTitle}>{entry.eventTitle}</div>
+                    <div style={{ color: T3, fontSize: 11, marginTop: 1 }} className="truncate">{format(new Date(entry.createdAt), 'dd/MM HH:mm', { locale: dateLocale })}</div>
                   </div>
-                  <span style={{ color: T2, fontSize: 12 }} className="truncate">{entry.partLabel}</span>
+                  <div className="min-w-0">
+                    <div style={{ color: T2, fontSize: 12 }} className="truncate" title={entry.partLabel}>{entry.partLabel}</div>
+                    <div style={{ color: T3, fontSize: 11, marginTop: 1 }} className="flex items-center gap-1 truncate">
+                      <TypeIcon ty={entry.entryType} />
+                      <span className="truncate">{typeLabel(entry.entryType)}</span>
+                    </div>
+                  </div>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold w-fit" style={{ background: st.bg, color: st.color }}>
                     {entry.state === 'entered' && <UserCheck className="w-3 h-3" />}
                     {stateLabel(entry.state)}
