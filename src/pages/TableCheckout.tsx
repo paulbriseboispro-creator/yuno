@@ -642,14 +642,42 @@ export default function TableCheckout() {
         await supabase.from('profiles').update({ first_name: firstName, last_name: lastName || null }).eq('id', user.id).is('first_name', null);
       }
       
+      // Reçu passé par l'état de navigation : un invité (sans compte) ne peut
+      // pas relire sa réservation sous RLS, la page de confirmation s'en sert
+      // en repli — même mécanique que les billets (guestTicketData).
+      const guestTableData = data?.reservationId ? {
+        id: data.reservationId,
+        qrCode: data.qrCode,
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.start_at,
+        eventPosterUrl: event.poster_url,
+        venueName: venue?.name ?? event.location_name ?? organizer?.display_name ?? undefined,
+        venueAddress: venue?.address ?? event.location_address ?? undefined,
+        venueId: venue?.id,
+        details: `${zone?.name || ''} - ${pack.name}`,
+        guestCount: Math.min(Math.max(guestCount, 1), packGuestLimit),
+        totalPrice: pricing.totalPrice,
+        managementFee: pricing.managementFee,
+        unitPrice: pricing.deposit,
+        customerName: fullName.trim(),
+        customerEmail: email.trim(),
+        customerPhone: phone.trim(),
+        paidAt: new Date().toISOString(),
+        onSitePayment: pack.paymentMode === 'on_site',
+        organizerLed: !!event.organizer_user_id,
+      } : undefined;
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
         // Navigation SPA — window.location.href recharge le bundle (splash natif).
-        navigate(data.redirectUrl);
+        navigate(data.redirectUrl, { state: { guestTableData } });
         return;
       }
       if (data?.url) { haptics.medium(); launchCheckout(data.url); }
-      else if (data?.redirectUrl) { navigate(data.redirectUrl); }
+      else if (data?.redirectUrl) {
+        toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
+        navigate(data.redirectUrl, { state: { guestTableData } });
+      }
     } catch (error) {
       console.error('Checkout error:', error);
       haptics.error();

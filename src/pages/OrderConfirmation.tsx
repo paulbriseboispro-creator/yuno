@@ -161,6 +161,9 @@ export default function OrderConfirmation() {
   const type = searchParams.get('type') as 'ticket' | 'table' | 'order';
   const id = searchParams.get('id');
   const guestTicketData = (location.state as any)?.guestTicketData;
+  // Table réservée en invité : la RLS ne laisse pas un anonyme relire sa
+  // réservation, le checkout passe donc le reçu par l'état de navigation.
+  const guestTableData = (location.state as any)?.guestTableData;
 
   const getLocale = () => {
     switch (language) {
@@ -458,6 +461,38 @@ export default function OrderConfirmation() {
           .eq('id', id)
           .single();
 
+        if (error && guestTableData) {
+          const gd = guestTableData;
+          setData({
+            type: 'table',
+            id: gd.id,
+            qrCode: gd.qrCode,
+            eventId: gd.eventId,
+            eventTitle: gd.eventTitle,
+            eventDate: gd.eventDate,
+            eventPosterUrl: gd.eventPosterUrl,
+            venueName: gd.venueName,
+            venueAddress: gd.venueAddress,
+            venueId: gd.venueId,
+            details: gd.details,
+            guestCount: gd.guestCount,
+            totalPrice: gd.totalPrice,
+            managementFee: gd.managementFee,
+            unitPrice: gd.unitPrice,
+            customerName: gd.customerName,
+            customerEmail: gd.customerEmail,
+            customerPhone: gd.customerPhone,
+            paidAt: gd.paidAt,
+            onSitePayment: !!gd.onSitePayment,
+            organizerLed: !!gd.organizerLed,
+          });
+          if (gd.qrCode) {
+            const qrImage = await QRCode.toDataURL(gd.qrCode, { width: 200, margin: 2 });
+            setQrCodeImage(qrImage);
+          }
+          setLoading(false);
+          return;
+        }
         if (error) throw error;
 
         const reservationEvent = reservation.events as typeof reservation.events & JoinedEventExtras;
