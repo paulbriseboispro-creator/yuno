@@ -233,6 +233,7 @@ export default function TicketSelection() {
         setPacks(packsData.map(p => ({
           id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description,
           basePrice: priceOverrides[p.id] ?? Number(p.base_price), baseCapacity: p.base_capacity,
+          paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
           extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
           maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
           depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
@@ -384,7 +385,10 @@ export default function TicketSelection() {
 
   // Tickets ⇄ Tables VIP quick-nav: only worth showing when the event sells both.
   const ticketsExist = salesIsOpen && !saleLocked && !paidBlocked && (standardRounds.length > 0 || vipRounds.length > 0);
-  const tablesExist = salesIsOpen && !saleLocked && !paidBlocked && zones.length > 0;
+  // Sans Stripe, seuls les packs « règlement sur place » restent proposés.
+  const sellablePacks = paidBlocked ? packs.filter(p => p.paymentMode === 'on_site') : packs;
+  const tablesBlocked = paidBlocked && sellablePacks.length === 0;
+  const tablesExist = salesIsOpen && !saleLocked && !tablesBlocked && zones.length > 0;
   const showSectionTabs = ticketsExist && tablesExist;
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -824,7 +828,7 @@ export default function TicketSelection() {
         )}
 
         {/* TABLES */}
-        {salesIsOpen && !saleLocked && !paidBlocked && zones.length > 0 && (
+        {salesIsOpen && !saleLocked && !tablesBlocked && zones.length > 0 && (
           <div ref={tablesRef} className="space-y-2.5">
             <SectionDivider icon={<Users className="h-2.5 w-2.5" />} label={t('tables.vipTables')} />
             <div className="space-y-2.5">
@@ -865,7 +869,7 @@ export default function TicketSelection() {
               {/* Pack cards */}
               {selectedZoneId && (() => {
                 const zone = zones.find(z => z.id === selectedZoneId);
-                const zonePacks = packs
+                const zonePacks = sellablePacks
                   .filter(p => p.zoneId === selectedZoneId)
                   .sort((a, b) => a.basePrice - b.basePrice);
                 const reserved = reservationsByZone[selectedZoneId] || 0;
@@ -1119,6 +1123,7 @@ function PackCard({
         : (pack.deposit as number))
     : 0;
   const remainingAtVenue = depositAmount > 0 ? Math.max(0, pack.basePrice - depositAmount) : 0;
+  const onSite = pack.paymentMode === 'on_site';
 
   return (
     <div
@@ -1171,7 +1176,9 @@ function PackCard({
             {pack.arrivalDeadline && (
               <p className="text-[11px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
             )}
-            {depositAmount > 0 && remainingAtVenue > 0 && (
+            {onSite ? (
+              <p className="text-[11px] text-emerald-400 font-semibold">{t('ticketSel.onSitePayment')}</p>
+            ) : depositAmount > 0 && remainingAtVenue > 0 && (
               <p className="text-[11px] text-white/60">
                 <span className="text-white/70 font-medium">{t('ticketSel.depositNow')} {depositAmount} €</span>
                 {' · '}{remainingAtVenue} € {t('ticketSel.atVenue')}

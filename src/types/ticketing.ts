@@ -88,6 +88,12 @@ export type TablePack = {
   minimumSpend: number;
   /** Heure d'arrivée limite optionnelle (HH:MM, 24 h). undefined/null = pas de limite. */
   arrivalDeadline?: string | null;
+  /**
+   * 'online' (défaut) : acompte ou total encaissés via Yuno/Stripe.
+   * 'on_site' : aucun paiement en ligne — la réservation est confirmée tout de
+   * suite et tout se règle au club (soirée sans compte Stripe possible).
+   */
+  paymentMode?: 'online' | 'on_site';
   tablesCount: number;
   position: number;
   isActive: boolean;

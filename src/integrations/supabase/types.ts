@@ -11767,6 +11767,7 @@ export type Database = {
           max_extra_persons: number | null
           minimum_spend: number | null
           name: string
+          payment_mode: string
           position: number
           tables_count: number
           updated_at: string
@@ -11791,6 +11792,7 @@ export type Database = {
           max_extra_persons?: number | null
           minimum_spend?: number | null
           name: string
+          payment_mode?: string
           position?: number
           tables_count?: number
           updated_at?: string
@@ -11815,6 +11817,7 @@ export type Database = {
           max_extra_persons?: number | null
           minimum_spend?: number | null
           name?: string
+          payment_mode?: string
           position?: number
           tables_count?: number
           updated_at?: string
@@ -11874,6 +11877,7 @@ export type Database = {
           newsletter_opt_in: boolean | null
           pack_id: string | null
           paid_at: string | null
+          payment_mode: string
           phone: string | null
           placed_at: string | null
           placed_by: string | null
@@ -11932,6 +11936,7 @@ export type Database = {
           newsletter_opt_in?: boolean | null
           pack_id?: string | null
           paid_at?: string | null
+          payment_mode?: string
           phone?: string | null
           placed_at?: string | null
           placed_by?: string | null
@@ -11990,6 +11995,7 @@ export type Database = {
           newsletter_opt_in?: boolean | null
           pack_id?: string | null
           paid_at?: string | null
+          payment_mode?: string
           phone?: string | null
           placed_at?: string | null
           placed_by?: string | null

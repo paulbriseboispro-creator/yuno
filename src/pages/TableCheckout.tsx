@@ -217,7 +217,11 @@ export default function TableCheckout() {
       // Club sans compte Stripe actif : le serveur refuserait cette réservation
       // au clic « Payer ». Porte fermée dès l'arrivée, URL directe comprise,
       // message neutre. Comptes démo @womber.fr exclus de la porte.
-      if (!(await fetchEventPaymentsReady(eventId!))) {
+      // Pack « règlement sur place » : rien n'est encaissé en ligne, la porte
+      // ne s'applique pas (c'est ce qui permet une soirée sans Stripe).
+      const { data: packModeRow } = await supabase.from('table_packs').select('payment_mode').eq('id', packId).maybeSingle();
+      const packOnSite = packModeRow?.payment_mode === 'on_site';
+      if (!packOnSite && !(await fetchEventPaymentsReady(eventId!))) {
         toast(t('salesStatus.salesNotOpenYet'));
         navigate(basePath, { replace: true });
         return;
@@ -307,6 +311,7 @@ export default function TableCheckout() {
         includedBottlesQuota: packData.included_bottles_quota || 0,
         minimumSpend: Number(packData.minimum_spend) || 0,
         arrivalDeadline: packData.arrival_deadline,
+        paymentMode: (packData.payment_mode as 'online' | 'on_site') || 'online',
         tablesCount: packData.tables_count || 1,
         position: packData.position, isActive: packData.is_active,
         createdAt: packData.created_at, updatedAt: packData.updated_at,
@@ -443,6 +448,10 @@ export default function TableCheckout() {
       } else {
         deposit = pack.deposit;
       }
+    }
+    // Règlement sur place : rien à payer en ligne, le prix reste informatif.
+    if (pack.paymentMode === 'on_site') {
+      return { totalPrice, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: totalPrice, discount };
     }
     const feeBase = deposit > 0 ? deposit * MANAGEMENT_FEE_RATE : (totalPrice / 2) * MANAGEMENT_FEE_RATE;
     // Absorb mode: the club covers the Yuno commission, so the fan pays only the Stripe
@@ -776,23 +785,32 @@ export default function TableCheckout() {
                     <span className="text-[#9A9A9A]">{t('tableCheckout.totalPrice')}</span>
                     <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.totalPrice.toFixed(2)} €</span>
                   </div>
-                  <div className="flex justify-between items-center gap-3 text-sm">
-                    <span className="text-[#9A9A9A]">{t('tableCheckout.deposit')}</span>
-                    <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.deposit.toFixed(2)} €</span>
-                  </div>
-                  <div className="flex justify-between items-center gap-3 text-sm">
-                    <span className="text-[#9A9A9A]">{t('tableCheckout.managementFee')}</span>
-                    <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.managementFee.toFixed(2)} €</span>
-                  </div>
+                  {pack.paymentMode === 'on_site' ? (
+                    <div className="border-t border-white/[0.08] pt-3 mt-1 rounded-lg px-3 py-2.5" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                      <p className="font-display font-bold text-emerald-400" style={{ fontSize: '14px' }}>{t('tableCheckout.onSiteTitle')}</p>
+                      <p className="text-[11.5px] text-[#9A9A9A] mt-0.5">{t('tableCheckout.onSiteDesc')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center gap-3 text-sm">
+                        <span className="text-[#9A9A9A]">{t('tableCheckout.deposit')}</span>
+                        <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.deposit.toFixed(2)} €</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-3 text-sm">
+                        <span className="text-[#9A9A9A]">{t('tableCheckout.managementFee')}</span>
+                        <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.managementFee.toFixed(2)} €</span>
+                      </div>
 
-                  <div className="border-t border-white/[0.08] pt-3 mt-1 flex justify-between items-center gap-3">
-                    <span className="font-display font-bold text-white" style={{ fontSize: '15px' }}>{t('tableCheckout.toPay')}</span>
-                    <span className="font-display font-bold tabular-nums text-primary" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{pricing.toPay.toFixed(2)} €</span>
-                  </div>
+                      <div className="border-t border-white/[0.08] pt-3 mt-1 flex justify-between items-center gap-3">
+                        <span className="font-display font-bold text-white" style={{ fontSize: '15px' }}>{t('tableCheckout.toPay')}</span>
+                        <span className="font-display font-bold tabular-nums text-primary" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{pricing.toPay.toFixed(2)} €</span>
+                      </div>
 
-                  <p className="text-center pt-1 text-[11px] text-[#5A5A5E]">
-                    {t('tableCheckout.remainingNote').replace('{amount}', pricing.remainingBalance.toFixed(2))}
-                  </p>
+                      <p className="text-center pt-1 text-[11px] text-[#5A5A5E]">
+                        {t('tableCheckout.remainingNote').replace('{amount}', pricing.remainingBalance.toFixed(2))}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Vitrine carte bouteilles (idée #2) — pilotée par le réglage club */}
@@ -965,12 +983,12 @@ export default function TableCheckout() {
           >
             <div className="flex flex-col min-w-0">
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5A5A5E' }}>
-                {t('tableCheckout.deposit')}
+                {pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteShort') : t('tableCheckout.deposit')}
               </span>
               <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                {pricing.toPay.toFixed(2)}&nbsp;€
+                {pack.paymentMode === 'on_site' ? `${pricing.totalPrice.toFixed(0)}\u00a0€` : <>{pricing.toPay.toFixed(2)}&nbsp;€</>}
               </span>
-              <span className="truncate" style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>{t('tickets.feesIncluded') || 'Frais inclus'}</span>
+              <span className="truncate" style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>{pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteDesc') : (t('tickets.feesIncluded') || 'Frais inclus')}</span>
             </div>
             <button
               onClick={handleSubmit}
@@ -984,7 +1002,7 @@ export default function TableCheckout() {
                 <>{t('tableCheckout.zoneFullShort') || 'Zone complète'}</>
               ) : (
                 <>
-                  {t('tickets.continue')}
+                  {pack.paymentMode === 'on_site' ? t('tableCheckout.confirmReservation') : t('tickets.continue')}
                   <ChevronRight className="h-5 w-5 ml-1" />
                 </>
               )}

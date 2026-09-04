@@ -506,6 +506,7 @@ export default function EventDetails() {
         includedItems: p.included_items,
         includedBottlesQuota: p.included_bottles_quota || 0,
         minimumSpend: Number(p.minimum_spend) || 0,
+        paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
         tablesCount: p.tables_count || 1,
         position: p.position,
         isActive: p.is_active,
@@ -679,9 +680,11 @@ export default function EventDetails() {
   const upcomingPreviewRounds = visibility === 'preview_upcoming'
     ? buyableRounds.slice(1)
     : [];
-  const activePacks = packs.filter(p => p.isActive);
+  // Packs « règlement sur place » : rien n'est encaissé en ligne, ils restent
+  // proposés même sans compte Stripe (soirée d'organisateur qui règle au club).
+  const activePacks = packs.filter(p => p.isActive && (paymentsReady || p.paymentMode === 'on_site'));
   const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0 && paymentsReady;
-  const hasTables = !!event?.tablesEnabled && activePacks.length > 0 && paymentsReady;
+  const hasTables = !!event?.tablesEnabled && activePacks.length > 0;
   const hasTicketsOrTables = hasTickets || hasTables;
 
   // Low stock detection

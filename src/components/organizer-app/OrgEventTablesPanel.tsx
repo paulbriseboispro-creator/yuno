@@ -57,6 +57,7 @@ interface BasicPack {
   included_items: string | null;
   arrival_deadline: string | null;
   is_active: boolean;
+  payment_mode: 'online' | 'on_site';
 }
 
 
@@ -136,6 +137,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     deposit: '0',
     included_items: '',
     arrival_deadline: '',
+    payment_mode: 'online' as 'online' | 'on_site',
   });
 
   const isOwner = tablesOwnerId === organizerUserId;
@@ -151,7 +153,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
         supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
-        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active').eq('event_id', eventId),
+        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active, payment_mode').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
         supabase.from('organizer_vip_rooms').select('id, name, location_name').order('updated_at', { ascending: false }),
       ]);
@@ -346,6 +348,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             deposit: String(p.deposit ?? 0),
             included_items: p.included_items ?? '',
             arrival_deadline: p.arrival_deadline ?? '',
+            payment_mode: p.payment_mode === 'on_site' ? 'on_site' : 'online',
           }
         : {
             zone_id: zoneId ?? zones[0]?.id ?? '',
@@ -356,6 +359,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             deposit: '0',
             included_items: '',
             arrival_deadline: '',
+            // Nouveau pack : on hérite du mode du dernier pack de la soirée, pour
+            // qu'une soirée « tout sur place » ne redemande pas le choix à chaque fois.
+            payment_mode: packs[packs.length - 1]?.payment_mode === 'on_site' ? 'on_site' : 'online',
           },
     );
     setPackOpen(true);
@@ -376,6 +382,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       deposit_type: 'fixed' as const,
       included_items: packForm.included_items.trim() || null,
       arrival_deadline: packForm.arrival_deadline || null,
+      payment_mode: packForm.payment_mode,
       is_active: true,
       event_id: eventId,
       created_by_user_id: organizerUserId,
@@ -783,7 +790,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                       <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{p.name} <span style={{ color: T3 }}>— {Number(p.base_price).toFixed(0)}€</span></div>
                       <div style={{ color: T3, fontSize: 11.5 }}>
                         {p.base_capacity} {tt('pers.', 'guests', 'pers.')}
-                        {Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
+                        {p.payment_mode === 'on_site'
+                          ? <> · <span style={{ color: '#34D399' }}>{tt('Règlement sur place', 'Paid on site', 'Pago en el local')}</span></>
+                          : Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -1042,14 +1051,33 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             </div>
             <div><FieldLabel>{tt('Nom', 'Name', 'Nombre')}</FieldLabel><DarkInput value={packForm.name} onChange={(v) => setPackForm({ ...packForm, name: v })} /></div>
             <div><FieldLabel>{tt('Description', 'Description', 'Descripción')}</FieldLabel><DarkTextarea rows={2} value={packForm.description} onChange={(v) => setPackForm({ ...packForm, description: v })} /></div>
+            {/* Où l'argent se règle : en ligne via Yuno (acompte ou total), ou tout
+                sur place — aucun paiement en ligne, aucun compte Stripe requis,
+                la réservation est confirmée immédiatement. */}
+            <div>
+              <FieldLabel>{tt('Paiement', 'Payment', 'Pago')}</FieldLabel>
+              <select className="w-full" style={{ ...daInputStyle, height: 42, cursor: 'pointer' }} value={packForm.payment_mode} onChange={(e) => setPackForm({ ...packForm, payment_mode: e.target.value as 'online' | 'on_site' })}>
+                <option value="online" style={{ background: '#0a0a0c' }}>{tt('En ligne via Yuno (acompte ou total)', 'Online via Yuno (deposit or full)', 'En línea vía Yuno (señal o total)')}</option>
+                <option value="on_site" style={{ background: '#0a0a0c' }}>{tt('Sur place — aucun paiement en ligne', 'On site — no online payment', 'En el local — sin pago en línea')}</option>
+              </select>
+              {packForm.payment_mode === 'on_site' && (
+                <p style={{ color: '#34D399', fontSize: 11, marginTop: 4, lineHeight: 1.45 }}>
+                  {tt(
+                    'Le client réserve sans payer : la réservation est confirmée tout de suite, le prix affiché se règle au club. Aucun compte Stripe nécessaire.',
+                    'Guests book without paying: the reservation is confirmed right away, the displayed price is settled at the venue. No Stripe account needed.',
+                    'El cliente reserva sin pagar: la reserva se confirma al instante, el precio mostrado se paga en el local. No hace falta cuenta Stripe.',
+                  )}
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <div><FieldLabel>{tt('Prix €', 'Price €', 'Precio €')}</FieldLabel><input type="number" min="0" step="1" value={packForm.base_price} onChange={(e) => setPackForm({ ...packForm, base_price: e.target.value })} style={daInputStyle} /></div>
               <div><FieldLabel>{tt('Capacité', 'Guests', 'Capacidad')}</FieldLabel><input type="number" min="1" value={packForm.base_capacity} onChange={(e) => setPackForm({ ...packForm, base_capacity: e.target.value })} style={daInputStyle} /></div>
-              <div><FieldLabel>{tt('Acompte €', 'Deposit €', 'Señal €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={daInputStyle} /></div>
+              <div><FieldLabel>{tt('Acompte €', 'Deposit €', 'Señal €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} disabled={packForm.payment_mode === 'on_site'} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={{ ...daInputStyle, opacity: packForm.payment_mode === 'on_site' ? 0.4 : 1 }} /></div>
             </div>
             {/* Acompte 0 = paiement INTÉGRAL au checkout : dit noir sur blanc,
                 sinon une table « 800 € sans acompte » débite 800 € sans prévenir. */}
-            <p style={{ color: (parseFloat(packForm.deposit) || 0) > 0 ? T3 : '#E8A019', fontSize: 11, marginTop: -4, lineHeight: 1.45 }}>
+            {packForm.payment_mode !== 'on_site' && <p style={{ color: (parseFloat(packForm.deposit) || 0) > 0 ? T3 : '#E8A019', fontSize: 11, marginTop: -4, lineHeight: 1.45 }}>
               {(parseFloat(packForm.deposit) || 0) > 0
                 ? tt(
                     "Le client paie l'acompte en ligne, le reste sur place.",
@@ -1061,7 +1089,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                     'Deposit at 0: the client will pay the full table price online.',
                     'Señal a 0: el cliente pagará el precio total de la mesa en línea.',
                   )}
-            </p>
+            </p>}
             <div><FieldLabel>{tt('Inclus (texte libre)', 'Includes (free text)', 'Incluye (texto libre)')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers', 'e.g. 1 vodka bottle, 6 mixers', 'Ej.: 1 botella de vodka, 6 mixers')} value={packForm.included_items} onChange={(v) => setPackForm({ ...packForm, included_items: v })} /></div>
             {/* Heure d'arrivée limite (optionnelle) — affichée au client à la résa */}
             <div>

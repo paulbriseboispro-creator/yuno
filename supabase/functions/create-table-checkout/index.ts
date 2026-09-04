@@ -511,6 +511,121 @@ serve(async (req) => {
       yunoCommission 
     });
 
+    // ── RÈGLEMENT SUR PLACE ─────────────────────────────────────────────────
+    // Pack `payment_mode = 'on_site'` : aucun paiement en ligne, aucun compte
+    // Stripe requis, aucune commission. La réservation est confirmée tout de
+    // suite (statut 'paid', acompte 0, frais 0) — le prix reste informatif et se
+    // règle au club. Placement sur le plan, notifications, email et attribution
+    // promoteur suivent le même chemin qu'une réservation payée.
+    if (pack.payment_mode === 'on_site') {
+      logStep("ON-SITE: confirming reservation without online payment", { packId: pack.id });
+      const onSiteTotal = serverTotalPrice;
+      const { data: onSiteId, error: onSiteErr } = await supabaseAdmin.rpc("reserve_table_slot", {
+        _event_id: eventId,
+        _zone_id: zoneId,
+        _capacity_zone_id: effectiveZoneId,
+        _pack_id: packId,
+        _user_id: user?.id || null,
+        _user_email: user?.email || guestEmail || "",
+        _is_guest: isGuestCheckout,
+        _guest_count: validGuestCount,
+        _deposit: 0,
+        _total_price: onSiteTotal,
+        _management_fee: 0,
+        _status: "paid",
+        _qr_code: qrCode,
+        _full_name: fullName,
+        _phone: phone,
+        _remarks: remarks,
+        _newsletter_opt_in: newsletterOptIn,
+        _sms_opt_in: !!smsOptIn,
+        _requested_table_id: requestedTableId || null,
+        _placement_status: placementStatus || "none",
+        _purchase_source: safePurchaseSource,
+        _fee_absorbed: false,
+      });
+      if (onSiteErr || !onSiteId) {
+        logStep("Error creating on-site reservation", { error: onSiteErr?.message });
+        throw new Error(onSiteErr?.message || "Failed to create reservation");
+      }
+      const onSiteReservationId = onSiteId as string;
+      await supabaseAdmin.from("table_reservations").update({
+        payment_mode: "on_site",
+        tracked_link_id: safeTrackedLinkId || null,
+        age_declared_at: ageRecord.declaredAt,
+        age_declaration_birth_date: ageRecord.birthDate,
+        age_declaration_ip: ageRecord.ip,
+      }).eq("id", onSiteReservationId);
+
+      if (smsOptIn) {
+        await recordSmsConsent(supabaseAdmin, {
+          venueId: event.venue_id,
+          userId: user?.id ?? null,
+          phone,
+          fullName,
+          email: user?.email ?? guestEmail ?? null,
+          eventId: event.id,
+          isVip: true,
+          source: 'table_checkout',
+        });
+      }
+
+      // Attribution promoteur : la table est réservée même si rien ne transite
+      // par Yuno — la valeur faciale sert de base, comme pour une résa payée.
+      if (promoterId) {
+        const { error: conversionError } = await supabaseAdmin.rpc('record_promoter_conversion', {
+          p_promoter_id: promoterId,
+          p_conversion_type: 'table',
+          p_amount: onSiteTotal,
+          p_event_id: eventId,
+          p_table_reservation_id: onSiteReservationId,
+          p_discount: 0,
+        });
+        if (conversionError) logStep("Error creating promoter conversion (on-site)", { error: conversionError.message });
+      }
+
+      try {
+        const packName = pack.name || 'Table VIP';
+        const notifMessage = `${packName} · ${fullName || 'Client'} · ${validGuestCount || 1} pers. — règlement sur place`;
+        const notifMeta = { pack_name: packName, guest_count: validGuestCount, deposit: 0, total_price: onSiteTotal, full_name: fullName, payment_mode: 'on_site' };
+        if (effectiveVenueId) {
+          await supabaseAdmin.from('staff_notifications').insert({
+            venue_id: effectiveVenueId, target_role: 'owner', notification_type: 'table_booked',
+            title: 'Nouvelle réservation VIP', message: notifMessage, priority: 'high',
+            reference_type: 'table_reservation', reference_id: onSiteReservationId, event_id: eventId ?? null, metadata: notifMeta,
+          });
+        }
+        if (effectiveOrganizerId) {
+          await supabaseAdmin.from('organizer_notifications').insert({
+            organizer_user_id: effectiveOrganizerId, notification_type: 'table_booked',
+            title: 'Nouvelle réservation VIP', message: notifMessage, priority: 'high',
+            reference_type: 'table_reservation', reference_id: onSiteReservationId, event_id: eventId ?? null, metadata: notifMeta,
+          });
+        }
+      } catch (notifErr) {
+        console.error('VIP reservation notif error (on-site, non-blocking):', notifErr);
+      }
+
+      try {
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          body: JSON.stringify({ reservation_id: onSiteReservationId, type: 'request_received' }),
+        });
+      } catch (vipEmailError) {
+        console.error('Error sending VIP email (on-site):', vipEmailError);
+      }
+
+      logStep("ON-SITE: reservation confirmed", { reservationId: onSiteReservationId, total: onSiteTotal });
+      return new Response(JSON.stringify({
+        success: true,
+        onSite: true,
+        reservationId: onSiteReservationId,
+        qrCode,
+        redirectUrl: `/order-confirmation?type=table&id=${onSiteReservationId}`,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+    }
+
     if (simulate) {
       logStep("SIMULATE: Creating paid reservation directly (demo or test mode)");
 

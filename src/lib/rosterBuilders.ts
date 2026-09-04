@@ -184,9 +184,9 @@ export async function buildGuestListRoster(
 // ── Tables VIP ───────────────────────────────────────────────────────────────
 
 const VIP_LABELS: Record<Lang, Record<string, string>> = {
-  fr: { kind: 'Tables VIP', client: 'Client', zone: 'Zone', table: 'Table', pack: 'Formule', guests: 'Pers.', arrival: 'Arrivée limite', minSpend: 'Min. dépense', deposit: 'Acompte', total: 'Total', phone: 'Téléphone', email: 'Email', code: 'Réf.', status: 'Statut', arrived: 'Arrivé', tables: 'tables', people: 'personnes' },
-  en: { kind: 'VIP tables', client: 'Guest', zone: 'Zone', table: 'Table', pack: 'Package', guests: 'Pax', arrival: 'Arrival cutoff', minSpend: 'Min. spend', deposit: 'Deposit', total: 'Total', phone: 'Phone', email: 'Email', code: 'Ref.', status: 'Status', arrived: 'Arrived', tables: 'tables', people: 'people' },
-  es: { kind: 'Mesas VIP', client: 'Cliente', zone: 'Zona', table: 'Mesa', pack: 'Fórmula', guests: 'Pers.', arrival: 'Hora límite', minSpend: 'Consumo mín.', deposit: 'Depósito', total: 'Total', phone: 'Teléfono', email: 'Email', code: 'Ref.', status: 'Estado', arrived: 'Llegó', tables: 'mesas', people: 'personas' },
+  fr: { kind: 'Tables VIP', client: 'Client', zone: 'Zone', table: 'Table', pack: 'Formule', guests: 'Pers.', arrival: 'Arrivée limite', minSpend: 'Min. dépense', deposit: 'Acompte', total: 'Total', payment: 'Paiement', onSite: 'Sur place', online: 'En ligne', manual: 'Manuel', remarks: 'Remarques', booked: 'Réservé le', phone: 'Téléphone', email: 'Email', code: 'Réf.', status: 'Statut', arrived: 'Arrivé', tables: 'tables', people: 'personnes' },
+  en: { kind: 'VIP tables', client: 'Guest', zone: 'Zone', table: 'Table', pack: 'Package', guests: 'Pax', arrival: 'Arrival cutoff', minSpend: 'Min. spend', deposit: 'Deposit', total: 'Total', payment: 'Payment', onSite: 'On site', online: 'Online', manual: 'Manual', remarks: 'Notes', booked: 'Booked on', phone: 'Phone', email: 'Email', code: 'Ref.', status: 'Status', arrived: 'Arrived', tables: 'tables', people: 'people' },
+  es: { kind: 'Mesas VIP', client: 'Cliente', zone: 'Zona', table: 'Mesa', pack: 'Fórmula', guests: 'Pers.', arrival: 'Hora límite', minSpend: 'Consumo mín.', deposit: 'Depósito', total: 'Total', payment: 'Pago', onSite: 'En el local', online: 'En línea', manual: 'Manual', remarks: 'Notas', booked: 'Reservado el', phone: 'Teléfono', email: 'Email', code: 'Ref.', status: 'Estado', arrived: 'Llegó', tables: 'mesas', people: 'personas' },
 };
 
 /**
@@ -225,6 +225,7 @@ export async function buildTableRoster(
       id, full_name, guest_first_name, guest_last_name, user_email, phone, guest_phone,
       guest_count, deposit, total_price, minimum_spend, status, reference_code,
       entry_scanned, entry_scanned_at, assigned_table_id, requested_table_id,
+      remarks, payment_mode, placement_status, created_at,
       table_zones(name),
       table_packs(name, arrival_deadline)
     `)
@@ -240,6 +241,8 @@ export async function buildTableRoster(
       || r.user_email
       || '';
     const tableId = r.assigned_table_id ?? r.requested_table_id ?? null;
+    const paymentMode = (r as { payment_mode?: string | null }).payment_mode ?? 'online';
+    const bookedAt = (r as { created_at?: string | null }).created_at ?? null;
     return {
       client: name,
       zone,
@@ -250,9 +253,12 @@ export async function buildTableRoster(
       minSpend: money(r.minimum_spend, lang),
       deposit: money(r.deposit, lang),
       total: money(r.total_price, lang),
+      payment: paymentMode === 'on_site' ? L.onSite : paymentMode === 'manual' ? L.manual : L.online,
+      remarks: (r as { remarks?: string | null }).remarks ?? '',
       phone: r.phone ?? r.guest_phone ?? '',
       email: r.user_email ?? '',
       code: r.reference_code ?? '',
+      booked: bookedAt ? new Date(bookedAt).toLocaleDateString(LOCALE_TAG[lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '',
       arrived: r.entry_scanned ? (fmtTime(r.entry_scanned_at, ev) || '✓') : '',
     };
   });
@@ -285,7 +291,12 @@ export async function buildTableRoster(
       { key: 'minSpend', label: L.minSpend, weight: 9, align: 'right' },
       { key: 'deposit', label: L.deposit, weight: 8, align: 'right' },
       { key: 'total', label: L.total, weight: 8, align: 'right' },
+      { key: 'payment', label: L.payment, weight: 7 },
       { key: 'phone', label: L.phone, weight: 11 },
+      { key: 'email', label: L.email, weight: 14 },
+      { key: 'remarks', label: L.remarks, weight: 14 },
+      { key: 'code', label: L.code, weight: 8 },
+      { key: 'booked', label: L.booked, weight: 8 },
       { key: 'arrived', label: L.arrived, weight: 7 },
     ],
     rows,

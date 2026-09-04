@@ -22,12 +22,12 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
     try {
       const { data: eventsData } = await supabase
         .from('events')
-        .select('id, title, start_at, end_at')
+        .select('id, title, start_at, end_at, timezone, location_name')
         .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
         .eq('tables_enabled', true)
         .order('start_at', { ascending: false });
 
-      const evs: VipEvent[] = (eventsData || []).map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at }));
+      const evs: VipEvent[] = (eventsData || []).map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at, timezone: e.timezone, locationName: e.location_name }));
       setEvents(evs);
       const eventIds = evs.map(e => e.id);
       if (eventIds.length === 0) { setReservations([]); setConsumptions([]); setOrders([]); return; }

@@ -16,7 +16,9 @@ import type { OwnerVipReservation, OwnerVipConsumption } from '@/hooks/useOwnerV
 import type { VenueFloorPlan, VipReservation, VipConsumption } from '@/types';
 import type { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
-import { Crown, MapPin, LayoutGrid, Plus, BarChart3, ChevronRight, Loader2, type LucideIcon } from 'lucide-react';
+import { Crown, MapPin, LayoutGrid, Plus, BarChart3, ChevronRight, Loader2, FileDown, type LucideIcon } from 'lucide-react';
+import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
+import { buildTableRoster } from '@/lib/rosterBuilders';
 import { VipCard, VipButton, VipEmpty } from '@/components/owner/vip/vip-ui';
 import { OrgPage, OrgPageHeader, RED, T1, T3, BORDER } from '@/components/org-ui';
 
@@ -42,6 +44,7 @@ export default function OrgAppVipService() {
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string>(searchParams.get('event') || 'all');
   const [showManualRes, setShowManualRes] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [zones, setZones] = useState<TableZone[]>([]);
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
   const [selectedTableReservation, setSelectedTableReservation] = useState<OwnerVipReservation | null>(null);
@@ -200,7 +203,13 @@ export default function OrgAppVipService() {
 
             {activeTab === 'reservations' && (
               <div className="space-y-3">
-                <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-2">
+                  {/* Liste des tables pour le club (PDF de porte, détail complet, tableur Excel) :
+                      c'est ce que l'organisateur transmet quand le lieu prépare sa salle lui-même. */}
+                  <VipButton size="sm" variant="secondary" disabled={selectedEventId === 'all'} onClick={() => setExportOpen(true)}>
+                    <FileDown className="h-3.5 w-3.5" />
+                    {tt('Exporter la liste', 'Export list', 'Exportar lista')}
+                  </VipButton>
                   <VipButton size="sm" variant="primary" disabled={selectedEventId === 'all' || zones.length === 0} onClick={() => setShowManualRes(true)}>
                     <Plus className="h-3.5 w-3.5" />
                     {tt('Réservation manuelle', 'Manual reservation', 'Reserva manual')}
@@ -293,6 +302,23 @@ export default function OrgAppVipService() {
           reservations={filteredReservations as unknown as VipReservation[]}
           onRefresh={refresh}
         />
+
+        {exportOpen && selectedEventId !== 'all' && (() => {
+          const ev = events.find(e => e.id === selectedEventId);
+          if (!ev) return null;
+          return (
+            <RosterExportDialog
+              open
+              onClose={() => setExportOpen(false)}
+              title={tt('Exporter les tables VIP', 'Export VIP tables', 'Exportar mesas VIP')}
+              build={() => buildTableRoster(
+                { id: ev.id, title: ev.title, start_at: ev.startAt, timezone: ev.timezone, venueName: ev.locationName ?? null },
+                language,
+                null,
+              )}
+            />
+          );
+        })()}
 
         <ManualReservationDialog
           open={showManualRes}

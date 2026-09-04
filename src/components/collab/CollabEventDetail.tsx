@@ -473,7 +473,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 sub={t('Avant frais Stripe', 'Before Stripe fees', 'Antes de comisiones Stripe')} />
               <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins', 'Check-ins')} value={stats.checkins} />
               <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share', 'Mi ganancia neta')} value={netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
-                sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share', 'Tras comisiones Stripe y Yuno + parte del socio')} accent />
+                sub={isCollab
+                  ? t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share', 'Tras comisiones Stripe y Yuno + parte del socio')
+                  : t('Après frais Stripe & Yuno', 'After Stripe & Yuno fees', 'Tras comisiones Stripe y Yuno')} accent />
             </div>
 
             {/* L'argent de la soirée — ventes par pilier + où est l'argent + cycle

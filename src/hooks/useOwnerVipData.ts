@@ -61,6 +61,9 @@ export interface VipEvent {
   title: string;
   startAt: string;
   endAt: string;
+  timezone?: string | null;
+  /** Lieu affiché (soirée d'organisateur sans club Yuno). */
+  locationName?: string | null;
 }
 
 export function useOwnerVipData() {
