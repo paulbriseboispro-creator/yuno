@@ -59,6 +59,7 @@ interface WalletEventRow {
   poster_url?: string | null;
   image_url?: string | null;
   music_genres: string[] | null;
+  timezone?: string | null;
 }
 
 /** Ligne venues (latitude/longitude peuvent arriver en numeric → string). */
@@ -382,28 +383,63 @@ function expiration(endAt: string | null): string | null {
   return new Date(d.getTime() + 6 * 3600_000).toISOString();
 }
 
-/** Champ « DATE » de l'en-tête — jour et mois, jamais l'heure. */
-function dateHeader(lang: WalletLang, startAt: string) {
-  return {
-    key: 'date',
-    label: wl(lang, 'date'),
-    value: startAt,
-    dateStyle: 'PKDateStyleMedium',
-    timeStyle: 'PKDateStyleNone',
-    textAlignment: 'PKTextAlignmentRight',
-  };
+const LOCALE: Record<WalletLang, string> = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES' };
+
+/**
+ * La date et l'heure de l'en-tête sont des CHAÎNES, pas des champs de type
+ * date. Deux raisons, et la seconde compte plus que la première :
+ *
+ *  1. Le design demande « 11 SEPT », pas « 11 septembre 2026 ». Aucun
+ *     `dateStyle` PassKit ne donne jour + mois abrégé sans l'année.
+ *  2. Un champ date est rendu par Wallet DANS LE FUSEAU DU TÉLÉPHONE. Un
+ *     client qui atterrit à Madrid la veille verrait son billet parisien
+ *     avancer d'une heure. Une soirée a lieu à l'heure du club, point — on
+ *     formate donc nous-mêmes, au fuseau de l'événement.
+ *
+ * La pertinence (écran verrouillé, rappel « c'est ce soir ») ne passe pas par
+ * ces champs mais par `relevantDates` et `semantics`, qui restent de vraies
+ * dates.
+ */
+function inZone(lang: WalletLang, iso: string, tz: string | null | undefined, opts: Intl.DateTimeFormatOptions): string | null {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  try {
+    return new Intl.DateTimeFormat(LOCALE[lang], { ...opts, timeZone: tz || 'Europe/Paris' }).format(d);
+  } catch {
+    // Fuseau inconnu en base : on rend en UTC plutôt que de perdre le champ.
+    try {
+      return new Intl.DateTimeFormat(LOCALE[lang], opts).format(d);
+    } catch {
+      return null;
+    }
+  }
 }
 
-/** Champ d'heure de l'en-tête (portes, arrivée) — aligné à droite. */
-function timeHeader(lang: WalletLang, key: string, labelKey: string, at: string) {
-  return {
-    key,
-    label: wl(lang, labelKey),
-    value: at,
-    dateStyle: 'PKDateStyleNone',
-    timeStyle: 'PKDateStyleShort',
-    textAlignment: 'PKTextAlignmentRight',
-  };
+/** « 11 SEPT » — jour et mois abrégé, en capitales, jamais l'année. */
+function shortDate(lang: WalletLang, iso: string, tz: string | null | undefined): string | null {
+  const s = inZone(lang, iso, tz, { day: 'numeric', month: 'short' });
+  return s ? s.replace(/\./g, '').toUpperCase() : null;
+}
+
+/** « 23:30 » — 24h, au fuseau du club. */
+function clockTime(lang: WalletLang, iso: string, tz: string | null | undefined): string | null {
+  return inZone(lang, iso, tz, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/** Champ « DATE » de l'en-tête. */
+function dateHeader(lang: WalletLang, startAt: string, tz: string | null | undefined) {
+  const value = shortDate(lang, startAt, tz);
+  return value
+    ? [{ key: 'date', label: wl(lang, 'date'), value, textAlignment: 'PKTextAlignmentRight' }]
+    : [];
+}
+
+/** Champ d'heure de l'en-tête (portes, arrivée). */
+function timeHeader(lang: WalletLang, key: string, labelKey: string, at: string, tz: string | null | undefined) {
+  const value = clockTime(lang, at, tz);
+  return value
+    ? [{ key, label: wl(lang, labelKey), value, textAlignment: 'PKTextAlignmentRight' }]
+    : [];
 }
 
 /**
@@ -415,6 +451,7 @@ function backFields(opts: {
   lang: WalletLang;
   reference: string;
   holder: string | null;
+  venue: string | null;
   address: string | null;
   lineup: string[];
   genre: string | null;
@@ -423,6 +460,7 @@ function backFields(opts: {
   return [
     { key: 'ref', label: wl(lang, 'reference'), value: opts.reference },
     ...(opts.holder ? [{ key: 'holder', label: wl(lang, 'holder'), value: opts.holder }] : []),
+    ...(opts.venue ? [{ key: 'venue', label: wl(lang, 'venue'), value: opts.venue }] : []),
     ...(opts.address ? [{ key: 'address', label: wl(lang, 'address'), value: opts.address }] : []),
     ...(opts.lineup.length
       ? [{ key: 'lineup', label: wl(lang, 'lineup'), value: opts.lineup.join(' · ') }]
@@ -461,7 +499,7 @@ async function loadVenue(admin: AdminClient, event: WalletEventRow): Promise<Wal
 /** Colonnes d'`events` lues par les trois passes. */
 const EVENT_COLUMNS =
   'id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, location_name, ' +
-  'location_city, location_address, location_is_secret, poster_url, image_url, music_genres';
+  'location_city, location_address, location_is_secret, poster_url, image_url, music_genres, timezone';
 
 /** Billet d'événement — pass eventTicket, QR = tickets.qr_code (scan porte). */
 export async function buildTicketPass(
@@ -488,6 +526,7 @@ export async function buildTicketPass(
   const location = coordsOf(event, venue);
   const address = publicAddress(event, venue);
   const lineup = await resolveLineup(admin, event.id);
+  const tz = event.timezone || null;
   const round = ticket.ticket_rounds?.name || wl(lang, 'entryNormal');
   const reference = ticket.reference_code || ticket.qr_code;
   const quantity = String(ticket.quantity || 1);
@@ -523,18 +562,25 @@ export async function buildTicketPass(
       ...additionalInfoFields({ lang, lineup, genre: genreOf(event) }),
       // DATE et PORTES : les deux chiffres qu'on cherche en sortant le pass.
       headerFields: event.start_at
-        ? [dateHeader(lang, event.start_at), timeHeader(lang, 'doors', 'doors', event.start_at)]
+        ? [...dateHeader(lang, event.start_at, tz), ...timeHeader(lang, 'doors', 'doors', event.start_at, tz)]
         : [],
-      // Le nom de la soirée EST le héros du pass, sous le label SOIRÉE.
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
+      // Le nom de la soirée EST le héros du pass, sous le label SOIRÉE. En
+      // capitales : c'est la signature typographique de l'affiche Yuno, et
+      // c'est la seule dimension de la police que Wallet nous laisse.
+      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title.toUpperCase() }],
       secondaryFields: [
-        { key: 'venue', label: wl(lang, 'venue'), value: venueName },
-        { key: 'type', label: wl(lang, 'type'), value: round, textAlignment: 'PKTextAlignmentRight' },
+        { key: 'type', label: wl(lang, 'type'), value: round },
+        ...(ticket.full_name
+          ? [{
+              key: 'holder',
+              label: wl(lang, 'holderField'),
+              value: ticket.full_name,
+              textAlignment: 'PKTextAlignmentRight',
+            }]
+          : []),
       ],
       auxiliaryFields: [
-        ...(ticket.full_name
-          ? [{ key: 'holder', label: wl(lang, 'holderField'), value: ticket.full_name }]
-          : []),
+        { key: 'venue', label: wl(lang, 'venue'), value: venueName },
         {
           key: 'qty',
           label: wl(lang, 'persons'),
@@ -546,6 +592,7 @@ export async function buildTicketPass(
         lang,
         reference,
         holder: null,
+        venue: null,
         address,
         lineup,
         genre: genreOf(event),
@@ -588,6 +635,7 @@ export async function buildVipPass(
   const location = coordsOf(event, venue);
   const address = publicAddress(event, venue);
   const lineup = await resolveLineup(admin, event.id);
+  const tz = event.timezone || null;
   const packName = resa.table_packs?.name || null;
   const zoneName = resa.table_zones?.name || null;
   const reference = resa.reference_code || resa.qr_code;
@@ -625,7 +673,7 @@ export async function buildVipPass(
       // La zone remplace l'heure de portes : une table a un emplacement, et
       // c'est ce que l'hôte VIP demande à l'arrivée.
       headerFields: [
-        ...(event.start_at ? [dateHeader(lang, event.start_at)] : []),
+        ...(event.start_at ? dateHeader(lang, event.start_at, tz) : []),
         ...(zoneName
           ? [{
               key: 'table',
@@ -634,18 +682,20 @@ export async function buildVipPass(
               textAlignment: 'PKTextAlignmentRight',
             }]
           : event.start_at
-          ? [timeHeader(lang, 'arrival', 'arrival', event.start_at)]
+          ? timeHeader(lang, 'arrival', 'arrival', event.start_at, tz)
           : []),
       ],
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
+      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title.toUpperCase() }],
       secondaryFields: [
-        { key: 'venue', label: wl(lang, 'venue'), value: venueName },
-        {
-          key: 'type',
-          label: wl(lang, 'type'),
-          value: wl(lang, 'vipDescription'),
-          textAlignment: 'PKTextAlignmentRight',
-        },
+        { key: 'type', label: wl(lang, 'type'), value: wl(lang, 'vipDescription') },
+        ...(resa.full_name
+          ? [{
+              key: 'holder',
+              label: wl(lang, 'holderField'),
+              value: resa.full_name,
+              textAlignment: 'PKTextAlignmentRight',
+            }]
+          : []),
       ],
       auxiliaryFields: [
         ...(packName ? [{ key: 'pack', label: wl(lang, 'pack'), value: packName }] : []),
@@ -659,7 +709,8 @@ export async function buildVipPass(
       backFields: backFields({
         lang,
         reference,
-        holder: resa.full_name,
+        holder: null,
+        venue: venueName,
         address,
         lineup,
         genre: genreOf(event),
@@ -757,6 +808,7 @@ export async function buildGuestListPass(
   const location = coordsOf(event, venue);
   const address = publicAddress(event, venue);
   const lineup = await resolveLineup(admin, event.id);
+  const tz = event.timezone || null;
   const brand = await resolveBrand(admin, event);
   const inviter = await resolveInviter(admin, part, brand);
 
@@ -802,7 +854,7 @@ export async function buildGuestListPass(
       // GRATUIT AVANT prime sur l'heure de portes : passé cette heure, l'entrée
       // n'est plus gratuite — c'est le seul chiffre qui change la soirée.
       headerFields: [
-        ...(event.start_at ? [dateHeader(lang, event.start_at)] : []),
+        ...(event.start_at ? dateHeader(lang, event.start_at, tz) : []),
         ...(freeBefore
           ? [{
               key: 'free',
@@ -811,16 +863,12 @@ export async function buildGuestListPass(
               textAlignment: 'PKTextAlignmentRight',
             }]
           : event.start_at
-          ? [timeHeader(lang, 'doors', 'doors', event.start_at)]
+          ? timeHeader(lang, 'doors', 'doors', event.start_at, tz)
           : []),
       ],
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
+      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title.toUpperCase() }],
       secondaryFields: [
-        { key: 'venue', label: wl(lang, 'venue'), value: venueName },
-        { key: 'type', label: wl(lang, 'type'), value: typeLabel, textAlignment: 'PKTextAlignmentRight' },
-      ],
-      auxiliaryFields: [
-        { key: 'inviter', label: wl(lang, 'invitedBy'), value: inviter },
+        { key: 'type', label: wl(lang, 'type'), value: typeLabel },
         ...(entry.full_name
           ? [{
               key: 'holder',
@@ -830,10 +878,24 @@ export async function buildGuestListPass(
             }]
           : []),
       ],
+      auxiliaryFields: [
+        { key: 'inviter', label: wl(lang, 'invitedBy'), value: inviter },
+        // La part maison invite AU NOM du club : afficher « INVITÉ PAR Le Duplex »
+        // puis « CLUB Le Duplex » ferait deux fois la même phrase.
+        ...(inviter !== venueName
+          ? [{
+              key: 'venue',
+              label: wl(lang, 'venue'),
+              value: venueName,
+              textAlignment: 'PKTextAlignmentRight',
+            }]
+          : []),
+      ],
       backFields: backFields({
         lang,
         reference,
         holder: null,
+        venue: inviter === venueName ? venueName : null,
         address,
         lineup,
         genre: genreOf(event),

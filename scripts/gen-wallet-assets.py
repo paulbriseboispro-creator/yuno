@@ -29,8 +29,11 @@ couvre les vieux simulateurs.
 Il n'y a plus de background.png : le design 2026-09 pose un noir plein
 (`backgroundColor`), et Wallet ne sait pas faire de dégradé.
 
-Le wordmark n'est pas re-dessiné : on réutilise les glyphes déjà embarqués
-(LOGO3X), simplement remis à l'échelle. Aucune police requise.
+Le wordmark n'est pas re-dessiné et n'est pas un fichier de plus : il est
+DÉTOURÉ de l'icône de l'app (`public/icon-1024.png`). Le fond de l'icône est un
+rouge saturé, les lettres sont blanches — `min(G, B)` sépare donc les deux sans
+abîmer l'anti-crénelage. Une seule source de vérité pour la marque, aucune
+police requise, et le pass ne peut pas dériver de l'icône.
 """
 from __future__ import annotations
 
@@ -45,6 +48,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS_TS = ROOT / "supabase/functions/_shared/wallet/assets.ts"
 APP_ICON = ROOT / "public/icon-512.png"
+APP_ICON_HD = ROOT / "public/icon-1024.png"
 
 # --- Icône -----------------------------------------------------------------
 ICON_PT = 38
@@ -58,15 +62,33 @@ LOGO_INSET_X = 3      # marge gauche, en points
 PRIMARY_LOGO_H = 30   # hauteur Apple, en points — largeur déduite du ratio
 
 
-def _read_const(src: str, name: str) -> bytes:
-    m = re.search(r"const %s\s*=\s*((?:\s*'[^']*'\s*\+?)+);" % name, src)
-    if not m:
-        raise SystemExit(f"constante {name} introuvable dans assets.ts")
-    return base64.b64decode("".join(re.findall(r"'([^']*)'", m.group(1))))
-
-
 def _trim(mark: Image.Image) -> Image.Image:
     return mark.crop(mark.getchannel("A").getbbox())
+
+
+def extract_wordmark() -> Image.Image:
+    """Wordmark « yuno » blanc plein, détouré de l'icône de l'app."""
+    import numpy as np
+
+    rgb = np.asarray(Image.open(APP_ICON_HD).convert("RGB")).astype(np.float32)
+    # Lettres blanches sur rouge saturé : min(G, B) vaut ~0 sur le fond et
+    # ~210 sur le lettrage. On étire cette bande sur 0..255.
+    alpha = np.clip((np.minimum(rgb[:, :, 1], rgb[:, :, 2]) - 40) * (255 / 170), 0, 255)
+
+    # Le verre occupe le haut de l'icône, le wordmark le bas : on repart de la
+    # première ligne entièrement vide sous le verre.
+    filled = (alpha > 200).sum(axis=1)
+    top = next(y for y in range(len(filled) // 2, len(filled)) if filled[y] == 0)
+    band = alpha[top:, :]
+    rows = np.where(band.max(axis=1) > 200)[0]
+    cols = np.where(band.max(axis=0) > 200)[0]
+    y0, y1 = top + rows.min(), top + rows.max() + 1
+    x0, x1 = cols.min(), cols.max() + 1
+
+    out = np.zeros((y1 - y0, x1 - x0, 4), dtype=np.uint8)
+    out[:, :, 0:3] = 255
+    out[:, :, 3] = alpha[y0:y1, x0:x1].astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
 
 
 def build_logo(mark: Image.Image, scale: int) -> Image.Image:
@@ -107,7 +129,7 @@ def to_b64_literal(img: Image.Image, name: str) -> str:
 
 def main() -> None:
     src = ASSETS_TS.read_text()
-    mark = Image.open(io.BytesIO(_read_const(src, "LOGO3X"))).convert("RGBA")
+    mark = extract_wordmark()
 
     out = {
         "ICON": build_icon(1),
