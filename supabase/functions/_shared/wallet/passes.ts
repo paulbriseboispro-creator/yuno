@@ -1,11 +1,17 @@
 // Constructeurs de pass.json — billets, guest list et tables VIP. Les trois
 // partagent une seule grille (design « Yuno Wallet Ticket », 2026-09-04) :
 //
-//   en-tête   wordmark yuno  |  DATE  ·  PORTES / GRATUIT AVANT / TABLE
-//   principal SOIRÉE — le titre de la soirée, héros du pass, + l'affiche
-//   secondaire CLUB | TYPE
-//   auxiliaire PORTEUR | PLACES   (VIP : CONVIVES | PACK — GL : INVITÉ PAR | PLACES)
-//   dos       référence, adresse, line-up, genre, lien de gestion
+//   en-tête   le wordmark yuno, SEUL. L'en-tête n'a de place que pour deux
+//             libellés minuscules à côté du logo : « GRATUIT AVANT » s'y
+//             faisait tronquer en « GRAT… ». Ces chiffres ont une colonne
+//             entière dans le corps.
+//   principal CLUB en label, TITRE en valeur — l'anatomie de l'event card du
+//             design system public (§6.1) : club en kicker, titre en héros.
+//   ligne 1   TYPE | le chiffre qui décide de la soirée pour ce pilier :
+//             PORTES (billet), GRATUIT AVANT (guest list), TABLE (VIP).
+//   ligne 2   DATE | PORTEUR
+//   dos       référence, invitant / places / pack et convives selon le pilier,
+//             club, adresse, line-up, genre, lien de gestion
 //
 // Deux règles de forme héritées du design, ne pas les défaire :
 //  - Fond NOIR PLEIN #0A0A0A. `backgroundColor` est une couleur unie, Wallet
@@ -260,6 +266,8 @@ interface ShellOpts {
   location: { lat: number; lng: number } | null;
   voided: boolean;
   labelColor: string;
+  /** Soirée du pass — Wallet EMPILE les passes qui partagent cette valeur. */
+  eventId: string | null;
 }
 
 /** Champs communs aux trois passes. */
@@ -276,6 +284,9 @@ function passShell(opts: ShellOpts): Record<string, unknown> {
     foregroundColor: 'rgb(255,255,255)',
     labelColor: opts.labelColor,
     sharingProhibited: true,
+    // Quatre amis pour la même soirée = une pile dans Wallet, pas quatre
+    // cartes éparpillées.
+    ...(opts.eventId ? { groupingIdentifier: `yuno-event-${opts.eventId}` } : {}),
     ...(opts.voided ? { voided: true } : {}),
     // `relevantDate` est déprécié depuis iOS 18 mais reste le SEUL levier
     // lock-screen d'iOS 17 : les deux cohabitent dans le même pass.
@@ -426,22 +437,6 @@ function clockTime(lang: WalletLang, iso: string, tz: string | null | undefined)
   return inZone(lang, iso, tz, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-/** Champ « DATE » de l'en-tête. */
-function dateHeader(lang: WalletLang, startAt: string, tz: string | null | undefined) {
-  const value = shortDate(lang, startAt, tz);
-  return value
-    ? [{ key: 'date', label: wl(lang, 'date'), value, textAlignment: 'PKTextAlignmentRight' }]
-    : [];
-}
-
-/** Champ d'heure de l'en-tête (portes, arrivée). */
-function timeHeader(lang: WalletLang, key: string, labelKey: string, at: string, tz: string | null | undefined) {
-  const value = clockTime(lang, at, tz);
-  return value
-    ? [{ key, label: wl(lang, labelKey), value, textAlignment: 'PKTextAlignmentRight' }]
-    : [];
-}
-
 /**
  * Dos du pass — commun aux trois piliers. `holder` n'y descend QUE s'il n'est
  * pas déjà sur la face : le billet et la guest list portent PORTEUR en
@@ -455,10 +450,13 @@ function backFields(opts: {
   address: string | null;
   lineup: string[];
   genre: string | null;
+  /** Champs propres au pilier : places d'un billet groupé, pack et convives. */
+  extra?: Array<{ key: string; label: string; value: string }>;
 }) {
   const { lang } = opts;
   return [
     { key: 'ref', label: wl(lang, 'reference'), value: opts.reference },
+    ...(opts.extra ?? []),
     ...(opts.holder ? [{ key: 'holder', label: wl(lang, 'holder'), value: opts.holder }] : []),
     ...(opts.venue ? [{ key: 'venue', label: wl(lang, 'venue'), value: opts.venue }] : []),
     ...(opts.address ? [{ key: 'address', label: wl(lang, 'address'), value: opts.address }] : []),
@@ -468,6 +466,15 @@ function backFields(opts: {
     ...(opts.genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: opts.genre }] : []),
     { key: 'help', label: wl(lang, 'help'), value: 'https://yunoapp.eu/my-orders' },
   ];
+}
+
+/**
+ * Valeur de métadonnée : capitales. Le design system public passe toute donnée
+ * factuelle — lieu, tag, formule — en capitales (§1). Jamais sur un nom de
+ * personne : une identité n'est pas une métadonnée.
+ */
+function meta(v: string | null | undefined): string {
+  return (v || '').toUpperCase();
 }
 
 /** Genre musical affichable (2 genres max), ou null. */
@@ -538,6 +545,7 @@ export async function buildTicketPass(
       authToken,
       qr: ticket.qr_code,
       qrAlt: ticket.reference_code || null,
+      eventId: event.id ?? null,
       relevantDate: event.start_at || null,
       eventEnd: event.end_at || null,
       expirationDate: expiration(event.end_at),
@@ -560,16 +568,27 @@ export async function buildTicketPass(
     }),
     eventTicket: {
       ...additionalInfoFields({ lang, lineup, genre: genreOf(event) }),
-      // DATE et PORTES : les deux chiffres qu'on cherche en sortant le pass.
-      headerFields: event.start_at
-        ? [...dateHeader(lang, event.start_at, tz), ...timeHeader(lang, 'doors', 'doors', event.start_at, tz)]
-        : [],
-      // Le nom de la soirée EST le héros du pass, sous le label SOIRÉE. En
-      // capitales : c'est la signature typographique de l'affiche Yuno, et
-      // c'est la seule dimension de la police que Wallet nous laisse.
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title.toUpperCase() }],
+      headerFields: [],
+      // Le club en kicker, le titre en héros — l'anatomie de l'event card du
+      // design system public (§6.1). L'ancien label « SOIRÉE » ne disait rien
+      // qu'on ne voie déjà, et l'en-tête n'a de place que pour deux libellés
+      // minuscules : « GRATUIT AVANT » s'y faisait tronquer en « GRAT… ».
+      primaryFields: [{ key: 'event', label: meta(venueName), value: event.title.toUpperCase() }],
       secondaryFields: [
-        { key: 'type', label: wl(lang, 'type'), value: round },
+        { key: 'type', label: wl(lang, 'type'), value: meta(round) },
+        ...(event.start_at
+          ? [{
+              key: 'doors',
+              label: wl(lang, 'doors'),
+              value: clockTime(lang, event.start_at, tz) ?? '',
+              textAlignment: 'PKTextAlignmentRight',
+            }]
+          : []),
+      ],
+      auxiliaryFields: [
+        ...(event.start_at
+          ? [{ key: 'date', label: wl(lang, 'date'), value: shortDate(lang, event.start_at, tz) ?? '' }]
+          : []),
         ...(ticket.full_name
           ? [{
               key: 'holder',
@@ -579,23 +598,19 @@ export async function buildTicketPass(
             }]
           : []),
       ],
-      auxiliaryFields: [
-        { key: 'venue', label: wl(lang, 'venue'), value: venueName },
-        {
-          key: 'qty',
-          label: wl(lang, 'persons'),
-          value: quantity,
-          textAlignment: 'PKTextAlignmentRight',
-        },
-      ],
       backFields: backFields({
         lang,
         reference,
         holder: null,
-        venue: null,
+        venue: venueName,
         address,
         lineup,
         genre: genreOf(event),
+        // « PLACES 1 » sur un billet individuel est du bruit ; un billet
+        // groupé, lui, doit rester lisible — il se lit au dos.
+        extra: Number(quantity) > 1
+          ? [{ key: 'qty', label: wl(lang, 'persons'), value: quantity }]
+          : [],
       }),
     },
   };
@@ -647,6 +662,7 @@ export async function buildVipPass(
       authToken,
       qr: resa.qr_code,
       qrAlt: resa.reference_code || null,
+      eventId: event.id ?? null,
       relevantDate: event.start_at || null,
       eventEnd: event.end_at || null,
       expirationDate: expiration(event.end_at),
@@ -672,22 +688,36 @@ export async function buildVipPass(
       ...additionalInfoFields({ lang, lineup, genre: genreOf(event) }),
       // La zone remplace l'heure de portes : une table a un emplacement, et
       // c'est ce que l'hôte VIP demande à l'arrivée.
-      headerFields: [
-        ...(event.start_at ? dateHeader(lang, event.start_at, tz) : []),
+      headerFields: [],
+      // Le club en kicker, le titre en héros — l'anatomie de l'event card du
+      // design system public (§6.1). L'ancien label « SOIRÉE » ne disait rien
+      // qu'on ne voie déjà, et l'en-tête n'a de place que pour deux libellés
+      // minuscules : « GRATUIT AVANT » s'y faisait tronquer en « GRAT… ».
+      primaryFields: [{ key: 'event', label: meta(venueName), value: event.title.toUpperCase() }],
+      secondaryFields: [
+        { key: 'type', label: wl(lang, 'type'), value: meta(wl(lang, 'vipDescription')) },
+        // La zone prime sur l'heure : une table a un emplacement, et c'est ce
+        // que l'hôte VIP demande à l'arrivée.
         ...(zoneName
           ? [{
               key: 'table',
               label: wl(lang, 'table'),
-              value: zoneName,
+              value: meta(zoneName),
               textAlignment: 'PKTextAlignmentRight',
             }]
           : event.start_at
-          ? timeHeader(lang, 'arrival', 'arrival', event.start_at, tz)
+          ? [{
+              key: 'arrival',
+              label: wl(lang, 'arrival'),
+              value: clockTime(lang, event.start_at, tz) ?? '',
+              textAlignment: 'PKTextAlignmentRight',
+            }]
           : []),
       ],
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title.toUpperCase() }],
-      secondaryFields: [
-        { key: 'type', label: wl(lang, 'type'), value: wl(lang, 'vipDescription') },
+      auxiliaryFields: [
+        ...(event.start_at
+          ? [{ key: 'date', label: wl(lang, 'date'), value: shortDate(lang, event.start_at, tz) ?? '' }]
+          : []),
         ...(resa.full_name
           ? [{
               key: 'holder',
@@ -697,15 +727,6 @@ export async function buildVipPass(
             }]
           : []),
       ],
-      auxiliaryFields: [
-        ...(packName ? [{ key: 'pack', label: wl(lang, 'pack'), value: packName }] : []),
-        {
-          key: 'guests',
-          label: wl(lang, 'guests'),
-          value: String(resa.guest_count || 1),
-          textAlignment: 'PKTextAlignmentRight',
-        },
-      ],
       backFields: backFields({
         lang,
         reference,
@@ -714,6 +735,12 @@ export async function buildVipPass(
         address,
         lineup,
         genre: genreOf(event),
+        // La face donne l'emplacement ; la formule et le nombre de convives
+        // se lisent au dos, où ils tiennent en entier.
+        extra: [
+          ...(packName ? [{ key: 'pack', label: wl(lang, 'pack'), value: packName }] : []),
+          { key: 'guests', label: wl(lang, 'guests'), value: String(resa.guest_count || 1) },
+        ],
       }),
     },
   };
@@ -829,6 +856,7 @@ export async function buildGuestListPass(
       authToken,
       qr: entry.qr_code,
       qrAlt: entry.reservation_code || null,
+      eventId: event.id ?? null,
       relevantDate: event.start_at || null,
       eventEnd: event.end_at || null,
       expirationDate: expiration(event.end_at),
@@ -853,8 +881,16 @@ export async function buildGuestListPass(
       ...additionalInfoFields({ lang, lineup, genre: genreOf(event) }),
       // GRATUIT AVANT prime sur l'heure de portes : passé cette heure, l'entrée
       // n'est plus gratuite — c'est le seul chiffre qui change la soirée.
-      headerFields: [
-        ...(event.start_at ? dateHeader(lang, event.start_at, tz) : []),
+      headerFields: [],
+      // Le club en kicker, le titre en héros — l'anatomie de l'event card du
+      // design system public (§6.1). L'ancien label « SOIRÉE » ne disait rien
+      // qu'on ne voie déjà, et l'en-tête n'a de place que pour deux libellés
+      // minuscules : « GRATUIT AVANT » s'y faisait tronquer en « GRAT… ».
+      primaryFields: [{ key: 'event', label: meta(venueName), value: event.title.toUpperCase() }],
+      secondaryFields: [
+        { key: 'type', label: wl(lang, 'type'), value: meta(typeLabel) },
+        // GRATUIT AVANT prime : passé cette heure, l'entrée n'est plus
+        // gratuite. C'est le seul chiffre qui change la soirée.
         ...(freeBefore
           ? [{
               key: 'free',
@@ -863,12 +899,18 @@ export async function buildGuestListPass(
               textAlignment: 'PKTextAlignmentRight',
             }]
           : event.start_at
-          ? timeHeader(lang, 'doors', 'doors', event.start_at, tz)
+          ? [{
+              key: 'doors',
+              label: wl(lang, 'doors'),
+              value: clockTime(lang, event.start_at, tz) ?? '',
+              textAlignment: 'PKTextAlignmentRight',
+            }]
           : []),
       ],
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title.toUpperCase() }],
-      secondaryFields: [
-        { key: 'type', label: wl(lang, 'type'), value: typeLabel },
+      auxiliaryFields: [
+        ...(event.start_at
+          ? [{ key: 'date', label: wl(lang, 'date'), value: shortDate(lang, event.start_at, tz) ?? '' }]
+          : []),
         ...(entry.full_name
           ? [{
               key: 'holder',
@@ -878,24 +920,12 @@ export async function buildGuestListPass(
             }]
           : []),
       ],
-      auxiliaryFields: [
-        { key: 'inviter', label: wl(lang, 'invitedBy'), value: inviter },
-        // La part maison invite AU NOM du club : afficher « INVITÉ PAR Le Duplex »
-        // puis « CLUB Le Duplex » ferait deux fois la même phrase.
-        ...(inviter !== venueName
-          ? [{
-              key: 'venue',
-              label: wl(lang, 'venue'),
-              value: venueName,
-              textAlignment: 'PKTextAlignmentRight',
-            }]
-          : []),
-      ],
       backFields: backFields({
         lang,
         reference,
         holder: null,
-        venue: inviter === venueName ? venueName : null,
+        venue: venueName,
+        extra: [{ key: 'inviter', label: wl(lang, 'invitedBy'), value: inviter }],
         address,
         lineup,
         genre: genreOf(event),

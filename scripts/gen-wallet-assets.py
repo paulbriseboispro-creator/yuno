@@ -17,10 +17,13 @@ couvre les vieux simulateurs.
                           l'icône de l'app, pas un glyphe abstrait : un pass
                           qu'on ne reconnaît pas dans une liste de dix est un
                           pass qu'on ne sort pas à la porte.
-  - logo h50, w 50..160 : en-tête du eventTicket CLASSIQUE (iOS 17 et
-                          antérieurs). Le cadre reste 160x50 pour que l'en-tête
-                          garde sa hauteur, mais le wordmark n'y occupe que
-                          ~72pt de large, calé à gauche, le reste transparent.
+  - logo h50, w 50..160 : en-tête du eventTicket. DÉTOURÉ AU RAS, sans marge.
+                          Le cadre 160x50 d'origine réservait 88pt de pixels
+                          transparents à droite du wordmark — et Wallet réserve
+                          la largeur de l'IMAGE, pas celle de l'encre. L'en-tête
+                          payait donc 55 % de sa place pour du vide, ce qui
+                          écrasait les champs contre le bord droit. Le wordmark
+                          garde exactement la même taille à l'écran.
   - primaryLogo h30,
     w 30..126           : en-tête du POSTER event ticket (iOS 18+). Ici Apple
                           cadre au plus juste : le PNG doit être le wordmark
@@ -54,9 +57,7 @@ APP_ICON_HD = ROOT / "public/icon-1024.png"
 ICON_PT = 38
 
 # --- Logo eventTicket classique --------------------------------------------
-LOGO_BOX = (160, 50)  # cadre Apple, en points
-LOGO_MARK_W = 72      # largeur visible du wordmark, en points (~45% du cadre)
-LOGO_INSET_X = 3      # marge gauche, en points
+LOGO_W = 72           # largeur du wordmark, en points (le cadre Apple va jusqu'à 160)
 
 # --- primaryLogo (poster event ticket) --------------------------------------
 PRIMARY_LOGO_H = 30   # hauteur Apple, en points — largeur déduite du ratio
@@ -92,16 +93,11 @@ def extract_wordmark() -> Image.Image:
 
 
 def build_logo(mark: Image.Image, scale: int) -> Image.Image:
-    """Wordmark redimensionné, calé à gauche et centré dans le cadre Apple."""
-    box_w, box_h = LOGO_BOX[0] * scale, LOGO_BOX[1] * scale
+    """Wordmark détouré, sans un pixel de marge — voir l'en-tête du fichier."""
     mark = _trim(mark)
-    w = LOGO_MARK_W * scale
+    w = LOGO_W * scale
     h = round(mark.height * w / mark.width)
-    mark = mark.resize((w, h), Image.LANCZOS)
-
-    canvas = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 0))
-    canvas.paste(mark, (LOGO_INSET_X * scale, (box_h - h) // 2), mark)
-    return canvas
+    return mark.resize((w, h), Image.LANCZOS)
 
 
 def build_primary_logo(mark: Image.Image, scale: int) -> Image.Image:

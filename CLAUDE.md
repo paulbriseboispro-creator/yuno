@@ -278,10 +278,21 @@ qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
   table VIP passe en or `#F2B23C`.** C'est la seule variation chromatique du
   système, et elle se lit d'un coup d'œil. `labelColor` est global au pass :
   on ne peut pas colorer un label plus qu'un autre.
-- **Grille commune** : en-tête `DATE | PORTES` (guest list : `GRATUIT AVANT`,
-  VIP : `TABLE`), principal `SOIRÉE` = le titre, secondaire `CLUB | TYPE`,
-  auxiliaire `PORTEUR | PLACES` (VIP : `PACK | CONVIVES`, guest list :
-  `INVITÉ PAR | PORTEUR`). Le dos porte référence, adresse, line-up, genre.
+- **Grille commune** (design validé 2026-09) : **l'en-tête ne porte AUCUN
+  champ** — le wordmark y est seul. Il n'y a place que pour deux libellés
+  minuscules à côté du logo, et « GRATUIT AVANT » s'y faisait tronquer en
+  « GRAT… ». Puis : champ principal = **le club en label, le titre en valeur**
+  (l'anatomie de l'event card du design system public §6.1 — club en kicker,
+  titre en héros) ; ligne 1 = `TYPE` + le chiffre qui décide de la soirée
+  (`PORTES` billet, `GRATUIT AVANT` guest list, `TABLE` VIP) ; ligne 2 =
+  `DATE | PORTEUR`. Le dos porte la référence, l'invitant / les places / le
+  pack et les convives selon le pilier, puis club, adresse, line-up, genre.
+- **Le `logo.png` est DÉTOURÉ, sans marge transparente.** Le cadre Apple va
+  jusqu'à 160 pt mais Wallet réserve la largeur de l'IMAGE, pas celle de
+  l'encre : un wordmark de 72 pt dans un cadre de 160 pt faisait payer 55 % de
+  l'en-tête pour du vide et écrasait les champs contre le bord droit.
+- **`groupingIdentifier` = la soirée** : les passes d'un même événement
+  s'empilent dans Wallet au lieu de s'éparpiller.
 - **Jamais de texte ni de QR composité dans une image.** HIG Apple : « Reserve
   pass images for visual content. Embedded text isn't accessible ». Le titre
   reste un champ natif — traduit FR/EN/ES et lu par VoiceOver.
