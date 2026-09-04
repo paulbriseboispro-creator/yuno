@@ -9,7 +9,7 @@ import {
   stripEventBindings, eventBoundBlocks, needsEventBinding,
   campaignToTemplateContent, templateToCampaignContent, buildStarter, STARTER_TEMPLATES,
   buildEntryRows, pickPublicGuestList, guestListTicketRow, priceFromLabel, formatEuro,
-  ticketsCtaLabel,
+  ticketsCtaLabel, ticketsKicker, isPricedRow, soldOutSub, SOLD_OUT_CHIP,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -285,6 +285,48 @@ describe('blocs — un rendu par type', () => {
     expect(html).not.toContain('Prendre mes billets');
   });
 
+  // Le bloc était une liste de reçu : tout à 14,5px, aucun point focal. Le
+  // prix porte l'offre, la jauge du club reste en retrait, et la carte annonce
+  // ce qu'elle vend — même grammaire que le kicker du bloc Table VIP.
+  it('tickets : hiérarchie typographique — kicker accent, nom 17px, prix 21px', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-1' });
+    const html = renderOne(b);
+    expect(html).toContain('BILLETTERIE');
+    expect(html).toContain(`letter-spacing:0.14em;color:${theme.accent}`); // kicker
+    expect(html).toContain('font-size:17px');   // nom de la tranche
+    expect(html).toContain('font-size:21px');   // prix, point focal
+    expect(html).toContain('monospace');        // jauge + kicker en mono
+    // Le bandeau doit traverser les deux colonnes, sinon le filet s'arrête net.
+    expect(html).toContain('colspan="2"');
+  });
+
+  it('tickets : une tranche fermée porte le mot, pas seulement du gris barré', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-1' });
+    const html = renderOne(b);
+    expect(html).toContain(SOLD_OUT_CHIP);
+    expect(html).toContain('text-decoration:line-through');
+    // « épuisé » est déjà dit par le badge : la description ne le redit pas.
+    expect(html).not.toContain('>épuisé<');
+  });
+
+  it('tickets : un tarif sans chiffre est une OFFRE — pastille accent, pas un nombre', () => {
+    const b = makeBlock('tickets', { eventId: 'ev-1' });
+    const html = renderOne(b, {
+      live: {
+        'ev-1': {
+          ...ctx.live!['ev-1'],
+          tickets: [{ n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false }],
+          guestListOnly: true,
+        },
+      },
+    });
+    expect(html).toContain(`border-radius:999px;background:${theme.accent}`);
+    expect(html).toContain(`color:${theme.btnText}`); // texte auto-contrasté
+    // Kicker « ENTRÉE » : « LISTE INVITÉS » répéterait le nom de la ligne.
+    expect(html).toContain('ENTRÉE');
+    expect(html).not.toContain('>LISTE INVITÉS<');
+  });
+
   it('tickets : billets ET liste invités → le bouton reste « Prendre mes billets »', () => {
     const b = makeBlock('tickets', { eventId: 'ev-1' });
     const html = renderOne(b, {
@@ -347,6 +389,26 @@ describe('liste invités = un type d’entrée (live.ts)', () => {
     expect(ticketsCtaLabel(true)).toBe('M’inscrire à la liste');
     expect(ticketsCtaLabel(false)).toBe('Prendre mes billets');
     expect(ticketsCtaLabel(undefined)).toBe('Prendre mes billets');
+  });
+
+  it('le kicker nomme l’offre sans répéter la ligne', () => {
+    expect(ticketsKicker(true)).toBe('ENTRÉE');
+    expect(ticketsKicker(false)).toBe('BILLETTERIE');
+  });
+
+  it('un tarif est un montant seulement s’il porte un chiffre', () => {
+    expect(isPricedRow('18 €')).toBe(true);
+    expect(isPricedRow('0 €')).toBe(true);
+    expect(isPricedRow('Gratuit')).toBe(false);
+    expect(isPricedRow('')).toBe(false);
+  });
+
+  it('le sous-titre ne redit pas « épuisé » quand le badge le dit déjà', () => {
+    expect(soldOutSub('épuisé')).toBe('');
+    expect(soldOutSub('Épuisé !')).toBe('');
+    expect(soldOutSub('sold out')).toBe('');
+    expect(soldOutSub('agotado')).toBe('');
+    expect(soldOutSub('il reste 84 places')).toBe('il reste 84 places');
   });
 });
 

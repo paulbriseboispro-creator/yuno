@@ -16,6 +16,8 @@ export interface CanvasCtx {
 }
 
 export const EMAIL_FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
+/** Métadonnées email (kicker, jauge, badges) — miroir de MONO dans render.ts. */
+export const EMAIL_MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
 
 /** Marges internes du bloc (px/py du prototype, défauts PAR TYPE). */
 export function blockPad(b: EmailBlock): { px: number; py: number } {

@@ -75,6 +75,8 @@ export interface StudioRenderCtx {
 export type StudioBlock = { id: string; type: string } & Record<string, any>;
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
+/** Métadonnées (kicker, jauge, badges) — miroir de MONO dans render.ts. */
+const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
 
 const THEME_PRESETS: StudioTheme[] = [
   { name: 'classic_dark', bg: '#f3f4f6', card: '#ffffff', headerBg: '#0a0a0a', headerText: '#ffffff', text: '#1a1a1a', muted: '#7a7a7a', accent: '#dc2626', btnText: '#ffffff', divider: '#e5e7eb', tile: '#fafafa', footerBg: '#f9fafb', footerText: '#6b7280', dark: false },
@@ -279,17 +281,31 @@ function td(inner: string, style: string): string {
   return `<tr><td style="${style}">${inner}</td></tr>`;
 }
 
-function renderTicketRows(rows: StudioTicketRow[], theme: StudioTheme, accent: string): string {
-  return rows.map((r, i) => `
+/** Lignes d'entrée — miroir strict de renderTicketRows (render.ts). */
+function renderTicketRows(
+  rows: StudioTicketRow[], theme: StudioTheme, accent: string, accentText: string,
+): string {
+  return rows.map((r, i) => {
+    const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
+    const sub = r.out ? soldOutSub(r.s) : r.s;
+    const soldChip = r.out
+      ? `<span style="display:inline-block;margin:7px 0 0;padding:4px 8px;background:${theme.divider};border-radius:3px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:0.1em;color:${theme.muted};">${SOLD_OUT_CHIP}</span>`
+      : '';
+    const price = isPricedRow(r.p)
+      ? `<span style="font-family:${FONT};font-size:21px;font-weight:800;letter-spacing:-0.02em;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>`
+      : `<span style="display:inline-block;padding:7px 13px;border-radius:999px;background:${r.out ? theme.divider : accent};font-family:${FONT};font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:${r.out ? theme.muted : accentText};">${esc(r.p)}</span>`;
+    return `
     <tr>
-      <td style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};">
-        <p style="margin:0;font-size:14.5px;font-weight:600;color:${r.out ? theme.muted : theme.text};">${esc(r.n)}</p>
-        ${r.s ? `<p style="margin:2px 0 0;font-size:12px;color:${theme.muted};">${esc(r.s)}</p>` : ''}
+      <td valign="middle" style="padding:16px 18px;${sep}font-family:${FONT};">
+        <p style="margin:0;font-size:17px;line-height:22px;mso-line-height-rule:exactly;font-weight:600;letter-spacing:-0.01em;color:${r.out ? theme.muted : theme.text};">${esc(r.n)}</p>
+        ${sub ? `<p style="margin:5px 0 0;font-family:${MONO};font-size:12px;line-height:17px;mso-line-height-rule:exactly;letter-spacing:0.02em;color:${theme.muted};">${esc(sub)}</p>` : ''}
+        ${soldChip}
       </td>
-      <td align="right" style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};white-space:nowrap;">
-        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>
+      <td align="right" valign="middle" style="padding:16px 18px;${sep}white-space:nowrap;">
+        ${price}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 /** Pastille + glyphe des réseaux (miroir de socialChip dans render.ts). */
@@ -441,15 +457,20 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       if (!rows || rows.length === 0) return '';
       const url = live?.url || ctx.baseUrl;
       const btnColors = ctaColors(b.accent, theme);
+      const guestListOnly = b.live !== false && !!live?.guestListOnly;
       // Une soirée en liste invités seule n'a pas de billet à prendre
       // (miroir de ticketsCtaLabel dans src/lib/email/live.ts).
-      const label = (b.live !== false && live?.guestListOnly) ? 'M’inscrire à la liste' : 'Prendre mes billets';
-      const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
+      const label = guestListOnly ? 'M’inscrire à la liste' : 'Prendre mes billets';
+      const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 10, full: true, ctx });
+      const cardBg = theme.dark ? theme.tile : '#ffffff';
       return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
-          ${renderTicketRows(rows, theme, btnColors.bg)}
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
+          <tr><td colspan="2" style="padding:14px 18px 12px;border-bottom:1px solid ${theme.divider};">
+            <p style="margin:0;font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.14em;color:${btnColors.bg};">${esc(ticketsKicker(guestListOnly))}</p>
+          </td></tr>
+          ${renderTicketRows(rows, theme, btnColors.bg, btnColors.color)}
         </table>
-        <div style="height:12px;line-height:12px;font-size:0;">&nbsp;</div>
+        <div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>
         ${btn}`,
         `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
@@ -632,6 +653,25 @@ function buildEntryRows(
   const tickets = [...ticketRows];
   if (guestList) tickets.push(guestListTicketRow(guestList));
   return { tickets, guestListOnly: ticketRows.length === 0 && !!guestList };
+}
+
+/** Kicker du bloc Billetterie — miroir de ticketsKicker (live.ts). */
+function ticketsKicker(guestListOnly?: boolean): string {
+  return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
+}
+
+const SOLD_OUT_CHIP = 'ÉPUISÉ';
+
+/** true = le tarif est un MONTANT (miroir de isPricedRow, live.ts). */
+function isPricedRow(price: string): boolean {
+  return /\d/.test(String(price || ''));
+}
+
+/** Sous-titre d'une tranche fermée (miroir de soldOutSub, live.ts). */
+function soldOutSub(sub: string): string {
+  const t = String(sub || '').trim();
+  const bare = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s!.]+$/, '');
+  return ['epuise', 'epuisee', 'complet', 'sold out', 'soldout', 'agotado', 'agotada'].includes(bare) ? '' : t;
 }
 
 function priceFromLabel(activePrices: number[], hasGuestList: boolean): string | null {

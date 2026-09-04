@@ -88,3 +88,34 @@ export const GUEST_LIST_CTA_LABEL = 'M’inscrire à la liste';
 export function ticketsCtaLabel(guestListOnly?: boolean): string {
   return guestListOnly ? GUEST_LIST_CTA_LABEL : TICKETS_CTA_LABEL;
 }
+
+/**
+ * Kicker du bloc — même grammaire que le bloc Table VIP (« Bottle service ») :
+ * une étiquette mono accent qui nomme l'offre avant qu'on lise les lignes.
+ * En liste invités seule c'est « ENTRÉE » et pas « LISTE INVITÉS » : la ligne
+ * en dessous porte déjà ce nom, et un titre qui se répète ressemble à un bug.
+ */
+export function ticketsKicker(guestListOnly?: boolean): string {
+  return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
+}
+
+/** Badge des tranches fermées — un mot, pas seulement du gris et un barré. */
+export const SOLD_OUT_CHIP = 'ÉPUISÉ';
+
+/**
+ * true = le tarif est un MONTANT (il porte un chiffre). Sinon c'est une offre
+ * (« Gratuit », « Sur invitation ») : elle se rend en pastille, pas en nombre.
+ */
+export function isPricedRow(price: string): boolean {
+  return /\d/.test(String(price || ''));
+}
+
+/**
+ * Sous-titre d'une tranche fermée. Le badge « ÉPUISÉ » porte déjà l'info :
+ * si la description du club ne dit que ce mot, on ne l'écrit pas deux fois.
+ */
+export function soldOutSub(sub: string): string {
+  const s = String(sub || '').trim();
+  const bare = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s!.]+$/, '');
+  return ['epuise', 'epuisee', 'complet', 'sold out', 'soldout', 'agotado', 'agotada'].includes(bare) ? '' : s;
+}

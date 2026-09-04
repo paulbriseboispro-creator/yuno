@@ -19,10 +19,12 @@ import type {
   TicketsBlock, TableBlock, CountdownBlock, SpacerBlock, HtmlBlock, DividerBlock,
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
-import { ticketsCtaLabel } from './live';
+import { isPricedRow, SOLD_OUT_CHIP, soldOutSub, ticketsCtaLabel, ticketsKicker } from './live';
 import { interpolateVariables } from './variables';
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
+/** Métadonnées (kicker, jauge, badges) — signal nightlife du design public. */
+const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
 
 export function escapeHtml(s: unknown): string {
   return String(s ?? '')
@@ -288,17 +290,38 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   );
 }
 
-function renderTicketRows(rows: TicketRow[], theme: EmailTheme, accent: string): string {
-  return rows.map((r, i) => `
+/**
+ * Une ligne d'entrée. Le prix est le point focal (21px), le nom le porte
+ * (17px) et la jauge du club reste en retrait (12px, mono). Un tarif sans
+ * chiffre (« Gratuit », « Sur invitation ») n'est pas un montant mais une
+ * OFFRE : il se rend en pastille accent, pas en nombre.
+ */
+function renderTicketRows(
+  rows: TicketRow[], theme: EmailTheme, accent: string, accentText: string,
+): string {
+  return rows.map((r, i) => {
+    const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
+    const sub = r.out ? soldOutSub(r.s) : r.s;
+    const soldChip = r.out
+      ? `<span style="display:inline-block;margin:7px 0 0;padding:4px 8px;background:${theme.divider};border-radius:3px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:0.1em;color:${theme.muted};">${SOLD_OUT_CHIP}</span>`
+      : '';
+    const price = isPricedRow(r.p)
+      ? `<span style="font-family:${FONT};font-size:21px;font-weight:800;letter-spacing:-0.02em;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${escapeHtml(r.p)}</span>`
+      // Pastille : l'entrée gratuite est l'argument de l'email, pas une ligne
+      // de tableau. Outlook ignore border-radius et la rend carrée — lisible.
+      : `<span style="display:inline-block;padding:7px 13px;border-radius:999px;background:${r.out ? theme.divider : accent};font-family:${FONT};font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:${r.out ? theme.muted : accentText};">${escapeHtml(r.p)}</span>`;
+    return `
     <tr>
-      <td style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};">
-        <p style="margin:0;font-size:14.5px;font-weight:600;color:${r.out ? theme.muted : theme.text};">${escapeHtml(r.n)}</p>
-        ${r.s ? `<p style="margin:2px 0 0;font-size:12px;color:${theme.muted};">${escapeHtml(r.s)}</p>` : ''}
+      <td valign="middle" style="padding:16px 18px;${sep}font-family:${FONT};">
+        <p style="margin:0;font-size:17px;line-height:22px;mso-line-height-rule:exactly;font-weight:600;letter-spacing:-0.01em;color:${r.out ? theme.muted : theme.text};">${escapeHtml(r.n)}</p>
+        ${sub ? `<p style="margin:5px 0 0;font-family:${MONO};font-size:12px;line-height:17px;mso-line-height-rule:exactly;letter-spacing:0.02em;color:${theme.muted};">${escapeHtml(sub)}</p>` : ''}
+        ${soldChip}
       </td>
-      <td align="right" style="padding:13px 16px;${i > 0 ? `border-top:1px solid ${theme.divider};` : ''}font-family:${FONT};white-space:nowrap;">
-        <span style="font-size:14.5px;font-weight:700;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${escapeHtml(r.p)}</span>
+      <td align="right" valign="middle" style="padding:16px 18px;${sep}white-space:nowrap;">
+        ${price}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
@@ -310,15 +333,23 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   if (!rows || rows.length === 0) return '';
   const url = live?.url || ctx.baseUrl;
   const btnColors = ctaColors(b.accent, theme);
+  const guestListOnly = !!b.live && live?.guestListOnly;
   // Une soirée en liste invités seule n'a pas de billet à prendre : le bouton
   // dit ce que le clic fait vraiment.
-  const label = ticketsCtaLabel(!!b.live && live?.guestListOnly);
-  const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 8, full: true, ctx, small: true });
+  const label = ticketsCtaLabel(guestListOnly);
+  const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 10, full: true, ctx });
+  // Carte de la même famille que les blocs Événement et Table VIP (bord fin,
+  // rayon 12, fond opaque) — coiffée d'un kicker accent qui annonce ce qu'on
+  // achète avant même d'avoir lu une ligne.
+  const cardBg = theme.dark ? theme.tile : '#ffffff';
   return td(
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;">
-      ${renderTicketRows(rows, theme, btnColors.bg)}
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
+      <tr><td colspan="2" style="padding:14px 18px 12px;border-bottom:1px solid ${theme.divider};">
+        <p style="margin:0;font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.14em;color:${btnColors.bg};">${escapeHtml(ticketsKicker(guestListOnly))}</p>
+      </td></tr>
+      ${renderTicketRows(rows, theme, btnColors.bg, btnColors.color)}
     </table>
-    <div style="height:12px;line-height:12px;font-size:0;">&nbsp;</div>
+    <div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>
     ${btn}`,
     `padding:${pad.py}px ${pad.px}px;background:${bg};`,
   );
