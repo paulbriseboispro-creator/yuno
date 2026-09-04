@@ -11,14 +11,26 @@ export interface EventLinkParts {
 }
 
 /**
+ * Chemin canonique quand le host est DÉJÀ résolu (RPC `event_host_slug`, la
+ * source de vérité serveur : slug d'orga pour une soirée organizer-led, sinon
+ * slug du club). C'est la seule porte pour construire un lien event hors React.
+ *
+ * ⚠️ `/event/:eventId` attend un **UUID**, jamais un slug : y jeter un slug rend
+ * « Événement introuvable ». Sans host, on retombe donc sur l'ID, pas sur le slug.
+ */
+export function eventPathFromHost(id: string, slug?: string | null, host?: string | null): string {
+  return slug && host ? `/events/${host}/${slug}` : `/event/${id}`;
+}
+
+/**
  * Construit le lien propre vers la page d'une soirée.
  * Fallback sur l'ancienne route UUID quand le slug/host n'est pas (encore) chargé —
- * EventDetails redirige alors vers l'URL propre au chargement, donc rien ne casse.
+ * EventDetails sait rendre la page par UUID, donc rien ne casse.
  */
 export function eventPath(e: EventLinkParts): string {
   const host = e.isOrganizerLed ? e.organizerSlug : e.venueSlug;
-  if (e.slug && host) return `/events/${host}/${e.slug}`;
-  // Fallback : données incomplètes -> ancienne route (redirige vers /events/... au chargement).
+  if (e.slug && host) return eventPathFromHost(e.id, e.slug, host);
+  // Fallback : données incomplètes -> ancienne route par UUID.
   if (!e.isOrganizerLed && e.venueSlug) return `/club/${e.venueSlug}/event/${e.id}`;
   return `/event/${e.id}`;
 }

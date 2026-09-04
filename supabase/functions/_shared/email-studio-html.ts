@@ -666,6 +666,15 @@ function buildEntryRows(
   return { tickets, guestListOnly: ticketRows.length === 0 && !!guestList };
 }
 
+/**
+ * Chemin canonique d'une soirée — miroir de eventPathFromHost
+ * (src/lib/eventUrl.ts). `/event/:eventId` attend un **UUID** : y jeter un slug
+ * rend « Événement introuvable », donc sans host on retombe sur l'ID.
+ */
+function eventPathFromHost(id: string, slug?: string | null, host?: string | null): string {
+  return slug && host ? `/events/${host}/${slug}` : `/event/${id}`;
+}
+
 /** Kicker du bloc Billetterie — miroir de ticketsKicker (live.ts). */
 function ticketsKicker(guestListOnly?: boolean): string {
   return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
@@ -780,6 +789,15 @@ export async function fetchStudioLiveData(
       .eq('is_active', true)
       .eq('visible_on_club_page', true);
 
+    // Host de l'URL propre /events/:host/:slug. La règle (slug d'orga si
+    // organizer-led, sinon slug du club) vit dans la RPC event_host_slug et
+    // nulle part ailleurs — on ne la re-code pas ici.
+    const hostById = new Map<string, string | null>();
+    await Promise.all(ids.map(async (id: string) => {
+      const { data } = await admin.rpc('event_host_slug', { p_event_id: id });
+      hostById.set(id, (data as string | null) || null);
+    }));
+
     const needTables = blocks.some((b) => b.type === 'table');
     let packsByEvent = new Map<string, number>();
     let reservedByEvent = new Map<string, number>();
@@ -846,7 +864,7 @@ export async function fetchStudioLiveData(
         dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
         venueLabel: city ? `${venueName} — ${city}` : venueName,
         coverUrl: e.poster_url || e.image_url || null,
-        url: `${publicUrl}/event/${e.slug || e.id}`,
+        url: `${publicUrl}${eventPathFromHost(e.id, e.slug, hostById.get(e.id))}`,
         priceFromLabel: priceFromLabel(activePrices, !!guestList),
         // Tableau TOUJOURS présent : vide = aucune entrée ouverte (bloc effacé),
         // undefined = événement non résolu (le bloc retombe sur ses props).

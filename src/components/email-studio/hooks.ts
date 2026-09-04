@@ -7,6 +7,10 @@ import {
   buildEntryRows, formatEuro, pickPublicGuestList, priceFromLabel, rowToTemplate,
   templateContentToRow, YUNO_BLOCK_TYPES, type GuestListOffer,
 } from '@/lib/email';
+import { eventPathFromHost } from '@/lib/eventUrl';
+
+/** Origine publique des liens de l'email — jamais window.location (WebView). */
+const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
 export type StudioScope =
   | { kind: 'venue'; venueId: string; name: string; logoUrl?: string | null; city?: string | null }
@@ -102,6 +106,16 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       if (cancelled) return;
       const venueById = new Map((venues || []).map((v) => [v.id, v]));
 
+      // Host de l'URL propre /events/:host/:slug — résolu par la RPC serveur
+      // (slug d'orga si organizer-led, sinon slug du club). On ne rejoue pas
+      // la règle ici : c'est event_host_slug la source de vérité.
+      const hostEntries = await Promise.all(wanted.map(async (id) => {
+        const { data } = await supabase.rpc('event_host_slug', { p_event_id: id } as never);
+        return [id, (data as string | null) || null] as const;
+      }));
+      if (cancelled) return;
+      const hostById = new Map(hostEntries);
+
       const next: LiveData = {};
       for (const raw of events) {
         const e = raw as {
@@ -139,7 +153,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           dateLabel: dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1),
           venueLabel: city ? `${venueName} — ${city}` : venueName,
           coverUrl: e.poster_url || e.image_url || null,
-          url: `https://yunoapp.eu/event/${e.slug || e.id}`,
+          url: `${PUBLIC_BASE_URL}${eventPathFromHost(e.id, e.slug, hostById.get(e.id))}`,
           priceFromLabel: priceFromLabel(activePrices, !!guestList),
           // Tableau TOUJOURS présent : vide = « aucune entrée ouverte » (le bloc
           // s'efface), undefined = « données pas encore résolues » (fallback).

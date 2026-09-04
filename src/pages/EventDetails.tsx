@@ -142,14 +142,18 @@ export default function EventDetails() {
       if (row?.event_id) {
         setEventId(row.event_id);
         if (!isPreview && row.host && row.slug && (row.host !== host || row.slug !== eventSlug)) {
-          navigate(`/events/${row.host}/${row.slug}`, { replace: true });
+          // La query string SUIT la redirection : un lien d'email ou de
+          // promoteur arrive sur un ancien slug avec ?ref= (code promo), ?tl=
+          // (lien tracké) ou ?yc= (campagne). Les jeter ici, c'est perdre
+          // l'attribution — donc la commission — sans que personne le voie.
+          navigate(`/events/${row.host}/${row.slug}${location.search}${location.hash}`, { replace: true });
         }
       } else {
         setLoading(false); // slug introuvable -> rendu "event not found"
       }
     })();
     return () => { cancelled = true; };
-  }, [host, eventSlug, eventIdParam, isPreview, navigate]);
+  }, [host, eventSlug, eventIdParam, isPreview, navigate, location.search, location.hash]);
 
   useEffect(() => {
     if (eventId) {

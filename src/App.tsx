@@ -649,7 +649,9 @@ const App = () => (
                 <Route path="/events/:host/:eventSlug/table/:packId" element={<TableCheckout />} />
                 <Route path="/events/:host/:eventSlug/guestlist" element={<GuestListSignup />} />
                 <Route path="/events/:host/:eventSlug/guestlist-checkout" element={<GuestListCheckout />} />
-                {/* Anciennes URLs par UUID — conservées, redirigent vers l'URL propre au chargement */}
+                {/* Anciennes URLs par UUID — conservées et rendues telles quelles.
+                    Elles ne redirigent PAS vers l'URL propre : EventDetails résout
+                    par id. N'y passer qu'un UUID, jamais un slug (sinon 404). */}
                 <Route path="/event/:eventId" element={<EventDetails />} />
 
                 {/* Standalone Organizer / BDE app */}
