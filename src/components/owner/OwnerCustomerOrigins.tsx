@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import worldTopo from 'world-atlas/countries-110m.json';
 import { motion } from 'framer-motion';
+import type { Feature, MultiPolygon } from 'geojson';
 import { Globe, Users, MapPin, Plane, Building2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,6 +41,41 @@ interface Props {
   onSelectCountry?: (code: string) => void;
   /** When set, unlocks the "By city" tab (fetches scoped city counts via RPC). */
   scope?: Scope;
+}
+
+// Natural Earth livre certains pays en UN seul multipolygone qui embarque leurs
+// territoires lointains : la France y contient la Guyane. Colorier la France
+// parce que le club a deux clients parisiens allumait donc aussi une tache
+// rouge en Amérique du Sud, et le patron y lit un bug de données, pas un
+// département d'outre-mer. On ne garde que les polygones proches du territoire
+// principal, et uniquement pour les pays concernés — à cette résolution (110m)
+// la France est le seul cas : les morceaux lointains du Canada, des États-Unis
+// et de la Russie SONT leur propre territoire continental, et le Groenland, le
+// Svalbard ou les Malouines portent déjà leur propre code ISO.
+const MAINLAND_ONLY: Record<number, { lon: number; lat: number; maxDeg: number }> = {
+  250: { lon: 2.5, lat: 46.5, maxDeg: 20 }, // France : métropole + Corse
+};
+
+function ringCenter(ring: number[][]): [number, number] {
+  let lon = 0, lat = 0;
+  for (const [x, y] of ring) { lon += x; lat += y; }
+  return [lon / ring.length, lat / ring.length];
+}
+
+// Passé à <Geographies parseGeographies> : react-simple-maps calcule le tracé
+// SVG APRÈS ce filtre, donc retirer un polygone ici le retire vraiment du rendu.
+function trimDistantTerritories(features: Feature[]): Feature[] {
+  return features.map((f) => {
+    const rule = MAINLAND_ONLY[Number(f.id)];
+    if (!rule || f.geometry?.type !== 'MultiPolygon') return f;
+    const geometry = f.geometry as MultiPolygon;
+    const kept = geometry.coordinates.filter((poly) => {
+      const [lon, lat] = ringCenter(poly[0]);
+      return Math.hypot(lon - rule.lon, lat - rule.lat) <= rule.maxDeg;
+    });
+    if (!kept.length || kept.length === geometry.coordinates.length) return f;
+    return { ...f, geometry: { ...geometry, coordinates: kept } };
+  });
 }
 
 // Interpolate from a faint red to full Yuno red based on density t∈[0,1].
@@ -173,7 +209,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                   height={420}
                   style={{ width: '100%', height: 'auto' }}
                 >
-                  <Geographies geography={worldTopo as any}>
+                  <Geographies geography={worldTopo as any} parseGeographies={trimDistantTerritories}>
                     {({ geographies }: { geographies: any[] }) =>
                       geographies.map((geo) => {
                         const numeric = Number(geo.id);
