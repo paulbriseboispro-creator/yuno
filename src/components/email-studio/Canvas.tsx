@@ -13,7 +13,7 @@ import {
 import { useStudio } from './store';
 import type { StudioScope } from './hooks';
 import BlockRenderer from './blocks/BlockRenderer';
-import { blockBgColor, type CanvasCtx } from './blocks/common';
+import { EMAIL_DISPLAY, blockBgColor, type CanvasCtx } from './blocks/common';
 import { blockMeta, FOOTER_SELECTION_ID } from './meta';
 import {
   BORDER, BORDER_FAINT, CANVAS_BG, FONT_UI, MONO, PANEL_BG, POS, RED, SUBTLE,
@@ -487,8 +487,28 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 <div style={{ fontSize: 11.5, color: theme.footerText, opacity: 0.8, lineHeight: 1.6, fontFamily: FONT_UI }}>
                   {t('studio.canvas.footerSentTo').replace('{email}', persona.recipient.email)}
                 </div>
+                {/* Le copyright manquait à l'aperçu alors que l'email le porte :
+                    le WYSIWYG mentait sur le pied de page (miroir renderFooter). */}
+                <div style={{ fontSize: 11.5, color: theme.footerText, opacity: 0.8, lineHeight: 1.6, marginTop: 4, fontFamily: FONT_UI }}>
+                  {t('studio.canvas.footerCopyright')
+                    .replace('{year}', String(new Date().getFullYear()))
+                    .replace('{venue}', scope.name)}
+                </div>
                 <div style={{ fontSize: 11.5, color: theme.accent, marginTop: 4, textDecoration: 'underline', fontFamily: FONT_UI }}>
                   {t('studio.canvas.footerUnsub')}
+                </div>
+                {/* Signature Yuno — miroir de poweredBy (render.ts). La marque
+                    reste subordonnée au club : même couleur, c'est la typo qui
+                    la porte (label mono tracké + mot-symbole display). */}
+                <div style={{ marginTop: 18 }}>
+                  <div style={{
+                    fontFamily: MONO, fontSize: 9.5, lineHeight: '13px', fontWeight: 700,
+                    letterSpacing: '0.16em', color: theme.footerText,
+                  }}>POWERED BY</div>
+                  <div style={{
+                    fontFamily: EMAIL_DISPLAY, fontSize: 15, lineHeight: '19px', fontWeight: 700,
+                    letterSpacing: '-0.02em', color: theme.footerText, marginTop: 3,
+                  }}>Yuno</div>
                 </div>
               </div>
               </div>

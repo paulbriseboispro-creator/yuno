@@ -79,6 +79,27 @@ describe('renderEmailHtml — enveloppe', () => {
     expect(html).toContain('camille@example.com');
   });
 
+  // Les campagnes n'avaient AUCUNE marque visible : deux mots noyés dans les
+  // phrases légales. Les transactionnels signaient déjà (email-kit.ts).
+  it('footer : signature Yuno, subordonnée au club et cliquable', () => {
+    expect(html).toContain('POWERED BY');
+    expect(html).toContain('>Yuno</span>');
+    expect(html).toContain('utm_source=yuno&utm_medium=powered_by');
+    // Même couleur que le pied de page : c'est la typo qui porte la marque,
+    // elle ne doit pas crier plus fort que le nom du club.
+    expect(html).toContain(`letter-spacing:-0.02em;color:${theme.footerText}`);
+    // Une signature nette remplace les trois « Yuno » marmonnés d'avant.
+    expect(html).not.toContain('via Yuno');
+    expect(html).not.toContain('sur Yuno');
+  });
+
+  it('footer : hideBranding retire toute trace de Yuno (white-label)', () => {
+    const white = renderEmailHtml([makeBlock('text')], theme, { ...ctx, hideBranding: true });
+    expect(white).not.toContain('POWERED BY');
+    expect(white).not.toContain('Yuno');
+    expect(white).toContain('Le Silo'); // le club, lui, reste
+  });
+
   it('footer informationnel : pas de lien de désinscription', () => {
     const info = renderEmailHtml([makeBlock('text')], theme, { ...ctx, emailType: 'informational' });
     expect(info).not.toContain('Se désabonner');

@@ -25,6 +25,27 @@ import { interpolateVariables } from './variables';
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 /** Métadonnées (kicker, jauge, badges) — signal nightlife du design public. */
 const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
+/** Marque Yuno — même pile que les emails transactionnels (_shared/email-kit.ts). */
+const DISPLAY = "'Space Grotesk','Helvetica Neue',Arial,sans-serif";
+
+/**
+ * Signature Yuno du pied de page. Les emails transactionnels portent déjà le
+ * mot-symbole (email-kit.ts) ; les campagnes ne l'avaient QUE noyé dans deux
+ * phrases (« sur Yuno », « via Yuno ») — invisibles, et qui répétaient trois
+ * fois le nom une fois la signature posée. Elles ont donc sauté : une marque
+ * signée vaut mieux que trois mentions marmonnées, et `hideBranding` ne pilote
+ * plus qu'UNE chose. La marque reste subordonnée au club : même couleur que le
+ * reste du pied de page, c'est la TYPO qui la porte — label mono tracké +
+ * mot-symbole display, la paire label/valeur du design public.
+ */
+function poweredBy(theme: EmailTheme, ctx: RenderCtx): string {
+  if (ctx.hideBranding) return '';
+  const href = 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
+  return `<a href="${href}" target="_blank" rel="noreferrer" style="display:inline-block;margin:18px 0 0;text-decoration:none;">
+      <span style="display:block;font-family:${MONO};font-size:9.5px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;color:${theme.footerText};">POWERED BY</span>
+      <span style="display:block;margin-top:3px;font-family:${DISPLAY};font-size:15px;line-height:19px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.02em;color:${theme.footerText};">Yuno</span>
+    </a>`;
+}
 
 export function escapeHtml(s: unknown): string {
   return String(s ?? '')
@@ -504,17 +525,16 @@ function renderFooter(theme: EmailTheme, ctx: RenderCtx, socialAbove: boolean): 
   const reason = ctx.emailType === 'promotional'
     ? 'vous êtes abonné à sa newsletter'
     : 'vous avez acheté un billet';
-  const onPlatform = ctx.hideBranding ? '' : ' sur Yuno';
-  const viaPlatform = ctx.hideBranding ? '' : ' via Yuno';
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
     ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${escapeHtml(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${escapeHtml(ctx.venueName)}${ctx.city ? ' — ' + escapeHtml(ctx.city) : ''}</p>
-     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${escapeHtml(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${escapeHtml(ctx.venueName)}${viaPlatform}. Tous droits réservés.</p>
-     ${unsub}`,
+     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${escapeHtml(ctx.recipient.email)} car ${reason}.</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${escapeHtml(ctx.venueName)}. Tous droits réservés.</p>
+     ${unsub}
+     ${poweredBy(theme, ctx)}`,
     `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
   );
 }

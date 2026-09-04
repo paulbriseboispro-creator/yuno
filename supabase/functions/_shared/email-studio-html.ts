@@ -77,6 +77,18 @@ export type StudioBlock = { id: string; type: string } & Record<string, any>;
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 /** Métadonnées (kicker, jauge, badges) — miroir de MONO dans render.ts. */
 const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
+/** Marque Yuno — même pile que les emails transactionnels (email-kit.ts). */
+const DISPLAY = "'Space Grotesk','Helvetica Neue',Arial,sans-serif";
+
+/** Signature Yuno du pied de page — miroir de poweredBy (render.ts). */
+function poweredBy(theme: StudioTheme, ctx: StudioRenderCtx): string {
+  if (ctx.hideBranding) return '';
+  const href = 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
+  return `<a href="${href}" target="_blank" rel="noreferrer" style="display:inline-block;margin:18px 0 0;text-decoration:none;">
+      <span style="display:block;font-family:${MONO};font-size:9.5px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;color:${theme.footerText};">POWERED BY</span>
+      <span style="display:block;margin-top:3px;font-family:${DISPLAY};font-size:15px;line-height:19px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.02em;color:${theme.footerText};">Yuno</span>
+    </a>`;
+}
 
 const THEME_PRESETS: StudioTheme[] = [
   { name: 'classic_dark', bg: '#f3f4f6', card: '#ffffff', headerBg: '#0a0a0a', headerText: '#ffffff', text: '#1a1a1a', muted: '#7a7a7a', accent: '#dc2626', btnText: '#ffffff', divider: '#e5e7eb', tile: '#fafafa', footerBg: '#f9fafb', footerText: '#6b7280', dark: false },
@@ -544,17 +556,16 @@ function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boo
   const reason = ctx.emailType === 'promotional'
     ? 'vous êtes abonné à sa newsletter'
     : 'vous avez acheté un billet';
-  const onPlatform = ctx.hideBranding ? '' : ' sur Yuno';
-  const viaPlatform = ctx.hideBranding ? '' : ' via Yuno';
   const unsub = ctx.emailType === 'promotional' && ctx.unsubscribeUrl
     ? `<p style="margin:8px 0 0;font-size:11.5px;"><a href="${esc(ctx.unsubscribeUrl)}" style="color:${theme.accent};text-decoration:underline;">Se désabonner</a></p>`
     : '';
   const border = socialAbove ? '' : footerBorder(theme);
   return td(
     `<p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${theme.footerText};">${esc(ctx.venueName)}${ctx.city ? ' — ' + esc(ctx.city) : ''}</p>
-     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}${onPlatform}.</p>
-     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${esc(ctx.venueName)}${viaPlatform}. Tous droits réservés.</p>
-     ${unsub}`,
+     <p style="margin:0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">Cet email a été envoyé à ${esc(ctx.recipient.email)} car ${reason}.</p>
+     <p style="margin:4px 0 0;font-size:11.5px;line-height:1.6;color:${theme.footerText};">© ${year} ${esc(ctx.venueName)}. Tous droits réservés.</p>
+     ${unsub}
+     ${poweredBy(theme, ctx)}`,
     `padding:22px 24px;background:${theme.footerBg};${border}font-family:${FONT};text-align:center;`,
   );
 }

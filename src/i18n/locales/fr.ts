@@ -12186,6 +12186,7 @@ const fr: Record<string, string> = {
   'studio.canvas.visibleFor': 'Visible :',
   'studio.canvas.footerSentTo': 'Cet email a été envoyé à {email} car vous êtes abonné à la newsletter.',
   'studio.canvas.footerUnsub': 'Se désabonner',
+  'studio.canvas.footerCopyright': '© {year} {venue} via Yuno. Tous droits réservés.',
   'studio.canvas.underGmail': 'sous la limite Gmail',
   'studio.canvas.overGmail': 'au-dessus de la limite Gmail !',
   'studio.drawer.checks': 'Contrôles avant envoi',
