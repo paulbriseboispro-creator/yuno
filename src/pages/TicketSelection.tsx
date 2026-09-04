@@ -37,6 +37,8 @@ type Selection = {
   zoneId?: string;
   deposit?: number;
   depositType?: 'fixed' | 'percentage';
+  /** Pack « règlement sur place » : aucun frais, rien à payer en ligne. */
+  onSite?: boolean;
   gender?: 'female' | 'male';
 };
 
@@ -439,9 +441,9 @@ export default function TicketSelection() {
     }
   };
 
-  const selectItem = (type: SelectionType, id: string, price: number, name: string, zoneId?: string, deposit?: number, depositType?: 'fixed' | 'percentage') => {
+  const selectItem = (type: SelectionType, id: string, price: number, name: string, zoneId?: string, deposit?: number, depositType?: 'fixed' | 'percentage', onSite?: boolean) => {
     if (selection?.id === id) { setSelection(null); }
-    else { setSelection({ type, id, quantity: 1, price, name, zoneId, deposit, depositType }); }
+    else { setSelection({ type, id, quantity: 1, price, name, zoneId, deposit, depositType, onSite }); }
   };
 
   const updateQuantity = (delta: number) => {
@@ -490,6 +492,8 @@ export default function TicketSelection() {
   const total = selection ? selection.price * selection.quantity : 0;
   const totalWithFees = (() => {
     if (total <= 0 || !selection) return 0;
+    // Règlement sur place : le prix reste informatif, aucun frais Yuno.
+    if (selection.type === 'table' && selection.onSite) return total;
     if (selection.type === 'table' && selection.deposit !== undefined && selection.deposit > 0) {
       let depositAmount: number;
       if (selection.depositType === 'percentage') {
@@ -887,7 +891,7 @@ export default function TicketSelection() {
                     remaining={remaining}
                     isSelected={selection?.id === pack.id}
                     quantity={selection?.id === pack.id ? selection.quantity : 1}
-                    onSelectPack={() => !isSoldOut && selectItem('table', pack.id, pack.basePrice, pack.name, selectedZoneId, pack.deposit, pack.depositType)}
+                    onSelectPack={() => !isSoldOut && selectItem('table', pack.id, pack.basePrice, pack.name, selectedZoneId, pack.deposit, pack.depositType, pack.paymentMode === 'on_site')}
                     onDeselectPack={() => setSelection(null)}
                     onQuantityChange={updateQuantity}
                     t={t}
@@ -923,7 +927,7 @@ export default function TicketSelection() {
             amount={selection.type === 'guestlist' ? 0 : totalWithFees}
             label={selection.type === 'guestlist' ? `${selection.name} · ${t('guestList.free')}` : selection.name}
             subtitle={selection.type === 'guestlist' ? undefined : `x${selection.quantity}`}
-            subtitleText={selection.type === 'guestlist' ? undefined : t('tickets.feesIncluded')}
+            subtitleText={selection.type === 'guestlist' ? undefined : selection.onSite ? t('ticketSel.onSitePayment') : t('tickets.feesIncluded')}
             buttonText={t('ticketSel.continue')}
             onClick={handleContinue}
           />
