@@ -17276,9 +17276,11 @@ export type Database = {
           avg_basket: number
           ban_reason: string
           banned_at: string
+          churn_risk: boolean
           email: string
           first_name: string
           first_visit_at: string
+          guest_list_count: number
           id: string
           is_banned: boolean
           last_activity_at: string
@@ -17289,9 +17291,15 @@ export type Database = {
           phone: string
           preferred_dow: number
           preferred_event_title: string
+          recency_days: number
           revenue_30d: number
           revenue_90d: number
           revenue_prev_90d: number
+          rfm_f: number
+          rfm_m: number
+          rfm_r: number
+          rfm_segment: string
+          rfm_tier: string
           table_count: number
           ticket_count: number
           total_spent: number
