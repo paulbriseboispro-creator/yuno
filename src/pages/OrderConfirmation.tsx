@@ -1048,7 +1048,7 @@ export default function OrderConfirmation() {
               )}
               {data.totalPrice != null && (
                 <div className="flex justify-between items-center" style={{ padding: '11px 0' }}>
-                  <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.total') || 'Total payé'}</span>
+                  <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{data.onSitePayment ? t('confirmation.totalOnSite') : (t('confirmation.total') || 'Total payé')}</span>
                   <span className="font-display font-bold" style={{ fontSize: '17px', color: '#E8192C', letterSpacing: '-0.01em' }}>{data.totalPrice.toFixed(2)} €</span>
                 </div>
               )}
@@ -1274,7 +1274,8 @@ export default function OrderConfirmation() {
                 {t('confirmation.downloadBillet') || 'Télécharger le billet'}
               </button>
             )}
-            <button
+            {/* Rien n'a été encaissé sur une table réglée sur place : pas de reçu. */}
+            {!data.onSitePayment && <button
               className={data.type === 'order' ? 'btn btn--primary w-full' : 'btn btn--ghost w-full'}
               onClick={handleDownloadReceipt}
               disabled={downloadingReceipt}
@@ -1285,7 +1286,7 @@ export default function OrderConfirmation() {
                 <FileText className="h-4 w-4 mr-2" />
               )}
               {t('confirmation.downloadReceipt') || 'Télécharger le reçu'}
-            </button>
+            </button>}
           </div>
 
           <div className="mt-6 text-center">

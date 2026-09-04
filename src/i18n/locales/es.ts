@@ -4568,6 +4568,7 @@ const es: Record<string, string> = {
   'vipCheckout.selectTable': 'Elige tu mesa',
   'vipCheckout.selectTableDescription': 'Selecciona una mesa disponible o deja que el club te asigne una.',
   'vipCheckout.skipPlacement': 'Que el club elija mi mesa',
+  'confirmation.totalOnSite': "Total a pagar en el local",
   'confirmation.onSiteNote': "Pago en el local — no se ha cobrado nada",
   "tableCheckout.onSiteTitle": "Sin pago en línea",
   "tableCheckout.onSiteDesc": "Tu reserva se confirma al instante. El pago se realiza en el local.",
