@@ -10,10 +10,15 @@
  *
  * « Terminer mon service » émet le shift_end (best-effort, dédupliqué) puis
  * offre la déconnexion — le geste naturel en quittant le club.
+ *
+ * Rendu dans document.body (portail) : le contenu des dashboards staff est un
+ * contexte d'empilement (`relative z-10`), qui emprisonnait le z-index de cet
+ * overlay sous la tab bar `fixed z-40` de l'hôte VIP.
  */
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ScanLine, Wine, Shirt, Crown, Clock, Users, LogOut, CheckCircle2, Moon,
@@ -99,7 +104,7 @@ export function NightRecap({ open, onClose, role, venueId, userId, pulse }: Prop
     return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m} min`;
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -216,6 +221,7 @@ export function NightRecap({ open, onClose, role, venueId, userId, pulse }: Prop
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

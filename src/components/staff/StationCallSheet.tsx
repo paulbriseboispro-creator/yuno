@@ -5,9 +5,14 @@
  * joindre depuis l'app. Cinq messages types, un destinataire par poste, un
  * appel par minute (throttle serveur). Pas un chat : une sirène courte qui
  * atterrit en realtime + push sur le poste visé.
+ *
+ * Rendu dans document.body (portail) : le contenu des dashboards staff est un
+ * contexte d'empilement (`relative z-10`), qui emprisonnait le z-index de cet
+ * overlay sous la tab bar `fixed z-40` de l'hôte VIP.
  */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Radio, Loader2, Users, ShieldAlert, Crown, Package, Eye } from 'lucide-react';
 import { toast } from 'sonner';
@@ -77,7 +82,7 @@ export function StationCallSheet({ open, onClose, myRole }: Props) {
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -173,6 +178,7 @@ export function StationCallSheet({ open, onClose, myRole }: Props) {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

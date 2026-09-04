@@ -9,9 +9,17 @@
  *
  * Fermer sans prendre poste émet quand même le shift_start silencieux : le
  * centre de commandement owner ne doit jamais perdre la présence terrain.
+ *
+ * Rendu dans document.body (portail) : le panneau vit à l'intérieur du contenu
+ * `relative z-10` de chaque dashboard staff, qui est un contexte d'empilement.
+ * Sans portail, z-[210] restait prisonnier de ce contexte et la tab bar `fixed
+ * z-40` de l'hôte VIP passait PAR-DESSUS le bouton de prise de poste — il
+ * devenait intouchable. Le videur n'ayant pas de tab bar, le bug ne se voyait
+ * que là ; la cause était commune aux quatre postes.
  */
 
 import { useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CalendarDays, Ticket, ListChecks, Crown, Users, Megaphone, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -94,7 +102,7 @@ export function NightOpening({ open, onClose, role, venueId, venueName, firstNam
 
   const roleDef = STAFF_ROLE_DEFS[role];
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -218,6 +226,7 @@ export function NightOpening({ open, onClose, role, venueId, venueName, firstNam
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
