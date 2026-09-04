@@ -416,8 +416,11 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           </OrgCard>
         )}
 
-        {/* Contract — kept high for trust + sign action */}
-        <SplitContractBanner eventId={event.id} side={viewerRole} />
+        {/* Contract — kept high for trust + sign action. Co-soirées SEULEMENT :
+            une soirée solo (organisateur seul, lieu hors Yuno) n'a personne
+            avec qui partager — la bannière « Proposer le contrat » y envoyait
+            l'organisateur vers un contrat collab qu'il ne voulait pas. */}
+        {isCollab && <SplitContractBanner eventId={event.id} side={viewerRole} />}
 
         {/* Une allocation de guest list attend une réponse : on le dit ici, sur la
             page de la soirée, pas seulement dans l'onglet Guest list. */}

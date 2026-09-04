@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -1005,6 +1030,7 @@ export type Database = {
         Row: {
           action_url: string | null
           affiliate_id: string
+          auto_params: Json | null
           automation_type: string | null
           body: string
           id: string
@@ -1017,6 +1043,7 @@ export type Database = {
         Insert: {
           action_url?: string | null
           affiliate_id: string
+          auto_params?: Json | null
           automation_type?: string | null
           body: string
           id?: string
@@ -1029,6 +1056,7 @@ export type Database = {
         Update: {
           action_url?: string | null
           affiliate_id?: string
+          auto_params?: Json | null
           automation_type?: string | null
           body?: string
           id?: string
@@ -4472,6 +4500,7 @@ export type Database = {
           metadata: Json | null
           recipient_email: string
           resend_email_id: string | null
+          svix_id: string | null
         }
         Insert: {
           campaign_id: string
@@ -4481,6 +4510,7 @@ export type Database = {
           metadata?: Json | null
           recipient_email: string
           resend_email_id?: string | null
+          svix_id?: string | null
         }
         Update: {
           campaign_id?: string
@@ -4490,6 +4520,7 @@ export type Database = {
           metadata?: Json | null
           recipient_email?: string
           resend_email_id?: string | null
+          svix_id?: string | null
         }
         Relationships: [
           {
@@ -4878,6 +4909,80 @@ export type Database = {
         }
         Relationships: []
       }
+      email_credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          organizer_user_id: string | null
+          pack_id: string | null
+          scope_key: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          type: string
+          venue_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organizer_user_id?: string | null
+          pack_id?: string | null
+          scope_key: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          type: string
+          venue_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organizer_user_id?: string | null
+          pack_id?: string | null
+          scope_key?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          type?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_credit_transactions_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_credit_transactions_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_credit_transactions_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "email_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_credit_transactions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_list_imports: {
         Row: {
           attested_at: string
@@ -4963,6 +5068,36 @@ export type Database = {
           },
         ]
       }
+      email_packs: {
+        Row: {
+          created_at: string
+          emails_amount: number
+          id: string
+          is_active: boolean
+          name: string
+          position: number
+          price_eur: number
+        }
+        Insert: {
+          created_at?: string
+          emails_amount: number
+          id: string
+          is_active?: boolean
+          name: string
+          position?: number
+          price_eur: number
+        }
+        Update: {
+          created_at?: string
+          emails_amount?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: number
+          price_eur?: number
+        }
+        Relationships: []
+      }
       email_send_quota: {
         Row: {
           day: string
@@ -4984,11 +5119,34 @@ export type Database = {
         }
         Relationships: []
       }
+      email_send_quota_month: {
+        Row: {
+          month: string
+          scope_key: string
+          sent: number
+          updated_at: string
+        }
+        Insert: {
+          month?: string
+          scope_key: string
+          sent?: number
+          updated_at?: string
+        }
+        Update: {
+          month?: string
+          scope_key?: string
+          sent?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_sender_state: {
         Row: {
+          credit_balance: number
           daily_cap_override: number | null
           first_send_at: string | null
           lifetime_sent: number
+          monthly_cap_override: number | null
           organizer_user_id: string | null
           restricted_reason: string | null
           scope_key: string
@@ -4997,9 +5155,11 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          credit_balance?: number
           daily_cap_override?: number | null
           first_send_at?: string | null
           lifetime_sent?: number
+          monthly_cap_override?: number | null
           organizer_user_id?: string | null
           restricted_reason?: string | null
           scope_key: string
@@ -5008,9 +5168,11 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          credit_balance?: number
           daily_cap_override?: number | null
           first_send_at?: string | null
           lifetime_sent?: number
+          monthly_cap_override?: number | null
           organizer_user_id?: string | null
           restricted_reason?: string | null
           scope_key?: string
@@ -11549,7 +11711,7 @@ export type Database = {
           position: number
           tables_count: number
           updated_at: string
-          venue_id: string
+          venue_id: string | null
           zone_id: string
         }
         Insert: {
@@ -11573,7 +11735,7 @@ export type Database = {
           position?: number
           tables_count?: number
           updated_at?: string
-          venue_id: string
+          venue_id?: string | null
           zone_id: string
         }
         Update: {
@@ -11597,7 +11759,7 @@ export type Database = {
           position?: number
           tables_count?: number
           updated_at?: string
-          venue_id?: string
+          venue_id?: string | null
           zone_id?: string
         }
         Relationships: [
@@ -11864,7 +12026,7 @@ export type Database = {
           price: number | null
           tables_count: number
           updated_at: string
-          venue_id: string
+          venue_id: string | null
         }
         Insert: {
           color?: string
@@ -11878,7 +12040,7 @@ export type Database = {
           price?: number | null
           tables_count?: number
           updated_at?: string
-          venue_id: string
+          venue_id?: string | null
         }
         Update: {
           color?: string
@@ -11892,7 +12054,7 @@ export type Database = {
           price?: number | null
           tables_count?: number
           updated_at?: string
-          venue_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -13565,7 +13727,7 @@ export type Database = {
           layout: Json
           owner_user_id: string | null
           updated_at: string
-          venue_id: string
+          venue_id: string | null
         }
         Insert: {
           background_image_url?: string | null
@@ -13575,7 +13737,7 @@ export type Database = {
           layout?: Json
           owner_user_id?: string | null
           updated_at?: string
-          venue_id: string
+          venue_id?: string | null
         }
         Update: {
           background_image_url?: string | null
@@ -13585,7 +13747,7 @@ export type Database = {
           layout?: Json
           owner_user_id?: string | null
           updated_at?: string
-          venue_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -15520,6 +15682,21 @@ export type Database = {
         Args: { _token: string }
         Returns: string
       }
+      add_email_credits: {
+        Args: {
+          p_amount: number
+          p_created_by?: string
+          p_notes?: string
+          p_organizer_user_id: string
+          p_pack_id?: string
+          p_scope_key: string
+          p_stripe_payment_intent_id?: string
+          p_stripe_session_id?: string
+          p_type: string
+          p_venue_id: string
+        }
+        Returns: number
+      }
       add_sms_credits: {
         Args: {
           p_amount: number
@@ -15699,10 +15876,17 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      aff_admin_lang: { Args: { p_affiliate_id: string }; Returns: string }
       aff_auto_enabled: {
         Args: { p_affiliate_id: string; p_type: string }
         Returns: boolean
       }
+      aff_member_lang: { Args: { p_member_id: string }; Returns: string }
+      aff_render_auto: {
+        Args: { p_lang: string; p_params: Json; p_type: string }
+        Returns: Record<string, unknown>
+      }
+      aff_user_lang: { Args: { p_user_id: string }; Returns: string }
       amend_event_collab_contract: {
         Args: {
           p_cancellation_policy?: string
@@ -15836,6 +16020,7 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_floor_plan_assets: { Args: never; Returns: boolean }
       can_manage_guest_list_part: {
         Args: { _guest_list_id: string; _user_id: string }
         Returns: boolean
@@ -16008,6 +16193,7 @@ export type Database = {
         }
         Returns: number
       }
+      count_transactional_email: { Args: never; Returns: undefined }
       count_venue_segment: {
         Args: { p_definition: Json; p_venue_id: string }
         Returns: number
@@ -16201,6 +16387,10 @@ export type Database = {
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
       email_has_account: { Args: { _email: string }; Returns: boolean }
       email_sender_daily_cap: { Args: { p_scope_key: string }; Returns: number }
+      email_sender_monthly_free: {
+        Args: { p_scope_key: string }
+        Returns: number
+      }
       emit_admin_notification: {
         Args: {
           p_dedup_key?: string
@@ -16464,6 +16654,22 @@ export type Database = {
           title: string
           venue_city: string
           venue_id: string
+          venue_name: string
+        }[]
+      }
+      get_agency_pending_invitations: {
+        Args: { p_agency_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          expires_at: string
+          first_name: string
+          invitation_id: string
+          kind: string
+          last_name: string
+          member_role: string
+          scope_all: boolean
+          venue_count: number
           venue_name: string
         }[]
       }
@@ -16748,6 +16954,10 @@ export type Database = {
       }
       get_email_campaign_attribution: {
         Args: { p_subject_id: string; p_subject_type: string }
+        Returns: Json
+      }
+      get_email_quota_status: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
       }
       get_event_managing_organizer: {
@@ -17656,6 +17866,10 @@ export type Database = {
         }
         Returns: Json
       }
+      recount_campaign_email_counters: {
+        Args: { p_campaign_id: string }
+        Returns: undefined
+      }
       refresh_analytics_daily_rollup: { Args: never; Returns: undefined }
       refresh_analytics_rollup: { Args: never; Returns: undefined }
       refresh_user_send_profiles: { Args: never; Returns: number }
@@ -17829,6 +18043,10 @@ export type Database = {
         Args: { p_member_id: string; p_status: string }
         Returns: string
       }
+      revoke_agency_invitation: {
+        Args: { p_invitation_id: string; p_kind: string }
+        Returns: boolean
+      }
       revoke_auth_session: {
         Args: { _auth_session_id: string }
         Returns: undefined
@@ -17972,6 +18190,10 @@ export type Database = {
       set_event_sale_password: {
         Args: { p_event_id: string; p_password: string }
         Returns: undefined
+      }
+      set_event_tables_mode: {
+        Args: { p_event_id: string; p_mode: string }
+        Returns: string
       }
       set_guest_list_public_types: {
         Args: { p_guest_list_id: string; p_types: string[] }
@@ -18156,6 +18378,14 @@ export type Database = {
         Args: { new_password: string }
         Returns: undefined
       }
+      upsert_event_floor_plan: {
+        Args: {
+          p_background_image_url?: string
+          p_event_id: string
+          p_layout: Json
+        }
+        Returns: string
+      }
       upsert_staff_brief: {
         Args: { p_body: string; p_venue_id: string }
         Returns: Json
@@ -18273,12 +18503,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -18302,11 +18532,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -18327,11 +18557,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -18352,11 +18582,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -18369,11 +18599,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -18383,6 +18613,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [

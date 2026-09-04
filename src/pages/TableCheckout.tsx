@@ -37,7 +37,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
 import { FloorPlanTable, VenueFloorPlan } from '@/types';
 import type { Tables } from '@/integrations/supabase/types';
-import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
+import { getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
@@ -78,6 +78,9 @@ export default function TableCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [event, setEvent] = useState<Tables<'events'> | null>(null);
   const [venue, setVenue] = useState<PublicVenueRow | null>(null);
+  // Organisateur de la soirée (soirée sans club) : c'est lui qui encaisse,
+  // porte le consentement marketing et absorbe (ou non) les frais.
+  const [organizer, setOrganizer] = useState<{ user_id: string; display_name: string | null; absorb_yuno_fees: boolean } | null>(null);
   const [pack, setPack] = useState<TablePack | null>(null);
   const [zone, setZone] = useState<TableZone | null>(null);
   const [promoterDiscount, setPromoterDiscount] = useState<PromoterDiscount | null>(null);
@@ -104,11 +107,16 @@ export default function TableCheckout() {
   const [remarks, setRemarks] = useState('');
   const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
-  // Une table VIP est toujours rattachée à un club (les zones appartiennent à
-  // un venue), donc la portée du consentement est toujours « club ».
+  // Portée du consentement : le club quand la soirée en a un, sinon
+  // l'organisateur (soirée sans club) — même règle que TicketCheckout.
   const marketingConsent = useMarketingConsent(
-    venue?.id ? { venueId: venue.id, organizerUserId: null, scopeName: venue.name ?? '' } : null,
+    venue?.id
+      ? { venueId: venue.id, organizerUserId: null, scopeName: venue.name ?? '' }
+      : organizer
+        ? { venueId: null, organizerUserId: organizer.user_id, scopeName: organizer.display_name ?? '' }
+        : null,
   );
+  const scopeName = venue?.name ?? organizer?.display_name ?? undefined;
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
   // Self-declared birth date (honor system) — recorded server-side at checkout.
@@ -215,22 +223,40 @@ export default function TableCheckout() {
         return;
       }
 
-      // Resolve venue (event.venue_id OR partner_venue_id for orga-led co-events)
+      // Resolve venue (event.venue_id OR partner_venue_id for orga-led co-events).
+      // Soirée SANS club (organisateur seul) : pas de venue, l'organisateur
+      // porte tout — zones/packs/plan event-scopés, encaissement sur son compte.
       const effectiveVenueId = eventData.venue_id ?? eventData.partner_venue_id;
-      const { data: venueData, error: venueError } = await supabase
-        .from('venues').select(PUBLIC_VENUE_COLUMNS).eq('id', effectiveVenueId).single();
-      if (venueError) throw venueError;
+      let venueData: PublicVenueRow | null = null;
+      if (effectiveVenueId) {
+        const { data, error: venueError } = await supabase
+          .from('venues').select(PUBLIC_VENUE_COLUMNS).eq('id', effectiveVenueId).single();
+        if (venueError) throw venueError;
+        venueData = data;
+      }
       setVenue(venueData);
+      const organizerId = eventData.organizer_user_id ?? eventData.partner_organizer_id ?? null;
+      if (!effectiveVenueId && organizerId) {
+        const { data: org } = await supabase
+          .from('organizer_profiles').select('user_id, display_name, absorb_yuno_fees').eq('user_id', organizerId).maybeSingle();
+        setOrganizer(org ? { user_id: org.user_id, display_name: org.display_name, absorb_yuno_fees: !!org.absorb_yuno_fees } : { user_id: organizerId, display_name: null, absorb_yuno_fees: false });
+      } else {
+        setOrganizer(null);
+      }
 
-      // Detect basic mode → no interactive placement, scope by event_id
+      // Detect basic mode → no interactive placement. Sans club, TOUT est
+      // event-scopé (basic comme élite) : aucun pack venue-scopé à réutiliser.
       const isBasicMode = eventData.tables_mode === 'basic';
-      const placementOn = !isBasicMode && (venueData.vip_placement_enabled || false);
+      const eventScoped = isBasicMode || !effectiveVenueId;
+      // Placement interactif : réglage du club quand il y en a un ; sans club,
+      // le mode élite de l'organisateur vaut placement (son plan est event-scopé).
+      const placementOn = !isBasicMode && (venueData ? (venueData.vip_placement_enabled || false) : true);
       setPlacementEnabled(placementOn);
 
-      // Floor plan: prefer event-scoped (basic mode) then venue-scoped
+      // Floor plan: prefer event-scoped (basic mode / organizer plan) then venue-scoped
       const { data: fpEvent } = await supabase
         .from('venue_floor_plans').select('*').eq('event_id', eventId).maybeSingle();
-      const fpData = fpEvent ?? (placementOn
+      const fpData = fpEvent ?? (placementOn && effectiveVenueId
         ? (await supabase.from('venue_floor_plans').select('*').eq('venue_id', effectiveVenueId).is('event_id', null).maybeSingle()).data
         : null);
       if (fpData) {
@@ -298,8 +324,8 @@ export default function TableCheckout() {
         }
       }
 
-      // Fetch all zones and packs for zone upsell — basic = scope by event_id, elite = by venue_id
-      const zoneQuery = isBasicMode
+      // Fetch all zones and packs for zone upsell — event-scoped (basic / sans club), else by venue_id
+      const zoneQuery = eventScoped
         ? supabase.from('table_zones').select('*').eq('event_id', eventId).order('position')
         : supabase.from('table_zones').select('*').eq('venue_id', effectiveVenueId).order('position');
       const { data: allZonesData } = await zoneQuery;
@@ -312,7 +338,7 @@ export default function TableCheckout() {
         }));
         setAllZones(zones);
 
-        const packQuery = isBasicMode
+        const packQuery = eventScoped
           ? supabase.from('table_packs').select('*').eq('event_id', eventId).eq('is_active', true).order('position')
           : supabase.from('table_packs').select('*').eq('venue_id', effectiveVenueId).eq('is_active', true).order('position');
         const { data: allPacksData } = await packQuery;
@@ -352,16 +378,22 @@ export default function TableCheckout() {
   // Promoter discount
   useEffect(() => {
     const checkPromoterDiscount = async () => {
-      if (!venue?.id) return;
-      // Scopé au club (même logique que TicketCheckout) : un code stocké pour
-      // le club A ne doit pas créditer un promoteur homonyme du club B.
-      const storedCode = getStoredPromoCodeForVenue(venue.id);
+      const organizerId = event?.organizer_user_id ?? event?.partner_organizer_id ?? null;
+      if (!venue?.id && !organizerId) return;
+      // Scopé à la soirée (club OU organisateur, même logique que
+      // TicketCheckout) : un code stocké pour le club A ne doit pas créditer
+      // un promoteur homonyme du club B.
+      const storedCode = getStoredPromoCodeForScope(venue?.id, organizerId);
       if (!storedCode) return;
       try {
+        const scopeOr = [
+          venue?.id ? `venue_id.eq.${venue.id}` : null,
+          organizerId ? `organizer_user_id.eq.${organizerId}` : null,
+        ].filter(Boolean).join(',');
         const { data: promoter, error } = await supabase
           .from('promoters')
           .select('id, promo_code, table_discount_type, table_discount_value')
-          .eq('venue_id', venue.id).ilike('promo_code', storedCode).eq('is_active', true).single();
+          .or(scopeOr).ilike('promo_code', storedCode).eq('is_active', true).limit(1).maybeSingle();
         if (error || !promoter) return;
         if (promoter.table_discount_value && promoter.table_discount_value > 0) {
           setPromoterDiscount({
@@ -375,7 +407,7 @@ export default function TableCheckout() {
       }
     };
     checkPromoterDiscount();
-  }, [venue?.id]);
+  }, [venue?.id, event?.organizer_user_id, event?.partner_organizer_id]);
 
   const packGuestLimit = pack ? pack.baseCapacity + pack.maxExtraPersons : 1;
 
@@ -416,7 +448,7 @@ export default function TableCheckout() {
     // Absorb mode: the club covers the Yuno commission, so the fan pays only the Stripe
     // transaction cost on the deposit charged now. Mirrors create-table-checkout's
     // `transactionFee`; the default path is left byte-identical.
-    const feeAbsorbed = venue?.absorb_yuno_fees === true;
+    const feeAbsorbed = venue ? venue.absorb_yuno_fees === true : organizer?.absorb_yuno_fees === true;
     const managementFee = feeAbsorbed
       ? estimateStripeFee(deposit)
       : Math.round(Math.min(MANAGEMENT_FEE_MAX, Math.max(MANAGEMENT_FEE_MIN, feeBase)) * 100) / 100;
@@ -501,13 +533,15 @@ export default function TableCheckout() {
       // 05/2020 §108 pour le libellé exact, §106 pour ne pas journaliser plus
       // que nécessaire).
       const { email: emailConsentWording, sms: smsConsentWording } =
-        marketingConsentWording(t, venue?.name);
+        marketingConsentWording(t, scopeName);
+      const consentOrganizerId = venue?.id ? null : (organizer?.user_id ?? null);
       if (newsletterOptIn && !marketingConsent.emailGranted) {
         void recordConsentGrant({
           channel: 'email',
           wordingText: emailConsentWording,
           wordingKey: 'consent.emailOffersFrom',
           venueId: venue?.id ?? null,
+          organizerUserId: consentOrganizerId,
           email: email.trim(),
           locale: language,
           source: 'table_checkout',
@@ -519,6 +553,7 @@ export default function TableCheckout() {
           wordingText: smsConsentWording,
           wordingKey: 'consent.smsOffersFrom',
           venueId: venue?.id ?? null,
+          organizerUserId: consentOrganizerId,
           email: email.trim(),
           phoneE164: phone.trim(),
           locale: language,
@@ -551,7 +586,7 @@ export default function TableCheckout() {
           // nulle. Résultat : le checkout partait sans code, et AUCUNE vente de
           // table n'a jamais généré de commission. Le serveur, lui, sait
           // résoudre le code (il utilise la clé service).
-          promoCode: promoterDiscount?.promoCode || getStoredPromoCodeForScope(venue?.id, venue?.id),
+          promoCode: promoterDiscount?.promoCode || getStoredPromoCodeForScope(venue?.id, event.organizer_user_id ?? event.partner_organizer_id),
           promoterId: promoterDiscount?.promoterId || null,
           discountAmount: pricing.discount,
           cancelUrl: window.location.pathname,
@@ -704,10 +739,10 @@ export default function TableCheckout() {
                     <Clock className="h-3.5 w-3.5 text-[#5A5A5E]" />
                     {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'HH:mm')}
                   </div>
-                  {venue?.address && (
+                  {(venue?.address || event.location_name) && (
                     <div className="flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-[#5A5A5E]" />
-                      {venue.name}
+                      {venue?.name ?? event.location_name}
                     </div>
                   )}
                 </div>
@@ -900,7 +935,7 @@ export default function TableCheckout() {
                     onNewsletterChange={setNewsletterOptIn}
                     smsOptIn={smsOptIn}
                     onSmsChange={handleSmsOptInChange}
-                    scopeName={venue?.name}
+                    scopeName={scopeName}
                     emailAlreadyGranted={marketingConsent.emailGranted}
                     smsAlreadyGranted={marketingConsent.smsGranted}
                     pending={marketingConsent.pending}

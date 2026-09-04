@@ -76,6 +76,18 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Tracking visiteur externe : uniquement via les RPC SECURITY DEFINER
   (`flush_affiliate_session`, `ping_affiliate_live`) — les UPDATE anonymes
   directs sont morts en prod. Voir `docs/AFFILIATE_SYSTEM.md`.
+- **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
+  système que le club, event-scopé. `table_zones` / `table_packs` /
+  `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
+  `enable_collab_tables` ne verrouille rien sans club, `upsert_event_floor_plan`
+  écrit le plan interactif de la soirée (le `FloorPlanEditor` prend `eventId`),
+  `set_event_tables_mode` bascule basic ⇄ élite (élite exige ≥ 1 table posée).
+  Sans club, TOUT est event-scopé — basic comme élite — côté checkout
+  (`eventScopedTables` dans `create-table-checkout`) et côté pages publiques.
+  Le bénéficiaire suit `create-ticket-checkout` : club s'il y en a un, sinon
+  compte Connect de l'organisateur (charge directe). Ne JAMAIS réintroduire un
+  `.single()` sur `venues` ni une porte « club partenaire requis » dans le
+  pilier tables. La bannière de contrat collab n'apparaît que sur `isCollab`.
 - **Revenu club** : « CA Club / Net », fee Stripe 1.5 %, helpers dans `utils/fees.ts`. Refund côté club.
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les

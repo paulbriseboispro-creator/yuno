@@ -150,6 +150,23 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'org-tables',
+        titleKey: 'ohelp.org.tables.title',
+        descKey: 'ohelp.org.tables.desc',
+        icon: 'Crown',
+        actionLink: { labelKey: OPEN, path: '/tables' },
+        relatedArticleIds: ['org-events', 'org-ticketing', 'org-checkin', 'org-payments'],
+        keywords: ['tables', 'vip', 'bottle service', 'table vip', 'mesas', 'zones', 'packs', 'plan de salle', 'floor plan', 'plano'],
+        sections: [
+          { headingKey: 'ohelp.org.tables.s1h', bodyKey: 'ohelp.org.tables.s1b' },
+          { headingKey: 'ohelp.org.tables.s2h', bodyKey: 'ohelp.org.tables.s2b' },
+          { headingKey: 'ohelp.org.tables.s3h', bodyKey: 'ohelp.org.tables.s3b', type: 'steps' },
+          { headingKey: 'ohelp.org.tables.s4h', bodyKey: 'ohelp.org.tables.s4b' },
+          { headingKey: 'ohelp.org.tables.s5h', bodyKey: 'ohelp.org.tables.s5b', type: 'tip' },
+          { headingKey: 'ohelp.org.tables.s6h', bodyKey: 'ohelp.org.tables.s6b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-guest-list',
         titleKey: 'ohelp.org.guestlist.title',
         descKey: 'ohelp.org.guestlist.desc',

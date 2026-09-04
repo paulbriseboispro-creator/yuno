@@ -188,14 +188,22 @@ serve(async (req) => {
 
     const isBasicMode = event.tables_mode === 'basic';
     const effectiveVenueId = event.venue_id || event.partner_venue_id;
-    if (!effectiveVenueId) {
-      throw new Error(t("table.needsPartnerClub", lang));
-    }
     const effectiveOrganizerId = event.organizer_user_id || event.partner_organizer_id;
+    // Soirée SANS club (organisateur seul) : les zones / packs / plan sont
+    // event-scopés et l'organisateur encaisse sur son propre compte Connect —
+    // même résolution que create-ticket-checkout. Ce chemin refusait toute
+    // soirée sans club (« nécessite un club partenaire »), alors que
+    // l'organisateur vend déjà ses billets en autonomie.
+    if (!effectiveVenueId && !effectiveOrganizerId) {
+      throw new Error("Event has no recipient (venue or organizer)");
+    }
+    // Sans club, TOUT est event-scopé (basic comme élite) : il n'existe aucun
+    // pack venue-scopé à réutiliser.
+    const eventScopedTables = isBasicMode || !effectiveVenueId;
 
     // Check if customer is banned from this venue (account-level OR email-level,
     // including guest checkout). Scoped to effectiveVenueId — never crosses clubs.
-    {
+    if (effectiveVenueId) {
       const buyerEmail = user?.email || guestEmail || null;
 
       if (user) {
@@ -227,11 +235,11 @@ serve(async (req) => {
     const packQuery = supabaseAdmin.from("table_packs").select("*").eq("id", packId);
     const { data: pack } = await packQuery.single();
     if (!pack || !pack.is_active) throw new Error("Table pack not found or inactive");
-    if (isBasicMode && pack.event_id !== eventId) {
+    if (eventScopedTables && pack.event_id !== eventId) {
       throw new Error(t("table.invalidPack", lang));
     }
 
-    logStep("Pack found", { packId: pack.id, packName: pack.name, basic: isBasicMode });
+    logStep("Pack found", { packId: pack.id, packName: pack.name, basic: isBasicMode, eventScoped: eventScopedTables });
 
     // ===== ZONE CAPACITY GUARD =====
     // Prevent overselling: count active reservations in the target zone and block when
@@ -266,21 +274,31 @@ serve(async (req) => {
       }
     }
 
-    const { data: venue } = await supabaseAdmin.from("venues").select("id, name, stripe_account_id, stripe_charges_enabled").eq("id", effectiveVenueId).single();
-    if (!venue) throw new Error("Venue not found");
+    // Club de la soirée (s'il y en a un). Sans club, `venue` reste null et
+    // l'organisateur est le seul bénéficiaire.
+    let venue: { id: string; name: string; stripe_account_id: string | null; stripe_charges_enabled: boolean | null } | null = null;
+    if (effectiveVenueId) {
+      const { data: venueRow } = await supabaseAdmin.from("venues").select("id, name, stripe_account_id, stripe_charges_enabled").eq("id", effectiveVenueId).single();
+      if (!venueRow) throw new Error("Venue not found");
+      venue = venueRow;
+    }
 
-    // Resolve organizer Stripe account if co-event
+    // Compte Stripe de l'organisateur : nécessaire dès qu'il y a un organisateur
+    // (co-soirée partagée OU soirée sans club où il encaisse tout).
     let organizerStripeAccountId: string | null = null;
+    let organizerStripeChargesEnabled = false;
     let partnershipRules: Record<string, unknown> | null = null;
     let partnershipId: string | null = null;
-    if (effectiveOrganizerId && event.event_mode !== 'solo_venue' && event.event_mode !== 'solo_organizer') {
+    if (effectiveOrganizerId) {
       const { data: orgProfile } = await supabaseAdmin
         .from("profiles")
-        .select("stripe_connect_account_id")
+        .select("stripe_connect_account_id, stripe_connect_charges_enabled")
         .eq("id", effectiveOrganizerId)
         .maybeSingle();
       organizerStripeAccountId = orgProfile?.stripe_connect_account_id ?? null;
-
+      organizerStripeChargesEnabled = !!orgProfile?.stripe_connect_charges_enabled;
+    }
+    if (effectiveVenueId && effectiveOrganizerId && event.event_mode !== 'solo_venue' && event.event_mode !== 'solo_organizer') {
       const { data: partnership } = await supabaseAdmin
         .from("venue_organizer_partnerships")
         .select("id, default_split_rules")
@@ -318,10 +336,19 @@ serve(async (req) => {
       throw new Error(t("checkout.pillarTablesOff", lang));
     }
 
-    logStep("Venue found", { 
-      venueId: venue.id, 
-      stripeAccountId: venue.stripe_account_id,
-      chargesEnabled: venue.stripe_charges_enabled 
+    // Bénéficiaire du paiement : le club quand la soirée en a un, sinon
+    // l'organisateur (charge directe sur SON compte Connect). Miroir exact de
+    // create-ticket-checkout — les deux piliers encaissent au même endroit.
+    const payoutSource: 'venue' | 'organizer' = venue ? 'venue' : 'organizer';
+    const payoutStripeAccountId = payoutSource === 'venue' ? (venue?.stripe_account_id ?? null) : organizerStripeAccountId;
+    const payoutStripeChargesEnabled = payoutSource === 'venue' ? !!venue?.stripe_charges_enabled : organizerStripeChargesEnabled;
+
+    logStep("Payment targets resolved", {
+      payoutSource,
+      venueId: venue?.id ?? null,
+      organizerId: effectiveOrganizerId,
+      stripeAccountId: payoutStripeAccountId,
+      chargesEnabled: payoutStripeChargesEnabled,
     });
 
     // Create or update venue customer (only for authenticated users)
@@ -329,7 +356,7 @@ serve(async (req) => {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    if (user) {
+    if (user && effectiveVenueId) {
       await supabaseAdmin.rpc('get_or_create_venue_customer', {
         p_venue_id: effectiveVenueId,
         p_user_id: user.id,
@@ -465,7 +492,7 @@ serve(async (req) => {
     // Fee absorption (co-event: the CLUB / effectiveVenueId is seller of record).
     // When absorbed, the fan does not pay the management fee on top — it comes out of
     // the club's net via the split. Default false → unchanged behavior.
-    const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, effectiveVenueId);
+    const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, effectiveVenueId, effectiveOrganizerId);
 
     // total_price = table price (spending budget), NOT including management fees
     const finalTotalPrice = serverTotalPrice - validatedDiscount;
@@ -531,7 +558,7 @@ serve(async (req) => {
 
       // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
       // (préparée pour l'arrivée, réglée à la table). Non bloquant.
-      if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0) {
+      if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && event.venue_id) {
         try {
           const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
           const { data: poOrder, error: poErr } = await supabaseAdmin
@@ -606,32 +633,35 @@ serve(async (req) => {
         }
       }
 
-      // Increment venue customer stats atomically
-      await supabaseAdmin.rpc('increment_venue_customer_stats', {
-        p_venue_id: effectiveVenueId,
-        p_user_id: user.id,
-        p_order_delta: 0,
-        p_ticket_delta: 0,
-        p_table_delta: 1,
-        p_spent_delta: finalTotalPrice,
-      });
-      logStep("Venue customer stats incremented", { venueId: effectiveVenueId, spent: finalTotalPrice });
-
-      // Award loyalty points
+      // Stats client + fidélité : notions de CLUB, et d'acheteur connecté.
+      // (Sans la garde `user`, un invité en mode démo faisait planter la
+      // fonction sur `user.id` APRÈS l'insertion de la réservation.)
       let pointsEarned = 0;
-      try {
-        const { data: pointsData } = await supabaseAdmin.rpc('award_loyalty_points', {
+      if (effectiveVenueId && user) {
+        await supabaseAdmin.rpc('increment_venue_customer_stats', {
           p_venue_id: effectiveVenueId,
           p_user_id: user.id,
-          p_amount: finalTotalPrice,
-          p_reference_type: 'table',
-          p_reference_id: reservation.id,
-          p_description: 'VIP table reservation',
+          p_order_delta: 0,
+          p_ticket_delta: 0,
+          p_table_delta: 1,
+          p_spent_delta: finalTotalPrice,
         });
-        pointsEarned = pointsData || 0;
-        logStep("Loyalty points awarded", { pointsEarned, venueId: effectiveVenueId });
-      } catch (loyaltyError) {
-        logStep("Error awarding loyalty points (non-blocking)", { error: String(loyaltyError) });
+        logStep("Venue customer stats incremented", { venueId: effectiveVenueId, spent: finalTotalPrice });
+
+        try {
+          const { data: pointsData } = await supabaseAdmin.rpc('award_loyalty_points', {
+            p_venue_id: effectiveVenueId,
+            p_user_id: user.id,
+            p_amount: finalTotalPrice,
+            p_reference_type: 'table',
+            p_reference_id: reservation.id,
+            p_description: 'VIP table reservation',
+          });
+          pointsEarned = pointsData || 0;
+          logStep("Loyalty points awarded", { pointsEarned, venueId: effectiveVenueId });
+        } catch (loyaltyError) {
+          logStep("Error awarding loyalty points (non-blocking)", { error: String(loyaltyError) });
+        }
       }
 
       // ── Notif owner + organizer : nouvelle réservation VIP ──────────────────
@@ -709,14 +739,20 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    if (!venue.stripe_account_id) throw new Error(t("checkout.venuePaymentsNotSetUp", lang));
-    if (!venue.stripe_charges_enabled) throw new Error(t("checkout.venueStripeNotActive", lang));
+    if (!payoutStripeAccountId) {
+      logStep("Checkout refused — payment account not connected", { payoutSource, effectiveVenueId, effectiveOrganizerId });
+      throw new Error(t(payoutSource === 'organizer' ? "checkout.organizerPaymentsNotSetUp" : "checkout.venuePaymentsNotSetUp", lang));
+    }
+    if (!payoutStripeChargesEnabled) {
+      logStep("Checkout refused — payment account not active", { payoutSource, effectiveVenueId, effectiveOrganizerId });
+      throw new Error(t(payoutSource === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive", lang));
+    }
 
     // Sentinelle démo (`acct_demo_…`, seed womber) : compte Stripe FICTIF marqué
     // charges_enabled=true — sans ce refus, Stripe meurt en plein checkout sur
     // « No such account » (l'erreur du rejet App Store 2.1(a)). Refus propre AVANT
     // la réservation ; les comptes démo @womber.fr n'arrivent jamais ici (simulate).
-    const demoStripeAccount = [venue.stripe_account_id, organizerStripeAccountId]
+    const demoStripeAccount = [venue?.stripe_account_id ?? null, organizerStripeAccountId]
       .find((id) => id?.startsWith("acct_demo"));
     if (demoStripeAccount) {
       logStep("Checkout refused — demo Stripe account sentinel", { demoStripeAccount });
@@ -767,7 +803,7 @@ serve(async (req) => {
 
     // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
     // (préparée pour l'arrivée, réglée à la table). Non bloquant ; survit au pending->paid.
-    if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0) {
+    if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && event.venue_id) {
       try {
         const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
         const { data: poOrder, error: poErr } = await supabaseAdmin
@@ -840,7 +876,7 @@ serve(async (req) => {
         revenue_split_rules: event.revenue_split_rules,
       },
       partnershipRules,
-      venueStripeAccountId: venue.stripe_account_id,
+      venueStripeAccountId: venue?.stripe_account_id ?? null,
       organizerStripeAccountId,
     });
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
@@ -863,7 +899,7 @@ serve(async (req) => {
       cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;
@@ -923,10 +959,11 @@ serve(async (req) => {
       })(),
     }, split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined);
 
-    logStep("Stripe session created", { 
-      sessionId: session.id, 
+    logStep("Stripe session created", {
+      sessionId: session.id,
       yunoCommission,
-      destination: venue.stripe_account_id 
+      payoutSource,
+      destination: split.primary.accountId,
     });
 
     return new Response(JSON.stringify({ success: true, sessionId: session.id, url: session.url }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });

@@ -5,13 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
   RED, RED_SOFT, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
+import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import type { VenueFloorPlan } from '@/types';
@@ -50,6 +52,19 @@ const daInputStyle: React.CSSProperties = {
   outline: 'none', borderRadius: 12, padding: '10px 12px', fontSize: 13,
 };
 
+/**
+ * Tables VIP d'une soirée vues par l'organisateur.
+ *
+ * Deux mondes, un seul panneau :
+ *  • Co-soirée AVEC club : le plan et les zones viennent du club (verrouillés),
+ *    l'organisateur ne règle que ses packs/prix — ou, si le club a un plan
+ *    interactif, la soirée passe en élite sur CE plan (lecture seule ici).
+ *  • Soirée SANS club (organisateur seul, lieu loué hors Yuno) : l'organisateur
+ *    est son propre club. Il crée ses zones, ses packs, importe une image ou
+ *    construit un plan interactif avec le MÊME éditeur que les clubs, et
+ *    choisit si le client pointe sa table (élite) ou réserve une zone (basic).
+ *    Tout est event-scopé (venue_id NULL) — migration 20260904120000.
+ */
 export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTablesPanelProps) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -60,6 +75,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   const [tablesOwnerId, setTablesOwnerId] = useState<string | null>(null);
   const [eventMode, setEventMode] = useState<string | null>(null);
   const [responsibilities, setResponsibilities] = useState<unknown>(null);
+  // Club de la soirée (hôte ou partenaire). NULL = organisateur seul.
+  const [clubId, setClubId] = useState<string | null>(null);
   // When true, the plan + zones come from the club and are read-only here —
   // the organizer only configures packs/prices on top of the club's layout.
   const [lockedToVenue, setLockedToVenue] = useState(false);
@@ -70,10 +87,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
   const [uploading, setUploading] = useState(false);
   const [tab, setTab] = useState<'zones' | 'packs' | 'plan'>('zones');
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  const [modeSaving, setModeSaving] = useState(false);
 
-  // Live availability for the interactive (elite) plan — taken vs free tables.
+  const soloOrganizer = !clubId;
   const isElite = tablesEnabled && tablesMode === 'elite';
-  const { unavailableTableIds } = useTableAvailability(isElite ? eventId : undefined);
+  const planTableCount = floorPlan?.layout?.tables?.length ?? 0;
+  // Live availability for the interactive plan — taken vs free tables.
+  const { unavailableTableIds } = useTableAvailability(tablesEnabled && planTableCount > 0 ? eventId : undefined);
 
   // Zone dialog
   const [zoneOpen, setZoneOpen] = useState(false);
@@ -105,7 +126,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     setLoading(true);
     try {
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }] = await Promise.all([
-        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities').eq('id', eventId).maybeSingle(),
+        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
@@ -115,13 +136,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       setTablesOwnerId(ev?.tables_owner_user_id ?? null);
       setEventMode(ev?.event_mode ?? null);
       setResponsibilities(ev?.collab_responsibilities ?? null);
+      setClubId(ev?.venue_id ?? ev?.partner_venue_id ?? null);
       setLockedToVenue(!!ev?.tables_locked_to_venue);
       setZones((zs ?? []) as BasicZone[]);
       setPacks((ps ?? []) as BasicPack[]);
       setFloorPlanUrl(fp?.background_image_url ?? null);
       setFloorPlan(fp ? {
         id: fp.id,
-        venueId: (fp as any).venue_id ?? '',
+        venueId: fp.venue_id ?? '',
         backgroundImageUrl: fp.background_image_url ?? null,
         layout: (fp.layout ?? { tables: [] }) as VenueFloorPlan['layout'],
         createdAt: '', updatedAt: '',
@@ -133,21 +155,22 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     }
   };
 
-  const enableBasicTables = async () => {
-    // RPC: if the club has an interactive floor plan → ELITE (the client picks a
-    // table on the club's plan); otherwise BASIC (club zones cloned + locked, the
-    // organizer only sets packs/prices). Returns the resolved mode.
+  const enableTables = async () => {
+    // RPC : avec un club → ÉLITE si le club a un plan interactif (le client
+    // choisit sa table sur le plan du club), sinon BASIC (zones du club clonées
+    // et verrouillées, l'orga règle ses packs/prix). Sans club → l'organisateur
+    // garde ses propres zones/packs/plan ; élite dès qu'il a construit un plan.
     const { error } = await supabase.rpc('enable_collab_tables', { p_event_id: eventId });
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(tt('Vente de tables activée', 'Table sales enabled'));
+    toast.success(tt('Vente de tables activée', 'Table sales enabled', 'Venta de mesas activada'));
     loadAll();
   };
 
-  const disableBasicTables = async () => {
-    if (!confirm(tt('Désactiver la vente de tables pour cet event ?', 'Disable table sales for this event?'))) return;
+  const disableTables = async () => {
+    if (!confirm(tt('Désactiver la vente de tables pour cet event ?', 'Disable table sales for this event?', '¿Desactivar la venta de mesas para este evento?'))) return;
     const { error } = await supabase
       .from('events')
       .update({ tables_enabled: false })
@@ -156,8 +179,44 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       toast.error(error.message);
       return;
     }
-    toast.success(tt('Vente de tables désactivée', 'Table sales disabled'));
+    toast.success(tt('Vente de tables désactivée', 'Table sales disabled', 'Venta de mesas desactivada'));
     loadAll();
+  };
+
+  // Soirée sans club : basic (réservation d'une zone) ⇄ élite (le client
+  // pointe sa table sur le plan). Le serveur refuse l'élite sans plan.
+  const setMode = async (elite: boolean) => {
+    setModeSaving(true);
+    const { error } = await supabase.rpc('set_event_tables_mode', { p_event_id: eventId, p_mode: elite ? 'elite' : 'basic' });
+    setModeSaving(false);
+    if (error) {
+      toast.error(error.code === '23514'
+        ? tt('Construisez d’abord un plan interactif avec au moins une table.', 'Build an interactive floor plan with at least one table first.', 'Construye primero un plano interactivo con al menos una mesa.')
+        : error.message);
+      return;
+    }
+    toast.success(elite
+      ? tt('Le client choisira sa table sur le plan.', 'Guests will pick their table on the plan.', 'El cliente elegirá su mesa en el plano.')
+      : tt('Réservation par zone activée.', 'Zone booking enabled.', 'Reserva por zona activada.'));
+    loadAll();
+  };
+
+  // Le plan interactif fait foi sur le nombre de tables vendables par zone :
+  // après une sauvegarde, on aligne tables_count (plafond de vente) sur les
+  // tables réellement posées. Une zone sans table sur le plan garde son compte
+  // manuel — même règle que la page Tables du club.
+  const syncZoneCountsFromLayout = async () => {
+    const { data: fp } = await supabase.from('venue_floor_plans').select('layout').eq('event_id', eventId).maybeSingle();
+    const planTables = ((fp?.layout as { tables?: { zoneId?: string | null }[] } | null)?.tables) ?? [];
+    if (planTables.length === 0) return;
+    const counts = new Map<string, number>();
+    for (const t of planTables) { if (t.zoneId) counts.set(t.zoneId, (counts.get(t.zoneId) || 0) + 1); }
+    const updates = zones.flatMap((z) => {
+      const n = counts.get(z.id);
+      if (n === undefined || n === z.tables_count) return [];
+      return [supabase.from('table_zones').update({ tables_count: n }).eq('id', z.id)];
+    });
+    if (updates.length > 0) await Promise.all(updates);
   };
 
   // ---- Zones ----
@@ -173,7 +232,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
 
   const saveZone = async () => {
     if (!zoneForm.name.trim()) {
-      toast.error(tt('Nom requis', 'Name required'));
+      toast.error(tt('Nom requis', 'Name required', 'Nombre obligatorio'));
       return;
     }
     const payload = {
@@ -182,10 +241,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       tables_count: parseInt(zoneForm.tables_count) || 1,
       event_id: eventId,
       created_by_user_id: organizerUserId,
-      // Required by venue-scoped legacy column: use a placeholder when event-scoped.
-      // venue_id is non-null in table_zones today, so we still store the partner venue id.
-      venue_id: (await supabase.from('events').select('venue_id, partner_venue_id').eq('id', eventId).single()).data?.venue_id
-        ?? (await supabase.from('events').select('partner_venue_id').eq('id', eventId).single()).data?.partner_venue_id,
+      // Club de la soirée s'il y en a un ; NULL pour un organisateur seul
+      // (la zone est alors purement event-scopée).
+      venue_id: clubId,
     };
     const { error } = editingZone
       ? await supabase.from('table_zones').update(payload).eq('id', editingZone.id)
@@ -194,18 +252,18 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       toast.error(error.message);
       return;
     }
-    toast.success(editingZone ? tt('Zone modifiée', 'Zone updated') : tt('Zone créée', 'Zone created'));
+    toast.success(editingZone ? tt('Zone modifiée', 'Zone updated', 'Zona actualizada') : tt('Zone créée', 'Zone created', 'Zona creada'));
     setZoneOpen(false);
     loadAll();
   };
 
   const deleteZone = async (id: string) => {
-    if (!confirm(tt('Supprimer cette zone et tous ses packs ?', 'Delete this zone and all its packs?'))) return;
+    if (!confirm(tt('Supprimer cette zone et tous ses packs ?', 'Delete this zone and all its packs?', '¿Eliminar esta zona y todos sus packs?'))) return;
     const { error: packErr } = await supabase.from('table_packs').delete().eq('zone_id', id).eq('event_id', eventId);
     if (packErr) { toast.error(packErr.message); return; }
     const { error } = await supabase.from('table_zones').delete().eq('id', id);
     if (error) toast.error(error.message);
-    else { toast.success(tt('Zone supprimée', 'Zone deleted')); loadAll(); }
+    else { toast.success(tt('Zone supprimée', 'Zone deleted', 'Zona eliminada')); loadAll(); }
   };
 
   // ---- Packs ----
@@ -239,10 +297,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
 
   const savePack = async () => {
     if (!packForm.zone_id || !packForm.name.trim() || !packForm.base_price) {
-      toast.error(tt('Zone, nom et prix requis', 'Zone, name and price required'));
+      toast.error(tt('Zone, nom et prix requis', 'Zone, name and price required', 'Zona, nombre y precio obligatorios'));
       return;
     }
-    const venueIdRow = await supabase.from('events').select('venue_id, partner_venue_id').eq('id', eventId).single();
     const payload = {
       zone_id: packForm.zone_id,
       name: packForm.name.trim(),
@@ -256,7 +313,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       is_active: true,
       event_id: eventId,
       created_by_user_id: organizerUserId,
-      venue_id: venueIdRow.data?.venue_id ?? venueIdRow.data?.partner_venue_id,
+      venue_id: clubId,
     };
     const { error } = editingPack
       ? await supabase.from('table_packs').update(payload).eq('id', editingPack.id)
@@ -265,19 +322,19 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       toast.error(error.message);
       return;
     }
-    toast.success(editingPack ? tt('Pack modifié', 'Pack updated') : tt('Pack créé', 'Pack created'));
+    toast.success(editingPack ? tt('Pack modifié', 'Pack updated', 'Pack actualizado') : tt('Pack créé', 'Pack created', 'Pack creado'));
     setPackOpen(false);
     loadAll();
   };
 
   const deletePack = async (id: string) => {
-    if (!confirm(tt('Supprimer ce pack ?', 'Delete this pack?'))) return;
+    if (!confirm(tt('Supprimer ce pack ?', 'Delete this pack?', '¿Eliminar este pack?'))) return;
     const { error } = await supabase.from('table_packs').delete().eq('id', id);
     if (error) toast.error(error.message);
-    else { toast.success(tt('Pack supprimé', 'Pack deleted')); loadAll(); }
+    else { toast.success(tt('Pack supprimé', 'Pack deleted', 'Pack eliminado')); loadAll(); }
   };
 
-  // ---- Floor plan ----
+  // ---- Floor plan (image illustrative) ----
   const onUploadPlan = async (file: File) => {
     setUploading(true);
     try {
@@ -286,26 +343,26 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       const { error: upErr } = await supabase.storage.from('floor-plans').upload(path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from('floor-plans').getPublicUrl(path);
-      const venueIdRow = await supabase.from('events').select('venue_id, partner_venue_id').eq('id', eventId).single();
-      const venueId = venueIdRow.data?.venue_id ?? venueIdRow.data?.partner_venue_id;
       const { data: existing } = await supabase
         .from('venue_floor_plans')
         .select('id')
         .eq('event_id', eventId)
         .maybeSingle();
-      const payload = {
-        event_id: eventId,
-        owner_user_id: organizerUserId,
-        venue_id: venueId,
-        background_image_url: pub.publicUrl,
-        layout: { tables: [] },
-      };
+      // Un plan existant garde son layout : remplacer l'image ne doit jamais
+      // effacer les tables posées dans l'éditeur interactif.
       const { error } = existing
-        ? await supabase.from('venue_floor_plans').update(payload).eq('id', existing.id)
-        : await supabase.from('venue_floor_plans').insert(payload);
+        ? await supabase.from('venue_floor_plans').update({ background_image_url: pub.publicUrl }).eq('id', existing.id)
+        : await supabase.from('venue_floor_plans').insert({
+            event_id: eventId,
+            owner_user_id: organizerUserId,
+            venue_id: clubId,
+            background_image_url: pub.publicUrl,
+            layout: { tables: [] },
+          });
       if (error) throw error;
       setFloorPlanUrl(pub.publicUrl);
-      toast.success(tt('Plan importé', 'Plan uploaded'));
+      toast.success(tt('Plan importé', 'Plan uploaded', 'Plano importado'));
+      loadAll();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -325,7 +382,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       <OrgCard style={{ padding: 20, background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}` }}>
         <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
           <Lock className="h-4 w-4" style={{ color: T3 }} />
-          {tt('Tables VIP — gérées par le club', 'VIP Tables — managed by the club')}
+          {tt('Tables VIP — gérées par le club', 'VIP Tables — managed by the club', 'Mesas VIP — gestionadas por el club')}
         </h2>
         <p className="mt-1.5" style={{ color: T3, fontSize: 12.5 }}>
           {tt(
@@ -343,18 +400,18 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     );
   }
 
-  // ÉLITE — the co-event reuses the club's interactive plan: the client picks a
-  // table at checkout. Here the organizer sees the plan (read-only) + the live
-  // reservations. Pricing/zones stay the club's (venue-scoped).
-  if (isElite) {
-    const hasInteractivePlan = (floorPlan?.layout?.tables?.length ?? 0) > 0;
+  // ÉLITE sur le plan du CLUB — the co-event reuses the club's interactive plan:
+  // the client picks a table at checkout. Here the organizer sees the plan
+  // (read-only) + the live reservations. Pricing/zones stay the club's.
+  if (isElite && !soloOrganizer) {
+    const hasInteractivePlan = planTableCount > 0;
     return (
       <OrgCard style={{ padding: 24 }}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
               <MapIcon className="h-5 w-5" style={{ color: RED }} />
-              {tt('Tables VIP — Plan du club', 'VIP Tables — Club floor plan')}
+              {tt('Tables VIP — Plan du club', 'VIP Tables — Club floor plan', 'Mesas VIP — Plano del club')}
             </h2>
             <p className="mt-0.5 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
               <Lock className="h-3.5 w-3.5" />
@@ -365,8 +422,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
               )}
             </p>
           </div>
-          <OrgButton variant="ghost" size="sm" onClick={disableBasicTables}>
-            {tt('Désactiver', 'Disable')}
+          <OrgButton variant="ghost" size="sm" onClick={disableTables}>
+            {tt('Désactiver', 'Disable', 'Desactivar')}
           </OrgButton>
         </div>
 
@@ -402,7 +459,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
 
         <div className="mt-5">
           <h3 className="mb-2" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
-            {tt('Réservations', 'Reservations')}
+            {tt('Réservations', 'Reservations', 'Reservas')}
           </h3>
           <OwnerVipOrders eventId={eventId} />
         </div>
@@ -410,23 +467,32 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     );
   }
 
-  // Initial state — no basic tables yet
-  if (!tablesEnabled || tablesMode !== 'basic') {
+  // Initial state — tables not enabled yet
+  if (!tablesEnabled) {
     return (
       <OrgCard style={{ padding: 24 }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
               <Sparkles className="h-5 w-5" style={{ color: RED }} />
-              {tt('Tables VIP — Mode Basic', 'VIP Tables — Basic mode')}
+              {soloOrganizer
+                ? tt('Tables VIP', 'VIP Tables', 'Mesas VIP')
+                : tt('Tables VIP — Mode Basic', 'VIP Tables — Basic mode', 'Mesas VIP — Modo Basic')}
             </h2>
             <p className="mt-1 max-w-xl" style={{ color: T3, fontSize: 12.5 }}>
-              {tt(
-                "Vendez des tables VIP simples : zones, packs, plan visuel. Pas de placement client interactif, pas de service VIP — réservation basique uniquement.",
-                'Sell simple VIP tables: zones, packs, visual plan. No interactive client placement, no VIP service — basic reservations only.',
-              )}
+              {soloOrganizer
+                ? tt(
+                    'Vendez des tables VIP en autonomie : vos zones, vos packs et prix, votre plan de salle. Construisez un plan interactif et le client choisit sa table — le même outil que les clubs.',
+                    'Sell VIP tables on your own: your zones, your packs and prices, your floor plan. Build an interactive plan and guests pick their table — the same tool clubs use.',
+                    'Vende mesas VIP por tu cuenta: tus zonas, tus packs y precios, tu plano de sala. Construye un plano interactivo y el cliente elige su mesa: la misma herramienta que los clubs.',
+                  )
+                : tt(
+                    "Vendez des tables VIP simples : zones, packs, plan visuel. Pas de placement client interactif, pas de service VIP — réservation basique uniquement.",
+                    'Sell simple VIP tables: zones, packs, visual plan. No interactive client placement, no VIP service — basic reservations only.',
+                    'Vende mesas VIP simples: zonas, packs, plano visual. Sin colocación interactiva ni servicio VIP: solo reserva básica.',
+                  )}
             </p>
-            {canSideEdit(responsibilities, eventMode, 'operations', 'organizer') && (
+            {!soloOrganizer && (
               <p className="mt-2 flex items-start gap-1.5 max-w-xl" style={{ color: T3, fontSize: 11.5 }}>
                 <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {tt(
@@ -437,8 +503,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
               </p>
             )}
           </div>
-          <OrgButton variant="primary" size="sm" onClick={enableBasicTables}>
-            {tt('Activer la vente de tables', 'Enable table sales')}
+          <OrgButton variant="primary" size="sm" onClick={enableTables}>
+            {tt('Activer la vente de tables', 'Enable table sales', 'Activar la venta de mesas')}
           </OrgButton>
         </div>
       </OrgCard>
@@ -453,6 +519,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
           {tt(
             'Les tables de cet event sont gérées par un autre compte.',
             'Tables for this event are managed by another account.',
+            'Las mesas de este evento las gestiona otra cuenta.',
           )}
         </p>
       </OrgCard>
@@ -464,15 +531,19 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
-            <Sparkles className="h-5 w-5" style={{ color: RED }} />
-            {tt('Tables VIP — Basic', 'VIP Tables — Basic')}
+            {isElite ? <MapIcon className="h-5 w-5" style={{ color: RED }} /> : <Sparkles className="h-5 w-5" style={{ color: RED }} />}
+            {isElite
+              ? tt('Tables VIP — Plan interactif', 'VIP Tables — Interactive plan', 'Mesas VIP — Plano interactivo')
+              : tt('Tables VIP — Basic', 'VIP Tables — Basic', 'Mesas VIP — Basic')}
           </h2>
           <p style={{ color: T3, fontSize: 11.5 }}>
-            {tt('Réservation simple, sans placement interactif.', 'Simple booking, no interactive placement.')}
+            {isElite
+              ? tt('Le client choisit sa table sur votre plan.', 'Guests pick their table on your plan.', 'El cliente elige su mesa en tu plano.')
+              : tt('Réservation par zone, sans placement interactif.', 'Zone booking, no interactive placement.', 'Reserva por zona, sin colocación interactiva.')}
           </p>
         </div>
-        <OrgButton variant="ghost" size="sm" onClick={disableBasicTables}>
-          {tt('Désactiver', 'Disable')}
+        <OrgButton variant="ghost" size="sm" onClick={disableTables}>
+          {tt('Désactiver', 'Disable', 'Desactivar')}
         </OrgButton>
       </div>
 
@@ -480,9 +551,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: 'zones', label: tt('Zones', 'Zones'), icon: <Layers className="h-3.5 w-3.5" /> },
-          { value: 'packs', label: tt('Packs', 'Packs'), icon: <Package className="h-3.5 w-3.5" /> },
-          { value: 'plan', label: tt('Plan de salle', 'Floor plan'), icon: <ImageIcon className="h-3.5 w-3.5" /> },
+          { value: 'zones', label: tt('Zones', 'Zones', 'Zonas'), icon: <Layers className="h-3.5 w-3.5" /> },
+          { value: 'packs', label: tt('Packs', 'Packs', 'Packs'), icon: <Package className="h-3.5 w-3.5" /> },
+          { value: 'plan', label: tt('Plan de salle', 'Floor plan', 'Plano de sala'), icon: <ImageIcon className="h-3.5 w-3.5" /> },
         ]}
       />
 
@@ -503,13 +574,13 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
           ) : (
             <div className="flex justify-end">
               <OrgButton variant="primary" size="sm" onClick={() => openZoneDialog(null)}>
-                <Plus className="h-4 w-4" /> {tt('Nouvelle zone', 'New zone')}
+                <Plus className="h-4 w-4" /> {tt('Nouvelle zone', 'New zone', 'Nueva zona')}
               </OrgButton>
             </div>
           )}
           {zones.length === 0 && (
             <p className="py-6 text-center" style={{ color: T3, fontSize: 13 }}>
-              {tt('Aucune zone. Créez votre première zone (ex: Carré VIP, Pit, Mezzanine).', 'No zones yet. Create your first zone (e.g., VIP Pit, Mezzanine).')}
+              {tt('Aucune zone. Créez votre première zone (ex: Carré VIP, Pit, Mezzanine).', 'No zones yet. Create your first zone (e.g., VIP Pit, Mezzanine).', 'Sin zonas. Crea tu primera zona (p. ej. Zona VIP, Pit, Mezzanine).')}
             </p>
           )}
           {zones.map((z) => (
@@ -518,7 +589,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
                 <div className="h-4 w-4 rounded" style={{ background: z.color }} />
                 <div>
                   <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{z.name}</div>
-                  <div style={{ color: T3, fontSize: 11.5 }}>{z.tables_count} {tt('tables', 'tables')}</div>
+                  <div style={{ color: T3, fontSize: 11.5 }}>{z.tables_count} {tt('tables', 'tables', 'mesas')}</div>
                 </div>
               </div>
               {!lockedToVenue && (
@@ -537,12 +608,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
         <div className="space-y-3 pt-4">
           <div className="flex justify-end">
             <OrgButton variant="primary" size="sm" onClick={() => openPackDialog(null)} disabled={zones.length === 0}>
-              <Plus className="h-4 w-4" /> {tt('Nouveau pack', 'New pack')}
+              <Plus className="h-4 w-4" /> {tt('Nouveau pack', 'New pack', 'Nuevo pack')}
             </OrgButton>
           </div>
           {zones.length === 0 && (
             <p className="py-6 text-center" style={{ color: T3, fontSize: 13 }}>
-              {tt("Créez d'abord une zone.", 'Create a zone first.')}
+              {tt("Créez d'abord une zone.", 'Create a zone first.', 'Crea primero una zona.')}
             </p>
           )}
           {zones.map((z) => {
@@ -559,8 +630,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
                     <div>
                       <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{p.name} <span style={{ color: T3 }}>— {Number(p.base_price).toFixed(0)}€</span></div>
                       <div style={{ color: T3, fontSize: 11.5 }}>
-                        {p.base_capacity} {tt('pers.', 'guests')}
-                        {Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit')} {Number(p.deposit).toFixed(0)}€</>}
+                        {p.base_capacity} {tt('pers.', 'guests', 'pers.')}
+                        {Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -577,110 +648,217 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
 
       {/* FLOOR PLAN */}
       {tab === 'plan' && (
-        <div className="space-y-3 pt-4">
-          <p className="flex items-start gap-2" style={{ color: T3, fontSize: 11.5 }}>
-            {lockedToVenue && <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-            {lockedToVenue
-              ? tt(
-                  'Plan de salle fourni par le club — verrouillé.',
-                  'Floor plan provided by the club — locked.',
-                  'Plano de sala facilitado por el club — bloqueado.',
-                )
-              : tt(
-                  'Image illustrative affichée au client. Aucun placement interactif en mode basic.',
-                  'Illustrative image shown to clients. No interactive placement in basic mode.',
-                )}
-          </p>
-          {floorPlanUrl ? (
-            <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}` }}>
-              <img src={floorPlanUrl} alt="Floor plan" className="h-auto w-full" />
-            </div>
-          ) : lockedToVenue ? (
-            <p style={{ color: T3, fontSize: 11.5 }}>
-              {tt(
-                "Le club n'a pas encore importé de plan de salle.",
-                'The club has not uploaded a floor plan yet.',
-                'El club aún no ha subido un plano de sala.',
+        <div className="space-y-4 pt-4">
+          {/* Organisateur seul : plan INTERACTIF (même éditeur que les clubs) +
+              choix du mode. Le client pointe sa table (élite) ou réserve une
+              zone (basic). */}
+          {soloOrganizer && (
+            <div className="space-y-3 rounded-xl p-4" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)' }}>
+                    <LayoutGrid className="h-4 w-4" style={{ color: RED }} />
+                  </div>
+                  <div>
+                    <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Plan interactif', 'Interactive plan', 'Plano interactivo')}</div>
+                    <div style={{ color: T3, fontSize: 11.5 }}>
+                      {planTableCount > 0
+                        ? `${planTableCount} ${tt('tables posées sur le plan', 'tables placed on the plan', 'mesas colocadas en el plano')}`
+                        : tt('Aucune table posée pour le moment.', 'No table placed yet.', 'Ninguna mesa colocada todavía.')}
+                    </div>
+                  </div>
+                </div>
+                <OrgButton
+                  variant={planTableCount > 0 ? 'secondary' : 'primary'}
+                  size="sm"
+                  disabled={zones.length === 0}
+                  onClick={() => setPlanEditorOpen(true)}
+                >
+                  <MapIcon className="h-4 w-4" />
+                  {planTableCount > 0 ? tt('Modifier le plan', 'Edit plan', 'Editar plano') : tt('Construire le plan', 'Build the plan', 'Construir el plano')}
+                </OrgButton>
+              </div>
+              {zones.length === 0 && (
+                <p style={{ color: T3, fontSize: 11.5 }}>
+                  {tt("Créez d'abord vos zones : chaque table du plan appartient à une zone (et donc à ses packs).", 'Create your zones first: every table on the plan belongs to a zone (and its packs).', 'Crea primero tus zonas: cada mesa del plano pertenece a una zona (y a sus packs).')}
+                </p>
               )}
-            </p>
-          ) : null}
-          {!lockedToVenue && (
-            <div>
-              <input
-                id={`floor-plan-upload-${eventId}`}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onUploadPlan(f);
-                  e.target.value = '';
-                }}
-              />
-              <OrgButton
-                variant="secondary"
-                size="sm"
-                disabled={uploading}
-                onClick={() => document.getElementById(`floor-plan-upload-${eventId}`)?.click()}
-              >
-                <Upload className="h-4 w-4" />
-                {uploading
-                  ? tt('Envoi…', 'Uploading…')
-                  : floorPlanUrl
-                    ? tt('Remplacer', 'Replace')
-                    : tt('Importer', 'Upload')}
-              </OrgButton>
+              <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl p-3" style={{ border: `1px solid ${BORDER}` }}>
+                <div className="flex items-start gap-2.5">
+                  <MousePointerClick className="mt-0.5 h-4 w-4 shrink-0" style={{ color: isElite ? RED : T3 }} />
+                  <div>
+                    <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{tt('Le client choisit sa table sur le plan', 'Guests pick their table on the plan', 'El cliente elige su mesa en el plano')}</div>
+                    <div style={{ color: T3, fontSize: 11.5 }}>
+                      {tt(
+                        'Activé : placement interactif au checkout (mode élite). Désactivé : le client réserve une zone, vous placez à l’arrivée.',
+                        'On: interactive placement at checkout (elite mode). Off: guests book a zone, you seat them on arrival.',
+                        'Activado: colocación interactiva en el checkout (modo élite). Desactivado: el cliente reserva una zona, tú lo colocas al llegar.',
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Switch checked={isElite} disabled={modeSaving || (!isElite && planTableCount === 0)} onCheckedChange={setMode} />
+              </label>
             </div>
           )}
+
+          {/* Aperçu client du plan interactif (tables vendues indisponibles). */}
+          {planTableCount > 0 && floorPlan && (
+            <div>
+              <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+                <ClientFloorPlanPicker
+                  floorPlan={floorPlan}
+                  unavailableTableIds={unavailableTableIds}
+                  selectedTableId={null}
+                  onSelectTable={() => {}}
+                  onSkip={() => {}}
+                  readOnly
+                />
+              </div>
+              <p className="mt-2" style={{ color: T3, fontSize: 11 }}>
+                {tt(
+                  'Les tables déjà réservées apparaissent indisponibles. Aperçu identique à celui du client.',
+                  'Already-booked tables show as unavailable. Same view your customers see.',
+                  'Las mesas ya reservadas aparecen como no disponibles. Misma vista que ve tu cliente.',
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Image illustrative (mode basic, ou fond du plan). */}
+          {(planTableCount === 0 || lockedToVenue) && (
+            <>
+              <p className="flex items-start gap-2" style={{ color: T3, fontSize: 11.5 }}>
+                {lockedToVenue && <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                {lockedToVenue
+                  ? tt(
+                      'Plan de salle fourni par le club — verrouillé.',
+                      'Floor plan provided by the club — locked.',
+                      'Plano de sala facilitado por el club — bloqueado.',
+                    )
+                  : tt(
+                      'Image illustrative affichée au client. Aucun placement interactif tant que le plan interactif n’est pas construit.',
+                      'Illustrative image shown to clients. No interactive placement until the interactive plan is built.',
+                      'Imagen ilustrativa mostrada al cliente. Sin colocación interactiva hasta construir el plano interactivo.',
+                    )}
+              </p>
+              {floorPlanUrl ? (
+                <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}` }}>
+                  <img src={floorPlanUrl} alt="Floor plan" className="h-auto w-full" />
+                </div>
+              ) : lockedToVenue ? (
+                <p style={{ color: T3, fontSize: 11.5 }}>
+                  {tt(
+                    "Le club n'a pas encore importé de plan de salle.",
+                    'The club has not uploaded a floor plan yet.',
+                    'El club aún no ha subido un plano de sala.',
+                  )}
+                </p>
+              ) : null}
+              {!lockedToVenue && (
+                <div>
+                  <input
+                    id={`floor-plan-upload-${eventId}`}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onUploadPlan(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <OrgButton
+                    variant="secondary"
+                    size="sm"
+                    disabled={uploading}
+                    onClick={() => document.getElementById(`floor-plan-upload-${eventId}`)?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                    {uploading
+                      ? tt('Envoi…', 'Uploading…', 'Enviando…')
+                      : floorPlanUrl
+                        ? tt('Remplacer', 'Replace', 'Reemplazar')
+                        : tt('Importer', 'Upload', 'Importar')}
+                  </OrgButton>
+                </div>
+              )}
+            </>
+          )}
         </div>
+      )}
+
+      {/* Réservations de la soirée — même liste que le club. */}
+      {soloOrganizer && (
+        <div className="mt-6">
+          <h3 className="mb-2" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+            {tt('Réservations', 'Reservations', 'Reservas')}
+          </h3>
+          <OwnerVipOrders eventId={eventId} />
+        </div>
+      )}
+
+      {/* Éditeur de plan interactif — event-scopé (RPC upsert_event_floor_plan). */}
+      {soloOrganizer && (
+        <FloorPlanEditor
+          open={planEditorOpen}
+          onClose={() => setPlanEditorOpen(false)}
+          venueId={clubId ?? ''}
+          eventId={eventId}
+          existingLayout={floorPlan?.layout as unknown as React.ComponentProps<typeof FloorPlanEditor>['existingLayout']}
+          existingBackgroundUrl={floorPlanUrl}
+          zones={zones.map((z) => ({ id: z.id, name: z.name, color: z.color }))}
+          onSave={async () => { await syncZoneCountsFromLayout(); await loadAll(); }}
+        />
       )}
 
       {/* Zone dialog */}
       <Dialog open={zoneOpen} onOpenChange={setZoneOpen}>
         <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
-          <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{editingZone ? tt('Modifier zone', 'Edit zone') : tt('Nouvelle zone', 'New zone')}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{editingZone ? tt('Modifier zone', 'Edit zone', 'Editar zona') : tt('Nouvelle zone', 'New zone', 'Nueva zona')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><FieldLabel>{tt('Nom', 'Name')}</FieldLabel><DarkInput value={zoneForm.name} onChange={(v) => setZoneForm({ ...zoneForm, name: v })} /></div>
+            <div><FieldLabel>{tt('Nom', 'Name', 'Nombre')}</FieldLabel><DarkInput value={zoneForm.name} onChange={(v) => setZoneForm({ ...zoneForm, name: v })} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>{tt('Couleur', 'Color')}</FieldLabel>
+                <FieldLabel>{tt('Couleur', 'Color', 'Color')}</FieldLabel>
                 <input type="color" value={zoneForm.color} onChange={(e) => setZoneForm({ ...zoneForm, color: e.target.value })} style={{ ...daInputStyle, height: 42, padding: 4, cursor: 'pointer' }} />
               </div>
               <div>
-                <FieldLabel>{tt('Nb. max de tables', 'Max tables')}</FieldLabel>
+                <FieldLabel>{tt('Nb. max de tables', 'Max tables', 'Nº máx. de mesas')}</FieldLabel>
                 <input type="number" min="1" value={zoneForm.tables_count} onChange={(e) => setZoneForm({ ...zoneForm, tables_count: e.target.value })} style={daInputStyle} />
                 <p className="mt-1" style={{ color: T3, fontSize: 10 }}>
                   {tt(
                     'Limite la vente : aucune réservation ne sera acceptée au-delà.',
-                    'Sales cap: bookings above this number will be rejected.'
+                    'Sales cap: bookings above this number will be rejected.',
+                    'Límite de venta: no se aceptará ninguna reserva por encima.',
                   )}
                 </p>
               </div>
             </div>
           </div>
-          <DialogFooter><OrgButton variant="primary" onClick={saveZone}>{tt('Enregistrer', 'Save')}</OrgButton></DialogFooter>
+          <DialogFooter><OrgButton variant="primary" onClick={saveZone}>{tt('Enregistrer', 'Save', 'Guardar')}</OrgButton></DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Pack dialog */}
       <Dialog open={packOpen} onOpenChange={setPackOpen}>
         <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
-          <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{editingPack ? tt('Modifier pack', 'Edit pack') : tt('Nouveau pack', 'New pack')}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{editingPack ? tt('Modifier pack', 'Edit pack', 'Editar pack') : tt('Nouveau pack', 'New pack', 'Nuevo pack')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <FieldLabel>{tt('Zone', 'Zone')}</FieldLabel>
+              <FieldLabel>{tt('Zone', 'Zone', 'Zona')}</FieldLabel>
               <select className="w-full" style={{ ...daInputStyle, height: 42, cursor: 'pointer' }} value={packForm.zone_id} onChange={(e) => setPackForm({ ...packForm, zone_id: e.target.value })}>
-                <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir...', 'Choose...')}</option>
+                <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir...', 'Choose...', 'Elegir...')}</option>
                 {zones.map((z) => <option key={z.id} value={z.id} style={{ background: '#0a0a0c' }}>{z.name}</option>)}
               </select>
             </div>
-            <div><FieldLabel>{tt('Nom', 'Name')}</FieldLabel><DarkInput value={packForm.name} onChange={(v) => setPackForm({ ...packForm, name: v })} /></div>
-            <div><FieldLabel>{tt('Description', 'Description')}</FieldLabel><DarkTextarea rows={2} value={packForm.description} onChange={(v) => setPackForm({ ...packForm, description: v })} /></div>
+            <div><FieldLabel>{tt('Nom', 'Name', 'Nombre')}</FieldLabel><DarkInput value={packForm.name} onChange={(v) => setPackForm({ ...packForm, name: v })} /></div>
+            <div><FieldLabel>{tt('Description', 'Description', 'Descripción')}</FieldLabel><DarkTextarea rows={2} value={packForm.description} onChange={(v) => setPackForm({ ...packForm, description: v })} /></div>
             <div className="grid grid-cols-3 gap-2">
-              <div><FieldLabel>{tt('Prix €', 'Price €')}</FieldLabel><input type="number" min="0" step="1" value={packForm.base_price} onChange={(e) => setPackForm({ ...packForm, base_price: e.target.value })} style={daInputStyle} /></div>
-              <div><FieldLabel>{tt('Capacité', 'Guests')}</FieldLabel><input type="number" min="1" value={packForm.base_capacity} onChange={(e) => setPackForm({ ...packForm, base_capacity: e.target.value })} style={daInputStyle} /></div>
-              <div><FieldLabel>{tt('Acompte €', 'Deposit €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={daInputStyle} /></div>
+              <div><FieldLabel>{tt('Prix €', 'Price €', 'Precio €')}</FieldLabel><input type="number" min="0" step="1" value={packForm.base_price} onChange={(e) => setPackForm({ ...packForm, base_price: e.target.value })} style={daInputStyle} /></div>
+              <div><FieldLabel>{tt('Capacité', 'Guests', 'Capacidad')}</FieldLabel><input type="number" min="1" value={packForm.base_capacity} onChange={(e) => setPackForm({ ...packForm, base_capacity: e.target.value })} style={daInputStyle} /></div>
+              <div><FieldLabel>{tt('Acompte €', 'Deposit €', 'Señal €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={daInputStyle} /></div>
             </div>
             {/* Acompte 0 = paiement INTÉGRAL au checkout : dit noir sur blanc,
                 sinon une table « 800 € sans acompte » débite 800 € sans prévenir. */}
@@ -697,7 +875,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
                     'Señal a 0: el cliente pagará el precio total de la mesa en línea.',
                   )}
             </p>
-            <div><FieldLabel>{tt('Inclus (texte libre)', 'Includes (free text)')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers', 'e.g. 1 vodka bottle, 6 mixers')} value={packForm.included_items} onChange={(v) => setPackForm({ ...packForm, included_items: v })} /></div>
+            <div><FieldLabel>{tt('Inclus (texte libre)', 'Includes (free text)', 'Incluye (texto libre)')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers', 'e.g. 1 vodka bottle, 6 mixers', 'Ej.: 1 botella de vodka, 6 mixers')} value={packForm.included_items} onChange={(v) => setPackForm({ ...packForm, included_items: v })} /></div>
             {/* Heure d'arrivée limite (optionnelle) — affichée au client à la résa */}
             <div>
               <label className="flex items-center gap-2.5 cursor-pointer" style={{ color: packForm.arrival_deadline ? T1 : T2, fontSize: 13 }}>
@@ -712,7 +890,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
               )}
             </div>
           </div>
-          <DialogFooter><OrgButton variant="primary" onClick={savePack}>{tt('Enregistrer', 'Save')}</OrgButton></DialogFooter>
+          <DialogFooter><OrgButton variant="primary" onClick={savePack}>{tt('Enregistrer', 'Save', 'Guardar')}</OrgButton></DialogFooter>
         </DialogContent>
       </Dialog>
     </OrgCard>

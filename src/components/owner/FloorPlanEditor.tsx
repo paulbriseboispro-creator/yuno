@@ -65,6 +65,13 @@ interface FloorPlanEditorProps {
   open: boolean;
   onClose: () => void;
   venueId: string;
+  /**
+   * Plan EVENT-scopé (soirée d'organisateur sans club, ou plan propre à une
+   * soirée) : la sauvegarde passe par `upsert_event_floor_plan` et l'image de
+   * fond va dans le bucket `floor-plans` (ouvert aux organisateurs). Sans lui,
+   * l'éditeur écrit le plan de niveau club comme avant.
+   */
+  eventId?: string | null;
   existingLayout?: { tables: FloorTable[]; zoneAreas?: FloorZoneArea[]; bgOffset?: { x: number; y: number }; bgScale?: number } | null;
   existingBackgroundUrl?: string | null;
   zones: { id: string; name: string; color: string }[];
@@ -82,6 +89,7 @@ export function FloorPlanEditor({
   open,
   onClose,
   venueId,
+  eventId,
   existingLayout,
   existingBackgroundUrl,
   zones,
@@ -115,7 +123,7 @@ export function FloorPlanEditor({
   const tableDragStartRef = useRef<{ x: number; y: number } | null>(null);
   // Latest state, mirrored into a ref so async writers persist the CURRENT layout, never a
   // stale closure. writeChainRef serializes every write so they can't race / clobber.
-  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId });
+  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId, eventId });
   const writeChainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   // Single canonical serializer — used for both the DB write and the dirty-check,
@@ -142,7 +150,9 @@ export function FloorPlanEditor({
   ) => JSON.stringify({ layout: buildLayout(tbls, zAreas, off, scale), bg: bgUrl || null });
 
   // Mirror current state every render so async writers read the latest, not a stale closure.
-  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId };
+  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId, eventId };
+  // Une portée suffit : la soirée (event-scopé) ou le club (venue-scopé).
+  const hasScope = !!(eventId || venueId);
 
   type LiveState = typeof liveRef.current;
 
@@ -154,13 +164,19 @@ export function FloorPlanEditor({
   // behave exactly as before. A null id back means the write was blocked (RLS / not the owner),
   // which we surface as an error instead of reporting a phantom success.
   const writeLayout = async (live: LiveState): Promise<{ ok: boolean; code?: string }> => {
-    if (!live.venueId) return { ok: false, code: 'NO_VENUE' };
+    if (!live.venueId && !live.eventId) return { ok: false, code: 'NO_VENUE' };
     const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale);
-    const { data: id, error } = await supabase.rpc('upsert_venue_floor_plan', {
-      p_venue_id: live.venueId,
-      p_layout: JSON.parse(JSON.stringify(layout)),
-      p_background_image_url: live.backgroundUrl,
-    });
+    const { data: id, error } = live.eventId
+      ? await supabase.rpc('upsert_event_floor_plan', {
+          p_event_id: live.eventId,
+          p_layout: JSON.parse(JSON.stringify(layout)),
+          p_background_image_url: live.backgroundUrl,
+        })
+      : await supabase.rpc('upsert_venue_floor_plan', {
+          p_venue_id: live.venueId,
+          p_layout: JSON.parse(JSON.stringify(layout)),
+          p_background_image_url: live.backgroundUrl,
+        });
     if (error) {
       console.error('Error saving floor plan:', error);
       return { ok: false, code: (error as { code?: string }).code };
@@ -218,7 +234,7 @@ export function FloorPlanEditor({
   // Debounced autosave: persists ~1s after the last change to any saved field.
   // Snapshot equality keeps it from writing when nothing actually changed.
   useEffect(() => {
-    if (!open || !venueId) return;
+    if (!open || !hasScope) return;
     const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
     if (snapshot === lastSavedSnapshotRef.current) return;
     setSaveState('saving');
@@ -259,12 +275,15 @@ export function FloorPlanEditor({
     setUploadingBg(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `${venueId}/floor-plan-bg.${ext}`;
+      // Plan de soirée : bucket `floor-plans` (policies organisateur), dossier
+      // par soirée. Plan de club : bucket `venue-assets` (policies club).
+      const bucket = eventId ? 'floor-plans' : 'venue-assets';
+      const path = eventId ? `event-${eventId}/floor-plan-bg.${ext}` : `${venueId}/floor-plan-bg.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from('venue-assets')
+        .from(bucket)
         .upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('venue-assets').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
       const cacheBustedUrl = `${urlData.publicUrl}?v=${Date.now()}`;
       setBackgroundUrl(cacheBustedUrl);
       setBgImageSize({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
@@ -594,7 +613,7 @@ export function FloorPlanEditor({
   // Explicit "Save" button — drains the write chain to the latest state, then closes.
   const handleSaveAndClose = async () => {
     if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
-    if (!venueId) { onClose(); return; }
+    if (!hasScope) { onClose(); return; }
     setSaving(true);
     const res = await persist();
     setSaving(false);
@@ -612,7 +631,7 @@ export function FloorPlanEditor({
   const requestClose = () => {
     if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
     const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
-    if (venueId && snapshot !== lastSavedSnapshotRef.current) {
+    if (hasScope && snapshot !== lastSavedSnapshotRef.current) {
       persist().finally(() => onSave());
     } else {
       onSave();
