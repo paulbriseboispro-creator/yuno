@@ -88,6 +88,15 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   compte Connect de l'organisateur (charge directe). Ne JAMAIS réintroduire un
   `.single()` sur `venues` ni une porte « club partenaire requis » dans le
   pilier tables. La bannière de contrat collab n'apparaît que sur `isCollab`.
+  **Deux pages orga, comme le club** : `/organizer-app/tables` = atelier
+  (soirées + interrupteur, zones/packs/plan de la soirée choisie, onglet
+  « Salles VIP » = historique `organizer_vip_rooms` rejouable via
+  `apply_vip_room_to_event` — zones/packs clonés avec de NOUVEAUX ids et
+  layout remappé — refusé si la soirée a des résas) et
+  `/organizer-app/vip-service` = service du soir (réservations, placement,
+  arrivées ; réutilise les composants `owner/vip/*` via `useOrganizerVipData`).
+  La page événement n'affiche qu'un résumé (`OrgEventTablesPanel
+  variant="summary"`) : jamais de chiffres d'argent dans l'atelier.
 - **Revenu club** : « CA Club / Net », fee Stripe 1.5 %, helpers dans `utils/fees.ts`. Refund côté club.
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les

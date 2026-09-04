@@ -9026,6 +9026,65 @@ export type Database = {
           },
         ]
       }
+      organizer_vip_rooms: {
+        Row: {
+          background_image_url: string | null
+          created_at: string
+          id: string
+          last_used_at: string | null
+          layout: Json
+          location_address: string | null
+          location_name: string | null
+          name: string
+          organizer_user_id: string
+          packs: Json
+          source_event_id: string | null
+          times_used: number
+          updated_at: string
+          zones: Json
+        }
+        Insert: {
+          background_image_url?: string | null
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          layout?: Json
+          location_address?: string | null
+          location_name?: string | null
+          name: string
+          organizer_user_id: string
+          packs?: Json
+          source_event_id?: string | null
+          times_used?: number
+          updated_at?: string
+          zones?: Json
+        }
+        Update: {
+          background_image_url?: string | null
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          layout?: Json
+          location_address?: string | null
+          location_name?: string | null
+          name?: string
+          organizer_user_id?: string
+          packs?: Json
+          source_event_id?: string | null
+          times_used?: number
+          updated_at?: string
+          zones?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizer_vip_rooms_source_event_id_fkey"
+            columns: ["source_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ota_bundles: {
         Row: {
           active: boolean
@@ -15911,6 +15970,10 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: undefined
       }
+      apply_vip_room_to_event: {
+        Args: { p_event_id: string; p_room_id: string }
+        Returns: string
+      }
       approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
       archive_expired_event_orders: { Args: never; Returns: undefined }
       assert_admin_or_backend: { Args: never; Returns: undefined }
@@ -16027,6 +16090,10 @@ export type Database = {
       }
       can_manage_organizer: {
         Args: { p_organizer_user_id: string }
+        Returns: boolean
+      }
+      can_manage_organizer_rooms: {
+        Args: { _organizer_user_id: string; _user_id: string }
         Returns: boolean
       }
       can_manage_venue: {
@@ -18056,6 +18123,10 @@ export type Database = {
       run_affiliate_automation_sweep: { Args: never; Returns: undefined }
       run_audience_snapshot: { Args: { p_date?: string }; Returns: Json }
       run_venue_purge_sweep: { Args: never; Returns: undefined }
+      save_event_vip_room: {
+        Args: { p_event_id: string; p_name: string; p_room_id?: string }
+        Returns: string
+      }
       search_djs_marketplace: {
         Args: {
           p_available_on?: string

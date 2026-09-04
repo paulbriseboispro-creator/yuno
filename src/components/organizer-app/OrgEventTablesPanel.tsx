@@ -1,12 +1,13 @@
 import { canSideEdit } from '@/utils/collabResponsibilities';
 import { CollabTablesPreview } from '@/components/collab/CollabTablesPreview';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
@@ -14,7 +15,6 @@ import {
 } from '@/components/org-ui';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
-import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import type { VenueFloorPlan } from '@/types';
 
@@ -22,6 +22,20 @@ interface OrgEventTablesPanelProps {
   eventId: string;
   /** Currently logged-in organizer user_id — becomes tables_owner_user_id */
   organizerUserId: string;
+  /**
+   * `summary` (page de la soirée) : état + interrupteur + liens vers l'atelier
+   * (/organizer-app/tables) et le service du soir (/organizer-app/vip-service),
+   * sans un seul chiffre d'argent. `full` (page Tables VIP) : l'atelier complet.
+   */
+  variant?: 'summary' | 'full';
+  /** Appelé après tout changement d'état de la soirée (activation, mode…). */
+  onChanged?: () => void;
+}
+
+interface VipRoomOption {
+  id: string;
+  name: string;
+  location_name: string | null;
 }
 
 interface BasicZone {
@@ -65,8 +79,9 @@ const daInputStyle: React.CSSProperties = {
  *    choisit si le client pointe sa table (élite) ou réserve une zone (basic).
  *    Tout est event-scopé (venue_id NULL) — migration 20260904120000.
  */
-export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTablesPanelProps) {
+export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full', onChanged }: OrgEventTablesPanelProps) {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [loading, setLoading] = useState(true);
@@ -89,6 +104,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   const [tab, setTab] = useState<'zones' | 'packs' | 'plan'>('zones');
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   const [modeSaving, setModeSaving] = useState(false);
+  // Salles VIP de l'organisateur (historique rejouable) + enregistrement.
+  const [rooms, setRooms] = useState<VipRoomOption[]>([]);
+  const [roomToApply, setRoomToApply] = useState('');
+  const [applyingRoom, setApplyingRoom] = useState(false);
+  const [saveRoomOpen, setSaveRoomOpen] = useState(false);
+  const [saveRoomName, setSaveRoomName] = useState('');
+  const [saveRoomTarget, setSaveRoomTarget] = useState<'new' | string>('new');
+  const [savingRoom, setSavingRoom] = useState(false);
 
   const soloOrganizer = !clubId;
   const isElite = tablesEnabled && tablesMode === 'elite';
@@ -125,12 +148,15 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }] = await Promise.all([
-        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id').eq('id', eventId).maybeSingle(),
+      const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
+        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
+        supabase.from('organizer_vip_rooms').select('id, name, location_name').order('updated_at', { ascending: false }),
       ]);
+      setRooms((rms ?? []) as VipRoomOption[]);
+      if (!saveRoomName) setSaveRoomName(ev?.location_name ?? '');
       setTablesEnabled(!!ev?.tables_enabled);
       setTablesMode(ev?.tables_mode ?? null);
       setTablesOwnerId(ev?.tables_owner_user_id ?? null);
@@ -148,8 +174,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
         layout: (fp.layout ?? { tables: [] }) as VenueFloorPlan['layout'],
         createdAt: '', updatedAt: '',
       } : null);
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e) {
+      toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -167,6 +193,44 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     }
     toast.success(tt('Vente de tables activée', 'Table sales enabled', 'Venta de mesas activada'));
     loadAll();
+    onChanged?.();
+  };
+
+  // Rejouer une salle VIP de l'historique sur cette soirée (sans club).
+  const applyRoom = async () => {
+    if (!roomToApply) return;
+    setApplyingRoom(true);
+    const { error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomToApply, p_event_id: eventId });
+    setApplyingRoom(false);
+    if (error) {
+      toast.error(error.code === '23514'
+        ? tt('Cette soirée a déjà des réservations : ses tables ne peuvent plus être remplacées.', 'This event already has reservations: its tables can no longer be replaced.', 'Esta noche ya tiene reservas: sus mesas ya no pueden reemplazarse.')
+        : error.message);
+      return;
+    }
+    toast.success(tt('Salle VIP appliquée : zones, packs et plan sont en place.', 'VIP room applied: zones, packs and plan are in place.', 'Sala VIP aplicada: zonas, packs y plano están listos.'));
+    loadAll();
+    onChanged?.();
+  };
+
+  // Photo de la soirée → salle VIP (nouvelle, ou mise à jour d'une existante).
+  const saveRoom = async () => {
+    setSavingRoom(true);
+    const { error } = await supabase.rpc('save_event_vip_room', {
+      p_event_id: eventId,
+      p_name: saveRoomName.trim() || null,
+      p_room_id: saveRoomTarget === 'new' ? null : saveRoomTarget,
+    });
+    setSavingRoom(false);
+    if (error) {
+      toast.error(error.code === '23514'
+        ? tt('Rien à enregistrer : créez d’abord des zones ou un plan.', 'Nothing to save: create zones or a plan first.', 'Nada que guardar: crea primero zonas o un plano.')
+        : error.message);
+      return;
+    }
+    setSaveRoomOpen(false);
+    toast.success(tt('Salle VIP enregistrée dans votre historique.', 'VIP room saved to your history.', 'Sala VIP guardada en tu historial.'));
+    loadAll();
   };
 
   const disableTables = async () => {
@@ -181,6 +245,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     }
     toast.success(tt('Vente de tables désactivée', 'Table sales disabled', 'Venta de mesas desactivada'));
     loadAll();
+    onChanged?.();
   };
 
   // Soirée sans club : basic (réservation d'une zone) ⇄ élite (le client
@@ -199,6 +264,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       ? tt('Le client choisira sa table sur le plan.', 'Guests will pick their table on the plan.', 'El cliente elegirá su mesa en el plano.')
       : tt('Réservation par zone activée.', 'Zone booking enabled.', 'Reserva por zona activada.'));
     loadAll();
+    onChanged?.();
   };
 
   // Le plan interactif fait foi sur le nombre de tables vendables par zone :
@@ -363,8 +429,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       setFloorPlanUrl(pub.publicUrl);
       toast.success(tt('Plan importé', 'Plan uploaded', 'Plano importado'));
       loadAll();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e) {
+      toast.error((e as Error).message);
     } finally {
       setUploading(false);
     }
@@ -395,6 +461,51 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
             les réservations VIP de la soirée. Savoir ce qui est en ligne sans y toucher. */}
         <div className="mt-3">
           <CollabTablesPreview eventId={eventId} />
+        </div>
+      </OrgCard>
+    );
+  }
+
+  // ── Résumé (page de la soirée) : état, interrupteur, liens. Pas d'argent. ──
+  if (variant === 'summary') {
+    const statusLabel = !tablesEnabled
+      ? tt('Non activées', 'Not enabled', 'No activadas')
+      : isElite
+        ? (soloOrganizer ? tt('Plan interactif', 'Interactive plan', 'Plano interactivo') : tt('Plan du club', 'Club plan', 'Plano del club'))
+        : tt('Basic', 'Basic', 'Basic');
+    const statusTone: 'success' | 'info' | 'warn' = !tablesEnabled ? 'warn' : isElite ? 'success' : 'info';
+    return (
+      <OrgCard style={{ padding: 20 }}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)' }}>
+              <Crown className="h-4 w-4" style={{ color: RED }} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
+                {tt('Tables VIP', 'VIP Tables', 'Mesas VIP')}
+                <OrgPill tone={statusTone}>{statusLabel}</OrgPill>
+              </h2>
+              <p style={{ color: T3, fontSize: 12 }}>
+                {tablesEnabled
+                  ? `${zones.length} ${tt('zones', 'zones', 'zonas')} · ${packs.length} packs · ${planTableCount} ${tt('tables sur le plan', 'tables on the plan', 'mesas en el plano')}`
+                  : tt('Activez la vente pour configurer zones, packs et plan de salle.', 'Enable sales to configure zones, packs and floor plan.', 'Activa la venta para configurar zonas, packs y plano.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <Switch checked={tablesEnabled} onCheckedChange={(v) => (v ? enableTables() : disableTables())} />
+            )}
+            <OrgButton size="sm" variant={tablesEnabled ? 'secondary' : 'primary'} onClick={() => navigate(`/organizer-app/tables?event=${eventId}`)}>
+              <LayoutGrid className="h-3.5 w-3.5" /> {tt('Configurer', 'Configure', 'Configurar')}
+            </OrgButton>
+            {tablesEnabled && (
+              <OrgButton size="sm" variant="secondary" onClick={() => navigate(`/organizer-app/vip-service?event=${eventId}`)}>
+                <Crown className="h-3.5 w-3.5" /> {tt('Service VIP', 'VIP Service', 'Servicio VIP')} <ArrowRight className="h-3.5 w-3.5" />
+              </OrgButton>
+            )}
+          </div>
         </div>
       </OrgCard>
     );
@@ -457,11 +568,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
           </p>
         )}
 
-        <div className="mt-5">
-          <h3 className="mb-2" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
-            {tt('Réservations', 'Reservations', 'Reservas')}
-          </h3>
-          <OwnerVipOrders eventId={eventId} />
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+          <div className="flex items-center gap-2" style={{ color: T2, fontSize: 12.5 }}>
+            <Crown className="h-4 w-4" style={{ color: RED }} />
+            {tt('Réservations, placement et arrivées se gèrent dans le Service VIP.', 'Reservations, placement and arrivals are handled in the VIP Service.', 'Reservas, colocación y llegadas se gestionan en el Servicio VIP.')}
+          </div>
+          <OrgButton size="sm" variant="secondary" onClick={() => navigate(`/organizer-app/vip-service?event=${eventId}`)}>
+            {tt('Ouvrir le Service VIP', 'Open VIP Service', 'Abrir Servicio VIP')} <ArrowRight className="h-3.5 w-3.5" />
+          </OrgButton>
         </div>
       </OrgCard>
     );
@@ -507,6 +621,21 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
             {tt('Activer la vente de tables', 'Enable table sales', 'Activar la venta de mesas')}
           </OrgButton>
         </div>
+        {/* Historique : rejouer une salle VIP déjà construite dans cet établissement. */}
+        {soloOrganizer && rooms.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-end gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+            <div className="min-w-[220px] flex-1">
+              <FieldLabel>{tt('Réutiliser une salle VIP', 'Reuse a VIP room', 'Reutilizar una sala VIP')}</FieldLabel>
+              <select className="w-full" value={roomToApply} onChange={(e) => setRoomToApply(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
+                <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir une salle…', 'Choose a room…', 'Elegir una sala…')}</option>
+                {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: '#0a0a0c' }}>{r.name}{r.location_name && r.location_name !== r.name ? ` — ${r.location_name}` : ''}</option>)}
+              </select>
+            </div>
+            <OrgButton variant="secondary" size="sm" disabled={!roomToApply || applyingRoom} onClick={applyRoom}>
+              <Play className="h-4 w-4" /> {applyingRoom ? tt('Application…', 'Applying…', 'Aplicando…') : tt('Appliquer', 'Apply', 'Aplicar')}
+            </OrgButton>
+          </div>
+        )}
       </OrgCard>
     );
   }
@@ -542,10 +671,33 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
               : tt('Réservation par zone, sans placement interactif.', 'Zone booking, no interactive placement.', 'Reserva por zona, sin colocación interactiva.')}
           </p>
         </div>
-        <OrgButton variant="ghost" size="sm" onClick={disableTables}>
-          {tt('Désactiver', 'Disable', 'Desactivar')}
-        </OrgButton>
+        <div className="flex flex-wrap items-center gap-2">
+          {soloOrganizer && (
+            <OrgButton variant="secondary" size="sm" onClick={() => { setSaveRoomTarget('new'); setSaveRoomOpen(true); }}>
+              <Save className="h-4 w-4" /> {tt('Enregistrer comme salle VIP', 'Save as VIP room', 'Guardar como sala VIP')}
+            </OrgButton>
+          )}
+          <OrgButton variant="ghost" size="sm" onClick={disableTables}>
+            {tt('Désactiver', 'Disable', 'Desactivar')}
+          </OrgButton>
+        </div>
       </div>
+
+      {/* Salle VIP de l'historique : remplace zones/packs/plan (tant qu'aucune résa). */}
+      {soloOrganizer && rooms.length > 0 && zones.length === 0 && planTableCount === 0 && (
+        <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+          <div className="min-w-[220px] flex-1">
+            <FieldLabel>{tt('Réutiliser une salle VIP', 'Reuse a VIP room', 'Reutilizar una sala VIP')}</FieldLabel>
+            <select className="w-full" value={roomToApply} onChange={(e) => setRoomToApply(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
+              <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir une salle…', 'Choose a room…', 'Elegir una sala…')}</option>
+              {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: '#0a0a0c' }}>{r.name}{r.location_name && r.location_name !== r.name ? ` — ${r.location_name}` : ''}</option>)}
+            </select>
+          </div>
+          <OrgButton variant="secondary" size="sm" disabled={!roomToApply || applyingRoom} onClick={applyRoom}>
+            <Play className="h-4 w-4" /> {applyingRoom ? tt('Application…', 'Applying…', 'Aplicando…') : tt('Appliquer', 'Apply', 'Aplicar')}
+          </OrgButton>
+        </div>
+      )}
 
       <OrgTabs<'zones' | 'packs' | 'plan'>
         value={tab}
@@ -789,15 +941,50 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
         </div>
       )}
 
-      {/* Réservations de la soirée — même liste que le club. */}
+      {/* Le service du soir (réservations, placement, arrivées) vit sur la page Service VIP. */}
       {soloOrganizer && (
-        <div className="mt-6">
-          <h3 className="mb-2" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
-            {tt('Réservations', 'Reservations', 'Reservas')}
-          </h3>
-          <OwnerVipOrders eventId={eventId} />
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+          <div className="flex items-center gap-2" style={{ color: T2, fontSize: 12.5 }}>
+            <Crown className="h-4 w-4" style={{ color: RED }} />
+            {tt('Réservations, placement et arrivées se gèrent dans le Service VIP.', 'Reservations, placement and arrivals are handled in the VIP Service.', 'Reservas, colocación y llegadas se gestionan en el Servicio VIP.')}
+          </div>
+          <OrgButton size="sm" variant="secondary" onClick={() => navigate(`/organizer-app/vip-service?event=${eventId}`)}>
+            {tt('Ouvrir le Service VIP', 'Open VIP Service', 'Abrir Servicio VIP')} <ArrowRight className="h-3.5 w-3.5" />
+          </OrgButton>
         </div>
       )}
+
+      {/* Enregistrer la soirée comme salle VIP */}
+      <Dialog open={saveRoomOpen} onOpenChange={setSaveRoomOpen}>
+        <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
+          <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{tt('Enregistrer comme salle VIP', 'Save as VIP room', 'Guardar como sala VIP')}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p style={{ color: T3, fontSize: 12.5 }}>
+              {tt(
+                'Le plan, les zones et les packs de cette soirée sont gardés dans votre historique pour être rejoués sur une prochaine soirée dans le même établissement.',
+                'This event’s plan, zones and packs are kept in your history to replay on a future event at the same venue.',
+                'El plano, zonas y packs de esta noche se guardan en tu historial para reutilizarlos en una próxima noche en el mismo local.',
+              )}
+            </p>
+            <div>
+              <FieldLabel>{tt('Nom de la salle (établissement)', 'Room name (venue)', 'Nombre de la sala (local)')}</FieldLabel>
+              <DarkInput value={saveRoomName} onChange={setSaveRoomName} placeholder={tt('Ex : Le Baron — grande salle', 'e.g. Le Baron — main room', 'Ej.: Le Baron — sala principal')} />
+            </div>
+            {rooms.length > 0 && (
+              <div>
+                <FieldLabel>{tt('Enregistrer', 'Save', 'Guardar')}</FieldLabel>
+                <select className="w-full" value={saveRoomTarget} onChange={(e) => setSaveRoomTarget(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
+                  <option value="new" style={{ background: '#0a0a0c' }}>{tt('Comme nouvelle salle', 'As a new room', 'Como nueva sala')}</option>
+                  {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: '#0a0a0c' }}>{tt('Mettre à jour', 'Update', 'Actualizar')} « {r.name} »</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <OrgButton variant="primary" disabled={savingRoom} onClick={saveRoom}>{savingRoom ? tt('Enregistrement…', 'Saving…', 'Guardando…') : tt('Enregistrer', 'Save', 'Guardar')}</OrgButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Éditeur de plan interactif — event-scopé (RPC upsert_event_floor_plan). */}
       {soloOrganizer && (

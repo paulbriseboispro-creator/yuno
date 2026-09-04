@@ -106,11 +106,17 @@ const help: Record<string, string> = {
   'ohelp.org.tables.title': "Mesas VIP",
   'ohelp.org.tables.desc': "Vende mesas VIP (bottle service) en cada evento: tus zonas, tus packs, tu plano de sala — con o sin club asociado.",
   'ohelp.org.tables.s1h': "Para qué sirve esta página",
-  'ohelp.org.tables.s1b': "Mesas VIP lista todas tus noches próximas con el estado de sus mesas (no activadas, basic, plano interactivo) y un seguimiento de reservas en conjunto. Toca Gestionar en una noche para abrir su panel Mesas VIP en la página del evento y configurarlo todo sin salir de Yuno.",
+  'ohelp.org.tables.s1b': "Mesas VIP es tu taller: la pestaña Noches lista tus noches próximas con un interruptor de venta, y «Configurar» abre el taller completo de una noche (zonas, packs, plano interactivo, modo basic o colocación del cliente). La pestaña Salas VIP guarda el historial de los planos que construiste, para reutilizarlos en una próxima noche en el mismo local — o eliminarlos si no volverás. La noche misma, todo ocurre en Servicio VIP: reservas, colocación en el plano, llegadas, reserva manual en la puerta.",
   'ohelp.org.tables.s2h': "Con o sin club",
   'ohelp.org.tables.s2b': "Noche en solitario (local alquilado fuera de Yuno): tú eres tu propio club. Creas tus zonas (Zona VIP, Mezzanine…), tus packs con precio, capacidad y señal, y tu plano de sala — el mismo editor interactivo que usan los clubs. El dinero llega a tu cuenta Stripe, como las entradas. Coevento con un club: el plano y las zonas vienen del club y están bloqueados; solo ajustas tus packs y precios, y si el club tiene un plano interactivo la noche lo usa directamente.",
   'ohelp.org.tables.s3h': "Poner mesas a la venta",
-  'ohelp.org.tables.s3b': "1. Abre la noche desde Mesas VIP o Eventos y toca Activar la venta de mesas.\n2. Pestaña Zonas: crea al menos una zona con su número máximo de mesas (es el límite de venta).\n3. Pestaña Packs: añade un pack por oferta (precio, capacidad, señal, qué incluye, hora límite de llegada).\n4. Pestaña Plano de sala: importa una imagen o toca Construir el plano para colocar tus mesas zona por zona.\n5. Activa «El cliente elige su mesa en el plano» si quieres colocación interactiva en el checkout; si no, el cliente reserva una zona y tú lo colocas al llegar.\n6. Revisa la página pública de la noche: los packs aparecen debajo de las entradas.",
+  'ohelp.org.tables.s3b': "1. En Mesas VIP, activa el interruptor de la noche (o toca Activar la venta de mesas en su página) y luego Configurar.
+2. Si ya has organizado en este local, elige una sala VIP en «Reutilizar una sala VIP» y Aplicar: zonas, packs y plano vuelven de golpe.
+3. Si no, pestaña Zonas: crea al menos una zona con su número máximo de mesas (el límite de venta).
+4. Pestaña Packs: un pack por oferta (precio, capacidad, señal, qué incluye, hora límite de llegada).
+5. Pestaña Plano de sala: importa una imagen o Construir el plano para colocar tus mesas zona por zona; activa «El cliente elige su mesa en el plano» para la colocación interactiva.
+6. Toca «Guardar como sala VIP» para conservar esta configuración en tu historial.
+7. La noche: abre Servicio VIP para seguir las reservas, validar colocaciones y registrar llegadas.",
   'ohelp.org.tables.s4h': "Basic o plano interactivo",
   'ohelp.org.tables.s4b': "Basic: el cliente reserva un pack en una zona sin elegir una mesa concreta — simple y rápido, ideal para una primera noche. Plano interactivo: el cliente ve tu plano, las mesas ya ocupadas aparecen en gris y señala la suya. El número de mesas colocadas en una zona actualiza su límite de venta automáticamente. Puedes cambiar entre ambos cuando quieras; el plano interactivo exige al menos una mesa colocada.",
   'ohelp.org.tables.s5h': "Consejo: la señal",

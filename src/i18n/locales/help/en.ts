@@ -105,11 +105,17 @@ const help: Record<string, string> = {
   'ohelp.org.tables.title': "VIP Tables",
   'ohelp.org.tables.desc': "Sell VIP tables (bottle service) on every event: your zones, your packs, your floor plan — with or without a partner club.",
   'ohelp.org.tables.s1h': "What this page is for",
-  'ohelp.org.tables.s1b': "VIP Tables lists all your upcoming events with their table status (not enabled, basic, interactive plan) and a reservation tracker across all of them. Tap Manage on an event to open its VIP Tables panel on the event page and configure everything without leaving Yuno.",
+  'ohelp.org.tables.s1b': "VIP Tables is your workshop: the Events tab lists your upcoming events with a sales switch, and “Configure” opens an event's full workshop (zones, packs, interactive floor plan, basic mode or guest placement). The VIP rooms tab keeps the history of the plans you built, to replay on a future event at the same venue — or delete if you won't go back. On the night itself everything happens in VIP Service: reservations, placement on the plan, arrivals, manual reservations at the door.",
   'ohelp.org.tables.s2h': "With or without a club",
   'ohelp.org.tables.s2b': "Solo event (venue rented outside Yuno): you are your own club. You create your zones (VIP area, Mezzanine…), your packs with price, capacity and deposit, and your floor plan — the same interactive editor clubs use. Money lands on your Stripe account, like tickets. Co-event with a club: the plan and zones come from the club and are locked; you only set your packs and prices, and if the club has an interactive plan the event uses it directly.",
   'ohelp.org.tables.s3h': "Put tables on sale",
-  'ohelp.org.tables.s3b': "1. Open the event from VIP Tables or Events, then tap Enable table sales.\n2. Zones tab: create at least one zone with its maximum number of tables (that is the sales cap).\n3. Packs tab: add one pack per offer (price, capacity, deposit, what is included, arrival cutoff time).\n4. Floor plan tab: upload an image, or tap Build the plan to place your tables zone by zone.\n5. Turn on “Guests pick their table on the plan” if you want interactive placement at checkout; otherwise guests book a zone and you seat them on arrival.\n6. Check the event's public page: packs appear below the tickets.",
+  'ohelp.org.tables.s3b': "1. In VIP Tables, flip the event's switch (or tap Enable table sales on its page), then Configure.
+2. If you already played at this venue, pick a VIP room under “Reuse a VIP room” and Apply: zones, packs and plan come back at once.
+3. Otherwise, Zones tab: create at least one zone with its maximum number of tables (the sales cap).
+4. Packs tab: one pack per offer (price, capacity, deposit, what's included, arrival cutoff).
+5. Floor plan tab: upload an image, or Build the plan to place your tables zone by zone; turn on “Guests pick their table on the plan” for interactive placement.
+6. Tap “Save as VIP room” to keep this setup in your history.
+7. On the night: open VIP Service to follow reservations, approve placements and record arrivals.",
   'ohelp.org.tables.s4h': "Basic or interactive plan",
   'ohelp.org.tables.s4b': "Basic: guests book a pack in a zone without choosing a specific table — simple and fast, ideal for a first event. Interactive plan: guests see your plan, already-taken tables are greyed out, they point at theirs. The number of tables placed in a zone updates its sales cap automatically. You can switch between the two whenever you want; the interactive plan requires at least one placed table.",
   'ohelp.org.tables.s5h': "Tip: the deposit",

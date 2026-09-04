@@ -594,7 +594,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   </div>
                 </OrgCard>
 
-                {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} />}
+                {/* Résumé seulement : l'atelier (zones, packs, plan) vit sur
+                    /organizer-app/tables, le service du soir sur /organizer-app/vip-service. */}
+                {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
                 <OrgEventDrinksMenu eventId={event.id} />
               </>
             )}
