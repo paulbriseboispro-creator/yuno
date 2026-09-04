@@ -108,6 +108,8 @@ interface ConfirmationData {
   customerEmail?: string;
   customerPhone?: string;
   paidAt?: string;
+  /** Table « règlement sur place » : rien n'a été débité, tout se règle au club. */
+  onSitePayment?: boolean;
   attendees?: Array<{ firstName: string; lastName: string }>;
   items?: Array<{ name: string; qty: number; unitPrice: number }>;
   venueId?: string;
@@ -484,6 +486,7 @@ export default function OrderConfirmation() {
 
         setData({
           type: 'table',
+          onSitePayment: (reservation as { payment_mode?: string | null }).payment_mode === 'on_site',
           organizers: tableOrganizers.length > 0 ? tableOrganizers : undefined,
           organizerLed: !!reservationEvent.organizer_user_id,
           id: reservation.id,
@@ -933,6 +936,11 @@ export default function OrderConfirmation() {
           {data.details && (
             <p className="font-mono uppercase mb-2 animate-hero-label" style={{ fontSize: '10px', letterSpacing: '0.10em', color: '#9A9A9A' }}>
               {data.details}
+            </p>
+          )}
+          {data.onSitePayment && (
+            <p className="font-mono uppercase mb-2 animate-hero-label" style={{ fontSize: '10px', letterSpacing: '0.10em', color: '#34D399' }}>
+              {t('confirmation.onSiteNote')}
             </p>
           )}
 

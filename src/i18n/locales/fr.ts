@@ -9530,6 +9530,7 @@ const fr: Record<string, string> = {
   'vipCheckout.selectTable': 'Choisissez votre table',
   'vipCheckout.selectTableDescription': 'Sélectionnez une table disponible ou laissez le club vous en attribuer une.',
   'vipCheckout.skipPlacement': 'Laisser le club choisir ma table',
+  'confirmation.onSiteNote': "Règlement sur place — rien n'a été débité",
   "tableCheckout.onSiteTitle": "Aucun paiement en ligne",
   "tableCheckout.onSiteDesc": "Votre réservation est confirmée tout de suite. Le règlement se fait sur place, au club.",
   "tableCheckout.onSiteShort": "Règlement sur place",

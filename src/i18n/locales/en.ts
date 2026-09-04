@@ -4259,6 +4259,7 @@ const en: Record<string, string> = {
   'vipCheckout.selectTable': 'Choose your table',
   'vipCheckout.selectTableDescription': 'Select an available table or let the club assign one for you.',
   'vipCheckout.skipPlacement': 'Let the club choose my table',
+  'confirmation.onSiteNote': "Paid on site — nothing has been charged",
   "tableCheckout.onSiteTitle": "No online payment",
   "tableCheckout.onSiteDesc": "Your reservation is confirmed right away. Payment is settled on site, at the venue.",
   "tableCheckout.onSiteShort": "Paid on site",
