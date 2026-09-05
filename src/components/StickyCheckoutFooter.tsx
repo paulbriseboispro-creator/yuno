@@ -84,7 +84,7 @@ export function StickyCheckoutFooter({
                     lineHeight: 1.1,
                   }}
                 >
-                  {amount.toFixed(2)} €
+                  {Number.isInteger(amount) ? amount : amount.toFixed(2)} €
                 </span>
                 {subtitleText && (
                   <span style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>

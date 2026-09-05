@@ -232,7 +232,7 @@ export async function fetchExploreCatalog(
   );
 
   // ── Vague 2 : ce qui dépend des ids (bornés à la fenêtre, jamais « toute la table ») ──
-  const [ticketRoundsRes, djSetsRes, orgProfilesRes] = await Promise.all([
+  const [ticketRoundsRes, djSetsRes, orgProfilesRes, tablePacksRes] = await Promise.all([
     eventIds.length
       ? supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active').in('event_id', eventIds)
       : Promise.resolve({ data: [] as { event_id: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean | null }[] }),
@@ -242,7 +242,22 @@ export async function fetchExploreCatalog(
     organizerUserIds.length
       ? supabase.from('organizer_profiles').select('user_id, display_name, slug').in('user_id', organizerUserIds)
       : Promise.resolve({ data: [] as { user_id: string; display_name: string; slug: string | null }[] }),
+    // Prix plancher des tables : une soirée qui ne vend QUE des tables doit
+    // dire « Table dès 300 € », pas rien (et surtout pas « Gratuit »).
+    supabase.from('table_packs').select('venue_id, event_id, base_price').eq('is_active', true),
   ]);
+
+  const tablePriceByEvent: Record<string, number> = {};
+  const tablePriceByVenue: Record<string, number> = {};
+  (tablePacksRes.data ?? []).forEach((pk) => {
+    const price = Number(pk.base_price);
+    if (!(price > 0)) return;
+    if (pk.event_id) {
+      tablePriceByEvent[pk.event_id] = Math.min(tablePriceByEvent[pk.event_id] ?? Infinity, price);
+    } else if (pk.venue_id) {
+      tablePriceByVenue[pk.venue_id] = Math.min(tablePriceByVenue[pk.venue_id] ?? Infinity, price);
+    }
+  });
 
   const venueMap = new Map(venues.map((v) => [v.id, v]));
   const organizerMap = new Map<string, { display_name: string; slug: string | null }>();
@@ -316,6 +331,11 @@ export async function fetchExploreCatalog(
       minPrice: priceMap[e.id]?.min ?? null,
       priceMin: priceMap[e.id]?.min ?? null,
       priceMax: priceMap[e.id]?.max ?? null,
+      // Tables sans billet : le libellé de prix parle de la table, pas de l'entrée.
+      tablesOnly: !!e.tables_enabled && !priceMap[e.id],
+      tableMinPrice: e.tables_enabled
+        ? (tablePriceByEvent[e.id] ?? (displayVenueId ? tablePriceByVenue[displayVenueId] : undefined) ?? null)
+        : null,
       genres: eventGenres,
       interestedCount,
       percentSold,

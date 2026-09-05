@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
-import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
+import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell, Armchair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -742,6 +742,11 @@ export default function EventDetails() {
   if (hasTickets) activeRounds.forEach(r => allPrices.push(r.price));
   if (hasTables) activePacks.forEach(p => allPrices.push(p.basePrice));
   const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+  // Sans billet, le prix affiché est celui d'une TABLE : on le dit, sinon
+  // « À partir de 300 € » passe pour le prix d'entrée.
+  const tablesOnlyOffer = !hasTickets && hasTables;
+  const minTableCapacity = hasTables ? Math.min(...activePacks.map((p) => p.baseCapacity || 1)) : 0;
+  const fmtPrice = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2));
 
 
   // Availability text
@@ -1018,9 +1023,19 @@ export default function EventDetails() {
                   deux lignes en plein milieu du montant. */}
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div className="min-w-0">
+                  {tablesOnlyOffer && (
+                    <p className="font-mono uppercase mb-2" style={{ fontSize: '10px', color: '#E8192C', letterSpacing: '0.12em' }}>
+                      {t('event.tablesKicker')}
+                    </p>
+                  )}
                   <p className="font-display font-bold text-white whitespace-nowrap" style={{ fontSize: 'clamp(21px, 5vw, 32px)', letterSpacing: '-0.025em', lineHeight: 1 }}>
-                    {t('event.startingFrom')} {minPrice.toFixed(2)}€
+                    {t('event.startingFrom')} {fmtPrice(minPrice)} €
                   </p>
+                  {tablesOnlyOffer && (
+                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                      {t('event.perTableMin').replace('{n}', String(minTableCapacity))}
+                    </p>
+                  )}
                   {/* Poser les deux offres cote a cote soulevait une question a
                       laquelle rien ne repondait : pourquoi payer si c'est
                       gratuit ? Parce que la liste n'est gratuite qu'AVANT une
@@ -1050,7 +1065,7 @@ export default function EventDetails() {
                   onTouchStart={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onTouchEnd={(e) => (e.currentTarget.style.transform = '')}
                 >
-                  {t('event.bookNow')}
+                  {tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
                 </button>
               </div>
               {/* Active rounds breakdown when multiple rounds are visible */}
@@ -1495,14 +1510,16 @@ export default function EventDetails() {
           return (
             <StickyCheckoutFooter
               amount={minPrice}
-              label={t('event.startingFrom')}
+              label={tablesOnlyOffer ? t('event.tableFrom') : t('event.startingFrom')}
               // La barre ancre le prix (c'est la ou est le revenu du club), mais
               // elle dit aussi qu'une entree gratuite existe : sans ce mot, un
               // visiteur qui ne fait que lire le bas de l'ecran croit que la
-              // soiree est payante et repart.
-              subtitleText={guestListWithPaid ? t('event.freeEntryAlso') : undefined}
-              buttonText={t('event.bookNow')}
-              icon={<Ticket className="h-4 w-4" />}
+              // soiree est payante et repart. Sans billet, elle dit « table ».
+              subtitleText={guestListWithPaid
+                ? t('event.freeEntryAlso')
+                : tablesOnlyOffer ? t('event.perTableMin').replace('{n}', String(minTableCapacity)) : undefined}
+              buttonText={tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
+              icon={tablesOnlyOffer ? <Armchair className="h-4 w-4" /> : <Ticket className="h-4 w-4" />}
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
             />
           );

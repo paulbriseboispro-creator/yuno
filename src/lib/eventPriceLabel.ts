@@ -9,7 +9,8 @@
  * nulle part ailleurs.
  *
  * Trois cas, dans cet ordre :
- *   1. tables uniquement -> « Tables uniquement », jamais un prix ;
+ *   1. tables uniquement -> « Table dès X€ » si on connaît le prix plancher
+ *      d'une table, sinon « Tables uniquement » — jamais un prix d'entrée ;
  *   2. gratuit revendiqué (`is_free`) -> « Gratuit » ;
  *   3. un prix réel (> 0) -> « À partir de X€ ». Un zéro sans `is_free` veut
  *      dire « prix non renseigné », pas « gratuit » : on n'affiche rien.
@@ -18,6 +19,8 @@
 export type PricedEvent = {
   minPrice?: number | null;
   tablesOnly?: boolean | null;
+  /** Prix plancher d'une table, quand la soirée en vend. */
+  tableMinPrice?: number | null;
 };
 
 /** Un prix d'entrée n'a de sens que si la soirée vend des billets d'entrée. */
@@ -34,7 +37,11 @@ export function eventPriceLabel(
   t: (k: string) => string,
   opts?: { withFromPrefix?: boolean },
 ): string {
-  if (event.tablesOnly) return t('explore.tablesOnly');
+  if (event.tablesOnly) {
+    return event.tableMinPrice != null && event.tableMinPrice > 0
+      ? `${t('explore.tableFrom')} ${event.tableMinPrice}€`
+      : t('explore.tablesOnly');
+  }
   if (event.minPrice === 0) return t('explore.free');
   if (event.minPrice != null && event.minPrice > 0) {
     return opts?.withFromPrefix === false
