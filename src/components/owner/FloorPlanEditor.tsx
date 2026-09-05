@@ -104,6 +104,8 @@ const CANVAS_HEIGHT = 400;
 // Zoom de TRAVAIL du canvas (confort de l'éditeur, jamais persisté) — distinct
 // du « zoom fond », qui règle l'échelle de l'image dans le plan et fait partie
 // du layout.
+// Une table peut descendre à 8 px : assez pour un point sur un grand plan.
+const TABLE_MIN_SIZE = 8;
 const VIEW_ZOOM_MIN = 0.5;
 const VIEW_ZOOM_MAX = 3;
 const VIEW_ZOOM_STEP = 0.25;
@@ -551,7 +553,7 @@ export function FloorPlanEditor({
       let newHeight = resizeStart.height;
       if (resizing.corner.includes('e')) newWidth = resizeStart.width + deltaX;
       if (resizing.corner.includes('s')) newHeight = resizeStart.height + deltaY;
-      const minSize = resizing.type === 'zone' ? 30 : 15;
+      const minSize = resizing.type === 'zone' ? 30 : TABLE_MIN_SIZE;
       // Maj enfoncée : proportions verrouillées. Un cercle reste rond, un
       // rectangle garde son ratio — on applique un seul facteur d'échelle,
       // pris sur l'axe que la souris a le plus étiré, puis on borne ce
@@ -1301,14 +1303,14 @@ export function FloorPlanEditor({
                   <div>
                     <Label className="text-xs">{t('vipHost.width')}</Label>
                     <Input type="number" value={selectedTableData.width}
-                      onChange={(e) => updateTable(selectedTableData.id, { width: parseInt(e.target.value) || 20 })}
-                      min={15} max={200} step={1} />
+                      onChange={(e) => updateTable(selectedTableData.id, { width: Math.max(TABLE_MIN_SIZE, parseInt(e.target.value) || TABLE_MIN_SIZE) })}
+                      min={TABLE_MIN_SIZE} max={200} step={1} />
                   </div>
                   <div>
                     <Label className="text-xs">{t('vipHost.height')}</Label>
                     <Input type="number" value={selectedTableData.height}
-                      onChange={(e) => updateTable(selectedTableData.id, { height: parseInt(e.target.value) || 20 })}
-                      min={15} max={200} step={1} />
+                      onChange={(e) => updateTable(selectedTableData.id, { height: Math.max(TABLE_MIN_SIZE, parseInt(e.target.value) || TABLE_MIN_SIZE) })}
+                      min={TABLE_MIN_SIZE} max={200} step={1} />
                   </div>
                 </div>
 
