@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye } from 'lucide-react';
+import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye, Pencil } from 'lucide-react';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import type { VenueFloorPlan } from '@/types';
 import { toast } from 'sonner';
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import {
-  OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState, OrgTabs, FieldLabel,
+  OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState, OrgTabs, FieldLabel, DarkInput,
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 
@@ -78,6 +78,63 @@ export default function OrgAppTables() {
   const [deleteRoom, setDeleteRoom] = useState<VipRoom | null>(null);
   // Fiche d'une salle : ce qui est enregistré, AVANT de l'utiliser.
   const [detailRoom, setDetailRoom] = useState<VipRoom | null>(null);
+  // Édition de la salle elle-même (nom, zones, formules). Le plan reste tel
+  // quel : pour le redessiner, on l'utilise sur une soirée puis on ré-enregistre.
+  type DraftZone = VipRoom['zones'][number] & { color: string; tables_count_s: string };
+  type DraftPack = VipRoom['packs'][number] & {
+    base_price_s: string; base_capacity_s: string; deposit_s: string; tables_count_s: string;
+    payment_mode: 'online' | 'on_site'; limit_tables: boolean; arrival_deadline_s: string;
+  };
+  const [roomDraft, setRoomDraft] = useState<{ name: string; zones: DraftZone[]; packs: DraftPack[] } | null>(null);
+  const [savingRoomEdit, setSavingRoomEdit] = useState(false);
+  const startRoomEdit = (r: VipRoom) => {
+    setRoomDraft({
+      name: r.name,
+      zones: (Array.isArray(r.zones) ? r.zones : []).map((z) => ({ ...z, color: z.color ?? '#3b82f6', tables_count_s: String(z.tables_count ?? 1) })),
+      packs: (Array.isArray(r.packs) ? r.packs : []).map((pk) => ({
+        ...pk,
+        base_price_s: String(pk.base_price ?? 0), base_capacity_s: String(pk.base_capacity ?? 6),
+        deposit_s: String(pk.deposit ?? 0), tables_count_s: String(pk.tables_count ?? 1),
+        payment_mode: pk.payment_mode === 'on_site' ? 'on_site' : 'online',
+        limit_tables: !!pk.limit_tables, arrival_deadline_s: pk.arrival_deadline ? String(pk.arrival_deadline).slice(0, 5) : '',
+      })),
+    });
+  };
+  const saveRoomEdit = async () => {
+    if (!detailRoom || !roomDraft) return;
+    const name = roomDraft.name.trim();
+    if (!name) { toast.error(tt('Nom requis', 'Name required', 'Nombre obligatorio')); return; }
+    // Le plafond d'une formule est la loi : il ne descend pas sous les tables du plan déjà liées.
+    const bound = new Map<string, number>();
+    for (const tb of detailRoom.layout?.tables ?? []) { if (tb.packId) bound.set(tb.packId, (bound.get(tb.packId) || 0) + 1); }
+    for (const pk of roomDraft.packs) {
+      const n = Math.max(1, parseInt(pk.tables_count_s) || 1);
+      const b = pk.id ? bound.get(pk.id) || 0 : 0;
+      if (pk.limit_tables && b > n) {
+        toast.error(tt(`« ${pk.name} » a ${b} tables liées sur le plan : son plafond ne peut pas descendre à ${n}.`, `“${pk.name}” has ${b} tables pinned on the plan: its cap can’t drop to ${n}.`, `«${pk.name}» tiene ${b} mesas vinculadas en el plano: su tope no puede bajar a ${n}.`));
+        return;
+      }
+    }
+    const zones = roomDraft.zones.map(({ tables_count_s, ...z }) => ({ ...z, name: z.name.trim() || z.name, tables_count: Math.max(1, parseInt(tables_count_s) || 1) }));
+    const packs = roomDraft.packs.map(({ base_price_s, base_capacity_s, deposit_s, tables_count_s, arrival_deadline_s, ...pk }) => ({
+      ...pk,
+      name: pk.name.trim() || pk.name,
+      base_price: Math.max(0, parseFloat(base_price_s) || 0),
+      base_capacity: Math.max(1, parseInt(base_capacity_s) || 1),
+      deposit: pk.payment_mode === 'on_site' ? 0 : Math.max(0, parseFloat(deposit_s) || 0),
+      tables_count: Math.max(1, parseInt(tables_count_s) || 1),
+      arrival_deadline: arrival_deadline_s || null,
+    }));
+    setSavingRoomEdit(true);
+    const { error } = await supabase.from('organizer_vip_rooms').update({ name, zones, packs, updated_at: new Date().toISOString() }).eq('id', detailRoom.id);
+    setSavingRoomEdit(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(tt('Salle VIP modifiée. Les soirées déjà configurées ne changent pas.', 'VIP room updated. Events already set up are unchanged.', 'Sala VIP actualizada. Las noches ya configuradas no cambian.'));
+    const next = { ...detailRoom, name, zones, packs } as VipRoom;
+    setDetailRoom(next);
+    setRoomDraft(null);
+    load();
+  };
 
   const load = async () => {
     if (!user) return;
@@ -354,6 +411,13 @@ export default function OrgAppTables() {
                 'El plano, zonas y packs de esta sala reemplazan la configuración actual de la noche elegida (imposible si ya tiene reservas).',
               )}
             </p>
+            <p style={{ color: T2, fontSize: 12 }}>
+              {tt(
+                'La soirée reçoit une copie indépendante : changer ses prix ou son plan ensuite ne modifie pas la salle enregistrée.',
+                'The event gets an independent copy: changing its prices or plan afterwards does not alter the saved room.',
+                'La noche recibe una copia independiente: cambiar sus precios o su plano después no modifica la sala guardada.',
+              )}
+            </p>
             <div>
               <FieldLabel>{tt('Soirée', 'Event', 'Noche')}</FieldLabel>
               <select className="w-full" value={applyTarget} onChange={(e) => setApplyTarget(e.target.value)}
@@ -377,7 +441,7 @@ export default function OrgAppTables() {
 
       {/* Supprimer une salle de l'historique */}
       {/* Fiche d'une salle VIP : plan, zones et formules tels qu'enregistrés. */}
-      <Dialog open={!!detailRoom} onOpenChange={(o) => { if (!o) setDetailRoom(null); }}>
+      <Dialog open={!!detailRoom} onOpenChange={(o) => { if (!o) { setDetailRoom(null); setRoomDraft(null); } }}>
         <DialogContent className="max-w-3xl border-0 bg-[#0a0a0c] p-0 text-white">
           {detailRoom && (() => {
             const r = detailRoom;
@@ -397,7 +461,13 @@ export default function OrgAppTables() {
             return (
               <>
                 <DialogHeader className="px-5 pt-5">
-                  <DialogTitle style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{r.name}</DialogTitle>
+                  {roomDraft ? (
+                    <DialogTitle style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
+                      {tt('Modifier', 'Edit', 'Editar')} « {r.name} »
+                    </DialogTitle>
+                  ) : (
+                    <DialogTitle style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{r.name}</DialogTitle>
+                  )}
                   <div className="flex flex-wrap items-center gap-x-2" style={{ color: T3, fontSize: 11.5 }}>
                     {r.location_name && r.location_name !== r.name && <span className="inline-flex items-center gap-1"><Building2 className="h-3 w-3" /> {r.location_name}</span>}
                     <span className="inline-flex items-center gap-1"><MapIcon className="h-3 w-3" /> {st.tables} {tt('tables', 'tables', 'mesas')}</span>
@@ -422,7 +492,62 @@ export default function OrgAppTables() {
                     )}
                   </div>
 
-                  <div className="mt-4">
+                  {roomDraft && (
+                    <div className="mt-4 space-y-3">
+                      <p style={{ color: T3, fontSize: 11.5 }}>
+                        {tt(
+                          'Le plan (tables, positions, formules liées) se modifie en utilisant la salle sur une soirée, puis « Enregistrer comme salle VIP » sur cette salle. Ici : nom, zones et formules.',
+                          'The plan (tables, positions, pinned packages) is edited by using the room on an event, then “Save as VIP room” onto this room. Here: name, zones and packages.',
+                          'El plano (mesas, posiciones, fórmulas vinculadas) se edita usando la sala en una noche y luego «Guardar como sala VIP» sobre esta sala. Aquí: nombre, zonas y fórmulas.',
+                        )}
+                      </p>
+                      <div>
+                        <FieldLabel>{tt('Nom de la salle', 'Room name', 'Nombre de la sala')}</FieldLabel>
+                        <DarkInput value={roomDraft.name} onChange={(v) => setRoomDraft({ ...roomDraft, name: v })} />
+                      </div>
+                      <FieldLabel>{tt('Zones & formules', 'Zones & packages', 'Zonas y fórmulas')}</FieldLabel>
+                      <div className="space-y-3">
+                        {roomDraft.zones.map((z, zi) => (
+                          <div key={z.id ?? zi} className="rounded-xl p-3 space-y-2" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+                            <div className="flex items-center gap-2">
+                              <input type="color" value={z.color} onChange={(e) => setRoomDraft({ ...roomDraft, zones: roomDraft.zones.map((x, i) => i === zi ? { ...x, color: e.target.value } : x) })} className="h-8 w-8 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0" aria-label={tt('Couleur', 'Color', 'Color')} />
+                              <div className="flex-1"><DarkInput value={z.name} onChange={(v) => setRoomDraft({ ...roomDraft, zones: roomDraft.zones.map((x, i) => i === zi ? { ...x, name: v } : x) })} placeholder={tt('Nom de la zone', 'Zone name', 'Nombre de la zona')} /></div>
+                              <div className="w-24"><DarkInput type="number" value={z.tables_count_s} onChange={(v) => setRoomDraft({ ...roomDraft, zones: roomDraft.zones.map((x, i) => i === zi ? { ...x, tables_count_s: v } : x) })} placeholder={tt('tables', 'tables', 'mesas')} /></div>
+                            </div>
+                            {roomDraft.packs.map((pk, pi) => pk.zone_id === z.id && (
+                              <div key={pk.id ?? pi} className="rounded-lg p-2.5 space-y-2" style={{ border: `1px solid ${BORDER}` }}>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                  <div className="col-span-2 sm:col-span-1"><FieldLabel>{tt('Formule', 'Package', 'Fórmula')}</FieldLabel><DarkInput value={pk.name} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, name: v } : x) })} /></div>
+                                  <div><FieldLabel>{tt('Prix €', 'Price €', 'Precio €')}</FieldLabel><DarkInput type="number" value={pk.base_price_s} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, base_price_s: v } : x) })} /></div>
+                                  <div><FieldLabel>{tt('Capacité', 'Guests', 'Capacidad')}</FieldLabel><DarkInput type="number" value={pk.base_capacity_s} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, base_capacity_s: v } : x) })} /></div>
+                                  <div><FieldLabel>{tt('Arrivée avant', 'Arrive before', 'Llegar antes de')}</FieldLabel><DarkInput type="time" value={pk.arrival_deadline_s} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, arrival_deadline_s: v } : x) })} /></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 items-end">
+                                  <div className="col-span-2 sm:col-span-2">
+                                    <FieldLabel>{tt('Règlement', 'Payment', 'Pago')}</FieldLabel>
+                                    <select className="w-full" value={pk.payment_mode} onChange={(e) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, payment_mode: e.target.value as 'online' | 'on_site' } : x) })}
+                                      style={{ width: '100%', background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', borderRadius: 12, padding: '0 12px', fontSize: 13, height: 40, cursor: 'pointer' }}>
+                                      <option value="online" style={{ background: '#0a0a0c' }}>{tt('En ligne via Yuno', 'Online via Yuno', 'En línea vía Yuno')}</option>
+                                      <option value="on_site" style={{ background: '#0a0a0c' }}>{tt('Sur place — aucun acompte', 'On site — no deposit', 'En el local — sin señal')}</option>
+                                    </select>
+                                  </div>
+                                  <div><FieldLabel>{tt('Acompte €', 'Deposit €', 'Señal €')}</FieldLabel><DarkInput type="number" value={pk.deposit_s} disabled={pk.payment_mode === 'on_site'} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, deposit_s: v } : x) })} /></div>
+                                  <div className="flex items-center gap-2 pb-2">
+                                    <Switch checked={pk.limit_tables} onCheckedChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, limit_tables: v } : x) })} />
+                                    {pk.limit_tables
+                                      ? <div className="w-16"><DarkInput type="number" value={pk.tables_count_s} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, tables_count_s: v } : x) })} /></div>
+                                      : <span style={{ color: T3, fontSize: 11 }}>{tt('tables max', 'tables max', 'mesas máx.')}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4" hidden={!!roomDraft}>
                     <div className="mb-2.5 flex items-center justify-between">
                       <FieldLabel>{tt('Zones & formules', 'Zones & packages', 'Zonas y fórmulas')}</FieldLabel>
                     </div>
@@ -472,12 +597,26 @@ export default function OrgAppTables() {
                   </div>
                 </div>
                 <DialogFooter className="border-t px-5 py-4" style={{ borderColor: BORDER }}>
-                  <OrgButton variant="ghost" onClick={() => { setDetailRoom(null); setDeleteRoom(r); }}>
-                    <Trash2 className="h-4 w-4" style={{ color: '#FF5C63' }} /> {tt('Supprimer', 'Delete', 'Eliminar')}
-                  </OrgButton>
-                  <OrgButton variant="primary" disabled={soloUpcoming.length === 0} onClick={() => { setDetailRoom(null); setApplyRoom(r); setApplyTarget(soloUpcoming[0]?.id ?? ''); }}>
-                    <Play className="h-3.5 w-3.5" /> {tt('Utiliser pour une soirée', 'Use for an event', 'Usar en una noche')}
-                  </OrgButton>
+                  {roomDraft ? (
+                    <>
+                      <OrgButton variant="secondary" disabled={savingRoomEdit} onClick={() => setRoomDraft(null)}>{tt('Annuler', 'Cancel', 'Cancelar')}</OrgButton>
+                      <OrgButton variant="primary" disabled={savingRoomEdit} onClick={saveRoomEdit}>
+                        {savingRoomEdit ? tt('Enregistrement…', 'Saving…', 'Guardando…') : tt('Enregistrer la salle', 'Save room', 'Guardar la sala')}
+                      </OrgButton>
+                    </>
+                  ) : (
+                    <>
+                      <OrgButton variant="ghost" onClick={() => { setDetailRoom(null); setDeleteRoom(r); }}>
+                        <Trash2 className="h-4 w-4" style={{ color: '#FF5C63' }} /> {tt('Supprimer', 'Delete', 'Eliminar')}
+                      </OrgButton>
+                      <OrgButton variant="secondary" onClick={() => startRoomEdit(r)}>
+                        <Pencil className="h-3.5 w-3.5" /> {tt('Modifier', 'Edit', 'Editar')}
+                      </OrgButton>
+                      <OrgButton variant="primary" disabled={soloUpcoming.length === 0} onClick={() => { setDetailRoom(null); setApplyRoom(r); setApplyTarget(soloUpcoming[0]?.id ?? ''); }}>
+                        <Play className="h-3.5 w-3.5" /> {tt('Utiliser pour une soirée', 'Use for an event', 'Usar en una noche')}
+                      </OrgButton>
+                    </>
+                  )}
                 </DialogFooter>
               </>
             );
