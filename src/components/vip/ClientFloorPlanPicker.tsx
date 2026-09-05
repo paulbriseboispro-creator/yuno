@@ -540,7 +540,7 @@ export function ClientFloorPlanPicker({
             }}
             className={readOnly ? 'pointer-events-none' : (isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer')}
             style={{ transition: 'opacity 0.3s ease, filter 0.3s ease' }}
-            opacity={isUnavailable ? 0.3 : tooSmall ? 0.55 : dimmed ? 0.45 : 1}
+            opacity={isUnavailable ? 0.3 : tooSmall ? 0.55 : dimmed ? 0.78 : 1}
             filter={isSelected ? 'url(#selected-pulse)' : undefined}
           >
             {isSelected && (
@@ -554,9 +554,9 @@ export function ClientFloorPlanPicker({
               shape: table.shape || 'rectangle',
               x: table.x, y: table.y, width: table.width, height: table.height,
               fill: isUnavailable ? 'url(#unavailable-stripes)' : tooSmall ? 'transparent' : tableColor,
-              stroke: isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : isSelected ? 'white' : dimmed ? 'hsl(var(--muted-foreground))' : tableColor,
-              strokeWidth: isSelected ? 2 : tooSmall ? 1.5 : dimmed ? 0.5 : 1,
-              fillOpacity: isUnavailable ? 1 : tooSmall ? 0 : isSelected ? Math.min((table.fillOpacity ?? 0.55) + 0.15, 1) : dimmed ? 0.25 : (table.fillOpacity ?? 0.55),
+              stroke: isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : isSelected ? 'white' : tableColor,
+              strokeWidth: isSelected ? 2 : tooSmall ? 1.5 : dimmed ? 0.75 : 1,
+              fillOpacity: isUnavailable ? 1 : tooSmall ? 0 : isSelected ? Math.min((table.fillOpacity ?? 0.55) + 0.15, 1) : dimmed ? (table.fillOpacity ?? 0.55) * 0.7 : (table.fillOpacity ?? 0.55),
               borderRadius: table.borderRadius ?? 6,
               strokeDasharray: tooSmall ? '4 3' : undefined,
             })}
@@ -564,8 +564,8 @@ export function ClientFloorPlanPicker({
             {showTableLabels && (
               <text x={cx} y={tooSmall ? cy - 3 : cy}
                 textAnchor="middle" dominantBaseline="central"
-                fill={isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : dimmed ? 'hsl(var(--muted-foreground))' : 'white'}
-                opacity={isSelected ? 1 : tooSmall ? 0.8 : dimmed ? 0.6 : 0.9}
+                fill={isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : 'white'}
+                opacity={isSelected ? 1 : tooSmall ? 0.8 : dimmed ? 0.85 : 0.9}
                 fontSize={Math.min(table.width, table.height) * 0.4} fontWeight={700}
                 className="pointer-events-none select-none">
                 {shortLabel}
@@ -713,22 +713,52 @@ export function ClientFloorPlanPicker({
     <div className="space-y-4">
       {/* Selected table info */}
       {!readOnly && selectedTable && (
-        <div className="flex items-center justify-between px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-              <Check className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <span className="text-sm font-medium">{selectedTable.name}</span>
-            {selectedTable.capacity && (
-              <Badge variant="outline" className="text-xs">{selectedTable.capacity} pers.</Badge>
-            )}
-            {selectedTable.packId && packNames?.[selectedTable.packId] && (
-              <Badge variant="outline" className="text-xs">{packNames[selectedTable.packId]}</Badge>
-            )}
+        <div
+          className="flex items-center gap-3 pl-3 pr-2 py-2.5 rounded-2xl border animate-in fade-in slide-in-from-bottom-2 duration-300"
+          style={{ background: 'rgba(232,25,44,0.08)', borderColor: 'rgba(232,25,44,0.32)' }}
+        >
+          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(232,25,44,0.18)' }}>
+            <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
           </div>
-          <Button size="sm" variant="ghost" onClick={() => onSelectTable(null)} className="text-xs h-7">
+          <div className="min-w-0 flex-1">
+            <div className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: '#9A9A9A', lineHeight: 1.2 }}>
+              {t('vipCheckout.tableSelected') || 'Table sélectionnée'}
+            </div>
+            <div className="font-display font-bold uppercase truncate text-white mt-0.5" style={{ fontSize: '15px', letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+              {selectedTable.name}
+            </div>
+            {(() => {
+              const packName = selectedTable.packId ? packNames?.[selectedTable.packId] : undefined;
+              const zoneName = selectedTable.zoneName;
+              const showPack = !!packName && packName.trim().toLowerCase() !== (zoneName || '').trim().toLowerCase();
+              if (!selectedTable.capacity && !zoneName && !showPack) return null;
+              return (
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0 font-mono uppercase mt-1" style={{ fontSize: '9px', letterSpacing: '0.06em', color: '#E5E5E5', lineHeight: 1.3 }}>
+                  {selectedTable.capacity && (
+                    <span className="flex-shrink-0">
+                      {selectedTable.capacity} {t('vip.pers') || 'pers.'}{selectedTable.maxExtraPersons ? ` · +${selectedTable.maxExtraPersons} max` : ''}
+                    </span>
+                  )}
+                  {selectedTable.capacity && (zoneName || showPack) && <span className="flex-shrink-0 text-[#6A6A6A]">·</span>}
+                  {zoneName && (
+                    <span className="inline-flex items-center gap-1 flex-shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: selectedTable.zoneColor || 'hsl(var(--primary))' }} />
+                      <span>{zoneName}</span>
+                    </span>
+                  )}
+                  {zoneName && showPack && <span className="flex-shrink-0 text-[#6A6A6A]">·</span>}
+                  {showPack && <span className="truncate max-w-full">{packName}</span>}
+                </div>
+              );
+            })()}
+          </div>
+          <button
+            type="button"
+            onClick={() => onSelectTable(null)}
+            className="flex-shrink-0 inline-flex items-center h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[9px] font-bold tracking-[0.10em] text-[#E5E5E5] transition-colors active:scale-[0.97]"
+          >
             {t('common.change')}
-          </Button>
+          </button>
         </div>
       )}
 
@@ -816,7 +846,7 @@ export function ClientFloorPlanPicker({
           </div>
           {primaryZoneId && (
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded border border-white/[0.14] bg-white/[0.05]" />
+              <div className="w-3 h-3 rounded border-2 opacity-60" style={{ borderColor: 'hsl(var(--primary))', backgroundColor: 'hsl(var(--primary)/0.12)' }} />
               <span className="text-[#9A9A9A]">{t('vipCheckout.otherZone')}</span>
             </div>
           )}
