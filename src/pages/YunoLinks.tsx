@@ -182,12 +182,13 @@ export default function YunoLinks() {
   const citiesLabel = config.live_cities.join(' · ');
   const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
 
-  const weekendN = stats?.weekend_events ?? 0;
+  // Compteur du bandeau : les 7 prochains jours (glissants) ; repli sur « à venir » si vide.
+  const weekN = stats?.week_events ?? 0;
   const upcomingN = stats?.upcoming_events ?? 0;
-  const headlineN = weekendN > 0 ? weekendN : upcomingN;
-  const headlineLabel2 = weekendN > 0 ? t('links.statWeekend2') : t('links.statUpcoming2');
+  const headlineN = weekN > 0 ? weekN : upcomingN;
+  const headlineLabel2 = weekN > 0 ? t('links.statWeek2') : t('links.statUpcoming2');
   const stickySub = stats
-    ? (weekendN > 0 ? t('links.stickySub') : t('links.stickySubUpcoming')).replace('{n}', String(headlineN))
+    ? (weekN > 0 ? t('links.stickySub') : t('links.stickySubUpcoming')).replace('{n}', String(headlineN))
     : t('links.ctaAppSub');
 
   // ── Actions ──
@@ -346,7 +347,7 @@ export default function YunoLinks() {
           </p>
 
           <div style={{ position: 'relative', margin: '20px 0 0', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 4, overflow: 'hidden' }}>
-            {stat(stats ? String(headlineN) : '—', t('links.statWeekend1'), headlineLabel2)}
+            {stat(stats ? String(headlineN) : '—', t('links.statWeek1'), headlineLabel2)}
             {stat(stats ? `${stats.venues}` : '—', t('links.statClubs1'), t('links.statClubs2'))}
             {stat(t('links.statTime'), t('links.statTime1'), t('links.statTime2'), true)}
           </div>

@@ -12813,8 +12813,8 @@ const es: Record<string, string> = {
   'links.h1a': 'Todas las fiestas,',
   'links.h1b': 'en directo.',
   'links.lead': 'Las fiestas de {cities}, en directo. Eliges, reservas, estás dentro.',
-  'links.statWeekend1': 'Fiestas',
-  'links.statWeekend2': 'este finde',
+  'links.statWeek1': 'Fiestas',
+  'links.statWeek2': 'esta semana',
   'links.statUpcoming2': 'próximas',
   'links.statClubs1': 'Clubs',
   'links.statClubs2': 'colaboradores',
@@ -12881,7 +12881,7 @@ const es: Record<string, string> = {
   'links.proDoneTitle': 'Hablamos pronto',
   'links.proDoneBody': 'Paul te responde en persona, normalmente el mismo día.',
   'links.proOpenWhatsApp': 'Abrir WhatsApp',
-  'links.stickySub': '{n} fiestas este finde',
+  'links.stickySub': '{n} fiestas esta semana',
   'links.stickySubUpcoming': '{n} fiestas próximas',
 
   // --- Admin: Yuno Links (/admin/links) ---

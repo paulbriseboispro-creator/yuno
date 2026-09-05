@@ -12446,8 +12446,8 @@ const fr: Record<string, string> = {
   'links.h1a': 'Toutes les soirées,',
   'links.h1b': 'en direct.',
   'links.lead': 'Les soirées de {cities}, en direct. Tu choisis, tu réserves, tu y es.',
-  'links.statWeekend1': 'Soirées',
-  'links.statWeekend2': 'ce week-end',
+  'links.statWeek1': 'Soirées',
+  'links.statWeek2': 'cette semaine',
   'links.statUpcoming2': 'à venir',
   'links.statClubs1': 'Clubs',
   'links.statClubs2': 'partenaires',
@@ -12514,7 +12514,7 @@ const fr: Record<string, string> = {
   'links.proDoneTitle': 'On se parle vite',
   'links.proDoneBody': 'Paul te répond en personne, en général dans la journée.',
   'links.proOpenWhatsApp': 'Ouvrir WhatsApp',
-  'links.stickySub': '{n} soirées ce week-end',
+  'links.stickySub': '{n} soirées cette semaine',
   'links.stickySubUpcoming': '{n} soirées à venir',
 
   // --- Admin : Yuno Links (/admin/links) ---

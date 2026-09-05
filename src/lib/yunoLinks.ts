@@ -120,6 +120,8 @@ export function whatsappUrl(number: string, text: string): string | null {
 export interface LinksStats {
   venues: number;
   upcoming_events: number;
+  /** Soirées des 7 prochains jours (glissants), soirées en cours incluses. */
+  week_events: number;
   weekend_events: number;
   cities: string[];
 }
@@ -148,6 +150,7 @@ export async function fetchLinksStats(): Promise<LinksStats | null> {
     return {
       venues: Number(d.venues ?? 0),
       upcoming_events: Number(d.upcoming_events ?? 0),
+      week_events: Number(d.week_events ?? 0),
       weekend_events: Number(d.weekend_events ?? 0),
       cities: Array.isArray(d.cities) ? (d.cities as string[]) : [],
     };
