@@ -230,7 +230,7 @@ on vend du sans-friction dans une file d'attente.
 ## Yuno Links — la page de la bio Instagram / TikTok (2026-09-05)
 
 `/links` (`src/pages/YunoLinks.tsx`, design claude.design « Yuno Links », DA
-publique) : compteurs vivants, soirées à l'affiche, liste d'attente client,
+publique ; raccourcis de bio `/fr`, `/en`, `/es` → `/links?lang=…` tagués utm) : compteurs vivants, soirées à l'affiche, liste d'attente client,
 formulaire pro relié à WhatsApp, liens Instagram FR/EU + App Store. Réglages,
 audience et leads dans **`/admin/links`** (`AdminLinks.tsx`, super admin). Tout
 le partagé vit dans `src/lib/yunoLinks.ts`. Migrations `20260905150000`…`150200`.

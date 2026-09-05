@@ -570,6 +570,11 @@ const App = () => (
                     affiche, liste d'attente, formulaire pro → WhatsApp). Réglages et
                     audience dans /admin/links. Voir src/lib/yunoLinks.ts. */}
                 <Route path="/links" element={<YunoLinks />} />
+                {/* Raccourcis de bio, courts et lisibles : yunoapp.eu/fr, /en, /es →
+                    la page bio dans la langue du compte, taguée pour /admin/links. */}
+                {(['fr', 'en', 'es'] as const).map((lang) => (
+                  <Route key={lang} path={`/${lang}`} element={<Navigate to={`/links?lang=${lang}&utm_source=bio&utm_campaign=${lang}`} replace />} />
+                ))}
                 {/* Pages villes SEO (/paris, /madrid…) — routes générées depuis
                     CITY_PAGES : pas de segment dynamique racine qui avalerait
                     les 404. Voir src/data/cityPages.ts pour en ajouter une. */}
