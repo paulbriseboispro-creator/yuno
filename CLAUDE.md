@@ -227,6 +227,43 @@ commande, liens promoteurs & affiliés (`/l/*`, `/promoteur/*`, `/p/*`, `/promo/
 staff/pro. Le web mobile doit rester un chemin d'achat complet — DICE gate, Yuno non :
 on vend du sans-friction dans une file d'attente.
 
+## Yuno Links — la page de la bio Instagram / TikTok (2026-09-05)
+
+`/links` (`src/pages/YunoLinks.tsx`, design claude.design « Yuno Links », DA
+publique) : compteurs vivants, soirées à l'affiche, liste d'attente client,
+formulaire pro relié à WhatsApp, liens Instagram FR/EU + App Store. Réglages,
+audience et leads dans **`/admin/links`** (`AdminLinks.tsx`, super admin). Tout
+le partagé vit dans `src/lib/yunoLinks.ts`. Migrations `20260905150000`…`150200`.
+
+- **Les réglages sont en base, pas dans le code** : `links_page_config` (une
+  ligne `default`, jsonb normalisé par `normalizeLinksConfig`). Instagram FR
+  (`yunoapp.fr`) pour un visiteur en français, Instagram EU pour les autres ;
+  TikTok et WhatsApp masqués tant que vides. Le numéro WhatsApp du fondateur
+  se saisit dans l'onglet Réglages — **il n'est pas dans le repo**.
+- **Vrai inventaire seulement** : `get_links_public_stats` et
+  `get_links_featured_events` excluent les clubs `is_hidden` / décommissionnés
+  (donc le club démo « Yuno » et ses soirées, que la landing affiche encore) et
+  ajoutent les soirées partenaires `affiliate_events` (Madrid) avec leur page
+  `/affiliate-event/<slug>`. « Ce week-end » = vendredi 00:00 → lundi 06:00
+  Paris.
+- **Mesure sans cookie**, même modèle que le trafic plateforme : `links_events`
+  (RLS totale), écrit UNIQUEMENT par `track_links_event` / `join_links_waitlist`
+  / `submit_links_pro_lead` (SECURITY DEFINER, hash salé-jour via
+  `platform_daily_salts`, super admin jamais compté), lu par
+  `get_links_analytics` (super admin). Un clic qui quitte la page passe par le
+  fetch keepalive (`trackLinksClickKeepalive`), jamais par le SDK.
+- **Liste d'attente = `launch_waitlist`** (table existante, `/admin/waitlist`),
+  avec `source = 'links'` ; l'email est UNIQUE, un doublon renvoie `already`
+  et n'est pas une erreur pour la personne. Leads pro dans `links_pro_leads`
+  (INSERT seulement via RPC, alerte `admin_links_pro_lead` dans `/admin/alerts`).
+  Le lead est enregistré AVANT l'ouverture de WhatsApp, et la fenêtre WhatsApp
+  s'ouvre dans le geste utilisateur (`window.open` puis `location`), sinon
+  Safari la bloque après l'`await`.
+- **Web app géolocalisée** : le bouton demande la position (3,5 s max),
+  reverse-geocode (Mapbox, sinon l'edge `geocode-address`) et ouvre
+  `/explore?city=<ville>` — la porte `cityFromUrl` d'Explore fait le reste.
+  Sur Android la web app devient le geste principal (pas d'app native).
+
 ## Accès assisté Yuno (« mode support ») — consentement du pro
 
 Un super admin peut ouvrir une session GoTrue **dans le compte d'un pro consentant**

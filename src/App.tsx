@@ -235,6 +235,7 @@ const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
 const Explore = lazyWithRetry(() => import("./pages/Explore"));
 const Landing = lazyWithRetry(() => import("./pages/Landing"));
+const YunoLinks = lazyWithRetry(() => import("./pages/YunoLinks"));
 const CityPage = lazyWithRetry(() => import("./pages/CityPage"));
 const AllEventsPage = lazyWithRetry(() => import("./pages/AllEventsPage"));
 const MomentPage = lazyWithRetry(() => import("./pages/MomentPage"));
@@ -280,6 +281,7 @@ const AdminAuditLog = lazyWithRetry(() => import("./pages/admin/AdminAuditLog"))
 const AdminDemoAccess = lazyWithRetry(() => import("./pages/admin/AdminDemoAccess"));
 const AdminSupportAccess = lazyWithRetry(() => import("./pages/admin/AdminSupportAccess"));
 const AdminAlerts = lazyWithRetry(() => import("./pages/admin/AdminAlerts"));
+const AdminLinks = lazyWithRetry(() => import("./pages/admin/AdminLinks"));
 const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
 // Affiliate app pages
@@ -564,6 +566,10 @@ const App = () => (
                     partage, bio Instagram) — la porte de la racine ne s'y applique
                     pas. Canonical → « / » (posé par Landing), donc pas de duplicate. */}
                 <Route path="/home" element={<Landing />} />
+                {/* Yuno Links : la page de la bio Instagram / TikTok (compteurs vivants,
+                    affiche, liste d'attente, formulaire pro → WhatsApp). Réglages et
+                    audience dans /admin/links. Voir src/lib/yunoLinks.ts. */}
+                <Route path="/links" element={<YunoLinks />} />
                 {/* Pages villes SEO (/paris, /madrid…) — routes générées depuis
                     CITY_PAGES : pas de segment dynamique racine qui avalerait
                     les 404. Voir src/data/cityPages.ts pour en ajouter une. */}
@@ -1139,6 +1145,8 @@ const App = () => (
                   {/* /admin/traffic = audience web+app (visiteurs, acquisition,
                       pages, temps réel) — /admin/analytics reste le CA. */}
                   <Route path="traffic" element={<AdminTraffic />} />
+                  {/* /admin/links = la page bio (/links) : réglages, audience, leads pro. */}
+                  <Route path="links" element={<AdminLinks />} />
                   <Route path="segmentation" element={<AdminSegmentation />} />
                   <Route path="accounting" element={<AdminAccounting />} />
                   <Route path="feedback" element={<AdminFeedback />} />

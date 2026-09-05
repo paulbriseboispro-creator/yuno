@@ -116,6 +116,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_agency_club_lead:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_agency_club_lead' },
   admin_showcase_claim:      { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_showcase_claim' },
   admin_waitlist_signup:     { icon: Users,         category: 'growth',    label: 'notif.type.admin_waitlist_signup' },
+  admin_links_pro_lead:      { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_links_pro_lead' },
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
   // Encaissement : ce qui empêche l'argent d'entrer, ou le fait ressortir.
   admin_stripe_onboarding_stuck: { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_stripe_onboarding_stuck' },
@@ -519,6 +520,9 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_waitlist_signup':
       return '/admin/waitlist';
+
+    case 'admin_links_pro_lead':
+      return '/admin/links';
 
     case 'admin_subscription_changed':
       return '/admin/subscriptions';
