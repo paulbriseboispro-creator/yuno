@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { isNative, isProApp } from '@/lib/native';
 import { markAppReady, onAppReady, markSplashGone } from '@/lib/appReady';
+import { OFFICIAL_SPLASH_WORDMARK, SPLASH_WORDMARK } from '@/lib/brandSplash';
 
 /* ════════════════════════════════════════════════════════════════════
    SplashScreen — écran de lancement animé de l'app Yuno (« Frame B »).
@@ -252,18 +253,37 @@ export function SplashScreen() {
           <path d="M 72 216 L 148 216" {...stroke} />
         </svg>
 
-        <div
-          style={{
-            marginTop: -30,
-            fontSize: 106,
-            fontWeight: 500,
-            letterSpacing: '-1px',
-            color: '#ffffff',
-            lineHeight: 1,
-          }}
-        >
-          yuno
-        </div>
+        {/* Le mot-symbole officiel n'apparaît ici QUE lorsque le Launch Screen
+            natif le porte aussi — voir OFFICIAL_SPLASH_WORDMARK. Sinon le
+            splash animé démentirait l'écran de lancement du binaire installé. */}
+        {OFFICIAL_SPLASH_WORDMARK ? (
+          <img
+            src="/yuno-wordmark.png"
+            alt="Yuno"
+            width={SPLASH_WORDMARK.width}
+            height={SPLASH_WORDMARK.height}
+            draggable={false}
+            style={{
+              marginTop: SPLASH_WORDMARK.marginTop,
+              width: SPLASH_WORDMARK.width,
+              height: SPLASH_WORDMARK.height,
+              display: 'block',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              marginTop: -30,
+              fontSize: 106,
+              fontWeight: 500,
+              letterSpacing: '-1px',
+              color: '#ffffff',
+              lineHeight: 1,
+            }}
+          >
+            yuno
+          </div>
+        )}
       </div>
     </div>
   );

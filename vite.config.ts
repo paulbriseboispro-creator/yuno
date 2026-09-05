@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
+import { OFFICIAL_SPLASH_WORDMARK } from "./src/lib/brandSplash";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -18,6 +19,16 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // Le loader inline de index.html est du JS brut : il ne peut pas importer
+    // le drapeau de la chaîne de lancement. On l'y injecte, pour qu'il n'existe
+    // qu'UN seul interrupteur — sinon on en flipperait un et pas l'autre, et le
+    // logo sauterait entre le Launch Screen natif et le splash web.
+    {
+      name: 'yuno-splash-flag',
+      transformIndexHtml(html: string) {
+        return html.replace(/__YUNO_OFFICIAL_SPLASH_WORDMARK__/g, String(OFFICIAL_SPLASH_WORDMARK));
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       // We register the SW ourselves via `virtual:pwa-register` in main.tsx so a

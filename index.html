@@ -196,7 +196,14 @@
                 '<path d="M 110 150 L 110 216" stroke="#fff" stroke-width="15" stroke-linecap="round" fill="none"></path>' +
                 '<path d="M 72 216 L 148 216" stroke="#fff" stroke-width="15" stroke-linecap="round" fill="none"></path>' +
                 '</svg>' +
-                '<div style="margin-top:-30px;font-size:106px;font-weight:500;letter-spacing:-1px;color:#fff;line-height:1;font-family:\'Poppins\',ui-sans-serif,system-ui,sans-serif;">yuno</div>' +
+                // Le mot-symbole officiel n'entre ici QUE si le Launch Screen
+                // natif du binaire installé le porte aussi. Le drapeau est
+                // injecté depuis src/lib/brandSplash.ts par le plugin
+                // `yuno-splash-flag` (vite.config.ts) : un seul interrupteur
+                // pour les trois surfaces de la chaîne de lancement.
+                (__YUNO_OFFICIAL_SPLASH_WORDMARK__
+                  ? '<img src="/yuno-wordmark.png" alt="Yuno" width="259" height="88" style="margin-top:-4px;width:259px;height:88px;display:block;">'
+                  : '<div style="margin-top:-30px;font-size:106px;font-weight:500;letter-spacing:-1px;color:#fff;line-height:1;font-family:\'Poppins\',ui-sans-serif,system-ui,sans-serif;">yuno</div>') +
                 '</div>';
             }
           }
