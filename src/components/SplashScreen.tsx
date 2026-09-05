@@ -265,6 +265,7 @@ export function SplashScreen() {
             draggable={false}
             style={{
               marginTop: SPLASH_WORDMARK.marginTop,
+              marginBottom: SPLASH_WORDMARK.marginBottom,
               width: SPLASH_WORDMARK.width,
               height: SPLASH_WORDMARK.height,
               display: 'block',
