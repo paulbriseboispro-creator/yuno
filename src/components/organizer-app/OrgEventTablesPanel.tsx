@@ -888,170 +888,248 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             </div>
           )}
 
-          {/* Aperçu client du plan interactif (tables vendues indisponibles). */}
-          {planTableCount > 0 && floorPlan && (
-            <div>
+          {/* Carte du plan — toujours présente. À gauche l'aperçu (le plan
+              interactif tel que le client le voit, sinon l'image illustrative
+              sur son fond ambiant) ; à droite le contexte, les actions et le
+              récapitulatif zones → formules, pour que la carte raconte toute
+              la soirée d'un coup d'œil. */}
+          {(() => {
+            const hasPlan = planTableCount > 0 && !!floorPlan;
+            const planTables = (floorPlan?.layout?.tables ?? []) as { zoneId?: string | null; packId?: string | null }[];
+            const tablesByZone = new Map<string, number>();
+            const tablesByPack = new Map<string, number>();
+            for (const tb of planTables) {
+              if (tb.zoneId) tablesByZone.set(tb.zoneId, (tablesByZone.get(tb.zoneId) || 0) + 1);
+              if (tb.packId) tablesByPack.set(tb.packId, (tablesByPack.get(tb.packId) || 0) + 1);
+            }
+            const dividerCls = 'border-white/[0.085]';
+            return (
               <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
-                <ClientFloorPlanPicker
-                  floorPlan={floorPlan}
-                  unavailableTableIds={unavailableTableIds}
-                  selectedTableId={null}
-                  onSelectTable={() => {}}
-                  onSkip={() => {}}
-                  readOnly
-                />
-              </div>
-              <p className="mt-2" style={{ color: T3, fontSize: 11 }}>
-                {tt(
-                  'Les tables déjà réservées apparaissent indisponibles. Aperçu identique à celui du client.',
-                  'Already-booked tables show as unavailable. Same view your customers see.',
-                  'Las mesas ya reservadas aparecen como no disponibles. Misma vista que ve tu cliente.',
-                )}
-              </p>
-            </div>
-          )}
-
-          {/* Image illustrative (mode basic, ou fond du plan) — carte média :
-              vignette cadrée à gauche, contexte et actions à droite. Le fond
-              de la vignette est l'image elle-même floutée : une affiche
-              portrait ne flotte plus au milieu d'un rectangle vide, et le
-              plan n'est jamais recadré. */}
-          {(planTableCount === 0 || lockedToVenue) && (
-            <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
-              <div className="flex flex-col sm:flex-row">
-                <div
-                  className="relative shrink-0 overflow-hidden border-b border-white/[0.085] sm:w-[248px] sm:border-b-0 sm:border-r"
-                  style={{ background: 'rgba(0,0,0,0.38)', minHeight: 208 }}
-                >
-                  {floorPlanUrl ? (
-                    <>
-                      <img
-                        aria-hidden
-                        src={floorPlanUrl}
-                        alt=""
-                        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-                        style={{ filter: 'blur(28px) saturate(1.35)', opacity: 0.4, transform: 'scale(1.35)' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setPlanPreviewOpen(true)}
-                        aria-label={tt('Voir l’image en grand', 'View the image full size', 'Ver la imagen en grande')}
-                        className="group relative flex h-full w-full cursor-pointer items-center justify-center p-4 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                        style={{ minHeight: 208 }}
-                      >
-                        <img
-                          src={floorPlanUrl}
-                          alt={tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}
-                          className="block h-auto w-auto max-w-full rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                          style={{ maxHeight: 200, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 14px 32px -14px rgba(0,0,0,0.85)' }}
+                <div className="flex flex-col lg:flex-row">
+                  {/* Aperçu */}
+                  <div className={`relative min-w-0 flex-1 border-b ${dividerCls} lg:border-b-0 lg:border-r`} style={{ background: 'rgba(0,0,0,0.38)' }}>
+                    {hasPlan ? (
+                      <div className="p-3">
+                        <ClientFloorPlanPicker
+                          floorPlan={floorPlan!}
+                          unavailableTableIds={unavailableTableIds}
+                          selectedTableId={null}
+                          onSelectTable={() => {}}
+                          onSkip={() => {}}
+                          readOnly
                         />
-                        <span
-                          className="pointer-events-none absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
-                          style={{ background: 'rgba(10,10,12,0.78)', border: `1px solid ${BORDER}`, color: T1 }}
-                        >
-                          <Maximize2 className="h-3.5 w-3.5" />
-                        </span>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center p-4" style={{ minHeight: 208 }}>
-                      <div
-                        className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg px-4 py-8 text-center"
-                        style={{ border: '1px dashed rgba(255,255,255,0.14)' }}
-                      >
-                        <ImageIcon className="h-7 w-7" style={{ color: 'rgba(255,255,255,0.14)' }} />
-                        <span style={{ color: T3, fontSize: 11.5 }}>
-                          {lockedToVenue
-                            ? tt("Le club n'a pas encore importé de plan.", 'The club has not uploaded a plan yet.', 'El club aún no ha subido un plano.')
-                            : tt('Aucune image pour le moment', 'No image yet', 'Ninguna imagen todavía')}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-5">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {lockedToVenue ? (
-                        <OrgPill tone="muted">
-                          <Lock className="h-3 w-3" />
-                          {tt('Fourni par le club', 'Provided by the club', 'Facilitado por el club')}
-                        </OrgPill>
-                      ) : floorPlanUrl ? (
-                        <OrgPill tone="info" dot>{tt('Affichée au client', 'Shown to guests', 'Visible para el cliente')}</OrgPill>
-                      ) : (
-                        <OrgPill tone="muted">{tt('Aucune image', 'No image', 'Sin imagen')}</OrgPill>
-                      )}
-                    </div>
-                    <div className="mt-2.5" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
-                      {tt('Image illustrative du plan', 'Illustrative floor plan image', 'Imagen ilustrativa del plano')}
-                    </div>
-                    <p className="mt-1 max-w-prose" style={{ color: T3, fontSize: 12, lineHeight: 1.55 }}>
-                      {lockedToVenue
-                        ? tt(
-                            'Le plan de salle est fourni par le club et verrouillé pour cette soirée. Vous réglez vos packs et vos prix par-dessus.',
-                            'The floor plan is provided by the club and locked for this event. You set your packs and prices on top of it.',
-                            'El plano de sala lo facilita el club y está bloqueado para esta noche. Tú ajustas tus packs y precios encima.',
-                          )
-                        : tt(
-                            'Le client la voit au moment de réserver sa zone, pour se repérer. Aucun placement interactif tant que le plan interactif n’est pas construit.',
-                            'Guests see it when booking their zone, to get their bearings. No interactive placement until the interactive plan is built.',
-                            'El cliente la ve al reservar su zona, para orientarse. Sin colocación interactiva hasta construir el plano interactivo.',
+                        <p className="mt-2" style={{ color: T3, fontSize: 11 }}>
+                          {tt(
+                            'Les tables déjà réservées apparaissent indisponibles. Aperçu identique à celui du client.',
+                            'Already-booked tables show as unavailable. Same view your customers see.',
+                            'Las mesas ya reservadas aparecen como no disponibles. Misma vista que ve tu cliente.',
                           )}
-                    </p>
-                    {!lockedToVenue && (
-                      /* Même clé que l'éditeur de plan : l'image sert aussi de
-                         fond au plan interactif, la consigne est unique. */
-                      <p className="mt-2.5 inline-flex items-center gap-1.5" style={{ color: T2, fontSize: 11.5 }}>
-                        <Ruler className="h-3.5 w-3.5 shrink-0" style={{ color: T3 }} />
-                        {t('vipHost.bgRecommended')}
-                      </p>
+                        </p>
+                      </div>
+                    ) : floorPlanUrl ? (
+                      <>
+                        <img
+                          aria-hidden
+                          src={floorPlanUrl}
+                          alt=""
+                          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                          style={{ filter: 'blur(28px) saturate(1.35)', opacity: 0.4, transform: 'scale(1.35)' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPlanPreviewOpen(true)}
+                          aria-label={tt('Voir l’image en grand', 'View the image full size', 'Ver la imagen en grande')}
+                          className="group relative flex h-full w-full cursor-pointer items-center justify-center p-4 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                          style={{ minHeight: 260 }}
+                        >
+                          <img
+                            src={floorPlanUrl}
+                            alt={tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}
+                            className="block h-auto w-auto max-w-full rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                            style={{ maxHeight: 300, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 14px 32px -14px rgba(0,0,0,0.85)' }}
+                          />
+                          <span
+                            className="pointer-events-none absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+                            style={{ background: 'rgba(10,10,12,0.78)', border: `1px solid ${BORDER}`, color: T1 }}
+                          >
+                            <Maximize2 className="h-3.5 w-3.5" />
+                          </span>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center p-4" style={{ minHeight: 260 }}>
+                        <div
+                          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg px-4 py-8 text-center"
+                          style={{ border: '1px dashed rgba(255,255,255,0.14)' }}
+                        >
+                          <ImageIcon className="h-7 w-7" style={{ color: 'rgba(255,255,255,0.14)' }} />
+                          <span style={{ color: T3, fontSize: 11.5 }}>
+                            {lockedToVenue
+                              ? tt("Le club n'a pas encore importé de plan.", 'The club has not uploaded a plan yet.', 'El club aún no ha subido un plano.')
+                              : tt('Aucune image pour le moment', 'No image yet', 'Ninguna imagen todavía')}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {(!lockedToVenue || floorPlanUrl) && (
-                    <div className="flex flex-wrap items-center gap-2">
+
+                  {/* Contexte + actions + récapitulatif */}
+                  <div className="flex w-full min-w-0 flex-col gap-4 p-5 lg:w-[340px] lg:shrink-0">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {lockedToVenue ? (
+                          <OrgPill tone="muted">
+                            <Lock className="h-3 w-3" />
+                            {tt('Fourni par le club', 'Provided by the club', 'Facilitado por el club')}
+                          </OrgPill>
+                        ) : hasPlan ? (
+                          <OrgPill tone={isElite ? 'success' : 'info'} dot>
+                            {isElite
+                              ? tt('Placement client actif', 'Guest placement on', 'Colocación por el cliente activa')
+                              : `${planTableCount} ${tt('tables sur le plan', 'tables on the plan', 'mesas en el plano')}`}
+                          </OrgPill>
+                        ) : floorPlanUrl ? (
+                          <OrgPill tone="info" dot>{tt('Affichée au client', 'Shown to guests', 'Visible para el cliente')}</OrgPill>
+                        ) : (
+                          <OrgPill tone="muted">{tt('Aucune image', 'No image', 'Sin imagen')}</OrgPill>
+                        )}
+                      </div>
+                      <div className="mt-2.5" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+                        {hasPlan
+                          ? tt('Plan de salle de la soirée', 'Floor plan of the night', 'Plano de sala de la noche')
+                          : tt('Image illustrative du plan', 'Illustrative floor plan image', 'Imagen ilustrativa del plano')}
+                      </div>
+                      <p className="mt-1" style={{ color: T3, fontSize: 12, lineHeight: 1.55 }}>
+                        {lockedToVenue
+                          ? tt(
+                              'Le plan de salle est fourni par le club et verrouillé pour cette soirée. Vous réglez vos packs et vos prix par-dessus.',
+                              'The floor plan is provided by the club and locked for this event. You set your packs and prices on top of it.',
+                              'El plano de sala lo facilita el club y está bloqueado para esta noche. Tú ajustas tus packs y precios encima.',
+                            )
+                          : hasPlan
+                            ? isElite
+                              ? tt(
+                                  'Le client choisit sa table sur ce plan au checkout. L’image sert de fond au plan.',
+                                  'Guests pick their table on this plan at checkout. The image is the plan’s background.',
+                                  'El cliente elige su mesa en este plano en el checkout. La imagen es el fondo del plano.',
+                                )
+                              : tt(
+                                  'Le client réserve une zone, vous placez à l’arrivée. Activez « Le client choisit sa table » pour le placement interactif.',
+                                  'Guests book a zone, you seat them on arrival. Turn on “Guests pick their table” for interactive placement.',
+                                  'El cliente reserva una zona, tú lo colocas al llegar. Activa «El cliente elige su mesa» para la colocación interactiva.',
+                                )
+                            : tt(
+                                'Le client la voit au moment de réserver sa zone, pour se repérer. Aucun placement interactif tant que le plan interactif n’est pas construit.',
+                                'Guests see it when booking their zone, to get their bearings. No interactive placement until the interactive plan is built.',
+                                'El cliente la ve al reservar su zona, para orientarse. Sin colocación interactiva hasta construir el plano interactivo.',
+                              )}
+                      </p>
                       {!lockedToVenue && (
-                        <>
-                          <input
-                            id={`floor-plan-upload-${eventId}`}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={uploading}
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) onUploadPlan(f);
-                              e.target.value = '';
-                            }}
-                          />
-                          <OrgButton
-                            variant={floorPlanUrl ? 'secondary' : 'primary'}
-                            size="sm"
-                            disabled={uploading}
-                            onClick={() => document.getElementById(`floor-plan-upload-${eventId}`)?.click()}
-                          >
-                            <Upload className="h-4 w-4" />
-                            {uploading
-                              ? tt('Envoi…', 'Uploading…', 'Enviando…')
-                              : floorPlanUrl
-                                ? tt('Remplacer', 'Replace', 'Reemplazar')
-                                : tt('Importer une image', 'Upload an image', 'Importar una imagen')}
-                          </OrgButton>
-                        </>
-                      )}
-                      {floorPlanUrl && (
-                        <OrgButton variant="ghost" size="sm" onClick={() => setPlanPreviewOpen(true)}>
-                          <Maximize2 className="h-4 w-4" />
-                          {tt('Voir en grand', 'View full size', 'Ver en grande')}
-                        </OrgButton>
+                        <p className="mt-2.5 inline-flex items-center gap-1.5" style={{ color: T2, fontSize: 11.5 }}>
+                          <Ruler className="h-3.5 w-3.5 shrink-0" style={{ color: T3 }} />
+                          {t('vipHost.bgRecommended')}
+                        </p>
                       )}
                     </div>
-                  )}
+
+                    {(!lockedToVenue || floorPlanUrl) && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!lockedToVenue && (
+                          <>
+                            <input
+                              id={`floor-plan-upload-${eventId}`}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploading}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) onUploadPlan(f);
+                                e.target.value = '';
+                              }}
+                            />
+                            <OrgButton
+                              variant={floorPlanUrl ? 'secondary' : 'primary'}
+                              size="sm"
+                              disabled={uploading}
+                              onClick={() => document.getElementById(`floor-plan-upload-${eventId}`)?.click()}
+                            >
+                              <Upload className="h-4 w-4" />
+                              {uploading
+                                ? tt('Envoi…', 'Uploading…', 'Enviando…')
+                                : floorPlanUrl
+                                  ? tt('Remplacer l’image', 'Replace the image', 'Reemplazar la imagen')
+                                  : tt('Importer une image', 'Upload an image', 'Importar una imagen')}
+                            </OrgButton>
+                          </>
+                        )}
+                        {floorPlanUrl && (
+                          <OrgButton variant="ghost" size="sm" onClick={() => setPlanPreviewOpen(true)}>
+                            <Maximize2 className="h-4 w-4" />
+                            {tt('Voir en grand', 'View full size', 'Ver en grande')}
+                          </OrgButton>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Zones → formules : ce que le client aura sous les yeux. */}
+                    <div className={`border-t ${dividerCls} pt-4`}>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <FieldLabel>{tt('Zones & formules', 'Zones & packages', 'Zonas y fórmulas')}</FieldLabel>
+                        <span style={{ color: T3, fontSize: 11 }}>{zones.length} · {packs.length}</span>
+                      </div>
+                      {zones.length === 0 ? (
+                        <p style={{ color: T3, fontSize: 11.5 }}>
+                          {tt('Aucune zone pour le moment. Créez-les dans l’onglet Zones.', 'No zone yet. Create them in the Zones tab.', 'Ninguna zona todavía. Créalas en la pestaña Zonas.')}
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {zones.map((z) => {
+                            const zonePacks = packs.filter((pk) => pk.zone_id === z.id);
+                            const onPlan = tablesByZone.get(z.id);
+                            return (
+                              <div key={z.id}>
+                                <div className="flex items-center gap-2">
+                                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: z.color }} />
+                                  <span className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{z.name}</span>
+                                  <span className="shrink-0" style={{ color: T3, fontSize: 11 }}>
+                                    · {onPlan ?? z.tables_count} {tt('tables', 'tables', 'mesas')}{onPlan !== undefined ? ` ${tt('sur le plan', 'on the plan', 'en el plano')}` : ''}
+                                  </span>
+                                </div>
+                                {zonePacks.length === 0 ? (
+                                  <p className="mt-1" style={{ color: T3, fontSize: 11, marginLeft: 18 }}>
+                                    {tt('Aucune formule', 'No package', 'Sin fórmula')}
+                                  </p>
+                                ) : (
+                                  <ul className="mt-1 space-y-0.5" style={{ marginLeft: 18 }}>
+                                    {zonePacks.map((pk) => {
+                                      const bound = tablesByPack.get(pk.id);
+                                      return (
+                                        <li key={pk.id} className="flex items-baseline justify-between gap-2">
+                                          <span className="truncate" style={{ color: T2, fontSize: 12 }}>{pk.name}</span>
+                                          <span className="shrink-0 tabular-nums" style={{ color: T3, fontSize: 11 }}>
+                                            {Number(pk.base_price).toFixed(0)} € · {pk.base_capacity} {tt('pers.', 'guests', 'pers.')}
+                                            {bound !== undefined
+                                              ? ` · ${bound} ${tt('tables', 'tables', 'mesas')}`
+                                              : pk.limit_tables ? ` · ${pk.tables_count} max` : ''}
+                                            {pk.payment_mode === 'on_site' ? ` · ${tt('sur place', 'on site', 'en el local')}` : ''}
+                                          </span>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
