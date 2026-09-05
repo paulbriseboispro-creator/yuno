@@ -39,10 +39,23 @@ interface FloorTable {
   zoneId?: string;
   zoneName?: string;
   zoneColor?: string;
+  /** Formule fixée à la table : elle ne se réserve qu'avec ce pack. */
+  packId?: string;
+  packName?: string;
   shape?: FloorPlanTableShape;
   color?: string;
   borderRadius?: number;
   fillOpacity?: number;
+}
+
+/** Formule (pack) proposable sur une table du plan. */
+export interface FloorPlanPackOption {
+  id: string;
+  name: string;
+  zoneId: string;
+  baseCapacity: number;
+  basePrice: number;
+  maxExtraPersons?: number;
 }
 
 interface FloorZoneArea {
@@ -75,6 +88,12 @@ interface FloorPlanEditorProps {
   existingLayout?: { tables: FloorTable[]; zoneAreas?: FloorZoneArea[]; bgOffset?: { x: number; y: number }; bgScale?: number } | null;
   existingBackgroundUrl?: string | null;
   zones: { id: string; name: string; color: string }[];
+  /**
+   * Formules de chaque zone. Quand elles sont fournies, une table peut être
+   * fixée à une formule (« les violettes : 6 pers. à 600 € ») — le client ne
+   * choisit plus sa formule sur cette table, et la capacité suit la formule.
+   */
+  packs?: FloorPlanPackOption[];
   onSave: () => void;
 }
 
@@ -100,6 +119,7 @@ export function FloorPlanEditor({
   existingLayout,
   existingBackgroundUrl,
   zones,
+  packs = [],
   onSave,
 }: FloorPlanEditorProps) {
   const { t } = useLanguage();
@@ -156,6 +176,7 @@ export function FloorPlanEditor({
       id: t.id, name: t.name, x: t.x, y: t.y, width: t.width, height: t.height,
       capacity: t.capacity, maxExtraPersons: t.maxExtraPersons || 0, extraPersonPrice: t.extraPersonPrice || 0,
       zoneId: t.zoneId || null, zoneName: t.zoneName || null,
+      packId: t.packId || null, packName: t.packName || null,
       zoneColor: t.zoneColor || null, shape: t.shape || 'rectangle', color: t.color || null,
       borderRadius: t.borderRadius ?? 6, fillOpacity: t.fillOpacity ?? 0.55,
     })),
@@ -710,7 +731,27 @@ export function FloorPlanEditor({
   const handleZoneChange = (tableId: string, zoneId: string) => {
     const zone = zones.find(z => z.id === zoneId);
     const name = nextTableName(tables.filter(t => t.id !== tableId), zoneId);
-    updateTable(tableId, { zoneId, zoneName: zone?.name, zoneColor: zone?.color, name });
+    // Une formule appartient à une zone : changer de zone détache une formule
+    // qui n'y vit pas.
+    const current = tables.find(t => t.id === tableId);
+    const packStillValid = !!current?.packId && packs.some(p => p.id === current.packId && p.zoneId === zoneId);
+    updateTable(tableId, {
+      zoneId, zoneName: zone?.name, zoneColor: zone?.color, name,
+      ...(packStillValid ? {} : { packId: undefined, packName: undefined }),
+    });
+  };
+
+  // Fixer une formule à une table : la capacité (et les extras) suivent la
+  // formule, l'hôte n'a plus à les recopier. '' = au choix du client.
+  const handlePackChange = (tableId: string, packId: string) => {
+    if (!packId) { updateTable(tableId, { packId: undefined, packName: undefined }); return; }
+    const pack = packs.find(p => p.id === packId);
+    if (!pack) return;
+    updateTable(tableId, {
+      packId: pack.id, packName: pack.name,
+      capacity: pack.baseCapacity,
+      maxExtraPersons: pack.maxExtraPersons ?? 0,
+    });
   };
 
   return (
@@ -1229,6 +1270,33 @@ export function FloorPlanEditor({
                   </Select>
                 </div>
 
+                {/* Formule fixée — visible dès que la zone de la table a des packs. */}
+                {(() => {
+                  const zonePacks = packs.filter(p => p.zoneId === selectedTableData.zoneId);
+                  if (!selectedTableData.zoneId || zonePacks.length === 0) return null;
+                  const CLIENT_CHOICE = '__client__';
+                  return (
+                    <div>
+                      <Label className="text-xs">{t('vipHost.packForTable')}</Label>
+                      <Select
+                        value={selectedTableData.packId || CLIENT_CHOICE}
+                        onValueChange={(value) => handlePackChange(selectedTableData.id, value === CLIENT_CHOICE ? '' : value)}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={CLIENT_CHOICE}>{t('vipHost.packFree')}</SelectItem>
+                          {zonePacks.map(pack => (
+                            <SelectItem key={pack.id} value={pack.id}>
+                              {pack.name} · {pack.baseCapacity} pers. · {pack.basePrice} €
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('vipHost.packHint')}</p>
+                    </div>
+                  );
+                })()}
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">{t('vipHost.width')}</Label>
@@ -1279,6 +1347,9 @@ export function FloorPlanEditor({
                         <span className="text-sm">{table.name}</span>
                         {table.zoneName && (
                           <span className="text-[10px] text-muted-foreground">({table.zoneName})</span>
+                        )}
+                        {table.packName && (
+                          <span className="rounded border border-border px-1 text-[9px] uppercase tracking-wide text-muted-foreground">{table.packName}</span>
                         )}
                       </div>
                       <Badge variant="secondary" className="text-xs">{table.capacity}</Badge>

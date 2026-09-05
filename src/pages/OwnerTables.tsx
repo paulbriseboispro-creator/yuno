@@ -88,7 +88,7 @@ export default function OwnerTables() {
   const [isPackDialogOpen, setIsPackDialogOpen] = useState(false);
   const [editingPack, setEditingPack] = useState<TablePack | null>(null);
   const [selectedZoneForPack, setSelectedZoneForPack] = useState('');
-  const [packFormData, setPackFormData] = useState({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed' as 'fixed' | 'percentage', includedItems: '', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', isActive: true });
+  const [packFormData, setPackFormData] = useState({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed' as 'fixed' | 'percentage', includedItems: '', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', limitTables: false, isActive: true });
 
   const [isPresetDialogOpen, setIsPresetDialogOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<TablePackPreset | null>(null);
@@ -133,9 +133,20 @@ export default function OwnerTables() {
       if (n === undefined || n === z.tablesCount) return [];
       return [supabase.from('table_zones').update({ tables_count: n }).eq('id', z.id)];
     });
-    if (updates.length === 0) return;
-    await Promise.all(updates);
+    // Même règle pour les formules : des tables du plan fixées à une formule
+    // en font le plafond (« 4 violettes = 4 tables à 600 € »). Une formule sans
+    // table liée garde son réglage manuel.
+    const packCounts = new Map<string, number>();
+    for (const t of planTables as { packId?: string | null }[]) { if (t.packId) packCounts.set(t.packId, (packCounts.get(t.packId) || 0) + 1); }
+    const packUpdates = packs.flatMap(pk => {
+      const n = packCounts.get(pk.id);
+      if (n === undefined || (n === pk.tablesCount && pk.limitTables)) return [];
+      return [supabase.from('table_packs').update({ tables_count: n, limit_tables: true }).eq('id', pk.id)];
+    });
+    if (updates.length === 0 && packUpdates.length === 0) return;
+    await Promise.all([...updates, ...packUpdates]);
     fetchZones();
+    if (packUpdates.length > 0) fetchPacks();
   };
 
   const fetchEvents = async () => {
@@ -162,7 +173,7 @@ export default function OwnerTables() {
     try {
       const { data, error } = await supabase.from('table_packs').select('*').eq('venue_id', venueId).order('position', { ascending: true });
       if (error) throw error;
-      setPacks((data || []).map(p => ({ id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description || undefined, basePrice: Number(p.base_price), baseCapacity: p.base_capacity, extraPersonPrice: Number(p.extra_person_price) || 0, maxExtraPersons: p.max_extra_persons || 0, deposit: Number(p.deposit) || 0, depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed', includedItems: p.included_items || undefined, includedBottlesQuota: p.included_bottles_quota || 0, minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at })));
+      setPacks((data || []).map(p => ({ id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description || undefined, basePrice: Number(p.base_price), baseCapacity: p.base_capacity, extraPersonPrice: Number(p.extra_person_price) || 0, maxExtraPersons: p.max_extra_persons || 0, deposit: Number(p.deposit) || 0, depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed', includedItems: p.included_items || undefined, includedBottlesQuota: p.included_bottles_quota || 0, minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, limitTables: !!p.limit_tables, position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at })));
     } catch { /* best-effort : les packs restent en l’état */ }
   };
 
@@ -225,8 +236,8 @@ export default function OwnerTables() {
     } catch { toast.error(t('tables.errorSaving')); }
   };
 
-  const handleAddPack = (zoneId?: string) => { setEditingPack(null); setSelectedZoneForPack(zoneId || zones[0]?.id || ''); setPackFormData({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed', includedItems: '', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', isActive: true }); setIsPackDialogOpen(true); };
-  const handleEditPack = (pack: TablePack) => { setEditingPack(pack); setSelectedZoneForPack(pack.zoneId); setPackFormData({ name: pack.name, description: pack.description || '', basePrice: pack.basePrice.toString(), baseCapacity: pack.baseCapacity.toString(), maxExtraPersons: pack.maxExtraPersons.toString(), extraPersonPrice: pack.extraPersonPrice.toString(), deposit: pack.deposit.toString(), depositType: pack.depositType || 'fixed', includedItems: pack.includedItems || '', minimumSpend: (pack.minimumSpend || 0).toString(), arrivalDeadline: pack.arrivalDeadline || '', tablesCount: pack.tablesCount.toString(), isActive: pack.isActive }); setIsPackDialogOpen(true); };
+  const handleAddPack = (zoneId?: string) => { setEditingPack(null); setSelectedZoneForPack(zoneId || zones[0]?.id || ''); setPackFormData({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed', includedItems: '', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', limitTables: false, isActive: true }); setIsPackDialogOpen(true); };
+  const handleEditPack = (pack: TablePack) => { setEditingPack(pack); setSelectedZoneForPack(pack.zoneId); setPackFormData({ name: pack.name, description: pack.description || '', basePrice: pack.basePrice.toString(), baseCapacity: pack.baseCapacity.toString(), maxExtraPersons: pack.maxExtraPersons.toString(), extraPersonPrice: pack.extraPersonPrice.toString(), deposit: pack.deposit.toString(), depositType: pack.depositType || 'fixed', includedItems: pack.includedItems || '', minimumSpend: (pack.minimumSpend || 0).toString(), arrivalDeadline: pack.arrivalDeadline || '', tablesCount: pack.tablesCount.toString(), limitTables: !!pack.limitTables, isActive: pack.isActive }); setIsPackDialogOpen(true); };
   const handleDeletePack = async (packId: string) => {
     try { const { error } = await supabase.from('table_packs').delete().eq('id', packId); if (error) throw error; toast.success(t('tables.packDeleted')); fetchPacks(); }
     catch (e) { toast.error(deleteErrorMessage(e)); }
@@ -236,7 +247,7 @@ export default function OwnerTables() {
     e.preventDefault();
     if (!venueId || !selectedZoneForPack || !packFormData.name || !packFormData.basePrice) { toast.error(t('tables.fillRequired')); return; }
     try {
-      const data = { venue_id: venueId, zone_id: selectedZoneForPack, name: packFormData.name, description: packFormData.description || null, base_price: parseFloat(packFormData.basePrice), base_capacity: Math.max(1, parseInt(packFormData.baseCapacity) || 1), extra_person_price: Math.max(0, parseFloat(packFormData.extraPersonPrice) || 0), max_extra_persons: Math.max(0, parseInt(packFormData.maxExtraPersons) || 0), deposit: parseFloat(packFormData.deposit) || 0, deposit_type: packFormData.depositType, included_items: packFormData.includedItems || null, included_bottles_quota: 0, minimum_spend: parseFloat(packFormData.minimumSpend) || 0, arrival_deadline: packFormData.arrivalDeadline || null, tables_count: parseInt(packFormData.tablesCount) || 1, is_active: packFormData.isActive, position: editingPack?.position ?? packs.filter(p => p.zoneId === selectedZoneForPack).length };
+      const data = { venue_id: venueId, zone_id: selectedZoneForPack, name: packFormData.name, description: packFormData.description || null, base_price: parseFloat(packFormData.basePrice), base_capacity: Math.max(1, parseInt(packFormData.baseCapacity) || 1), extra_person_price: Math.max(0, parseFloat(packFormData.extraPersonPrice) || 0), max_extra_persons: Math.max(0, parseInt(packFormData.maxExtraPersons) || 0), deposit: parseFloat(packFormData.deposit) || 0, deposit_type: packFormData.depositType, included_items: packFormData.includedItems || null, included_bottles_quota: 0, minimum_spend: parseFloat(packFormData.minimumSpend) || 0, arrival_deadline: packFormData.arrivalDeadline || null, tables_count: Math.max(1, parseInt(packFormData.tablesCount) || 1), limit_tables: packFormData.limitTables, is_active: packFormData.isActive, position: editingPack?.position ?? packs.filter(p => p.zoneId === selectedZoneForPack).length };
       if (editingPack) { const { error } = await supabase.from('table_packs').update(data).eq('id', editingPack.id); if (error) throw error; toast.success(t('tables.packUpdated')); }
       else { const { error } = await supabase.from('table_packs').insert(data); if (error) throw error; toast.success(t('tables.packCreated')); }
       setIsPackDialogOpen(false); fetchPacks();
@@ -518,7 +529,7 @@ export default function OwnerTables() {
                                 </div>
                                 <p style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>{pack.basePrice}€</p>
                                 <div className="mt-1 space-y-0.5">
-                                  <p style={{ color: T3, fontSize: 11.5 }}>{pack.tablesCount} table{pack.tablesCount !== 1 ? 's' : ''} · {pack.baseCapacity} pers. incluses{pack.maxExtraPersons > 0 ? ` · +${pack.maxExtraPersons} extras max` : ''}</p>
+                                  <p style={{ color: T3, fontSize: 11.5 }}>{pack.limitTables ? `${pack.tablesCount} table${pack.tablesCount !== 1 ? 's' : ''} max · ` : ''}{pack.baseCapacity} pers. incluses{pack.maxExtraPersons > 0 ? ` · +${pack.maxExtraPersons} extras max` : ''}</p>
                                   {pack.maxExtraPersons > 0 && pack.extraPersonPrice > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Extra: {pack.extraPersonPrice}€ / pers.</p>}
                                   {pack.minimumSpend > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Conso. min: {pack.minimumSpend}€</p>}
                                   {pack.deposit > 0 && <p style={{ color: T3, fontSize: 11.5 }}>Dépôt: {pack.deposit}{pack.depositType === 'percentage' ? '%' : '€'}</p>}
@@ -643,6 +654,19 @@ export default function OwnerTables() {
               <div><FieldLabel>Incluses</FieldLabel><DarkInput type="number" min="1" value={packFormData.baseCapacity} onChange={v => setPackFormData({ ...packFormData, baseCapacity: v })} placeholder="6" required /></div>
               <div><FieldLabel>Extras max</FieldLabel><DarkInput type="number" min="0" value={packFormData.maxExtraPersons} onChange={v => setPackFormData({ ...packFormData, maxExtraPersons: v })} placeholder="0" /></div>
               <div><FieldLabel>Prix / extra €</FieldLabel><DarkInput type="number" step="0.01" min="0" value={packFormData.extraPersonPrice} onChange={v => setPackFormData({ ...packFormData, extraPersonPrice: v })} placeholder="40" /></div>
+            </div>
+            {/* Plafond propre à la formule : « 4 tables à 600 € » dans une zone qui en compte 6. */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background: packFormData.limitTables ? 'rgba(232,25,44,0.06)' : INNER_BG, border: `1px solid ${packFormData.limitTables ? 'rgba(232,25,44,0.18)' : BORDER}` }}>
+                <Switch checked={packFormData.limitTables} onCheckedChange={v => setPackFormData({ ...packFormData, limitTables: v })} />
+                <span style={{ color: packFormData.limitTables ? T1 : T2, fontSize: 13 }}>{t('tables.limitTables')}</span>
+              </label>
+              {packFormData.limitTables && (
+                <div className="grid gap-4 grid-cols-2 items-end">
+                  <div><FieldLabel>{t('tables.tablesForPack')}</FieldLabel><DarkInput type="number" min="1" value={packFormData.tablesCount} onChange={v => setPackFormData({ ...packFormData, tablesCount: v })} placeholder="4" /></div>
+                  <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{t('tables.limitTablesHint')}</p>
+                </div>
+              )}
             </div>
             <div>
               <FieldLabel>{t('tables.depositAmount')}</FieldLabel>
@@ -783,6 +807,7 @@ export default function OwnerTables() {
         existingLayout={floorPlan?.layout as any}
         existingBackgroundUrl={(floorPlan as any)?.background_image_url}
         zones={zones}
+        packs={packs.map(pk => ({ id: pk.id, name: pk.name, zoneId: pk.zoneId, baseCapacity: pk.baseCapacity, basePrice: pk.basePrice, maxExtraPersons: pk.maxExtraPersons }))}
         onSave={async () => { const fp = await fetchFloorPlan(); await syncZoneCountsFromLayout(fp?.layout); }}
       />
 

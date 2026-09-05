@@ -95,6 +95,8 @@ export type TablePack = {
    */
   paymentMode?: 'online' | 'on_site';
   tablesCount: number;
+  /** Vrai = tablesCount plafonne les réservations de cette formule par soirée. */
+  limitTables?: boolean;
   position: number;
   isActive: boolean;
   createdAt: string;

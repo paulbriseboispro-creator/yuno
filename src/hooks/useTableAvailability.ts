@@ -10,6 +10,7 @@ interface AvailabilityRow {
   placement_status: string | null;
   zone_id: string | null;
   status: string | null;
+  pack_id?: string | null;
 }
 
 /**
@@ -31,6 +32,8 @@ export function useTableAvailability(eventId: string | undefined) {
   const [unplacedReservationCount, setUnplacedReservationCount] = useState(0);
   /** Number of active reservations per zone (pending/paid/confirmed). Used to enforce zone tables_count cap. */
   const [reservationsByZone, setReservationsByZone] = useState<Record<string, number>>({});
+  /** Réservations actives par formule — sert le plafond `limit_tables` d'un pack. */
+  const [reservationsByPack, setReservationsByPack] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export function useTableAvailability(eventId: string | undefined) {
     const applyRows = (rows: AvailabilityRow[]) => {
       const ids = new Set<string>();
       const byZone: Record<string, number> = {};
+      const byPack: Record<string, number> = {};
       let unplaced = 0;
 
       rows.forEach((r) => {
@@ -62,11 +66,15 @@ export function useTableAvailability(eventId: string | undefined) {
         if (r.zone_id) {
           byZone[r.zone_id] = (byZone[r.zone_id] || 0) + 1;
         }
+        if (r.pack_id) {
+          byPack[r.pack_id] = (byPack[r.pack_id] || 0) + 1;
+        }
       });
 
       setUnavailableTableIds(ids);
       setUnplacedReservationCount(unplaced);
       setReservationsByZone(byZone);
+      setReservationsByPack(byPack);
       setLoading(false);
     };
 
@@ -75,7 +83,7 @@ export function useTableAvailability(eventId: string | undefined) {
     const fetchLegacyDirect = async () => {
       const { data } = await supabase
         .from('table_reservations')
-        .select('requested_table_id, assigned_table_id, placement_status, guest_count, zone_id, status')
+        .select('requested_table_id, assigned_table_id, placement_status, guest_count, zone_id, status, pack_id')
         .eq('event_id', eventId)
         .in('status', ['pending', 'paid', 'confirmed']);
       applyRows((data || []) as AvailabilityRow[]);
@@ -137,5 +145,5 @@ export function useTableAvailability(eventId: string | undefined) {
     };
   }, [eventId]);
 
-  return { unavailableTableIds, unplacedReservationCount, reservationsByZone, loading };
+  return { unavailableTableIds, unplacedReservationCount, reservationsByZone, reservationsByPack, loading };
 }

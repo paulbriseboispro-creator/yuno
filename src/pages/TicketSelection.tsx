@@ -97,7 +97,7 @@ export default function TicketSelection() {
   // Occupation réelle des tables (RPC SECURITY DEFINER, lisible en anon).
   // L'ancienne lecture directe de table_reservations rendait 0 ligne pour un
   // visiteur anonyme → toutes les tables semblaient libres toute la nuit.
-  const { unavailableTableIds, reservationsByZone } = useTableAvailability(eventId);
+  const { unavailableTableIds, reservationsByZone, reservationsByPack } = useTableAvailability(eventId);
 
   useEffect(() => {
     if (eventId) fetchData();
@@ -240,7 +240,7 @@ export default function TicketSelection() {
           maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
           depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
           includedItems: p.included_items, includedBottlesQuota: p.included_bottles_quota || 0,
-          minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1,
+          minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, limitTables: !!p.limit_tables,
           position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at,
         })));
 
@@ -882,22 +882,28 @@ export default function TicketSelection() {
                 const reserved = reservationsByZone[selectedZoneId] || 0;
                 const remaining = (zone?.tablesCount || 0) - reserved;
                 const isSoldOut = remaining <= 0;
-                return zonePacks.map(pack => (
+                return zonePacks.map(pack => {
+                  // Formule plafonnée : son propre reste, en plus de celui de la zone.
+                  const packUsed = reservationsByPack[pack.id] || 0;
+                  const packRemaining = pack.limitTables && pack.tablesCount > 0 ? pack.tablesCount - packUsed : remaining;
+                  const packSoldOut = isSoldOut || packRemaining <= 0;
+                  return (
                   <PackCard
                     key={pack.id}
                     pack={pack}
                     zone={zone!}
-                    isSoldOut={isSoldOut}
-                    remaining={remaining}
+                    isSoldOut={packSoldOut}
+                    remaining={Math.min(remaining, packRemaining)}
                     isSelected={selection?.id === pack.id}
                     quantity={selection?.id === pack.id ? selection.quantity : 1}
-                    onSelectPack={() => !isSoldOut && selectItem('table', pack.id, pack.basePrice, pack.name, selectedZoneId, pack.deposit, pack.depositType, pack.paymentMode === 'on_site')}
+                    onSelectPack={() => !packSoldOut && selectItem('table', pack.id, pack.basePrice, pack.name, selectedZoneId, pack.deposit, pack.depositType, pack.paymentMode === 'on_site')}
                     onDeselectPack={() => setSelection(null)}
                     onQuantityChange={updateQuantity}
                     t={t}
                     scarcity={scarcitySettings}
                   />
-                ));
+                  );
+                });
               })()}
 
               {/* Floor plan (read-only) — les tables vendues / en cours d'achat
@@ -1119,7 +1125,9 @@ function PackCard({
   t: (key: string) => string; scarcity?: ScarcitySettings | null;
 }) {
   const emojiEnabled = scarcity?.emoji_enabled ?? true;
-  const percentUsed = zone.tablesCount > 0 ? ((zone.tablesCount - remaining) / zone.tablesCount) * 100 : 0;
+  // Une formule plafonnée s'épuise sur SON stock, pas sur celui de la zone.
+  const capTotal = pack.limitTables && pack.tablesCount > 0 ? pack.tablesCount : zone.tablesCount;
+  const percentUsed = capTotal > 0 ? ((capTotal - remaining) / capTotal) * 100 : 0;
   const showUrgency = scarcity?.low_stock_enabled && !isSoldOut && percentUsed >= (scarcity?.low_stock_percent ?? 80);
 
   // Deposit-now vs balance-at-venue, surfaced up front so the split payment is no
@@ -1182,6 +1190,9 @@ function PackCard({
             )}
             {pack.arrivalDeadline && (
               <p className="text-[11px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
+            )}
+            {pack.limitTables && !isSoldOut && remaining > 0 && remaining <= 3 && (
+              <p className="text-[11px] text-white/60">{remaining} {t('ticketSel.tablesLeft')}</p>
             )}
             {onSite ? (
               <p className="text-[11px] text-emerald-400 font-semibold">{t('ticketSel.onSitePayment')}</p>

@@ -58,6 +58,9 @@ interface BasicPack {
   arrival_deadline: string | null;
   is_active: boolean;
   payment_mode: 'online' | 'on_site';
+  /** Plafond propre à la formule (voir migration pack_table_binding). */
+  limit_tables: boolean;
+  tables_count: number;
 }
 
 
@@ -140,6 +143,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     included_items: '',
     arrival_deadline: '',
     payment_mode: 'online' as 'online' | 'on_site',
+    limit_tables: false,
+    tables_count: '1',
   });
 
   const isOwner = tablesOwnerId === organizerUserId;
@@ -155,7 +160,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
         supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
-        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active, payment_mode').eq('event_id', eventId),
+        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
         supabase.from('organizer_vip_rooms').select('id, name, location_name').order('updated_at', { ascending: false }),
       ]);
@@ -286,7 +291,16 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       if (n === undefined || n === z.tables_count) return [];
       return [supabase.from('table_zones').update({ tables_count: n }).eq('id', z.id)];
     });
-    if (updates.length > 0) await Promise.all(updates);
+    // Même règle pour les formules : des tables fixées à une formule en font
+    // le plafond. Une formule sans table liée garde son réglage manuel.
+    const packCounts = new Map<string, number>();
+    for (const t of planTables as { packId?: string | null }[]) { if (t.packId) packCounts.set(t.packId, (packCounts.get(t.packId) || 0) + 1); }
+    const packUpdates = packs.flatMap((pk) => {
+      const n = packCounts.get(pk.id);
+      if (n === undefined || (n === pk.tables_count && pk.limit_tables)) return [];
+      return [supabase.from('table_packs').update({ tables_count: n, limit_tables: true }).eq('id', pk.id)];
+    });
+    if (updates.length + packUpdates.length > 0) await Promise.all([...updates, ...packUpdates]);
   };
 
   // ---- Zones ----
@@ -351,6 +365,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             included_items: p.included_items ?? '',
             arrival_deadline: p.arrival_deadline ?? '',
             payment_mode: p.payment_mode === 'on_site' ? 'on_site' : 'online',
+            limit_tables: !!p.limit_tables,
+            tables_count: String(p.tables_count || 1),
           }
         : {
             zone_id: zoneId ?? zones[0]?.id ?? '',
@@ -364,6 +380,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             // Nouveau pack : on hérite du mode du dernier pack de la soirée, pour
             // qu'une soirée « tout sur place » ne redemande pas le choix à chaque fois.
             payment_mode: packs[packs.length - 1]?.payment_mode === 'on_site' ? 'on_site' : 'online',
+            limit_tables: false,
+            tables_count: '1',
           },
     );
     setPackOpen(true);
@@ -385,6 +403,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       included_items: packForm.included_items.trim() || null,
       arrival_deadline: packForm.arrival_deadline || null,
       payment_mode: packForm.payment_mode,
+      limit_tables: packForm.limit_tables,
+      tables_count: Math.max(1, parseInt(packForm.tables_count) || 1),
       is_active: true,
       event_id: eventId,
       created_by_user_id: organizerUserId,
@@ -792,6 +812,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                       <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{p.name} <span style={{ color: T3 }}>— {Number(p.base_price).toFixed(0)}€</span></div>
                       <div style={{ color: T3, fontSize: 11.5 }}>
                         {p.base_capacity} {tt('pers.', 'guests', 'pers.')}
+                        {p.limit_tables && <> · {p.tables_count} {tt('tables max', 'tables max', 'mesas máx.')}</>}
                         {p.payment_mode === 'on_site'
                           ? <> · <span style={{ color: '#34D399' }}>{tt('Règlement sur place', 'Paid on site', 'Pago en el local')}</span></>
                           : Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
@@ -1106,6 +1127,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
           existingLayout={floorPlan?.layout as unknown as React.ComponentProps<typeof FloorPlanEditor>['existingLayout']}
           existingBackgroundUrl={floorPlanUrl}
           zones={zones.map((z) => ({ id: z.id, name: z.name, color: z.color }))}
+          packs={packs.map((pk) => ({ id: pk.id, name: pk.name, zoneId: pk.zone_id, baseCapacity: pk.base_capacity, basePrice: Number(pk.base_price) }))}
           onSave={async () => { await syncZoneCountsFromLayout(); await loadAll(); }}
         />
       )}
@@ -1169,6 +1191,19 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                     'El cliente reserva sin pagar: la reserva se confirma al instante, el precio mostrado se paga en el local. No hace falta cuenta Stripe.',
                   )}
                 </p>
+              )}
+            </div>
+            {/* Plafond propre à la formule : « 4 tables à 600 € » dans une zone qui en compte 6. */}
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl p-3" style={{ background: packForm.limit_tables ? 'rgba(232,25,44,0.06)' : INNER_BG, border: `1px solid ${packForm.limit_tables ? 'rgba(232,25,44,0.18)' : BORDER}` }}>
+                <Switch checked={packForm.limit_tables} onCheckedChange={(v) => setPackForm({ ...packForm, limit_tables: v })} />
+                <span style={{ color: packForm.limit_tables ? T1 : T2, fontSize: 13 }}>{tt('Nombre de tables limité pour cette formule', 'Limit the number of tables for this package', 'Número de mesas limitado para esta fórmula')}</span>
+              </label>
+              {packForm.limit_tables && (
+                <div className="grid grid-cols-2 items-end gap-2">
+                  <div><FieldLabel>{tt('Tables pour cette formule', 'Tables for this package', 'Mesas para esta fórmula')}</FieldLabel><input type="number" min="1" value={packForm.tables_count} onChange={(e) => setPackForm({ ...packForm, tables_count: e.target.value })} style={daInputStyle} /></div>
+                  <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{tt('En plus du plafond de la zone. Si des tables du plan sont fixées à cette formule, leur nombre fait foi.', 'On top of the zone cap. When tables on the plan are pinned to this package, their count wins.', 'Además del tope de la zona. Si hay mesas del plano fijadas a esta fórmula, su número manda.')}</p>
+                </div>
               )}
             </div>
             <div className="grid grid-cols-3 gap-2">

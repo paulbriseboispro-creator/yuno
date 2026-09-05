@@ -508,6 +508,7 @@ export default function EventDetails() {
         minimumSpend: Number(p.minimum_spend) || 0,
         paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
         tablesCount: p.tables_count || 1,
+        limitTables: !!p.limit_tables,
         position: p.position,
         isActive: p.is_active,
         createdAt: p.created_at,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useEventRoute } from '@/hooks/useEventRoute';
@@ -125,7 +125,7 @@ export default function TableCheckout() {
   const [guestCount, setGuestCount] = useState(1);
   const [preOrderBottles, setPreOrderBottles] = useState<PreorderSelection[]>([]);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
-  const { unavailableTableIds, reservationsByZone } = useTableAvailability(eventId);
+  const { unavailableTableIds, reservationsByZone, reservationsByPack } = useTableAvailability(eventId);
 
   // Zone capacity guard — block once `tables_count` is reached for the selected zone.
   const activeZoneId = zoneId || pack?.zoneId || null;
@@ -134,6 +134,28 @@ export default function TableCheckout() {
     : 0;
   const zoneUsed = activeZoneId ? (reservationsByZone[activeZoneId] || 0) : 0;
   const zoneFull = zoneCapacity > 0 && zoneUsed >= zoneCapacity;
+  // Plafond propre à la formule (limit_tables) — le serveur reste le juge final.
+  const packUsed = pack ? (reservationsByPack[pack.id] || 0) : 0;
+  const packFull = !!pack?.limitTables && pack.tablesCount > 0 && packUsed >= pack.tablesCount;
+  // Formules connues de cette soirée (même périmètre que le checkout) : sert à
+  // lire la formule fixée d'une table du plan et à basculer dessus.
+  const allPacks = useMemo(() => Object.values(packsByZone).flat(), [packsByZone]);
+  const packNames = useMemo(() => Object.fromEntries(allPacks.map((p) => [p.id, p.name])), [allPacks]);
+
+  // Table fixée à une autre formule : on bascule le checkout sur cette
+  // formule (même mécanique que le changement de zone) en gardant la table.
+  const handleTableUpsell = (table: FloorPlanTable & { zoneName?: string; zoneColor?: string }) => {
+    if (pack && table.packId && table.packId !== pack.id) {
+      const target = allPacks.find((p) => p.id === table.packId);
+      if (target) {
+        toast.info(t('vipCheckout.packSwitched').replace('{pack}', target.name));
+        setSelectedTableId(table.id);
+        handleZoneChange(table.zoneId || zoneId || target.zoneId, target.id);
+        return;
+      }
+    }
+    setUpsellTable(table);
+  };
 
 
   // Auto-deselect table if guest count exceeds table capacity
@@ -313,6 +335,7 @@ export default function TableCheckout() {
         arrivalDeadline: packData.arrival_deadline,
         paymentMode: (packData.payment_mode as 'online' | 'on_site') || 'online',
         tablesCount: packData.tables_count || 1,
+        limitTables: !!packData.limit_tables,
         position: packData.position, isActive: packData.is_active,
         createdAt: packData.created_at, updatedAt: packData.updated_at,
       });
@@ -363,6 +386,7 @@ export default function TableCheckout() {
               minimumSpend: Number(p.minimum_spend) || 0,
               arrivalDeadline: p.arrival_deadline,
               tablesCount: p.tables_count || 1,
+              limitTables: !!p.limit_tables,
               position: p.position, isActive: p.is_active,
               createdAt: p.created_at, updatedAt: p.updated_at,
             };
@@ -519,6 +543,11 @@ export default function TableCheckout() {
         t('tableCheckout.zoneFull') ||
           `Cette zone est complète (${zoneUsed}/${zoneCapacity} tables réservées). Choisis une autre zone.`,
       );
+      setSubmitting(false);
+      return;
+    }
+    if (packFull) {
+      toast.error(t('tableCheckout.packFull'));
       setSubmitting(false);
       return;
     }
@@ -901,7 +930,9 @@ export default function TableCheckout() {
                         onSelectTable={setSelectedTableId}
                         onSkip={handleSkipPlacement}
                         primaryZoneId={zoneId || undefined}
-                        onUpsellTable={(table) => setUpsellTable(table)}
+                        packId={pack.id}
+                        packNames={packNames}
+                        onUpsellTable={handleTableUpsell}
                         guestCount={guestCount}
                       />
                     )}

@@ -246,6 +246,9 @@ export type FloorPlanTable = {
   height: number;
   zoneId?: string;
   zoneColor?: string;
+  /** Formule fixée à cette table : elle ne se réserve qu'avec ce pack. */
+  packId?: string;
+  packName?: string;
   capacity?: number;
   maxExtraPersons?: number;
   extraPersonPrice?: number;

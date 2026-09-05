@@ -41,6 +41,10 @@ interface ClientFloorPlanPickerProps {
   onUpsellTable?: (table: FloorPlanTable & { zoneName?: string; zoneColor?: string }) => void;
   /** Number of guests — tables with insufficient capacity are grayed out */
   guestCount?: number;
+  /** Formule du checkout : une table fixée à une AUTRE formule connue est estompée et bascule via onUpsellTable. */
+  packId?: string;
+  /** Formules connues de la soirée (id → nom) — la liaison n'est lue que pour celles-ci. */
+  packNames?: Record<string, string>;
 }
 
 const CANVAS_W = 600;
@@ -60,6 +64,8 @@ export function ClientFloorPlanPicker({
   primaryZoneId,
   onUpsellTable,
   guestCount,
+  packId,
+  packNames,
 }: ClientFloorPlanPickerProps) {
   const { t } = useLanguage();
   const [zoom, setZoom] = useState(1);
@@ -182,6 +188,10 @@ export function ClientFloorPlanPicker({
     return guestCount > tableMax;
   };
 
+  // Table fixée à une autre formule DU MÊME périmètre (formule connue).
+  const isBoundElsewhere = (table: typeof filteredTables[0]) =>
+    !!packId && !!table.packId && table.packId !== packId && !!packNames?.[table.packId];
+
   const handleTableClick = (table: typeof filteredTables[0]) => {
     if (readOnly) return;
     if (suppressClickRef.current) return;
@@ -189,6 +199,12 @@ export function ClientFloorPlanPicker({
     if (isTableTooSmall(table)) {
       const tableMax = (table.capacity || 0) + (table.maxExtraPersons || 0);
       toast.info(t('vipCheckout.tooSmallMessage').replace('{name}', table.name).replace('{max}', tableMax.toString()));
+      return;
+    }
+
+    // Table fixée à une autre formule → le checkout bascule sur cette formule.
+    if (isBoundElsewhere(table) && onUpsellTable) {
+      onUpsellTable(table as FloorPlanTable & { zoneName?: string; zoneColor?: string });
       return;
     }
 
@@ -505,7 +521,7 @@ export function ClientFloorPlanPicker({
         const shortLabel = table.name.replace(/^table\s*/i, '').trim() || table.name;
         const tableMax = (table.capacity || 0) + (table.maxExtraPersons || 0);
         const isOutsidePrimaryZone = primaryZoneId && table.zoneId && table.zoneId !== primaryZoneId;
-        const dimmed = (isOutsidePrimaryZone && !isSelected);
+        const dimmed = ((isOutsidePrimaryZone || isBoundElsewhere(table)) && !isSelected);
 
         return (
           <g
@@ -701,6 +717,9 @@ export function ClientFloorPlanPicker({
             <span className="text-sm font-medium">{selectedTable.name}</span>
             {selectedTable.capacity && (
               <Badge variant="outline" className="text-xs">{selectedTable.capacity} pers.</Badge>
+            )}
+            {selectedTable.packId && packNames?.[selectedTable.packId] && (
+              <Badge variant="outline" className="text-xs">{packNames[selectedTable.packId]}</Badge>
             )}
           </div>
           <Button size="sm" variant="ghost" onClick={() => onSelectTable(null)} className="text-xs h-7">
