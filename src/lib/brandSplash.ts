@@ -25,9 +25,13 @@
 //   2. `python3 scripts/gen-splash-wordmark.py` (régénère l'imageset) ;
 //   3. passer ce drapeau à true ;
 //   4. push → Xcode Cloud, puis soumission.
-// Les anciens binaires sont protégés par Capgo : un bundle OTA n'est servi qu'aux
-// appareils dont `native_version` correspond, donc la 1.0.2 ne recevra jamais un
-// bundle à `true` — voir docs/OTA_CAPGO.md.
+// Les anciens binaires sont protégés par Capgo, mais PAS automatiquement : la
+// table `NATIVE_FAMILY` (identique dans `supabase/functions/capgo-updates` et
+// `scripts/ota-publish.mjs`) range aujourd'hui 1.0, 1.0.1 et 1.0.2 dans la MÊME
+// famille « 1.0 » — un bundle publié atteint donc les trois. Pour que la 1.0.3
+// forme sa propre famille et que les binaires à l'ancien Launch Screen ne
+// reçoivent jamais un bundle à `true`, il faut justement NE PAS l'ajouter à
+// cette table. Voir docs/OTA_CAPGO.md.
 export const OFFICIAL_SPLASH_WORDMARK = false;
 
 /** Géométrie du mot dans la chaîne de boot, en px CSS.

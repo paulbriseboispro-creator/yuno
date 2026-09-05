@@ -75,8 +75,11 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   de `OFFICIAL_SPLASH_WORDMARK` à `true` (`src/lib/brandSplash.ts`, injecté dans
   `index.html` par le plugin Vite `yuno-splash-flag`) et que le bump de
   `MARKETING_VERSION`. Ne jamais committer l'un sans les autres : même un build
-  TestFlight intermédiaire montrerait le saut. Les anciens binaires sont protégés
-  par la garde `native_version` de Capgo. Le raccord se vérifie, il ne s'estime
+  TestFlight intermédiaire montrerait le saut. Pour que les binaires à l'ancien
+  Launch Screen ne reçoivent jamais le bundle à `true`, il faut NE PAS ajouter la
+  nouvelle version à la table `NATIVE_FAMILY` (`capgo-updates` +
+  `scripts/ota-publish.mjs`), qui range aujourd'hui 1.0 / 1.0.1 / 1.0.2 dans une
+  seule famille — sans ça la garde `native_version` ne protège rien. Le raccord se vérifie, il ne s'estime
   pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px, soit
   3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
   c'est l'icône rendue en volume, pas un wordmark à plat.
