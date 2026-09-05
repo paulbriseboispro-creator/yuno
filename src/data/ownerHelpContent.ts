@@ -372,7 +372,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Wine',
         actionLink: { labelKey: 'ohelp.action.goToTables', path: '/tables' },
         relatedArticleIds: ['events-setup', 'vip-service-mgmt'],
-        keywords: ['table', 'VIP', 'réservation', 'reservation', 'zone', 'pack', 'minimum', 'bouteille', 'bottle', 'carré', 'floor plan', 'plan de salle', 'gold', 'platinum', 'silver', 'diamond', 'mesa', 'heure d\'arrivée', 'arrivée limite', 'arrival cutoff', 'retard', 'late'],
+        keywords: ['table', 'VIP', 'réservation', 'reservation', 'zone', 'pack', 'minimum', 'bouteille', 'bottle', 'carré', 'floor plan', 'plan de salle', 'gold', 'platinum', 'silver', 'diamond', 'mesa', 'heure d\'arrivée', 'arrivée limite', 'arrival cutoff', 'retard', 'late', 'formule', 'formule fixée', 'nombre de tables', 'tables par formule', 'package per table', 'fórmula'],
         sections: [
           { headingKey: 'ohelp.ev.tables.s1h', bodyKey: 'ohelp.ev.tables.s1b' },
           { headingKey: 'ohelp.ev.tables.s2h', bodyKey: 'ohelp.ev.tables.s2b', screenshotUrl: '/help/owner-tables.webp' },
@@ -382,6 +382,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.tables.s6h', bodyKey: 'ohelp.ev.tables.s6b' },
           { headingKey: 'ohelp.ev.tables.s7h', bodyKey: 'ohelp.ev.tables.s7b' },
           { headingKey: 'ohelp.ev.tables.s12h', bodyKey: 'ohelp.ev.tables.s12b' },
+          { headingKey: 'ohelp.ev.tables.s13h', bodyKey: 'ohelp.ev.tables.s13b' },
           { headingKey: 'ohelp.ev.tables.s10h', bodyKey: 'ohelp.ev.tables.s10b', screenshotUrl: '/help/owner-menu.webp' },
           { headingKey: 'ohelp.ev.tables.s11h', bodyKey: 'ohelp.ev.tables.s11b' },
           { headingKey: 'ohelp.ev.tables.s8h', bodyKey: 'ohelp.ev.tables.s8b', type: 'tip' },

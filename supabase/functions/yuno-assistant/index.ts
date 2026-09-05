@@ -139,6 +139,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 
 🍾 TABLES VIP — comment réserver
 1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés). Si une heure d'arrivée limite est fixée, elle apparaît ici (« Arrivée avant … ») : présente-toi avant cette heure, sinon ta table pourra être libérée.
+   Certaines formules sont limitées en nombre de tables : elles passent « Complet » quand leurs tables sont parties, même si la zone a encore de la place. Et sur le plan interactif, une table peut être vendue avec une formule précise : les tables d'une autre formule apparaissent estompées, et en toucher une bascule ta réservation sur cette formule (le prix et la capacité suivent).
 2. Paie l'acompte en ligne pour bloquer la table. Le reste (minimum conso) se dépense sur place.
    Frais de service Yuno sur cet acompte : 4% (minimum 0,99€), PLAFONNÉ À 25€. Le frais porte sur
    le montant réellement débité, pas sur le prix total de la table — sur une table à 2 000€ avec
