@@ -55,6 +55,26 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
 
 - **i18n** : tout texte affiché passe par le helper `t()` de `src/i18n/data.ts`. Ajouter les
   3 langues (en/fr/es) pour chaque nouvelle clé. Défaut = anglais.
+- **Mot-symbole = UN seul dessin, jamais du texte.** Le wordmark officiel vit
+  dans `public/yuno-wordmark.png` et ses déclinaisons (blanc / `#0A0A0A` /
+  `#E8192C`), toutes produites par `scripts/gen-brand-wordmark.py` — ne jamais
+  en ajouter une à la main. Le front passe par `<Wordmark height={…} />`
+  (`src/components/brand/Wordmark.tsx`), qui ne pilote que la HAUTEUR : le ratio
+  vient du fichier, une lettre étirée n'est plus le logo. Les emails et les
+  passes Wallet ne peuvent pas importer un composant React et tirent le même PNG
+  (URL absolue pour les emails, base64 régénéré par `gen-wallet-assets.py` pour
+  les passes). Ne JAMAIS re-composer la marque en Space Grotesk / Poppins /
+  Helvetica : le nom reste du TEXTE seulement quand c'est une phrase (« Frais de
+  service Yuno », un en-tête de colonne), jamais quand il porte la marque.
+  **La chaîne de lancement est un cas à part** : le Launch Screen natif
+  (`ios/App/App/Assets.xcassets/Splash.imageset/`, régénéré par
+  `scripts/gen-splash-wordmark.py`) est compilé dans le binaire et ne part PAS
+  en OTA, alors que le loader de `index.html` et `SplashScreen.tsx`, si. Les
+  trois se flippent ENSEMBLE via `OFFICIAL_SPLASH_WORDMARK`
+  (`src/lib/brandSplash.ts`, injecté dans `index.html` par le plugin Vite
+  `yuno-splash-flag`) — à passer à `true` le jour où Apple approuve le build qui
+  embarque le nouveau Launch Screen, jamais avant. Le splash de l'app Pro n'est
+  pas concerné : c'est l'icône rendue en volume, pas un wordmark à plat.
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
