@@ -142,19 +142,18 @@ export default function TableCheckout() {
   const allPacks = useMemo(() => Object.values(packsByZone).flat(), [packsByZone]);
   const packNames = useMemo(() => Object.fromEntries(allPacks.map((p) => [p.id, p.name])), [allPacks]);
 
-  // Table fixée à une autre formule : on bascule le checkout sur cette
-  // formule (même mécanique que le changement de zone) en gardant la table.
+  // Table hors périmètre (autre zone ou autre formule) : on n'y bascule
+  // jamais en douce. La feuille montre la formule, l'écart de prix et attend
+  // une confirmation ; c'est elle qui rappelle handleTableConfirmed.
   const handleTableUpsell = (table: FloorPlanTable & { zoneName?: string; zoneColor?: string }) => {
-    if (pack && table.packId && table.packId !== pack.id) {
-      const target = allPacks.find((p) => p.id === table.packId);
-      if (target) {
-        toast.info(t('vipCheckout.packSwitched').replace('{pack}', target.name));
-        setSelectedTableId(table.id);
-        handleZoneChange(table.zoneId || zoneId || target.zoneId, target.id);
-        return;
-      }
-    }
     setUpsellTable(table);
+  };
+
+  const handleTableConfirmed = (tableId: string, newZoneId: string, newPackId: string) => {
+    setUpsellTable(null);
+    setSelectedTableId(tableId);
+    if (pack && newPackId === pack.id && newZoneId === (zoneId || pack.zoneId)) return;
+    handleZoneChange(newZoneId, newPackId);
   };
 
 
@@ -954,10 +953,13 @@ export default function TableCheckout() {
                   onClose={() => { setZoneSheetOpen(false); setUpsellTable(null); }}
                   currentZoneId={zoneId || pack.zoneId}
                   currentPackPrice={pricing.totalPrice}
+                  currentPackName={pack.name}
                   zones={allZones}
                   packsByZone={packsByZone}
                   guestCount={guestCount}
                   onSelectZone={handleZoneChange}
+                  targetTable={upsellTable}
+                  onSelectTable={handleTableConfirmed}
                 />
               </motion.div>
             )}
