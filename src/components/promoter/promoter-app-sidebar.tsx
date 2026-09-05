@@ -19,6 +19,7 @@ import {
   LayoutDashboard, CalendarDays, Link2, ListTree, ClipboardList, ScanLine,
   Wallet, Users, User, LogOut, Activity,
 } from 'lucide-react';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /**
  * Sidebar de l'espace promoteur — même architecture que dj-app-sidebar. Les
@@ -80,7 +81,7 @@ export function PromoterAppSidebar() {
           <Link to="/promoter" className="gap-2.5">
             <img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
             <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-black tracking-widest" style={{ color: '#E8192C' }}>YUNO</span>
+              <Wordmark height={14} tone="red" />
               <span className="text-[10px] text-muted-foreground -mt-0.5">{tt('Espace Promoteur', 'Promoter Space', 'Espacio Promotor')}</span>
             </div>
           </Link>

@@ -16,6 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
 import type { LucideIcon } from 'lucide-react';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface LinkInfo {
   role: string;
@@ -160,7 +161,7 @@ function VisualPanel({ info, t }: { info: LinkInfo | null; t: (k: string) => str
         {/* Logo */}
         <div className="flex items-center gap-2">
           <img src="/yuno-icon-192.png" alt="Yuno" className="w-7 h-7 rounded-lg" />
-          <span className="text-white font-bold text-lg tracking-tight">yuno</span>
+          <Wordmark height={16} />
         </div>
 
         {/* Main content */}

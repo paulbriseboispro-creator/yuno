@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /**
  * Rapport Club public (/r/:token) — lecture seule, agrégats uniquement.
@@ -249,7 +250,7 @@ export default function ClubReport() {
             className="inline-flex items-center gap-2 flex-none transition-opacity hover:opacity-80"
             style={{ textDecoration: 'none' }}>
             <img src="/yuno-icon-192.png" alt="Yuno" className="w-5 h-5 rounded" />
-            <span style={{ color: T2, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em' }}>YUNO</span>
+            <Wordmark height={12} style={{ opacity: 0.8 }} />
           </a>
         </div>
       </div>

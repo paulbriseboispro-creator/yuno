@@ -18,6 +18,7 @@ import {
   LayoutDashboard, CalendarDays, MousePointerClick, BarChart2, LineChart, Bell,
   Users, User, LogOut, LifeBuoy, Inbox,
 } from 'lucide-react';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 export function DJAppSidebar() {
   const navigate = useNavigate();
@@ -67,7 +68,7 @@ export function DJAppSidebar() {
           <Link to="/dj" className="gap-2.5">
             <img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
             <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-black tracking-widest" style={{ color: '#E8192C' }}>YUNO</span>
+              <Wordmark height={14} tone="red" />
               <span className="text-[10px] text-muted-foreground -mt-0.5">{t('dj.spaceLabel')}</span>
             </div>
           </Link>

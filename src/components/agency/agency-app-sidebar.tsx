@@ -19,6 +19,7 @@ import {
   Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send, Store,
   Radio, BellRing,
 } from 'lucide-react';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 export interface AgencyIdentity {
   name: string;
@@ -120,9 +121,13 @@ export function AgencyAppSidebar({ agency }: { agency: AgencyIdentity | null }) 
               <img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
             )}
             <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate text-sm font-black tracking-wide" style={{ color: '#E8192C' }}>
-                {agency?.name ?? 'YUNO'}
-              </span>
+              {agency?.name ? (
+                <span className="truncate text-sm font-black tracking-wide" style={{ color: '#E8192C' }}>
+                  {agency.name}
+                </span>
+              ) : (
+                <Wordmark height={14} tone="red" />
+              )}
               <span className="text-[10px] text-muted-foreground -mt-0.5">
                 {t('agc.role.label')}{agency?.city ? ` · ${agency.city}` : ''}
               </span>

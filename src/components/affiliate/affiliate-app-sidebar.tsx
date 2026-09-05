@@ -17,6 +17,7 @@ import {
   LayoutDashboard, MapPin, CalendarDays, RefreshCw, BarChart2, LogOut, Settings,
   Users, Link2, Activity, CalendarRange, UserPlus, Megaphone, LifeBuoy, Inbox, UserRound,
 } from 'lucide-react';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 export type AffiliateRole = 'admin' | 'manager' | 'member';
 
@@ -117,7 +118,7 @@ export function AffiliateAppSidebar({ role }: { role: AffiliateRole }) {
           <Link to={home} className="gap-2.5">
             <img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
             <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-black tracking-widest" style={{ color: '#E8192C' }}>YUNO</span>
+              <Wordmark height={14} tone="red" />
               <span className="text-[10px] text-muted-foreground -mt-0.5">{roleLabel}</span>
             </div>
           </Link>
