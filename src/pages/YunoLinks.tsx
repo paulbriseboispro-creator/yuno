@@ -153,9 +153,20 @@ function SocialIcon({ href, kind, onClick }: { href: string; kind: 'instagram' |
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function YunoLinks() {
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   useSuppressBottomNav(true);
+
+  // `?lang=fr|en|es` : chaque compte Instagram pointe sa bio vers SA langue
+  // (yunoapp.fr → ?lang=fr, yunoapp.eu → ?lang=en), quelle que soit la langue
+  // du téléphone. Le choix est mémorisé comme un changement de langue manuel.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('lang');
+    if ((wanted === 'fr' || wanted === 'en' || wanted === 'es') && wanted !== language) {
+      setLanguage(wanted);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [config, setConfig] = useState<LinksConfig>(DEFAULT_LINKS_CONFIG);
   const [stats, setStats] = useState<LinksStats | null>(null);
