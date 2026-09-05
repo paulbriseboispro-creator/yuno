@@ -109,6 +109,21 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   // Lightbox de l'image illustrative (mode basic).
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
+  // Numéros des tables visibles par le client : réglage du plan (layout),
+  // écrit par la même RPC que l'éditeur pour rester sous les mêmes gardes.
+  const [labelsSaving, setLabelsSaving] = useState(false);
+  const setClientTableLabels = async (visible: boolean) => {
+    if (!floorPlan) return;
+    setLabelsSaving(true);
+    const { error } = await supabase.rpc('upsert_event_floor_plan', {
+      p_event_id: eventId,
+      p_layout: JSON.parse(JSON.stringify({ ...floorPlan.layout, showTableLabels: visible })),
+      p_background_image_url: floorPlan.backgroundImageUrl ?? null,
+    });
+    setLabelsSaving(false);
+    if (error) { toast.error(error.message); return; }
+    loadAll();
+  };
   const [modeSaving, setModeSaving] = useState(false);
   // Salles VIP de l'organisateur (historique rejouable) + enregistrement.
   const [rooms, setRooms] = useState<VipRoomOption[]>([]);
@@ -295,9 +310,11 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     // le plafond. Une formule sans table liée garde son réglage manuel.
     const packCounts = new Map<string, number>();
     for (const t of planTables as { packId?: string | null }[]) { if (t.packId) packCounts.set(t.packId, (packCounts.get(t.packId) || 0) + 1); }
+    // Une formule DÉJÀ plafonnée garde le nombre saisi : le plan ne peut pas
+    // le dépasser (garde en base), on ne le réécrit jamais.
     const packUpdates = packs.flatMap((pk) => {
       const n = packCounts.get(pk.id);
-      if (n === undefined || (n === pk.tables_count && pk.limit_tables)) return [];
+      if (n === undefined || pk.limit_tables) return [];
       return [supabase.from('table_packs').update({ tables_count: n, limit_tables: true }).eq('id', pk.id)];
     });
     if (updates.length + packUpdates.length > 0) await Promise.all([...updates, ...packUpdates]);
@@ -414,7 +431,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       ? await supabase.from('table_packs').update(payload).eq('id', editingPack.id)
       : await supabase.from('table_packs').insert(payload);
     if (error) {
-      toast.error(error.message);
+      toast.error(error.code === 'YU001'
+        ? tt('Le plan lie déjà plus de tables à cette formule que ce plafond. Retirez d’abord des tables sur le plan.', 'The plan already pins more tables to this package than this cap. Remove tables from the plan first.', 'El plano ya vincula más mesas a esta fórmula que este tope. Quita primero mesas del plano.')
+        : error.message);
       return;
     }
     toast.success(editingPack ? tt('Pack modifié', 'Pack updated', 'Pack actualizado') : tt('Pack créé', 'Pack created', 'Pack creado'));
@@ -1072,6 +1091,16 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                       </div>
                     )}
 
+                    {hasPlan && !lockedToVenue && (
+                      <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl p-3" style={{ border: `1px solid ${BORDER}` }}>
+                        <div>
+                          <div style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{tt('Numéros des tables visibles par le client', 'Table numbers visible to guests', 'Números de las mesas visibles para el cliente')}</div>
+                          <div style={{ color: T3, fontSize: 11 }}>{tt('Désactivé : formes seules sur le plan de vente. La table choisie reste nommée sous le plan.', 'Off: shapes only on the sales plan. The chosen table is still named under the plan.', 'Desactivado: solo formas en el plano de venta. La mesa elegida sigue nombrada bajo el plano.')}</div>
+                        </div>
+                        <Switch checked={floorPlan?.layout?.showTableLabels ?? true} disabled={labelsSaving} onCheckedChange={setClientTableLabels} />
+                      </label>
+                    )}
+
                     {/* Zones → formules : ce que le client aura sous les yeux. */}
                     <div className={`border-t ${dividerCls} pt-4`}>
                       <div className="mb-2.5 flex items-center justify-between">
@@ -1205,7 +1234,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
           existingLayout={floorPlan?.layout as unknown as React.ComponentProps<typeof FloorPlanEditor>['existingLayout']}
           existingBackgroundUrl={floorPlanUrl}
           zones={zones.map((z) => ({ id: z.id, name: z.name, color: z.color }))}
-          packs={packs.map((pk) => ({ id: pk.id, name: pk.name, zoneId: pk.zone_id, baseCapacity: pk.base_capacity, basePrice: Number(pk.base_price) }))}
+          packs={packs.map((pk) => ({ id: pk.id, name: pk.name, zoneId: pk.zone_id, baseCapacity: pk.base_capacity, basePrice: Number(pk.base_price), limitTables: pk.limit_tables, tablesCount: pk.tables_count }))}
           onSave={async () => { await syncZoneCountsFromLayout(); await loadAll(); }}
         />
       )}
@@ -1280,7 +1309,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               {packForm.limit_tables && (
                 <div className="grid grid-cols-2 items-end gap-2">
                   <div><FieldLabel>{tt('Tables pour cette formule', 'Tables for this package', 'Mesas para esta fórmula')}</FieldLabel><input type="number" min="1" value={packForm.tables_count} onChange={(e) => setPackForm({ ...packForm, tables_count: e.target.value })} style={daInputStyle} /></div>
-                  <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{tt('En plus du plafond de la zone. Si des tables du plan sont fixées à cette formule, leur nombre fait foi.', 'On top of the zone cap. When tables on the plan are pinned to this package, their count wins.', 'Además del tope de la zona. Si hay mesas del plano fijadas a esta fórmula, su número manda.')}</p>
+                  <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{tt('En plus du plafond de la zone. Le plan ne pourra pas fixer plus de tables que ce nombre à cette formule.', 'On top of the zone cap. The plan will not be able to pin more tables than this to this package.', 'Además del tope de la zona. El plano no podrá fijar más mesas que este número a esta fórmula.')}</p>
                 </div>
               )}
             </div>

@@ -79,6 +79,7 @@ export default function OwnerTables() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'zone' | 'pack' | 'preset'; id: string; name: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('events');
   const [showFloorPlanEditor, setShowFloorPlanEditor] = useState(false);
+  const [labelsSaving, setLabelsSaving] = useState(false);
   const [floorPlan, setFloorPlan] = useState<any>(null);
 
   const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
@@ -138,9 +139,11 @@ export default function OwnerTables() {
     // table liée garde son réglage manuel.
     const packCounts = new Map<string, number>();
     for (const t of planTables as { packId?: string | null }[]) { if (t.packId) packCounts.set(t.packId, (packCounts.get(t.packId) || 0) + 1); }
+    // Une formule DÉJÀ plafonnée garde le nombre saisi par le club : le plan
+    // ne peut pas le dépasser (garde en base), on ne le réécrit jamais.
     const packUpdates = packs.flatMap(pk => {
       const n = packCounts.get(pk.id);
-      if (n === undefined || (n === pk.tablesCount && pk.limitTables)) return [];
+      if (n === undefined || pk.limitTables) return [];
       return [supabase.from('table_packs').update({ tables_count: n, limit_tables: true }).eq('id', pk.id)];
     });
     if (updates.length === 0 && packUpdates.length === 0) return;
@@ -251,7 +254,7 @@ export default function OwnerTables() {
       if (editingPack) { const { error } = await supabase.from('table_packs').update(data).eq('id', editingPack.id); if (error) throw error; toast.success(t('tables.packUpdated')); }
       else { const { error } = await supabase.from('table_packs').insert(data); if (error) throw error; toast.success(t('tables.packCreated')); }
       setIsPackDialogOpen(false); fetchPacks();
-    } catch { toast.error(t('tables.errorSaving')); }
+    } catch (e) { toast.error((e as { code?: string })?.code === 'YU001' ? t('tables.packLimitBelowPlan') : t('tables.errorSaving')); }
   };
 
   const handleCreatePreset = () => { setEditingPreset(null); setPresetFormData({ name: '', selectedPacks: packs.map(p => ({ packId: p.id, customPrice: p.basePrice.toString(), useCustomPrice: false })) }); setIsPresetDialogOpen(true); };
@@ -347,6 +350,29 @@ export default function OwnerTables() {
                 style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
                 {t('vipHost.editFloorPlan')}
               </button>
+              {/* Numéros visibles par le client : réglage du plan, même RPC que l'éditeur. */}
+              <label className="flex items-start justify-between gap-3 p-3 rounded-xl cursor-pointer" style={{ border: `1px solid ${BORDER}` }}>
+                <div>
+                  <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{t('tables.clientTableLabels')}</p>
+                  <p style={{ color: T3, fontSize: 11 }}>{t('tables.clientTableLabelsHint')}</p>
+                </div>
+                <Switch
+                  checked={(floorPlan.layout as { showTableLabels?: boolean } | null)?.showTableLabels ?? true}
+                  disabled={labelsSaving}
+                  onCheckedChange={async (visible) => {
+                    if (!venueId) return;
+                    setLabelsSaving(true);
+                    const { error } = await supabase.rpc('upsert_venue_floor_plan', {
+                      p_venue_id: venueId,
+                      p_layout: JSON.parse(JSON.stringify({ ...(floorPlan.layout as object), showTableLabels: visible })),
+                      p_background_image_url: (floorPlan as { background_image_url?: string | null }).background_image_url ?? null,
+                    });
+                    setLabelsSaving(false);
+                    if (error) { toast.error(t('common.error')); return; }
+                    fetchFloorPlan();
+                  }}
+                />
+              </label>
             </div>
           ) : (
             <div className="text-center py-8">
@@ -807,7 +833,7 @@ export default function OwnerTables() {
         existingLayout={floorPlan?.layout as any}
         existingBackgroundUrl={(floorPlan as any)?.background_image_url}
         zones={zones}
-        packs={packs.map(pk => ({ id: pk.id, name: pk.name, zoneId: pk.zoneId, baseCapacity: pk.baseCapacity, basePrice: pk.basePrice, maxExtraPersons: pk.maxExtraPersons }))}
+        packs={packs.map(pk => ({ id: pk.id, name: pk.name, zoneId: pk.zoneId, baseCapacity: pk.baseCapacity, basePrice: pk.basePrice, maxExtraPersons: pk.maxExtraPersons, limitTables: pk.limitTables, tablesCount: pk.tablesCount }))}
         onSave={async () => { const fp = await fetchFloorPlan(); await syncZoneCountsFromLayout(fp?.layout); }}
       />
 

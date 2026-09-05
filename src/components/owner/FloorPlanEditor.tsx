@@ -56,6 +56,9 @@ export interface FloorPlanPackOption {
   baseCapacity: number;
   basePrice: number;
   maxExtraPersons?: number;
+  /** Plafond de tables de la formule : le plan ne peut pas lui lier plus de tables. */
+  limitTables?: boolean;
+  tablesCount?: number;
 }
 
 interface FloorZoneArea {
@@ -291,7 +294,7 @@ export function FloorPlanEditor({
       persist().then(res => {
         if (!res.ok && !errorToastShownRef.current) {
           errorToastShownRef.current = true;
-          toast.error(res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
+          toast.error(res.code === 'YU001' ? t('vipHost.floorPlanPackLimit') : res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
         }
       });
     }, 1000);
@@ -391,8 +394,13 @@ export function FloorPlanEditor({
   const duplicateTable = (tableId: string) => {
     const src = tables.find(t => t.id === tableId);
     if (!src) return;
+    // Dupliquer une table liée à une formule déjà pleine : la copie perd la formule.
+    const srcPack = src.packId ? packs.find(p => p.id === src.packId) : undefined;
+    const dropPack = !!srcPack && packIsFull(srcPack);
+    if (dropPack) toast.info(t('vipHost.packFullOnPlan').replace('{pack}', srcPack!.name).replace('{max}', String(srcPack!.tablesCount)));
     const dup: FloorTable = {
       ...src,
+      ...(dropPack ? { packId: undefined, packName: undefined } : {}),
       id: crypto.randomUUID(),
       name: nextTableName(tables, src.zoneId),
       x: Math.min(src.x + 20, CANVAS_WIDTH - src.width),
@@ -716,7 +724,7 @@ export function FloorPlanEditor({
       onClose();
     } else {
       // 23514 = the prevent_floor_plan_table_removal guard (table still seated).
-      toast.error(res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
+      toast.error(res.code === 'YU001' ? t('vipHost.floorPlanPackLimit') : res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
     }
   };
 
@@ -751,10 +759,21 @@ export function FloorPlanEditor({
 
   // Fixer une formule à une table : la capacité (et les extras) suivent la
   // formule, l'hôte n'a plus à les recopier. '' = au choix du client.
+  // Tables déjà liées à une formule (hors celle qu'on édite).
+  const boundCount = (packId: string, exceptTableId?: string) =>
+    tables.filter(t => t.packId === packId && t.id !== exceptTableId).length;
+  const packIsFull = (pack: FloorPlanPackOption, exceptTableId?: string) =>
+    !!pack.limitTables && (pack.tablesCount ?? 0) > 0 && boundCount(pack.id, exceptTableId) >= (pack.tablesCount ?? 0);
+
   const handlePackChange = (tableId: string, packId: string) => {
     if (!packId) { updateTable(tableId, { packId: undefined, packName: undefined }); return; }
     const pack = packs.find(p => p.id === packId);
     if (!pack) return;
+    // Le plafond de la formule est la loi : pas de 8e table sur une formule à 7.
+    if (packIsFull(pack, tableId)) {
+      toast.error(t('vipHost.packFullOnPlan').replace('{pack}', pack.name).replace('{max}', String(pack.tablesCount)));
+      return;
+    }
     updateTable(tableId, {
       packId: pack.id, packName: pack.name,
       capacity: pack.baseCapacity,
@@ -1305,11 +1324,16 @@ export function FloorPlanEditor({
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value={CLIENT_CHOICE}>{t('vipHost.packFree')}</SelectItem>
-                          {zonePacks.map(pack => (
-                            <SelectItem key={pack.id} value={pack.id}>
-                              {pack.name} · {pack.baseCapacity} pers. · {pack.basePrice} €
-                            </SelectItem>
-                          ))}
+                          {zonePacks.map(pack => {
+                            const full = packIsFull(pack, selectedTableData.id);
+                            const bound = boundCount(pack.id, selectedTableData.id) + (selectedTableData.packId === pack.id ? 1 : 0);
+                            return (
+                              <SelectItem key={pack.id} value={pack.id} disabled={full}>
+                                {pack.name} · {pack.baseCapacity} pers. · {pack.basePrice} €
+                                {pack.limitTables && (pack.tablesCount ?? 0) > 0 ? ` · ${bound}/${pack.tablesCount}` : ''}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('vipHost.packHint')}</p>
