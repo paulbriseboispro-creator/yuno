@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -7330,9 +7305,11 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          lang: string | null
           last_name: string | null
           notified_at: string | null
           phone: string | null
+          source: string | null
         }
         Insert: {
           city?: string | null
@@ -7340,9 +7317,11 @@ export type Database = {
           email: string
           first_name?: string | null
           id?: string
+          lang?: string | null
           last_name?: string | null
           notified_at?: string | null
           phone?: string | null
+          source?: string | null
         }
         Update: {
           city?: string | null
@@ -7350,9 +7329,11 @@ export type Database = {
           email?: string
           first_name?: string | null
           id?: string
+          lang?: string | null
           last_name?: string | null
           notified_at?: string | null
           phone?: string | null
+          source?: string | null
         }
         Relationships: []
       }
@@ -7392,6 +7373,132 @@ export type Database = {
           ip?: string | null
           user_agent?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      links_events: {
+        Row: {
+          browser: string | null
+          country: string | null
+          device: string | null
+          id: number
+          kind: string
+          lang: string | null
+          meta: Json
+          occurred_at: string
+          os: string | null
+          referrer_host: string | null
+          target: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          visitor_hash: string
+        }
+        Insert: {
+          browser?: string | null
+          country?: string | null
+          device?: string | null
+          id?: never
+          kind: string
+          lang?: string | null
+          meta?: Json
+          occurred_at?: string
+          os?: string | null
+          referrer_host?: string | null
+          target?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_hash: string
+        }
+        Update: {
+          browser?: string | null
+          country?: string | null
+          device?: string | null
+          id?: never
+          kind?: string
+          lang?: string | null
+          meta?: Json
+          occurred_at?: string
+          os?: string | null
+          referrer_host?: string | null
+          target?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          visitor_hash?: string
+        }
+        Relationships: []
+      }
+      links_page_config: {
+        Row: {
+          config: Json
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      links_pro_leads: {
+        Row: {
+          city: string | null
+          contacted_at: string | null
+          created_at: string
+          email: string | null
+          id: string
+          lang: string | null
+          message: string | null
+          name: string
+          notes: string | null
+          org_name: string | null
+          org_type: string
+          phone: string | null
+          visitor_hash: string | null
+          whatsapp_opened: boolean
+        }
+        Insert: {
+          city?: string | null
+          contacted_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lang?: string | null
+          message?: string | null
+          name: string
+          notes?: string | null
+          org_name?: string | null
+          org_type?: string
+          phone?: string | null
+          visitor_hash?: string | null
+          whatsapp_opened?: boolean
+        }
+        Update: {
+          city?: string | null
+          contacted_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lang?: string | null
+          message?: string | null
+          name?: string
+          notes?: string | null
+          org_name?: string | null
+          org_type?: string
+          phone?: string | null
+          visitor_hash?: string | null
+          whatsapp_opened?: boolean
         }
         Relationships: []
       }
@@ -17060,7 +17167,12 @@ export type Database = {
         }[]
       }
       get_events_pnl: {
-        Args: { p_from?: string; p_to?: string; p_venue_id: string }
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
         Returns: Json
       }
       get_for_you_events: {
@@ -17095,9 +17207,10 @@ export type Database = {
         Args: {
           p_event_id?: string
           p_from?: string
+          p_organizer_user_id?: string
           p_to?: string
           p_tz?: string
-          p_venue_id: string
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -17158,6 +17271,12 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_links_analytics: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      get_links_featured_events: { Args: { p_limit?: number }; Returns: Json }
+      get_links_public_stats: { Args: never; Returns: Json }
       get_live_session: {
         Args: never
         Returns: {
@@ -17497,9 +17616,10 @@ export type Database = {
         Args: {
           p_event_id?: string
           p_from?: string
+          p_organizer_user_id?: string
           p_to?: string
           p_tz?: string
-          p_venue_id: string
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -17520,9 +17640,10 @@ export type Database = {
         Args: {
           p_event_id?: string
           p_from?: string
+          p_organizer_user_id?: string
           p_to?: string
           p_tz?: string
-          p_venue_id: string
+          p_venue_id?: string
         }
         Returns: Json
       }
@@ -17706,6 +17827,16 @@ export type Database = {
         Args: { _user_id: string; _venue_id: string }
         Returns: boolean
       }
+      join_links_waitlist: {
+        Args: {
+          p_city: string
+          p_email: string
+          p_full_name: string
+          p_lang?: string
+        }
+        Returns: string
+      }
+      links_visitor_context: { Args: never; Returns: Record<string, unknown> }
       log_admin_action: {
         Args: {
           _action: string
@@ -17895,6 +18026,7 @@ export type Database = {
       }
       purge_admin_notifications: { Args: never; Returns: number }
       purge_expired_personal_data: { Args: never; Returns: undefined }
+      purge_links_events: { Args: never; Returns: undefined }
       purge_platform_traffic: { Args: never; Returns: undefined }
       purge_promoter_push_queue: { Args: never; Returns: Json }
       record_legal_acceptance: {
@@ -18065,6 +18197,14 @@ export type Database = {
           last_name: string
           unsubscribe_token: string
           user_id: string
+        }[]
+      }
+      resolve_campaign_tracked_links: {
+        Args: { p_channel?: string; p_event_ids: string[] }
+        Returns: {
+          event_code: string
+          event_id: string
+          guest_list_code: string
         }[]
       }
       resolve_collab_settlement_dispute: {
@@ -18389,6 +18529,19 @@ export type Database = {
         Args: { p_secret: string; p_user_id: string }
         Returns: undefined
       }
+      submit_links_pro_lead: {
+        Args: {
+          p_city?: string
+          p_email?: string
+          p_lang?: string
+          p_message?: string
+          p_name: string
+          p_org_name?: string
+          p_org_type?: string
+          p_phone?: string
+        }
+        Returns: string
+      }
       suppress_email: {
         Args: {
           p_campaign_id?: string
@@ -18410,6 +18563,19 @@ export type Database = {
         Returns: undefined
       }
       tiktok_handle_from_url: { Args: { p_url: string }; Returns: string }
+      track_links_event: {
+        Args: {
+          p_kind: string
+          p_lang?: string
+          p_meta?: Json
+          p_referrer_host?: string
+          p_target?: string
+          p_utm_campaign?: string
+          p_utm_medium?: string
+          p_utm_source?: string
+        }
+        Returns: undefined
+      }
       track_platform_view: {
         Args: {
           p_is_native?: boolean
@@ -18698,9 +18864,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: [
