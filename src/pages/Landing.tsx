@@ -223,7 +223,7 @@ export default function Landing() {
           className="relative z-10 flex items-center justify-between"
           style={{ padding: 'calc(14px + env(safe-area-inset-top)) 20px 0' }}
         >
-          <Wordmark height={22} style={{ filter: 'drop-shadow(0 2px 18px rgba(0,0,0,0.5))' }} />
+          <Wordmark height={22} tone="red" style={{ filter: 'drop-shadow(0 2px 18px rgba(0,0,0,0.5))' }} />
           <div className="flex items-center gap-2">
             <LanguageSelector />
             <Link
