@@ -20,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize, Keyboard, Hash } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize, Keyboard, Eye, EyeOff } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
@@ -861,10 +861,11 @@ export function FloorPlanEditor({
                 size="sm"
                 className="h-7 text-xs ml-auto"
                 aria-pressed={showTableLabels}
+                title={t('vipHost.tableLabelsHint')}
                 onClick={() => setShowTableLabels(v => !v)}
               >
-                <Hash className="h-3 w-3 mr-1" />
-                {t('vipHost.tableLabels')}
+                {showTableLabels ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                {showTableLabels ? t('vipHost.tableLabelsOn') : t('vipHost.tableLabelsOff')}
               </Button>
             </div>
 
