@@ -66,15 +66,20 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   les passes). Ne JAMAIS re-composer la marque en Space Grotesk / Poppins /
   Helvetica : le nom reste du TEXTE seulement quand c'est une phrase (« Frais de
   service Yuno », un en-tête de colonne), jamais quand il porte la marque.
-  **La chaîne de lancement est un cas à part** : le Launch Screen natif
-  (`ios/App/App/Assets.xcassets/Splash.imageset/`, régénéré par
-  `scripts/gen-splash-wordmark.py`) est compilé dans le binaire et ne part PAS
-  en OTA, alors que le loader de `index.html` et `SplashScreen.tsx`, si. Les
-  trois se flippent ENSEMBLE via `OFFICIAL_SPLASH_WORDMARK`
-  (`src/lib/brandSplash.ts`, injecté dans `index.html` par le plugin Vite
-  `yuno-splash-flag`) — à passer à `true` le jour où Apple approuve le build qui
-  embarque le nouveau Launch Screen, jamais avant. Le splash de l'app Pro n'est
-  pas concerné : c'est l'icône rendue en volume, pas un wordmark à plat.
+  **La chaîne de lancement est un cas à part.** Le Launch Screen natif
+  (`ios/App/App/Assets.xcassets/Splash.imageset/`) est compilé dans le binaire et
+  ne part PAS en OTA, alors que le loader de `index.html` et `SplashScreen.tsx`,
+  si. Les trois doivent montrer le MÊME dessin, sinon le logo saute au démarrage
+  — l'imageset porte donc encore l'ancien lettrage, et il se régénère
+  (`python3 scripts/gen-splash-wordmark.py`) dans le MÊME commit que le passage
+  de `OFFICIAL_SPLASH_WORDMARK` à `true` (`src/lib/brandSplash.ts`, injecté dans
+  `index.html` par le plugin Vite `yuno-splash-flag`) et que le bump de
+  `MARKETING_VERSION`. Ne jamais committer l'un sans les autres : même un build
+  TestFlight intermédiaire montrerait le saut. Les anciens binaires sont protégés
+  par la garde `native_version` de Capgo. Le raccord se vérifie, il ne s'estime
+  pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px, soit
+  3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
+  c'est l'icône rendue en volume, pas un wordmark à plat.
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
