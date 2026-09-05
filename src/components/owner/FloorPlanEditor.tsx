@@ -20,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize, Keyboard } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize, Keyboard, Hash } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
@@ -85,7 +85,7 @@ interface FloorPlanEditorProps {
    * l'éditeur écrit le plan de niveau club comme avant.
    */
   eventId?: string | null;
-  existingLayout?: { tables: FloorTable[]; zoneAreas?: FloorZoneArea[]; bgOffset?: { x: number; y: number }; bgScale?: number } | null;
+  existingLayout?: { tables: FloorTable[]; zoneAreas?: FloorZoneArea[]; bgOffset?: { x: number; y: number }; bgScale?: number; showTableLabels?: boolean } | null;
   existingBackgroundUrl?: string | null;
   zones: { id: string; name: string; color: string }[];
   /**
@@ -151,6 +151,8 @@ export function FloorPlanEditor({
   const [bgOpacity, setBgOpacity] = useState(0.75);
   const [bgOffset, setBgOffset] = useState({ x: 0, y: 0 });
   const [bgScale, setBgScale] = useState(1);
+  // Numéros dans les formes (éditeur ET plan client) — réglage du plan, persisté.
+  const [showTableLabels, setShowTableLabels] = useState(true);
   const [bgDragMode, setBgDragMode] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [bgImageSize, setBgImageSize] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
@@ -163,7 +165,7 @@ export function FloorPlanEditor({
   const tableDragStartRef = useRef<{ x: number; y: number } | null>(null);
   // Latest state, mirrored into a ref so async writers persist the CURRENT layout, never a
   // stale closure. writeChainRef serializes every write so they can't race / clobber.
-  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId, eventId });
+  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, showTableLabels, backgroundUrl, venueId, eventId });
   const writeChainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   // Single canonical serializer — used for both the DB write and the dirty-check,
@@ -173,6 +175,7 @@ export function FloorPlanEditor({
     zAreas: FloorZoneArea[] = zoneAreas,
     off: { x: number; y: number } = bgOffset,
     scale: number = bgScale,
+    labels: boolean = showTableLabels,
   ) => ({
     tables: tbls.map(t => ({
       id: t.id, name: t.name, x: t.x, y: t.y, width: t.width, height: t.height,
@@ -183,15 +186,16 @@ export function FloorPlanEditor({
       borderRadius: t.borderRadius ?? 6, fillOpacity: t.fillOpacity ?? 0.55,
     })),
     zoneAreas: zAreas.map(z => ({ id: z.id, zoneId: z.zoneId, x: z.x, y: z.y, width: z.width, height: z.height, fillOpacity: z.fillOpacity ?? 0.05, borderRadius: z.borderRadius ?? 8, showLabel: z.showLabel ?? true, labelOffsetX: z.labelOffsetX ?? 0, labelOffsetY: z.labelOffsetY ?? 0, labelFontSize: z.labelFontSize ?? 10, labelRotation: z.labelRotation ?? 0 })),
-    bgOffset: off, bgScale: scale,
+    bgOffset: off, bgScale: scale, showTableLabels: labels,
   });
 
   const snapshotOf = (
     tbls: FloorTable[], zAreas: FloorZoneArea[], off: { x: number; y: number }, scale: number, bgUrl: string | null,
-  ) => JSON.stringify({ layout: buildLayout(tbls, zAreas, off, scale), bg: bgUrl || null });
+    labels: boolean = showTableLabels,
+  ) => JSON.stringify({ layout: buildLayout(tbls, zAreas, off, scale, labels), bg: bgUrl || null });
 
   // Mirror current state every render so async writers read the latest, not a stale closure.
-  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId, eventId };
+  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, showTableLabels, backgroundUrl, venueId, eventId };
   // Une portée suffit : la soirée (event-scopé) ou le club (venue-scopé).
   const hasScope = !!(eventId || venueId);
 
@@ -206,7 +210,7 @@ export function FloorPlanEditor({
   // which we surface as an error instead of reporting a phantom success.
   const writeLayout = async (live: LiveState): Promise<{ ok: boolean; code?: string }> => {
     if (!live.venueId && !live.eventId) return { ok: false, code: 'NO_VENUE' };
-    const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale);
+    const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.showTableLabels);
     const { data: id, error } = live.eventId
       ? await supabase.rpc('upsert_event_floor_plan', {
           p_event_id: live.eventId,
@@ -235,7 +239,7 @@ export function FloorPlanEditor({
   const persist = (): Promise<{ ok: boolean; code?: string }> => {
     const run = writeChainRef.current.then(async () => {
       const live = liveRef.current;
-      const snap = snapshotOf(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.backgroundUrl);
+      const snap = snapshotOf(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.backgroundUrl, live.showTableLabels);
       if (snap === lastSavedSnapshotRef.current) return { ok: true };
       setSaveState('saving');
       const res = await writeLayout(live);
@@ -260,14 +264,16 @@ export function FloorPlanEditor({
     const nextBgOffset = existingLayout?.bgOffset ?? { x: 0, y: 0 };
     const nextBgScale = existingLayout?.bgScale ?? 1;
     const nextBgUrl = existingBackgroundUrl || null;
+    const nextLabels = existingLayout?.showTableLabels ?? true;
     setTables(nextTables);
     setZoneAreas(nextZoneAreas);
     setBgOffset(nextBgOffset);
     setBgScale(nextBgScale);
     setBackgroundUrl(nextBgUrl);
+    setShowTableLabels(nextLabels);
     setViewZoom(1);
     // Capture the just-loaded layout as the baseline so autosave doesn't fire on open.
-    lastSavedSnapshotRef.current = snapshotOf(nextTables, nextZoneAreas, nextBgOffset, nextBgScale, nextBgUrl);
+    lastSavedSnapshotRef.current = snapshotOf(nextTables, nextZoneAreas, nextBgOffset, nextBgScale, nextBgUrl, nextLabels);
     setSaveState('saved');
     errorToastShownRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,7 +299,7 @@ export function FloorPlanEditor({
     // Content-only deps on purpose: reacting to `open` here would race the hydration
     // effect (stale snapshot vs freshly-set baseline). `open`/`venueId` are read via the guard.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables, zoneAreas, bgOffset, bgScale, backgroundUrl]);
+  }, [tables, zoneAreas, bgOffset, bgScale, backgroundUrl, showTableLabels]);
 
   useEffect(() => {
     if (!backgroundUrl) {
@@ -831,6 +837,16 @@ export function FloorPlanEditor({
                 {t('vipHost.canvasZoomFit')}
               </Button>
               <span className="text-[11px] text-muted-foreground hidden md:inline">{t('vipHost.canvasZoomHint')}</span>
+              <Button
+                variant={showTableLabels ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs ml-auto"
+                aria-pressed={showTableLabels}
+                onClick={() => setShowTableLabels(v => !v)}
+              >
+                <Hash className="h-3 w-3 mr-1" />
+                {t('vipHost.tableLabels')}
+              </Button>
             </div>
 
             {/* BG controls */}
@@ -1010,13 +1026,15 @@ export function FloorPlanEditor({
                       onMouseDown: (e) => handleTableStart(e, table.id),
                       onTouchStart: (e) => handleTableStart(e, table.id),
                     })}
-                    <text x={cx} y={cy}
-                      textAnchor="middle" dominantBaseline="central"
-                      fill="white" opacity={isSelected ? 1 : 0.9}
-                      className="pointer-events-none select-none"
-                      style={{ fontSize: Math.min(table.width, table.height) * 0.4 + 'px', fontWeight: 700 }}>
-                      {shortLabel}
-                    </text>
+                    {showTableLabels && (
+                      <text x={cx} y={cy}
+                        textAnchor="middle" dominantBaseline="central"
+                        fill="white" opacity={isSelected ? 1 : 0.9}
+                        className="pointer-events-none select-none"
+                        style={{ fontSize: Math.min(table.width, table.height) * 0.4 + 'px', fontWeight: 700 }}>
+                        {shortLabel}
+                      </text>
+                    )}
                     {isSelected && (
                       <rect x={table.x + table.width - 6} y={table.y + table.height - 6} width={8} height={8} rx={2}
                         fill={accentColor} opacity={0.8} className="cursor-se-resize touch-none"

@@ -269,6 +269,8 @@ export type VenueFloorPlan = {
     height?: number;
     bgOffset?: { x: number; y: number };
     bgScale?: number;
+    /** Numéros dans les formes (défaut : affichés). */
+    showTableLabels?: boolean;
   };
   createdAt: string;
   updatedAt: string;

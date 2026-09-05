@@ -117,6 +117,8 @@ export function ClientFloorPlanPicker({
   const backgroundUrl = floorPlan.backgroundImageUrl || null;
   const bgOffset = floorPlan.layout?.bgOffset || { x: 0, y: 0 };
   const bgScale = floorPlan.layout?.bgScale || 1;
+  // Réglage du plan : numéros dans les formes (le badge de sélection nomme toujours la table).
+  const showTableLabels = floorPlan.layout?.showTableLabels ?? true;
 
   useEffect(() => {
     if (!backgroundUrl) {
@@ -559,14 +561,16 @@ export function ClientFloorPlanPicker({
               strokeDasharray: tooSmall ? '4 3' : undefined,
             })}
 
-            <text x={cx} y={tooSmall ? cy - 3 : cy}
-              textAnchor="middle" dominantBaseline="central"
-              fill={isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : dimmed ? 'hsl(var(--muted-foreground))' : 'white'}
-              opacity={isSelected ? 1 : tooSmall ? 0.8 : dimmed ? 0.6 : 0.9}
-              fontSize={Math.min(table.width, table.height) * 0.4} fontWeight={700}
-              className="pointer-events-none select-none">
-              {shortLabel}
-            </text>
+            {showTableLabels && (
+              <text x={cx} y={tooSmall ? cy - 3 : cy}
+                textAnchor="middle" dominantBaseline="central"
+                fill={isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : dimmed ? 'hsl(var(--muted-foreground))' : 'white'}
+                opacity={isSelected ? 1 : tooSmall ? 0.8 : dimmed ? 0.6 : 0.9}
+                fontSize={Math.min(table.width, table.height) * 0.4} fontWeight={700}
+                className="pointer-events-none select-none">
+                {shortLabel}
+              </text>
+            )}
 
             {tooSmall && (
               <text x={cx} y={cy + Math.min(table.width, table.height) * 0.25}

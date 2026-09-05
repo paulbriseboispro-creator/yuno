@@ -5182,6 +5182,7 @@ const en: Record<string, string> = {
   'vipHost.bgUploaded': 'Background uploaded',
   'vipHost.bgZoom': 'BG zoom',
   'vipHost.canvasZoom': 'Plan zoom',
+  'vipHost.tableLabels': 'Table numbers',
   'vipHost.canvasZoomIn': 'Zoom in',
   'vipHost.canvasZoomOut': 'Zoom out',
   'vipHost.canvasZoomReset': 'Back to 100%',
