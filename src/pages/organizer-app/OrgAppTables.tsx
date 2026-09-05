@@ -4,7 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play } from 'lucide-react';
+import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye } from 'lucide-react';
+import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
+import type { VenueFloorPlan } from '@/types';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -33,9 +35,9 @@ interface VipRoom {
   name: string;
   location_name: string | null;
   location_address: string | null;
-  zones: { name: string }[];
-  packs: { name: string }[];
-  layout: { tables?: unknown[] } | null;
+  zones: { id?: string; name: string; color?: string; tables_count?: number }[];
+  packs: { id?: string; zone_id?: string; name: string; base_price?: number; base_capacity?: number; deposit?: number; payment_mode?: string; limit_tables?: boolean; tables_count?: number; arrival_deadline?: string | null }[];
+  layout: { tables?: { zoneId?: string | null; packId?: string | null }[] } | null;
   background_image_url: string | null;
   times_used: number;
   last_used_at: string | null;
@@ -74,6 +76,8 @@ export default function OrgAppTables() {
   const [applyTarget, setApplyTarget] = useState('');
   const [applying, setApplying] = useState(false);
   const [deleteRoom, setDeleteRoom] = useState<VipRoom | null>(null);
+  // Fiche d'une salle : ce qui est enregistré, AVANT de l'utiliser.
+  const [detailRoom, setDetailRoom] = useState<VipRoom | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -290,7 +294,7 @@ export default function OrgAppTables() {
                     return (
                       <OrgCard key={r.id}>
                         <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-                          <div className="flex items-center gap-3 min-w-0">
+                          <button type="button" className="flex min-w-0 cursor-pointer items-center gap-3 text-left" onClick={() => setDetailRoom(r)}>
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                               {r.background_image_url
                                 ? <img src={r.background_image_url} alt="" className="h-full w-full object-cover" />
@@ -306,8 +310,11 @@ export default function OrgAppTables() {
                                 {r.times_used > 0 && <span>· {tt('utilisée', 'used', 'usada')} {r.times_used}×</span>}
                               </div>
                             </div>
-                          </div>
+                          </button>
                           <div className="flex items-center gap-2 shrink-0">
+                            <OrgButton size="sm" variant="secondary" onClick={() => setDetailRoom(r)}>
+                              <Eye className="h-3.5 w-3.5" /> {tt('Voir', 'View', 'Ver')}
+                            </OrgButton>
                             <OrgButton size="sm" variant="primary" disabled={soloUpcoming.length === 0} onClick={() => { setApplyRoom(r); setApplyTarget(soloUpcoming[0]?.id ?? ''); }}>
                               <Play className="h-3.5 w-3.5" /> {tt('Utiliser pour une soirée', 'Use for an event', 'Usar en una noche')}
                             </OrgButton>
@@ -369,6 +376,115 @@ export default function OrgAppTables() {
       </Dialog>
 
       {/* Supprimer une salle de l'historique */}
+      {/* Fiche d'une salle VIP : plan, zones et formules tels qu'enregistrés. */}
+      <Dialog open={!!detailRoom} onOpenChange={(o) => { if (!o) setDetailRoom(null); }}>
+        <DialogContent className="max-w-3xl border-0 bg-[#0a0a0c] p-0 text-white">
+          {detailRoom && (() => {
+            const r = detailRoom;
+            const st = roomStats(r);
+            const planTables = r.layout?.tables ?? [];
+            const tablesByZone = new Map<string, number>();
+            const tablesByPack = new Map<string, number>();
+            for (const tb of planTables) {
+              if (tb.zoneId) tablesByZone.set(tb.zoneId, (tablesByZone.get(tb.zoneId) || 0) + 1);
+              if (tb.packId) tablesByPack.set(tb.packId, (tablesByPack.get(tb.packId) || 0) + 1);
+            }
+            const floorPlan: VenueFloorPlan | null = st.tables > 0 && r.layout
+              ? { id: r.id, venueId: '', backgroundImageUrl: r.background_image_url, layout: r.layout as VenueFloorPlan['layout'], createdAt: '', updatedAt: '' }
+              : null;
+            const zones = Array.isArray(r.zones) ? r.zones : [];
+            const packs = Array.isArray(r.packs) ? r.packs : [];
+            return (
+              <>
+                <DialogHeader className="px-5 pt-5">
+                  <DialogTitle style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{r.name}</DialogTitle>
+                  <div className="flex flex-wrap items-center gap-x-2" style={{ color: T3, fontSize: 11.5 }}>
+                    {r.location_name && r.location_name !== r.name && <span className="inline-flex items-center gap-1"><Building2 className="h-3 w-3" /> {r.location_name}</span>}
+                    <span className="inline-flex items-center gap-1"><MapIcon className="h-3 w-3" /> {st.tables} {tt('tables', 'tables', 'mesas')}</span>
+                    <span className="inline-flex items-center gap-1"><Layers className="h-3 w-3" /> {st.zones} {tt('zones', 'zones', 'zonas')}</span>
+                    <span className="inline-flex items-center gap-1"><Package className="h-3 w-3" /> {st.packs} packs</span>
+                  </div>
+                </DialogHeader>
+                <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
+                  <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.38)' }}>
+                    {floorPlan ? (
+                      <div className="p-3">
+                        <ClientFloorPlanPicker floorPlan={floorPlan} unavailableTableIds={new Set()} selectedTableId={null} onSelectTable={() => {}} onSkip={() => {}} readOnly />
+                      </div>
+                    ) : r.background_image_url ? (
+                      <div className="flex items-center justify-center p-4">
+                        <img src={r.background_image_url} alt="" className="block h-auto w-auto max-w-full rounded-lg object-contain" style={{ maxHeight: 260 }} />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-8" style={{ color: T3, fontSize: 11.5 }}>
+                        {tt('Aucun plan enregistré : zones et formules seulement.', 'No plan saved: zones and packages only.', 'Sin plano guardado: solo zonas y fórmulas.')}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="mb-2.5 flex items-center justify-between">
+                      <FieldLabel>{tt('Zones & formules', 'Zones & packages', 'Zonas y fórmulas')}</FieldLabel>
+                    </div>
+                    {zones.length === 0 ? (
+                      <p style={{ color: T3, fontSize: 11.5 }}>{tt('Aucune zone enregistrée.', 'No zone saved.', 'Ninguna zona guardada.')}</p>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {zones.map((z, i) => {
+                          const zonePacks = packs.filter((pk) => pk.zone_id && pk.zone_id === z.id);
+                          const onPlan = z.id ? tablesByZone.get(z.id) : undefined;
+                          return (
+                            <div key={z.id ?? i} className="rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: z.color ?? '#3b82f6' }} />
+                                <span className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{z.name}</span>
+                                <span className="shrink-0" style={{ color: T3, fontSize: 11 }}>
+                                  · {onPlan ?? z.tables_count ?? 0} {tt('tables', 'tables', 'mesas')}{onPlan !== undefined ? ` ${tt('sur le plan', 'on the plan', 'en el plano')}` : ''}
+                                </span>
+                              </div>
+                              {zonePacks.length === 0 ? (
+                                <p className="mt-1.5" style={{ color: T3, fontSize: 11 }}>{tt('Aucune formule', 'No package', 'Sin fórmula')}</p>
+                              ) : (
+                                <ul className="mt-1.5 space-y-1">
+                                  {zonePacks.map((pk, j) => {
+                                    const bound = pk.id ? tablesByPack.get(pk.id) : undefined;
+                                    return (
+                                      <li key={pk.id ?? j} className="flex items-baseline justify-between gap-2">
+                                        <span className="truncate" style={{ color: T2, fontSize: 12 }}>{pk.name}</span>
+                                        <span className="shrink-0 tabular-nums text-right" style={{ color: T3, fontSize: 11 }}>
+                                          {Number(pk.base_price ?? 0).toFixed(0)} € · {pk.base_capacity ?? 1} {tt('pers.', 'guests', 'pers.')}
+                                          {bound !== undefined ? ` · ${bound} ${tt('tables', 'tables', 'mesas')}` : pk.limit_tables ? ` · ${pk.tables_count} max` : ''}
+                                          {pk.payment_mode === 'on_site'
+                                            ? ` · ${tt('sur place', 'on site', 'en el local')}`
+                                            : Number(pk.deposit ?? 0) > 0 ? ` · ${tt('acompte', 'deposit', 'señal')} ${Number(pk.deposit).toFixed(0)} €` : ''}
+                                          {pk.arrival_deadline ? ` · ${tt('avant', 'before', 'antes de')} ${String(pk.arrival_deadline).slice(0, 5)}` : ''}
+                                        </span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <DialogFooter className="border-t px-5 py-4" style={{ borderColor: BORDER }}>
+                  <OrgButton variant="ghost" onClick={() => { setDetailRoom(null); setDeleteRoom(r); }}>
+                    <Trash2 className="h-4 w-4" style={{ color: '#FF5C63' }} /> {tt('Supprimer', 'Delete', 'Eliminar')}
+                  </OrgButton>
+                  <OrgButton variant="primary" disabled={soloUpcoming.length === 0} onClick={() => { setDetailRoom(null); setApplyRoom(r); setApplyTarget(soloUpcoming[0]?.id ?? ''); }}>
+                    <Play className="h-3.5 w-3.5" /> {tt('Utiliser pour une soirée', 'Use for an event', 'Usar en una noche')}
+                  </OrgButton>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteRoom} onOpenChange={(o) => { if (!o) setDeleteRoom(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
