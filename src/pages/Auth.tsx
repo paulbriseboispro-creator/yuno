@@ -17,8 +17,8 @@ import { legalContent } from '@/data/legalContent';
 import { isNative, publicUrl } from '@/lib/native';
 import { isNativeSocialAvailable } from '@/lib/nativeAuth';
 import { Check } from 'lucide-react';
-import yunoLogo from '@/assets/yuno-logo.webp';
 import { checkEmailAccount } from '@/hooks/useExistingAccountCheck';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 const getAuthSchema = (t: (key: string) => string) => z.object({
   email: z.string().email({ message: t('auth.errors.invalidEmail') }),
@@ -495,7 +495,7 @@ export default function Auth() {
         <Card className="border-0 bg-surface p-8 shadow-soft max-w-md">
           <div className="text-center space-y-4">
             <div className="mb-4 h-24 w-24 mx-auto rounded-full overflow-hidden">
-              <img src={yunoLogo} alt="Yuno" className="h-full w-full object-cover object-[center_35%]" />
+              <img src="/yuno-icon-192.png" alt="Yuno" className="h-full w-full object-cover" />
             </div>
             <h1 className="text-2xl font-bold text-destructive">{t('auth.linkExpired')}</h1>
             <p className="text-muted-foreground">{sessionError}</p>
@@ -577,12 +577,7 @@ export default function Auth() {
         >
           {/* Logo */}
           <div className="text-center mb-8">
-            <span
-              className="font-display font-bold block"
-              style={{ fontSize: '32px', color: '#E8192C', letterSpacing: '-0.03em', lineHeight: 1 }}
-            >
-              Yuno
-            </span>
+            <Wordmark height={32} tone="red" style={{ margin: '0 auto' }} />
             <p
               className="font-mono mt-3"
               style={{ fontSize: '12px', color: '#5A5A5E', letterSpacing: '0.04em' }}

@@ -22,6 +22,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { cn } from '@/lib/utils';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { getCurrentPosition, getCurrentPositionIfGranted } from '@/lib/geolocation';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 // Threshold for "Popular" badge (total sales count)
 const POPULAR_THRESHOLD = 10;
@@ -357,12 +358,9 @@ const Welcome = () => {
         >
           <div className="flex items-center justify-between px-4 py-3">
             {/* Logo */}
-            <div className="flex items-baseline gap-2">
-              <h1
-                className="font-display font-bold"
-                style={{ fontSize: '22px', color: '#E8192C', letterSpacing: '-0.025em', lineHeight: 1 }}
-              >
-                Yuno
+            <div className="flex items-center gap-2">
+              <h1 className="m-0 leading-none">
+                <Wordmark height={22} tone="red" />
               </h1>
               <span
                 className="font-mono font-bold uppercase"

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
 import { UserBadge } from '@/hooks/useNightlifeProfile';
 import { publicUrl } from '@/lib/native';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface ProfileShareCardProps {
   open: boolean;
@@ -185,9 +186,7 @@ export function ProfileShareCard({
 
               {/* Bas : branding */}
               <div className="flex items-center justify-center pt-2">
-                <span className="font-display font-bold lowercase" style={{ fontSize: '14px', letterSpacing: '-0.02em', color: '#E8192C' }}>
-                  yuno
-                </span>
+                <Wordmark height={14} tone="red" />
               </div>
             </div>
           </motion.div>

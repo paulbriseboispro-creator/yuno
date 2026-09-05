@@ -13,6 +13,7 @@ import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { isNative } from '@/lib/native';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface ExploreHeaderProps {
   city: string;
@@ -174,13 +175,8 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
       {/* Top row: logo, city, date */}
       <div className="flex items-center justify-between px-5 py-3">
         {/* Logo Yuno */}
-        <div className="flex items-baseline gap-2 shrink-0">
-          <span
-            className="font-display font-bold"
-            style={{ fontSize: '20px', color: '#E8192C', letterSpacing: '-0.025em', lineHeight: 1 }}
-          >
-            Yuno
-          </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <Wordmark height={20} tone="red" />
           {/* Le badge « Beta » n'existe que sur le web : dans l'app App Store il
               contredirait la Guideline 2.2 (pas de beta en production). */}
           {!isNative() && (
