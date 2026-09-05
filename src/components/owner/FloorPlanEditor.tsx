@@ -20,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
@@ -82,6 +82,13 @@ const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 5;
 const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 400;
+// Zoom de TRAVAIL du canvas (confort de l'éditeur, jamais persisté) — distinct
+// du « zoom fond », qui règle l'échelle de l'image dans le plan et fait partie
+// du layout.
+const VIEW_ZOOM_MIN = 0.5;
+const VIEW_ZOOM_MAX = 3;
+const VIEW_ZOOM_STEP = 0.25;
+const clampViewZoom = (z: number) => Math.min(VIEW_ZOOM_MAX, Math.max(VIEW_ZOOM_MIN, Math.round(z * 100) / 100));
 
 const SHAPES: FloorPlanTableShape[] = ['rectangle', 'circle', 'diamond', 'star'];
 
@@ -107,6 +114,8 @@ export function FloorPlanEditor({
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [saving, setSaving] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const [viewZoom, setViewZoom] = useState(1);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [bgOpacity, setBgOpacity] = useState(0.75);
   const [bgOffset, setBgOffset] = useState({ x: 0, y: 0 });
@@ -224,6 +233,7 @@ export function FloorPlanEditor({
     setBgOffset(nextBgOffset);
     setBgScale(nextBgScale);
     setBackgroundUrl(nextBgUrl);
+    setViewZoom(1);
     // Capture the just-loaded layout as the baseline so autosave doesn't fire on open.
     lastSavedSnapshotRef.current = snapshotOf(nextTables, nextZoneAreas, nextBgOffset, nextBgScale, nextBgUrl);
     setSaveState('saved');
@@ -416,11 +426,37 @@ export function FloorPlanEditor({
   const getEventPosition = (e: React.MouseEvent | React.TouchEvent) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
+    // Le SVG est rendu à CANVAS × viewZoom px pour un viewBox fixe : on
+    // ramène les pixels écran dans l'espace du plan.
     if ('touches' in e) {
       const touch = e.touches[0];
-      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+      return { x: (touch.clientX - rect.left) / viewZoom, y: (touch.clientY - rect.top) / viewZoom };
     }
-    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
+    return { x: ((e as React.MouseEvent).clientX - rect.left) / viewZoom, y: ((e as React.MouseEvent).clientY - rect.top) / viewZoom };
+  };
+
+  // Ctrl/⌘ + molette (= pincement sur trackpad) zoome le plan, sans laisser le
+  // navigateur zoomer la page. React enregistre `wheel` en passif : on passe
+  // par un listener natif non passif.
+  useEffect(() => {
+    const el = canvasWrapRef.current;
+    if (!el || !open) return;
+    const onWheel = (ev: WheelEvent) => {
+      if (!ev.ctrlKey && !ev.metaKey) return;
+      ev.preventDefault();
+      const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+      setViewZoom(z => clampViewZoom(z * factor));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [open]);
+
+  // Ajuste le plan à la largeur disponible du canvas.
+  const fitViewZoom = () => {
+    const el = canvasWrapRef.current;
+    if (!el) return;
+    const available = el.clientWidth - 32; // padding p-4
+    setViewZoom(clampViewZoom(available / CANVAS_WIDTH));
   };
 
   const handleTableStart = (e: React.MouseEvent | React.TouchEvent, tableId: string) => {
@@ -701,7 +737,31 @@ export function FloorPlanEditor({
 
         <div className="flex gap-4 h-[calc(100%-80px)]">
           {/* Canvas */}
-          <div className="flex-1 bg-muted/30 rounded-xl p-4 overflow-auto">
+          <div ref={canvasWrapRef} className="flex-1 bg-muted/30 rounded-xl p-4 overflow-auto">
+            {/* Zoom de travail — toujours visible, jamais persisté. */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{t('vipHost.canvasZoom')}</span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={t('vipHost.canvasZoomOut')} onClick={() => setViewZoom(z => clampViewZoom(z - VIEW_ZOOM_STEP))} disabled={viewZoom <= VIEW_ZOOM_MIN}>
+                <ZoomOut className="h-3 w-3" />
+              </Button>
+              <button
+                type="button"
+                className="h-6 min-w-[3.5rem] rounded-md border border-border px-2 text-xs tabular-nums hover:bg-muted transition-colors"
+                title={t('vipHost.canvasZoomReset')}
+                onClick={() => setViewZoom(1)}
+              >
+                {Math.round(viewZoom * 100)}%
+              </button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={t('vipHost.canvasZoomIn')} onClick={() => setViewZoom(z => clampViewZoom(z + VIEW_ZOOM_STEP))} disabled={viewZoom >= VIEW_ZOOM_MAX}>
+                <ZoomIn className="h-3 w-3" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={fitViewZoom}>
+                <Maximize className="h-3 w-3 mr-1" />
+                {t('vipHost.canvasZoomFit')}
+              </Button>
+              <span className="text-[11px] text-muted-foreground hidden md:inline">{t('vipHost.canvasZoomHint')}</span>
+            </div>
+
             {/* BG controls */}
             {backgroundUrl && (
               <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -732,14 +792,16 @@ export function FloorPlanEditor({
             )}
 
             {/* Recommended size hint — always visible */}
-            <p className="text-xs text-muted-foreground mb-2 text-center">
-              📐 {t('vipHost.bgRecommended')}
+            <p className="text-xs text-muted-foreground mb-2 text-center inline-flex w-full items-center justify-center gap-1.5">
+              <Ruler className="h-3.5 w-3.5 shrink-0" />
+              {t('vipHost.bgRecommended')}
             </p>
 
             <svg
               ref={svgRef}
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
+              viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
+              width={CANVAS_WIDTH * viewZoom}
+              height={CANVAS_HEIGHT * viewZoom}
               className={`bg-background rounded-lg border border-border mx-auto touch-none ${bgDragMode ? 'cursor-grab' : ''}`}
               onMouseMove={handleMove}
               onMouseUp={handleEnd}
