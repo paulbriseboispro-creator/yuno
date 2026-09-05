@@ -587,12 +587,20 @@ export function ClientFloorPlanPicker({
                 stroke="hsl(var(--destructive))" strokeWidth={1} opacity={0.4} className="pointer-events-none" />
             )}
 
-            {isSelected && (
-              <g transform={`translate(${table.x + table.width - 8}, ${table.y + 1})`}>
-                <circle cx={5} cy={5} r={5.5} fill={tableColor} opacity={0.9} />
-                <path d="M2.5 5 L4.5 7 L7.5 3.5" stroke="white" strokeWidth={1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              </g>
-            )}
+            {isSelected && (() => {
+              // Coche posée SUR le coin haut-droit de la table, aux trois quarts
+              // dehors : elle ne recouvre jamais le numéro, même sur une table
+              // ronde de 20 px. Liseré clair pour se détacher de la forme.
+              const r = Math.max(4, Math.min(6, Math.min(table.width, table.height) * 0.22));
+              const k = r / 5.5;
+              return (
+                <g transform={`translate(${table.x + table.width - r * 0.35}, ${table.y + r * 0.35})`} className="pointer-events-none">
+                  <circle r={r + 1.2} fill="#FFFFFF" />
+                  <circle r={r} fill={tableColor} />
+                  <path transform={`scale(${k})`} d="M-2.5 0 L-0.5 2 L2.5 -1.5" stroke="white" strokeWidth={1.3 / k} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </g>
+              );
+            })()}
           </g>
         );
       })}
