@@ -4270,7 +4270,7 @@ const en: Record<string, string> = {
   "tableCheckout.onSiteDesc": "Your reservation is confirmed right away. Payment is settled on site, at the venue.",
   "tableCheckout.onSiteShort": "Paid on site",
   "tableCheckout.confirmReservation": "Confirm reservation",
-  "ticketSel.onSitePayment": "Paid on site · no online payment",
+  "ticketSel.onSitePayment": "Paid on site · no deposit",
   'vipCheckout.skipPlacementConfirm': 'The club will assign your table on arrival',
   'vipCheckout.clubWillAssign': 'The club will choose your table',
   'vipCheckout.clubWillAssignDesc': 'The VIP team will assign the best available table upon your arrival',

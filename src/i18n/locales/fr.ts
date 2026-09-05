@@ -9576,7 +9576,7 @@ const fr: Record<string, string> = {
   "tableCheckout.onSiteDesc": "Votre réservation est confirmée tout de suite. Le règlement se fait sur place, au club.",
   "tableCheckout.onSiteShort": "Règlement sur place",
   "tableCheckout.confirmReservation": "Confirmer la réservation",
-  "ticketSel.onSitePayment": "Règlement sur place · aucun paiement en ligne",
+  "ticketSel.onSitePayment": "Règlement sur place · aucun acompte",
   'vipCheckout.skipPlacementConfirm': 'Le club choisira votre table à votre arrivée',
   'vipCheckout.clubWillAssign': 'Le club choisira votre table',
   'vipCheckout.clubWillAssignDesc': 'L\'équipe VIP vous assignera la meilleure table disponible à votre arrivée',

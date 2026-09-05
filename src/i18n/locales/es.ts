@@ -4580,7 +4580,7 @@ const es: Record<string, string> = {
   "tableCheckout.onSiteDesc": "Tu reserva se confirma al instante. El pago se realiza en el local.",
   "tableCheckout.onSiteShort": "Pago en el local",
   "tableCheckout.confirmReservation": "Confirmar reserva",
-  "ticketSel.onSitePayment": "Pago en el local · sin pago en línea",
+  "ticketSel.onSitePayment": "Pago en el local · sin señal",
   'vipCheckout.skipPlacementConfirm': 'El club te asignará la mesa a tu llegada',
   'vipCheckout.clubWillAssign': 'El club elegirá tu mesa',
   'vipCheckout.clubWillAssignDesc': 'El equipo VIP te asignará la mejor mesa disponible a tu llegada',
