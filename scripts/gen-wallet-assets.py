@@ -32,11 +32,12 @@ couvre les vieux simulateurs.
 Il n'y a plus de background.png : le design 2026-09 pose un noir plein
 (`backgroundColor`), et Wallet ne sait pas faire de dégradé.
 
-Le wordmark n'est pas re-dessiné et n'est pas un fichier de plus : il est
-DÉTOURÉ de l'icône de l'app (`public/icon-1024.png`). Le fond de l'icône est un
-rouge saturé, les lettres sont blanches — `min(G, B)` sépare donc les deux sans
-abîmer l'anti-crénelage. Une seule source de vérité pour la marque, aucune
-police requise, et le pass ne peut pas dériver de l'icône.
+Le wordmark n'est pas re-dessiné : il est LU depuis `public/yuno-wordmark.png`,
+le mot-symbole officiel, celui-là même que servent l'app, la landing, /links,
+les linktrees et les emails (voir scripts/gen-brand-wordmark.py). Il était
+auparavant détouré de l'icône de l'app par seuillage — ce qui marchait, mais
+récupérait au passage l'ombre portée et le grain du raster. Une seule source de
+vérité pour la marque, aucune police requise, et le pass ne peut pas dériver.
 """
 from __future__ import annotations
 
@@ -51,7 +52,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS_TS = ROOT / "supabase/functions/_shared/wallet/assets.ts"
 APP_ICON = ROOT / "public/icon-512.png"
-APP_ICON_HD = ROOT / "public/icon-1024.png"
+WORDMARK = ROOT / "public/yuno-wordmark.png"
 
 # --- Icône -----------------------------------------------------------------
 ICON_PT = 38
@@ -68,28 +69,8 @@ def _trim(mark: Image.Image) -> Image.Image:
 
 
 def extract_wordmark() -> Image.Image:
-    """Wordmark « yuno » blanc plein, détouré de l'icône de l'app."""
-    import numpy as np
-
-    rgb = np.asarray(Image.open(APP_ICON_HD).convert("RGB")).astype(np.float32)
-    # Lettres blanches sur rouge saturé : min(G, B) vaut ~0 sur le fond et
-    # ~210 sur le lettrage. On étire cette bande sur 0..255.
-    alpha = np.clip((np.minimum(rgb[:, :, 1], rgb[:, :, 2]) - 40) * (255 / 170), 0, 255)
-
-    # Le verre occupe le haut de l'icône, le wordmark le bas : on repart de la
-    # première ligne entièrement vide sous le verre.
-    filled = (alpha > 200).sum(axis=1)
-    top = next(y for y in range(len(filled) // 2, len(filled)) if filled[y] == 0)
-    band = alpha[top:, :]
-    rows = np.where(band.max(axis=1) > 200)[0]
-    cols = np.where(band.max(axis=0) > 200)[0]
-    y0, y1 = top + rows.min(), top + rows.max() + 1
-    x0, x1 = cols.min(), cols.max() + 1
-
-    out = np.zeros((y1 - y0, x1 - x0, 4), dtype=np.uint8)
-    out[:, :, 0:3] = 255
-    out[:, :, 3] = alpha[y0:y1, x0:x1].astype(np.uint8)
-    return Image.fromarray(out, "RGBA")
+    """Le mot-symbole officiel « yuno », blanc plein — voir l'en-tête."""
+    return Image.open(WORDMARK).convert("RGBA")
 
 
 def build_logo(mark: Image.Image, scale: int) -> Image.Image:
