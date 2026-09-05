@@ -617,6 +617,20 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   `email_campaign_events` sont en CASCADE, la suppression serait irréversible.
   `email_suppressions.campaign_id` est en SET NULL : supprimer une campagne ne
   ressuscite jamais un désabonné.
+- **Les boutons des blocs Yuno partent sur les LIENS SUIVIS** (2026-09-05).
+  `resolve_campaign_tracked_links(event_ids, channel)` (SECURITY DEFINER,
+  `service_role` seul) rend par soirée le `/l/<code>` du canal — « newsletter »
+  par défaut — pour l'événement ET pour la part de guest list publique, en
+  semant les canaux au passage. `fetchStudioLiveData` remplit alors
+  `live.trackedUrl` / `live.entryTrackedUrl` ; les blocs event / table / tickets
+  s'en servent, la liste invités SEULE prenant le lien de la PART (le formulaire
+  s'ouvre avec son token et son `tl=`, seule façon d'alimenter la ligne du canal
+  — `yc=` ne pose JAMAIS de `tl=`). Trois invariants : (1) l'ordre de la part
+  publique doit rester identique entre `pickPublicGuestList` et la RPC, sinon le
+  bouton ouvre une autre liste que celle annoncée ; (2) le canvas et les envois
+  de TEST passent `trackedChannel = null` — un aperçu cliqué gonflerait les
+  compteurs du pro ; (3) l'échec de résolution retombe sur l'URL nue, il ne fait
+  jamais rater un envoi.
 - `email-editor/` et `src/lib/emailCampaign.ts` ne servent PLUS qu'aux
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
