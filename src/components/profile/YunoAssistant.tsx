@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import yunoLogo from '@/assets/yuno-logo-red.webp';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface YunoAssistantProps {
   firstName?: string | null;
@@ -44,7 +44,7 @@ export function YunoAssistant({ firstName }: YunoAssistantProps) {
           className="h-11 w-11 shrink-0 relative flex items-center justify-center"
           style={{ background: 'rgba(232,25,44,0.10)', borderRadius: 4 }}
         >
-          <img src={yunoLogo} alt="Yuno" className="h-6 w-6 object-contain" />
+          <Wordmark height={9} tone="red" />
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse" style={{ background: '#E8192C' }} />
         </div>
         <div className="text-left flex-1 relative min-w-0">

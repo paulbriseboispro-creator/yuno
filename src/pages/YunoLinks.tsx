@@ -23,6 +23,7 @@ import {
   type LinksConfig,
   type LinksStats,
 } from '@/lib/yunoLinks';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /**
  * Yuno Links — la page de la bio Instagram / TikTok (route /links).
@@ -342,7 +343,7 @@ export default function YunoLinks() {
               style={{ width: 60, height: 60, borderRadius: 14, display: 'block', boxShadow: '0 10px 28px rgba(232,25,44,0.30)' }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 30, lineHeight: 1, letterSpacing: '-0.03em', color: RED }}>Yuno</span>
+              <Wordmark height={24} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: G2 }}>
                 <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 999, background: '#FF3B30', animation: 'ynl-pulse 1.6s ease-in-out infinite' }} />
                 <span>{citiesLabel}</span>

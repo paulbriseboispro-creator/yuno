@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 // Libellés RÉELS des events (MUSIC_GENRES) — matchent events.music_genres.
 import { MUSIC_GENRES as GENRES } from '@/lib/musicGenres';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 // Quiz de goût d'onboarding — esthétique éditoriale (DESIGN_SYSTEM_PUBLIC) :
 // noir #0A0A0A, Space Grotesk uppercase, JetBrains Mono trackée, tranchant,
@@ -130,7 +131,7 @@ export function OnboardingTasteQuiz({ userId, onDone }: { userId: string; onDone
       {/* Header */}
       <div className="flex items-center justify-between px-5"
            style={{ paddingTop: 'max(18px, env(safe-area-inset-top))', paddingBottom: 14 }}>
-        <span className="font-display font-bold" style={{ fontSize: 20, color: RED, letterSpacing: '-0.025em' }}>Yuno</span>
+        <Wordmark height={16} tone="red" />
         <button onClick={() => persist(answers)} disabled={saving}
           className="font-mono" style={{ fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#9A9A9A', background: 'none', border: 'none', cursor: 'pointer' }}>
           {tr(['Passer', 'Skip', 'Saltar'])}

@@ -10,6 +10,7 @@ import { AppStoreBadge } from '@/components/install/AppStoreBadge';
 import { APP_STORE_READY } from '@/lib/appStore';
 import { markWebEngaged } from '@/lib/webHome';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /**
  * Landing web — la vitrine que voit un inconnu qui tape yunoapp.eu.
@@ -222,9 +223,7 @@ export default function Landing() {
           className="relative z-10 flex items-center justify-between"
           style={{ padding: 'calc(14px + env(safe-area-inset-top)) 20px 0' }}
         >
-          <span className="font-display font-bold" style={{ fontSize: 27, color: ACCENT, letterSpacing: '-0.02em', textShadow: '0 2px 18px rgba(0,0,0,0.5)' }}>
-            Yuno
-          </span>
+          <Wordmark height={22} style={{ filter: 'drop-shadow(0 2px 18px rgba(0,0,0,0.5))' }} />
           <div className="flex items-center gap-2">
             <LanguageSelector />
             <Link

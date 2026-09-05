@@ -38,6 +38,7 @@ import AdminSearchBar, { type AdminSearchPage } from '@/components/admin/AdminSe
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ADMIN_FEED_CONFIG } from '@/lib/notifications';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -250,7 +251,7 @@ export default function AdminLayout() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="text-base font-bold tracking-tight leading-none" style={{ color: T1 }}>Yuno</div>
+            <Wordmark height={15} />
             <div className="text-[10px] font-semibold uppercase leading-none mt-1" style={{ color: RED, letterSpacing: '0.1em' }}>Super Admin</div>
           </div>
           {/* Même cloche que les dashboards club et organisateur, branchée sur le

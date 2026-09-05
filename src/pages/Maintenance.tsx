@@ -21,13 +21,13 @@ import {
   EyeOff,
   Globe
 } from 'lucide-react';
-import yunoLogo from '@/assets/yuno-logo.webp';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 type Language = 'en' | 'es' | 'fr';
 
@@ -316,7 +316,7 @@ export default function Maintenance() {
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center gap-3"
           >
-            <img src={yunoLogo} alt="Yuno" className="h-10 sm:h-12" />
+            <Wordmark height={34} />
           </motion.div>
           
           <div className="flex items-center gap-2">

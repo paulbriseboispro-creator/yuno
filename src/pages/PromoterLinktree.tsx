@@ -10,6 +10,7 @@ import { FadeInView } from '@/components/motion';
 import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
 import { openExternal } from '@/lib/native';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 type DayFilter = 'today' | 'tomorrow' | 'weekend' | null;
 type PriceFilter = 'free' | 'paid' | null;
@@ -1470,9 +1471,7 @@ export default function PromoterLinktree() {
             }}
           >
             Powered by{' '}
-            <span style={{ fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif", fontWeight: 700, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em' }}>
-              YUNO
-            </span>
+            <Wordmark height={13} alt="Yuno" style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 2, opacity: 0.75 }} />
           </p>
         </main>
 
