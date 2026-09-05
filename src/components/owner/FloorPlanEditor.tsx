@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -114,7 +114,16 @@ export function FloorPlanEditor({
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [saving, setSaving] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
-  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
+  // Le contenu du Sheet vit dans un Portal Radix, rendu au rendu SUIVANT
+  // l'ouverture : une ref classique est encore nulle quand un effet sur
+  // `open` s'exécute. La ref callback expose l'élément en state, et le
+  // listener molette se pose dès que la div existe vraiment.
+  const [canvasWrapEl, setCanvasWrapEl] = useState<HTMLDivElement | null>(null);
+  const bindCanvasWrap = useCallback((el: HTMLDivElement | null) => {
+    canvasWrapRef.current = el;
+    setCanvasWrapEl(el);
+  }, []);
   const [viewZoom, setViewZoom] = useState(1);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [bgOpacity, setBgOpacity] = useState(0.75);
@@ -439,17 +448,20 @@ export function FloorPlanEditor({
   // navigateur zoomer la page. React enregistre `wheel` en passif : on passe
   // par un listener natif non passif.
   useEffect(() => {
-    const el = canvasWrapRef.current;
-    if (!el || !open) return;
+    const el = canvasWrapEl;
+    if (!el) return;
     const onWheel = (ev: WheelEvent) => {
       if (!ev.ctrlKey && !ev.metaKey) return;
       ev.preventDefault();
-      const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+      ev.stopPropagation();
+      // Pincement trackpad = petits deltas continus ; molette = crans. Un
+      // facteur proportionnel au delta rend les deux fluides.
+      const factor = Math.exp(-ev.deltaY * 0.01);
       setViewZoom(z => clampViewZoom(z * factor));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [open]);
+  }, [canvasWrapEl]);
 
   // Ajuste le plan à la largeur disponible du canvas.
   const fitViewZoom = () => {
@@ -519,8 +531,24 @@ export function FloorPlanEditor({
       if (resizing.corner.includes('e')) newWidth = resizeStart.width + deltaX;
       if (resizing.corner.includes('s')) newHeight = resizeStart.height + deltaY;
       const minSize = resizing.type === 'zone' ? 30 : 15;
-      newWidth = Math.max(minSize, Math.min(newWidth, CANVAS_WIDTH));
-      newHeight = Math.max(minSize, Math.min(newHeight, CANVAS_HEIGHT));
+      // Maj enfoncée : proportions verrouillées. Un cercle reste rond, un
+      // rectangle garde son ratio — on applique un seul facteur d'échelle,
+      // pris sur l'axe que la souris a le plus étiré, puis on borne ce
+      // facteur pour que NI la largeur NI la hauteur ne sortent des limites.
+      const keepRatio = !('touches' in e) && (e as React.MouseEvent).shiftKey;
+      if (keepRatio && resizeStart.width > 0 && resizeStart.height > 0) {
+        const kx = resizing.corner.includes('e') ? newWidth / resizeStart.width : null;
+        const ky = resizing.corner.includes('s') ? newHeight / resizeStart.height : null;
+        let k = kx !== null && ky !== null ? Math.max(kx, ky) : (kx ?? ky ?? 1);
+        const kMin = Math.max(minSize / resizeStart.width, minSize / resizeStart.height);
+        const kMax = Math.min(CANVAS_WIDTH / resizeStart.width, CANVAS_HEIGHT / resizeStart.height);
+        k = Math.max(kMin, Math.min(k, kMax));
+        newWidth = resizeStart.width * k;
+        newHeight = resizeStart.height * k;
+      } else {
+        newWidth = Math.max(minSize, Math.min(newWidth, CANVAS_WIDTH));
+        newHeight = Math.max(minSize, Math.min(newHeight, CANVAS_HEIGHT));
+      }
       if (resizing.type === 'zone') updateZoneArea(resizing.id, { width: newWidth, height: newHeight });
       else updateTable(resizing.id, { width: newWidth, height: newHeight });
       return;
@@ -737,7 +765,7 @@ export function FloorPlanEditor({
 
         <div className="flex gap-4 h-[calc(100%-80px)]">
           {/* Canvas */}
-          <div ref={canvasWrapRef} className="flex-1 bg-muted/30 rounded-xl p-4 overflow-auto">
+          <div ref={bindCanvasWrap} className="flex-1 bg-muted/30 rounded-xl p-4 overflow-auto">
             {/* Zoom de travail — toujours visible, jamais persisté. */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span className="text-xs text-muted-foreground whitespace-nowrap">{t('vipHost.canvasZoom')}</span>
