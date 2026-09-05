@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import type { Language } from '@/contexts/LanguageContext';
+import wordmarkRed from '@/assets/yuno-wordmark-red.png';
 
 export interface InvoiceItem {
   description: string;
@@ -267,6 +268,11 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   }
   let posterData: string | null = null;
   if (data.eventPosterUrl) posterData = await loadImage(data.eventPosterUrl);
+  // Le mot-symbole officiel, en rouge : la facture est un document CLAIR.
+  // Il était jusqu'ici redessiné en Helvetica gras — le PDF n'embarque pas
+  // Space Grotesk, donc la marque sortait dans une autre police que partout
+  // ailleurs. Une image l'aligne sur l'app, la landing et les emails.
+  const brandData = await loadImage(wordmarkRed);
 
   // ── Header panel geometry (measured before fill so it sits behind text) ───────
   const issuerName = (data.venueLegalName || data.venueName) || '';
@@ -274,7 +280,8 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   const recipName = data.customerName || '—';
   const recipNameLines = wrap(recipName, CW * 0.5, 14, DISPLAY, 'bold').slice(0, 2);
 
-  const BRAND_Y = 15;     // Yuno wordmark — platform letterhead
+  const BRAND_Y = 15;     // Yuno wordmark — platform letterhead (baseline)
+  const BRAND_H = 4.6;    // hauteur du mot-symbole, en mm (descendante comprise)
   const ISSUER_TOP = 29;  // club issuer block, sits below the Yuno lockup
   const logoBlockH = logoData ? logoH + 6 : 0;
   // issuer: [logo] + label(+5) + name(+5) + addr(n*4) + siret(+4) + vat(+4)
@@ -314,7 +321,16 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   }
 
   // ── Yuno brand lockup (platform letterhead, left) ─────────────────────────────
-  T('Yuno', LX, BRAND_Y, { size: 15, style: 'bold', color: RED });
+  if (brandData) {
+    // Ratio natif 856 × 290 — jamais étiré. `BRAND_Y` est une ligne de BASE,
+    // et la ligne de base du dessin tombe à 74,83 % de sa hauteur (la
+    // descendante du « y » vit sous elle) : c'est cette fraction qu'on remonte,
+    // sinon le mot flotte au-dessus de la baseline du reste de l'en-tête.
+    try { doc.addImage(brandData, 'PNG', LX, BRAND_Y - BRAND_H * 0.7483, BRAND_H * (856 / 290), BRAND_H); }
+    catch { T('Yuno', LX, BRAND_Y, { size: 15, style: 'bold', color: RED }); }
+  } else {
+    T('Yuno', LX, BRAND_Y, { size: 15, style: 'bold', color: RED });
+  }
   T(L.tagline, LX, BRAND_Y + 4.6, { size: 6.5, font: MONO, color: MUTED });
 
   // ── Row 1: issuer (left) + invoice title/meta (right) ─────────────────────────
