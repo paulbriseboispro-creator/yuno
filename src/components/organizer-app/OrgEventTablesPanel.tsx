@@ -829,10 +829,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                     </div>
                   </div>
                 </div>
+                {/* Jamais grisé : comme la page Tables du club, l'éditeur s'ouvre
+                    sans zone (une table peut rester hors zone, l'éditeur crée
+                    aussi les zones-surfaces). Les zones restent un conseil. */}
                 <OrgButton
                   variant={planTableCount > 0 ? 'secondary' : 'primary'}
                   size="sm"
-                  disabled={zones.length === 0}
                   onClick={() => setPlanEditorOpen(true)}
                 >
                   <MapIcon className="h-4 w-4" />
@@ -841,7 +843,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               </div>
               {zones.length === 0 && (
                 <p style={{ color: T3, fontSize: 11.5 }}>
-                  {tt("Créez d'abord vos zones : chaque table du plan appartient à une zone (et donc à ses packs).", 'Create your zones first: every table on the plan belongs to a zone (and its packs).', 'Crea primero tus zonas: cada mesa del plano pertenece a una zona (y a sus packs).')}
+                  {tt('Conseil : créez vos zones pour rattacher chaque table du plan à ses packs. Vous pouvez aussi poser les tables d’abord et les affecter ensuite.', 'Tip: create your zones to attach each table on the plan to its packs. You can also place the tables first and assign them later.', 'Consejo: crea tus zonas para vincular cada mesa del plano a sus packs. También puedes colocar las mesas primero y asignarlas después.')}
                 </p>
               )}
               <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl p-3" style={{ border: `1px solid ${BORDER}` }}>
@@ -904,8 +906,16 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                     )}
               </p>
               {floorPlanUrl ? (
-                <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}` }}>
-                  <img src={floorPlanUrl} alt="Floor plan" className="h-auto w-full" />
+                /* Vignette bornée (même plafond que l'aperçu interactif en
+                   lecture seule) : une affiche portrait ne doit pas manger
+                   tout l'écran de l'atelier. */
+                <div className="flex justify-center overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+                  <img
+                    src={floorPlanUrl}
+                    alt="Floor plan"
+                    className="block h-auto w-auto max-w-full object-contain"
+                    style={{ maxHeight: 'min(40vh, 320px)' }}
+                  />
                 </div>
               ) : lockedToVenue ? (
                 <p style={{ color: T3, fontSize: 11.5 }}>
