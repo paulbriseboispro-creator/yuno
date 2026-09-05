@@ -52,7 +52,18 @@ export function Wordmark({ height, tone = 'white', className, style, alt = 'Yuno
       height={height}
       draggable={false}
       className={className}
-      style={{ height, width: 'auto', display: 'block', ...style }}
+      style={{
+        // Largeur EXPLICITE, jamais `auto` : dans une colonne flex sans
+        // `align-items`, le défaut `stretch` étire une image de largeur auto à
+        // toute la largeur du conteneur en gardant sa hauteur — le mot sortait
+        // écrasé sur 4,4 de ratio au lieu de 2,95. Une largeur définie neutralise
+        // `stretch`, et `flexShrink: 0` empêche l'écrasement inverse en ligne.
+        height,
+        width: height * WORDMARK_RATIO,
+        flexShrink: 0,
+        display: 'block',
+        ...style,
+      }}
     />
   );
 }
