@@ -11871,6 +11871,7 @@ export type Database = {
           included_bottles_quota: number
           included_items: string | null
           is_active: boolean
+          limit_tables: boolean
           max_extra_persons: number | null
           minimum_spend: number | null
           name: string
@@ -11896,6 +11897,7 @@ export type Database = {
           included_bottles_quota?: number
           included_items?: string | null
           is_active?: boolean
+          limit_tables?: boolean
           max_extra_persons?: number | null
           minimum_spend?: number | null
           name: string
@@ -11921,6 +11923,7 @@ export type Database = {
           included_bottles_quota?: number
           included_items?: string | null
           is_active?: boolean
+          limit_tables?: boolean
           max_extra_persons?: number | null
           minimum_spend?: number | null
           name?: string

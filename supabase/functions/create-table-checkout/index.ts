@@ -274,6 +274,55 @@ serve(async (req) => {
       }
     }
 
+    // ===== PACK CAPACITY GUARD =====
+    // Formule plafonnée (limit_tables) : au plus tables_count réservations
+    // actives de CETTE formule par soirée, en plus du plafond de zone. Miroir
+    // lisible de la garde sous verrou de reserve_table_slot.
+    if (pack.limit_tables && pack.tables_count > 0) {
+      const { count: packActive } = await supabaseAdmin
+        .from("table_reservations")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", eventId)
+        .eq("pack_id", pack.id)
+        .in("status", ["pending", "paid", "confirmed"]);
+      const packUsed = packActive || 0;
+      if (packUsed >= pack.tables_count) {
+        logStep("Pack capacity reached", { packId: pack.id, used: packUsed, max: pack.tables_count });
+        throw new Error(t("table.packFull", lang, { pack: pack.name, used: packUsed, max: pack.tables_count }));
+      }
+      logStep("Pack capacity OK", { packId: pack.id, used: packUsed, max: pack.tables_count });
+    }
+
+    // ===== TABLE ↔ PACK BINDING GUARD =====
+    // Une table du plan liée à une formule (`packId` dans le layout) ne se
+    // réserve qu'avec elle, si cette formule vit dans le même périmètre que
+    // celle du checkout (packs de la soirée / packs du club). Un plan de club
+    // réutilisé par une co-soirée aux packs d'organisateur n'est jamais bloqué.
+    if (requestedTableId) {
+      type PlanLayout = { tables?: { id?: string; packId?: string | null }[] };
+      let layout: PlanLayout | null = null;
+      const { data: eventPlan } = await supabaseAdmin
+        .from("venue_floor_plans").select("layout").eq("event_id", eventId).maybeSingle();
+      layout = (eventPlan?.layout as PlanLayout | null) ?? null;
+      if (!layout && effectiveVenueId) {
+        const { data: venuePlan } = await supabaseAdmin
+          .from("venue_floor_plans").select("layout").eq("venue_id", effectiveVenueId).is("event_id", null).maybeSingle();
+        layout = (venuePlan?.layout as PlanLayout | null) ?? null;
+      }
+      const boundPackId = layout?.tables?.find((tb: { id?: string; packId?: string | null }) => tb.id === requestedTableId)?.packId || null;
+      if (boundPackId && boundPackId !== pack.id) {
+        const { data: boundPack } = await supabaseAdmin
+          .from("table_packs").select("id, name, event_id, venue_id").eq("id", boundPackId).maybeSingle();
+        const sameScope = !!boundPack
+          && (boundPack.event_id ?? null) === (pack.event_id ?? null)
+          && (boundPack.venue_id ?? null) === (pack.venue_id ?? null);
+        if (sameScope) {
+          logStep("Table bound to another pack", { requestedTableId, boundPackId, packId: pack.id });
+          throw new Error(t("table.tableBoundToPack", lang, { pack: boundPack!.name }));
+        }
+      }
+    }
+
     // Club de la soirée (s'il y en a un). Sans club, `venue` reste null et
     // l'organisateur est le seul bénéficiaire.
     let venue: { id: string; name: string; stripe_account_id: string | null; stripe_charges_enabled: boolean | null } | null = null;
