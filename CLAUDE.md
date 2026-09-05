@@ -244,8 +244,9 @@ le partagé vit dans `src/lib/yunoLinks.ts`. Migrations `20260905150000`…`1502
   `get_links_featured_events` excluent les clubs `is_hidden` / décommissionnés
   (donc le club démo « Yuno » et ses soirées, que la landing affiche encore) et
   ajoutent les soirées partenaires `affiliate_events` (Madrid) avec leur page
-  `/affiliate-event/<slug>`. « Ce week-end » = vendredi 00:00 → lundi 06:00
-  Paris.
+  `/affiliate-event/<slug>`, et les soirées vendues DANS Yuno passent devant
+  les partenaires à l'affiche. Le compteur du bandeau = 7 prochains jours
+  glissants (`week_events`), pas le week-end calendaire.
 - **Mesure sans cookie**, même modèle que le trafic plateforme : `links_events`
   (RLS totale), écrit UNIQUEMENT par `track_links_event` / `join_links_waitlist`
   / `submit_links_pro_lead` (SECURITY DEFINER, hash salé-jour via
