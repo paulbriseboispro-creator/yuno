@@ -954,6 +954,7 @@ export default function TableCheckout() {
                   currentZoneId={zoneId || pack.zoneId}
                   currentPackPrice={pricing.totalPrice}
                   currentPackName={pack.name}
+                  currentPackId={pack.id}
                   zones={allZones}
                   packsByZone={packsByZone}
                   guestCount={guestCount}

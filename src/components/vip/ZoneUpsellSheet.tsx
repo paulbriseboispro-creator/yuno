@@ -22,6 +22,7 @@ interface ZoneUpsellSheetProps {
   currentZoneId: string;
   currentPackPrice: number;
   currentPackName?: string;
+  currentPackId?: string;
   zones: TableZone[];
   packsByZone: Record<string, TablePack[]>;
   guestCount: number;
@@ -40,6 +41,7 @@ export function ZoneUpsellSheet({
   currentZoneId,
   currentPackPrice,
   currentPackName,
+  currentPackId,
   zones,
   packsByZone,
   guestCount,
@@ -322,7 +324,6 @@ export function ZoneUpsellSheet({
                   const isUpgrade = priceDiff > 0;
                   const isDowngrade = priceDiff < 0;
                   const hasMultiplePacks = activePacks.length > 1;
-                  const isExpanded = expandedZone === zone.id || (!hasMultiplePacks && !isCurrent);
 
                   return (
                     <motion.div
@@ -387,7 +388,7 @@ export function ZoneUpsellSheet({
                             </button>
                           )}
                           {/* If multiple packs → expand/collapse toggle */}
-                          {!isCurrent && hasMultiplePacks && (
+                          {hasMultiplePacks && (
                             <button
                               onClick={() => setExpandedZone(expandedZone === zone.id ? null : zone.id)}
                               className="font-mono uppercase text-[10px] font-bold tracking-[0.08em] h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] text-[#E5E5E5] inline-flex items-center gap-1 transition-colors"
@@ -403,7 +404,7 @@ export function ZoneUpsellSheet({
 
                       {/* Expanded packs list */}
                       <AnimatePresence>
-                        {!isCurrent && hasMultiplePacks && expandedZone === zone.id && (
+                        {hasMultiplePacks && expandedZone === zone.id && (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
@@ -415,16 +416,28 @@ export function ZoneUpsellSheet({
                               {activePacks.map((pack) => {
                                 const packPrice = getPackPrice(pack);
                                 const packDiff = packPrice - currentPackPrice;
+                                const isCurrentPack = isCurrent && !!currentPackId && pack.id === currentPackId;
 
                                 return (
                                   <div
                                     key={pack.id}
-                                    className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] px-3 py-2.5 cursor-pointer hover:bg-white/[0.06] active:scale-[0.98] transition-all"
+                                    role={isCurrentPack ? undefined : 'button'}
+                                    tabIndex={isCurrentPack ? undefined : 0}
+                                    className={`flex items-center justify-between border px-3 py-2.5 transition-all ${isCurrentPack ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-white/[0.03] border-white/[0.06] cursor-pointer hover:bg-white/[0.06] active:scale-[0.98]'}`}
                                     style={{ borderRadius: 8 }}
-                                    onClick={() => onSelectZone(zone.id, pack.id)}
+                                    onClick={isCurrentPack ? undefined : () => onSelectZone(zone.id, pack.id)}
+                                    onKeyDown={isCurrentPack ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectZone(zone.id, pack.id); } }}
                                   >
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-bold truncate text-white">{pack.name}</p>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <p className="text-sm font-bold truncate text-white">{pack.name}</p>
+                                        {isCurrentPack && (
+                                          <span className="font-mono uppercase inline-flex items-center text-[9px] font-bold tracking-[0.10em] text-primary px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(232,25,44,0.10)' }}>
+                                            <Check className="h-2.5 w-2.5 mr-0.5" />
+                                            {t('vipCheckout.currentZone') || 'Actuel'}
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="flex items-center gap-2 mt-0.5">
                                         <span className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.04em', color: '#9A9A9A' }}>
                                           {pack.baseCapacity} pers.
@@ -457,7 +470,7 @@ export function ZoneUpsellSheet({
                       </AnimatePresence>
 
                       {/* Single pack menu preview (when not expanded) */}
-                      {(isCurrent || !hasMultiplePacks) && activePacks[0]?.includedItems && (
+                      {!hasMultiplePacks && activePacks[0]?.includedItems && (
                         <div className="mt-2 flex items-start gap-1.5">
                           <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
                           <p className="text-[11px] text-[#9A9A9A] leading-relaxed">
