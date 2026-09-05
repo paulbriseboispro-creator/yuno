@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2, Ruler } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
@@ -81,7 +81,7 @@ const daInputStyle: React.CSSProperties = {
  *    Tout est event-scopé (venue_id NULL) — migration 20260904120000.
  */
 export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full', onChanged }: OrgEventTablesPanelProps) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
@@ -979,6 +979,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                             'El cliente la ve al reservar su zona, para orientarse. Sin colocación interactiva hasta construir el plano interactivo.',
                           )}
                     </p>
+                    {!lockedToVenue && (
+                      /* Même clé que l'éditeur de plan : l'image sert aussi de
+                         fond au plan interactif, la consigne est unique. */
+                      <p className="mt-2.5 inline-flex items-center gap-1.5" style={{ color: T2, fontSize: 11.5 }}>
+                        <Ruler className="h-3.5 w-3.5 shrink-0" style={{ color: T3 }} />
+                        {t('vipHost.bgRecommended')}
+                      </p>
+                    )}
                   </div>
                   {(!lockedToVenue || floorPlanUrl) && (
                     <div className="flex flex-wrap items-center gap-2">
