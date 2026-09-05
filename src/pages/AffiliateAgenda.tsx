@@ -12,6 +12,7 @@ import { openExternal } from '@/lib/native';
 import { MonthLabel } from '@/components/agenda/timeline';
 import { AgendaPosterCard } from '@/components/agenda/AgendaPosterCard';
 import { offerBadgeLabels } from '@/components/affiliate/OfferBadges';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /* ============================================================
    AffiliateAgenda — l'agenda complet du bras affilié/agence.
@@ -360,7 +361,7 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
   if (!identity) {
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-        <span style={{ fontFamily: MONO, fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: '16px' }}>YUNO</span>
+        <Wordmark height={18} tone="red" style={{ marginBottom: 16 }} />
         <h1 style={{ fontFamily: GROTESK, color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>
           {t('promoterAgenda.notFoundTitle')}
         </h1>
@@ -478,7 +479,7 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
             </p>
             <p style={{ margin: 0, fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px', color: 'rgba(255,255,255,0.40)', letterSpacing: '0.02em' }}>
               Powered by{' '}
-              <span style={{ fontFamily: GROTESK, fontWeight: 700, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em' }}>YUNO</span>
+              <Wordmark height={12} style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 2, opacity: 0.75 }} />
             </p>
           </footer>
         </main>

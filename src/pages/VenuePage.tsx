@@ -33,6 +33,7 @@ import { publicUrl } from '@/lib/native';
 import { useFavorites } from '@/hooks/useFavorites';
 import { VenuePromoSection } from '@/components/upsell/VenuePromoSection';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface VenueData extends Venue {
   description?: string;
@@ -1208,9 +1209,7 @@ export default function VenuePage() {
           <span style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: '13px', fontWeight: 400, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.01em' }}>
             Powered by
           </span>
-          <span style={{ fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif", fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: '#E8192C', padding: '5px 10px', borderRadius: '8px', lineHeight: 1 }}>
-            YUNO
-          </span>
+          <Wordmark height={13} />
         </a>
       )}
 

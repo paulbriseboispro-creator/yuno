@@ -20,6 +20,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 /* ============================================================
    AgencyPublicPage — /rp/:slug
@@ -464,7 +465,7 @@ export default function AgencyPublicPage() {
   if (!profile) {
     return (
       <div className="min-h-screen pb-28 flex flex-col items-center justify-center px-6 text-center" style={{ background: '#0A0A0A' }}>
-        <span className="font-mono font-bold" style={{ color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: 16 }}>YUNO</span>
+        <Wordmark height={18} tone="red" style={{ marginBottom: 16 }} />
         <h1 className="font-display text-white uppercase" style={{ fontSize: '24px', fontWeight: 700, marginBottom: 8 }}>
           {t('affiliate.rpNotFoundTitle')}
         </h1>
@@ -714,8 +715,8 @@ export default function AgencyPublicPage() {
                     }
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.92) 0%, rgba(10,10,10,0) 55%)' }} />
                     {club.isYuno && (
-                      <span className="absolute top-2 left-2 font-mono font-bold" style={{ fontSize: '8px', color: '#fff', background: '#E8192C', borderRadius: '2px', padding: '2px 6px', letterSpacing: '0.12em' }}>
-                        YUNO
+                      <span className="absolute top-2 left-2 inline-flex" style={{ background: '#E8192C', borderRadius: '2px', padding: '3px 6px' }}>
+                        <Wordmark height={8} />
                       </span>
                     )}
                     <div className="absolute bottom-0 left-0 right-0" style={{ padding: '10px' }}>
@@ -747,7 +748,7 @@ export default function AgencyPublicPage() {
             {profile.name}
           </p>
           <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.12em' }}>
-            POWERED BY <span style={{ color: '#5A5A5E', fontWeight: 700 }}>YUNO</span>
+            POWERED BY <Wordmark height={10} style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 2, opacity: 0.35 }} />
           </p>
         </footer>
 

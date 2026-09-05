@@ -711,7 +711,7 @@ function NotFoundState() {
   const { t } = useLanguage();
   return (
     <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: '16px' }}>YUNO</span>
+      <Wordmark height={18} tone="red" style={{ marginBottom: 16 }} />
       <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>{t('promoterLinktree.notFoundTitle')}</h1>
       <p style={{ fontFamily: "'JetBrains Mono', monospace", color: '#5A5A5E', fontSize: '13px', maxWidth: '280px' }}>
         {t('promoterLinktree.notFoundBody')}
@@ -908,7 +908,7 @@ export default function AffiliateLinktree() {
   if (loading) return <LoadingSkeleton />;
   if (fetchError) return (
     <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em' }}>YUNO</span>
+      <Wordmark height={16} tone="red" />
       <p style={{ color: '#ef4444', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', maxWidth: '320px', textAlign: 'center', wordBreak: 'break-all' }}>{fetchError}</p>
     </div>
   );

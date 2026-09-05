@@ -9,6 +9,7 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { PublicPage } from '@/components/PublicPage';
 import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface PromoterInfo {
   firstName: string | null;
@@ -509,7 +510,7 @@ export default function PromoterHub() {
   if (!promoter) {
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: '16px' }}>YUNO</span>
+        <Wordmark height={18} tone="red" style={{ marginBottom: 16 }} />
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>
           {language === 'fr' ? 'Lien introuvable' : language === 'es' ? 'Enlace no encontrado' : 'Link not found'}
         </h1>
@@ -813,21 +814,8 @@ export default function PromoterHub() {
           >
             Powered by
           </span>
-          <span
-            style={{
-              fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-              fontSize: '13px',
-              fontWeight: 800,
-              color: '#FFFFFF',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase' as const,
-              background: '#E8192C',
-              padding: '5px 10px',
-              borderRadius: '8px',
-              lineHeight: 1,
-            }}
-          >
-            YUNO
+          <span style={{ display: 'inline-flex', background: '#E8192C', padding: '5px 10px', borderRadius: '8px' }}>
+            <Wordmark height={13} />
           </span>
         </a>}
 

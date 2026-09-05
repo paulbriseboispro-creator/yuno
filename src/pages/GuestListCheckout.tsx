@@ -26,6 +26,7 @@ import { PublicPage } from '@/components/PublicPage';
 import { useGuestSignup } from '@/hooks/useGuestSignup';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 interface GuestListInfo {
   id: string;
@@ -810,7 +811,7 @@ export default function GuestListCheckout() {
       {(venuePlan === 'core' || venuePlan === 'collab') && (
         <div className="pb-6 pt-2 flex items-center justify-center gap-2" style={{ opacity: 0.45 }}>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Powered by</span>
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '10px', fontWeight: 800, color: '#E8192C', letterSpacing: '0.08em', textTransform: 'uppercase' }}>YUNO</span>
+          <Wordmark height={10} tone="red" />
         </div>
       )}
     </CheckoutShell>

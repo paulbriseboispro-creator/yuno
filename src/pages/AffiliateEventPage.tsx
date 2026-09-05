@@ -19,6 +19,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { openExternal, publicUrl } from '@/lib/native';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
+import { Wordmark } from '@/components/brand/Wordmark';
 
 type AffiliateEvent = {
   id: string;
@@ -456,7 +457,7 @@ export default function AffiliateEventPage() {
           {/* YUNO partner label */}
           <span className="font-mono text-[#5A5A5E]" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
             {t('affiliate.partnerEventLabel')}{' '}
-            <span className="font-bold" style={{ color: '#E8192C' }}>YUNO</span>
+            <Wordmark height={11} tone="red" style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 2 }} />
           </span>
         </div>
 
