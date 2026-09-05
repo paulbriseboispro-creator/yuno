@@ -20,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle, Ruler, Maximize, Keyboard } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
@@ -1288,9 +1288,32 @@ export function FloorPlanEditor({
               </ScrollArea>
             </div>
 
-            <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground/70">
-              {t('vipHost.shortcutsHint')}
-            </p>
+            {/* Raccourcis — la légende dit ce que fait chaque touche, au lieu
+                d'une astuce d'une ligne. */}
+            <div className="mt-4 rounded-lg border border-border/70 bg-muted/30 p-3">
+              <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Keyboard className="h-3.5 w-3.5" />
+                {t('vipHost.shortcuts.title')}
+              </div>
+              <dl className="space-y-1.5">
+                {([
+                  ['⌘/Ctrl + D', t('vipHost.shortcuts.duplicate')],
+                  ['⌫ / ' + t('vipHost.shortcuts.deleteKey'), t('vipHost.shortcuts.remove')],
+                  ['← ↑ → ↓', t('vipHost.shortcuts.nudge')],
+                  ['⇧ + ← ↑ → ↓', t('vipHost.shortcuts.nudgeFast')],
+                  ['⇧ + ' + t('vipHost.shortcuts.resizeVerb'), t('vipHost.shortcuts.ratio')],
+                  ['⌘/Ctrl + ' + t('vipHost.shortcuts.wheel'), t('vipHost.shortcuts.zoom')],
+                  [t('vipHost.shortcuts.escKey'), t('vipHost.shortcuts.deselect')],
+                ] as [string, string][]).map(([keys, what]) => (
+                  <div key={keys} className="flex items-start gap-2">
+                    <dt className="shrink-0">
+                      <kbd className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 font-mono text-[10px] text-foreground/80 whitespace-nowrap">{keys}</kbd>
+                    </dt>
+                    <dd className="text-[11px] leading-5 text-muted-foreground">{what}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </div>
         </div>
       </SheetContent>
