@@ -76,9 +76,24 @@ export function shell(opts: { preheader: string; body: string; title?: string })
 }
 
 // ── Wordmark Yuno (header minimal éditorial) ──
+//
+// Le mot-symbole est le VRAI logo, en image auto-hébergée — plus un « Yuno »
+// redessiné en Space Grotesk gras, qui donnait un logo différent de celui de
+// l'app. Même règle que les pastilles réseaux : jamais d'image tierce dans un
+// email, et une taille en dur (width/height) parce qu'Outlook n'infère rien.
+// Ces emails sont tous sur fond #0A0A0A : le wordmark blanc, toujours.
+const BRAND_ORIGIN =
+  Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu';
+
+/** Ratio natif du fichier (856 × 290) — jamais étiré. */
+export function wordmarkImg(height: number, alt = 'Yuno'): string {
+  const w = Math.round(height * (856 / 290));
+  return `<img src="${BRAND_ORIGIN}/yuno-wordmark.png" width="${w}" height="${height}" alt="${alt}" style="display:block;width:${w}px;height:${height}px;border:0;" />`;
+}
+
 export function brandBar(): string {
   return `<tr><td style="padding:22px 28px 18px;border-bottom:1px solid ${C.border};">
-    <span style="font-family:${F.display};font-size:20px;font-weight:700;color:${C.red};letter-spacing:-0.02em;">Yuno</span>
+    ${wordmarkImg(19)}
   </td></tr>`;
 }
 
@@ -235,7 +250,7 @@ export function footer(opts: {
   lines.push(`<div style="font-family:${F.body};font-size:12px;color:${C.gray3};margin-top:6px;">${esc(L.tagline)}</div>`);
   if (opts.unsubscribeUrl) lines.push(`<div style="font-family:${F.body};font-size:12px;color:${C.gray3};margin-top:10px;"><a href="${esc(opts.unsubscribeUrl)}" style="color:${C.gray3};text-decoration:underline;">${esc(L.unsub)}</a></div>`);
   return `<tr><td style="padding:26px 28px 34px;border-top:1px solid ${C.border};background:${C.bg2};">
-    <span style="font-family:${F.display};font-size:15px;font-weight:700;color:${C.gray3};letter-spacing:-0.02em;">Yuno</span>
+    ${wordmarkImg(14)}
     <div style="margin-top:12px;">${lines.join('')}</div>
   </td></tr>`;
 }

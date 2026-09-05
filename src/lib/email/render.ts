@@ -25,8 +25,6 @@ import { interpolateVariables } from './variables';
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 /** Métadonnées (kicker, jauge, badges) — signal nightlife du design public. */
 const MONO = "'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
-/** Marque Yuno — même pile que les emails transactionnels (_shared/email-kit.ts). */
-const DISPLAY = "'Space Grotesk','Helvetica Neue',Arial,sans-serif";
 
 /**
  * Signature Yuno du pied de page. Les emails transactionnels portent déjà le
@@ -38,12 +36,25 @@ const DISPLAY = "'Space Grotesk','Helvetica Neue',Arial,sans-serif";
  * reste du pied de page, c'est la TYPO qui la porte — label mono tracké +
  * mot-symbole display, la paire label/valeur du design public.
  */
+/**
+ * Le mot-symbole est le VRAI logo, en image auto-hébergée (`/yuno-wordmark.png`)
+ * — même règle que les pastilles réseaux : jamais d'image tierce dans un email.
+ * Il existe en deux teintes et le pied de page choisit sur SON fond, pas sur
+ * celui de l'email : le preset `classic_dark` a un footer CLAIR (#f9fafb), un
+ * wordmark blanc y serait invisible. Taille en dur (width/height) : Outlook
+ * n'infère aucune dimension.
+ */
+function wordmarkSrc(theme: EmailTheme, baseUrl: string): string {
+  const darkFooter = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff';
+  return `${baseUrl}/yuno-wordmark${darkFooter ? '' : '-dark'}.png`;
+}
+
 function poweredBy(theme: EmailTheme, ctx: RenderCtx): string {
   if (ctx.hideBranding) return '';
   const href = 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
   return `<a href="${href}" target="_blank" rel="noreferrer" style="display:inline-block;margin:18px 0 0;text-decoration:none;">
       <span style="display:block;font-family:${MONO};font-size:9.5px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;color:${theme.footerText};">POWERED BY</span>
-      <span style="display:block;margin-top:3px;font-family:${DISPLAY};font-size:15px;line-height:19px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.02em;color:${theme.footerText};">Yuno</span>
+      <img src="${wordmarkSrc(theme, ctx.baseUrl)}" width="41" height="14" alt="Yuno" style="display:block;margin:5px auto 0;width:41px;height:14px;border:0;" />
     </a>`;
 }
 

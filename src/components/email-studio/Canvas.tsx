@@ -13,8 +13,9 @@ import {
 import { useStudio } from './store';
 import type { StudioScope } from './hooks';
 import BlockRenderer from './blocks/BlockRenderer';
-import { EMAIL_DISPLAY, blockBgColor, type CanvasCtx } from './blocks/common';
+import { blockBgColor, type CanvasCtx } from './blocks/common';
 import { blockMeta, FOOTER_SELECTION_ID } from './meta';
+import { Wordmark } from '@/components/brand/Wordmark';
 import {
   BORDER, BORDER_FAINT, CANVAS_BG, FONT_UI, MONO, PANEL_BG, POS, RED, SUBTLE,
   T1, T2, T3, WARN,
@@ -497,18 +498,20 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 <div style={{ fontSize: 11.5, color: theme.accent, marginTop: 4, textDecoration: 'underline', fontFamily: FONT_UI }}>
                   {t('studio.canvas.footerUnsub')}
                 </div>
-                {/* Signature Yuno — miroir de poweredBy (render.ts). La marque
-                    reste subordonnée au club : même couleur, c'est la typo qui
-                    la porte (label mono tracké + mot-symbole display). */}
+                {/* Signature Yuno — miroir de poweredBy (render.ts) : label mono
+                    tracké + le mot-symbole officiel. La teinte se choisit sur le
+                    fond du PIED de page, pas sur celui de l'email (un footer
+                    clair sur thème sombre est un cas réel : preset classic_dark). */}
                 <div style={{ marginTop: 18 }}>
                   <div style={{
                     fontFamily: MONO, fontSize: 9.5, lineHeight: '13px', fontWeight: 700,
                     letterSpacing: '0.16em', color: theme.footerText,
                   }}>POWERED BY</div>
-                  <div style={{
-                    fontFamily: EMAIL_DISPLAY, fontSize: 15, lineHeight: '19px', fontWeight: 700,
-                    letterSpacing: '-0.02em', color: theme.footerText, marginTop: 3,
-                  }}>Yuno</div>
+                  <Wordmark
+                    height={14}
+                    tone={isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff' ? 'white' : 'dark'}
+                    style={{ marginTop: 5 }}
+                  />
                 </div>
               </div>
               </div>

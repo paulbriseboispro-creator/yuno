@@ -83,11 +83,13 @@ describe('renderEmailHtml — enveloppe', () => {
   // phrases légales. Les transactionnels signaient déjà (email-kit.ts).
   it('footer : signature Yuno, subordonnée au club et cliquable', () => {
     expect(html).toContain('POWERED BY');
-    expect(html).toContain('>Yuno</span>');
+    // Le mot-symbole est le VRAI logo, en image auto-hébergée — plus un « Yuno »
+    // redessiné en Space Grotesk, qui donnait une marque différente de l'app.
+    expect(html).toContain(`src="${ctx.baseUrl}/yuno-wordmark`);
+    expect(html).toContain('alt="Yuno"');
     expect(html).toContain('utm_source=yuno&utm_medium=powered_by');
-    // Même couleur que le pied de page : c'est la typo qui porte la marque,
-    // elle ne doit pas crier plus fort que le nom du club.
-    expect(html).toContain(`letter-spacing:-0.02em;color:${theme.footerText}`);
+    // Le label reste subordonné au club : même couleur que le pied de page.
+    expect(html).toContain(`letter-spacing:0.16em;color:${theme.footerText}`);
     // Une signature nette remplace les trois « Yuno » marmonnés d'avant.
     expect(html).not.toContain('via Yuno');
     expect(html).not.toContain('sur Yuno');
