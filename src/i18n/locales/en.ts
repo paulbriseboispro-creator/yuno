@@ -12008,6 +12008,7 @@ const en: Record<string, string> = {
   'studio.inspector.event': "Linked event",
   'studio.inspector.eventNone': "None (static content)",
   'studio.inspector.eventHelp': "Linked to an event, this block reads the database at send time: cover, date, prices, capacity.",
+  'studio.inspector.trackedLinkHelp': "The button uses your “newsletter” tracked link: clicks and sign-ups show up in the event's links. Test sends are never counted.",
   'studio.inspector.venueName': "Displayed name",
   'studio.inspector.showName': "Show name",
   'studio.inspector.logo': "Logo",

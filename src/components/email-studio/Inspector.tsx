@@ -530,6 +530,7 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
             <Banner tone="green" icon={<RefreshCw size={13} strokeWidth={1.75} style={{ color: POS, marginTop: 1, flex: 'none' }} />}>
               {t('studio.inspector.eventHelp')}
             </Banner>
+            <Help>{t('studio.inspector.trackedLinkHelp')}</Help>
           </PanelCard>
           <PanelCard>
             <MicroLabel>{t('studio.inspector.display')}</MicroLabel>
@@ -567,6 +568,7 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
           <PanelCard>
             <MicroLabel>{t('studio.inspector.event')}</MicroLabel>
             <EventPicker value={b.eventId} events={events} onChange={(id) => patch({ eventId: id })} />
+            <Help>{t('studio.inspector.trackedLinkHelp')}</Help>
             <ToggleRow
               checked={b.live}
               onChange={(v) => patch({ live: v })}
@@ -628,6 +630,7 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
         <PanelCard>
           <MicroLabel>{t('studio.inspector.event')}</MicroLabel>
           <EventPicker value={b.eventId} events={events} onChange={(id) => patch({ eventId: id })} />
+          <Help>{t('studio.inspector.trackedLinkHelp')}</Help>
           <MicroLabel>{t('studio.inspector.tableTitle')}</MicroLabel>
           <TextInput value={b.title} onChange={(e) => patch({ title: e.target.value })} />
           <MicroLabel>{t('studio.inspector.tableSub')}</MicroLabel>

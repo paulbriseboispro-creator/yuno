@@ -193,7 +193,7 @@ async function makeStudioHtmlBuilder(
   admin: Admin,
   campaign: Record<string, unknown>,
   sender: Sender,
-  opts: { ignoreConds?: boolean } = {},
+  opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
 ) {
   const blocks = (((campaign.blocks_json as StudioBlock[]) || [])).map((b) => ({ ...b }));
   const campaignLogo = campaign.logo_url as string | null;
@@ -203,7 +203,13 @@ async function makeStudioHtmlBuilder(
     }
   }
   const hideBranding = sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
-  const live = await fetchStudioLiveData(admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL);
+  // Les boutons des blocs Yuno partent sur le canal « newsletter » des liens
+  // suivis : clics et inscriptions remontent dans les stats de la soirée. Un
+  // envoi de TEST reste sur l'URL nue — le pro ne doit pas s'auto-compter.
+  const live = await fetchStudioLiveData(
+    admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL,
+    opts.trackedLinks === false ? null : 'newsletter',
+  );
 
   return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {
     venueName: sender.name,
@@ -228,7 +234,7 @@ async function makeBuilder(
   admin: Admin,
   campaign: Record<string, unknown>,
   sender: Sender,
-  opts: { ignoreConds?: boolean } = {},
+  opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
 ) {
   if (Number(campaign.blocks_version || 1) >= 2) {
     return makeStudioHtmlBuilder(admin, campaign, sender, opts);
@@ -552,7 +558,7 @@ async function sendTest(
 
   // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
   // doit voir l'email complet.
-  const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true });
+  const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true, trackedLinks: false });
   const payload: ResendEmail[] = targets.map((email) => ({
     from: sender.from,
     to: [email],

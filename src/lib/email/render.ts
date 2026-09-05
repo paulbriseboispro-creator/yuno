@@ -280,7 +280,7 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const dateLabel = live?.dateLabel || b.dateLabel;
   const venueLabel = live?.venueLabel || b.venueLabel;
   const coverUrl = live?.coverUrl || b.coverUrl;
-  const url = live?.url || b.ctaUrl || ctx.baseUrl;
+  const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
   const priceLabel = live?.priceFromLabel;
 
   const cover = b.cover && coverUrl
@@ -352,9 +352,13 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   // entrée ouverte, le bloc s'efface — jamais de tarifs inventés.
   const rows = (b.live && live) ? (live.tickets || []) : b.rows;
   if (!rows || rows.length === 0) return '';
-  const url = live?.url || ctx.baseUrl;
-  const btnColors = ctaColors(b.accent, theme);
   const guestListOnly = !!b.live && live?.guestListOnly;
+  // Liste invités seule : le lien de la PART ouvre le formulaire avec son token
+  // et son `tl=`, donc l'inscription se compte sur le canal de la campagne.
+  // Sinon on reste sur la page de la soirée, où le `tl=` attribue les ventes.
+  const url = (guestListOnly ? live?.entryTrackedUrl : null)
+    || live?.trackedUrl || live?.url || ctx.baseUrl;
+  const btnColors = ctaColors(b.accent, theme);
   // Une soirée en liste invités seule n'a pas de billet à prendre : le bouton
   // dit ce que le clic fait vraiment.
   const label = ticketsCtaLabel(guestListOnly);
@@ -378,7 +382,7 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
 
 function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
-  const url = live?.url || b.ctaUrl || ctx.baseUrl;
+  const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
   const left = live?.tablesLeft;
   const btnColors = ctaColors(b.accent, theme);
   const accent = btnColors.bg;

@@ -366,6 +366,59 @@ describe('blocs — un rendu par type', () => {
   });
 });
 
+describe('canaux — le bouton part sur le lien suivi de la campagne', () => {
+  // Avant : le bouton pointait sur la page de la soirée avec un simple `yc=`.
+  // Le `yc` sert au webhook Resend, mais il ne pose jamais de `tl=` : la ligne
+  // « newsletter » des liens suivis restait à 0 inscrit même quand l'email
+  // remplissait la soirée. Le lien /l/<code> est le seul chemin qui l'alimente.
+  const withLinks = (extra: Record<string, unknown>) => ({
+    live: {
+      'ev-1': {
+        ...ctx.live!['ev-1'],
+        trackedUrl: 'https://yunoapp.eu/l/evt1234',
+        entryTrackedUrl: 'https://yunoapp.eu/l/gl5678',
+        ...extra,
+      },
+    },
+  });
+
+  it('carte événement : lien suivi de la soirée, jamais l’URL nue', () => {
+    const html = renderOne(makeBlock('event', { eventId: 'ev-1' }), withLinks({}));
+    expect(html).toContain('https://yunoapp.eu/l/evt1234?yc=camp-1');
+    expect(html).not.toContain('https://yunoapp.eu/event/ev-1');
+  });
+
+  it('billetterie ouverte : le bouton reste sur la page de la soirée (lien suivi)', () => {
+    const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }), withLinks({}));
+    expect(html).toContain('https://yunoapp.eu/l/evt1234?yc=camp-1');
+    expect(html).not.toContain('/l/gl5678');
+  });
+
+  // Liste invités seule : le lien de la PART ouvre le formulaire avec son token
+  // ET son `tl=`. C'est ce qui fait remonter l'inscription sur le canal.
+  it('liste invités seule : le bouton ouvre le lien suivi de la PART', () => {
+    const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }), withLinks({
+      tickets: [{ n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false }],
+      guestListOnly: true,
+    }));
+    expect(html).toContain('https://yunoapp.eu/l/gl5678?yc=camp-1');
+    expect(html).not.toContain('/l/evt1234');
+  });
+
+  it('table VIP : lien suivi de la soirée', () => {
+    const html = renderOne(makeBlock('table', { eventId: 'ev-1' }), withLinks({}));
+    expect(html).toContain('https://yunoapp.eu/l/evt1234?yc=camp-1');
+  });
+
+  // Aperçu canvas et envois de test ne résolvent aucun canal : sans eux le
+  // rendu doit rester exactement celui d'avant, sur l'URL de la soirée.
+  it('sans canal résolu (aperçu, test) : on retombe sur l’URL de la soirée', () => {
+    const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }));
+    expect(html).toContain('https://yunoapp.eu/event/ev-1?yc=camp-1');
+    expect(html).not.toContain('/l/');
+  });
+});
+
 describe('liste invités = un type d’entrée (live.ts)', () => {
   it('la part maison passe devant les parts déléguées', () => {
     const picked = pickPublicGuestList([

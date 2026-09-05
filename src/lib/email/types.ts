@@ -267,6 +267,17 @@ export interface LiveEventData {
    */
   guestListOnly?: boolean;
   tablesLeft?: number | null;
+  /**
+   * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
+   * défaut). `trackedUrl` mène à la page de la soirée avec `?tl=`,
+   * `entryTrackedUrl` directement au formulaire de la part de guest list
+   * publique — c'est lui qui fait remonter l'inscription sur le canal.
+   *
+   * Résolus par l'edge À L'ENVOI seulement. Le canvas ne les remplit JAMAIS :
+   * un aperçu cliqué gonflerait les compteurs du pro avec ses propres clics.
+   */
+  trackedUrl?: string | null;
+  entryTrackedUrl?: string | null;
 }
 
 export type LiveData = Record<string, LiveEventData>;

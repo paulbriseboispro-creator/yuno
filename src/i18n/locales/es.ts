@@ -12350,6 +12350,7 @@ const es: Record<string, string> = {
   'studio.inspector.event': "Evento vinculado",
   'studio.inspector.eventNone': "Ninguno (contenido fijo)",
   'studio.inspector.eventHelp': "Vinculado a un evento, este bloque lee la base de datos al enviar: cartel, fecha, precios, aforo.",
+  'studio.inspector.trackedLinkHelp': "El botón usa tu enlace rastreado «newsletter»: los clics y las inscripciones aparecen en los enlaces del evento. Los envíos de prueba nunca se cuentan.",
   'studio.inspector.venueName': "Nombre mostrado",
   'studio.inspector.showName': "Mostrar el nombre",
   'studio.inspector.logo': "Logo",

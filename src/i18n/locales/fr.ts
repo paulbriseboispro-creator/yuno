@@ -11983,6 +11983,7 @@ const fr: Record<string, string> = {
   'studio.inspector.event': "Événement lié",
   'studio.inspector.eventNone': "Aucun (contenu figé)",
   'studio.inspector.eventHelp': "Relié à une soirée, ce bloc lit la base au moment de l'envoi : affiche, date, prix, jauge.",
+  'studio.inspector.trackedLinkHelp': "Le bouton part sur votre lien suivi « newsletter » : les clics et les inscriptions remontent dans les liens de la soirée. Les envois de test n'y sont pas comptés.",
   'studio.inspector.venueName': "Nom affiché",
   'studio.inspector.showName': "Afficher le nom",
   'studio.inspector.logo': "Logo",

@@ -37,6 +37,15 @@ export interface StudioLiveEventData {
   /** true = la seule entrée publique est une liste invités gratuite. */
   guestListOnly?: boolean;
   tablesLeft?: number | null;
+  /**
+   * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
+   * défaut), résolus à l'envoi seulement. `trackedUrl` mène à la page de la
+   * soirée avec `?tl=`, `entryTrackedUrl` directement au formulaire de la part
+   * de guest list publique. Absents en aperçu canvas : une prévisualisation
+   * cliquée ne doit pas gonfler les compteurs du canal.
+   */
+  trackedUrl?: string | null;
+  entryTrackedUrl?: string | null;
 }
 
 export type StudioLiveData = Record<string, StudioLiveEventData>;
@@ -429,7 +438,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const dateLabel = live?.dateLabel || (b.dateLabel as string) || '';
       const venueLabel = live?.venueLabel || (b.venueLabel as string) || '';
       const coverUrl = live?.coverUrl || (b.coverUrl as string | undefined);
-      const url = live?.url || (b.ctaUrl as string) || ctx.baseUrl;
+      const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const priceLabel = live?.priceFromLabel;
       const cover = b.cover !== false && coverUrl
         ? `<tr><td style="font-size:0;line-height:0;"><img src="${esc(coverUrl)}" alt="${esc(title)}" width="552" style="width:100%;max-width:552px;height:auto;display:block;border:0;" /></td></tr>`
@@ -467,9 +476,13 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         ? (live.tickets || [])
         : ((b.rows as StudioTicketRow[]) || []);
       if (!rows || rows.length === 0) return '';
-      const url = live?.url || ctx.baseUrl;
-      const btnColors = ctaColors(b.accent, theme);
       const guestListOnly = b.live !== false && !!live?.guestListOnly;
+      // Liste invités seule : le lien de la PART ouvre le formulaire avec son
+      // token et son `tl=`, donc l'inscription se compte sur le canal. Sinon on
+      // reste sur la page de la soirée (miroir render.ts).
+      const url = (guestListOnly ? live?.entryTrackedUrl : null)
+        || live?.trackedUrl || live?.url || ctx.baseUrl;
+      const btnColors = ctaColors(b.accent, theme);
       // Une soirée en liste invités seule n'a pas de billet à prendre
       // (miroir de ticketsCtaLabel dans src/lib/email/live.ts).
       const label = guestListOnly ? 'M’inscrire à la liste' : 'Prendre mes billets';
@@ -489,7 +502,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'table': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      const url = live?.url || (b.ctaUrl as string) || ctx.baseUrl;
+      const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const left = live?.tablesLeft;
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
@@ -756,6 +769,12 @@ export async function fetchStudioLiveData(
   blocks: StudioBlock[],
   fallbackEventId: string | null,
   publicUrl: string,
+  /**
+   * Canal `tracked_links` sur lequel router les boutons des blocs Yuno.
+   * `null` = URL nue (envois de test : les clics du pro ne doivent pas entrer
+   * dans les statistiques de son propre canal).
+   */
+  trackedChannel: string | null = 'newsletter',
 ): Promise<StudioLiveData> {
   const live: StudioLiveData = {};
   const ids = collectStudioEventIds(blocks, fallbackEventId);
@@ -784,10 +803,14 @@ export async function fetchStudioLiveData(
     // que derrière leur propre lien, on ne les révèle pas à toute une audience.
     const { data: guestLists } = await admin
       .from('guest_lists')
-      .select('event_id, holder_type, free_before_time, includes_drink')
+      .select('id, event_id, holder_type, free_before_time, includes_drink, created_at')
       .in('event_id', ids)
       .eq('is_active', true)
-      .eq('visible_on_club_page', true);
+      .eq('visible_on_club_page', true)
+      // Ordre déterministe : pickPublicGuestList et resolve_campaign_tracked_links
+      // doivent désigner la MÊME part, sinon le bouton ouvre une autre liste que
+      // celle annoncée dans le corps du message.
+      .order('created_at', { ascending: true });
 
     // Host de l'URL propre /events/:host/:slug. La règle (slug d'orga si
     // organizer-led, sinon slug du club) vit dans la RPC event_host_slug et
@@ -875,6 +898,26 @@ export async function fetchStudioLiveData(
     }
   } catch (e) {
     console.error('fetchStudioLiveData failed (blocs sur props figées):', e instanceof Error ? e.message : e);
+  }
+
+  // Canaux : le bouton part sur /l/<code> pour que le clic ET l'inscription
+  // remontent dans les liens suivis de la soirée. Try/catch à part — un canal
+  // introuvable fait retomber sur l'URL nue, il ne fait jamais rater un envoi.
+  if (trackedChannel) {
+    try {
+      const { data: links } = await admin.rpc('resolve_campaign_tracked_links', {
+        p_event_ids: ids,
+        p_channel: trackedChannel,
+      });
+      for (const row of (links || []) as any[]) {
+        const ev = live[row.event_id as string];
+        if (!ev) continue;
+        if (row.event_code) ev.trackedUrl = `${publicUrl}/l/${row.event_code}`;
+        if (row.guest_list_code) ev.entryTrackedUrl = `${publicUrl}/l/${row.guest_list_code}`;
+      }
+    } catch (e) {
+      console.error('resolve_campaign_tracked_links failed (URL nue):', e instanceof Error ? e.message : e);
+    }
   }
 
   // Les blocs sans eventId propre héritent de l'événement de la campagne.
