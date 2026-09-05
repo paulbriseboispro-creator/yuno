@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
@@ -104,6 +104,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   const [uploading, setUploading] = useState(false);
   const [tab, setTab] = useState<'zones' | 'packs' | 'plan'>('zones');
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  // Lightbox de l'image illustrative (mode basic).
+  const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
   const [modeSaving, setModeSaving] = useState(false);
   // Salles VIP de l'organisateur (historique rejouable) + enregistrement.
   const [rooms, setRooms] = useState<VipRoomOption[]>([]);
@@ -888,74 +890,138 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             </div>
           )}
 
-          {/* Image illustrative (mode basic, ou fond du plan). */}
+          {/* Image illustrative (mode basic, ou fond du plan) — carte média :
+              vignette cadrée à gauche, contexte et actions à droite. Le fond
+              de la vignette est l'image elle-même floutée : une affiche
+              portrait ne flotte plus au milieu d'un rectangle vide, et le
+              plan n'est jamais recadré. */}
           {(planTableCount === 0 || lockedToVenue) && (
-            <>
-              <p className="flex items-start gap-2" style={{ color: T3, fontSize: 11.5 }}>
-                {lockedToVenue && <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                {lockedToVenue
-                  ? tt(
-                      'Plan de salle fourni par le club — verrouillé.',
-                      'Floor plan provided by the club — locked.',
-                      'Plano de sala facilitado por el club — bloqueado.',
-                    )
-                  : tt(
-                      'Image illustrative affichée au client. Aucun placement interactif tant que le plan interactif n’est pas construit.',
-                      'Illustrative image shown to clients. No interactive placement until the interactive plan is built.',
-                      'Imagen ilustrativa mostrada al cliente. Sin colocación interactiva hasta construir el plano interactivo.',
-                    )}
-              </p>
-              {floorPlanUrl ? (
-                /* Vignette bornée (même plafond que l'aperçu interactif en
-                   lecture seule) : une affiche portrait ne doit pas manger
-                   tout l'écran de l'atelier. */
-                <div className="flex justify-center overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
-                  <img
-                    src={floorPlanUrl}
-                    alt="Floor plan"
-                    className="block h-auto w-auto max-w-full object-contain"
-                    style={{ maxHeight: 'min(40vh, 320px)' }}
-                  />
-                </div>
-              ) : lockedToVenue ? (
-                <p style={{ color: T3, fontSize: 11.5 }}>
-                  {tt(
-                    "Le club n'a pas encore importé de plan de salle.",
-                    'The club has not uploaded a floor plan yet.',
-                    'El club aún no ha subido un plano de sala.',
+            <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+              <div className="flex flex-col sm:flex-row">
+                <div
+                  className="relative shrink-0 overflow-hidden border-b border-white/[0.085] sm:w-[248px] sm:border-b-0 sm:border-r"
+                  style={{ background: 'rgba(0,0,0,0.38)', minHeight: 208 }}
+                >
+                  {floorPlanUrl ? (
+                    <>
+                      <img
+                        aria-hidden
+                        src={floorPlanUrl}
+                        alt=""
+                        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                        style={{ filter: 'blur(28px) saturate(1.35)', opacity: 0.4, transform: 'scale(1.35)' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPlanPreviewOpen(true)}
+                        aria-label={tt('Voir l’image en grand', 'View the image full size', 'Ver la imagen en grande')}
+                        className="group relative flex h-full w-full cursor-pointer items-center justify-center p-4 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                        style={{ minHeight: 208 }}
+                      >
+                        <img
+                          src={floorPlanUrl}
+                          alt={tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}
+                          className="block h-auto w-auto max-w-full rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                          style={{ maxHeight: 200, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 14px 32px -14px rgba(0,0,0,0.85)' }}
+                        />
+                        <span
+                          className="pointer-events-none absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+                          style={{ background: 'rgba(10,10,12,0.78)', border: `1px solid ${BORDER}`, color: T1 }}
+                        >
+                          <Maximize2 className="h-3.5 w-3.5" />
+                        </span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center p-4" style={{ minHeight: 208 }}>
+                      <div
+                        className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg px-4 py-8 text-center"
+                        style={{ border: '1px dashed rgba(255,255,255,0.14)' }}
+                      >
+                        <ImageIcon className="h-7 w-7" style={{ color: 'rgba(255,255,255,0.14)' }} />
+                        <span style={{ color: T3, fontSize: 11.5 }}>
+                          {lockedToVenue
+                            ? tt("Le club n'a pas encore importé de plan.", 'The club has not uploaded a plan yet.', 'El club aún no ha subido un plano.')
+                            : tt('Aucune image pour le moment', 'No image yet', 'Ninguna imagen todavía')}
+                        </span>
+                      </div>
+                    </div>
                   )}
-                </p>
-              ) : null}
-              {!lockedToVenue && (
-                <div>
-                  <input
-                    id={`floor-plan-upload-${eventId}`}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onUploadPlan(f);
-                      e.target.value = '';
-                    }}
-                  />
-                  <OrgButton
-                    variant="secondary"
-                    size="sm"
-                    disabled={uploading}
-                    onClick={() => document.getElementById(`floor-plan-upload-${eventId}`)?.click()}
-                  >
-                    <Upload className="h-4 w-4" />
-                    {uploading
-                      ? tt('Envoi…', 'Uploading…', 'Enviando…')
-                      : floorPlanUrl
-                        ? tt('Remplacer', 'Replace', 'Reemplazar')
-                        : tt('Importer', 'Upload', 'Importar')}
-                  </OrgButton>
                 </div>
-              )}
-            </>
+
+                <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-5">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {lockedToVenue ? (
+                        <OrgPill tone="muted">
+                          <Lock className="h-3 w-3" />
+                          {tt('Fourni par le club', 'Provided by the club', 'Facilitado por el club')}
+                        </OrgPill>
+                      ) : floorPlanUrl ? (
+                        <OrgPill tone="info" dot>{tt('Affichée au client', 'Shown to guests', 'Visible para el cliente')}</OrgPill>
+                      ) : (
+                        <OrgPill tone="muted">{tt('Aucune image', 'No image', 'Sin imagen')}</OrgPill>
+                      )}
+                    </div>
+                    <div className="mt-2.5" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+                      {tt('Image illustrative du plan', 'Illustrative floor plan image', 'Imagen ilustrativa del plano')}
+                    </div>
+                    <p className="mt-1 max-w-prose" style={{ color: T3, fontSize: 12, lineHeight: 1.55 }}>
+                      {lockedToVenue
+                        ? tt(
+                            'Le plan de salle est fourni par le club et verrouillé pour cette soirée. Vous réglez vos packs et vos prix par-dessus.',
+                            'The floor plan is provided by the club and locked for this event. You set your packs and prices on top of it.',
+                            'El plano de sala lo facilita el club y está bloqueado para esta noche. Tú ajustas tus packs y precios encima.',
+                          )
+                        : tt(
+                            'Le client la voit au moment de réserver sa zone, pour se repérer. Aucun placement interactif tant que le plan interactif n’est pas construit.',
+                            'Guests see it when booking their zone, to get their bearings. No interactive placement until the interactive plan is built.',
+                            'El cliente la ve al reservar su zona, para orientarse. Sin colocación interactiva hasta construir el plano interactivo.',
+                          )}
+                    </p>
+                  </div>
+                  {(!lockedToVenue || floorPlanUrl) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!lockedToVenue && (
+                        <>
+                          <input
+                            id={`floor-plan-upload-${eventId}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) onUploadPlan(f);
+                              e.target.value = '';
+                            }}
+                          />
+                          <OrgButton
+                            variant={floorPlanUrl ? 'secondary' : 'primary'}
+                            size="sm"
+                            disabled={uploading}
+                            onClick={() => document.getElementById(`floor-plan-upload-${eventId}`)?.click()}
+                          >
+                            <Upload className="h-4 w-4" />
+                            {uploading
+                              ? tt('Envoi…', 'Uploading…', 'Enviando…')
+                              : floorPlanUrl
+                                ? tt('Remplacer', 'Replace', 'Reemplazar')
+                                : tt('Importer une image', 'Upload an image', 'Importar una imagen')}
+                          </OrgButton>
+                        </>
+                      )}
+                      {floorPlanUrl && (
+                        <OrgButton variant="ghost" size="sm" onClick={() => setPlanPreviewOpen(true)}>
+                          <Maximize2 className="h-4 w-4" />
+                          {tt('Voir en grand', 'View full size', 'Ver en grande')}
+                        </OrgButton>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1002,6 +1068,23 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
           <DialogFooter>
             <OrgButton variant="primary" disabled={savingRoom} onClick={saveRoom}>{savingRoom ? tt('Enregistrement…', 'Saving…', 'Guardando…') : tt('Enregistrer', 'Save', 'Guardar')}</OrgButton>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox de l'image illustrative. */}
+      <Dialog open={planPreviewOpen} onOpenChange={setPlanPreviewOpen}>
+        <DialogContent className="max-w-4xl border-0 bg-[#0a0a0c] p-2 sm:p-3">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}</DialogTitle>
+          </DialogHeader>
+          {floorPlanUrl && (
+            <img
+              src={floorPlanUrl}
+              alt={tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}
+              className="mx-auto block h-auto w-auto max-w-full rounded-lg object-contain"
+              style={{ maxHeight: '82vh' }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
