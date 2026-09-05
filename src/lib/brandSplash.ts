@@ -14,9 +14,20 @@
 // ferait enchaîner l'ancien Launch Screen sur le nouveau splash. Elles restent
 // donc sur l'ancien dessin tant que ce drapeau est false.
 //
-// ⬅️ Passer à true LE JOUR où le build qui embarque le nouveau Launch Screen
-//    est approuvé par Apple — et pas avant. C'est le seul changement à faire :
-//    index.html le lit via le plugin `yuno-splash-flag` de vite.config.ts.
+// L'ASSET NATIF ET CE DRAPEAU SE CHANGENT DANS LE MÊME COMMIT. L'imageset du
+// repo porte encore l'ancien dessin, exprès : un binaire dont le Launch Screen
+// serait officiel et le splash web en Poppins montrerait le saut qu'on cherche
+// justement à éviter — y compris sur un simple build TestFlight.
+//
+// Recette du jour où on l'embarque (après la mise en ligne de la 1.0.2, qui est
+// déjà approuvée et porte l'ancien dessin) — UN SEUL commit :
+//   1. bump MARKETING_VERSION dans les deux projets iOS (client + Pro) ;
+//   2. `python3 scripts/gen-splash-wordmark.py` (régénère l'imageset) ;
+//   3. passer ce drapeau à true ;
+//   4. push → Xcode Cloud, puis soumission.
+// Les anciens binaires sont protégés par Capgo : un bundle OTA n'est servi qu'aux
+// appareils dont `native_version` correspond, donc la 1.0.2 ne recevra jamais un
+// bundle à `true` — voir docs/OTA_CAPGO.md.
 export const OFFICIAL_SPLASH_WORDMARK = false;
 
 /** Géométrie du mot dans la chaîne de boot, en px CSS.
