@@ -31,9 +31,10 @@ import {
   Siren,
   Radar,
   LifeBuoy,
+  AtSign,
   type LucideIcon,
 } from 'lucide-react';
-import AdminSearchBar from '@/components/admin/AdminSearchBar';
+import AdminSearchBar, { type AdminSearchPage } from '@/components/admin/AdminSearchBar';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ADMIN_FEED_CONFIG } from '@/lib/notifications';
@@ -46,7 +47,7 @@ const BORDER     = 'rgba(255,255,255,0.085)';
 const F_BORDER   = 'rgba(255,255,255,0.055)';
 const SIDEBAR_BG = 'linear-gradient(180deg,rgba(255,255,255,.022) 0%,rgba(255,255,255,.004) 100%),#0a0a0c';
 
-interface NavItem { title: string; path: string; icon: LucideIcon; }
+interface NavItem { title: string; path: string; icon: LucideIcon; keywords?: string; }
 interface NavGroup { label: string; items: NavItem[]; }
 
 export default function AdminLayout() {
@@ -63,11 +64,12 @@ export default function AdminLayout() {
       label: t('admin.navGroupOverview'),
       items: [
         { title: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-        { title: t('admin.navAlerts'), path: '/admin/alerts', icon: Siren },
+        { title: t('admin.navAlerts'), path: '/admin/alerts', icon: Siren, keywords: 'alertes alerts notifications échéances incidents' },
         { title: t('admin.dir.navTitle'), path: '/admin/directory', icon: BookOpen },
         { title: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
-        { title: t('admin.navTraffic'), path: '/admin/traffic', icon: Radar },
-        { title: t('admin.navSegmentation'), path: '/admin/segmentation', icon: UsersRound },
+        { title: t('admin.navTraffic'), path: '/admin/traffic', icon: Radar, keywords: 'traffic trafic audience visiteurs visitors analytics' },
+        { title: t('admin.navLinks'), path: '/admin/links', icon: AtSign, keywords: 'links linktree bio instagram tiktok whatsapp leads waitlist' },
+        { title: t('admin.navSegmentation'), path: '/admin/segmentation', icon: UsersRound, keywords: 'segmentation clients customers rfm' },
       ],
     },
     {
@@ -77,9 +79,9 @@ export default function AdminLayout() {
         { title: 'Événements', path: '/admin/events', icon: CalendarDays },
         { title: 'Organisateurs', path: '/admin/organizers', icon: Sparkles },
         { title: 'Affiliés', path: '/admin/affiliates', icon: Link2 },
-        { title: 'Waitlist', path: '/admin/waitlist', icon: Users },
-        { title: 'Accès démo', path: '/admin/demo-access', icon: KeyRound },
-        { title: 'Accès assisté', path: '/admin/support', icon: LifeBuoy },
+        { title: 'Waitlist', path: '/admin/waitlist', icon: Users, keywords: "liste d'attente lista de espera inscrits" },
+        { title: 'Accès démo', path: '/admin/demo-access', icon: KeyRound, keywords: 'demo reviewer apple preview' },
+        { title: 'Accès assisté', path: '/admin/support', icon: LifeBuoy, keywords: 'support session assistance grant' },
       ],
     },
     {
@@ -94,14 +96,16 @@ export default function AdminLayout() {
       label: t('admin.navGroupContent'),
       items: [
         { title: t('admin.navDrinkCatalog'), path: '/admin/drinks', icon: Wine },
-        { title: 'Email Templates', path: '/admin/emails', icon: Mail },
-        { title: t('admin.navPush'), path: '/admin/push', icon: Bell },
-        { title: t('admin.navAutoPush'), path: '/admin/notifications', icon: BellRing },
+        { title: 'Email Templates', path: '/admin/emails', icon: Mail, keywords: 'emails templates transactionnels resend' },
+        { title: t('admin.navPush'), path: '/admin/push', icon: Bell, keywords: 'push campagne campaign notification' },
+        { title: t('admin.navAutoPush'), path: '/admin/notifications', icon: BellRing, keywords: 'automations auto push registre' },
         { title: t('admin.navFeedback'), path: '/admin/feedback', icon: MessageSquareWarning },
         { title: 'Journal d\'audit', path: '/admin/audit', icon: ScrollText },
       ],
     },
   ];
+
+  const searchPages: AdminSearchPage[] = navGroups.flatMap((g) => g.items);
 
   useEffect(() => {
     checkAuth();
@@ -216,7 +220,7 @@ export default function AdminLayout() {
               <SheetTitle className="text-left text-lg font-bold tracking-tight" style={{ color: T1 }}>{t('admin.title')}</SheetTitle>
             </SheetHeader>
             <div className="px-3 pt-3">
-              <AdminSearchBar />
+              <AdminSearchBar pages={searchPages} />
             </div>
             <NavContent />
           </SheetContent>
@@ -257,7 +261,7 @@ export default function AdminLayout() {
           </TooltipProvider>
         </div>
         <div className="px-3 pt-3">
-          <AdminSearchBar />
+          <AdminSearchBar pages={searchPages} />
         </div>
         <NavContent />
       </aside>

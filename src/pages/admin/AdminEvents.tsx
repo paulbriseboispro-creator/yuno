@@ -66,7 +66,8 @@ function VisibilityPill({ ev }: { ev: EventRow }) {
 }
 
 export default function AdminEvents() {
-  const [search, setSearch] = useState('');
+  // `?q=` : pré-rempli par la recherche globale de l'admin (AdminSearchBar).
+  const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
   const [discoveryFilter, setDiscoveryFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [stateFilter, setStateFilter] = useState('all'); // all | live | depublished | cancelled
   const [data, setData] = useState<EventRow[]>([]);
