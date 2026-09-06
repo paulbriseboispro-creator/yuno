@@ -125,7 +125,7 @@ export function ZoneUpsellSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm"
             onClick={handleClose}
           />
           {/* Sheet */}
@@ -134,7 +134,8 @@ export function ZoneUpsellSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/[0.08] bg-[#0A0A0A]"
+            className="fixed bottom-0 left-0 right-0 z-[70] max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/[0.08] bg-[#0A0A0A]"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">

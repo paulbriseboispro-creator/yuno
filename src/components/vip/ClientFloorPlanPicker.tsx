@@ -443,10 +443,6 @@ export function ClientFloorPlanPicker({
           <feGaussianBlur stdDeviation="3" result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
-        <filter id="selected-pulse">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
         <filter id="zone-glow">
           <feGaussianBlur stdDeviation="6" result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -539,15 +535,20 @@ export function ClientFloorPlanPicker({
               }
             }}
             className={readOnly ? 'pointer-events-none' : (isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer')}
-            style={{ transition: 'opacity 0.3s ease, filter 0.3s ease' }}
+            style={{ transition: 'opacity 0.3s ease' }}
             opacity={isUnavailable ? 0.3 : tooSmall ? 0.55 : dimmed ? 0.78 : 1}
-            filter={isSelected ? 'url(#selected-pulse)' : undefined}
           >
             {isSelected && (
-              <rect x={table.x - 3} y={table.y - 3} width={table.width + 6} height={table.height + 6}
-                rx={table.shape === 'circle' ? 999 : (table.borderRadius ?? 6) + 2} fill="none" stroke={tableColor} strokeWidth={1} opacity={0.4}>
-                <animate attributeName="opacity" values="0.2;0.5;0.2" dur="2.5s" repeatCount="indefinite" />
-              </rect>
+              // Halo SANS filtre SVG : WebKit iOS rendait parfois le groupe
+              // filtré invisible, et la région de filtre rognait la coche.
+              <>
+                <rect x={table.x - 5} y={table.y - 5} width={table.width + 10} height={table.height + 10}
+                  rx={table.shape === 'circle' ? 999 : (table.borderRadius ?? 6) + 4} fill={tableColor} fillOpacity={0.18} stroke="none" />
+                <rect x={table.x - 3} y={table.y - 3} width={table.width + 6} height={table.height + 6}
+                  rx={table.shape === 'circle' ? 999 : (table.borderRadius ?? 6) + 2} fill="none" stroke={tableColor} strokeWidth={1.5} opacity={0.6}>
+                  <animate attributeName="opacity" values="0.35;0.9;0.35" dur="2s" repeatCount="indefinite" />
+                </rect>
+              </>
             )}
 
             {renderTableShape({
