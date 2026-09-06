@@ -370,45 +370,40 @@ export async function dispatchNewEventPushes(
 ): Promise<{ processed: number; sent: number }> {
   if (!(await isAutoPushEnabled(admin, "new_event"))) return { processed: 0, sent: 0 };
 
-  const nowIso = new Date().toISOString();
-  const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-  const { data: events } = await admin
-    .from("events")
-    .select("id, title, slug, venue_id, organizer_user_id, start_at")
-    .eq("is_active", true)
-    .is("cancelled_at", null)
-    .gt("start_at", nowIso)
-    .gte("created_at", cutoff);
-  if (!events?.length) return { processed: 0, sent: 0 };
+  // Heures calmes (22 h → 10 h Paris) : on n'annonce rien la nuit. La campagne
+  // n'étant PAS encore insérée, la soirée reste due et part au prochain passage
+  // en journée — rien n'est perdu, contrairement à un filtre par destinataire.
+  if (isQuietHoursParis()) return { processed: 0, sent: 0 };
+
+  // Vraies nouveautés (publication < 72 h, première occurrence d'un modèle
+  // récurrent seulement, lieu visible, pas déjà annoncée) — SQL unique.
+  const { data: events, error: evErr } = await admin.rpc("get_new_events_to_announce");
+  if (evErr) {
+    console.error("[NEW-EVENT-PUSH] get_new_events_to_announce failed:", evErr.message);
+    return { processed: 0, sent: 0 };
+  }
+  type NewEventRow = {
+    event_id: string; title: string | null; slug: string | null; venue_id: string | null;
+    organizer_user_id: string | null; start_at: string; host_name: string; host_kind: string;
+  };
+  const rows = (events || []) as NewEventRow[];
+  if (!rows.length) return { processed: 0, sent: 0 };
 
   const subscribers = await subscriberSet(admin);
   const pushUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
   let processed = 0;
   let totalSent = 0;
 
-  for (const ev of events) {
-    // Nom de l'hôte : club, sinon organisateur.
-    let hostName = "";
-    if (ev.venue_id) {
-      const { data: v } = await admin.from("venues").select("name").eq("id", ev.venue_id).maybeSingle();
-      hostName = v?.name || "";
-    } else if (ev.organizer_user_id) {
-      // D'abord le nom public de l'organisateur : c'est celui que le client
-      // connaît, et un compte organisateur a rarement first_name/last_name
-      // renseignés — d'où les notifications signées « Yuno » au lieu du nom
-      // de la soirée. Les prénom/nom ne servent que de repli.
-      const { data: op } = await admin
-        .from("organizer_profiles").select("display_name").eq("user_id", ev.organizer_user_id).maybeSingle();
-      hostName = (op?.display_name || "").trim();
-      if (!hostName) {
-        const { data: p } = await admin
-          .from("profiles").select("first_name, last_name").eq("id", ev.organizer_user_id).maybeSingle();
-        hostName = `${p?.first_name || ""} ${p?.last_name || ""}`.trim();
-      }
-    }
-    if (!hostName) hostName = "Yuno";
+  for (const row of rows) {
+    const ev = { id: row.event_id, title: row.title, slug: row.slug, venue_id: row.venue_id,
+      organizer_user_id: row.organizer_user_id, start_at: row.start_at };
+    const hostName = row.host_name || "Yuno";
 
-    const targetUrl = ev.venue_id && ev.slug ? `/events/${ev.venue_id}/${ev.slug}` : `/event/${ev.id}`;
+    // /event/<uuid> se résout TOUJOURS (EventDetails redirige vers l'URL propre).
+    // L'ancienne forme /events/<venue_id>/<slug> échouait pour une soirée
+    // d'organisateur rattachée à un club : resolve_event_path exige
+    // organizer_user_id IS NULL sur la branche club → « soirée introuvable ».
+    const targetUrl = `/event/${ev.id}`;
     const dateByLang = localizedDate(ev.start_at);
     const varsFor = (lang: Lang) => ({
       name: hostName,
@@ -450,7 +445,10 @@ export async function dispatchNewEventPushes(
         .from("organizer_profile_followers").select("user_id")
         .eq("organizer_user_id", ev.organizer_user_id).range(f, t))) ids.add(id);
     }
-    const userIds = [...ids].filter((id) => subscribers.has(id));
+    const reachable = [...ids].filter((id) => subscribers.has(id));
+    // Porte anti-spam par destinataire (préférence « clubs suivis », plafonds,
+    // cooldown 20 h sur la clé) — en lot, côté base.
+    const userIds = await filterClientRecipients(admin, reachable, "new_event");
 
     const sent = await fanoutCampaign(
       admin, pushUrl, serviceKey, campaignId, userIds, targetUrl,
@@ -463,10 +461,47 @@ export async function dispatchNewEventPushes(
 
     processed++;
     totalSent += sent;
-    console.log(`[NEW-EVENT-PUSH] event ${ev.id} → ${sent}/${userIds.length} sent`);
+    console.log(`[NEW-EVENT-PUSH] event ${ev.id} → ${sent}/${userIds.length} sent (${reachable.length} reachable)`);
   }
 
   return { processed, sent: totalSent };
+}
+
+/** 22 h → 10 h, heure de Paris : aucune annonce marketing la nuit. */
+export function isQuietHoursParis(now = new Date()): boolean {
+  const hourStr = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", hour12: false })
+    .formatToParts(now).find((p) => p.type === "hour")?.value ?? "12";
+  let hour = parseInt(hourStr, 10);
+  if (hour === 24) hour = 0;
+  return hour >= 22 || hour < 10;
+}
+
+/**
+ * Ne garde que les destinataires que client_push_policy() autorise pour la
+ * clé (opt-out, plafonds 1/24 h et 3/7 j, cooldown par clé). Échec de la RPC
+ * ⇒ on n'envoie à PERSONNE : une porte anti-spam qui tombe doit fermer.
+ */
+export async function filterClientRecipients(
+  admin: SupabaseClient,
+  userIds: string[],
+  key: string,
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  const out: string[] = [];
+  for (let i = 0; i < userIds.length; i += 500) {
+    const { data, error } = await admin.rpc("filter_client_push_recipients", {
+      p_user_ids: userIds.slice(i, i + 500),
+      p_key: key,
+    });
+    if (error) {
+      console.error(`[PUSH-POLICY] filter failed for ${key}:`, error.message);
+      return [];
+    }
+    for (const row of (data || []) as Array<string | { filter_client_push_recipients: string }>) {
+      out.push(typeof row === "string" ? row : row.filter_client_push_recipients);
+    }
+  }
+  return out;
 }
 
 /**
@@ -486,6 +521,7 @@ export async function dispatchNewEventAgencyPushes(
   serviceKey: string,
 ): Promise<{ processed: number; sent: number }> {
   if (!(await isAutoPushEnabled(admin, "agency_new_event"))) return { processed: 0, sent: 0 };
+  if (isQuietHoursParis()) return { processed: 0, sent: 0 };
 
   // Opt-in par agence : sans une seule agence ayant activé, rien à faire.
   const { data: toggles } = await admin
@@ -567,7 +603,8 @@ export async function dispatchNewEventAgencyPushes(
       const ids = new Set(await collectUserIds((f, t) => admin
         .from("agency_followers").select("user_id")
         .eq("agency_id", agencyId).not("user_id", "is", null).range(f, t)));
-      const userIds = [...ids].filter((id) => subscribers.has(id));
+      const userIds = await filterClientRecipients(
+        admin, [...ids].filter((id) => subscribers.has(id)), "agency_new_event");
 
       const sent = await fanoutCampaign(
         admin, pushUrl, serviceKey, campaignId, userIds, targetUrl,

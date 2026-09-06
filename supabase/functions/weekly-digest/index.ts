@@ -11,14 +11,39 @@ const corsHeaders = {
 // ── Yuno Taste Engine — moteur d'envoi ADAPTATIF (cron horaire) ─────────────
 // À chaque heure, on ne traite que les users dont user_send_profiles dit que
 // c'est LEUR moment de pointe (jour + heure, calculés par histogramme dans
-// refresh_user_send_profiles). Cadence par user (adaptée à l'engagement), reco
-// via le cerveau unique (get_taste_events_for_user = quiz ⊕ comportement), et
-// rotation des 8 variantes de copie. Zéro lundi/jeudi fixe.
+// refresh_user_send_profiles). Cadence par user (adaptée à l'engagement).
+//
+// Depuis le 2026-09-06, la sélection est HONNÊTE et ATTERRIT :
+//   • get_taste_events_for_user() v2 ne renvoie que des soirées de la ZONE du
+//     client (profil + achats + clubs suivis), d'un inventaire RÉEL (jamais un
+//     club caché ou décommissionné), au-dessus d'un plancher de pertinence
+//     (genre déclaré, lieu suivi, ou affinité nette). Les soirées partenaires
+//     (affiliés) entrent par genre.
+//   • client_push_policy() est la porte anti-spam unique : opt-out, heures
+//     calmes (22 h → 10 h Paris), 1 non-transactionnelle / 24 h, 3 / 7 j,
+//     cooldown par clé.
+//   • Le push écrit une ligne discovery_selections et pointe sur
+//     /for-you/<id> : le tap ouvre EXACTEMENT les soirées annoncées, pas le
+//     feed. Le titre dit « {count} soirées » avec le vrai compte, et ne cite
+//     un genre que s'il décrit réellement la sélection.
 //
 // Body optionnel {test_user_id} : force l'envoi à UN user (ignore fenêtre +
-// cadence) pour tester sur device.
+// cadence, MAIS pas la sélection ni la porte anti-spam — un test qui ment ne
+// teste rien).
 
-const VARIANTS = ['genres_led', 'event_led', 'city_led', 'curated', 'fomo', 'direct', 'agenda', 'profile'];
+type TasteRow = {
+  event_id: string;
+  is_affiliate: boolean;
+  title: string;
+  venue_id: string | null;
+  venue_name: string | null;
+  city: string | null;
+  start_at: string;
+  slug: string | null;
+  music_genres: string[] | null;
+  score: number;
+  reason: 'genre' | 'follow' | 'taste';
+};
 
 /** dow (0=dim … 6=sam, convention Postgres extract(dow)) + hour, heure de Paris. */
 function parisNow(): { dow: number; hour: number } {
@@ -33,11 +58,43 @@ function parisNow(): { dow: number; hour: number } {
   return { dow: dowMap[wd] ?? 4, hour };
 }
 
-function pickVariant(userId: string): string {
+function hashDay(userId: string): number {
   let h = 0;
   for (let i = 0; i < userId.length; i++) h = (h + userId.charCodeAt(i)) | 0;
-  const day = Math.floor(Date.now() / 86400000);
-  return VARIANTS[Math.abs(h + day) % VARIANTS.length];
+  return Math.abs(h + Math.floor(Date.now() / 86400000));
+}
+
+/**
+ * Genre DOMINANT d'une sélection : cité seulement s'il couvre la majorité des
+ * soirées (sinon « 3 soirées House » mentirait sur deux d'entre elles).
+ */
+function dominantGenre(list: TasteRow[]): string | null {
+  const counts = new Map<string, { n: number; label: string }>();
+  for (const ev of list) {
+    const seen = new Set<string>();
+    for (const g of ev.music_genres || []) {
+      const k = g.trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      const cur = counts.get(k) ?? { n: 0, label: g.trim() };
+      cur.n++;
+      counts.set(k, cur);
+    }
+  }
+  let best: { n: number; label: string } | null = null;
+  for (const c of counts.values()) if (!best || c.n > best.n) best = c;
+  if (!best) return null;
+  return best.n * 2 >= list.length ? best.label : null;
+}
+
+// Variantes qui citent un genre vs celles qui n'en ont pas besoin.
+const GENRE_VARIANTS = ['genres_led', 'city_led', 'curated', 'direct', 'agenda', 'profile'];
+const PLAIN_VARIANTS = ['event_led', 'fomo'];
+
+function pickVariant(userId: string, hasGenre: boolean, hasCity: boolean): string {
+  let pool = hasGenre ? [...GENRE_VARIANTS, ...PLAIN_VARIANTS] : PLAIN_VARIANTS;
+  if (!hasCity) pool = pool.filter((v) => v !== 'city_led');
+  return pool[hashDay(userId) % pool.length];
 }
 
 Deno.serve(async (req) => {
@@ -78,74 +135,87 @@ Deno.serve(async (req) => {
     }
     if (!targets.length) return json({ success: true, dow, hour, targets: 0, sent: 0 });
 
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     let sent = 0;
     let considered = 0;
+    const skipped: Record<string, number> = {};
+    const skip = (why: string) => { skipped[why] = (skipped[why] || 0) + 1; };
 
     for (const t of targets) {
       // Cadence adaptative (sauf en test).
       if (!testUserId && t.last_sent_at) {
         const elapsedDays = (now.getTime() - new Date(t.last_sent_at).getTime()) / 86400000;
-        if (elapsedDays < (t.cadence_days || 12)) continue;
+        if (elapsedDays < (t.cadence_days || 12)) { skip('cadence'); continue; }
       }
       considered++;
 
-      // Cap global : 3 non-transactionnelles / jour.
-      if (!testUserId) {
-        const { data: today } = await supabase
-          .from('notification_log').select('id')
-          .eq('user_id', t.user_id).in('notification_type', ['marketing', 'campaign', 'reminder'])
-          .gte('sent_at', dayAgo);
-        if ((today?.length || 0) >= 3) continue;
-      }
+      // Porte anti-spam unique (opt-out, heures calmes, plafonds, cooldown).
+      const { data: pol, error: polErr } = await supabase
+        .rpc('client_push_policy', { p_user_id: t.user_id, p_key: 'taste_discovery' });
+      const verdict = (Array.isArray(pol) ? pol[0] : pol) as { allowed: boolean; reason: string } | undefined;
+      if (polErr) { console.error('[TASTE] policy error:', polErr.message); skip('policy_error'); continue; }
+      if (!verdict?.allowed) { skip(verdict?.reason || 'policy'); continue; }
 
-      // Reco du cerveau unique (gère aussi l'opt-out découverte → renvoie vide).
+      // Sélection honnête (zone + inventaire réel + plancher de pertinence).
       const { data: events, error: rpcErr } = await supabase
         .rpc('get_taste_events_for_user', { p_user_id: t.user_id, p_limit: 3, p_days: 21 });
-      if (rpcErr) { console.error('[TASTE] rpc error:', rpcErr.message); continue; }
-      const list = (events || []) as {
-        event_id: string; title: string; venue_id: string | null;
-        city: string | null; slug: string | null; music_genres: string[] | null;
-      }[];
-      if (list.length < 2) continue; // on ne pousse que sur une vraie sélection (grammaire + valeur)
+      if (rpcErr) { console.error('[TASTE] rpc error:', rpcErr.message); skip('rpc_error'); continue; }
+      const list = (events || []) as TasteRow[];
+      if (list.length < 2) { skip('too_few'); continue; } // une vraie sélection, pas une soirée isolée
 
-      // Genres agrégés (dédup, top 2) : « House, Open Format ».
-      const genreSet: string[] = [];
-      for (const ev of list) for (const g of (ev.music_genres || [])) if (g && !genreSet.includes(g)) genreSet.push(g);
-      const genres = genreSet.slice(0, 2).join(', ');
+      const genre = dominantGenre(list);
       const top = list[0];
-      const url = top.slug && top.venue_id ? `/events/${top.venue_id}/${top.slug}` : `/event/${top.event_id}`;
+      const city = list.find((e) => e.city)?.city || null;
+
+      // La sélection exacte, persistée : c'est elle que le tap ouvre.
+      const { data: sel, error: selErr } = await supabase
+        .from('discovery_selections')
+        .insert({
+          user_id: t.user_id,
+          notification_key: 'taste_discovery',
+          event_ids: list.filter((e) => !e.is_affiliate).map((e) => e.event_id),
+          affiliate_event_ids: list.filter((e) => e.is_affiliate).map((e) => e.event_id),
+          city,
+          genres: genre ? [genre] : [],
+        })
+        .select('id')
+        .maybeSingle();
+      if (selErr || !sel) { console.error('[TASTE] selection insert failed:', selErr?.message); skip('selection_error'); continue; }
 
       try {
         const res = await sendAutoPush(supabase, {
           key: 'taste_discovery',
-          variant: pickVariant(t.user_id),
+          variant: pickVariant(t.user_id, !!genre, !!city),
           userId: t.user_id,
-          url,
+          url: `/for-you/${sel.id}`,
           vars: {
             count: String(list.length),
-            genres: genres || 'nightlife',
+            genres: genre || '',
             event: top.title || '',
-            city: top.city || '',
+            city: city || '',
           },
         });
         if (res.sent > 0) {
           sent++;
           // Dédup : ne plus repousser ces soirées à ce user.
-          await supabase.from('discovery_event_notifications').upsert(
+          const { error: dedupErr } = await supabase.from('discovery_event_notifications').upsert(
             list.map((ev) => ({ user_id: t.user_id, event_id: ev.event_id })),
             { onConflict: 'user_id,event_id', ignoreDuplicates: true },
           );
+          if (dedupErr) console.error('[TASTE] dedup upsert failed:', dedupErr.message);
           // Cadence : on repart de maintenant.
           await supabase.from('user_send_profiles')
             .update({ last_sent_at: now.toISOString() })
             .eq('user_id', t.user_id);
+        } else {
+          // Personne au bout du token : la sélection ne sert à rien.
+          await supabase.from('discovery_selections').delete().eq('id', sel.id);
+          skip('no_device');
         }
-      } catch (e) { console.error('[TASTE] send error:', e); }
+      } catch (e) { console.error('[TASTE] send error:', e); skip('send_error'); }
     }
 
-    console.log(`[TASTE-ENGINE] paris dow=${dow} h=${hour} targets=${targets.length} considered=${considered} sent=${sent}`);
-    return json({ success: true, dow, hour, targets: targets.length, considered, sent });
+    console.log(`[TASTE-ENGINE] paris dow=${dow} h=${hour} targets=${targets.length} considered=${considered} sent=${sent} skipped=${JSON.stringify(skipped)}`);
+    return json({ success: true, dow, hour, targets: targets.length, considered, sent, skipped });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Internal error';
     return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

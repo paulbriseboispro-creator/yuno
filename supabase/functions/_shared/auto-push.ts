@@ -216,6 +216,13 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
         en: { title: "We haven't seen you lately 👋", body: "New lineup this month. Check out the upcoming nights." },
         es: { title: "Hace tiempo que no te vemos 👋", body: "Nueva programación este mes. Descubre las próximas fiestas." },
       },
+      // Relance HONNÊTE : le vrai nombre de soirées dans la zone du client
+      // (count_zone_events_for_user). Sans inventaire réel, on ne relance pas.
+      zone: {
+        fr: { title: "{count} soirées près de {city} 👋", body: "Ça bouge dans ta ville ces deux prochaines semaines. Jette un œil." },
+        en: { title: "{count} nights near {city} 👋", body: "Your city is moving over the next two weeks. Take a look." },
+        es: { title: "{count} fiestas cerca de {city} 👋", body: "Tu ciudad se mueve estas dos próximas semanas. Échale un ojo." },
+      },
     },
   },
   weekly_digest: {
