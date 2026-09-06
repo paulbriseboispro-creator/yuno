@@ -327,11 +327,12 @@ const queryClient = new QueryClient({
   },
 });
 
-import { BrandedLoader } from './components/BrandedLoader';
+import { RouteSkeleton } from './components/skeletons/RouteSkeleton';
 
 
-// Branded loading fallback
-const PageLoader = () => <BrandedLoader />;
+// Fallback de chunk : la silhouette de la page demandée (voir RouteSkeleton),
+// pas un dashboard pro générique.
+const PageLoader = () => <RouteSkeleton />;
 
 // Component to check maintenance mode and bypass for super admins or password
 function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
