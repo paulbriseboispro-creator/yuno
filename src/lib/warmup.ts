@@ -11,7 +11,16 @@
 
 let started = false;
 
-export function warmupApp(): void {
+/**
+ * `scope` :
+ * - 'app' (défaut, natif/PWA pendant le splash) : toutes les surfaces majeures.
+ * - 'web' (Explorer web, une fois le feed peint) : seulement le chemin d'achat
+ *   et la bottom nav — la navigation garde l'écran courant tant que le chunk
+ *   n'est pas là (v7_startTransition), donc chaque chunk non préchauffé se
+ *   paie en latence perçue AU TAP. Idle + séquentiel : jamais en concurrence
+ *   avec les affiches du feed.
+ */
+export function warmupApp(scope: 'app' | 'web' = 'app'): void {
   if (started) return;
   started = true;
 
@@ -22,7 +31,15 @@ export function warmupApp(): void {
   };
 
   idle(() => {
-    const surfaces: Array<() => Promise<unknown>> = [
+    const surfaces: Array<() => Promise<unknown>> = scope === 'web' ? [
+      () => import('@/pages/EventDetails'),
+      () => import('@/pages/VenuePage'),
+      () => import('@/pages/TicketSelection'),
+      () => import('@/pages/AllEventsPage'),
+      () => import('@/pages/Favorites'),
+      () => import('@/pages/MyOrders'),
+      () => import('@/pages/Profile'),
+    ] : [
       // 1. Onglets de la bottom nav — un tap depuis l'Explorer, toujours.
       () => import('@/pages/Favorites'),
       () => import('@/pages/MyOrders'),

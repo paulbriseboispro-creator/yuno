@@ -232,6 +232,15 @@ export default function Explore() {
     queryFn: () => fetchExploreCatalog(queryClient, catalogRange, { includeLive: true }),
     placeholderData: keepPreviousData,
   });
+
+  // Web : une fois le feed servi, préchauffe le chemin d'achat (fiche soirée,
+  // club, billets) et la bottom nav. En natif/PWA le splash l'a déjà fait
+  // (warmupApp est idempotent) ; ici c'est le premier tap web qui y gagne.
+  const catalogReady = !!catalogQuery.data;
+  useEffect(() => {
+    if (!catalogReady) return;
+    import('@/lib/warmup').then(({ warmupApp }) => warmupApp('web')).catch(() => {});
+  }, [catalogReady]);
   const catalog = catalogQuery.data;
 
   // Jour choisi au calendrier HORS de la fenêtre du catalogue : une requête
