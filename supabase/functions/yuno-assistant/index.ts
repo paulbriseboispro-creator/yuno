@@ -33,14 +33,21 @@ Tu as accès aux DONNÉES RÉELLES de Yuno ci-dessous. Utilise-les TOUJOURS pour
 
 FORMATAGE — Tu DOIS utiliser du Markdown dans tes réponses :
 - **Gras** pour les noms importants, prix, dates
-- [Liens cliquables](url) pour CHAQUE club, événement ou DJ que tu mentionnes
-- Quand tu mentionnes un événement, ajoute TOUJOURS le lien : [Nom de l'event](lien)
-- Quand tu mentionnes un club, ajoute TOUJOURS le lien : [Nom du club](lien)
+- Quand tu mentionnes un club, ajoute son lien SI les données en donnent un : [Nom du club](lien)
 - Quand tu mentionnes un DJ, ajoute le lien si disponible : [Nom DJ](lien)
-- Si une image (poster, logo) est disponible, inclus-la avec la syntaxe : ![alt](url)
-- Pour les événements, montre le poster si disponible
+- N'INVENTE JAMAIS UNE URL. Tu ne colles qu'un lien présent mot pour mot dans les données. Fabriquer une adresse à partir d'un nom (du type /club/<nom-du-lieu>) envoie le client sur une page qui n'existe pas. Le lieu d'une soirée sans club n'a AUCUNE page : il se cite en texte, jamais en lien.
 - Utilise des listes à puces pour les menus de boissons
 - Utilise des titres ### pour structurer les réponses longues
+
+CARTES SOIRÉE — RÈGLE ABSOLUE. Une soirée ne se raconte pas en liste à puces : elle se COLLE en carte.
+- Chaque soirée que tu proposes s'écrit avec le jeton donné par la ligne CARTE= de ses données, recopié à l'identique, seul sur sa ligne : [[event:<id>]]
+- LES DONNÉES RÉELLES SONT TES NOTES, PAS TON BROUILLON. Tu n'écris JAMAIS leurs étiquettes ("CARTE=", "Lien :", "Poster :", "Billets :", "Adresse :", "📋 Guest list dispo", "Organisée par") ni leur mise en page — ce sont des repères pour toi. Tu écris tes propres phrases, dans ta voix.
+- La carte est une vraie carte Yuno, cliquable, qui ouvre la soirée. Elle affiche déjà l'affiche, le lieu, la ville, la date, l'heure, le genre, le prix, l'entrée gratuite et les tables.
+- Donc autour d'une carte : JAMAIS d'image markdown ![...](...), JAMAIS de lien vers cette soirée, JAMAIS de liste à puces qui répète la date / le lieu / le genre / le prix. Tout ça est déjà dans la carte, le répéter fait un doublon moche.
+- Le bon format : une phrase courte qui donne envie, la carte sur sa ligne, puis une relance (une question ou un conseil).
+- PLUSIEURS SOIRÉES = UNE phrase d'introduction, puis les cartes À LA SUITE, chacune seule sur sa ligne. Surtout PAS une liste à puces où chaque soirée est décrite au-dessus de sa carte : ce serait la même information deux fois, en plus moche. Les cartes se suffisent, tu commentes après.
+- Ce qui reste utile à écrire à côté de la carte : ce que la carte ne dit pas — le line-up, l'ambiance, un détail du concept, ton conseil. Redire la date, le lieu, le genre et le prix juste au-dessus de la carte qui les affiche, c'est du remplissage.
+- Les liens vers les AUTRES pages (Explorer, profil, aide, page d'un club, d'un DJ) restent des liens markdown normaux.
 
 PERTINENCE — règle ABSOLUE quand l'utilisateur donne des critères (genre musical, ville, date, budget) :
 - Ne recommande QUE les événements qui correspondent VRAIMENT à ses critères. Une demande "house" → uniquement des soirées house/électro compatibles. JAMAIS de reggaeton, RnB ou autre genre sans rapport pour "compléter" la liste.
@@ -338,15 +345,22 @@ function buildRealDataContext(
       if (isLive) tag = ' 🔴 EN COURS';
       else if (isTonight) tag = ' ⭐ CE SOIR';
 
-      ctx += `\n- **"${e.title}"** au **${venueName}**${city ? ` — 📍 ${city}` : ''}${tag} — ${formatDateTz(e.start_at, tz)} à ${formatDateTz(e.end_at, tz)}`;
+      // Format en champs, volontairement SANS gras ni puces : quand ces notes
+      // ressemblaient à du Markdown prêt à servir, le modèle les recopiait
+      // telles quelles au-dessus de la carte, qui redisait déjà tout.
+      ctx += `\n${'-'.repeat(52)}`;
+      ctx += `\ntitre= ${e.title}${tag}`;
+      ctx += `\nlieu= ${venueName}${city ? ` (${city})` : ''}`;
+      ctx += `\nquand= ${formatDateTz(e.start_at, tz)} -> ${formatDateTz(e.end_at, tz)}`;
       const genres = Array.isArray(e.music_genres) && e.music_genres.length
         ? e.music_genres.join(', ')
         : e.music_genre;
-      if (genres) ctx += ` — ${genres}`;
-      if (!venue && org) ctx += `\n  Organisée par **${org.display_name}** (soirée sans club partenaire)`;
-      if (!venue && e.location_address) ctx += `\n  Adresse : ${e.location_address}`;
-      ctx += `\n  Lien : ${eventLink}`;
-      if (e.poster_url) ctx += `\n  Poster : ${e.poster_url}`;
+      if (genres) ctx += `\ngenre= ${genres}`;
+      if (!venue && org) ctx += `\norganisateur= ${org.display_name} (soirée sans club partenaire)`;
+      if (!venue && e.location_address) ctx += `\nadresse= ${e.location_address}`;
+      // Le jeton REMPLACE le lien et l'affiche : les laisser ici poussait le
+      // modèle à écrire « [Nom](lien) » et « ![](poster) » à côté de la carte.
+      ctx += `\nCARTE= [[event:${e.id}]]  (ouvre ${eventLink})`;
 
       // Ticket rounds
       const rounds = ticketRounds.filter((r: any) => r.event_id === e.id);
@@ -359,9 +373,9 @@ function buildRealDataContext(
           else txt += ` (${remaining} places)`;
           return txt;
         });
-        ctx += `\n  Billets : ${roundTexts.join(' | ')}`;
+        ctx += `\nbillets= ${roundTexts.join(' | ')}`;
       } else if (e.ticketing_enabled === false) {
-        ctx += `\n  Pas de billetterie en ligne sur cette soirée — l'entrée se fait par la guest list, les tables VIP, ou sur place.`;
+        ctx += `\nbillets= aucune billetterie en ligne (entrée par la guest list, les tables VIP, ou sur place)`;
       }
 
       // DJs playing at this event
@@ -371,13 +385,13 @@ function buildRealDataContext(
           const dj = djs.find((d: any) => d.id === ds.dj_id);
           return dj ? (dj.stage_name || dj.first_name) : null;
         }).filter(Boolean);
-        if (djNames.length > 0) ctx += `\n  DJs : ${djNames.join(', ')}`;
+        if (djNames.length > 0) ctx += `\nline-up= ${djNames.join(', ')}`;
       }
 
       // Guest list
       const gl = guestLists.find((g: any) => g.event_id === e.id);
       if (gl) {
-        ctx += `\n  📋 Guest list dispo — Entrée gratuite avant ${String(gl.free_before_time).slice(0, 5)}`;
+        ctx += `\nguest-list= entrée gratuite avant ${String(gl.free_before_time).slice(0, 5)}`;
         if (gl.includes_drink) ctx += ' + boisson offerte';
         if (gl.quota) ctx += ` (places limitées)`;
       }
@@ -707,19 +721,34 @@ serve(async (req) => {
       affiliateContext = "\n🌆 SOIRÉES PARTENAIRES (billets via la billetterie officielle du club, redirection depuis Yuno) :\n";
       for (const e of affEvents) {
         const v = Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] : e.affiliate_venues;
-        affiliateContext += `- **${e.name}**${v ? ` @ ${v.name} (${v.city}${v.neighborhood ? ', ' + v.neighborhood : ''})` : ''} — ${e.event_date}${e.start_time ? ' ' + e.start_time : ''}`;
-        if (e.is_sold_out) affiliateContext += ` [COMPLET]`;
-        else if (e.is_free) affiliateContext += ` [Gratuit]`;
-        else if (e.price_from != null) affiliateContext += ` [dès ${e.price_from}€]`;
-        if (Array.isArray(e.genres) && e.genres.length) affiliateContext += ` · ${e.genres.join('/')}`;
-        affiliateContext += `\n  Page Yuno : ${APP_BASE_URL}/affiliate-event/${e.slug}`;
-        if (!e.external_ticket_url) affiliateContext += ` (pas de billetterie en ligne — entrée sur place)`;
+        affiliateContext += `${'-'.repeat(52)}`;
+        affiliateContext += `\ntitre= ${e.name}`;
+        if (v) affiliateContext += `\nlieu= ${v.name} (${v.city}${v.neighborhood ? ', ' + v.neighborhood : ''})`;
+        affiliateContext += `\nquand= ${e.event_date}${e.start_time ? ' ' + e.start_time : ''}`;
+        if (e.is_sold_out) affiliateContext += `\nbillets= COMPLET`;
+        else if (e.is_free) affiliateContext += `\nbillets= gratuit`;
+        else if (e.price_from != null) affiliateContext += `\nbillets= dès ${e.price_from}€`;
+        if (Array.isArray(e.genres) && e.genres.length) affiliateContext += `\ngenre= ${e.genres.join(', ')}`;
+        affiliateContext += `\nCARTE= [[event:${e.id}]]  (ouvre ${APP_BASE_URL}/affiliate-event/${e.slug})`;
+        if (!e.external_ticket_url) affiliateContext += `\nnote= pas de billetterie en ligne, entrée sur place`;
         affiliateContext += `\n`;
       }
-      affiliateContext += "Pour ces soirées : donne le lien de la page Yuno. L'utilisateur y verra le bouton billets qui redirige vers la billetterie officielle du club (Fourvenues, Shotgun…). Pas de Mode Live ni de commande de boissons Yuno dans ces clubs.\n";
+      affiliateContext += "Ces soirées se collent EXACTEMENT comme les soirées Yuno : le jeton [[event:<id>]] seul sur sa ligne, jamais une liste à puces, jamais un lien à la place de la carte. Depuis la carte, l'utilisateur voit le bouton billets qui redirige vers la billetterie officielle du club (Fourvenues, Shotgun…). Pas de Mode Live ni de commande de boissons Yuno dans ces clubs.\n";
     }
 
-    const systemPrompt = BASE_SYSTEM_PROMPT + CLIENT_KNOWLEDGE_BASE + currentDateTime + realDataContext + affiliateContext;
+    // Rappel final : c'est la dernière chose que le modèle lit avant la question,
+    // et c'est la consigne qu'il lâche en premier quand il propose PLUSIEURS
+    // soirées (il retombe alors dans la liste à puces qui redit la carte).
+    const cardReminder = `
+═══ RAPPEL FINAL — LE PLUS IMPORTANT ═══
+Une soirée = son jeton [[event:<id>]], SEUL sur sa ligne. Rien d'autre.
+INTERDIT : une liste à puces qui décrit une soirée (date / lieu / genre / prix) — la carte l'affiche déjà.
+INTERDIT : écrire "CARTE=", un lien ou une image pour une soirée. INTERDIT d'inventer une URL.
+Une soirée citée SANS son jeton est une réponse ratée : le client ne peut pas cliquer.
+Plusieurs soirées : une phrase d'intro, puis les jetons à la suite, puis ton commentaire. Pas de puces entre eux.
+`;
+
+    const systemPrompt = BASE_SYSTEM_PROMPT + CLIENT_KNOWLEDGE_BASE + currentDateTime + realDataContext + affiliateContext + cardReminder;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
