@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
 import { ProBackButton } from '@/components/pro/ProBackButton';
+import { ClickCollectSkeleton } from '@/components/skeletons/ClickCollectSkeleton';
 import { Order, NotifyStatus, PrepStatus } from '@/types';
 
 // Represents a group of orders from the same user+event merged into one card
@@ -476,13 +477,7 @@ export default function ClickCollect() {
     }
   };
 
-  if (loading || venueLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading || venueLoading) return <ClickCollectSkeleton />;
 
   return (
     <div className="min-h-screen bg-background pb-20">

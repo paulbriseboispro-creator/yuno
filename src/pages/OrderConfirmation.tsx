@@ -26,6 +26,7 @@ import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
 import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
 import { PublicPage } from '@/components/PublicPage';
+import { OrderConfirmationSkeleton } from '@/components/skeletons/OrderConfirmationSkeleton';
 import { publicUrl } from '@/lib/native';
 
 interface UpsellSelection {
@@ -832,13 +833,7 @@ export default function OrderConfirmation() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: '#E8192C', borderTopColor: 'transparent' }} />
-      </div>
-    );
-  }
+  if (loading) return <OrderConfirmationSkeleton />;
 
   if (!data) {
     return (

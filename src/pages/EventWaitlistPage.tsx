@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
+import { EventWaitlistSkeleton } from '@/components/skeletons/EventWaitlistSkeleton';
 
 export default function EventWaitlistPage() {
   const { eventId, basePath } = useEventRoute();
@@ -187,11 +188,7 @@ export default function EventWaitlistPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <EventWaitlistSkeleton />;
   }
 
   if (registered) {

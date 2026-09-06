@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Seo } from '@/components/Seo';
 import { PublicPage } from '@/components/PublicPage';
+import { CityEventsSkeleton } from '@/components/skeletons/CityEventsSkeleton';
 import { CITY_PAGES } from '@/data/cityPages';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { markWebEngaged } from '@/lib/webHome';
@@ -305,12 +306,12 @@ export default function CityPage() {
                   </Link>
                 ))}
               </div>
+            ) : loading ? (
+              <CityEventsSkeleton />
             ) : (
-              !loading && (
-                <p className="font-mono" style={{ fontSize: '12px', color: '#9A9A9A' }}>
-                  {cityT('city.empty')}
-                </p>
-              )
+              <p className="font-mono" style={{ fontSize: '12px', color: '#9A9A9A' }}>
+                {cityT('city.empty')}
+              </p>
             )}
           </section>
 

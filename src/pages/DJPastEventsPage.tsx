@@ -10,6 +10,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { formatCompactCount } from '@/components/formater';
 import { FadeInView } from '@/components/motion';
 import { PublicPage } from '@/components/PublicPage';
+import { DJPastEventsSkeleton } from '@/components/skeletons/DJPastEventsSkeleton';
 
 interface TopEvent {
   id: string; title: string; start_at: string; poster_url: string | null;
@@ -65,13 +66,7 @@ export default function DJPastEventsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <DJPastEventsSkeleton />;
 
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>

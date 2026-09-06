@@ -27,6 +27,7 @@ import QRCode from 'qrcode';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { GuestListSignupSkeleton } from '@/components/skeletons/GuestListSignupSkeleton';
 
 /** Colonnes d'event embarquées avec la guest list (select imbriqué). */
 interface GuestListEventInfo {
@@ -523,11 +524,7 @@ export default function GuestListSignup() {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <GuestListSignupSkeleton />;
   }
 
   if (loadError) {

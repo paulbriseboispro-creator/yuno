@@ -6,6 +6,7 @@ import { useReducedMotion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Tappable } from '@/components/motion';
 import { PublicPage } from '@/components/PublicPage';
+import { MomentRowsSkeleton } from '@/components/skeletons/MomentRowsSkeleton';
 import { Seo } from '@/components/Seo';
 import { eventTargetPath } from '@/lib/eventNavigation';
 import { eventPriceLabel } from '@/lib/eventPriceLabel';
@@ -270,17 +271,7 @@ function MomentPageInner({ moment }: { moment: FeaturedMoment }) {
 
           {/* ── Programme soir par soir ── */}
           {isLoading ? (
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <div style={{ width: 64, height: 64, borderRadius: 4, background: '#1A1A1A', flexShrink: 0 }} />
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ width: '55%', height: 12, borderRadius: 4, background: '#1A1A1A' }} />
-                    <div style={{ width: '35%', height: 10, borderRadius: 4, background: '#161616' }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MomentRowsSkeleton />
           ) : data.groups.length === 0 ? (
             <p
               className="font-mono"

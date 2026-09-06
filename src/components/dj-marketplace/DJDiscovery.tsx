@@ -10,6 +10,7 @@ import { BookingRequestDialog } from './BookingRequestDialog';
 import { FadeInView } from '@/components/motion';
 import { EMPTY_FILTERS, DEFAULT_BOOKER_RADIUS_KM, type MarketplaceDJ, type MarketplaceFilters, type DiscoveryMode, type ResidentScope } from './types';
 import { geocodeCity } from '@/lib/geocode';
+import { DJDiscoveryRowsSkeleton } from '@/components/skeletons/DJDiscoveryRowsSkeleton';
 
 const PAGE = 40;
 
@@ -126,10 +127,7 @@ export function DJDiscovery({
       <DJFilterBar mode={mode} value={filters} onChange={setFilters} />
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-          <div style={{ width: 28, height: 28, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#E8192C', borderRadius: '50%', animation: 'djmspin 0.7s linear infinite' }} />
-          <style>{`@keyframes djmspin{to{transform:rotate(360deg)}}`}</style>
-        </div>
+        <DJDiscoveryRowsSkeleton />
       ) : djs.length === 0 ? (
         <p style={{ textAlign: 'center', color: '#5A5A5E', fontFamily: 'monospace', fontSize: 13, padding: '48px 0' }}>
           {tt('Aucun DJ ne correspond.', 'No DJs match.', 'Ningún DJ coincide.')}

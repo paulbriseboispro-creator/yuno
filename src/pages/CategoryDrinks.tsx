@@ -15,6 +15,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { PublicPage } from '@/components/PublicPage';
+import { CategoryDrinksSkeleton } from '@/components/skeletons/CategoryDrinksSkeleton';
 
 type CategoryType = 'drink' | 'shot' | 'soft';
 
@@ -143,13 +144,7 @@ export default function CategoryDrinks() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <CategoryDrinksSkeleton />;
 
   return (
     <div className="min-h-screen bg-background pb-24">

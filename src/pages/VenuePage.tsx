@@ -17,8 +17,8 @@ import { useParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2, MapPin, Calendar, Handshake } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Shimmer, SkeletonLine } from '@/components/skeletons/Shimmer';
+import { VenuePageSkeleton } from '@/components/skeletons/VenuePageSkeleton';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -594,31 +594,7 @@ export default function VenuePage() {
   };
 
   if (venueLoading) {
-    // bg-muted (7%) est invisible sur le fond #0A0A0A → teinte explicite pour
-    // que le chargement ne ressemble jamais à un « écran noir ».
-    const sk = 'bg-white/[0.08]';
-    return (
-      <div className="min-h-screen bg-background pb-20">
-        <div className="px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
-          <Skeleton className={`w-full aspect-video rounded-xl ${sk}`} />
-        </div>
-        <div className="px-5 pt-4 space-y-3">
-          <Skeleton className={`h-7 w-2/3 ${sk}`} />
-          <div className="flex items-center gap-2">
-            <Skeleton className={`h-7 w-7 rounded-full ${sk}`} />
-            <Skeleton className={`h-4 w-40 ${sk}`} />
-          </div>
-          <Skeleton className={`h-8 w-28 rounded-full ${sk}`} />
-        </div>
-        <div className="mx-auto max-w-xl px-5 pt-8 space-y-4">
-          <Skeleton className={`h-4 w-32 ${sk}`} />
-          <div className="flex flex-col gap-6">
-            <Skeleton className={`w-full aspect-square rounded-xl ${sk}`} />
-            <Skeleton className={`w-full aspect-square rounded-xl ${sk}`} />
-          </div>
-        </div>
-      </div>
-    );
+    return <VenuePageSkeleton />;
   }
 
   if (loadError && !venue) {

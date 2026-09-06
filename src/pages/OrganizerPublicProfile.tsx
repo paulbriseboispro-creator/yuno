@@ -27,6 +27,7 @@ import { useStore } from '@/store/useStore';
 import { PublicPage } from '@/components/PublicPage';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
 import { CartButton } from '@/components/CartButton';
+import { OrganizerProfileSkeleton } from '@/components/skeletons/OrganizerProfileSkeleton';
 
 interface OrgProfile {
   user_id: string;
@@ -306,13 +307,7 @@ export default function OrganizerPublicProfile() {
     if (outcome === 'copied') toast.success(t('share.copied') || 'Lien copié');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <OrganizerProfileSkeleton />;
 
   if (!profile) {
     return (

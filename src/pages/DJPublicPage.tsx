@@ -19,6 +19,7 @@ import { DJTrackPlayer } from '@/components/dj/DJTrackPlayer';
 import { formatCompactCount } from '@/components/formater';
 import { toast } from 'sonner';
 import { PublicPage } from '@/components/PublicPage';
+import { DJPublicSkeleton } from '@/components/skeletons/DJPublicSkeleton';
 
 const COUNTRY_TRANSLATIONS: Record<string, Record<string, string>> = {
   'France': { fr: 'France', es: 'Francia', en: 'France' },
@@ -232,13 +233,7 @@ export default function DJPublicPage() {
     notFound: t('djPublic.notFound'),
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <DJPublicSkeleton />;
 
   if (!dj) {
     return (

@@ -22,6 +22,7 @@ import { LiveTablesUpsell } from '@/components/livemode/LiveTablesUpsell';
 import { LiveMenu } from '@/components/livemode/LiveMenu';
 import { LiveFreeDrinks } from '@/components/livemode/LiveFreeDrinks';
 import { CartButton } from '@/components/CartButton';
+import { LiveModeSkeleton } from '@/components/skeletons/LiveModeSkeleton';
 import { transitions } from '@/lib/motion';
 
 const LAST_CALL_MS = 45 * 60 * 1000;
@@ -83,13 +84,7 @@ export default function LiveMode() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <LiveModeSkeleton />;
 
   if (!isLive || !session) {
     return <Navigate to="/" replace />;

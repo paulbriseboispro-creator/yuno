@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { shareContent } from '@/lib/share';
 import { toast } from 'sonner';
 import { PublicPage } from '@/components/PublicPage';
+import { DJEpkSkeleton } from '@/components/skeletons/DJEpkSkeleton';
 
 const RED = '#E8192C';
 const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
@@ -93,13 +94,7 @@ export default function DJEpkPage() {
     return () => { active = false; };
   }, [slug]);
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.1) rgba(255,255,255,0.1) rgba(255,255,255,0.1) ${RED}` }} />
-      </div>
-    );
-  }
+  if (loading) return <DJEpkSkeleton />;
 
   if (!dj) {
     return (

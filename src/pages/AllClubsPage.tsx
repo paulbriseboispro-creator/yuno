@@ -9,6 +9,7 @@ import { haversineKm, cityMatches, NEAR_RADIUS_KM } from '@/lib/userLocation';
 import { FadeInView } from '@/components/motion';
 import { Seo } from '@/components/Seo';
 import { PublicPage } from '@/components/PublicPage';
+import { AllClubsRowsSkeleton } from '@/components/skeletons/AllClubsRowsSkeleton';
 
 interface ClubRow {
   id: string;
@@ -137,10 +138,7 @@ export default function AllClubsPage() {
       <PublicPage variant="discovery">
       <div style={{ flex: 1, width: '100%', maxWidth: 512, margin: '0 auto', padding: '18px 18px 96px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-            <div style={{ width: 28, height: 28, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#E8192C', borderRadius: '50%', animation: 'allspin 0.7s linear infinite' }} />
-            <style>{`@keyframes allspin{to{transform:rotate(360deg)}}`}</style>
-          </div>
+          <AllClubsRowsSkeleton />
         ) : visible.length === 0 ? (
           <p style={{ textAlign: 'center', color: '#5A5A5E', fontFamily: 'monospace', fontSize: 13, padding: '48px 0' }}>
             {emptyMsg}

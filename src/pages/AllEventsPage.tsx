@@ -11,6 +11,7 @@ import { eventTargetPath } from '@/lib/eventNavigation';
 import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { Seo } from '@/components/Seo';
 import { PublicPage } from '@/components/PublicPage';
+import { AllEventsRowsSkeleton } from '@/components/skeletons/AllEventsRowsSkeleton';
 import { cardImage } from '@/lib/imageOptimization';
 import { FadeImage } from '@/components/ui/fade-image';
 
@@ -597,17 +598,7 @@ export default function AllEventsPage() {
       <main style={{ flex: 1, padding: 0, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 128px)' }}>
 
         {loading ? (
-          <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ width: 72, height: 72, borderRadius: 4, background: '#1A1A1A', flexShrink: 0 }} />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ width: '55%', height: 12, borderRadius: 4, background: '#1A1A1A' }} />
-                  <div style={{ width: '35%', height: 10, borderRadius: 4, background: '#161616' }} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <AllEventsRowsSkeleton />
         ) : groups.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center' }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#2A2A2A', marginBottom: 16 }}>

@@ -28,6 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { AgeGate } from '@/components/AgeGate';
+import { PostCheckoutUpsellSkeleton } from '@/components/skeletons/PostCheckoutUpsellSkeleton';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -246,16 +247,7 @@ export default function PostCheckoutUpsell() {
     }
   };
 
-  if (loading) {
-    return (
-      <div
-        className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 px-6"
-        style={{ background: '#0A0A0A', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#E8192C' }} />
-      </div>
-    );
-  }
+  if (loading) return <PostCheckoutUpsellSkeleton />;
 
   const surface = { background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10 } as const;
 

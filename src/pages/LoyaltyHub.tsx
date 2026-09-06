@@ -12,6 +12,7 @@ import { LoyaltyProgressRing } from '@/components/profile/LoyaltyProgressRing';
 import { LoyaltyRewardsSheet } from '@/components/loyalty/LoyaltyRewardsSheet';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
+import { LoyaltyHubSkeleton } from '@/components/skeletons/LoyaltyHubSkeleton';
 
 const TIER_ACCENT = {
   bronze: 'from-primary/10 to-primary/5',
@@ -52,13 +53,7 @@ export default function LoyaltyHub() {
     }, 'bronze');
   }, [loyaltyCards]);
 
-  if (authLoading || profileLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  if (authLoading || profileLoading) return <LoyaltyHubSkeleton />;
 
   const HighestTierIcon = TIER_ICON[highestTier];
 

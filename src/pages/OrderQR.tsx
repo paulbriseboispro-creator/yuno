@@ -11,6 +11,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { nowInParis, toParisTime } from '@/lib/timezone';
 import { OrderQROverlay } from '@/components/orders/TemporalOrders';
+import { OrderQRSkeleton } from '@/components/skeletons/OrderQRSkeleton';
 
 /* Palette éditoriale publique — alignée sur TemporalOrders / DrinkOrderDetailModal. */
 const RED = '#E8192C';
@@ -190,18 +191,23 @@ export default function OrderQR() {
     };
   }, [order?.venue_id]);
 
-  if (loading || verifying) {
+  // Vérification du paiement = attente d'un process (Stripe), pas un chargement
+  // de contenu : le spinner + libellé restent. Le chargement de la commande
+  // affiche la silhouette de la page QR.
+  if (verifying) {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="text-center">
           <div className="mb-4 h-11 w-11 animate-spin rounded-full mx-auto" style={{ border: `3px solid ${BORDER_STRONG}`, borderTopColor: RED }} />
           <p className="font-mono uppercase" style={{ fontSize: 10.5, letterSpacing: '.1em', color: G2 }}>
-            {verifying ? t('orderDetails.verifyingPayment') : t('orderDetails.loading')}
+            {t('orderDetails.verifyingPayment')}
           </p>
         </div>
       </div>
     );
   }
+
+  if (loading) return <OrderQRSkeleton />;
 
   if (!order) {
     return (

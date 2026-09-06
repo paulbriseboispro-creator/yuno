@@ -27,6 +27,7 @@ import { useGuestSignup } from '@/hooks/useGuestSignup';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { GuestListCheckoutSkeleton } from '@/components/skeletons/GuestListCheckoutSkeleton';
 
 interface GuestListInfo {
   id: string;
@@ -373,11 +374,7 @@ export default function GuestListCheckout() {
 
   // ── Loading ──
   if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <GuestListCheckoutSkeleton />;
   }
 
   // ── Échec réseau/RLS : « connexion impossible » + réessai, pas « introuvable » ──

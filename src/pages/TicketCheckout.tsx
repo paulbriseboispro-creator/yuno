@@ -31,6 +31,7 @@ import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { TicketCheckoutSkeleton } from '@/components/skeletons/TicketCheckoutSkeleton';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -777,11 +778,7 @@ export default function TicketCheckout() {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <TicketCheckoutSkeleton />;
   }
 
   if (!event || !venue || !round) {

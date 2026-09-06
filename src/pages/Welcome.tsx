@@ -12,7 +12,9 @@ import { BottomNav } from '@/components/BottomNav';
 import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import VenueCard from '@/components/welcome/VenueCard';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import { Loader2, MapIcon, Grid3X3, Navigation, Clock, Bell } from 'lucide-react';
+import { MapIcon, Grid3X3, Navigation, Clock, Bell } from 'lucide-react';
+import { WelcomeSkeleton } from '@/components/skeletons/WelcomeSkeleton';
+import { Shimmer } from '@/components/skeletons/Shimmer';
 import { Button } from '@/components/ui/button';
 
 import { toast } from 'sonner';
@@ -326,13 +328,7 @@ const Welcome = () => {
     navigate(`/club/${venueId}`);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading) return <WelcomeSkeleton />;
 
   return (
     <>
@@ -432,11 +428,7 @@ const Welcome = () => {
             <div className="flex-1 relative flex min-h-0">
               {/* Map takes full width on mobile, partial on desktop */}
               <div className="flex-1 relative min-h-0">
-                <Suspense fallback={
-                  <div className="absolute inset-0 flex items-center justify-center bg-background">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                  </div>
-                }>
+                <Suspense fallback={<Shimmer className="absolute inset-0 rounded-none" />}>
                   <VenueMap 
                     venues={processedVenues.map(v => ({
                       id: v.id,

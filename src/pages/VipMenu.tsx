@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { CreditBudgetBar } from '@/components/vip/CreditBudgetBar';
 import { VipOrderTracking } from '@/components/vip/VipOrderTracking';
 import { MixerSuggestionDialog } from '@/components/vip/MixerSuggestionDialog';
+import { VipMenuSkeleton } from '@/components/skeletons/VipMenuSkeleton';
 import {
   ShoppingCart,
   Plus,
@@ -509,13 +510,7 @@ export default function VipMenu() {
     }
   };
 
-  if (menuLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#E8192C' }} />
-      </div>
-    );
-  }
+  if (menuLoading) return <VipMenuSkeleton />;
 
   return (
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
