@@ -11,6 +11,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toAppPath } from '@/lib/native';
 import { PublicPage } from '@/components/PublicPage';
 import { AnimatedOrb } from '@/components/ui/AnimatedOrb';
+import { AssistantEventCards } from '@/components/assistant/AssistantEventCards';
+import { parseAssistantMessage } from '@/lib/assistantMessage';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -206,6 +208,47 @@ export default function YunoAssistantPage() {
 
   const greetingName = firstName || '';
 
+  const proseClass = `prose prose-sm prose-invert max-w-none
+    prose-p:my-1.5 prose-p:leading-relaxed
+    prose-a:text-primary prose-a:no-underline prose-a:font-medium hover:prose-a:underline
+    prose-strong:text-white prose-strong:font-semibold
+    prose-img:rounded-xl prose-img:my-3 prose-img:max-h-48 prose-img:w-auto prose-img:object-cover
+    prose-ul:my-2 prose-ul:space-y-1 prose-li:my-0
+    prose-headings:text-white prose-headings:mt-3 prose-headings:mb-1.5
+    prose-h3:text-base prose-h4:text-sm`;
+
+  const markdownComponents = {
+    a: ({ href, children, ...props }: React.ComponentPropsWithoutRef<'a'>) => {
+      // Les liens vers l'app (relatifs OU absolus yunoapp.eu) naviguent
+      // en interne — jamais d'ouverture Safari depuis l'app native.
+      const internalPath = toAppPath(href);
+      return (
+        <a
+          href={internalPath ?? href}
+          target={internalPath ? '_self' : '_blank'}
+          rel={internalPath ? undefined : 'noopener noreferrer'}
+          onClick={internalPath ? (e: React.MouseEvent) => {
+            e.preventDefault();
+            navigate(internalPath);
+          } : undefined}
+          className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+          {...props}
+        >
+          {children}
+        </a>
+      );
+    },
+    img: ({ src, alt, ...props }: React.ComponentPropsWithoutRef<'img'>) => (
+      <img
+        src={src}
+        alt={alt || ''}
+        className="rounded-xl max-h-48 w-auto object-cover my-3"
+        loading="lazy"
+        {...props}
+      />
+    ),
+  };
+
   return (
     <div
       className="fixed inset-x-0 top-0 flex flex-col z-50 overflow-hidden"
@@ -366,51 +409,17 @@ export default function YunoAssistantPage() {
                           backdropFilter: 'blur(20px)',
                         }}
                       >
-                        <div className="prose prose-sm prose-invert max-w-none
-                          prose-p:my-1.5 prose-p:leading-relaxed
-                          prose-a:text-primary prose-a:no-underline prose-a:font-medium hover:prose-a:underline
-                          prose-strong:text-white prose-strong:font-semibold
-                          prose-img:rounded-xl prose-img:my-3 prose-img:max-h-48 prose-img:w-auto prose-img:object-cover
-                          prose-ul:my-2 prose-ul:space-y-1 prose-li:my-0
-                          prose-headings:text-white prose-headings:mt-3 prose-headings:mb-1.5
-                          prose-h3:text-base prose-h4:text-sm
-                        ">
-                          <ReactMarkdown
-                            components={{
-                              a: ({ href, children, ...props }) => {
-                                // Les liens vers l'app (relatifs OU absolus yunoapp.eu) naviguent
-                                // en interne — jamais d'ouverture Safari depuis l'app native.
-                                const internalPath = toAppPath(href);
-                                return (
-                                  <a
-                                    href={internalPath ?? href}
-                                    target={internalPath ? '_self' : '_blank'}
-                                    rel={internalPath ? undefined : 'noopener noreferrer'}
-                                    onClick={internalPath ? (e) => {
-                                      e.preventDefault();
-                                      navigate(internalPath);
-                                    } : undefined}
-                                    className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
-                                    {...props}
-                                  >
-                                    {children}
-                                  </a>
-                                );
-                              },
-                              img: ({ src, alt, ...props }) => (
-                                <img
-                                  src={src}
-                                  alt={alt || ''}
-                                  className="rounded-xl max-h-48 w-auto object-cover my-3"
-                                  loading="lazy"
-                                  {...props}
-                                />
-                              ),
-                            }}
-                          >
-                            {msg.content}
-                          </ReactMarkdown>
-                        </div>
+                        {/* Les soirées citées sortent de la prose et deviennent
+                            de vraies cartes cliquables ; le reste reste du Markdown. */}
+                        {parseAssistantMessage(msg.content).map((seg, si) =>
+                          seg.kind === 'events' ? (
+                            <AssistantEventCards key={`e${si}`} ids={seg.ids} />
+                          ) : (
+                            <div key={`t${si}`} className={proseClass}>
+                              <ReactMarkdown components={markdownComponents}>{seg.text}</ReactMarkdown>
+                            </div>
+                          ),
+                        )}
                       </div>
                     </div>
                   )}

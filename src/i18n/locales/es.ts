@@ -6031,6 +6031,9 @@ const es: Record<string, string> = {
   'assistant.suggest2': 'Mis puntos de fidelidad',
   'assistant.suggest3': 'Recomiéndame un trago',
   'assistant.suggest4': '¿Cuál es mi nivel?',
+  'assistant.card.freeBefore': 'Gratis antes de {time}',
+  'assistant.card.tablesFrom': 'Mesas desde {price}€',
+  'assistant.card.cta': 'Ver la fiesta',
 
   // Owner AI Assistant
   'ownerAI.title': 'Yuno Pro Assistant',
