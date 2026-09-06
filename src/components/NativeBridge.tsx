@@ -8,6 +8,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // absolues ('https://yunoapp.eu/l/abc') — toAppPath (lib/native) normalise.
 const toInternalPath = toAppPath;
 
+/** Tap de push mémorisé pour survivre au rechargement du WebView (OTA atInstall). */
+const PENDING_PUSH_URL_KEY = 'yuno:pending-push-url';
+const PENDING_PUSH_TTL_MS = 2 * 60 * 1000;
+
 /**
  * Pont natif Capacitor — monté une seule fois dans le Router, ne rend rien.
  * Web : no-op total. Natif iOS :
@@ -84,12 +88,36 @@ export function NativeBridge() {
       cleanups.push(() => { finSub.then((s) => s.remove()); });
     }).catch(() => {});
 
+    // Tap de notification arrivé AVANT que ce bundle ne soit prêt : au premier
+    // lancement après une installation ou une MàJ, Capgo (`atInstall`) applique
+    // l'OTA et RECHARGE le WebView — la navigation déclenchée par le tap dans le
+    // premier WebView est perdue et l'app s'ouvre sur l'accueil. Le tap est donc
+    // mémorisé sur disque avant de naviguer, et rejoué ici s'il est frais.
+    try {
+      const raw = localStorage.getItem(PENDING_PUSH_URL_KEY);
+      if (raw) {
+        localStorage.removeItem(PENDING_PUSH_URL_KEY);
+        const pending = JSON.parse(raw) as { url?: string; at?: number };
+        const internal = toInternalPath(pending.url);
+        if (internal && pending.at && Date.now() - pending.at < PENDING_PUSH_TTL_MS) {
+          navigate(internal, { replace: true });
+        }
+      }
+    } catch {
+      // Valeur illisible : on repart propre.
+      localStorage.removeItem(PENDING_PUSH_URL_KEY);
+    }
+
     import('@capacitor/push-notifications').then(({ PushNotifications }) => {
       const tapSub = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
         const url = (action.notification.data as { url?: string } | undefined)?.url;
         const internal = toInternalPath(url);
-        if (internal) navigate(internal);
-        else if (url) openExternal(url);
+        if (internal) {
+          try { localStorage.setItem(PENDING_PUSH_URL_KEY, JSON.stringify({ url: internal, at: Date.now() })); } catch { /* ignore */ }
+          navigate(internal);
+          // Navigation effectuée dans CE WebView : la trace n'a plus à être rejouée.
+          setTimeout(() => { try { localStorage.removeItem(PENDING_PUSH_URL_KEY); } catch { /* ignore */ } }, 15_000);
+        } else if (url) openExternal(url);
       });
       // Foreground : iOS affiche déjà la bannière système (presentationOptions),
       // pas de toast doublon.

@@ -2,6 +2,7 @@
 // généré par `supabase gen types`.
 import { createClient, processLock } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
+import { sessionVaultStorage } from '@/lib/sessionVault';
 import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -122,7 +123,10 @@ const isNativeShell = (() => {
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: localStorage,
+    // Natif : localStorage en lecture rapide + coffre fichier en miroir, pour
+    // qu'une session ne se perde plus avec le stockage du WebView (voir
+    // src/lib/sessionVault.ts). Web : passe-plat localStorage.
+    storage: sessionVaultStorage,
     persistSession: true,
     autoRefreshToken: true,
     ...(isNativeShell ? { lock: processLock } : {}),

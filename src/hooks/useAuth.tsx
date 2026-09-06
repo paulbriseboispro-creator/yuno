@@ -5,6 +5,8 @@ import { Role } from '@/types';
 import { clearStaffSession } from '@/components/RequireStaffSession';
 import { clearMFASession } from '@/components/RequireMFA';
 import { publicUrl } from '@/lib/native';
+import { readStoredSessionSync } from '@/lib/sessionVault';
+import { releasePushTokenForUser } from '@/lib/pushToken';
 
 /**
  * État d'authentification PARTAGÉ par toute l'app. `useAuth()` est appelé depuis
@@ -142,6 +144,18 @@ function start() {
     const release = () => {
       if (settled) return;
       settled = true;
+      // Le réseau traîne mais une session est connue sur l'appareil : on
+      // montre CE compte (les gardes ne renvoient pas vers la connexion), et
+      // l'écouteur corrigera si le rafraîchissement échoue pour de vrai.
+      // Sans ça, un simple réseau lent au lancement passait pour une
+      // déconnexion — le « je suis déconnecté de mon app » du terrain.
+      const stored = readStoredSessionSync();
+      if (stored?.user?.id) {
+        const storedUser = stored.user as unknown as User;
+        emit({ loading: false, user: storedUser, session: stored as unknown as Session });
+        void loadRoles(storedUser.id); // après l'émission : loadRoles vérifie snapshot.user
+        return;
+      }
       emit({ loading: false });
     };
 
@@ -198,6 +212,10 @@ export function useAuth() {
     // Clear all persistent session markers
     clearStaffSession();
     clearMFASession();
+    // Déconnexion VOLONTAIRE : ce téléphone ne reçoit plus les push de ce
+    // compte (la ligne push_subscriptions est retirée AVANT de perdre le JWT).
+    const uid = snapshot.user?.id;
+    if (uid) await releasePushTokenForUser(uid);
     const { error } = await supabase.auth.signOut();
     emit({ roles: EMPTY_ROLES });
     return { error };
