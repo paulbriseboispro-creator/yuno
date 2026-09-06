@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSmartBack } from '@/hooks/useSmartBack';
@@ -11,8 +10,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toAppPath } from '@/lib/native';
 import { PublicPage } from '@/components/PublicPage';
 import { AnimatedOrb } from '@/components/ui/AnimatedOrb';
-import { AssistantEventCards } from '@/components/assistant/AssistantEventCards';
-import { parseAssistantMessage } from '@/lib/assistantMessage';
+import { AssistantThinking } from '@/components/assistant/AssistantThinking';
+import { AssistantMessage, AssistantBubble } from '@/components/assistant/AssistantMessage';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -74,6 +73,21 @@ export default function YunoAssistantPage() {
     }
   }, [messages]);
 
+  // La réponse s'écrit et les cartes se posent APRÈS l'arrivée du message : la
+  // hauteur grandit sans que `messages` change, et le texte défilerait sous le
+  // pli. On suit la croissance du contenu — mais seulement si l'utilisateur est
+  // déjà en bas, pour ne pas le ramener de force quand il relit plus haut.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceFromBottom < 120) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el.firstElementChild ?? el);
+    return () => observer.disconnect();
+  }, []);
+
   // Pas d'autofocus à l'ouverture : le clavier ne s'invite que si l'utilisateur
   // touche le champ. La hauteur suit visualViewport avec une transition douce
   // (courbe iOS) pour accompagner l'ouverture du clavier au lieu du saut brut.
@@ -119,7 +133,13 @@ export default function YunoAssistantPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ messages: allMessages, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        body: JSON.stringify({
+          messages: allMessages,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          // Ce bundle sait transformer [[event:<id>]] en carte. Un bundle plus
+          // ancien ne l'annonce pas et reçoit des liens Markdown à la place.
+          clientCaps: { eventCards: 1 },
+        }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -386,6 +406,7 @@ export default function YunoAssistantPage() {
                   key={i}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 >
                   {msg.role === 'user' ? (
                     <div className="flex justify-end mb-4">
@@ -401,45 +422,25 @@ export default function YunoAssistantPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="px-2">
-                      <div
-                        className="rounded-2xl px-5 py-5 text-[15px] leading-[1.7] text-white/90"
-                        style={{
-                          background: 'linear-gradient(180deg, hsl(var(--primary) / 0.06) 0%, transparent 100%)',
-                          backdropFilter: 'blur(20px)',
-                        }}
-                      >
-                        {/* Les soirées citées sortent de la prose et deviennent
-                            de vraies cartes cliquables ; le reste reste du Markdown. */}
-                        {parseAssistantMessage(msg.content).map((seg, si) =>
-                          seg.kind === 'events' ? (
-                            <AssistantEventCards key={`e${si}`} ids={seg.ids} />
-                          ) : (
-                            <div key={`t${si}`} className={proseClass}>
-                              <ReactMarkdown components={markdownComponents}>{seg.text}</ReactMarkdown>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    </div>
+                    <AssistantBubble>
+                      <AssistantMessage
+                        content={msg.content}
+                        // Seule la DERNIÈRE réponse s'écrit : quand l'échange
+                        // continue, les précédentes restent posées.
+                        animate={i === messages.length - 1}
+                        proseClass={proseClass}
+                        markdownComponents={markdownComponents}
+                      />
+                    </AssistantBubble>
                   )}
                 </motion.div>
               ))}
 
-              {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
-                <div className="px-2">
-                  <div
-                    className="rounded-2xl px-5 py-4 inline-flex gap-1.5"
-                    style={{
-                      background: 'linear-gradient(180deg, hsl(var(--primary) / 0.06) 0%, transparent 100%)',
-                    }}
-                  >
-                    <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              )}
+              <AnimatePresence>
+                {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+                  <AssistantThinking key="thinking" />
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

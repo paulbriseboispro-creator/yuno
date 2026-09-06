@@ -239,8 +239,19 @@ function CardSkeleton() {
   );
 }
 
+/** La carte se pose : montée courte + fondu, décalée dans un rail. */
+const enter = (index: number, reduce: boolean | null) =>
+  reduce
+    ? { initial: false as const, animate: { opacity: 1 } }
+    : {
+        initial: { opacity: 0, y: 14, scale: 0.97 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        transition: { duration: 0.42, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] as const },
+      };
+
 export function AssistantEventCards({ ids }: { ids: string[] }) {
   const { data, isLoading } = useAssistantEventCards(ids);
+  const reduce = useReducedMotion();
 
   if (isLoading) {
     return (
@@ -255,9 +266,9 @@ export function AssistantEventCards({ ids }: { ids: string[] }) {
 
   if (data.length === 1) {
     return (
-      <div className="my-3" style={{ maxWidth: 280 }}>
+      <motion.div className="my-3" style={{ maxWidth: 280 }} {...enter(0, reduce)}>
         <AssistantEventCard event={data[0]} />
-      </div>
+      </motion.div>
     );
   }
 
@@ -266,10 +277,15 @@ export function AssistantEventCards({ ids }: { ids: string[] }) {
       className="my-3 -mx-1 flex items-stretch gap-3 overflow-x-auto px-1 pb-1 snap-x snap-mandatory"
       style={{ scrollbarWidth: 'none' }}
     >
-      {data.map((event) => (
-        <div key={event.id} className="shrink-0 snap-start" style={{ width: 232 }}>
+      {data.map((event, i) => (
+        <motion.div
+          key={event.id}
+          className="shrink-0 snap-start"
+          style={{ width: 232 }}
+          {...enter(i, reduce)}
+        >
           <AssistantEventCard event={event} />
-        </div>
+        </motion.div>
       ))}
     </div>
   );

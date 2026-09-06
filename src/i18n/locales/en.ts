@@ -5847,6 +5847,9 @@ const en: Record<string, string> = {
   'assistant.card.freeBefore': 'Free before {time}',
   'assistant.card.tablesFrom': 'Tables from {price}€',
   'assistant.card.cta': 'See the night',
+  'assistant.think1': 'Looking through the catalogue...',
+  'assistant.think2': 'Finding what fits you...',
+  'assistant.think3': 'Putting it together...',
 
   // Owner AI Assistant
   'ownerAI.title': 'Yuno Pro Assistant',
