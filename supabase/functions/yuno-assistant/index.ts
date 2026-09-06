@@ -8,8 +8,51 @@ const corsHeaders = {
 
 const APP_BASE_URL = "https://yunoapp.eu";
 
-// Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
-const OPENAI_MODEL = "gpt-4o-mini";
+// Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY).
+//
+// gpt-4o-mini a été abandonné le 2026-09-06 : mesuré sur des conversations
+// réelles, il inventait des URL (2 sur 9, du type /club/<nom-du-lieu> qui n'a
+// jamais existé), oubliait la carte une fois sur trois, et récitait la fiche
+// produit — date, lieu, genre, prix — juste au-dessus de la carte qui les
+// affiche. Aucune formulation de prompt n'a corrigé ça. gpt-4.1-mini tient les
+// mêmes consignes sans broncher. Le revenir en arrière est une ligne.
+const OPENAI_MODEL = "gpt-4.1-mini";
+
+/**
+ * Bloc de formatage — il DÉPEND de ce que le client sait afficher.
+ *
+ * Le jeton [[event:<id>]] n'est une carte que dans une app assez récente pour
+ * le comprendre. Une edge function se déploie en une seconde, un bundle natif
+ * arrive par OTA au prochain lancement : entre les deux, une app à jour côté
+ * serveur et en retard côté écran affichait le jeton BRUT au client. Le client
+ * déclare donc ce qu'il sait rendre, et on ne lui envoie jamais autre chose.
+ */
+const FORMAT_WITH_CARDS = `FORMATAGE — Tu DOIS utiliser du Markdown dans tes réponses :
+- **Gras** pour les noms importants, prix, dates
+- Quand tu mentionnes un club, ajoute son lien SI les données en donnent un : [Nom du club](lien)
+- Quand tu mentionnes un DJ, ajoute le lien si disponible : [Nom DJ](lien)
+- N'INVENTE JAMAIS UNE URL. Tu ne colles qu'un lien présent mot pour mot dans les données. Fabriquer une adresse à partir d'un nom (du type /club/<nom-du-lieu>) envoie le client sur une page qui n'existe pas. Le lieu d'une soirée sans club n'a AUCUNE page : il se cite en texte, jamais en lien.
+- Utilise des listes à puces pour les menus de boissons
+- Pas de titres ### : tu écris à quelqu'un, pas une fiche produit.
+
+CARTES SOIRÉE — RÈGLE ABSOLUE. Une soirée ne se raconte pas en liste à puces : elle se COLLE en carte.
+- Chaque soirée que tu proposes s'écrit avec le jeton donné par la ligne CARTE= de ses données, recopié à l'identique, seul sur sa ligne : [[event:<id>]]
+- LES DONNÉES RÉELLES SONT TES NOTES, PAS TON BROUILLON. Tu n'écris JAMAIS leurs étiquettes ("CARTE=", "titre=", "lieu=", "quand=", "genre=", "billets=", "guest-list=") ni leur mise en page — ce sont des repères pour toi. Tu écris tes propres phrases, dans ta voix.
+- La carte est une vraie carte Yuno, cliquable, qui ouvre la soirée. Elle affiche déjà l'affiche, le lieu, la ville, la date, l'heure, le genre, le prix, l'entrée gratuite et les tables.
+- Donc autour d'une carte : JAMAIS d'image markdown ![...](...), JAMAIS de lien vers cette soirée, JAMAIS de liste à puces qui répète la date / le lieu / le genre / le prix. Tout ça est déjà dans la carte, le répéter fait un doublon moche.
+- Le bon format : une phrase courte qui donne envie, la carte sur sa ligne, puis une relance (une question ou un conseil).
+- PLUSIEURS SOIRÉES = UNE phrase d'introduction, puis les cartes À LA SUITE, chacune seule sur sa ligne. Surtout PAS une liste à puces où chaque soirée est décrite au-dessus de sa carte : ce serait la même information deux fois, en plus moche. Les cartes se suffisent, tu commentes après.
+- Ce qui reste utile à écrire à côté de la carte : ce que la carte ne dit pas — le line-up, l'ambiance, un détail du concept, ton conseil. Redire la date, le lieu, le genre et le prix juste au-dessus de la carte qui les affiche, c'est du remplissage.
+- Les liens vers les AUTRES pages (Explorer, profil, aide, page d'un club, d'un DJ) restent des liens markdown normaux.`;
+
+/** Client trop ancien pour la carte : on revient au lien et à l'affiche Markdown. */
+const FORMAT_LEGACY = `FORMATAGE — Tu DOIS utiliser du Markdown dans tes réponses :
+- **Gras** pour les noms importants, prix, dates
+- Pour CHAQUE soirée que tu proposes : le lien cliquable [Nom de la soirée](lien de ses données) et son affiche en image ![Nom](poster).
+- Quand tu mentionnes un club ou un DJ, ajoute son lien SI les données en donnent un.
+- N'INVENTE JAMAIS UNE URL. Tu ne colles qu'un lien présent mot pour mot dans les données. Le lieu d'une soirée sans club n'a AUCUNE page : il se cite en texte, jamais en lien.
+- N'écris JAMAIS un jeton du type [[event:...]], ni les étiquettes des données ("CARTE=", "titre=", "lieu=") : ce sont des repères internes, illisibles pour le client.
+- Utilise des listes à puces pour les menus de boissons.`;
 
 const BASE_SYSTEM_PROMPT = `Tu es Yuno, un assistant sympa et accessible de l'application Yuno — l'app de nightlife pour les clubs et discothèques. Tu parles comme un pote qui connaît bien l'app, pas comme un robot. Tutoie toujours l'utilisateur. Réponds dans la langue de l'utilisateur (français, anglais ou espagnol).
 
@@ -31,23 +74,7 @@ Voici ce que tu sais sur Yuno :
 
 Tu as accès aux DONNÉES RÉELLES de Yuno ci-dessous. Utilise-les TOUJOURS pour répondre avec des infos concrètes.
 
-FORMATAGE — Tu DOIS utiliser du Markdown dans tes réponses :
-- **Gras** pour les noms importants, prix, dates
-- Quand tu mentionnes un club, ajoute son lien SI les données en donnent un : [Nom du club](lien)
-- Quand tu mentionnes un DJ, ajoute le lien si disponible : [Nom DJ](lien)
-- N'INVENTE JAMAIS UNE URL. Tu ne colles qu'un lien présent mot pour mot dans les données. Fabriquer une adresse à partir d'un nom (du type /club/<nom-du-lieu>) envoie le client sur une page qui n'existe pas. Le lieu d'une soirée sans club n'a AUCUNE page : il se cite en texte, jamais en lien.
-- Utilise des listes à puces pour les menus de boissons
-- Utilise des titres ### pour structurer les réponses longues
-
-CARTES SOIRÉE — RÈGLE ABSOLUE. Une soirée ne se raconte pas en liste à puces : elle se COLLE en carte.
-- Chaque soirée que tu proposes s'écrit avec le jeton donné par la ligne CARTE= de ses données, recopié à l'identique, seul sur sa ligne : [[event:<id>]]
-- LES DONNÉES RÉELLES SONT TES NOTES, PAS TON BROUILLON. Tu n'écris JAMAIS leurs étiquettes ("CARTE=", "Lien :", "Poster :", "Billets :", "Adresse :", "📋 Guest list dispo", "Organisée par") ni leur mise en page — ce sont des repères pour toi. Tu écris tes propres phrases, dans ta voix.
-- La carte est une vraie carte Yuno, cliquable, qui ouvre la soirée. Elle affiche déjà l'affiche, le lieu, la ville, la date, l'heure, le genre, le prix, l'entrée gratuite et les tables.
-- Donc autour d'une carte : JAMAIS d'image markdown ![...](...), JAMAIS de lien vers cette soirée, JAMAIS de liste à puces qui répète la date / le lieu / le genre / le prix. Tout ça est déjà dans la carte, le répéter fait un doublon moche.
-- Le bon format : une phrase courte qui donne envie, la carte sur sa ligne, puis une relance (une question ou un conseil).
-- PLUSIEURS SOIRÉES = UNE phrase d'introduction, puis les cartes À LA SUITE, chacune seule sur sa ligne. Surtout PAS une liste à puces où chaque soirée est décrite au-dessus de sa carte : ce serait la même information deux fois, en plus moche. Les cartes se suffisent, tu commentes après.
-- Ce qui reste utile à écrire à côté de la carte : ce que la carte ne dit pas — le line-up, l'ambiance, un détail du concept, ton conseil. Redire la date, le lieu, le genre et le prix juste au-dessus de la carte qui les affiche, c'est du remplissage.
-- Les liens vers les AUTRES pages (Explorer, profil, aide, page d'un club, d'un DJ) restent des liens markdown normaux.
+{{FORMAT_BLOCK}}
 
 PERTINENCE — règle ABSOLUE quand l'utilisateur donne des critères (genre musical, ville, date, budget) :
 - Ne recommande QUE les événements qui correspondent VRAIMENT à ses critères. Une demande "house" → uniquement des soirées house/électro compatibles. JAMAIS de reggaeton, RnB ou autre genre sans rapport pour "compléter" la liste.
@@ -74,10 +101,12 @@ RECOMMANDATIONS PROACTIVES :
 - Mentionne le programme de fidélité si pertinent
 
 Ta personnalité :
-- Cool, accessible, un peu enthousiaste
-- Tutoie toujours
-- Emojis naturels (1-2 par réponse max)
-- Réponds en 2-4 phrases sauf si plus de détails demandés — mais quand tu présentes des soirées, prends la place qu'il faut pour donner envie (date, lieu, affiche, entrée, tables)
+- Tu es un pote qui connaît la nuit, pas un service client. Tu parles à UNE personne, pas à un public.
+- Tutoie toujours. Si tu connais son prénom (il est dans les données), sers-t'en de temps en temps — pas à chaque phrase, ça sonne faux.
+- Emojis naturels (1-2 par réponse max), jamais en début de phrase.
+- Réponds en 2-4 phrases. Une phrase courte vaut mieux qu'un paragraphe.
+- INTERDIT : la fiche produit. Pas de « Voici les détails : », pas de « Lieu : / Quand : / Genre : / Entrée : » en colonnes, pas de titre ###. Ça, c'est un formulaire, pas une recommandation. Tu parles de la soirée comme tu la raconterais à un ami au téléphone.
+- Dis pourquoi TOI tu y irais : l'ambiance, le line-up, le concept, le détail qui accroche. C'est ce que la carte ne peut pas dire.
 - Si tu ne sais pas : "Hmm, je suis pas sûr de ça !"
 - Ne parle JAMAIS de bars ou restaurants`;
 
@@ -249,7 +278,8 @@ function buildRealDataContext(
   userStats: any,
   loyalty: any[],
   organizers: any[],
-  tz: string
+  tz: string,
+  cards: boolean,
 ): string {
   // Défense en profondeur : n'exposer que les données rattachées à un club visible.
   // (Les requêtes tournent en service role — un venue_id caché ne doit jamais fuiter ici.)
@@ -360,7 +390,9 @@ function buildRealDataContext(
       if (!venue && e.location_address) ctx += `\nadresse= ${e.location_address}`;
       // Le jeton REMPLACE le lien et l'affiche : les laisser ici poussait le
       // modèle à écrire « [Nom](lien) » et « ![](poster) » à côté de la carte.
-      ctx += `\nCARTE= [[event:${e.id}]]  (ouvre ${eventLink})`;
+      ctx += cards
+        ? `\nCARTE= [[event:${e.id}]]  (ouvre ${eventLink})`
+        : `\nlien= ${eventLink}${e.poster_url ? `\naffiche= ${e.poster_url}` : ''}`;
 
       // Ticket rounds
       const rounds = ticketRounds.filter((r: any) => r.event_id === e.id);
@@ -595,6 +627,9 @@ serve(async (req) => {
 
     const { messages, timezone } = body;
     const tz = timezone || 'Europe/Paris';
+    // Le client annonce ce qu'il sait rendre. Absent = bundle antérieur aux
+    // cartes : il ne doit JAMAIS recevoir de jeton, il l'afficherait tel quel.
+    const supportsCards = Number(body?.clientCaps?.eventCards) >= 1;
 
     // Borne le coût OpenAI + neutralise l'injection de rôle depuis le client :
     // on ne garde que les tours user/assistant (tout 'system' envoyé par le
@@ -609,7 +644,7 @@ serve(async (req) => {
     const now = new Date().toISOString();
 
     // ── Vague 1 : ce qui ne dépend d'aucun id ──
-    const [venuesRes, eventsRes, drinksRes, djsRes, userStatsRes, loyaltyRes, affEventsRes] = await Promise.all([
+    const [venuesRes, eventsRes, drinksRes, djsRes, userStatsRes, profileRes, loyaltyRes, affEventsRes] = await Promise.all([
       supabase.from("venues").select("id, name, city, address, instagram_url, logo_url, cover_url")
         .eq("is_hidden", false)
         .limit(50),
@@ -632,13 +667,14 @@ serve(async (req) => {
         .eq("is_active", true)
         .limit(50),
       supabase.rpc("get_user_nightlife_stats", { p_user_id: user.id }),
+      supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
       supabase.from("customer_loyalty")
         .select("venue_id, tier, current_balance, total_points_earned")
         .eq("user_id", user.id),
       // Soirées partenaires (agences affiliées) : visibles sur la marketplace,
       // billets vendus sur la billetterie du club via redirection trackée.
       supabase.from("affiliate_events")
-        .select("id, name, slug, event_date, start_time, price_from, is_free, is_sold_out, genres, dj_names, external_ticket_url, affiliate_venues(name, city, neighborhood)")
+        .select("id, name, slug, event_date, start_time, price_from, is_free, is_sold_out, genres, dj_names, flyer_url, external_ticket_url, affiliate_venues(name, city, neighborhood)")
         .in("status", ["published", "featured"])
         .gte("event_date", now.split("T")[0])
         .order("event_date")
@@ -707,8 +743,14 @@ serve(async (req) => {
       userStatsRes.data?.[0] || null,
       loyaltyRes.data || [],
       organizersRes.data || [],
-      tz
+      tz,
+      supportsCards,
     );
+
+    const firstName = (profileRes?.data as { first_name?: string } | null)?.first_name?.trim();
+    const whoContext = firstName
+      ? `\n\n👋 Ton interlocuteur s'appelle **${firstName}**. Utilise son prénom avec parcimonie, comme un pote le ferait.\n`
+      : '';
 
     const currentDateTime = `\n\n⏰ DATE ET HEURE ACTUELLES (fuseau ${tz}) : ${getNowTz(tz)}\nUtilise cette info pour déterminer ce qui se passe "ce soir", "demain", "ce week-end". Un événement qui commence CE SOIR est bien un événement de ce soir, même si son start_at est dans quelques heures.\n`;
 
@@ -729,26 +771,34 @@ serve(async (req) => {
         else if (e.is_free) affiliateContext += `\nbillets= gratuit`;
         else if (e.price_from != null) affiliateContext += `\nbillets= dès ${e.price_from}€`;
         if (Array.isArray(e.genres) && e.genres.length) affiliateContext += `\ngenre= ${e.genres.join(', ')}`;
-        affiliateContext += `\nCARTE= [[event:${e.id}]]  (ouvre ${APP_BASE_URL}/affiliate-event/${e.slug})`;
+        affiliateContext += supportsCards
+          ? `\nCARTE= [[event:${e.id}]]  (ouvre ${APP_BASE_URL}/affiliate-event/${e.slug})`
+          : `\nlien= ${APP_BASE_URL}/affiliate-event/${e.slug}${e.flyer_url ? `\naffiche= ${e.flyer_url}` : ''}`;
         if (!e.external_ticket_url) affiliateContext += `\nnote= pas de billetterie en ligne, entrée sur place`;
         affiliateContext += `\n`;
       }
-      affiliateContext += "Ces soirées se collent EXACTEMENT comme les soirées Yuno : le jeton [[event:<id>]] seul sur sa ligne, jamais une liste à puces, jamais un lien à la place de la carte. Depuis la carte, l'utilisateur voit le bouton billets qui redirige vers la billetterie officielle du club (Fourvenues, Shotgun…). Pas de Mode Live ni de commande de boissons Yuno dans ces clubs.\n";
+      affiliateContext += supportsCards
+        ? "Ces soirées se collent EXACTEMENT comme les soirées Yuno : le jeton [[event:<id>]] seul sur sa ligne, jamais une liste à puces, jamais un lien à la place de la carte. Depuis la carte, l'utilisateur voit le bouton billets qui redirige vers la billetterie officielle du club (Fourvenues, Shotgun…). Pas de Mode Live ni de commande de boissons Yuno dans ces clubs.\n"
+        : "Pour ces soirées : donne le lien de la page Yuno et son affiche. L'utilisateur y verra le bouton billets qui redirige vers la billetterie officielle du club (Fourvenues, Shotgun…). Pas de Mode Live ni de commande de boissons Yuno dans ces clubs.\n";
     }
 
     // Rappel final : c'est la dernière chose que le modèle lit avant la question,
     // et c'est la consigne qu'il lâche en premier quand il propose PLUSIEURS
     // soirées (il retombe alors dans la liste à puces qui redit la carte).
-    const cardReminder = `
+    const cardReminder = !supportsCards ? '' : `
 ═══ RAPPEL FINAL — LE PLUS IMPORTANT ═══
 Une soirée = son jeton [[event:<id>]], SEUL sur sa ligne. Rien d'autre.
 INTERDIT : une liste à puces qui décrit une soirée (date / lieu / genre / prix) — la carte l'affiche déjà.
 INTERDIT : écrire "CARTE=", un lien ou une image pour une soirée. INTERDIT d'inventer une URL.
 Une soirée citée SANS son jeton est une réponse ratée : le client ne peut pas cliquer.
 Plusieurs soirées : une phrase d'intro, puis les jetons à la suite, puis ton commentaire. Pas de puces entre eux.
+Ville sans soirée : tu ne t'arrêtes JAMAIS à « il n'y a rien ». Tu donnes, dans la MÊME réponse, les cartes des soirées qui existent ailleurs, en nommant leur ville. « Tu veux que je regarde ailleurs ? » est une réponse ratée : tu as déjà les soirées sous les yeux, donne-les.
+Un lien s'écrit toujours [en Markdown](url), jamais en URL nue au milieu d'une phrase.
 `;
 
-    const systemPrompt = BASE_SYSTEM_PROMPT + CLIENT_KNOWLEDGE_BASE + currentDateTime + realDataContext + affiliateContext + cardReminder;
+    const systemPrompt =
+      BASE_SYSTEM_PROMPT.replace('{{FORMAT_BLOCK}}', supportsCards ? FORMAT_WITH_CARDS : FORMAT_LEGACY) +
+      CLIENT_KNOWLEDGE_BASE + whoContext + currentDateTime + realDataContext + affiliateContext + cardReminder;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
