@@ -46,6 +46,18 @@ PERTINENCE — règle ABSOLUE quand l'utilisateur donne des critères (genre mus
 - Ne recommande QUE les événements qui correspondent VRAIMENT à ses critères. Une demande "house" → uniquement des soirées house/électro compatibles. JAMAIS de reggaeton, RnB ou autre genre sans rapport pour "compléter" la liste.
 - Si un seul événement correspond, propose-le seul. Si AUCUN ne correspond, dis-le franchement et propose d'élargir ("rien en house cette semaine, tu veux que je regarde le week-end prochain ou d'autres genres ?").
 - N'invente jamais de lien forcé du style "même si c'est un autre genre, ça peut te plaire" — c'est exactement ce qu'il ne faut PAS faire.
+- Cette règle ne vaut QUE pour les critères réellement exprimés. Une demande large ("une soirée à Paris", "il y a quoi ce week-end ?") n'a qu'un seul critère : la ville et/ou la date. Tout ce qui s'y trouve correspond.
+
+CATALOGUE COURT — Yuno démarre : il y a peu de soirées, et c'est NORMAL. Une seule soirée dans une ville n'est pas un échec, c'est LA soirée à vendre.
+- AVANT de dire qu'il n'y a rien, relis les DONNÉES RÉELLES ligne par ligne. Chaque soirée porte sa ville sur sa ligne (📍), y compris les soirées d'organisateur SANS club — elles affichent leur lieu et leur ville comme les autres. Une seule ligne à la bonne ville suffit : tu as une réponse.
+- Ne réponds JAMAIS "je ne trouve pas de soirées à X" alors qu'une soirée de cette ville figure dans les données. C'est la pire faute possible : le client repart alors que la soirée existe et qu'on a du mal à la remplir.
+- Question large = réponse généreuse. Présente TOUT ce que la ville a, en commençant par la date la plus proche : le nom, la date, le lieu, l'affiche, et ce qui donne envie (entrée gratuite avant telle heure, tables dès X€, line-up, DJs). Tu fais la promo, c'est ton métier.
+- Si une soirée n'a pas de billetterie en ligne, elle se vend quand même : guest list gratuite, tables VIP, ou entrée sur place. Ne la présente jamais comme indisponible.
+- Si la ville demandée n'a vraiment rien : une phrase courte pour le dire, puis DANS LA MÊME RÉPONSE, sans rien demander, la suite — nomme les soirées qui existent ailleurs (titre, ville, date, lien), et donne le lien Explorer (${APP_BASE_URL}/explore) où il peut laisser son email pour être prévenu dès qu'une date s'ouvre chez lui.
+- Ne demande JAMAIS la permission de proposer autre chose ("tu veux que je regarde ailleurs ?", "je peux checker d'autres villes ?"). Tu as déjà les données sous les yeux : donne-les. Une question à la place d'une réponse, c'est un client perdu.
+- Une réponse qui ne contient aucune soirée alors que le catalogue en contient au moins une est TOUJOURS une mauvaise réponse, quelle que soit la question.
+- Quand tu proposes une autre ville, NOMME-LA simplement ("à Madrid le 6"). Ne la présente jamais comme "proche" ou "à côté" : tu ne connais pas les distances, et Madrid n'est pas à côté de Lyon.
+- N'invente jamais une soirée, un lieu, un prix ou une date absents des données.
 
 RECOMMANDATIONS PROACTIVES :
 - Si l'utilisateur demande des soirées, propose aussi des boissons populaires du club
@@ -58,7 +70,7 @@ Ta personnalité :
 - Cool, accessible, un peu enthousiaste
 - Tutoie toujours
 - Emojis naturels (1-2 par réponse max)
-- Réponds en 2-4 phrases sauf si plus de détails demandés
+- Réponds en 2-4 phrases sauf si plus de détails demandés — mais quand tu présentes des soirées, prends la place qu'il faut pour donner envie (date, lieu, affiche, entrée, tables)
 - Si tu ne sais pas : "Hmm, je suis pas sûr de ça !"
 - Ne parle JAMAIS de bars ou restaurants`;
 
@@ -90,6 +102,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Carte (${APP_BASE_URL}/map) : les clubs sur une carte interactive, appuie sur un pin pour voir le club.
 - Pages publiques : ${APP_BASE_URL}/events (soirées), ${APP_BASE_URL}/clubs (clubs), ${APP_BASE_URL}/djs (DJs).
 - Chaque page d'événement montre : date/heure, lieu, genre, line-up DJ, billets disponibles, guest list et tables VIP si activées.
+- Toutes les soirées ne se passent pas dans un club partenaire : un organisateur peut monter sa soirée dans un lieu à lui. Elle a alors son propre lieu et son adresse sur la page, et c'est une soirée Yuno comme une autre (guest list, tables VIP, billets selon ce que l'orga a ouvert). Ne la traite jamais comme moins légitime qu'une soirée de club.
 
 📣 ACTUS & OFFRES DES CLUBS (cases à cocher au paiement)
 - Au moment de payer un billet ou une table, deux cases OPTIONNELLES et DÉCOCHÉES proposent de recevoir les actus/offres du club par email et par SMS. Elles nomment le club concerné. Refuser n'empêche jamais d'acheter.
@@ -141,6 +154,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés). Si une heure d'arrivée limite est fixée, elle apparaît ici (« Arrivée avant … ») : présente-toi avant cette heure, sinon ta table pourra être libérée.
    Certaines formules sont limitées en nombre de tables : elles passent « Complet » quand leurs tables sont parties, même si la zone a encore de la place. Et sur le plan interactif, une table peut être vendue avec une formule précise : les tables d'une autre formule apparaissent estompées, et en toucher une bascule ta réservation sur cette formule (le prix et la capacité suivent).
 2. Paie l'acompte en ligne pour bloquer la table. Le reste (minimum conso) se dépense sur place.
+   Certaines soirées proposent leurs tables en RÈGLEMENT SUR PLACE : tu réserves sans rien payer sur Yuno (aucun acompte, aucune carte demandée), tout se règle au club le soir même. Les données réelles te le disent formule par formule — quand c'est le cas, dis-le, c'est un argument.
    Frais de service Yuno sur cet acompte : 4% (minimum 0,99€), PLAFONNÉ À 25€. Le frais porte sur
    le montant réellement débité, pas sur le prix total de la table — sur une table à 2 000€ avec
    30% d'acompte, tu paies 4% de 600€, soit 24€. Tu ne paieras jamais plus de 25€ de frais sur
@@ -227,15 +241,22 @@ function buildRealDataContext(
   djSets: any[],
   userStats: any,
   loyalty: any[],
+  organizers: any[],
   tz: string
 ): string {
   // Défense en profondeur : n'exposer que les données rattachées à un club visible.
   // (Les requêtes tournent en service role — un venue_id caché ne doit jamais fuiter ici.)
   const visibleVenueIds = new Set(venues.map((v: any) => v.id));
-  events = events.filter((e: any) => visibleVenueIds.has(e.venue_id));
+  // Une soirée d'organisateur SEUL n'a pas de club (venue_id NULL) : son lieu et
+  // sa ville vivent sur l'event. La filtrer sur la visibilité d'un club la faisait
+  // disparaître du catalogue de l'assistant — c'est ce qui lui faisait répondre
+  // « je ne trouve pas de soirées à Paris » alors qu'il y en avait une.
+  events = events.filter((e: any) => e.venue_id === null || visibleVenueIds.has(e.venue_id));
   const visibleEventIds = new Set(events.map((e: any) => e.id));
   drinks = drinks.filter((d: any) => visibleVenueIds.has(d.venue_id));
-  tablePacks = tablePacks.filter((tp: any) => visibleVenueIds.has(tp.venue_id));
+  // Les formules d'une soirée sans club sont event-scopées (venue_id NULL).
+  tablePacks = tablePacks.filter((tp: any) =>
+    tp.event_id ? visibleEventIds.has(tp.event_id) : visibleVenueIds.has(tp.venue_id));
   djs = djs.filter((dj: any) => !dj.venue_id || visibleVenueIds.has(dj.venue_id));
   guestLists = guestLists.filter((g: any) => visibleEventIds.has(g.event_id));
   ticketRounds = ticketRounds.filter((r: any) => visibleEventIds.has(r.event_id));
@@ -275,15 +296,38 @@ function buildRealDataContext(
 
   // Events with ticket rounds, posters, links
   if (events.length > 0) {
-    ctx += "\n🎉 PROCHAINS ÉVÉNEMENTS :\n";
+    // Couverture explicite : le modèle doit savoir combien de soirées existent et
+    // dans quelles villes, sinon il conclut trop vite qu'une ville est vide.
+    const byCity: Record<string, number> = {};
+    for (const e of events) {
+      const v = venues.find((vv: any) => vv.id === e.venue_id);
+      const c = v?.city || e.location_city || 'ville non précisée';
+      byCity[c] = (byCity[c] || 0) + 1;
+    }
+    const cityLine = Object.entries(byCity)
+      .sort((a, b) => b[1] - a[1])
+      .map(([c, n]) => `${c} (${n})`)
+      .join(', ');
+    ctx += `\n🎉 PROCHAINS ÉVÉNEMENTS — ${events.length} soirée(s) : ${cityLine}.\n`;
+    ctx += `C'est le catalogue COMPLET des soirées Yuno à venir. Une ville qui apparaît ici a des soirées : ne dis jamais le contraire.\n`;
     // Tag events happening today (Paris timezone)
     const nowLocal = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
     const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
 
     for (const e of events) {
       const venue = venues.find((v: any) => v.id === e.venue_id);
-      const venueName = venue?.name || 'Club';
-      const eventLink = `${APP_BASE_URL}/club/${e.venue_id}/event/${e.id}`;
+      const org = e.organizer_user_id
+        ? organizers.find((o: any) => o.user_id === e.organizer_user_id)
+        : null;
+      // Sans club, le lieu de la soirée est porté par l'event lui-même.
+      const venueName = venue?.name || e.location_name || org?.display_name || 'Lieu à confirmer';
+      const city = venue?.city || e.location_city || '';
+      // Lien canonique /events/:host/:slug — host = slug d'orga si organizer-led,
+      // sinon venue_id (même règle que la RPC event_host_slug).
+      const host = e.organizer_user_id ? org?.slug : e.venue_id;
+      const eventLink = e.slug && host
+        ? `${APP_BASE_URL}/events/${host}/${e.slug}`
+        : `${APP_BASE_URL}/event/${e.id}`;
       
       const startLocal = new Date(new Date(e.start_at).toLocaleString('en-US', { timeZone: tz }));
       const startDateStr = `${startLocal.getFullYear()}-${String(startLocal.getMonth() + 1).padStart(2, '0')}-${String(startLocal.getDate()).padStart(2, '0')}`;
@@ -294,8 +338,13 @@ function buildRealDataContext(
       if (isLive) tag = ' 🔴 EN COURS';
       else if (isTonight) tag = ' ⭐ CE SOIR';
 
-      ctx += `\n- **"${e.title}"** au **${venueName}**${tag} — ${formatDateTz(e.start_at, tz)} à ${formatDateTz(e.end_at, tz)}`;
-      if (e.music_genre) ctx += ` — ${e.music_genre}`;
+      ctx += `\n- **"${e.title}"** au **${venueName}**${city ? ` — 📍 ${city}` : ''}${tag} — ${formatDateTz(e.start_at, tz)} à ${formatDateTz(e.end_at, tz)}`;
+      const genres = Array.isArray(e.music_genres) && e.music_genres.length
+        ? e.music_genres.join(', ')
+        : e.music_genre;
+      if (genres) ctx += ` — ${genres}`;
+      if (!venue && org) ctx += `\n  Organisée par **${org.display_name}** (soirée sans club partenaire)`;
+      if (!venue && e.location_address) ctx += `\n  Adresse : ${e.location_address}`;
       ctx += `\n  Lien : ${eventLink}`;
       if (e.poster_url) ctx += `\n  Poster : ${e.poster_url}`;
 
@@ -311,6 +360,8 @@ function buildRealDataContext(
           return txt;
         });
         ctx += `\n  Billets : ${roundTexts.join(' | ')}`;
+      } else if (e.ticketing_enabled === false) {
+        ctx += `\n  Pas de billetterie en ligne sur cette soirée — l'entrée se fait par la guest list, les tables VIP, ou sur place.`;
       }
 
       // DJs playing at this event
@@ -326,8 +377,9 @@ function buildRealDataContext(
       // Guest list
       const gl = guestLists.find((g: any) => g.event_id === e.id);
       if (gl) {
-        ctx += `\n  📋 Guest list dispo — Entrée gratuite avant ${gl.free_before_time}`;
+        ctx += `\n  📋 Guest list dispo — Entrée gratuite avant ${String(gl.free_before_time).slice(0, 5)}`;
         if (gl.includes_drink) ctx += ' + boisson offerte';
+        if (gl.quota) ctx += ` (places limitées)`;
       }
       ctx += `\n`;
     }
@@ -368,17 +420,27 @@ function buildRealDataContext(
   // VIP table packs
   if (tablePacks.length > 0) {
     ctx += "\n🍾 TABLES VIP :\n";
-    const byVenue: Record<string, any[]> = {};
+    // Une formule appartient soit à un club, soit à UNE soirée précise
+    // (soirée d'organisateur sans club) : deux regroupements, pas un.
+    const groups: Record<string, any[]> = {};
     for (const tp of tablePacks) {
-      if (!byVenue[tp.venue_id]) byVenue[tp.venue_id] = [];
-      byVenue[tp.venue_id].push(tp);
+      const key = tp.event_id ? `event:${tp.event_id}` : `venue:${tp.venue_id}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(tp);
     }
-    for (const [venueId, packs] of Object.entries(byVenue)) {
-      const venue = venues.find((v: any) => v.id === venueId);
-      ctx += `### ${venue?.name || venueId}\n`;
+    for (const [key, packs] of Object.entries(groups)) {
+      let label = key.slice(key.indexOf(':') + 1);
+      if (key.startsWith('event:')) {
+        const ev = events.find((e: any) => e.id === key.slice(6));
+        label = ev ? `Soirée "${ev.title}"` : 'Soirée';
+      } else {
+        label = venues.find((v: any) => v.id === key.slice(6))?.name || label;
+      }
+      ctx += `### ${label}\n`;
       for (const p of packs as any[]) {
         ctx += `- **${p.name}** : ${p.base_price}€, ${p.base_capacity} pers.`;
         if (p.minimum_spend > 0) ctx += `, minimum conso **${p.minimum_spend}€**`;
+        if (p.payment_mode === 'on_site') ctx += ` — réservation SANS paiement en ligne (tout se règle sur place)`;
         ctx += `\n`;
       }
     }
@@ -532,24 +594,13 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const now = new Date().toISOString();
 
-    const [
-      venuesRes,
-      eventsRes,
-      ticketRoundsRes,
-      drinksRes,
-      tablePacksRes,
-      guestListsRes,
-      djsRes,
-      djSetsRes,
-      userStatsRes,
-      loyaltyRes,
-      affEventsRes,
-    ] = await Promise.all([
+    // ── Vague 1 : ce qui ne dépend d'aucun id ──
+    const [venuesRes, eventsRes, drinksRes, djsRes, userStatsRes, loyaltyRes, affEventsRes] = await Promise.all([
       supabase.from("venues").select("id, name, city, address, instagram_url, logo_url, cover_url")
         .eq("is_hidden", false)
         .limit(50),
       supabase.from("events")
-        .select("id, venue_id, title, start_at, end_at, music_genre, ticketing_enabled, tables_enabled, poster_url")
+        .select("id, venue_id, title, slug, start_at, end_at, music_genre, music_genres, ticketing_enabled, tables_enabled, poster_url, organizer_user_id, location_name, location_city, location_address")
         .gte("end_at", now)
         .eq("is_active", true)
         // Miroir des filtres publics de Explore.tsx — ne jamais exposer les events privés/secrets
@@ -557,31 +608,14 @@ serve(async (req) => {
         .eq("is_discoverable", true)
         .order("start_at")
         .limit(20),
-      supabase.from("ticket_rounds")
-        .select("id, event_id, name, price, max_tickets, tickets_sold, is_active, position")
-        .eq("is_active", true)
-        .order("position")
-        .limit(100),
       supabase.from("drinks")
         .select("id, venue_id, name, price, promo_price, collection, img_url")
         .eq("active", true)
         .order("position")
         .limit(100),
-      supabase.from("table_packs")
-        .select("id, venue_id, name, base_price, base_capacity, minimum_spend")
-        .eq("is_active", true)
-        .limit(50),
-      supabase.from("guest_lists")
-        .select("id, event_id, venue_id, free_before_time, includes_drink, is_active, quota")
-        .eq("is_active", true)
-        .limit(20),
       supabase.from("djs")
         .select("id, venue_id, first_name, last_name, stage_name, slug, music_genres, profile_image_url, instagram_url, is_active")
         .eq("is_active", true)
-        .limit(50),
-      supabase.from("dj_sets")
-        .select("id, dj_id, event_id, start_time, end_time, music_genre")
-        .gte("start_time", now)
         .limit(50),
       supabase.rpc("get_user_nightlife_stats", { p_user_id: user.id }),
       supabase.from("customer_loyalty")
@@ -597,17 +631,68 @@ serve(async (req) => {
         .limit(20),
     ]);
 
+    // ── Vague 2 : borner aux soirées réellement chargées ──
+    // Une requête « toute la table » plafonnée arrivait tronquée (120 guest lists,
+    // 220 rounds) : les tarifs et l'entrée gratuite d'une soirée à venir pouvaient
+    // manquer sans le moindre signe. On ne demande que ce qui s'y rattache.
+    const upcomingEvents = eventsRes.data || [];
+    const eventIds = upcomingEvents.map((e: any) => e.id);
+    const venueIds = (venuesRes.data || []).map((v: any) => v.id);
+    const organizerUserIds = Array.from(new Set(
+      upcomingEvents.map((e: any) => e.organizer_user_id).filter(Boolean),
+    )) as string[];
+
+    const empty = { data: [] as any[] };
+    const [ticketRoundsRes, guestListsRes, djSetsRes, eventPacksRes, venuePacksRes, organizersRes] = await Promise.all([
+      eventIds.length
+        ? supabase.from("ticket_rounds")
+            .select("id, event_id, name, price, max_tickets, tickets_sold, is_active, position")
+            .in("event_id", eventIds).eq("is_active", true).order("position")
+        : empty,
+      eventIds.length
+        ? supabase.from("guest_lists")
+            .select("id, event_id, venue_id, free_before_time, includes_drink, is_active, quota")
+            .in("event_id", eventIds).eq("is_active", true)
+        : empty,
+      eventIds.length
+        ? supabase.from("dj_sets")
+            .select("id, dj_id, event_id, start_time, end_time, music_genre")
+            .in("event_id", eventIds)
+        : empty,
+      // Formules d'une soirée d'organisateur sans club : event-scopées.
+      eventIds.length
+        ? supabase.from("table_packs")
+            .select("id, venue_id, event_id, name, base_price, base_capacity, minimum_spend, payment_mode")
+            .in("event_id", eventIds).eq("is_active", true)
+        : empty,
+      venueIds.length
+        ? supabase.from("table_packs")
+            .select("id, venue_id, event_id, name, base_price, base_capacity, minimum_spend, payment_mode")
+            .in("venue_id", venueIds).is("event_id", null).eq("is_active", true)
+        : empty,
+      // Organisateurs : leur nom porte la soirée sans club, leur slug construit
+      // le lien canonique /events/:host/:slug.
+      organizerUserIds.length
+        ? supabase.from("organizer_profiles")
+            .select("user_id, display_name, slug")
+            .in("user_id", organizerUserIds)
+        : empty,
+    ]);
+
+    const tablePacks = [...(eventPacksRes.data || []), ...(venuePacksRes.data || [])];
+
     const realDataContext = buildRealDataContext(
       venuesRes.data || [],
       eventsRes.data || [],
       ticketRoundsRes.data || [],
       drinksRes.data || [],
-      tablePacksRes.data || [],
+      tablePacks,
       guestListsRes.data || [],
       djsRes.data || [],
       djSetsRes.data || [],
       userStatsRes.data?.[0] || null,
       loyaltyRes.data || [],
+      organizersRes.data || [],
       tz
     );
 
