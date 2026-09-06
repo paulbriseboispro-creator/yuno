@@ -2,8 +2,10 @@ import { cn } from '@/lib/utils';
 
 /* ============================================================
    Shimmer — primitive de skeleton unifiée (app cliente publique).
-   `bg-white/5 animate-pulse` sur fond #0A0A0A, arrondis via
-   className ou style.borderRadius (style gagne toujours).
+   `bg-white/5` sur fond #0A0A0A + reflet balayant `.yuno-shimmer`
+   (index.css : composité, synchronisé, respecte reduced-motion).
+   Arrondis via className ou style.borderRadius (style gagne toujours).
+   Une page qui charge = SA silhouette, jamais un cercle qui tourne.
    ============================================================ */
 
 export interface ShimmerProps {
@@ -17,7 +19,7 @@ export function Shimmer({ width, height, className, style }: ShimmerProps) {
   return (
     <div
       aria-hidden
-      className={cn('bg-white/5 animate-pulse rounded-lg', className)}
+      className={cn('yuno-shimmer bg-white/5 rounded-lg', className)}
       style={{ width, height, ...style }}
     />
   );

@@ -13,7 +13,7 @@ export function ProfileSkeleton() {
           className="relative -mx-3 sm:-mx-4 -mt-3 sm:-mt-4 overflow-hidden"
           style={{ minHeight: 380, paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
-          <div className="absolute inset-0 bg-white/5 animate-pulse" />
+          <div className="absolute inset-0 yuno-shimmer bg-white/5" />
           <div className="relative z-10 flex flex-col items-center pt-20">
             <SkeletonCircle size={112} className="bg-white/10" />
             <SkeletonLine width={170} height={24} className="mt-6 bg-white/10" />

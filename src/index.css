@@ -521,16 +521,90 @@
    SKELETON
    ============================================================ */
 
+/* `.skeleton` (pages affiliés / promoteurs) : même reflet composité que le
+   Shimmer client ci-dessous, sur la teinte carte. L'ancien dégradé animé en
+   background-position repeignait chaque frame. */
 .skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--yuno-card);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background: linear-gradient(
     90deg,
-    var(--yuno-card) 25%,
-    var(--yuno-card-2) 50%,
-    var(--yuno-card) 75%
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.035) 40%,
+    rgba(255, 255, 255, 0.055) 50%,
+    rgba(255, 255, 255, 0.035) 60%,
+    rgba(255, 255, 255, 0) 100%
   );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-sm);
+  transform: translateX(-100%);
+  animation: yuno-shimmer-sweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ------------------------------------------------------------
+   Shimmer (app cliente) — src/components/skeletons/Shimmer.tsx
+   ------------------------------------------------------------
+   Un reflet qui balaie de gauche à droite, pas une pulsation : c'est
+   le motif que l'œil lit comme « ça charge, ça arrive » (Facebook,
+   LinkedIn, App Store). Le balayage vit sur un pseudo-élément animé
+   en `transform` : composité, aucun repaint, même avec 60 os à l'écran.
+   Toutes les os montent ensemble, donc le reflet est synchronisé sur
+   toute la page — un seul mouvement, pas une nuée de clignotements.
+   1.8 s, courbe douce, reflet à 7 % : présent, jamais criard. */
+.yuno-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.yuno-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.045) 40%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.045) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%);
+  animation: yuno-shimmer-sweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes yuno-shimmer-sweep {
+  to { transform: translateX(100%); }
+}
+
+/* Fallback de route (chunk JS en vol) : le squelette n'apparaît qu'après
+   90 ms. Un chunk déjà préchauffé se résout en une ou deux frames — on ne
+   fait alors clignoter aucun squelette entre deux écrans. */
+.yuno-skel-enter {
+  animation: yuno-skel-enter 160ms ease-out 90ms both;
+}
+@keyframes yuno-skel-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Réduit = pas de déplacement : le reflet devient une respiration lente. */
+  .yuno-shimmer::after,
+  .skeleton::after {
+    transform: none;
+    background: rgba(255, 255, 255, 0.05);
+    animation: yuno-shimmer-breathe 1.8s ease-in-out infinite;
+  }
+  .yuno-skel-enter { animation-duration: 0ms; }
+}
+@keyframes yuno-shimmer-breathe {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
 }
 
 /* ============================================================

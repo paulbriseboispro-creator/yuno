@@ -9,7 +9,7 @@ export function EventDetailsSkeleton() {
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }} aria-hidden>
       {/* Hero 1:1 plein bleed */}
       <div
-        className="relative w-full overflow-hidden bg-white/5 animate-pulse"
+        className="relative w-full overflow-hidden yuno-shimmer bg-white/5"
         style={{ aspectRatio: '1 / 1', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
       >
         {/* Boutons haut (back / share / fav) */}

@@ -9,7 +9,7 @@ export function CartSkeleton() {
     <div className="min-h-screen" style={{ background: '#0A0A0A' }} aria-hidden>
       {/* Hero */}
       <div
-        className="relative overflow-hidden bg-white/5 animate-pulse"
+        className="relative overflow-hidden yuno-shimmer bg-white/5"
         style={{
           height: 'calc(13.5rem + env(safe-area-inset-top, 0px))',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
