@@ -4331,6 +4331,7 @@ const en: Record<string, string> = {
   'vipCheckout.samePrice': 'Same price',
   'vipCheckout.packTooSmallFor': 'Too small for {n} guests',
   'vipCheckout.noPackForTable': 'No package available for this table.',
+  'vipCheckout.confirmPack': 'Choose this package',
   'vipCheckout.keepCurrent': 'Keep my selection',
   'vipCheckout.seeAllZones': 'See all zones',
   'vipCheckout.upsellDesc': 'Table {table} is in the {zone} zone.',

@@ -4604,6 +4604,7 @@ const es: Record<string, string> = {
   'vipCheckout.samePrice': 'Mismo precio',
   'vipCheckout.packTooSmallFor': 'Demasiado pequeña para {n} pers.',
   'vipCheckout.noPackForTable': 'Ninguna fórmula disponible para esta mesa.',
+  'vipCheckout.confirmPack': 'Elegir esta fórmula',
   'vipCheckout.keepCurrent': 'Mantener mi selección',
   'vipCheckout.seeAllZones': 'Ver todas las zonas',
   'vipCheckout.upsellDesc': 'La mesa {table} está en la zona {zone}.',
