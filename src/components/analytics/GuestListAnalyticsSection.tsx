@@ -43,6 +43,10 @@ interface HolderStats {
   events: number;
   signups: number;
   arrived: number;
+  /** Inscrits dont la soirée n'a pas encore ouvert ses portes — jamais des no-show. */
+  upcoming: number;
+  /** Inscrits dont la soirée est fermée — la seule base du no-show. */
+  settled: number;
   no_show: number;
   no_show_rate: number | null;
   show_rate: number | null;
@@ -68,7 +72,11 @@ interface GuestListAnalytics {
   ok: boolean;
   totals: {
     lists: number; active_lists: number; events: number;
+    upcoming_events: number; settled_events: number;
     signups: number; arrived: number; no_show: number;
+    // Trois états d'une soirée : à venir (portes fermées), ouverte, terminée.
+    // Le no-show ne se calcule QUE sur les soirées terminées.
+    upcoming: number; started: number; settled: number;
     no_show_rate: number; show_rate: number;
     quota_total: number; capped_lists: number; unlimited_lists: number; fill_rate: number;
   };
@@ -85,10 +93,10 @@ interface GuestListAnalytics {
   arrivals_by_hour: { hour: number; arrivals: number }[];
   peak_hour: number | null;
   signup_lead: { bucket: string; signups: number; arrived: number }[];
-  by_entry_type: { entry_type: string; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
-  by_gender: { gender: string; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
+  by_entry_type: { entry_type: string; signups: number; arrived: number; upcoming: number; no_show_rate: number | null; revenue: number; avg_per_arrived: number | null }[];
+  by_gender: { gender: string; signups: number; arrived: number; upcoming: number; no_show_rate: number | null; revenue: number; avg_per_arrived: number | null }[];
   by_holder: HolderStats[];
-  by_event: { event_id: string; title: string; start_at: string; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
+  by_event: { event_id: string; title: string; start_at: string; signups: number; arrived: number; no_show_rate: number | null; night_started: boolean; night_over: boolean; revenue: number; avg_per_arrived: number | null }[];
 }
 
 interface Props {
@@ -195,7 +203,12 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
   const pct = maxRevenue > 0 ? Math.round((h.revenue / maxRevenue) * 100) : 0;
   const hourMax = Math.max(0, ...h.arrivals_by_hour.map(x => x.arrivals));
   const typeMax = Math.max(0, ...h.by_entry_type.map(x => x.signups));
+  // Aucune soirée fermée pour ce propriétaire → il n'y a pas encore de no-show
+  // à afficher, pas un no-show de 0 %.
+  const settled = h.settled ?? 0;
   const noShow = h.no_show_rate ?? 0;
+  const hasNoShow = settled > 0 && h.no_show_rate !== null;
+  const showRate = h.show_rate ?? 0;
 
   return (
     <div style={{ borderTop: `1px solid ${BORDER}` }}>
@@ -219,7 +232,9 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
           </div>
           <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
             {h.arrived}/{h.signups} {tt('venus', 'showed', 'asistieron')}
-            {' · '}{tt('no-show', 'no-show', 'no-show')} <span style={{ color: noShow > 40 ? NEG : T3 }}>{noShow}%</span>
+            {hasNoShow
+              ? <>{' · '}{tt('no-show', 'no-show', 'no-show')} <span style={{ color: noShow > 40 ? NEG : T3 }}>{noShow}%</span></>
+              : <>{' · '}<span style={{ color: T3 }}>{h.upcoming} {tt('à venir', 'upcoming', 'por venir')}</span></>}
             {' · '}{fmtPrice(h.avg_per_arrived ?? 0)}/{tt('invité', 'guest', 'invitado')}
           </div>
           <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -245,10 +260,15 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
             <Tile label={tt('Dont VIP', 'Of which VIP', 'De ello VIP')} value={fmtPrice(h.vip_revenue)} />
             <Tile label={tt('Panier moyen', 'Avg basket', 'Ticket medio')} value={fmtPrice(h.avg_per_spender ?? 0)} />
             <Tile label={tt('Inscrits', 'Signups', 'Inscritos')} value={h.signups.toLocaleString()} />
-            <Tile label={tt('Venus', 'Showed up', 'Asistieron')} value={`${h.arrived} · ${h.show_rate ?? 0}%`}
-              tone={(h.show_rate ?? 0) >= 60 ? POS : T1} />
-            <Tile label={tt('No-show', 'No-show', 'No-show')} value={`${h.no_show} · ${noShow}%`}
-              tone={noShow > 40 ? NEG : T1} />
+            <Tile label={tt('Venus', 'Showed up', 'Asistieron')}
+              value={h.show_rate !== null ? `${h.arrived} · ${showRate}%` : `${h.arrived} · —`}
+              tone={showRate >= 60 ? POS : T1} />
+            <Tile label={tt('No-show', 'No-show', 'No-show')}
+              value={hasNoShow ? `${h.no_show} · ${noShow}%` : '—'}
+              tone={hasNoShow && noShow > 40 ? NEG : T1} />
+            {h.upcoming > 0 && (
+              <Tile label={tt('À venir', 'Upcoming', 'Por venir')} value={h.upcoming.toLocaleString()} />
+            )}
             <Tile label={tt('Ont consommé', 'Spent money', 'Consumieron')}
               value={`${h.spenders} · ${h.conversion_rate ?? 0}%`} />
             <Tile label={tt('Commandes bar', 'Bar orders', 'Pedidos barra')} value={h.bar_orders.toLocaleString()} />
@@ -389,6 +409,14 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
   // Ratio invité guest list vs billet payant : le chiffre qui tranche le débat
   const ratio = benchmark.ticket_avg > 0 ? benchmark.guest_avg / benchmark.ticket_avg : null;
   const funnelPct = (n: number) => totals.signups > 0 ? Math.round((n / totals.signups) * 100) : 0;
+  // Une soirée à venir ne produit pas de no-show : ses inscrits attendent.
+  // Le no-show se fige à la fermeture de la soirée, la présence se lit dès que
+  // la porte ouvre. Deux bases différentes, jamais le total des inscrits.
+  const upcoming = totals.upcoming ?? 0;
+  const settled = totals.settled ?? 0;
+  const started = totals.started ?? 0;
+  const hasNoShow = settled > 0;
+  const hasPresence = started > 0;
 
   return (
     <div className="space-y-3">
@@ -396,15 +424,19 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Kpi icon={Users} label={tt('Inscrits', 'Signups', 'Inscritos')}
           value={totals.signups.toLocaleString()}
-          sub={`${totals.lists} ${totals.lists > 1 ? tt('listes', 'lists', 'listas') : tt('liste', 'list', 'lista')} · ${totals.events} ${tt('soirées', 'nights', 'noches')}`} />
+          sub={`${totals.lists} ${totals.lists > 1 ? tt('listes', 'lists', 'listas') : tt('liste', 'list', 'lista')} · ${totals.events} ${totals.events > 1 ? tt('soirées', 'nights', 'noches') : tt('soirée', 'night', 'noche')}${upcoming > 0 ? ` · ${upcoming} ${tt('à venir', 'upcoming', 'por venir')}` : ''}`} />
         <Kpi icon={UserCheck} label={tt('Venus', 'Showed up', 'Asistieron')}
           value={totals.arrived.toLocaleString()}
-          sub={`${totals.show_rate}% ${tt('de présence', 'show rate', 'de asistencia')}`}
-          tone={totals.show_rate >= 60 ? POS : T1} />
+          sub={hasPresence
+            ? `${totals.show_rate}% ${tt('de présence', 'show rate', 'de asistencia')}`
+            : tt('la porte n\'a pas encore ouvert', 'doors haven\'t opened yet', 'la puerta aún no ha abierto')}
+          tone={hasPresence && totals.show_rate >= 60 ? POS : T1} />
         <Kpi icon={UserX} label={tt('No-show', 'No-show', 'No-show')}
-          value={`${totals.no_show_rate}%`}
-          sub={`${totals.no_show.toLocaleString()} ${tt('places perdues', 'wasted spots', 'plazas perdidas')}`}
-          tone={totals.no_show_rate > 40 ? NEG : T1} />
+          value={hasNoShow ? `${totals.no_show_rate}%` : '—'}
+          sub={hasNoShow
+            ? `${totals.no_show.toLocaleString()} ${tt('places perdues', 'wasted spots', 'plazas perdidas')} · ${totals.settled_events} ${totals.settled_events > 1 ? tt('soirées terminées', 'closed nights', 'noches cerradas') : tt('soirée terminée', 'closed night', 'noche cerrada')}`
+            : tt('calculé à la fin de la soirée', 'computed once the night closes', 'se calcula al cerrar la noche')}
+          tone={hasNoShow && totals.no_show_rate > 40 ? NEG : T1} />
         <Kpi icon={TrendingUp} label={tt('Valeur / invité', 'Value / guest', 'Valor / invitado')}
           value={fmtPrice(spend.avg_per_arrived)}
           sub={hasBar
@@ -486,9 +518,27 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
           <div className="space-y-3.5">
             <BarRow label={tt('Inscrits', 'Signups', 'Inscritos')} pct={100}
               right={totals.signups.toLocaleString()} color={RED} />
+            {upcoming > 0 && (
+              <BarRow label={tt('Sur des soirées à venir', 'On upcoming nights', 'En noches por venir')}
+                pct={funnelPct(upcoming)}
+                right={upcoming.toLocaleString()}
+                sub={tt(
+                  'Comptés à la fermeture de leur soirée — ni venus, ni no-show pour l\'instant',
+                  'Counted once their night closes — neither showed nor no-show for now',
+                  'Se cuentan al cerrar su noche — ni asistieron ni no-show por ahora',
+                )}
+                color="rgba(255,255,255,0.16)" />
+            )}
             <BarRow label={tt('Entrés (scannés à la porte)', 'Entered (scanned at door)', 'Entraron (escaneados en puerta)')}
               pct={funnelPct(totals.arrived)}
-              right={`${totals.arrived.toLocaleString()} · ${totals.show_rate}%`}
+              right={hasPresence ? `${totals.arrived.toLocaleString()} · ${totals.show_rate}%` : totals.arrived.toLocaleString()}
+              sub={upcoming > 0 && hasPresence
+                ? tt(
+                    `${totals.show_rate}% des ${started} inscrits dont la porte a déjà ouvert`,
+                    `${totals.show_rate}% of the ${started} signups whose doors already opened`,
+                    `${totals.show_rate}% de los ${started} inscritos cuya puerta ya abrió`,
+                  )
+                : undefined}
               color="rgba(255,255,255,0.42)" />
             <BarRow label={tt('Ont consommé', 'Spent money', 'Consumieron')}
               pct={funnelPct(spend.guests_with_spend)}
@@ -507,7 +557,9 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
             </div>
             <div>
               <div style={{ color: T3 }}>{tt('Manque à gagner no-show', 'No-show lost revenue', 'Lucro cesante no-show')}</div>
-              <div className="font-[640] tabular-nums" style={{ color: NEG }}>{fmtPrice(spend.lost_value)}</div>
+              <div className="font-[640] tabular-nums" style={{ color: hasNoShow ? NEG : T3 }}>
+                {hasNoShow ? fmtPrice(spend.lost_value) : '—'}
+              </div>
             </div>
           </div>
         </div>
@@ -661,7 +713,9 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                   label={entryLabel(e.entry_type)}
                   pct={totals.signups ? Math.round((e.signups / totals.signups) * 100) : 0}
                   right={`${e.signups.toLocaleString()} · ${fmtPrice(e.revenue)}`}
-                  sub={`${tt('no-show', 'no-show', 'no-show')} ${e.no_show_rate}% · ${fmtPrice(e.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
+                  sub={`${e.no_show_rate !== null
+                    ? `${tt('no-show', 'no-show', 'no-show')} ${e.no_show_rate}%`
+                    : `${e.upcoming} ${tt('à venir', 'upcoming', 'por venir')}`} · ${fmtPrice(e.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
                   color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
               ))}
             </div>
@@ -681,7 +735,9 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                   label={genderLabel(g.gender)}
                   pct={totals.signups ? Math.round((g.signups / totals.signups) * 100) : 0}
                   right={`${g.signups.toLocaleString()} · ${fmtPrice(g.revenue)}`}
-                  sub={`${tt('no-show', 'no-show', 'no-show')} ${g.no_show_rate}% · ${fmtPrice(g.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
+                  sub={`${g.no_show_rate !== null
+                    ? `${tt('no-show', 'no-show', 'no-show')} ${g.no_show_rate}%`
+                    : `${g.upcoming} ${tt('à venir', 'upcoming', 'por venir')}`} · ${fmtPrice(g.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
                   color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
               ))}
             </div>
@@ -707,7 +763,11 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                   <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
                     {new Date(e.start_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short' })}
                     {' · '}{e.arrived}/{e.signups} {tt('venus', 'showed', 'asistieron')}
-                    {' · '}{tt('no-show', 'no-show', 'no-show')} {e.no_show_rate}%
+                    {e.night_over && e.no_show_rate !== null
+                      ? <>{' · '}{tt('no-show', 'no-show', 'no-show')} {e.no_show_rate}%</>
+                      : <>{' · '}{e.night_started
+                          ? tt('soirée en cours', 'night in progress', 'noche en curso')
+                          : tt('soirée à venir', 'upcoming night', 'noche por venir')}</>}
                   </div>
                   <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                     <div className="h-full rounded transition-all"
