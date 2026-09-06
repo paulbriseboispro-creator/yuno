@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,10 +7,10 @@ import { useToast } from '@/hooks/use-toast';
 import { format, addDays, startOfDay, isToday, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { CheckCircle, Pencil, FileText, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Pencil, FileText, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   AffPage, AffHeading, AffSpinner,
-  RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, CARD_BG, CARD_SHADOW,
+  RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, CARD_BG, CARD_SHADOW, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
 
 type EventRow = {
@@ -39,41 +39,67 @@ const STATUS_STYLE: Record<DayStatus, { dot: string; label: string }> = {
   draft:       { dot: T3, label: 'aff.week.statusDraft' },
 };
 
+function NavButton({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="flex items-center justify-center rounded-xl transition-colors"
+      style={{ width: 32, height: 32, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = T2; e.currentTarget.style.borderColor = BORDER; }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function AffiliateWeekCalendar() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const { toast } = useToast();
+  const [affId, setAffId] = useState<string | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [weekOffset, setWeekOffset] = useState(0);
 
-  const today = startOfDay(new Date());
-  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+  // Fenêtre glissante de 7 jours, décalée d'une semaine à chaque pas.
+  const weekStart = addDays(startOfDay(new Date()), weekOffset * 7);
+  const weekEnd = addDays(weekStart, 6);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   useEffect(() => {
-    if (user) init();
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user.id).single();
+      if (cancelled) return;
+      if (!aff) { setLoading(false); return; }
+      setAffId(aff.id);
+    })();
+    return () => { cancelled = true; };
   }, [user]);
 
-  const init = async () => {
-    const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user!.id).single();
-    if (!aff) { setLoading(false); return; }
-    await fetchEvents(aff.id);
-  };
-
-  const fetchEvents = async (affId: string) => {
+  const fetchEvents = useCallback(async (id: string, from: Date, to: Date) => {
     setLoading(true);
-    const from = format(today, 'yyyy-MM-dd');
-    const to = format(addDays(today, 6), 'yyyy-MM-dd');
     const { data } = await supabase
       .from('affiliate_events')
       .select('id, name, event_date, status, is_sold_out, external_ticket_url, flyer_url')
-      .eq('affiliate_id', affId)
-      .gte('event_date', from)
-      .lte('event_date', to)
+      .eq('affiliate_id', id)
+      .gte('event_date', format(from, 'yyyy-MM-dd'))
+      .lte('event_date', format(to, 'yyyy-MM-dd'))
       .order('event_date');
     setEvents(data ?? []);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!affId) return;
+    fetchEvents(affId, weekStart, weekEnd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [affId, weekOffset, fetchEvents]);
 
   const toggleSoldOut = async (id: string, current: boolean) => {
     const { error } = await supabase.from('affiliate_events').update({ is_sold_out: !current }).eq('id', id);
@@ -84,14 +110,39 @@ export default function AffiliateWeekCalendar() {
 
   const eventsForDay = (dateStr: string) => events.filter(e => e.event_date === dateStr);
 
-  if (loading) return <AffSpinner />;
+  const heading =
+    weekOffset === 0 ? t('aff.nav.week')
+    : weekOffset === 1 ? t('aff.week.nextWeek')
+    : weekOffset === -1 ? t('aff.week.lastWeek')
+    : `${t('aff.week.weekOf')} ${format(weekStart, 'd MMMM', { locale: dateLocale })}`;
 
   return (
     <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
-          title={t('aff.nav.week')}
-          subtitle={`${t('aff.week.subtitle')} — ${format(today, 'd MMM', { locale: dateLocale })} → ${format(addDays(today, 6), 'd MMM yyyy', { locale: dateLocale })}`}
+          title={heading}
+          subtitle={`${t('aff.week.subtitle')} — ${format(weekStart, 'd MMM', { locale: dateLocale })} → ${format(weekEnd, 'd MMM yyyy', { locale: dateLocale })}`}
+          right={
+            <div className="flex items-center gap-2">
+              {weekOffset !== 0 && (
+                <button
+                  onClick={() => setWeekOffset(0)}
+                  className="rounded-xl transition-colors"
+                  style={{ height: 32, padding: '0 12px', fontSize: 12, fontWeight: 560, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = T2; e.currentTarget.style.borderColor = BORDER; }}
+                >
+                  {t('aff.week.today')}
+                </button>
+              )}
+              <NavButton onClick={() => setWeekOffset(w => w - 1)} title={t('aff.week.prevWeek')}>
+                <ChevronLeft className="h-4 w-4" />
+              </NavButton>
+              <NavButton onClick={() => setWeekOffset(w => w + 1)} title={t('aff.week.nextWeekAction')}>
+                <ChevronRight className="h-4 w-4" />
+              </NavButton>
+            </div>
+          }
         />
       </motion.div>
 
@@ -105,7 +156,8 @@ export default function AffiliateWeekCalendar() {
         ))}
       </div>
 
-      {/* Days */}
+      {loading ? <AffSpinner /> : (
+      /* Days */
       <div className="space-y-3">
         {days.map((day, di) => {
           const dateStr = format(day, 'yyyy-MM-dd');
@@ -195,6 +247,7 @@ export default function AffiliateWeekCalendar() {
           );
         })}
       </div>
+      )}
     </AffPage>
   );
 }
