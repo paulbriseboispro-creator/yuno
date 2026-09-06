@@ -302,13 +302,13 @@ export function AffAvatar({ src, fallback, size = 40 }: { src?: string | null; f
 
 // ─── Dark input ──────────────────────────────────────────────────────────────
 export function DarkInput({
-  value, onChange, placeholder, type = 'text', icon: Icon, onKeyDown, disabled,
-}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; icon?: any; onKeyDown?: (e: any) => void; disabled?: boolean }) {
+  value, onChange, placeholder, type = 'text', icon: Icon, onKeyDown, disabled, autoFocus,
+}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; icon?: any; onKeyDown?: (e: any) => void; disabled?: boolean; autoFocus?: boolean }) {
   return (
     <div className="relative" style={{ flex: 1 }}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />}
       <input
-        type={type} value={value} onKeyDown={onKeyDown}
+        type={type} value={value} onKeyDown={onKeyDown} autoFocus={autoFocus}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         readOnly={!onChange || disabled}
         disabled={disabled}

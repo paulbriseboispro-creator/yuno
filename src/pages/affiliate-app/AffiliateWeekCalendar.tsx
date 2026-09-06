@@ -7,9 +7,9 @@ import { useToast } from '@/hooks/use-toast';
 import { format, addDays, startOfDay, isToday, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { CheckCircle, Pencil, FileText, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle, Pencil, FileText, ChevronLeft, ChevronRight, Link2, Loader2, X } from 'lucide-react';
 import {
-  AffPage, AffHeading, AffSpinner,
+  AffPage, AffHeading, AffSpinner, AffButton, DarkInput,
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, CARD_BG, CARD_SHADOW, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
 
@@ -39,6 +39,22 @@ const STATUS_STYLE: Record<DayStatus, { dot: string; label: string }> = {
   draft:       { dot: T3, label: 'aff.week.statusDraft' },
 };
 
+// Colle telle quelle une adresse complète ; ajoute https:// à un domaine nu.
+// Renvoie null pour un champ vidé (le lien est retiré), false pour une saisie
+// qui n'est pas une adresse.
+function normalizeTicketUrl(raw: string): string | null | false {
+  const v = raw.trim();
+  if (!v) return null;
+  const withScheme = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  try {
+    const u = new URL(withScheme);
+    if (!u.hostname.includes('.')) return false;
+    return u.toString();
+  } catch {
+    return false;
+  }
+}
+
 function NavButton({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
   return (
     <button
@@ -64,6 +80,9 @@ export default function AffiliateWeekCalendar() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftUrl, setDraftUrl] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   // Fenêtre glissante de 7 jours, décalée d'une semaine à chaque pas.
   const weekStart = addDays(startOfDay(new Date()), weekOffset * 7);
@@ -97,6 +116,7 @@ export default function AffiliateWeekCalendar() {
 
   useEffect(() => {
     if (!affId) return;
+    setEditingId(null);
     fetchEvents(affId, weekStart, weekEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [affId, weekOffset, fetchEvents]);
@@ -106,6 +126,48 @@ export default function AffiliateWeekCalendar() {
     if (error) { toast({ title: t('aff.week.error'), description: error.message, variant: 'destructive' }); return; }
     setEvents(prev => prev.map(e => e.id === id ? { ...e, is_sold_out: !current } : e));
     toast({ title: current ? t('aff.week.backOnSale') : t('aff.week.markedSoldOut') });
+  };
+
+  const openLinkEditor = (ev: EventRow) => {
+    setEditingId(ev.id);
+    setDraftUrl(ev.external_ticket_url ?? '');
+  };
+
+  const closeLinkEditor = () => {
+    setEditingId(null);
+    setDraftUrl('');
+  };
+
+  const saveLink = async (ev: EventRow) => {
+    const url = normalizeTicketUrl(draftUrl);
+    if (url === false) {
+      toast({ title: t('aff.week.linkInvalid'), description: t('aff.week.linkInvalidHint'), variant: 'destructive' });
+      return;
+    }
+    setSavingId(ev.id);
+    // La base décide du statut : le verrou plateforme publie la soirée dès
+    // qu'un lien arrive et la repasse en brouillon dès qu'on le retire.
+    const { data, error } = await supabase
+      .from('affiliate_events')
+      .update({ external_ticket_url: url })
+      .eq('id', ev.id)
+      .select('id, name, event_date, status, is_sold_out, external_ticket_url, flyer_url')
+      .single();
+    setSavingId(null);
+    if (error || !data) {
+      toast({ title: t('aff.week.error'), description: error?.message, variant: 'destructive' });
+      return;
+    }
+    const saved = data as EventRow;
+    setEvents(prev => prev.map(e => (e.id === saved.id ? saved : e)));
+    closeLinkEditor();
+    if (!saved.external_ticket_url) {
+      toast({ title: t('aff.week.linkCleared'), description: t('aff.week.linkClearedHint') });
+    } else if (saved.status === 'published' || saved.status === 'featured') {
+      toast({ title: t('aff.week.linkPublished'), description: saved.name });
+    } else {
+      toast({ title: t('aff.week.linkSaved'), description: saved.name });
+    }
   };
 
   const eventsForDay = (dateStr: string) => events.filter(e => e.event_date === dateStr);
@@ -194,8 +256,11 @@ export default function AffiliateWeekCalendar() {
                   {dayEvents.map(ev => {
                     const status = getDayStatus(ev);
                     const style = STATUS_STYLE[status];
+                    const noLink = !ev.external_ticket_url;
+                    const isEditing = editingId === ev.id;
                     return (
-                      <div key={ev.id} style={{ borderLeft: `3px solid ${style.dot}` }}
+                      <div key={ev.id} style={{ borderLeft: `3px solid ${style.dot}` }}>
+                      <div
                         className="flex items-center gap-3 px-4 py-3 transition-colors"
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
@@ -217,10 +282,29 @@ export default function AffiliateWeekCalendar() {
                           </div>
                         </div>
 
-                        {status === 'missing_url' && <AlertTriangle className="h-3.5 w-3.5 flex-none" style={{ color: WARN }} />}
+                        {/* Lien billetterie manquant : la seule action qui compte ici */}
+                        {noLink && !isEditing && (
+                          <button onClick={() => openLinkEditor(ev)}
+                            title={t('aff.week.addLink')}
+                            className="flex items-center gap-1.5 rounded-lg flex-none transition-colors"
+                            style={{ height: 28, padding: '0 10px', fontSize: 11.5, fontWeight: 560, color: WARN, background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.28)' }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(251,191,36,0.18)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(251,191,36,0.10)')}>
+                            <Link2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">{t('aff.week.addLink')}</span>
+                          </button>
+                        )}
 
                         {/* Actions */}
                         <div className="flex items-center gap-1 flex-none">
+                          {!noLink && (
+                            <button onClick={() => (isEditing ? closeLinkEditor() : openLinkEditor(ev))}
+                              title={t('aff.week.editLink')}
+                              className="p-1.5 transition-colors" style={{ color: isEditing ? RED : T3 }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = isEditing ? RED : T3)}>
+                              <Link2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button onClick={() => toggleSoldOut(ev.id, ev.is_sold_out)}
                             title={ev.is_sold_out ? t('aff.week.putBackOnSale') : t('aff.week.markSoldOut')}
                             className="p-1.5 transition-colors" style={{ color: ev.is_sold_out ? RED : T3 }}
@@ -238,6 +322,33 @@ export default function AffiliateWeekCalendar() {
                             <Pencil className="h-3.5 w-3.5" />
                           </Link>
                         </div>
+                      </div>
+
+                      {/* Éditeur de lien en ligne */}
+                      {isEditing && (
+                        <div className="flex items-center gap-2 px-4 pb-3" style={{ paddingLeft: 63 }}>
+                          <DarkInput
+                            type="url"
+                            autoFocus
+                            value={draftUrl}
+                            onChange={setDraftUrl}
+                            placeholder={t('aff.week.linkPlaceholder')}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveLink(ev);
+                              if (e.key === 'Escape') closeLinkEditor();
+                            }}
+                          />
+                          <AffButton size="sm" onClick={() => saveLink(ev)}
+                            disabled={savingId === ev.id || draftUrl.trim() === (ev.external_ticket_url ?? '')}>
+                            {savingId === ev.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (noLink ? t('aff.week.linkPublish') : t('aff.week.linkSave'))}
+                          </AffButton>
+                          <button onClick={closeLinkEditor} title={t('aff.week.linkCancel')}
+                            className="p-1.5 flex-none transition-colors" style={{ color: T3 }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                       </div>
                     );
                   })}
