@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -3126,6 +3151,42 @@ export type Database = {
         Update: {
           event_genres?: string[]
           quiz_code?: string
+        }
+        Relationships: []
+      }
+      discovery_selections: {
+        Row: {
+          affiliate_event_ids: string[]
+          city: string | null
+          created_at: string
+          event_ids: string[]
+          genres: string[]
+          id: string
+          notification_key: string
+          opened_at: string | null
+          user_id: string
+        }
+        Insert: {
+          affiliate_event_ids?: string[]
+          city?: string | null
+          created_at?: string
+          event_ids?: string[]
+          genres?: string[]
+          id?: string
+          notification_key?: string
+          opened_at?: string | null
+          user_id: string
+        }
+        Update: {
+          affiliate_event_ids?: string[]
+          city?: string | null
+          created_at?: string
+          event_ids?: string[]
+          genres?: string[]
+          id?: string
+          notification_key?: string
+          opened_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -6263,6 +6324,7 @@ export type Database = {
           poster_url: string | null
           presale_start_at: string | null
           public_sale_start_at: string | null
+          published_at: string | null
           recurring_template_id: string | null
           requires_access_code: boolean
           reveal_address_in_email: boolean
@@ -6332,6 +6394,7 @@ export type Database = {
           poster_url?: string | null
           presale_start_at?: string | null
           public_sale_start_at?: string | null
+          published_at?: string | null
           recurring_template_id?: string | null
           requires_access_code?: boolean
           reveal_address_in_email?: boolean
@@ -6401,6 +6464,7 @@ export type Database = {
           poster_url?: string | null
           presale_start_at?: string | null
           public_sale_start_at?: string | null
+          published_at?: string | null
           recurring_template_id?: string | null
           requires_access_code?: boolean
           reveal_address_in_email?: boolean
@@ -9829,6 +9893,7 @@ export type Database = {
           mfa_exempt: boolean
           mfa_recovery_codes: string[] | null
           mfa_verified_at: string | null
+          notification_prefs: Json
           onboarding_completed: boolean
           organization_logo_url: string | null
           organization_name: string | null
@@ -9879,6 +9944,7 @@ export type Database = {
           mfa_exempt?: boolean
           mfa_recovery_codes?: string[] | null
           mfa_verified_at?: string | null
+          notification_prefs?: Json
           onboarding_completed?: boolean
           organization_logo_url?: string | null
           organization_name?: string | null
@@ -9929,6 +9995,7 @@ export type Database = {
           mfa_exempt?: boolean
           mfa_recovery_codes?: string[] | null
           mfa_verified_at?: string | null
+          notification_prefs?: Json
           onboarding_completed?: boolean
           organization_logo_url?: string | null
           organization_name?: string | null
@@ -16289,6 +16356,13 @@ export type Database = {
         Args: { p_date: string }
         Returns: undefined
       }
+      client_push_policy: {
+        Args: { p_key: string; p_user_id: string }
+        Returns: {
+          allowed: boolean
+          reason: string
+        }[]
+      }
       collab_domain_holder: {
         Args: {
           p_domain: string
@@ -16380,6 +16454,13 @@ export type Database = {
       count_venue_segment: {
         Args: { p_definition: Json; p_venue_id: string }
         Returns: number
+      }
+      count_zone_events_for_user: {
+        Args: { p_days?: number; p_user_id: string }
+        Returns: {
+          city_label: string
+          n: number
+        }[]
       }
       create_agency: {
         Args: {
@@ -16693,6 +16774,10 @@ export type Database = {
           last_name: string
           phone: string
         }[]
+      }
+      filter_client_push_recipients: {
+        Args: { p_key: string; p_user_ids: string[] }
+        Returns: string[]
       }
       flush_affiliate_session: {
         Args: {
@@ -17163,6 +17248,7 @@ export type Database = {
         Returns: {
           assigned_table_id: string
           guest_count: number
+          pack_id: string
           placement_status: string
           requested_table_id: string
           status: string
@@ -17350,6 +17436,19 @@ export type Database = {
           vat_number: string
         }[]
       }
+      get_new_events_to_announce: {
+        Args: never
+        Returns: {
+          event_id: string
+          host_kind: string
+          host_name: string
+          organizer_user_id: string
+          slug: string
+          start_at: string
+          title: string
+          venue_id: string
+        }[]
+      }
       get_onboarding_link_public: {
         Args: { p_token: string }
         Returns: {
@@ -17504,12 +17603,15 @@ export type Database = {
         Returns: {
           city: string
           event_id: string
+          is_affiliate: boolean
           music_genres: string[]
-          similarity: number
+          reason: string
+          score: number
           slug: string
           start_at: string
           title: string
           venue_id: string
+          venue_name: string
         }[]
       }
       get_tracked_link_stats: {
@@ -17904,6 +18006,18 @@ export type Database = {
           p_venue_id: string
         }
         Returns: undefined
+      }
+      open_discovery_selection: {
+        Args: { p_id: string }
+        Returns: {
+          affiliate_event_ids: string[]
+          city: string
+          created_at: string
+          event_ids: string[]
+          genres: string[]
+          id: string
+          notification_key: string
+        }[]
       }
       org_member_has_permission: {
         Args: {
@@ -18652,6 +18766,14 @@ export type Database = {
         }
         Returns: string
       }
+      user_home_cities: {
+        Args: { p_user_id: string }
+        Returns: {
+          city_label: string
+          city_norm: string
+          weight: number
+        }[]
+      }
       venue_payments_ready: { Args: { p_venue_id: string }; Returns: boolean }
       verify_demo_preview_password: {
         Args: { p_password: string; p_token: string }
@@ -18867,6 +18989,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [

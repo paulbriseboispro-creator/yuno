@@ -431,6 +431,33 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   cascade correctement. Corollaire : ne jamais chercher un utilisateur par
   `profiles.email` avec `.maybeSingle()` — sur un doublon, PostgREST renvoie
   `PGRST116` et l'appel tombe.
+- **Push CLIENT non transactionnel = porte unique `client_push_policy()`** (2026-09-06,
+  migration `20260906140000`). Toute notif marketing/engagement destinée à l'app Yuno
+  (découverte, nouveautés des clubs suivis, relance d'inactivité, panier…) appelle
+  `client_push_policy(user, key)` (unitaire) ou `filter_client_push_recipients(ids, key)`
+  (fan-out) AVANT d'envoyer : opt-out (`profiles.discovery_opt_out` +
+  `profiles.notification_prefs` jsonb : `discovery` / `follow_new_event` / `marketing`),
+  heures calmes 22 h → 10 h Paris, 1 non-transactionnelle / 24 h, 3 / 7 j, cooldown par
+  clé. Les rappels de soirées ACHETÉES (`reminder`) et le transactionnel n'y passent pas.
+  Un fan-out vérifie les heures calmes AVANT d'insérer sa campagne (le verrou
+  `uq_push_campaigns_auto_event`), sinon les destinataires filtrés sont perdus.
+  **La découverte ne pousse que de l'INVENTAIRE RÉEL dans la ZONE du client** :
+  `get_taste_events_for_user()` v2 exclut les clubs `is_hidden` / décommissionnés (club
+  démo inclus), filtre sur `user_home_cities()` (profil — posé par l'Explore —, achats,
+  lieux et organisateurs suivis), inclut les soirées partenaires par genre, et ne
+  renvoie RIEN sans signal (ni goût, ni genre, ni suivi) ou sans ville connue. Le push
+  écrit `discovery_selections` et atterrit sur `/for-you/<id>` (la sélection EXACTE
+  annoncée, jamais le feed) ; le titre cite le vrai compte et un genre seulement s'il
+  couvre la majorité de la sélection. `new_event` part sur `events.published_at`
+  (trigger) sous 72 h, jamais pour une re-génération de modèle récurrent
+  (`get_new_events_to_announce()`), et cible `/event/<uuid>` (toujours résolu ; la forme
+  `/events/<venue_id>/<slug>` échoue pour une soirée d'organisateur).
+  **Côté app** : la session Supabase est miroirée dans un fichier natif
+  (`src/lib/sessionVault.ts`, `@capacitor/filesystem`, aucun nouveau plugin) et le token
+  APNs suit le compte connecté (`PushTokenKeeper` + `src/lib/pushToken.ts` : montage,
+  connexion, retour au premier plan, rotation). Un tap de push est mémorisé et rejoué
+  après le rechargement OTA `atInstall` (NativeBridge). Ne jamais réintroduire un
+  enregistrement de token limité à un écran, ni un push découverte sans filtre de ville.
 - **Notifications push automatiques** : toute nouvelle notif auto passe par le registre
   super admin (`platform_notification_settings`, page `/admin/notifications`). Push
   unitaire → `_shared/auto-push.ts` (`sendAutoPush` : gate + langue FR/EN/ES + tracking

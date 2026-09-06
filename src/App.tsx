@@ -67,6 +67,7 @@ import { dismissSsrHero } from "@/lib/ssrHero";
 import { InstallBar } from "@/components/install/InstallBar";
 import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
+import { PushTokenKeeper } from "@/components/PushTokenKeeper";
 import PlatformTrafficTracker from "@/components/PlatformTrafficTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
@@ -249,6 +250,7 @@ const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
 const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
+const ForYouSelection = lazyWithRetry(() => import("./pages/ForYouSelection"));
 const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 const YunoAssistantPage = lazyWithRetry(() => import("./pages/YunoAssistantPage"));
 
@@ -543,6 +545,9 @@ const App = () => (
             <NativeBridge />
             <NativeStatusBarScrim />
             <PushClickTracker />
+            {/* Natif : le token APNs suit le compte connecté (montage, connexion,
+                retour au premier plan, rotation) — voir src/lib/pushToken.ts. */}
+            <PushTokenKeeper />
             {/* Mesure d'audience plateforme sans cookie — périmètre public/client
                 uniquement (voir src/lib/platformTraffic.ts). Dashboard : /admin/traffic. */}
             <PlatformTrafficTracker />
@@ -563,6 +568,8 @@ const App = () => (
                 <Route path="/" element={<HomeGate />} />
                 {/* Le feed garde sa propre URL : la landing et les liens « web app » pointent ici */}
                 <Route path="/explore" element={<Explore />} />
+                {/* Atterrissage d'un push « soirées pour toi » : la sélection exacte annoncée. */}
+                <Route path="/for-you/:id" element={<ForYouSelection />} />
                 {/* URL stable de la vitrine, visible par TOUT LE MONDE (aperçu,
                     partage, bio Instagram) — la porte de la racine ne s'y applique
                     pas. Canonical → « / » (posé par Landing), donc pas de duplicate. */}

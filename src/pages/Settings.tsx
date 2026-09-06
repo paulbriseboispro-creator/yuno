@@ -52,6 +52,28 @@ export default function Settings() {
     birth_date: ''
   });
 
+  // Préférences push granulaires (profiles.notification_prefs, lues par
+  // client_push_policy côté serveur). Absent = activé.
+  const [notifPrefs, setNotifPrefs] = useState<{ follow_new_event: boolean; marketing: boolean }>({
+    follow_new_event: true,
+    marketing: true,
+  });
+  const updateNotifPref = async (key: 'follow_new_event' | 'marketing', on: boolean) => {
+    const prev = notifPrefs;
+    const next = { ...notifPrefs, [key]: on };
+    setNotifPrefs(next);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ notification_prefs: next } as never)
+      .eq('id', user!.id);
+    if (error) {
+      setNotifPrefs(prev);
+      toast.error(t('settings.prefError'));
+    } else {
+      toast.success(t('settings.prefUpdated'));
+    }
+  };
+
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -67,12 +89,18 @@ export default function Settings() {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('personalization_opt_out, discovery_opt_out')
+      .select('personalization_opt_out, discovery_opt_out, notification_prefs')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setPersonalizationOptOut(Boolean(data?.personalization_opt_out));
-        setDiscoveryOptOut(Boolean(data?.discovery_opt_out));
+        const row = data as { personalization_opt_out?: boolean | null; discovery_opt_out?: boolean | null; notification_prefs?: Record<string, unknown> | null } | null;
+        setPersonalizationOptOut(Boolean(row?.personalization_opt_out));
+        setDiscoveryOptOut(Boolean(row?.discovery_opt_out));
+        const prefs = (row?.notification_prefs ?? {}) as Record<string, unknown>;
+        setNotifPrefs({
+          follow_new_event: prefs.follow_new_event !== false,
+          marketing: prefs.marketing !== false,
+        });
       });
   }, [user]);
 
@@ -553,6 +581,26 @@ export default function Settings() {
                     toast.success(t('settings.prefUpdated'));
                   }
                 }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm">{t('settings.followNewEvent')}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('settings.followNewEventHint')}</p>
+              </div>
+              <Switch
+                checked={notifPrefs.follow_new_event}
+                onCheckedChange={(on) => void updateNotifPref('follow_new_event', on)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm">{t('settings.marketingPush')}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('settings.marketingPushHint')}</p>
+              </div>
+              <Switch
+                checked={notifPrefs.marketing}
+                onCheckedChange={(on) => void updateNotifPref('marketing', on)}
               />
             </div>
           </CardContent>
