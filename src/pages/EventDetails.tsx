@@ -1510,14 +1510,16 @@ export default function EventDetails() {
           return (
             <StickyCheckoutFooter
               amount={minPrice}
-              label={tablesOnlyOffer ? t('event.tableFrom') : t('event.startingFrom')}
+              // Le bouton dit déjà « table » : le libellé reste court pour tenir
+              // sur une ligne à 375 px.
+              label={t('event.startingFrom')}
               // La barre ancre le prix (c'est la ou est le revenu du club), mais
               // elle dit aussi qu'une entree gratuite existe : sans ce mot, un
               // visiteur qui ne fait que lire le bas de l'ecran croit que la
               // soiree est payante et repart. Sans billet, elle dit « table ».
               subtitleText={guestListWithPaid
                 ? t('event.freeEntryAlso')
-                : tablesOnlyOffer ? t('event.perTableMin').replace('{n}', String(minTableCapacity)) : undefined}
+                : tablesOnlyOffer ? t('event.minGuestsShort').replace('{n}', String(minTableCapacity)) : undefined}
               buttonText={tablesOnlyOffer ? t('event.bookTable') : t('event.bookNow')}
               icon={tablesOnlyOffer ? <Armchair className="h-4 w-4" /> : <Ticket className="h-4 w-4" />}
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}

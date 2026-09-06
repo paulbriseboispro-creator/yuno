@@ -46,8 +46,8 @@ export function StickyCheckoutFooter({
         <div className="flex justify-center pb-4 px-4">
           <div
             className={cn(
-              'inline-flex items-center w-full max-w-md gap-4 px-5 py-3',
-              'rounded-xl',
+              'inline-flex items-center w-full max-w-md gap-3 px-4 py-2.5',
+              'rounded-2xl',
               isCtaOnly ? 'justify-center' : 'justify-between'
             )}
             style={{
@@ -59,42 +59,59 @@ export function StickyCheckoutFooter({
             }}
           >
             {/* Prix */}
+            {/* Colonne prix : trois lignes au plus, jamais de retour à la ligne.
+                Sur un 375 px, un libellé qui se replie doublait la hauteur de la barre. */}
             {amount > 0 ? (
-              <div className="flex flex-col min-w-0">
+              <div className="flex flex-col min-w-0 flex-1">
                 {label && (
                   <span
+                    className="truncate"
                     style={{
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: '9px',
-                      letterSpacing: '0.14em',
+                      letterSpacing: '0.10em',
                       textTransform: 'uppercase',
-                      color: '#5A5A5E',
+                      color: '#9A9A9A',
+                      lineHeight: 1.2,
                     }}
                   >
                     {label}
                   </span>
                 )}
                 <span
+                  className="whitespace-nowrap"
                   style={{
                     fontFamily: "'Space Grotesk', sans-serif",
-                    fontSize: '22px',
+                    fontSize: '20px',
                     fontWeight: 700,
                     letterSpacing: '-0.02em',
                     color: '#FFFFFF',
                     lineHeight: 1.1,
+                    marginTop: label ? 1 : 0,
                   }}
                 >
                   {Number.isInteger(amount) ? amount : amount.toFixed(2)} €
                 </span>
                 {subtitleText && (
-                  <span style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>
+                  <span
+                    className="truncate"
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: '9px',
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      color: '#9A9A9A',
+                      lineHeight: 1.2,
+                      marginTop: 2,
+                    }}
+                  >
                     {subtitleText}
                   </span>
                 )}
               </div>
             ) : label ? (
-              <div className="flex flex-col min-w-0">
-                <span style={{ fontSize: '13px', fontWeight: 500, color: '#9A9A9A' }}>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="truncate" style={{ fontSize: '13px', fontWeight: 500, color: '#9A9A9A' }}>
                   {label}
                 </span>
               </div>
@@ -105,9 +122,9 @@ export function StickyCheckoutFooter({
               onClick={onClick}
               disabled={disabled || isLoading}
               className={cn(
-                'inline-flex items-center justify-center gap-2',
-                'rounded-lg font-semibold transition-all duration-150',
-                isCtaOnly ? 'w-full h-12 text-base' : 'h-11 px-6 shrink-0 text-sm',
+                'inline-flex items-center justify-center gap-1.5',
+                'rounded-full font-semibold transition-all duration-150 whitespace-nowrap',
+                isCtaOnly ? 'w-full h-12 text-base' : 'h-11 px-4 shrink-0 text-[13px]',
                 disabled
                   ? 'opacity-40 cursor-not-allowed'
                   : 'hover:brightness-110 active:scale-[0.97]'
