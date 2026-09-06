@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useEventRoute } from '@/hooks/useEventRoute';
@@ -95,6 +95,11 @@ export default function TableCheckout() {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [placementStatus, setPlacementStatus] = useState<'none' | 'requested' | 'assign_on_arrival'>('none');
   const [upsellTable, setUpsellTable] = useState<(FloorPlanTable & { zoneName?: string; zoneColor?: string }) | null>(null);
+  // Après un changement de zone / formule : où poser le client une fois les
+  // données rechargées (la table gardée, ou le plan cadré sur la zone).
+  const [switchFocus, setSwitchFocus] = useState<{ packId: string; zoneId: string; tableId: string | null; nonce: number } | null>(null);
+  const [focusZone, setFocusZone] = useState<{ zoneId: string; nonce: number } | null>(null);
+  const planSectionRef = useRef<HTMLDivElement | null>(null);
   
   // Form state
   const [fullName, setFullName] = useState('');
@@ -153,7 +158,7 @@ export default function TableCheckout() {
     setUpsellTable(null);
     setSelectedTableId(tableId);
     if (pack && newPackId === pack.id && newZoneId === (zoneId || pack.zoneId)) return;
-    handleZoneChange(newZoneId, newPackId);
+    applySwitch(newZoneId, newPackId, tableId);
   };
 
 
@@ -519,10 +524,66 @@ export default function TableCheckout() {
 
   const handleZoneChange = (newZoneId: string, newPackId: string) => {
     setZoneSheetOpen(false);
-    // The data-fetch effect keys off [eventId, packId, zoneId], so changing the
-    // route here re-fetches the new zone/pack without a full-page reload.
-    navigate(`${basePath}/table/${newPackId}?zone=${newZoneId}&guests=${guestCount}`, { replace: true, state: { eventId } });
+    setUpsellTable(null);
+    // Venu de la liste des zones : la table courante n'appartient plus à la
+    // zone choisie, on repart sans table et on cadre la zone sur le plan.
+    applySwitch(newZoneId, newPackId, null);
   };
+
+  const packPriceFor = (p: TablePack, guests: number) => {
+    const extra = Math.max(0, Math.min(guests - p.baseCapacity, p.maxExtraPersons));
+    return p.basePrice + extra * p.extraPersonPrice;
+  };
+
+  /**
+   * Bascule le checkout sur une autre zone / formule. Rien n'est payé à ce
+   * stade, donc pas de confirmation : la bascule est immédiate et un toast
+   * « Annuler » restaure l'état exact d'avant (zone, formule, table, convives).
+   * The data-fetch effect keys off [eventId, packId, zoneId] : changer la route
+   * recharge la zone / formule sans rechargement de page.
+   */
+  const applySwitch = (newZoneId: string, newPackId: string, keepTableId: string | null) => {
+    if (!pack) return;
+    const previous = { zoneId: zoneId || pack.zoneId, packId: pack.id, tableId: selectedTableId, guests: guestCount };
+    const target = allPacks.find((p) => p.id === newPackId);
+    const targetZone = allZones.find((z) => z.id === newZoneId);
+    setSelectedTableId(keepTableId);
+    setSwitchFocus({ packId: newPackId, zoneId: newZoneId, tableId: keepTableId, nonce: Date.now() });
+    navigate(`${basePath}/table/${newPackId}?zone=${newZoneId}&guests=${guestCount}`, { replace: true, state: { eventId } });
+    if (!target) return;
+    const keptTable = keepTableId ? (floorPlan?.layout?.tables || []).find((tb) => tb.id === keepTableId) : undefined;
+    const guestsForPrice = Math.max(1, Math.min(guestCount, target.baseCapacity + target.maxExtraPersons));
+    toast(`${target.name} · ${Math.round(packPriceFor(target, guestsForPrice))} €`, {
+      id: 'vip-switch',
+      duration: 6000,
+      description: keptTable
+        ? t('vipCheckout.tableKept').replace('{table}', keptTable.name)
+        : t('vipCheckout.pickTableIn').replace('{zone}', targetZone?.name || ''),
+      action: {
+        label: t('common.cancel'),
+        onClick: () => {
+          toast.dismiss('vip-switch');
+          setSelectedTableId(previous.tableId);
+          setSwitchFocus({ packId: previous.packId, zoneId: previous.zoneId, tableId: previous.tableId, nonce: Date.now() });
+          navigate(`${basePath}/table/${previous.packId}?zone=${previous.zoneId}&guests=${previous.guests}`, { replace: true, state: { eventId } });
+        },
+      },
+    });
+  };
+
+  // Une fois la nouvelle formule chargée : défiler jusqu'au plan, cadré sur
+  // la zone. Avec une table gardée il ne reste qu'à continuer ; sans table il
+  // ne reste qu'à en choisir une. Une seule question à l'écran, pas deux.
+  useEffect(() => {
+    if (!switchFocus || !pack || pack.id !== switchFocus.packId) return;
+    const el = planSectionRef.current;
+    const raf = requestAnimationFrame(() => {
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setFocusZone({ zoneId: switchFocus.zoneId, nonce: switchFocus.nonce });
+    });
+    setSwitchFocus(null);
+    return () => cancelAnimationFrame(raf);
+  }, [switchFocus, pack]);
 
   const payAtClubGuests = 0;
 
@@ -900,7 +961,7 @@ export default function TableCheckout() {
 
                 {/* Interactive floor plan for table selection */}
                 {showPlacement && floorPlan && (
-                  <div className="mt-7">
+                  <div className="mt-7 scroll-mt-24" ref={planSectionRef}>
                     <p className="section-label-ruled mb-1.5">{t('vipCheckout.selectTable')}</p>
                     <p className="text-[11px] text-[#9A9A9A] mb-4">{t('vipCheckout.selectTableDescription')}</p>
                     {placementStatus === 'assign_on_arrival' && !selectedTableId ? (
@@ -933,6 +994,7 @@ export default function TableCheckout() {
                         packNames={packNames}
                         onUpsellTable={handleTableUpsell}
                         guestCount={guestCount}
+                        focusZone={focusZone}
                       />
                     )}
                   </div>

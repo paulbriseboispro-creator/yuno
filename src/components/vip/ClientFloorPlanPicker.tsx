@@ -45,6 +45,8 @@ interface ClientFloorPlanPickerProps {
   packId?: string;
   /** Formules connues de la soirée (id → nom) — la liaison n'est lue que pour celles-ci. */
   packNames?: Record<string, string>;
+  /** Cadre cette zone sur le plan (zoom + recentrage) à chaque nouveau nonce. */
+  focusZone?: { zoneId: string; nonce: number } | null;
 }
 
 const CANVAS_W = 600;
@@ -66,6 +68,7 @@ export function ClientFloorPlanPicker({
   guestCount,
   packId,
   packNames,
+  focusZone,
 }: ClientFloorPlanPickerProps) {
   const { t } = useLanguage();
   const [zoom, setZoom] = useState(1);
@@ -425,6 +428,41 @@ export function ClientFloorPlanPicker({
     setZoom(1);
     setPanOffset({ x: 0, y: 0 });
   }, [isFullscreen]);
+
+  // Cadre la zone demandée : après un changement de zone, le client retrouve
+  // le plan zoomé sur SES tables au lieu de chercher où elles sont.
+  useEffect(() => {
+    if (!focusZone?.zoneId) return;
+    const zoneTables = tables.filter((tb) => tb.zoneId === focusZone.zoneId);
+    const zoneRects = zoneAreas.filter((z) => z.zoneId === focusZone.zoneId);
+    const items = [
+      ...zoneTables.map((tb) => ({ x: tb.x, y: tb.y, w: tb.width, h: tb.height })),
+      ...zoneRects.map((z) => ({ x: z.x, y: z.y, w: z.width, h: z.height })),
+    ];
+    if (items.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    items.forEach((r) => {
+      minX = Math.min(minX, r.x); minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.w); maxY = Math.max(maxY, r.y + r.h);
+    });
+    const raf = requestAnimationFrame(() => {
+      const rect = getSurfaceRect(isFullscreen);
+      if (!rect || rect.width === 0 || rect.height === 0) return;
+      // Le SVG est en « xMidYMid meet » : même échelle sur les deux axes, centré.
+      const s = Math.min(rect.width / viewBox.w, rect.height / viewBox.h);
+      const ox = (rect.width - viewBox.w * s) / 2;
+      const oy = (rect.height - viewBox.h * s) / 2;
+      const bw = (maxX - minX) * s;
+      const bh = (maxY - minY) * s;
+      const target = Math.min(MAX_ZOOM, Math.max(1, Math.min(rect.width / (bw * 1.35), rect.height / (bh * 1.35))));
+      const ccx = ox + ((minX + maxX) / 2 - viewBox.x) * s;
+      const ccy = oy + ((minY + maxY) / 2 - viewBox.y) * s;
+      setZoom(target);
+      setPanOffset({ x: rect.width / 2 - ccx * target, y: rect.height / 2 - ccy * target });
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusZone?.nonce]);
 
   // Determine if a zone should be highlighted
   const isZoneHighlighted = (zId: string) => highlightZoneId === zId || primaryZoneId === zId;

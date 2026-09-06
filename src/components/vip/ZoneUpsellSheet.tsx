@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, ArrowDown, X, Wine, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -53,8 +53,11 @@ export function ZoneUpsellSheet({
   const [expandedZone, setExpandedZone] = useState<string | null>(null);
   const [showAllZones, setShowAllZones] = useState(false);
   const [pickedPackId, setPickedPackId] = useState<string | null>(null);
-  // Liste des zones : formule marquée d'un premier toucher, validée au second.
-  const [pendingPack, setPendingPack] = useState<{ zoneId: string; packId: string } | null>(null);
+  // Un toucher pendant l'animation d'ouverture est un toucher raté sur ce
+  // qu'il y avait dessous, pas un choix : on l'ignore.
+  const openedAtRef = useRef(0);
+  useEffect(() => { if (open) openedAtRef.current = Date.now(); }, [open]);
+  const tooEarly = () => Date.now() - openedAtRef.current < 350;
   const focusedTable = targetTable && !showAllZones ? targetTable : null;
   const persWord = t('vip.pers') || 'pers.';
   const fmtDiff = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(Math.round(n))}€`;
@@ -108,20 +111,16 @@ export function ZoneUpsellSheet({
   const handleClose = () => {
     setShowAllZones(false);
     setPickedPackId(null);
-    setPendingPack(null);
     onClose();
   };
 
-  const pendingPackObj = pendingPack ? allPacks.find((p) => p.id === pendingPack.packId) : undefined;
-  const pendingDiff = pendingPackObj ? getPackPrice(pendingPackObj) - currentPackPrice : 0;
-
+  // Un toucher = la bascule. Rien n'est payé à ce stade et le checkout
+  // propose « Annuler » juste après : confirmer ici serait un doublon.
   const pickPack = (zoneId: string, packId: string) => {
-    if (pendingPack && pendingPack.packId === packId) {
-      setPendingPack(null);
-      onSelectZone(zoneId, packId);
-      return;
-    }
-    setPendingPack({ zoneId, packId });
+    if (tooEarly()) return;
+    setShowAllZones(false);
+    setPickedPackId(null);
+    onSelectZone(zoneId, packId);
   };
 
   const confirmTable = () => {
@@ -392,8 +391,10 @@ export function ZoneUpsellSheet({
                           {/* If single pack and not current → direct select button */}
                           {!isCurrent && !hasMultiplePacks && (
                             <button
-                              onClick={() => onSelectZone(zone.id, activePacks[0].id)}
-                              className="font-mono uppercase text-[10px] font-bold tracking-[0.08em] h-8 px-3.5 rounded-full transition-all active:scale-[0.97]"
+                              onClick={() => pickPack(zone.id, activePacks[0].id)}
+                              disabled={!packFits(activePacks[0])}
+                              title={!packFits(activePacks[0]) ? (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount)) : undefined}
+                              className="font-mono uppercase text-[10px] font-bold tracking-[0.08em] h-8 px-3.5 rounded-full transition-all active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
                               style={isUpgrade
                                 ? { background: '#FBBF24', color: '#0A0A0A' }
                                 : { background: 'transparent', color: '#E8192C', border: '1px solid #E8192C' }}
@@ -433,29 +434,26 @@ export function ZoneUpsellSheet({
                                 const packPrice = getPackPrice(pack);
                                 const packDiff = packPrice - currentPackPrice;
                                 const isCurrentPack = isCurrent && !!currentPackId && pack.id === currentPackId;
-                                const isPending = pendingPack?.packId === pack.id;
+                                const fits = packFits(pack);
+                                const clickable = !isCurrentPack && fits;
 
                                 return (
                                   <div
                                     key={pack.id}
-                                    role={isCurrentPack ? undefined : 'radio'}
-                                    aria-checked={isCurrentPack ? undefined : isPending}
-                                    tabIndex={isCurrentPack ? undefined : 0}
-                                    className={`flex items-center justify-between border px-3 py-2.5 transition-all ${isCurrentPack ? 'bg-white/[0.02] border-white/[0.04]' : 'cursor-pointer active:scale-[0.98]'} ${!isCurrentPack && !isPending ? 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]' : ''}`}
-                                    style={isPending
-                                      ? { borderRadius: 8, borderColor: '#E8192C', background: 'rgba(232,25,44,0.10)', boxShadow: '0 0 0 1px rgba(232,25,44,0.35)' }
-                                      : { borderRadius: 8 }}
-                                    onClick={isCurrentPack ? undefined : () => pickPack(zone.id, pack.id)}
-                                    onKeyDown={isCurrentPack ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickPack(zone.id, pack.id); } }}
+                                    role={clickable ? 'button' : undefined}
+                                    aria-disabled={!fits || undefined}
+                                    tabIndex={clickable ? 0 : undefined}
+                                    className={`flex items-center justify-between border px-3 py-2.5 transition-all ${
+                                      isCurrentPack
+                                        ? 'bg-white/[0.02] border-white/[0.04]'
+                                        : fits
+                                          ? 'bg-white/[0.03] border-white/[0.06] cursor-pointer hover:bg-white/[0.06] active:scale-[0.98]'
+                                          : 'bg-white/[0.02] border-white/[0.04] opacity-50'
+                                    }`}
+                                    style={{ borderRadius: 8 }}
+                                    onClick={clickable ? () => pickPack(zone.id, pack.id) : undefined}
+                                    onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickPack(zone.id, pack.id); } } : undefined}
                                   >
-                                    {!isCurrentPack && (
-                                      <span
-                                        className="mr-3 h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors"
-                                        style={{ borderColor: isPending ? '#E8192C' : 'rgba(255,255,255,0.22)', background: isPending ? '#E8192C' : 'transparent' }}
-                                      >
-                                        {isPending && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                                      </span>
-                                    )}
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 min-w-0">
                                         <p className="text-sm font-bold truncate text-white">{pack.name}</p>
@@ -467,9 +465,12 @@ export function ZoneUpsellSheet({
                                         )}
                                       </div>
                                       <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.04em', color: '#9A9A9A' }}>
-                                          {pack.baseCapacity} pers.
-                                          {pack.maxExtraPersons > 0 && ` · +${pack.maxExtraPersons} max`}
+                                        <span className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.04em', color: fits ? (pack.baseCapacity > guestCount ? '#E5E5E5' : '#9A9A9A') : '#f59e0b' }}>
+                                          {!fits
+                                            ? (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount))
+                                            : pack.baseCapacity > guestCount
+                                              ? (t('vipCheckout.baseAboveGroup') || '{base} pers. min · vous êtes {n}').replace('{base}', String(pack.baseCapacity)).replace('{n}', String(guestCount))
+                                              : <>{pack.baseCapacity} {persWord}{pack.maxExtraPersons > 0 && ` · +${pack.maxExtraPersons} max`}</>}
                                         </span>
                                       </div>
                                       {pack.includedItems && (
@@ -511,30 +512,6 @@ export function ZoneUpsellSheet({
                 })}
               </div>
 
-              {/* Formule marquée : confirmation collante (le 2e toucher sur la ligne fait pareil) */}
-              <AnimatePresence>
-                {pendingPack && pendingPackObj && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{ duration: 0.18 }}
-                    className="sticky bottom-0 -mx-5 px-5 pt-3 pb-1 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A] to-transparent"
-                  >
-                    <button
-                      onClick={() => pickPack(pendingPack.zoneId, pendingPack.packId)}
-                      className="w-full h-12 rounded-full flex items-center justify-center gap-2 font-mono uppercase text-[11px] font-bold tracking-[0.10em] transition-all active:scale-[0.98]"
-                      style={pendingDiff > 0
-                        ? { background: '#FBBF24', color: '#0A0A0A', boxShadow: '0 10px 28px rgba(251,191,36,0.28)' }
-                        : { background: '#E8192C', color: '#FFFFFF', boxShadow: '0 10px 28px rgba(232,25,44,0.32)' }}
-                    >
-                      {pendingDiff > 0 && <Sparkles className="h-4 w-4" />}
-                      <span className="truncate">{t('vipCheckout.confirmPack') || 'Choisir cette formule'}</span>
-                      <span className="opacity-80 shrink-0">· {Math.round(getPackPrice(pendingPackObj))}€</span>
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
               </>
               )}
             </div>
