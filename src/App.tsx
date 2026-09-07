@@ -180,6 +180,7 @@ const OrgAppVipService = lazyWithRetry(() => import("./pages/organizer-app/OrgAp
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
 const OrgAppCampaignEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignEditor })));
 const OrgAppCampaignReport = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignReport })));
+const OrgAppSms = lazyWithRetry(() => import("./pages/organizer-app/OrgAppSms"));
 const OrganizerHelpCenter = lazyWithRetry(() => import("./pages/OrganizerHelpCenter"));
 const OrganizerPublicProfile = lazyWithRetry(() => import("./pages/OrganizerPublicProfile"));
 const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"));
@@ -724,6 +725,9 @@ const App = () => (
                   <Route path="campaigns/new" element={<OrgAppCampaignEditor />} />
                   <Route path="campaigns/:id/edit" element={<OrgAppCampaignEditor />} />
                   <Route path="campaigns/:id/report" element={<OrgAppCampaignReport />} />
+                  {/* Campagnes SMS — même moteur que le club, portée organisateur */}
+                  <Route path="sms" element={<OrgAppSms />} />
+                  <Route path="sms/:id" element={<OrgAppSms />} />
                   <Route path="organization" element={<OrgAppOrganization />} />
                   <Route path="support-access" element={<SupportAccessSettings />} />
                   <Route path="payments" element={<OrgAppPayments />} />
@@ -887,6 +891,7 @@ const App = () => (
                   <Route path="campaigns/:id/report" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignReport /></PlanGuard>} />
                   <Route path="sms" element={<OwnerSmsCredits />} />
                   <Route path="sms-campaigns" element={<OwnerSmsCampaigns />} />
+                  <Route path="sms-campaigns/:id" element={<OwnerSmsCampaigns />} />
                   <Route path="push" element={<OwnerPush />} />
                   <Route path="promoters" element={<PlanGuard feature="promoters_basic"><OwnerPromoters /></PlanGuard>} />
                   <Route path="promoters/announcements" element={<PlanGuard feature="promoters"><OwnerPromoterAnnouncements /></PlanGuard>} />

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { ComingSoonBanner } from '@/components/ComingSoonBanner';
@@ -27,6 +27,8 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
+import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
+import { useSmsCreditsReturn } from '@/components/sms/SmsCreditsDialog';
 
 interface SmsPack {
   id: string;
@@ -56,7 +58,6 @@ const TYPE_META: Record<SmsTransaction['type'], { label: string; tone: string }>
 
 export default function OwnerSmsCredits() {
   const { venueId, scope, organizerUserId, loading: venueLoading } = useVenueContext();
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
 
@@ -65,7 +66,6 @@ export default function OwnerSmsCredits() {
   const [transactions, setTransactions] = useState<SmsTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState(false);
 
   const ownerId = scope === 'venue' ? venueId : organizerUserId;
 
@@ -74,22 +74,9 @@ export default function OwnerSmsCredits() {
     void load();
   }, [ownerId, venueLoading]);
 
-  // Handle Stripe redirect
-  useEffect(() => {
-    const sessionId = searchParams.get('session_id');
-    const status = searchParams.get('purchase');
-
-    if (status === 'cancelled') {
-      toast.info(t('sms.toastCancelled'));
-      searchParams.delete('purchase');
-      setSearchParams(searchParams, { replace: true });
-      return;
-    }
-
-    if (sessionId && status === 'success') {
-      void verifyPurchase(sessionId);
-    }
-  }, [searchParams]);
+  // Retour Stripe (?smsCredits=success&session_id=…) : vérification idempotente
+  // côté serveur, puis rechargement du solde. Même hook que l'éditeur de campagne.
+  useSmsCreditsReturn(() => { void load(); });
 
   const load = async () => {
     setLoading(true);
@@ -142,36 +129,9 @@ export default function OwnerSmsCredits() {
     setTransactions((data ?? []) as SmsTransaction[]);
   };
 
-  const verifyPurchase = async (sessionId: string) => {
-    setVerifying(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sms-purchase-verify', {
-        body: { session_id: sessionId },
-      });
-      if (error) throw error;
-      if (data?.status === 'paid') {
-        toast.success(
-          data.credited
-            ? `+${data.credits_added} ${t('sms.creditsAddedSuffix')}`
-            : t('sms.toastAlreadyAdded'),
-        );
-        await load();
-      } else {
-        toast.warning(t('sms.toastPending'));
-      }
-    } catch (e) {
-      console.error('[sms credits] verify', e);
-      toast.error((e as Error).message ?? t('sms.toastVerifyImpossible'));
-    } finally {
-      setVerifying(false);
-      searchParams.delete('session_id');
-      searchParams.delete('purchase');
-      setSearchParams(searchParams, { replace: true });
-    }
-  };
-
   const handlePurchase = async (pack: SmsPack) => {
-    if (isPreviewActive()) { toast.error('Aperçu en lecture seule'); return; }
+    if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return; }
+    if (!SMS_MARKETING_LIVE) { toast.info(t('smsc.lockedToast')); return; }
     if (!ownerId) {
       toast.error(t('sms.toastNoContext'));
       return;
@@ -183,6 +143,7 @@ export default function OwnerSmsCredits() {
           pack_id: pack.id,
           scope,
           venue_id: scope === 'venue' ? venueId : null,
+          return_path: '/owner/sms',
         },
       });
       if (error) throw error;
@@ -221,10 +182,12 @@ export default function OwnerSmsCredits() {
       <OwnerHeader title={t('sms.title')} />
 
       <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
-        <ComingSoonBanner
-          title={t('sms.comingSoonTitle')}
-          description={t('sms.comingSoonDesc')}
-        />
+        {!SMS_MARKETING_LIVE && (
+          <ComingSoonBanner
+            title={t('sms.comingSoonTitle')}
+            description={t('sms.comingSoonDesc')}
+          />
+        )}
 
         {/* Balance hero */}
         <Card className="relative overflow-hidden border-white/[0.06] bg-gradient-to-br from-primary/15 via-background to-background p-6 sm:p-8">
@@ -245,12 +208,6 @@ export default function OwnerSmsCredits() {
                 {t('sms.creditExplain')}
               </p>
             </div>
-            {verifying && (
-              <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('sms.validatingPayment')}
-              </div>
-            )}
           </div>
         </Card>
 
@@ -320,7 +277,7 @@ export default function OwnerSmsCredits() {
                   <div className="mt-auto pt-5">
                     <Button
                       onClick={() => handlePurchase(pack)}
-                      disabled={purchasing !== null || true}
+                      disabled={purchasing !== null || !SMS_MARKETING_LIVE}
                       className="w-full"
                       variant={recommended ? 'default' : 'outline'}
                     >

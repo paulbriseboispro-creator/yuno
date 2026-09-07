@@ -32,11 +32,14 @@ import {
 	LifeBuoyIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
+import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
 
 export type SidebarNavItem = {
 	title: string;
 	path?: string;
 	icon?: ReactNode;
+	/** Pastille courte à droite du libellé (« Bientôt », « Beta »…). */
+	badge?: string;
 	isActive?: boolean;
 	subItems?: SidebarNavItem[];
 };
@@ -145,6 +148,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.sms'),
 					path: "/owner/sms",
 					icon: <MessageSquareIcon />,
+					badge: SMS_MARKETING_LIVE ? undefined : t('smsc.soonBadge'),
 				},
 				{
 					title: t('sidebar.push'),

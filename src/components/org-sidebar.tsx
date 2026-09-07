@@ -14,6 +14,7 @@ import { NavGroup } from "@/components/nav-group";
 import type { SidebarNavGroup, SidebarNavItem } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translate } from '@/i18n/orgTranslate';
+import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
 import {
 	LayoutGridIcon,
 	BarChart3Icon,
@@ -26,6 +27,7 @@ import {
 	Music2Icon,
 	WandIcon,
 	MailIcon,
+	MessageSquareIcon,
 	MegaphoneIcon,
 	HandshakeIcon,
 	ShieldIcon,
@@ -73,6 +75,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			items: [
 				{ title: tt("Clients", "Customers"), path: "/organizer-app/customers", icon: <UsersIcon /> },
 				{ title: tt("Campagnes Email", "Email Campaigns"), path: "/organizer-app/campaigns", icon: <MailIcon /> },
+				{ title: tt("Campagnes SMS", "SMS Campaigns"), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{ title: tt("Promoteurs", "Promoters"), path: "/organizer-app/promoters", icon: <MegaphoneIcon /> },
 				{ title: tt("Agences", "Agencies"), path: "/organizer-app/agencies", icon: <HandshakeIcon /> },
 			],

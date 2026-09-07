@@ -69,6 +69,11 @@ export function NavGroup({ label, items }: SidebarNavGroup) {
 										<Link to={item.path ?? "#"}>
 											{item.icon}
 											<span>{item.title}</span>
+											{item.badge && (
+												<span className="ml-auto rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-300">
+													{item.badge}
+												</span>
+											)}
 										</Link>
 									</SidebarMenuButton>
 								)}
