@@ -16,6 +16,7 @@ import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 import { useEventPaymentsReady } from '@/lib/paymentsReady';
 import { EventWaitlistForm } from '@/components/ticketing/EventWaitlistForm';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { tableCapacityLabel } from '@/lib/tableCapacity';
 import { toast } from 'sonner';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
@@ -239,7 +240,7 @@ export default function TicketSelection() {
           extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
           maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
           depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
-          includedItems: p.included_items, includedBottlesQuota: p.included_bottles_quota || 0,
+          includedBottlesQuota: p.included_bottles_quota || 0,
           minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, limitTables: !!p.limit_tables,
           position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at,
         })));
@@ -1156,11 +1157,15 @@ function PackCard({
               )}
             </div>
             <div className="flex items-center gap-2 text-[11px] text-white/60 flex-wrap">
-              <span>{pack.baseCapacity} {t('ticketSel.minPersons')}</span>
+              {/* La capacite d'une formule est un PLAFOND, jamais un minimum : le
+                  compteur du checkout descend jusqu'a 1 personne. Ecrire
+                  « 8 pers. min » faisait croire qu'il fallait etre huit pour
+                  reserver, et renvoyait un groupe de quatre vers la billetterie. */}
+              <span>{tableCapacityLabel(pack, t)}</span>
               {pack.includedBottlesQuota > 0 && <span>· {pack.includedBottlesQuota} {pack.includedBottlesQuota > 1 ? t('ticketSel.bottles') : t('ticketSel.bottle')}</span>}
             </div>
-            {pack.includedItems && (
-              <p className="text-[11px] text-white/60">{pack.includedItems}</p>
+            {pack.description && (
+              <p className="text-[11px] text-white/60">{pack.description}</p>
             )}
             {pack.minimumSpend > 0 && (
               <p className="text-[11px] text-amber-400/60 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>

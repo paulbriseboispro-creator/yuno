@@ -503,7 +503,6 @@ export default function EventDetails() {
         maxExtraPersons: p.max_extra_persons ?? 0,
         deposit: p.deposit ? Number(p.deposit) : 0,
         depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
-        includedItems: p.included_items,
         includedBottlesQuota: p.included_bottles_quota || 0,
         minimumSpend: Number(p.minimum_spend) || 0,
         paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
@@ -745,7 +744,16 @@ export default function EventDetails() {
   // Sans billet, le prix affiché est celui d'une TABLE : on le dit, sinon
   // « À partir de 300 € » passe pour le prix d'entrée.
   const tablesOnlyOffer = !hasTickets && hasTables;
-  const minTableCapacity = hasTables ? Math.min(...activePacks.map((p) => p.baseCapacity || 1)) : 0;
+  // L'ancre de prix designe UNE table : la moins chere. Le chiffre de convives
+  // qui l'accompagne doit donc etre le plafond de CETTE table, pas la plus
+  // petite capacite du lieu — et c'est un plafond, jamais un minimum (le
+  // compteur du tunnel part de 1 convive).
+  const cheapestPack = hasTables
+    ? activePacks.reduce((best, p) => (p.basePrice < best.basePrice ? p : best), activePacks[0])
+    : undefined;
+  const minTableCapacity = cheapestPack
+    ? Math.max(1, cheapestPack.baseCapacity || 1) + Math.max(0, cheapestPack.maxExtraPersons ?? 0)
+    : 0;
   const fmtPrice = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2));
 
 

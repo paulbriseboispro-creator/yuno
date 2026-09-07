@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, ArrowDown, X, Wine, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { TableZone, TablePack } from '@/types/ticketing';
+import { tableCapacityLabel } from '@/lib/tableCapacity';
 
 /** Table du plan cliquée hors du périmètre courant (autre zone ou autre formule). */
 export type UpsellTargetTable = {
@@ -249,13 +250,13 @@ export function ZoneUpsellSheet({
                             <p className="font-display font-bold uppercase text-white truncate" style={{ fontSize: '14px', letterSpacing: '-0.005em' }}>{pack.name}</p>
                             <p className="font-mono uppercase mt-1" style={{ fontSize: '9px', letterSpacing: '0.04em', color: fits ? '#9A9A9A' : '#f59e0b' }}>
                               {fits
-                                ? <>{pack.baseCapacity} {persWord}{pack.maxExtraPersons > 0 && ` · +${pack.maxExtraPersons} max`}</>
+                                ? tableCapacityLabel(pack, t)
                                 : (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount))}
                             </p>
-                            {pack.includedItems && (
+                            {pack.description && (
                               <div className="flex items-start gap-1.5 mt-2">
                                 <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
-                                <p className="text-[11px] text-[#9A9A9A] leading-relaxed line-clamp-3">{pack.includedItems}</p>
+                                <p className="text-[11px] text-[#9A9A9A] leading-relaxed line-clamp-3">{pack.description}</p>
                               </div>
                             )}
                           </div>
@@ -469,15 +470,15 @@ export function ZoneUpsellSheet({
                                           {!fits
                                             ? (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount))
                                             : pack.baseCapacity > guestCount
-                                              ? (t('vipCheckout.baseAboveGroup') || '{base} pers. min · vous êtes {n}').replace('{base}', String(pack.baseCapacity)).replace('{n}', String(guestCount))
-                                              : <>{pack.baseCapacity} {persWord}{pack.maxExtraPersons > 0 && ` · +${pack.maxExtraPersons} max`}</>}
+                                              ? (t('vipCheckout.baseAboveGroup') || 'Table de {base} pers. · vous êtes {n}').replace('{base}', String(pack.baseCapacity)).replace('{n}', String(guestCount))
+                                              : tableCapacityLabel(pack, t)}
                                         </span>
                                       </div>
-                                      {pack.includedItems && (
+                                      {pack.description && (
                                         <div className="flex items-start gap-1 mt-1">
                                           <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
                                           <p className="text-[11px] text-[#9A9A9A] leading-relaxed line-clamp-2">
-                                            {pack.includedItems}
+                                            {pack.description}
                                           </p>
                                         </div>
                                       )}
@@ -499,11 +500,11 @@ export function ZoneUpsellSheet({
                       </AnimatePresence>
 
                       {/* Single pack menu preview (when not expanded) */}
-                      {!hasMultiplePacks && activePacks[0]?.includedItems && (
+                      {!hasMultiplePacks && activePacks[0]?.description && (
                         <div className="mt-2 flex items-start gap-1.5">
                           <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
                           <p className="text-[11px] text-[#9A9A9A] leading-relaxed">
-                            {activePacks[0].includedItems}
+                            {activePacks[0].description}
                           </p>
                         </div>
                       )}
