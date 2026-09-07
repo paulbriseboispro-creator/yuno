@@ -6322,6 +6322,7 @@ export type Database = {
           partner_venue_id: string | null
           poster_position: Json | null
           poster_url: string | null
+          video_url: string | null
           presale_start_at: string | null
           public_sale_start_at: string | null
           published_at: string | null
@@ -6392,6 +6393,7 @@ export type Database = {
           partner_venue_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
+          video_url?: string | null
           presale_start_at?: string | null
           public_sale_start_at?: string | null
           published_at?: string | null
@@ -6462,6 +6464,7 @@ export type Database = {
           partner_venue_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
+          video_url?: string | null
           presale_start_at?: string | null
           public_sale_start_at?: string | null
           published_at?: string | null
