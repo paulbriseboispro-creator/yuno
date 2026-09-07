@@ -1889,7 +1889,7 @@ const help: Record<string, string> = {
   'ohelp.supportAccess.s5h': 'The activity log',
   'ohelp.supportAccess.s5b': 'Every write made during a session shows up in the log at the bottom of the page, in plain words and timestamped ("Updated · Guest list", "Created · Event"). Your past authorizations sit right below with their status (Pending, Active, Cut, Expired). You never have to ask what was done: it is already written down.',
   'ohelp.supportAccess.s6h': 'Durations and cutting access',
-  'ohelp.supportAccess.s6b': 'An authorization expires on its own after 7 days, and an open session after 12 hours. The "Cut access" button stops any live session immediately, with no justification to give, and you can grant access again later if you need to. While a session is live, a "Yuno assistance" banner stays on screen the whole time: nobody works inside your account silently.',
+  'ohelp.supportAccess.s6b': 'An authorization stays valid until you cut it: it never expires on its own, so a setup that takes several weeks needs no weekly re-approval. An open session, on the other hand, always ends after 12 hours. The "Cut access" button revokes the authorization and stops any live session immediately, with no justification to give, and you can grant access again later if you need to. While a session is live, a "Yuno assistance" banner stays on screen the whole time: nobody works inside your account silently.',
   'ohelp.supportAccess.s7h': 'Tip',
   'ohelp.supportAccess.s7b': 'Yuno will NEVER ask for your password or your two-factor code: assisted access exists precisely so that you never have to hand them over. If someone asks for them in Yuno\'s name, it is a scam attempt.',
   'ohelp.printExport.title': 'Print and export your lists',

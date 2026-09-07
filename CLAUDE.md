@@ -301,7 +301,7 @@ mécanique vit dans la migration `20260824120000_admin_support_access.sql`.
 
 - **Le consentement est la porte** : `admin_support_grants` (demandé par l'admin,
   approuvé par le pro via `approve_support_grant`, coupé par l'un ou l'autre via
-  `revoke_support_grant`). Grant 7 j, session 12 h. Page pro : `/owner/support-access`,
+  `revoke_support_grant`). Grant **jusqu'à révocation** (`expires_at` NULL, migration `20260907120000`), session 12 h. Page pro : `/owner/support-access`,
   `/manager/support-access`, `/organizer-app/support-access`.
 - **La clé de tous les verrous est le claim JWT `session_id`**, enregistré dans
   `admin_support_sessions.auth_session_id` par l'edge `admin-account-recovery`

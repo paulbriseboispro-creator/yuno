@@ -153,7 +153,8 @@ serve(async (req) => {
         .select("id, status")
         .eq("target_user_id", targetId)
         .in("status", ["pending", "active"])
-        .gt("expires_at", new Date().toISOString())
+        // expires_at NULL = jusqu'à révocation (défaut depuis 20260907120000).
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -447,7 +448,7 @@ serve(async (req) => {
       if (!grant) return fail("grant_not_found", 404);
       if (grant.requested_by !== user.id) return fail("not_grant_owner", 403);
       if (grant.status !== "active") return fail("grant_not_active", 409);
-      if (new Date(grant.expires_at) <= new Date()) return fail("grant_expired", 409);
+      if (grant.expires_at && new Date(grant.expires_at) <= new Date()) return fail("grant_expired", 409);
 
       const { data: target } = await supabaseAdmin
         .from("profiles").select("email, first_name, last_name, organization_name").eq("id", grant.target_user_id).maybeSingle();

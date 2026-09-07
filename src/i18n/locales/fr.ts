@@ -11822,6 +11822,7 @@ const fr: Record<string, string> = {
   'supportAccess.stateLive': 'Session en cours',
   'supportAccess.stateLiveDesc': "Un membre de l'équipe Yuno travaille dans votre compte en ce moment. Tout ce qu'il fait apparaît dans le journal ci-dessous.",
   'supportAccess.expiresOn': 'Expire le',
+  'supportAccess.untilRevoked': "Valable jusqu'à ce que vous coupiez l'accès",
   'supportAccess.pendingTitle': 'Yuno demande un accès assisté',
   'supportAccess.pendingDesc': "En acceptant, un membre de l'équipe Yuno pourra configurer votre compte avec vous. Vous pouvez couper l'accès à tout moment.",
   'supportAccess.acceptCta': "Accorder l'accès",

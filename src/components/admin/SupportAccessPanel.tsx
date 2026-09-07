@@ -37,9 +37,12 @@ interface GrantRow {
   status: string;
   reason: string | null;
   approved_at: string | null;
-  expires_at: string;
+  expires_at: string | null;
   created_at: string;
 }
+
+// expires_at NULL = accord valable jusqu'à révocation (20260907120000).
+const grantIsOpen = (g: { expires_at: string | null }) => !g.expires_at || new Date(g.expires_at) > new Date();
 
 interface Props {
   userId: string;
@@ -83,8 +86,8 @@ export function SupportAccessPanel({ userId, userEmail, userName, roles }: Props
 
   useEffect(() => { load(); }, [load]);
 
-  const pending = grants.find((g) => g.status === 'pending' && new Date(g.expires_at) > new Date());
-  const active = grants.find((g) => g.status === 'active' && new Date(g.expires_at) > new Date());
+  const pending = grants.find((g) => g.status === 'pending' && grantIsOpen(g));
+  const active = grants.find((g) => g.status === 'active' && grantIsOpen(g));
 
   const request = async () => {
     const reason = window.prompt(
@@ -181,7 +184,9 @@ export function SupportAccessPanel({ userId, userEmail, userName, roles }: Props
               <div style={{ fontSize: 13, color: T1 }}>
                 <span style={{ fontWeight: 600, color: POS }}>Accès accordé par le pro.</span>{' '}
                 <span style={{ color: T2 }}>
-                  Valable jusqu'au {format(new Date(active.expires_at), 'dd/MM/yyyy · HH:mm')}.
+                  {active.expires_at
+                    ? `Valable jusqu'au ${format(new Date(active.expires_at), 'dd/MM/yyyy · HH:mm')}.`
+                    : "Valable jusqu'à révocation."}
                 </span>
               </div>
             </div>

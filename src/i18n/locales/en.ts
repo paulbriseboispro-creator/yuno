@@ -11847,6 +11847,7 @@ const en: Record<string, string> = {
   'supportAccess.stateLive': 'Session in progress',
   'supportAccess.stateLiveDesc': 'A Yuno teammate is working in your account right now. Everything they do appears in the log below.',
   'supportAccess.expiresOn': 'Expires on',
+  'supportAccess.untilRevoked': 'Valid until you cut access',
   'supportAccess.pendingTitle': 'Yuno is asking for assisted access',
   'supportAccess.pendingDesc': 'Accepting lets a Yuno teammate configure your account with you. You can cut the access at any moment.',
   'supportAccess.acceptCta': 'Grant access',

@@ -240,7 +240,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           created_at: string
-          expires_at: string
+          expires_at: string | null
           id: string
           initiated_by: string
           reason: string | null
@@ -254,7 +254,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           created_at?: string
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           initiated_by?: string
           reason?: string | null
@@ -268,7 +268,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           created_at?: string
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           initiated_by?: string
           reason?: string | null

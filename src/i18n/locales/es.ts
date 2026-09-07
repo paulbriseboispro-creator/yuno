@@ -12189,6 +12189,7 @@ const es: Record<string, string> = {
   'supportAccess.stateLive': 'Sesión en curso',
   'supportAccess.stateLiveDesc': 'Alguien del equipo de Yuno está trabajando en tu cuenta ahora mismo. Todo lo que hace aparece en el registro de abajo.',
   'supportAccess.expiresOn': 'Caduca el',
+  'supportAccess.untilRevoked': 'Válido hasta que cortes el acceso',
   'supportAccess.pendingTitle': 'Yuno solicita acceso asistido',
   'supportAccess.pendingDesc': 'Al aceptar, alguien del equipo de Yuno podrá configurar tu cuenta contigo. Puedes cortar el acceso en cualquier momento.',
   'supportAccess.acceptCta': 'Conceder acceso',

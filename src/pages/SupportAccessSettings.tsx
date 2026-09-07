@@ -37,9 +37,12 @@ interface GrantRow {
   reason: string | null;
   approved_at: string | null;
   revoked_at: string | null;
-  expires_at: string;
+  expires_at: string | null;
   created_at: string;
 }
+
+// expires_at NULL = accord valable jusqu'à révocation (20260907120000).
+const grantIsOpen = (g: { expires_at: string | null }) => !g.expires_at || new Date(g.expires_at) > new Date();
 
 interface SessionRow {
   id: string;
@@ -115,8 +118,8 @@ export default function SupportAccessSettings() {
 
   useEffect(() => { load(); }, [load]);
 
-  const pending = grants.find((g) => g.status === 'pending' && new Date(g.expires_at) > new Date());
-  const active = grants.find((g) => g.status === 'active' && new Date(g.expires_at) > new Date());
+  const pending = grants.find((g) => g.status === 'pending' && grantIsOpen(g));
+  const active = grants.find((g) => g.status === 'active' && grantIsOpen(g));
   const liveSession = sessions.find((s) => s.status === 'active' && new Date(s.expires_at) > new Date());
 
   useEffect(() => {
@@ -218,7 +221,9 @@ export default function SupportAccessSettings() {
                   {active && (
                     <p className="text-[11px] text-muted-foreground/70 mt-2 flex items-center gap-1.5">
                       <CalendarClock className="w-3 h-3" />
-                      {t('supportAccess.expiresOn')} {format(new Date(active.expires_at), 'dd MMM yyyy · HH:mm', { locale })}
+                      {active.expires_at
+                        ? `${t('supportAccess.expiresOn')} ${format(new Date(active.expires_at), 'dd MMM yyyy · HH:mm', { locale })}`
+                        : t('supportAccess.untilRevoked')}
                     </p>
                   )}
                 </div>

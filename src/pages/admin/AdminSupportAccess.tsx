@@ -75,9 +75,12 @@ interface GrantRow {
   initiated_by: string | null;
   approved_at: string | null;
   revoked_at: string | null;
-  expires_at: string;
+  expires_at: string | null;
   created_at: string;
 }
+
+// expires_at NULL = accord valable jusqu'à révocation (20260907120000).
+const grantIsOpen = (g: { expires_at: string | null }, now = Date.now()) => !g.expires_at || new Date(g.expires_at).getTime() > now;
 
 interface SessionRow {
   id: string;
@@ -180,11 +183,11 @@ export default function AdminSupportAccess() {
 
   const now = Date.now();
   const active = useMemo(
-    () => grants.filter((g) => g.status === 'active' && new Date(g.expires_at).getTime() > now),
+    () => grants.filter((g) => g.status === 'active' && grantIsOpen(g, now)),
     [grants, now],
   );
   const pending = useMemo(
-    () => grants.filter((g) => g.status === 'pending' && new Date(g.expires_at).getTime() > now),
+    () => grants.filter((g) => g.status === 'pending' && grantIsOpen(g, now)),
     [grants, now],
   );
   const history = useMemo(
@@ -340,7 +343,7 @@ export default function AdminSupportAccess() {
             </h1>
             <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>
               Les comptes pro que tu peux configurer avec eux. Le consentement est la porte :
-              chaque accès est accordé par le pro, expire seul (7 j) et se révoque en un clic.
+              chaque accès est accordé par le pro, vaut jusqu'à révocation et se coupe en un clic.
             </p>
           </div>
           <Dialog open={requestOpen} onOpenChange={(o) => { setRequestOpen(o); if (!o) { setQuery(''); setResults([]); setPicked(null); } }}>
@@ -438,7 +441,7 @@ export default function AdminSupportAccess() {
                           </span>
                         )}
                         <span style={{ color: T3, fontSize: 11.5, whiteSpace: 'nowrap' }}>
-                          expire {format(new Date(g.expires_at), 'dd/MM · HH:mm')}
+                          {g.expires_at ? `expire ${format(new Date(g.expires_at), 'dd/MM · HH:mm')}` : "jusqu'à révocation"}
                         </span>
                         <div className="flex items-center gap-2">
                           <button onClick={() => openSession(g)} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.5 : 1 }}>
