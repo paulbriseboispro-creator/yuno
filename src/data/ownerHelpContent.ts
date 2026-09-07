@@ -320,7 +320,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToTicketing', path: '/ticketing' },
         relatedArticleIds: ['events-setup', 'scarcity-fomo', 'fee-structure', 'refund-management'],
-        keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance'],
+        keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance', 'communauté', 'community', 'comunidad', 'abonnés', 'followers', 'subscribers', 'suscriptores', 'newsletter', 'réservé', 'reserved', 'tarif abonné'],
         sections: [
           { headingKey: 'ohelp.ev.ticketing.s1h', bodyKey: 'ohelp.ev.ticketing.s1b' },
           { headingKey: 'ohelp.ev.ticketing.s2h', bodyKey: 'ohelp.ev.ticketing.s2b', screenshotUrl: '/help/owner-ticketing.webp' },
@@ -331,6 +331,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.ticketing.s7h', bodyKey: 'ohelp.ev.ticketing.s7b', type: 'steps' },
           { headingKey: 'ohelp.ev.ticketing.s8h', bodyKey: 'ohelp.ev.ticketing.s8b' },
           { headingKey: 'ohelp.ev.ticketing.s11h', bodyKey: 'ohelp.ev.ticketing.s11b' },
+          { headingKey: 'ohelp.ev.ticketing.s12h', bodyKey: 'ohelp.ev.ticketing.s12b' },
           { headingKey: 'ohelp.ev.ticketing.s9h', bodyKey: 'ohelp.ev.ticketing.s9b', type: 'tip' },
           { headingKey: 'ohelp.ev.ticketing.s10h', bodyKey: 'ohelp.ev.ticketing.s10b', type: 'warning' },
         ],

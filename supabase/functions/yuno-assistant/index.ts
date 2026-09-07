@@ -169,6 +169,7 @@ const CLIENT_KNOWLEDGE_BASE = `
    Sur la page de confirmation d'achat, le bouton "Ajouter à Apple Wallet" est juste sous le QR code (visible seulement sur iPhone/iPad/Mac Safari, en étant connecté). Une fois le billet dans Wallet, il s'ouvre hors ligne sans rouvrir l'app. Ça marche aussi pour les tables VIP ; les commandes de boissons n'ont pas encore de pass Wallet.
 5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
 - Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
+- BILLETS COMMUNAUTÉ : certains tarifs (badge « Communauté ») sont réservés aux abonnés du club ou de l'organisateur — abonnés de son profil Yuno, abonnés de sa newsletter, ou l'un ou l'autre selon le billet. Si tu n'es pas abonné, le billet s'affiche verrouillé avec, juste dessous, le bouton qui le débloque : « Suivre {club} » ou « Rejoindre la newsletter » — c'est gratuit et immédiat, le tarif s'ouvre tout de suite. Sans compte Yuno, si tu es abonné à la newsletter, tu peux acheter avec l'email de ton abonnement (vérifié au paiement). Conseil : quand un client demande le prix le plus bas, mentionne le tarif communauté et comment le débloquer.
 - L'assurance annulation N'EST PLUS proposée au checkout. Ne jamais la suggérer ni laisser
   entendre qu'on peut l'ajouter à un billet. Si un client a acheté un billet AVEC assurance
   avant son retrait, elle reste valable et il peut toujours annuler dans les conditions

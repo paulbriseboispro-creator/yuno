@@ -100,6 +100,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/ticketing",
     snippet: "Yuno propose 3 modes de billetterie :\n1. **Simple** : Un seul type de billet à prix fixe, sans rounds. Idéal pour les soirées simples.\n2. **Rounds** (tours de vente) : Plusieurs tarifs progressifs (Early Bird → Regular → Last Minute). Chaque round a un nom, prix, quota et dates. Quand un round est sold out, le suivant s'active automatiquement.\n3. **Créneaux horaires (Timed Entry)** : Billets liés à des créneaux horaires spécifiques. Permet de gérer le flux d'entrées et d'éviter la surcharge.\n\nChaque mode inclut les frais de service Yuno. L'assurance annulation n'est plus commercialisée : le toggle a été retiré de la page Billetterie et l'option n'apparaît plus au checkout client. Les billets vendus avec assurance avant son retrait restent annulables normalement et continuent d'apparaître en compta.",
   },
+  "community-tickets": {
+    title: "Billets communauté (tarif réservé à vos abonnés)",
+    keywords: ["communauté", "community", "billet abonnés", "tarif abonné", "réservé aux abonnés", "followers", "abonnés", "newsletter", "prix réduit abonnés", "fidélité", "récompenser", "audience", "verrouillé", "qui peut acheter"],
+    path: "/owner/ticketing",
+    snippet: "Dans la fenêtre d'un tour de billetterie, le champ « Qui peut acheter ce billet ? » réserve un tarif à votre communauté : abonnés de votre profil Yuno, abonnés de votre newsletter, ou l'un OU l'autre (« Tout le monde » par défaut). Exemple : un Early Bird « abonnés » à 8 € quand le public paie 12 €. Les non-abonnés voient le billet verrouillé avec, juste dessous, le bouton qui le débloque (« Suivre {club} » ou « Rejoindre la newsletter ») : dès qu'ils s'abonnent, le tarif s'ouvre, sans quitter la page — c'est un outil de fidélisation ET d'acquisition d'abonnés. Un abonné newsletter sans compte Yuno (liste importée) achète avec l'email de son abonnement, vérifié au paiement. La porte est serveur, un lien direct ne la contourne pas. Sur les cartes de l'app, le prix « dès X € » reste celui de tout le monde tant qu'un tarif public existe.",
+  },
   "stripe-connect": {
     title: "Stripe Connect & Paiements",
     keywords: ["stripe", "paiement", "payment", "IBAN", "virement", "bank", "connect", "argent"],
