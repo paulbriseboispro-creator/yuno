@@ -1,7 +1,7 @@
 import { Shimmer, SkeletonLine } from './Shimmer';
 
 /* Silhouette fidèle de src/pages/TableCheckout.tsx (étape 1, celle qui
-   s'affiche au chargement) : header fixe h-12 (lien retour) →
+   s'affiche au chargement) : header collant h-12 (lien retour) →
    VipCheckoutSteps (3 pastilles h-7 reliées) → en-tête de formule (titre +
    sous-titre, pilule « changer de zone ») → compteur de convives (carte p-6 :
    − / chiffre / +, jauge) → méta de la soirée → carte de prix (3 lignes +
@@ -10,9 +10,10 @@ import { Shimmer, SkeletonLine } from './Shimmer';
 export function TableCheckoutSkeleton() {
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0A0A0A' }} aria-hidden>
-      {/* Header fixe */}
+      {/* Header collant — `sticky top-0` comme la page réelle, pour hériter du
+          padding d'encoche posé par la règle @supports d'index.css. */}
       <div
-        className="fixed top-0 z-40 w-full"
+        className="sticky top-0 z-40 w-full"
         style={{ background: 'rgba(10,10,10,0.90)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
       >
         <div className="mx-auto flex h-12 max-w-lg items-center px-4">
@@ -20,7 +21,7 @@ export function TableCheckoutSkeleton() {
         </div>
       </div>
 
-      <div className="pt-12">
+      <div>
         <div className="mx-auto max-w-lg px-4 py-5">
           {/* VipCheckoutSteps */}
           <div className="flex items-center justify-between w-full max-w-md mx-auto px-2 py-3">

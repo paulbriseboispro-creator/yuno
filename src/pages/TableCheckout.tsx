@@ -797,9 +797,12 @@ export default function TableCheckout() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0A0A0A' }}>
-      {/* Header */}
+      {/* Header — `sticky top-0` et non `fixed` : c'est le sélecteur que la règle
+          @supports d'index.css cible pour poser env(safe-area-inset-top).
+          En `fixed` la barre passait SOUS l'encoche et la flèche de retour
+          devenait intouchable sur iPhone. */}
       <header
-        className="fixed top-0 z-40 w-full"
+        className="sticky top-0 z-40 w-full"
         style={{ background: 'rgba(10,10,10,0.90)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
       >
         <div className="mx-auto flex h-12 max-w-lg items-center px-4">
@@ -814,7 +817,7 @@ export default function TableCheckout() {
       </header>
 
       <PublicPage variant="flow">
-      <div className="pt-12">
+      <div>
         <div className="mx-auto max-w-lg px-4 py-5">
           {/* Step indicator */}
           <VipCheckoutSteps currentStep={currentStep} />
@@ -956,7 +959,7 @@ export default function TableCheckout() {
 
                 {/* Interactive floor plan for table selection */}
                 {showPlacement && floorPlan && (
-                  <div className="mt-7 scroll-mt-24" ref={planSectionRef}>
+                  <div className="mt-7" ref={planSectionRef} style={{ scrollMarginTop: 'calc(env(safe-area-inset-top, 0px) + 5rem)' }}>
                     <p className="section-label-ruled mb-1.5">{t('vipCheckout.selectTable')}</p>
                     <p className="text-[11px] text-[#9A9A9A] mb-4">{t('vipCheckout.selectTableDescription')}</p>
                     {placementStatus === 'assign_on_arrival' && !selectedTableId ? (
