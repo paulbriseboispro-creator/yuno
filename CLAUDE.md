@@ -584,6 +584,35 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
 - **Export audience pub** (`export_venue_ad_audience`) : contacts CONSENTANTS
   uniquement (opt-in newsletter ∪ SMS), gate owner — jamais la base brute.
 
+## SMS marketing (club + organisateur — 2026-09-07)
+
+Doc complète + runbook de mise en service : `docs/SMS_MARKETING.md`. Règles
+intouchables :
+
+- **Une seule implémentation, deux portées.** `SmsCampaignsPanel` (+ éditeur,
+  rapport, achat de crédits) sert `/owner/sms-campaigns` ET `/organizer-app/sms`.
+  `venue_sms_contacts` porte `venue_id` OU `organizer_user_id` (XOR) ;
+  `_shared/sms-consent.ts` résout l'organisateur depuis la soirée quand il n'y
+  a pas de club. Ne JAMAIS réintroduire un chemin club-only.
+- **Interrupteur « bientôt » = `SMS_MARKETING_LIVE`** (`src/lib/smsMarketing.ts`).
+  À `false` : bannière, envoi/test/planification/achat verrouillés, brouillons
+  autorisés. À flipper seulement une fois le numéro Twilio en place.
+- **`_shared/sms-text.ts` ⇄ `src/lib/smsMarketing.ts` sont des miroirs** :
+  composition (nom d'expéditeur + STOP + `{lien}`) et comptage de segments.
+  Modifier l'un sans l'autre = coût annoncé ≠ coût débité.
+- **File, pas boucle** : `send-sms-campaign` draine par tranches
+  (`claim_sms_campaign_recipients` SKIP LOCKED, marquage en lot), le cron
+  `process-scheduled-campaigns` relance et lance les campagnes planifiées.
+  Crédit débité AVANT Twilio, remboursé sur refus et sur échec de livraison
+  (`apply_sms_delivery_status`, la seule porte du webhook de statut).
+- **Solde vérifié pour toute la campagne avant envoi ; épuisement en route ⇒
+  `paused`/`credits`**, jamais une campagne à moitié partie sans le dire.
+- **Résolution d'audience = service_role seul** (`resolve_sms_campaign_recipients`) ;
+  le comptage et le rapport passent par `sms_scope_allowed`. Les anciennes RPC
+  ouvertes à `authenticated` sans garde ont été supprimées, ne pas les recréer.
+- Heures calmes 20 h → 8 h Paris + dimanche par défaut (opt-out par campagne).
+  Mention STOP et annonceur ajoutés serveur, jamais retirables.
+
 ## Email Studio (design + composition + flow — 2026-08-31)
 
 La couche design/composition des campagnes est l'**Email Studio**

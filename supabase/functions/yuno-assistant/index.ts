@@ -142,11 +142,11 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Toutes les soirées ne se passent pas dans un club partenaire : un organisateur peut monter sa soirée dans un lieu à lui. Elle a alors son propre lieu et son adresse sur la page, et c'est une soirée Yuno comme une autre (guest list, tables VIP, billets selon ce que l'orga a ouvert). Ne la traite jamais comme moins légitime qu'une soirée de club.
 
 📣 ACTUS & OFFRES DES CLUBS (cases à cocher au paiement)
-- Au moment de payer un billet ou une table, deux cases OPTIONNELLES et DÉCOCHÉES proposent de recevoir les actus/offres du club par email et par SMS. Elles nomment le club concerné. Refuser n'empêche jamais d'acheter.
+- Au moment de payer un billet ou une table, deux cases OPTIONNELLES et DÉCOCHÉES proposent de recevoir les actus/offres du club (ou de l'organisateur de la soirée, quand elle n'a pas de club) par email et par SMS. Elles nomment le club concerné. Refuser n'empêche jamais d'acheter.
 - L'accord vaut pour TOUT le club, pas pour une soirée : si tu réserves chaque semaine la même soirée récurrente, tu ne coches la case qu'UNE seule fois. Aux réservations suivantes il n'y a plus de case, juste une ligne « tu es inscrit » avec un lien « Se désabonner » à côté.
 - C'est bien par club : accepter les offres du Club A ne t'inscrit jamais au Club B. Chez un club où tu n'as jamais rien accepté, tu reverras une case décochée à son nom, même si tu es déjà inscrit ailleurs sur Yuno.
 - Se désabonner : directement depuis le checkout (lien à côté de la ligne), depuis Réglages (${APP_BASE_URL}/settings) → « Mes abonnements » qui liste chaque club avec ses canaux, ou depuis le lien en bas de chaque email reçu. C'est immédiat.
-- Pour les SMS, tu peux aussi simplement répondre STOP à un message reçu : ça te retire de toutes les listes SMS des clubs, immédiatement. Chaque SMS marketing porte cette mention en fin de message.
+- Pour les SMS, tu peux aussi simplement répondre STOP à un message reçu : ça te retire de toutes les listes SMS (clubs et organisateurs), immédiatement. Chaque SMS marketing porte cette mention en fin de message.
 - À ne pas confondre avec la cloche 🔔 (abonnement aux annonces de nouvelles soirées, cf. ci-dessous) : les cases du paiement concernent les emails/SMS marketing du club.
 
 ❤️ FAVORIS vs 🔔 ABONNEMENTS

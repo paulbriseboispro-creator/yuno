@@ -563,8 +563,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.pg.sms.desc',
         icon: 'MessageSquare',
         actionLink: { labelKey: 'ohelp.action.goToSms', path: '/sms' },
-        relatedArticleIds: ['email-campaigns', 'crm-setup'],
-        keywords: ['sms', 'texto', 'crédit', 'credit', 'top up', 'recharge', 'pack', 'coming soon', 'bientôt', 'message', 'mensaje'],
+        relatedArticleIds: ['email-campaigns', 'crm-setup', 'consent'],
+        keywords: ['sms', 'texto', 'crédit', 'credit', 'top up', 'recharge', 'pack', 'campagne sms', 'sms campaign', 'campaña sms', 'stop', 'relance', 'rappel', 'dernières places', 'message', 'mensaje'],
         sections: [
           { headingKey: 'ohelp.pg.sms.s1h', bodyKey: 'ohelp.pg.sms.s1b' },
           { headingKey: 'ohelp.pg.sms.s2h', bodyKey: 'ohelp.pg.sms.s2b', screenshotUrl: '/help/owner-sms.webp' },

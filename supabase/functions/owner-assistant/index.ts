@@ -308,7 +308,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "SMS & crédits SMS",
     keywords: ["sms", "texto", "crédit", "credits", "campagne sms", "message"],
     path: "/owner/sms",
-    snippet: "Les campagnes SMS fonctionnent avec des crédits prépayés : achète des crédits depuis la page SMS, puis compose et cible ta campagne comme pour l'email. Le solde de crédits restants est affiché avant chaque envoi.",
+    snippet: "Les campagnes SMS (Marketing & CRM → SMS, puis Campagnes SMS) marchent avec des crédits prépayés : 1 crédit = 1 SMS de 160 caractères en texte standard (un emoji ou un texte long en compte 2 ou 3, l'éditeur te le montre avant d'envoyer), les échecs sont remboursés et les crédits n'expirent jamais. Tes contacts SMS se constituent tout seuls : chaque acheteur de billet ou de table qui coche « Offres par SMS » entre dans ta liste — pas d'import, la loi impose un consentement nominatif. Quatre audiences : tous les contacts, « sans billet pour la soirée » (la relance qui remplit une soirée, elle n'écrit jamais à ceux qui ont déjà payé), « acheteurs de la soirée » (rappel J-1) et VIP. Lie une soirée pour insérer son lien court suivi : le rapport montre alors les clics, les billets et tables vendus grâce au SMS et les crédits dépensés, en plus de la livraison en direct. Envoie-toi un test, puis envoie maintenant ou programme. Ton nom d'expéditeur et la mention STOP sont ajoutés automatiquement ; par défaut rien ne part entre 20 h et 8 h ni le dimanche.",
   },
   "push-notifications": {
     title: "Notifications push",
@@ -1709,13 +1709,13 @@ async function executeTool(
 
 const CHANNEL_RULES: Record<string, string> = {
   push: "Notification push mobile. title : max 40 caractères, percutant. body : max 120 caractères, une seule idée, max 1 emoji. preheader : chaîne vide.",
-  sms: "SMS. body : max 160 caractères TOUT COMPRIS, un seul call-to-action, pas d'emoji superflu. title et preheader : chaînes vides.",
+  sms: "SMS. body : max 120 caractères, alphabet GSM standard SANS emoji ni caractère spécial (le nom d'expéditeur et la mention STOP sont ajoutés automatiquement : le tout doit tenir dans un seul SMS de 160). Un seul call-to-action. Si le message renvoie vers la soirée, termine par le jeton {lien} tel quel (il sera remplacé par le lien court). title et preheader : chaînes vides.",
   email: "Email. title = objet (max 60 caractères). preheader : max 90 caractères, complète l'objet sans le répéter. body : 2 paragraphes courts séparés par une ligne vide, un call-to-action clair.",
 };
 
 const CHANNEL_LIMITS: Record<string, { title: number; preheader: number; body: number }> = {
   push: { title: 40, preheader: 0, body: 120 },
-  sms: { title: 0, preheader: 0, body: 160 },
+  sms: { title: 0, preheader: 0, body: 120 },
   email: { title: 60, preheader: 90, body: 2000 },
 };
 

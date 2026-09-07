@@ -291,6 +291,22 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'org-sms',
+        titleKey: 'ohelp.org.sms.title',
+        descKey: 'ohelp.org.sms.desc',
+        icon: 'MessageSquare',
+        actionLink: { labelKey: OPEN, path: '/sms' },
+        relatedArticleIds: ['org-campaigns', 'org-customers', 'org-events'],
+        keywords: ['sms', 'texto', 'campagne sms', 'sms campaign', 'campaña sms', 'crédits', 'credits', 'relance', 'rappel', 'dernières places', 'stop'],
+        sections: [
+          { headingKey: 'ohelp.org.sms.s1h', bodyKey: 'ohelp.org.sms.s1b' },
+          { headingKey: 'ohelp.org.sms.s2h', bodyKey: 'ohelp.org.sms.s2b' },
+          { headingKey: 'ohelp.org.sms.s3h', bodyKey: 'ohelp.org.sms.s3b', type: 'steps' },
+          { headingKey: 'ohelp.org.sms.s4h', bodyKey: 'ohelp.org.sms.s4b' },
+          { headingKey: 'ohelp.org.sms.s5h', bodyKey: 'ohelp.org.sms.s5b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-promoters',
         titleKey: 'ohelp.org.promoters.title',
         descKey: 'ohelp.org.promoters.desc',
