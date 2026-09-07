@@ -12,6 +12,12 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'never',
     backgroundColor: '#050505',
+    // Marqueur du Launch Screen : ce binaire porte le wordmark officiel
+    // (Splash.imageset régénéré par scripts/gen-splash-wordmark.py). Le bundle
+    // web lit ce marqueur pour choisir le dessin du loader — voir
+    // src/lib/brandSplash.ts. Ne JAMAIS l'ajouter à un binaire dont l'imageset
+    // porte encore l'ancien lettrage.
+    appendUserAgent: 'YunoLaunch/2',
   },
   plugins: {
     PushNotifications: {

@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
-import { OFFICIAL_SPLASH_WORDMARK } from "./src/lib/brandSplash";
+import { LAUNCH_SCREEN_UA_MARKER } from "./src/lib/brandSplash";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -26,7 +26,11 @@ export default defineConfig({
     {
       name: 'yuno-splash-flag',
       transformIndexHtml(html: string) {
-        return html.replace(/__YUNO_OFFICIAL_SPLASH_WORDMARK__/g, String(OFFICIAL_SPLASH_WORDMARK));
+        // Même règle que hasOfficialLaunchScreen() (src/lib/brandSplash.ts), en JS
+        // inline : le web montre l'officiel, le natif seulement si son binaire
+        // porte le marqueur d'user-agent du nouveau Launch Screen.
+        const expr = `(location.protocol !== 'capacitor:' || navigator.userAgent.indexOf(${JSON.stringify(LAUNCH_SCREEN_UA_MARKER)}) !== -1)`;
+        return html.replace(/__YUNO_OFFICIAL_SPLASH_WORDMARK__/g, expr);
       },
     },
     VitePWA({

@@ -19,20 +19,28 @@
 // serait officiel et le splash web en Poppins montrerait le saut qu'on cherche
 // justement à éviter — y compris sur un simple build TestFlight.
 //
-// Recette du jour où on l'embarque (après la mise en ligne de la 1.0.2, qui est
-// déjà approuvée et porte l'ancien dessin) — UN SEUL commit :
-//   1. bump MARKETING_VERSION dans les deux projets iOS (client + Pro) ;
-//   2. `python3 scripts/gen-splash-wordmark.py` (régénère l'imageset) ;
-//   3. passer ce drapeau à true ;
-//   4. push → Xcode Cloud, puis soumission.
-// Les anciens binaires sont protégés par Capgo, mais PAS automatiquement : la
-// table `NATIVE_FAMILY` (identique dans `supabase/functions/capgo-updates` et
-// `scripts/ota-publish.mjs`) range aujourd'hui 1.0, 1.0.1 et 1.0.2 dans la MÊME
-// famille « 1.0 » — un bundle publié atteint donc les trois. Pour que la 1.0.3
-// forme sa propre famille et que les binaires à l'ancien Launch Screen ne
-// reçoivent jamais un bundle à `true`, il faut justement NE PAS l'ajouter à
-// cette table. Voir docs/OTA_CAPGO.md.
-export const OFFICIAL_SPLASH_WORDMARK = false;
+// Depuis le 2026-09-07 la décision se prend AU RUNTIME, plus au build :
+// le binaire client dont le Launch Screen porte le wordmark officiel ajoute
+// `YunoLaunch/2` à l'user-agent de sa WebView (capacitor.config.ts →
+// ios.appendUserAgent, compilé dans le binaire, jamais livré par OTA). Le
+// même bundle web sert donc TOUS les binaires : ancien Launch Screen → ancien
+// lettrage, nouveau → wordmark officiel ; le web classique (pas de Launch
+// Screen à raccorder) montre toujours l'officiel. Plus besoin de scinder la
+// famille OTA `NATIVE_FAMILY` ni de publier deux bundles.
+//
+// index.html ne peut pas importer ce module : le plugin `yuno-splash-flag`
+// (vite.config.ts) y injecte la MÊME expression (LAUNCH_SCREEN_UA_MARKER).
+export const LAUNCH_SCREEN_UA_MARKER = 'YunoLaunch/2';
+
+/** Le Launch Screen natif du binaire qui héberge cette WebView porte-t-il le wordmark officiel ? */
+export function hasOfficialLaunchScreen(): boolean {
+  try {
+    if (typeof location !== 'undefined' && location.protocol !== 'capacitor:') return true; // web / PWA
+    return typeof navigator !== 'undefined' && navigator.userAgent.includes(LAUNCH_SCREEN_UA_MARKER);
+  } catch {
+    return false;
+  }
+}
 
 /** Géométrie du mot dans la chaîne de boot, en px CSS.
  *

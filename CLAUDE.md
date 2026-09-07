@@ -69,19 +69,19 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   **La chaîne de lancement est un cas à part.** Le Launch Screen natif
   (`ios/App/App/Assets.xcassets/Splash.imageset/`) est compilé dans le binaire et
   ne part PAS en OTA, alors que le loader de `index.html` et `SplashScreen.tsx`,
-  si. Les trois doivent montrer le MÊME dessin, sinon le logo saute au démarrage
-  — l'imageset porte donc encore l'ancien lettrage, et il se régénère
-  (`python3 scripts/gen-splash-wordmark.py`) dans le MÊME commit que le passage
-  de `OFFICIAL_SPLASH_WORDMARK` à `true` (`src/lib/brandSplash.ts`, injecté dans
-  `index.html` par le plugin Vite `yuno-splash-flag`) et que le bump de
-  `MARKETING_VERSION`. Ne jamais committer l'un sans les autres : même un build
-  TestFlight intermédiaire montrerait le saut. Pour que les binaires à l'ancien
-  Launch Screen ne reçoivent jamais le bundle à `true`, il faut NE PAS ajouter la
-  nouvelle version à la table `NATIVE_FAMILY` (`capgo-updates` +
-  `scripts/ota-publish.mjs`), qui range aujourd'hui 1.0 / 1.0.1 / 1.0.2 dans une
-  seule famille — sans ça la garde `native_version` ne protège rien. Le raccord se vérifie, il ne s'estime
-  pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px, soit
-  3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
+  si. Les trois doivent montrer le MÊME dessin, sinon le logo saute au démarrage.
+  Depuis le 2026-09-07 la décision se prend AU RUNTIME (`hasOfficialLaunchScreen()`
+  dans `src/lib/brandSplash.ts`, même expression injectée dans `index.html` par le
+  plugin Vite `yuno-splash-flag`) : le binaire client dont l'imageset porte le
+  wordmark officiel ajoute `YunoLaunch/2` à l'user-agent de sa WebView
+  (`capacitor.config.ts` → `ios.appendUserAgent`, compilé, jamais livré par OTA).
+  Un seul bundle web sert donc tous les binaires (ancien Launch Screen → ancien
+  lettrage, nouveau → officiel, web → officiel), et la famille OTA `NATIVE_FAMILY`
+  reste unique. Règle : `appendUserAgent` et l'imageset régénéré
+  (`python3 scripts/gen-splash-wordmark.py`) vivent dans le MÊME commit ; ne jamais
+  poser le marqueur sur un binaire à l'ancien imageset. Le raccord se vérifie, il ne
+  s'estime pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px,
+  soit 3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
   c'est l'icône rendue en volume, pas un wordmark à plat.
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
