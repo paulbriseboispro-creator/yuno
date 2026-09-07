@@ -836,7 +836,11 @@ export default function EventDetails() {
         className="relative overflow-hidden"
         style={{
           aspectRatio: heroVideo ? '9 / 16' : '1 / 1',
+          // Plafond de hauteur sur écran large. `width: 100%` est obligatoire avec
+          // lui : en largeur auto, la hauteur bornée se « transfère » à la largeur
+          // via l'aspect-ratio et le héros rétrécit à 446 px sur un bureau.
           maxHeight: heroVideo ? 'min(88vh, 900px)' : undefined,
+          width: heroVideo ? '100%' : undefined,
           background: 'rgba(255,255,255,0.05)',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
         }}
