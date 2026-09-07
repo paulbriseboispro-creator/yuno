@@ -138,6 +138,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Carte (${APP_BASE_URL}/map) : les clubs sur une carte interactive, appuie sur un pin pour voir le club.
 - Pages publiques : ${APP_BASE_URL}/events (soirées), ${APP_BASE_URL}/clubs (clubs), ${APP_BASE_URL}/djs (DJs).
 - Chaque page d'événement montre : date/heure, lieu, genre, line-up DJ, billets disponibles, guest list et tables VIP si activées.
+- Certaines pages de soirée s'ouvrent sur une courte vidéo verticale (format story) qui tourne en boucle, sans son, à la place de l'affiche : c'est l'organisateur ou le club qui l'a ajoutée. Elle ne se lance pas si le téléphone est en économie de données ou en animations réduites (l'affiche s'affiche alors), et il n'y a aucun bouton pour l'activer : elle démarre seule.
 - Toutes les soirées ne se passent pas dans un club partenaire : un organisateur peut monter sa soirée dans un lieu à lui. Elle a alors son propre lieu et son adresse sur la page, et c'est une soirée Yuno comme une autre (guest list, tables VIP, billets selon ce que l'orga a ouvert). Ne la traite jamais comme moins légitime qu'une soirée de club.
 
 📣 ACTUS & OFFRES DES CLUBS (cases à cocher au paiement)

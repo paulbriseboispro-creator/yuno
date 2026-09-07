@@ -300,7 +300,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToEvents', path: '/events' },
         relatedArticleIds: ['ticketing-setup', 'guest-list-setup', 'tables-vip-setup', 'dj-management'],
-        keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'nuevo evento'],
+        keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'vidéo', 'video', 'reel', 'story', '9:16', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'nuevo evento'],
         sections: [
           { headingKey: 'ohelp.ev.events.s1h', bodyKey: 'ohelp.ev.events.s1b' },
           { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.webp' },
@@ -308,6 +308,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.events.s4h', bodyKey: 'ohelp.ev.events.s4b' },
           { headingKey: 'ohelp.ev.events.s5h', bodyKey: 'ohelp.ev.events.s5b' },
           { headingKey: 'ohelp.ev.events.s6h', bodyKey: 'ohelp.ev.events.s6b' },
+          { headingKey: 'ohelp.ev.events.s9h', bodyKey: 'ohelp.ev.events.s9b' },
           { headingKey: 'ohelp.ev.events.s7h', bodyKey: 'ohelp.ev.events.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.events.s8h', bodyKey: 'ohelp.ev.events.s8b', type: 'warning' },
         ],
