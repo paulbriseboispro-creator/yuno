@@ -272,6 +272,7 @@ const en: Record<string, string> = {
   "Sécurisé Stripe": "Stripe-secured",
   "Tables": "Tables",
   "Tables VIP": "VIP Tables",
+  "Rareté & FOMO": "Scarcity & FOMO",
   "Tables VIP — Basic": "VIP Tables — Basic",
   "Tables VIP — Mode Basic": "VIP Tables — Basic mode",
   "Tarifs simples, vagues progressives ou créneaux horaires. Listes privées et codes promoteurs inclus.": "Simple prices, progressive waves or time slots. Private lists and promoter codes included.",

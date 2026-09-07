@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useOwnerVenue } from '@/hooks/useOwnerVenue';
+import { useVenueContext } from '@/hooks/useVenueContext';
 import { useScarcitySettings } from '@/hooks/useScarcitySettings';
 import { supabase } from '@/integrations/supabase/client';
 import { Flame, Eye, EyeOff, AlertTriangle, Loader2, Calendar, Smile, ChevronDown, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { PlanGuard } from '@/components/PlanGuard';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
+import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -129,15 +130,29 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 interface EventOption {
   id: string; title: string; start_at: string;
   ticketing_enabled: boolean; tables_enabled: boolean;
+  venue_id: string | null; partner_venue_id: string | null;
 }
 interface RoundOption { id: string; name: string; maxTickets: number; ticketsSold: number; }
 interface ZoneOption  { id: string; name: string; tablesCount: number; }
 interface PackOption  { id: string; name: string; zoneId: string; }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
+/**
+ * Rareté / FOMO — badge d'urgence ou compteur plafonné sur les paliers de
+ * billets et les zones de tables d'une soirée. Une seule page pour les trois
+ * cockpits : club (/owner), manager (/manager) et organisateur
+ * (/organizer-app). Le scope vient de `useVenueContext` : un club lit ses
+ * soirées par `venue_id`, un organisateur par `organizer_user_id` /
+ * `partner_organizer_id` (mêmes soirées que sa page Tables VIP). Côté base, la
+ * policy « Event operators » sur `event_scarcity_settings` suit
+ * `can_manage_event_tables()` — celui qui tient les opérations de la soirée
+ * pilote sa rareté.
+ */
 export default function OwnerScarcity() {
   const { t } = useLanguage();
-  const { venueId } = useOwnerVenue();
+  const { venueId, organizerUserId, scope } = useVenueContext();
+  const isOrganizerScope = scope === 'organizer';
+  const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
   const [events, setEvents] = useState<EventOption[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showEventPicker, setShowEventPicker] = useState(false);
@@ -152,33 +167,54 @@ export default function OwnerScarcity() {
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
   useEffect(() => {
-    if (!venueId) return;
-    supabase.from('events')
-      .select('id, title, start_at, ticketing_enabled, tables_enabled')
-      .eq('venue_id', venueId).gte('end_at', new Date().toISOString())
+    if (!scopeReady) return;
+    const base = supabase.from('events')
+      .select('id, title, start_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id')
+      .gte('end_at', new Date().toISOString());
+    // Organisateur : ses soirées (solo ou en collab), exactement le périmètre
+    // de /organizer-app/tables. Club : les soirées de son lieu.
+    const scoped = isOrganizerScope
+      ? base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+      : base.eq('venue_id', venueId as string);
+    scoped
       .order('start_at', { ascending: true })
       .then(({ data }) => {
         if (data && data.length > 0) { setEvents(data); setSelectedEventId(data[0].id); }
       });
-  }, [venueId]);
+  }, [scopeReady, isOrganizerScope, venueId, organizerUserId]);
 
   useEffect(() => {
     setLocalCapValues({});
   }, [selectedEventId]);
 
   useEffect(() => {
-    if (!selectedEventId || !venueId) { setRounds([]); setZones([]); setPacks([]); return; }
+    if (!selectedEventId || !scopeReady) { setRounds([]); setZones([]); setPacks([]); return; }
     supabase.from('ticket_rounds')
       .select('id, name, max_tickets, tickets_sold').eq('event_id', selectedEventId)
       .order('position', { ascending: true })
       .then(({ data }) => setRounds((data || []).map(r => ({ id: r.id, name: r.name, maxTickets: r.max_tickets, ticketsSold: r.tickets_sold }))));
 
     if (selectedEvent?.tables_enabled) {
-      supabase.from('table_zones').select('id, name, tables_count').eq('venue_id', venueId)
-        .order('position', { ascending: true })
-        .then(({ data }) => setZones((data || []).map(z => ({ id: z.id, name: z.name, tablesCount: z.tables_count || 1 }))));
-      supabase.from('table_packs').select('id, name, zone_id').eq('venue_id', venueId).eq('is_active', true)
-        .then(({ data }) => setPacks((data || []).map(p => ({ id: p.id, name: p.name, zoneId: p.zone_id }))));
+      // Zones + packs viennent toujours du même périmètre. Club : les zones du
+      // lieu. Organisateur : d'abord les zones event-scopées de la soirée (solo
+      // ou co-soirée aux zones propres), sinon celles du club partenaire —
+      // le même repli que la page de réservation publique.
+      const clubId = isOrganizerScope ? (selectedEvent.venue_id ?? selectedEvent.partner_venue_id) : venueId;
+      const fetchZonesPacks = async (zoneScope: 'event' | 'venue') => {
+        const zoneQuery = supabase.from('table_zones').select('id, name, tables_count').order('position', { ascending: true });
+        const packQuery = supabase.from('table_packs').select('id, name, zone_id').eq('is_active', true);
+        const [{ data: z }, { data: p }] = await Promise.all([
+          zoneScope === 'event' ? zoneQuery.eq('event_id', selectedEventId) : zoneQuery.eq('venue_id', clubId as string),
+          zoneScope === 'event' ? packQuery.eq('event_id', selectedEventId) : packQuery.eq('venue_id', clubId as string),
+        ]);
+        return { zones: z || [], packs: p || [] };
+      };
+      (async () => {
+        let res = isOrganizerScope ? await fetchZonesPacks('event') : (clubId ? await fetchZonesPacks('venue') : { zones: [], packs: [] });
+        if (isOrganizerScope && res.zones.length === 0 && clubId) res = await fetchZonesPacks('venue');
+        setZones(res.zones.map(z => ({ id: z.id, name: z.name, tablesCount: z.tables_count || 1 })));
+        setPacks(res.packs.map(p => ({ id: p.id, name: p.name, zoneId: p.zone_id })));
+      })();
       supabase.from('table_reservations').select('zone_id').eq('event_id', selectedEventId).eq('status', 'paid')
         .then(({ data }) => {
           const counts: Record<string, number> = {};
@@ -188,7 +224,7 @@ export default function OwnerScarcity() {
     } else {
       setZones([]); setPacks([]); setReservationsByZone({});
     }
-  }, [selectedEventId, venueId, selectedEvent?.tables_enabled]);
+  }, [selectedEventId, scopeReady, isOrganizerScope, venueId, selectedEvent?.tables_enabled, selectedEvent?.venue_id, selectedEvent?.partner_venue_id]);
 
   // ── Current mode is derived from the two mutually-exclusive flags ─────────────
   const mode: Mode = settings
@@ -294,12 +330,8 @@ export default function OwnerScarcity() {
     },
   ];
 
-  return (
-    <PlanGuard feature="scarcity_tools">
-      <div style={{ minHeight: '100vh', background: '#000', paddingBottom: 96 }}>
-        <OwnerHeader title={t('scarcity.title')} showBackButton backTo="/owner/dashboard" />
-
-        <div className="px-4 py-6 max-w-2xl mx-auto space-y-4">
+  const content = (
+        <div className={isOrganizerScope ? 'max-w-2xl space-y-4' : 'px-4 py-6 max-w-2xl mx-auto space-y-4'}>
           <CollabReadOnlyBanner action={t('collab.action.editScarcity')} />
 
           {/* How it works — sets the mental model up front */}
@@ -612,6 +644,24 @@ export default function OwnerScarcity() {
             </>
           )}
         </div>
+  );
+
+  // Organisateur : le layout /organizer-app porte déjà sidebar + en-tête ; pas
+  // de PlanGuard non plus, le plan d'abonnement est une notion de club.
+  if (isOrganizerScope) {
+    return (
+      <OrgPage>
+        <OrgPageHeader title={t('scarcity.title')} />
+        {content}
+      </OrgPage>
+    );
+  }
+
+  return (
+    <PlanGuard feature="scarcity_tools">
+      <div style={{ minHeight: '100vh', background: '#000', paddingBottom: 96 }}>
+        <OwnerHeader title={t('scarcity.title')} showBackButton backTo="/owner/dashboard" />
+        {content}
       </div>
     </PlanGuard>
   );

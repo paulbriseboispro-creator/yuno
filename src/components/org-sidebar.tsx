@@ -38,6 +38,7 @@ import {
 	HomeIcon,
 	UserIcon,
 	HelpCircleIcon,
+	SparklesIcon,
 } from "lucide-react";
 
 type TT = (fr: string, en: string) => string;
@@ -59,6 +60,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 				{ title: tt("Billetterie", "Ticketing"), path: "/organizer-app/ticketing", icon: <TicketIcon /> },
 				{ title: tt("Tables VIP", "VIP Tables"), path: "/organizer-app/tables", icon: <CrownIcon /> },
 				{ title: tt("Service VIP", "VIP Service"), path: "/organizer-app/vip-service", icon: <CrownIcon /> },
+				{ title: tt("Rareté & FOMO", "Scarcity & FOMO"), path: "/organizer-app/scarcity", icon: <SparklesIcon /> },
 				{ title: tt("Commandes", "Orders"), path: "/organizer-app/orders", icon: <ShoppingCartIcon /> },
 				{ title: tt("Guest List", "Guest List"), path: "/organizer-app/guest-list", icon: <UsersIcon /> },
 				{ title: tt("Check-in", "Check-in"), path: "/organizer-app/checkin", icon: <ScanLineIcon /> },

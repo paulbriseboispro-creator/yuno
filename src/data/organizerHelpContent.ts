@@ -168,6 +168,22 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'org-scarcity',
+        titleKey: 'ohelp.org.scarcity.title',
+        descKey: 'ohelp.org.scarcity.desc',
+        icon: 'Sparkles',
+        actionLink: { labelKey: OPEN, path: '/scarcity' },
+        relatedArticleIds: ['org-ticketing', 'org-tables', 'org-events'],
+        keywords: ['scarcity', 'rareté', 'fomo', 'urgency', 'urgence', 'few left', 'dernières places', 'counter', 'compteur', 'plafond', 'cap', 'demand', 'demande', 'pressure', 'pression', 'badge', 'escasez', 'últimas plazas'],
+        sections: [
+          { headingKey: 'ohelp.org.scarcity.s1h', bodyKey: 'ohelp.org.scarcity.s1b' },
+          { headingKey: 'ohelp.org.scarcity.s2h', bodyKey: 'ohelp.org.scarcity.s2b' },
+          { headingKey: 'ohelp.org.scarcity.s3h', bodyKey: 'ohelp.org.scarcity.s3b', type: 'steps' },
+          { headingKey: 'ohelp.org.scarcity.s4h', bodyKey: 'ohelp.org.scarcity.s4b', type: 'tip' },
+          { headingKey: 'ohelp.org.scarcity.s5h', bodyKey: 'ohelp.org.scarcity.s5b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-guest-list',
         titleKey: 'ohelp.org.guestlist.title',
         descKey: 'ohelp.org.guestlist.desc',

@@ -524,6 +524,7 @@ const es: Record<string, string> = {
   "Sécurisé Stripe": "Asegurado por Stripe",
   "Tables": "Mesas",
   "Tables VIP": "Mesas VIP",
+  "Rareté & FOMO": "Escasez y FOMO",
   "Tables VIP — Basic": "Mesas VIP — Básico",
   "Tables VIP — Mode Basic": "Mesas VIP — Modo básico",
   "Tarifs simples, vagues progressives ou créneaux horaires. Listes privées et codes promoteurs inclus.": "Tarifas simples, oleadas progresivas o franjas horarias. Listas privadas y códigos de promotor incluidos.",

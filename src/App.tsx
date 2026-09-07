@@ -693,6 +693,8 @@ const App = () => (
                   <Route path="ticketing" element={<OwnerTicketing />} />
                   <Route path="tables" element={<OrgAppTables />} />
                   <Route path="vip-service" element={<OrgAppVipService />} />
+                  {/* Rareté / FOMO — même page que le club, scope organisateur via useVenueContext */}
+                  <Route path="scarcity" element={<OwnerScarcity />} />
                   <Route path="orders" element={<OwnerOrders />} />
                   <Route path="djs" element={<OwnerDJs />} />
                   <Route path="djs/:djId" element={<OwnerDJDetail />} />
