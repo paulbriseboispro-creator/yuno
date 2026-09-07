@@ -26,6 +26,17 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CREATE-TICKET-CHECKOUT] ${step}`, details ? JSON.stringify(details) : "");
 };
 
+// Refus d'un billet communauté (tarif réservé aux abonnés de l'hôte). Le code
+// est renvoyé au front, qui affiche l'action qui débloque (suivre / s'abonner).
+export const COMMUNITY_ONLY_CODE = "COMMUNITY_ONLY";
+class CommunityAccessError extends Error {
+  code = COMMUNITY_ONLY_CODE;
+  constructor(message: string) {
+    super(message);
+    this.name = "CommunityAccessError";
+  }
+}
+
 const generateQRCode = () => {
   // Cryptographically-random, unguessable code (Deno global crypto). The old
   // `Date.now() + Math.random()` scheme was predictable and not collision-safe —
@@ -244,6 +255,27 @@ serve(async (req) => {
     if (!ticketRound.is_active) throw new Error("Ticket round is not active");
     // Épuisé forcé manuellement par le club/orga → non achetable même si capacité dispo.
     if ((ticketRound as any).manually_sold_out) throw new Error(t("checkout.soldOut", lang));
+
+    // ── Billet communauté ─────────────────────────────────────────────────
+    // Un tarif `audience != 'everyone'` n'est vendu qu'aux abonnés de l'hôte
+    // (profil Yuno et/ou newsletter). La règle vit en SQL
+    // (check_community_access, service_role seul) : compte connecté OU email
+    // invité — c'est ce qui permet à une liste importée sans compte Yuno de
+    // profiter du tarif avec l'adresse abonnée. Refus = code COMMUNITY_ONLY,
+    // que le front transforme en appel à l'action (suivre / s'abonner).
+    const roundAudience = (ticketRound as any).audience ?? 'everyone';
+    if (roundAudience !== 'everyone') {
+      const { data: communityAllowed, error: communityErr } = await supabaseAdmin.rpc(
+        "check_community_access",
+        { p_round_id: ticketRound.id, p_user_id: user?.id ?? null, p_email: user?.email ?? guestEmail ?? null },
+      );
+      if (communityErr) logStep("Community access check failed", { error: communityErr.message });
+      if (communityErr || communityAllowed !== true) {
+        logStep("Community ticket refused", { roundId: ticketRound.id, audience: roundAudience, hasUser: !!user });
+        throw new CommunityAccessError(t("checkout.communityOnly", lang));
+      }
+      logStep("Community access verified", { roundId: ticketRound.id, audience: roundAudience });
+    }
 
     // Enforce rounds_visibility rules (only meaningful for 'rounds' selling mode)
     if (event.ticket_selling_mode === 'rounds') {
@@ -1180,8 +1212,13 @@ serve(async (req) => {
       }
     }
 
+    // Un code d'aiguillage (COMMUNITY_ONLY…) accompagne le message : le front
+    // affiche l'action qui débloque au lieu d'un toast d'erreur générique.
+    const errorCode = error instanceof Error && typeof (error as { code?: unknown }).code === "string"
+      ? (error as { code: string }).code
+      : undefined;
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: errorMessage, ...(errorCode ? { code: errorCode } : {}) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
     );
   }
