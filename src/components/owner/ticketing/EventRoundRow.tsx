@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Clock, Ban, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, Clock, Ban, RotateCcw, Users } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Event } from '@/types';
 import { TicketRound } from '@/types/ticketing';
@@ -29,6 +29,15 @@ export function EventRoundRow({ round, event, isSimpleMode, isVip, onEdit, onDel
           <span className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 560 }}>{round.name}</span>
           {isVip && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: 'rgba(252,211,153,0.12)', border: '1px solid rgba(252,211,153,0.3)', color: GOLD }}>VIP</span>
+          )}
+          {round.audience && round.audience !== 'everyone' && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold"
+              style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}
+              title={t(`tickets.audience${round.audience === 'followers' ? 'Followers' : round.audience === 'newsletter' ? 'Newsletter' : 'Community'}`)}
+            >
+              <Users className="h-2.5 w-2.5" />{t('tickets.communityBadge')}
+            </span>
           )}
           {round.isActive && !round.manuallySoldOut && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS }}>{t('tickets.active')}</span>

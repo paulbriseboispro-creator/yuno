@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { forPublicPricing } from '@/types/ticketing';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -104,8 +105,8 @@ export default function ForYouSelection() {
               .in('id', affIds)
           : Promise.resolve({ data: [] as AffiliateRow[] }),
         eventIds.length
-          ? supabase.from('ticket_rounds').select('event_id, price, is_active').in('event_id', eventIds).eq('is_active', true)
-          : Promise.resolve({ data: [] as { event_id: string; price: number }[] }),
+          ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', eventIds).eq('is_active', true)
+          : Promise.resolve({ data: [] as { event_id: string; price: number; audience: string | null }[] }),
         eventIds.length
           ? supabase.from('organizer_profiles').select('user_id, display_name, slug')
           : Promise.resolve({ data: [] as { user_id: string; display_name: string; slug: string | null }[] }),
@@ -113,7 +114,7 @@ export default function ForYouSelection() {
       if (cancelled) return;
 
       const minPrice = new Map<string, number>();
-      for (const r of (roundsRes.data || []) as { event_id: string; price: number }[]) {
+      for (const r of forPublicPricing((roundsRes.data || []) as { event_id: string; price: number; audience: string | null }[])) {
         minPrice.set(r.event_id, Math.min(minPrice.get(r.event_id) ?? Infinity, Number(r.price)));
       }
       const orgs = new Map<string, { display_name: string; slug: string | null }>();

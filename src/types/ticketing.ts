@@ -1,5 +1,53 @@
 export type TicketType = 'standard' | 'vip';
 
+/**
+ * Qui peut acheter un tarif.
+ *  - everyone   : tout le monde (défaut).
+ *  - followers  : abonnés du profil Yuno de l'hôte (club ou organisateur).
+ *  - newsletter : abonnés à la newsletter de l'hôte.
+ *  - community  : l'un OU l'autre.
+ * La porte est serveur (check_community_access dans create-ticket-checkout) ;
+ * le front ne fait qu'afficher le verrou et l'action qui le lève.
+ */
+export type TicketAudience = 'everyone' | 'followers' | 'newsletter' | 'community';
+
+export const TICKET_AUDIENCES: readonly TicketAudience[] = ['everyone', 'followers', 'newsletter', 'community'];
+
+export const normalizeTicketAudience = (value?: string | null): TicketAudience =>
+  (TICKET_AUDIENCES as readonly string[]).includes(value ?? '') ? (value as TicketAudience) : 'everyone';
+
+/** Vrai pour un tarif réservé à la communauté (tout sauf `everyone`). */
+export const isCommunityAudience = (audience?: string | null): boolean =>
+  !!audience && audience !== 'everyone';
+
+/** Miroir de la règle SQL community_audience_allows : audience inconnue = fermé. */
+export const communityAudienceAllows = (
+  audience: TicketAudience,
+  isFollower: boolean,
+  isSubscriber: boolean,
+): boolean => {
+  switch (audience) {
+    case 'everyone': return true;
+    case 'followers': return isFollower;
+    case 'newsletter': return isSubscriber;
+    case 'community': return isFollower || isSubscriber;
+    default: return false;
+  }
+};
+
+/**
+ * Lignes de ticket_rounds à considérer pour un prix « à partir de X € » public
+ * (cartes Explore, page club, landing…). Un tarif communauté n'est pas le prix
+ * de tout le monde : il est exclu tant que la soirée a au moins un tarif
+ * ouvert ; s'il ne reste QUE des tarifs communauté, on les garde plutôt que
+ * d'afficher « Gratuit » sur une soirée payante.
+ */
+export function forPublicPricing<T extends { event_id: string; audience?: string | null }>(rows: T[]): T[] {
+  const withPublic = new Set<string>();
+  for (const r of rows) if (!isCommunityAudience(r.audience)) withPublic.add(r.event_id);
+  return rows.filter(r => !isCommunityAudience(r.audience) || !withPublic.has(r.event_id));
+}
+
 export type TicketSellingMode = 'simple' | 'rounds' | 'timed_entry';
 
 export type PresetSellingMode = 'simple' | 'rounds' | 'timed_entry';
@@ -27,6 +75,8 @@ export type TicketRound = {
   allowedDrinkCollections?: string[];
   entryDeadline?: string;
   ticketType: TicketType;
+  /** Qui peut acheter ce tarif (absent = `everyone`). Voir TicketAudience. */
+  audience?: TicketAudience;
   createdAt: string;
   updatedAt: string;
 };

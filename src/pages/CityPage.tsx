@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { forPublicPricing } from '@/types/ticketing';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,10 +102,10 @@ function useCityData(cityName: string) {
         if (nativeRows.length) {
           const { data: rounds } = await supabase
             .from('ticket_rounds')
-            .select('event_id, price, is_active')
+            .select('event_id, price, is_active, audience')
             .in('event_id', nativeRows.map((r) => r.id));
           if (cancelled) return;
-          (rounds || []).forEach((tr) => {
+          forPublicPricing(rounds || []).forEach((tr) => {
             if (!tr.is_active) return;
             const prev = minPrice.get(tr.event_id);
             if (prev === undefined || tr.price < prev) minPrice.set(tr.event_id, tr.price);

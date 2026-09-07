@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { forPublicPricing } from '@/types/ticketing';
 import { supabase } from '@/integrations/supabase/client';
 import { cityMatches } from '@/lib/userLocation';
 import { affiliateMinPrice } from '@/lib/eventPriceLabel';
@@ -76,13 +77,13 @@ async function fetchMomentEvents(moment: FeaturedMoment): Promise<MomentEventsDa
       ? supabase.from('organizer_profiles').select('user_id, slug').in('user_id', organizerUserIds)
       : Promise.resolve({ data: [] as { user_id: string; slug: string | null }[] }),
     eventIds.length > 0
-      ? supabase.from('ticket_rounds').select('event_id, price, is_active').in('event_id', eventIds)
-      : Promise.resolve({ data: [] as { event_id: string; price: number; is_active: boolean | null }[] }),
+      ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', eventIds)
+      : Promise.resolve({ data: [] as { event_id: string; price: number; is_active: boolean | null; audience: string | null }[] }),
   ]);
   (orgRes.data || []).forEach(op => organizerSlugMap.set(op.user_id, op.slug));
 
   const minPriceMap: Record<string, number> = {};
-  (ticketRes.data || []).forEach(tr => {
+  forPublicPricing(ticketRes.data || []).forEach(tr => {
     if (tr.is_active) {
       const prev = minPriceMap[tr.event_id];
       if (prev === undefined || tr.price < prev) minPriceMap[tr.event_id] = tr.price;

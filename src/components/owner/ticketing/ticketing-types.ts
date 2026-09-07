@@ -1,4 +1,4 @@
-import { TicketType, PresetSellingMode } from '@/types/ticketing';
+import { TicketType, TicketAudience, PresetSellingMode } from '@/types/ticketing';
 
 // Extracted verbatim from OwnerTicketing.tsx — shared by the ticketing page + dialogs.
 export interface PresetRound {
@@ -54,6 +54,8 @@ export interface RoundFormData {
   drinkCutoffTime: string;
   ticketType: TicketType;
   entryDeadline: string;
+  /** Billet communauté : qui peut l'acheter. */
+  audience: TicketAudience;
 }
 
 // Shape of the preset-creation form state (verbatim from OwnerTicketing useState).

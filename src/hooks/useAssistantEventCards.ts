@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { forPublicPricing } from '@/types/ticketing';
 import { supabase } from '@/integrations/supabase/client';
 import { affiliateMinPrice } from '@/lib/eventPriceLabel';
 import type { EventCardData } from '@/components/explore/EventCard';
@@ -52,7 +53,7 @@ async function fetchAssistantEvents(ids: string[]): Promise<AssistantEventCardDa
       ? supabase.from('organizer_profiles').select('user_id, display_name, slug').in('user_id', organizerIds)
       : EMPTY,
     foundIds.length
-      ? supabase.from('ticket_rounds').select('event_id, price, is_active').in('event_id', foundIds)
+      ? supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', foundIds)
       : EMPTY,
     foundIds.length
       ? supabase.from('guest_lists').select('event_id, free_before_time').in('event_id', foundIds).eq('is_active', true)
@@ -72,7 +73,7 @@ async function fetchAssistantEvents(ids: string[]): Promise<AssistantEventCardDa
   const orgMap = new Map((orgsRes.data || []).map((o) => [o.user_id, o]));
 
   const minPrice: Record<string, number> = {};
-  (roundsRes.data || []).forEach((r) => {
+  forPublicPricing(roundsRes.data || []).forEach((r) => {
     if (!r.is_active) return;
     if (minPrice[r.event_id] === undefined || r.price < minPrice[r.event_id]) minPrice[r.event_id] = r.price;
   });

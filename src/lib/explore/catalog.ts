@@ -19,6 +19,7 @@
 // cache, au lieu de la répéter chacun de leur côté.
 // ════════════════════════════════════════════════════════════════════
 import type { QueryClient } from '@tanstack/react-query';
+import { forPublicPricing } from '@/types/ticketing';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { EventCardData } from '@/components/explore/EventCard';
@@ -234,8 +235,8 @@ export async function fetchExploreCatalog(
   // ── Vague 2 : ce qui dépend des ids (bornés à la fenêtre, jamais « toute la table ») ──
   const [ticketRoundsRes, djSetsRes, orgProfilesRes, tablePacksRes] = await Promise.all([
     eventIds.length
-      ? supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active').in('event_id', eventIds)
-      : Promise.resolve({ data: [] as { event_id: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean | null }[] }),
+      ? supabase.from('ticket_rounds').select('event_id, price, tickets_sold, max_tickets, is_active, audience').in('event_id', eventIds).then((r) => ({ ...r, data: forPublicPricing(r.data ?? []) }))
+      : Promise.resolve({ data: [] as { event_id: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean | null; audience: string | null }[] }),
     eventIds.length
       ? supabase.from('dj_sets').select('event_id, music_genre').in('event_id', eventIds)
       : Promise.resolve({ data: [] as { event_id: string | null; music_genre: string | null }[] }),

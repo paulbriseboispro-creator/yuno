@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Ticket, Crown, Wine, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Ticket, Crown, Wine, Sparkles, Users } from 'lucide-react';
+import { normalizeTicketAudience, type TicketAudience } from '@/types/ticketing';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -40,6 +41,7 @@ interface Round {
   drink_deadline_type: string | null;
   drink_deadline_hours: number | null;
   drink_cutoff_time: string | null;
+  audience?: string | null;
 }
 
 export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) {
@@ -60,6 +62,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
     drink_deadline_type: 'fixed_time' as 'hours_after_start' | 'fixed_time' | 'none',
     drink_deadline_hours: '2',
     drink_cutoff_time: '02:00',
+    audience: 'everyone' as TicketAudience,
   });
 
   useEffect(() => { loadAll(); }, [eventId]);
@@ -109,6 +112,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
             drink_deadline_type: (r.drink_deadline_type as any) ?? 'fixed_time',
             drink_deadline_hours: String(r.drink_deadline_hours ?? 2),
             drink_cutoff_time: r.drink_cutoff_time ?? '02:00',
+            audience: normalizeTicketAudience(r.audience),
           }
         : {
             name: '',
@@ -120,6 +124,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
             drink_deadline_type: 'fixed_time',
             drink_deadline_hours: '2',
             drink_cutoff_time: '02:00',
+            audience: 'everyone' as TicketAudience,
           },
     );
     setOpen(true);
@@ -144,6 +149,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
       auto_activate: true,
       last_tickets_threshold: 20,
       position: editing?.position ?? rounds.length,
+      audience: form.audience,
     };
     const { error } = editing
       ? await supabase.from('ticket_rounds').update(payload).eq('id', editing.id)
@@ -226,6 +232,9 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
                     {r.name}
                     <span className="text-muted-foreground">— {Number(r.price).toFixed(2)}€</span>
                     {!r.is_active && <Badge variant="secondary" className="text-[10px]">{t('coEvent.inactive')}</Badge>}
+                    {r.audience && r.audience !== 'everyone' && (
+                      <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary"><Users className="h-2.5 w-2.5" /> {t('tickets.communityBadge')}</Badge>
+                    )}
                     {r.includes_drink && (
                       <Badge variant="outline" className="text-[10px] gap-0.5"><Wine className="h-2.5 w-2.5" /> {t('coEvent.plusDrink')}</Badge>
                     )}
@@ -276,6 +285,21 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
                 <option value="standard">Standard</option>
                 <option value="vip">VIP</option>
               </select>
+            </div>
+            <div>
+              <Label>{t('tickets.audience')}</Label>
+              <p className="text-xs text-muted-foreground mb-1">{t('tickets.audienceDesc')}</p>
+              <select
+                className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                value={form.audience}
+                onChange={(e) => setForm({ ...form, audience: e.target.value as TicketAudience })}
+              >
+                <option value="everyone">{t('tickets.audienceEveryone')}</option>
+                <option value="followers">{t('tickets.audienceFollowers')}</option>
+                <option value="newsletter">{t('tickets.audienceNewsletter')}</option>
+                <option value="community">{t('tickets.audienceCommunity')}</option>
+              </select>
+              {form.audience !== 'everyone' && <p className="text-xs text-muted-foreground mt-1">{t('tickets.audienceCtaHint')}</p>}
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>

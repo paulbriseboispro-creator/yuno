@@ -1,4 +1,5 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
+import { forPublicPricing } from '@/types/ticketing';
 import { motion } from 'framer-motion';
 import { FadeInView } from '@/components/motion';
 import { PublicPage } from '@/components/PublicPage';
@@ -511,14 +512,16 @@ export default function VenuePage() {
         if (ticketingEventIds.length > 0) {
           const { data: roundsData } = await supabase
             .from('ticket_rounds')
-            .select('event_id, price, is_active, tickets_sold, max_tickets')
+            .select('event_id, price, is_active, tickets_sold, max_tickets, audience')
             .in('event_id', ticketingEventIds)
             .order('position', { ascending: true });
 
           if (roundsData) {
             const pricesByEvent: Record<string, number | null> = {};
+            // Un tarif communauté n'est pas le prix « dès » de tout le monde.
+            const publicRounds = forPublicPricing(roundsData);
             ticketingEventIds.forEach(eventId => {
-              const eventRounds = roundsData.filter(r => r.event_id === eventId);
+              const eventRounds = publicRounds.filter(r => r.event_id === eventId);
               // Find first available active round
               const activeRound = eventRounds.find(r => r.is_active && r.tickets_sold < r.max_tickets);
               pricesByEvent[eventId] = activeRound ? Number(activeRound.price) : 

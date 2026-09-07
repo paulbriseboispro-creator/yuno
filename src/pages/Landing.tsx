@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { forPublicPricing } from '@/types/ticketing';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,13 +64,13 @@ function useUpcomingEvents(limit = 12) {
           venueIds.length
             ? supabase.from('venues').select('id, name, city').in('id', venueIds)
             : Promise.resolve({ data: [] as { id: string; name: string; city: string | null }[] }),
-          supabase.from('ticket_rounds').select('event_id, price, is_active').in('event_id', rows.map((r) => r.id)),
+          supabase.from('ticket_rounds').select('event_id, price, is_active, audience').in('event_id', rows.map((r) => r.id)),
         ]);
         if (cancelled) return;
 
         const venueMap = new Map((venuesRes.data || []).map((v) => [v.id, v]));
         const minPrice = new Map<string, number>();
-        (roundsRes.data || []).forEach((tr) => {
+        forPublicPricing(roundsRes.data || []).forEach((tr) => {
           if (!tr.is_active) return;
           const prev = minPrice.get(tr.event_id);
           if (prev === undefined || tr.price < prev) minPrice.set(tr.event_id, tr.price);

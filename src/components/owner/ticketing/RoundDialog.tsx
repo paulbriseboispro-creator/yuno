@@ -5,11 +5,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Wine } from 'lucide-react';
+import { Wine, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Event } from '@/types';
-import { TicketRound, TicketSellingMode } from '@/types/ticketing';
+import { TicketRound, TicketSellingMode, type TicketAudience } from '@/types/ticketing';
 import { RED, T1, T3, C_FAINT, BORDER, TILE_BG, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import type { RoundFormData } from './ticketing-types';
 
@@ -150,6 +150,34 @@ export function RoundDialog({
                   checked={roundFormData.manuallySoldOut}
                   onCheckedChange={(checked) => setRoundFormData({ ...roundFormData, manuallySoldOut: checked })}
                 />
+              </div>
+
+              {/* Billet communauté : réservé aux abonnés du profil / de la newsletter.
+                  La porte est serveur ; l'appel à l'action (suivre, s'abonner) est
+                  généré automatiquement sous le tarif verrouillé côté client. */}
+              <div className="space-y-2 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                <Label htmlFor="roundAudience" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" style={{ color: RED }} />
+                  {t('tickets.audience')}
+                </Label>
+                <p style={HINT}>{t('tickets.audienceDesc')}</p>
+                <Select
+                  value={roundFormData.audience}
+                  onValueChange={(value: TicketAudience) => setRoundFormData({ ...roundFormData, audience: value })}
+                >
+                  <SelectTrigger id="roundAudience" className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="everyone">{t('tickets.audienceEveryone')}</SelectItem>
+                    <SelectItem value="followers">{t('tickets.audienceFollowers')}</SelectItem>
+                    <SelectItem value="newsletter">{t('tickets.audienceNewsletter')}</SelectItem>
+                    <SelectItem value="community">{t('tickets.audienceCommunity')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {roundFormData.audience !== 'everyone' && (
+                  <p style={HINT}>{t('tickets.audienceCtaHint')}</p>
+                )}
               </div>
 
               <div>

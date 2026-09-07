@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock, Users } from 'lucide-react';
 import { getEventSalesStatus } from '@/types/ticketing';
 import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,8 @@ import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/Ticket
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { MinorAuthGate } from '@/components/MinorAuthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useCommunityAccess, CommunityCta, communityStatus } from '@/components/ticketing/CommunityTicketGate';
+import { normalizeTicketAudience } from '@/types/ticketing';
 import { useMarketingConsent, recordConsentGrant, marketingConsentWording } from '@/hooks/useMarketingConsent';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PublicPage } from '@/components/PublicPage';
@@ -52,6 +54,15 @@ export default function TicketCheckout() {
   const [event, setEvent] = useState<EventWithTicketing | null>(null);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string } | null>(null);
   const [round, setRound] = useState<TicketRound | null>(null);
+  // Billet communauté : statut de la personne (hôte + abonné profil / newsletter).
+  // La porte réelle est serveur ; ici on évite un clic « Payer » condamné et on
+  // montre l'action qui débloque. `communityDenied` = refus serveur (lien direct
+  // ou invité avec un email non abonné).
+  const [communityDenied, setCommunityDenied] = useState(false);
+  const communityAudience = round?.audience ?? 'everyone';
+  const community = useCommunityAccess(eventId, communityAudience !== 'everyone');
+  const communityStatusNow = communityAudience === 'everyone' ? 'open' : communityStatus(communityAudience, community.access, community.loggedIn);
+  const communityBlocked = communityStatusNow === 'locked' || (communityDenied && communityStatusNow !== 'open');
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -363,6 +374,7 @@ export default function TicketCheckout() {
         isActive: roundData.is_active,
         autoActivate: roundData.auto_activate,
         manuallySoldOut: (roundData as any).manually_sold_out ?? false,
+        audience: normalizeTicketAudience(roundData.audience),
         lastTicketsThreshold: roundData.last_tickets_threshold ?? 20,
         createdAt: roundData.created_at,
         updatedAt: roundData.updated_at,
@@ -720,6 +732,14 @@ export default function TicketCheckout() {
         return;
       }
       if (data?.error) {
+        if (data.code === 'COMMUNITY_ONLY') {
+          // Tarif réservé à la communauté : on montre l'action qui débloque au
+          // lieu d'un simple toast (le message serveur est déjà localisé).
+          setCommunityDenied(true);
+          void community.refresh();
+          toast.error(data.error);
+          return;
+        }
         if (data.code === 'ACCOUNT_EXISTS') {
           toast.error(data.error);
           navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
@@ -842,6 +862,12 @@ export default function TicketCheckout() {
           <div className="pl-5 pr-4 py-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display font-bold uppercase text-white" style={{ fontSize: '17px', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{round.name}</h2>
+              {communityAudience !== 'everyone' && (
+                <p className="font-mono uppercase text-primary mt-1.5 flex items-center gap-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
+                  <Users className="h-3 w-3" />
+                  {t('community.checkoutNotice').replace('{name}', community.access?.hostName ?? '')}
+                </p>
+              )}
               {roundWithDrink.includesDrink && (
                 <p className="font-mono uppercase text-primary mt-1.5 flex items-center gap-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
                   <Wine className="h-3 w-3" />
@@ -1022,6 +1048,23 @@ export default function TicketCheckout() {
               onDocPending={setMinorDocPending}
             />
 
+            {/* Billet communauté : verrou + action qui débloque (suivre / s'abonner),
+                ou rappel de l'email abonné pour un invité sans compte. */}
+            {communityAudience !== 'everyone' && communityBlocked && (
+              <CommunityCta
+                audience={communityAudience}
+                access={community.access}
+                eventId={eventId!}
+                onChanged={async () => { await community.refresh(); setCommunityDenied(false); }}
+              />
+            )}
+            {communityAudience !== 'everyone' && !user && !communityBlocked && (
+              <p className="text-xs text-white/55 leading-snug flex items-start gap-2">
+                <Users className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                {t('community.checkoutGuestHint').replace('{name}', community.access?.hostName ?? '')}
+              </p>
+            )}
+
             <MarketingOptIns
               newsletterOptIn={newsletterOptIn}
               onNewsletterChange={setNewsletterOptIn}
@@ -1193,7 +1236,7 @@ export default function TicketCheckout() {
               ) : (
                 <button
                   onClick={handleCheckout}
-                  disabled={checkoutLoading || perPersonLimitReached || minorGateBlocked}
+                  disabled={checkoutLoading || perPersonLimitReached || minorGateBlocked || communityBlocked}
                   className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center"
                   style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
                 >

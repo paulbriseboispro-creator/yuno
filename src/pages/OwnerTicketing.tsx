@@ -14,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { Event } from '@/types';
-import { TicketRound, TicketType, TicketSellingMode, PresetSellingMode } from '@/types/ticketing';
+import { TicketRound, TicketType, TicketSellingMode, PresetSellingMode, normalizeTicketAudience } from '@/types/ticketing';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -102,6 +102,7 @@ export default function OwnerTicketing() {
     drinkCutoffTime: '02:00',
     ticketType: 'standard',
     entryDeadline: '',
+    audience: 'everyone',
   });
 
   const [presetFormData, setPresetFormData] = useState({
@@ -372,6 +373,7 @@ export default function OwnerTicketing() {
       drinkCutoffTime: r.drink_cutoff_time ?? undefined,
       entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
       ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
+      audience: normalizeTicketAudience(r.audience),
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -750,6 +752,7 @@ export default function OwnerTicketing() {
       drinkCutoffTime: '02:00',
       ticketType,
       entryDeadline: '',
+      audience: 'everyone',
     });
     setIsRoundDialogOpen(true);
   };
@@ -771,6 +774,7 @@ export default function OwnerTicketing() {
       drinkCutoffTime: round.drinkCutoffTime || '02:00',
       ticketType: round.ticketType || 'standard',
       entryDeadline: round.entryDeadline || '',
+      audience: round.audience ?? 'everyone',
     });
     setIsRoundDialogOpen(true);
   };
@@ -848,6 +852,7 @@ export default function OwnerTicketing() {
         position: editingRound?.position ?? (ticketRounds[selectedEvent.id]?.length || 0),
         ticket_type: roundFormData.ticketType,
         entry_deadline: roundFormData.entryDeadline ? roundFormData.entryDeadline + ':00' : null,
+        audience: roundFormData.audience,
       };
 
       if (editingRound) {

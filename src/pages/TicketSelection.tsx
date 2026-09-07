@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { TicketRound, TableZone, TablePack, TicketSellingMode, getEventSalesStatus, customerTransactionFee } from '@/types/ticketing';
+import { TicketRound, TableZone, TablePack, TicketSellingMode, getEventSalesStatus, customerTransactionFee, isCommunityAudience, normalizeTicketAudience, type TicketAudience } from '@/types/ticketing';
+import { useCommunityAccess, CommunityCta, communityStatus, type CommunityAccess, type CommunityStatus } from '@/components/ticketing/CommunityTicketGate';
 import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 import { useEventPaymentsReady } from '@/lib/paymentsReady';
@@ -74,6 +75,10 @@ export default function TicketSelection() {
   const [pwInput, setPwInput] = useState('');
   const [pwSubmitting, setPwSubmitting] = useState(false);
   const [ticketRounds, setTicketRounds] = useState<TicketRound[]>([]);
+  // Billets communauté : hôte + mon statut (abonné profil / newsletter), lu
+  // seulement si la soirée en vend. La porte réelle est serveur (checkout).
+  const hasCommunityRounds = ticketRounds.some(r => isCommunityAudience(r.audience));
+  const community = useCommunityAccess(eventId, hasCommunityRounds);
   const [, setNowTick] = useState(Date.now());
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
@@ -179,6 +184,7 @@ export default function TicketSelection() {
             drinkDeadlineHours: r.drink_deadline_hours, drinkCutoffTime: r.drink_cutoff_time,
             entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
             ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
+            audience: normalizeTicketAudience(r.audience),
             createdAt: r.created_at, updatedAt: r.updated_at,
           })));
         }
@@ -389,6 +395,12 @@ export default function TicketSelection() {
   // Per-order ticket cap mirrors the owner's per-person limit (server enforces
   // the true cumulative cap). No limit set → keep the historical default of 10.
   const ticketMax = eventData?.maxTicketsPerPerson ?? 10;
+  // Props « communauté » d'une carte de tarif : audience + statut de la personne.
+  const communityFor = (round: TicketRound): CommunityCardProps | undefined => {
+    const audience = round.audience ?? 'everyone';
+    if (audience === 'everyone' || !eventId) return undefined;
+    return { audience, status: communityStatus(audience, community.access, community.loggedIn), access: community.access, eventId, refresh: community.refresh };
+  };
 
   // Tickets ⇄ Tables VIP quick-nav: only worth showing when the event sells both.
   const ticketsExist = salesIsOpen && !saleLocked && !paidBlocked && (standardRounds.length > 0 || vipRounds.length > 0);
@@ -664,6 +676,7 @@ export default function TicketSelection() {
                 totalSold={totalSoldAllRounds}
                 previewOnly={round._previewOnly === true}
                 maxQuantity={ticketMax}
+                community={communityFor(round)}
               />
             ))}
           </div>
@@ -690,6 +703,7 @@ export default function TicketSelection() {
                   totalSold={totalSoldAllRounds}
                   previewOnly={round._previewOnly === true}
                   maxQuantity={ticketMax}
+                  community={communityFor(round)}
                 />
               ))}
             </div>
@@ -947,16 +961,29 @@ function SectionDivider({ icon, label }: { icon: React.ReactNode; label: string 
   );
 }
 
+type CommunityCardProps = {
+  audience: TicketAudience;
+  status: CommunityStatus;
+  access: CommunityAccess | null;
+  eventId: string;
+  refresh: () => Promise<void>;
+};
+
 function TicketCard({
-  round, isSelected, quantity, onSelect, onQuantityChange, t, isVip, scarcity, isSimple, globalMaxTickets, totalSold, previewOnly, maxQuantity = 10,
+  round, isSelected, quantity, onSelect, onQuantityChange, t, isVip, scarcity, isSimple, globalMaxTickets, totalSold, previewOnly, maxQuantity = 10, community,
 }: {
   round: TicketRound; isSelected: boolean; quantity: number;
   onSelect: () => void; onQuantityChange: (delta: number) => void;
   t: (key: string) => string; isVip?: boolean; scarcity?: ScarcitySettings | null;
   isSimple?: boolean; globalMaxTickets?: number | null; totalSold?: number; previewOnly?: boolean; maxQuantity?: number;
+  community?: CommunityCardProps;
 }) {
   const isSoldOut = round.manuallySoldOut || round.ticketsSold >= round.maxTickets;
   const [showDesc, setShowDesc] = useState(false);
+  // Tarif communauté verrouillé : pas sélectionnable, mais PAS grisé — l'action
+  // qui débloque s'affiche dessous, c'est elle qu'on veut voir.
+  const communityLocked = community?.status === 'locked' && !previewOnly && !isSoldOut;
+  const communityGuest = community?.status === 'guest_email' && !previewOnly && !isSoldOut;
 
   const effectiveMax = isSimple && round.maxTickets >= 999999 && globalMaxTickets ? globalMaxTickets : round.maxTickets;
   const effectiveSold = isSimple && round.maxTickets >= 999999 && globalMaxTickets ? (totalSold ?? round.ticketsSold) : round.ticketsSold;
@@ -980,13 +1007,15 @@ function TicketCard({
     return emojiEnabled ? `${entry.emoji} ${entry.text}` : entry.text;
   };
 
-  const isDisabled = previewOnly || isSoldOut;
+  const isDisabled = previewOnly || isSoldOut || communityLocked;
 
   return (
     <div
       className={cn(
         'relative rounded border overflow-hidden transition-all duration-150',
-        isDisabled
+        communityLocked
+          ? 'border-primary/20 bg-[#141414] cursor-default'
+          : isDisabled
           ? 'opacity-45 border-white/[0.06] bg-[#141414] cursor-default'
           : isSelected
             ? 'border-primary/30 cursor-pointer'
@@ -1021,6 +1050,12 @@ function TicketCard({
             {isVip && !previewOnly && !isSoldOut && (
               <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-sm">VIP</span>
             )}
+            {community && !previewOnly && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
+                <Users className="h-2.5 w-2.5" />{t('community.badge')}
+                {community.status === 'open' && <Check className="h-2.5 w-2.5" />}
+              </span>
+            )}
             {previewOnly && (
               <span className="text-[9px] font-bold uppercase tracking-wider text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-sm">
                 {t('tickets.comingSoon') || 'Bientôt'}
@@ -1047,6 +1082,15 @@ function TicketCard({
             )}
           </div>
 
+          {community?.status === 'open' && !previewOnly && !isSoldOut && (
+            <p className="text-[10px] mt-1 text-primary font-medium">{t('community.yourRate')}</p>
+          )}
+          {communityGuest && (
+            <p className="text-[10px] mt-1 text-white/55 leading-snug">
+              {(community.audience === 'newsletter' ? t('community.lockedNewsletter') : t('community.lockedCommunity')).replace('{name}', community.access?.hostName ?? '')}
+              {' '}{t('community.guestEmailHint')}
+            </p>
+          )}
           {!previewOnly && showRemainingCount && hasRealLimit && (
             <p className="text-[10px] mt-1 text-amber-400 font-medium">
               {emojiEnabled ? '🎟️ ' : ''}{displayRemaining} {t('scarcity.ticketsLeft')}
@@ -1074,6 +1118,10 @@ function TicketCard({
             <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
               {t('tickets.soldOut') || 'Épuisé'}
             </span>
+          ) : communityLocked ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary border border-primary/30 px-2.5 py-1 rounded-sm">
+              <Lock className="h-2.5 w-2.5" />{t('community.reserved')}
+            </span>
           ) : (
             <QuantitySelector
               quantity={quantity}
@@ -1086,6 +1134,19 @@ function TicketCard({
           )}
         </div>
       </div>
+
+      {/* Billet communauté verrouillé : l'action qui débloque, sous le tarif */}
+      {communityLocked && community && (
+        <div className="px-3 pb-3">
+          <CommunityCta
+            compact
+            audience={community.audience}
+            access={community.access}
+            eventId={community.eventId}
+            onChanged={community.refresh}
+          />
+        </div>
+      )}
 
       {/* Description expand */}
       <AnimatePresence>
