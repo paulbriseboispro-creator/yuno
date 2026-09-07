@@ -207,6 +207,20 @@ interprété (JS/HTML/CSS) est livré, jamais du natif.
   script ou les fonctions.
 - **⚠️ Avant toute soumission App Store** : `npm run cap:sync` + `cap:sync:pro`
   pour compiler les `updateUrl` dans le JSON natif — sinon l'OTA est muet.
+- **Binaire App Store = macOS RELEASE obligatoire, jamais ce Mac s'il est en
+  bêta** (2026-09-07). Xcode tamponne `BuildMachineOSBuild` avec le build de
+  l'OS hôte ; App Store Connect refuse à la SOUMISSION (pas à l'upload, pas sur
+  TestFlight, pas dans `altool --validate-app`) tout binaire produit sur un macOS
+  non publié : état « Invalid Binary » dans la minute, code ITMS-90111, mail
+  seulement si « App Status Reports » est coché dans Users and Access. Ne pas
+  maquiller la clé. Voie gratuite : `.github/workflows/ios-release.yml`
+  (`workflow_dispatch`, matrice client/pro, runner `macos-26`, signature cloud
+  par la clé d'équipe via les secrets `ASC_KEY_P8` / `ASC_KEY_ID` /
+  `ASC_ISSUER_ID`, export `destination: upload`, ~7 min par app) — lancer avec
+  `gh workflow run ios-release.yml -f app=both -f client_build=<n> -f pro_build=<n>`
+  (numéros > dernier build ASC), puis version + soumission par l'API
+  (`scripts/asc.mjs`). Xcode Cloud fait pareil mais son quota gratuit est de 25 h
+  par mois : épuisé, chaque run est annulé à la création sans message.
 - **Le 1er lancement après installation applique l'OTA AVANT le premier écran**
   (`autoUpdate: 'atInstall'` + `autoSplashscreen` + `SplashScreen.launchAutoHide:
   false`, les trois indissociables, dans les DEUX `capacitor.config.ts`). Sans
