@@ -12568,6 +12568,7 @@ export type Database = {
       ticket_rounds: {
         Row: {
           allowed_drink_collections: string[] | null
+          audience: string
           auto_activate: boolean
           created_at: string
           description: string | null
@@ -12594,6 +12595,7 @@ export type Database = {
         }
         Insert: {
           allowed_drink_collections?: string[] | null
+          audience?: string
           auto_activate?: boolean
           created_at?: string
           description?: string | null
@@ -12620,6 +12622,7 @@ export type Database = {
         }
         Update: {
           allowed_drink_collections?: string[] | null
+          audience?: string
           auto_activate?: boolean
           created_at?: string
           description?: string | null
@@ -16320,6 +16323,10 @@ export type Database = {
       }
       canonical_music_genre: { Args: { p_raw: string }; Returns: string }
       canonical_music_genres: { Args: { p_raw: string[] }; Returns: string[] }
+      check_community_access: {
+        Args: { p_email: string; p_round_id: string; p_user_id: string }
+        Returns: boolean
+      }
       check_mfa_disable_rate_limit: {
         Args: { _user_id: string }
         Returns: boolean
@@ -16384,6 +16391,17 @@ export type Database = {
           night_revenue: number
           organizer_prepaid: number
           reservation_id: string
+        }[]
+      }
+      community_audience_allows: {
+        Args: { p_audience: string; p_follower: boolean; p_subscriber: boolean }
+        Returns: boolean
+      }
+      community_membership: {
+        Args: { p_email: string; p_event_id: string; p_user_id: string }
+        Returns: {
+          is_follower: boolean
+          is_subscriber: boolean
         }[]
       }
       compute_collab_table_settlement: {
@@ -16738,6 +16756,16 @@ export type Database = {
           p_to?: string
         }
         Returns: Json
+      }
+      event_community_host: {
+        Args: { p_event_id: string }
+        Returns: {
+          host_kind: string
+          host_name: string
+          host_slug: string
+          organizer_user_id: string
+          venue_id: string
+        }[]
       }
       event_domain_allows_partner: {
         Args: { p_domain: string; p_event_id: string }
@@ -17385,6 +17413,18 @@ export type Database = {
         }[]
       }
       get_mfa_totp_secret: { Args: { p_user_id: string }; Returns: string }
+      get_my_community_access: {
+        Args: { p_event_id: string }
+        Returns: {
+          host_kind: string
+          host_name: string
+          host_slug: string
+          is_follower: boolean
+          is_subscriber: boolean
+          organizer_user_id: string
+          venue_id: string
+        }[]
+      }
       get_my_marketing_consent: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: {
@@ -18658,6 +18698,15 @@ export type Database = {
           p_phone?: string
         }
         Returns: string
+      }
+      subscribe_my_community_newsletter: {
+        Args: {
+          p_event_id: string
+          p_locale?: string
+          p_source?: string
+          p_wording_text: string
+        }
+        Returns: boolean
       }
       suppress_email: {
         Args: {
