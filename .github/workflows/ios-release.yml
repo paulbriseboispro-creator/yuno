@@ -1,0 +1,156 @@
+# Archive + upload App Store des deux apps iOS (Yuno client, Yuno Pro) sur un
+# runner macOS RELEASE de GitHub.
+#
+# Pourquoi ce workflow existe : App Store Connect refuse à la soumission
+# (ITMS-90111 « Invalid Toolchain », état « Invalid Binary ») tout binaire dont
+# `BuildMachineOSBuild` vient d'un macOS bêta — le Mac de dev l'est. Xcode Cloud
+# (macOS release) fait le même travail mais son quota gratuit de 25 h/mois tombe
+# vite avec deux apps. Ici : ~40 min machine par app, dans le forfait gratuit.
+#
+# Signature : cloud-managed via la clé d'équipe App Store Connect (secrets
+# ASC_KEY_P8 / ASC_KEY_ID / ASC_ISSUER_ID), comme Xcode Cloud — aucun
+# certificat ni profil à gérer. L'export `destination: upload` livre l'IPA à
+# App Store Connect ; la version/soumission se fait ensuite par l'API.
+#
+# Variables VITE_* du bundle web : scripts/ci-web-env.sh (committé), comme
+# Xcode Cloud (ios/App/ci_scripts/ci_post_clone.sh).
+name: iOS App Store build
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Quelle app archiver"
+        type: choice
+        options: [both, client, pro]
+        default: both
+      client_build:
+        description: "CFBundleVersion du client (doit dépasser le dernier build ASC)"
+        type: string
+        default: "142"
+      pro_build:
+        description: "CFBundleVersion de Yuno Pro"
+        type: string
+        default: "279"
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    name: ${{ matrix.label }}
+    runs-on: macos-26
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: client
+            dir: .
+            project: ios/App/App.xcodeproj
+            build_input: client_build
+          - label: pro
+            dir: pro
+            project: pro/ios/App/App.xcodeproj
+            build_input: pro_build
+    steps:
+      - name: Skip if not requested
+        id: gate
+        run: |
+          APP="${{ inputs.app }}"
+          if [ "$APP" = "both" ] || [ "$APP" = "${{ matrix.label }}" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Select latest release Xcode
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          # Jamais de bêta : on prend la plus haute version d'Xcode installée
+          # dont le nom ne contient pas "beta".
+          XC=$(ls -d /Applications/Xcode*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+          sw_vers
+          echo "BuildMachineOSBuild attendu (release) : $(sw_vers -buildVersion)"
+
+      - name: Web bundle (env CI) + Capacitor sync
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          npm ci
+          . ./scripts/ci-web-env.sh
+          npm run build
+          HOST=$(printf '%s' "$VITE_SUPABASE_URL" | sed 's|https://||;s|/.*||')
+          grep -rq "$HOST" dist/assets/ || { echo "URL Supabase absente du bundle" >&2; exit 1; }
+          grep -lq "pk_live_" dist/assets/*.js || { echo "clé Stripe live absente du bundle" >&2; exit 1; }
+          cd "${{ matrix.dir }}" && npx cap sync ios
+
+      - name: App Store Connect API key
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+
+      - name: Archive
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          BUILD="${{ inputs[matrix.build_input] }}"
+          echo "CFBundleVersion = $BUILD"
+          xcodebuild -project "${{ matrix.project }}" -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD" 2>&1 | grep -E "error:|warning: .*(sign|provision)|ARCHIVE (SUCCEEDED|FAILED)|Resolved source packages" || true
+          test -d "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" || { echo "archive absente" >&2; exit 1; }
+          P="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app/Info.plist"
+          echo "Archivé : $(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$P") ($(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$P")) BuildMachineOSBuild=$(/usr/libexec/PlistBuddy -c 'Print BuildMachineOSBuild' "$P")"
+
+      - name: Export + upload to App Store Connect
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>A2WV4J86F9</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
