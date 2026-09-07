@@ -9,6 +9,7 @@ import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
+import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -66,6 +67,45 @@ Deno.serve(async (req) => {
       emailSweep = await sweepSendingCampaigns(admin, SUPABASE_URL, SERVICE_KEY);
     } catch (e) {
       console.error('sweepSendingCampaigns error:', e);
+    }
+
+    // Campagnes SMS planifiées : marquer 'sending' (anti double-fire) puis
+    // déléguer à send-sms-campaign en mode interne. Le worker vérifie le solde
+    // pour toute la campagne avant le premier envoi ; s'il manque des crédits
+    // la campagne retombe en brouillon avec le message, jamais à moitié partie.
+    let smsProcessed = 0;
+    const { data: smsCampaigns } = await admin
+      .from('sms_campaigns')
+      .select('id')
+      .eq('status', 'scheduled')
+      .lte('scheduled_at', new Date().toISOString())
+      .limit(20);
+    for (const c of smsCampaigns || []) {
+      try {
+        const { data: locked } = await admin.from('sms_campaigns')
+          .update({ status: 'draft' }).eq('id', c.id).eq('status', 'scheduled').select('id');
+        if (!locked || locked.length === 0) continue; // pris par un autre tick
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-sms-campaign`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', 'apikey': SERVICE_KEY },
+          body: JSON.stringify({ campaign_id: c.id, mode: 'send', scheduled: true }),
+        });
+        if (!res.ok && res.status !== 402 && res.status !== 400) {
+          await admin.from('sms_campaigns').update({ status: 'failed', error_message: `Cron send failed: ${res.status}` }).eq('id', c.id).eq('status', 'draft');
+        }
+        smsProcessed++;
+      } catch (e) {
+        await admin.from('sms_campaigns').update({ status: 'failed', error_message: String(e) }).eq('id', c.id);
+      }
+    }
+
+    // Envois SMS en cours : réservations mortes + reprise (filet sous
+    // l'auto-chaînage de send-sms-campaign, et reprise après heures calmes).
+    let smsSweep: unknown = null;
+    try {
+      smsSweep = await sweepSendingSmsCampaigns(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('sweepSendingSmsCampaigns error:', e);
     }
 
     // Campagnes PUSH planifiées (admin + clubs) — même mécanique que l'email :
@@ -180,7 +220,7 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

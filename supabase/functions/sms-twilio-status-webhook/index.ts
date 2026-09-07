@@ -1,6 +1,6 @@
 // Edge function: sms-twilio-status-webhook
-// Receives Twilio status callbacks and updates sms_logs.
-// On terminal failure (failed/undelivered) refunds the credit.
+// Receives Twilio status callbacks and applies them through the
+// apply_sms_delivery_status RPC (sms_logs + campaign queue + counters + refund).
 // verify_jwt = false (Twilio signs the request via X-Twilio-Signature).
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
@@ -86,50 +86,20 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // Find log by twilio_sid
-    const { data: log } = await admin
-      .from("sms_logs")
-      .select("id, venue_id, organizer_id, status, refunded, credits_consumed")
-      .eq("twilio_sid", messageSid)
-      .maybeSingle();
-
-    if (!log) {
-      console.warn(`[sms-status] Unknown twilio_sid ${messageSid}`);
-      return new Response("ok", { status: 200, headers: corsHeaders });
+    // Tout passe par UNE RPC atomique : sms_logs, la ligne de file de la
+    // campagne, les compteurs de la campagne et le remboursement du crédit en
+    // cas d'échec terminal. Idempotente : Twilio rejoue parfois un callback.
+    const { data, error } = await admin.rpc("apply_sms_delivery_status", {
+      p_twilio_sid: messageSid,
+      p_status: messageStatus,
+      p_error_code: errorCode ?? null,
+      p_error_message: errorMessage ?? null,
+    });
+    if (error) {
+      console.error("[sms-status] apply_sms_delivery_status failed:", error.message);
+      return new Response("error", { status: 500, headers: corsHeaders });
     }
-
-    // Map Twilio status to internal enum
-    let newStatus: string | null = null;
-    if (messageStatus === "delivered") newStatus = "delivered";
-    else if (messageStatus === "failed") newStatus = "failed";
-    else if (messageStatus === "undelivered") newStatus = "undelivered";
-    else if (messageStatus === "sent") newStatus = "sent";
-
-    const update: Record<string, unknown> = {};
-    if (newStatus) update.status = newStatus;
-    if (newStatus === "delivered") update.delivered_at = new Date().toISOString();
-    if (errorCode) update.error_code = errorCode;
-    if (errorMessage) update.error_message = errorMessage;
-
-    if (Object.keys(update).length > 0) {
-      await admin.from("sms_logs").update(update).eq("id", log.id);
-    }
-
-    // Auto-refund credit on terminal failure
-    if ((newStatus === "failed" || newStatus === "undelivered") && !log.refunded) {
-      const { data: balanceId } = await admin.rpc("get_or_create_sms_balance", {
-        p_venue_id: log.venue_id ?? null,
-        p_organizer_id: log.organizer_id ?? null,
-      });
-      if (balanceId) {
-        await admin.rpc("refund_sms_credits", {
-          p_balance_id: balanceId,
-          p_amount: log.credits_consumed ?? 1,
-          p_sms_log_id: log.id,
-          p_notes: `Auto-refund: Twilio ${newStatus} (${errorCode ?? "no code"})`,
-        });
-      }
-    }
+    if (!data?.found) console.warn(`[sms-status] Unknown twilio_sid ${messageSid}`);
 
     return new Response("ok", { status: 200, headers: corsHeaders });
   } catch (err) {

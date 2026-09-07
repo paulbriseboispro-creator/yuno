@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
-import { resolveReturnOrigin } from "../_shared/cors.ts";
+import { resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +14,8 @@ interface CheckoutBody {
   pack_id: string;
   scope: "venue" | "organizer";
   venue_id?: string | null;
+  /** Page d'origine (owner ou organisateur) : Stripe y ramène après paiement. */
+  return_path?: string | null;
 }
 
 serve(async (req) => {
@@ -116,6 +118,7 @@ serve(async (req) => {
     // l'app native (capacitor://…) est rebasculée sur le domaine web (Stripe
     // refuse les schémas non publics). Voir resolveReturnOrigin (_shared/cors.ts).
     const { origin } = resolveReturnOrigin(req);
+    const returnPath = safeReturnPath(body.return_path, body.scope === "organizer" ? "/organizer-app/sms" : "/owner/sms");
     const unitAmount = Math.round(Number(pack.price_eur) * 100);
 
     const session = await stripe.checkout.sessions.create({
@@ -147,8 +150,8 @@ serve(async (req) => {
         scope: body.scope,
         venue_id: body.venue_id ?? "",
       },
-      success_url: `${origin}/owner/sms?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/owner/sms?purchase=cancelled`,
+      success_url: `${origin}${returnPath}?smsCredits=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}${returnPath}?smsCredits=cancelled`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

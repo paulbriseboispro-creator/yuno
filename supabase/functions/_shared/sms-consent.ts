@@ -1,22 +1,25 @@
 // Enregistrement du consentement SMS marketing — source unique.
 //
 // Le consentement vit à DEUX endroits, et les deux comptent :
-//   1. venue_sms_contacts        — la liste SMS DU CLUB, celle que les campagnes
-//      utilisent réellement, et la seule qui fasse foi. C'est aussi elle que le
-//      checkout relit (RPC get_my_marketing_consent) pour savoir s'il doit
-//      redemander : le consentement est porté par (personne, club), donc un
-//      habitué du Club A n'est plus resollicité pour le Club A, mais voit bien
-//      une case décochée nommant le Club B.
+//   1. venue_sms_contacts        — la liste SMS DU CLUB OU DE L'ORGANISATEUR,
+//      celle que les campagnes utilisent réellement, et la seule qui fasse foi.
+//      C'est aussi elle que le checkout relit (RPC get_my_marketing_consent)
+//      pour savoir s'il doit redemander : le consentement est porté par
+//      (personne, destinataire nommé), donc un habitué du Club A n'est plus
+//      resollicité pour le Club A, mais voit bien une case décochée nommant
+//      le Club B — ou l'organisateur B.
 //   2. profiles.phone_sms_opt_in — indicateur plateforme, conservé pour la
 //      segmentation admin. Il ne sert PLUS à pré-cocher quoi que ce soit : une
 //      case pré-cochée ne vaut pas consentement (CJUE C-673/17, Planet49), et
-//      un flag global ne peut pas valoir consentement pour un club qui n'a
-//      jamais été nommé (EDPB 05/2020 §65).
+//      un flag global ne peut pas valoir consentement pour un destinataire qui
+//      n'a jamais été nommé (EDPB 05/2020 §65).
 //
-// Avant ce module, seul le chemin `simulate` (comptes démo) alimentait
-// venue_sms_contacts : un vrai acheteur qui cochait « Offres exclusives par SMS »
-// voyait son consentement écrit dans tickets.sms_opt_in… et nulle part ailleurs.
-// Le club ne le recevait jamais, et la case repartait décochée au checkout suivant.
+// Portée : une soirée de club alimente la liste du club (venueId). Une soirée
+// d'organisateur SANS club alimente la liste de l'organisateur
+// (organizerUserId, résolu depuis l'événement si l'appelant ne l'a pas). Avant
+// cette version, les acheteurs d'une soirée sans club cochaient la case et
+// leur consentement n'était écrit nulle part : l'organisateur n'avait jamais
+// de liste.
 //
 // Appelé sur CHAQUE chemin qui confirme un paiement (billet + table VIP, démo et
 // Stripe live). Best-effort : ne jamais faire échouer un paiement déjà encaissé
@@ -25,8 +28,10 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 export interface SmsConsentInput {
-  /** Club concerné (null pour une soirée sans club → rien à alimenter côté liste). */
+  /** Club concerné (null pour une soirée sans club). */
   venueId: string | null | undefined;
+  /** Organisateur concerné quand la soirée n'a pas de club. Résolu depuis eventId si absent. */
+  organizerUserId?: string | null;
   /** Acheteur connecté (null pour un invité : pas de profil à mettre à jour). */
   userId: string | null | undefined;
   /** Téléphone saisi au checkout. Seul un E.164 (+33…) est exploitable en SMS. */
@@ -34,14 +39,14 @@ export interface SmsConsentInput {
   fullName?: string | null;
   email?: string | null;
   eventId?: string | null;
-  /** `true` pour une table VIP : le club segmente ses contacts VIP. */
+  /** `true` pour une table VIP : le pro segmente ses contacts VIP. */
   isVip?: boolean;
   /** D'où vient le consentement — tracé pour la preuve RGPD. */
   source: "ticket_checkout" | "table_checkout";
 }
 
 /**
- * Écrit le consentement SMS de l'acheteur (profil + liste du club).
+ * Écrit le consentement SMS de l'acheteur (profil + liste du destinataire).
  * No-op si l'acheteur n'a pas coché : cette fonction n'est appelée que sur opt-in.
  */
 export async function recordSmsConsent(
@@ -49,9 +54,9 @@ export async function recordSmsConsent(
   input: SmsConsentInput,
 ): Promise<void> {
   // Le sélecteur de pays émet « +33 6 44 21 66 89 » : on ramène à de l'E.164
-  // strict avant écriture, sinon la contrainte UNIQUE (venue_id, phone_e164)
-  // laisse passer deux fois la même personne selon le groupement des chiffres.
-  // Un trigger en base normalise aussi — ceinture et bretelles.
+  // strict avant écriture, sinon la contrainte UNIQUE laisse passer deux fois
+  // la même personne selon le groupement des chiffres. Un trigger en base
+  // normalise aussi — ceinture et bretelles.
   const normalizeE164 = (raw: string): string => {
     const t = raw.trim();
     if (!t) return "";
@@ -70,31 +75,46 @@ export async function recordSmsConsent(
         .eq("id", input.userId);
     }
 
-    // 2. Alimenter la liste SMS du club. Un numéro non E.164 n'est pas envoyable :
-    //    on ne pollue pas la liste avec, le profil garde quand même la réponse.
-    if (input.venueId && phone.startsWith("+")) {
-      await supabaseAdmin.from("venue_sms_contacts").upsert(
-        {
-          venue_id: input.venueId,
-          user_id: input.userId ?? null,
-          phone_e164: phone,
-          full_name: (input.fullName ?? "").trim(),
-          email: input.email ?? null,
-          sms_consent_at: consentAt,
-          consent_source: input.source,
-          source_event_id: input.eventId ?? null,
-          is_vip: input.isVip === true,
-          // Un ré-opt-in doit lever un désabonnement antérieur : sans ça, la
-          // personne re-cochait la case et restait exclue des campagnes.
-          // Sûr ici parce que cette fonction n'est appelée QUE sur opt-in, et
-          // que le checkout ne transmet plus `true` par défaut — un désabonné
-          // revoit une case décochée et doit la cocher lui-même.
-          unsubscribed: false,
-          unsubscribed_at: null,
-        },
-        { onConflict: "venue_id,phone_e164", ignoreDuplicates: false },
-      );
+    // Un numéro non E.164 n'est pas envoyable : on ne pollue pas la liste avec,
+    // le profil garde quand même la réponse.
+    if (!phone.startsWith("+")) return;
+
+    // 2. Destinataire du consentement : le club, sinon l'organisateur de la soirée.
+    let organizerUserId = input.organizerUserId ?? null;
+    if (!input.venueId && !organizerUserId && input.eventId) {
+      const { data: ev } = await supabaseAdmin
+        .from("events")
+        .select("organizer_user_id, partner_organizer_id")
+        .eq("id", input.eventId)
+        .maybeSingle();
+      organizerUserId = ev?.organizer_user_id ?? ev?.partner_organizer_id ?? null;
     }
+    if (!input.venueId && !organizerUserId) return;
+
+    const row = {
+      venue_id: input.venueId ?? null,
+      organizer_user_id: input.venueId ? null : organizerUserId,
+      user_id: input.userId ?? null,
+      phone_e164: phone,
+      full_name: (input.fullName ?? "").trim(),
+      email: input.email ?? null,
+      sms_consent_at: consentAt,
+      consent_source: input.source,
+      source_event_id: input.eventId ?? null,
+      is_vip: input.isVip === true,
+      // Un ré-opt-in doit lever un désabonnement antérieur : sans ça, la
+      // personne re-cochait la case et restait exclue des campagnes.
+      // Sûr ici parce que cette fonction n'est appelée QUE sur opt-in, et
+      // que le checkout ne transmet plus `true` par défaut — un désabonné
+      // revoit une case décochée et doit la cocher lui-même.
+      unsubscribed: false,
+      unsubscribed_at: null,
+    };
+
+    await supabaseAdmin.from("venue_sms_contacts").upsert(row, {
+      onConflict: input.venueId ? "venue_id,phone_e164" : "organizer_user_id,phone_e164",
+      ignoreDuplicates: false,
+    });
   } catch (err) {
     // Le paiement est déjà encaissé : on ne le casse pas pour un opt-in marketing.
     console.error("[sms-consent] enregistrement échoué (non bloquant)", err);
