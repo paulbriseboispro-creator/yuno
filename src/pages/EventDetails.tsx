@@ -27,6 +27,8 @@ import { EventCountdown } from '@/components/EventCountdown';
 import { FadeInView } from '@/components/motion';
 import { formatCompactCount } from '@/components/formater';
 import { PublicPage } from '@/components/PublicPage';
+import { EventHeroVideo } from '@/components/event/EventHeroVideo';
+import { shouldAutoplayHeroVideo } from '@/lib/eventVideo';
 import { EventDetailsSkeleton } from '@/components/skeletons/EventDetailsSkeleton';
 import { EventDrinksTeaser } from '@/components/upsell/EventDrinksTeaser';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
@@ -527,6 +529,7 @@ export default function EventDetails() {
         title: eventData.title,
         description: eventData.description,
         posterUrl: eventData.poster_url,
+        videoUrl: eventData.video_url || undefined,
         posterPosition: eventData.poster_position as { x: number; y: number; scale: number } | undefined,
         startAt: eventData.start_at,
         endAt: eventData.end_at,
@@ -759,6 +762,9 @@ export default function EventDetails() {
   }
 
   const heroImage = event.posterUrl;
+  // La vidéo 9:16 ne remplace l'affiche QUE sur cette page, et seulement si
+  // la personne n'a pas demandé moins d'animations / moins de données.
+  const heroVideo = event.videoUrl && shouldAutoplayHeroVideo() ? event.videoUrl : undefined;
 
   // Min price
   const allPrices: number[] = [];
@@ -828,9 +834,14 @@ export default function EventDetails() {
       {/* ── CINEMATIC HERO ─────────────────────────────────────── */}
       <section
         className="relative overflow-hidden"
-        style={{ aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{
+          aspectRatio: heroVideo ? '9 / 16' : '1 / 1',
+          maxHeight: heroVideo ? 'min(88vh, 900px)' : undefined,
+          background: 'rgba(255,255,255,0.05)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}
       >
-        {/* Background image */}
+        {/* Background image — reste sous la vidéo : premier rendu et repli */}
         {heroImage ? (
           <img
             src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
@@ -840,6 +851,9 @@ export default function EventDetails() {
           />
         ) : (
           <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
+        )}
+        {heroVideo && (
+          <EventHeroVideo src={heroVideo} className="absolute inset-0 w-full h-full object-cover object-center" />
         )}
 
         {/* Gradient overlay */}

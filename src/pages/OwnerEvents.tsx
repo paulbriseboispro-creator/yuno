@@ -40,6 +40,8 @@ import {
   DarkInput, DarkTextarea, FieldLabel,
 } from '@/components/owner/events/events-ui';
 import { cropToSquare } from '@/components/owner/events/events-utils';
+import { EventVideoField } from '@/components/owner/events/EventVideoField';
+import { uploadEventVideo } from '@/lib/eventVideo';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 import { publicUrl } from '@/lib/native';
 
@@ -115,12 +117,16 @@ export default function OwnerEvents() {
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string>('');
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
+  // Vidéo verticale de la page soirée : fichier choisi (pas encore envoyé) et
+  // demande de retrait d'une vidéo déjà en ligne.
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoRemoved, setVideoRemoved] = useState(false);
   const [showArchivedEvents, setShowArchivedEvents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lineupEntries, setLineupEntries] = useState<LineupEntry[]>([]);
   const [initialLineupEntries, setInitialLineupEntries] = useState<LineupEntry[]>([]);
   const [formData, setFormData] = useState({
-    title: '', description: '', posterUrl: '', startAt: '', endAt: '',
+    title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '',
     isActive: true, musicGenres: ['Open Format'] as string[], eventType: 'club',
     timezone: PARIS_TIMEZONE,
   });
@@ -213,6 +219,7 @@ export default function OwnerEvents() {
         id: event.id, venueId: event.venue_id, partnerVenueId: event.partner_venue_id ?? null, title: event.title,
         description: event.description || undefined,
         posterUrl: event.poster_url || undefined,
+        videoUrl: event.video_url || undefined,
         posterPosition: event.poster_position as unknown as PosterPosition | undefined,
         startAt: event.start_at, endAt: event.end_at, timezone: event.timezone,
         isActive: event.is_active,
@@ -343,6 +350,14 @@ export default function OwnerEvents() {
 
     let locationLogoUrl = sanitize(locationLogoPreview);
     if (locationLogoFile) { const u = await uploadOrgImage(locationLogoFile, 'venue-logo'); if (u) locationLogoUrl = u; else throw new Error('venue logo upload failed'); }
+    // Vidéo 9:16 de la page soirée : envoyée seulement à l'enregistrement.
+    // Un échec annule l'enregistrement — une soirée « avec vidéo » sans vidéo
+    // serait un mensonge silencieux.
+    let videoUrl: string | null = videoRemoved ? null : (formData.videoUrl || null);
+    if (videoFile) {
+      try { videoUrl = await uploadEventVideo(videoFile); }
+      catch (err) { console.error('Event video upload failed:', err); toast.error(t('owner.eventVideo.uploadError')); throw err; }
+    }
 
     const visibility = eventKind === 'private_event' ? 'private' : 'public';
     const payload: TablesInsert<'events'> = {
@@ -350,6 +365,7 @@ export default function OwnerEvents() {
       title: formData.title.trim(),
       description: formData.description.trim() || null,
       poster_url: posterUrl || null,
+      video_url: videoUrl,
       poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
       start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE,
       location_name: locationName.trim() || null,
@@ -462,12 +478,21 @@ export default function OwnerEvents() {
           else { posterUrl = supabase.storage.from('event-images').getPublicUrl(filePath).data.publicUrl; }
         } catch (err) { console.error('Poster upload exception:', err); }
       }
+      // Vidéo 9:16 de la page soirée : envoyée seulement à l'enregistrement.
+      // Un échec annule l'enregistrement — une soirée « avec vidéo » sans vidéo
+      // serait un mensonge silencieux.
+      let videoUrl: string | null = videoRemoved ? null : (formData.videoUrl || null);
+      if (videoFile) {
+        try { videoUrl = await uploadEventVideo(videoFile); }
+        catch (err) { console.error('Event video upload failed:', err); toast.error(t('owner.eventVideo.uploadError')); throw err; }
+      }
       const startAtUTC = fromWallClockInTz(formData.startAt, formData.timezone);
       const endAtUTC = fromWallClockInTz(formData.endAt, formData.timezone);
       if (editingEvent) {
         const { error } = await supabase.from('events').update({
           title: formData.title, description: formData.description || null,
           poster_url: posterUrl || null,
+          video_url: videoUrl,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
           start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
@@ -493,6 +518,7 @@ export default function OwnerEvents() {
         const { data: newEvent, error } = await supabase.from('events').insert({
           title: formData.title, description: formData.description || null,
           poster_url: posterUrl || null,
+          video_url: videoUrl,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
           start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
@@ -735,9 +761,10 @@ export default function OwnerEvents() {
     setEditingEvent(event);
     setPosterPreview(event.posterUrl || '');
     setPosterPosition(event.posterPosition || null);
+    setVideoFile(null); setVideoRemoved(false);
     const eventTz = getEventTimezone(event);
     setFormData({
-      title: event.title, description: event.description || '', posterUrl: event.posterUrl || '',
+      title: event.title, description: event.description || '', posterUrl: event.posterUrl || '', videoUrl: event.videoUrl || '',
       startAt: toWallClockInputInTz(event.startAt, eventTz),
       endAt: toWallClockInputInTz(event.endAt, eventTz),
       isActive: event.isActive,
@@ -795,8 +822,8 @@ export default function OwnerEvents() {
   };
 
   const resetForm = () => {
-    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setLineupEntries([]); setInitialLineupEntries([]);
-    setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
+    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setVideoFile(null); setVideoRemoved(false); setLineupEntries([]); setInitialLineupEntries([]);
+    setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setCollabResponsibilities(defaultResponsibilities('co_event')); setLiveContract(null);
     setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationLogoFile(null); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
@@ -1115,6 +1142,14 @@ export default function OwnerEvents() {
                 </div>
               )}
             </div>
+
+            {/* Vidéo 9:16 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
+            <EventVideoField
+              existingUrl={videoRemoved ? '' : formData.videoUrl}
+              file={videoFile}
+              onFileChange={(f) => { setVideoFile(f); if (f) setVideoRemoved(false); }}
+              onRemoveExisting={() => setVideoRemoved(true)}
+            />
 
             {/* Music genres */}
             <EventGenrePicker

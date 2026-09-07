@@ -29,6 +29,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
+import { EventVideoField } from '@/components/owner/events/EventVideoField';
+import { uploadEventVideo } from '@/lib/eventVideo';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
@@ -200,6 +202,10 @@ export function OrgEventFormDialog({
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string>('');
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
+  // Vidéo verticale de la page soirée : URL déjà en ligne, fichier choisi, demande de retrait.
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoRemoved, setVideoRemoved] = useState(false);
 
   const isEdit = !!eventId;
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo';
@@ -281,6 +287,9 @@ export function OrgEventFormDialog({
       setPosterFile(null);
       setPosterPreview('');
       setPosterPosition(null);
+      setVideoUrl('');
+      setVideoFile(null);
+      setVideoRemoved(false);
       setLocationLogoFile(null);
       setLocationLogoPreview('');
       return;
@@ -340,6 +349,9 @@ export function OrgEventFormDialog({
         }
         setPosterPreview(ev.poster_url || '');
         setPosterPosition((ev.poster_position as any) || null);
+        setVideoUrl((ev as { video_url?: string | null }).video_url || '');
+        setVideoFile(null);
+        setVideoRemoved(false);
 
         // DJ lineup — confirmés (event_djs) + demandes de booking en attente
         const entries = await loadLineupEntries(eventId);
@@ -440,6 +452,18 @@ export function OrgEventFormDialog({
 
       const endAtUTC = fromWallClockInTz(endAt, timezone);
 
+      // Vidéo 9:16 : envoyée à l'enregistrement seulement ; un échec annule la sauvegarde.
+      let finalVideoUrl: string | null = videoRemoved ? null : (videoUrl || null);
+      if (videoFile) {
+        try { finalVideoUrl = await uploadEventVideo(videoFile); }
+        catch (err) {
+          console.error('Event video upload failed:', err);
+          toast.error(t("L'envoi de la vidéo a échoué. Réessaie ou retire-la.", 'The video upload failed. Try again or remove it.', 'La subida del vídeo falló. Inténtalo de nuevo o quítalo.'));
+          setSaving(false);
+          return;
+        }
+      }
+
       const visibility = eventKind === 'private_event' ? 'private' : 'public';
       // The DB trigger evaluate_event_discoverability() recomputes is_discoverable / discovery_status
       // server-side based on quality criteria (poster + title + description + future date + active).
@@ -455,6 +479,7 @@ export function OrgEventFormDialog({
         title: title.trim(),
         description: description.trim() || null,
         poster_url: posterUrl || null,
+        video_url: finalVideoUrl,
         poster_position: posterPosition
           ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale }
           : null,
@@ -624,6 +649,14 @@ export function OrgEventFormDialog({
                 </div>
               )}
             </div>
+
+            {/* Vidéo 9:16 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
+            <EventVideoField
+              existingUrl={videoRemoved ? '' : videoUrl}
+              file={videoFile}
+              onFileChange={(f) => { setVideoFile(f); if (f) setVideoRemoved(false); }}
+              onRemoveExisting={() => setVideoRemoved(true)}
+            />
 
             {/* Title */}
             <div>
