@@ -54,7 +54,6 @@ interface BasicPack {
   base_price: number;
   base_capacity: number;
   deposit: number;
-  included_items: string | null;
   arrival_deadline: string | null;
   is_active: boolean;
   payment_mode: 'online' | 'on_site';
@@ -155,7 +154,6 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     base_price: '',
     base_capacity: '6',
     deposit: '0',
-    included_items: '',
     arrival_deadline: '',
     payment_mode: 'online' as 'online' | 'on_site',
     limit_tables: false,
@@ -175,7 +173,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
         supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
-        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
+        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
         supabase.from('organizer_vip_rooms').select('id, name, location_name').order('updated_at', { ascending: false }),
       ]);
@@ -379,7 +377,6 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             base_price: String(p.base_price),
             base_capacity: String(p.base_capacity),
             deposit: String(p.deposit ?? 0),
-            included_items: p.included_items ?? '',
             arrival_deadline: p.arrival_deadline ?? '',
             payment_mode: p.payment_mode === 'on_site' ? 'on_site' : 'online',
             limit_tables: !!p.limit_tables,
@@ -392,7 +389,6 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             base_price: '',
             base_capacity: '6',
             deposit: '0',
-            included_items: '',
             arrival_deadline: '',
             // Nouveau pack : on hérite du mode du dernier pack de la soirée, pour
             // qu'une soirée « tout sur place » ne redemande pas le choix à chaque fois.
@@ -417,7 +413,6 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       base_capacity: parseInt(packForm.base_capacity) || 1,
       deposit: parseFloat(packForm.deposit) || 0,
       deposit_type: 'fixed' as const,
-      included_items: packForm.included_items.trim() || null,
       arrival_deadline: packForm.arrival_deadline || null,
       payment_mode: packForm.payment_mode,
       limit_tables: packForm.limit_tables,
@@ -1280,7 +1275,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               </select>
             </div>
             <div><FieldLabel>{tt('Nom', 'Name', 'Nombre')}</FieldLabel><DarkInput value={packForm.name} onChange={(v) => setPackForm({ ...packForm, name: v })} /></div>
-            <div><FieldLabel>{tt('Description', 'Description', 'Descripción')}</FieldLabel><DarkTextarea rows={2} value={packForm.description} onChange={(v) => setPackForm({ ...packForm, description: v })} /></div>
+            <div><FieldLabel>{tt('Description', 'Description', 'Descripción')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers, accès backstage', 'e.g. 1 vodka bottle, 6 mixers, backstage access', 'Ej.: 1 botella de vodka, 6 mixers, acceso backstage')} value={packForm.description} onChange={(v) => setPackForm({ ...packForm, description: v })} /><p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45, marginTop: 4 }}>{tt('Le seul texte libre affiché au client sur la carte de la formule.', 'The only free text shown to guests on the pack card.', 'El único texto libre que ve el cliente en la tarjeta de la fórmula.')}</p></div>
             {/* Où l'argent se règle : en ligne via Yuno (acompte ou total), ou tout
                 sur place — aucun paiement en ligne, aucun compte Stripe requis,
                 la réservation est confirmée immédiatement. */}
@@ -1333,7 +1328,6 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                     'Señal a 0: el cliente pagará el precio total de la mesa en línea.',
                   )}
             </p>}
-            <div><FieldLabel>{tt('Inclus (texte libre)', 'Includes (free text)', 'Incluye (texto libre)')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers', 'e.g. 1 vodka bottle, 6 mixers', 'Ej.: 1 botella de vodka, 6 mixers')} value={packForm.included_items} onChange={(v) => setPackForm({ ...packForm, included_items: v })} /></div>
             {/* Heure d'arrivée limite (optionnelle) — affichée au client à la résa */}
             <div>
               <label className="flex items-center gap-2.5 cursor-pointer" style={{ color: packForm.arrival_deadline ? T1 : T2, fontSize: 13 }}>

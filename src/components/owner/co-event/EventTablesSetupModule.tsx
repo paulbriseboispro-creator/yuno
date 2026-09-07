@@ -49,7 +49,6 @@ interface BasicPack {
   base_price: number;
   base_capacity: number;
   deposit: number;
-  included_items: string | null;
   is_active: boolean;
 }
 
@@ -80,7 +79,6 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
     base_price: '',
     base_capacity: '6',
     deposit: '0',
-    included_items: '',
   });
 
   const hostVenueId = eventVenueId ?? eventPartnerVenueId;
@@ -95,7 +93,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fpEvent }] = await Promise.all([
         supabase.from('events').select('tables_enabled, tables_mode, venue_id, partner_venue_id').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
-        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, is_active').eq('event_id', eventId),
+        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, is_active').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('background_image_url').eq('event_id', eventId).maybeSingle(),
       ]);
       setTablesEnabled(!!ev?.tables_enabled);
@@ -220,7 +218,6 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
             base_price: String(p.base_price),
             base_capacity: String(p.base_capacity),
             deposit: String(p.deposit ?? 0),
-            included_items: p.included_items ?? '',
           }
         : {
             zone_id: zoneId ?? zones[0]?.id ?? '',
@@ -229,7 +226,6 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
             base_price: '',
             base_capacity: '6',
             deposit: '0',
-            included_items: '',
           },
     );
     setPackOpen(true);
@@ -252,7 +248,6 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       base_capacity: parseInt(packForm.base_capacity) || 1,
       deposit: parseFloat(packForm.deposit) || 0,
       deposit_type: 'fixed',
-      included_items: packForm.included_items.trim() || null,
       is_active: true,
       event_id: eventId,
       created_by_user_id: user?.id ?? null,
@@ -535,7 +530,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
             </div>
             <div>
               <Label>{t('coTables.description')}</Label>
-              <Input value={packForm.description} onChange={(e) => setPackForm({ ...packForm, description: e.target.value })} />
+              <Input value={packForm.description} onChange={(e) => setPackForm({ ...packForm, description: e.target.value })} placeholder={t('coTables.includedPlaceholder')} />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
@@ -550,10 +545,6 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
                 <Label>{t('coTables.deposit')}</Label>
                 <Input type="number" min={0} step="0.01" value={packForm.deposit} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} />
               </div>
-            </div>
-            <div>
-              <Label>{t('coTables.included')}</Label>
-              <Input value={packForm.included_items} onChange={(e) => setPackForm({ ...packForm, included_items: e.target.value })} placeholder={t('coTables.includedPlaceholder')} />
             </div>
           </div>
           <DialogFooter>
