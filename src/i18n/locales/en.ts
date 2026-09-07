@@ -3878,6 +3878,7 @@ const en: Record<string, string> = {
   'tickets.audienceNewsletter': "My newsletter subscribers",
   'tickets.audienceCommunity': "Profile followers OR newsletter subscribers",
   'tickets.audienceCtaHint': "Under the locked rate, Yuno automatically shows the action that unlocks it: follow your profile or join your newsletter. Newsletter subscribers without a Yuno account can buy with the email they subscribed with.",
+  'tickets.audienceSequenceHint': "A community rate sits alongside your public rounds (Early Bird → Regular…): it's always on sale while active and never blocks the next public round.",
   'tickets.communityBadge': "Community",
   'community.badge': "Community",
   'community.reserved': "Members only",

@@ -364,11 +364,16 @@ export default function TicketSelection() {
   const salesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   const visibility = eventData?.roundsVisibility ?? 'sequential';
-  const getVisibleRounds = (rounds: TicketRound[]): Array<TicketRound & { _previewOnly?: boolean }> => {
-    if (isSimple || isTimedEntry) return rounds;
-    if (visibility === 'all_open') return rounds;
+  const getVisibleRounds = (allRounds: TicketRound[]): Array<TicketRound & { _previewOnly?: boolean }> => {
+    if (isSimple || isTimedEntry) return allRounds;
+    if (visibility === 'all_open') return allRounds;
+    // Les tarifs communauté vivent À CÔTÉ de la séquence publique (Early Bird →
+    // Regular…) : toujours proposés (actifs), en tête, jamais dans la file. Le
+    // serveur applique la même règle (create-ticket-checkout).
+    const communityRounds = allRounds.filter(r => isCommunityAudience(r.audience) && r.isActive);
+    const rounds = allRounds.filter(r => !isCommunityAudience(r.audience));
     if (visibility === 'sequential') {
-      const visible: Array<TicketRound & { _previewOnly?: boolean }> = [];
+      const visible: Array<TicketRound & { _previewOnly?: boolean }> = [...communityRounds];
       let foundAvailable = false;
       for (const r of rounds) {
         const soldOut = isRoundSoldOut(r);
@@ -377,7 +382,7 @@ export default function TicketSelection() {
       }
       return visible;
     }
-    const visible: Array<TicketRound & { _previewOnly?: boolean }> = [];
+    const visible: Array<TicketRound & { _previewOnly?: boolean }> = [...communityRounds];
     let foundAvailable = false;
     for (const r of rounds) {
       const soldOut = isRoundSoldOut(r);

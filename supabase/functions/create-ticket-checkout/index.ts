@@ -277,20 +277,23 @@ serve(async (req) => {
       logStep("Community access verified", { roundId: ticketRound.id, audience: roundAudience });
     }
 
-    // Enforce rounds_visibility rules (only meaningful for 'rounds' selling mode)
-    if (event.ticket_selling_mode === 'rounds') {
+    // Enforce rounds_visibility rules (only meaningful for 'rounds' selling mode).
+    // Un tarif communauté vit À CÔTÉ de la séquence publique : il n'y entre pas
+    // et ne la bloque pas (sinon un tour « abonnés » en tête fermait la vente
+    // aux non-abonnés).
+    if (event.ticket_selling_mode === 'rounds' && roundAudience === 'everyone') {
       const visibility = (event as any).rounds_visibility ?? 'sequential';
       if (visibility === 'sequential' || visibility === 'preview_upcoming') {
         // Only the first non-sold-out active round in `position` order is buyable
         const { data: orderedRounds } = await supabaseAdmin
           .from("ticket_rounds")
-          .select("id, position, is_active, tickets_sold, max_tickets, ticket_type, manually_sold_out")
+          .select("id, position, is_active, tickets_sold, max_tickets, ticket_type, manually_sold_out, audience")
           .eq("event_id", eventId)
           .eq("ticket_type", ticketRound.ticket_type)
           .order("position", { ascending: true });
 
         const firstAvailable = (orderedRounds || []).find((r: any) =>
-          r.is_active && !r.manually_sold_out && r.tickets_sold < r.max_tickets
+          (r.audience ?? 'everyone') === 'everyone' && r.is_active && !r.manually_sold_out && r.tickets_sold < r.max_tickets
         );
         if (!firstAvailable || firstAvailable.id !== ticketRound.id) {
           logStep("Round not yet buyable (visibility rule)", {

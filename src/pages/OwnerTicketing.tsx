@@ -831,14 +831,17 @@ export default function OwnerTicketing() {
     }
 
     try {
+      // Un tarif communauté vit à côté de la séquence des tours publics : toujours
+      // actif, jamais auto-activé par le tour précédent (voir trigger SQL).
+      const isCommunityRound = roundFormData.audience !== 'everyone';
       const roundData: TablesInsert<'ticket_rounds'> = {
         event_id: selectedEvent.id,
         name: roundFormData.name,
         price: parseFloat(roundFormData.price),
         max_tickets: isSimpleMode ? 999999 : parseInt(roundFormData.maxTickets),
         // Invariant : un round épuisé manuellement n'est jamais actif (cohérent avec le trigger SQL).
-        is_active: roundFormData.manuallySoldOut ? false : (isSimpleMode ? true : roundFormData.isActive),
-        auto_activate: isSimpleMode ? false : roundFormData.autoActivate,
+        is_active: roundFormData.manuallySoldOut ? false : (isSimpleMode || isCommunityRound ? true : roundFormData.isActive),
+        auto_activate: isSimpleMode || isCommunityRound ? false : roundFormData.autoActivate,
         manually_sold_out: roundFormData.manuallySoldOut,
         last_tickets_threshold: parseInt(roundFormData.lastTicketsThreshold) || 20,
         includes_drink: roundFormData.includesDrink,

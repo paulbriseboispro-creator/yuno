@@ -4075,6 +4075,7 @@ const es: Record<string, string> = {
   'tickets.audienceNewsletter': "Suscriptores de mi newsletter",
   'tickets.audienceCommunity': "Seguidores del perfil O suscriptores de la newsletter",
   'tickets.audienceCtaHint': "Bajo la tarifa bloqueada, Yuno muestra automáticamente la acción que la desbloquea: seguir tu perfil o unirse a tu newsletter. Un suscriptor de la newsletter sin cuenta Yuno puede comprar con el email de su suscripción.",
+  'tickets.audienceSequenceHint': "Una tarifa comunidad convive con tus rondas públicas (Early Bird → Regular…): sigue a la venta mientras esté activa y nunca bloquea la siguiente ronda pública.",
   'tickets.communityBadge': "Comunidad",
   'community.badge': "Comunidad",
   'community.reserved': "Reservado",

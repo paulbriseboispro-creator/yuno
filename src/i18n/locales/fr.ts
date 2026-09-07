@@ -3849,6 +3849,7 @@ const fr: Record<string, string> = {
   'tickets.audienceNewsletter': "Abonnés à ma newsletter",
   'tickets.audienceCommunity': "Abonnés au profil OU à la newsletter",
   'tickets.audienceCtaHint': "Sous le tarif verrouillé, Yuno affiche automatiquement l'action qui le débloque : suivre votre profil ou rejoindre votre newsletter. Un abonné newsletter sans compte Yuno peut acheter avec l'email de son abonnement.",
+  'tickets.audienceSequenceHint': "Un tarif communauté vit à côté de vos tours publics (Early Bird → Regular…) : il reste en vente tant qu'il est actif et ne bloque jamais le tour public suivant.",
   'tickets.communityBadge': "Communauté",
   'community.badge': "Communauté",
   'community.reserved': "Réservé",

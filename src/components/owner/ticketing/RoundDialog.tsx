@@ -105,7 +105,7 @@ export function RoundDialog({
                 </div>
               )}
 
-              {!(selectedEvent && ['timed_entry', 'simple'].includes(events.find(e => e.id === selectedEvent.id)?.ticketSellingMode || '')) && (
+              {!(selectedEvent && ['timed_entry', 'simple'].includes(events.find(e => e.id === selectedEvent.id)?.ticketSellingMode || '')) && roundFormData.audience === 'everyone' && (
                 <>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="roundActive">{t('tickets.roundActive')}</Label>
@@ -176,7 +176,10 @@ export function RoundDialog({
                   </SelectContent>
                 </Select>
                 {roundFormData.audience !== 'everyone' && (
-                  <p style={HINT}>{t('tickets.audienceCtaHint')}</p>
+                  <>
+                    <p style={HINT}>{t('tickets.audienceCtaHint')}</p>
+                    <p style={HINT}>{t('tickets.audienceSequenceHint')}</p>
+                  </>
                 )}
               </div>
 

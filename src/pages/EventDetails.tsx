@@ -12,7 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
-import { TicketRound, TableZone, TablePack, EventWithTicketing, getEventSalesStatus } from '@/types/ticketing';
+import { TicketRound, TableZone, TablePack, EventWithTicketing, getEventSalesStatus, isCommunityAudience, normalizeTicketAudience } from '@/types/ticketing';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 // EventWaitlistForm moved to dedicated page
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -462,6 +462,7 @@ export default function EventDetails() {
         isActive: r.is_active,
         autoActivate: r.auto_activate,
         manuallySoldOut: r.manually_sold_out ?? false,
+        audience: normalizeTicketAudience(r.audience),
         lastTicketsThreshold: r.last_tickets_threshold ?? 20,
         includesDrink: r.includes_drink ?? false,
         drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
@@ -691,13 +692,18 @@ export default function EventDetails() {
   ) : null;
 
   const visibility = event?.roundsVisibility ?? 'sequential';
-  const buyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
+  const allBuyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
+  // Les tarifs communauté (abonnés) vivent à côté de la séquence publique : ils
+  // ne sont ni le « premier tour » ni le prix « à partir de » de tout le monde.
+  const communityRounds = allBuyableRounds.filter(r => isCommunityAudience(r.audience));
+  const buyableRounds = allBuyableRounds.filter(r => !isCommunityAudience(r.audience));
   const activeRounds = visibility === 'all_open'
     ? buyableRounds
     : buyableRounds.slice(0, 1);
   const upcomingPreviewRounds = visibility === 'preview_upcoming'
     ? buyableRounds.slice(1)
     : [];
+  const breakdownRounds = [...activeRounds, ...communityRounds];
   // Packs « règlement sur place » : rien n'est encaissé en ligne, ils restent
   // proposés même sans compte Stripe (soirée d'organisateur qui règle au club).
   const activePacks = packs.filter(p => p.isActive && (paymentsReady || p.paymentMode === 'on_site'));
@@ -708,7 +714,7 @@ export default function EventDetails() {
   // Low stock detection
   const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
   const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
-  const isSoldOut = !!event?.ticketingEnabled && buyableRounds.length === 0 && ticketRounds.length > 0;
+  const isSoldOut = !!event?.ticketingEnabled && allBuyableRounds.length === 0 && ticketRounds.length > 0;
   const rawSalesStatus = getEventSalesStatus(
     {
       presaleStartAt: event?.presaleStartAt,
@@ -1096,14 +1102,17 @@ export default function EventDetails() {
                 </button>
               </div>
               {/* Active rounds breakdown when multiple rounds are visible */}
-              {activeRounds.length > 1 && (
+              {breakdownRounds.length > 1 && (
                 <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                  {activeRounds.map((r) => {
+                  {breakdownRounds.map((r) => {
                     const pctSold = Math.min((r.ticketsSold / r.maxTickets) * 100, 100);
                     return (
                       <div key={r.id}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-mono" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>{r.name}</span>
+                          <span className="font-mono" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                            {r.name}
+                            {isCommunityAudience(r.audience) && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-primary">{t('community.badge')}</span>}
+                          </span>
                           <span className="font-mono font-bold" style={{ fontSize: '12px', color: '#fff' }}>{r.price.toFixed(2)}€</span>
                         </div>
                         <div className="w-full overflow-hidden" style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 1 }}>
