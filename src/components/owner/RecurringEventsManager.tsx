@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
+import { EventVideoField } from '@/components/owner/events/EventVideoField';
+import { uploadEventVideo } from '@/lib/eventVideo';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
@@ -114,6 +116,8 @@ type TemplateRow = {
   description: string | null;
   poster_url: string | null;
   poster_position: PosterPosition | null;
+  /** Vidéo 9:16 par défaut, recopiée sur chaque occurrence. */
+  video_url: string | null;
   music_genres: string[];
   event_type: string;
   day_of_week: number;
@@ -138,6 +142,7 @@ type FormState = {
   name: string;
   description: string;
   posterUrl: string;
+  videoUrl: string;
   musicGenres: string[];
   eventType: string;
   dayOfWeek: number;
@@ -167,7 +172,7 @@ type FormState = {
 };
 
 const EMPTY_FORM: FormState = {
-  name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
+  name: '', description: '', posterUrl: '', videoUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
   ticketPresetId: '', vipPresetId: '', tablePresetId: '', guestListTemplateId: '', autoEnableTables: false,
   partnerOrganizerId: '', collabMode: 'co_event',
@@ -267,6 +272,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoRemoved, setVideoRemoved] = useState(false);
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -411,6 +418,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     setEditing(null);
     setForm(EMPTY_FORM);
     setPosterFile(null); setPosterPreview(''); setPosterPosition(null);
+    setVideoFile(null); setVideoRemoved(false);
     setDialogOpen(true);
   };
 
@@ -421,6 +429,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       name: tpl.name,
       description: tpl.description || '',
       posterUrl: tpl.poster_url || '',
+      videoUrl: tpl.video_url || '',
       musicGenres: tpl.music_genres?.length ? tpl.music_genres : ['Open Format'],
       eventType: tpl.event_type || 'club',
       dayOfWeek: tpl.day_of_week,
@@ -446,6 +455,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     setPosterFile(null);
     setPosterPreview(tpl.poster_url || '');
     setPosterPosition(tpl.poster_position || null);
+    setVideoFile(null); setVideoRemoved(false);
     setDialogOpen(true);
   };
 
@@ -547,12 +557,20 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         } catch (err) { console.error('Poster upload exception:', err); }
       }
 
+      // Vidéo 9:16 par défaut de la série : envoyée à l'enregistrement, un échec annule.
+      let videoUrl: string | null = videoRemoved ? null : (form.videoUrl || null);
+      if (videoFile) {
+        try { videoUrl = await uploadEventVideo(videoFile); }
+        catch (err) { console.error('Event video upload failed:', err); toast.error(t('owner.eventVideo.uploadError')); setSaving(false); return; }
+      }
+
       const payload = {
         venue_id: isOrg ? null : venueId!,
         organizer_user_id: isOrg ? organizerUserId! : null,
         name: form.name.trim(),
         description: form.description || null,
         poster_url: posterUrl || null,
+        video_url: videoUrl,
         poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
         music_genres: form.musicGenres,
         event_type: form.eventType,
@@ -931,6 +949,14 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 </div>
               )}
             </div>
+
+            {/* Vidéo 9:16 par défaut — recopiée sur chaque occurrence, page soirée seulement */}
+            <EventVideoField
+              existingUrl={videoRemoved ? '' : form.videoUrl}
+              file={videoFile}
+              onFileChange={(f) => { setVideoFile(f); if (f) setVideoRemoved(false); }}
+              onRemoveExisting={() => setVideoRemoved(true)}
+            />
 
             {/* Music genres */}
             <div>
