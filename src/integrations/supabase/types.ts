@@ -6322,7 +6322,6 @@ export type Database = {
           partner_venue_id: string | null
           poster_position: Json | null
           poster_url: string | null
-          video_url: string | null
           presale_start_at: string | null
           public_sale_start_at: string | null
           published_at: string | null
@@ -6352,6 +6351,7 @@ export type Database = {
           title: string
           updated_at: string
           venue_id: string | null
+          video_url: string | null
           visibility: Database["public"]["Enums"]["event_visibility"]
           waitlist_enabled: boolean | null
         }
@@ -6393,7 +6393,6 @@ export type Database = {
           partner_venue_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
-          video_url?: string | null
           presale_start_at?: string | null
           public_sale_start_at?: string | null
           published_at?: string | null
@@ -6423,6 +6422,7 @@ export type Database = {
           title: string
           updated_at?: string
           venue_id?: string | null
+          video_url?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
           waitlist_enabled?: boolean | null
         }
@@ -6464,7 +6464,6 @@ export type Database = {
           partner_venue_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
-          video_url?: string | null
           presale_start_at?: string | null
           public_sale_start_at?: string | null
           published_at?: string | null
@@ -6494,6 +6493,7 @@ export type Database = {
           title?: string
           updated_at?: string
           venue_id?: string | null
+          video_url?: string | null
           visibility?: Database["public"]["Enums"]["event_visibility"]
           waitlist_enabled?: boolean | null
         }
@@ -9505,13 +9505,13 @@ export type Database = {
           partner_organizer_id: string | null
           poster_position: Json | null
           poster_url: string | null
-          video_url: string | null
           revenue_split_rules: Json | null
           start_time: string
           table_preset_id: string | null
           ticket_preset_id: string | null
           updated_at: string
           venue_id: string | null
+          video_url: string | null
           vip_preset_id: string | null
         }
         Insert: {
@@ -9533,13 +9533,13 @@ export type Database = {
           partner_organizer_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
-          video_url?: string | null
           revenue_split_rules?: Json | null
           start_time: string
           table_preset_id?: string | null
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
+          video_url?: string | null
           vip_preset_id?: string | null
         }
         Update: {
@@ -9561,13 +9561,13 @@ export type Database = {
           partner_organizer_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
-          video_url?: string | null
           revenue_split_rules?: Json | null
           start_time?: string
           table_preset_id?: string | null
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
+          video_url?: string | null
           vip_preset_id?: string | null
         }
         Relationships: [
@@ -11380,24 +11380,119 @@ export type Database = {
           },
         ]
       }
+      sms_campaign_recipients: {
+        Row: {
+          attempts: number
+          campaign_id: string
+          claimed_at: string | null
+          contact_id: string | null
+          created_at: string
+          credits: number
+          delivered_at: string | null
+          error_code: string | null
+          error_message: string | null
+          full_name: string | null
+          id: string
+          lang: string | null
+          next_attempt_at: string | null
+          phone_e164: string
+          sent_at: string | null
+          sms_log_id: string | null
+          status: string
+          twilio_sid: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          campaign_id: string
+          claimed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          credits?: number
+          delivered_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          full_name?: string | null
+          id?: string
+          lang?: string | null
+          next_attempt_at?: string | null
+          phone_e164: string
+          sent_at?: string | null
+          sms_log_id?: string | null
+          status?: string
+          twilio_sid?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          campaign_id?: string
+          claimed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          credits?: number
+          delivered_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          full_name?: string | null
+          id?: string
+          lang?: string | null
+          next_attempt_at?: string | null
+          phone_e164?: string
+          sent_at?: string | null
+          sms_log_id?: string | null
+          status?: string
+          twilio_sid?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sms_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_campaign_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "venue_sms_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_campaigns: {
         Row: {
           body_i18n: Json | null
           body_template: string
           created_at: string
           created_by: string
+          credits_consumed: number
+          credits_refunded: number
           delivered_count: number
+          error_message: string | null
           estimated_credits: number
           estimated_recipients: number
+          event_id: string | null
           failed_count: number
           id: string
+          last_slice_at: string | null
           name: string
           organizer_id: string | null
+          paused_reason: string | null
+          quiet_hours: boolean
           scheduled_at: string | null
           segment_filters: Json
+          segments_per_message: number
+          send_started_at: string | null
+          sender_name: string | null
           sent_at: string | null
           sent_count: number
           status: Database["public"]["Enums"]["sms_campaign_status"]
+          test_sent_at: string | null
+          total_recipients: number
+          tracked_link_id: string | null
+          undelivered_count: number
           updated_at: string
           venue_id: string | null
         }
@@ -11406,18 +11501,32 @@ export type Database = {
           body_template: string
           created_at?: string
           created_by: string
+          credits_consumed?: number
+          credits_refunded?: number
           delivered_count?: number
+          error_message?: string | null
           estimated_credits?: number
           estimated_recipients?: number
+          event_id?: string | null
           failed_count?: number
           id?: string
+          last_slice_at?: string | null
           name: string
           organizer_id?: string | null
+          paused_reason?: string | null
+          quiet_hours?: boolean
           scheduled_at?: string | null
           segment_filters?: Json
+          segments_per_message?: number
+          send_started_at?: string | null
+          sender_name?: string | null
           sent_at?: string | null
           sent_count?: number
           status?: Database["public"]["Enums"]["sms_campaign_status"]
+          test_sent_at?: string | null
+          total_recipients?: number
+          tracked_link_id?: string | null
+          undelivered_count?: number
           updated_at?: string
           venue_id?: string | null
         }
@@ -11426,22 +11535,50 @@ export type Database = {
           body_template?: string
           created_at?: string
           created_by?: string
+          credits_consumed?: number
+          credits_refunded?: number
           delivered_count?: number
+          error_message?: string | null
           estimated_credits?: number
           estimated_recipients?: number
+          event_id?: string | null
           failed_count?: number
           id?: string
+          last_slice_at?: string | null
           name?: string
           organizer_id?: string | null
+          paused_reason?: string | null
+          quiet_hours?: boolean
           scheduled_at?: string | null
           segment_filters?: Json
+          segments_per_message?: number
+          send_started_at?: string | null
+          sender_name?: string | null
           sent_at?: string | null
           sent_count?: number
           status?: Database["public"]["Enums"]["sms_campaign_status"]
+          test_sent_at?: string | null
+          total_recipients?: number
+          tracked_link_id?: string | null
+          undelivered_count?: number
           updated_at?: string
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sms_campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_campaigns_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_links"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sms_campaigns_venue_id_fkey"
             columns: ["venue_id"]
@@ -14280,13 +14417,14 @@ export type Database = {
           full_name: string
           id: string
           is_vip: boolean
+          organizer_user_id: string | null
           phone_e164: string
           sms_consent_at: string
           source_event_id: string | null
           unsubscribed: boolean
           unsubscribed_at: string | null
           user_id: string | null
-          venue_id: string
+          venue_id: string | null
         }
         Insert: {
           consent_source?: string
@@ -14295,13 +14433,14 @@ export type Database = {
           full_name: string
           id?: string
           is_vip?: boolean
+          organizer_user_id?: string | null
           phone_e164: string
           sms_consent_at?: string
           source_event_id?: string | null
           unsubscribed?: boolean
           unsubscribed_at?: string | null
           user_id?: string | null
-          venue_id: string
+          venue_id?: string | null
         }
         Update: {
           consent_source?: string
@@ -14310,13 +14449,14 @@ export type Database = {
           full_name?: string
           id?: string
           is_vip?: boolean
+          organizer_user_id?: string | null
           phone_e164?: string
           sms_consent_at?: string
           source_event_id?: string | null
           unsubscribed?: boolean
           unsubscribed_at?: string | null
           user_id?: string | null
-          venue_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -16162,6 +16302,15 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: undefined
       }
+      apply_sms_delivery_status: {
+        Args: {
+          p_error_code?: string
+          p_error_message?: string
+          p_status: string
+          p_twilio_sid: string
+        }
+        Returns: Json
+      }
       apply_vip_room_to_event: {
         Args: { p_event_id: string; p_room_id: string }
         Returns: string
@@ -16352,6 +16501,17 @@ export type Database = {
         Args: { _invite_id: string }
         Returns: boolean
       }
+      claim_sms_campaign_recipients: {
+        Args: { p_campaign_id: string; p_limit?: number }
+        Returns: {
+          attempts: number
+          full_name: string
+          id: string
+          lang: string
+          phone_e164: string
+          user_id: string
+        }[]
+      }
       cleanup_affiliate_invitation_meta: { Args: never; Returns: undefined }
       cleanup_expired_invoices: { Args: never; Returns: undefined }
       cleanup_expired_mfa_pending: { Args: never; Returns: undefined }
@@ -16469,6 +16629,7 @@ export type Database = {
       count_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
+          p_organizer_user_id: string
           p_segment_type: string
           p_venue_id: string
         }
@@ -16752,6 +16913,17 @@ export type Database = {
           p_vars?: Json
         }
         Returns: undefined
+      }
+      enqueue_sms_campaign_recipients: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
+      ensure_sms_tracked_link: {
+        Args: { p_event_id: string }
+        Returns: {
+          code: string
+          id: string
+        }[]
       }
       event_audience_demographics: {
         Args: {
@@ -17642,6 +17814,14 @@ export type Database = {
         Args: { _reservation_id: string }
         Returns: string
       }
+      get_sms_campaign_report: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
+      get_sms_contacts_overview: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       get_staff_night_pulse: { Args: { p_venue_id?: string }; Returns: Json }
       get_staff_self_stats: { Args: { p_days?: number }; Returns: Json }
       get_taste_events_for_user: {
@@ -18019,6 +18199,21 @@ export type Database = {
         Args: { p_campaign_id: string; p_rows: Json }
         Returns: number
       }
+      mark_sms_campaign_recipients_failed: {
+        Args: {
+          p_campaign_id: string
+          p_error: string
+          p_error_code?: string
+          p_ids: string[]
+          p_max_attempts?: number
+          p_retry_at?: string
+        }
+        Returns: number
+      }
+      mark_sms_campaign_recipients_sent: {
+        Args: { p_campaign_id: string; p_rows: Json }
+        Returns: number
+      }
       match_djs_for_event: {
         Args: { p_event_id: string; p_limit?: number }
         Returns: {
@@ -18305,6 +18500,10 @@ export type Database = {
         Args: { p_max_attempts?: number; p_stale_minutes?: number }
         Returns: number
       }
+      requeue_stale_sms_claims: {
+        Args: { p_max_attempts?: number; p_stale_minutes?: number }
+        Returns: number
+      }
       reserve_table_slot: {
         Args: {
           _capacity_zone_id: string
@@ -18391,6 +18590,7 @@ export type Database = {
       resolve_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
+          p_organizer_user_id: string
           p_segment_type: string
           p_venue_id: string
         }
@@ -18642,6 +18842,10 @@ export type Database = {
           p_user_agent?: string
         }
         Returns: string
+      }
+      sms_scope_allowed: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: boolean
       }
       sms_stop_unsubscribe: { Args: { _phone: string }; Returns: number }
       split_pillar_enabled: {
@@ -18900,6 +19104,7 @@ export type Database = {
         | "draft"
         | "scheduled"
         | "sending"
+        | "paused"
         | "sent"
         | "failed"
         | "cancelled"
@@ -19089,6 +19294,7 @@ export const Constants = {
         "draft",
         "scheduled",
         "sending",
+        "paused",
         "sent",
         "failed",
         "cancelled",
