@@ -9505,6 +9505,7 @@ export type Database = {
           partner_organizer_id: string | null
           poster_position: Json | null
           poster_url: string | null
+          video_url: string | null
           revenue_split_rules: Json | null
           start_time: string
           table_preset_id: string | null
@@ -9532,6 +9533,7 @@ export type Database = {
           partner_organizer_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
+          video_url?: string | null
           revenue_split_rules?: Json | null
           start_time: string
           table_preset_id?: string | null
@@ -9559,6 +9561,7 @@ export type Database = {
           partner_organizer_id?: string | null
           poster_position?: Json | null
           poster_url?: string | null
+          video_url?: string | null
           revenue_split_rules?: Json | null
           start_time?: string
           table_preset_id?: string | null
