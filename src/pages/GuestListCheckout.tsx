@@ -28,10 +28,12 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { GuestListCheckoutSkeleton } from '@/components/skeletons/GuestListCheckoutSkeleton';
+import { useEventScarcity } from '@/hooks/useScarcitySettings';
+import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
 
 interface GuestListInfo {
   id: string;
-  quota: number;
+  quota: number | null;
   quotaFemale: number | null;
   quotaMale: number | null;
   freeBeforeTime: string;
@@ -55,6 +57,8 @@ interface GuestListInfo {
  */
 export default function GuestListCheckout() {
   const { eventId, basePath } = useEventRoute();
+  // Rareté de la soirée (badge / compteur plafonné) — voir lib/guestListScarcity.
+  const scarcitySettings = useEventScarcity(eventId);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -416,7 +420,18 @@ export default function GuestListCheckout() {
     guestList.quota !== null ? guestList.quota - entriesCount : null,
   ].filter((n): n is number => n !== null);
   const remaining = caps.length ? Math.max(0, Math.min(...caps)) : null;
-  const showCounter = guestList.showRemaining && remaining !== null;
+  // Rareté (event_scarcity_settings) : même règle que les billets — sans
+  // réglage, le compteur brut suit `show_remaining` de la part.
+  const glSignal = guestListScarcity(scarcitySettings, {
+    capKey: genderParam && genderQuota !== null ? `${guestList.id}:${genderParam}` : guestList.id,
+    quota: effectiveQuota, count: effectiveCount, remaining, showRemaining: guestList.showRemaining,
+  });
+  const showCounter = glSignal.counter !== null;
+  const scarcityBadge = glSignal.badge ? (
+    <span className="inline-block rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 animate-pulse">
+      {scarcityBadgeText(glSignal.badge, t)}
+    </span>
+  ) : null;
   // A gender picker is only needed as a fallback for a gendered list reached without ?gender.
   const genderRequired = (guestList.quotaFemale !== null || guestList.quotaMale !== null) && !genderParam;
   const displayTitle = genderParam === 'female'
@@ -645,11 +660,12 @@ export default function GuestListCheckout() {
         </div>
 
         {/* Spots — chiffre masqué si le club a coupé show_remaining (ou part illimitée). */}
-        {!isFull && (showCounter || timeLeft) && (
+        {!isFull && (showCounter || timeLeft || scarcityBadge) && (
           <div className="mt-3 border border-orange-500/15 p-4 text-center" style={{ backgroundColor: 'rgba(249,115,22,0.06)', borderRadius: 10 }}>
+            {scarcityBadge && <div className="mb-2">{scarcityBadge}</div>}
             {showCounter ? (
               <>
-                <p className="text-3xl font-bold text-orange-400">{remaining}</p>
+                <p className="text-3xl font-bold text-orange-400">{glSignal.counter}</p>
                 <p className="text-sm text-white/45">{t('guestList.spotsLeft')}</p>
               </>
             ) : (

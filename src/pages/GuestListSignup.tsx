@@ -28,6 +28,8 @@ import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { GuestListSignupSkeleton } from '@/components/skeletons/GuestListSignupSkeleton';
+import { useEventScarcity } from '@/hooks/useScarcitySettings';
+import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
 
 /** Colonnes d'event embarquées avec la guest list (select imbriqué). */
 interface GuestListEventInfo {
@@ -46,6 +48,7 @@ interface GuestListWithEvent extends Tables<'guest_lists'> {
 
 interface GuestListInfo {
   id: string;
+  eventId: string;
   /** Allocation par type de la part — 0 partout = pas de ventilation. */
   quotaNormal: number;
   quotaDrink: number;
@@ -128,6 +131,8 @@ export default function GuestListSignup() {
   const [entriesCount, setEntriesCount] = useState(0);
   const [femaleCount, setFemaleCount] = useState(0);
   const [maleCount, setMaleCount] = useState(0);
+  // Rareté de la soirée (badge / compteur plafonné) — voir lib/guestListScarcity.
+  const scarcitySettings = useEventScarcity(guestList?.eventId);
   /** Remplissage ventilé par type — sert à ne compter que ce que CE lien propose. */
   const [typeCounts, setTypeCounts] = useState<Record<GLEntryType, number>>({ normal: 0, drink: 0, table: 0 });
   const [loading, setLoading] = useState(true);
@@ -352,6 +357,7 @@ export default function GuestListSignup() {
 
       setGuestList({
         id: data.id,
+        eventId: data.event_id,
         quotaNormal: data.quota_normal ?? 0,
         quotaDrink: data.quota_drink ?? 0,
         quotaTable: data.quota_table ?? 0,
@@ -626,8 +632,23 @@ export default function GuestListSignup() {
     : offeredRemaining !== null
     ? (globalRemaining !== null ? Math.min(offeredRemaining, globalRemaining) : offeredRemaining)
     : globalRemaining;
-  // Le compteur ne s'affiche que si le club l'a activé ET qu'il y a un chiffre à montrer.
-  const showCounter = guestList.showRemaining && remaining !== null;
+  // Rareté (event_scarcity_settings) : badge à un seuil ou compteur plafonné,
+  // la même règle que les billets. Sans réglage, le compteur brut suit
+  // `show_remaining` de la part. Le seuil se juge sur le périmètre du lien
+  // (genre demandé, sinon la part entière) ; le restant reste celui des types
+  // offerts calculé au-dessus.
+  const scarcityScope = genderFromUrl === 'female' && (guestList.quotaFemale ?? 0) > 0
+    ? { capKey: `${guestList.id}:female`, quota: guestList.quotaFemale, count: femaleCount }
+    : genderFromUrl === 'male' && (guestList.quotaMale ?? 0) > 0
+    ? { capKey: `${guestList.id}:male`, quota: guestList.quotaMale, count: maleCount }
+    : { capKey: guestList.id, quota: guestList.quota, count: entriesCount };
+  const glSignal = guestListScarcity(scarcitySettings, { ...scarcityScope, remaining, showRemaining: guestList.showRemaining });
+  const showCounter = glSignal.counter !== null;
+  const scarcityBadge = glSignal.badge ? (
+    <span className="inline-block rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 animate-pulse">
+      {scarcityBadgeText(glSignal.badge, t)}
+    </span>
+  ) : null;
 
   // ── La boisson offerte suit le TYPE, pas la part ──────────────────────────
   // `includes_drink` vaut vrai dès qu'une part alloue des places « boisson »
@@ -836,11 +857,12 @@ export default function GuestListSignup() {
 
           {/* Spots counter — le chiffre est masqué si le club a coupé show_remaining
               (ou si la part est illimitée) ; le compte à rebours reste utile. */}
-          {!isFull && (showCounter || timeLeft) && (
+          {!isFull && (showCounter || timeLeft || scarcityBadge) && (
             <div className="bg-primary/8 border border-primary/15 rounded-xl p-5 text-center">
+              {scarcityBadge && <div className="mb-2">{scarcityBadge}</div>}
               {showCounter ? (
                 <>
-                  <p className="text-3xl font-bold text-primary">{remaining}</p>
+                  <p className="text-3xl font-bold text-primary">{glSignal.counter}</p>
                   <p className="text-sm text-muted-foreground">{t('guestList.spotsLeft')}</p>
                 </>
               ) : (
@@ -1012,11 +1034,12 @@ export default function GuestListSignup() {
                 {t('guestList.buyTicket')}
               </Button>
             </div>
-          ) : (showCounter || timeLeft) ? (
+          ) : (showCounter || timeLeft || scarcityBadge) ? (
             <div className="bg-primary/8 border border-primary/15 rounded-xl p-5">
+              {scarcityBadge && <div className="mb-2">{scarcityBadge}</div>}
               {showCounter ? (
                 <>
-                  <p className="text-3xl font-bold text-primary">{remaining}</p>
+                  <p className="text-3xl font-bold text-primary">{glSignal.counter}</p>
                   <p className="text-sm text-muted-foreground">{t('guestList.spotsLeft')}</p>
                 </>
               ) : (

@@ -25,6 +25,7 @@ import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { VenueFloorPlan } from '@/types';
 import { useEventScarcity, type ScarcitySettings } from '@/hooks/useScarcitySettings';
+import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -76,7 +77,7 @@ export default function TicketSelection() {
   const [, setNowTick] = useState(Date.now());
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
-  const [guestList, setGuestList] = useState<{ id: string; quota: number; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; showRemaining: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
+  const [guestList, setGuestList] = useState<{ id: string; quota: number | null; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; showRemaining: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
   // A DJ's personal guest list, surfaced ONLY when the visitor arrives with the
   // DJ's private link (?dj=<share_token>) — invisible to the general public.
   const [djGuestList, setDjGuestList] = useState<{ shareToken: string; freeBeforeTime: string; includesDrink: boolean; djName: string } | null>(null);
@@ -699,25 +700,30 @@ export default function TicketSelection() {
             publishes as two separate cards (Femme / Homme), no in-page gender picker. */}
         {salesIsOpen && !saleLocked && guestList && (() => {
           const hasSplit = guestList.quotaFemale !== null || guestList.quotaMale !== null;
-          const cards: { gender?: 'female' | 'male'; label: string; symbol: string; remaining: number }[] = hasSplit
+          // Rareté : même règle que les paliers de billets (badge à un seuil,
+          // compteur plafonné), lue dans event_scarcity_settings. Sans réglage,
+          // le compteur brut suit `show_remaining` de la part, comme avant.
+          const signal = (capKey: string, quota: number | null, count: number) =>
+            guestListScarcity(scarcitySettings, { capKey, quota, count, showRemaining: guestList.showRemaining });
+          const cards: { gender?: 'female' | 'male'; label: string; symbol: string; isFull: boolean; badge: { label: string; emoji: boolean } | null; counter: number | null }[] = hasSplit
             ? [
                 ...(guestList.quotaFemale && guestList.quotaFemale > 0
-                  ? [{ gender: 'female' as const, label: `${t('guestList.title')} ${t('guestList.female')}`, symbol: '♀', remaining: Math.max(0, guestList.quotaFemale - guestList.femaleCount) }]
+                  ? [{ gender: 'female' as const, label: `${t('guestList.title')} ${t('guestList.female')}`, symbol: '♀', ...signal(`${guestList.id}:female`, guestList.quotaFemale, guestList.femaleCount) }]
                   : []),
                 ...(guestList.quotaMale && guestList.quotaMale > 0
-                  ? [{ gender: 'male' as const, label: `${t('guestList.title')} ${t('guestList.male')}`, symbol: '♂', remaining: Math.max(0, guestList.quotaMale - guestList.maleCount) }]
+                  ? [{ gender: 'male' as const, label: `${t('guestList.title')} ${t('guestList.male')}`, symbol: '♂', ...signal(`${guestList.id}:male`, guestList.quotaMale, guestList.maleCount) }]
                   : []),
               ]
-            : [{ label: t('guestList.title'), symbol: '', remaining: Math.max(0, guestList.quota - guestList.count) }];
+            : [{ label: t('guestList.title'), symbol: '', ...signal(guestList.id, guestList.quota, guestList.count) }];
 
           // Hide the section only when every card is full.
-          if (!cards.some(c => c.remaining > 0)) return null;
+          if (cards.every(c => c.isFull)) return null;
 
           return (
             <>
               <SectionDivider icon={<Users className="h-2.5 w-2.5" />} label={t('guestList.title')} />
               {cards.map(c => {
-                const isFull = c.remaining <= 0;
+                const isFull = c.isFull;
                 const selId = c.gender ? `${guestList.id}:${c.gender}` : guestList.id;
                 const isSel = selection?.type === 'guestlist' && selection.id === selId;
                 return (
@@ -741,6 +747,11 @@ export default function TicketSelection() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm">{c.symbol ? `${c.symbol} ` : ''}{c.label}</span>
                           <span className="text-[10px] font-bold uppercase tracking-wide text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
+                          {!isFull && c.badge && (
+                            <span className="text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm animate-pulse">
+                              {scarcityBadgeText(c.badge, t)}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-white/60 flex items-center gap-1.5">
                           <Clock className="h-3 w-3" />
@@ -763,7 +774,7 @@ export default function TicketSelection() {
                         ) : (
                           <p className="text-2xl font-bold text-orange-400">0 €</p>
                         )}
-                        {!isFull && guestList.showRemaining && <p className="text-[10px] text-white/60">{c.remaining} {t('guestList.spotsLeft')}</p>}
+                        {!isFull && c.counter !== null && <p className="text-[10px] text-white/60">{c.counter} {t('guestList.spotsLeft')}</p>}
                       </div>
                     </div>
                   </button>

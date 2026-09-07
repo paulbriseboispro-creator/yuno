@@ -248,7 +248,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Rareté & FOMO",
     keywords: ["scarcity", "rareté", "fomo", "urgence", "urgency", "dernières places", "jauge", "compteur", "sold out", "pression"],
     path: "/owner/scarcity",
-    snippet: "Les outils Rareté/FOMO affichent aux clients des signaux d'urgence : jauge de remplissage, dernières places d'un round, compte à rebours. Bien réglés, ils accélèrent les ventes en début et fin de cycle. Configure-les par événement depuis la page Rareté.",
+    snippet: "Les outils Rareté/FOMO affichent aux clients un signal d'urgence, réglé par soirée depuis la page Rareté : soit un badge « Dernières places » qui apparaît quand une option passe sous un seuil de remplissage, soit un compteur de places restantes, plafonnable option par option. Le signal couvre les paliers de billets, les parts de guest list (une part genrée compte ♀ et ♂ séparément) et les zones de tables. Sur la guest list, le compteur ne s'affiche que sur les parts dont « Afficher les places restantes » est activé ; le badge s'affiche partout.",
   },
   "hype-score": {
     title: "Hype Score",

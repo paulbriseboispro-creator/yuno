@@ -135,6 +135,9 @@ interface EventOption {
 interface RoundOption { id: string; name: string; maxTickets: number; ticketsSold: number; }
 interface ZoneOption  { id: string; name: string; tablesCount: number; }
 interface PackOption  { id: string; name: string; zoneId: string; }
+/** Une part de guest list (ou un genre d'une part genrée), déjà aplatie en « option » plafonnable. */
+interface GuestListOption { id: string; name: string; remaining: number; }
+type ItemType = 'ticket' | 'table' | 'guestlist';
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 /**
@@ -161,6 +164,7 @@ export default function OwnerScarcity() {
   const [rounds, setRounds] = useState<RoundOption[]>([]);
   const [zones, setZones] = useState<ZoneOption[]>([]);
   const [packs, setPacks] = useState<PackOption[]>([]);
+  const [guestLists, setGuestLists] = useState<GuestListOption[]>([]);
   const [reservationsByZone, setReservationsByZone] = useState<Record<string, number>>({});
   const [localCapValues, setLocalCapValues] = useState<Record<string, string>>({});
 
@@ -188,11 +192,35 @@ export default function OwnerScarcity() {
   }, [selectedEventId]);
 
   useEffect(() => {
-    if (!selectedEventId || !scopeReady) { setRounds([]); setZones([]); setPacks([]); return; }
+    if (!selectedEventId || !scopeReady) { setRounds([]); setZones([]); setPacks([]); setGuestLists([]); return; }
     supabase.from('ticket_rounds')
       .select('id, name, max_tickets, tickets_sold').eq('event_id', selectedEventId)
       .order('position', { ascending: true })
       .then(({ data }) => setRounds((data || []).map(r => ({ id: r.id, name: r.name, maxTickets: r.max_tickets, ticketsSold: r.tickets_sold }))));
+
+    // Guest list : chaque part active avec un quota devient une option (une
+    // part genrée en donne deux, ♀ / ♂ — les mêmes clés de plafond que la page
+    // billetterie). Remplissage via la RPC agrégée, comme le public.
+    (async () => {
+      const { data: parts } = await supabase.from('guest_lists')
+        .select('id, quota, quota_female, quota_male, holder_type, holder_label')
+        .eq('event_id', selectedEventId).eq('is_active', true);
+      const rows = (parts || []).filter(p => p.quota !== null || (p.quota_female ?? 0) > 0 || (p.quota_male ?? 0) > 0);
+      const fills = await Promise.all(rows.map(p => supabase.rpc('get_guest_list_public_fill', { _guest_list_id: p.id }).maybeSingle()));
+      const items: GuestListOption[] = [];
+      rows.forEach((p, i) => {
+        const fill = fills[i].data as { total_count: number; female_count: number; male_count: number } | null;
+        const base = `${t('guestList.title')} · ${p.holder_label || t(`guestList.holderType.${p.holder_type}`)}`;
+        const split = (p.quota_female ?? 0) > 0 || (p.quota_male ?? 0) > 0;
+        if (split) {
+          if ((p.quota_female ?? 0) > 0) items.push({ id: `${p.id}:female`, name: `${base} ♀`, remaining: Math.max(0, (p.quota_female as number) - (fill?.female_count || 0)) });
+          if ((p.quota_male ?? 0) > 0) items.push({ id: `${p.id}:male`, name: `${base} ♂`, remaining: Math.max(0, (p.quota_male as number) - (fill?.male_count || 0)) });
+        } else if (p.quota !== null) {
+          items.push({ id: p.id, name: base, remaining: Math.max(0, p.quota - (fill?.total_count || 0)) });
+        }
+      });
+      setGuestLists(items);
+    })();
 
     if (selectedEvent?.tables_enabled) {
       // Zones + packs viennent toujours du même périmètre. Club : les zones du
@@ -277,13 +305,16 @@ export default function OwnerScarcity() {
     return withEmoji ? `${opt.emoji} ${opt.label}` : opt.label;
   };
 
-  const allSellableItems = [
+  const allSellableItems: { id: string; name: string; type: ItemType; remaining: number }[] = [
     ...rounds.map(r => ({ id: r.id, name: r.name, type: 'ticket' as const, remaining: r.maxTickets - r.ticketsSold })),
+    ...guestLists.map(g => ({ id: g.id, name: g.name, type: 'guestlist' as const, remaining: g.remaining })),
     ...zones.map(z => {
       const reserved = reservationsByZone[z.id] || 0;
       return { id: z.id, name: z.name, type: 'table' as const, remaining: Math.max(0, z.tablesCount - reserved) };
     }),
   ];
+  const itemEmoji = (type: ItemType) => type === 'table' ? '🪑 ' : type === 'guestlist' ? '👥 ' : '🎟️ ';
+  const itemUnit = (type: ItemType) => type === 'table' ? t('scarcity.tablesLeft') : type === 'guestlist' ? t('guestList.spotsLeft') : t('scarcity.ticketsLeft');
 
   const selectedEventTitle = events.find(e => e.id === selectedEventId)?.title ?? t('scarcity.selectEvent');
 
@@ -545,12 +576,15 @@ export default function OwnerScarcity() {
                             const shown = settings.display_cap_enabled && cap ? Math.min(item.remaining, cap) : item.remaining;
                             return (
                               <p key={item.id} className="tabular-nums" style={{ color: AMBER, fontSize: 12.5, fontWeight: 600 }}>
-                                {settings.emoji_enabled ? (item.type === 'table' ? '🪑 ' : '🎟️ ') : ''}{shown} {item.type === 'table' ? t('scarcity.tablesLeft') : t('scarcity.ticketsLeft')} — {item.name}
+                                {settings.emoji_enabled ? itemEmoji(item.type) : ''}{shown} {itemUnit(item.type)} — {item.name}
                               </p>
                             );
                           })
                         ) : (
                           <p style={{ color: T3, fontSize: 12 }}>{t('scarcity.noRounds')}</p>
+                        )}
+                        {guestLists.length > 0 && (
+                          <p style={{ color: T3, fontSize: 11, lineHeight: 1.45, marginTop: 4 }}>{t('scarcity.guestListNote')}</p>
                         )}
                       </div>
                     </div>
@@ -587,7 +621,7 @@ export default function OwnerScarcity() {
                                       <div className="flex-1 min-w-0">
                                         <p className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{item.name}</p>
                                         <p className="tabular-nums" style={{ color: T3, fontSize: 10.5, marginTop: 2 }}>
-                                          {item.remaining} {item.type === 'table' ? t('scarcity.tablesLeft') : t('scarcity.ticketsLeft')}
+                                          {item.remaining} {itemUnit(item.type)}
                                         </p>
                                       </div>
                                       <YunoInput

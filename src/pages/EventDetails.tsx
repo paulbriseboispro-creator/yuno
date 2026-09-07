@@ -6,6 +6,8 @@ import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewCont
 import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell, Armchair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useEventScarcity } from '@/hooks/useScarcitySettings';
+import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -659,18 +661,34 @@ export default function EventDetails() {
     queryFn: async () => {
       const { data } = await supabase
         .from('guest_lists')
-        .select('id, free_before_time, includes_drink')
+        .select('id, free_before_time, includes_drink, quota, show_remaining')
         .eq('event_id', eventId as string)
         .eq('is_active', true)
         .eq('visible_on_club_page', true)
         .limit(1);
-      return data?.[0] ?? null;
+      const row = data?.[0] ?? null;
+      if (!row) return null;
+      // Remplissage agrégé (RPC SECURITY DEFINER, pas de PII) pour le signal
+      // de rareté ; un échec laisse simplement la carte sans signal.
+      const { data: fillRaw } = await supabase.rpc('get_guest_list_public_fill', { _guest_list_id: row.id }).maybeSingle();
+      const fill = fillRaw as { total_count: number } | null;
+      return { ...row, count: fill?.total_count ?? 0 };
     },
     enabled: !!eventId,
     staleTime: 5 * 60 * 1000,
   });
   const publicGuestList = publicGuestListQuery.data ?? null;
   const hasPublicGuestList = !!publicGuestList;
+  // Rareté de la guest list : même règle que les billets (lib/guestListScarcity).
+  const eventScarcity = useEventScarcity(eventId);
+  const glSignal = publicGuestList
+    ? guestListScarcity(eventScarcity, { capKey: publicGuestList.id, quota: publicGuestList.quota, count: publicGuestList.count, showRemaining: publicGuestList.show_remaining ?? true })
+    : null;
+  const glScarcityLine = glSignal && !glSignal.isFull && (glSignal.badge || glSignal.counter !== null) ? (
+    <p className={glSignal.badge ? 'font-mono uppercase animate-pulse' : 'font-mono uppercase'} style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: glSignal.badge ? '#F87171' : '#F59E0B', marginTop: 6 }}>
+      {glSignal.badge ? scarcityBadgeText(glSignal.badge, t) : `${glSignal.counter} ${t('guestList.spotsLeft')}`}
+    </p>
+  ) : null;
 
   const visibility = event?.roundsVisibility ?? 'sequential';
   const buyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
@@ -1013,6 +1031,7 @@ export default function EventDetails() {
                     <p className="font-mono mt-1" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em', lineHeight: 1.35 }}>
                       {freeBeforeLabel ?? t('guestList.listOpen')}
                     </p>
+                    {glScarcityLine}
                   </div>
                   <span className="flex items-center gap-1.5 shrink-0">
                     <span className="font-display font-bold text-white" style={{ fontSize: '19px', letterSpacing: '-0.02em' }}>
@@ -1142,6 +1161,8 @@ export default function EventDetails() {
                   </span>
                 </div>
               )}
+
+              {glScarcityLine && <div className="mt-3">{glScarcityLine}</div>}
 
               {/* CTA pleine largeur : « S'inscrire gratuitement » ne tient pas
                   dans la colonne résiduelle d'une ligne à deux colonnes — le
