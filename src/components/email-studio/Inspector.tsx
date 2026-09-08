@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import {
-  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, Italic, Link2, Lock,
-  MousePointer, PanelBottom, Plus, RefreshCw, Strikethrough, Trash2, Underline, Zap,
+  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, EyeOff, Italic, Link2, Lock,
+  MousePointer, PanelBottom, Plus, RefreshCw, Strikethrough, Trash2, Underline, Users, Zap,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ImageUploader from '@/components/campaigns/ImageUploader';
@@ -11,7 +11,7 @@ import type {
   LiveData, SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow,
   TicketsBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
-import { blockPadDefaults } from '@/lib/email';
+import { blockPadDefaults, BLOCK_COND_LABELS, BLOCK_CONDS } from '@/lib/email';
 import { useStudio } from './store';
 import type { StudioEvent } from './hooks';
 import { blockMeta, FOOTER_SELECTION_ID } from './meta';
@@ -19,6 +19,9 @@ import {
   BORDER, FONT_UI, Help, IconBtn, MicroLabel, MONO, OptionPills, PanelCard, POS,
   RED, SUBTLE, T1, T3, TextArea, TextInput, ToggleRow, inputStyle,
 } from './ui';
+
+/** Or VIP — même signal que le rendu : ambre = restriction / rareté. */
+const GOLD = '#F2B23C';
 
 interface Props {
   events: StudioEvent[];
@@ -83,6 +86,8 @@ export default function Inspector({ events, live, bucketFolder, brand }: Props) 
           <Trash2 size={13} strokeWidth={1.75} />
         </IconBtn>
       </div>
+
+      <BlockVisibility block={block} patch={patch} />
 
       <BlockFields block={block} patch={patch} events={events} live={live} bucketFolder={bucketFolder} brand={brand} />
 
@@ -431,6 +436,65 @@ function Banner({ tone, icon, children }: { tone: 'green' | 'red'; icon: React.R
       {icon}
       <span style={{ color: 'rgba(255,255,255,0.58)', fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{children}</span>
     </div>
+  );
+}
+
+/**
+ * Règle de visibilité du bloc — posée EN HAUT du panneau, avant tout réglage
+ * de contenu.
+ *
+ * Elle vivait dans l'onglet Données, sous les variables : un bloc pouvait donc
+ * être invisible pour la quasi-totalité d'une liste sans que personne ne le
+ * voie en le composant. C'est le réglage qui décide QUI lit le bloc — il passe
+ * donc avant la couleur du bouton. Restreint, il se signale en ambre : c'est
+ * un état qui se choisit, pas un état qu'on subit.
+ */
+function BlockVisibility({ block, patch }: {
+  block: EmailBlock; patch: (p: Partial<EmailBlock>) => void;
+}) {
+  const { t } = useLanguage();
+  const current = block.cond || null;
+  const restricted = !!current;
+  return (
+    <PanelCard style={{
+      gap: 9,
+      background: restricted ? 'rgba(242,178,60,0.07)' : undefined,
+      border: restricted ? '1px solid rgba(242,178,60,0.3)' : undefined,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {restricted
+          ? <EyeOff size={13} strokeWidth={1.75} style={{ color: GOLD, flex: 'none' }} />
+          : <Users size={13} strokeWidth={1.75} style={{ color: T3, flex: 'none' }} />}
+        <MicroLabel style={{ margin: 0 }}>{t('studio.inspector.visibility')}</MicroLabel>
+      </div>
+      {restricted && (
+        <div style={{
+          fontSize: 11.5, lineHeight: 1.5, color: '#f0c987', fontFamily: FONT_UI,
+        }}>{t('studio.inspector.visibilityWarn')}</div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {[null, ...BLOCK_CONDS].map((cond) => {
+          const active = current === cond;
+          return (
+            <button
+              key={cond ?? 'all'} type="button" aria-pressed={active}
+              onClick={() => patch({ cond })}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 10,
+                cursor: 'pointer', fontSize: 12, textAlign: 'left', fontFamily: FONT_UI,
+                color: active ? T1 : T3,
+                background: active ? (cond ? 'rgba(242,178,60,0.14)' : 'rgba(232,25,44,0.09)') : SUBTLE,
+                border: `1px solid ${active ? (cond ? 'rgba(242,178,60,0.4)' : 'rgba(232,25,44,0.25)') : BORDER}`,
+              }}
+            >
+              {cond ? <EyeOff size={13} strokeWidth={1.75} /> : <Users size={13} strokeWidth={1.75} />}
+              {cond === null ? t('studio.data.condAlways') : BLOCK_COND_LABELS[cond]}
+            </button>
+          );
+        })}
+      </div>
+      <Help>{t('studio.inspector.visibilityHelp')}</Help>
+    </PanelCard>
   );
 }
 

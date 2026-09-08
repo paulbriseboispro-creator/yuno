@@ -58,35 +58,11 @@ export default function DataPanel({ scope }: { scope: StudioScope }) {
         <Help>{t('studio.data.variablesHelp')}</Help>
       </PanelCard>
 
-      {/* Règle de visibilité du bloc sélectionné */}
-      {selected && (
-        <PanelCard style={{ gap: 9 }}>
-          <MicroLabel>
-            {t('studio.data.condTitle').replace('{block}', t(blockMeta(selected.type).labelKey))}
-          </MicroLabel>
-          {[null, ...BLOCK_CONDS].map((cond) => {
-            const active = (selected.cond || null) === cond;
-            return (
-              <button
-                key={cond ?? 'all'} type="button"
-                onClick={() => updateBlock(selected.id, { cond })}
-                aria-pressed={active}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 10,
-                  cursor: 'pointer', fontSize: 12, textAlign: 'left', fontFamily: FONT_UI,
-                  color: active ? T1 : T2,
-                  background: active ? 'rgba(232,25,44,0.09)' : SUBTLE,
-                  border: `1px solid ${active ? 'rgba(232,25,44,0.25)' : BORDER}`,
-                }}
-              >
-                <Users size={13} strokeWidth={1.75} />
-                {cond === null ? t('studio.data.condAlways') : BLOCK_COND_LABELS[cond as BlockCond]}
-              </button>
-            );
-          })}
-          <Help>{t('studio.data.condHelp')}</Help>
-        </PanelCard>
-      )}
+      {/* La règle de visibilité a rejoint le HAUT du panneau de bloc : c'est
+          elle qui décide QUI lit le bloc, elle ne pouvait pas rester sous les
+          variables d'un autre onglet. Un même réglage à deux endroits fait
+          douter de celui qui fait foi — il n'y en a plus qu'un.
+          Voir BlockVisibility (Inspector.tsx). */}
 
       {/* A/B d'objet */}
       <PanelCard style={{ gap: 11 }}>
