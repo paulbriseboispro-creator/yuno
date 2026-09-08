@@ -544,6 +544,43 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   17,5 Mo du zip (une seule faisait 1440 × 67 221 px). Après conversion :
   1,9 Mo, zip à 8,3 Mo. Le SW web, lui, ignore déjà `help/**` (`globIgnores`).
 
+## Tracking super admin — la démo n'est pas un chiffre (2026-09-08)
+
+Le dashboard `/admin` agrégeait TOUT : au 08/09 il affichait 261 811 € dont
+**pas un centime réel** (aucune session `cs_live_` dans la base). Les clubs de
+test ont été purgés, mais le club démo `womber` et les orgas démo — qu'on garde,
+le reviewer Apple et les captures produit en dépendent — portent à eux seuls
+~258 000 € de faux revenus. La démo se retire donc du CALCUL, jamais de la base.
+
+- **Porte unique** : `is_demo_email()` (`@womber.fr`, `vitrine+…@yunoapp.eu`,
+  `deleted-…@deleted.local`), `demo_venue_ids()`, `demo_event_ids()`
+  (migration `20260908170000`). Toute surface de tracking super admin la
+  traverse — SQL comme front. Ne jamais réécrire le test « est-ce de la démo ? »
+  ailleurs : c'est ce qui a produit 262 k€ de faux chiffres.
+- **Un client est quelqu'un qui est VENU, pas quelqu'un qui a payé.**
+  `_admin_customer_activity()` (nouveau) = ventes payées ∪ guest list
+  (`amount 0`, `is_paid false`, catégorie `guestlist`) ; `_admin_paid_activity()`
+  n'en est plus qu'une vue filtrée. Sur une soirée sans billetterie, la guest
+  list est la SEULE trace d'une venue : la plateforme comptait 0 client là où
+  elle en a 9. Récence, fréquence et nuits comptent toute l'activité ; les
+  montants (LTV, panier moyen, tier) ne comptent que le payé — une entrée
+  gratuite ne doit jamais diluer un panier.
+- **Les inscriptions sont une métrique suivie** : `admin_signup_stats()`
+  (total, clients vs pros, 7 j / 30 j / 30 j précédents, par jour, par mois).
+  Elle exclut la démo ET les profils orphelins — une ligne `profiles` sans
+  `auth.users` n'est plus un compte (voir `docs/ORPHAN_PROFILES.md`).
+  Ne pas revenir à un `count(*)` brut sur `profiles`.
+- **La porte s'évalue UNE fois par requête, jamais par ligne.** Posées dans un
+  `WHERE … = ANY(fonction())`, ces fonctions STABLE sont rappelées à chaque
+  ligne : `_admin_customer_activity()` mettait **32 s** avant `20260908180000`,
+  **193 ms** après. Toute nouvelle surface qui filtre la démo doit passer par un
+  CTE `WITH d AS MATERIALIZED (SELECT demo_venue_ids() AS dv, demo_event_ids()
+  AS de)` joint en CROSS JOIN — jamais l'appel nu dans le prédicat.
+- **`_purge_venue` est orphan-safe depuis `20260908160000`** : l'`UPDATE
+  profiles SET mfa_enabled=false` revalidait `profiles_id_fkey` et levait
+  `23503` quand le propriétaire était un profil orphelin — un club orphelin
+  était alors impurgeable, y compris par le cron J+60.
+
 ## CRM club v2 (segments, attribution, automations — 2026-08-28)
 
 - **Le scoring RFM vit dans `_venue_customer_rfm` (SQL) et NULLE PART ailleurs.**
