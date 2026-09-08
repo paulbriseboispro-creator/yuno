@@ -584,6 +584,29 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
 - **Export audience pub** (`export_venue_ad_audience`) : contacts CONSENTANTS
   uniquement (opt-in newsletter ∪ SMS), gate owner — jamais la base brute.
 
+## Import unifié + segmentation intelligente (club + organisateur — 2026-09-08)
+
+Doc complète : `docs/CONTACT_INTELLIGENCE.md`. Règles intouchables :
+
+- **Un seul dialogue d'import** (`ContactImportDialog`, pages Campagnes email
+  ET SMS) : un fichier alimente les deux canaux via `import_contact_list`, qui
+  APPELLE `import_email_contacts` et `import_sms_contacts`. Ne jamais écrire
+  dans `newsletter_subscriptions` / `venue_sms_contacts` depuis l'import unifié,
+  ne jamais recréer un dialogue par canal.
+- **`imported_contacts` = matière, jamais consentement.** Les résolveurs
+  (`count_contact_segment_def`, kind email `contact_segment`, type SMS
+  `contact_segment`) n'atteignent que l'opt-in newsletter non supprimé et le
+  numéro consenti < 36 mois sans STOP.
+- **`contact_segments` vaut aux DEUX portées** (contrairement à
+  `venue_segments`). Définition jsonb v1 résolue à l'envoi par
+  `contact_row_matches` ; condition inconnue ⇒ FAUX.
+- **L'analyse (`analyze_contact_lists`) est déterministe, sans IA, scope-wide** :
+  ≥ 10 personnes par proposition, couverture ≥ 30 % de la donnée. Le libellé et
+  la raison sont traduits côté front (`describeSuggestion`, clés `cseg.sug.*`)
+  et le nom traduit est ce qui est stocké ; `suggestion_key` reste stable.
+- Une personne présente dans plusieurs fichiers = sa ligne la plus récente
+  (`contact_rows`), à date égale la plus renseignée.
+
 ## SMS marketing (club + organisateur — 2026-09-07)
 
 Doc complète + runbook de mise en service : `docs/SMS_MARKETING.md`. Règles
