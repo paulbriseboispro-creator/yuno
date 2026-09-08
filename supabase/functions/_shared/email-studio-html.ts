@@ -29,6 +29,9 @@ export interface StudioSocialLinks {
 
 export interface StudioTicketRow { n: string; s: string; p: string; out: boolean }
 
+/** Formule de table telle qu'elle se lit dans l'email (miroir de TablePackRow). */
+export interface StudioTablePackRow { n: string; s: string; p: string }
+
 export interface StudioLiveEventData {
   title: string; startAt: string; dateLabel: string; venueLabel: string;
   coverUrl?: string | null; url: string; priceFromLabel?: string | null;
@@ -37,6 +40,12 @@ export interface StudioLiveEventData {
   /** true = la seule entrée publique est une liste invités gratuite. */
   guestListOnly?: boolean;
   tablesLeft?: number | null;
+  /**
+   * Formules de table de la soirée, relues dans `table_packs` au rendu.
+   * `undefined` = non résolu (le bloc garde ses formules figées), tableau
+   * vide = aucune formule ouverte.
+   */
+  tablePacks?: StudioTablePackRow[];
   /**
    * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
    * défaut), résolus à l'envoi seulement. `trackedUrl` mène à la page de la
@@ -514,24 +523,84 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     case 'table': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
       const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
-      const left = live?.tablesLeft;
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
-      const leftRow = typeof left === 'number' && left >= 0
-        ? `<p style="margin:0 0 10px;font-family:${FONT};font-size:12.5px;font-weight:700;color:${accent};">${left <= 0 ? 'Complet ce soir' : `${left} table${left > 1 ? 's' : ''} encore libre${left > 1 ? 's' : ''}`}</p>`
+      const layout = (b.layout as string) || 'showcase';
+      const align = (b.align as string) || 'left';
+      const left = live?.tablesLeft;
+      const soldOut = typeof left === 'number' && left <= 0;
+
+      const livePacks = b.livePacks !== false;
+      const packs: StudioTablePackRow[] = (livePacks && live?.tablePacks)
+        ? live.tablePacks
+        : ((b.packs as StudioTablePackRow[]) || []);
+      const showPacks = !soldOut && layout !== 'banner' && packs.length > 0;
+
+      const baseCard = theme.dark ? theme.tile : '#ffffff';
+      const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
+      const cardBorder = mixHex(accent, theme.divider, 0.42);
+      // Le bouton garde l'accent brut ; tout ce qui est TEXTE en accent passe
+      // par une teinte lisible sur SON fond (miroir de render.ts).
+      const inkOnCard = readableOn(accent, layout === 'minimal' ? (isHexColor(bg) ? bg : theme.card) : cardBg);
+      const inkOnPacks = readableOn(accent, baseCard);
+
+      const kicker = String((b.kicker as string) || TABLE_KICKER).trim();
+      const chip = typeof left === 'number' ? tableScarcityChip(left, theme, cardBg) : '';
+      const kickerHtml = (kicker || chip)
+        ? `<p style="margin:0 0 ${layout === 'minimal' ? 9 : 11}px;text-align:${align};">
+            ${kicker ? `<span style="font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${inkOnCard};">${esc(kicker)}</span>` : ''}
+            ${kicker && chip ? '&nbsp;&nbsp;' : ''}${chip}
+          </p>`
         : '';
-      const btn = buttonHtml({ href: url, label: (b.ctaLabel as string) || 'Réserver une table', bg: btnColors.bg, color: btnColors.color, radius: 6, full: false, ctx, small: true });
-      const cardBorder = theme.dark ? 'rgba(212,175,55,0.28)' : theme.divider;
-      const cardBg = theme.dark ? 'rgba(212,175,55,0.06)' : theme.tile;
+
+      const perksList = (b.perks as string[]) || [];
+      const titleSize = layout === 'banner' ? 24 : 22;
+      const title = `<h2 style="margin:0 0 ${b.sub ? 8 : 14}px;font-family:${FONT};font-size:${titleSize}px;line-height:${titleSize + 6}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${theme.text};text-align:${align};">${esc(interpolate((b.title as string) || '', ctx))}</h2>`;
+      const sub = b.sub
+        ? `<p style="margin:0 0 ${perksList.length || showPacks ? 16 : 18}px;font-family:${FONT};font-size:14.5px;line-height:22px;mso-line-height-rule:exactly;color:${theme.muted};text-align:${align};">${esc(interpolate((b.sub as string) || '', ctx))}</p>`
+        : '';
+
+      const perks = (!soldOut && layout !== 'banner' && perksList.length)
+        ? renderTablePerks(perksList, theme, inkOnCard, align)
+        : '';
+
+      const packsHtml = showPacks
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:10px;background:${baseCard};margin:0 0 18px;">
+            ${renderTablePackRows(packs, theme, inkOnPacks)}
+          </table>`
+        : '';
+
+      const full = typeof b.full === 'boolean' ? b.full : (layout !== 'minimal');
+      const btn = soldOut ? '' : buttonHtml({
+        href: url, label: (b.ctaLabel as string) || TABLE_CTA_LABEL,
+        bg: btnColors.bg, color: btnColors.color, radius: 10, full, ctx,
+      });
+      const btnHtml = btn ? `<div style="text-align:${align};">${btn}</div>` : '';
+      const note = (b.note && !soldOut)
+        ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${esc(interpolate((b.note as string) || '', ctx))}</p>`
+        : '';
+
+      const body = `${kickerHtml}${title}${sub}${perks}${packsHtml}${btnHtml}${note}`;
+
+      if (layout === 'minimal') {
+        return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+      }
+
+      const cover = (b.coverUrl && layout === 'showcase')
+        ? `<tr><td style="font-size:0;line-height:0;">
+            <img src="${esc(b.coverUrl as string)}" alt="${esc((b.title as string) || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;border-radius:14px 14px 0 0;" class="yn-img" />
+          </td></tr>`
+        : '';
+
+      const bannerBg = mixHex(accent, baseCard, theme.dark ? 0.18 : 0.10);
+      const shellBg = layout === 'banner' ? bannerBg : cardBg;
+      const shellBorder = layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : cardBorder;
+      const innerPad = layout === 'banner' ? '26px 24px' : '22px 20px';
+
       return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${cardBorder};border-radius:12px;background:${cardBg};">
-          <tr><td style="padding:18px;">
-            <p style="margin:0 0 8px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent};">${esc(b.kicker || 'Bottle service')}</p>
-            <h2 style="margin:0 0 6px;font-family:${FONT};font-size:17px;line-height:23px;mso-line-height-rule:exactly;font-weight:600;color:${theme.text};">${esc(interpolate((b.title as string) || '', ctx))}</h2>
-            <p style="margin:0 0 12px;font-family:${FONT};font-size:13.5px;line-height:1.6;color:${theme.muted};">${esc(interpolate((b.sub as string) || '', ctx))}</p>
-            ${leftRow}
-            ${btn}
-          </td></tr>
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${shellBorder};border-radius:14px;background:${shellBg};">
+          ${cover}
+          <tr><td style="padding:${innerPad};">${body}</td></tr>
         </table>`,
         `padding:${pad.py}px ${pad.px}px;background:${bg};`,
       );
@@ -707,6 +776,161 @@ function ticketsKicker(guestListOnly?: boolean): string {
 const SOLD_OUT_CHIP = 'ÉPUISÉ';
 
 /** true = le tarif est un MONTANT (miroir de isPricedRow, live.ts). */
+// ── Rendu du bloc Table VIP (miroir de render.ts) ────────────────────────────
+
+/** Or VIP — couleur du pilier tables. Sert ici au signal de RARETÉ. */
+const VIP_GOLD = '#F2B23C';
+/** Luminance relative WCAG d'une couleur hex (miroir de render.ts). */
+function relLuminance(hex: string): number {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(String(hex).trim());
+  if (!m) return 0;
+  const n = parseInt(m[1], 16);
+  const chan = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255);
+}
+
+function contrastRatio(a: string, b: string): number {
+  const la = relLuminance(a);
+  const lb = relLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/**
+ * Version LISIBLE d'une couleur d'accent sur un fond donné. L'or du pilier VIP
+ * tombe à 1,8:1 sur blanc : superbe en aplat de bouton, illisible en texte —
+ * et c'est le PRIX qui est écrit dedans. Miroir de readableOn (render.ts).
+ */
+function readableOn(color: string, bg: string, target = 4.5): string {
+  if (!isHexColor(color) || !isHexColor(bg)) return color;
+  if (contrastRatio(color, bg) >= target) return (color as string).trim();
+  const toward = relLuminance(bg) > 0.35 ? '#000000' : '#ffffff';
+  let out = (color as string).trim();
+  for (let step = 1; step <= 20; step++) {
+    out = mixHex(toward, color, step / 20);
+    if (contrastRatio(out, bg) >= target) return out;
+  }
+  return out;
+}
+
+/**
+ * Aplatit une couleur sur une autre. Outlook (moteur Word) efface un `rgba()`
+ * — on mélange donc nous-mêmes pour ne poser que des hex opaques.
+ */
+function mixHex(a: string, b: string, t: number): string {
+  const pa = /^#([0-9a-fA-F]{6})$/.exec(String(a).trim());
+  const pb = /^#([0-9a-fA-F]{6})$/.exec(String(b).trim());
+  if (!pa || !pb) return isHexColor(b) ? (b as string).trim() : String(b);
+  const na = parseInt(pa[1], 16);
+  const nb = parseInt(pb[1], 16);
+  const k = Math.max(0, Math.min(1, t));
+  const ch = (sh: number) => Math.round((((na >> sh) & 255) * k) + (((nb >> sh) & 255) * (1 - k)));
+  return `#${[16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Les FORMULES gardent leur lecture propre : nom à gauche, prix à droite. */
+function renderTablePackRows(rows: StudioTablePackRow[], theme: StudioTheme, accent: string): string {
+  return rows.map((r, i) => {
+    const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
+    return `
+    <tr>
+      <td valign="middle" style="padding:13px 16px;${sep}font-family:${FONT};">
+        <p style="margin:0;font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.01em;color:${theme.text};">${esc(r.n)}</p>
+        ${r.s ? `<p style="margin:4px 0 0;font-family:${MONO};font-size:11.5px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.02em;color:${theme.muted};">${esc(r.s)}</p>` : ''}
+      </td>
+      <td align="right" valign="middle" style="padding:13px 16px;${sep}white-space:nowrap;">
+        <span style="font-family:${FONT};font-size:17px;font-weight:800;letter-spacing:-0.02em;color:${accent};">${esc(r.p)}</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/**
+ * Arguments de vente. La coche est un caractère, pas une image : elle survit
+ * au blocage des images, qui est l'état par défaut de Gmail et d'Outlook.
+ * Paragraphes alignés plutôt que tableau : c'est ce qui permet à la liste de
+ * suivre l'alignement choisi pour le bloc.
+ */
+function renderTablePerks(perks: string[], theme: StudioTheme, accent: string, align: string): string {
+  const rows = perks
+    .map((raw) => String(raw || '').trim())
+    .filter(Boolean)
+    .map((text) => `<p style="margin:0 0 7px;font-family:${FONT};font-size:13.5px;line-height:19px;mso-line-height-rule:exactly;color:${theme.text};text-align:${align};"><span style="font-weight:800;color:${accent};">&#10003;</span>&nbsp;&nbsp;${esc(text)}</p>`)
+    .join('');
+  return rows ? `<div style="margin:0 0 16px;">${rows}</div>` : '';
+}
+
+/** Pastille de rareté — ambre quand il faut agir, grise quand c'est complet. */
+function tableScarcityChip(left: number, theme: StudioTheme, cardBg: string): string {
+  const complet = left <= 0;
+  const bg = complet ? theme.divider : mixHex(VIP_GOLD, cardBg, theme.dark ? 0.20 : 0.17);
+  const color = complet ? theme.muted : readableOn(VIP_GOLD, bg);
+  return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${bg};font-family:${MONO};font-size:10px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};">${esc(tablesLeftLabel(left))}</span>`;
+}
+
+// ── Pilier tables VIP (miroir de live.ts) ────────────────────────────────────
+
+export interface TablePackOffer {
+  name?: string | null;
+  base_price?: number | null;
+  base_capacity?: number | null;
+  included_bottles_quota?: number | null;
+  included_items?: string | null;
+  minimum_spend?: number | null;
+  payment_mode?: string | null;
+  position?: number | null;
+}
+
+const TABLE_ON_SITE_PRICE = 'Sur place';
+const TABLE_PACK_LIMIT = 3;
+const TABLE_SCARCITY_THRESHOLD = 3;
+const TABLE_KICKER = 'Bottle service';
+const TABLE_CTA_LABEL = 'Réserver une table';
+
+function tablePackSubtitle(p: TablePackOffer): string {
+  const bits: string[] = [];
+  const seats = Number(p.base_capacity || 0);
+  if (seats > 0) bits.push(`${seats} pers.`);
+  const bottles = Number(p.included_bottles_quota || 0);
+  if (bottles > 0) bits.push(`${bottles} bouteille${bottles > 1 ? 's' : ''} incluse${bottles > 1 ? 's' : ''}`);
+  const extras = String(p.included_items || '').trim();
+  if (extras) bits.push(extras);
+  return bits.join(' · ');
+}
+
+function tablePackPrice(p: TablePackOffer): string {
+  if (String(p.payment_mode || '') === 'on_site') return TABLE_ON_SITE_PRICE;
+  const base = Number(p.base_price || 0);
+  if (base > 0) return euro(base);
+  const min = Number(p.minimum_spend || 0);
+  if (min > 0) return `Min. ${euro(min)}`;
+  return TABLE_ON_SITE_PRICE;
+}
+
+export function buildTablePackRows(packs: TablePackOffer[]): StudioTablePackRow[] {
+  const priced = packs.map((p) => ({
+    p,
+    amount: String(p.payment_mode || '') === 'on_site'
+      ? Number.POSITIVE_INFINITY
+      : (Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY),
+  }));
+  priced.sort((a, b) => (a.amount - b.amount) || (Number(a.p.position || 0) - Number(b.p.position || 0)));
+  return priced.slice(0, TABLE_PACK_LIMIT).map(({ p }) => ({
+    n: String(p.name || 'Table'),
+    s: tablePackSubtitle(p),
+    p: tablePackPrice(p),
+  }));
+}
+
+function tablesLeftLabel(left: number): string {
+  if (left <= 0) return 'Complet';
+  if (left === 1) return 'Dernière table';
+  if (left <= TABLE_SCARCITY_THRESHOLD) return `Plus que ${left} tables`;
+  return `${left} tables disponibles`;
+}
+
 function isPricedRow(price: string): boolean {
   return /\d/.test(String(price || ''));
 }
@@ -835,11 +1059,20 @@ export async function fetchStudioLiveData(
     const needTables = blocks.some((b) => b.type === 'table');
     let packsByEvent = new Map<string, number>();
     let reservedByEvent = new Map<string, number>();
+    let packRowsByEvent = new Map<string, StudioTablePackRow[]>();
     if (needTables) {
+      // Périmètre explicite : les formules de CES soirées et celles des clubs
+      // concernés. Sans ce filtre la requête ramenait toutes les formules
+      // actives de la plateforme pour n'en garder qu'une poignée.
+      const packScope = [
+        `event_id.in.(${ids.join(',')})`,
+        venueIds.length ? `venue_id.in.(${venueIds.join(',')})` : '',
+      ].filter(Boolean).join(',');
       const { data: packs } = await admin
         .from('table_packs')
-        .select('event_id, venue_id, tables_count, is_active')
-        .eq('is_active', true);
+        .select('event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
+        .eq('is_active', true)
+        .or(packScope);
       const { data: reservations } = await admin
         .from('table_reservations')
         .select('event_id, status')
@@ -847,15 +1080,19 @@ export async function fetchStudioLiveData(
         .in('status', ['paid', 'confirmed']);
       packsByEvent = new Map();
       reservedByEvent = new Map();
+      packRowsByEvent = new Map();
       for (const e of events || []) {
         const venueId = e.venue_id || e.partner_venue_id;
         let total = 0;
+        const mine: any[] = [];
         for (const p of packs || []) {
           if (p.event_id === e.id || (!p.event_id && venueId && p.venue_id === venueId)) {
             total += Number(p.tables_count || 0);
+            mine.push(p);
           }
         }
         packsByEvent.set(e.id, total);
+        packRowsByEvent.set(e.id, buildTablePackRows(mine));
       }
       for (const r of reservations || []) {
         reservedByEvent.set(r.event_id, (reservedByEvent.get(r.event_id) || 0) + 1);
@@ -905,6 +1142,7 @@ export async function fetchStudioLiveData(
         tickets,
         guestListOnly,
         tablesLeft,
+        tablePacks: needTables ? (packRowsByEvent.get(e.id) || []) : undefined,
       };
     }
   } catch (e) {
