@@ -125,6 +125,10 @@ export interface TicketsBlock extends BlockBase {
  * même grammaire, nom à gauche, prix à droite.
  */
 export interface TablePackRow {
+  /** Id de `table_packs` — présent sur les lignes LIVE seulement (les
+   *  formules écrites à la main n'en ont pas). Sert à masquer une formule
+   *  précise sans dépendre de son nom, qui peut changer. */
+  id?: string;
   /** Nom de la formule (« Carré Prestige »). */
   n: string;
   /** Ce que la formule contient (« 6 à 8 pers. · 2 bouteilles »). */
@@ -171,6 +175,13 @@ export interface TableBlock extends BlockBase {
   packs?: TablePackRow[];
   /** true = les formules sont relues dans `table_packs` au moment de l'envoi. */
   livePacks?: boolean;
+  /**
+   * Formules LIVE que ce bloc ne montre pas (ids de `table_packs`). Vide ou
+   * absent = toute la carte du club part dans l'email : c'est le défaut, un
+   * client qui ne voit que trois formules sur huit croit que c'est tout ce
+   * qui existe. Le pro décroche celles qu'il ne veut pas pousser ce soir-là.
+   */
+  hiddenPacks?: string[];
   /**
    * Visuel du carré VIP, en tête de carte. Pas de hauteur réglable : les
    * clients mail ignorent object-fit, une hauteur imposée déformerait la
@@ -378,11 +389,12 @@ export interface RenderCtx {
 export type AudienceKind =
   | 'all_subscribers' | 'event_subscribers'
   | 'vip' | 'big_spenders' | 'regulars' | 'new_customers' | 'dormant'
-  | 'segment' | 'import'
+  | 'segment' | 'import' | 'contact_segment'
   | 'event_buyers' | 'event_table_buyers' | 'event_all_buyers';
 
 export interface AudienceSel {
   kind: AudienceKind;
+  /** kind 'segment' : venue_segments.id · kind 'contact_segment' : contact_segments.id (base importée, club ET organisateur). */
   segmentId?: string;
   /** kind 'import' : le lot d'import (email_list_imports.id) — un fichier = un segment. */
   importId?: string;

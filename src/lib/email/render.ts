@@ -513,7 +513,14 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   // (on garde les formules écrites à la main), tableau vide = aucune formule
   // ouverte. On ne vend jamais une formule que le club a fermée.
   const livePacks = b.livePacks !== false;
-  const packs = (livePacks && live?.tablePacks) ? live.tablePacks : (b.packs || []);
+  // Toute la carte part par défaut ; le pro décroche à la main les formules
+  // qu'il ne pousse pas ce soir-là (une carte tronquée d'office fait croire
+  // au client que le club n'a que ça à proposer).
+  const hidden = b.hiddenPacks || [];
+  const allPacks = (livePacks && live?.tablePacks) ? live.tablePacks : (b.packs || []);
+  const packs = hidden.length
+    ? allPacks.filter((p) => !p.id || !hidden.includes(p.id))
+    : allPacks;
   // Complet : ni tarifs ni bouton. Une carte qui affiche encore ses prix et
   // son bouton alors que tout est pris coûte plus de confiance qu'elle ne
   // rapporte de clics — et le « Complet » fait revenir sur la prochaine.

@@ -59,19 +59,36 @@ describe('tables VIP — formules et rareté', () => {
       .toBe('4 pers. · 1 bouteille incluse · service dédié');
   });
 
-  it('une table réglée sur place ne montre pas « 0 € »', () => {
-    expect(tablePackPrice({ payment_mode: 'on_site', base_price: 0 })).toBe('Sur place');
-    // À défaut de prix de base, c'est le minimum de consommation qui fait foi :
-    // c'est la somme que le client devra sortir.
+  it('le règlement au club est un ARGUMENT, jamais un prix', () => {
+    // Une table à 300 € réglée au club coûte 300 € : la page de réservation
+    // affiche ce montant, l'email ne peut pas dire autre chose.
+    expect(tablePackPrice({ payment_mode: 'on_site', base_price: 300 })).toBe('300 €');
+    expect(tablePackSubtitle({ base_capacity: 6, payment_mode: 'on_site' }))
+      .toBe('6 pers. · sans acompte');
+    // À défaut de prix de base, le minimum de consommation fait foi.
     expect(tablePackPrice({ base_price: 0, minimum_spend: 400 })).toBe('Min. 400 €');
+    // Aucun montant connu : on invite, on n'écrit pas « 0 € ».
+    expect(tablePackPrice({ base_price: 0 })).toBe('Sur demande');
   });
 
-  it('les formules sortent des moins chères aux plus chères, limitées à 3', () => {
+  it('TOUTES les formules sortent, des moins chères aux plus chères', () => {
     const rows = buildTablePackRows([
       { name: 'Loge', base_price: 900 }, { name: 'Carré', base_price: 250 },
       { name: 'Prestige', base_price: 450 }, { name: 'Suite', base_price: 2000 },
     ]);
-    expect(rows.map((r) => r.n)).toEqual(['Carré', 'Prestige', 'Loge']);
+    expect(rows.map((r) => r.n)).toEqual(['Carré', 'Prestige', 'Loge', 'Suite']);
+  });
+
+  it('le mode de règlement n’écrase plus le tri des prix', () => {
+    // Régression : « sur place » valait l'infini, donc trois formules à 300 /
+    // 600 / 900 € se retrouvaient à égalité et l'ordre partait au hasard.
+    const rows = buildTablePackRows([
+      { name: 'Premium', base_price: 900, payment_mode: 'on_site' },
+      { name: 'Plus', base_price: 600, payment_mode: 'on_site' },
+      { name: 'Simple', base_price: 300, payment_mode: 'on_site' },
+    ]);
+    expect(rows.map((r) => r.n)).toEqual(['Simple', 'Plus', 'Premium']);
+    expect(rows.map((r) => r.p)).toEqual(['300 €', '600 €', '900 €']);
   });
 
   it('la rareté presse sous le seuil et informe au-dessus', () => {
@@ -246,6 +263,27 @@ describe('blocs — un rendu par type', () => {
     expect(html).toContain('1 200 €');
     // Les formules d'exemple du bloc ne partent jamais quand la base répond.
     expect(html).not.toContain('Carré Prestige');
+  });
+
+  it('table : toute la carte part, sauf les formules décrochées', () => {
+    const packs = [
+      { id: 'p1', n: 'Dancefloor', s: '6 pers. · sans acompte', p: '300 €' },
+      { id: 'p2', n: 'Dancefloor Plus', s: '6 pers. · sans acompte', p: '600 €' },
+      { id: 'p3', n: 'Loge', s: '8 pers. · sans acompte', p: '900 €' },
+    ];
+    const live = { 'ev-1': { ...ctx.live!['ev-1'], tablePacks: packs } };
+    // Par défaut : tout. Un client qui ne voit que 2 formules sur 3 croit que
+    // c'est tout ce que le club propose.
+    const all = renderOne(makeBlock('table', { eventId: 'ev-1' }), { live });
+    expect(all).toContain('Dancefloor Plus');
+    expect(all).toContain('Loge');
+
+    const trimmed = renderOne(
+      { ...makeBlock('table', { eventId: 'ev-1' }), hiddenPacks: ['p2'] } as EmailBlock,
+      { live },
+    );
+    expect(trimmed).not.toContain('Dancefloor Plus');
+    expect(trimmed).toContain('Loge');
   });
 
   it('table : complet retire le bouton et les tarifs', () => {

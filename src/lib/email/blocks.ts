@@ -72,7 +72,11 @@ export function makeBlock(type: BlockType, ctx: MakeBlockCtx = {}): EmailBlock {
         ],
         livePacks: true,
         ctaLabel: 'Réserver une table',
-        note: 'Confirmation immédiate · acompte à la réservation',
+        // La note est une réassurance GLOBALE : elle ne peut pas parler
+        // d'acompte, puisque celui-ci dépend de chaque formule (une table
+        // réglée au club n'en a pas). Le fait vit dans la ligne de bénéfices
+        // de la formule concernée, pas ici — sinon la carte se contredit.
+        note: 'Confirmation immédiate',
         layout: 'showcase', align: 'left', full: true,
         // Or VIP : le pilier tables porte sa couleur dans tout Yuno (c'est
         // celle du pass Wallet d'une table). Un bouton or à côté du rouge de

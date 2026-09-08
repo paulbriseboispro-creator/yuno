@@ -30,7 +30,7 @@ export interface StudioSocialLinks {
 export interface StudioTicketRow { n: string; s: string; p: string; out: boolean }
 
 /** Formule de table telle qu'elle se lit dans l'email (miroir de TablePackRow). */
-export interface StudioTablePackRow { n: string; s: string; p: string }
+export interface StudioTablePackRow { id?: string; n: string; s: string; p: string }
 
 export interface StudioLiveEventData {
   title: string; startAt: string; dateLabel: string; venueLabel: string;
@@ -531,9 +531,15 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const soldOut = typeof left === 'number' && left <= 0;
 
       const livePacks = b.livePacks !== false;
-      const packs: StudioTablePackRow[] = (livePacks && live?.tablePacks)
+      // Toute la carte part par défaut ; le pro décroche les formules qu'il ne
+      // pousse pas ce soir-là (miroir de render.ts).
+      const hidden = (b.hiddenPacks as string[]) || [];
+      const allPacks: StudioTablePackRow[] = (livePacks && live?.tablePacks)
         ? live.tablePacks
         : ((b.packs as StudioTablePackRow[]) || []);
+      const packs = hidden.length
+        ? allPacks.filter((p) => !p.id || !hidden.includes(p.id))
+        : allPacks;
       const showPacks = !soldOut && layout !== 'banner' && packs.length > 0;
 
       const baseCard = theme.dark ? theme.tile : '#ffffff';
@@ -873,6 +879,7 @@ function tableScarcityChip(left: number, theme: StudioTheme, cardBg: string): st
 // ── Pilier tables VIP (miroir de live.ts) ────────────────────────────────────
 
 export interface TablePackOffer {
+  id?: string | null;
   name?: string | null;
   base_price?: number | null;
   base_capacity?: number | null;
@@ -883,8 +890,8 @@ export interface TablePackOffer {
   position?: number | null;
 }
 
-const TABLE_ON_SITE_PRICE = 'Sur place';
-const TABLE_PACK_LIMIT = 3;
+/** Mention « réglé au club » — un ARGUMENT, pas un prix (miroir de live.ts). */
+const TABLE_ON_SITE_NOTE = 'sans acompte';
 const TABLE_SCARCITY_THRESHOLD = 3;
 const TABLE_KICKER = 'Bottle service';
 const TABLE_CTA_LABEL = 'Réserver une table';
@@ -896,28 +903,32 @@ function tablePackSubtitle(p: TablePackOffer): string {
   const bottles = Number(p.included_bottles_quota || 0);
   if (bottles > 0) bits.push(`${bottles} bouteille${bottles > 1 ? 's' : ''} incluse${bottles > 1 ? 's' : ''}`);
   const extras = String(p.included_items || '').trim();
-  if (extras) bits.push(extras);
+  if (extras) bits.push(extras.toLowerCase());
+  if (String(p.payment_mode || '') === 'on_site') bits.push(TABLE_ON_SITE_NOTE);
   return bits.join(' · ');
 }
 
+/**
+ * Le PRIX, quel que soit le mode de règlement : une table à 300 € réglée au
+ * club coûte 300 €, et la page de réservation affiche ce montant.
+ */
 function tablePackPrice(p: TablePackOffer): string {
-  if (String(p.payment_mode || '') === 'on_site') return TABLE_ON_SITE_PRICE;
   const base = Number(p.base_price || 0);
   if (base > 0) return euro(base);
   const min = Number(p.minimum_spend || 0);
   if (min > 0) return `Min. ${euro(min)}`;
-  return TABLE_ON_SITE_PRICE;
+  return 'Sur demande';
 }
 
+/** TOUTES les formules, des moins chères aux plus chères (miroir de live.ts). */
 export function buildTablePackRows(packs: TablePackOffer[]): StudioTablePackRow[] {
   const priced = packs.map((p) => ({
     p,
-    amount: String(p.payment_mode || '') === 'on_site'
-      ? Number.POSITIVE_INFINITY
-      : (Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY),
+    amount: Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY,
   }));
   priced.sort((a, b) => (a.amount - b.amount) || (Number(a.p.position || 0) - Number(b.p.position || 0)));
-  return priced.slice(0, TABLE_PACK_LIMIT).map(({ p }) => ({
+  return priced.map(({ p }) => ({
+    id: p.id ? String(p.id) : undefined,
     n: String(p.name || 'Table'),
     s: tablePackSubtitle(p),
     p: tablePackPrice(p),
@@ -1070,7 +1081,7 @@ export async function fetchStudioLiveData(
       ].filter(Boolean).join(',');
       const { data: packs } = await admin
         .from('table_packs')
-        .select('event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
+        .select('id, event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
         .eq('is_active', true)
         .or(packScope);
       const { data: reservations } = await admin

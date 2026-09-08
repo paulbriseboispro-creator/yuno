@@ -124,6 +124,7 @@ export function soldOutSub(sub: string): string {
 
 /** Colonnes de `table_packs` nécessaires à une ligne de formule. */
 export interface TablePackOffer {
+  id?: string | null;
   name?: string | null;
   base_price?: number | null;
   base_capacity?: number | null;
@@ -134,13 +135,22 @@ export interface TablePackOffer {
   position?: number | null;
 }
 
-/** Règlement sur place : la table se réserve sans payer par Yuno. */
-export const TABLE_ON_SITE_PRICE = 'Sur place';
+/**
+ * Mention « réglé au club » — un ARGUMENT, pas un prix.
+ *
+ * Réserver une table réglée sur place passe quand même par Yuno : la résa est
+ * confirmée tout de suite, il n'y a simplement pas d'acompte à sortir. C'est
+ * exactement ce que dit la page de réservation (`tableCheckout.onSiteDesc`),
+ * et c'est un argument de vente. L'email l'écrit donc dans la ligne de
+ * bénéfices, jamais à la place du montant.
+ */
+export const TABLE_ON_SITE_NOTE = 'sans acompte';
 
 /**
- * Ce que la formule contient, en une ligne : le nombre de couverts puis les
- * bouteilles incluses, puis les extras du club. C'est la ligne qui VEND —
- * « 6 à 8 pers. · 2 bouteilles » dit en six mots ce qu'un paragraphe rate.
+ * Ce que la formule contient, en une ligne : le nombre de couverts, les
+ * bouteilles incluses, les extras du club, et « sans acompte » quand le
+ * règlement se fait au club. C'est la ligne qui VEND — « 6 pers. ·
+ * 2 bouteilles » dit en cinq mots ce qu'un paragraphe rate.
  */
 export function tablePackSubtitle(p: TablePackOffer): string {
   const bits: string[] = [];
@@ -149,41 +159,47 @@ export function tablePackSubtitle(p: TablePackOffer): string {
   const bottles = Number(p.included_bottles_quota || 0);
   if (bottles > 0) bits.push(`${bottles} bouteille${bottles > 1 ? 's' : ''} incluse${bottles > 1 ? 's' : ''}`);
   const extras = String(p.included_items || '').trim();
-  if (extras) bits.push(extras);
+  if (extras) bits.push(extras.toLowerCase());
+  if (String(p.payment_mode || '') === 'on_site') bits.push(TABLE_ON_SITE_NOTE);
   return bits.join(' · ');
 }
 
 /**
- * Prix d'une formule. Une table réglée sur place ne porte pas de montant Yuno
- * (ni acompte ni commission) : elle le dit, plutôt que d'afficher « 0 € ».
- * À défaut de prix de base, le minimum de consommation fait foi — c'est le
- * chiffre que le client devra sortir, donc celui qu'on lui doit.
+ * Prix d'une formule — le PRIX, quel que soit le mode de règlement.
+ *
+ * Une table à 300 € réglée au club coûte 300 €, et la page de réservation
+ * affiche bien ce montant. Masquer le chiffre parce que Yuno n'encaisse pas
+ * l'acompte enlevait au client la seule information qui lui permet de choisir,
+ * et renvoyait « sur place » — soit exactement l'inverse du but, qui est de le
+ * faire réserver SUR Yuno. À défaut de prix de base, le minimum de
+ * consommation fait foi : c'est la somme qu'il devra sortir.
  */
 export function tablePackPrice(p: TablePackOffer): string {
-  if (String(p.payment_mode || '') === 'on_site') return TABLE_ON_SITE_PRICE;
   const base = Number(p.base_price || 0);
   if (base > 0) return formatEuro(base);
   const min = Number(p.minimum_spend || 0);
   if (min > 0) return `Min. ${formatEuro(min)}`;
-  return TABLE_ON_SITE_PRICE;
+  // Aucun montant connu : on invite à réserver au lieu d'écrire « 0 € ».
+  return 'Sur demande';
 }
 
-/** Nombre de formules montrées dans l'email — au-delà on ne compare plus, on scrolle. */
-export const TABLE_PACK_LIMIT = 3;
-
 /**
- * Formules → lignes d'email : les moins chères d'abord (on entre dans l'offre
- * par le bas, pas par la loge à 2 000 €), limitées à TABLE_PACK_LIMIT.
+ * Formules → lignes d'email, TOUTES, des moins chères aux plus chères (on
+ * entre dans une offre par le bas, pas par la loge à 2 000 €). Le tri se fait
+ * sur le montant réel : un mode de règlement n'a jamais été un prix, et le
+ * traiter comme tel écrasait l'ordre et coupait les formules du haut de gamme.
+ *
+ * C'est le BLOC qui choisit lesquelles montrer (`hiddenPacks`) — pas ce
+ * calcul : le pro doit pouvoir décider, et pour décider il faut tout voir.
  */
 export function buildTablePackRows(packs: readonly TablePackOffer[]): TablePackRow[] {
   const priced = packs.map((p) => ({
     p,
-    amount: String(p.payment_mode || '') === 'on_site'
-      ? Number.POSITIVE_INFINITY
-      : (Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY),
+    amount: Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY,
   }));
   priced.sort((a, b) => (a.amount - b.amount) || (Number(a.p.position || 0) - Number(b.p.position || 0)));
-  return priced.slice(0, TABLE_PACK_LIMIT).map(({ p }) => ({
+  return priced.map(({ p }) => ({
+    id: p.id ? String(p.id) : undefined,
     n: String(p.name || 'Table'),
     s: tablePackSubtitle(p),
     p: tablePackPrice(p),
