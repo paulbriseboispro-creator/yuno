@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Search, Wine, Ticket, Armchair, RefreshCw, ShoppingCart, TrendingUp, RotateCcw, X, type LucideIcon } from 'lucide-react';
+import { Search, Wine, Ticket, Armchair, RefreshCw, ShoppingCart, TrendingUp, RotateCcw, X, FlaskConical, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -20,6 +19,23 @@ const F_BORDER    = 'rgba(255,255,255,0.055)';
 const INNER_BG    = 'rgba(255,255,255,0.032)';
 const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+// Une ligne, quel que soit l'onglet : `admin_orders_list` normalise les trois
+// tables (commande, billet, réservation) sous cette forme, libellés résolus
+// côté serveur.
+interface OrderRow {
+  id: string;
+  user_email: string | null;
+  full_name: string | null;
+  venue_id: string | null;
+  venue_name: string | null;
+  event_title: string | null;
+  zone_name: string | null;
+  amount: number;
+  status: string;
+  created_at: string;
+  items: unknown;
+}
 
 const PAGE_SIZE = 25;
 
@@ -56,13 +72,14 @@ export default function AdminOrders() {
   const [tab, setTab] = useState('drinks');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<OrderRow[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [venues, setVenues] = useState<Record<string, string>>({});
   const [kpis, setKpis] = useState({ total: 0, revenue: 0, refunds: 0 });
-  const [refundRow, setRefundRow] = useState<any | null>(null);
+  const [includeDemo, setIncludeDemo] = useState(false);
+  const [refundRow, setRefundRow] = useState<OrderRow | null>(null);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [refunding, setRefunding] = useState(false);
@@ -70,9 +87,9 @@ export default function AdminOrders() {
   // drinks tab → 'order' ; tickets → 'ticket' ; tables → 'table_reservation'
   const refundType = tab === 'drinks' ? 'order' : tab === 'tickets' ? 'ticket' : 'table_reservation';
 
-  const openRefund = (row: any) => {
+  const openRefund = (row: OrderRow) => {
     setRefundRow(row);
-    setRefundAmount(String(row.total ?? row.total_price ?? 0));
+    setRefundAmount(String(row.amount ?? 0));
     setRefundReason('');
   };
 
@@ -105,83 +122,36 @@ export default function AdminOrders() {
     });
   }, []);
 
-  // Load KPIs once per tab change
-  useEffect(() => {
-    const loadKpis = async () => {
-      if (tab === 'drinks') {
-        const [{ count: total }, { count: refunds }] = await Promise.all([
-          supabase.from('orders').select('id', { count: 'exact', head: true }),
-          supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'refunded'),
-        ]);
-        const { data: revData } = await supabase.from('orders').select('total, service_fee').in('status', ['paid', 'confirmed', 'served']);
-        const revenue = (revData || []).reduce((sum, o) => sum + orderClub(o).gross, 0);
-        setKpis({ total: total ?? 0, revenue, refunds: refunds ?? 0 });
-      } else if (tab === 'tickets') {
-        const [{ count: total }, { count: refunds }] = await Promise.all([
-          supabase.from('tickets').select('id', { count: 'exact', head: true }),
-          supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('status', 'refunded'),
-        ]);
-        const { data: revData } = await supabase.from('tickets').select('total_price, service_fee, insurance_fee').in('status', ['paid', 'confirmed']);
-        const revenue = (revData || []).reduce((sum, o) => sum + ticketClub(o).gross, 0);
-        setKpis({ total: total ?? 0, revenue, refunds: refunds ?? 0 });
-      } else {
-        const [{ count: total }, { count: refunds }] = await Promise.all([
-          supabase.from('table_reservations').select('id', { count: 'exact', head: true }),
-          supabase.from('table_reservations').select('id', { count: 'exact', head: true }).eq('status', 'refunded'),
-        ]);
-        const { data: revData } = await supabase.from('table_reservations').select('total_price, service_fee, management_fee').in('status', ['paid', 'confirmed']);
-        const revenue = (revData || []).reduce((sum, o) => sum + tableClub(o).gross, 0);
-        setKpis({ total: total ?? 0, revenue, refunds: refunds ?? 0 });
-      }
-    };
-    loadKpis();
-  }, [tab]);
-
+  // Liste ET compteurs viennent du même appel serveur. La démo est exclue par
+  // défaut : au 08/09 les 1 210 commandes, 2 616 billets et 84 réservations de
+  // cet écran venaient toutes du seed démo et de Stripe test. Le bouton
+  // « Démo » les rouvre — elles restent consultables, elles ne sont plus
+  // comptées comme du réel.
   const load = useCallback(async () => {
     setLoading(true);
-
-    if (tab === 'drinks') {
-      let query = supabase.from('orders').select('id, user_email, venue_id, total, status, created_at, items', { count: 'exact' });
-      if (search) query = query.ilike('user_email', `%${search}%`);
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-      const { data, count } = await query.order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      setData(data || []);
-      setCount(count ?? 0);
-    } else if (tab === 'tickets') {
-      let query = supabase.from('tickets').select('id, user_email, event_id, total_price, status, created_at, full_name', { count: 'exact' });
-      if (search) query = query.ilike('user_email', `%${search}%`);
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-      const { data: ticketData, count } = await query.order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      if (ticketData && ticketData.length > 0) {
-        const eventIds = [...new Set(ticketData.map(t => t.event_id))];
-        const { data: evts } = await supabase.from('events').select('id, title, venue_id').in('id', eventIds);
-        const evtMap = Object.fromEntries((evts || []).map(e => [e.id, e]));
-        setData(ticketData.map(t => ({ ...t, eventTitle: evtMap[t.event_id]?.title, venue_id: evtMap[t.event_id]?.venue_id })));
-      } else {
-        setData([]);
-      }
-      setCount(count ?? 0);
-    } else {
-      let query = supabase.from('table_reservations').select('id, user_email, full_name, zone_id, total_price, status, created_at, event_id', { count: 'exact' });
-      if (search) query = query.ilike('user_email', `%${search}%`);
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-      const { data: tableData, count } = await query.order('created_at', { ascending: false }).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      if (tableData && tableData.length > 0) {
-        const zoneIds = [...new Set(tableData.map(t => t.zone_id))];
-        const { data: zones } = await supabase.from('table_zones').select('id, name, venue_id').in('id', zoneIds);
-        const zoneMap = Object.fromEntries((zones || []).map(z => [z.id, z]));
-        setData(tableData.map(t => ({ ...t, zoneName: zoneMap[t.zone_id]?.name, venue_id: zoneMap[t.zone_id]?.venue_id })));
-      } else {
-        setData([]);
-      }
-      setCount(count ?? 0);
-    }
-
+    const { data, error } = await supabase.rpc('admin_orders_list', {
+      p_kind: tab,
+      p_search: search || null,
+      p_status: statusFilter === 'all' ? null : statusFilter,
+      p_limit: PAGE_SIZE,
+      p_offset: page * PAGE_SIZE,
+      p_include_demo: includeDemo,
+    });
+    if (error) console.error('[AdminOrders] list error', error);
+    const payload = data as unknown as
+      { total: number; revenue: number; refunds: number; rows: OrderRow[] } | null;
+    setData(payload?.rows ?? []);
+    setCount(payload?.total ?? 0);
+    setKpis({
+      total: payload?.total ?? 0,
+      revenue: Number(payload?.revenue ?? 0),
+      refunds: payload?.refunds ?? 0,
+    });
     setLoading(false);
-  }, [tab, search, statusFilter, page]);
+  }, [tab, search, statusFilter, page, includeDemo]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(0); }, [tab, search, statusFilter]);
+  useEffect(() => { setPage(0); }, [tab, search, statusFilter, includeDemo]);
 
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
@@ -287,6 +257,18 @@ export default function AdminOrders() {
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
             {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
           </select>
+          {/* La démo reste consultable, elle n'est simplement plus comptée. */}
+          <button
+            onClick={() => setIncludeDemo(v => !v)}
+            title={t('admin.orders.demoHint')}
+            className="inline-flex items-center gap-1.5 rounded-xl cursor-pointer transition-all duration-150"
+            style={includeDemo
+              ? { padding: '0 12px', height: 38, background: RED, color: '#fff', border: '1px solid transparent', fontSize: 12.5, fontWeight: 600 }
+              : { padding: '0 12px', height: 38, background: INNER_BG, color: T3, border: `1px solid ${BORDER}`, fontSize: 12.5, fontWeight: 600 }}
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            {t('admin.orders.demoToggle')}
+          </button>
           <button
             onClick={load}
             className="inline-flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
@@ -295,6 +277,9 @@ export default function AdminOrders() {
             <RefreshCw className="h-4 w-4" />
           </button>
           <span style={{ color: T3, fontSize: 13 }} className="tabular-nums">{count} {t('admin.orders.results')}</span>
+          {!includeDemo && (
+            <span style={{ color: T3, fontSize: 12 }}>{t('admin.orders.demoExcluded')}</span>
+          )}
         </div>
 
         {/* Table */}
@@ -329,10 +314,10 @@ export default function AdminOrders() {
                   <tr key={item.id} style={{ borderBottom: index < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
                     <td className="px-4 py-3 max-w-[180px] truncate" style={{ color: T1 }}>{item.user_email || '—'}</td>
                     {(tab === 'tickets' || tab === 'tables') && <td className="px-4 py-3" style={{ color: T2 }}>{item.full_name || '—'}</td>}
-                    <td className="px-4 py-3" style={{ color: T2 }}>{venues[item.venue_id] || '—'}</td>
-                    {tab === 'tickets' && <td className="px-4 py-3" style={{ color: T2 }}>{item.eventTitle || '—'}</td>}
-                    {tab === 'tables' && <td className="px-4 py-3" style={{ color: T2 }}>{item.zoneName || '—'}</td>}
-                    <td className="px-4 py-3 text-right tabular-nums font-[620]" style={{ color: T1 }}>{fmtEur(item.total || item.total_price || 0)}</td>
+                    <td className="px-4 py-3" style={{ color: T2 }}>{item.venue_name || venues[item.venue_id] || '—'}</td>
+                    {tab === 'tickets' && <td className="px-4 py-3" style={{ color: T2 }}>{item.event_title || '—'}</td>}
+                    {tab === 'tables' && <td className="px-4 py-3" style={{ color: T2 }}>{item.zone_name || '—'}</td>}
+                    <td className="px-4 py-3 text-right tabular-nums font-[620]" style={{ color: T1 }}>{fmtEur(item.amount ?? 0)}</td>
                     <td className="px-4 py-3"><StatusPill status={item.status} /></td>
                     <td className="px-4 py-3 tabular-nums" style={{ color: T3 }}>{format(new Date(item.created_at), 'dd/MM/yy HH:mm')}</td>
                     <td className="px-4 py-3 text-right">
@@ -381,7 +366,7 @@ export default function AdminOrders() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Rembourser</h2>
-                <p style={{ color: T3, fontSize: 12.5, marginTop: 2 }}>{refundRow.user_email || '—'} · {venues[refundRow.venue_id] || '—'}</p>
+                <p style={{ color: T3, fontSize: 12.5, marginTop: 2 }}>{refundRow.user_email || '—'} · {refundRow.venue_name || venues[refundRow.venue_id] || '—'}</p>
               </div>
               <button onClick={() => !refunding && setRefundRow(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: T3 }}>
                 <X className="h-5 w-5" />
@@ -390,7 +375,7 @@ export default function AdminOrders() {
 
             <div className="rounded-xl p-3 mb-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <p style={{ color: T3, fontSize: 11.5 }}>Montant payé</p>
-              <p className="tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 640 }}>{fmtEur(refundRow.total ?? refundRow.total_price ?? 0)}</p>
+              <p className="tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 640 }}>{fmtEur(refundRow.amount ?? 0)}</p>
             </div>
 
             <label style={{ color: T2, fontSize: 12.5, fontWeight: 560, display: 'block', marginBottom: 6 }}>Montant à rembourser (€)</label>

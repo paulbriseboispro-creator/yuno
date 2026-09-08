@@ -576,6 +576,11 @@ le reviewer Apple et les captures produit en dépendent — portent à eux seuls
   **193 ms** après. Toute nouvelle surface qui filtre la démo doit passer par un
   CTE `WITH d AS MATERIALIZED (SELECT demo_venue_ids() AS dv, demo_event_ids()
   AS de)` joint en CROSS JOIN — jamais l'appel nu dans le prédicat.
+- **L'onglet Commandes passe par `admin_orders_list`** (`20260908200000`) :
+  liste, compteurs et pagination côté serveur pour les trois piliers, démo
+  exclue par défaut, bouton « Démo » pour la rouvrir. Filtrer côté client était
+  exclu — exclure 105 soirées démo par `not.in.(…)` dans une URL PostgREST casse
+  dès que le club démo grossit.
 - **CRM client (`20260908190000`→`192000`).** `_admin_customer_identity(email)`
   est la porte unique de l'identité : elle rend UNE ligne par email — le profil
   VIVANT gagne sur le profil orphelin, puis le plus récent. La jointure directe
