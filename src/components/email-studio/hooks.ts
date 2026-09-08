@@ -116,7 +116,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       ].filter(Boolean).join(',');
       const [{ data: packs }, { data: reservations }] = await Promise.all([
         supabase.from('table_packs')
-          .select('event_id,venue_id,tables_count,name,base_price,base_capacity,included_bottles_quota,included_items,minimum_spend,payment_mode,position')
+          .select('id,event_id,venue_id,tables_count,name,base_price,base_capacity,included_bottles_quota,included_items,minimum_spend,payment_mode,position')
           .eq('is_active', true)
           .or(packScope),
         supabase.from('table_reservations')
@@ -301,6 +301,39 @@ export function useImportedLists(scope: StudioScope): {
   }, []);
 
   return { lists, rename };
+}
+
+
+export interface ContactSegmentLite {
+  id: string;
+  name: string;
+  description: string | null;
+  /** Emails RÉELLEMENT joignables (opt-in newsletter, non supprimés). */
+  emails: number;
+}
+
+/**
+ * Segments intelligents sur la base importée (contact_segments) — disponibles
+ * aux DEUX portées. L'effectif email vient du serveur (`count_contact_segment_def`
+ * via la vue d'ensemble) : c'est le nombre que le pro obtiendra à l'envoi.
+ */
+export function useContactSegments(scope: StudioScope, refreshKey = 0): ContactSegmentLite[] {
+  const [segments, setSegments] = useState<ContactSegmentLite[]>([]);
+  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('get_contact_intelligence_overview' as never, {
+        p_venue_id: scope.kind === 'venue' ? scopeId : null,
+        p_organizer_user_id: scope.kind === 'organizer' ? scopeId : null,
+      } as never);
+      if (cancelled) return;
+      const rows = (((data as unknown) as { segments?: Array<{ id: string; name: string; description: string | null; counts: { emails: number } }> } | null)?.segments) || [];
+      setSegments(rows.map((r) => ({ id: r.id, name: r.name, description: r.description, emails: Number(r.counts?.emails || 0) })));
+    })();
+    return () => { cancelled = true; };
+  }, [scope.kind, scopeId, refreshKey]);
+  return segments;
 }
 
 

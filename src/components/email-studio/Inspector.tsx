@@ -8,8 +8,8 @@ import ImageUploader from '@/components/campaigns/ImageUploader';
 import ColorField from '@/components/campaigns/ColorField';
 import type {
   CtaBlock, EmailBlock, EventBlock, HeaderBlock, HtmlBlock, ImageBlock,
-  SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow, TicketsBlock,
-  ColumnsBlock, CountdownBlock,
+  LiveData, SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow,
+  TicketsBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
 import { blockPadDefaults } from '@/lib/email';
 import { useStudio } from './store';
@@ -22,13 +22,15 @@ import {
 
 interface Props {
   events: StudioEvent[];
+  /** Données live des soirées — le bloc Table y lit les vraies formules. */
+  live: LiveData;
   bucketFolder: string;
   /** Marque du compte (club / organisateur) héritée par le bloc header. */
   brand: { name: string; logoUrl?: string | null };
 }
 
 /** Inspecteur contextuel — champs selon le type du bloc sélectionné. */
-export default function Inspector({ events, bucketFolder, brand }: Props) {
+export default function Inspector({ events, live, bucketFolder, brand }: Props) {
   const { t } = useLanguage();
   const blocks = useStudio((s) => s.campaign.blocks);
   const selectedId = useStudio((s) => s.selectedId);
@@ -82,7 +84,7 @@ export default function Inspector({ events, bucketFolder, brand }: Props) {
         </IconBtn>
       </div>
 
-      <BlockFields block={block} patch={patch} events={events} bucketFolder={bucketFolder} brand={brand} />
+      <BlockFields block={block} patch={patch} events={events} live={live} bucketFolder={bucketFolder} brand={brand} />
 
       {/* Espacement & fond — commun à tous les blocs (prototype).
           0 = aucune marge : les blocs s'enchaînent collés. Les défauts sont
@@ -432,9 +434,10 @@ function Banner({ tone, icon, children }: { tone: 'green' | 'red'; icon: React.R
   );
 }
 
-function BlockFields({ block, patch, events, bucketFolder, brand }: {
+function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
   block: EmailBlock; patch: (p: Partial<EmailBlock>) => void;
-  events: StudioEvent[]; bucketFolder: string; brand: { name: string; logoUrl?: string | null };
+  events: StudioEvent[]; live: LiveData; bucketFolder: string;
+  brand: { name: string; logoUrl?: string | null };
 }) {
   const { t } = useLanguage();
   const setSocialLinks = useStudio((s) => s.setSocialLinks);
@@ -640,6 +643,11 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
       // Les formules live remplacent les lignes figées dès qu'une soirée est
       // reliée : on ne propose de les écrire à la main que si elles serviront.
       const packsAreLive = b.livePacks !== false && !!(b.eventId || campaignEventId);
+      // Formules réelles de la soirée : c'est la liste que le pro décroche.
+      // Sans id (formules écrites à la main) il n'y a rien à décrocher.
+      const livePacks = (live[b.eventId || campaignEventId || '']?.tablePacks || [])
+        .filter((row) => !!row.id);
+      const hiddenPacks = b.hiddenPacks || [];
       return (
         <>
           <PanelCard>
@@ -704,9 +712,29 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
               label={t('studio.inspector.tablePacksLive')}
             />
             {packsAreLive ? (
-              <Banner tone="red" icon={<Zap size={13} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />}>
-                {t('studio.inspector.tableLive')}
-              </Banner>
+              <>
+                <Banner tone="red" icon={<Zap size={13} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />}>
+                  {t('studio.inspector.tableLive')}
+                </Banner>
+                {livePacks.length > 0 && (
+                  <>
+                    <MicroLabel>{t('studio.inspector.tablePacksShown')}</MicroLabel>
+                    <Help>{t('studio.inspector.tablePacksShownHelp')}</Help>
+                    {livePacks.map((row) => (
+                      <ToggleRow
+                        key={row.id}
+                        checked={!hiddenPacks.includes(row.id!)}
+                        onChange={(v) => patch({
+                          hiddenPacks: v
+                            ? hiddenPacks.filter((id) => id !== row.id)
+                            : [...hiddenPacks, row.id!],
+                        })}
+                        label={`${row.n} — ${row.p}`}
+                      />
+                    ))}
+                  </>
+                )}
+              </>
             ) : (
               <>
                 <Help>{t('studio.inspector.tablePacksHelp')}</Help>

@@ -22,7 +22,9 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
   const soldOut = typeof left === 'number' && left <= 0;
 
   const livePacks = block.livePacks !== false;
-  const packs: TablePackRow[] = (livePacks && live?.tablePacks) ? live.tablePacks : (block.packs || []);
+  const hidden = block.hiddenPacks || [];
+  const allPacks: TablePackRow[] = (livePacks && live?.tablePacks) ? live.tablePacks : (block.packs || []);
+  const packs = hidden.length ? allPacks.filter((p) => !p.id || !hidden.includes(p.id)) : allPacks;
   const showPacks = !soldOut && layout !== 'banner' && packs.length > 0;
 
   const baseCard = theme.dark ? theme.tile : '#ffffff';
