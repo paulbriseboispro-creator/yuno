@@ -576,6 +576,27 @@ le reviewer Apple et les captures produit en dépendent — portent à eux seuls
   **193 ms** après. Toute nouvelle surface qui filtre la démo doit passer par un
   CTE `WITH d AS MATERIALIZED (SELECT demo_venue_ids() AS dv, demo_event_ids()
   AS de)` joint en CROSS JOIN — jamais l'appel nu dans le prédicat.
+- **CRM client (`20260908190000`→`192000`).** `_admin_customer_identity(email)`
+  est la porte unique de l'identité : elle rend UNE ligne par email — le profil
+  VIVANT gagne sur le profil orphelin, puis le plus récent. La jointure directe
+  `profiles ON lower(email)` dupliquait chaque personne en doublon (11 lignes
+  affichées pour 9 personnes). Ne jamais rejoindre `profiles` par email dans une
+  surface admin : passer par cette fonction en `LEFT JOIN LATERAL`.
+  Elle rend aussi ce qui décide de l'action : `has_account`, `has_app`,
+  `email_opt_in`, `sms_opt_in`, `email_suppressed`. **`has_app` se déduit de
+  `push_subscriptions`** — c'est le seul rattachement appareil→personne dont on
+  dispose (`ota_devices.custom_id` est vide), donc il SOUS-ESTIME : quelqu'un
+  qui a l'app et a refusé les notifications compte comme sans app.
+  L'annotation vit dans `crm_customers` (étiquettes) et `crm_customer_notes`,
+  **clés par EMAIL et non par user_id** : 7 clients sur 9 n'ont pas de compte,
+  et ce sont justement ceux qu'on a besoin d'annoter. Ces deux tables n'ont
+  AUCUNE policy RLS — tout passe par les RPC `admin_crm_*`.
+- **`= ANY(sous-requête)` n'est pas `= ANY(tableau)`.** `v.id = ANY ((SELECT dv
+  FROM d))` est lu comme la forme ensembliste et compare `text` à `text[]` :
+  `admin_platform_analytics` est parti cassé en prod, silencieusement (plpgsql
+  ne prépare qu'au premier appel). Utiliser `EXISTS (SELECT 1 FROM d WHERE x =
+  ANY(d.dv))`, et **lancer `supabase db lint --linked` après toute migration de
+  fonction** — c'est ce qui l'a attrapé.
 - **`_purge_venue` est orphan-safe depuis `20260908160000`** : l'`UPDATE
   profiles SET mfa_enabled=false` revalidait `profiles_id_fkey` et levait
   `23503` quand le propriétaire était un profil orphelin — un club orphelin
