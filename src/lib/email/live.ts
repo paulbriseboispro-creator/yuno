@@ -125,6 +125,7 @@ export function soldOutSub(sub: string): string {
 /** Colonnes de `table_packs` nécessaires à une ligne de formule. */
 export interface TablePackOffer {
   id?: string | null;
+  zone_id?: string | null;
   name?: string | null;
   base_price?: number | null;
   base_capacity?: number | null;
@@ -228,3 +229,57 @@ export function isTableScarce(left: number): boolean {
 /** Libellés par défaut du bloc — le canvas et l'envoi disent le même mot. */
 export const TABLE_KICKER = 'Bottle service';
 export const TABLE_CTA_LABEL = 'Réserver une table';
+
+/** Colonnes de `table_zones` nécessaires à une ligne de zone. */
+export interface TableZoneOffer {
+  id?: string | null;
+  name?: string | null;
+  position?: number | null;
+}
+
+/** « 6 à 8 pers. » quand la zone mélange les capacités, « 8 pers. » sinon. */
+function seatsRange(packs: readonly TablePackOffer[]): string {
+  const seats = packs.map((p) => Number(p.base_capacity || 0)).filter((n) => n > 0);
+  if (!seats.length) return '';
+  const min = Math.min(...seats);
+  const max = Math.max(...seats);
+  return min === max ? `${min} pers.` : `${min} à ${max} pers.`;
+}
+
+/**
+ * Zones → lignes d'email : le nom du carré, sa fourchette de couverts et son
+ * PRIX D'APPEL. C'est la vue épurée — trois carrés valent mieux que huit
+ * formules dans un message qu'on parcourt au pouce, et le détail complet
+ * attend sur la page de réservation.
+ *
+ * Une zone sans formule ouverte n'apparaît pas : on ne montre pas un carré
+ * qu'on ne peut pas réserver.
+ */
+export function buildTableZoneRows(
+  zones: readonly TableZoneOffer[],
+  packs: readonly TablePackOffer[],
+): TablePackRow[] {
+  const rows = zones.map((z) => {
+    const mine = packs.filter((p) => p.zone_id && z.id && String(p.zone_id) === String(z.id));
+    if (!mine.length) return null;
+    const amounts = mine
+      .map((p) => Number(p.base_price || 0) || Number(p.minimum_spend || 0))
+      .filter((n) => n > 0);
+    const from = amounts.length ? Math.min(...amounts) : 0;
+    const bits = [seatsRange(mine)].filter(Boolean);
+    // « sans acompte » ne vaut que si TOUTE la zone se règle au club :
+    // l'annoncer pour une zone mixte serait une promesse fausse.
+    if (mine.every((p) => String(p.payment_mode || '') === 'on_site')) bits.push(TABLE_ON_SITE_NOTE);
+    return {
+      id: z.id ? String(z.id) : undefined,
+      n: String(z.name || 'Carré'),
+      s: bits.join(' · '),
+      // Un seul tarif dans la zone : c'est LE prix, pas un « à partir de ».
+      p: from > 0 ? (amounts.length > 1 && Math.max(...amounts) > from ? `dès ${formatEuro(from)}` : formatEuro(from)) : 'Sur demande',
+      amount: from || Number.POSITIVE_INFINITY,
+      pos: Number(z.position || 0),
+    };
+  }).filter(Boolean) as (TablePackRow & { amount: number; pos: number })[];
+  rows.sort((a, b) => (a.amount - b.amount) || (a.pos - b.pos));
+  return rows.map(({ id, n, s, p }) => ({ id, n, s, p }));
+}

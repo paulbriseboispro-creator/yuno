@@ -513,11 +513,13 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   // (on garde les formules écrites à la main), tableau vide = aucune formule
   // ouverte. On ne vend jamais une formule que le club a fermée.
   const livePacks = b.livePacks !== false;
-  // Toute la carte part par défaut ; le pro décroche à la main les formules
+  // Toute la carte part par défaut ; le pro décroche à la main les lignes
   // qu'il ne pousse pas ce soir-là (une carte tronquée d'office fait croire
   // au client que le club n'a que ça à proposer).
   const hidden = b.hiddenPacks || [];
-  const allPacks = (livePacks && live?.tablePacks) ? live.tablePacks : (b.packs || []);
+  // Vue « zones » : les carrés et leur prix d'appel plutôt que chaque formule.
+  const liveRows = b.packDisplay === 'zones' ? live?.tableZones : live?.tablePacks;
+  const allPacks = (livePacks && liveRows) ? liveRows : (b.packs || []);
   const packs = hidden.length
     ? allPacks.filter((p) => !p.id || !hidden.includes(p.id))
     : allPacks;
@@ -572,7 +574,22 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
     ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${escapeHtml(interpolateVariables(b.note, ctx))}</p>`
     : '';
 
-  const body = `${kickerHtml}${title}${sub}${perks}${packsHtml}${btnHtml}${note}`;
+  // Le visuel existe sur les TROIS mises en page. En tête il pose l'ambiance ;
+  // après les tarifs il sert de plan de salle — on sait alors quoi y chercher.
+  const coverAtTop = (b.coverPos || 'top') === 'top';
+  const coverImg = b.coverUrl
+    ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
+    : '';
+  // En bas, l'image vit DANS la cellule de contenu : elle garde les marges de
+  // la carte au lieu d'en toucher les bords, qui sont déjà arrondis en haut.
+  const coverBottom = (coverImg && !coverAtTop)
+    ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
+    : '';
+  const coverInline = (coverImg && coverAtTop && layout === 'minimal')
+    ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
+    : '';
+
+  const body = `${coverInline}${kickerHtml}${title}${sub}${perks}${packsHtml}${coverBottom}${btnHtml}${note}`;
 
   // 'minimal' : aucun cadre. Le bloc se pose sur le fond de l'email, pour les
   // designs qui portent déjà leur mise en page ailleurs.
@@ -580,10 +597,8 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
     return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
   }
 
-  const cover = (b.coverUrl && layout === 'showcase')
-    ? `<tr><td style="font-size:0;line-height:0;">
-        <img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;border-radius:14px 14px 0 0;" class="yn-img" />
-      </td></tr>`
+  const cover = (coverImg && coverAtTop)
+    ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
     : '';
 
   // 'banner' : bande pleine teinte, pas de carte dans la carte. Le message est

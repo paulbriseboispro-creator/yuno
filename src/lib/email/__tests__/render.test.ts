@@ -10,7 +10,7 @@ import {
   campaignToTemplateContent, templateToCampaignContent, buildStarter, STARTER_TEMPLATES,
   buildEntryRows, pickPublicGuestList, guestListTicketRow, priceFromLabel, formatEuro,
   ticketsCtaLabel, ticketsKicker, isPricedRow, soldOutSub, SOLD_OUT_CHIP,
-  buildTablePackRows, tablePackSubtitle, tablePackPrice, tablesLeftLabel,
+  buildTablePackRows, buildTableZoneRows, tablePackSubtitle, tablePackPrice, tablesLeftLabel,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -96,6 +96,31 @@ describe('tables VIP — formules et rareté', () => {
     expect(tablesLeftLabel(1)).toBe('Dernière table');
     expect(tablesLeftLabel(3)).toBe('Plus que 3 tables');
     expect(tablesLeftLabel(9)).toBe('9 tables disponibles');
+  });
+
+  it('les zones portent leur prix d’appel et leur fourchette de couverts', () => {
+    const zones = [{ id: 'z1', name: 'DANCEFLOOR VIP', position: 0 }, { id: 'z2', name: 'Gold', position: 1 }];
+    const packs = [
+      { id: 'p1', zone_id: 'z1', name: 'Dancefloor', base_price: 300, base_capacity: 6, payment_mode: 'on_site' },
+      { id: 'p2', zone_id: 'z1', name: 'Premium', base_price: 900, base_capacity: 8, payment_mode: 'on_site' },
+      { id: 'p3', zone_id: 'z2', name: 'Gold', base_price: 500, base_capacity: 8 },
+    ];
+    const rows = buildTableZoneRows(zones, packs);
+    expect(rows.map((r) => r.n)).toEqual(['DANCEFLOOR VIP', 'Gold']);
+    // Plusieurs tarifs dans la zone ⇒ prix d'appel ; un seul ⇒ LE prix.
+    expect(rows[0].p).toBe('dès 300 €');
+    expect(rows[1].p).toBe('500 €');
+    expect(rows[0].s).toBe('6 à 8 pers. · sans acompte');
+    // « sans acompte » n'est vrai que si TOUTE la zone se règle au club.
+    expect(rows[1].s).toBe('8 pers.');
+  });
+
+  it('une zone sans formule ouverte n’apparaît pas', () => {
+    const rows = buildTableZoneRows(
+      [{ id: 'z1', name: 'Carré vide' }, { id: 'z2', name: 'Loge' }],
+      [{ id: 'p1', zone_id: 'z2', name: 'Loge', base_price: 900 }],
+    );
+    expect(rows.map((r) => r.n)).toEqual(['Loge']);
   });
 
   it('readableOn assombrit jusqu’à AA sans toucher ce qui passe déjà', () => {
@@ -319,6 +344,42 @@ describe('blocs — un rendu par type', () => {
     expect(contrastRatio(priceColor!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
     // Le bouton, lui, garde l'or brut : son libellé se contraste tout seul.
     expect(html).toContain('fillcolor="#F2B23C"');
+  });
+
+  it('table : la vue « zones » remplace la liste des formules', () => {
+    const live = { 'ev-1': {
+      ...ctx.live!['ev-1'],
+      tablePacks: [{ id: 'p1', n: 'Dancefloor', s: '6 pers.', p: '300 €' }],
+      tableZones: [{ id: 'z1', n: 'DANCEFLOOR VIP', s: '6 à 8 pers.', p: 'dès 300 €' }],
+    } };
+    const b = { ...makeBlock('table', { eventId: 'ev-1' }), packDisplay: 'zones' } as EmailBlock;
+    const html = renderOne(b, { live });
+    expect(html).toContain('DANCEFLOOR VIP');
+    expect(html).toContain('dès 300 €');
+    expect(html).not.toContain('>Dancefloor<');
+  });
+
+  it('table : le visuel se place avant ou après les tarifs, sur toute mise en page', () => {
+    const cover = 'https://cdn.example.com/booth.jpg';
+    const posOf = (html: string) => [html.indexOf(cover), html.indexOf('Réserver une table')];
+
+    const [imgTop, ctaTop] = posOf(renderOne(
+      { ...makeBlock('table', { eventId: 'ev-1' }), coverUrl: cover } as EmailBlock));
+    expect(imgTop).toBeGreaterThan(-1);
+    expect(imgTop).toBeLessThan(ctaTop);
+
+    // En bas, l'image reste AVANT le bouton : le clic ferme la carte.
+    const bottom = renderOne(
+      { ...makeBlock('table', { eventId: 'ev-1' }), coverUrl: cover, coverPos: 'bottom' } as EmailBlock);
+    const [imgBot, ctaBot] = posOf(bottom);
+    expect(imgBot).toBeLessThan(ctaBot);
+    expect(bottom.indexOf('Ta table t’attend')).toBeLessThan(imgBot);
+
+    // Le visuel n'est plus réservé à la vitrine.
+    for (const layout of ['banner', 'minimal'] as const) {
+      const html = renderOne({ ...makeBlock('table', { eventId: 'ev-1' }), layout, coverUrl: cover } as EmailBlock);
+      expect(html).toContain(cover);
+    }
   });
 
   it('table : aucune couleur en rgba (Outlook les efface)', () => {

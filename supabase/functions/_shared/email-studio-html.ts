@@ -46,6 +46,8 @@ export interface StudioLiveEventData {
    * vide = aucune formule ouverte.
    */
   tablePacks?: StudioTablePackRow[];
+  /** Zones (carrés) et leur prix d'appel — la vue épurée du même inventaire. */
+  tableZones?: StudioTablePackRow[];
   /**
    * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
    * défaut), résolus à l'envoi seulement. `trackedUrl` mène à la page de la
@@ -534,8 +536,10 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       // Toute la carte part par défaut ; le pro décroche les formules qu'il ne
       // pousse pas ce soir-là (miroir de render.ts).
       const hidden = (b.hiddenPacks as string[]) || [];
-      const allPacks: StudioTablePackRow[] = (livePacks && live?.tablePacks)
-        ? live.tablePacks
+      // Vue « zones » : les carrés et leur prix d'appel (miroir de render.ts).
+      const liveRows = b.packDisplay === 'zones' ? live?.tableZones : live?.tablePacks;
+      const allPacks: StudioTablePackRow[] = (livePacks && liveRows)
+        ? liveRows
         : ((b.packs as StudioTablePackRow[]) || []);
       const packs = hidden.length
         ? allPacks.filter((p) => !p.id || !hidden.includes(p.id))
@@ -586,16 +590,27 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${esc(interpolate((b.note as string) || '', ctx))}</p>`
         : '';
 
-      const body = `${kickerHtml}${title}${sub}${perks}${packsHtml}${btnHtml}${note}`;
+      // Le visuel existe sur les TROIS mises en page, avant ou après les
+      // tarifs (miroir de render.ts).
+      const coverAtTop = ((b.coverPos as string) || 'top') === 'top';
+      const coverImg = b.coverUrl
+        ? `<img src="${esc(b.coverUrl as string)}" alt="${esc((b.title as string) || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
+        : '';
+      const coverBottom = (coverImg && !coverAtTop)
+        ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
+        : '';
+      const coverInline = (coverImg && coverAtTop && layout === 'minimal')
+        ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
+        : '';
+
+      const body = `${coverInline}${kickerHtml}${title}${sub}${perks}${packsHtml}${coverBottom}${btnHtml}${note}`;
 
       if (layout === 'minimal') {
         return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
       }
 
-      const cover = (b.coverUrl && layout === 'showcase')
-        ? `<tr><td style="font-size:0;line-height:0;">
-            <img src="${esc(b.coverUrl as string)}" alt="${esc((b.title as string) || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;border-radius:14px 14px 0 0;" class="yn-img" />
-          </td></tr>`
+      const cover = (coverImg && coverAtTop)
+        ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
         : '';
 
       const bannerBg = mixHex(accent, baseCard, theme.dark ? 0.18 : 0.10);
@@ -880,6 +895,7 @@ function tableScarcityChip(left: number, theme: StudioTheme, cardBg: string): st
 
 export interface TablePackOffer {
   id?: string | null;
+  zone_id?: string | null;
   name?: string | null;
   base_price?: number | null;
   base_capacity?: number | null;
@@ -933,6 +949,48 @@ export function buildTablePackRows(packs: TablePackOffer[]): StudioTablePackRow[
     s: tablePackSubtitle(p),
     p: tablePackPrice(p),
   }));
+}
+
+export interface TableZoneOffer {
+  id?: string | null;
+  name?: string | null;
+  position?: number | null;
+}
+
+/** « 6 à 8 pers. » quand la zone mélange les capacités (miroir de live.ts). */
+function seatsRange(packs: TablePackOffer[]): string {
+  const seats = packs.map((p) => Number(p.base_capacity || 0)).filter((n) => n > 0);
+  if (!seats.length) return '';
+  const min = Math.min(...seats);
+  const max = Math.max(...seats);
+  return min === max ? `${min} pers.` : `${min} à ${max} pers.`;
+}
+
+/** Zones → lignes d'email avec leur prix d'appel (miroir de live.ts). */
+export function buildTableZoneRows(
+  zones: TableZoneOffer[],
+  packs: TablePackOffer[],
+): StudioTablePackRow[] {
+  const rows = zones.map((z) => {
+    const mine = packs.filter((p) => p.zone_id && z.id && String(p.zone_id) === String(z.id));
+    if (!mine.length) return null;
+    const amounts = mine
+      .map((p) => Number(p.base_price || 0) || Number(p.minimum_spend || 0))
+      .filter((n) => n > 0);
+    const from = amounts.length ? Math.min(...amounts) : 0;
+    const bits = [seatsRange(mine)].filter(Boolean);
+    if (mine.every((p) => String(p.payment_mode || '') === 'on_site')) bits.push(TABLE_ON_SITE_NOTE);
+    return {
+      id: z.id ? String(z.id) : undefined,
+      n: String(z.name || 'Carré'),
+      s: bits.join(' · '),
+      p: from > 0 ? (amounts.length > 1 && Math.max(...amounts) > from ? `dès ${euro(from)}` : euro(from)) : 'Sur demande',
+      amount: from || Number.POSITIVE_INFINITY,
+      pos: Number(z.position || 0),
+    };
+  }).filter(Boolean) as (StudioTablePackRow & { amount: number; pos: number })[];
+  rows.sort((a, b) => (a.amount - b.amount) || (a.pos - b.pos));
+  return rows.map(({ id, n, s, p }) => ({ id, n, s, p }));
 }
 
 function tablesLeftLabel(left: number): string {
@@ -1071,6 +1129,8 @@ export async function fetchStudioLiveData(
     let packsByEvent = new Map<string, number>();
     let reservedByEvent = new Map<string, number>();
     let packRowsByEvent = new Map<string, StudioTablePackRow[]>();
+    let zoneRowsByEvent = new Map<string, StudioTablePackRow[]>();
+    let allZones: TableZoneOffer[] = [];
     if (needTables) {
       // Périmètre explicite : les formules de CES soirées et celles des clubs
       // concernés. Sans ce filtre la requête ramenait toutes les formules
@@ -1081,7 +1141,7 @@ export async function fetchStudioLiveData(
       ].filter(Boolean).join(',');
       const { data: packs } = await admin
         .from('table_packs')
-        .select('id, event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
+        .select('id, zone_id, event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
         .eq('is_active', true)
         .or(packScope);
       const { data: reservations } = await admin
@@ -1089,9 +1149,15 @@ export async function fetchStudioLiveData(
         .select('event_id, status')
         .in('event_id', ids)
         .in('status', ['paid', 'confirmed']);
+      const zoneIds = [...new Set((packs || []).map((p: any) => p.zone_id).filter(Boolean))];
+      const { data: zones } = zoneIds.length
+        ? await admin.from('table_zones').select('id, name, position').in('id', zoneIds)
+        : { data: [] };
+      allZones = (zones || []) as TableZoneOffer[];
       packsByEvent = new Map();
       reservedByEvent = new Map();
       packRowsByEvent = new Map();
+      zoneRowsByEvent = new Map();
       for (const e of events || []) {
         const venueId = e.venue_id || e.partner_venue_id;
         let total = 0;
@@ -1104,6 +1170,7 @@ export async function fetchStudioLiveData(
         }
         packsByEvent.set(e.id, total);
         packRowsByEvent.set(e.id, buildTablePackRows(mine));
+        zoneRowsByEvent.set(e.id, buildTableZoneRows(allZones, mine));
       }
       for (const r of reservations || []) {
         reservedByEvent.set(r.event_id, (reservedByEvent.get(r.event_id) || 0) + 1);
@@ -1154,6 +1221,7 @@ export async function fetchStudioLiveData(
         guestListOnly,
         tablesLeft,
         tablePacks: needTables ? (packRowsByEvent.get(e.id) || []) : undefined,
+        tableZones: needTables ? (zoneRowsByEvent.get(e.id) || []) : undefined,
       };
     }
   } catch (e) {

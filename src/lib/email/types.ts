@@ -143,6 +143,16 @@ export type TableLayout = 'showcase' | 'banner' | 'minimal';
 export const TABLE_LAYOUTS: readonly TableLayout[] = ['showcase', 'banner', 'minimal'];
 
 /**
+ * Ce que la carte détaille : chaque FORMULE, ou seulement les ZONES avec leur
+ * prix d'appel. Un club qui vend huit formules dans trois carrés gagne à
+ * montrer les trois carrés — le détail se lit sur la page de réservation, pas
+ * dans un email qu'on parcourt au pouce.
+ */
+export type TablePackDisplay = 'packs' | 'zones';
+
+export const TABLE_PACK_DISPLAYS: readonly TablePackDisplay[] = ['packs', 'zones'];
+
+/**
  * Bloc Yuno — vente de tables VIP (bottle service).
  *
  * Le bloc ne se contente pas d'annoncer que des tables existent : il porte
@@ -183,11 +193,19 @@ export interface TableBlock extends BlockBase {
    */
   hiddenPacks?: string[];
   /**
-   * Visuel du carré VIP, en tête de carte. Pas de hauteur réglable : les
-   * clients mail ignorent object-fit, une hauteur imposée déformerait la
-   * photo. L'image garde son ratio, comme le bloc Image.
+   * Visuel du carré VIP. Pas de hauteur réglable : les clients mail ignorent
+   * object-fit, une hauteur imposée déformerait la photo. L'image garde son
+   * ratio, comme le bloc Image. Disponible sur les TROIS mises en page.
    */
   coverUrl?: string;
+  /**
+   * Où poser le visuel : en tête de carte ('top', défaut) ou après les
+   * formules, juste avant le bouton ('bottom'). Un plan de salle se lit mieux
+   * APRÈS les tarifs — on sait alors ce qu'on cherche dessus.
+   */
+  coverPos?: 'top' | 'bottom';
+  /** Détail des tarifs : chaque formule, ou les zones et leur prix d'appel. */
+  packDisplay?: TablePackDisplay;
   /** Rassurance sous le bouton (acompte, heure d'arrivée…). */
   note?: string;
   /** Bouton pleine largeur. Absent = pleine largeur sauf en 'minimal'. */
@@ -341,6 +359,11 @@ export interface LiveEventData {
    * tableau vide = aucune formule ouverte.
    */
   tablePacks?: TablePackRow[];
+  /**
+   * Zones de tables (carrés) avec leur prix d'appel — la vue épurée du même
+   * inventaire que `tablePacks`. Mêmes règles de résolution.
+   */
+  tableZones?: TablePackRow[];
   /**
    * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
    * défaut). `trackedUrl` mène à la page de la soirée avec `?tl=`,
