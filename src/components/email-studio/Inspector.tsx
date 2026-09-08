@@ -643,9 +643,11 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
       // Les formules live remplacent les lignes figées dès qu'une soirée est
       // reliée : on ne propose de les écrire à la main que si elles serviront.
       const packsAreLive = b.livePacks !== false && !!(b.eventId || campaignEventId);
-      // Formules réelles de la soirée : c'est la liste que le pro décroche.
-      // Sans id (formules écrites à la main) il n'y a rien à décrocher.
-      const livePacks = (live[b.eventId || campaignEventId || '']?.tablePacks || [])
+      // Lignes réelles de la soirée : c'est la liste que le pro décroche, et
+      // elle suit le mode d'affichage choisi (formules ou zones). Sans id
+      // (lignes écrites à la main) il n'y a rien à décrocher.
+      const liveEvent = live[b.eventId || campaignEventId || ''];
+      const livePacks = ((b.packDisplay === 'zones' ? liveEvent?.tableZones : liveEvent?.tablePacks) || [])
         .filter((row) => !!row.id);
       const hiddenPacks = b.hiddenPacks || [];
       return (
@@ -705,6 +707,17 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
           </PanelCard>
 
           <PanelCard>
+            <MicroLabel>{t('studio.inspector.tablePackDisplay')}</MicroLabel>
+            <OptionPills
+              value={b.packDisplay || 'packs'}
+              ariaLabel={t('studio.inspector.tablePackDisplay')}
+              options={[
+                { value: 'packs', label: t('studio.inspector.tableDisplayPacks') },
+                { value: 'zones', label: t('studio.inspector.tableDisplayZones') },
+              ]}
+              onChange={(v) => patch({ packDisplay: v })}
+            />
+            <Help>{t('studio.inspector.tablePackDisplayHelp')}</Help>
             <MicroLabel>{t('studio.inspector.tablePacks')}</MicroLabel>
             <ToggleRow
               checked={b.livePacks !== false}
@@ -772,17 +785,30 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
             )}
           </PanelCard>
 
-          {(b.layout || 'showcase') === 'showcase' && (
-            <PanelCard>
-              <MicroLabel>{t('studio.inspector.tableCover')}</MicroLabel>
-              <ImageUploader
-                value={b.coverUrl || null}
-                onChange={(url) => patch({ coverUrl: url || undefined })}
-                bucketFolder={bucketFolder}
-              />
-              <Help>{t('studio.inspector.tableCoverHelp')}</Help>
-            </PanelCard>
-          )}
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableCover')}</MicroLabel>
+            <ImageUploader
+              value={b.coverUrl || null}
+              onChange={(url) => patch({ coverUrl: url || undefined })}
+              bucketFolder={bucketFolder}
+            />
+            <Help>{t('studio.inspector.tableCoverHelp')}</Help>
+            {b.coverUrl && (
+              <>
+                <MicroLabel>{t('studio.inspector.tableCoverPos')}</MicroLabel>
+                <OptionPills
+                  value={b.coverPos || 'top'}
+                  ariaLabel={t('studio.inspector.tableCoverPos')}
+                  options={[
+                    { value: 'top', label: t('studio.inspector.tableCoverTop') },
+                    { value: 'bottom', label: t('studio.inspector.tableCoverBottom') },
+                  ]}
+                  onChange={(v) => patch({ coverPos: v })}
+                />
+                <Help>{t('studio.inspector.tableCoverPosHelp')}</Help>
+              </>
+            )}
+          </PanelCard>
 
           <PanelCard>
             <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>

@@ -23,8 +23,14 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
 
   const livePacks = block.livePacks !== false;
   const hidden = block.hiddenPacks || [];
-  const allPacks: TablePackRow[] = (livePacks && live?.tablePacks) ? live.tablePacks : (block.packs || []);
+  const liveRows = block.packDisplay === 'zones' ? live?.tableZones : live?.tablePacks;
+  const allPacks: TablePackRow[] = (livePacks && liveRows) ? liveRows : (block.packs || []);
   const packs = hidden.length ? allPacks.filter((p) => !p.id || !hidden.includes(p.id)) : allPacks;
+  const coverAtTop = (block.coverPos || 'top') === 'top';
+  const coverEl = block.coverUrl
+    ? <img src={block.coverUrl} alt={block.title || 'Table VIP'}
+        style={{ display: 'block', width: '100%', height: 'auto', borderRadius: layout === 'minimal' ? 12 : undefined }} />
+    : null;
   const showPacks = !soldOut && layout !== 'banner' && packs.length > 0;
 
   const baseCard = theme.dark ? theme.tile : '#ffffff';
@@ -56,6 +62,9 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
 
   const body = (
     <>
+      {coverEl && coverAtTop && layout === 'minimal' && (
+        <div style={{ marginBottom: 16 }}>{coverEl}</div>
+      )}
       {(block.kicker || scarcity) && (
         <div style={{ marginBottom: layout === 'minimal' ? 9 : 11, textAlign: align }}>
           {block.kicker && (
@@ -120,6 +129,7 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
           ))}
         </div>
       )}
+      {coverEl && !coverAtTop && <div style={{ marginBottom: 18 }}>{coverEl}</div>}
       {!soldOut && (
         <div style={{ textAlign: align }}>
           <span style={{
@@ -148,9 +158,7 @@ export default function TableView({ block, theme, ctx }: { block: TableBlock; th
         border: `1px solid ${layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : cardBorder}`,
         borderRadius: 14, background: layout === 'banner' ? bannerBg : cardBg, overflow: 'hidden',
       }}>
-        {block.coverUrl && layout === 'showcase' && (
-          <img src={block.coverUrl} alt={block.title || 'Table VIP'} style={{ display: 'block', width: '100%', height: 'auto' }} />
-        )}
+        {coverEl && coverAtTop && coverEl}
         <div style={{ padding: layout === 'banner' ? '26px 24px' : '22px 20px' }}>{body}</div>
       </div>
     </div>

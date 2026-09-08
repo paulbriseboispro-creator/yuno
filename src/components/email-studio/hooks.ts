@@ -4,9 +4,9 @@ import type {
   EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
 } from '@/lib/email';
 import {
-  buildEntryRows, buildTablePackRows, formatEuro, pickPublicGuestList, priceFromLabel,
-  rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES,
-  type GuestListOffer, type TablePackOffer,
+  buildEntryRows, buildTablePackRows, buildTableZoneRows, formatEuro, pickPublicGuestList,
+  priceFromLabel, rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES,
+  type GuestListOffer, type TablePackOffer, type TableZoneOffer,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
 
@@ -116,7 +116,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       ].filter(Boolean).join(',');
       const [{ data: packs }, { data: reservations }] = await Promise.all([
         supabase.from('table_packs')
-          .select('id,event_id,venue_id,tables_count,name,base_price,base_capacity,included_bottles_quota,included_items,minimum_spend,payment_mode,position')
+          .select('id,zone_id,event_id,venue_id,tables_count,name,base_price,base_capacity,included_bottles_quota,included_items,minimum_spend,payment_mode,position')
           .eq('is_active', true)
           .or(packScope),
         supabase.from('table_reservations')
@@ -129,6 +129,13 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       for (const r of (reservations || []) as { event_id: string }[]) {
         reservedByEvent.set(r.event_id, (reservedByEvent.get(r.event_id) || 0) + 1);
       }
+      const zoneIds = [...new Set(((packs || []) as { zone_id?: string | null }[])
+        .map((p) => p.zone_id).filter(Boolean))] as string[];
+      const { data: zones } = zoneIds.length
+        ? await supabase.from('table_zones').select('id,name,position').in('id', zoneIds)
+        : { data: [] as TableZoneOffer[] };
+      if (cancelled) return;
+      const allZones = (zones || []) as TableZoneOffer[];
 
       // Host de l'URL propre /events/:host/:slug — résolu par la RPC serveur
       // (slug d'orga si organizer-led, sinon slug du club). On ne rejoue pas
@@ -152,6 +159,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         return {
           tablesLeft: total > 0 ? Math.max(0, total - (reservedByEvent.get(eventId) || 0)) : null,
           tablePacks: buildTablePackRows(mine),
+          tableZones: buildTableZoneRows(allZones, mine),
         };
       };
 
