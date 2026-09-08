@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2826,6 +2801,191 @@ export type Database = {
           },
           {
             foreignKeyName: "commission_templates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_list_imports: {
+        Row: {
+          analysis: Json | null
+          analyzed_at: string | null
+          attested_at: string
+          attested_by: string | null
+          both_count: number
+          channels: Json
+          collected_since: string | null
+          consent_details: string | null
+          consent_source: string
+          created_at: string
+          default_country: string | null
+          detected_columns: Json
+          email_count: number
+          email_import_id: string | null
+          filename: string | null
+          id: string
+          list_name: string | null
+          organizer_user_id: string | null
+          phone_count: number
+          row_count: number
+          sms_import_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          analysis?: Json | null
+          analyzed_at?: string | null
+          attested_at?: string
+          attested_by?: string | null
+          both_count?: number
+          channels?: Json
+          collected_since?: string | null
+          consent_details?: string | null
+          consent_source: string
+          created_at?: string
+          default_country?: string | null
+          detected_columns?: Json
+          email_count?: number
+          email_import_id?: string | null
+          filename?: string | null
+          id?: string
+          list_name?: string | null
+          organizer_user_id?: string | null
+          phone_count?: number
+          row_count?: number
+          sms_import_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          analysis?: Json | null
+          analyzed_at?: string | null
+          attested_at?: string
+          attested_by?: string | null
+          both_count?: number
+          channels?: Json
+          collected_since?: string | null
+          consent_details?: string | null
+          consent_source?: string
+          created_at?: string
+          default_country?: string | null
+          detected_columns?: Json
+          email_count?: number
+          email_import_id?: string | null
+          filename?: string | null
+          id?: string
+          list_name?: string | null
+          organizer_user_id?: string | null
+          phone_count?: number
+          row_count?: number
+          sms_import_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_list_imports_email_import_id_fkey"
+            columns: ["email_import_id"]
+            isOneToOne: false
+            referencedRelation: "email_list_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_list_imports_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_list_imports_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_list_imports_sms_import_id_fkey"
+            columns: ["sms_import_id"]
+            isOneToOne: false
+            referencedRelation: "sms_list_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_list_imports_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition: Json
+          description: string | null
+          id: string
+          list_import_id: string | null
+          name: string
+          organizer_user_id: string | null
+          origin: string
+          suggestion_key: string | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          description?: string | null
+          id?: string
+          list_import_id?: string | null
+          name: string
+          organizer_user_id?: string | null
+          origin?: string
+          suggestion_key?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          description?: string | null
+          id?: string
+          list_import_id?: string | null
+          name?: string
+          organizer_user_id?: string | null
+          origin?: string
+          suggestion_key?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_segments_list_import_id_fkey"
+            columns: ["list_import_id"]
+            isOneToOne: false
+            referencedRelation: "contact_list_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_segments_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_segments_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_segments_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -7193,6 +7353,92 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imported_contacts: {
+        Row: {
+          added_at: string | null
+          age: number | null
+          city: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          email: string | null
+          event_count: number | null
+          extra: Json | null
+          first_name: string | null
+          gender: string | null
+          id: string
+          last_name: string | null
+          last_purchase_at: string | null
+          list_import_id: string
+          newsletter_opt_in: boolean | null
+          organizer_user_id: string | null
+          phone_e164: string | null
+          postal_code: string | null
+          region: string | null
+          total_spent: number | null
+          venue_id: string | null
+          zone: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          age?: number | null
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string
+          email?: string | null
+          event_count?: number | null
+          extra?: Json | null
+          first_name?: string | null
+          gender?: string | null
+          id?: string
+          last_name?: string | null
+          last_purchase_at?: string | null
+          list_import_id: string
+          newsletter_opt_in?: boolean | null
+          organizer_user_id?: string | null
+          phone_e164?: string | null
+          postal_code?: string | null
+          region?: string | null
+          total_spent?: number | null
+          venue_id?: string | null
+          zone?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          age?: number | null
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string
+          email?: string | null
+          event_count?: number | null
+          extra?: Json | null
+          first_name?: string | null
+          gender?: string | null
+          id?: string
+          last_name?: string | null
+          last_purchase_at?: string | null
+          list_import_id?: string
+          newsletter_opt_in?: boolean | null
+          organizer_user_id?: string | null
+          phone_e164?: string | null
+          postal_code?: string | null
+          region?: string | null
+          total_spent?: number | null
+          venue_id?: string | null
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imported_contacts_list_import_id_fkey"
+            columns: ["list_import_id"]
+            isOneToOne: false
+            referencedRelation: "contact_list_imports"
             referencedColumns: ["id"]
           },
         ]
@@ -16381,6 +16627,14 @@ export type Database = {
         }
         Returns: string
       }
+      analyze_contact_list_import: {
+        Args: { p_list_import_id: string }
+        Returns: Json
+      }
+      analyze_contact_lists: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       apply_agency_rule_template: {
         Args: {
           p_target_id: string
@@ -16698,6 +16952,52 @@ export type Database = {
         Args: { p_amount: number; p_balance_id: string }
         Returns: boolean
       }
+      contact_num_cmp: {
+        Args: { a: number; b: number; op: string }
+        Returns: boolean
+      }
+      contact_row_matches: {
+        Args: { p_definition: Json; p_row: Json }
+        Returns: boolean
+      }
+      contact_rows: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: {
+          added_at: string | null
+          age: number | null
+          city: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          email: string | null
+          event_count: number | null
+          extra: Json | null
+          first_name: string | null
+          gender: string | null
+          id: string
+          last_name: string | null
+          last_purchase_at: string | null
+          list_import_id: string
+          newsletter_opt_in: boolean | null
+          organizer_user_id: string | null
+          phone_e164: string | null
+          postal_code: string | null
+          region: string | null
+          total_spent: number | null
+          venue_id: string | null
+          zone: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "imported_contacts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      contact_scope_allowed: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: boolean
+      }
       count_campaign_audience: {
         Args: { p_campaign_id: string }
         Returns: Json
@@ -16721,11 +17021,21 @@ export type Database = {
         }
         Returns: number
       }
+      count_contact_segment: { Args: { p_segment_id: string }; Returns: Json }
+      count_contact_segment_def: {
+        Args: {
+          p_definition: Json
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       count_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
           p_import_id?: string
           p_organizer_user_id: string
+          p_segment_id?: string
           p_segment_type: string
           p_venue_id: string
         }
@@ -17378,6 +17688,10 @@ export type Database = {
       }
       get_collab_settlement_bank_details: {
         Args: { p_settlement_id: string }
+        Returns: Json
+      }
+      get_contact_intelligence_overview: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: Json
       }
       get_customer_timeline: {
@@ -18128,6 +18442,23 @@ export type Database = {
         Returns: boolean
       }
       hash_maintenance_password: { Args: { password: string }; Returns: string }
+      import_contact_list: {
+        Args: {
+          p_channels?: Json
+          p_collected_since?: string
+          p_consent_details?: string
+          p_consent_source: string
+          p_default_country?: string
+          p_detected?: Json
+          p_filename?: string
+          p_list_import_id?: string
+          p_list_name?: string
+          p_organizer_user_id?: string
+          p_rows: Json
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       import_email_contacts: {
         Args: {
           p_collected_since?: string
@@ -18688,6 +19019,28 @@ export type Database = {
         Args: { p_action: string; p_settlement_id: string }
         Returns: Json
       }
+      resolve_contact_segment: {
+        Args: { p_segment_id: string }
+        Returns: {
+          email: string
+          first_name: string
+          last_name: string
+          phone_e164: string
+        }[]
+      }
+      resolve_contact_segment_def: {
+        Args: {
+          p_definition: Json
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: {
+          email: string
+          first_name: string
+          last_name: string
+          phone_e164: string
+        }[]
+      }
       resolve_event_path: {
         Args: { p_host: string; p_slug: string }
         Returns: {
@@ -18707,6 +19060,7 @@ export type Database = {
           p_event_id?: string
           p_import_id?: string
           p_organizer_user_id: string
+          p_segment_id?: string
           p_segment_type: string
           p_venue_id: string
         }
@@ -18756,6 +19110,15 @@ export type Database = {
       run_affiliate_automation_sweep: { Args: never; Returns: undefined }
       run_audience_snapshot: { Args: { p_date?: string }; Returns: Json }
       run_venue_purge_sweep: { Args: never; Returns: undefined }
+      save_contact_segments: {
+        Args: {
+          p_list_import_id?: string
+          p_organizer_user_id: string
+          p_segments: Json
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       save_event_vip_room: {
         Args: { p_event_id: string; p_name: string; p_room_id?: string }
         Returns: string
@@ -19365,9 +19728,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: [
