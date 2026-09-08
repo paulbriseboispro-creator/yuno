@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Lock, Pencil, UserMinus, Users, X } from 'lucide-react';
+import { Check, Layers, Loader2, Lock, Pencil, UserMinus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +19,22 @@ const PROMO_KINDS: { kind: AudienceKind; labelKey: string; descKey: string }[] =
   { kind: 'regulars', labelKey: 'em.seg.regulars', descKey: 'studio.aud.desc.regulars' },
   { kind: 'new_customers', labelKey: 'em.seg.new_customers', descKey: 'studio.aud.desc.new' },
   { kind: 'dormant', labelKey: 'em.seg.dormant', descKey: 'studio.aud.desc.dormant' },
+];
+
+/**
+ * Portée plateforme : Yuno ne parle pas à « ses VIP » (il n'encaisse pas pour
+ * lui-même), il parle à des POPULATIONS — pros à signer, clients à réveiller,
+ * liste d'attente à convertir. D'où une liste de segments entièrement à part.
+ */
+const PLATFORM_KINDS: { kind: AudienceKind; labelKey: string; descKey: string }[] = [
+  { kind: 'all_subscribers', labelKey: 'pm.seg.all',        descKey: 'pm.seg.all.d' },
+  { kind: 'clients',         labelKey: 'pm.seg.clients',    descKey: 'pm.seg.clients.d' },
+  { kind: 'pros',            labelKey: 'pm.seg.pros',       descKey: 'pm.seg.pros.d' },
+  { kind: 'waitlist',        labelKey: 'pm.seg.waitlist',   descKey: 'pm.seg.waitlist.d' },
+  { kind: 'leads',           labelKey: 'pm.seg.leads',      descKey: 'pm.seg.leads.d' },
+  { kind: 'app_users',       labelKey: 'pm.seg.appUsers',   descKey: 'pm.seg.appUsers.d' },
+  { kind: 'no_account',      labelKey: 'pm.seg.noAccount',  descKey: 'pm.seg.noAccount.d' },
+  { kind: 'buyers',          labelKey: 'pm.seg.buyers',     descKey: 'pm.seg.buyers.d' },
 ];
 
 const INFO_KINDS: { kind: AudienceKind; labelKey: string }[] = [
@@ -47,6 +63,20 @@ export default function AudienceStep({ scope, events, segments }: {
   const { count, loading } = useAudienceCount(campaign.id, saveSeq, hasAudience);
   const { lists: imports, rename: renameImport } = useImportedLists(scope);
   const contactSegments = useContactSegments(scope);
+
+  // Effectifs par segment, portee plateforme : une seule RPC rend les huit.
+  useEffect(() => {
+    if (scope.kind !== 'platform' || campaign.type !== 'promotional') return;
+    let cancelled = false;
+    supabase.rpc('count_platform_audience_kinds' as never).then(({ data }) => {
+      if (cancelled) return;
+      const raw = (data as unknown as Record<string, number> | null) || {};
+      const out: Record<string, number> = {};
+      for (const [k, v] of Object.entries(raw)) out[k] = Number(v || 0);
+      setPerKindCounts(out);
+    });
+    return () => { cancelled = true; };
+  }, [scope.kind, campaign.type, saveSeq]);
 
   // Effectifs par segment (clubs uniquement — la RPC v1 est venue-scopée).
   useEffect(() => {
@@ -85,7 +115,9 @@ export default function AudienceStep({ scope, events, segments }: {
         .order('sent_at', { ascending: false }).limit(5);
       query = scope.kind === 'venue'
         ? query.eq('venue_id', scope.venueId)
-        : query.eq('organizer_user_id', scope.organizerId);
+        : scope.kind === 'organizer'
+          ? query.eq('organizer_user_id', scope.organizerId)
+          : query.is('venue_id', null).is('organizer_user_id', null);
       const { data: past } = await query;
       if (cancelled || !past || past.length === 0) return;
       const sent = past.reduce((a, c) => a + Number(c.recipients_count || 0), 0);
@@ -93,6 +125,10 @@ export default function AudienceStep({ scope, events, segments }: {
       const clicks = past.reduce((a, c) => a + Number(c.clicks_count || 0), 0);
       let revPerSent: number | null = null;
       try {
+        // L'attribution EUR est venue/organisateur : la portee plateforme n'a
+        // pas de revenu propre (Yuno encaisse pour le pro, il ne vend pas).
+        // On saute la projection plutot que d'inventer un chiffre.
+        if (scope.kind === 'platform') return;
         const { data: attr } = await supabase.rpc('get_email_campaign_attribution' as never, {
           p_subject_type: scope.kind === 'venue' ? 'venue' : 'organizer',
           p_subject_id: scope.kind === 'venue' ? scope.venueId : scope.organizerId,
@@ -167,17 +203,21 @@ export default function AudienceStep({ scope, events, segments }: {
                 {t('studio.aud.selectedCount').replace('{n}', String(campaign.audiences.length))}
               </p>
             </div>
-            <SegBtns
-              value={campaign.type}
-              onChange={(v) => {
-                patchCampaign({ type: v });
-                setAudiences(v === 'informational' ? [{ kind: 'event_buyers' }] : []);
-              }}
-              options={[
-                { value: 'promotional', label: t('em.builder.marketing') },
-                { value: 'informational', label: t('em.builder.info') },
-              ]}
-            />
+            {/* L'« informationnel » cible les acheteurs d'une soiree : c'est le
+                metier du pro, pas celui de Yuno. En plateforme, il n'existe pas. */}
+            {scope.kind !== 'platform' && (
+              <SegBtns
+                value={campaign.type}
+                onChange={(v) => {
+                  patchCampaign({ type: v });
+                  setAudiences(v === 'informational' ? [{ kind: 'event_buyers' }] : []);
+                }}
+                options={[
+                  { value: 'promotional', label: t('em.builder.marketing') },
+                  { value: 'informational', label: t('em.builder.info') },
+                ]}
+              />
+            )}
           </div>
 
           {/* Événement lié */}
@@ -199,7 +239,9 @@ export default function AudienceStep({ scope, events, segments }: {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {(campaign.type === 'promotional' ? PROMO_KINDS : INFO_KINDS).map((k) => {
+            {(campaign.type === 'promotional'
+              ? (scope.kind === 'platform' ? PLATFORM_KINDS : PROMO_KINDS)
+              : INFO_KINDS).map((k) => {
               const on = isSelected(k.kind);
               const eff = perKindCounts[k.kind];
               return (
@@ -274,6 +316,22 @@ export default function AudienceStep({ scope, events, segments }: {
           )}
           {campaign.type === 'promotional' && !hasAudience && (
             <Help style={{ marginTop: 10, color: RED }}>{t('studio.aud.pickOne')}</Help>
+          )}
+
+          {/* Réunir ou croiser : n'a de sens qu'à partir de deux audiences cochées. */}
+          {campaign.type === 'promotional' && campaign.audiences.length >= 2 && (
+            <MatchModeCard
+              value={campaign.exclusions.audienceMatch === 'all' ? 'all' : 'any'}
+              onChange={(v) => setExclusions({ ...campaign.exclusions, audienceMatch: v })}
+              names={campaign.audiences.map((a) => {
+                if (a.kind === 'contact_segment') return contactSegments.find((s) => s.id === a.segmentId)?.name || '';
+                if (a.kind === 'segment') return segments.find((s) => s.id === a.segmentId)?.name || '';
+                if (a.kind === 'import') return imports.find((l) => l.id === a.importId)?.name || '';
+                const k = PROMO_KINDS.find((p) => p.kind === a.kind);
+                return k ? t(k.labelKey) : a.kind;
+              }).filter(Boolean)}
+              t={t}
+            />
           )}
         </FlowCard>
 
@@ -398,6 +456,56 @@ export default function AudienceStep({ scope, events, segments }: {
             <Help>{t('studio.aud.projEmpty')}</Help>
           )}
         </FlowCard>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Réunir (A ou B) / Croiser (A et B). Deux gros boutons, une phrase d'exemple
+ * construite avec les VRAIS noms cochés : « Clients · Paris » + « Actifs » →
+ * croiser = « les contacts qui sont à la fois Clients · Paris et Actifs ».
+ * Le net réel s'affiche dans la carte de droite après l'autosave.
+ */
+function MatchModeCard({ value, onChange, names, t }: {
+  value: 'any' | 'all'; onChange: (v: 'any' | 'all') => void; names: string[]; t: (k: string) => string;
+}) {
+  const a = names[0] || 'A';
+  const b = names[1] || 'B';
+  const more = names.length > 2 ? t('studio.aud.match.more').replace('{n}', String(names.length - 2)) : '';
+  const opts: Array<{ v: 'any' | 'all'; label: string; desc: string }> = [
+    { v: 'any', label: t('studio.aud.match.any'), desc: t('studio.aud.match.anyDesc').replace('{a}', a).replace('{b}', b).replace('{more}', more) },
+    { v: 'all', label: t('studio.aud.match.all'), desc: t('studio.aud.match.allDesc').replace('{a}', a).replace('{b}', b).replace('{more}', more) },
+  ];
+  return (
+    <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 14, background: SUBTLE, border: `1px solid ${BORDER}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Layers size={14} strokeWidth={1.75} style={{ color: T2 }} />
+        <MicroLabel>{t('studio.aud.match.title')}</MicroLabel>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {opts.map((o) => {
+          const on = value === o.v;
+          return (
+            <button
+              key={o.v} type="button" onClick={() => onChange(o.v)} aria-pressed={on}
+              style={{
+                textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+                background: on ? RED_SOFT_GRAD : 'transparent',
+                border: `1px solid ${on ? 'rgba(232,25,44,0.32)' : BORDER}`,
+              }}
+            >
+              <div style={{ color: on ? T1 : T2, fontSize: 13, fontWeight: 600, fontFamily: FONT_UI, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  width: 14, height: 14, borderRadius: 999, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: on ? RED : 'transparent', border: `1px solid ${on ? RED : 'rgba(255,255,255,0.25)'}`, color: '#fff',
+                }}>{on && <Check size={9} strokeWidth={3} />}</span>
+                {o.label}
+              </div>
+              <div style={{ color: T3, fontSize: 11.5, marginTop: 4, lineHeight: 1.4, fontFamily: FONT_UI }}>{o.desc}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

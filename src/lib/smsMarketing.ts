@@ -15,12 +15,18 @@
 export const SMS_MARKETING_LIVE = false;
 
 export type SmsLang = 'fr' | 'en' | 'es';
-export type SmsSegmentType = 'all' | 'event' | 'not_event' | 'vip' | 'import' | 'contact_segment';
+export type SmsSegmentType = 'all' | 'event' | 'not_event' | 'vip' | 'import' | 'contact_segment'
+  // Portee plateforme uniquement : l'origine se lit dans le registre email
+  // plateforme (resolve_sms_campaign_recipients).
+  | 'pros' | 'clients';
 export type SmsCampaignStatus = 'draft' | 'scheduled' | 'sending' | 'paused' | 'sent' | 'failed' | 'cancelled';
 
 export type SmsScope =
   | { kind: 'venue'; venueId: string; name: string }
-  | { kind: 'organizer'; organizerUserId: string; name: string };
+  | { kind: 'organizer'; organizerUserId: string; name: string }
+  /** Marketing de Yuno lui-même (super admin). Aucun crédit : la facture
+   *  Twilio est déjà celle de la plateforme. */
+  | { kind: 'platform'; name: string };
 
 /** Longueur conseillée du texte libre : le nom d'expéditeur + STOP tiennent dans 1 segment GSM. */
 export const SMS_BODY_SOFT_LIMIT = 120;

@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AIContentGenerator from '@/components/campaigns/AIContentGenerator';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,6 +79,8 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
   const [segmentType, setSegmentType] = useState<SmsSegmentType>('all');
   const [importId, setImportId] = useState<string>('');
   const [segmentId, setSegmentId] = useState<string>('');
+  const [segmentIds, setSegmentIds] = useState<string[]>([]);
+  const [segmentMatch, setSegmentMatch] = useState<'any' | 'all'>('any');
   const [scheduleMode, setScheduleMode] = useState<'now' | 'later'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
   const [quietHours, setQuietHours] = useState(true);
@@ -102,6 +105,8 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
       setSegmentType((campaign.segment_filters?.type as SmsSegmentType) || 'all');
       setImportId(campaign.segment_filters?.import_id || '');
       setSegmentId(campaign.segment_filters?.segment_id || '');
+      setSegmentIds(campaign.segment_filters?.segment_ids?.length ? campaign.segment_filters.segment_ids : (campaign.segment_filters?.segment_id ? [campaign.segment_filters.segment_id] : []));
+      setSegmentMatch(campaign.segment_filters?.match === 'all' ? 'all' : 'any');
       setScheduleMode(campaign.status === 'scheduled' && campaign.scheduled_at ? 'later' : 'now');
       setScheduledAt(toLocalInputValue(campaign.scheduled_at));
       setQuietHours(campaign.quiet_hours !== false);
@@ -145,7 +150,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     if (!open) return;
     if (segmentNeedsEvent && !eventId) { setRecipientCount(null); return; }
     if (segmentNeedsImport && !importId) { setRecipientCount(null); return; }
-    if (segmentNeedsSegment && !segmentId) { setRecipientCount(null); return; }
+    if (segmentNeedsSegment && segmentIds.length === 0) { setRecipientCount(null); return; }
     let cancelled = false;
     setCountLoading(true);
     (async () => {
@@ -154,14 +159,16 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
         p_segment_type: segmentType,
         p_event_id: segmentNeedsEvent ? eventId : null,
         p_import_id: segmentNeedsImport ? importId : null,
-        p_segment_id: segmentNeedsSegment ? segmentId : null,
+        p_segment_id: segmentNeedsSegment ? (segmentIds[0] || null) : null,
+        p_segment_ids: segmentNeedsSegment ? segmentIds : null,
+        p_match: segmentMatch,
       } as never);
       if (cancelled) return;
       setRecipientCount(error ? 0 : Number(data ?? 0));
       setCountLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [open, scope, segmentType, eventId, importId, segmentId, segmentNeedsEvent, segmentNeedsImport, segmentNeedsSegment]);
+  }, [open, scope, segmentType, eventId, importId, segmentIds, segmentMatch, segmentNeedsEvent, segmentNeedsImport, segmentNeedsSegment]);
 
   const insertLinkToken = () => {
     if (!eventId) { toast.info(t('smsc.editor.pickEventForLink')); return; }
@@ -181,18 +188,23 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     if (!senderName.trim()) return t('smsc.editor.errSender');
     if (segmentNeedsEvent && !eventId) return t('smsCampaigns.errorSelectEvent');
     if (segmentNeedsImport && !importId) return t('smsc.editor.errSelectImport');
-    if (segmentNeedsSegment && !segmentId) return t('smsc.editor.errSelectSegment');
+    if (segmentNeedsSegment && segmentIds.length === 0) return t('smsc.editor.errSelectSegment');
     return null;
   };
 
   const payload = () => ({
-    ...(scope.kind === 'venue' ? { venue_id: scope.venueId, organizer_id: null } : { venue_id: null, organizer_id: scope.organizerUserId }),
+    // Portee plateforme : les deux colonnes a null (voir marketing_scope_match).
+    ...(scope.kind === 'venue'
+      ? { venue_id: scope.venueId, organizer_id: null }
+      : scope.kind === 'organizer'
+        ? { venue_id: null, organizer_id: scope.organizerUserId }
+        : { venue_id: null, organizer_id: null }),
     name: name.trim(),
     body_template: body.trim(),
     body_i18n: bodyI18n,
     sender_name: senderName.trim().slice(0, 24),
     event_id: eventId || null,
-    segment_filters: { type: segmentType, ...(eventId ? { event_id: eventId } : {}), ...(segmentNeedsImport && importId ? { import_id: importId } : {}), ...(segmentNeedsSegment && segmentId ? { segment_id: segmentId } : {}) },
+    segment_filters: { type: segmentType, ...(eventId ? { event_id: eventId } : {}), ...(segmentNeedsImport && importId ? { import_id: importId } : {}), ...(segmentNeedsSegment && segmentIds.length > 0 ? { segment_id: segmentIds[0], segment_ids: segmentIds, match: segmentMatch } : {}) },
     estimated_recipients: recipientCount ?? 0,
     estimated_credits: totalCredits,
     quiet_hours: quietHours,
@@ -212,7 +224,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     if (error || !data) throw new Error(error?.message ?? 'insert failed');
     return data.id as string;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign, user, name, body, bodyI18n, senderName, eventId, segmentType, importId, segmentId, recipientCount, totalCredits, quietHours, scope]);
+  }, [campaign, user, name, body, bodyI18n, senderName, eventId, segmentType, importId, segmentIds, segmentMatch, recipientCount, totalCredits, quietHours, scope]);
 
   const guardPreview = () => { if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return true; } return false; };
 
@@ -294,7 +306,11 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     try {
       const res = await invokeSms<{ credits?: number; to?: string }>({
         mode: 'test',
-        ...(scope.kind === 'venue' ? { venue_id: scope.venueId } : { organizer_user_id: scope.organizerUserId }),
+        ...(scope.kind === 'venue'
+          ? { venue_id: scope.venueId }
+          : scope.kind === 'organizer'
+            ? { organizer_user_id: scope.organizerUserId }
+            : { platform: true }),
         body: body.trim(),
         body_i18n: bodyI18n,
         sender_name: senderName.trim(),
@@ -309,7 +325,9 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
   };
 
   const locked = !SMS_MARKETING_LIVE;
-  const segmentIcon = (s: SmsSegmentType) => s === 'vip' ? <Crown className="h-4 w-4 text-amber-400" />
+  const segmentIcon = (s: SmsSegmentType) => s === 'pros' ? <Crown className="h-4 w-4 text-amber-400" />
+    : s === 'clients' ? <Users className="h-4 w-4 text-sky-400" />
+    : s === 'vip' ? <Crown className="h-4 w-4 text-amber-400" />
     : s === 'event' ? <CalendarDays className="h-4 w-4 text-violet-400" />
     : s === 'not_event' ? <UserX className="h-4 w-4 text-rose-400" />
     : s === 'import' ? <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
@@ -368,29 +386,65 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
                 <SelectTrigger className="border-white/[0.08] bg-surface/40"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all"><span className="flex items-center gap-2">{segmentIcon('all')}{t('smsCampaigns.segmentAll')}</span></SelectItem>
-                  <SelectItem value="not_event" disabled={!eventId}><span className="flex items-center gap-2">{segmentIcon('not_event')}{t('smsc.segment.notEvent')}</span></SelectItem>
-                  <SelectItem value="event" disabled={!eventId}><span className="flex items-center gap-2">{segmentIcon('event')}{t('smsc.segment.event')}</span></SelectItem>
-                  <SelectItem value="vip"><span className="flex items-center gap-2">{segmentIcon('vip')}{t('smsCampaigns.segmentVip')}</span></SelectItem>
+                  {scope.kind !== 'platform' && (
+                    <>
+                      <SelectItem value="not_event" disabled={!eventId}><span className="flex items-center gap-2">{segmentIcon('not_event')}{t('smsc.segment.notEvent')}</span></SelectItem>
+                      <SelectItem value="event" disabled={!eventId}><span className="flex items-center gap-2">{segmentIcon('event')}{t('smsc.segment.event')}</span></SelectItem>
+                    </>
+                  )}
+                  {scope.kind === 'platform' ? (
+                    <>
+                      <SelectItem value="pros"><span className="flex items-center gap-2">{segmentIcon('pros')}{t('pm.seg.pros')}</span></SelectItem>
+                      <SelectItem value="clients"><span className="flex items-center gap-2">{segmentIcon('clients')}{t('pm.seg.clients')}</span></SelectItem>
+                    </>
+                  ) : (
+                    <SelectItem value="vip"><span className="flex items-center gap-2">{segmentIcon('vip')}{t('smsCampaigns.segmentVip')}</span></SelectItem>
+                  )}
                   <SelectItem value="import" disabled={imports.length === 0}><span className="flex items-center gap-2">{segmentIcon('import')}{t('smsc.segment.import')}</span></SelectItem>
                   <SelectItem value="contact_segment" disabled={contactSegments.length === 0}><span className="flex items-center gap-2">{segmentIcon('contact_segment')}{t('smsc.segment.contactSegment')}</span></SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                {segmentType === 'not_event' ? t('smsc.segment.notEventHint')
+                {segmentType === 'pros' ? t('pm.seg.pros.d')
+                  : segmentType === 'clients' ? t('pm.seg.clients.d')
+                  : segmentType === 'not_event' ? t('smsc.segment.notEventHint')
                   : segmentType === 'event' ? t('smsc.segment.eventHint')
                   : segmentType === 'vip' ? t('sms.vipClientsDesc')
                   : segmentType === 'import' ? t('smsc.segment.importHint')
                   : segmentType === 'contact_segment' ? t('smsc.segment.contactSegmentHint') : t('smsc.segment.allHint')}
               </p>
               {segmentNeedsSegment && (
-                <Select value={segmentId} onValueChange={setSegmentId}>
-                  <SelectTrigger className="border-white/[0.08] bg-surface/40"><SelectValue placeholder={t('smsc.editor.pickSegment')} /></SelectTrigger>
-                  <SelectContent>
-                    {contactSegments.map((sg) => (
-                      <SelectItem key={sg.id} value={sg.id}>{sg.name} · {sg.counts.phones}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2 rounded-lg border border-white/[0.08] bg-surface/40 p-2.5">
+                  <p className="text-[11px] text-muted-foreground">{t('smsc.editor.pickSegments')}</p>
+                  <div className="max-h-44 space-y-1 overflow-y-auto">
+                    {contactSegments.map((sg) => {
+                      const on = segmentIds.includes(sg.id);
+                      return (
+                        <label key={sg.id} className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-white/[0.04]">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Checkbox checked={on} onCheckedChange={(v) => setSegmentIds((prev) => (v === true ? [...prev, sg.id] : prev.filter((x) => x !== sg.id)))} />
+                            <span className="truncate">{sg.name}</span>
+                          </span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">{sg.counts.phones}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {segmentIds.length >= 2 && (
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      {(['any', 'all'] as const).map((m) => (
+                        <button
+                          key={m} type="button" onClick={() => setSegmentMatch(m)}
+                          className={cn('rounded-md border px-2 py-1.5 text-left text-[11.5px]',
+                            segmentMatch === m ? 'border-primary/50 bg-primary/10 text-foreground' : 'border-white/[0.08] text-muted-foreground')}
+                        >
+                          <span className="block font-semibold">{t(m === 'any' ? 'studio.aud.match.any' : 'studio.aud.match.all')}</span>
+                          <span className="block opacity-80">{t(m === 'any' ? 'smsc.editor.matchAnyHint' : 'smsc.editor.matchAllHint')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               {segmentNeedsImport && (
                 <Select value={importId} onValueChange={setImportId}>

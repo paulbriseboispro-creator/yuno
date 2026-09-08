@@ -460,7 +460,10 @@ export type AudienceKind =
   | 'all_subscribers' | 'event_subscribers'
   | 'vip' | 'big_spenders' | 'regulars' | 'new_customers' | 'dormant'
   | 'segment' | 'import' | 'contact_segment'
-  | 'event_buyers' | 'event_table_buyers' | 'event_all_buyers';
+  | 'event_buyers' | 'event_table_buyers' | 'event_all_buyers'
+  // Portée plateforme (marketing Yuno) — résolus sur le registre plateforme,
+  // voir resolve_campaign_audience §« Portée plateforme ».
+  | 'clients' | 'pros' | 'waitlist' | 'leads' | 'app_users' | 'no_account' | 'buyers';
 
 export interface AudienceSel {
   kind: AudienceKind;
@@ -475,6 +478,12 @@ export interface AudienceExclusions {
   recentDays?: number | null;
   /** Exclut ceux qui ont déjà acheté un billet pour l'événement de la campagne. */
   excludeEventBuyers?: boolean;
+  /**
+   * Combinaison des audiences cochées : 'any' (réunir, défaut) = dans au moins
+   * une ; 'all' (croiser) = dans TOUTES (« Paris » ET « Actifs < 90 j »).
+   * Résolu par resolve_campaign_audience ; valeur inconnue ⇒ réunir.
+   */
+  audienceMatch?: 'any' | 'all';
 }
 
 export type ScheduleMode = 'now' | 'schedule';

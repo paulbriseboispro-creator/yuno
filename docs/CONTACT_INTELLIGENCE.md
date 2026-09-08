@@ -69,6 +69,19 @@ fichier CSV ─▶ parseContactFile (front, src/lib/contactImport.ts)
   version initiale prenait 37 s sur la base de WOH. `resolve_contact_segment_def`
   reste sans temp table (appelé depuis des fonctions STABLE).
 
+### Réunir / Croiser (2026-09-08 soir)
+
+Dès que deux audiences sont cochées (email : écran Audience ; SMS : liste des
+segments intelligents), un réglage apparaît : **Réunir** (A ou B, défaut) ou
+**Croiser** (A et B). Email : `exclusions_json.audienceMatch` = 'any' | 'all',
+lu par `resolve_campaign_audience` (valeur inconnue ⇒ réunir) ; le nombre
+d'audiences satisfaites par contact = audiences simples satisfaites +
+`cseg_hits` + `vseg_hits` (jointures hachées, jamais de sous-requête corrélée :
+la première version faisait 12 000 × résolution ⇒ timeout). SMS :
+`segment_filters.segment_ids[]` + `segment_filters.match`, résolveurs à
+8 paramètres (`p_segment_ids`, `p_match`). Vérifié sur WOH : Paris ∪ Actifs =
+9 983 emails, Paris ∩ Actifs = 1 711.
+
 ### Vocabulaire des définitions (v1)
 
 `country {in[]}` · `country_not {in[]}` · `zone {in[]}` · `city {in[]}` ·

@@ -8,7 +8,7 @@ export interface SmsCampaignRow {
   body_i18n: Record<string, string> | null;
   sender_name: string | null;
   event_id: string | null;
-  segment_filters: { type?: SmsSegmentType; event_id?: string; import_id?: string; segment_id?: string } | null;
+  segment_filters: { type?: SmsSegmentType; event_id?: string; import_id?: string; segment_id?: string; segment_ids?: string[]; match?: 'any' | 'all' } | null;
   estimated_recipients: number;
   total_recipients: number;
   sent_count: number;
@@ -35,20 +35,41 @@ export interface EventLite { id: string; title: string; start_at: string }
 
 export interface SmsImportLite { id: string; list_name: string | null; filename: string | null; created_at: string; contacts: number }
 
-export function scopeFilter(scope: SmsScope): { column: 'venue_id' | 'organizer_id'; value: string } {
-  return scope.kind === 'venue'
-    ? { column: 'venue_id', value: scope.venueId }
-    : { column: 'organizer_id', value: scope.organizerUserId };
+/**
+ * Filtre de portée pour une requête PostgREST. `null` = portée plateforme :
+ * l'appelant doit alors filtrer sur les DEUX colonnes à NULL (`applyScope`).
+ */
+export function scopeFilter(scope: SmsScope): { column: 'venue_id' | 'organizer_id'; value: string } | null {
+  if (scope.kind === 'venue') return { column: 'venue_id', value: scope.venueId };
+  if (scope.kind === 'organizer') return { column: 'organizer_id', value: scope.organizerUserId };
+  return null;
+}
+
+/** Applique la portée à une requête `sms_campaigns` (les 3 portées). */
+export function applyScope<T extends { eq: (c: string, v: string) => T; is: (c: string, v: null) => T }>(
+  q: T, scope: SmsScope,
+): T {
+  const f = scopeFilter(scope);
+  if (f) return q.eq(f.column, f.value);
+  return q.is('venue_id', null).is('organizer_id', null);
 }
 
 export function scopeRpcArgs(scope: SmsScope): { p_venue_id: string | null; p_organizer_user_id: string | null } {
   return {
     p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
     p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerUserId : null,
+    // Portée plateforme : les deux à null — c'est ce que la base lit comme
+    // « Yuno » (voir marketing_scope_match).
   };
 }
 
+/**
+ * Solde de crédits de la portée. La PLATEFORME n'en a pas : le SMS de Yuno est
+ * déjà sur la facture Twilio de Yuno, il n'y a rien à acheter ni à débiter.
+ * `Infinity` dit exactement ça à l'interface, qui masque alors la carte solde.
+ */
 export async function fetchSmsBalance(scope: SmsScope): Promise<number> {
+  if (scope.kind === 'platform') return Number.POSITIVE_INFINITY;
   const q = supabase.from('sms_credit_balances').select('balance');
   if (scope.kind === 'venue') q.eq('venue_id', scope.venueId).is('organizer_id', null);
   else q.eq('organizer_id', scope.organizerUserId).is('venue_id', null);
@@ -58,8 +79,9 @@ export async function fetchSmsBalance(scope: SmsScope): Promise<number> {
 
 export async function fetchScopeEvents(scope: SmsScope): Promise<EventLite[]> {
   const q = supabase.from('events').select('id, title, start_at').order('start_at', { ascending: false }).limit(80);
+  // Portée plateforme : toutes les soirées, Yuno peut parler de n'importe laquelle.
   if (scope.kind === 'venue') q.or(`venue_id.eq.${scope.venueId},partner_venue_id.eq.${scope.venueId}`);
-  else q.or(`organizer_user_id.eq.${scope.organizerUserId},partner_organizer_id.eq.${scope.organizerUserId}`);
+  else if (scope.kind === 'organizer') q.or(`organizer_user_id.eq.${scope.organizerUserId},partner_organizer_id.eq.${scope.organizerUserId}`);
   const { data } = await q;
   return (data ?? []) as EventLite[];
 }
