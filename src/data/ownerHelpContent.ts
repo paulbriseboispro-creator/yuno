@@ -509,7 +509,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Mail',
         actionLink: { labelKey: 'ohelp.action.goToCampaigns', path: '/campaigns' },
         relatedArticleIds: ['crm-setup', 'sms-credits', 'loyalty-setup'],
-        keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi', 'importer', 'import', 'liste', 'list', 'csv', 'base email', 'spam', 'delivrabilite', 'deliverability', 'masse', 'bulk', 'importar', 'lista', 'modele', 'modèle', 'template', 'plantilla', 'reutiliser', 'reutilizar', 'invitation', 'gabarit', 'supprimer', 'brouillon', 'delete', 'draft', 'eliminar', 'borrador', 'corbeille', 'table vip', 'bottle service', 'carre', 'carré', 'formule', 'mesa vip', 'vip table', 'alignement', 'align'],
+        keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi', 'importer', 'import', 'liste', 'list', 'csv', 'base email', 'spam', 'delivrabilite', 'deliverability', 'masse', 'bulk', 'importar', 'lista', 'modele', 'modèle', 'template', 'plantilla', 'reutiliser', 'reutilizar', 'invitation', 'gabarit', 'supprimer', 'brouillon', 'delete', 'draft', 'eliminar', 'borrador', 'corbeille', 'table vip', 'bottle service', 'carre', 'carré', 'formule', 'mesa vip', 'vip table', 'alignement', 'align', 'segmentation', 'segments intelligents', 'smart segments', 'segmentos', 'base clients', 'customer base', 'sms', 'telephone', 'téléphone', 'ville', 'city', 'depense', 'dépensé', 'fidele', 'fidèle', 'habitue', 'habitué', 'dormant', 'endormi'],
         sections: [
           { headingKey: 'ohelp.pg.campaigns.s1h', bodyKey: 'ohelp.pg.campaigns.s1b' },
           { headingKey: 'ohelp.pg.campaigns.s2h', bodyKey: 'ohelp.pg.campaigns.s2b', screenshotUrl: '/help/owner-campaigns.webp' },
@@ -521,6 +521,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.campaigns.s5h', bodyKey: 'ohelp.pg.campaigns.s5b', type: 'warning' },
           { headingKey: 'ohelp.pg.campaigns.s6h', bodyKey: 'ohelp.pg.campaigns.s6b', type: 'tip' },
           { headingKey: 'ohelp.pg.campaigns.s7h', bodyKey: 'ohelp.pg.campaigns.s7b', type: 'steps' },
+          { headingKey: 'ohelp.pg.campaigns.s16h', bodyKey: 'ohelp.pg.campaigns.s16b' },
+          { headingKey: 'ohelp.pg.campaigns.s17h', bodyKey: 'ohelp.pg.campaigns.s17b', type: 'tip' },
           { headingKey: 'ohelp.pg.campaigns.s10h', bodyKey: 'ohelp.pg.campaigns.s10b' },
           { headingKey: 'ohelp.pg.campaigns.s8h', bodyKey: 'ohelp.pg.campaigns.s8b' },
           { headingKey: 'ohelp.pg.campaigns.s9h', bodyKey: 'ohelp.pg.campaigns.s9b', type: 'warning' },
