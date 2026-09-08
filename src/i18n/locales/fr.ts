@@ -1083,7 +1083,7 @@ const fr: Record<string, string> = {
   'sms.lowBalance': "Solde faible",
   'sms.lowBalanceDesc': "Recharge un pack pour continuer à envoyer tes campagnes et confirmations sans interruption.",
   'sms.recharge': "Recharger",
-  'sms.transparentPricing': "Tarif transparent : coût opérateur + frais Stripe + 0,05 € de marge Yuno par SMS. Sans expiration.",
+  'sms.transparentPricing': "Tarif dégressif au plus près du coût opérateur : de 0,099 € à 0,078 € le SMS selon le pack, frais Stripe compris. Sans expiration.",
   'sms.popular': "Populaire",
   'sms.perSmsPrefix': "Soit",
   'sms.redirecting': "Redirection…",

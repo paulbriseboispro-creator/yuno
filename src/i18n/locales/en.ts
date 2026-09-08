@@ -1048,7 +1048,7 @@ const en: Record<string, string> = {
   'sms.lowBalance': "Low balance",
   'sms.lowBalanceDesc': "Top up a pack to keep sending your campaigns and confirmations without interruption.",
   'sms.recharge': "Top up",
-  'sms.transparentPricing': "Transparent pricing: carrier cost + Stripe fees + €0.05 Yuno margin per SMS. No expiry.",
+  'sms.transparentPricing': "Volume pricing as close to carrier cost as possible: from €0.099 down to €0.078 per SMS depending on the pack, Stripe fees included. No expiry.",
   'sms.popular': "Popular",
   'sms.perSmsPrefix': "i.e.",
   'sms.redirecting': "Redirecting…",

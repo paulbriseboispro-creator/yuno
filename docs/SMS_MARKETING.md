@@ -19,7 +19,7 @@ et l'**organisateur sans club** (`/organizer-app/sms`) : composant partagé
 | Worker | `send-sms-campaign` | Modes `send` / `drain` / `resume` / `test`. Tranches de 40 s auto-chaînées ; cron `process-scheduled-campaigns` (5 min) = filet + campagnes planifiées. |
 | Livraison | `sms-twilio-status-webhook` → RPC `apply_sms_delivery_status` | Log + file + compteurs + remboursement du crédit, atomique et idempotent. |
 | STOP | `sms-inbound-webhook` → `sms_stop_unsubscribe` | Retire le numéro de **toutes** les listes (clubs et organisateurs). |
-| Crédits | `sms_packs`, `sms_credit_balances`, `sms-purchase-checkout` (+ `return_path`), `sms-purchase-verify` | 1 crédit = 1 segment SMS. Achat depuis n'importe quelle page via `SmsCreditsDialog`. |
+| Crédits | `sms_packs`, `sms_credit_balances`, `sms-purchase-checkout` (+ `return_path`), `sms-purchase-verify` | 1 crédit = 1 segment SMS. Achat depuis n'importe quelle page via `SmsCreditsDialog`. Grille 2026-09 : 100 → 9,90 €, 500 → 45 €, 2 000 → 165 €, 5 000 → 390 € (coût Twilio ≈ 0,073 € FR, 0,08 € ES ; les prix vivent en base, migration `20260908090000`). |
 | Rapport | RPC `get_sms_campaign_report` | Livraison, clics sur le lien suivi `sms` (`ensure_sms_tracked_link`), billets/tables attribués, crédits nets, timeline par heure. |
 
 ### Règles non négociables (côté serveur, jamais retirables par le pro)

@@ -1315,7 +1315,7 @@ const es: Record<string, string> = {
   'sms.lowBalance': "Saldo bajo",
   'sms.lowBalanceDesc': "Recarga un pack para seguir enviando tus campañas y confirmaciones sin interrupción.",
   'sms.recharge': "Recargar",
-  'sms.transparentPricing': "Precio transparente: coste del operador + comisiones Stripe + 0,05 € de margen Yuno por SMS. Sin caducidad.",
+  'sms.transparentPricing': "Precio decreciente lo más cerca posible del coste del operador: de 0,099 € a 0,078 € por SMS según el pack, comisiones de Stripe incluidas. Sin caducidad.",
   'sms.popular': "Popular",
   'sms.perSmsPrefix': "O sea",
   'sms.redirecting': "Redirigiendo…",
