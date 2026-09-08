@@ -13510,6 +13510,7 @@ const es: Record<string, string> = {
   'smsc.segment.contactSegmentHint': "Un segmento propuesto por Yuno sobre tu base importada (zona, gasto, frecuencia, recencia…). Solo se toman los números con consentimiento.",
   'smsc.editor.pickSegment': "Elegir un segmento…",
   'smsc.editor.errSelectSegment': "Elige un segmento.",
+  'cseg.loadError': "El análisis no se completó. Vuelve a intentarlo; si el mensaje persiste, envíalo al soporte de Yuno.",
 };
 
 export default es;

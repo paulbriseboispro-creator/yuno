@@ -100,9 +100,13 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const eventTitle = useMemo(() => new Map(events.map((e) => [e.id, e.title])), [events]);
 
   const openBuy = (missing: number | null) => { setCreditsMissing(missing); setCreditsOpen(true); };
+  // L'import unifié et la segmentation valent pour un club ou un organisateur ;
+  // la portée plateforme (marketing Yuno) n'a pas de base importée.
   const importScope = scope.kind === 'venue'
     ? { kind: 'venue' as const, venueId: scope.venueId }
-    : { kind: 'organizer' as const, organizerId: scope.organizerUserId };
+    : scope.kind === 'organizer'
+      ? { kind: 'organizer' as const, organizerId: scope.organizerUserId }
+      : null;
 
   const openCampaign = (c: SmsCampaignRow) => {
     if (c.status === 'draft') { setEditing(c); setEditorOpen(true); return; }
@@ -318,8 +322,12 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         presetEventId={editing ? null : presetEventId}
       />
       <SmsCreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} scope={scope} missing={creditsMissing} onCredited={() => void load()} />
-      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />
-      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void load()} />
+      {importScope && (
+        <>
+          <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />
+          <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void load()} />
+        </>
+      )}
     </div>
   );
 }

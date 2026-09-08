@@ -13168,6 +13168,7 @@ const en: Record<string, string> = {
   'smsc.segment.contactSegmentHint': "A segment proposed by Yuno on your imported base (area, spend, frequency, recency…). Only consenting numbers are taken.",
   'smsc.editor.pickSegment': "Pick a segment…",
   'smsc.editor.errSelectSegment': "Pick a segment.",
+  'cseg.loadError': "The analysis did not complete. Try again; if the message persists, send it to Yuno support.",
 };
 
 export default en;

@@ -13142,6 +13142,7 @@ const fr: Record<string, string> = {
   'smsc.segment.contactSegmentHint': "Un segment proposé par Yuno sur votre base importée (zone, dépenses, fréquence, récence…). Seuls les numéros consentants sont pris.",
   'smsc.editor.pickSegment': "Choisir un segment…",
   'smsc.editor.errSelectSegment': "Choisissez un segment.",
+  'cseg.loadError': "L'analyse n'a pas abouti. Réessayez ; si le message persiste, envoyez-le au support Yuno.",
 };
 
 export default fr;

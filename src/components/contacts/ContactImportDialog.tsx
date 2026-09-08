@@ -459,10 +459,12 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [createdCount, setCreatedCount] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const nf = (n: number) => n.toLocaleString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data: ov, error: e1 } = await supabase.rpc('get_contact_intelligence_overview' as never, scopeArgs(scope) as never);
       if (e1) throw e1;
@@ -478,8 +480,10 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
       // Pré-cochées : toutes les propositions pas encore créées.
       setSelected(new Set((a.suggestions || []).filter((s) => !s.existing_id).map((s) => s.key)));
     } catch (e) {
-      toast.error(errMsg(e));
-      setAnalysis({ generated_at: '', contacts: 0, lists: 0, suggestions: [] });
+      // Une erreur n'est PAS « base vide » : on la montre telle quelle, avec
+      // un bouton pour réessayer — jamais l'écran « importez d'abord ».
+      setLoadError(errMsg(e));
+      setAnalysis(null);
     } finally {
       setLoading(false);
     }
@@ -533,6 +537,24 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-[13px] opacity-70">
         <Loader2 className="h-4 w-4 animate-spin" />{t('cimp.analyzing')}
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-2 rounded-lg p-3 text-[12.5px]" style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.3)' }}>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#E8192C' }} />
+          <div>
+            <div className="font-semibold">{t('cseg.loadError')}</div>
+            <div className="mt-0.5 font-mono text-[11px] opacity-70">{loadError}</div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onDone}>{t('common.close')}</Button>
+          <Button onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" />{t('cseg.rerun')}</Button>
+        </div>
       </div>
     );
   }
