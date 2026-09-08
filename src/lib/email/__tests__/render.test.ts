@@ -3,13 +3,14 @@ import {
   makeBlock, renderEmailHtml, renderBlock, countdownParts, looksLikeHtml,
   THEME_PRESETS, THEME_SWATCHES, DEFAULT_STUDIO_THEME,
   interpolateVariables, usesVariables, inlineMarkup, escapeHtml,
-  contrastText, ctaColors,
+  contrastText, ctaColors, contrastRatio, readableOn, mixHex,
   runChecklist, checklistBlocksSend,
   migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
   stripEventBindings, eventBoundBlocks, needsEventBinding,
   campaignToTemplateContent, templateToCampaignContent, buildStarter, STARTER_TEMPLATES,
   buildEntryRows, pickPublicGuestList, guestListTicketRow, priceFromLabel, formatEuro,
   ticketsCtaLabel, ticketsKicker, isPricedRow, soldOutSub, SOLD_OUT_CHIP,
+  buildTablePackRows, tablePackSubtitle, tablePackPrice, tablesLeftLabel,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -49,6 +50,50 @@ const ctx: RenderCtx = {
 function renderOne(b: EmailBlock, overrides: Partial<RenderCtx> = {}): string {
   return renderBlock(b, theme, { ...ctx, ...overrides });
 }
+
+describe('tables VIP — formules et rareté', () => {
+  it('la ligne de formule dit les couverts puis les bouteilles', () => {
+    expect(tablePackSubtitle({ base_capacity: 8, included_bottles_quota: 2 }))
+      .toBe('8 pers. · 2 bouteilles incluses');
+    expect(tablePackSubtitle({ base_capacity: 4, included_bottles_quota: 1, included_items: 'service dédié' }))
+      .toBe('4 pers. · 1 bouteille incluse · service dédié');
+  });
+
+  it('une table réglée sur place ne montre pas « 0 € »', () => {
+    expect(tablePackPrice({ payment_mode: 'on_site', base_price: 0 })).toBe('Sur place');
+    // À défaut de prix de base, c'est le minimum de consommation qui fait foi :
+    // c'est la somme que le client devra sortir.
+    expect(tablePackPrice({ base_price: 0, minimum_spend: 400 })).toBe('Min. 400 €');
+  });
+
+  it('les formules sortent des moins chères aux plus chères, limitées à 3', () => {
+    const rows = buildTablePackRows([
+      { name: 'Loge', base_price: 900 }, { name: 'Carré', base_price: 250 },
+      { name: 'Prestige', base_price: 450 }, { name: 'Suite', base_price: 2000 },
+    ]);
+    expect(rows.map((r) => r.n)).toEqual(['Carré', 'Prestige', 'Loge']);
+  });
+
+  it('la rareté presse sous le seuil et informe au-dessus', () => {
+    expect(tablesLeftLabel(0)).toBe('Complet');
+    expect(tablesLeftLabel(1)).toBe('Dernière table');
+    expect(tablesLeftLabel(3)).toBe('Plus que 3 tables');
+    expect(tablesLeftLabel(9)).toBe('9 tables disponibles');
+  });
+
+  it('readableOn assombrit jusqu’à AA sans toucher ce qui passe déjà', () => {
+    expect(contrastRatio('#F2B23C', '#ffffff')).toBeLessThan(4.5);
+    expect(contrastRatio(readableOn('#F2B23C', '#ffffff'), '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    // Une couleur déjà lisible n'est pas retouchée.
+    expect(readableOn('#111111', '#ffffff')).toBe('#111111');
+  });
+
+  it('mixHex n’émet que des hex opaques (Outlook efface les rgba)', () => {
+    expect(mixHex('#ffffff', '#000000', 0.5)).toMatch(/^#[0-9a-f]{6}$/);
+    expect(mixHex('#ffffff', '#000000', 0)).toBe('#000000');
+    expect(mixHex('#ffffff', '#000000', 1)).toBe('#ffffff');
+  });
+});
 
 describe('renderEmailHtml — enveloppe', () => {
   const html = renderEmailHtml([makeBlock('text')], theme, ctx);
@@ -177,11 +222,70 @@ describe('blocs — un rendu par type', () => {
     expect(html).toContain('18 €');
   });
 
-  it('table : kicker + tables restantes live (destinataire VIP)', () => {
+  it('table : kicker + rareté live (destinataire VIP)', () => {
     const b = makeBlock('table', { eventId: 'ev-1' });
     const html = renderOne(b);
     expect(html).toContain('Bottle service');
-    expect(html).toContain('3 tables encore libres');
+    // Sous le seuil de rareté, la pastille presse au lieu d'informer.
+    expect(html).toContain('Plus que 3 tables');
+    expect(html).toContain('Entrée coupe-file pour toute la table');
+    expect(html).toContain('Réserver une table');
+  });
+
+  it('table : les formules live remplacent les lignes figées', () => {
+    const b = makeBlock('table', { eventId: 'ev-1' });
+    const html = renderOne(b, {
+      live: {
+        'ev-1': {
+          ...ctx.live!['ev-1'],
+          tablePacks: [{ n: 'Loge Royale', s: '10 pers. · 4 bouteilles incluses', p: '1 200 €' }],
+        },
+      },
+    });
+    expect(html).toContain('Loge Royale');
+    expect(html).toContain('1 200 €');
+    // Les formules d'exemple du bloc ne partent jamais quand la base répond.
+    expect(html).not.toContain('Carré Prestige');
+  });
+
+  it('table : complet retire le bouton et les tarifs', () => {
+    const b = makeBlock('table', { eventId: 'ev-1' });
+    const html = renderOne(b, {
+      live: { 'ev-1': { ...ctx.live!['ev-1'], tablesLeft: 0 } },
+    });
+    expect(html).toContain('Complet');
+    expect(html).not.toContain('Réserver une table');
+    expect(html).not.toContain('Carré Prestige');
+  });
+
+  it('table : l’alignement suit le bloc et ne fuit pas dans les tarifs', () => {
+    const b = { ...makeBlock('table', { eventId: 'ev-1' }), align: 'center' } as EmailBlock;
+    const html = renderOne(b);
+    expect(html).toContain('text-align:center');
+    // Un tarif reste à droite de son nom : une colonne de prix centrée ne se
+    // compare plus d'une ligne à l'autre.
+    expect(html).toContain('align="right"');
+  });
+
+  it('table : l’accent en texte reste lisible (AA) sur la carte', () => {
+    // L'or VIP fait 1,8:1 sur blanc : parfait en aplat de bouton, illisible
+    // en prix. C'est le chiffre le plus important du bloc, il doit passer AA.
+    const b = makeBlock('table', { eventId: 'ev-1' });
+    const html = renderOne(b);
+    // L'or brut ne doit apparaître que dans les APLATS (bouton, fond de
+    // pastille) — jamais comme couleur de texte.
+    expect(html).not.toContain('color:#F2B23C');
+    // Le prix vit sur la carte blanche des formules : sa teinte y passe AA.
+    const priceColor = /font-weight:800;letter-spacing:-0\.02em;color:(#[0-9a-fA-F]{6});">250/.exec(html)?.[1];
+    expect(priceColor).toBeTruthy();
+    expect(contrastRatio(priceColor!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    // Le bouton, lui, garde l'or brut : son libellé se contraste tout seul.
+    expect(html).toContain('fillcolor="#F2B23C"');
+  });
+
+  it('table : aucune couleur en rgba (Outlook les efface)', () => {
+    const b = makeBlock('table', { eventId: 'ev-1' });
+    expect(renderOne(b)).not.toContain('rgba(');
   });
 
   it('table : bloc conditionnel effacé pour un destinataire hors règle', () => {
@@ -621,8 +725,13 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
     const tb = makeBlock('table', { eventId: 'ev-1' });
     if (tb.type === 'table') tb.accent = '#16a34a';
     const tbHtml = renderOne(tb);
-    expect(tbHtml).toContain('color:#16a34a'); // kicker + compteur
-    expect(tbHtml).toContain('background:#16a34a'); // bouton
+    // Le bouton porte l'accent BRUT : son libellé se contraste tout seul.
+    expect(tbHtml).toContain('background:#16a34a');
+    // Le même accent en TEXTE est assombri jusqu'à AA — un vert à 3,9:1 sur
+    // la carte rendrait le prix moins lisible que le reste du bloc.
+    const kicker = /text-transform:uppercase;color:(#[0-9a-fA-F]{6});/.exec(tbHtml)?.[1];
+    expect(kicker).toBeTruthy();
+    expect(contrastRatio(kicker!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('image : coins arrondis optionnels, bornés', () => {

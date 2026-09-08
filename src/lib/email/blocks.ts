@@ -53,8 +53,32 @@ export function makeBlock(type: BlockType, ctx: MakeBlockCtx = {}): EmailBlock {
       return {
         id, type, eventId: ctx.eventId,
         kicker: 'Bottle service',
-        title: 'Ta table t’attend', sub: 'Bottle service, entrée coupe-file, carré réservé.',
-        ctaLabel: 'Réserver une table', cond: 'vip_table',
+        title: 'Ta table t’attend',
+        sub: 'Carré privatisé, bouteilles servies à l’arrivée, et tu entres sans faire la queue.',
+        // Les arguments sont dans l'ordre où ils se vendent : ce qu'on évite
+        // (la file), ce qu'on obtient (le carré), ce qu'on boit.
+        perks: [
+          'Entrée coupe-file pour toute la table',
+          'Carré privatisé et hôte dédié',
+          'Bouteilles servies dès ton arrivée',
+        ],
+        // Formules d'exemple : elles ne partent JAMAIS telles quelles dès
+        // qu'une soirée est reliée (livePacks relit `table_packs` à l'envoi).
+        // Elles n'existent que pour composer avant d'avoir choisi la soirée.
+        packs: [
+          { n: 'Carré', s: '4 pers. · 1 bouteille incluse', p: '250 €' },
+          { n: 'Carré Prestige', s: '8 pers. · 2 bouteilles incluses', p: '450 €' },
+          { n: 'Loge', s: '12 pers. · 4 bouteilles incluses', p: '900 €' },
+        ],
+        livePacks: true,
+        ctaLabel: 'Réserver une table',
+        note: 'Confirmation immédiate · acompte à la réservation',
+        layout: 'showcase', align: 'left', full: true,
+        // Or VIP : le pilier tables porte sa couleur dans tout Yuno (c'est
+        // celle du pass Wallet d'une table). Un bouton or à côté du rouge de
+        // la billetterie dit qu'on achète autre chose. Le pro peut la changer.
+        accent: '#F2B23C',
+        cond: 'vip_table',
       };
     case 'countdown':
       return { id, type, eventId: ctx.eventId, label: 'Ouverture de la billetterie' };
