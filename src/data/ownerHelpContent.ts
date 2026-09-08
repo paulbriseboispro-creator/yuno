@@ -509,11 +509,12 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Mail',
         actionLink: { labelKey: 'ohelp.action.goToCampaigns', path: '/campaigns' },
         relatedArticleIds: ['crm-setup', 'sms-credits', 'loyalty-setup'],
-        keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi', 'importer', 'import', 'liste', 'list', 'csv', 'base email', 'spam', 'delivrabilite', 'deliverability', 'masse', 'bulk', 'importar', 'lista', 'modele', 'modèle', 'template', 'plantilla', 'reutiliser', 'reutilizar', 'invitation', 'gabarit', 'supprimer', 'brouillon', 'delete', 'draft', 'eliminar', 'borrador', 'corbeille'],
+        keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi', 'importer', 'import', 'liste', 'list', 'csv', 'base email', 'spam', 'delivrabilite', 'deliverability', 'masse', 'bulk', 'importar', 'lista', 'modele', 'modèle', 'template', 'plantilla', 'reutiliser', 'reutilizar', 'invitation', 'gabarit', 'supprimer', 'brouillon', 'delete', 'draft', 'eliminar', 'borrador', 'corbeille', 'table vip', 'bottle service', 'carre', 'carré', 'formule', 'mesa vip', 'vip table', 'alignement', 'align'],
         sections: [
           { headingKey: 'ohelp.pg.campaigns.s1h', bodyKey: 'ohelp.pg.campaigns.s1b' },
           { headingKey: 'ohelp.pg.campaigns.s2h', bodyKey: 'ohelp.pg.campaigns.s2b', screenshotUrl: '/help/owner-campaigns.webp' },
           { headingKey: 'ohelp.pg.campaigns.s3h', bodyKey: 'ohelp.pg.campaigns.s3b', type: 'steps' },
+          { headingKey: 'ohelp.pg.campaigns.s15h', bodyKey: 'ohelp.pg.campaigns.s15b' },
           { headingKey: 'ohelp.pg.campaigns.s12h', bodyKey: 'ohelp.pg.campaigns.s12b', type: 'tip' },
           { headingKey: 'ohelp.pg.campaigns.s13h', bodyKey: 'ohelp.pg.campaigns.s13b', type: 'warning' },
           { headingKey: 'ohelp.pg.campaigns.s4h', bodyKey: 'ohelp.pg.campaigns.s4b' },
