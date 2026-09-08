@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -16310,6 +16335,18 @@ export type Database = {
       }
     }
     Functions: {
+      _admin_customer_activity: {
+        Args: never
+        Returns: {
+          amount: number
+          created_at: string
+          em: string
+          event_id: string
+          is_paid: boolean
+          kind: string
+          venue_id: string
+        }[]
+      }
       _admin_customer_rfm: {
         Args: never
         Returns: {
@@ -16318,6 +16355,8 @@ export type Database = {
           em: string
           f_score: number
           first_at: string
+          guestlist_count: number
+          has_paid: boolean
           last_at: string
           m_score: number
           order_count: number
@@ -16565,6 +16604,10 @@ export type Database = {
       admin_set_user_suspended: {
         Args: { _reason?: string; _suspended: boolean; _user_id: string }
         Returns: undefined
+      }
+      admin_signup_stats: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       admin_upsert_credential_deadline: {
         Args: {
@@ -17203,6 +17246,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      demo_event_ids: { Args: never; Returns: string[] }
       demo_is_live: { Args: never; Returns: boolean }
       demo_live_session: {
         Args: never
@@ -17223,6 +17267,7 @@ export type Database = {
         }[]
       }
       demo_set_live: { Args: { p_live: boolean }; Returns: boolean }
+      demo_venue_ids: { Args: never; Returns: string[] }
       dispute_collab_settlement: {
         Args: { p_reason?: string; p_settlement_id: string }
         Returns: Json
@@ -18518,6 +18563,7 @@ export type Database = {
         Args: { p_user_id: string; p_venue_id: string }
         Returns: boolean
       }
+      is_demo_email: { Args: { p_email: string }; Returns: boolean }
       is_email_banned: {
         Args: { p_email: string; p_venue_id: string }
         Returns: boolean
@@ -19728,6 +19774,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [
