@@ -310,9 +310,15 @@ export default function GuestListCheckout() {
     setSubmitting(true);
     try {
       const promoterCode = ref || getStoredPromoCodeForScope(guestList.venueId, guestList.venueId) || undefined;
+      // Attribution du canal (newsletter, instagram…) : ce tunnel s'ouvre
+      // depuis la page de la soirée, donc le `?tl=` n'est plus dans l'URL —
+      // seul le lien mémorisé fait foi, comme pour les billets et les tables.
+      const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
+      const trackedLinkId = searchParams.get('tl') || getTrackedLinkForCheckout(eventId);
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
           shareToken: guestList.shareToken,
+          ...(trackedLinkId ? { trackedLinkId } : {}),
           // Langue lue par l'invité = langue de son email de confirmation.
           lang: language,
           gender: gender || undefined,

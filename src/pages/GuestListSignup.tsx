@@ -444,6 +444,13 @@ export default function GuestListSignup() {
 
     setSubmitting(true);
     try {
+      // Attribution du canal (newsletter, instagram…) : le `?tl=` de l'arrivée
+      // directe, sinon le lien mémorisé pour cette soirée — un visiteur venu
+      // par la page de la soirée n'a plus le paramètre dans son URL
+      // (useResolveTrackedLink l'a rangé puis effacé). Même règle que les
+      // checkouts billets et tables.
+      const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
+      const trackedLinkId = trackedLinkParam || getTrackedLinkForCheckout(eventId);
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
           // Langue lue par l'invité = langue de son email de confirmation.
@@ -452,7 +459,7 @@ export default function GuestListSignup() {
           ...(inviteParam
             ? { inviteToken: inviteParam }
             : { shareToken: token || guestList.shareToken }),
-          ...(trackedLinkParam ? { trackedLinkId: trackedLinkParam } : {}),
+          ...(trackedLinkId ? { trackedLinkId } : {}),
           // Type choisi parmi l'offre publique (le lien unique impose le sien).
           ...(!inviteParam && guestList.publicEntryTypes && chosenType
             ? { entryType: chosenType }
