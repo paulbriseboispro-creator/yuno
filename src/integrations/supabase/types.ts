@@ -11708,6 +11708,91 @@ export type Database = {
           },
         ]
       }
+      sms_list_imports: {
+        Row: {
+          attested_at: string
+          attested_by: string | null
+          collected_since: string | null
+          consent_details: string | null
+          consent_source: string
+          created_at: string
+          default_country: string | null
+          duplicate_count: number
+          filename: string | null
+          id: string
+          inserted_count: number
+          invalid_count: number
+          list_name: string | null
+          organizer_user_id: string | null
+          submitted_count: number
+          suppressed_count: number
+          unchanged_count: number
+          venue_id: string | null
+        }
+        Insert: {
+          attested_at?: string
+          attested_by?: string | null
+          collected_since?: string | null
+          consent_details?: string | null
+          consent_source: string
+          created_at?: string
+          default_country?: string | null
+          duplicate_count?: number
+          filename?: string | null
+          id?: string
+          inserted_count?: number
+          invalid_count?: number
+          list_name?: string | null
+          organizer_user_id?: string | null
+          submitted_count?: number
+          suppressed_count?: number
+          unchanged_count?: number
+          venue_id?: string | null
+        }
+        Update: {
+          attested_at?: string
+          attested_by?: string | null
+          collected_since?: string | null
+          consent_details?: string | null
+          consent_source?: string
+          created_at?: string
+          default_country?: string | null
+          duplicate_count?: number
+          filename?: string | null
+          id?: string
+          inserted_count?: number
+          invalid_count?: number
+          list_name?: string | null
+          organizer_user_id?: string | null
+          submitted_count?: number
+          suppressed_count?: number
+          unchanged_count?: number
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_list_imports_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_list_imports_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_list_imports_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_logs: {
         Row: {
           body: string
@@ -14416,6 +14501,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          import_id: string | null
           is_vip: boolean
           organizer_user_id: string | null
           phone_e164: string
@@ -14432,6 +14518,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          import_id?: string | null
           is_vip?: boolean
           organizer_user_id?: string | null
           phone_e164: string
@@ -14448,6 +14535,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          import_id?: string | null
           is_vip?: boolean
           organizer_user_id?: string | null
           phone_e164?: string
@@ -14459,6 +14547,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "venue_sms_contacts_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "sms_list_imports"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "venue_sms_contacts_source_event_id_fkey"
             columns: ["source_event_id"]
@@ -16629,6 +16724,7 @@ export type Database = {
       count_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
+          p_import_id?: string
           p_organizer_user_id: string
           p_segment_type: string
           p_venue_id: string
@@ -18046,6 +18142,21 @@ export type Database = {
         }
         Returns: Json
       }
+      import_sms_contacts: {
+        Args: {
+          p_collected_since?: string
+          p_consent_details?: string
+          p_consent_source: string
+          p_contacts: Json
+          p_default_country?: string
+          p_filename?: string
+          p_import_id?: string
+          p_list_name?: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       increment_balance: {
         Args: { amount: number; current_val: number }
         Returns: number
@@ -18473,6 +18584,10 @@ export type Database = {
         Args: { p_import_id: string; p_name: string }
         Returns: string
       }
+      rename_sms_list_import: {
+        Args: { p_import_id: string; p_name: string }
+        Returns: string
+      }
       request_club_yuno_lead: {
         Args: { p_affiliate_venue_id: string }
         Returns: Json
@@ -18590,6 +18705,7 @@ export type Database = {
       resolve_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
+          p_import_id?: string
           p_organizer_user_id: string
           p_segment_type: string
           p_venue_id: string
