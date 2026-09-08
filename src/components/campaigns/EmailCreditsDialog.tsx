@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { ImportScope } from './ImportContactsDialog';
+import type { ImportScope } from '@/components/contacts/ContactImportDialog';
 
 interface Pack { id: string; name: string; emails_amount: number; price_eur: number }
 

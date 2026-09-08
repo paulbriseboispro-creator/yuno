@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -13,7 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyName } from '@/lib/email';
-import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
+import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 
@@ -59,6 +59,7 @@ export default function OwnerCampaigns() {
   const [revenue, setRevenue] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   useEmailCreditsReturn();
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
@@ -169,6 +170,17 @@ export default function OwnerCampaigns() {
               }}
             >
               <Upload className="w-4 h-4" /> {t('em.import.button')}
+            </button>
+            <button
+              onClick={() => setSegmentsOpen(true)}
+              className="cursor-pointer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px',
+                borderRadius: 10, border: `1px solid ${BORDER}`, background: SUBTLE,
+                color: T2, fontSize: 12.5, fontWeight: 500,
+              }}
+            >
+              <Sparkles className="w-4 h-4" /> {t('cseg.button')}
             </button>
             <button
               onClick={() => navigate('/owner/campaigns/new')}
@@ -356,11 +368,19 @@ export default function OwnerCampaigns() {
         />
       )}
       {venueId && (
-        <ImportContactsDialog
-          open={importOpen}
-          onClose={() => setImportOpen(false)}
-          scope={{ kind: 'venue', venueId }}
-        />
+        <>
+          <ContactImportDialog
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            scope={{ kind: 'venue', venueId }}
+          />
+          <ContactImportDialog
+            open={segmentsOpen}
+            mode="analyze"
+            onClose={() => setSegmentsOpen(false)}
+            scope={{ kind: 'venue', venueId }}
+          />
+        </>
       )}
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>

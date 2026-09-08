@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BarChart3, Loader2, Mail, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -12,7 +12,7 @@ import { useProfileType } from '@/hooks/useProfileType';
 import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
-import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
+import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import {
@@ -48,6 +48,7 @@ export default function OrgAppCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
   useEmailCreditsReturn();
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
@@ -93,6 +94,9 @@ export default function OrgAppCampaigns() {
               <div className="flex items-center gap-2">
                 <OrgButton variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('Importer ma liste', 'Import my list', 'Importar mi lista')}</span>
+                </OrgButton>
+                <OrgButton variant="secondary" size="sm" onClick={() => setSegmentsOpen(true)}>
+                  <Sparkles className="h-4 w-4" /> <span className="hidden sm:inline">{t('Segments intelligents', 'Smart segments', 'Segmentos inteligentes')}</span>
                 </OrgButton>
                 <OrgButton variant="primary" size="sm" onClick={() => navigate('/organizer-app/campaigns/new')}>
                   <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t('Nouvelle campagne', 'New campaign', 'Nueva campaña')}</span>
@@ -187,11 +191,19 @@ export default function OrgAppCampaigns() {
         />
       )}
       {user?.id && (
-        <ImportContactsDialog
-          open={importOpen}
-          onClose={() => setImportOpen(false)}
-          scope={{ kind: 'organizer', organizerId: user.id }}
-        />
+        <>
+          <ContactImportDialog
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            scope={{ kind: 'organizer', organizerId: user.id }}
+          />
+          <ContactImportDialog
+            open={segmentsOpen}
+            mode="analyze"
+            onClose={() => setSegmentsOpen(false)}
+            scope={{ kind: 'organizer', organizerId: user.id }}
+          />
+        </>
       )}
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
