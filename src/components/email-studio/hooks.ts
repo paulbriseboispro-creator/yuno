@@ -4,8 +4,9 @@ import type {
   EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
 } from '@/lib/email';
 import {
-  buildEntryRows, formatEuro, pickPublicGuestList, priceFromLabel, rowToTemplate,
-  templateContentToRow, YUNO_BLOCK_TYPES, type GuestListOffer,
+  buildEntryRows, buildTablePackRows, formatEuro, pickPublicGuestList, priceFromLabel,
+  rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES,
+  type GuestListOffer, type TablePackOffer,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
 
@@ -106,6 +107,29 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       if (cancelled) return;
       const venueById = new Map((venues || []).map((v) => [v.id, v]));
 
+      // Formules de table : le pro compose avec SES vraies formules et leurs
+      // vrais prix, pas avec les lignes d'exemple. Le canvas doit montrer ce
+      // qui partira — un aperçu qui ment sur les tarifs se découvre à l'envoi.
+      const packScope = [
+        `event_id.in.(${wanted.join(',')})`,
+        venueIds.length ? `venue_id.in.(${venueIds.join(',')})` : '',
+      ].filter(Boolean).join(',');
+      const [{ data: packs }, { data: reservations }] = await Promise.all([
+        supabase.from('table_packs')
+          .select('event_id,venue_id,tables_count,name,base_price,base_capacity,included_bottles_quota,included_items,minimum_spend,payment_mode,position')
+          .eq('is_active', true)
+          .or(packScope),
+        supabase.from('table_reservations')
+          .select('event_id,status')
+          .in('event_id', wanted)
+          .in('status', ['paid', 'confirmed']),
+      ]);
+      if (cancelled) return;
+      const reservedByEvent = new Map<string, number>();
+      for (const r of (reservations || []) as { event_id: string }[]) {
+        reservedByEvent.set(r.event_id, (reservedByEvent.get(r.event_id) || 0) + 1);
+      }
+
       // Host de l'URL propre /events/:host/:slug — résolu par la RPC serveur
       // (slug d'orga si organizer-led, sinon slug du club). On ne rejoue pas
       // la règle ici : c'est event_host_slug la source de vérité.
@@ -115,6 +139,21 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       }));
       if (cancelled) return;
       const hostById = new Map(hostEntries);
+
+      /**
+       * Offre de tables d'une soirée : les formules ouvertes et le nombre de
+       * tables encore libres. Une soirée sans aucune formule renvoie
+       * `tablesLeft: null` — le bloc ne vend alors rien qui n'existe pas.
+       */
+      const tableLiveFor = (eventId: string, venueId: string | null) => {
+        const mine = ((packs || []) as (TablePackOffer & { event_id?: string | null; venue_id?: string | null; tables_count?: number | null })[])
+          .filter((p) => p.event_id === eventId || (!p.event_id && venueId && p.venue_id === venueId));
+        const total = mine.reduce((sum, p) => sum + Number(p.tables_count || 0), 0);
+        return {
+          tablesLeft: total > 0 ? Math.max(0, total - (reservedByEvent.get(eventId) || 0)) : null,
+          tablePacks: buildTablePackRows(mine),
+        };
+      };
 
       const next: LiveData = {};
       for (const raw of events) {
@@ -159,7 +198,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           // s'efface), undefined = « données pas encore résolues » (fallback).
           tickets,
           guestListOnly,
-          tablesLeft: null,
+          ...tableLiveFor(e.id, e.venue_id || e.partner_venue_id || null),
         };
       }
       setLive(next);

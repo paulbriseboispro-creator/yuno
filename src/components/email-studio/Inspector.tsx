@@ -8,7 +8,8 @@ import ImageUploader from '@/components/campaigns/ImageUploader';
 import ColorField from '@/components/campaigns/ColorField';
 import type {
   CtaBlock, EmailBlock, EventBlock, HeaderBlock, HtmlBlock, ImageBlock,
-  SpacerBlock, TableBlock, TextBlock, TicketRow, TicketsBlock, ColumnsBlock, CountdownBlock,
+  SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow, TicketsBlock,
+  ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
 import { blockPadDefaults } from '@/lib/email';
 import { useStudio } from './store';
@@ -439,6 +440,10 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
   const setSocialLinks = useStudio((s) => s.setSocialLinks);
   const socialLinks = useStudio((s) => s.campaign.socialLinks);
   const theme = useStudio((s) => s.campaign.theme);
+  // Soirée de la campagne : un bloc Yuno sans eventId propre en hérite (même
+  // repli que le rendu). Elle décide si les formules live remplaceront les
+  // lignes écrites à la main.
+  const campaignEventId = useStudio((s) => s.campaign.eventId);
 
   const alignPills = (value: 'left' | 'center' | 'right', onChange: (v: 'left' | 'center' | 'right') => void) => (
     <OptionPills
@@ -626,27 +631,150 @@ function BlockFields({ block, patch, events, bucketFolder, brand }: {
     }
     case 'table': {
       const b = block as TableBlock;
+      const perks = b.perks || [];
+      const packs = b.packs || [];
+      const setPerk = (i: number, value: string) =>
+        patch({ perks: perks.map((p, idx) => (idx === i ? value : p)) });
+      const setPack = (i: number, next: Partial<TablePackRow>) =>
+        patch({ packs: packs.map((p, idx) => (idx === i ? { ...p, ...next } : p)) });
+      // Les formules live remplacent les lignes figées dès qu'une soirée est
+      // reliée : on ne propose de les écrire à la main que si elles serviront.
+      const packsAreLive = b.livePacks !== false && !!(b.eventId || campaignEventId);
       return (
-        <PanelCard>
-          <MicroLabel>{t('studio.inspector.event')}</MicroLabel>
-          <EventPicker value={b.eventId} events={events} onChange={(id) => patch({ eventId: id })} />
-          <Help>{t('studio.inspector.trackedLinkHelp')}</Help>
-          <MicroLabel>{t('studio.inspector.tableTitle')}</MicroLabel>
-          <TextInput value={b.title} onChange={(e) => patch({ title: e.target.value })} />
-          <MicroLabel>{t('studio.inspector.tableSub')}</MicroLabel>
-          <TextInput value={b.sub} onChange={(e) => patch({ sub: e.target.value })} />
-          <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
-          <TextInput value={b.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} />
-          <ThemedColor
-            label={t('studio.inspector.accentColor')}
-            value={b.accent}
-            themeDefault={theme.accent}
-            onChange={(v) => patch({ accent: v })}
-          />
-          <Banner tone="red" icon={<Zap size={13} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />}>
-            {t('studio.inspector.tableLive')}
-          </Banner>
-        </PanelCard>
+        <>
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.event')}</MicroLabel>
+            <EventPicker value={b.eventId} events={events} onChange={(id) => patch({ eventId: id })} />
+            <Help>{t('studio.inspector.trackedLinkHelp')}</Help>
+            <MicroLabel>{t('studio.inspector.tableLayout')}</MicroLabel>
+            <OptionPills
+              value={b.layout || 'showcase'}
+              ariaLabel={t('studio.inspector.tableLayout')}
+              options={[
+                { value: 'showcase', label: t('studio.inspector.tableLayoutShowcase') },
+                { value: 'banner', label: t('studio.inspector.tableLayoutBanner') },
+                { value: 'minimal', label: t('studio.inspector.tableLayoutMinimal') },
+              ]}
+              onChange={(v) => patch({ layout: v })}
+            />
+            <Help>{t('studio.inspector.tableLayoutHelp')}</Help>
+            <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
+            {alignPills(b.align || 'left', (v) => patch({ align: v }))}
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableKicker')}</MicroLabel>
+            <TextInput value={b.kicker} onChange={(e) => patch({ kicker: e.target.value })} />
+            <MicroLabel>{t('studio.inspector.tableTitle')}</MicroLabel>
+            <TextInput value={b.title} onChange={(e) => patch({ title: e.target.value })} />
+            <MicroLabel>{t('studio.inspector.tableSub')}</MicroLabel>
+            <TextInput value={b.sub} onChange={(e) => patch({ sub: e.target.value })} />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tablePerks')}</MicroLabel>
+            <Help>{t('studio.inspector.tablePerksHelp')}</Help>
+            {perks.map((perk, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <TextInput value={perk} onChange={(e) => setPerk(i, e.target.value)} />
+                <IconBtn size={26} danger ariaLabel={t('studio.inspector.rowRemove')}
+                  onClick={() => patch({ perks: perks.filter((_, idx) => idx !== i) })}>
+                  <Trash2 size={13} strokeWidth={1.75} />
+                </IconBtn>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => patch({ perks: [...perks, t('studio.inspector.tablePerkNew')] })}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
+                borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
+                color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+              }}
+            >
+              <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.tablePerkAdd')}
+            </button>
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tablePacks')}</MicroLabel>
+            <ToggleRow
+              checked={b.livePacks !== false}
+              onChange={(v) => patch({ livePacks: v })}
+              label={t('studio.inspector.tablePacksLive')}
+            />
+            {packsAreLive ? (
+              <Banner tone="red" icon={<Zap size={13} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />}>
+                {t('studio.inspector.tableLive')}
+              </Banner>
+            ) : (
+              <>
+                <Help>{t('studio.inspector.tablePacksHelp')}</Help>
+                {packs.map((row, i) => (
+                  <div key={i} style={{ display: 'grid', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <TextInput value={row.n} onChange={(e) => setPack(i, { n: e.target.value })}
+                        placeholder={t('studio.inspector.rowName')} />
+                      <TextInput value={row.p} onChange={(e) => setPack(i, { p: e.target.value })}
+                        placeholder={t('studio.inspector.rowPrice')}
+                        style={{ width: 78, padding: '6px 9px', fontSize: 12, flex: 'none' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <TextInput value={row.s} onChange={(e) => setPack(i, { s: e.target.value })}
+                        placeholder={t('studio.inspector.rowSub')} style={{ padding: '6px 9px', fontSize: 12 }} />
+                      <IconBtn size={26} danger ariaLabel={t('studio.inspector.rowRemove')}
+                        onClick={() => patch({ packs: packs.filter((_, idx) => idx !== i) })}>
+                        <Trash2 size={13} strokeWidth={1.75} />
+                      </IconBtn>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => patch({ packs: [...packs, { n: t('studio.inspector.rowNewName'), s: '', p: '250 €' }] })}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
+                    borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
+                    color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+                  }}
+                >
+                  <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.rowAdd')}
+                </button>
+              </>
+            )}
+          </PanelCard>
+
+          {(b.layout || 'showcase') === 'showcase' && (
+            <PanelCard>
+              <MicroLabel>{t('studio.inspector.tableCover')}</MicroLabel>
+              <ImageUploader
+                value={b.coverUrl || null}
+                onChange={(url) => patch({ coverUrl: url || undefined })}
+                bucketFolder={bucketFolder}
+              />
+              <Help>{t('studio.inspector.tableCoverHelp')}</Help>
+            </PanelCard>
+          )}
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
+            <TextInput value={b.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} />
+            <ToggleRow
+              checked={b.full ?? ((b.layout || 'showcase') !== 'minimal')}
+              onChange={(v) => patch({ full: v })}
+              label={t('studio.inspector.ctaFull')}
+            />
+            <MicroLabel>{t('studio.inspector.tableNote')}</MicroLabel>
+            <TextInput value={b.note || ''} onChange={(e) => patch({ note: e.target.value })}
+              placeholder={t('studio.inspector.tableNotePlaceholder')} />
+            <ThemedColor
+              label={t('studio.inspector.accentColor')}
+              value={b.accent}
+              themeDefault={theme.accent}
+              onChange={(v) => patch({ accent: v })}
+            />
+          </PanelCard>
+        </>
       );
     }
     case 'header': {
