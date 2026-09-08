@@ -15,7 +15,7 @@
 export const SMS_MARKETING_LIVE = false;
 
 export type SmsLang = 'fr' | 'en' | 'es';
-export type SmsSegmentType = 'all' | 'event' | 'not_event' | 'vip';
+export type SmsSegmentType = 'all' | 'event' | 'not_event' | 'vip' | 'import';
 export type SmsCampaignStatus = 'draft' | 'scheduled' | 'sending' | 'paused' | 'sent' | 'failed' | 'cancelled';
 
 export type SmsScope =

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarDays, Crown, Loader2, MessageSquare, Plus, Sparkles, Trash2, UserMinus, UserPlus, Users, Wallet,
+  AlertTriangle, CalendarDays, Crown, FileSpreadsheet, Loader2, MessageSquare, Plus, Sparkles, Trash2, Upload, UserMinus, UserPlus, Users, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, type Locale } from 'date-fns';
@@ -23,15 +23,16 @@ import { SMS_MARKETING_LIVE, type SmsScope } from '@/lib/smsMarketing';
 import SmsCampaignEditor from './SmsCampaignEditor';
 import SmsCampaignReport from './SmsCampaignReport';
 import SmsCreditsDialog, { useSmsCreditsReturn } from './SmsCreditsDialog';
+import SmsImportDialog from './SmsImportDialog';
 import { SmsStatusPill } from './SmsStatusPill';
 import {
   SMS_CAMPAIGN_COLUMNS, fetchScopeEvents, fetchSmsBalance, scopeFilter, scopeRpcArgs,
-  type EventLite, type SmsCampaignRow,
+  type EventLite, type SmsCampaignRow, type SmsImportLite,
 } from './smsApi';
 
 const DATE_LOCALES: Record<string, Locale> = { fr, en: enUS, es };
 
-interface Overview { active: number; vip: number; last_30d: number; unsubscribed: number; events: Array<{ event_id: string; title: string; start_at: string; contacts: number }> }
+interface Overview { active: number; vip: number; last_30d: number; imported: number; unsubscribed: number; events: Array<{ event_id: string; title: string; start_at: string; contacts: number }>; imports: SmsImportLite[] }
 
 interface Props {
   scope: SmsScope;
@@ -57,6 +58,7 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const [editing, setEditing] = useState<SmsCampaignRow | null>(null);
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [creditsMissing, setCreditsMissing] = useState<number | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -182,9 +184,14 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
       {/* Liste */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">{t('smsCampaigns.title')}</h2>
-        <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setEditorOpen(true); }}>
-          <Plus className="h-4 w-4" />{t('smsCampaigns.newCampaign')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 border-white/[0.1]" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" /><span className="hidden sm:inline">{t('smsc.import.button')}</span>
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setEditorOpen(true); }}>
+            <Plus className="h-4 w-4" />{t('smsCampaigns.newCampaign')}
+          </Button>
+        </div>
       </div>
 
       {campaigns.length === 0 ? (
@@ -250,6 +257,26 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         </div>
       )}
 
+      {/* Listes importées */}
+      {overview && overview.imports.length > 0 && (
+        <Card className="border-white/[0.06] bg-surface/40">
+          <CardContent className="p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground"><FileSpreadsheet className="h-4 w-4 text-emerald-400" />{t('smsc.import.listsTitle')}</p>
+              <span className="text-[11px] text-muted-foreground">{t('smsc.overview.contactsN').replace('{n}', String(overview.imported))}</span>
+            </div>
+            <ul className="divide-y divide-white/[0.04]">
+              {overview.imports.map((im) => (
+                <li key={im.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+                  <span className="min-w-0 truncate text-foreground">{im.list_name || im.filename || t('smsc.import.unnamed')} <span className="text-muted-foreground">· {format(new Date(im.created_at), 'd MMM yyyy', { locale: dateLocale })}</span></span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{t('smsc.overview.contactsN').replace('{n}', String(im.contacts))}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Base par soirée */}
       {overview && overview.events.length > 0 && (
         <Card className="border-white/[0.06] bg-surface/40">
@@ -273,12 +300,14 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         scope={scope}
         campaign={editing}
         events={events}
+        imports={overview?.imports ?? []}
         balance={balance}
         onChanged={() => void load()}
         onBuyCredits={(m) => openBuy(m)}
         presetEventId={editing ? null : presetEventId}
       />
       <SmsCreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} scope={scope} missing={creditsMissing} onCredited={() => void load()} />
+      <SmsImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={scope} onImported={() => void load()} />
     </div>
   );
 }

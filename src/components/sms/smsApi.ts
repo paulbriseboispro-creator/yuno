@@ -8,7 +8,7 @@ export interface SmsCampaignRow {
   body_i18n: Record<string, string> | null;
   sender_name: string | null;
   event_id: string | null;
-  segment_filters: { type?: SmsSegmentType; event_id?: string } | null;
+  segment_filters: { type?: SmsSegmentType; event_id?: string; import_id?: string } | null;
   estimated_recipients: number;
   total_recipients: number;
   sent_count: number;
@@ -32,6 +32,8 @@ export const SMS_CAMPAIGN_COLUMNS =
   'id, name, body_template, body_i18n, sender_name, event_id, segment_filters, estimated_recipients, total_recipients, sent_count, delivered_count, failed_count, undelivered_count, credits_consumed, credits_refunded, segments_per_message, status, paused_reason, error_message, quiet_hours, scheduled_at, send_started_at, sent_at, created_at';
 
 export interface EventLite { id: string; title: string; start_at: string }
+
+export interface SmsImportLite { id: string; list_name: string | null; filename: string | null; created_at: string; contacts: number }
 
 export function scopeFilter(scope: SmsScope): { column: 'venue_id' | 'organizer_id'; value: string } {
   return scope.kind === 'venue'

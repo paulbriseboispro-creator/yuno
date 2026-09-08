@@ -614,6 +614,12 @@ intouchables :
   ouvertes à `authenticated` sans garde ont été supprimées, ne pas les recréer.
 - Heures calmes 20 h → 8 h Paris + dimanche par défaut (opt-out par campagne).
   Mention STOP et annonceur ajoutés serveur, jamais retirables.
+- **Import de liste SMS = même contrat que l'email** (`import_sms_contacts`,
+  `sms_list_imports`, `venue_sms_contacts.import_id`) : attestation d'origine
+  obligatoire, un numéro `unsubscribed` où que ce soit n'est JAMAIS réabonné
+  (liste repoussoir), chaque fichier est un segment `import`. Le front complète
+  les numéros nationaux avec le pays choisi (`src/lib/smsImport.ts`), le serveur
+  ne garde que de l'E.164.
 
 ## Email Studio (design + composition + flow — 2026-08-31)
 

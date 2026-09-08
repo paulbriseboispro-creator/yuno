@@ -13,7 +13,7 @@ et l'**organisateur sans club** (`/organizer-app/sms`) : composant partagé
 
 | Brique | Où | Rôle |
 |---|---|---|
-| Contacts | `venue_sms_contacts` (venue_id **ou** organizer_user_id) | Liste consentante, alimentée par `_shared/sms-consent.ts` à chaque paiement coché « Offres par SMS ». Jamais d'import. |
+| Contacts | `venue_sms_contacts` (venue_id **ou** organizer_user_id) | Liste consentante, alimentée par `_shared/sms-consent.ts` à chaque paiement coché « Offres par SMS », ou par import de fichier (`import_sms_contacts` + `sms_list_imports` : attestation d'origine, numéros ayant dit STOP jamais réabonnés, chaque fichier = segment `import`). |
 | Campagnes | `sms_campaigns` | Statuts `draft → scheduled/sending → paused → sent/failed/cancelled`. Colonnes de stats (`sent/delivered/undelivered/failed_count`, crédits, `tracked_link_id`). |
 | File d'envoi | `sms_campaign_recipients` | Une ligne par numéro. `claim_sms_campaign_recipients` (FOR UPDATE SKIP LOCKED), marquage en lot, reprise des claims morts. |
 | Worker | `send-sms-campaign` | Modes `send` / `drain` / `resume` / `test`. Tranches de 40 s auto-chaînées ; cron `process-scheduled-campaigns` (5 min) = filet + campagnes planifiées. |
