@@ -11,7 +11,7 @@
 // copie de ces fonctions. Toute modification ici doit y être répercutée.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { TicketRow } from './types';
+import type { TablePackRow, TicketRow } from './types';
 
 /** Colonnes de `guest_lists` nécessaires à la ligne d'entrée. */
 export interface GuestListOffer {
@@ -119,3 +119,96 @@ export function soldOutSub(sub: string): string {
   const bare = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s!.]+$/, '');
   return ['epuise', 'epuisee', 'complet', 'sold out', 'soldout', 'agotado', 'agotada'].includes(bare) ? '' : s;
 }
+
+// ── Pilier tables VIP ────────────────────────────────────────────────────────
+
+/** Colonnes de `table_packs` nécessaires à une ligne de formule. */
+export interface TablePackOffer {
+  name?: string | null;
+  base_price?: number | null;
+  base_capacity?: number | null;
+  included_bottles_quota?: number | null;
+  included_items?: string | null;
+  minimum_spend?: number | null;
+  payment_mode?: string | null;
+  position?: number | null;
+}
+
+/** Règlement sur place : la table se réserve sans payer par Yuno. */
+export const TABLE_ON_SITE_PRICE = 'Sur place';
+
+/**
+ * Ce que la formule contient, en une ligne : le nombre de couverts puis les
+ * bouteilles incluses, puis les extras du club. C'est la ligne qui VEND —
+ * « 6 à 8 pers. · 2 bouteilles » dit en six mots ce qu'un paragraphe rate.
+ */
+export function tablePackSubtitle(p: TablePackOffer): string {
+  const bits: string[] = [];
+  const seats = Number(p.base_capacity || 0);
+  if (seats > 0) bits.push(`${seats} pers.`);
+  const bottles = Number(p.included_bottles_quota || 0);
+  if (bottles > 0) bits.push(`${bottles} bouteille${bottles > 1 ? 's' : ''} incluse${bottles > 1 ? 's' : ''}`);
+  const extras = String(p.included_items || '').trim();
+  if (extras) bits.push(extras);
+  return bits.join(' · ');
+}
+
+/**
+ * Prix d'une formule. Une table réglée sur place ne porte pas de montant Yuno
+ * (ni acompte ni commission) : elle le dit, plutôt que d'afficher « 0 € ».
+ * À défaut de prix de base, le minimum de consommation fait foi — c'est le
+ * chiffre que le client devra sortir, donc celui qu'on lui doit.
+ */
+export function tablePackPrice(p: TablePackOffer): string {
+  if (String(p.payment_mode || '') === 'on_site') return TABLE_ON_SITE_PRICE;
+  const base = Number(p.base_price || 0);
+  if (base > 0) return formatEuro(base);
+  const min = Number(p.minimum_spend || 0);
+  if (min > 0) return `Min. ${formatEuro(min)}`;
+  return TABLE_ON_SITE_PRICE;
+}
+
+/** Nombre de formules montrées dans l'email — au-delà on ne compare plus, on scrolle. */
+export const TABLE_PACK_LIMIT = 3;
+
+/**
+ * Formules → lignes d'email : les moins chères d'abord (on entre dans l'offre
+ * par le bas, pas par la loge à 2 000 €), limitées à TABLE_PACK_LIMIT.
+ */
+export function buildTablePackRows(packs: readonly TablePackOffer[]): TablePackRow[] {
+  const priced = packs.map((p) => ({
+    p,
+    amount: String(p.payment_mode || '') === 'on_site'
+      ? Number.POSITIVE_INFINITY
+      : (Number(p.base_price || 0) || Number(p.minimum_spend || 0) || Number.POSITIVE_INFINITY),
+  }));
+  priced.sort((a, b) => (a.amount - b.amount) || (Number(a.p.position || 0) - Number(b.p.position || 0)));
+  return priced.slice(0, TABLE_PACK_LIMIT).map(({ p }) => ({
+    n: String(p.name || 'Table'),
+    s: tablePackSubtitle(p),
+    p: tablePackPrice(p),
+  }));
+}
+
+/**
+ * Rareté des tables, en un mot. Le seuil d'urgence est bas volontairement :
+ * « plus que 2 tables » fait agir, « 9 tables disponibles » rassure et fait
+ * remettre à demain. Au-dessus du seuil on informe, on ne presse pas.
+ */
+export const TABLE_SCARCITY_THRESHOLD = 3;
+
+export function tablesLeftLabel(left: number): string {
+  if (left <= 0) return 'Complet';
+  if (left === 1) return 'Dernière table';
+  if (left <= TABLE_SCARCITY_THRESHOLD) return `Plus que ${left} tables`;
+  return `${left} tables disponibles`;
+}
+
+/** true = la rareté mérite la pastille d'alerte (ambre), pas une ligne calme. */
+export function isTableScarce(left: number): boolean {
+  return left > 0 && left <= TABLE_SCARCITY_THRESHOLD;
+}
+
+/** Libellés par défaut du bloc — le canvas et l'envoi disent le même mot. */
+export const TABLE_KICKER = 'Bottle service';
+export const TABLE_CTA_LABEL = 'Réserver une table';

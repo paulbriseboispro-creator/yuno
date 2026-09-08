@@ -118,11 +118,38 @@ export interface TicketsBlock extends BlockBase {
   rows: TicketRow[];
 }
 
-/** Bloc Yuno — upsell table VIP. */
+/**
+ * Une formule de table telle qu'elle se LIT dans l'email : le nom de la
+ * formule, la ligne qui dit ce qu'on y trouve (couverts, bouteilles) et le
+ * prix. Miroir volontaire de TicketRow — les deux piliers se vendent avec la
+ * même grammaire, nom à gauche, prix à droite.
+ */
+export interface TablePackRow {
+  /** Nom de la formule (« Carré Prestige »). */
+  n: string;
+  /** Ce que la formule contient (« 6 à 8 pers. · 2 bouteilles »). */
+  s: string;
+  /** Prix affiché (« 450 € ») ou nature de l'offre (« Sur place »). */
+  p: string;
+}
+
+/** Mise en page du bloc Table VIP. */
+export type TableLayout = 'showcase' | 'banner' | 'minimal';
+
+export const TABLE_LAYOUTS: readonly TableLayout[] = ['showcase', 'banner', 'minimal'];
+
+/**
+ * Bloc Yuno — vente de tables VIP (bottle service).
+ *
+ * Le bloc ne se contente pas d'annoncer que des tables existent : il porte
+ * l'offre entière (arguments de vente, formules avec leurs prix, rareté,
+ * rassurance). C'est ce qui sépare une ligne de rappel d'une page de vente,
+ * et le pilier table est celui dont le panier moyen est le plus élevé.
+ */
 export interface TableBlock extends BlockBase {
   type: 'table';
   eventId?: string;
-  /** Couleur d'accent (kicker, compteur, bouton) — hex. Absent = thème. */
+  /** Couleur d'accent (kicker, coches, prix, bouton) — hex. Absent = thème. */
   accent?: string;
   /** Kicker affiché au-dessus du titre (ex. « Bottle service »). */
   kicker: string;
@@ -130,6 +157,30 @@ export interface TableBlock extends BlockBase {
   sub: string;
   ctaLabel: string;
   ctaUrl?: string;
+  /** Mise en page. Absent = 'showcase'. */
+  layout?: TableLayout;
+  /**
+   * Alignement du kicker, du titre, du sous-titre, des arguments, de la note
+   * et du bouton. Absent = 'left'. Les FORMULES gardent toujours leur propre
+   * lecture (nom à gauche, prix à droite) : un tarif centré ne se compare pas.
+   */
+  align?: 'left' | 'center' | 'right';
+  /** Arguments de vente, un par ligne, précédés d'une coche accent. */
+  perks?: string[];
+  /** Formules figées — servent quand aucune soirée n'est reliée. */
+  packs?: TablePackRow[];
+  /** true = les formules sont relues dans `table_packs` au moment de l'envoi. */
+  livePacks?: boolean;
+  /**
+   * Visuel du carré VIP, en tête de carte. Pas de hauteur réglable : les
+   * clients mail ignorent object-fit, une hauteur imposée déformerait la
+   * photo. L'image garde son ratio, comme le bloc Image.
+   */
+  coverUrl?: string;
+  /** Rassurance sous le bouton (acompte, heure d'arrivée…). */
+  note?: string;
+  /** Bouton pleine largeur. Absent = pleine largeur sauf en 'minimal'. */
+  full?: boolean;
 }
 
 /** Bloc Yuno — compte à rebours, calculé au rendu (jamais figé). */
@@ -266,7 +317,19 @@ export interface LiveEventData {
    * billets » pour une inscription gratuite.
    */
   guestListOnly?: boolean;
+  /**
+   * Tables encore libres. `null` = la soirée n'ouvre aucune table (le bloc
+   * s'efface plutôt que de vendre du vide) ; 0 = complet, la carte le dit et
+   * retire son bouton — un bouton qui mène à une page pleine coûte plus de
+   * confiance qu'il ne rapporte de clics.
+   */
   tablesLeft?: number | null;
+  /**
+   * Formules de table de la soirée, relues dans `table_packs` au rendu.
+   * `undefined` = non résolu (le bloc retombe sur ses formules figées),
+   * tableau vide = aucune formule ouverte.
+   */
+  tablePacks?: TablePackRow[];
   /**
    * Liens suivis `/l/<code>` du canal de la campagne (« newsletter » par
    * défaut). `trackedUrl` mène à la page de la soirée avec `?tl=`,
