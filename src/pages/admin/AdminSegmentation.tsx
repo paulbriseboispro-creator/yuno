@@ -50,6 +50,9 @@ const CAT_META: Record<string, { color: string; icon: LucideIcon }> = {
   drinks:  { color: RED,       icon: Wine },
   tables:  { color: '#F59E0B', icon: Crown },
   mixed:   { color: 'rgba(255,255,255,0.5)', icon: Layers },
+  // Venu sans jamais payer : une entrée en guest list fait un client, pas un
+  // acheteur. Le confondre avec 'mixed' effaçait la distinction.
+  guestlist: { color: '#34D399', icon: Users },
 };
 
 // ─── Server payload types ─────────────────────────────────────────────────────
@@ -378,7 +381,7 @@ export default function AdminSegmentation() {
     .map(k => ({ name: t(`adminSeg.tier.${k}`), key: k, value: (overview?.tiers ?? []).find(x => x.key === k)?.count ?? 0 }))
     .filter(d => d.value > 0), [overview, t]);
 
-  const catData = useMemo(() => ['tickets', 'drinks', 'tables', 'mixed']
+  const catData = useMemo(() => ['tickets', 'drinks', 'tables', 'mixed', 'guestlist']
     .map(k => ({ name: t(`adminSeg.cat.${k}`), key: k, value: (overview?.categories ?? []).find(x => x.key === k)?.count ?? 0 }))
     .filter(d => d.value > 0), [overview, t]);
 
@@ -660,7 +663,7 @@ export default function AdminSegmentation() {
                 </select>
                 <select value={category} onChange={e => setCategory(e.target.value)} style={selectStyle}>
                   <option value="">{t('adminSeg.filters.catAll')}</option>
-                  {['tickets', 'drinks', 'tables', 'mixed'].map(k => <option key={k} value={k}>{t(`adminSeg.cat.${k}`)}</option>)}
+                  {['tickets', 'drinks', 'tables', 'mixed', 'guestlist'].map(k => <option key={k} value={k}>{t(`adminSeg.cat.${k}`)}</option>)}
                 </select>
                 <select value={sort} onChange={e => setSort(e.target.value)} style={selectStyle}>
                   <option value="total_spent">{t('adminSeg.sort.ltv')}</option>

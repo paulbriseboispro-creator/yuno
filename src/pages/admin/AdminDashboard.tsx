@@ -4,7 +4,7 @@ import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   Building2, ShoppingBag, Users, DollarSign, TrendingUp, AlertCircle,
-  Ticket, Crown, CreditCard, Zap, Wine, Activity, BarChart3, RotateCw,
+  Ticket, Crown, CreditCard, Zap, Wine, Activity, BarChart3, RotateCw, UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -41,6 +41,11 @@ interface DashboardStats {
   ticketsSold: number;
   tablesBooked: number;
   activeSubscriptions: number;
+  signupsTotal: number;
+  signups30d: number;
+  customers: number;
+  customersPaying: number;
+  customersGuestOnly: number;
 }
 
 interface VenueStat {
@@ -121,6 +126,7 @@ export default function AdminDashboard() {
     totalVenues: 0, totalOrders: 0, totalRevenue: 0, yunoRevenue: 0,
     totalUsers: 0, monthlyRevenue: 0, monthlyYunoRevenue: 0, openIssues: 0,
     ticketsSold: 0, tablesBooked: 0, activeSubscriptions: 0,
+    signupsTotal: 0, signups30d: 0, customers: 0, customersPaying: 0, customersGuestOnly: 0,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,7 +142,7 @@ export default function AdminDashboard() {
       const monthStart = startOfMonth(now).toISOString();
       const monthEnd = endOfMonth(now).toISOString();
 
-      const [venuesRes, ordersRes, ticketsRes, tablesRes, eventsRes, usersRes, issuesRes, monthOrdersRes, monthTicketsRes, monthTablesRes, subsRes] = await Promise.all([
+      const [venuesRes, ordersRes, ticketsRes, tablesRes, eventsRes, usersRes, issuesRes, monthOrdersRes, monthTicketsRes, monthTablesRes, subsRes, demoVenuesRes, demoEventsRes, signupsRes, segRes] = await Promise.all([
         supabase.from('venues').select('id, name'),
         supabase.from('orders').select('venue_id, total, service_fee, status').in('status', ['paid', 'served']),
         supabase.from('tickets').select('event_id, total_price, service_fee, insurance_fee, status').eq('status', 'paid'),
@@ -144,17 +150,29 @@ export default function AdminDashboard() {
         supabase.from('events').select('id, venue_id'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('feedback_issues').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-        supabase.from('orders').select('total, service_fee').in('status', ['paid', 'served']).gte('created_at', monthStart).lte('created_at', monthEnd),
-        supabase.from('tickets').select('total_price, service_fee, insurance_fee').eq('status', 'paid').gte('created_at', monthStart).lte('created_at', monthEnd),
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee').in('status', ['confirmed', 'paid']).gte('created_at', monthStart).lte('created_at', monthEnd),
+        supabase.from('orders').select('venue_id, total, service_fee').in('status', ['paid', 'served']).gte('created_at', monthStart).lte('created_at', monthEnd),
+        supabase.from('tickets').select('event_id, total_price, service_fee, insurance_fee').eq('status', 'paid').gte('created_at', monthStart).lte('created_at', monthEnd),
+        supabase.from('table_reservations').select('event_id, total_price, service_fee, management_fee').in('status', ['confirmed', 'paid']).gte('created_at', monthStart).lte('created_at', monthEnd),
         supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).in('status', ['active', 'trialing']),
+        // Porte unique « démonstration » (is_demo_email / demo_venue_ids /
+        // demo_event_ids). Sans elle, le club démo et les orgas démo pesaient
+        // ~258 000 € de faux revenus dans ces cartes.
+        supabase.rpc('demo_venue_ids'),
+        supabase.rpc('demo_event_ids'),
+        supabase.rpc('admin_signup_stats', { p_from: monthStart, p_to: monthEnd }),
+        supabase.rpc('admin_segmentation_overview'),
       ]);
 
-      const venues = venuesRes.data || [];
-      const orders = ordersRes.data || [];
-      const tickets = ticketsRes.data || [];
-      const tables = tablesRes.data || [];
-      const events = eventsRes.data || [];
+      const demoVenues = new Set<string>((demoVenuesRes.data as string[] | null) || []);
+      const demoEvents = new Set<string>((demoEventsRes.data as string[] | null) || []);
+      const signups = (signupsRes.data || {}) as Record<string, number>;
+      const segTotals = ((segRes.data as { totals?: Record<string, number> } | null)?.totals) || {};
+
+      const venues = (venuesRes.data || []).filter(v => !demoVenues.has(v.id));
+      const orders = (ordersRes.data || []).filter(o => !demoVenues.has(o.venue_id));
+      const tickets = (ticketsRes.data || []).filter(t => !demoEvents.has(t.event_id));
+      const tables = (tablesRes.data || []).filter(t => !demoEvents.has(t.event_id));
+      const events = (eventsRes.data || []).filter(e => !demoEvents.has(e.id));
 
       // Build event→venue map
       const eventVenueMap = new Map<string, string>();
@@ -173,9 +191,9 @@ export default function AdminDashboard() {
       const yunoRevenue = orderFees + ticketFees + tableFees;
 
       // Monthly
-      const mOrders = monthOrdersRes.data || [];
-      const mTickets = monthTicketsRes.data || [];
-      const mTables = monthTablesRes.data || [];
+      const mOrders = (monthOrdersRes.data || []).filter(o => !demoVenues.has(o.venue_id));
+      const mTickets = (monthTicketsRes.data || []).filter(t => !demoEvents.has(t.event_id));
+      const mTables = (monthTablesRes.data || []).filter(t => !demoEvents.has(t.event_id));
       const monthlyRevenue = mOrders.reduce((s, o) => s + orderClub(o).gross, 0) + mTickets.reduce((s, t) => s + ticketClub(t).gross, 0) + mTables.reduce((s, t) => s + tableClub(t).gross, 0);
       const monthlyYunoRevenue = mOrders.reduce((s, o) => s + Number(o.service_fee || 0), 0) + mTickets.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.insurance_fee || 0), 0) + mTables.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.management_fee || 0), 0);
 
@@ -210,13 +228,18 @@ export default function AdminDashboard() {
         totalOrders: orders.length + tickets.length + tables.length,
         totalRevenue,
         yunoRevenue,
-        totalUsers: usersRes.count || 0,
+        totalUsers: Number(signups.total ?? usersRes.count ?? 0),
         monthlyRevenue,
         monthlyYunoRevenue,
         openIssues: issuesRes.count || 0,
         ticketsSold: tickets.length,
         tablesBooked: tables.length,
         activeSubscriptions: subsRes.count || 0,
+        signupsTotal: Number(signups.total || 0),
+        signups30d: Number(signups.new_30d || 0),
+        customers: Number(segTotals.customers || 0),
+        customersPaying: Number(segTotals.paying || 0),
+        customersGuestOnly: Number(segTotals.guestlist_only || 0),
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -260,7 +283,24 @@ export default function AdminDashboard() {
 
   const platformCards = [
     { label: t('adminDashboard.partnerClubs'), value: stats.totalVenues.toLocaleString(), icon: Building2 },
-    { label: t('adminDashboard.users'), value: stats.totalUsers.toLocaleString(), icon: Users },
+    // Comptes créés : c'est la croissance de l'audience, pas le nombre de
+    // lignes dans profiles (qui compte encore les profils orphelins).
+    {
+      label: t('adminDashboard.signups'),
+      value: stats.signupsTotal.toLocaleString(),
+      icon: UserPlus,
+      sub: t('adminDashboard.signupsSub').replace('{n}', stats.signups30d.toLocaleString()),
+    },
+    // Un client est quelqu'un qui est venu : la guest list compte autant qu'un
+    // achat. Sur une soirée sans billetterie, elle est la seule trace.
+    {
+      label: t('adminDashboard.customers'),
+      value: stats.customers.toLocaleString(),
+      icon: Users,
+      sub: t('adminDashboard.customersSub')
+        .replace('{paid}', stats.customersPaying.toLocaleString())
+        .replace('{guest}', stats.customersGuestOnly.toLocaleString()),
+    },
     { label: t('adminDashboard.activeSubscriptions'), value: stats.activeSubscriptions.toLocaleString(), icon: CreditCard, tone: 'pos' as const },
     { label: t('adminDashboard.openIssues'), value: stats.openIssues.toLocaleString(), icon: AlertCircle, tone: stats.openIssues > 0 ? 'neg' as const : undefined },
   ];
@@ -326,6 +366,9 @@ export default function AdminDashboard() {
               </motion.div>
             ))}
           </div>
+          <p style={{ color: T3, fontSize: 11, marginTop: 10, paddingLeft: 2 }}>
+            {t('adminDashboard.demoExcluded')}
+          </p>
         </section>
 
         {/* Performance by club */}
