@@ -15,6 +15,7 @@ import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyName } from '@/lib/email';
 import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
+import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
@@ -61,7 +62,10 @@ export default function OwnerCampaigns() {
   const [importOpen, setImportOpen] = useState(false);
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
-  useEmailCreditsReturn();
+  // Relit le quota après un achat abouti (retour Stripe ou crédit démo).
+  const [quotaSeq, setQuotaSeq] = useState(0);
+  const bumpQuota = () => setQuotaSeq((n) => n + 1);
+  useEmailCreditsReturn(bumpQuota);
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -203,6 +207,17 @@ export default function OwnerCampaigns() {
           <KpiCard label={t('studio.list.kpiClick')} value={kpis.clickRate != null ? `${kpis.clickRate.toFixed(1).replace('.', ',')} %` : '—'} sub={t('studio.list.kpi30d')} />
           <KpiCard red label={t('studio.list.kpiRevenue')} value={`${nf(Math.round(kpis.revenue))} €`} sub={t('studio.list.kpiRevenueSub')} />
         </div>
+
+        {/* ── Quota d'envoi du mois ──
+            Le plafond mensuel décide de ce qui peut partir : il se lit ici,
+            avant d'écrire, pas au dernier écran du Studio. */}
+        {venueId && (
+          <EmailQuotaCard
+            scope={{ kind: 'venue', venueId, name: venue?.name || '' }}
+            onBuy={() => setCreditsOpen(true)}
+            refreshKey={quotaSeq}
+          />
+        )}
 
         {/* ── RGPD ── */}
         <div style={{
@@ -365,6 +380,7 @@ export default function OwnerCampaigns() {
           open={creditsOpen}
           onClose={() => setCreditsOpen(false)}
           scope={{ kind: 'venue', venueId }}
+          onCredited={bumpQuota}
         />
       )}
       {venueId && (

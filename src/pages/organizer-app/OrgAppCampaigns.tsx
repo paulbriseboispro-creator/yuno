@@ -14,6 +14,7 @@ import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
 import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
+import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
@@ -50,7 +51,10 @@ export default function OrgAppCampaigns() {
   const [importOpen, setImportOpen] = useState(false);
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
-  useEmailCreditsReturn();
+  // Relit le quota après un achat abouti (retour Stripe ou crédit démo).
+  const [quotaSeq, setQuotaSeq] = useState(0);
+  const bumpQuota = () => setQuotaSeq((n) => n + 1);
+  useEmailCreditsReturn(bumpQuota);
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -108,6 +112,16 @@ export default function OrgAppCampaigns() {
       </div>
 
       <div className="space-y-4">
+        {/* Quota d'envoi du mois : le plafond décide de ce qui peut partir,
+            il se lit avant d'écrire — pas au dernier écran du Studio. */}
+        {user?.id && (
+          <EmailQuotaCard
+            scope={{ kind: 'organizer', organizerId: user.id, name: orgName }}
+            onBuy={() => setCreditsOpen(true)}
+            refreshKey={quotaSeq}
+          />
+        )}
+
         <div className="flex items-start gap-3 rounded-xl p-4" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.22)' }}>
           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: '#FCD34D' }} />
           <p style={{ color: T3, fontSize: 12.5 }}>
@@ -188,6 +202,7 @@ export default function OrgAppCampaigns() {
           open={creditsOpen}
           onClose={() => setCreditsOpen(false)}
           scope={{ kind: 'organizer', organizerId: user.id }}
+          onCredited={bumpQuota}
         />
       )}
       {user?.id && (
