@@ -603,8 +603,10 @@ intouchables :
 - **File, pas boucle** : `send-sms-campaign` draine par tranches
   (`claim_sms_campaign_recipients` SKIP LOCKED, marquage en lot), le cron
   `process-scheduled-campaigns` relance et lance les campagnes planifiées.
-  Crédit débité AVANT Twilio, remboursé sur refus et sur échec de livraison
-  (`apply_sms_delivery_status`, la seule porte du webhook de statut).
+  Crédit débité AVANT Twilio, remboursé sur REFUS seulement (API Twilio ou
+  statut `failed` : jamais parti, non facturé). Un `undelivered` est facturé à
+  Yuno et reste décompté au pro — ne pas le rembourser, c'est toute la marge
+  du pack Scale (`apply_sms_delivery_status`, seule porte du webhook de statut).
 - **Solde vérifié pour toute la campagne avant envoi ; épuisement en route ⇒
   `paused`/`credits`**, jamais une campagne à moitié partie sans le dire.
 - **Résolution d'audience = service_role seul** (`resolve_sms_campaign_recipients`) ;

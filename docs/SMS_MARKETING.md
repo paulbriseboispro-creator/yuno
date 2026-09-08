@@ -17,7 +17,7 @@ et l'**organisateur sans club** (`/organizer-app/sms`) : composant partagé
 | Campagnes | `sms_campaigns` | Statuts `draft → scheduled/sending → paused → sent/failed/cancelled`. Colonnes de stats (`sent/delivered/undelivered/failed_count`, crédits, `tracked_link_id`). |
 | File d'envoi | `sms_campaign_recipients` | Une ligne par numéro. `claim_sms_campaign_recipients` (FOR UPDATE SKIP LOCKED), marquage en lot, reprise des claims morts. |
 | Worker | `send-sms-campaign` | Modes `send` / `drain` / `resume` / `test`. Tranches de 40 s auto-chaînées ; cron `process-scheduled-campaigns` (5 min) = filet + campagnes planifiées. |
-| Livraison | `sms-twilio-status-webhook` → RPC `apply_sms_delivery_status` | Log + file + compteurs + remboursement du crédit, atomique et idempotent. |
+| Livraison | `sms-twilio-status-webhook` → RPC `apply_sms_delivery_status` | Log + file + compteurs, atomique et idempotent. **Remboursement uniquement sur `failed`** (jamais parti, non facturé par Twilio) ; un `undelivered` est facturé à Yuno et reste décompté au pro (norme du marché, décision 2026-09-08). |
 | STOP | `sms-inbound-webhook` → `sms_stop_unsubscribe` | Retire le numéro de **toutes** les listes (clubs et organisateurs). |
 | Crédits | `sms_packs`, `sms_credit_balances`, `sms-purchase-checkout` (+ `return_path`), `sms-purchase-verify` | 1 crédit = 1 segment SMS. Achat depuis n'importe quelle page via `SmsCreditsDialog`. Grille 2026-09 : 100 → 9,90 €, 500 → 45 €, 2 000 → 165 €, 5 000 → 390 € (coût Twilio ≈ 0,073 € FR, 0,08 € ES ; les prix vivent en base, migration `20260908090000`). |
 | Rapport | RPC `get_sms_campaign_report` | Livraison, clics sur le lien suivi `sms` (`ensure_sms_tracked_link`), billets/tables attribués, crédits nets, timeline par heure. |
