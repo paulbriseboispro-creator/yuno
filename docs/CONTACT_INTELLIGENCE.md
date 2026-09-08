@@ -60,6 +60,14 @@ fichier CSV ─▶ parseContactFile (front, src/lib/contactImport.ts)
   `suggestion_key` stable (« geo_zone:paris », « spend_tables ») pour ne pas
   reproposer ce qui existe.
 - **Ajouter un paramètre aux RPC SMS = DROP + CREATE**, jamais de surcharge.
+- **Tout doit tenir sous 8 s** (`statement_timeout` du rôle `authenticated`)
+  sur 15 000 lignes. Une définition est COMPILÉE en prédicat SQL
+  (`contact_definition_predicate`, littéraux via `%L`) puis exécutée en UNE
+  requête ; la base consolidée + joignabilité est matérialisée une fois par
+  appel (`contact_build_rows` → temp `_cr`). Ne jamais réintroduire une
+  fonction scalaire évaluée ligne par ligne dans une boucle de candidats : la
+  version initiale prenait 37 s sur la base de WOH. `resolve_contact_segment_def`
+  reste sans temp table (appelé depuis des fonctions STABLE).
 
 ### Vocabulaire des définitions (v1)
 
