@@ -61,6 +61,8 @@ interface Overview {
     customers: number; with_account: number; active_30d: number; new_30d: number;
     multi_venue: number; churn_risk: number; total_ltv: number; avg_ltv: number;
     avg_basket: number; repeat_rate: number;
+    paying: number; guestlist_only: number;
+    with_app: number; reach_email: number; reach_sms: number; unreachable: number;
   };
   segments: { key: string; count: number; revenue: number; avg_ltv: number }[];
   tiers: { key: string; count: number; revenue: number }[];
@@ -78,6 +80,9 @@ interface CustomerRow {
   order_count: number; table_count: number; venues_count: number; venue_names: string;
   first_at: string; last_at: string; r: number; f: number; m: number;
   segment: SegmentKey; tier: string; category: string;
+  has_account: boolean; has_app: boolean; app_platforms: string[]; push_on: boolean;
+  email_opt_in: boolean; sms_opt_in: boolean; email_suppressed: boolean;
+  is_suspended: boolean; tags: string[]; guestlist_count: number; has_paid: boolean;
 }
 
 interface CustomerDetail {
@@ -86,6 +91,8 @@ interface CustomerDetail {
     city: string | null; gender: string | null; age: number | null; created_at: string;
     preferred_language: string | null; party_persona: string | null; is_suspended: boolean;
     sms_opt_in: boolean; avatar_url: string | null;
+    has_account: boolean; profile_count: number; has_app: boolean; app_platforms: string[];
+    email_opt_in: boolean; email_suppressed: boolean;
   } | null;
   stats: {
     total_spent: number; rev_30d: number; rev_90d: number; avg_basket: number;
@@ -95,9 +102,66 @@ interface CustomerDetail {
   } | null;
   per_venue: { venue_id: string; venue_name: string; revenue: number; tx_count: number; last_at: string }[];
   recent: { kind: string; amount: number; created_at: string; venue_name: string; event_title: string | null }[];
+  timeline: { kind: string; amount: number; created_at: string; is_paid: boolean; venue_name: string; event_title: string | null }[];
+  tags: string[];
+  notes: { id: string; body: string; created_at: string }[];
   incidents: { venue_name: string; type: string; reason: string; created_at: string }[];
   banned_venues: { venue_name: string; reason: string | null; banned_at: string }[];
   newsletter_opt_in: boolean;
+}
+
+// ─── Identité : compte, app, joignabilité ────────────────────────────────────
+// Trois questions qui décident de l'action commerciale, lisibles d'un coup
+// d'œil. Un client sans compte, sans app et sans opt-in est une impasse : il
+// faut le voir sans ouvrir sa fiche.
+function IdentityBadges({
+  hasAccount, hasApp, appPlatforms, emailOptIn, smsOptIn, suppressed, t,
+}: {
+  hasAccount: boolean; hasApp: boolean; appPlatforms: string[] | null;
+  emailOptIn: boolean; smsOptIn: boolean; suppressed: boolean;
+  t: (k: string) => string;
+}) {
+  const chip = (label: string, on: boolean, title: string, tone?: string) => (
+    <span
+      key={label}
+      title={title}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+      style={on
+        ? { background: `${tone ?? POS}1f`, border: `1px solid ${tone ?? POS}55`, color: tone ?? POS }
+        : { background: 'rgba(255,255,255,0.03)', border: `1px solid ${F_BORDER}`, color: 'rgba(255,255,255,0.26)' }}
+    >
+      {label}
+    </span>
+  );
+  const isPro = (appPlatforms ?? []).some(p => p.endsWith('_pro'));
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {chip(t('adminSeg.id.account'), hasAccount, t('adminSeg.id.accountHint'))}
+      {chip(isPro ? t('adminSeg.id.appPro') : t('adminSeg.id.app'), hasApp, t('adminSeg.id.appHint'), '#818CF8')}
+      {chip('@', emailOptIn && !suppressed, suppressed ? t('adminSeg.id.suppressed') : t('adminSeg.id.emailHint'),
+        suppressed ? NEG : undefined)}
+      {chip('SMS', smsOptIn, t('adminSeg.id.smsHint'), '#F59E0B')}
+    </div>
+  );
+}
+
+function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (tag: string) => void }) {
+  if (!tags?.length) return null;
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {tags.map(tg => (
+        <span key={tg}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-medium"
+          style={{ background: 'rgba(255,255,255,0.055)', border: `1px solid ${BORDER}`, color: T2 }}>
+          {tg}
+          {onRemove && (
+            <button onClick={e => { e.stopPropagation(); onRemove(tg); }}
+              className="cursor-pointer leading-none" style={{ color: T3 }} aria-label={`retirer ${tg}`}>×</button>
+          )}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 const PAGE_SIZE = 25;
@@ -257,6 +321,11 @@ export default function AdminSegmentation() {
   const [category, setCategory] = useState<string>('');
   const [activity, setActivity] = useState<string>('');
   const [multiVenue, setMultiVenue] = useState(false);
+  const [account, setAccount] = useState<string>('');   // '' | 'yes' | 'no'
+  const [app, setApp] = useState<string>('');           // '' | 'yes' | 'no'
+  const [reach, setReach] = useState<string>('');       // '' | 'email' | 'sms' | 'push' | 'none'
+  const [tagFilter, setTagFilter] = useState<string>('');
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [sort, setSort] = useState('total_spent');
   const [exporting, setExporting] = useState(false);
 
@@ -265,13 +334,16 @@ export default function AdminSegmentation() {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [tagDraft, setTagDraft] = useState('');
+  const [noteDraft, setNoteDraft] = useState('');
+  const [savingCrm, setSavingCrm] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(id);
   }, [search]);
 
-  useEffect(() => { setPage(0); }, [debouncedSearch, segment, tier, category, activity, multiVenue, sort]);
+  useEffect(() => { setPage(0); }, [debouncedSearch, segment, tier, category, activity, multiVenue, account, app, reach, tagFilter, sort]);
 
   useEffect(() => {
     (async () => {
@@ -284,6 +356,14 @@ export default function AdminSegmentation() {
     })();
   }, []);
 
+  const refreshTags = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await supabase.rpc('admin_crm_all_tags' as any);
+    setAllTags((data as unknown as string[] | null) ?? []);
+  }, []);
+
+  useEffect(() => { refreshTags(); }, [refreshTags]);
+
   const fetchRows = useCallback(async () => {
     setLoadingRows(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -294,6 +374,10 @@ export default function AdminSegmentation() {
       p_activity: activity || null,
       p_search: debouncedSearch || null,
       p_multi_venue: multiVenue ? true : null,
+      p_account: account || null,
+      p_app: app || null,
+      p_reach: reach || null,
+      p_tag: tagFilter || null,
       p_sort: sort,
       p_dir: sort === 'first_at' ? 'asc' : 'desc',
       p_limit: PAGE_SIZE,
@@ -304,19 +388,59 @@ export default function AdminSegmentation() {
     setRows(payload?.rows ?? []);
     setTotal(payload?.total ?? 0);
     setLoadingRows(false);
-  }, [segment, tier, category, activity, debouncedSearch, multiVenue, sort, page]);
+  }, [segment, tier, category, activity, debouncedSearch, multiVenue, account, app, reach, tagFilter, sort, page]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
   const openDetail = async (row: CustomerRow) => {
     setSelected(row);
     setDetail(null);
+    setTagDraft('');
+    setNoteDraft('');
     setLoadingDetail(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await supabase.rpc('admin_customer_detail' as any, { p_email: row.email });
     if (error) console.error('[AdminSegmentation] detail error', error);
     setDetail((data as unknown as CustomerDetail | null) ?? null);
     setLoadingDetail(false);
+  };
+
+  // ── Écriture CRM : étiquettes et notes ────────────────────────────────────
+  // Clé = l'email, jamais l'user_id : la plupart des clients n'ont pas de compte
+  // et sont justement ceux qu'on a besoin d'annoter.
+  const saveTags = async (email: string, tags: string[]) => {
+    setSavingCrm(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await supabase.rpc('admin_crm_set_tags' as any, { p_email: email, p_tags: tags });
+    if (error) console.error('[AdminSegmentation] set tags error', error);
+    else {
+      const saved = (data as unknown as string[] | null) ?? tags;
+      setDetail(d => (d ? { ...d, tags: saved } : d));
+      setRows(rs => rs.map(r => (r.email === email ? { ...r, tags: saved } : r)));
+      refreshTags();
+    }
+    setSavingCrm(false);
+  };
+
+  const addNote = async (email: string, body: string) => {
+    if (!body.trim()) return;
+    setSavingCrm(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await supabase.rpc('admin_crm_add_note' as any, { p_email: email, p_body: body });
+    if (error) console.error('[AdminSegmentation] add note error', error);
+    else {
+      const id = String(data ?? crypto.randomUUID());
+      setDetail(d => (d ? { ...d, notes: [{ id, body: body.trim(), created_at: new Date().toISOString() }, ...d.notes] } : d));
+      setNoteDraft('');
+    }
+    setSavingCrm(false);
+  };
+
+  const deleteNote = async (id: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase.rpc('admin_crm_delete_note' as any, { p_id: id });
+    if (error) { console.error('[AdminSegmentation] delete note error', error); return; }
+    setDetail(d => (d ? { ...d, notes: d.notes.filter(n => n.id !== id) } : d));
   };
 
   const exportCsv = async () => {
@@ -330,6 +454,8 @@ export default function AdminSegmentation() {
           p_segment: segment ?? null, p_tier: tier || null, p_category: category || null,
           p_activity: activity || null, p_search: debouncedSearch || null,
           p_multi_venue: multiVenue ? true : null,
+          p_account: account || null, p_app: app || null,
+          p_reach: reach || null, p_tag: tagFilter || null,
           p_sort: sort, p_dir: 'desc', p_limit: CHUNK, p_offset: offset,
         });
         const payload = data as unknown as { total: number; rows: CustomerRow[] } | null;
@@ -338,9 +464,11 @@ export default function AdminSegmentation() {
         if (all.length >= (payload.total ?? 0)) break;
       }
       const header = ['email', 'first_name', 'last_name', 'city', 'segment', 'tier', 'category',
+        'has_account', 'has_app', 'app_platforms', 'email_opt_in', 'sms_opt_in',
+        'email_suppressed', 'tags',
         'total_spent', 'rev_30d', 'rev_90d', 'avg_basket', 'visit_nights', 'tx_count',
-        'ticket_count', 'order_count', 'table_count', 'venues_count', 'venue_names',
-        'first_at', 'last_at', 'r', 'f', 'm'];
+        'ticket_count', 'order_count', 'table_count', 'guestlist_count', 'venues_count',
+        'venue_names', 'first_at', 'last_at', 'r', 'f', 'm'];
       const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const csv = [header.join(';'), ...all.map(r => header.map(h => esc((r as unknown as Record<string, unknown>)[h])).join(';'))].join('\n');
       // BOM UTF-8 pour qu'Excel ouvre les accents correctement
@@ -434,7 +562,11 @@ export default function AdminSegmentation() {
             {/* KPI strip */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { label: t('adminSeg.kpi.customers'), value: overview.totals.customers.toLocaleString(), sub: `${overview.totals.with_account.toLocaleString()} ${t('adminSeg.kpi.withAccount')}`, icon: Users },
+                { label: t('adminSeg.kpi.customers'), value: overview.totals.customers.toLocaleString(), sub: `${overview.totals.paying?.toLocaleString() ?? 0} ${t('adminSeg.kpi.paying')} · ${overview.totals.guestlist_only?.toLocaleString() ?? 0} ${t('adminSeg.kpi.guestOnly')}`, icon: Users },
+                // Compte et app : la profondeur de la relation. Un client sans
+                // compte ne revient que si on va le chercher.
+                { label: t('adminSeg.kpi.withAccount'), value: (overview.totals.with_account ?? 0).toLocaleString(), sub: `${(overview.totals.with_app ?? 0).toLocaleString()} ${t('adminSeg.kpi.withApp')}`, icon: UserPlus },
+                { label: t('adminSeg.kpi.reachable'), value: `${(overview.totals.reach_email ?? 0).toLocaleString()} @ · ${(overview.totals.reach_sms ?? 0).toLocaleString()} SMS`, sub: `${(overview.totals.unreachable ?? 0).toLocaleString()} ${t('adminSeg.kpi.unreachable')}`, icon: Mail },
                 { label: t('adminSeg.kpi.active30'), value: overview.totals.active_30d.toLocaleString(), icon: Flame },
                 { label: t('adminSeg.kpi.new30'), value: `+${overview.totals.new_30d.toLocaleString()}`, icon: UserPlus },
                 { label: t('adminSeg.kpi.avgLtv'), value: eur2(overview.totals.avg_ltv), sub: `${t('adminSeg.kpi.totalLtv')} ${eur(overview.totals.total_ltv)}`, icon: Crown },
@@ -665,6 +797,29 @@ export default function AdminSegmentation() {
                   <option value="">{t('adminSeg.filters.catAll')}</option>
                   {['tickets', 'drinks', 'tables', 'mixed', 'guestlist'].map(k => <option key={k} value={k}>{t(`adminSeg.cat.${k}`)}</option>)}
                 </select>
+                <select value={account} onChange={e => setAccount(e.target.value)} style={selectStyle}>
+                  <option value="">{t('adminSeg.filters.accountAll')}</option>
+                  <option value="yes">{t('adminSeg.filters.accountYes')}</option>
+                  <option value="no">{t('adminSeg.filters.accountNo')}</option>
+                </select>
+                <select value={app} onChange={e => setApp(e.target.value)} style={selectStyle}>
+                  <option value="">{t('adminSeg.filters.appAll')}</option>
+                  <option value="yes">{t('adminSeg.filters.appYes')}</option>
+                  <option value="no">{t('adminSeg.filters.appNo')}</option>
+                </select>
+                <select value={reach} onChange={e => setReach(e.target.value)} style={selectStyle}>
+                  <option value="">{t('adminSeg.filters.reachAll')}</option>
+                  <option value="email">{t('adminSeg.filters.reachEmail')}</option>
+                  <option value="sms">{t('adminSeg.filters.reachSms')}</option>
+                  <option value="push">{t('adminSeg.filters.reachPush')}</option>
+                  <option value="none">{t('adminSeg.filters.reachNone')}</option>
+                </select>
+                {allTags.length > 0 && (
+                  <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} style={selectStyle}>
+                    <option value="">{t('adminSeg.filters.tagAll')}</option>
+                    {allTags.map(tg => <option key={tg} value={tg}>{tg}</option>)}
+                  </select>
+                )}
                 <select value={sort} onChange={e => setSort(e.target.value)} style={selectStyle}>
                   <option value="total_spent">{t('adminSeg.sort.ltv')}</option>
                   <option value="last_at">{t('adminSeg.sort.recent')}</option>
@@ -692,6 +847,7 @@ export default function AdminSegmentation() {
                   <tr style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.015)' }}>
                     <th className="px-4 py-2.5 text-left" style={thStyle}>{t('adminSeg.table.customer')}</th>
                     <th className="px-3 py-2.5 text-left" style={thStyle}>{t('adminSeg.table.segment')}</th>
+                    <th className="px-3 py-2.5 text-left" style={thStyle}>{t('adminSeg.table.identity')}</th>
                     <th className="px-3 py-2.5 text-right" style={thStyle}>LTV</th>
                     <th className="px-3 py-2.5 text-right" style={thStyle}>{t('adminSeg.table.trend')}</th>
                     <th className="px-3 py-2.5 text-right" style={thStyle}>{t('adminSeg.table.visits')}</th>
@@ -701,9 +857,9 @@ export default function AdminSegmentation() {
                 </thead>
                 <tbody>
                   {loadingRows ? (
-                    <tr><td colSpan={7} className="text-center py-10" style={{ color: T3, fontSize: 12.5 }}>{t('adminSeg.table.loading')}</td></tr>
+                    <tr><td colSpan={8} className="text-center py-10" style={{ color: T3, fontSize: 12.5 }}>{t('adminSeg.table.loading')}</td></tr>
                   ) : rows.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center py-10" style={{ color: T3, fontSize: 12.5 }}>{t('adminSeg.table.empty')}</td></tr>
+                    <tr><td colSpan={8} className="text-center py-10" style={{ color: T3, fontSize: 12.5 }}>{t('adminSeg.table.empty')}</td></tr>
                   ) : rows.map((r, i) => {
                     const name = `${r.first_name || ''} ${r.last_name || ''}`.trim();
                     return (
@@ -716,12 +872,20 @@ export default function AdminSegmentation() {
                         <td className="px-4 py-3 max-w-[240px]">
                           <div className="font-medium truncate" style={{ color: T1 }}>{name || r.email}</div>
                           {name && <div className="truncate" style={{ color: T3, fontSize: 11.5 }}>{r.email}</div>}
+                          {r.tags?.length > 0 && <div className="mt-1"><TagChips tags={r.tags} /></div>}
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <SegmentBadge segment={r.segment} t={t} />
                             <TierBadge tier={r.tier} t={t} />
                           </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <IdentityBadges
+                            hasAccount={r.has_account} hasApp={r.has_app} appPlatforms={r.app_platforms}
+                            emailOptIn={r.email_opt_in} smsOptIn={r.sms_opt_in}
+                            suppressed={r.email_suppressed} t={t}
+                          />
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums font-semibold" style={{ color: T1 }}>{eur2(r.total_spent)}</td>
                         <td className="px-3 py-3 text-right"><Trend pct={r.trend_pct} /></td>
@@ -837,6 +1001,117 @@ export default function AdminSegmentation() {
                       ))}
                     </div>
 
+                    {/* Statut : compte, app, joignabilité */}
+                    <div>
+                      <p className="mb-2" style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('adminSeg.drawer.status')}</p>
+                      <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '12px 16px' }}>
+                        <IdentityBadges
+                          hasAccount={!!detail?.identity?.has_account}
+                          hasApp={!!detail?.identity?.has_app}
+                          appPlatforms={detail?.identity?.app_platforms ?? []}
+                          emailOptIn={!!detail?.identity?.email_opt_in}
+                          smsOptIn={!!detail?.identity?.sms_opt_in}
+                          suppressed={!!detail?.identity?.email_suppressed}
+                          t={t}
+                        />
+                        <p className="mt-2.5" style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                          {detail?.identity?.has_account
+                            ? t('adminSeg.drawer.statusAccount')
+                            : t('adminSeg.drawer.statusNoAccount')}
+                        </p>
+                        {(detail?.identity?.profile_count ?? 0) > 1 && (
+                          <p className="mt-1.5" style={{ color: '#F59E0B', fontSize: 11.5, lineHeight: 1.5 }}>
+                            {t('adminSeg.drawer.duplicateProfiles').replace('{n}', String(detail?.identity?.profile_count))}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Étiquettes */}
+                    <div>
+                      <p className="mb-2" style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('adminSeg.drawer.tags')}</p>
+                      <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '12px 16px' }}>
+                        {(detail?.tags ?? []).length > 0
+                          ? <TagChips tags={detail!.tags} onRemove={tg => saveTags(selected.email, detail!.tags.filter(x => x !== tg))} />
+                          : <p style={{ color: T3, fontSize: 12 }}>{t('adminSeg.drawer.noTags')}</p>}
+                        <div className="flex items-center gap-2 mt-2.5">
+                          <input
+                            list="crm-tag-suggestions"
+                            value={tagDraft}
+                            onChange={e => setTagDraft(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && tagDraft.trim()) {
+                                e.preventDefault();
+                                const next = Array.from(new Set([...(detail?.tags ?? []), tagDraft.trim()]));
+                                saveTags(selected.email, next);
+                                setTagDraft('');
+                              }
+                            }}
+                            placeholder={t('adminSeg.drawer.tagPlaceholder')}
+                            style={{ ...inputStyle, flex: 1 }}
+                          />
+                          <datalist id="crm-tag-suggestions">
+                            {allTags.map(tg => <option key={tg} value={tg} />)}
+                          </datalist>
+                          <button
+                            disabled={savingCrm || !tagDraft.trim()}
+                            onClick={() => {
+                              const next = Array.from(new Set([...(detail?.tags ?? []), tagDraft.trim()]));
+                              saveTags(selected.email, next);
+                              setTagDraft('');
+                            }}
+                            className="px-3 py-2 rounded-[10px] text-[12.5px] font-medium cursor-pointer disabled:cursor-not-allowed"
+                            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, opacity: !tagDraft.trim() ? 0.4 : 1 }}
+                          >
+                            {t('adminSeg.drawer.tagAdd')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <p className="mb-2" style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('adminSeg.drawer.notes')}</p>
+                      <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '12px 16px' }}>
+                        <textarea
+                          value={noteDraft}
+                          onChange={e => setNoteDraft(e.target.value)}
+                          placeholder={t('adminSeg.drawer.notePlaceholder')}
+                          rows={2}
+                          style={{ ...inputStyle, width: '100%', resize: 'vertical', lineHeight: 1.5 }}
+                        />
+                        <div className="flex justify-end mt-2">
+                          <button
+                            disabled={savingCrm || !noteDraft.trim()}
+                            onClick={() => addNote(selected.email, noteDraft)}
+                            className="px-3 py-1.5 rounded-[10px] text-[12.5px] font-medium cursor-pointer disabled:cursor-not-allowed"
+                            style={{ background: RED, color: '#fff', border: '1px solid transparent', opacity: !noteDraft.trim() ? 0.4 : 1 }}
+                          >
+                            {t('adminSeg.drawer.noteAdd')}
+                          </button>
+                        </div>
+                        {(detail?.notes ?? []).length > 0 && (
+                          <div className="mt-2">
+                            {detail!.notes.map((n, i, arr) => (
+                              <div key={n.id} className="flex items-start gap-2 py-2.5"
+                                style={{ borderTop: `1px solid ${F_BORDER}`, borderBottom: i === arr.length - 1 ? 'none' : undefined }}>
+                                <div className="flex-1 min-w-0">
+                                  <p style={{ color: T1, fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{n.body}</p>
+                                  <p className="mt-1" style={{ color: T3, fontSize: 10.5 }}>
+                                    {format(new Date(n.created_at), 'dd/MM/yyyy HH:mm')}
+                                  </p>
+                                </div>
+                                <button onClick={() => deleteNote(n.id)} className="cursor-pointer flex-none mt-0.5"
+                                  style={{ color: T3 }} aria-label={t('adminSeg.drawer.noteDelete')}>
+                                  <Ban className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Identity */}
                     <div>
                       <p className="mb-2" style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('adminSeg.drawer.profile')}</p>
@@ -894,12 +1169,14 @@ export default function AdminSegmentation() {
                       </div>
                     )}
 
-                    {/* Recent transactions */}
-                    {(detail?.recent ?? []).length > 0 && (
+                    {/* Timeline : achats ET guest list. La liste précédente ne
+                        montrait que le payé, donc un client venu gratuitement
+                        avait une fiche vide alors qu'il était bien passé. */}
+                    {(detail?.timeline ?? []).length > 0 && (
                       <div>
                         <p className="mb-2" style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('adminSeg.drawer.recent')}</p>
                         <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '4px 16px' }}>
-                          {(detail!.recent).slice(0, 10).map((r, i, arr) => {
+                          {(detail!.timeline).slice(0, 12).map((r, i, arr) => {
                             const Icon = CAT_META[r.kind]?.icon ?? Layers;
                             return (
                               <div key={i} className="flex items-center gap-3 py-2.5" style={{ borderBottom: i < arr.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
@@ -915,7 +1192,10 @@ export default function AdminSegmentation() {
                                     {r.venue_name} · {format(new Date(r.created_at), 'dd/MM/yy')}
                                   </div>
                                 </div>
-                                <span className="tabular-nums flex-none" style={{ color: T1, fontSize: 12.5, fontWeight: 620 }}>{eur2(r.amount)}</span>
+                                <span className="tabular-nums flex-none"
+                                  style={{ color: r.is_paid ? T1 : T3, fontSize: 12.5, fontWeight: 620 }}>
+                                  {r.is_paid ? eur2(r.amount) : t('adminSeg.cat.guestlist')}
+                                </span>
                               </div>
                             );
                           })}
