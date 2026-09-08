@@ -16607,6 +16607,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_orders_list: {
+        Args: {
+          p_include_demo?: boolean
+          p_kind: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       admin_platform_analytics: {
         Args: { p_from: string; p_to: string; p_venue_id?: string }
         Returns: Json
