@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { AudienceKind, AudienceSel } from '@/lib/email';
 import { useStudio } from './store';
-import { useAudienceCount, useImportedLists, type SavedSegment, type StudioEvent, type StudioScope } from './hooks';
+import { useAudienceCount, useContactSegments, useImportedLists, type SavedSegment, type StudioEvent, type StudioScope } from './hooks';
 import {
   BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, RED, RED_SOFT_GRAD, SegBtns,
   SUBTLE, Switch, T1, T2, T3, inputStyle,
@@ -46,6 +46,7 @@ export default function AudienceStep({ scope, events, segments }: {
   const hasAudience = campaign.audiences.length > 0;
   const { count, loading } = useAudienceCount(campaign.id, saveSeq, hasAudience);
   const { lists: imports, rename: renameImport } = useImportedLists(scope);
+  const contactSegments = useContactSegments(scope);
 
   // Effectifs par segment (clubs uniquement — la RPC v1 est venue-scopée).
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function AudienceStep({ scope, events, segments }: {
       return;
     }
     const added: AudienceSel = kind === 'import' ? { kind, importId: refId }
-      : kind === 'segment' ? { kind, segmentId: refId }
+      : kind === 'segment' || kind === 'contact_segment' ? { kind, segmentId: refId }
       : { kind };
     setAudiences([...campaign.audiences, added]);
   };
@@ -137,11 +138,12 @@ export default function AudienceStep({ scope, events, segments }: {
   const grossSum = campaign.type === 'promotional'
     ? campaign.audiences.reduce((acc, a) => {
       if (a.kind === 'import') return acc + (imports.find((l) => l.id === a.importId)?.count || 0);
+      if (a.kind === 'contact_segment') return acc + (contactSegments.find((s) => s.id === a.segmentId)?.emails || 0);
       const key = a.kind === 'segment' ? `seg:${a.segmentId}` : a.kind;
       return acc + (perKindCounts[key] || 0);
     }, 0)
     : (count?.gross ?? 0);
-  const maxCount = Math.max(1, ...Object.values(perKindCounts), ...imports.map((l) => l.count));
+  const maxCount = Math.max(1, ...Object.values(perKindCounts), ...imports.map((l) => l.count), ...contactSegments.map((s) => s.emails));
   const net = count?.net ?? 0;
   const dedupAndExcl = Math.max(0, grossSum - (count?.gross ?? grossSum));
   const baseAll = perKindCounts['all_subscribers'] || 0;
@@ -227,6 +229,26 @@ export default function AudienceStep({ scope, events, segments }: {
               );
             })}
           </div>
+
+          {/* Segments intelligents sur la base importée (club ET organisateur). */}
+          {campaign.type === 'promotional' && contactSegments.length > 0 && (
+            <>
+              <MicroLabel style={{ margin: '14px 0 7px' }}>{t('studio.aud.contactSegments')}</MicroLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {contactSegments.map((sg) => (
+                  <SegmentRow
+                    key={sg.id}
+                    on={isSelected('contact_segment', sg.id)}
+                    onClick={() => toggleAudience('contact_segment', sg.id)}
+                    name={sg.name}
+                    desc={sg.description || t('studio.aud.desc.contactSegment')}
+                    count={sg.emails}
+                    barPct={Math.round((sg.emails / maxCount) * 100)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Listes importées : un fichier = un segment, aux deux portées. */}
           {campaign.type === 'promotional' && imports.length > 0 && (

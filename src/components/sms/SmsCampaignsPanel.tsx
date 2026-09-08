@@ -6,9 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  AlertTriangle, CalendarDays, Crown, FileSpreadsheet, Loader2, MessageSquare, Plus, Sparkles, Trash2, Upload, UserMinus, UserPlus, Users, Wallet,
-} from 'lucide-react';
+import { AlertTriangle, CalendarDays, Crown, FileSpreadsheet, Loader2, MessageSquare, Plus, Sparkles, Trash2, Upload, UserMinus, UserPlus, Users, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, type Locale } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -23,7 +21,8 @@ import { SMS_MARKETING_LIVE, type SmsScope } from '@/lib/smsMarketing';
 import SmsCampaignEditor from './SmsCampaignEditor';
 import SmsCampaignReport from './SmsCampaignReport';
 import SmsCreditsDialog, { useSmsCreditsReturn } from './SmsCreditsDialog';
-import SmsImportDialog from './SmsImportDialog';
+import ContactImportDialog from '@/components/contacts/ContactImportDialog';
+import type { ContactIntelligenceOverview, ContactSegment } from '@/lib/contactSegments';
 import { SmsStatusPill } from './SmsStatusPill';
 import {
   SMS_CAMPAIGN_COLUMNS, fetchScopeEvents, fetchSmsBalance, scopeFilter, scopeRpcArgs,
@@ -59,16 +58,21 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const [creditsOpen, setCreditsOpen] = useState(false);
   const [creditsMissing, setCreditsMissing] = useState<number | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
+  const [contactSegments, setContactSegments] = useState<ContactSegment[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const f = scopeFilter(scope);
-    const [{ data: rows }, evs, bal, { data: ov }] = await Promise.all([
+    const [{ data: rows }, evs, bal, { data: ov }, { data: ci }] = await Promise.all([
       supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).eq(f.column, f.value).order('created_at', { ascending: false }).limit(100),
       fetchScopeEvents(scope),
       fetchSmsBalance(scope),
       supabase.rpc('get_sms_contacts_overview', scopeRpcArgs(scope)),
+      // Segments sur la base importée (email + SMS) : seuls ceux avec des numéros joignables servent ici.
+      supabase.rpc('get_contact_intelligence_overview' as never, scopeRpcArgs(scope) as never),
     ]);
+    setContactSegments((((ci as unknown) as ContactIntelligenceOverview | null)?.segments ?? []).filter((s) => s.counts.phones > 0));
     setCampaigns((rows ?? []) as unknown as SmsCampaignRow[]);
     setEvents(evs);
     setBalance(bal);
@@ -96,6 +100,9 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const eventTitle = useMemo(() => new Map(events.map((e) => [e.id, e.title])), [events]);
 
   const openBuy = (missing: number | null) => { setCreditsMissing(missing); setCreditsOpen(true); };
+  const importScope = scope.kind === 'venue'
+    ? { kind: 'venue' as const, venueId: scope.venueId }
+    : { kind: 'organizer' as const, organizerId: scope.organizerUserId };
 
   const openCampaign = (c: SmsCampaignRow) => {
     if (c.status === 'draft') { setEditing(c); setEditorOpen(true); return; }
@@ -187,6 +194,9 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" className="gap-1.5 border-white/[0.1]" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4" /><span className="hidden sm:inline">{t('smsc.import.button')}</span>
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 border-white/[0.1]" onClick={() => setSegmentsOpen(true)}>
+            <Sparkles className="h-4 w-4" /><span className="hidden sm:inline">{t('cseg.button')}</span>
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setEditorOpen(true); }}>
             <Plus className="h-4 w-4" />{t('smsCampaigns.newCampaign')}
@@ -301,13 +311,15 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         campaign={editing}
         events={events}
         imports={overview?.imports ?? []}
+        contactSegments={contactSegments}
         balance={balance}
         onChanged={() => void load()}
         onBuyCredits={(m) => openBuy(m)}
         presetEventId={editing ? null : presetEventId}
       />
       <SmsCreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} scope={scope} missing={creditsMissing} onCredited={() => void load()} />
-      <SmsImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={scope} onImported={() => void load()} />
+      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />
+      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void load()} />
     </div>
   );
 }

@@ -8,7 +8,7 @@ export interface SmsCampaignRow {
   body_i18n: Record<string, string> | null;
   sender_name: string | null;
   event_id: string | null;
-  segment_filters: { type?: SmsSegmentType; event_id?: string; import_id?: string } | null;
+  segment_filters: { type?: SmsSegmentType; event_id?: string; import_id?: string; segment_id?: string } | null;
   estimated_recipients: number;
   total_recipients: number;
   sent_count: number;
