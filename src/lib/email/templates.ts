@@ -91,6 +91,10 @@ export function stripEventBindings(blocks: EmailBlock[]): EmailBlock[] {
       delete b.coverUrl;
       delete b.ctaUrl;
     }
+    // Le lien figé du bloc Table pointe une soirée précise : un modèle rejoué
+    // sur la soirée suivante enverrait sur l'ancienne page. Le VISUEL du carré
+    // reste : c'est une photo du club, pas de la soirée.
+    if (b.type === 'table') delete b.ctaUrl;
     if (b.type === 'countdown') delete b.targetAt;
     return b as EmailBlock;
   });

@@ -94,7 +94,7 @@ export function runChecklist(input: ChecklistInput): ChecklistItem[] {
   for (const b of input.blocks) {
     if (b.type === 'text') texts.push(b.body);
     if (b.type === 'cta') texts.push(b.label);
-    if (b.type === 'table') { texts.push(b.title, b.sub); }
+    if (b.type === 'table') { texts.push(b.title, b.sub, b.note || ''); }
     if (b.type === 'html') texts.push(b.code);
   }
   items.push({

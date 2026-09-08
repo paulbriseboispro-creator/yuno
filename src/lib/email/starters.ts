@@ -94,6 +94,8 @@ export function buildStarter(key: StarterKey, ctx: StarterCtx): TemplateContent 
           block('table', venueName, {
             cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
             sub: k('tableSub'), ctaLabel: k('tableCta'),
+            perks: [k('tablePerk1'), k('tablePerk2'), k('tablePerk3')],
+            note: k('tableNote'),
           }),
           block('divider', venueName),
           block('text', venueName, { body: k('t2'), size: 14 }),
