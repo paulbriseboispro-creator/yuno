@@ -70,6 +70,8 @@ export default function TrackedLinkRedirect() {
           promo_code?: string;
           guest_list_token?: string;
           guest_list_event_id?: string;
+          event_host?: string;
+          event_slug?: string;
         };
 
         if (!error && res.found && res.tracked_link_id) {
@@ -77,19 +79,34 @@ export default function TrackedLinkRedirect() {
           // Promoter links carry a promo code so the existing commission flow
           // (record_promoter_conversion) still fires via the ?ref= param.
           const refParam = res.promo_code ? `&ref=${encodeURIComponent(res.promo_code)}` : '';
+          // Base canonique du tunnel : /events/:host/:slug quand le serveur
+          // résout les deux (règle portée par event_host_slug). L'ancienne
+          // forme /club/:slug/event/:id ne sert plus que de repli, et une
+          // soirée d'organisateur SANS club n'y a pas de slug à donner : ne
+          // jamais en inventer un, c'est ce qui produisait `/club/event/...`
+          // et un bouton de retour vers un club inexistant.
+          const cleanBase = res.event_host && res.event_slug
+            ? `/events/${res.event_host}/${res.event_slug}`
+            : null;
           if (res.target_kind === 'event' && res.event_id) {
             setTrackedLinkForEvent(res.event_id, linkId);
-            target = res.event_venue_id
-              ? `/club/${res.event_venue_id}/event/${res.event_id}?tl=${linkId}${refParam}`
-              : `/event/${res.event_id}?tl=${linkId}${refParam}`;
+            const base = cleanBase
+              || (res.event_venue_id
+                ? `/club/${res.event_venue_id}/event/${res.event_id}`
+                : `/event/${res.event_id}`);
+            target = `${base}?tl=${linkId}${refParam}`;
           } else if (res.target_kind === 'guestlist' && res.guest_list_token && res.guest_list_event_id) {
             // Le token de la part est indispensable : une part déléguée (DJ,
             // promoteur) n'est pas listée sur la page publique de la soirée.
             // `tl` suit pour que l'inscription soit attribuée à ce canal.
             setTrackedLinkForEvent(res.guest_list_event_id, linkId);
-            const slug = res.event_venue_id || 'event';
-            target = `/club/${slug}/event/${res.guest_list_event_id}/guestlist`
-              + `?token=${encodeURIComponent(res.guest_list_token)}&tl=${linkId}${refParam}`;
+            const base = cleanBase
+              || (res.event_venue_id
+                ? `/club/${res.event_venue_id}/event/${res.guest_list_event_id}`
+                : null);
+            target = base
+              ? `${base}/guestlist?token=${encodeURIComponent(res.guest_list_token)}&tl=${linkId}${refParam}`
+              : `/event/${res.guest_list_event_id}?tl=${linkId}${refParam}`;
           } else if (res.target_kind === 'venue' && res.target_venue_id) {
             setActiveTrackedLink(linkId);
             target = `/club/${res.target_venue_id}`;
