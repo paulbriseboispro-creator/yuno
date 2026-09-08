@@ -11,6 +11,7 @@ import {
   buildEntryRows, pickPublicGuestList, guestListTicketRow, priceFromLabel, formatEuro,
   ticketsCtaLabel, ticketsKicker, isPricedRow, soldOutSub, SOLD_OUT_CHIP,
   buildTablePackRows, buildTableZoneRows, tablePackSubtitle, tablePackPrice, tablesLeftLabel,
+  eventSelectionUrl,
 } from '../index';
 import type { EmailBlock, RenderCtx } from '../types';
 
@@ -134,6 +135,31 @@ describe('tables VIP — formules et rareté', () => {
     expect(mixHex('#ffffff', '#000000', 0.5)).toMatch(/^#[0-9a-f]{6}$/);
     expect(mixHex('#ffffff', '#000000', 0)).toBe('#000000');
     expect(mixHex('#ffffff', '#000000', 1)).toBe('#ffffff');
+  });
+});
+
+describe('destination des boutons — la page de sélection', () => {
+  it('un lien suivi porte son intention en paramètre, jamais dans son chemin', () => {
+    // La destination d'un /l/<code> est résolue côté serveur : on ne peut pas
+    // lui rallonger le chemin, c'est la redirection qui compose la route.
+    expect(eventSelectionUrl('https://yunoapp.eu/l/abc', true))
+      .toBe('https://yunoapp.eu/l/abc?to=billets');
+    expect(eventSelectionUrl('https://yunoapp.eu/l/abc?x=1', true))
+      .toBe('https://yunoapp.eu/l/abc?x=1&to=billets');
+  });
+
+  it('une URL nue gagne /billets sur les formes qui la portent', () => {
+    expect(eventSelectionUrl('https://yunoapp.eu/events/le-silo/nuit-blanche', false))
+      .toBe('https://yunoapp.eu/events/le-silo/nuit-blanche/billets');
+    expect(eventSelectionUrl('https://yunoapp.eu/club/v1/event/e1', false))
+      .toBe('https://yunoapp.eu/club/v1/event/e1/billets');
+  });
+
+  it('la forme /event/<uuid> reste intacte — elle n’a pas de /billets', () => {
+    // Repli quand le slug d'hôte n'est pas résolu. Y ajouter /billets
+    // enverrait le client sur un 404 : mieux vaut la page de la soirée.
+    const uuid = 'https://yunoapp.eu/event/2f1c8a9e-0000-4a3b-9d11-abcdef123456';
+    expect(eventSelectionUrl(uuid, false)).toBe(uuid);
   });
 });
 
@@ -382,6 +408,29 @@ describe('blocs — un rendu par type', () => {
     }
   });
 
+  it('billets et tables mènent tous deux à la page de sélection', () => {
+    const live = { 'ev-1': { ...ctx.live!['ev-1'], trackedUrl: 'https://yunoapp.eu/l/abc' } };
+    for (const type of ['tickets', 'table'] as const) {
+      const html = renderOne(makeBlock(type, { eventId: 'ev-1' }), { live });
+      expect(html).toContain('to=billets');
+    }
+  });
+
+  it('liste invités seule : le bouton garde le lien de la part', () => {
+    // Ce lien ouvre DÉJÀ le formulaire avec son token — c'est la sélection.
+    // Le détourner vers /billets perdrait le token de la part.
+    const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }), {
+      live: { 'ev-1': {
+        ...ctx.live!['ev-1'],
+        guestListOnly: true,
+        tickets: [{ n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false }],
+        entryTrackedUrl: 'https://yunoapp.eu/l/gl9',
+      } },
+    });
+    expect(html).toContain('https://yunoapp.eu/l/gl9');
+    expect(html).not.toContain('to=billets');
+  });
+
   it('table : aucune couleur en rgba (Outlook les efface)', () => {
     const b = makeBlock('table', { eventId: 'ev-1' });
     expect(renderOne(b)).not.toContain('rgba(');
@@ -596,9 +645,10 @@ describe('canaux — le bouton part sur le lien suivi de la campagne', () => {
     expect(html).not.toContain('https://yunoapp.eu/event/ev-1');
   });
 
-  it('billetterie ouverte : le bouton reste sur la page de la soirée (lien suivi)', () => {
+  it('billetterie ouverte : le lien suivi de la soirée, vers la sélection', () => {
     const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }), withLinks({}));
-    expect(html).toContain('https://yunoapp.eu/l/evt1234?yc=camp-1');
+    // Le canal reste celui de la soirée ; l'intention voyage en paramètre.
+    expect(html).toContain('https://yunoapp.eu/l/evt1234?to=billets&amp;yc=camp-1');
     expect(html).not.toContain('/l/gl5678');
   });
 
@@ -613,9 +663,11 @@ describe('canaux — le bouton part sur le lien suivi de la campagne', () => {
     expect(html).not.toContain('/l/evt1234');
   });
 
-  it('table VIP : lien suivi de la soirée', () => {
+  it('table VIP : lien suivi de la soirée, vers la sélection', () => {
+    // `/billets` porte AUSSI la section Tables VIP (onglets de zone + bouton
+    // Réserver par formule) : c'est la page de choix des deux piliers.
     const html = renderOne(makeBlock('table', { eventId: 'ev-1' }), withLinks({}));
-    expect(html).toContain('https://yunoapp.eu/l/evt1234?yc=camp-1');
+    expect(html).toContain('https://yunoapp.eu/l/evt1234?to=billets&amp;yc=camp-1');
   });
 
   // Aperçu canvas et envois de test ne résolvent aucun canal : sans eux le

@@ -653,8 +653,11 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       if (rows.length === 0) return '';
 
       const guestListOnly = !!b.live && live?.guestListOnly;
-      const url = (guestListOnly ? live?.entryTrackedUrl : null)
-        || live?.trackedUrl || live?.url || ctx.baseUrl;
+      // Liste invités seule : le lien de la PART ouvre déjà le formulaire.
+      // Sinon on vise la page de choix (miroir de render.ts).
+      const entry = guestListOnly ? live?.entryTrackedUrl : null;
+      const trackedBase = entry || live?.trackedUrl || live?.url || ctx.baseUrl;
+      const url = entry ? trackedBase : eventSelectionUrl(trackedBase, !!live?.trackedUrl);
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
       const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
@@ -691,7 +694,12 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'table': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
+      // Page de SÉLECTION (miroir de render.ts). Une URL posée à la main par
+      // le pro n'est jamais réécrite.
+      const resolved = live?.trackedUrl || live?.url || '';
+      const url = resolved
+        ? eventSelectionUrl(resolved, !!live?.trackedUrl)
+        : ((b.ctaUrl as string) || ctx.baseUrl);
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
       const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
@@ -1119,6 +1127,25 @@ export function buildTableZoneRows(
   }).filter(Boolean) as (StudioTablePackRow & { amount: number; pos: number })[];
   rows.sort((a, b) => (a.amount - b.amount) || (a.pos - b.pos));
   return rows.map(({ id, n, s, p }) => ({ id, n, s, p }));
+}
+
+/**
+ * Destination des boutons Billetterie et Table VIP : la page de SÉLECTION
+ * (`/billets`), qui porte les tranches ET la section Tables VIP avec ses
+ * onglets de zone. Miroir de eventSelectionUrl (live.ts).
+ */
+const SELECTION_HINT = 'billets';
+
+function eventSelectionUrl(url: string, tracked: boolean): string {
+  const raw = String(url || '');
+  if (!raw) return raw;
+  const qi = raw.indexOf('?');
+  const path = qi === -1 ? raw : raw.slice(0, qi);
+  const query = qi === -1 ? '' : raw.slice(qi + 1);
+  if (tracked) return `${raw}${query ? '&' : '?'}to=${SELECTION_HINT}`;
+  const deep = /\/events\/[^/?#]+\/[^/?#]+$/.test(path) || /\/club\/[^/?#]+\/event\/[^/?#]+$/.test(path);
+  if (!deep) return raw;
+  return `${path}/${SELECTION_HINT}${query ? `?${query}` : ''}`;
 }
 
 function tablesLeftLabel(left: number): string {

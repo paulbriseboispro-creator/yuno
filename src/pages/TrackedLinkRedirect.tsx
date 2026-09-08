@@ -90,11 +90,19 @@ export default function TrackedLinkRedirect() {
             : null;
           if (res.target_kind === 'event' && res.event_id) {
             setTrackedLinkForEvent(res.event_id, linkId);
-            const base = cleanBase
-              || (res.event_venue_id
-                ? `/club/${res.event_venue_id}/event/${res.event_id}`
-                : `/event/${res.event_id}`);
-            target = `${base}?tl=${linkId}${refParam}`;
+            // Le chemin d'un lien suivi est résolu ICI : l'appelant ne peut pas
+            // le rallonger, il passe donc son intention en `?to=`. Allowlist
+            // stricte — un lien public ne doit jamais pouvoir composer une
+            // route arbitraire.
+            const wantsSelection = new URLSearchParams(window.location.search).get('to') === 'billets';
+            const deepBase = cleanBase
+              || (res.event_venue_id ? `/club/${res.event_venue_id}/event/${res.event_id}` : null);
+            // `/event/<uuid>` est le repli quand le slug d'hôte n'est pas
+            // résolu : il n'a PAS de `/billets`. On reste alors sur la soirée
+            // plutôt que d'envoyer sur un 404.
+            const base = deepBase || `/event/${res.event_id}`;
+            const path = wantsSelection && deepBase ? `${deepBase}/billets` : base;
+            target = `${path}?tl=${linkId}${refParam}`;
           } else if (res.target_kind === 'guestlist' && res.guest_list_token && res.guest_list_event_id) {
             // Le token de la part est indispensable : une part déléguée (DJ,
             // promoteur) n'est pas listée sur la page publique de la soirée.

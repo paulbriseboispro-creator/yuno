@@ -296,3 +296,46 @@ export function splitFromLabel(label: string): { label: string; value: string } 
   if (!m || !m[2]) return { label: '', value: s };
   return { label: m[1].trim(), value: m[2].trim() };
 }
+
+/**
+ * Destination des boutons Billetterie ET Table VIP : la page de SÉLECTION,
+ * pas l'accueil de la soirée.
+ *
+ * `/billets` porte les DEUX offres — les tranches de billetterie, la part de
+ * guest list publique, puis la section « Tables VIP » avec ses onglets de zone
+ * et le bouton Réserver de chaque formule. C'est donc la page de choix des
+ * deux piliers, et le nom de la route est trompeur.
+ *
+ * Le lecteur a déjà vu les tarifs dans l'email et cliqué un bouton qui dit ce
+ * qu'il veut faire ; le renvoyer sur l'affiche lui redemande de décider une
+ * seconde fois. On l'amène donc où il choisit sa tranche.
+ *
+ * Deux formes d'URL arrivent ici :
+ * - un lien suivi `/l/<code>` — on ne peut PAS lui rallonger son chemin (sa
+ *   destination est résolue côté serveur), on lui passe donc l'intention en
+ *   paramètre et c'est la redirection qui compose la route ;
+ * - une URL nue de soirée — on lui ajoute `/billets`, mais SEULEMENT sur les
+ *   formes qui portent cette route. `/event/<uuid>` est le repli quand le slug
+ *   d'hôte n'est pas résolu : il n'a pas de `/billets`, y renvoyer donnerait
+ *   un 404. Dans le doute on laisse la page de la soirée, qui marche toujours.
+ */
+export const SELECTION_HINT = 'billets';
+
+export function eventSelectionUrl(url: string, tracked: boolean): string {
+  const raw = String(url || '');
+  if (!raw) return raw;
+  const [path, query] = splitQuery(raw);
+  if (tracked) {
+    const sep = query ? '&' : '?';
+    return `${raw}${sep}to=${SELECTION_HINT}`;
+  }
+  // Formes qui portent réellement /billets (voir App.tsx).
+  const deep = /\/events\/[^/?#]+\/[^/?#]+$/.test(path) || /\/club\/[^/?#]+\/event\/[^/?#]+$/.test(path);
+  if (!deep) return raw;
+  return `${path}/${SELECTION_HINT}${query ? `?${query}` : ''}`;
+}
+
+function splitQuery(url: string): [string, string] {
+  const i = url.indexOf('?');
+  return i === -1 ? [url, ''] : [url.slice(0, i), url.slice(i + 1)];
+}

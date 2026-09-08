@@ -21,7 +21,7 @@ import type {
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import {
-  isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel,
+  isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
   ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
 } from './live';
 import { interpolateVariables } from './variables';
@@ -382,8 +382,12 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   // Liste invités seule : le lien de la PART ouvre le formulaire avec son token
   // et son `tl=`, donc l'inscription se compte sur le canal de la campagne.
   // Sinon on reste sur la page de la soirée, où le `tl=` attribue les ventes.
-  const url = (guestListOnly ? live?.entryTrackedUrl : null)
-    || live?.trackedUrl || live?.url || ctx.baseUrl;
+  // Liste invités seule : le lien de la PART ouvre déjà le formulaire, il est
+  // donc déjà « la sélection ». Sinon on vise la page de choix des tranches.
+  const entry = guestListOnly ? live?.entryTrackedUrl : null;
+  const tracked = !entry && !!live?.trackedUrl;
+  const base = entry || live?.trackedUrl || live?.url || ctx.baseUrl;
+  const url = entry ? base : eventSelectionUrl(base, tracked);
   const btnColors = ctaColors(b.accent, theme);
   const accent = btnColors.bg;
   const layout = b.layout || 'showcase';
@@ -686,7 +690,14 @@ export function offerCard(o: OfferCardOpts): string {
 
 function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
-  const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
+  // Le bouton mène à la page de SÉLECTION : c'est là que vivent les onglets de
+  // zone et le bouton Réserver de chaque formule. L'accueil de la soirée
+  // redemandait au client de décider une seconde fois. Une URL posée à la main
+  // par le pro (`ctaUrl`) n'est jamais réécrite : c'est son choix.
+  const resolved = live?.trackedUrl || live?.url || '';
+  const url = resolved
+    ? eventSelectionUrl(resolved, !!live?.trackedUrl)
+    : (b.ctaUrl || ctx.baseUrl);
   const btnColors = ctaColors(b.accent, theme);
   const accent = btnColors.bg;
   const layout = b.layout || 'showcase';
