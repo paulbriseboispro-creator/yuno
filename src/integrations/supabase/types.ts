@@ -3018,6 +3018,51 @@ export type Database = {
           },
         ]
       }
+      crm_customer_notes: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      crm_customers: {
+        Row: {
+          email: string
+          tags: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          email: string
+          tags?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          email?: string
+          tags?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       customer_activity_log: {
         Row: {
           activity_type: string
@@ -16347,6 +16392,30 @@ export type Database = {
           venue_id: string
         }[]
       }
+      _admin_customer_identity: {
+        Args: { p_email: string }
+        Returns: {
+          account_created_at: string
+          app_platforms: string[]
+          avatar_url: string
+          birth_date: string
+          city: string
+          email_opt_in: boolean
+          email_suppressed: boolean
+          first_name: string
+          gender: string
+          has_account: boolean
+          has_app: boolean
+          is_suspended: boolean
+          last_name: string
+          phone: string
+          preferred_language: string
+          profile_count: number
+          push_on: boolean
+          sms_opt_in: boolean
+          user_id: string
+        }[]
+      }
       _admin_customer_rfm: {
         Args: never
         Returns: {
@@ -16485,6 +16554,16 @@ export type Database = {
         Args: { _event_id: string; _reason?: string }
         Returns: undefined
       }
+      admin_crm_add_note: {
+        Args: { p_body: string; p_email: string }
+        Returns: string
+      }
+      admin_crm_all_tags: { Args: never; Returns: string[] }
+      admin_crm_delete_note: { Args: { p_id: string }; Returns: undefined }
+      admin_crm_set_tags: {
+        Args: { p_email: string; p_tags: string[] }
+        Returns: string[]
+      }
       admin_customer_detail: { Args: { p_email: string }; Returns: Json }
       admin_decommission_venue: { Args: { _venue_id: string }; Returns: string }
       admin_delete_credential_deadline: {
@@ -16537,15 +16616,19 @@ export type Database = {
       admin_restore_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_segmentation_customers: {
         Args: {
+          p_account?: string
           p_activity?: string
+          p_app?: string
           p_category?: string
           p_dir?: string
           p_limit?: number
           p_multi_venue?: boolean
           p_offset?: number
+          p_reach?: string
           p_search?: string
           p_segment?: string
           p_sort?: string
+          p_tag?: string
           p_tier?: string
         }
         Returns: Json
