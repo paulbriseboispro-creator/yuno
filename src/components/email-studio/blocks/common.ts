@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
-import type { EmailBlock, EmailTheme, LiveData, LiveEventData, SocialLinks } from '@/lib/email';
-import { blockPadDefaults, isHexColor } from '@/lib/email';
+import type { EmailBlock, EmailTheme, LiveData, LiveEventData, SocialLinks, TableLayout } from '@/lib/email';
+import { blockPadDefaults, isHexColor, mixHex, readableOn } from '@/lib/email';
 
 /** Contexte de rendu du canvas (aperçu d'édition, PAS l'email final). */
 export interface CanvasCtx {
@@ -91,5 +91,19 @@ export function emailBtnStyle(theme: EmailTheme, opts: { radius?: number; full?:
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  };
+}
+
+/** Teintes de la carte — miroir de offerCardColors. */
+export function offerCardViewColors(accent: string, theme: EmailTheme, layout: TableLayout, blockBg: string) {
+  const baseCard = theme.dark ? theme.tile : '#ffffff';
+  const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
+  const onBg = blockBg && blockBg !== 'transparent' ? blockBg : theme.card;
+  return {
+    baseCard,
+    cardBg,
+    cardBorder: mixHex(accent, theme.divider, 0.42),
+    inkOnCard: readableOn(accent, layout === 'minimal' ? onBg : cardBg),
+    inkOnRows: readableOn(accent, baseCard),
   };
 }

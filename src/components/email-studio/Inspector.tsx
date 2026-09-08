@@ -571,6 +571,12 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
       const b = block as TicketsBlock;
       const setRow = (i: number, p: Partial<TicketRow>) =>
         patch({ rows: b.rows.map((r, idx) => (idx === i ? { ...r, ...p } : r)) });
+      // Tranches réelles de la soirée : la liste que le pro décroche.
+      const liveTicketRows = (live[b.eventId || campaignEventId || '']?.tickets || [])
+        .filter((row) => !!row.id);
+      const hiddenTicketRows = b.hiddenRows || [];
+      const ticketPerks = b.perks || [];
+      const ticketLayout = b.layout || 'showcase';
       return (
         <>
           <PanelCard>
@@ -583,12 +589,135 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
               label={t('studio.inspector.ticketsLive')}
               help={t('studio.inspector.ticketsLiveHelp')}
             />
+            <MicroLabel>{t('studio.inspector.tableLayout')}</MicroLabel>
+            <OptionPills
+              value={ticketLayout}
+              ariaLabel={t('studio.inspector.tableLayout')}
+              options={[
+                { value: 'showcase', label: t('studio.inspector.tableLayoutShowcase') },
+                { value: 'banner', label: t('studio.inspector.tableLayoutBanner') },
+                { value: 'minimal', label: t('studio.inspector.tableLayoutMinimal') },
+              ]}
+              onChange={(v) => patch({ layout: v })}
+            />
+            <Help>{t('studio.inspector.tableLayoutHelp')}</Help>
+            <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
+            {alignPills(b.align || 'left', (v) => patch({ align: v }))}
+            <MicroLabel>{t('studio.inspector.ticketPriceDisplay')}</MicroLabel>
+            <OptionPills
+              value={b.priceDisplay || 'rows'}
+              ariaLabel={t('studio.inspector.ticketPriceDisplay')}
+              options={[
+                { value: 'rows', label: t('studio.inspector.ticketDisplayRows') },
+                { value: 'from', label: t('studio.inspector.ticketDisplayFrom') },
+              ]}
+              onChange={(v) => patch({ priceDisplay: v })}
+            />
+            <Help>{t('studio.inspector.ticketPriceDisplayHelp')}</Help>
             <ThemedColor
               label={t('studio.inspector.accentColor')}
               value={b.accent}
               themeDefault={theme.accent}
               onChange={(v) => patch({ accent: v })}
             />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableKicker')}</MicroLabel>
+            <TextInput
+              value={b.kicker ?? ''}
+              placeholder={t('studio.inspector.ticketsKickerAuto')}
+              onChange={(e) => patch({ kicker: e.target.value })}
+            />
+            <MicroLabel>{t('studio.inspector.tableTitle')}</MicroLabel>
+            <TextInput value={b.title || ''} onChange={(e) => patch({ title: e.target.value })} />
+            <MicroLabel>{t('studio.inspector.tableSub')}</MicroLabel>
+            <TextInput value={b.sub || ''} onChange={(e) => patch({ sub: e.target.value })} />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tablePerks')}</MicroLabel>
+            <Help>{t('studio.inspector.tablePerksHelp')}</Help>
+            {ticketPerks.map((perk, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <TextInput value={perk} onChange={(e) => patch({ perks: ticketPerks.map((x, idx) => (idx === i ? e.target.value : x)) })} />
+                <IconBtn size={26} danger ariaLabel={t('studio.inspector.rowRemove')}
+                  onClick={() => patch({ perks: ticketPerks.filter((_, idx) => idx !== i) })}>
+                  <Trash2 size={13} strokeWidth={1.75} />
+                </IconBtn>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => patch({ perks: [...ticketPerks, t('studio.inspector.tablePerkNew')] })}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
+                borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
+                color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+              }}
+            >
+              <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.tablePerkAdd')}
+            </button>
+          </PanelCard>
+
+          {b.live && liveTicketRows.length > 0 && b.priceDisplay !== 'from' && (
+            <PanelCard>
+              <MicroLabel>{t('studio.inspector.ticketRowsShown')}</MicroLabel>
+              <Help>{t('studio.inspector.ticketRowsShownHelp')}</Help>
+              {liveTicketRows.map((row) => (
+                <ToggleRow
+                  key={row.id}
+                  checked={!hiddenTicketRows.includes(row.id!)}
+                  onChange={(v) => patch({
+                    hiddenRows: v
+                      ? hiddenTicketRows.filter((id) => id !== row.id)
+                      : [...hiddenTicketRows, row.id!],
+                  })}
+                  label={`${row.n} — ${row.p}`}
+                />
+              ))}
+            </PanelCard>
+          )}
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableCover')}</MicroLabel>
+            <ImageUploader
+              value={b.coverUrl || null}
+              onChange={(url) => patch({ coverUrl: url || undefined })}
+              bucketFolder={bucketFolder}
+            />
+            {b.coverUrl && (
+              <>
+                <MicroLabel>{t('studio.inspector.tableCoverPos')}</MicroLabel>
+                <OptionPills
+                  value={b.coverPos || 'top'}
+                  ariaLabel={t('studio.inspector.tableCoverPos')}
+                  options={[
+                    { value: 'top', label: t('studio.inspector.tableCoverTop') },
+                    { value: 'bottom', label: t('studio.inspector.tableCoverBottom') },
+                  ]}
+                  onChange={(v) => patch({ coverPos: v })}
+                />
+                <Help>{t('studio.inspector.tableCoverPosHelp')}</Help>
+              </>
+            )}
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
+            <TextInput
+              value={b.ctaLabel || ''}
+              placeholder={t('studio.inspector.ticketsCtaAuto')}
+              onChange={(e) => patch({ ctaLabel: e.target.value })}
+            />
+            <ToggleRow
+              checked={b.full ?? (ticketLayout !== 'minimal')}
+              onChange={(v) => patch({ full: v })}
+              label={t('studio.inspector.ctaFull')}
+            />
+            <MicroLabel>{t('studio.inspector.tableNote')}</MicroLabel>
+            <TextInput value={b.note || ''} onChange={(e) => patch({ note: e.target.value })}
+              placeholder={t('studio.inspector.tableNotePlaceholder')} />
           </PanelCard>
           <PanelCard>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
