@@ -514,16 +514,19 @@ describe('blocs — un rendu par type', () => {
   // Le bloc était une liste de reçu : tout à 14,5px, aucun point focal. Le
   // prix porte l'offre, la jauge du club reste en retrait, et la carte annonce
   // ce qu'elle vend — même grammaire que le kicker du bloc Table VIP.
-  it('tickets : hiérarchie typographique — kicker accent, nom 17px, prix 21px', () => {
+  it('tickets : hiérarchie typographique — kicker mono, nom 17px, prix 21px', () => {
     const b = makeBlock('tickets', { eventId: 'ev-1' });
     const html = renderOne(b);
     expect(html).toContain('BILLETTERIE');
-    expect(html).toContain(`letter-spacing:0.14em;color:${theme.accent}`); // kicker
+    expect(html).toContain('letter-spacing:0.16em'); // kicker, grammaire commune aux deux blocs
     expect(html).toContain('font-size:17px');   // nom de la tranche
     expect(html).toContain('font-size:21px');   // prix, point focal
     expect(html).toContain('monospace');        // jauge + kicker en mono
-    // Le bandeau doit traverser les deux colonnes, sinon le filet s'arrête net.
-    expect(html).toContain('colspan="2"');
+    // Le kicker en TEXTE suit la même règle que la table : accent lisible sur
+    // son fond, jamais l'accent brut (voir readableOn).
+    const kicker = /letter-spacing:0\.16em;text-transform:uppercase;color:(#[0-9a-fA-F]{6});/.exec(html)?.[1];
+    expect(kicker).toBeTruthy();
+    expect(contrastRatio(kicker!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('tickets : une tranche fermée porte le mot, pas seulement du gris barré', () => {
@@ -636,7 +639,7 @@ describe('liste invités = un type d’entrée (live.ts)', () => {
 
   it('la ligne porte l’heure limite et la boisson, jamais un prix inventé', () => {
     expect(guestListTicketRow({ free_before_time: '02:00:00', includes_drink: true }))
-      .toEqual({ n: 'Liste invités', s: 'avant 02:00 · boisson offerte', p: 'Gratuit', out: false });
+      .toEqual({ id: 'guest-list', n: 'Liste invités', s: 'avant 02:00 · boisson offerte', p: 'Gratuit', out: false });
     expect(guestListTicketRow({ free_before_time: null, includes_drink: false }).s).toBe('');
   });
 
@@ -814,8 +817,15 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
     const tk = makeBlock('tickets', { eventId: 'ev-1' });
     if (tk.type === 'tickets') tk.accent = '#3b82f6';
     const tkHtml = renderOne(tk);
-    expect(tkHtml).toContain('color:#3b82f6'); // prix actifs
-    expect(tkHtml).toContain('background:#3b82f6'); // bouton
+    // Bouton : accent brut. Prix : variante lisible (même règle que la table).
+    expect(tkHtml).toContain('background:#3b82f6');
+    // On vise le prix ACTIF : une tranche épuisée est volontairement en gris
+    // barré (theme.muted), elle n'a pas à porter l'accent.
+    const prices = [...tkHtml.matchAll(/font-weight:800;letter-spacing:-0\.02em;color:(#[0-9a-fA-F]{6});(?!text-decoration)/g)]
+      .map((m) => m[1])
+      .filter((c) => c.toLowerCase() !== theme.muted.toLowerCase());
+    expect(prices.length).toBeGreaterThan(0);
+    for (const c of prices) expect(contrastRatio(c, '#ffffff')).toBeGreaterThanOrEqual(4.5);
 
     const cd = makeBlock('countdown', { eventId: 'ev-1' });
     if (cd.type === 'countdown') cd.accent = '#d4af37';

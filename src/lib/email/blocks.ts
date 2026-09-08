@@ -43,11 +43,17 @@ export function makeBlock(type: BlockType, ctx: MakeBlockCtx = {}): EmailBlock {
     case 'tickets':
       return {
         id, type, eventId: ctx.eventId, live: true,
+        // Lignes d'exemple : elles ne partent JAMAIS telles quelles dès qu'une
+        // soirée est reliée (les tranches sont relues à l'envoi).
         rows: [
           { n: 'Early bird', s: 'épuisé', p: '12 €', out: true },
           { n: 'Prévente 1', s: 'il reste 84 places', p: '18 €', out: false },
           { n: 'Sur place', s: 'selon jauge', p: '25 €', out: false },
         ],
+        // Mêmes réglages que le bloc Table VIP. Le titre et le sous-titre sont
+        // vides par défaut : la liste des tranches se suffit dans une annonce,
+        // et le pro les remplit quand il veut argumenter.
+        layout: 'showcase', align: 'left', priceDisplay: 'rows', full: true,
       };
     case 'table':
       return {

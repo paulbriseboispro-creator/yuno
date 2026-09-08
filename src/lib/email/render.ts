@@ -16,12 +16,13 @@
 import type {
   BlockCond, EmailBlock, EmailTheme, RenderCtx, SocialLinks, TicketRow,
   HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock,
-  TicketsBlock, TableBlock, TablePackRow, CountdownBlock, SpacerBlock, HtmlBlock, DividerBlock,
+  TicketsBlock, TableBlock, TablePackRow, TableLayout, CountdownBlock, SpacerBlock,
+  HtmlBlock, DividerBlock,
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import {
-  isPricedRow, SOLD_OUT_CHIP, soldOutSub, ticketsCtaLabel, ticketsKicker,
-  TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
+  isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel,
+  ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
 } from './live';
 import { interpolateVariables } from './variables';
 
@@ -331,8 +332,13 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
  * chiffre (« Gratuit », « Sur invitation ») n'est pas un montant mais une
  * OFFRE : il se rend en pastille accent, pas en nombre.
  */
+/**
+ * Lignes d'entrée. `accent` colore les PRIX (déjà contrasté sur le fond des
+ * lignes) ; `pillBg` est l'aplat de la pastille « Gratuit », qui garde
+ * l'accent brut puisque son texte se contraste tout seul.
+ */
 function renderTicketRows(
-  rows: TicketRow[], theme: EmailTheme, accent: string, accentText: string,
+  rows: TicketRow[], theme: EmailTheme, accent: string, accentText: string, pillBg = accent,
 ): string {
   return rows.map((r, i) => {
     const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
@@ -344,7 +350,7 @@ function renderTicketRows(
       ? `<span style="font-family:${FONT};font-size:21px;font-weight:800;letter-spacing:-0.02em;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${escapeHtml(r.p)}</span>`
       // Pastille : l'entrée gratuite est l'argument de l'email, pas une ligne
       // de tableau. Outlook ignore border-radius et la rend carrée — lisible.
-      : `<span style="display:inline-block;padding:7px 13px;border-radius:999px;background:${r.out ? theme.divider : accent};font-family:${FONT};font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:${r.out ? theme.muted : accentText};">${escapeHtml(r.p)}</span>`;
+      : `<span style="display:inline-block;padding:7px 13px;border-radius:999px;background:${r.out ? theme.divider : pillBg};font-family:${FONT};font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:${r.out ? theme.muted : accentText};">${escapeHtml(r.p)}</span>`;
     return `
     <tr>
       <td valign="middle" style="padding:16px 18px;${sep}font-family:${FONT};">
@@ -364,8 +370,14 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   // Live branché : la base fait foi. Les lignes couvrent les tranches de
   // billetterie ET la liste invités publique. Vide = la soirée n'a AUCUNE
   // entrée ouverte, le bloc s'efface — jamais de tarifs inventés.
-  const rows = (b.live && live) ? (live.tickets || []) : b.rows;
-  if (!rows || rows.length === 0) return '';
+  const all = (b.live && live) ? (live.tickets || []) : b.rows;
+  if (!all || all.length === 0) return '';
+  // Le pro décroche les tranches qu'il ne veut pas montrer (une prévente
+  // réservée à un canal, une tranche épuisée qu'il juge décourageante).
+  const hidden = b.hiddenRows || [];
+  const rows = hidden.length ? all.filter((r) => !r.id || !hidden.includes(r.id)) : all;
+  if (rows.length === 0) return '';
+
   const guestListOnly = !!b.live && live?.guestListOnly;
   // Liste invités seule : le lien de la PART ouvre le formulaire avec son token
   // et son `tl=`, donc l'inscription se compte sur le canal de la campagne.
@@ -373,25 +385,55 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   const url = (guestListOnly ? live?.entryTrackedUrl : null)
     || live?.trackedUrl || live?.url || ctx.baseUrl;
   const btnColors = ctaColors(b.accent, theme);
-  // Une soirée en liste invités seule n'a pas de billet à prendre : le bouton
-  // dit ce que le clic fait vraiment.
-  const label = ticketsCtaLabel(guestListOnly);
-  const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 10, full: true, ctx });
-  // Carte de la même famille que les blocs Événement et Table VIP (bord fin,
-  // rayon 12, fond opaque) — coiffée d'un kicker accent qui annonce ce qu'on
-  // achète avant même d'avoir lu une ligne.
-  const cardBg = theme.dark ? theme.tile : '#ffffff';
-  return td(
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
-      <tr><td colspan="2" style="padding:14px 18px 12px;border-bottom:1px solid ${theme.divider};">
-        <p style="margin:0;font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.14em;color:${btnColors.bg};">${escapeHtml(ticketsKicker(guestListOnly))}</p>
-      </td></tr>
-      ${renderTicketRows(rows, theme, btnColors.bg, btnColors.color)}
-    </table>
-    <div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>
-    ${btn}`,
-    `padding:${pad.py}px ${pad.px}px;background:${bg};`,
+  const accent = btnColors.bg;
+  const layout = b.layout || 'showcase';
+  const align = b.align || 'left';
+  const c = offerCardColors(accent, theme, layout, bg);
+
+  // Vue épurée : le seul prix d'appel. « À partir de 18 € » suffit dans une
+  // relance ; la liste des tranches sert à montrer que la prévente monte.
+  const fromLabel = live?.priceFromLabel || priceFromLabel(
+    rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(',', '.')) || 0),
+    rows.some((r) => !isPricedRow(r.p)),
   );
+  const showRows = layout !== 'banner' && b.priceDisplay !== 'from';
+  const fromHtml = (layout !== 'banner' && b.priceDisplay === 'from' && fromLabel)
+    ? renderFromPrice(fromLabel, theme, c.inkOnCard, align)
+    : '';
+
+  return offerCard({
+    theme, ctx, pad, bg, layout, align, accent,
+    kicker: b.kicker ?? ticketsKicker(guestListOnly),
+    title: b.title || '',
+    sub: b.sub || '',
+    perks: b.perks || [],
+    rowsHtml: showRows ? renderTicketRows(rows, theme, c.inkOnRows, btnColors.color, accent) : '',
+    extraHtml: fromHtml,
+    // Une soirée en liste invités seule n'a pas de billet à prendre : le bouton
+    // dit ce que le clic fait vraiment.
+    btn: buttonHtml({
+      href: url, label: b.ctaLabel || ticketsCtaLabel(guestListOnly),
+      bg: btnColors.bg, color: btnColors.color, radius: 10,
+      full: b.full ?? (layout !== 'minimal'), ctx,
+    }),
+    note: b.note || '',
+    coverUrl: b.coverUrl,
+    coverPos: b.coverPos,
+    coverAlt: ticketsKicker(guestListOnly),
+  });
+}
+
+/**
+ * Prix d'appel en gros — la vue épurée de la billetterie. Le montant porte la
+ * taille, le libellé reste discret au-dessus : c'est le chiffre qu'on retient
+ * d'un email parcouru au pouce.
+ */
+function renderFromPrice(label: string, theme: EmailTheme, ink: string, align: string): string {
+  const { label: lead, value } = splitFromLabel(label);
+  return `<div style="margin:0 0 18px;text-align:${align};">
+    ${lead ? `<p style="margin:0 0 3px;font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${theme.muted};">${escapeHtml(lead)}</p>` : ''}
+    <p style="margin:0;font-family:${FONT};font-size:32px;line-height:38px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.03em;color:${ink};">${escapeHtml(value)}</p>
+  </div>`;
 }
 
 /**
@@ -482,7 +524,7 @@ function renderTablePackRows(rows: TablePackRow[], theme: EmailTheme, accent: st
  * Rendus en paragraphes alignés plutôt qu'en tableau à deux colonnes : c'est
  * ce qui permet à la liste de suivre l'alignement choisi pour le bloc.
  */
-function renderTablePerks(perks: string[], theme: EmailTheme, accent: string, align: string): string {
+function renderOfferPerks(perks: string[], theme: EmailTheme, accent: string, align: string): string {
   const rows = perks
     .map((raw) => String(raw || '').trim())
     .filter(Boolean)
@@ -499,6 +541,149 @@ function tableScarcityChip(left: number, theme: EmailTheme, cardBg: string): str
   return `<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${bg};font-family:${MONO};font-size:10px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${color};">${escapeHtml(tablesLeftLabel(left))}</span>`;
 }
 
+/**
+ * Carte d'offre — le squelette partagé des blocs Billetterie et Table VIP.
+ *
+ * Les deux vendent la même chose sous deux formes (une entrée, une table) et
+ * doivent donc offrir les mêmes réglages : mise en page, alignement, arguments,
+ * visuel placé avant ou après les tarifs, note de réassurance. Seules les
+ * LIGNES de tarifs diffèrent — chaque bloc les rend et les passe ici. Écrire
+ * deux fois cette mise en page (et deux fois de plus dans le port Deno) était
+ * la garantie qu'elles divergeraient au premier correctif.
+ */
+export interface OfferCardOpts {
+  theme: EmailTheme;
+  ctx: RenderCtx;
+  pad: Pad;
+  bg: string;
+  layout: TableLayout;
+  align: 'left' | 'center' | 'right';
+  /** Accent BRUT (aplats : bouton, fond de pastille). */
+  accent: string;
+  kicker: string;
+  /** Pastille déjà rendue posée à droite du kicker ('' = aucune). */
+  chip?: string;
+  title: string;
+  sub: string;
+  perks?: string[];
+  /** `<tr>` des tarifs, déjà rendus ('' = pas de tableau de tarifs). */
+  rowsHtml?: string;
+  /** Bloc libre posé à la place des tarifs (ex. le prix d'appel en gros). */
+  extraHtml?: string;
+  /** Bouton déjà rendu ('' = pas de bouton, ex. complet). */
+  btn?: string;
+  note?: string;
+  coverUrl?: string;
+  coverPos?: 'top' | 'bottom';
+  /** Repli du texte alternatif du visuel. */
+  coverAlt?: string;
+}
+
+/** Teintes de la carte — accent aplati sur le fond, jamais de rgba. */
+export function offerCardColors(accent: string, theme: EmailTheme, layout: TableLayout, bg: string) {
+  const baseCard = theme.dark ? theme.tile : '#ffffff';
+  const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
+  return {
+    baseCard,
+    cardBg,
+    cardBorder: mixHex(accent, theme.divider, 0.42),
+    // Le bouton garde l'accent brut (son libellé se contraste tout seul) ; tout
+    // ce qui est TEXTE en accent passe par une teinte lisible sur SON fond —
+    // les prix vivent sur la carte des tarifs, le reste sur la carte.
+    // En 'minimal' le bloc se pose sur le fond du bloc (souvent transparent :
+    // c'est alors la carte de l'email qui se voit derrière).
+    inkOnCard: readableOn(accent, layout === 'minimal' ? (isHexColor(bg) ? bg : theme.card) : cardBg),
+    inkOnRows: readableOn(accent, baseCard),
+  };
+}
+
+export function offerCard(o: OfferCardOpts): string {
+  const { theme, ctx, pad, bg, layout, align, accent } = o;
+  const c = offerCardColors(accent, theme, layout, bg);
+  const perks = o.perks || [];
+  const rowsHtml = o.rowsHtml || '';
+  const kicker = String(o.kicker || '').trim();
+  const chip = o.chip || '';
+
+  const kickerHtml = (kicker || chip)
+    ? `<p style="margin:0 0 ${layout === 'minimal' ? 9 : 11}px;text-align:${align};">
+        ${kicker ? `<span style="font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${c.inkOnCard};">${escapeHtml(kicker)}</span>` : ''}
+        ${kicker && chip ? '&nbsp;&nbsp;' : ''}${chip}
+      </p>`
+    : '';
+
+  const titleSize = layout === 'banner' ? 24 : 22;
+  const titleText = String(o.title || '').trim();
+  const subText = String(o.sub || '').trim();
+  // Un bloc sans titre (billetterie d'avant les réglages de contenu) ne doit
+  // pas ouvrir un <h2> vide : la carte commencerait par un trou.
+  const title = titleText
+    ? `<h2 style="margin:0 0 ${subText ? 8 : 14}px;font-family:${FONT};font-size:${titleSize}px;line-height:${titleSize + 6}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${theme.text};text-align:${align};">${escapeHtml(interpolateVariables(titleText, ctx))}</h2>`
+    : '';
+  const sub = subText
+    ? `<p style="margin:0 0 ${perks.length || rowsHtml || o.extraHtml ? 16 : 18}px;font-family:${FONT};font-size:14.5px;line-height:22px;mso-line-height-rule:exactly;color:${theme.muted};text-align:${align};">${escapeHtml(interpolateVariables(subText, ctx))}</p>`
+    : '';
+
+  const perksHtml = (layout !== 'banner' && perks.length)
+    ? renderOfferPerks(perks, theme, c.inkOnCard, align)
+    : '';
+
+  const extra = o.extraHtml || '';
+  const rows = rowsHtml
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:10px;background:${c.baseCard};margin:0 0 18px;">
+        ${rowsHtml}
+      </table>`
+    : '';
+
+  const btnHtml = o.btn ? `<div style="text-align:${align};">${o.btn}</div>` : '';
+  const noteText = String(o.note || '').trim();
+  const note = noteText
+    ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${escapeHtml(interpolateVariables(noteText, ctx))}</p>`
+    : '';
+
+  // Le visuel existe sur les TROIS mises en page. En tête il pose l'ambiance ;
+  // après les tarifs il sert de plan de salle — on sait alors quoi y chercher.
+  const coverAtTop = (o.coverPos || 'top') === 'top';
+  const coverImg = o.coverUrl
+    ? `<img src="${escapeHtml(o.coverUrl)}" alt="${escapeHtml(titleText || o.coverAlt || '')}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
+    : '';
+  // En bas, l'image vit DANS la cellule de contenu : elle garde les marges de
+  // la carte au lieu d'en toucher les bords, qui sont déjà arrondis en haut.
+  const coverBottom = (coverImg && !coverAtTop)
+    ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
+    : '';
+  const coverInline = (coverImg && coverAtTop && layout === 'minimal')
+    ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
+    : '';
+
+  const body = `${coverInline}${kickerHtml}${title}${sub}${perksHtml}${extra}${rows}${coverBottom}${btnHtml}${note}`;
+
+  // 'minimal' : aucun cadre. Le bloc se pose sur le fond de l'email, pour les
+  // designs qui portent déjà leur mise en page ailleurs.
+  if (layout === 'minimal') {
+    return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+  }
+
+  const cover = (coverImg && coverAtTop)
+    ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
+    : '';
+
+  // 'banner' : bande pleine teinte, pas de carte dans la carte. Le message est
+  // court et le bouton large — c'est le format d'une relance, pas d'un catalogue.
+  const bannerBg = mixHex(accent, c.baseCard, theme.dark ? 0.18 : 0.10);
+  const shellBg = layout === 'banner' ? bannerBg : c.cardBg;
+  const shellBorder = layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : c.cardBorder;
+  const innerPad = layout === 'banner' ? '26px 24px' : '22px 20px';
+
+  return td(
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${shellBorder};border-radius:14px;background:${shellBg};">
+      ${cover}
+      <tr><td style="padding:${innerPad};">${body}</td></tr>
+    </table>`,
+    `padding:${pad.py}px ${pad.px}px;background:${bg};`,
+  );
+}
+
 function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
   const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
@@ -509,9 +694,6 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const left = live?.tablesLeft;
   const soldOut = typeof left === 'number' && left <= 0;
 
-  // La base fait foi quand elle a répondu : `undefined` = soirée non résolue
-  // (on garde les formules écrites à la main), tableau vide = aucune formule
-  // ouverte. On ne vend jamais une formule que le club a fermée.
   const livePacks = b.livePacks !== false;
   // Toute la carte part par défaut ; le pro décroche à la main les lignes
   // qu'il ne pousse pas ce soir-là (une carte tronquée d'office fait croire
@@ -528,93 +710,25 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   // rapporte de clics — et le « Complet » fait revenir sur la prochaine.
   const showPacks = !soldOut && layout !== 'banner' && packs.length > 0;
 
-  const baseCard = theme.dark ? theme.tile : '#ffffff';
-  const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
-  const cardBorder = mixHex(accent, theme.divider, 0.42);
-  // Le bouton garde l'accent brut (son libellé se contraste tout seul) ; tout
-  // ce qui est TEXTE en accent passe par une teinte lisible sur SON fond —
-  // les prix vivent sur la carte des formules, le reste sur la carte.
-  // En 'minimal' le bloc se pose sur le fond du bloc (souvent transparent :
-  // c'est alors la carte de l'email qui se voit derrière).
-  const inkOnCard = readableOn(accent, layout === 'minimal' ? (isHexColor(bg) ? bg : theme.card) : cardBg);
-  const inkOnPacks = readableOn(accent, baseCard);
-
-  const kicker = String(b.kicker || TABLE_KICKER).trim();
-  const chip = typeof left === 'number' ? tableScarcityChip(left, theme, cardBg) : '';
-  const kickerHtml = (kicker || chip)
-    ? `<p style="margin:0 0 ${layout === 'minimal' ? 9 : 11}px;text-align:${align};">
-        ${kicker ? `<span style="font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${inkOnCard};">${escapeHtml(kicker)}</span>` : ''}
-        ${kicker && chip ? '&nbsp;&nbsp;' : ''}${chip}
-      </p>`
-    : '';
-
-  const titleSize = layout === 'banner' ? 24 : 22;
-  const title = `<h2 style="margin:0 0 ${b.sub ? 8 : 14}px;font-family:${FONT};font-size:${titleSize}px;line-height:${titleSize + 6}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${theme.text};text-align:${align};">${escapeHtml(interpolateVariables(b.title, ctx))}</h2>`;
-  const sub = b.sub
-    ? `<p style="margin:0 0 ${(b.perks && b.perks.length) || showPacks ? 16 : 18}px;font-family:${FONT};font-size:14.5px;line-height:22px;mso-line-height-rule:exactly;color:${theme.muted};text-align:${align};">${escapeHtml(interpolateVariables(b.sub, ctx))}</p>`
-    : '';
-
-  const perks = (!soldOut && layout !== 'banner' && b.perks && b.perks.length)
-    ? renderTablePerks(b.perks, theme, inkOnCard, align)
-    : '';
-
-  const packsHtml = showPacks
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:10px;background:${baseCard};margin:0 0 18px;">
-        ${renderTablePackRows(packs, theme, inkOnPacks)}
-      </table>`
-    : '';
-
-  const full = b.full ?? (layout !== 'minimal');
-  const btn = soldOut ? '' : buttonHtml({
-    href: url, label: b.ctaLabel || TABLE_CTA_LABEL,
-    bg: btnColors.bg, color: btnColors.color, radius: 10, full, ctx,
+  const c = offerCardColors(accent, theme, layout, bg);
+  return offerCard({
+    theme, ctx, pad, bg, layout, align, accent,
+    kicker: String(b.kicker || TABLE_KICKER),
+    chip: typeof left === 'number' ? tableScarcityChip(left, theme, c.cardBg) : '',
+    title: b.title,
+    sub: b.sub,
+    perks: soldOut ? [] : (b.perks || []),
+    rowsHtml: showPacks ? renderTablePackRows(packs, theme, c.inkOnRows) : '',
+    btn: soldOut ? '' : buttonHtml({
+      href: url, label: b.ctaLabel || TABLE_CTA_LABEL,
+      bg: btnColors.bg, color: btnColors.color, radius: 10,
+      full: b.full ?? (layout !== 'minimal'), ctx,
+    }),
+    note: soldOut ? '' : (b.note || ''),
+    coverUrl: b.coverUrl,
+    coverPos: b.coverPos,
+    coverAlt: TABLE_KICKER,
   });
-  const btnHtml = btn ? `<div style="text-align:${align};">${btn}</div>` : '';
-  const note = (b.note && !soldOut)
-    ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${escapeHtml(interpolateVariables(b.note, ctx))}</p>`
-    : '';
-
-  // Le visuel existe sur les TROIS mises en page. En tête il pose l'ambiance ;
-  // après les tarifs il sert de plan de salle — on sait alors quoi y chercher.
-  const coverAtTop = (b.coverPos || 'top') === 'top';
-  const coverImg = b.coverUrl
-    ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
-    : '';
-  // En bas, l'image vit DANS la cellule de contenu : elle garde les marges de
-  // la carte au lieu d'en toucher les bords, qui sont déjà arrondis en haut.
-  const coverBottom = (coverImg && !coverAtTop)
-    ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
-    : '';
-  const coverInline = (coverImg && coverAtTop && layout === 'minimal')
-    ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
-    : '';
-
-  const body = `${coverInline}${kickerHtml}${title}${sub}${perks}${packsHtml}${coverBottom}${btnHtml}${note}`;
-
-  // 'minimal' : aucun cadre. Le bloc se pose sur le fond de l'email, pour les
-  // designs qui portent déjà leur mise en page ailleurs.
-  if (layout === 'minimal') {
-    return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
-  }
-
-  const cover = (coverImg && coverAtTop)
-    ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
-    : '';
-
-  // 'banner' : bande pleine teinte, pas de carte dans la carte. Le message est
-  // court et le bouton large — c'est le format d'une relance, pas d'un catalogue.
-  const bannerBg = mixHex(accent, baseCard, theme.dark ? 0.18 : 0.10);
-  const shellBg = layout === 'banner' ? bannerBg : cardBg;
-  const shellBorder = layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : cardBorder;
-  const innerPad = layout === 'banner' ? '26px 24px' : '22px 20px';
-
-  return td(
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${shellBorder};border-radius:14px;background:${shellBg};">
-      ${cover}
-      <tr><td style="padding:${innerPad};">${body}</td></tr>
-    </table>`,
-    `padding:${pad.py}px ${pad.px}px;background:${bg};`,
-  );
 }
 
 function renderCountdown(b: CountdownBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {

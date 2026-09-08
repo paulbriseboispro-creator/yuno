@@ -105,9 +105,33 @@ export interface EventBlock extends BlockBase {
   price: boolean;
 }
 
-export interface TicketRow { n: string; s: string; p: string; out: boolean }
+/**
+ * Une ligne d'entrée : tranche de billetterie ou part de liste invités.
+ * `id` n'existe que sur les lignes LIVE (id de `ticket_rounds`, ou la
+ * sentinelle de la guest list) — il sert à décrocher une ligne précise sans
+ * dépendre de son nom, qui peut changer.
+ */
+export interface TicketRow { id?: string; n: string; s: string; p: string; out: boolean }
 
-/** Bloc Yuno — billetterie live (jauge, prix courant, épuisé). */
+/** Sentinelle d'id de la ligne « Liste invités » (elle n'est pas un round). */
+export const GUEST_LIST_ROW_ID = 'guest-list';
+
+/**
+ * Détail des tarifs de la billetterie : chaque tranche, ou le seul prix
+ * d'appel. « À partir de 18 € » suffit dans une relance ; le détail des
+ * tranches sert quand on veut montrer que la prévente monte.
+ */
+export type TicketPriceDisplay = 'rows' | 'from';
+
+export const TICKET_PRICE_DISPLAYS: readonly TicketPriceDisplay[] = ['rows', 'from'];
+
+/**
+ * Bloc Yuno — billetterie live (jauge, prix courant, épuisé).
+ *
+ * Mêmes réglages de présentation que le bloc Table VIP : les deux vendent une
+ * entrée sous deux formes, et un pro qui a appris à régler l'un doit savoir
+ * régler l'autre. Le squelette de rendu est d'ailleurs partagé (offerCard).
+ */
 export interface TicketsBlock extends BlockBase {
   type: 'tickets';
   eventId?: string;
@@ -116,6 +140,29 @@ export interface TicketsBlock extends BlockBase {
   /** true = les lignes sont rafraîchies depuis la base au moment de l'envoi. */
   live: boolean;
   rows: TicketRow[];
+  /** Mise en page. Absent = 'showcase'. */
+  layout?: TableLayout;
+  /** Alignement du kicker, du titre, du sous-titre, des arguments, du bouton. */
+  align?: 'left' | 'center' | 'right';
+  /** Sur-titre. Absent = « Billetterie » (ou « Entrée » en liste invités seule). */
+  kicker?: string;
+  title?: string;
+  sub?: string;
+  /** Arguments de vente, un par ligne, précédés d'une coche accent. */
+  perks?: string[];
+  /** Détail des tarifs : les tranches, ou le seul prix d'appel. */
+  priceDisplay?: TicketPriceDisplay;
+  /** Tranches LIVE que ce bloc ne montre pas (ids de `ticket_rounds`). */
+  hiddenRows?: string[];
+  /** Libellé du bouton. Absent = déduit de l'offre (billets / liste invités). */
+  ctaLabel?: string;
+  /** Bouton pleine largeur. Absent = pleine largeur sauf en 'minimal'. */
+  full?: boolean;
+  /** Visuel — mêmes règles que le bloc Table VIP. */
+  coverUrl?: string;
+  coverPos?: 'top' | 'bottom';
+  /** Rassurance sous le bouton. */
+  note?: string;
 }
 
 /**

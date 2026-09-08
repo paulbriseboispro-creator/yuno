@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { TablePackRow, TicketRow } from './types';
+import { GUEST_LIST_ROW_ID } from './types';
 
 /** Colonnes de `guest_lists` nécessaires à la ligne d'entrée. */
 export interface GuestListOffer {
@@ -43,7 +44,7 @@ export function guestListTicketRow(part: GuestListOffer): TicketRow {
   const bits: string[] = [];
   if (before) bits.push(`avant ${before}`);
   if (part.includes_drink) bits.push('boisson offerte');
-  return { n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
+  return { id: GUEST_LIST_ROW_ID, n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
 }
 
 /**
@@ -282,4 +283,16 @@ export function buildTableZoneRows(
   }).filter(Boolean) as (TablePackRow & { amount: number; pos: number })[];
   rows.sort((a, b) => (a.amount - b.amount) || (a.pos - b.pos));
   return rows.map(({ id, n, s, p }) => ({ id, n, s, p }));
+}
+
+/**
+ * Coupe « À partir de 18 € » en libellé + montant pour la vue épurée : le
+ * chiffre mérite sa taille, le reste est du contexte. Sans chiffre
+ * (« Gratuit »), tout part dans le montant — c'est lui l'argument.
+ */
+export function splitFromLabel(label: string): { label: string; value: string } {
+  const s = String(label || '').trim();
+  const m = /^(.*?)(\d[\d\s.,\u00a0]*\s*€?)$/.exec(s);
+  if (!m || !m[2]) return { label: '', value: s };
+  return { label: m[1].trim(), value: m[2].trim() };
 }

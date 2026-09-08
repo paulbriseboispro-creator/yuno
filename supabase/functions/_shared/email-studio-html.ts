@@ -27,7 +27,11 @@ export interface StudioSocialLinks {
   instagram?: string; tiktok?: string; facebook?: string; x?: string; website?: string;
 }
 
-export interface StudioTicketRow { n: string; s: string; p: string; out: boolean }
+/** `id` n'existe que sur les lignes LIVE (round, ou sentinelle guest list). */
+export interface StudioTicketRow { id?: string; n: string; s: string; p: string; out: boolean }
+
+/** Sentinelle d'id de la ligne « Liste invités » (miroir de types.ts). */
+const GUEST_LIST_ROW_ID = 'guest-list';
 
 /** Formule de table telle qu'elle se lit dans l'email (miroir de TablePackRow). */
 export interface StudioTablePackRow { id?: string; n: string; s: string; p: string }
@@ -325,8 +329,13 @@ function td(inner: string, style: string): string {
 }
 
 /** Lignes d'entrée — miroir strict de renderTicketRows (render.ts). */
+/**
+ * `accent` colore les PRIX (déjà contrasté sur le fond des lignes) ; `pillBg`
+ * est l'aplat de la pastille « Gratuit », qui garde l'accent brut puisque son
+ * texte se contraste tout seul (miroir de render.ts).
+ */
 function renderTicketRows(
-  rows: StudioTicketRow[], theme: StudioTheme, accent: string, accentText: string,
+  rows: StudioTicketRow[], theme: StudioTheme, accent: string, accentText: string, pillBg = accent,
 ): string {
   return rows.map((r, i) => {
     const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
@@ -336,7 +345,7 @@ function renderTicketRows(
       : '';
     const price = isPricedRow(r.p)
       ? `<span style="font-family:${FONT};font-size:21px;font-weight:800;letter-spacing:-0.02em;color:${r.out ? theme.muted : accent};${r.out ? 'text-decoration:line-through;' : ''}">${esc(r.p)}</span>`
-      : `<span style="display:inline-block;padding:7px 13px;border-radius:999px;background:${r.out ? theme.divider : accent};font-family:${FONT};font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:${r.out ? theme.muted : accentText};">${esc(r.p)}</span>`;
+      : `<span style="display:inline-block;padding:7px 13px;border-radius:999px;background:${r.out ? theme.divider : pillBg};font-family:${FONT};font-size:12.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:${r.out ? theme.muted : accentText};">${esc(r.p)}</span>`;
     return `
     <tr>
       <td valign="middle" style="padding:16px 18px;${sep}font-family:${FONT};">
@@ -393,6 +402,150 @@ function footerBorder(theme: StudioTheme): string {
   return isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff'
     ? '' : `border-top:1px solid ${theme.divider};`;
 }
+
+/**
+ * Carte d'offre — le squelette partagé des blocs Billetterie et Table VIP.
+ *
+ * Les deux vendent la même chose sous deux formes (une entrée, une table) et
+ * doivent donc offrir les mêmes réglages : mise en page, alignement, arguments,
+ * visuel placé avant ou après les tarifs, note de réassurance. Seules les
+ * LIGNES de tarifs diffèrent — chaque bloc les rend et les passe ici. Écrire
+ * deux fois cette mise en page (et deux fois de plus dans le port Deno) était
+ * la garantie qu'elles divergeraient au premier correctif.
+ */
+interface OfferCardOpts {
+  theme: StudioTheme;
+  ctx: StudioRenderCtx;
+  pad: { px: number; py: number };
+  bg: string;
+  layout: 'showcase' | 'banner' | 'minimal';
+  align: 'left' | 'center' | 'right';
+  /** Accent BRUT (aplats : bouton, fond de pastille). */
+  accent: string;
+  kicker: string;
+  /** Pastille déjà rendue posée à droite du kicker ('' = aucune). */
+  chip?: string;
+  title: string;
+  sub: string;
+  perks?: string[];
+  /** `<tr>` des tarifs, déjà rendus ('' = pas de tableau de tarifs). */
+  rowsHtml?: string;
+  /** Bloc libre posé à la place des tarifs (ex. le prix d'appel en gros). */
+  extraHtml?: string;
+  /** Bouton déjà rendu ('' = pas de bouton, ex. complet). */
+  btn?: string;
+  note?: string;
+  coverUrl?: string;
+  coverPos?: 'top' | 'bottom';
+  /** Repli du texte alternatif du visuel. */
+  coverAlt?: string;
+}
+
+/** Teintes de la carte — accent aplati sur le fond, jamais de rgba. */
+function offerCardColors(accent: string, theme: StudioTheme, layout: 'showcase' | 'banner' | 'minimal', bg: string) {
+  const baseCard = theme.dark ? theme.tile : '#ffffff';
+  const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
+  return {
+    baseCard,
+    cardBg,
+    cardBorder: mixHex(accent, theme.divider, 0.42),
+    // Le bouton garde l'accent brut (son libellé se contraste tout seul) ; tout
+    // ce qui est TEXTE en accent passe par une teinte lisible sur SON fond —
+    // les prix vivent sur la carte des tarifs, le reste sur la carte.
+    // En 'minimal' le bloc se pose sur le fond du bloc (souvent transparent :
+    // c'est alors la carte de l'email qui se voit derrière).
+    inkOnCard: readableOn(accent, layout === 'minimal' ? (isHexColor(bg) ? bg : theme.card) : cardBg),
+    inkOnRows: readableOn(accent, baseCard),
+  };
+}
+
+function offerCard(o: OfferCardOpts): string {
+  const { theme, ctx, pad, bg, layout, align, accent } = o;
+  const c = offerCardColors(accent, theme, layout, bg);
+  const perks = o.perks || [];
+  const rowsHtml = o.rowsHtml || '';
+  const kicker = String(o.kicker || '').trim();
+  const chip = o.chip || '';
+
+  const kickerHtml = (kicker || chip)
+    ? `<p style="margin:0 0 ${layout === 'minimal' ? 9 : 11}px;text-align:${align};">
+        ${kicker ? `<span style="font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${c.inkOnCard};">${esc(kicker)}</span>` : ''}
+        ${kicker && chip ? '&nbsp;&nbsp;' : ''}${chip}
+      </p>`
+    : '';
+
+  const titleSize = layout === 'banner' ? 24 : 22;
+  const titleText = String(o.title || '').trim();
+  const subText = String(o.sub || '').trim();
+  // Un bloc sans titre (billetterie d'avant les réglages de contenu) ne doit
+  // pas ouvrir un <h2> vide : la carte commencerait par un trou.
+  const title = titleText
+    ? `<h2 style="margin:0 0 ${subText ? 8 : 14}px;font-family:${FONT};font-size:${titleSize}px;line-height:${titleSize + 6}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${theme.text};text-align:${align};">${esc(interpolate(titleText, ctx))}</h2>`
+    : '';
+  const sub = subText
+    ? `<p style="margin:0 0 ${perks.length || rowsHtml || o.extraHtml ? 16 : 18}px;font-family:${FONT};font-size:14.5px;line-height:22px;mso-line-height-rule:exactly;color:${theme.muted};text-align:${align};">${esc(interpolate(subText, ctx))}</p>`
+    : '';
+
+  const perksHtml = (layout !== 'banner' && perks.length)
+    ? renderOfferPerks(perks, theme, c.inkOnCard, align)
+    : '';
+
+  const extra = o.extraHtml || '';
+  const rows = rowsHtml
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:10px;background:${c.baseCard};margin:0 0 18px;">
+        ${rowsHtml}
+      </table>`
+    : '';
+
+  const btnHtml = o.btn ? `<div style="text-align:${align};">${o.btn}</div>` : '';
+  const noteText = String(o.note || '').trim();
+  const note = noteText
+    ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${esc(interpolate(noteText, ctx))}</p>`
+    : '';
+
+  // Le visuel existe sur les TROIS mises en page. En tête il pose l'ambiance ;
+  // après les tarifs il sert de plan de salle — on sait alors quoi y chercher.
+  const coverAtTop = (o.coverPos || 'top') === 'top';
+  const coverImg = o.coverUrl
+    ? `<img src="${esc(o.coverUrl)}" alt="${esc(titleText || o.coverAlt || '')}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
+    : '';
+  // En bas, l'image vit DANS la cellule de contenu : elle garde les marges de
+  // la carte au lieu d'en toucher les bords, qui sont déjà arrondis en haut.
+  const coverBottom = (coverImg && !coverAtTop)
+    ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
+    : '';
+  const coverInline = (coverImg && coverAtTop && layout === 'minimal')
+    ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
+    : '';
+
+  const body = `${coverInline}${kickerHtml}${title}${sub}${perksHtml}${extra}${rows}${coverBottom}${btnHtml}${note}`;
+
+  // 'minimal' : aucun cadre. Le bloc se pose sur le fond de l'email, pour les
+  // designs qui portent déjà leur mise en page ailleurs.
+  if (layout === 'minimal') {
+    return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
+  }
+
+  const cover = (coverImg && coverAtTop)
+    ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
+    : '';
+
+  // 'banner' : bande pleine teinte, pas de carte dans la carte. Le message est
+  // court et le bouton large — c'est le format d'une relance, pas d'un catalogue.
+  const bannerBg = mixHex(accent, c.baseCard, theme.dark ? 0.18 : 0.10);
+  const shellBg = layout === 'banner' ? bannerBg : c.cardBg;
+  const shellBorder = layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : c.cardBorder;
+  const innerPad = layout === 'banner' ? '26px 24px' : '22px 20px';
+
+  return td(
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${shellBorder};border-radius:14px;background:${shellBg};">
+      ${cover}
+      <tr><td style="padding:${innerPad};">${body}</td></tr>
+    </table>`,
+    `padding:${pad.py}px ${pad.px}px;background:${bg};`,
+  );
+}
+
 
 export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: StudioRenderCtx): string {
   if (!condVisible(b, ctx)) return '';
@@ -491,52 +644,63 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'tickets': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      // Live branché : la base fait foi. Les lignes couvrent les tranches de
-      // billetterie ET la liste invités publique. Vide = aucune entrée ouverte,
-      // le bloc s'efface — jamais de tarifs inventés (miroir render.ts).
-      const rows: StudioTicketRow[] = (b.live !== false && live)
+      const all: StudioTicketRow[] = (b.live && live)
         ? (live.tickets || [])
         : ((b.rows as StudioTicketRow[]) || []);
-      if (!rows || rows.length === 0) return '';
-      const guestListOnly = b.live !== false && !!live?.guestListOnly;
-      // Liste invités seule : le lien de la PART ouvre le formulaire avec son
-      // token et son `tl=`, donc l'inscription se compte sur le canal. Sinon on
-      // reste sur la page de la soirée (miroir render.ts).
+      if (!all || all.length === 0) return '';
+      const hidden = (b.hiddenRows as string[]) || [];
+      const rows = hidden.length ? all.filter((r) => !r.id || !hidden.includes(r.id)) : all;
+      if (rows.length === 0) return '';
+
+      const guestListOnly = !!b.live && live?.guestListOnly;
       const url = (guestListOnly ? live?.entryTrackedUrl : null)
         || live?.trackedUrl || live?.url || ctx.baseUrl;
       const btnColors = ctaColors(b.accent, theme);
-      // Une soirée en liste invités seule n'a pas de billet à prendre
-      // (miroir de ticketsCtaLabel dans src/lib/email/live.ts).
-      const label = guestListOnly ? 'M’inscrire à la liste' : 'Prendre mes billets';
-      const btn = buttonHtml({ href: url, label, bg: btnColors.bg, color: btnColors.color, radius: 10, full: true, ctx });
-      const cardBg = theme.dark ? theme.tile : '#ffffff';
-      return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
-          <tr><td colspan="2" style="padding:14px 18px 12px;border-bottom:1px solid ${theme.divider};">
-            <p style="margin:0;font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.14em;color:${btnColors.bg};">${esc(ticketsKicker(guestListOnly))}</p>
-          </td></tr>
-          ${renderTicketRows(rows, theme, btnColors.bg, btnColors.color)}
-        </table>
-        <div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>
-        ${btn}`,
-        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
+      const accent = btnColors.bg;
+      const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
+      const align = ((b.align as string) || 'left') as 'left' | 'center' | 'right';
+      const c = offerCardColors(accent, theme, layout, bg);
+
+      const fromLabel = live?.priceFromLabel || priceFromLabel(
+        rows.filter((r) => !r.out && isPricedRow(r.p)).map((r) => parseFloat(r.p.replace(',', '.')) || 0),
+        rows.some((r) => !isPricedRow(r.p)),
       );
+      const showRows = layout !== 'banner' && b.priceDisplay !== 'from';
+      const fromHtml = (layout !== 'banner' && b.priceDisplay === 'from' && fromLabel)
+        ? renderFromPrice(fromLabel, theme, c.inkOnCard, align)
+        : '';
+
+      return offerCard({
+        theme, ctx, pad, bg, layout, align, accent,
+        kicker: (b.kicker as string) ?? ticketsKicker(guestListOnly),
+        title: (b.title as string) || '',
+        sub: (b.sub as string) || '',
+        perks: (b.perks as string[]) || [],
+        rowsHtml: showRows ? renderTicketRows(rows, theme, c.inkOnRows, btnColors.color, accent) : '',
+        extraHtml: fromHtml,
+        btn: buttonHtml({
+          href: url, label: (b.ctaLabel as string) || ticketsCtaLabel(guestListOnly),
+          bg: btnColors.bg, color: btnColors.color, radius: 10,
+          full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
+        }),
+        note: (b.note as string) || '',
+        coverUrl: b.coverUrl as string | undefined,
+        coverPos: b.coverPos as 'top' | 'bottom' | undefined,
+        coverAlt: ticketsKicker(guestListOnly),
+      });
     }
     case 'table': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
       const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
-      const layout = (b.layout as string) || 'showcase';
-      const align = (b.align as string) || 'left';
+      const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
+      const align = ((b.align as string) || 'left') as 'left' | 'center' | 'right';
       const left = live?.tablesLeft;
       const soldOut = typeof left === 'number' && left <= 0;
 
       const livePacks = b.livePacks !== false;
-      // Toute la carte part par défaut ; le pro décroche les formules qu'il ne
-      // pousse pas ce soir-là (miroir de render.ts).
       const hidden = (b.hiddenPacks as string[]) || [];
-      // Vue « zones » : les carrés et leur prix d'appel (miroir de render.ts).
       const liveRows = b.packDisplay === 'zones' ? live?.tableZones : live?.tablePacks;
       const allPacks: StudioTablePackRow[] = (livePacks && liveRows)
         ? liveRows
@@ -546,85 +710,25 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         : allPacks;
       const showPacks = !soldOut && layout !== 'banner' && packs.length > 0;
 
-      const baseCard = theme.dark ? theme.tile : '#ffffff';
-      const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
-      const cardBorder = mixHex(accent, theme.divider, 0.42);
-      // Le bouton garde l'accent brut ; tout ce qui est TEXTE en accent passe
-      // par une teinte lisible sur SON fond (miroir de render.ts).
-      const inkOnCard = readableOn(accent, layout === 'minimal' ? (isHexColor(bg) ? bg : theme.card) : cardBg);
-      const inkOnPacks = readableOn(accent, baseCard);
-
-      const kicker = String((b.kicker as string) || TABLE_KICKER).trim();
-      const chip = typeof left === 'number' ? tableScarcityChip(left, theme, cardBg) : '';
-      const kickerHtml = (kicker || chip)
-        ? `<p style="margin:0 0 ${layout === 'minimal' ? 9 : 11}px;text-align:${align};">
-            ${kicker ? `<span style="font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${inkOnCard};">${esc(kicker)}</span>` : ''}
-            ${kicker && chip ? '&nbsp;&nbsp;' : ''}${chip}
-          </p>`
-        : '';
-
-      const perksList = (b.perks as string[]) || [];
-      const titleSize = layout === 'banner' ? 24 : 22;
-      const title = `<h2 style="margin:0 0 ${b.sub ? 8 : 14}px;font-family:${FONT};font-size:${titleSize}px;line-height:${titleSize + 6}px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.02em;color:${theme.text};text-align:${align};">${esc(interpolate((b.title as string) || '', ctx))}</h2>`;
-      const sub = b.sub
-        ? `<p style="margin:0 0 ${perksList.length || showPacks ? 16 : 18}px;font-family:${FONT};font-size:14.5px;line-height:22px;mso-line-height-rule:exactly;color:${theme.muted};text-align:${align};">${esc(interpolate((b.sub as string) || '', ctx))}</p>`
-        : '';
-
-      const perks = (!soldOut && layout !== 'banner' && perksList.length)
-        ? renderTablePerks(perksList, theme, inkOnCard, align)
-        : '';
-
-      const packsHtml = showPacks
-        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:10px;background:${baseCard};margin:0 0 18px;">
-            ${renderTablePackRows(packs, theme, inkOnPacks)}
-          </table>`
-        : '';
-
-      const full = typeof b.full === 'boolean' ? b.full : (layout !== 'minimal');
-      const btn = soldOut ? '' : buttonHtml({
-        href: url, label: (b.ctaLabel as string) || TABLE_CTA_LABEL,
-        bg: btnColors.bg, color: btnColors.color, radius: 10, full, ctx,
+      const c = offerCardColors(accent, theme, layout, bg);
+      return offerCard({
+        theme, ctx, pad, bg, layout, align, accent,
+        kicker: String((b.kicker as string) || TABLE_KICKER),
+        chip: typeof left === 'number' ? tableScarcityChip(left, theme, c.cardBg) : '',
+        title: (b.title as string) || '',
+        sub: (b.sub as string) || '',
+        perks: soldOut ? [] : ((b.perks as string[]) || []),
+        rowsHtml: showPacks ? renderTablePackRows(packs, theme, c.inkOnRows) : '',
+        btn: soldOut ? '' : buttonHtml({
+          href: url, label: (b.ctaLabel as string) || TABLE_CTA_LABEL,
+          bg: btnColors.bg, color: btnColors.color, radius: 10,
+          full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
+        }),
+        note: soldOut ? '' : ((b.note as string) || ''),
+        coverUrl: b.coverUrl as string | undefined,
+        coverPos: b.coverPos as 'top' | 'bottom' | undefined,
+        coverAlt: TABLE_KICKER,
       });
-      const btnHtml = btn ? `<div style="text-align:${align};">${btn}</div>` : '';
-      const note = (b.note && !soldOut)
-        ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${esc(interpolate((b.note as string) || '', ctx))}</p>`
-        : '';
-
-      // Le visuel existe sur les TROIS mises en page, avant ou après les
-      // tarifs (miroir de render.ts).
-      const coverAtTop = ((b.coverPos as string) || 'top') === 'top';
-      const coverImg = b.coverUrl
-        ? `<img src="${esc(b.coverUrl as string)}" alt="${esc((b.title as string) || TABLE_KICKER)}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
-        : '';
-      const coverBottom = (coverImg && !coverAtTop)
-        ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
-        : '';
-      const coverInline = (coverImg && coverAtTop && layout === 'minimal')
-        ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
-        : '';
-
-      const body = `${coverInline}${kickerHtml}${title}${sub}${perks}${packsHtml}${coverBottom}${btnHtml}${note}`;
-
-      if (layout === 'minimal') {
-        return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
-      }
-
-      const cover = (coverImg && coverAtTop)
-        ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
-        : '';
-
-      const bannerBg = mixHex(accent, baseCard, theme.dark ? 0.18 : 0.10);
-      const shellBg = layout === 'banner' ? bannerBg : cardBg;
-      const shellBorder = layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : cardBorder;
-      const innerPad = layout === 'banner' ? '26px 24px' : '22px 20px';
-
-      return td(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${shellBorder};border-radius:14px;background:${shellBg};">
-          ${cover}
-          <tr><td style="padding:${innerPad};">${body}</td></tr>
-        </table>`,
-        `padding:${pad.py}px ${pad.px}px;background:${bg};`,
-      );
     }
     case 'countdown': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
@@ -768,7 +872,7 @@ function guestListTicketRow(part: GuestListOffer): StudioTicketRow {
   const bits: string[] = [];
   if (before) bits.push(`avant ${before}`);
   if (part.includes_drink) bits.push('boisson offerte');
-  return { n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
+  return { id: GUEST_LIST_ROW_ID, n: 'Liste invités', s: bits.join(' · '), p: GUEST_LIST_PRICE, out: false };
 }
 
 function buildEntryRows(
@@ -790,6 +894,30 @@ function eventPathFromHost(id: string, slug?: string | null, host?: string | nul
 }
 
 /** Kicker du bloc Billetterie — miroir de ticketsKicker (live.ts). */
+const TICKETS_CTA_LABEL = 'Prendre mes billets';
+const GUEST_LIST_CTA_LABEL = 'M’inscrire à la liste';
+
+function ticketsCtaLabel(guestListOnly?: boolean): string {
+  return guestListOnly ? GUEST_LIST_CTA_LABEL : TICKETS_CTA_LABEL;
+}
+
+/** Coupe « À partir de 18 € » en libellé + montant (miroir de live.ts). */
+function splitFromLabel(label: string): { label: string; value: string } {
+  const t = String(label || '').trim();
+  const m = /^(.*?)(\d[\d\s.,\u00a0]*\s*€?)$/.exec(t);
+  if (!m || !m[2]) return { label: '', value: t };
+  return { label: m[1].trim(), value: m[2].trim() };
+}
+
+/** Prix d'appel en gros — vue épurée de la billetterie (miroir de render.ts). */
+function renderFromPrice(label: string, theme: StudioTheme, ink: string, align: string): string {
+  const { label: lead, value } = splitFromLabel(label);
+  return `<div style="margin:0 0 18px;text-align:${align};">
+    ${lead ? `<p style="margin:0 0 3px;font-family:${MONO};font-size:11px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${theme.muted};">${esc(lead)}</p>` : ''}
+    <p style="margin:0;font-family:${FONT};font-size:32px;line-height:38px;mso-line-height-rule:exactly;font-weight:800;letter-spacing:-0.03em;color:${ink};">${esc(value)}</p>
+  </div>`;
+}
+
 function ticketsKicker(guestListOnly?: boolean): string {
   return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
 }
@@ -874,7 +1002,7 @@ function renderTablePackRows(rows: StudioTablePackRow[], theme: StudioTheme, acc
  * Paragraphes alignés plutôt que tableau : c'est ce qui permet à la liste de
  * suivre l'alignement choisi pour le bloc.
  */
-function renderTablePerks(perks: string[], theme: StudioTheme, accent: string, align: string): string {
+function renderOfferPerks(perks: string[], theme: StudioTheme, accent: string, align: string): string {
   const rows = perks
     .map((raw) => String(raw || '').trim())
     .filter(Boolean)
