@@ -318,21 +318,6 @@ export default function AudienceStep({ scope, events, segments }: {
             <Help style={{ marginTop: 10, color: RED }}>{t('studio.aud.pickOne')}</Help>
           )}
 
-          {/* Réunir ou croiser : n'a de sens qu'à partir de deux audiences cochées. */}
-          {campaign.type === 'promotional' && campaign.audiences.length >= 2 && (
-            <MatchModeCard
-              value={campaign.exclusions.audienceMatch === 'all' ? 'all' : 'any'}
-              onChange={(v) => setExclusions({ ...campaign.exclusions, audienceMatch: v })}
-              names={campaign.audiences.map((a) => {
-                if (a.kind === 'contact_segment') return contactSegments.find((s) => s.id === a.segmentId)?.name || '';
-                if (a.kind === 'segment') return segments.find((s) => s.id === a.segmentId)?.name || '';
-                if (a.kind === 'import') return imports.find((l) => l.id === a.importId)?.name || '';
-                const k = PROMO_KINDS.find((p) => p.kind === a.kind);
-                return k ? t(k.labelKey) : a.kind;
-              }).filter(Boolean)}
-              t={t}
-            />
-          )}
         </FlowCard>
 
         {/* ── Exclusions ── */}
@@ -417,6 +402,22 @@ export default function AudienceStep({ scope, events, segments }: {
             <ReachRow label={t('studio.aud.reachDedup')} value={`−${nf(dedupAndExcl)}`} muted />
             <ReachRow label={t('studio.aud.reachSuppressed')} value={`−${nf(count?.suppressed ?? 0)}`} negative />
           </div>
+          {/* Réunir ou croiser : n'a de sens qu'à partir de deux audiences cochées.
+              Vit ici, à côté du chiffre qu'il change, dans la colonne qui reste à l'écran. */}
+          {campaign.type === 'promotional' && campaign.audiences.length >= 2 && (
+            <MatchModeCard
+              value={campaign.exclusions.audienceMatch === 'all' ? 'all' : 'any'}
+              onChange={(v) => setExclusions({ ...campaign.exclusions, audienceMatch: v })}
+              names={campaign.audiences.map((a) => {
+                if (a.kind === 'contact_segment') return contactSegments.find((s) => s.id === a.segmentId)?.name || '';
+                if (a.kind === 'segment') return segments.find((s) => s.id === a.segmentId)?.name || '';
+                if (a.kind === 'import') return imports.find((l) => l.id === a.importId)?.name || '';
+                const k = PROMO_KINDS.find((p) => p.kind === a.kind);
+                return k ? t(k.labelKey) : a.kind;
+              }).filter(Boolean)}
+              t={t}
+            />
+          )}
         </FlowCard>
 
         <FlowCard>
@@ -478,12 +479,12 @@ function MatchModeCard({ value, onChange, names, t }: {
     { v: 'all', label: t('studio.aud.match.all'), desc: t('studio.aud.match.allDesc').replace('{a}', a).replace('{b}', b).replace('{more}', more) },
   ];
   return (
-    <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 14, background: SUBTLE, border: `1px solid ${BORDER}` }}>
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Layers size={14} strokeWidth={1.75} style={{ color: T2 }} />
         <MicroLabel>{t('studio.aud.match.title')}</MicroLabel>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {opts.map((o) => {
           const on = value === o.v;
           return (
