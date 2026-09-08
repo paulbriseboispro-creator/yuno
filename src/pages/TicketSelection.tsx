@@ -46,7 +46,12 @@ type Selection = {
 };
 
 export default function TicketSelection() {
-  const { eventId, basePath, venueSlug: slug } = useEventRoute();
+  // `resolving` : sur une URL propre /events/:host/:slug, l'id de la soirée
+  // n'est connu qu'après une résolution serveur. Tant qu'elle court, la page
+  // ne sait RIEN — ni que la soirée existe, ni qu'elle manque. Conclure
+  // pendant ce temps affichait « Événement introuvable » à qui arrive par un
+  // lien d'email ou de partage, avant que la billetterie ne s'affiche.
+  const { eventId, basePath, venueSlug: slug, resolving } = useEventRoute();
   const navigate = usePreviewNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -108,10 +113,10 @@ export default function TicketSelection() {
 
   useEffect(() => {
     if (eventId) fetchData();
-    // No eventId (malformed link): stop loading so the "event not found"
-    // state renders instead of an infinite spinner.
-    else setLoading(false);
-  }, [eventId]);
+    // Pas d'id ET plus rien à résoudre = lien réellement invalide : on conclut.
+    // Tant que la résolution court, on ne conclut pas (voir `resolving`).
+    else if (!resolving) setLoading(false);
+  }, [eventId, resolving]);
 
   useEffect(() => {
     const interval = setInterval(() => setNowTick(Date.now()), 1000);
@@ -525,7 +530,7 @@ export default function TicketSelection() {
     return total + customerTransactionFee(total, selection.type === 'table' ? 'tables' : 'tickets', feeAbsorbed, eventData?.isBde ?? false);
   })();
 
-  if (loading) {
+  if (loading || resolving) {
     // Skeleton plutôt que spinner : la page garde sa structure (bandeau, étapes,
     // cartes de tarif), donc rien ne saute quand les données arrivent.
     return <TicketSelectionSkeleton />;

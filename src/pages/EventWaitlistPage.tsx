@@ -12,7 +12,12 @@ import { PublicPage } from '@/components/PublicPage';
 import { EventWaitlistSkeleton } from '@/components/skeletons/EventWaitlistSkeleton';
 
 export default function EventWaitlistPage() {
-  const { eventId, basePath } = useEventRoute();
+  // `resolving` : sur une URL propre /events/:host/:slug, l'id de la soirée
+  // n'est connu qu'après une résolution serveur. Tant qu'elle court, la page
+  // ne sait RIEN — ni que la soirée existe, ni qu'elle manque. Conclure
+  // pendant ce temps affichait « Événement introuvable » à qui arrive par un
+  // lien d'email ou de partage, avant que la billetterie ne s'affiche.
+  const { eventId, basePath, resolving } = useEventRoute();
   const navigate = useNavigate();
   const { t } = useLanguage();
 
@@ -33,8 +38,11 @@ export default function EventWaitlistPage() {
   const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
-    fetchData();
-  }, [eventId]);
+    // Sans id résolu il n'y a rien à charger : on attend plutôt que d'aller
+    // interroger la base avec `undefined`.
+    if (eventId) fetchData();
+    else if (!resolving) setLoading(false);
+  }, [eventId, resolving]);
 
   const fetchData = async () => {
     try {
@@ -187,7 +195,7 @@ export default function EventWaitlistPage() {
     }
   };
 
-  if (loading) {
+  if (loading || resolving) {
     return <EventWaitlistSkeleton />;
   }
 

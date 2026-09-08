@@ -56,7 +56,12 @@ interface GuestListInfo {
  * on GuestListSignup. Direct URL access is gated to publicly-visible lists.
  */
 export default function GuestListCheckout() {
-  const { eventId, basePath } = useEventRoute();
+  // `resolving` : sur une URL propre /events/:host/:slug, l'id de la soirée
+  // n'est connu qu'après une résolution serveur. Tant qu'elle court, la page
+  // ne sait RIEN — ni que la soirée existe, ni qu'elle manque. Conclure
+  // pendant ce temps affichait « Événement introuvable » à qui arrive par un
+  // lien d'email ou de partage, avant que la billetterie ne s'affiche.
+  const { eventId, basePath, resolving } = useEventRoute();
   // Rareté de la soirée (badge / compteur plafonné) — voir lib/guestListScarcity.
   const scarcitySettings = useEventScarcity(eventId);
   const [searchParams] = useSearchParams();
@@ -183,7 +188,8 @@ export default function GuestListCheckout() {
   }, [guestList, t]);
 
   const fetchGuestList = async () => {
-    if (!eventId) { setLoading(false); return; }
+    // Résolution en cours : on ne conclut pas, le squelette reste.
+    if (!eventId) { if (!resolving) setLoading(false); return; }
     setLoadError(false);
     try {
       // Public-only gate: a direct URL must point at a list the club chose to show.
@@ -383,7 +389,7 @@ export default function GuestListCheckout() {
   };
 
   // ── Loading ──
-  if (loading || authLoading) {
+  if (loading || authLoading || resolving) {
     return <GuestListCheckoutSkeleton />;
   }
 

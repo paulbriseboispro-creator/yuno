@@ -64,7 +64,12 @@ const tableInputClass =
 
 export default function TableCheckout() {
   const { packId } = useParams();
-  const { eventId, basePath } = useEventRoute();
+  // `resolving` : sur une URL propre /events/:host/:slug, l'id de la soirée
+  // n'est connu qu'après une résolution serveur. Tant qu'elle court, la page
+  // ne sait RIEN — ni que la soirée existe, ni qu'elle manque. Conclure
+  // pendant ce temps affichait « Événement introuvable » à qui arrive par un
+  // lien d'email ou de partage, avant que la billetterie ne s'affiche.
+  const { eventId, basePath, resolving } = useEventRoute();
   const [searchParams] = useSearchParams();
   const navigate = usePreviewNavigate();
   const { t, language } = useLanguage();
@@ -777,7 +782,7 @@ export default function TableCheckout() {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading || loading || resolving) {
     return <TableCheckoutSkeleton />;
   }
 
