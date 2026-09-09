@@ -154,6 +154,34 @@ code sont décorrélés exprès.
 | Worker tué APRÈS l'appel Resend, AVANT le marquage | clé d'idempotence Resend, dérivée du contenu du lot |
 | Worker tué pendant le lot | `requeue_stale_campaign_claims` (10 min) remet en file |
 
+### Lissage — le plan d'envoi (2026-09-09)
+
+« Lisser le débit » (écran Planification) n'est plus un plafond fixe et
+invisible de 1 000/h. Le pro choisit un **cadre** et voit le plan avant
+d'appuyer sur Envoyer :
+
+| Cadre | Fenêtre | Ce que fait le worker |
+|---|---|---|
+| Sur une heure | 15 min | 4 vagues, `ceil(N/4)` par quart d'heure |
+| Sur la journée | 60 min | une vague par heure jusqu'à 23 h, `ceil(N/heures restantes)` |
+| Sur plusieurs jours (2-7) | 60 min | une vague par heure, `ceil(N/(heures jour 1 + (J-1) × 14 h))` |
+
+Trois colonnes sur `email_campaigns` : `throttle_per_hour` (plafond PAR
+FENÊTRE, nom conservé pour la compat), `throttle_window_minutes` (15/30/60)
+et `throttle_plan` (le choix d'écran, jamais lu par le worker). Le worker
+compte les `sent` de la fenêtre glissante et s'arrête (`stopped: 'throttle'`)
+quand le budget est épuisé ; le cron (5 min) relance. `src/lib/email/throttlePlan.ts`
+rejoue exactement cette règle, plus la nuit (23 h → 9 h si cochée) et le
+plafond du jour de la rampe, pour projeter les vagues à l'écran. La projection
+est honnête à la cadence du cron près : la fin affichée peut glisser de
+quelques minutes, jamais l'inverse.
+
+Recommandation (`recommendPlan`) : une heure sous 500 contacts, la journée
+jusqu'à 2 500 (et sous le plafond du jour), sinon assez de jours pour rester
+sous 2 500/jour ET sous le plafond de chauffe. Le pro peut remplacer le
+plafond par vague (`throttle_plan.custom = true`) ; la proposition cesse alors
+de suivre l'audience.
+
 ---
 
 ## 3. Warm-up — la rampe
