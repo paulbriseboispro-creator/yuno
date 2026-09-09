@@ -364,6 +364,7 @@ export default function OwnerCampaigns() {
                           campaignId={c.id}
                           onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
                           onBuyCredits={() => setCreditsOpen(true)}
+                          onOpenReport={() => navigate(`/owner/campaigns/${c.id}/report`)}
                         />
                       </div>
                     )}

@@ -188,6 +188,7 @@ export default function OrgAppCampaigns() {
                     campaignId={c.id}
                     onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
                     onBuyCredits={() => setCreditsOpen(true)}
+                    onOpenReport={() => navigate(`/organizer-app/campaigns/${c.id}/report`)}
                   />
                 )}
                 </div>

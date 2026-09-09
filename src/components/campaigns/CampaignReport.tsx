@@ -133,12 +133,15 @@ export default function CampaignReport({ scope, basePath }: Props) {
   // Liens les plus cliqués — agrégés depuis le payload Resend des événements.
   const [topLinks, setTopLinks] = useState<LinkStat[]>([]);
   const [tab, setTab] = useState<'performance' | 'design'>('performance');
+  // Rechargement complet (attribution, liens, A/B) quand l'envoi se termine.
+  const [reloadKey, setReloadKey] = useState(0);
+  const inFlight = campaign?.status === 'sending' || campaign?.status === 'paused';
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      if (reloadKey === 0) setLoading(true);
       const { data } = await supabase.from('email_campaigns').select('*').eq('id', id).maybeSingle();
       if (cancelled) return;
       setCampaign((data as unknown as CampaignRow) || null);
@@ -223,7 +226,37 @@ export default function CampaignReport({ scope, basePath }: Props) {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, reloadKey]);
+
+  // Pendant l'envoi, les chiffres bougent : compteurs de la campagne + échecs
+  // relus toutes les 5 s (deux requêtes légères, comme la barre de progression).
+  // Les ouvertures et les clics arrivent par le webhook Resend au fil des
+  // lectures — ils montent donc déjà pendant que la file se vide. Quand la
+  // campagne se pose, un rechargement complet ramène attribution et liens.
+  useEffect(() => {
+    if (!id || !inFlight) return;
+    let cancelled = false;
+    const refresh = async () => {
+      const { data } = await supabase.from('email_campaigns').select('*').eq('id', id).maybeSingle();
+      if (cancelled || !data) return;
+      const row = data as unknown as CampaignRow;
+      const { count } = await supabase.from('email_campaign_recipients')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', id)
+        .in('status', ['failed', 'bounced']);
+      if (cancelled) return;
+      setCampaign(row);
+      setExtra({
+        delivered: row.delivered_count || 0,
+        bounced: row.bounced_count || 0,
+        complained: row.complained_count || 0,
+        failed: count || 0,
+      });
+      if (row.status !== 'sending' && row.status !== 'paused') setReloadKey((k) => k + 1);
+    };
+    const timer = setInterval(() => { void refresh(); }, 5000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [id, inFlight]);
 
   // Campagne v2 (Email Studio) : MÊME renderer que l'éditeur et l'envoi, avec
   // les données live des blocs Yuno. Le renderer v1 ne sert plus qu'aux
@@ -305,6 +338,23 @@ export default function CampaignReport({ scope, basePath }: Props) {
               {sentDate ? ` · ${t('em.report.sentOn')} ${sentDate}` : ''}
             </p>
           </div>
+          {inFlight && (
+            <div className="ml-auto shrink-0 text-right">
+              <span
+                className="inline-flex items-center gap-2"
+                style={{
+                  padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, color: POS,
+                  background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.28)',
+                }}
+              >
+                <span className="animate-pulse" style={{ width: 7, height: 7, borderRadius: 999, background: POS }} />
+                {t('em.report.live')}
+              </span>
+              <div className="hidden md:block" style={{ color: T3, fontSize: 11, marginTop: 4, maxWidth: 260 }}>
+                {t('em.report.liveHint')}
+              </div>
+            </div>
+          )}
         </div>
 
         {loading ? (

@@ -10,7 +10,7 @@
 // disjoncteur doit le dire en clair, avec le chiffre qui l'a déclenchée.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pause, Play, Loader2, AlertTriangle, ShieldAlert, Clock } from 'lucide-react';
+import { Pause, Play, Loader2, AlertTriangle, ShieldAlert, Clock, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,11 +51,13 @@ interface Props {
   compact?: boolean;
   /** Ouvre l'achat d'emails supplémentaires (fourni par la page hôte). */
   onBuyCredits?: () => void;
+  /** Depuis une liste : ouvre le rapport en direct (absent quand on y est déjà). */
+  onOpenReport?: () => void;
 }
 
 const ACTIVE = ['sending', 'paused'];
 
-export default function CampaignSendProgress({ campaignId, onSettled, compact, onBuyCredits }: Props) {
+export default function CampaignSendProgress({ campaignId, onSettled, compact, onBuyCredits, onOpenReport }: Props) {
   const { t } = useLanguage();
   const [p, setP] = useState<SendProgress | null>(null);
   const [acting, setActing] = useState(false);
@@ -215,6 +217,11 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact, o
                   style={{ color: '#FF5C63' }}>
             {t('em.send.cancel')}
           </Button>
+          {onOpenReport && (
+            <Button size="sm" variant="outline" onClick={onOpenReport} className="ml-auto">
+              <BarChart3 className="mr-1.5 h-3.5 w-3.5" /> {t('em.send.openReport')}
+            </Button>
+          )}
         </div>
       )}
     </div>
