@@ -15,7 +15,7 @@ import {
 } from './ui';
 
 /** Écran Récap : résumé + contrôles + aperçu final + envoi (prototype). */
-export default function ReviewStep({ scope, events, live, onSave, onSent, onEditContent, onTest }: {
+export default function ReviewStep({ scope, events, live, onSave, onSent, onEditContent, onTest, onUnschedule }: {
   scope: StudioScope;
   events: StudioEvent[];
   live: LiveData;
@@ -24,6 +24,8 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
   onEditContent: () => void;
   /** Ouvre le dialogue d'email de test (le dernier contrôle avant le vrai départ). */
   onTest: () => void;
+  /** Campagne planifiée : la remet en brouillon (la date est conservée). */
+  onUnschedule: () => void;
 }) {
   const { t } = useLanguage();
   const campaign = useStudio((s) => s.campaign);
@@ -96,11 +98,12 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
     }
   };
 
+  const alreadyScheduled = campaign.status === 'scheduled';
   const schedule = async () => {
     if (!campaign.scheduledAt) return;
     const id = await onSave('scheduled');
     if (id) {
-      toast.success(t('em.toast.scheduled'));
+      toast.success(t(alreadyScheduled ? 'studio.scheduled.updated' : 'em.toast.scheduled'));
       onSent();
     }
   };
@@ -193,9 +196,16 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
             {t('studio.review.sendTest')}
           </GhostBtn>
           {campaign.scheduledAt ? (
-            <PrimaryBtn onClick={schedule} disabled={!canSend} style={{ justifyContent: 'center', padding: '11px 18px', fontSize: 13 }}>
-              <Send size={14} strokeWidth={1.75} /> {t('em.builder.scheduleSend')}
-            </PrimaryBtn>
+            <>
+              <PrimaryBtn onClick={schedule} disabled={!canSend} style={{ justifyContent: 'center', padding: '11px 18px', fontSize: 13 }}>
+                <Send size={14} strokeWidth={1.75} /> {t(alreadyScheduled ? 'studio.scheduled.update' : 'em.builder.scheduleSend')}
+              </PrimaryBtn>
+              {alreadyScheduled && (
+                <GhostBtn onClick={onUnschedule} style={{ justifyContent: 'center', padding: '9px 16px' }}>
+                  {t('studio.scheduled.cancel')}
+                </GhostBtn>
+              )}
+            </>
           ) : (
             <PrimaryBtn onClick={() => setConfirmOpen(true)} disabled={!canSend} style={{ justifyContent: 'center', padding: '11px 18px', fontSize: 13 }}>
               <Send size={14} strokeWidth={1.75} /> {t('studio.review.sendTo').replace('{n}', net.toLocaleString('fr-FR'))}

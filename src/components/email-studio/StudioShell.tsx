@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CalendarClock, ChevronLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { StoreApi } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
@@ -206,11 +206,21 @@ export default function StudioShell({ scope, basePath }: Props) {
     state.markSaving();
     const payload = campaignToRow(c, scope);
     if (status) payload.status = status;
-    const { error } = await supabase.from('email_campaigns')
-      .update(payload as never).eq('id', c.id);
+    // Garde anti-course : on n'écrit que sur une campagne encore modifiable
+    // (brouillon ou planifiée). Si le cron l'a fait partir entre-temps, la
+    // ligne est en 'sending' et l'UPDATE ne touche rien : on le dit au pro au
+    // lieu d'afficher « Enregistré » sur une version qui n'existe plus.
+    const { data: touched, error } = await supabase.from('email_campaigns')
+      .update(payload as never).eq('id', c.id)
+      .in('status', ['draft', 'scheduled']).select('id');
     if (error) {
       store.getState().markSaveFailed();
       toast.error(error.message || t('em.toast.saveError'));
+      return null;
+    }
+    if (!touched || touched.length === 0) {
+      store.getState().markSaveFailed();
+      toast.error(t('studio.scheduled.gone'));
       return null;
     }
     store.getState().markSaved();
@@ -302,6 +312,46 @@ function StepChips({ current, onGo }: { current: StudioStep; onGo: (s: StudioSte
   );
 }
 
+/**
+ * Bandeau d'une campagne planifiée : la date de départ, le rappel que tout
+ * reste modifiable, et l'annulation. Sous 30 min du départ il passe en alerte :
+ * une retouche à moitié faite peut partir telle quelle.
+ */
+function ScheduledBanner({ onUnschedule }: { onUnschedule: () => void }) {
+  const { t } = useLanguage();
+  const status = useStudio((s) => s.campaign.status);
+  const scheduledAt = useStudio((s) => s.campaign.scheduledAt);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (status !== 'scheduled') return;
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, [status]);
+  if (status !== 'scheduled' || !scheduledAt) return null;
+  const at = new Date(scheduledAt);
+  const minutes = Math.max(0, Math.round((at.getTime() - Date.now()) / 60_000));
+  const soon = minutes < 30;
+  const color = soon ? RED : '#FCD34D';
+  const Icon = soon ? AlertTriangle : CalendarClock;
+  return (
+    <div style={{
+      position: 'relative', zIndex: 2, flex: 'none', display: 'flex', alignItems: 'center', gap: 10,
+      padding: '8px 16px', borderBottom: `1px solid ${BORDER}`,
+      background: soon ? 'rgba(232,25,44,0.10)' : 'rgba(252,211,77,0.07)',
+    }}>
+      <Icon size={14} strokeWidth={1.75} style={{ color, flex: 'none' }} />
+      <span style={{ flex: 1, color: T2, fontSize: 12, lineHeight: 1.45, fontFamily: FONT_UI }}>
+        {soon
+          ? t('studio.scheduled.soon').replace('{n}', String(minutes))
+          : t('studio.scheduled.editable').replace('{date}', at.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' }))}
+      </span>
+      <GhostBtn onClick={onUnschedule} style={{ background: SUBTLE, flex: 'none' }}>
+        {t('studio.scheduled.cancel')}
+      </GhostBtn>
+    </div>
+  );
+}
+
 function StudioBody({ scope, basePath, saveNow }: {
   scope: StudioScope; basePath: string;
   saveNow: (status?: string) => Promise<string | null>;
@@ -324,6 +374,14 @@ function StudioBody({ scope, basePath, saveNow }: {
   const live = useStudioLiveData(campaign.blocks, campaign.eventId);
 
   const bucketFolder = scope.kind === 'venue' ? `venue/${scope.venueId}` : `org/${scope.organizerId}`;
+
+  // Une campagne planifiée reste modifiable jusqu'au départ. « Annuler la
+  // programmation » la remet en brouillon (la date est conservée pour la
+  // reprogrammer en un clic au Récap) : le cron ne prend que 'scheduled'.
+  const unschedule = async () => {
+    const id = await saveNow('draft');
+    if (id) toast.success(t('studio.scheduled.cancelled'));
+  };
 
   // ── Raccourcis clavier (écran Studio uniquement) ──────────────────────────
   const api = useStudioApi();
@@ -411,6 +469,7 @@ function StudioBody({ scope, basePath, saveNow }: {
             onSaveTemplate={() => setTemplateOpen(true)}
             onContinue={() => setStep('audience')}
           />
+          <ScheduledBanner onUnschedule={unschedule} />
           <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', minHeight: 0 }}>
             <BlockPalette scope={scope} />
             <CanvasColumn scope={scope} live={live} />
@@ -478,6 +537,7 @@ function StudioBody({ scope, basePath, saveNow }: {
             )}
             {step === 'review' && <span style={{ width: 120 }} />}
           </header>
+          <ScheduledBanner onUnschedule={unschedule} />
 
           <div style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: '26px 28px 60px', minHeight: 0 }}>
             <div style={{ maxWidth: 1160, margin: '0 auto' }}>
@@ -495,6 +555,7 @@ function StudioBody({ scope, basePath, saveNow }: {
                   }}
                   onEditContent={() => setStep('studio')}
                   onTest={() => setTestOpen(true)}
+                  onUnschedule={unschedule}
                 />
               )}
             </div>
