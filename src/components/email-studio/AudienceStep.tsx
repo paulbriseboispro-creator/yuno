@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Check, Layers, Loader2, Lock, Pencil, UserMinus, Users, X } from 'lucide-react';
+import { Check, Download, Eraser, Layers, Loader2, Lock, Pencil, UserMinus, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { AudienceKind, AudienceSel } from '@/lib/email';
+import { deliverRoster } from '@/lib/rosterExport';
 import { useStudio } from './store';
-import { useAudienceCount, useContactSegments, useImportedLists, type SavedSegment, type StudioEvent, type StudioScope } from './hooks';
 import {
-  BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, RED, RED_SOFT_GRAD, SegBtns,
-  SUBTLE, Switch, T1, T2, T3, inputStyle,
+  useAudienceCount, useContactSegments, useImportedLists,
+  type ImportedListHealth, type SavedSegment, type StudioEvent, type StudioScope,
+} from './hooks';
+import {
+  BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, POS, RED, RED_SOFT_GRAD, SegBtns,
+  SUBTLE, Switch, T1, T2, T3, WARN, inputStyle,
 } from './ui';
 
 const PROMO_KINDS: { kind: AudienceKind; labelKey: string; descKey: string }[] = [
@@ -61,7 +65,38 @@ export default function AudienceStep({ scope, events, segments }: {
 
   const hasAudience = campaign.audiences.length > 0;
   const { count, loading } = useAudienceCount(campaign.id, saveSeq, hasAudience);
-  const { lists: imports, rename: renameImport } = useImportedLists(scope);
+  const { lists: imports, rename: renameImport, purge: purgeImport, exportClean } = useImportedLists(scope);
+
+  // Export de la liste PROPRE : la RPC ne rend que les actifs, jamais un
+  // désabonné ni une adresse morte. Même tableur que les listes de porte.
+  const exportImport = async (id: string, name: string) => {
+    const rows = await exportClean(id);
+    if (!rows) { toast.error(t('studio.aud.exportError')); return; }
+    if (rows.length === 0) { toast.error(t('studio.aud.exportEmpty')); return; }
+    const outcome = await deliverRoster({
+      kind: t('studio.aud.exportKind'),
+      eventTitle: name,
+      eventSubtitle: '',
+      columns: [
+        { key: 'email', label: t('studio.aud.col.email'), weight: 18 },
+        { key: 'first_name', label: t('studio.aud.col.first'), weight: 10 },
+        { key: 'last_name', label: t('studio.aud.col.last'), weight: 10 },
+        { key: 'consent_source', label: t('studio.aud.col.consent'), weight: 10 },
+        { key: 'consent_recorded_at', label: t('studio.aud.col.date'), weight: 10 },
+      ],
+      rows: rows.map((r) => ({
+        email: r.email, first_name: r.first_name || '', last_name: r.last_name || '',
+        consent_source: r.consent_source || '',
+        consent_recorded_at: r.consent_recorded_at ? new Date(r.consent_recorded_at).toLocaleDateString() : '',
+      })),
+      nameKey: 'email',
+    }, 'xlsx', new Date().toLocaleString());
+    if (outcome === 'downloaded' || outcome === 'shared') {
+      toast.success(t('studio.aud.exportDone').replace('{n}', rows.length.toLocaleString('fr-FR')));
+    } else if (outcome === 'failed') {
+      toast.error(t('studio.aud.exportError'));
+    }
+  };
   const contactSegments = useContactSegments(scope);
 
   // Effectifs par segment, portee plateforme : une seule RPC rend les huit.
@@ -307,7 +342,10 @@ export default function AudienceStep({ scope, events, segments }: {
                       '{date}', new Date(l.createdAt).toLocaleDateString())}
                     count={l.count}
                     barPct={Math.round((l.count / maxCount) * 100)}
+                    health={l.health}
                     onRename={(v) => renameImport(l.id, v)}
+                    onPurge={() => purgeImport(l.id)}
+                    onExport={() => exportImport(l.id, l.name)}
                     t={t}
                   />
                 ))}
@@ -561,17 +599,39 @@ function SegmentRow({ on, onClick, name, desc, count, barPct }: {
  * La carte porte le fond et la bordure ; le bouton de sélection et le crayon
  * sont deux boutons frères à l'intérieur (jamais un bouton dans un bouton).
  */
-function ImportRow({ on, onToggle, name, desc, count, barPct, onRename, t }: {
+function ImportRow({ on, onToggle, name, desc, count, barPct, health, onRename, onPurge, onExport, t }: {
   on: boolean; onToggle: () => void; name: string; desc: string;
   count: number; barPct: number;
+  health: ImportedListHealth;
   onRename: (value: string) => Promise<boolean>;
+  /** Purge définitive des désabonnés + injoignables ; null = échec. */
+  onPurge: () => Promise<{ removed: number; remaining: number } | null>;
+  onExport: () => Promise<void>;
   t: (k: string) => string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState<'purge' | 'export' | null>(null);
+  const nf = (n: number) => n.toLocaleString('fr-FR');
+  const deadCount = health.unsubscribed + health.dead;
 
   const open = () => { setDraft(name); setEditing(true); };
+
+  const runPurge = async () => {
+    setBusy('purge');
+    const r = await onPurge();
+    setBusy(null);
+    setConfirming(false);
+    if (!r) { toast.error(t('studio.aud.purgeError')); return; }
+    toast.success(t('studio.aud.purgeDone').replace('{n}', nf(r.removed)).replace('{left}', nf(r.remaining)));
+  };
+
+  const runExport = async () => {
+    setBusy('export');
+    try { await onExport(); } finally { setBusy(null); }
+  };
 
   const commit = async () => {
     setSaving(true);
@@ -588,7 +648,29 @@ function ImportRow({ on, onToggle, name, desc, count, barPct, onRename, t }: {
       background: on ? RED_SOFT_GRAD : SUBTLE,
       border: `1px solid ${on ? 'rgba(232,25,44,0.28)' : BORDER}`,
     }}>
-      {editing ? (
+      {confirming ? (
+        <>
+          <Eraser size={15} strokeWidth={1.75} style={{ color: WARN, flex: 'none' }} />
+          <span style={{ flex: 1, color: T2, fontSize: 12, lineHeight: 1.45, fontFamily: FONT_UI }}>
+            {t('studio.aud.purgeConfirm')
+              .replace('{n}', nf(deadCount)).replace('{unsub}', nf(health.unsubscribed)).replace('{dead}', nf(health.dead))}
+          </span>
+          <button
+            type="button" onClick={() => void runPurge()} disabled={busy === 'purge'}
+            style={{
+              flex: 'none', padding: '6px 12px', borderRadius: 9, cursor: 'pointer',
+              background: RED, border: `1px solid ${RED}`, color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: FONT_UI,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            {busy === 'purge' ? <Loader2 size={13} className="animate-spin" /> : <Eraser size={13} strokeWidth={2} />}
+            {t('studio.aud.purgeGo')}
+          </button>
+          <IconBtn label={t('common.cancel')} onClick={() => setConfirming(false)} disabled={busy === 'purge'}>
+            <X size={13} strokeWidth={2.5} />
+          </IconBtn>
+        </>
+      ) : editing ? (
         <>
           <input
             autoFocus value={draft} maxLength={60} disabled={saving}
@@ -627,6 +709,13 @@ function ImportRow({ on, onToggle, name, desc, count, barPct, onRename, t }: {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: on ? T1 : T2, fontSize: 13.5, fontWeight: 560, fontFamily: FONT_UI }}>{name}</div>
               <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI }}>{desc}</div>
+              {/* Santé de la liste : ce qui répond, ce qui ne répondra plus. */}
+              <div style={{ fontSize: 11, marginTop: 4, fontFamily: FONT_UI, color: deadCount > 0 ? WARN : POS }}>
+                {deadCount > 0
+                  ? t('studio.aud.health').replace('{active}', nf(health.active)).replace('{unsub}', nf(health.unsubscribed)).replace('{dead}', nf(health.dead))
+                  : t('studio.aud.healthClean').replace('{active}', nf(health.active))}
+                {health.purged > 0 && <span style={{ color: T3 }}> · {t('studio.aud.healthPurged').replace('{n}', nf(health.purged))}</span>}
+              </div>
               <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', width: `${barPct}%`, borderRadius: 999,
@@ -640,6 +729,12 @@ function ImportRow({ on, onToggle, name, desc, count, barPct, onRename, t }: {
           </button>
           <IconBtn label={t('studio.aud.rename')} onClick={open}>
             <Pencil size={13} strokeWidth={1.75} />
+          </IconBtn>
+          <IconBtn label={t('studio.aud.export')} onClick={() => void runExport()} disabled={busy != null || health.active === 0}>
+            {busy === 'export' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} strokeWidth={1.75} />}
+          </IconBtn>
+          <IconBtn label={t('studio.aud.purge')} onClick={() => setConfirming(true)} disabled={busy != null || deadCount === 0}>
+            <Eraser size={13} strokeWidth={1.75} />
           </IconBtn>
         </>
       )}

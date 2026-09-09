@@ -234,6 +234,16 @@ export function useSavedSegments(scope: StudioScope): SavedSegment[] {
   return segments;
 }
 
+export interface ImportedListHealth {
+  total: number;
+  active: number;
+  unsubscribed: number;
+  /** Adresses de la liste de suppression (rebond dur, plainte, invalide). */
+  dead: number;
+  /** Déjà retirées par une purge (repoussoir email_opt_outs). */
+  purged: number;
+}
+
 export interface ImportedList {
   id: string;
   /** Nom affiché : celui du pro, sinon le nom de fichier sans extension. */
@@ -241,57 +251,73 @@ export interface ImportedList {
   /** Ce vers quoi on retombe si le pro efface son nom. */
   fallbackName: string;
   createdAt: string;
+  /** Contacts encore actifs (consentants, pas supprimés) — la cible réelle. */
   count: number;
+  health: ImportedListHealth;
 }
+
+export interface CleanContact {
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  consent_source: string | null;
+  consent_recorded_at: string | null;
+}
+
+export interface PurgeResult { removed: number; unsubscribed: number; dead: number; remaining: number }
 
 /**
  * Listes importées de la portée — un fichier importé reste un segment à part.
  * Disponible aux DEUX portées, contrairement aux segments sauvegardés qui sont
- * venue-only. L'effectif est recompté en direct (un désabonnement le fait
- * baisser), jamais lu dans le rapport d'import figé.
+ * venue-only. La santé (actifs, désabonnés, injoignables, purgés) vient d'une
+ * seule RPC pour toutes les listes ; un désabonnement fait baisser l'effectif
+ * en direct, jamais lu dans le rapport d'import figé.
  */
 export function useImportedLists(scope: StudioScope): {
   lists: ImportedList[];
   rename: (id: string, name: string) => Promise<boolean>;
+  /** Supprime définitivement désabonnés + injoignables (mémorisés au repoussoir). */
+  purge: (id: string) => Promise<PurgeResult | null>;
+  /** Les contacts actifs seulement — jamais un désabonné, jamais une adresse morte. */
+  exportClean: (id: string) => Promise<CleanContact[] | null>;
 } {
   const [lists, setLists] = useState<ImportedList[]>([]);
-  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const [seq, setSeq] = useState(0);
+  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.kind === 'organizer' ? scope.organizerId : null;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let q = supabase.from('email_list_imports' as never)
-        .select('id, filename, list_name, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      q = scope.kind === 'venue' ? q.eq('venue_id', scopeId) : q.eq('organizer_user_id', scopeId);
-      const { data } = await q;
+      const { data } = await supabase.rpc('get_email_lists_health' as never, {
+        p_venue_id: scope.kind === 'venue' ? scopeId : null,
+        p_organizer_user_id: scope.kind === 'organizer' ? scopeId : null,
+      } as never);
       if (cancelled) return;
       const rows = ((data as unknown) || []) as Array<{
-        id: string; filename: string | null; list_name: string | null; created_at: string;
+        import_id: string; filename: string | null; list_name: string | null; created_at: string;
+        total: number; active: number; unsubscribed: number; dead: number; purged: number;
       }>;
-      const counted = await Promise.all(rows.map(async (r) => {
-        const { count } = await supabase.from('newsletter_subscriptions')
-          .select('id', { count: 'exact', head: true })
-          .eq('import_id', r.id)
-          .eq('opted_in', true);
+      const mapped: ImportedList[] = rows.map((r) => {
         // Le nom donné par le pro à l'import ; à défaut (imports d'avant
         // le champ, ou nom effacé), le nom de fichier sans son extension.
         const fallbackName = (r.filename || '').replace(/\.[a-z0-9]+$/i, '').trim() || 'Import';
         return {
-          id: r.id,
+          id: r.import_id,
           name: (r.list_name || '').trim() || fallbackName,
           fallbackName,
           createdAt: r.created_at,
-          count: count || 0,
+          count: Number(r.active || 0),
+          health: {
+            total: Number(r.total || 0), active: Number(r.active || 0),
+            unsubscribed: Number(r.unsubscribed || 0), dead: Number(r.dead || 0), purged: Number(r.purged || 0),
+          },
         };
-      }));
-      // Un lot dont plus personne n'est abonné n'est pas une cible : on ne
-      // propose pas une case qui n'ajoute personne.
-      if (!cancelled) setLists(counted.filter((l) => l.count > 0));
+      });
+      // Un lot vidé n'est plus une cible ni un fichier à nettoyer : on ne le montre pas.
+      setLists(mapped.filter((l) => l.health.total > 0));
     })();
     return () => { cancelled = true; };
-  }, [scope.kind, scopeId]);
+  }, [scope.kind, scopeId, seq]);
 
   // Renommage : `email_list_imports` n'a aucune policy d'écriture, la RPC
   // SECURITY DEFINER est le seul chemin. Un nom vide remet la valeur à NULL,
@@ -308,7 +334,20 @@ export function useImportedLists(scope: StudioScope): {
     return true;
   }, []);
 
-  return { lists, rename };
+  const purge = useCallback(async (id: string) => {
+    const { data, error } = await supabase.rpc('purge_email_list' as never, { p_import_id: id } as never);
+    if (error || !data) return null;
+    setSeq((n) => n + 1);
+    return (data as unknown) as PurgeResult;
+  }, []);
+
+  const exportClean = useCallback(async (id: string) => {
+    const { data, error } = await supabase.rpc('export_email_list' as never, { p_import_id: id } as never);
+    if (error) return null;
+    return ((data as unknown) || []) as CleanContact[];
+  }, []);
+
+  return { lists, rename, purge, exportClean };
 }
 
 

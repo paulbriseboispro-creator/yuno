@@ -923,6 +923,16 @@ intouchables :
   obligatoire et horodatée, jamais de réactivation d'un désabonné explicite,
   bloqué en session support. Envoyer une campagne l'est aussi
   (`isSupportSessionToken` dans `send-campaign`) ; l'envoi de TEST reste ouvert.
+- **Purge d'une liste importée = repoussoir d'abord, destruction ensuite**
+  (`purge_email_list`, migration `20260909130000`). La ligne désabonnée de
+  `newsletter_subscriptions` EST la mémoire du refus (le DO UPDATE de l'import
+  ne la réactive jamais) : la détruire sans trace réabonnerait la personne au
+  prochain import du même fichier. La purge verse donc chaque adresse dans
+  `email_opt_outs` (par portée, aucune policy RLS) avant de supprimer, et
+  `import_email_contacts` consulte ce repoussoir. **Ne JAMAIS vider
+  `email_opt_outs`**, ne jamais y poser de policy d'écriture. L'export d'une
+  liste (`export_email_list`) ne rend que les actifs. Purge et export refusent
+  la session support.
 - **Chaque fichier importé reste un segment d'audience.** La séparation vit
   dans `newsletter_subscriptions.import_id` (→ `email_list_imports`), exposée
   par le kind d'audience v2 `{"kind":"import","importId":"<uuid>"}` dans

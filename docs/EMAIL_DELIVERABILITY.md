@@ -264,6 +264,20 @@ Un bounce **soft** (boîte pleine, panne temporaire) ne supprime rien.
 
 ---
 
+### Purge d'une liste importée (2026-09-09)
+
+Un désabonné ou une adresse morte reste exclu de tout envoi sans rien faire.
+La purge sert à garder un FICHIER propre : `purge_email_list(import)` verse
+chaque adresse désabonnée ou supprimée dans le repoussoir `email_opt_outs`
+(par portée, RLS sans policy), supprime la ligne `newsletter_subscriptions`,
+efface l'email dans `imported_contacts` (la ligne ne survit que si elle porte
+un téléphone). `import_email_contacts` consulte le repoussoir : réimporter le
+même fichier ne réabonne personne. **Ne jamais vider `email_opt_outs`** : c'est
+lui qui rend la purge légale. `export_email_list(import)` ne rend que les
+actifs ; `get_email_lists_health(portée)` ventile chaque liste (total, actifs,
+désabonnés, injoignables, purgés). Les deux RPC destructives / personnelles
+refusent la session support.
+
 ## 6. Import d'une base existante
 
 RPC `import_email_contacts` (bloquée en session support). Trois règles :
