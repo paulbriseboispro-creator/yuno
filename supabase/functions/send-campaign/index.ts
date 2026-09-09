@@ -55,6 +55,8 @@ const BATCH_SPACING_MS = Number(Deno.env.get('RESEND_BATCH_SPACING_MS') || 600);
 const MAX_BATCH = 100;                    // limite dure de l'API batch Resend
 const MAX_PAYLOAD_BYTES = 4_500_000;      // marge sous la limite de payload
 const HEALTH_CHECK_EVERY = 3;             // salves entre deux contrôles du disjoncteur
+// Fenêtres glissantes admises pour le lissage (CHECK email_campaigns_throttle_window_check).
+const THROTTLE_WINDOWS = [15, 30, 60];
 
 interface Recipient {
   email: string;
@@ -333,20 +335,29 @@ async function drainSlice(
       break;
     }
 
-    // 1 ter. Throttling (lissage du débit) : plafond d'envois par heure
-    // glissante, opt-in par campagne. Même philosophie que le quota : on
-    // s'arrête proprement, le cron reprend quand le budget se libère.
+    // 1 ter. Throttling (lissage du débit) : plafond d'envois par fenêtre
+    // glissante, opt-in par campagne. La fenêtre vaut 60 min (journée,
+    // plusieurs jours) ou 15 min (« sur une heure » = 4 vagues). Même
+    // philosophie que le quota : on s'arrête proprement, le cron (toutes les
+    // 5 min) reprend quand le budget se libère. L'écran Planification rejoue
+    // exactement cette règle pour montrer les vagues (src/lib/email/throttlePlan.ts).
     let want = batchSize;
     if (campaign.throttle_per_hour != null) {
-      const { count: sentLastHour } = await admin
+      const windowMin = THROTTLE_WINDOWS.includes(Number(campaign.throttle_window_minutes))
+        ? Number(campaign.throttle_window_minutes) : 60;
+      const { count: sentInWindow } = await admin
         .from('email_campaign_recipients')
         .select('id', { count: 'exact', head: true })
         .eq('campaign_id', campaignId)
         .eq('status', 'sent')
-        .gte('sent_at', new Date(Date.now() - 3_600_000).toISOString());
-      const hourBudget = Number(campaign.throttle_per_hour) - (sentLastHour ?? 0);
-      if (hourBudget <= 0) { stopped = 'throttle'; break; }
-      want = Math.max(1, Math.min(want, hourBudget));
+        .gte('sent_at', new Date(Date.now() - windowMin * 60_000).toISOString());
+      const windowBudget = Number(campaign.throttle_per_hour) - (sentInWindow ?? 0);
+      if (windowBudget <= 0) {
+        stopped = 'throttle';
+        detail = `${campaign.throttle_per_hour} / ${windowMin} min`;
+        break;
+      }
+      want = Math.max(1, Math.min(want, windowBudget));
     }
 
     // 2. Quota du jour (expéditeur + plateforme), consommé AVANT de réserver.
