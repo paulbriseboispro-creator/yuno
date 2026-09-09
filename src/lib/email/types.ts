@@ -488,6 +488,17 @@ export interface AudienceExclusions {
 
 export type ScheduleMode = 'now' | 'schedule';
 
+/** Cadre du lissage : une heure (4 vagues), la journée (jusqu'à 23 h), N jours. */
+export type ThrottleMode = 'hour' | 'day' | 'days';
+
+export interface ThrottlePlan {
+  mode: ThrottleMode;
+  /** Mode `days` : 2 à 7. Conservé dans les autres modes pour rebasculer sans perdre le choix. */
+  days: number;
+  /** Le pro a remplacé la proposition de Yuno par son propre plafond par vague. */
+  custom?: boolean;
+}
+
 export interface StudioCampaign {
   id: string;
   name: string;
@@ -505,6 +516,11 @@ export interface StudioCampaign {
   audiences: AudienceSel[];
   exclusions: AudienceExclusions;
   scheduledAt: string | null;
+  /** Plafond d'envois par fenêtre glissante (`throttleWindowMinutes`). null = pas de lissage. */
   throttlePerHour: number | null;
+  /** 15 (« sur une heure ») ou 60 (journée, plusieurs jours). */
+  throttleWindowMinutes: number;
+  /** Cadre choisi à l'écran — donnée d'affichage, jamais lue par le worker. */
+  throttlePlan: ThrottlePlan | null;
   quietHours: boolean;
 }

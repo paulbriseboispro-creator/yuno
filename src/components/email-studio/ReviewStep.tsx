@@ -130,7 +130,11 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
             <RowLabel>{t('studio.review.departure')}</RowLabel>
             <RowValue>
               {schedSummary}
-              {campaign.throttlePerHour != null ? ` · ${t('studio.sched.throttle')}` : ''}
+              {campaign.throttlePerHour != null
+                ? ` · ${t(`studio.sched.thr.rev.${campaign.throttlePlan?.mode || 'day'}`)
+                  .replace('{rate}', campaign.throttlePerHour.toLocaleString('fr-FR'))
+                  .replace('{days}', String(campaign.throttlePlan?.days || 2))}`
+                : ''}
               {campaign.quietHours ? ` · ${t('studio.sched.quiet')}` : ''}
             </RowValue>
           </div>

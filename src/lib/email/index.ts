@@ -8,3 +8,4 @@ export * from './checklist';
 export * from './migrate';
 export * from './templates';
 export * from './starters';
+export * from './throttlePlan';

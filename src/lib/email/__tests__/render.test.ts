@@ -1151,7 +1151,7 @@ describe("modèles d'email", () => {
       id: 'c1', name: 'Invitation', type: 'promotional' as const, status: 'draft',
       subject: 'Samedi', subjectB: '', abOn: false, preheader: 'p',
       blocks, theme, socialLinks: {}, logoUrl: null, eventId: 'ev-1',
-      audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, quietHours: false,
+      audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, throttleWindowMinutes: 60, throttlePlan: null, quietHours: false,
     };
     const content = campaignToTemplateContent(campaign);
     expect(content.blocks.some((b) => 'eventId' in b && b.eventId)).toBe(false);
@@ -1163,7 +1163,7 @@ describe("modèles d'email", () => {
     const content = campaignToTemplateContent({
       id: 'c1', name: 'n', type: 'promotional', status: 'draft', subject: 's', subjectB: '',
       abOn: false, preheader: '', blocks: partyBound(), theme, socialLinks: {}, logoUrl: null,
-      eventId: null, audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, quietHours: false,
+      eventId: null, audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, throttleWindowMinutes: 60, throttlePlan: null, quietHours: false,
     });
     const reused = templateToCampaignContent(content);
     const before = content.blocks.map((b) => b.id);

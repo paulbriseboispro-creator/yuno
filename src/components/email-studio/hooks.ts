@@ -351,6 +351,9 @@ export interface EmailQuota {
   credits: number;
   remaining: number;
   resetsOn: string;
+  /** Plafond du jour de l'expéditeur (rampe de chauffe) et déjà envoyés aujourd'hui. */
+  dayCap: number;
+  dayUsed: number;
 }
 
 /**
@@ -370,9 +373,15 @@ export function useEmailQuota(scope: StudioScope): { quota: EmailQuota | null; r
       p_organizer_user_id: scope.kind === 'organizer' ? scopeId : null,
     } as never).then(({ data }) => {
       if (cancelled || !data) return;
-      const d = (data as unknown) as { used: number; free: number; credits: number; remaining: number; resets_on: string };
+      const d = (data as unknown) as {
+        used: number; free: number; credits: number; remaining: number; resets_on: string;
+        day_cap?: number; day_used?: number;
+      };
       if (typeof d.remaining !== 'number') return;
-      setQuota({ used: d.used, free: d.free, credits: d.credits, remaining: d.remaining, resetsOn: d.resets_on });
+      setQuota({
+        used: d.used, free: d.free, credits: d.credits, remaining: d.remaining, resetsOn: d.resets_on,
+        dayCap: Number(d.day_cap || 0), dayUsed: Number(d.day_used || 0),
+      });
     });
     return () => { cancelled = true; };
   }, [scope.kind, scopeId, seq]);

@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import {
   campaignToTemplateContent, migrateV1Audience, migrateV1Blocks, migrateV1SocialLinks,
   migrateV1Theme, normalizeTheme, normalizeV2Blocks,
-  type AudienceExclusions, type AudienceSel, type EmailBlock, type SocialLinks, type StudioCampaign,
+  type AudienceExclusions, type AudienceSel, type EmailBlock, type SocialLinks, type StudioCampaign, type ThrottlePlan,
 } from '@/lib/email';
 import {
   createStudioStore, StudioStoreContext, useStudio, useStudioApi,
@@ -62,7 +62,18 @@ interface CampaignRow {
   exclusions_json: unknown;
   scheduled_at: string | null;
   throttle_per_hour: number | null;
+  throttle_window_minutes: number | null;
+  throttle_plan: unknown;
   quiet_hours: boolean | null;
+}
+
+/** Plan de lissage relu depuis la base ; forme inconnue ⇒ on repart de la proposition. */
+function normalizeThrottlePlan(raw: unknown): ThrottlePlan | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<ThrottlePlan>;
+  if (r.mode !== 'hour' && r.mode !== 'day' && r.mode !== 'days') return null;
+  const days = Math.min(7, Math.max(2, Math.floor(Number(r.days) || 2)));
+  return { mode: r.mode, days, custom: !!r.custom };
 }
 
 function rowToCampaign(row: CampaignRow, venueName: string): StudioCampaign {
@@ -104,6 +115,8 @@ function rowToCampaign(row: CampaignRow, venueName: string): StudioCampaign {
     exclusions: rawExcl,
     scheduledAt: toLocalInput(row.scheduled_at),
     throttlePerHour: row.throttle_per_hour,
+    throttleWindowMinutes: row.throttle_window_minutes === 15 ? 15 : 60,
+    throttlePlan: normalizeThrottlePlan(row.throttle_plan),
     quietHours: !!row.quiet_hours,
   };
 }
@@ -145,6 +158,8 @@ function campaignToRow(c: StudioCampaign, scope: StudioScope): Record<string, un
     audience_type: legacy.audience_type,
     scheduled_at: c.scheduledAt ? new Date(c.scheduledAt).toISOString() : null,
     throttle_per_hour: c.throttlePerHour,
+    throttle_window_minutes: c.throttlePerHour != null && c.throttleWindowMinutes === 15 ? 15 : 60,
+    throttle_plan: c.throttlePerHour != null ? c.throttlePlan : null,
     quiet_hours: c.quietHours,
   };
   if (scope.kind === 'venue') payload.segment_id = legacy.segment_id;
