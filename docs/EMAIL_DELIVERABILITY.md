@@ -163,8 +163,13 @@ d'appuyer sur Envoyer :
 | Cadre | Fenêtre | Ce que fait le worker |
 |---|---|---|
 | Sur une heure | 15 min | 4 vagues, `ceil(N/4)` par quart d'heure |
-| Sur la journée | 60 min | une vague par heure jusqu'à 23 h, `ceil(N/heures restantes)` |
-| Sur plusieurs jours (2-7) | 60 min | une vague par heure, `ceil(N/(heures jour 1 + (J-1) × 14 h))` |
+| Sur la journée | 60 min | une vague par heure pendant 24 h depuis le départ, `ceil(N/vagues actives)` |
+| Sur plusieurs jours (2-7) | 60 min | une vague par heure pendant J × 24 h depuis le départ |
+
+Les fenêtres sont glissantes depuis le départ, jamais calendaires. « Vagues
+actives » = créneaux horaires de la fenêtre hors nuit (23 h → 9 h) quand
+« Pas d'envoi la nuit » est coché : 17 h 30 sur la journée avec la nuit
+coupée = 6 vagues le soir + 9 le lendemain (9 h → 17 h), fin vers 17 h.
 
 Trois colonnes sur `email_campaigns` : `throttle_per_hour` (plafond PAR
 FENÊTRE, nom conservé pour la compat), `throttle_window_minutes` (15/30/60)

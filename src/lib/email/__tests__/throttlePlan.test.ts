@@ -13,16 +13,18 @@ describe('suggestRate', () => {
     expect(suggestRate({ total: 120, start: at(17, 30), mode: 'hour', days: 2, quietHours: false })).toBe(30);
   });
 
-  it('sur la journée : une vague par heure pleine jusqu\'à 23 h', () => {
-    // 17:30 → 23:00 = 5 h pleines
-    expect(suggestRate({ total: 1000, start: at(17, 30), mode: 'day', days: 2, quietHours: false })).toBe(200);
+  it('sur la journée : 24 h glissantes depuis le départ, pas la journée calendaire', () => {
+    // sans nuit : 24 vagues
+    expect(suggestRate({ total: 2400, start: at(17, 30), mode: 'day', days: 2, quietHours: false })).toBe(100);
+    // nuit coupée : 17:30→22:30 (6 vagues) + 9:00→17:00 le lendemain (9 vagues, 17:00 < 17:30) = 15
+    expect(suggestRate({ total: 1500, start: at(17, 30), mode: 'day', days: 2, quietHours: true })).toBe(100);
   });
 
-  it('sur plusieurs jours : 14 h actives par jour quand la nuit est coupée', () => {
-    // 5 h aujourd'hui + 14 h demain = 19 h
-    expect(suggestRate({ total: 1900, start: at(17, 30), mode: 'days', days: 2, quietHours: true })).toBe(100);
-    // sans nuit : 5 h + 24 h = 29 h
-    expect(suggestRate({ total: 2900, start: at(17, 30), mode: 'days', days: 2, quietHours: false })).toBe(100);
+  it('sur plusieurs jours : N × 24 h depuis le départ', () => {
+    // sans nuit : 48 vagues
+    expect(suggestRate({ total: 4800, start: at(17, 30), mode: 'days', days: 2, quietHours: false })).toBe(100);
+    // nuit coupée : 6 (soir 1) + 14 (jour 2, 9→22 h) + 9 (jour 3, 9→17 h) = 29 vagues
+    expect(suggestRate({ total: 2900, start: at(17, 30), mode: 'days', days: 2, quietHours: true })).toBe(100);
   });
 
   it('ne descend jamais sous le plancher de la contrainte', () => {
@@ -40,12 +42,21 @@ describe('computeThrottlePlan', () => {
     expect(r.warnings).not.toContain('longer');
   });
 
-  it('sur la journée : la dernière vague part avant 23 h', () => {
-    const r = computeThrottlePlan({ total: 1000, start: at(17, 30), mode: 'day', days: 2, quietHours: true });
-    expect(r.waves).toHaveLength(5);
-    expect(r.endAt?.getHours()).toBeLessThan(ACTIVE_DAY_END_HOUR);
-    expect(r.spanDays).toBe(1);
-    expect(r.days[0].count).toBe(1000);
+  it('sur la journée : la dernière vague part avant départ + 24 h, nuit sautée', () => {
+    const r = computeThrottlePlan({ total: 1500, start: at(17, 30), mode: 'day', days: 2, quietHours: true });
+    expect(r.waves).toHaveLength(15);
+    expect(r.endAt!.getTime()).toBeLessThan(at(17, 30).getTime() + 24 * 3_600_000);
+    expect(r.spanDays).toBe(2);
+    expect(r.days[0].count).toBe(600);
+    expect(r.days[1].waves[0].at.getHours()).toBe(ACTIVE_DAY_START_HOUR);
+    expect(r.warnings).not.toContain('longer');
+  });
+
+  it('sur la journée sans nuit : 24 vagues, une par heure, de nuit comprise', () => {
+    const r = computeThrottlePlan({ total: 2400, start: at(17, 30), mode: 'day', days: 2, quietHours: false });
+    expect(r.waves).toHaveLength(24);
+    expect(r.warnings).toContain('night');
+    expect(r.warnings).not.toContain('longer');
   });
 
   it('nuit cochée : aucune vague entre 23 h et 9 h, reprise à 9 h', () => {
@@ -75,17 +86,12 @@ describe('computeThrottlePlan', () => {
     expect(r.waves.reduce((s, w) => s + w.count, 0)).toBe(1000);
   });
 
-  it('plafond personnalisé trop bas : le plan déborde et le dit', () => {
-    const r = computeThrottlePlan({ total: 1000, start: at(17, 30), mode: 'day', days: 2, quietHours: true, rate: 50 });
+  it('plafond personnalisé trop bas : le plan déborde des 24 h et le dit', () => {
+    const r = computeThrottlePlan({ total: 1500, start: at(17, 30), mode: 'day', days: 2, quietHours: true, rate: 50 });
     expect(r.rate).toBe(50);
-    expect(r.suggestedRate).toBe(200);
-    expect(r.spanDays).toBeGreaterThan(1);
+    expect(r.suggestedRate).toBe(100);
+    expect(r.waves).toHaveLength(30);
     expect(r.warnings).toContain('longer');
-  });
-
-  it('mode journée trop tard dans la soirée : alerte late', () => {
-    const r = computeThrottlePlan({ total: 1000, start: at(22, 15), mode: 'day', days: 2, quietHours: false });
-    expect(r.warnings).toContain('late');
   });
 
   it('petite audience : simple information, jamais bloquant', () => {

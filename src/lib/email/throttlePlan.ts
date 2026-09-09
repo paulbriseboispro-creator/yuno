@@ -10,8 +10,11 @@
  *
  * Trois modes, un seul moteur :
  *   hour → 4 vagues, une par quart d'heure (fenêtre 15 min) ;
- *   day  → une vague par heure, jusqu'à 23 h (fenêtre 60 min) ;
- *   days → une vague par heure, N jours de suite (fenêtre 60 min).
+ *   day  → une vague par heure pendant 24 h à partir du départ (fenêtre 60 min) ;
+ *   days → une vague par heure pendant N × 24 h à partir du départ.
+ * Les fenêtres sont GLISSANTES depuis le départ, jamais calendaires : un
+ * envoi lancé à 17 h 30 « sur la journée » finit le lendemain vers 17 h 30,
+ * la nuit étant sautée si le pro l'a coupée.
  *
  * Pur, sans I/O : testable et réutilisable (récap, rapport).
  */
@@ -55,15 +58,13 @@ export interface PlanDay { date: Date; waves: PlanWave[]; count: number }
 export type PlanWarning =
   /** Audience sous SMALL_AUDIENCE : le lissage est inutile, pas nuisible. */
   | 'small'
-  /** Mode journée mais moins de 2 h avant 23 h. */
-  | 'late'
   /** Plusieurs jours sans « pas d'envoi la nuit » : des vagues partiront la nuit. */
   | 'night'
   /** Le plafond du jour coupe une journée : le reste repart le lendemain. */
   | 'dayCap'
   /** Le plan s'étale sur 3 jours ou plus : le message doit rester d'actualité. */
   | 'stale'
-  /** Le plan déborde du cadre demandé (journée → lendemain, N jours → N+k). */
+  /** Le plan déborde de la fenêtre demandée (1 h, 24 h, N × 24 h depuis le départ). */
   | 'longer';
 
 export interface ThrottlePlanResult {
@@ -111,10 +112,27 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-/** Heures pleines entre `from` et 23 h le même jour (au moins 1). */
-function hoursUntilNight(from: Date): number {
-  const end = atHour(from, ACTIVE_DAY_END_HOUR);
-  return Math.max(1, Math.floor((end.getTime() - from.getTime()) / HOUR));
+/**
+ * Vagues horaires disponibles dans une fenêtre de `hours` h à partir de
+ * `from`, la nuit sautée si `quietHours` (au moins 1).
+ */
+function activeHourlySlots(from: Date, hours: number, quietHours: boolean): number {
+  const end = from.getTime() + hours * HOUR;
+  let n = 0;
+  let t = new Date(from);
+  while (t.getTime() < end && n < hours) {
+    if (quietHours && isNight(t)) { t = skipNight(t); continue; }
+    n++;
+    t = new Date(t.getTime() + HOUR);
+  }
+  return Math.max(1, n);
+}
+
+/** Fenêtre du cadre choisi, en heures depuis le départ. */
+function frameHours(mode: ThrottleMode, days: number): number {
+  if (mode === 'hour') return 1;
+  if (mode === 'day') return 24;
+  return Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.floor(days || MIN_DAYS))) * 24;
 }
 
 /**
@@ -126,14 +144,8 @@ export function suggestRate(input: Pick<PlanInput, 'total' | 'start' | 'mode' | 
   if (total === 0) return MIN_RATE;
   if (input.mode === 'hour') return Math.max(MIN_RATE, Math.ceil(total / 4));
 
-  const first = input.quietHours ? skipNight(input.start) : input.start;
-  const firstDayHours = hoursUntilNight(first);
-  if (input.mode === 'day') return Math.max(MIN_RATE, Math.ceil(total / firstDayHours));
-
-  const days = Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.floor(input.days || MIN_DAYS)));
-  const perDay = input.quietHours ? ACTIVE_DAY_END_HOUR - ACTIVE_DAY_START_HOUR : 24;
-  const hours = firstDayHours + (days - 1) * perDay;
-  return Math.max(MIN_RATE, Math.ceil(total / hours));
+  const slots = activeHourlySlots(input.start, frameHours(input.mode, input.days), input.quietHours);
+  return Math.max(MIN_RATE, Math.ceil(total / slots));
 }
 
 /**
@@ -200,14 +212,12 @@ export function computeThrottlePlan(input: PlanInput): ThrottlePlanResult {
   const spanDays = days.length;
 
   if (total > 0 && total < SMALL_AUDIENCE) warnings.add('small');
-  if (input.mode === 'day' && hoursUntilNight(input.quietHours ? skipNight(input.start) : input.start) < 2 && total >= SMALL_AUDIENCE) {
-    warnings.add('late');
-  }
-  if (input.mode === 'days' && !input.quietHours) warnings.add('night');
+  if (input.mode !== 'hour' && !input.quietHours) warnings.add('night');
   if (spanDays >= 3) warnings.add('stale');
-  if (input.mode === 'hour' && endAt && endAt.getTime() - input.start.getTime() > HOUR) warnings.add('longer');
-  if (input.mode === 'day' && spanDays > 1) warnings.add('longer');
-  if (input.mode === 'days' && spanDays > Math.min(MAX_DAYS, Math.max(MIN_DAYS, input.days))) warnings.add('longer');
+  // Déborde de la fenêtre : la dernière vague part après départ + cadre
+  // (la nuit sautée compte dans la fenêtre : c'est le pro qui l'a coupée).
+  const frameEnd = input.start.getTime() + frameHours(input.mode, input.days) * HOUR;
+  if (endAt && endAt.getTime() >= frameEnd) warnings.add('longer');
 
   return { windowMinutes, rate, suggestedRate, waves, days, endAt, spanDays, warnings: [...warnings] };
 }
