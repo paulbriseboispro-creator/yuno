@@ -618,6 +618,10 @@ async function drainSlice(
 
 async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign: Record<string, unknown>, status: string) {
   if (status !== 'sent' || !campaign.venue_id) return;
+  // Une relance après clic se vide et se remplit à chaque vague du cron : un
+  // accusé « campagne envoyée » à chaque fois serait du bruit. Son bilan vit
+  // dans le rapport de la campagne mère.
+  if (campaign.parent_campaign_id) return;
   try {
     const { data: c } = await admin
       .from('email_campaigns')
