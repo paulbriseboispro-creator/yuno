@@ -16,6 +16,7 @@ import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
+import TemplatesSection from '@/components/campaigns/TemplatesSection';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
   T1, T2, T3,
@@ -195,6 +196,14 @@ export default function OrgAppCampaigns() {
               );
             })}
           </div>
+        )}
+
+        {/* Mes modèles : voir, modifier, supprimer — sous les campagnes. */}
+        {user?.id && (
+          <TemplatesSection
+            basePath="/organizer-app/campaigns"
+            scope={{ kind: 'organizer', organizerId: user.id, name: profile?.organizationName || 'Mon organisation', logoUrl: null, city: null }}
+          />
         )}
       </div>
 

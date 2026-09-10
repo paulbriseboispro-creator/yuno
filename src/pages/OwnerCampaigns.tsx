@@ -17,6 +17,7 @@ import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaigns/EmailCreditsDialog';
 import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
+import TemplatesSection from '@/components/campaigns/TemplatesSection';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
 const RED = '#E8192C';
@@ -374,6 +375,20 @@ export default function OwnerCampaigns() {
             </>
           )}
         </div>
+
+        {/* Mes modèles : voir, modifier, supprimer — sous les campagnes. */}
+        {venueId && (
+          <TemplatesSection
+            basePath="/owner/campaigns"
+            scope={{
+              kind: 'venue', venueId,
+              name: venue?.name || 'Mon club',
+              logoUrl: (venue as { logoUrl?: string | null; logo_url?: string | null } | null)?.logoUrl
+                || (venue as { logo_url?: string | null } | null)?.logo_url || null,
+              city: (venue as { city?: string | null } | null)?.city || null,
+            }}
+          />
+        )}
       </div>
 
       {venueId && (
