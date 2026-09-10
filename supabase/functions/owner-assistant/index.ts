@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
+import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -270,9 +271,15 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "email-campaigns": {
     title: "Campagnes email",
-    keywords: ["email", "campagne", "campaign", "newsletter", "mailing", "éditeur", "studio", "email studio", "bloc", "blocs yuno", "a/b", "objet b", "compte à rebours", "exclusions", "nuit", "quiet", "débit", "throttle", "lisser", "lissage", "vagues", "étaler", "heure optimale", "purger", "purge", "nettoyer ma liste", "liste propre", "adresses mortes", "exporter la liste", "désabonnés", "relance", "relancer", "follow-up", "ont cliqué", "cliqué sans acheter", "second email", "24h après", "bloc guest list", "bloc liste invités", "modifier un modèle", "où sont mes modèles", "powered by", "envoi", "ouvertures", "désabonnement", "revenu campagne", "combien a rapporté", "segment personnalisé", "envoi de masse", "masse", "bulk", "spam", "délivrabilité", "delivrabilite", "warm-up", "plafond", "quota", "bounce", "rebond", "plainte", "pause automatique", "envoi bloqué", "envoi en cours", "5000 emails", "modèle", "template", "supprimer", "brouillon"],
+    keywords: ["email", "campagne", "campaign", "newsletter", "mailing", "éditeur", "studio", "email studio", "bloc", "blocs yuno", "a/b", "objet b", "compte à rebours", "exclusions", "nuit", "quiet", "débit", "throttle", "lisser", "lissage", "vagues", "étaler", "heure optimale", "purger", "purge", "nettoyer ma liste", "liste propre", "adresses mortes", "exporter la liste", "désabonnés", "relance", "relancer", "follow-up", "ont cliqué", "cliqué sans acheter", "second email", "24h après", "bloc guest list", "bloc liste invités", "bloc événement", "bloc soirée", "carte soirée", "côte à côte", "mise en page du bloc", "modifier un modèle", "où sont mes modèles", "powered by", "envoi", "ouvertures", "désabonnement", "revenu campagne", "combien a rapporté", "segment personnalisé", "envoi de masse", "masse", "bulk", "spam", "délivrabilité", "delivrabilite", "warm-up", "plafond", "quota", "bounce", "rebond", "plainte", "pause automatique", "envoi bloqué", "envoi en cours", "5000 emails", "modèle", "template", "supprimer", "brouillon"],
     path: "/owner/campaigns",
     snippet: "ATTRIBUTION : les « revenus attribués » d'un rapport de campagne ne comptent que des ventes PAYÉES (billets, tables, boissons dans les 72 h après un clic). Une soirée en liste invités seule ne produit donc aucun revenu attribué : le résultat se lit sur la page Guest list, ligne « newsletter » des liens du canal — le bouton des blocs Yuno part automatiquement sur ce lien suivi. Crée des campagnes email dans l'Email Studio : un parcours en cinq écrans (Studio → Audience → Planification → Récap → Envoi). Le Studio compose l'email par blocs avec aperçu fidèle desktop/mobile, 4 thèmes et des variables ({{prénom}}, {{ville}}, {{nom_club}}…). Dans un bloc texte, sélectionne une partie du texte puis utilise la barre de mise en forme : gras, italique, barré, souligné, couleur, taille, lien. Chaque bloc règle ses marges internes (0 = blocs collés, sans espace), chaque bouton peut avoir sa propre couleur (le texte s'adapte automatiquement), les images peuvent avoir des coins arrondis, et le compte à rebours accepte une date précise même sans événement relié. Le bloc En-tête reprend automatiquement le nom et le logo de ton compte (club ou organisateur) : tu ne téléverses une image que si tu veux un logo différent pour CET email, et le petit « x » sur l'aperçu te ramène au logo du compte. Sa couleur de fond suit le thème par défaut ; pour la changer sur CET email, sélectionne le bloc En-tête et pose une couleur dans « Fond du bloc » / « Fond personnalisé » — le nom repasse tout seul en noir ou en blanc selon la couleur. Pour la changer sur TOUS les emails, c'est l'onglet Thème (« Fond en-tête »). Le PIED DE PAGE se clique directement dans l'aperçu (ou depuis l'onglet Structure) : ça ouvre ses réglages — les réseaux sociaux (interrupteur pour les couper + les liens Instagram, TikTok, Facebook, X, site) et les deux couleurs de la bande. Coupe les réseaux si tu poses déjà un bloc « Réseaux » dans le corps, sinon les pastilles apparaissent deux fois (la checklist pré-envoi te prévient dans ce cas). En revanche les mentions légales du pied de page — nom de l'expéditeur, raison de réception, copyright, lien de désinscription — sont affichées mais NON MODIFIABLES, et le pied de page ne peut être ni déplacé ni supprimé : ce sont des obligations légales, Yuno les écrit à chaque envoi. Le pied de page se termine par une signature « Powered by Yuno » : elle prend la couleur de ton thème pour rester discrète, et elle n'est pas retirable pendant la période de lancement (c'est ce qui garde l'outil gratuit). Les blocs Yuno à données live — Événement, Billetterie, Table VIP, Compte à rebours — sont branchés sur une soirée réelle et rafraîchis AU MOMENT de l'envoi (prix courant, épuisé, décompte juste). Le bloc BILLETTERIE a exactement les mêmes réglages de présentation que le bloc Table VIP (les deux partagent leur carte) : mise en page Vitrine / Bandeau / Épuré, alignement gauche-centre-droite, sur-titre, titre et sous-titre, arguments de vente à coche, visuel placé avant ou après les tarifs, libellé de bouton, bouton pleine largeur ou non, note de réassurance, couleur d'accent. Deux réglages lui sont propres : DÉTAIL DES TARIFS — « Tranches » liste chaque tarif (montre que la prévente monte), « À partir de » n'affiche que le prix d'appel en gros (parfait pour une relance courte) — et TRANCHES AFFICHÉES, qui décroche une tranche précise qu'on ne veut pas montrer. Laissé vide, le sur-titre dit « Billetterie » (ou « Entrée » en liste invités seule) et le bouton se déduit de l'offre ; le bloc Billetterie liste AUSSI la liste invités publique de la soirée — une soirée en guest list seule affiche « Liste invités · Gratuit » avec son heure limite (et la boisson offerte si elle est prévue), et son bouton devient « M'inscrire à la liste » au lieu de « Prendre mes billets » ; seule une soirée sans AUCUNE entrée ouverte n'affiche pas le bloc, rien n'est inventé. Audience : cumule plusieurs segments (fidèles, inactifs, VIP… ou un segment sauvegardé de la page Clients — toujours croisé avec l'opt-in newsletter) et exclus les contacts touchés récemment ou déjà acheteurs de la soirée ; le compteur montre le net réel après dédoublonnage et liste de suppression. Tu peux tester deux objets (A/B) : envoyés à un échantillon, le gagnant à l'ouverture part au reste. Options d'envoi : programmation, lissage du débit, pas d'envoi la nuit (23 h → 9 h). Chaque bloc peut porter une règle de visibilité (« VIP · Table », « Nouveaux abonnés », « A déjà acheté ») vérifiée à l'envoi, destinataire par destinataire. Une checklist pré-envoi vérifie objet, preheader, bouton d'action, alt des images, poids Gmail, désinscription et domaine authentifié. Puis suis le rapport : ouvertures, clics, désabonnements, ET les revenus attribués — les ventes des destinataires qui ont cliqué l'email puis acheté sous 72 h, net de frais (colonne Revenu directement dans la liste des campagnes). Le rapport montre aussi le duel A/B (taux d'ouverture de chaque objet sur l'échantillon, gagnant marqué) et les liens les plus cliqués de l'email — tu vois où ton audience est vraiment allée. Les destinataires désabonnés sont exclus automatiquement des envois suivants. Un gros envoi ne part pas d'un bloc : le premier envoi de masse est plafonné à 300 emails par jour puis monte (600, 1200, 2500, 5000, 10000) — quand le plafond du jour est atteint l'envoi reprend TOUT SEUL le lendemain, ce n'est pas un échec. Le compteur de rodage démarre au PREMIER envoi de masse et court en jours calendaires, qu'on envoie ou non : un petit envoi de test aujourd'hui fait gagner des jours sur la grosse campagne de la semaine prochaine. Au bout d'une semaine il n'y a plus de plafond de rodage. S'ajoute un QUOTA MENSUEL : 15 000 emails de campagne offerts par mois et par compte. La jauge est affichée EN HAUT DE LA PAGE CAMPAGNES (emails restants, envoyés sur inclus, date de remise à zéro, crédits achetés) et à l'étape Planification : le pro connaît son reste avant d'écrire, pas au moment d'envoyer. Elle passe en ambre sous 20 % de la capacité du mois et en rouge une fois le quota atteint, avec le bouton d'achat juste à côté. Au-delà, des packs s'achètent en deux clics au PRIX COÛTANT de l'infrastructure (aucune marge Yuno) et ne périment pas. Quota atteint en pleine campagne = l'envoi ATTEND et repart tout seul le 1er du mois (ou dès l'ajout d'emails), rien n'échoue. Les emails de service (confirmations de billets, reçus, MFA) ne comptent jamais dans ce quota. La barre de progression sur la page Campagnes montre en temps réel les envoyés et les reçus, et permet de mettre en pause ou d'annuler. Si plus de 0,2 % des destinataires signalent l'email comme indésirable, ou si plus de 5 % des adresses n'existent plus, la campagne se met en pause automatiquement : c'est une protection, au-delà de 0,3 % de plaintes Gmail bloque tous les emails du club, y compris les confirmations de billets. LISSAGE (écran Planification) : « Lisser le débit » étale l'envoi en vagues selon un cadre — sur une heure (4 vagues), sur la journée (une vague par heure pendant 24 h à partir du départ, la nuit sautée si elle est coupée) ou sur plusieurs jours (2 à 7) — et affiche le plan AVANT l'envoi : combien d'emails partent à quelle heure, jour par jour, plafond du jour compris. Yuno propose le cadre selon l'audience (une heure sous 500 contacts, la journée jusqu'à 2 500, plusieurs jours au-delà) ; le nombre d'emails par vague reste modifiable. Pourquoi lisser : les boîtes mail (Gmail, Outlook) surveillent les pics de volume, un débit régulier construit la réputation, et les premières vagues servent de test — le disjoncteur coupe avant que toute la liste soit partie. Risques : un message urgent arrive tard pour les derniers contacts (rester sur une heure), un objet peut se périmer sur plusieurs jours. « Heure optimale par contact » n'est pas encore disponible : elle demande un historique d'ouvertures par contact que la plateforme n'a pas encore. CAMPAGNE PLANIFIÉE : elle reste modifiable jusqu'au départ (bandeau en haut du studio avec la date ; chaque changement enregistré est la version qui partira). « Annuler la programmation » (bandeau ou Récap) la remet en brouillon, la date est conservée pour la reprogrammer. Sous 30 min du départ, annuler d'abord puis retoucher, sinon une version à moitié modifiée peut partir. PENDANT L'ENVOI : le rapport de la campagne s'ouvre en cliquant dessus (ou « Voir les stats en direct » sous la barre de progression) et se rafraîchit toutes les 5 s : envoyés, livrés, ouvertures, clics, rebonds, plaintes, avec pause / reprise / annulation. LISTES IMPORTÉES PROPRES : dans l'écran Audience, chaque liste importée affiche sa santé (actifs, désabonnés, injoignables). « Purger » supprime définitivement les désabonnés et les adresses mortes (rebond dur, plainte) — ils restent mémorisés dans un repoussoir pour ne JAMAIS être réimportés, même en réimportant le même fichier — et « Exporter la liste propre » télécharge un Excel des seuls contacts actifs. Sans purge, ces contacts sont déjà exclus de tout envoi ; la purge sert à garder un fichier propre. RELANCE CIBLÉE APRÈS CLIC (écran Planification, campagne marketing reliée à une soirée) : Yuno renvoie automatiquement, 6 à 48 h après leur PREMIER clic sur un lien de la soirée, un second email à ceux qui n'ont pas réservé. Garanties : un seul message par personne et par soirée (toutes campagnes confondues), jamais aux acheteurs de billet/table (vérifié au moment de l'envoi), ni aux inscrits guest list, ni aux désabonnés/injoignables, ni si la soirée a commencé ; « pas d'envoi la nuit » respecté. Le modèle « Relance après clic » se crée d'un clic depuis l'écran et se personnalise comme tout modèle (Nouvelle campagne → ce modèle → retouche → Remplacer un modèle) ; il se compose à l'envoi (billets restants, tables VIP, compte à rebours). Le bilan (envoyées, ouvertures, clics, exclus et pourquoi) est dans le rapport de la campagne mère. BLOC LISTE INVITÉS (2026-09-10) : la liste invités a son propre bloc Yuno, distinct de Billetterie (qui ne montre que les billets) ; son bouton ouvre le formulaire d'inscription de la part (lien privé, suivi sur le canal) ; sans part publique, il ne part pas. Le bouton Table VIP et la signature « Powered by Yuno » mènent à la page de la soirée : aucun lien de l'email ne sort de la soirée. MODIFIER UN MODÈLE : Nouvelle campagne → vignette du modèle → « Modifier le design » : il s'ouvre dans le studio (écran Studio seul) et s'enregistre tout seul ; depuis la relance après clic, « Modifier ce modèle dans le studio » y mène directement.",
+  },
+  "email-event-block": {
+    title: "Annoncer une soirée dans un email",
+    keywords: ["bloc événement", "bloc evenement", "bloc soirée", "bloc soiree", "carte événement", "carte soirée", "annoncer une soirée", "annonce", "event block", "bloque evento", "mise en page du bloc soirée", "côte à côte", "cote a cote", "affiche à gauche", "affiche en grand", "flyer vertical", "fiche de la soirée", "date lieu tarif", "afficher le prix", "afficher le lieu", "aligner le texte", "centrer le titre", "sur-titre", "accroche", "arguments", "note", "vitrine", "bandeau", "épuré", "epure"],
+    path: "/owner/campaigns",
+    snippet: "Le bloc « Événement » de l'Email Studio se règle exactement comme le bloc Table VIP : les deux partagent la même carte. Relié à une soirée, il lit la base AU MOMENT DE L'ENVOI — vrai titre, vraie date, vraie affiche, vrai prix d'appel — donc une soirée retouchée la veille part corrigée sans qu'on rouvre l'email. QUATRE MISES EN PAGE : Vitrine (l'affiche en grand au-dessus du texte, c'est l'annonce) ; CÔTE À CÔTE (l'affiche à gauche, le texte à droite — c'est celle à prendre quand le flyer est VERTICAL, sinon il mange tout l'écran d'un téléphone avant qu'on lise la date ; sur mobile l'affiche repasse au-dessus toute seule, et sans affiche le bloc retombe sur une seule colonne) ; Bandeau (relance en trois lignes) ; Épuré (sans cadre, pour un email qui porte déjà sa mise en page ailleurs). LA FICHE — date, lieu, tarif — a trois formes : « Lignes » met la date en avant et laisse le reste dessous ; « Une ligne » range tout sur une seule ligne, ce qu'il faut pour une relance courte ; « Tableau » aligne un libellé à gauche et sa valeur à droite, comme les formules d'une table — c'est la forme qui se lit au pouce sans rien chercher, et le tarif y prend la couleur d'accent. Le lieu et le tarif ont chacun leur interrupteur. En Bandeau la fiche tient TOUJOURS sur une ligne, et en Côte à côte le tableau repasse en lignes : une demi-colonne ne porte pas deux colonnes de plus. ALIGNEMENT gauche / centre / droite : il suit le sur-titre, le titre, l'accroche, les arguments, la note et le bouton ; la fiche en tableau garde toujours sa lecture à deux colonnes, une date centrée dans un tableau ne s'alignant plus sur rien. Autres réglages, les mêmes que la Table VIP : SUR-TITRE (laissé vide il n'y en a pas — sers-t'en pour une série, « Résidence », « Closing »), ACCROCHE sous le titre, ARGUMENTS à coche (line-up, dress code, coupe-file), PLACE DE L'AFFICHE avant ou après le texte, LIBELLÉ et pleine largeur du BOUTON, NOTE DE RÉASSURANCE, COULEUR D'ACCENT. Le TITRE vient de la soirée reliée, on ne le retape pas ; tant qu'aucune soirée n'est choisie, un dernier volet laisse écrire titre, date, lieu et poser une affiche pour composer avant de choisir. Un modèle enregistré n'emporte jamais l'affiche ni le lien d'une soirée précise : celle de septembre ne peut pas partir sur la soirée d'octobre.",
   },
   "email-vip-table-block": {
     title: "Vendre les tables VIP dans un email",
@@ -1769,10 +1776,11 @@ const CONTENT_SCHEMA = {
 
 async function handleGenerateContent(
   body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string },
+  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
+  const handlerStart = Date.now();
 
   const channel = String(body.channel || "");
   if (!CHANNEL_RULES[channel]) {
@@ -1846,7 +1854,9 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
     }),
   });
 
+  const contentUsage: AiUsageEvent = { ...(ctx.usage ?? { assistant: 'owner', model: CONTENT_MODEL, userId, venueId }), assistant: 'owner_content', model: CONTENT_MODEL, promptPreview: `${channel}${eventId ? ' · event' : ''}${tone ? ` · ${tone}` : ''}` };
   if (!aiResponse.ok) {
+    logAiUsage(supabase, { ...contentUsage, status: aiResponse.status === 429 ? 'rate_limited' : 'error', error: `openai ${aiResponse.status}`, latencyMs: Date.now() - handlerStart });
     if (aiResponse.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
     }
@@ -1856,6 +1866,7 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
   }
 
   const aiData = await aiResponse.json();
+  logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
   let parsed: any = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch { /* empty */ }
   const limits = CHANNEL_LIMITS[channel];
@@ -1936,10 +1947,11 @@ async function sha256Hex(input: string): Promise<string> {
 
 async function handleGenerateNightReport(
   body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string },
+  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
+  const handlerStart = Date.now();
 
   const eventId = typeof body.eventId === "string" ? body.eventId : null;
   const language = ["en", "fr", "es"].includes(body.language) ? body.language : "en";
@@ -2003,7 +2015,9 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
     }),
   });
 
+  const reportUsage: AiUsageEvent = { ...(ctx.usage ?? { assistant: 'owner', model: REPORT_MODEL, userId, venueId }), assistant: 'owner_report', model: REPORT_MODEL, language, promptPreview: `night report · ${eventId}` };
   if (!aiResponse.ok) {
+    logAiUsage(supabase, { ...reportUsage, status: aiResponse.status === 429 ? 'rate_limited' : 'error', error: `openai ${aiResponse.status}`, latencyMs: Date.now() - handlerStart });
     if (aiResponse.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
     }
@@ -2013,6 +2027,7 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
   }
 
   const aiData = await aiResponse.json();
+  logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
   let report: any = null;
   try { report = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   if (!report?.headline || !Array.isArray(report?.insights) || !Array.isArray(report?.actions)) {
@@ -2089,10 +2104,11 @@ const NBA_SCHEMA = {
 
 async function handleNextBestActions(
   body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string },
+  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
+  const handlerStart = Date.now();
   const language = ["en", "fr", "es"].includes(body.language) ? body.language : "en";
   const today = new Date().toISOString().slice(0, 10);
 
@@ -2189,7 +2205,9 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
     }),
   });
 
+  const nbaUsage: AiUsageEvent = { ...(ctx.usage ?? { assistant: 'owner', model: ACTIONS_MODEL, userId, venueId }), assistant: 'owner_actions', model: ACTIONS_MODEL, language, promptPreview: `next best actions · ${today}` };
   if (!aiResponse.ok) {
+    logAiUsage(supabase, { ...nbaUsage, status: aiResponse.status === 429 ? 'rate_limited' : 'error', error: `openai ${aiResponse.status}`, latencyMs: Date.now() - handlerStart });
     if (aiResponse.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
     }
@@ -2199,6 +2217,7 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
   }
 
   const aiData = await aiResponse.json();
+  logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
   let parsed: any = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   const actions = (parsed?.actions || []).slice(0, 3)
@@ -2285,16 +2304,28 @@ serve(async (req) => {
     const venueId = venueData.id;
     const body = await req.json();
 
+    // Suivi de consommation IA (super admin) : identité de l'appel, complétée
+    // à la fin par les tokens, les tools appelés et la latence.
+    const startedAt = Date.now();
+    const usageBase: AiUsageEvent = {
+      assistant: 'owner',
+      model: OPENAI_MODEL,
+      userId: user.id,
+      userEmail: user.email ?? null,
+      venueId,
+      language: (req.headers.get("accept-language") || "").split(",")[0].slice(0, 2).toLowerCase() || null,
+    };
+
     // Actions structurées hors chat — même auth/rôle/venue que le chat,
     // mais réponse JSON directe sans boucle de tools.
     if (body?.action === "generate_marketing_content") {
-      return await handleGenerateContent(body, { supabase, venueId, userId: user.id });
+      return await handleGenerateContent(body, { supabase, venueId, userId: user.id, usage: usageBase });
     }
     if (body?.action === "generate_night_report") {
-      return await handleGenerateNightReport(body, { supabase, venueId, userId: user.id });
+      return await handleGenerateNightReport(body, { supabase, venueId, userId: user.id, usage: usageBase });
     }
     if (body?.action === "generate_next_best_actions") {
-      return await handleNextBestActions(body, { supabase, venueId, userId: user.id });
+      return await handleNextBestActions(body, { supabase, venueId, userId: user.id, usage: usageBase });
     }
 
     const { messages, venueContext } = body;
@@ -2352,6 +2383,14 @@ serve(async (req) => {
     ];
 
     const MAX_ROUNDS = 3;
+    const chatUsage: AiUsageEvent = {
+      ...usageBase,
+      turnCount: Array.isArray(messages) ? messages.length : null,
+      promptChars: systemPrompt.length + messagesChars(messages),
+      promptPreview: lastUserPrompt(messages),
+    };
+    const roundUsages: OpenAiUsage[] = [];
+    const calledTools: string[] = [];
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const roundResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -2368,6 +2407,10 @@ serve(async (req) => {
 
       if (!roundResponse.ok) {
         const status = roundResponse.status;
+        logAiUsage(supabase, {
+          ...chatUsage, ...sumUsage(...roundUsages), rounds: round + 1, toolCalls: calledTools,
+          status: status === 429 ? 'rate_limited' : 'error', error: `openai ${status}`, latencyMs: Date.now() - startedAt,
+        });
         if (status === 429) {
           return new Response(JSON.stringify({ error: "Rate limited" }), {
             status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -2379,12 +2422,17 @@ serve(async (req) => {
       }
 
       const roundResult = await roundResponse.json();
+      if (roundResult?.usage) roundUsages.push(roundResult.usage as OpenAiUsage);
       const choice = roundResult.choices?.[0];
 
       // No tool calls → use the content we already have (no redundant API call)
       if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
         const finalContent = choice?.message?.content || "";
         log("final_answer", { round, content_length: finalContent.length });
+        logAiUsage(supabase, {
+          ...chatUsage, ...sumUsage(...roundUsages), rounds: round + 1, toolCalls: calledTools,
+          completionChars: finalContent.length, latencyMs: Date.now() - startedAt,
+        });
 
         // Format as SSE manually from the already-obtained content
         const ssePayload = `data: ${JSON.stringify({ choices: [{ delta: { content: finalContent } }] })}\n\ndata: [DONE]\n\n`;
@@ -2396,6 +2444,7 @@ serve(async (req) => {
       // Execute tool calls
       const toolCalls = choice.message.tool_calls;
       log("tool_calls", { round, tools: toolCalls.map((tc: any) => tc.function.name) });
+      for (const tc of toolCalls) if (tc?.function?.name) calledTools.push(String(tc.function.name));
 
       // Add assistant message with tool calls
       conversationMessages.push(choice.message);
@@ -2459,12 +2508,22 @@ serve(async (req) => {
         model: OPENAI_MODEL,
         messages: conversationMessages,
         stream: true,
+        stream_options: { include_usage: true },
       }),
     });
 
-    if (!finalStream.ok) throw new Error("Final stream error");
+    if (!finalStream.ok) {
+      logAiUsage(supabase, {
+        ...chatUsage, ...sumUsage(...roundUsages), rounds: MAX_ROUNDS + 1, toolCalls: calledTools,
+        status: 'error', error: `openai final ${finalStream.status}`, latencyMs: Date.now() - startedAt,
+      });
+      throw new Error("Final stream error");
+    }
 
-    return new Response(finalStream.body, {
+    const trackedBody = trackOpenAiStream(finalStream.body, supabase,
+      { ...chatUsage, rounds: MAX_ROUNDS + 1, toolCalls: calledTools },
+      { startedAt, priorUsage: sumUsage(...roundUsages) });
+    return new Response(trackedBody, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
 
