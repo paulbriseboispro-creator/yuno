@@ -147,6 +147,16 @@ code sont décorrélés exprès.
      └─ sweepSendingCampaigns()  ← filet : réservations mortes + relance
 ```
 
+### L'heure de Paris se lit par formatToParts (2026-09-10)
+
+`Number(new Intl.DateTimeFormat('fr-FR', { hour: 'numeric' }).format(d))`
+vaut NaN : en français, `format()` rend « 23 h ». NaN n'est ni ≥ 23 ni < 9,
+donc « Pas d'envoi la nuit » n'a jamais coupé un seul envoi email avant le
+2026-09-10 (une campagne a envoyé à 23 h et à 1 h). Lire l'heure comme
+`isQuietHoursParis` de push-automations : `formatToParts` en `en-GB`,
+`parseInt`, 24 → 0. Toute nouvelle porte horaire côté edge copie
+`parisHour()` de send-campaign.
+
 ### Une adresse inexpédiable ne bloque jamais un lot (2026-09-10)
 
 Resend refuse tout le lot (422 « non-ASCII characters ») dès qu'une adresse

@@ -127,10 +127,20 @@ async function sendBatchIsolating(
 const QUIET_START_HOUR = 23;
 const QUIET_END_HOUR = 9;
 
+// L'heure se lit par formatToParts, JAMAIS par Number(format()) : en fr-FR,
+// format() rend « 23 h », Number(« 23 h ») vaut NaN, et NaN n'est ni ≥ 23 ni
+// < 9 — la nuit n'était jamais détectée. Vu en prod le 2026-09-10 : une
+// campagne « pas d'envoi la nuit » a envoyé à 23 h et à 1 h.
+function parisHour(now: Date): number {
+  const part = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', hour12: false, timeZone: 'Europe/Paris',
+  }).formatToParts(now).find((p) => p.type === 'hour')?.value ?? '12';
+  const hour = parseInt(part, 10);
+  return hour === 24 ? 0 : hour;
+}
+
 function inQuietHours(now: Date = new Date()): boolean {
-  const hour = Number(new Intl.DateTimeFormat('fr-FR', {
-    hour: 'numeric', hour12: false, timeZone: 'Europe/Paris',
-  }).format(now));
+  const hour = parisHour(now);
   return hour >= QUIET_START_HOUR || hour < QUIET_END_HOUR;
 }
 

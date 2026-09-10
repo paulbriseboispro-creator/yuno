@@ -812,6 +812,11 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
   `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
   conditionnels masqués). Les envois de TEST rendent tout (`ignoreConds`).
+- **L'heure de Paris se lit par `formatToParts`, jamais par `Number(format())`**
+  (2026-09-10) : en `fr-FR`, `format()` rend « 23 h » → NaN → aucune heure
+  calme détectée, la campagne envoyait à 1 h du matin. Copier `parisHour()`
+  de `send-campaign` (`en-GB`, `formatToParts`, 24 → 0), comme
+  `isQuietHoursParis` des push.
 - **Quiet hours (23 h → 9 h Paris) et throttling par heure glissante** sont
   des portes de sortie propres de `drainSlice` (comme le quota) : le cron
   reprend, ce ne sont jamais des échecs. Fenêtre A/B par défaut : 4 h.
