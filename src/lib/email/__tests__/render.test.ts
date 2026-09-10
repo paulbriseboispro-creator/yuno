@@ -13,7 +13,7 @@ import {
   buildTablePackRows, buildTableZoneRows, tablePackSubtitle, tablePackPrice, tablesLeftLabel,
   eventSelectionUrl,
 } from '../index';
-import type { EmailBlock, RenderCtx } from '../types';
+import type { EmailBlock, EventBlock, RenderCtx } from '../types';
 
 const theme = DEFAULT_STUDIO_THEME;
 
@@ -1225,5 +1225,83 @@ describe("modèles d'email", () => {
     const tickets = stripEventBindings([makeBlock('tickets')])[0];
     const html = renderBlock(tickets, theme, { ...ctx, live: {} });
     expect(html).toContain('Early bird');
+  });
+});
+
+describe('bloc Soirée — mises en page, alignement, fiche', () => {
+  const ev = (patch: Partial<EventBlock> = {}): EmailBlock => {
+    const b = makeBlock('event', { eventId: 'ev-1' }) as EventBlock;
+    return { ...b, ...patch } as EmailBlock;
+  };
+
+  it('fiche en tableau : un libellé par ligne, le tarif en accent', () => {
+    const html = renderOne(ev({ metaDisplay: 'rows' }));
+    expect(html).toContain('Date');
+    expect(html).toContain('Lieu');
+    expect(html).toContain('Tarif');
+    expect(html).toContain('Jeudi 3 sept · 23:30');
+    expect(html).toContain('À partir de 18 €');
+  });
+
+  it('le lieu et le tarif s’éteignent par leur interrupteur', () => {
+    const html = renderOne(ev({ metaDisplay: 'rows', venue: false, price: false }));
+    expect(html).toContain('Jeudi 3 sept · 23:30');
+    expect(html).not.toContain('Le Silo — Bordeaux');
+    expect(html).not.toContain('À partir de 18 €');
+  });
+
+  it('fiche sur une ligne : tout se suit, jamais de tableau', () => {
+    const html = renderOne(ev({ metaDisplay: 'inline' }));
+    expect(html).toContain('&middot;');
+    expect(html).not.toContain('Tarif');
+    expect(html).toContain('À partir de 18 €');
+  });
+
+  it('l’alignement suit le kicker, le titre, l’accroche, la note et le bouton', () => {
+    const html = renderOne(ev({
+      align: 'center', metaDisplay: 'stack', kicker: 'Closing',
+      sub: 'Trois salles, une nuit.', note: 'Plus de 18 ans',
+    }));
+    expect((html.match(/text-align:center/g) || []).length).toBeGreaterThanOrEqual(5);
+    expect(html).toContain('Closing');
+    expect(html).toContain('Trois salles, une nuit.');
+  });
+
+  it('côte à côte : deux cellules empilables, l’affiche à gauche', () => {
+    const html = renderOne(ev({ layout: 'split' }));
+    expect(html).toContain('yn-col');
+    expect(html).toContain('width="40%"');
+    expect(html).toContain('width="60%"');
+    // Une demi-colonne ne porte pas un tableau de fiche en plus : elle repasse
+    // en lignes, même quand le pro avait choisi le tableau.
+    const rows = renderOne(ev({ layout: 'split', metaDisplay: 'rows' }));
+    expect(rows).not.toContain('Tarif');
+  });
+
+  it('côte à côte SANS affiche : une seule colonne, jamais un vide à gauche', () => {
+    const html = renderOne(ev({ layout: 'split', cover: false }));
+    expect(html).not.toContain('width="40%"');
+  });
+
+  it('bandeau : la fiche tient sur une ligne quoi qu’ait choisi le pro', () => {
+    const html = renderOne(ev({ layout: 'banner', metaDisplay: 'rows' }));
+    expect(html).not.toContain('Tarif');
+    expect(html).toContain('&middot;');
+  });
+
+  it('épuré : aucun cadre autour de la carte', () => {
+    const html = renderOne(ev({ layout: 'minimal' }));
+    expect(html).not.toContain('border-radius:14px');
+  });
+
+  it('l’affiche coupée ne part pas, même reliée à une soirée', () => {
+    expect(renderOne(ev({ cover: true }))).toContain('cdn.example.com/cover.jpg');
+    expect(renderOne(ev({ cover: false }))).not.toContain('cdn.example.com/cover.jpg');
+  });
+
+  it('les arguments portent une coche accent, comme le bloc Table VIP', () => {
+    const html = renderOne(ev({ perks: ['Coupe-file avant 00h30'] }));
+    expect(html).toContain('Coupe-file avant 00h30');
+    expect(html).toContain('&#10003;');
   });
 });
