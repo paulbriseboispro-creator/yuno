@@ -76,8 +76,10 @@ describe('computeThrottlePlan', () => {
   });
 
   it('plafond du jour : la journée est coupée, le reste part le lendemain', () => {
+    // `dayUsed` compte sur le jour RÉEL : le départ doit être aujourd'hui.
+    const today = new Date(); today.setHours(10, 0, 0, 0);
     const r = computeThrottlePlan({
-      total: 1000, start: at(10, 0), mode: 'day', days: 2, quietHours: true, dayCap: 300, dayUsed: 50,
+      total: 1000, start: today, mode: 'day', days: 2, quietHours: true, dayCap: 300, dayUsed: 50,
     });
     expect(r.days[0].count).toBe(250);
     expect(r.days[1].count).toBe(300);

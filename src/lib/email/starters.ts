@@ -12,7 +12,7 @@ import { DEFAULT_STUDIO_THEME } from './themes';
 import type { TemplateContent } from './templates';
 import type { EmailBlock, EmailTheme } from './types';
 
-export type StarterKey = 'invitation' | 'last_call' | 'vip_tables' | 'announcement';
+export type StarterKey = 'invitation' | 'last_call' | 'vip_tables' | 'announcement' | 'click_followup';
 
 export interface StarterMeta {
   key: StarterKey;
@@ -25,7 +25,11 @@ export const STARTER_TEMPLATES: readonly StarterMeta[] = [
   { key: 'last_call', nameKey: 'studio.starter.last_call.name', descKey: 'studio.starter.last_call.desc' },
   { key: 'vip_tables', nameKey: 'studio.starter.vip_tables.name', descKey: 'studio.starter.vip_tables.desc' },
   { key: 'announcement', nameKey: 'studio.starter.announcement.name', descKey: 'studio.starter.announcement.desc' },
+  { key: 'click_followup', nameKey: 'studio.starter.click_followup.name', descKey: 'studio.starter.click_followup.desc' },
 ];
+
+/** Nom donné au modèle quand l'écran Planification le crée d'un clic. */
+export const CLICK_FOLLOWUP_TEMPLATE_NAME_KEY = 'studio.starter.click_followup.name';
 
 export interface StarterCtx {
   venueName: string;
@@ -96,6 +100,29 @@ export function buildStarter(key: StarterKey, ctx: StarterCtx): TemplateContent 
             sub: k('tableSub'), ctaLabel: k('tableCta'),
             perks: [k('tablePerk1'), k('tablePerk2'), k('tablePerk3')],
             note: k('tableNote'),
+          }),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Relance après clic : le contact a regardé la soirée sans réserver. Le
+    // modèle se COMPOSE à l'envoi selon l'inventaire réel : billets restants
+    // (bloc Billetterie live, qui disparaît sans billetterie), tables VIP
+    // (bloc Table live), compte à rebours sur la vraie date. Ton direct,
+    // court : on ne re-présente pas la soirée, on lève la dernière hésitation.
+    case 'click_followup':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
+          block('countdown', venueName, { label: k('countdownLabel') }),
+          block('tickets', venueName, { live: true }),
+          block('table', venueName, {
+            cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
+            sub: k('tableSub'), ctaLabel: k('tableCta'), perks: [], note: '',
           }),
           block('divider', venueName),
           block('text', venueName, { body: k('t2'), size: 14 }),

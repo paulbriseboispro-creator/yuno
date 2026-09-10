@@ -9,6 +9,7 @@ import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
+import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
@@ -62,6 +63,15 @@ Deno.serve(async (req) => {
     // Envois de masse en cours : libérer les réservations mortes et relancer
     // une tranche. C'est le filet sous l'auto-chaînage de send-campaign — une
     // campagne interrompue reprend ici, au pire une minute plus tard.
+    // Relances après clic : les contacts dont la relance est due entrent dans
+    // la file de la campagne enfant AVANT le balayage, qui la reprend aussitôt.
+    let followups: unknown = null;
+    try {
+      followups = await dispatchCampaignFollowups(admin);
+    } catch (e) {
+      console.error('dispatchCampaignFollowups error:', e);
+    }
+
     let emailSweep: unknown = null;
     try {
       emailSweep = await sweepSendingCampaigns(admin, SUPABASE_URL, SERVICE_KEY);
@@ -220,7 +230,7 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, followups, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

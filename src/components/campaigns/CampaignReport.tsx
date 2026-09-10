@@ -63,6 +63,16 @@ type CampaignRow = {
 };
 
 interface AbStats { sent_a: number; sent_b: number; opens_a: number; opens_b: number; winner: string | null }
+
+interface FollowupStats {
+  parent_id: string;
+  parent_name: string;
+  is_child: boolean;
+  delay_hours: number;
+  queued: number;
+  skipped: Record<string, number>;
+  child: { id: string; name: string; status: string; sent: number; delivered: number; opens: number; clicks: number; unsubscribes: number } | null;
+}
 interface LinkStat { url: string; n: number }
 
 /** URL de clic → libellé lisible (référence campagne retirée, origine raccourcie). */
@@ -135,6 +145,15 @@ export default function CampaignReport({ scope, basePath }: Props) {
   const [tab, setTab] = useState<'performance' | 'design'>('performance');
   // Rechargement complet (attribution, liens, A/B) quand l'envoi se termine.
   const [reloadKey, setReloadKey] = useState(0);
+  // Relance après clic : bilan de la campagne mère, ou lien vers elle depuis l'enfant.
+  const [fu, setFu] = useState<FollowupStats | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    supabase.rpc('get_campaign_followup_stats' as never, { p_campaign_id: id } as never)
+      .then(({ data }) => { if (!cancelled) setFu(((data as unknown) as FollowupStats | null) || null); });
+    return () => { cancelled = true; };
+  }, [id, reloadKey]);
   const inFlight = campaign?.status === 'sending' || campaign?.status === 'paused';
 
   useEffect(() => {
@@ -373,6 +392,54 @@ export default function CampaignReport({ scope, basePath }: Props) {
             {(campaign.status === 'sending' || campaign.status === 'paused') && (
               <div className="mb-5">
                 <CampaignSendProgress campaignId={campaign.id} />
+              </div>
+            )}
+
+            {/* Relance après clic : bilan (mère) ou rattachement (enfant). */}
+            {fu && (
+              <div className="mb-5" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px 16px' }}>
+                {fu.is_child ? (
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <span style={{ color: T2, fontSize: 13 }}>
+                      {t('em.report.fu.childOf').replace('{name}', fu.parent_name)}
+                    </span>
+                    <button
+                      type="button" onClick={() => navigate(`${basePath}/${fu.parent_id}/report`)}
+                      className="cursor-pointer" style={{ color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none' }}
+                    >{t('em.report.fu.openParent')} →</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                      <div>
+                        <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('em.report.fu.title')}</div>
+                        <div style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('em.report.fu.sub').replace('{h}', String(fu.delay_hours))}</div>
+                      </div>
+                      {fu.child && (
+                        <button
+                          type="button" onClick={() => navigate(`${basePath}/${fu.child!.id}/report`)}
+                          className="cursor-pointer" style={{ color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none' }}
+                        >{t('em.report.fu.open')} →</button>
+                      )}
+                    </div>
+                    {fu.child || fu.queued > 0 ? (
+                      <div className="flex flex-wrap gap-x-5 gap-y-1" style={{ color: T2, fontSize: 12.5 }}>
+                        <span><b style={{ color: T1 }}>{(fu.child?.sent || 0).toLocaleString()}</b> {t('em.report.fu.sent')}</span>
+                        <span><b style={{ color: T1 }}>{(fu.child?.opens || 0).toLocaleString()}</b> {t('em.report.fu.opens')}</span>
+                        <span><b style={{ color: T1 }}>{(fu.child?.clicks || 0).toLocaleString()}</b> {t('em.report.fu.clicks')}</span>
+                        {fu.queued > 0 && <span><b style={{ color: T1 }}>{fu.queued.toLocaleString()}</b> {t('em.report.fu.queued')}</span>}
+                      </div>
+                    ) : (
+                      <div style={{ color: T3, fontSize: 12 }}>{t('em.report.fu.none').replace('{h}', String(fu.delay_hours))}</div>
+                    )}
+                    {Object.keys(fu.skipped || {}).length > 0 && (
+                      <div style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>
+                        {t('em.report.fu.skipped')}
+                        {Object.entries(fu.skipped).map(([k, n]) => `${n} ${t(`em.report.fu.skip.${k}`)}`).join(' · ')}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

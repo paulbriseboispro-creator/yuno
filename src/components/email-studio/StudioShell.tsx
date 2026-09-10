@@ -65,6 +65,10 @@ interface CampaignRow {
   throttle_window_minutes: number | null;
   throttle_plan: unknown;
   quiet_hours: boolean | null;
+  followup_enabled: boolean | null;
+  followup_delay_hours: number | null;
+  followup_template_id: string | null;
+  parent_campaign_id: string | null;
 }
 
 /** Plan de lissage relu depuis la base ; forme inconnue ⇒ on repart de la proposition. */
@@ -118,6 +122,10 @@ function rowToCampaign(row: CampaignRow, venueName: string): StudioCampaign {
     throttleWindowMinutes: row.throttle_window_minutes === 15 ? 15 : 60,
     throttlePlan: normalizeThrottlePlan(row.throttle_plan),
     quietHours: !!row.quiet_hours,
+    followupEnabled: !!row.followup_enabled,
+    followupDelayHours: Math.min(168, Math.max(1, Math.floor(Number(row.followup_delay_hours) || 24))),
+    followupTemplateId: row.followup_template_id,
+    parentCampaignId: row.parent_campaign_id,
   };
 }
 
@@ -161,6 +169,11 @@ function campaignToRow(c: StudioCampaign, scope: StudioScope): Record<string, un
     throttle_window_minutes: c.throttlePerHour != null && c.throttleWindowMinutes === 15 ? 15 : 60,
     throttle_plan: c.throttlePerHour != null ? c.throttlePlan : null,
     quiet_hours: c.quietHours,
+    // La relance n'a de sens que pour une campagne marketing reliée à une
+    // soirée : sans soirée, le moteur n'a rien à surveiller.
+    followup_enabled: c.followupEnabled && c.type === 'promotional' && !!c.eventId,
+    followup_delay_hours: c.followupDelayHours,
+    followup_template_id: c.followupTemplateId,
   };
   if (scope.kind === 'venue') payload.segment_id = legacy.segment_id;
   return payload;

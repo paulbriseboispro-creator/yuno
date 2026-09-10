@@ -523,4 +523,12 @@ export interface StudioCampaign {
   /** Cadre choisi à l'écran — donnée d'affichage, jamais lue par le worker. */
   throttlePlan: ThrottlePlan | null;
   quietHours: boolean;
+  /** Relance ciblée après clic (campagne marketing reliée à une soirée). */
+  followupEnabled: boolean;
+  /** Délai entre le premier clic sur la soirée et la relance, en heures (1-168). */
+  followupDelayHours: number;
+  /** Modèle qui compose la relance ; sans modèle, rien ne part. */
+  followupTemplateId: string | null;
+  /** Campagne mère quand CETTE campagne est une relance (lecture seule). */
+  parentCampaignId: string | null;
 }

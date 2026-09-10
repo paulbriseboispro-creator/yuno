@@ -202,6 +202,28 @@ de suivre l'audience.
 
 ---
 
+### Relance ciblée après clic (2026-09-10)
+
+Option d'une campagne marketing reliée à une soirée : N heures (1-168, 24 par
+défaut) après le PREMIER clic d'un contact sur un lien de la soirée (`/l/…`,
+page soirée, billets, guest list ; ni Instagram, ni « Powered by Yuno », ni
+désinscription), un second email part depuis un modèle choisi par le pro.
+
+Mécanique : `collect_campaign_followups()` (cron 5 min, service_role) écrit
+le registre `email_campaign_followups` — une ligne par (campagne mère,
+email), raison d'exclusion posée AU MOMENT OÙ LA RELANCE EST DUE (`bought`,
+`guest_list`, `unsubscribed`, `suppressed`, `event_over`, `already_event`),
+index unique (soirée, email) sur les lignes en file : une relance par
+personne et par soirée, toutes campagnes confondues. Les contacts dus
+entrent dans la file d'une campagne ENFANT (`parent_campaign_id`, créée au
+premier contact dû depuis le modèle, `event_id` de la mère, `quiet_hours`
+de la mère, statut `sending`) que `sweepSendingCampaigns` reprend dans le
+même tick. L'enfant se vide et se remplit à chaque vague : le worker ne
+notifie pas l'owner pour un enfant, et la RPC le repasse en `sending` à
+chaque enqueue. Rapport : `get_campaign_followup_stats` (mère → bilan +
+lien enfant ; enfant → lien mère). Ne jamais purger le registre : c'est lui
+qui empêche la double relance.
+
 ## 3. Warm-up — la rampe
 
 Un expéditeur neuf ne part pas à 5 000. `email_sender_daily_cap()` :

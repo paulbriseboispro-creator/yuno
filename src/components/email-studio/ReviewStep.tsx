@@ -139,6 +139,8 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
                   .replace('{days}', String(campaign.throttlePlan?.days || 2))}`
                 : ''}
               {campaign.quietHours ? ` · ${t('studio.sched.quiet')}` : ''}
+              {campaign.followupEnabled && campaign.eventId && campaign.followupTemplateId
+                ? ` · ${t('studio.sched.fu.rev').replace('{h}', String(campaign.followupDelayHours))}` : ''}
             </RowValue>
           </div>
           <GhostBtn onClick={onEditContent} style={{ alignSelf: 'flex-start' }}>

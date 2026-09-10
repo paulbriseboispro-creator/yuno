@@ -933,6 +933,16 @@ intouchables :
   `email_opt_outs`**, ne jamais y poser de policy d'écriture. L'export d'une
   liste (`export_email_list`) ne rend que les actifs. Purge et export refusent
   la session support.
+- **Relance après clic = registre d'abord, jamais d'envoi direct** (migration
+  `20260910100000`). `collect_campaign_followups()` (cron 5 min) écrit
+  `email_campaign_followups` — une ligne par (campagne mère, email), raison
+  d'exclusion évaluée au moment où la relance est DUE, index unique (soirée,
+  email) sur les lignes en file — puis remplit la file d'une campagne ENFANT
+  (`parent_campaign_id`) montée depuis le modèle du pro. Toute nouvelle
+  exclusion se pose dans le CASE de cette RPC, pas dans le worker ; ne jamais
+  vider le registre (c'est lui qui interdit la double relance) ; ne jamais
+  résoudre une audience pour un enfant (sa file est remplie contact par
+  contact). Le worker ne notifie pas l'owner pour un enfant.
 - **Chaque fichier importé reste un segment d'audience.** La séparation vit
   dans `newsletter_subscriptions.import_id` (→ `email_list_imports`), exposée
   par le kind d'audience v2 `{"kind":"import","importId":"<uuid>"}` dans
