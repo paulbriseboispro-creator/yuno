@@ -136,7 +136,7 @@ interface RoundOption { id: string; name: string; maxTickets: number; ticketsSol
 interface ZoneOption  { id: string; name: string; tablesCount: number; }
 interface PackOption  { id: string; name: string; zoneId: string; }
 /** Une part de guest list (ou un genre d'une part genrée), déjà aplatie en « option » plafonnable. */
-interface GuestListOption { id: string; name: string; remaining: number; }
+interface GuestListOption { id: string; name: string; remaining: number; showRemaining: boolean; }
 type ItemType = 'ticket' | 'table' | 'guestlist';
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ export default function OwnerScarcity() {
     // billetterie). Remplissage via la RPC agrégée, comme le public.
     (async () => {
       const { data: parts } = await supabase.from('guest_lists')
-        .select('id, quota, quota_female, quota_male, holder_type, holder_label')
+        .select('id, quota, quota_female, quota_male, holder_type, holder_label, show_remaining')
         .eq('event_id', selectedEventId).eq('is_active', true);
       const rows = (parts || []).filter(p => p.quota !== null || (p.quota_female ?? 0) > 0 || (p.quota_male ?? 0) > 0);
       const fills = await Promise.all(rows.map(p => supabase.rpc('get_guest_list_public_fill', { _guest_list_id: p.id }).maybeSingle()));
@@ -212,11 +212,12 @@ export default function OwnerScarcity() {
         const fill = fills[i].data as { total_count: number; female_count: number; male_count: number } | null;
         const base = `${t('guestList.title')} · ${p.holder_label || t(`guestList.holderType.${p.holder_type}`)}`;
         const split = (p.quota_female ?? 0) > 0 || (p.quota_male ?? 0) > 0;
+        const showRemaining = p.show_remaining ?? true;
         if (split) {
-          if ((p.quota_female ?? 0) > 0) items.push({ id: `${p.id}:female`, name: `${base} ♀`, remaining: Math.max(0, (p.quota_female as number) - (fill?.female_count || 0)) });
-          if ((p.quota_male ?? 0) > 0) items.push({ id: `${p.id}:male`, name: `${base} ♂`, remaining: Math.max(0, (p.quota_male as number) - (fill?.male_count || 0)) });
+          if ((p.quota_female ?? 0) > 0) items.push({ id: `${p.id}:female`, name: `${base} ♀`, remaining: Math.max(0, (p.quota_female as number) - (fill?.female_count || 0)), showRemaining });
+          if ((p.quota_male ?? 0) > 0) items.push({ id: `${p.id}:male`, name: `${base} ♂`, remaining: Math.max(0, (p.quota_male as number) - (fill?.male_count || 0)), showRemaining });
         } else if (p.quota !== null) {
-          items.push({ id: p.id, name: base, remaining: Math.max(0, p.quota - (fill?.total_count || 0)) });
+          items.push({ id: p.id, name: base, remaining: Math.max(0, p.quota - (fill?.total_count || 0)), showRemaining });
         }
       });
       setGuestLists(items);
@@ -305,12 +306,15 @@ export default function OwnerScarcity() {
     return withEmoji ? `${opt.emoji} ${opt.label}` : opt.label;
   };
 
-  const allSellableItems: { id: string; name: string; type: ItemType; remaining: number }[] = [
-    ...rounds.map(r => ({ id: r.id, name: r.name, type: 'ticket' as const, remaining: r.maxTickets - r.ticketsSold })),
-    ...guestLists.map(g => ({ id: g.id, name: g.name, type: 'guestlist' as const, remaining: g.remaining })),
+  // `showRemaining` ne concerne que la guest list : c'est le drapeau de part
+  // (`guest_lists.show_remaining`). Coupé ET sans plafond saisi ici, le public
+  // n'affiche aucun chiffre — l'aperçu doit le dire au lieu de le promettre.
+  const allSellableItems: { id: string; name: string; type: ItemType; remaining: number; showRemaining: boolean }[] = [
+    ...rounds.map(r => ({ id: r.id, name: r.name, type: 'ticket' as const, remaining: r.maxTickets - r.ticketsSold, showRemaining: true })),
+    ...guestLists.map(g => ({ id: g.id, name: g.name, type: 'guestlist' as const, remaining: g.remaining, showRemaining: g.showRemaining })),
     ...zones.map(z => {
       const reserved = reservationsByZone[z.id] || 0;
-      return { id: z.id, name: z.name, type: 'table' as const, remaining: Math.max(0, z.tablesCount - reserved) };
+      return { id: z.id, name: z.name, type: 'table' as const, remaining: Math.max(0, z.tablesCount - reserved), showRemaining: true };
     }),
   ];
   const itemEmoji = (type: ItemType) => type === 'table' ? '🪑 ' : type === 'guestlist' ? '👥 ' : '🎟️ ';
@@ -573,10 +577,18 @@ export default function OwnerScarcity() {
                         {allSellableItems.length > 0 ? (
                           allSellableItems.map(item => {
                             const cap = settings.display_caps_per_round?.[item.id];
-                            const shown = settings.display_cap_enabled && cap ? Math.min(item.remaining, cap) : item.remaining;
+                            const capped = settings.display_cap_enabled && !!cap;
+                            const shown = capped ? Math.min(item.remaining, cap as number) : item.remaining;
+                            // Part de guest list au compteur coupé et sans plafond saisi :
+                            // le public ne verra aucun chiffre, l'aperçu le dit.
+                            const muted = !item.showRemaining && !capped;
                             return (
-                              <p key={item.id} className="tabular-nums" style={{ color: AMBER, fontSize: 12.5, fontWeight: 600 }}>
-                                {settings.emoji_enabled ? itemEmoji(item.type) : ''}{shown} {itemUnit(item.type)} — {item.name}
+                              <p key={item.id} className="tabular-nums" style={{ color: muted ? T3 : AMBER, fontSize: 12.5, fontWeight: 600 }}>
+                                {muted ? (
+                                  <>{item.name} — <span style={{ fontWeight: 500 }}>{t('scarcity.guestListMuted')}</span></>
+                                ) : (
+                                  <>{settings.emoji_enabled ? itemEmoji(item.type) : ''}{shown} {itemUnit(item.type)} — {item.name}</>
+                                )}
                               </p>
                             );
                           })

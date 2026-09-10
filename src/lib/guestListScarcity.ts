@@ -11,8 +11,11 @@ import type { ScarcitySettings } from '@/hooks/useScarcitySettings';
  *  • mode Rien    : aucun signal.
  * Sans réglage de rareté sur la soirée (aucune ligne), le compteur brut suit
  * `guest_lists.show_remaining`, comme avant. Ce drapeau de part reste la porte
- * du CHIFFRE : un compteur ne s'affiche jamais sur une part qui l'a coupé, le
- * badge (qui ne révèle rien) s'affiche partout.
+ * du CHIFFRE, à une exception près : un plafond SAISI pour cette part sur la
+ * page Rareté & FOMO (`display_caps_per_round`, plafonnage activé) est une
+ * instruction explicite d'afficher un nombre et prime sur `show_remaining` —
+ * sinon la page promet « 32 places restantes » dans son aperçu et le public
+ * n'affiche rien. Le badge (qui ne révèle rien) s'affiche partout.
  * Quota NULL = part illimitée : ni pleine, ni signal.
  */
 export const SCARCITY_LABELS: Record<string, { key: string; emoji: string }> = {
@@ -65,9 +68,12 @@ export function guestListScarcity(
   const counterMode = settings.show_remaining_count && !settings.low_stock_enabled;
   const badgeMode = settings.low_stock_enabled && !settings.show_remaining_count;
   if (counterMode) {
-    if (!gl.showRemaining) return none;
     const cap = settings.display_cap_enabled ? settings.display_caps_per_round?.[gl.capKey] : undefined;
-    return { ...none, counter: cap && cap > 0 ? Math.min(remaining, cap) : remaining };
+    const capped = typeof cap === 'number' && cap > 0;
+    // Le plafond saisi vaut opt-in explicite pour CETTE part : il ouvre le
+    // compteur même quand `show_remaining` est coupé.
+    if (!gl.showRemaining && !capped) return none;
+    return { ...none, counter: capped ? Math.min(remaining, cap as number) : remaining };
   }
   if (badgeMode) {
     const pct = gl.quota && gl.quota > 0 ? (gl.count / gl.quota) * 100 : null;
