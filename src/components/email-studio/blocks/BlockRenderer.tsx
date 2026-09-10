@@ -24,7 +24,7 @@ export default function BlockRenderer({ block, theme, ctx, mobile }: {
     case 'text': return <TextView block={block} theme={theme} />;
     case 'cta': return <CtaView block={block} theme={theme} />;
     case 'columns': return <ColumnsView block={block} theme={theme} mobile={mobile} />;
-    case 'event': return <EventView block={block} theme={theme} ctx={ctx} />;
+    case 'event': return <EventView block={block} theme={theme} ctx={ctx} mobile={mobile} />;
     case 'tickets': return <TicketsView block={block} theme={theme} ctx={ctx} />;
     case 'table': return <TableView block={block} theme={theme} ctx={ctx} />;
     case 'countdown': return <CountdownView block={block} theme={theme} ctx={ctx} />;

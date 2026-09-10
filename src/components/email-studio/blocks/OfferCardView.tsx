@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import type { EmailTheme, TableLayout } from '@/lib/email';
+import type { EmailTheme, OfferLayout } from '@/lib/email';
 import { mixHex } from '@/lib/email';
 import { EMAIL_FONT, EMAIL_MONO, emailBtnStyle, offerCardViewColors } from './common';
 
@@ -16,7 +16,7 @@ export interface OfferCardViewProps {
   pad: { px: number; py: number };
   /** Fond du bloc, déjà résolu par le canvas ('transparent' possible). */
   blockBg: string;
-  layout: TableLayout;
+  layout: OfferLayout;
   align: 'left' | 'center' | 'right';
   /** Accent BRUT (aplats : bouton, pastilles). */
   accent: string;
@@ -35,6 +35,14 @@ export interface OfferCardViewProps {
   note?: ReactNode;
   coverUrl?: string;
   coverPos?: 'top' | 'bottom';
+  /**
+   * Repli de l'affiche quand le bloc n'en a pas encore : le canvas montre un
+   * placeholder hachuré là où l'email n'affichera rien. C'est une affordance
+   * d'édition, jamais quelque chose qui part.
+   */
+  coverFallback?: ReactNode;
+  /** Aperçu téléphone : le côte à côte s'empile, comme sous 620 px en email. */
+  mobile?: boolean;
 }
 
 export default function OfferCardView(p: OfferCardViewProps) {
@@ -42,18 +50,21 @@ export default function OfferCardView(p: OfferCardViewProps) {
   const c = offerCardViewColors(accent, theme, layout, p.blockBg);
   const perks = p.perks || [];
   const coverAtTop = (p.coverPos || 'top') === 'top';
-  const titleSize = layout === 'banner' ? 24 : 22;
+  const titleSize = layout === 'banner' ? 24 : layout === 'split' ? 19 : 22;
 
   const coverEl = p.coverUrl ? (
     <img src={p.coverUrl} alt="" style={{
       display: 'block', width: '100%', height: 'auto',
-      borderRadius: layout === 'minimal' ? 12 : undefined,
+      borderRadius: (layout === 'minimal' || layout === 'split') ? 12 : undefined,
     }} />
-  ) : null;
+  ) : p.coverFallback ?? null;
+  // Côte à côte SANS affiche : une seule colonne, comme le rendu email — on
+  // n'ouvre pas une demi-largeur vide.
+  const split = layout === 'split' && !!coverEl;
 
   const body = (
     <>
-      {coverEl && coverAtTop && layout === 'minimal' && <div style={{ marginBottom: 16 }}>{coverEl}</div>}
+      {coverEl && coverAtTop && !split && layout === 'minimal' && <div style={{ marginBottom: 16 }}>{coverEl}</div>}
       {(p.kicker || p.chip) && (
         <div style={{ marginBottom: layout === 'minimal' ? 9 : 11, textAlign: align }}>
           {p.kicker && (
@@ -97,7 +108,7 @@ export default function OfferCardView(p: OfferCardViewProps) {
           background: c.baseCard, marginBottom: 18, overflow: 'hidden',
         }}>{p.rows}</div>
       )}
-      {coverEl && !coverAtTop && <div style={{ marginBottom: 18 }}>{coverEl}</div>}
+      {coverEl && !coverAtTop && !split && <div style={{ marginBottom: 18 }}>{coverEl}</div>}
       {p.ctaLabel && (
         <div style={{ textAlign: align }}>
           <span style={{
@@ -115,8 +126,17 @@ export default function OfferCardView(p: OfferCardViewProps) {
     </>
   );
 
+  // Les deux cellules s'empilent sur l'aperçu téléphone, exactement comme
+  // `.yn-col` le fait sous 620 px dans l'email.
+  const laid = split ? (
+    <div style={{ display: 'flex', flexDirection: p.mobile ? 'column' : 'row', gap: 16, alignItems: 'flex-start' }}>
+      <div style={{ flex: p.mobile ? undefined : '0 0 40%', width: p.mobile ? '100%' : undefined }}>{coverEl}</div>
+      <div style={{ flex: '1 1 auto', minWidth: 0, width: p.mobile ? '100%' : undefined }}>{body}</div>
+    </div>
+  ) : body;
+
   if (layout === 'minimal') {
-    return <div style={{ padding: `${pad.py}px ${pad.px}px` }}>{body}</div>;
+    return <div style={{ padding: `${pad.py}px ${pad.px}px` }}>{laid}</div>;
   }
 
   const bannerBg = mixHex(accent, c.baseCard, theme.dark ? 0.18 : 0.10);
@@ -129,8 +149,8 @@ export default function OfferCardView(p: OfferCardViewProps) {
   return (
     <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
       <div style={shell}>
-        {coverEl && coverAtTop && coverEl}
-        <div style={{ padding: layout === 'banner' ? '26px 24px' : '22px 20px' }}>{body}</div>
+        {coverEl && coverAtTop && !split && coverEl}
+        <div style={{ padding: layout === 'banner' ? '26px 24px' : layout === 'split' ? '18px' : '22px 20px' }}>{laid}</div>
       </div>
     </div>
   );

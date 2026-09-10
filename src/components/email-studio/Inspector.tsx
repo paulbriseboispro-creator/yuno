@@ -668,6 +668,27 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
           </PanelCard>
 
           <PanelCard>
+            <MicroLabel>{t('studio.inspector.eventCover')}</MicroLabel>
+            <ToggleRow checked={b.cover} onChange={(v) => patch({ cover: v })} label={t('studio.inspector.showCover')} />
+            {b.cover && !evCoverPosLocked && (
+              <>
+                <MicroLabel>{t('studio.inspector.tableCoverPos')}</MicroLabel>
+                <OptionPills
+                  value={b.coverPos || 'top'}
+                  ariaLabel={t('studio.inspector.tableCoverPos')}
+                  options={[
+                    { value: 'top', label: t('studio.inspector.eventCoverAboveText') },
+                    { value: 'bottom', label: t('studio.inspector.eventCoverBelowText') },
+                  ]}
+                  onChange={(v) => patch({ coverPos: v })}
+                />
+                <Help>{t('studio.inspector.eventCoverPosHelp')}</Help>
+              </>
+            )}
+            {b.cover && evCoverPosLocked && <Help>{t('studio.inspector.eventCoverSplit')}</Help>}
+          </PanelCard>
+
+          <PanelCard>
             <MicroLabel>{t('studio.inspector.tableKicker')}</MicroLabel>
             <TextInput
               value={b.kicker ?? ''}
@@ -703,26 +724,6 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
 
           <PanelCard>
             <PerksEditor perks={b.perks || []} onChange={(next) => patch({ perks: next })} />
-          </PanelCard>
-
-          <PanelCard>
-            <MicroLabel>{t('studio.inspector.display')}</MicroLabel>
-            <ToggleRow checked={b.cover} onChange={(v) => patch({ cover: v })} label={t('studio.inspector.showCover')} />
-            {b.cover && !evCoverPosLocked && (
-              <>
-                <MicroLabel>{t('studio.inspector.tableCoverPos')}</MicroLabel>
-                <OptionPills
-                  value={b.coverPos || 'top'}
-                  ariaLabel={t('studio.inspector.tableCoverPos')}
-                  options={[
-                    { value: 'top', label: t('studio.inspector.tableCoverTop') },
-                    { value: 'bottom', label: t('studio.inspector.tableCoverBottom') },
-                  ]}
-                  onChange={(v) => patch({ coverPos: v })}
-                />
-              </>
-            )}
-            {b.cover && evCoverPosLocked && <Help>{t('studio.inspector.eventCoverSplit')}</Help>}
           </PanelCard>
 
           <PanelCard>

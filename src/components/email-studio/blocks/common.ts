@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { EmailBlock, EmailTheme, LiveData, LiveEventData, SocialLinks, TableLayout } from '@/lib/email';
+import type { EmailBlock, EmailTheme, LiveData, LiveEventData, OfferLayout, SocialLinks } from '@/lib/email';
 import { blockPadDefaults, isHexColor, mixHex, readableOn } from '@/lib/email';
 
 /** Contexte de rendu du canvas (aperçu d'édition, PAS l'email final). */
@@ -95,7 +95,7 @@ export function emailBtnStyle(theme: EmailTheme, opts: { radius?: number; full?:
 }
 
 /** Teintes de la carte — miroir de offerCardColors. */
-export function offerCardViewColors(accent: string, theme: EmailTheme, layout: TableLayout, blockBg: string) {
+export function offerCardViewColors(accent: string, theme: EmailTheme, layout: OfferLayout, blockBg: string) {
   const baseCard = theme.dark ? theme.tile : '#ffffff';
   const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
   const onBg = blockBg && blockBg !== 'transparent' ? blockBg : theme.card;
