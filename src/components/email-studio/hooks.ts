@@ -4,7 +4,7 @@ import type {
   EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
 } from '@/lib/email';
 import {
-  buildEntryRows, buildTablePackRows, buildTableZoneRows, formatEuro, pickPublicGuestList,
+  buildEntryRows, buildGuestListLive, buildTablePackRows, buildTableZoneRows, formatEuro, pickPublicGuestList,
   priceFromLabel, rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES,
   type GuestListOffer, type TablePackOffer, type TableZoneOffer,
 } from '@/lib/email';
@@ -92,12 +92,24 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           .in('event_id', wanted)
           .order('position', { ascending: true }),
         supabase.from('guest_lists')
-          .select('event_id,holder_type,free_before_time,includes_drink')
+          .select('id,event_id,holder_type,free_before_time,includes_drink,quota,show_remaining,created_at')
           .in('event_id', wanted)
           .eq('is_active', true)
-          .eq('visible_on_club_page', true),
+          .eq('visible_on_club_page', true)
+          .order('created_at', { ascending: true }),
       ]);
       if (cancelled || !events) return;
+      // Inscrits par part : les places restantes du bloc Liste invités (si le
+      // pro les affiche). Une part publique dépasse rarement quelques centaines.
+      const glIds = ((guestLists || []) as { id: string }[]).map((g) => g.id);
+      const { data: glEntries } = glIds.length
+        ? await supabase.from('guest_list_entries').select('guest_list_id').in('guest_list_id', glIds)
+        : { data: [] as { guest_list_id: string }[] };
+      if (cancelled) return;
+      const entriesByList = new Map<string, number>();
+      for (const en of (glEntries || []) as { guest_list_id: string }[]) {
+        entriesByList.set(en.guest_list_id, (entriesByList.get(en.guest_list_id) || 0) + 1);
+      }
 
       const venueIds = [...new Set(events.map((e) => (e as { venue_id?: string | null; partner_venue_id?: string | null }).venue_id
         || (e as { partner_venue_id?: string | null }).partner_venue_id).filter(Boolean))] as string[];
@@ -191,6 +203,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           ((guestLists || []) as (GuestListOffer & { event_id: string })[]).filter((g) => g.event_id === e.id),
         );
         const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
+        const guestListLive = buildGuestListLive(guestList, guestList?.id ? (entriesByList.get(guestList.id) || 0) : 0);
         const venueName = venue?.name || e.location_name || '';
         const city = venue?.city || e.location_city || '';
 
@@ -206,6 +219,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           // s'efface), undefined = « données pas encore résolues » (fallback).
           tickets,
           guestListOnly,
+          guestList: guestListLive,
           ...tableLiveFor(e.id, e.venue_id || e.partner_venue_id || null),
         };
       }

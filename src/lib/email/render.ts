@@ -13,16 +13,19 @@
 // copie de ce fichier. Toute modification ici doit y être répercutée.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { GUEST_LIST_ROW_ID } from './types';
 import type {
   BlockCond, EmailBlock, EmailTheme, RenderCtx, SocialLinks, TicketRow,
   HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock,
   TicketsBlock, TableBlock, TablePackRow, TableLayout, CountdownBlock, SpacerBlock,
   HtmlBlock, DividerBlock,
+  GuestListBlock,
 } from './types';
 import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import {
   isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
   ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
+  GUEST_LIST_CTA_LABEL, GUEST_LIST_KICKER, GUEST_LIST_PRICE, guestListSummary,
 } from './live';
 import { interpolateVariables } from './variables';
 
@@ -53,9 +56,16 @@ function wordmarkSrc(theme: EmailTheme, baseUrl: string): string {
   return `${baseUrl}/yuno-wordmark${darkFooter ? '' : '-dark'}.png`;
 }
 
+/**
+ * La signature Yuno du pied de page. Son lien reste sur la SOIRÉE de la
+ * campagne quand il y en a une : dans l'email WOH, « Powered by Yuno »
+ * envoyait 85 lecteurs sur l'accueil Yuno (donc Explore Paris) au lieu de
+ * la soirée du pro. Sans soirée, il mène au site Yuno.
+ */
 function poweredBy(theme: EmailTheme, ctx: RenderCtx): string {
   if (ctx.hideBranding) return '';
-  const href = 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
+  const firstLive = ctx.live ? Object.values(ctx.live)[0] : undefined;
+  const href = firstLive?.trackedUrl || firstLive?.url || 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
   return `<a href="${href}" target="_blank" rel="noreferrer" style="display:inline-block;margin:18px 0 0;text-decoration:none;">
       <span style="display:block;font-family:${MONO};font-size:9.5px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;color:${theme.footerText};">POWERED BY</span>
       <img src="${wordmarkSrc(theme, ctx.baseUrl)}" width="41" height="14" alt="Yuno" style="display:block;margin:5px auto 0;width:41px;height:14px;border:0;" />
@@ -378,16 +388,12 @@ function renderTickets(b: TicketsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   const rows = hidden.length ? all.filter((r) => !r.id || !hidden.includes(r.id)) : all;
   if (rows.length === 0) return '';
 
-  const guestListOnly = !!b.live && live?.guestListOnly;
-  // Liste invités seule : le lien de la PART ouvre le formulaire avec son token
-  // et son `tl=`, donc l'inscription se compte sur le canal de la campagne.
-  // Sinon on reste sur la page de la soirée, où le `tl=` attribue les ventes.
-  // Liste invités seule : le lien de la PART ouvre déjà le formulaire, il est
-  // donc déjà « la sélection ». Sinon on vise la page de choix des tranches.
-  const entry = guestListOnly ? live?.entryTrackedUrl : null;
-  const tracked = !entry && !!live?.trackedUrl;
-  const base = entry || live?.trackedUrl || live?.url || ctx.baseUrl;
-  const url = entry ? base : eventSelectionUrl(base, tracked);
+  // Billets seulement : le bouton mène à la page de choix des tranches, avec
+  // le `tl=` du canal. La liste invités a son propre bloc (renderGuestList).
+  const guestListOnly = false;
+  const tracked = !!live?.trackedUrl;
+  const base = live?.trackedUrl || live?.url || ctx.baseUrl;
+  const url = eventSelectionUrl(base, tracked);
   const btnColors = ctaColors(b.accent, theme);
   const accent = btnColors.bg;
   const layout = b.layout || 'showcase';
@@ -688,16 +694,54 @@ export function offerCard(o: OfferCardOpts): string {
   );
 }
 
+/**
+ * Bloc Liste invités : la part publique de la soirée, et un bouton qui ouvre
+ * le formulaire de la part (écran « lien privé », token + `tl=` du canal).
+ * Sans part publique résolue, le bloc s'efface — il ne promet jamais une
+ * entrée gratuite que la page ne propose pas.
+ */
+function renderGuestList(b: GuestListBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
+  const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
+  if (live && live.guestList === null) return '';
+  const gl = live?.guestList;
+  const url = live?.entryTrackedUrl || (live?.url ? `${live.url}/guestlist` : ctx.baseUrl);
+  const btnColors = ctaColors(b.accent, theme);
+  const accent = btnColors.bg;
+  const layout = b.layout || 'showcase';
+  const align = b.align || 'left';
+  const c = offerCardColors(accent, theme, layout, bg);
+  const row: TicketRow = {
+    id: GUEST_LIST_ROW_ID, n: 'Liste invités',
+    s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: gl?.remaining === 0,
+  };
+  return offerCard({
+    theme, ctx, pad, bg, layout, align, accent,
+    kicker: b.kicker ?? GUEST_LIST_KICKER,
+    title: b.title || '',
+    sub: b.sub || '',
+    perks: b.perks || [],
+    rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent) : '',
+    extraHtml: '',
+    // Liste complète : la carte le dit, le bouton s'efface — un bouton vers une
+    // liste pleine coûte plus de confiance qu'il ne rapporte de clics.
+    btn: gl?.remaining === 0 ? '' : buttonHtml({
+      href: url, label: b.ctaLabel || GUEST_LIST_CTA_LABEL,
+      bg: btnColors.bg, color: btnColors.color, radius: 10,
+      full: b.full ?? (layout !== 'minimal'), ctx,
+    }),
+    note: b.note || '',
+    coverUrl: b.coverUrl,
+    coverPos: b.coverPos,
+    coverAlt: GUEST_LIST_KICKER,
+  });
+}
+
 function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
-  // Le bouton mène à la page de SÉLECTION : c'est là que vivent les onglets de
-  // zone et le bouton Réserver de chaque formule. L'accueil de la soirée
-  // redemandait au client de décider une seconde fois. Une URL posée à la main
-  // par le pro (`ctaUrl`) n'est jamais réécrite : c'est son choix.
-  const resolved = live?.trackedUrl || live?.url || '';
-  const url = resolved
-    ? eventSelectionUrl(resolved, !!live?.trackedUrl)
-    : (b.ctaUrl || ctx.baseUrl);
+  // Le bouton mène à la page de la SOIRÉE (billets ET tables), avec le `tl=`
+  // du canal : c'est là que le client compare et choisit. Une URL posée à la
+  // main par le pro (`ctaUrl`) n'est jamais réécrite : c'est son choix.
+  const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
   const btnColors = ctaColors(b.accent, theme);
   const accent = btnColors.bg;
   const layout = b.layout || 'showcase';
@@ -834,6 +878,7 @@ export function renderBlock(b: EmailBlock, theme: EmailTheme, ctx: RenderCtx): s
     case 'columns': return renderColumns(b, theme, ctx, pad, bg);
     case 'event': return renderEvent(b, theme, ctx, pad, bg);
     case 'tickets': return renderTickets(b, theme, ctx, pad, bg);
+    case 'guestlist': return renderGuestList(b, theme, ctx, pad, bg);
     case 'table': return renderTable(b, theme, ctx, pad, bg);
     case 'countdown': return renderCountdown(b, theme, ctx, pad, bg);
     case 'social': return renderSocial(theme, ctx, true, { pad, iconColor: b.color, bg });

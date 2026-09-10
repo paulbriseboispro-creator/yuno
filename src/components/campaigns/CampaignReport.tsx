@@ -414,6 +414,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                     templateId: campaign.followup_template_id,
                   }}
                   onSaved={() => setReloadKey((k) => k + 1)}
+                  basePath={basePath}
                 />
               </div>
             )}

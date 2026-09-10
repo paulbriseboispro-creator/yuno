@@ -31,8 +31,10 @@ function useSavedLabel(): string {
   return '';
 }
 
-export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onContinue }: {
+export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onContinue, templateMode = false }: {
   scope: StudioScope;
+  /** Édition d'un modèle : pas d'email de test, pas de « Modèle », bouton « Terminer ». */
+  templateMode?: boolean;
   onBack: () => void;
   onTestEmail: () => void;
   /** Fige le design courant en modèle réutilisable. */
@@ -140,14 +142,18 @@ export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onC
       <VSep />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <GhostBtn onClick={onSaveTemplate} style={{ background: SUBTLE }} ariaLabel={t('studio.tpl.saveTitle')}>
-          <LayoutTemplate size={14} strokeWidth={1.75} /> {t('studio.tpl.save')}
-        </GhostBtn>
-        <GhostBtn onClick={onTestEmail} style={{ background: SUBTLE }}>
-          <SendHorizontal size={14} strokeWidth={1.75} /> {t('studio.top.testEmail')}
-        </GhostBtn>
+        {!templateMode && (
+          <>
+            <GhostBtn onClick={onSaveTemplate} style={{ background: SUBTLE }} ariaLabel={t('studio.tpl.saveTitle')}>
+              <LayoutTemplate size={14} strokeWidth={1.75} /> {t('studio.tpl.save')}
+            </GhostBtn>
+            <GhostBtn onClick={onTestEmail} style={{ background: SUBTLE }}>
+              <SendHorizontal size={14} strokeWidth={1.75} /> {t('studio.top.testEmail')}
+            </GhostBtn>
+          </>
+        )}
         <PrimaryBtn onClick={onContinue}>
-          {t('studio.top.continue')} <ArrowRight size={14} strokeWidth={1.75} />
+          {templateMode ? t('studio.tpl.finish') : t('studio.top.continue')} <ArrowRight size={14} strokeWidth={1.75} />
         </PrimaryBtn>
       </div>
     </header>

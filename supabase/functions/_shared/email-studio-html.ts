@@ -39,10 +39,12 @@ export interface StudioTablePackRow { id?: string; n: string; s: string; p: stri
 export interface StudioLiveEventData {
   title: string; startAt: string; dateLabel: string; venueLabel: string;
   coverUrl?: string | null; url: string; priceFromLabel?: string | null;
-  /** Tranches de billetterie ET liste invités publique (une entrée = une ligne). */
+  /** Tranches de billetterie (les BILLETS ; la liste invités a son bloc). */
   tickets?: StudioTicketRow[];
   /** true = la seule entrée publique est une liste invités gratuite. */
   guestListOnly?: boolean;
+  /** Part publique de liste invités (bloc « Liste invités ») ; null = aucune. */
+  guestList?: { freeBefore: string | null; includesDrink: boolean; remaining: number | null } | null;
   tablesLeft?: number | null;
   /**
    * Formules de table de la soirée, relues dans `table_packs` au rendu.
@@ -118,7 +120,10 @@ function wordmarkSrc(theme: StudioTheme, baseUrl: string): string {
 
 function poweredBy(theme: StudioTheme, ctx: StudioRenderCtx): string {
   if (ctx.hideBranding) return '';
-  const href = 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
+  // Sur la SOIRÉE de la campagne quand il y en a une (miroir de render.ts) :
+  // le pied de page n'envoie plus les lecteurs du pro sur l'accueil Yuno.
+  const firstLive = ctx.live ? Object.values(ctx.live)[0] : undefined;
+  const href = firstLive?.trackedUrl || firstLive?.url || 'https://yunoapp.eu/?utm_source=yuno&utm_medium=powered_by';
   return `<a href="${href}" target="_blank" rel="noreferrer" style="display:inline-block;margin:18px 0 0;text-decoration:none;">
       <span style="display:block;font-family:${MONO};font-size:9.5px;line-height:13px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.16em;color:${theme.footerText};">POWERED BY</span>
       <img src="${wordmarkSrc(theme, ctx.baseUrl)}" width="41" height="14" alt="Yuno" style="display:block;margin:5px auto 0;width:41px;height:14px;border:0;" />
@@ -652,12 +657,10 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const rows = hidden.length ? all.filter((r) => !r.id || !hidden.includes(r.id)) : all;
       if (rows.length === 0) return '';
 
-      const guestListOnly = !!b.live && live?.guestListOnly;
-      // Liste invités seule : le lien de la PART ouvre déjà le formulaire.
-      // Sinon on vise la page de choix (miroir de render.ts).
-      const entry = guestListOnly ? live?.entryTrackedUrl : null;
-      const trackedBase = entry || live?.trackedUrl || live?.url || ctx.baseUrl;
-      const url = entry ? trackedBase : eventSelectionUrl(trackedBase, !!live?.trackedUrl);
+      // Billets seulement (miroir de render.ts) : page de choix des tranches.
+      const guestListOnly = false;
+      const trackedBase = live?.trackedUrl || live?.url || ctx.baseUrl;
+      const url = eventSelectionUrl(trackedBase, !!live?.trackedUrl);
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
       const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
@@ -692,14 +695,45 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         coverAlt: ticketsKicker(guestListOnly),
       });
     }
+    case 'guestlist': {
+      const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
+      // Miroir de render.ts renderGuestList : sans part publique, rien ne part.
+      if (live && live.guestList === null) return '';
+      const gl = live?.guestList;
+      const url = live?.entryTrackedUrl || (live?.url ? `${live.url}/guestlist` : ctx.baseUrl);
+      const btnColors = ctaColors(b.accent, theme);
+      const accent = btnColors.bg;
+      const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
+      const align = ((b.align as string) || 'left') as 'left' | 'center' | 'right';
+      const c = offerCardColors(accent, theme, layout, bg);
+      const row: StudioTicketRow = {
+        id: GUEST_LIST_ROW_ID, n: 'Liste invités',
+        s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: gl?.remaining === 0,
+      };
+      return offerCard({
+        theme, ctx, pad, bg, layout, align, accent,
+        kicker: (b.kicker as string) ?? 'LISTE INVITÉS',
+        title: (b.title as string) || '',
+        sub: (b.sub as string) || '',
+        perks: (b.perks as string[]) || [],
+        rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent) : '',
+        extraHtml: '',
+        btn: gl?.remaining === 0 ? '' : buttonHtml({
+          href: url, label: (b.ctaLabel as string) || GUEST_LIST_CTA_LABEL,
+          bg: btnColors.bg, color: btnColors.color, radius: 10,
+          full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
+        }),
+        note: (b.note as string) || '',
+        coverUrl: b.coverUrl as string | undefined,
+        coverPos: b.coverPos as 'top' | 'bottom' | undefined,
+        coverAlt: 'LISTE INVITÉS',
+      });
+    }
     case 'table': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
-      // Page de SÉLECTION (miroir de render.ts). Une URL posée à la main par
-      // le pro n'est jamais réécrite.
-      const resolved = live?.trackedUrl || live?.url || '';
-      const url = resolved
-        ? eventSelectionUrl(resolved, !!live?.trackedUrl)
-        : ((b.ctaUrl as string) || ctx.baseUrl);
+      // Page de la SOIRÉE — billets et tables (miroir de render.ts). Une URL
+      // posée à la main par le pro n'est jamais réécrite.
+      const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
       const btnColors = ctaColors(b.accent, theme);
       const accent = btnColors.bg;
       const layout = ((b.layout as string) || 'showcase') as 'showcase' | 'banner' | 'minimal';
@@ -887,9 +921,19 @@ function buildEntryRows(
   ticketRows: StudioTicketRow[],
   guestList: GuestListOffer | null,
 ): { tickets: StudioTicketRow[]; guestListOnly: boolean } {
-  const tickets = [...ticketRows];
-  if (guestList) tickets.push(guestListTicketRow(guestList));
-  return { tickets, guestListOnly: ticketRows.length === 0 && !!guestList };
+  // Billets seulement (miroir de live.ts) : la liste invités a son bloc.
+  return { tickets: [...ticketRows], guestListOnly: ticketRows.length === 0 && !!guestList };
+}
+
+/** Sous-titre live du bloc Liste invités (miroir de live.ts guestListSummary). */
+function guestListSummary(gl: { freeBefore: string | null; includesDrink: boolean; remaining: number | null }): string {
+  const bits: string[] = [];
+  bits.push(gl.freeBefore ? `Gratuit avant ${gl.freeBefore}` : 'Entrée gratuite');
+  if (gl.includesDrink) bits.push('boisson offerte');
+  if (gl.remaining != null) {
+    bits.push(gl.remaining === 0 ? 'complet' : `${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
+  }
+  return bits.join(' · ');
 }
 
 /**
@@ -1176,7 +1220,7 @@ function priceFromLabel(activePrices: number[], hasGuestList: boolean): string |
 export function collectStudioEventIds(blocks: StudioBlock[], fallbackEventId?: string | null): string[] {
   const ids = new Set<string>();
   for (const b of blocks) {
-    if (['event', 'tickets', 'table', 'countdown'].includes(b.type)) {
+    if (['event', 'tickets', 'guestlist', 'table', 'countdown'].includes(b.type)) {
       const id = (b.eventId as string) || fallbackEventId || '';
       if (id) ids.add(id);
     }
@@ -1262,7 +1306,7 @@ export async function fetchStudioLiveData(
     // que derrière leur propre lien, on ne les révèle pas à toute une audience.
     const { data: guestLists } = await admin
       .from('guest_lists')
-      .select('id, event_id, holder_type, free_before_time, includes_drink, created_at')
+      .select('id, event_id, holder_type, free_before_time, includes_drink, quota, show_remaining, created_at')
       .in('event_id', ids)
       .eq('is_active', true)
       .eq('visible_on_club_page', true)
@@ -1270,6 +1314,16 @@ export async function fetchStudioLiveData(
       // doivent désigner la MÊME part, sinon le bouton ouvre une autre liste que
       // celle annoncée dans le corps du message.
       .order('created_at', { ascending: true });
+    // Inscrits par part, pour les places restantes du bloc Liste invités.
+    const glIds = ((guestLists || []) as { id: string }[]).map((g) => g.id);
+    const entriesByList = new Map<string, number>();
+    if (glIds.length) {
+      const { data: glEntries } = await admin
+        .from('guest_list_entries').select('guest_list_id').in('guest_list_id', glIds);
+      for (const en of (glEntries || []) as { guest_list_id: string }[]) {
+        entriesByList.set(en.guest_list_id, (entriesByList.get(en.guest_list_id) || 0) + 1);
+      }
+    }
 
     // Host de l'URL propre /events/:host/:slug. La règle (slug d'orga si
     // organizer-led, sinon slug du club) vit dans la RPC event_host_slug et
@@ -1356,6 +1410,13 @@ export async function fetchStudioLiveData(
         ((guestLists || []) as any[]).filter((g: any) => g.event_id === e.id),
       );
       const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
+      const glQuota = guestList && (guestList as any).quota != null ? Number((guestList as any).quota) : null;
+      const guestListLive = guestList ? {
+        freeBefore: String(guestList.free_before_time || '').slice(0, 5) || null,
+        includesDrink: !!guestList.includes_drink,
+        remaining: (guestList as any).show_remaining && glQuota != null
+          ? Math.max(0, glQuota - (entriesByList.get((guestList as any).id) || 0)) : null,
+      } : null;
 
       const totalTables = packsByEvent.get(e.id) || 0;
       const tablesLeft = needTables && totalTables > 0
@@ -1374,6 +1435,7 @@ export async function fetchStudioLiveData(
         // undefined = événement non résolu (le bloc retombe sur ses props).
         tickets,
         guestListOnly,
+        guestList: guestListLive,
         tablesLeft,
         tablePacks: needTables ? (packRowsByEvent.get(e.id) || []) : undefined,
         tableZones: needTables ? (zoneRowsByEvent.get(e.id) || []) : undefined,
@@ -1406,7 +1468,7 @@ export async function fetchStudioLiveData(
   // Les blocs sans eventId propre héritent de l'événement de la campagne.
   if (fallbackEventId && live[fallbackEventId]) {
     for (const b of blocks) {
-      if (['event', 'tickets', 'table', 'countdown'].includes(b.type) && !b.eventId) {
+      if (['event', 'tickets', 'guestlist', 'table', 'countdown'].includes(b.type) && !b.eventId) {
         b.eventId = fallbackEventId;
       }
     }

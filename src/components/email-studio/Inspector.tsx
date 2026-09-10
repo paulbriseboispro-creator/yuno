@@ -9,7 +9,7 @@ import ColorField from '@/components/campaigns/ColorField';
 import type {
   CtaBlock, EmailBlock, EventBlock, HeaderBlock, HtmlBlock, ImageBlock,
   LiveData, SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow,
-  TicketsBlock, ColumnsBlock, CountdownBlock,
+  TicketsBlock, GuestListBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
 import { blockPadDefaults, BLOCK_COND_LABELS, BLOCK_CONDS } from '@/lib/email';
 import { useStudio } from './store';
@@ -628,6 +628,74 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
               <TextInput value={b.venueLabel} onChange={(e) => patch({ venueLabel: e.target.value })} placeholder={t('studio.inspector.eventVenue')} />
             </PanelCard>
           )}
+        </>
+      );
+    }
+    case 'guestlist': {
+      const b = block as GuestListBlock;
+      const glLayout = b.layout || 'showcase';
+      const glLive = live[b.eventId || campaignEventId || '']?.guestList;
+      return (
+        <>
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.event')}</MicroLabel>
+            <EventPicker value={b.eventId} events={events} onChange={(id) => patch({ eventId: id })} />
+            <Help>{glLive === null ? t('studio.inspector.guestlistNone') : t('studio.inspector.guestlistHelp')}</Help>
+            <MicroLabel>{t('studio.inspector.tableLayout')}</MicroLabel>
+            <OptionPills
+              value={glLayout}
+              ariaLabel={t('studio.inspector.tableLayout')}
+              options={[
+                { value: 'showcase', label: t('studio.inspector.tableLayoutShowcase') },
+                { value: 'banner', label: t('studio.inspector.tableLayoutBanner') },
+                { value: 'minimal', label: t('studio.inspector.tableLayoutMinimal') },
+              ]}
+              onChange={(v) => patch({ layout: v })}
+            />
+            <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
+            {alignPills(b.align || 'left', (v) => patch({ align: v }))}
+            <ThemedColor
+              label={t('studio.inspector.accentColor')}
+              value={b.accent}
+              themeDefault={theme.accent}
+              onChange={(v) => patch({ accent: v })}
+            />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableKicker')}</MicroLabel>
+            <TextInput value={b.kicker ?? ''} placeholder="Liste invités" onChange={(e) => patch({ kicker: e.target.value })} />
+            <MicroLabel>{t('studio.inspector.tableTitle')}</MicroLabel>
+            <TextInput value={b.title || ''} onChange={(e) => patch({ title: e.target.value })} />
+            <MicroLabel>{t('studio.inspector.tableSub')}</MicroLabel>
+            <TextInput value={b.sub || ''} onChange={(e) => patch({ sub: e.target.value })} />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableCover')}</MicroLabel>
+            <ImageUploader
+              value={b.coverUrl || null}
+              onChange={(url) => patch({ coverUrl: url || undefined })}
+              bucketFolder={bucketFolder}
+            />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
+            <TextInput
+              value={b.ctaLabel || ''}
+              placeholder={t('studio.inspector.guestlistCtaAuto')}
+              onChange={(e) => patch({ ctaLabel: e.target.value })}
+            />
+            <ToggleRow
+              checked={b.full ?? (glLayout !== 'minimal')}
+              onChange={(v) => patch({ full: v })}
+              label={t('studio.inspector.ctaFull')}
+            />
+            <MicroLabel>{t('studio.inspector.tableNote')}</MicroLabel>
+            <TextInput value={b.note || ''} onChange={(e) => patch({ note: e.target.value })}
+              placeholder={t('studio.inspector.tableNotePlaceholder')} />
+          </PanelCard>
         </>
       );
     }

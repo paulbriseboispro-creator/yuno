@@ -212,6 +212,23 @@ de suivre l'audience.
 
 ---
 
+### Trafic d'un email : chaque bouton mène à la soirée (2026-09-10)
+
+L'email WOH (9 597 destinataires, soirée sans billetterie Yuno mais avec une
+guest list publique) a envoyé 115 lecteurs sur le formulaire guest list et
+85 sur l'accueil Yuno : le bloc Billetterie, sans billet, se transformait en
+« M'inscrire à la liste », et « Powered by Yuno » menait à yunoapp.eu.
+Règles depuis le 2026-09-10 :
+- **Billetterie** = les billets, rien d'autre ; sans billet, le bloc s'efface.
+- **Liste invités** = un bloc à part (`guestlist`) : part publique en direct
+  (heure limite, boisson, places restantes si `show_remaining`), bouton vers
+  le formulaire de la part avec son token (`entryTrackedUrl`, lien suivi
+  `guestlist` du canal) ; sans part publique, le bloc s'efface.
+- **Table VIP** → page de la soirée (billets et tables), plus `/billets`.
+- **Powered by Yuno** → la soirée de la campagne quand il y en a une.
+Les deux renderers (`render.ts`, `email-studio-html.ts`) portent les mêmes
+règles ; `TrackedLinkRedirect` renvoie sur `/` si le code ne résout pas.
+
 ### Relance ciblée après clic (2026-09-10)
 
 Option d'une campagne marketing reliée à une soirée : N heures (1-168, 24 par

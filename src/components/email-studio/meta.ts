@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   PanelTop, Image, Type, MousePointerClick, Columns, Minus, MoveVertical,
-  CalendarDays, Ticket, Martini, Timer, Share2, Code2,
+  CalendarDays, Ticket, Martini, Timer, Share2, Code2, ClipboardList,
 } from 'lucide-react';
 import type { BlockType } from '@/lib/email';
 
@@ -29,6 +29,7 @@ export const BLOCK_META: readonly BlockMeta[] = [
   { type: 'social', labelKey: 'studio.block.social', icon: Share2, group: 'content' },
   { type: 'event', labelKey: 'studio.block.event', icon: CalendarDays, group: 'yuno' },
   { type: 'tickets', labelKey: 'studio.block.tickets', icon: Ticket, group: 'yuno' },
+  { type: 'guestlist', labelKey: 'studio.block.guestlist', icon: ClipboardList, group: 'yuno' },
   { type: 'table', labelKey: 'studio.block.table', icon: Martini, group: 'yuno' },
   { type: 'countdown', labelKey: 'studio.block.countdown', icon: Timer, group: 'yuno' },
   { type: 'html', labelKey: 'studio.block.html', icon: Code2, group: 'advanced' },

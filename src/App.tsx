@@ -137,6 +137,7 @@ const OwnerRefunds = lazyWithRetry(() => import("./pages/OwnerRefunds"));
 const OwnerNotifications = lazyWithRetry(() => import("./pages/OwnerNotifications"));
 const OwnerCampaigns = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.default })));
 const OwnerCampaignEditor = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.OwnerCampaignEditor })));
+const OwnerCampaignTemplateEditor = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.OwnerCampaignTemplateEditor })));
 const OwnerCampaignReport = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.OwnerCampaignReport })));
 const Unsubscribe = lazyWithRetry(() => import("./pages/Unsubscribe"));
 // Legacy organizer pages removed — replaced by OrgApp* + OrganizerPublicProfile.
@@ -179,6 +180,7 @@ const OrgAppTables = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTab
 const OrgAppVipService = lazyWithRetry(() => import("./pages/organizer-app/OrgAppVipService"));
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
 const OrgAppCampaignEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignEditor })));
+const OrgAppCampaignTemplateEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignTemplateEditor })));
 const OrgAppCampaignReport = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignReport })));
 const OrgAppSms = lazyWithRetry(() => import("./pages/organizer-app/OrgAppSms"));
 const OrganizerHelpCenter = lazyWithRetry(() => import("./pages/OrganizerHelpCenter"));
@@ -724,6 +726,7 @@ const App = () => (
                   <Route path="campaigns" element={<OrgAppCampaigns />} />
                   <Route path="campaigns/new" element={<OrgAppCampaignEditor />} />
                   <Route path="campaigns/:id/edit" element={<OrgAppCampaignEditor />} />
+                  <Route path="campaigns/templates/:id" element={<OrgAppCampaignTemplateEditor />} />
                   <Route path="campaigns/:id/report" element={<OrgAppCampaignReport />} />
                   {/* Campagnes SMS — même moteur que le club, portée organisateur */}
                   <Route path="sms" element={<OrgAppSms />} />
@@ -888,6 +891,7 @@ const App = () => (
                   <Route path="campaigns" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaigns /></PlanGuard>} />
                   <Route path="campaigns/new" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignEditor /></PlanGuard>} />
                   <Route path="campaigns/:id/edit" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignEditor /></PlanGuard>} />
+                  <Route path="campaigns/templates/:id" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignTemplateEditor /></PlanGuard>} />
                   <Route path="campaigns/:id/report" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignReport /></PlanGuard>} />
                   <Route path="sms" element={<OwnerSmsCredits />} />
                   <Route path="sms-campaigns" element={<OwnerSmsCampaigns />} />

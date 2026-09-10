@@ -7,6 +7,7 @@
 // du cron lit ces trois colonnes à chaque passage.
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Loader2, Repeat, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,14 +29,17 @@ export interface FollowupInitial {
   templateId: string | null;
 }
 
-export default function FollowupSettings({ campaignId, scope, initial, onSaved }: {
+export default function FollowupSettings({ campaignId, scope, initial, onSaved, basePath }: {
   campaignId: string;
   scope: StudioScope;
   initial: FollowupInitial;
+  /** Racine des campagnes de la portée, pour ouvrir le modèle dans le studio. */
+  basePath?: string;
   /** Appelé après chaque écriture réussie (le rapport recharge son bilan). */
   onSaved?: () => void;
 }) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { templates, create } = useEmailTemplates(scope);
   const [enabled, setEnabled] = useState(initial.enabled);
   const [delay, setDelay] = useState(initial.delayHours);
@@ -137,7 +141,14 @@ export default function FollowupSettings({ campaignId, scope, initial, onSaved }
                 {t('studio.sched.fu.createStarter')}
               </button>
             </div>
-            <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{t('studio.sched.fu.editHint')}</div>
+            <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+              {templateId && basePath ? (
+                <button
+                  type="button" onClick={() => navigate(`${basePath}/templates/${templateId}`)}
+                  className="cursor-pointer" style={{ background: 'none', border: 'none', padding: 0, color: RED, fontSize: 11 }}
+                >{t('studio.sched.fu.editTemplate')} →</button>
+              ) : t('studio.sched.fu.editHint')}
+            </div>
             {!templateId && (
               <div className="flex items-start gap-2 mt-2" style={{ padding: '9px 12px', borderRadius: 11, background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: WARN }} />

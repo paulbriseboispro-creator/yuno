@@ -70,6 +70,8 @@ export function buildStarter(key: StarterKey, ctx: StarterCtx): TemplateContent 
           block('text', venueName, { body: k('t1') }),
           block('event', venueName, { title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
           block('tickets', venueName, { live: true }),
+          // Liste invités : son propre bloc, qui s'efface sans part publique.
+          block('guestlist', venueName),
           block('divider', venueName),
           block('text', venueName, { body: k('t2'), size: 14 }),
         ],
@@ -120,6 +122,7 @@ export function buildStarter(key: StarterKey, ctx: StarterCtx): TemplateContent 
           block('event', venueName, { title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
           block('countdown', venueName, { label: k('countdownLabel') }),
           block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
           block('table', venueName, {
             cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
             sub: k('tableSub'), ctaLabel: k('tableCta'), perks: [], note: '',

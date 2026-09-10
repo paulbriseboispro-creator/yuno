@@ -10,7 +10,7 @@
 
 export type BlockType =
   | 'header' | 'image' | 'text' | 'cta' | 'columns'
-  | 'event' | 'tickets' | 'table' | 'countdown' | 'social'
+  | 'event' | 'tickets' | 'guestlist' | 'table' | 'countdown' | 'social'
   | 'divider' | 'spacer' | 'html';
 
 /** Règle de visibilité par destinataire, résolue À L'ENVOI (jamais figée). */
@@ -207,6 +207,34 @@ export const TABLE_PACK_DISPLAYS: readonly TablePackDisplay[] = ['packs', 'zones
  * rassurance). C'est ce qui sépare une ligne de rappel d'une page de vente,
  * et le pilier table est celui dont le panier moyen est le plus élevé.
  */
+/**
+ * Bloc « Liste invités » : l'inscription GRATUITE, séparée de la billetterie.
+ * Il montre la part publique de la soirée (heure limite, boisson offerte,
+ * places restantes si le pro les affiche) et son bouton ouvre le formulaire
+ * de la part avec son token — l'écran « lien privé » — via le lien suivi du
+ * canal. Sans part publique, le bloc s'efface. Le bloc Billetterie, lui, ne
+ * parle plus que de billets.
+ */
+export interface GuestListBlock extends BlockBase {
+  type: 'guestlist';
+  eventId?: string;
+  /** Couleur d'accent — hex. Absent = accent du thème. */
+  accent?: string;
+  layout?: TableLayout;
+  align?: 'left' | 'center' | 'right';
+  /** Sur-titre. Absent = « Liste invités ». */
+  kicker?: string;
+  title?: string;
+  sub?: string;
+  perks?: string[];
+  /** Libellé du bouton. Absent = « M'inscrire à la liste ». */
+  ctaLabel?: string;
+  full?: boolean;
+  coverUrl?: string;
+  coverPos?: 'top' | 'bottom';
+  note?: string;
+}
+
 export interface TableBlock extends BlockBase {
   type: 'table';
   eventId?: string;
@@ -293,11 +321,11 @@ export interface HtmlBlock extends BlockBase { type: 'html'; code: string }
 
 export type EmailBlock =
   | HeaderBlock | ImageBlock | TextBlock | CtaBlock | ColumnsBlock
-  | EventBlock | TicketsBlock | TableBlock | CountdownBlock | SocialBlock
+  | EventBlock | TicketsBlock | GuestListBlock | TableBlock | CountdownBlock | SocialBlock
   | DividerBlock | SpacerBlock | HtmlBlock;
 
-/** Les 4 blocs « Yuno · données live ». */
-export const YUNO_BLOCK_TYPES: readonly BlockType[] = ['event', 'tickets', 'table', 'countdown'];
+/** Les 5 blocs « Yuno · données live ». */
+export const YUNO_BLOCK_TYPES: readonly BlockType[] = ['event', 'tickets', 'guestlist', 'table', 'countdown'];
 
 export const LOGO_SIZES: Record<HeaderBlock['logoSize'], number> = { sm: 42, md: 54, lg: 72 };
 export const SPACER_SIZES: Record<SpacerBlock['size'], number> = { sm: 8, md: 16, lg: 32, xl: 56 };
@@ -372,6 +400,15 @@ export interface RenderRecipient {
 }
 
 /** Données live d'un événement, résolues AU RENDU (jamais à la composition). */
+/** Ce que l'email dit de la part publique d'une liste invités. */
+export interface GuestListLive {
+  /** « 00:30 » — heure limite de gratuité, sinon null. */
+  freeBefore: string | null;
+  includesDrink: boolean;
+  /** Places restantes, seulement si le pro les affiche (show_remaining). */
+  remaining: number | null;
+}
+
 export interface LiveEventData {
   title: string;
   startAt: string;
@@ -393,6 +430,12 @@ export interface LiveEventData {
    * billets » pour une inscription gratuite.
    */
   guestListOnly?: boolean;
+  /**
+   * Part de liste invités publique de la soirée, pour le bloc « Liste
+   * invités ». `null` = aucune part publique (le bloc s'efface) ;
+   * `undefined` = non résolu (le bloc garde ses textes figés).
+   */
+  guestList?: GuestListLive | null;
   /**
    * Tables encore libres. `null` = la soirée n'ouvre aucune table (le bloc
    * s'efface plutôt que de vendre du vide) ; 0 = complet, la carte le dit et

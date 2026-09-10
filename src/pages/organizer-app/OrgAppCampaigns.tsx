@@ -269,7 +269,7 @@ function useOrganizerLogo(userId: string | undefined, fromProfile: string | null
   return fromProfile || fallback;
 }
 
-export function OrgAppCampaignEditor() {
+export function OrgAppCampaignEditor({ templateMode = false }: { templateMode?: boolean } = {}) {
   const { user } = useAuth();
   const { profile, loading } = useProfileType();
   const logoUrl = useOrganizerLogo(
@@ -285,6 +285,7 @@ export function OrgAppCampaignEditor() {
   return (
     <StudioShell
       basePath="/organizer-app/campaigns"
+      templateMode={templateMode}
       scope={{
         kind: 'organizer',
         organizerId: user.id,
@@ -294,6 +295,11 @@ export function OrgAppCampaignEditor() {
       }}
     />
   );
+}
+
+/** Édition d'un modèle dans le studio (route campaigns/templates/:id). */
+export function OrgAppCampaignTemplateEditor() {
+  return <OrgAppCampaignEditor templateMode />;
 }
 
 export function OrgAppCampaignReport() {

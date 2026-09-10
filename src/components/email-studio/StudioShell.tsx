@@ -9,6 +9,7 @@ import {
   campaignToTemplateContent, migrateV1Audience, migrateV1Blocks, migrateV1SocialLinks,
   migrateV1Theme, normalizeTheme, normalizeV2Blocks,
   type AudienceExclusions, type AudienceSel, type EmailBlock, type SocialLinks, type StudioCampaign, type ThrottlePlan,
+  rowToTemplate, templateContentToRow, type EmailTemplateRow,
 } from '@/lib/email';
 import {
   createStudioStore, StudioStoreContext, useStudio, useStudioApi,
@@ -39,6 +40,44 @@ import SaveTemplateDialog from './TemplateDialogs';
 interface Props {
   scope: StudioScope;
   basePath: string;
+  /**
+   * Mode MODÈLE : `:id` est un email_campaign_templates, pas une campagne.
+   * Seul l'écran Studio existe (ni audience, ni planification, ni envoi) et
+   * l'autosave réécrit le modèle — c'est ce qui manquait : un modèle ne se
+   * retouchait qu'en passant par une campagne puis « Remplacer un modèle ».
+   */
+  templateMode?: boolean;
+}
+
+/** Ligne de modèle → campagne de travail du studio (aucune soirée, aucun envoi). */
+function templateRowToCampaign(row: EmailTemplateRow): StudioCampaign {
+  const tpl = rowToTemplate(row);
+  return {
+    id: tpl.id,
+    name: tpl.name,
+    type: tpl.type,
+    status: 'template',
+    subject: tpl.subject,
+    subjectB: '',
+    abOn: false,
+    preheader: tpl.preheader,
+    blocks: tpl.blocks,
+    theme: tpl.theme,
+    socialLinks: tpl.socialLinks,
+    logoUrl: tpl.logoUrl,
+    eventId: null,
+    audiences: [],
+    exclusions: {},
+    scheduledAt: null,
+    throttlePerHour: null,
+    throttleWindowMinutes: 60,
+    throttlePlan: null,
+    quietHours: false,
+    followupEnabled: false,
+    followupDelayHours: 24,
+    followupTemplateId: null,
+    parentCampaignId: null,
+  };
 }
 
 interface CampaignRow {
@@ -181,7 +220,7 @@ function campaignToRow(c: StudioCampaign, scope: StudioScope): Record<string, un
 
 const STEP_ORDER: StudioStep[] = ['studio', 'audience', 'schedule', 'review', 'sending'];
 
-export default function StudioShell({ scope, basePath }: Props) {
+export default function StudioShell({ scope, basePath, templateMode = false }: Props) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const params = useParams<{ id: string }>();
@@ -197,19 +236,22 @@ export default function StudioShell({ scope, basePath }: Props) {
     if (isNew) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from('email_campaigns')
+      const { data, error } = await supabase
+        .from(templateMode ? 'email_campaign_templates' : 'email_campaigns')
         .select('*').eq('id', params.id!).maybeSingle();
       if (cancelled) return;
       if (error || !data) {
         setLoadError(error?.message || t('studio.loadError'));
         return;
       }
-      const campaign = rowToCampaign(data as unknown as CampaignRow, scope.name);
+      const campaign = templateMode
+        ? templateRowToCampaign(data as unknown as EmailTemplateRow)
+        : rowToCampaign(data as unknown as CampaignRow, scope.name);
       setStore(createStudioStore(campaign, { venueName: scope.name }));
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id, isNew]);
+  }, [params.id, isNew, templateMode]);
 
   // ── Sauvegarde ────────────────────────────────────────────────────────────
   const saveNow = useCallback(async (status?: string): Promise<string | null> => {
@@ -217,6 +259,19 @@ export default function StudioShell({ scope, basePath }: Props) {
     const state = store.getState();
     const c = state.campaign;
     state.markSaving();
+    if (templateMode) {
+      // Le modèle reçoit le DESIGN (soirée effacée, ids conservés) et son nom.
+      const { error: tErr } = await supabase.from('email_campaign_templates')
+        .update({ ...templateContentToRow(campaignToTemplateContent(c)), name: (c.name || 'Modèle').trim().slice(0, 80) } as never)
+        .eq('id', c.id);
+      if (tErr) {
+        store.getState().markSaveFailed();
+        toast.error(tErr.message || t('em.toast.saveError'));
+        return null;
+      }
+      store.getState().markSaved();
+      return c.id;
+    }
     const payload = campaignToRow(c, scope);
     if (status) payload.status = status;
     // Garde anti-course : on n'écrit que sur une campagne encore modifiable
@@ -239,7 +294,7 @@ export default function StudioShell({ scope, basePath }: Props) {
     store.getState().markSaved();
     if (status) store.getState().patchCampaign({ status });
     return c.id;
-  }, [store, scope, t]);
+  }, [store, scope, t, templateMode]);
 
   // Autosave debouncé : contenu OU réglages → écriture 1,2 s après la
   // dernière frappe. L'indicateur « Enregistré à l'instant » vit dans TopBar.
@@ -280,7 +335,7 @@ export default function StudioShell({ scope, basePath }: Props) {
   return (
     <StudioStoreContext.Provider value={store}>
       <StudioGlobalStyles />
-      <StudioBody scope={scope} basePath={basePath} saveNow={saveNow} />
+      <StudioBody scope={scope} basePath={basePath} saveNow={saveNow} templateMode={templateMode} />
     </StudioStoreContext.Provider>
   );
 }
@@ -365,14 +420,24 @@ function ScheduledBanner({ onUnschedule }: { onUnschedule: () => void }) {
   );
 }
 
-function StudioBody({ scope, basePath, saveNow }: {
+function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
   scope: StudioScope; basePath: string;
   saveNow: (status?: string) => Promise<string | null>;
+  templateMode?: boolean;
 }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const step = useStudio((s) => s.step);
   const setStep = useStudio((s) => s.setStep);
+  // Un modèle n'a qu'un écran : le Studio. Toute tentative d'aller plus loin
+  // (raccourci, chip) revient ici.
+  useEffect(() => {
+    if (templateMode && step !== 'studio') setStep('studio');
+  }, [templateMode, step, setStep]);
+  const finishTemplate = async () => {
+    const id = await saveNow();
+    if (id) { toast.success(t('studio.tpl.saved')); navigate(`${basePath}/new`); }
+  };
   const campaign = useStudio((s) => s.campaign);
   const inspectorTab = useStudio((s) => s.inspectorTab);
   const setInspectorTab = useStudio((s) => s.setInspectorTab);
@@ -477,10 +542,11 @@ function StudioBody({ scope, basePath, saveNow }: {
         <>
           <TopBar
             scope={scope}
-            onBack={() => navigate(basePath)}
+            templateMode={templateMode}
+            onBack={() => navigate(templateMode ? `${basePath}/new` : basePath)}
             onTestEmail={() => setTestOpen(true)}
             onSaveTemplate={() => setTemplateOpen(true)}
-            onContinue={() => setStep('audience')}
+            onContinue={() => { if (templateMode) void finishTemplate(); else setStep('audience'); }}
           />
           <ScheduledBanner onUnschedule={unschedule} />
           <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', minHeight: 0 }}>
@@ -555,7 +621,7 @@ function StudioBody({ scope, basePath, saveNow }: {
           <div style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: '26px 28px 60px', minHeight: 0 }}>
             <div style={{ maxWidth: 1160, margin: '0 auto' }}>
               {step === 'audience' && <AudienceStep scope={scope} events={events} segments={segments} />}
-              {step === 'schedule' && <ScheduleStep scope={scope} />}
+              {step === 'schedule' && <ScheduleStep scope={scope} basePath={basePath} />}
               {step === 'review' && (
                 <ReviewStep
                   scope={scope}

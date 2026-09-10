@@ -3,6 +3,7 @@ import {
   AlertTriangle, CalendarClock, ChevronDown, Info, Loader2, Plus, Repeat, ShieldCheck, Sparkles, Split, Waves, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import EmailCreditsDialog from '@/components/campaigns/EmailCreditsDialog';
 import {
@@ -30,7 +31,7 @@ function planStart(scheduledAt: string | null, now: Date): Date {
 }
 
 /** Écran Planification : quand partir, quota du mois, délivrabilité, A/B. */
-export default function ScheduleStep({ scope }: { scope: StudioScope }) {
+export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; basePath?: string }) {
   const { t } = useLanguage();
   const campaign = useStudio((s) => s.campaign);
   const patchCampaign = useStudio((s) => s.patchCampaign);
@@ -258,7 +259,7 @@ export default function ScheduleStep({ scope }: { scope: StudioScope }) {
 
       {/* ── Relance ciblée après clic ── */}
       {campaign.type === 'promotional' && (
-        <FollowupCard campaign={campaign} scope={scope} onPatch={patchCampaign} />
+        <FollowupCard campaign={campaign} scope={scope} basePath={basePath} onPatch={patchCampaign} />
       )}
 
       {/* ── A/B ── */}
@@ -577,10 +578,11 @@ function Warning({ kind, text, action }: {
 
 const FOLLOWUP_DELAYS = [6, 12, 24, 48];
 
-function FollowupCard({ campaign, scope, onPatch }: {
-  campaign: StudioCampaign; scope: StudioScope; onPatch: (patch: Partial<StudioCampaign>) => void;
+function FollowupCard({ campaign, scope, basePath, onPatch }: {
+  campaign: StudioCampaign; scope: StudioScope; basePath?: string; onPatch: (patch: Partial<StudioCampaign>) => void;
 }) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { templates, create } = useEmailTemplates(scope);
   const [creating, setCreating] = useState(false);
   const on = campaign.followupEnabled;
@@ -666,7 +668,12 @@ function FollowupCard({ campaign, scope, onPatch }: {
               </button>
             </div>
             <div style={{ color: T3, fontSize: 11, marginTop: 7, lineHeight: 1.5, fontFamily: FONT_UI }}>
-              {t('studio.sched.fu.editHint')}
+              {campaign.followupTemplateId && basePath ? (
+                <button
+                  type="button" onClick={() => navigate(`${basePath}/templates/${campaign.followupTemplateId}`)}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: RED, fontSize: 11, fontFamily: FONT_UI }}
+                >{t('studio.sched.fu.editTemplate')} →</button>
+              ) : t('studio.sched.fu.editHint')}
             </div>
             {!campaign.followupTemplateId && (
               <div style={{

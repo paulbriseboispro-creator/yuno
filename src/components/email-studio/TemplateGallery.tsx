@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CalendarDays, ChevronLeft, Copy, FilePlus2, Layers, Loader2, Pencil, Sparkles, Trash2,
+  CalendarDays, ChevronLeft, Copy, FilePlus2, Layers, Loader2, Pencil, Sparkles, Trash2, PenLine,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -223,6 +223,7 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
                         : t('studio.tpl.neverUsed'),
                     ].join(' · ')}
                     actions={[
+                      { icon: <PenLine size={13} strokeWidth={1.75} />, label: t('studio.tpl.edit'), run: () => navigate(`${basePath}/templates/${tpl.id}`) },
                       { icon: <Pencil size={13} strokeWidth={1.75} />, label: t('studio.tpl.rename'), run: () => setRenaming(tpl) },
                       { icon: <Copy size={13} strokeWidth={1.75} />, label: t('studio.tpl.duplicate'), run: () => { void duplicateTemplate(tpl); } },
                       { icon: <Trash2 size={13} strokeWidth={1.75} />, label: t('studio.tpl.delete'), danger: true, run: () => setPendingDelete(tpl) },

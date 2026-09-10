@@ -200,7 +200,11 @@ describe('renderEmailHtml — enveloppe', () => {
     // redessiné en Space Grotesk, qui donnait une marque différente de l'app.
     expect(html).toContain(`src="${ctx.baseUrl}/yuno-wordmark`);
     expect(html).toContain('alt="Yuno"');
-    expect(html).toContain('utm_source=yuno&utm_medium=powered_by');
+    // Avec une soirée résolue, la signature mène à la SOIRÉE (le lecteur reste
+    // chez le pro) ; sans soirée, au site Yuno.
+    expect(html).toContain('https://yunoapp.eu/event/ev-1');
+    const noLive = renderEmailHtml([makeBlock('text')], theme, { ...ctx, live: {} });
+    expect(noLive).toContain('utm_source=yuno&utm_medium=powered_by');
     // Le label reste subordonné au club : même couleur que le pied de page.
     expect(html).toContain(`letter-spacing:0.16em;color:${theme.footerText}`);
     // Une signature nette remplace les trois « Yuno » marmonnés d'avant.
@@ -408,27 +412,48 @@ describe('blocs — un rendu par type', () => {
     }
   });
 
-  it('billets et tables mènent tous deux à la page de sélection', () => {
+  it('billets → page de sélection ; tables → page de la soirée (billets ET tables)', () => {
     const live = { 'ev-1': { ...ctx.live!['ev-1'], trackedUrl: 'https://yunoapp.eu/l/abc' } };
-    for (const type of ['tickets', 'table'] as const) {
-      const html = renderOne(makeBlock(type, { eventId: 'ev-1' }), { live });
-      expect(html).toContain('to=billets');
-    }
+    expect(renderOne(makeBlock('tickets', { eventId: 'ev-1' }), { live })).toContain('to=billets');
+    const table = renderOne(makeBlock('table', { eventId: 'ev-1' }), { live });
+    expect(table).toContain('https://yunoapp.eu/l/abc');
+    expect(table).not.toContain('to=billets');
   });
 
-  it('liste invités seule : le bouton garde le lien de la part', () => {
-    // Ce lien ouvre DÉJÀ le formulaire avec son token — c'est la sélection.
-    // Le détourner vers /billets perdrait le token de la part.
-    const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }), {
+  it('guestlist : le bouton ouvre le lien suivi de la PART (écran lien privé)', () => {
+    const html = renderOne(makeBlock('guestlist', { eventId: 'ev-1' }), {
       live: { 'ev-1': {
         ...ctx.live!['ev-1'],
-        guestListOnly: true,
-        tickets: [{ n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false }],
+        guestList: { freeBefore: '02:00', includesDrink: true, remaining: 42 },
         entryTrackedUrl: 'https://yunoapp.eu/l/gl9',
       } },
     });
     expect(html).toContain('https://yunoapp.eu/l/gl9');
     expect(html).not.toContain('to=billets');
+    expect(html).toContain('LISTE INVITÉS');
+    expect(html).toContain('Gratuit avant 02:00');
+    expect(html).toContain('boisson offerte');
+    expect(html).toContain('42 places restantes');
+    expect(html).toContain('M’inscrire à la liste');
+  });
+
+  it('guestlist : sans part publique le bloc s’efface ; liste complète = pas de bouton', () => {
+    const none = renderOne(makeBlock('guestlist', { eventId: 'ev-1' }), {
+      live: { 'ev-1': { ...ctx.live!['ev-1'], guestList: null } },
+    });
+    expect(none).toBe('');
+    const full = renderOne(makeBlock('guestlist', { eventId: 'ev-1' }), {
+      live: { 'ev-1': { ...ctx.live!['ev-1'], guestList: { freeBefore: null, includesDrink: false, remaining: 0 }, entryTrackedUrl: 'https://yunoapp.eu/l/gl9' } },
+    });
+    expect(full).toContain('complet');
+    expect(full).not.toContain('https://yunoapp.eu/l/gl9');
+  });
+
+  it('guestlist : sans lien suivi (aperçu, test) → la page guest list de la soirée', () => {
+    const html = renderOne(makeBlock('guestlist', { eventId: 'ev-1' }), {
+      live: { 'ev-1': { ...ctx.live!['ev-1'], guestList: { freeBefore: '01:00', includesDrink: false, remaining: null } } },
+    });
+    expect(html).toContain('https://yunoapp.eu/event/ev-1/guestlist');
   });
 
   it('table : aucune couleur en rgba (Outlook les efface)', () => {
@@ -542,22 +567,12 @@ describe('blocs — un rendu par type', () => {
 
   // La liste invités est une façon d'entrer, pas un détail : une soirée qui
   // n'ouvre qu'une guest list voyait son bloc Billetterie s'effacer.
-  it('tickets : soirée en liste invités seule → la ligne s’affiche, le bouton change', () => {
+  it('tickets : sans billet en vente, le bloc s’efface (la liste invités a son propre bloc)', () => {
     const b = makeBlock('tickets', { eventId: 'ev-1' });
     const html = renderOne(b, {
-      live: {
-        'ev-1': {
-          ...ctx.live!['ev-1'],
-          tickets: [{ n: 'Liste invités', s: 'avant 02:00 · boisson offerte', p: 'Gratuit', out: false }],
-          guestListOnly: true,
-        },
-      },
+      live: { 'ev-1': { ...ctx.live!['ev-1'], tickets: [], guestListOnly: true, guestList: { freeBefore: '02:00', includesDrink: true, remaining: null } } },
     });
-    expect(html).toContain('Liste invités');
-    expect(html).toContain('Gratuit');
-    expect(html).toContain('boisson offerte');
-    expect(html).toContain('M’inscrire à la liste');
-    expect(html).not.toContain('Prendre mes billets');
+    expect(html).toBe('');
   });
 
   // Le bloc était une liste de reçu : tout à 14,5px, aucun point focal. Le
@@ -593,16 +608,14 @@ describe('blocs — un rendu par type', () => {
       live: {
         'ev-1': {
           ...ctx.live!['ev-1'],
-          tickets: [{ n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false }],
-          guestListOnly: true,
+          tickets: [{ n: 'Sur invitation', s: 'avant 02:00', p: 'Gratuit', out: false }],
         },
       },
     });
     expect(html).toContain(`border-radius:999px;background:${theme.accent}`);
     expect(html).toContain(`color:${theme.btnText}`); // texte auto-contrasté
-    // Kicker « ENTRÉE » : « LISTE INVITÉS » répéterait le nom de la ligne.
-    expect(html).toContain('ENTRÉE');
-    expect(html).not.toContain('>LISTE INVITÉS<');
+    expect(html).toContain('BILLETTERIE');
+    expect(html).toContain('Prendre mes billets');
   });
 
   it('tickets : billets ET liste invités → le bouton reste « Prendre mes billets »', () => {
@@ -654,20 +667,18 @@ describe('canaux — le bouton part sur le lien suivi de la campagne', () => {
 
   // Liste invités seule : le lien de la PART ouvre le formulaire avec son token
   // ET son `tl=`. C'est ce qui fait remonter l'inscription sur le canal.
-  it('liste invités seule : le bouton ouvre le lien suivi de la PART', () => {
-    const html = renderOne(makeBlock('tickets', { eventId: 'ev-1' }), withLinks({
-      tickets: [{ n: 'Liste invités', s: 'avant 02:00', p: 'Gratuit', out: false }],
-      guestListOnly: true,
+  it('guestlist : le bouton ouvre le lien suivi de la PART, jamais celui de la soirée', () => {
+    const html = renderOne(makeBlock('guestlist', { eventId: 'ev-1' }), withLinks({
+      guestList: { freeBefore: '02:00', includesDrink: false, remaining: null },
     }));
     expect(html).toContain('https://yunoapp.eu/l/gl5678?yc=camp-1');
     expect(html).not.toContain('/l/evt1234');
   });
 
-  it('table VIP : lien suivi de la soirée, vers la sélection', () => {
-    // `/billets` porte AUSSI la section Tables VIP (onglets de zone + bouton
-    // Réserver par formule) : c'est la page de choix des deux piliers.
+  it('table VIP : lien suivi de la soirée — la page normale, billets et tables', () => {
     const html = renderOne(makeBlock('table', { eventId: 'ev-1' }), withLinks({}));
-    expect(html).toContain('https://yunoapp.eu/l/evt1234?to=billets&amp;yc=camp-1');
+    expect(html).toContain('https://yunoapp.eu/l/evt1234?yc=camp-1');
+    expect(html).not.toContain('to=billets');
   });
 
   // Aperçu canvas et envois de test ne résolvent aucun canal : sans eux le
@@ -695,14 +706,14 @@ describe('liste invités = un type d’entrée (live.ts)', () => {
     expect(guestListTicketRow({ free_before_time: null, includes_drink: false }).s).toBe('');
   });
 
-  it('guestListOnly seulement quand aucun billet n’est en vente', () => {
+  it('les lignes Billetterie sont les BILLETS ; guestListOnly seulement sans billet en vente', () => {
     const gl = { holder_type: 'club', free_before_time: '02:00:00' };
     const seule = buildEntryRows([], gl);
-    expect(seule.tickets).toHaveLength(1);
+    expect(seule.tickets).toHaveLength(0);
     expect(seule.guestListOnly).toBe(true);
 
     const mixte = buildEntryRows([{ n: 'Prévente', s: '', p: '18 €', out: false }], gl);
-    expect(mixte.tickets).toHaveLength(2);
+    expect(mixte.tickets).toHaveLength(1);
     expect(mixte.guestListOnly).toBe(false);
 
     const sansListe = buildEntryRows([], null);

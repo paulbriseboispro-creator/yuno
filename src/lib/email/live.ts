@@ -11,14 +11,32 @@
 // copie de ces fonctions. Toute modification ici doit y être répercutée.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { TablePackRow, TicketRow } from './types';
+import type { GuestListLive, TablePackRow, TicketRow } from './types';
 import { GUEST_LIST_ROW_ID } from './types';
 
-/** Colonnes de `guest_lists` nécessaires à la ligne d'entrée. */
+/** Colonnes de `guest_lists` nécessaires au bloc Liste invités. */
 export interface GuestListOffer {
+  id?: string;
   holder_type?: string | null;
   free_before_time?: string | null;
   includes_drink?: boolean | null;
+  quota?: number | null;
+  show_remaining?: boolean | null;
+}
+
+/**
+ * Données live du bloc « Liste invités ». `entries` = inscrits de la part ;
+ * les places restantes ne s'affichent que si le pro l'a voulu.
+ */
+export function buildGuestListLive(part: GuestListOffer | null, entries: number): GuestListLive | null {
+  if (!part) return null;
+  const quota = part.quota != null ? Number(part.quota) : null;
+  const remaining = part.show_remaining && quota != null ? Math.max(0, quota - entries) : null;
+  return {
+    freeBefore: String(part.free_before_time || '').slice(0, 5) || null,
+    includesDrink: !!part.includes_drink,
+    remaining,
+  };
 }
 
 /**
@@ -56,9 +74,12 @@ export function buildEntryRows(
   ticketRows: readonly TicketRow[],
   guestList: GuestListOffer | null,
 ): { tickets: TicketRow[]; guestListOnly: boolean } {
-  const tickets = [...ticketRows];
-  if (guestList) tickets.push(guestListTicketRow(guestList));
-  return { tickets, guestListOnly: ticketRows.length === 0 && !!guestList };
+  // Depuis le 2026-09-10, les BILLETS seulement : la liste invités a son
+  // propre bloc. Un email envoyé à 9 600 personnes pour une soirée sans
+  // billetterie Yuno s'était transformé, sans que le pro le choisisse, en
+  // bouton « M'inscrire à la liste ». `guestListOnly` reste calculé pour le
+  // libellé de prix de la carte événement.
+  return { tickets: [...ticketRows], guestListOnly: ticketRows.length === 0 && !!guestList };
 }
 
 /**
@@ -98,6 +119,19 @@ export function ticketsCtaLabel(guestListOnly?: boolean): string {
  */
 export function ticketsKicker(guestListOnly?: boolean): string {
   return (guestListOnly ? 'Entrée' : 'Billetterie').toUpperCase();
+}
+
+export const GUEST_LIST_KICKER = 'LISTE INVITÉS';
+
+/** Sous-titre live du bloc Liste invités : « Gratuit avant 00:30 · boisson offerte · 42 places restantes ». */
+export function guestListSummary(gl: GuestListLive): string {
+  const bits: string[] = [];
+  bits.push(gl.freeBefore ? `Gratuit avant ${gl.freeBefore}` : 'Entrée gratuite');
+  if (gl.includesDrink) bits.push('boisson offerte');
+  if (gl.remaining != null) {
+    bits.push(gl.remaining === 0 ? 'complet' : `${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
+  }
+  return bits.join(' · ');
 }
 
 /** Badge des tranches fermées — un mot, pas seulement du gris et un barré. */

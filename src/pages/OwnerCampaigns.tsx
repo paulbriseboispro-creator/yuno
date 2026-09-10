@@ -444,12 +444,13 @@ function KpiCard({ label, value, sub, red }: { label: string; value: string; sub
   );
 }
 
-export function OwnerCampaignEditor() {
+export function OwnerCampaignEditor({ templateMode = false }: { templateMode?: boolean } = {}) {
   const { venueId, venue, loading } = useVenueContext();
   if (loading || !venueId) return <OwnerPageSkeleton />;
   return (
     <StudioShell
       basePath="/owner/campaigns"
+      templateMode={templateMode}
       scope={{
         kind: 'venue',
         venueId,
@@ -460,6 +461,11 @@ export function OwnerCampaignEditor() {
       }}
     />
   );
+}
+
+/** Édition d'un modèle dans le studio (route campaigns/templates/:id). */
+export function OwnerCampaignTemplateEditor() {
+  return <OwnerCampaignEditor templateMode />;
 }
 
 export function OwnerCampaignReport() {

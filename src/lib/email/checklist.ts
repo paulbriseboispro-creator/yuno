@@ -38,7 +38,7 @@ export interface ChecklistInput {
   campaignEventId?: string | null;
 }
 
-const CTA_TYPES = new Set(['cta', 'event', 'tickets', 'table']);
+const CTA_TYPES = new Set(['cta', 'event', 'tickets', 'guestlist', 'table']);
 
 export function runChecklist(input: ChecklistInput): ChecklistItem[] {
   const items: ChecklistItem[] = [];

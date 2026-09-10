@@ -55,6 +55,18 @@ export function makeBlock(type: BlockType, ctx: MakeBlockCtx = {}): EmailBlock {
         // et le pro les remplit quand il veut argumenter.
         layout: 'showcase', align: 'left', priceDisplay: 'rows', full: true,
       };
+    case 'guestlist':
+      return {
+        id, type, eventId: ctx.eventId,
+        // Kicker absent = « LISTE INVITÉS » posé par le rendu, comme
+        // « BILLETTERIE » pour le bloc Billets.
+        title: 'Entre gratuitement',
+        sub: 'Inscris-toi, présente-toi avant l’heure limite, et c’est réglé.',
+        perks: [],
+        ctaLabel: 'M’inscrire à la liste',
+        note: 'Une inscription par personne · vérifiée à la porte',
+        layout: 'showcase', align: 'left', full: true,
+      };
     case 'table':
       return {
         id, type, eventId: ctx.eventId,
