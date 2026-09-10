@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, CalendarClock, ChevronDown, Info, Loader2, Plus, Repeat, ShieldCheck, Sparkles, Split, Waves, Zap,
+  AlertTriangle, CalendarClock, ChevronDown, Eye, Info, Loader2, Plus, Repeat, ShieldCheck, Sparkles, Split, Waves, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import EmailCreditsDialog from '@/components/campaigns/EmailCreditsDialog';
+import FollowupPreviewDialog from '@/components/campaigns/FollowupPreviewDialog';
 import {
   buildStarter, computeThrottlePlan, recommendPlan, suggestRate, CLICK_FOLLOWUP_TEMPLATE_NAME_KEY,
   DEFAULT_STUDIO_THEME, MIN_RATE, MAX_DAYS, MIN_DAYS, SMALL_AUDIENCE,
@@ -280,13 +281,178 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
         />
       </FlowCard>
 
-      <EmailCreditsDialog
-        open={creditsOpen}
-        onClose={() => setCreditsOpen(false)}
-        scope={scope.kind === 'venue' ? { kind: 'venue', venueId: scope.venueId } : { kind: 'organizer', organizerId: scope.organizerId }}
-        onCredited={refresh}
-      />
+      {/* La plateforme puise dans le pool marketing de Yuno : rien a acheter. */}
+      {scope.kind !== 'platform' && (
+        <EmailCreditsDialog
+          open={creditsOpen}
+          onClose={() => setCreditsOpen(false)}
+          scope={scope.kind === 'venue' ? { kind: 'venue', venueId: scope.venueId } : { kind: 'organizer', organizerId: scope.organizerId }}
+          onCredited={refresh}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Relance ciblée après clic ────────────────────────────────────────────────
+
+const FOLLOWUP_DELAYS = [6, 12, 24, 48];
+
+function FollowupCard({ campaign, scope, basePath, onPatch }: {
+  campaign: StudioCampaign; scope: StudioScope; basePath?: string; onPatch: (patch: Partial<StudioCampaign>) => void;
+}) {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { templates, create } = useEmailTemplates(scope);
+  const [creating, setCreating] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const chosen = templates.find((tpl) => tpl.id === campaign.followupTemplateId) || null;
+  const on = campaign.followupEnabled;
+  const hasEvent = !!campaign.eventId;
+  const fill = (key: string, vars: Record<string, string | number>) =>
+    Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
+
+  // Le modèle Yuno, créé d'un clic dans les modèles du compte : le pro le
+  // retouche ensuite comme n'importe quel modèle, la relance prend toujours
+  // la dernière version enregistrée au moment de partir.
+  const createStarter = async () => {
+    setCreating(true);
+    try {
+      const content = buildStarter('click_followup', { venueName: scope.name, theme: DEFAULT_STUDIO_THEME, t });
+      const id = await create(t(CLICK_FOLLOWUP_TEMPLATE_NAME_KEY), t('studio.starter.click_followup.desc'), content);
+      if (!id) { toast.error(t('studio.sched.fu.createError')); return; }
+      onPatch({ followupTemplateId: id, followupEnabled: true });
+      toast.success(t('studio.sched.fu.created'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <FlowCard style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', background: 'rgba(232,25,44,0.1)',
+          border: '1px solid rgba(232,25,44,0.2)', color: RED, flex: 'none',
+        }}><Repeat size={16} strokeWidth={1.75} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: T1, fontSize: 13, fontWeight: 560, fontFamily: FONT_UI }}>{t('studio.sched.fu.title')}</div>
+          <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI, lineHeight: 1.45 }}>
+            {hasEvent ? fill('studio.sched.fu.sub', { h: campaign.followupDelayHours }) : t('studio.sched.fu.needEvent')}
+          </div>
+        </div>
+        <Switch
+          checked={on && hasEvent}
+          disabled={!hasEvent}
+          onChange={(v) => onPatch({ followupEnabled: v })}
+          ariaLabel={t('studio.sched.fu.title')}
+        />
+      </div>
+
+      {on && hasEvent && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 14, padding: 14, borderRadius: 14,
+          background: CARD_INNER, border: `1px solid ${BORDER}`,
+        }}>
+          <div>
+            <MicroLabel style={{ marginBottom: 8 }}>{t('studio.sched.fu.delay')}</MicroLabel>
+            <OptionPills<number>
+              value={campaign.followupDelayHours}
+              onChange={(h) => onPatch({ followupDelayHours: h })}
+              ariaLabel={t('studio.sched.fu.delay')}
+              options={FOLLOWUP_DELAYS.map((h) => ({ value: h, label: fill('studio.sched.fu.hours', { h }) }))}
+            />
+          </div>
+
+          <div>
+            <MicroLabel style={{ marginBottom: 8 }}>{t('studio.sched.fu.template')}</MicroLabel>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                value={campaign.followupTemplateId || ''}
+                onChange={(e) => onPatch({ followupTemplateId: e.target.value || null })}
+                aria-label={t('studio.sched.fu.template')}
+                style={{ ...inputStyle, flex: 1, minWidth: 220, colorScheme: 'dark' }}
+              >
+                <option value="">{t('studio.sched.fu.templateNone')}</option>
+                {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
+              </select>
+              <button
+                type="button" onClick={() => void createStarter()} disabled={creating}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', flex: 'none',
+                  padding: '8px 12px', borderRadius: 10, background: SUBTLE, border: `1px solid ${BORDER}`,
+                  color: T1, fontSize: 11.5, fontWeight: 600, fontFamily: FONT_UI, opacity: creating ? 0.6 : 1,
+                }}
+              >
+                {creating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} strokeWidth={1.75} />}
+                {creating ? t('studio.sched.fu.creating') : t('studio.sched.fu.createStarter')}
+              </button>
+            </div>
+            {chosen && (
+              <button
+                type="button" onClick={() => setPreview(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: 8,
+                  padding: '8px 12px', borderRadius: 10, background: SUBTLE, border: `1px solid ${BORDER}`,
+                  color: T1, fontSize: 11.5, fontWeight: 600, fontFamily: FONT_UI,
+                }}
+              >
+                <Eye size={13} strokeWidth={1.75} style={{ color: RED }} />
+                {t('studio.sched.fu.preview')}
+              </button>
+            )}
+            <div style={{ color: T3, fontSize: 11, marginTop: 7, lineHeight: 1.5, fontFamily: FONT_UI }}>
+              {campaign.followupTemplateId && basePath ? (
+                <button
+                  type="button" onClick={() => navigate(`${basePath}/templates/${campaign.followupTemplateId}`)}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: RED, fontSize: 11, fontFamily: FONT_UI }}
+                >{t('studio.sched.fu.editTemplate')} →</button>
+              ) : t('studio.sched.fu.editHint')}
+            </div>
+            {!campaign.followupTemplateId && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 12px', borderRadius: 11, marginTop: 8,
+                background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)',
+              }}>
+                <AlertTriangle size={13} strokeWidth={1.75} style={{ color: WARN, marginTop: 1, flex: 'none' }} />
+                <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t('studio.sched.fu.noTemplate')}</span>
+              </div>
+            )}
+          </div>
+
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 11,
+            background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)',
+          }}>
+            <Sparkles size={13} strokeWidth={1.75} style={{ color: POS, marginTop: 1, flex: 'none' }} />
+            <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t('studio.sched.fu.smart')}</span>
+          </div>
+
+          <div>
+            <MicroLabel style={{ marginBottom: 6 }}>{t('studio.sched.fu.rulesTitle')}</MicroLabel>
+            <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {['rule1', 'rule2', 'rule3', 'rule4', 'rule5'].map((k) => (
+                <li key={k} style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t(`studio.sched.fu.${k}`)}</li>
+              ))}
+            </ul>
+            <div style={{ color: T3, fontSize: 11, marginTop: 8, lineHeight: 1.5, fontFamily: FONT_UI }}>
+              {t('studio.sched.fu.night')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {preview && chosen && (
+        <FollowupPreviewDialog
+          template={chosen}
+          scope={scope}
+          eventId={campaign.eventId}
+          campaignId={campaign.id}
+          onClose={() => setPreview(false)}
+        />
+      )}
+    </FlowCard>
   );
 }
 
@@ -571,143 +737,6 @@ function Warning({ kind, text, action }: {
         >{action.label}</button>
       )}
     </div>
-  );
-}
-
-// ── Relance ciblée après clic ────────────────────────────────────────────────
-
-const FOLLOWUP_DELAYS = [6, 12, 24, 48];
-
-function FollowupCard({ campaign, scope, basePath, onPatch }: {
-  campaign: StudioCampaign; scope: StudioScope; basePath?: string; onPatch: (patch: Partial<StudioCampaign>) => void;
-}) {
-  const { t } = useLanguage();
-  const navigate = useNavigate();
-  const { templates, create } = useEmailTemplates(scope);
-  const [creating, setCreating] = useState(false);
-  const on = campaign.followupEnabled;
-  const hasEvent = !!campaign.eventId;
-  const fill = (key: string, vars: Record<string, string | number>) =>
-    Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
-
-  // Le modèle Yuno, créé d'un clic dans les modèles du compte : le pro le
-  // retouche ensuite comme n'importe quel modèle, la relance prend toujours
-  // la dernière version enregistrée au moment de partir.
-  const createStarter = async () => {
-    setCreating(true);
-    try {
-      const content = buildStarter('click_followup', { venueName: scope.name, theme: DEFAULT_STUDIO_THEME, t });
-      const id = await create(t(CLICK_FOLLOWUP_TEMPLATE_NAME_KEY), t('studio.starter.click_followup.desc'), content);
-      if (!id) { toast.error(t('studio.sched.fu.createError')); return; }
-      onPatch({ followupTemplateId: id, followupEnabled: true });
-      toast.success(t('studio.sched.fu.created'));
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <FlowCard style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', background: 'rgba(232,25,44,0.1)',
-          border: '1px solid rgba(232,25,44,0.2)', color: RED, flex: 'none',
-        }}><Repeat size={16} strokeWidth={1.75} /></div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: T1, fontSize: 13, fontWeight: 560, fontFamily: FONT_UI }}>{t('studio.sched.fu.title')}</div>
-          <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI, lineHeight: 1.45 }}>
-            {hasEvent ? fill('studio.sched.fu.sub', { h: campaign.followupDelayHours }) : t('studio.sched.fu.needEvent')}
-          </div>
-        </div>
-        <Switch
-          checked={on && hasEvent}
-          disabled={!hasEvent}
-          onChange={(v) => onPatch({ followupEnabled: v })}
-          ariaLabel={t('studio.sched.fu.title')}
-        />
-      </div>
-
-      {on && hasEvent && (
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: 14, padding: 14, borderRadius: 14,
-          background: CARD_INNER, border: `1px solid ${BORDER}`,
-        }}>
-          <div>
-            <MicroLabel style={{ marginBottom: 8 }}>{t('studio.sched.fu.delay')}</MicroLabel>
-            <OptionPills<number>
-              value={campaign.followupDelayHours}
-              onChange={(h) => onPatch({ followupDelayHours: h })}
-              ariaLabel={t('studio.sched.fu.delay')}
-              options={FOLLOWUP_DELAYS.map((h) => ({ value: h, label: fill('studio.sched.fu.hours', { h }) }))}
-            />
-          </div>
-
-          <div>
-            <MicroLabel style={{ marginBottom: 8 }}>{t('studio.sched.fu.template')}</MicroLabel>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select
-                value={campaign.followupTemplateId || ''}
-                onChange={(e) => onPatch({ followupTemplateId: e.target.value || null })}
-                aria-label={t('studio.sched.fu.template')}
-                style={{ ...inputStyle, flex: 1, minWidth: 220, colorScheme: 'dark' }}
-              >
-                <option value="">{t('studio.sched.fu.templateNone')}</option>
-                {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
-              </select>
-              <button
-                type="button" onClick={() => void createStarter()} disabled={creating}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', flex: 'none',
-                  padding: '8px 12px', borderRadius: 10, background: SUBTLE, border: `1px solid ${BORDER}`,
-                  color: T1, fontSize: 11.5, fontWeight: 600, fontFamily: FONT_UI, opacity: creating ? 0.6 : 1,
-                }}
-              >
-                {creating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} strokeWidth={1.75} />}
-                {creating ? t('studio.sched.fu.creating') : t('studio.sched.fu.createStarter')}
-              </button>
-            </div>
-            <div style={{ color: T3, fontSize: 11, marginTop: 7, lineHeight: 1.5, fontFamily: FONT_UI }}>
-              {campaign.followupTemplateId && basePath ? (
-                <button
-                  type="button" onClick={() => navigate(`${basePath}/templates/${campaign.followupTemplateId}`)}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: RED, fontSize: 11, fontFamily: FONT_UI }}
-                >{t('studio.sched.fu.editTemplate')} →</button>
-              ) : t('studio.sched.fu.editHint')}
-            </div>
-            {!campaign.followupTemplateId && (
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 12px', borderRadius: 11, marginTop: 8,
-                background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)',
-              }}>
-                <AlertTriangle size={13} strokeWidth={1.75} style={{ color: WARN, marginTop: 1, flex: 'none' }} />
-                <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t('studio.sched.fu.noTemplate')}</span>
-              </div>
-            )}
-          </div>
-
-          <div style={{
-            display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 11,
-            background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)',
-          }}>
-            <Sparkles size={13} strokeWidth={1.75} style={{ color: POS, marginTop: 1, flex: 'none' }} />
-            <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t('studio.sched.fu.smart')}</span>
-          </div>
-
-          <div>
-            <MicroLabel style={{ marginBottom: 6 }}>{t('studio.sched.fu.rulesTitle')}</MicroLabel>
-            <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {['rule1', 'rule2', 'rule3', 'rule4', 'rule5'].map((k) => (
-                <li key={k} style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t(`studio.sched.fu.${k}`)}</li>
-              ))}
-            </ul>
-            <div style={{ color: T3, fontSize: 11, marginTop: 8, lineHeight: 1.5, fontFamily: FONT_UI }}>
-              {t('studio.sched.fu.night')}
-            </div>
-          </div>
-        </div>
-      )}
-    </FlowCard>
   );
 }
 

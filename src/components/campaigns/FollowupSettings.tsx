@@ -8,12 +8,13 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Loader2, Repeat, Sparkles } from 'lucide-react';
+import { AlertTriangle, Eye, Loader2, Repeat, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { buildStarter, CLICK_FOLLOWUP_TEMPLATE_NAME_KEY, DEFAULT_STUDIO_THEME } from '@/lib/email';
 import { useEmailTemplates, type StudioScope } from '@/components/email-studio/hooks';
+import FollowupPreviewDialog from './FollowupPreviewDialog';
 
 const DELAYS = [6, 12, 24, 48];
 const RED = '#E8192C';
@@ -29,9 +30,11 @@ export interface FollowupInitial {
   templateId: string | null;
 }
 
-export default function FollowupSettings({ campaignId, scope, initial, onSaved, basePath }: {
+export default function FollowupSettings({ campaignId, scope, eventId, initial, onSaved, basePath }: {
   campaignId: string;
   scope: StudioScope;
+  /** Soirée de la campagne — c'est elle qui alimente l'aperçu de la relance. */
+  eventId: string | null;
   initial: FollowupInitial;
   /** Racine des campagnes de la portée, pour ouvrir le modèle dans le studio. */
   basePath?: string;
@@ -45,6 +48,8 @@ export default function FollowupSettings({ campaignId, scope, initial, onSaved, 
   const [delay, setDelay] = useState(initial.delayHours);
   const [templateId, setTemplateId] = useState<string | null>(initial.templateId);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const chosen = templates.find((tpl) => tpl.id === templateId) || null;
   const fill = (key: string, vars: Record<string, string | number>) =>
     Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
 
@@ -141,6 +146,19 @@ export default function FollowupSettings({ campaignId, scope, initial, onSaved, 
                 {t('studio.sched.fu.createStarter')}
               </button>
             </div>
+            {chosen && (
+              <button
+                type="button" onClick={() => setPreview(true)}
+                className="inline-flex items-center gap-1.5 cursor-pointer mt-2"
+                style={{
+                  padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${BORDER}`, color: T1, fontSize: 11.5, fontWeight: 600,
+                }}
+              >
+                <Eye className="w-3.5 h-3.5" style={{ color: RED }} />
+                {t('studio.sched.fu.preview')}
+              </button>
+            )}
             <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
               {templateId && basePath ? (
                 <button
@@ -162,6 +180,16 @@ export default function FollowupSettings({ campaignId, scope, initial, onSaved, 
           </ul>
           <div style={{ color: T3, fontSize: 11, lineHeight: 1.5 }}>{t('studio.sched.fu.night')} {t('studio.sched.fu.smart')}</div>
         </div>
+      )}
+
+      {preview && chosen && (
+        <FollowupPreviewDialog
+          template={chosen}
+          scope={scope}
+          eventId={eventId}
+          campaignId={campaignId}
+          onClose={() => setPreview(false)}
+        />
       )}
     </div>
   );

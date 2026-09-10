@@ -203,6 +203,8 @@ interface Sender {
   scopeKey: string;
   venueId: string | null;
   organizerUserId: string | null;
+  /** Campagne Yuno (ni club ni organisateur) : le pied « Powered by » saute. */
+  isPlatform: boolean;
 }
 
 async function resolveSender(admin: Admin, campaign: Record<string, unknown>): Promise<Sender> {
@@ -234,18 +236,30 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>): P
     }
     ownerUserId = p.id;
   } else {
-    throw new Error('Campaign has no owner');
+    // ── Portée plateforme : Yuno écrit en son nom ──────────────────────────
+    // Pas de club, pas d'organisateur : l'expéditeur est la marque. Le
+    // « propriétaire » de la campagne est le super admin, uniquement pour le
+    // reply-to et l'accusé de fin d'envoi.
+    const { data: adminRole } = await admin
+      .from('user_roles').select('user_id').eq('role', 'admin').limit(1).maybeSingle();
+    ownerUserId = (adminRole as { user_id?: string } | null)?.user_id ?? null;
+    if (!ownerUserId) throw new Error('No super admin to own the platform campaign');
+    name = 'Yuno';
+    city = null;
+    logoUrl = `${PUBLIC_URL}/yuno-wordmark.png`;
   }
 
   const { data: ownerProfile } = await admin
     .from('profiles').select('email, first_name, last_name').eq('id', ownerUserId!).single();
 
+  const isPlatform = !venueId && !organizerUserId;
   return {
     name, city, logoUrl, ownerUserId: ownerUserId!,
     from: `${name} <${slugifyVenueName(name)}@${marketingDomain()}>`,
-    replyTo: ownerProfile?.email || null,
+    replyTo: (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
     venueId, organizerUserId,
+    isPlatform,
   };
 }
 
@@ -268,7 +282,9 @@ async function makeStudioHtmlBuilder(
       if (b.type === 'header' && !b.logoUrl) b.logoUrl = campaignLogo;
     }
   }
-  const hideBranding = sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
+  const hideBranding = sender.isPlatform
+    ? true
+    : sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
   // Les boutons des blocs Yuno partent sur le canal « newsletter » des liens
   // suivis : clics et inscriptions remontent dans les stats de la soirée. Un
   // envoi de TEST reste sur l'URL nue — le pro ne doit pas s'auto-compter.
@@ -320,7 +336,9 @@ async function makeHtmlBuilder(admin: Admin, campaign: Record<string, unknown>, 
   }
   const theme = (campaign.theme_json || {}) as Record<string, unknown>;
   const socialLinks = (campaign.social_links_json || {}) as Record<string, unknown>;
-  const hideBranding = sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
+  const hideBranding = sender.isPlatform
+    ? true
+    : sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
 
   return (r: Recipient) => buildCampaignHtml({
     blocks,
@@ -627,11 +645,36 @@ async function drainSlice(
 // ── Notification owner en fin de campagne ──────────────────────────────────
 
 async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign: Record<string, unknown>, status: string) {
-  if (status !== 'sent' || !campaign.venue_id) return;
+  if (status !== 'sent') return;
   // Une relance après clic se vide et se remplit à chaque vague du cron : un
   // accusé « campagne envoyée » à chaque fois serait du bruit. Son bilan vit
   // dans le rapport de la campagne mère.
   if (campaign.parent_campaign_id) return;
+  // Portée plateforme : l'accusé part dans le flux d'alertes super admin
+  // (`emit_admin_notification`), jamais dans `staff_notifications` — il n'y a
+  // pas de club à notifier.
+  if (!campaign.venue_id && !campaign.organizer_user_id) {
+    try {
+      const { data: c } = await admin
+        .from('email_campaigns')
+        .select('recipients_count, failed_count, suppressed_count').eq('id', campaignId).single();
+      const ok = Number(c?.recipients_count || 0);
+      const ko = Number(c?.failed_count || 0);
+      await admin.rpc('emit_admin_notification', {
+        p_type: 'admin_platform_campaign_sent',
+        p_title: 'Campagne Yuno envoyée',
+        p_message: `"${campaign.subject}" — ${ok} destinataire${ok > 1 ? 's' : ''}${ko > 0 ? ` (${ko} échec${ko > 1 ? 's' : ''})` : ''}`,
+        p_priority: ko > 0 ? 'high' : 'normal',
+        p_reference_type: 'email_campaign',
+        p_reference_id: campaignId,
+        p_metadata: { subject: campaign.subject, sent: ok, failed: ko, channel: 'email' },
+      });
+    } catch (e) {
+      console.error('Admin notif error (platform campaign_sent):', e);
+    }
+    return;
+  }
+  if (!campaign.venue_id) return;
   try {
     const { data: c } = await admin
       .from('email_campaigns')
@@ -712,7 +755,7 @@ Deno.serve(async (req) => {
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
     const body = await req.json();
-    const { campaign_id, send_test, test_email, test_emails, scheduled, mode } = body ?? {};
+    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id } = body ?? {};
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: 'campaign_id required' }), { status: 400, headers: jsonHeaders });
     }
@@ -754,7 +797,36 @@ Deno.serve(async (req) => {
 
     // ── Test ────────────────────────────────────────────────────────────────
     if (send_test) {
-      const n = await sendTest(admin, campaign_id, campaign, sender, test_email, test_emails);
+      // Test de la RELANCE après clic : le design vient du modèle choisi, tout
+      // le reste (portée, expéditeur, soirée reliée) vient de la campagne mère.
+      // C'est exactement ce que le cron enverra — les blocs Yuno se remplissent
+      // avec la soirée de la campagne, pas avec des lignes d'exemple.
+      let testCampaign = campaign;
+      if (typeof followup_template_id === 'string' && followup_template_id) {
+        const { data: tpl } = await admin
+          .from('email_campaign_templates').select('*').eq('id', followup_template_id).maybeSingle();
+        if (!tpl) throw new Error('Template not found');
+        const sameScope = ((tpl.venue_id as string | null) || null) === ((campaign.venue_id as string | null) || null)
+          && ((tpl.organizer_user_id as string | null) || null) === ((campaign.organizer_user_id as string | null) || null);
+        if (!sameScope) {
+          return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: jsonHeaders });
+        }
+        testCampaign = {
+          ...campaign,
+          subject: tpl.subject || campaign.subject,
+          preheader: tpl.preheader || '',
+          blocks_json: tpl.blocks_json || [],
+          blocks_version: 2,
+          theme_json: tpl.theme_json || {},
+          social_links_json: tpl.social_links_json || {},
+          logo_url: tpl.logo_url || campaign.logo_url,
+          type: 'promotional',
+          // Pas d'A/B sur une relance : un seul objet, celui du modèle.
+          subject_b: null,
+          ab_enabled: false,
+        };
+      }
+      const n = await sendTest(admin, campaign_id, testCampaign, sender, test_email, test_emails);
       return new Response(JSON.stringify({ success: true, sent: n, test: true }), { headers: jsonHeaders });
     }
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Link2, Loader2, Mail, Users, Eye, MousePointerClick, Split, Trophy,
-  UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette, Euro,
+  UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette, Euro, Repeat,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -51,6 +51,7 @@ type CampaignRow = {
   recipients_count: number;
   opens_count: number;
   clicks_count: number;
+  clickers_count: number | null;
   unsubscribes_count: number;
   delivered_count: number;
   bounced_count: number;
@@ -73,10 +74,18 @@ interface FollowupStats {
   parent_id: string;
   parent_name: string;
   is_child: boolean;
+  enabled: boolean;
   delay_hours: number;
+  /** Premiers clics sur la soirée repérés par le moteur (toutes issues confondues). */
+  clicks_seen: number;
   queued: number;
+  /** Relances programmées pas encore posées dans la file de l'enfant. */
+  pending: number;
   skipped: Record<string, number>;
-  child: { id: string; name: string; status: string; sent: number; delivered: number; opens: number; clicks: number; unsubscribes: number } | null;
+  child: {
+    id: string; name: string; status: string; sent: number; delivered: number;
+    opens: number; clicks: number; clickers: number; unsubscribes: number; bounced: number;
+  } | null;
 }
 interface LinkStat { url: string; n: number }
 
@@ -116,6 +125,17 @@ function MetricTile({
   );
 }
 
+/** Chiffre compact du bilan de relance — la même tuile en plus petit. */
+function FuStat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+  return (
+    <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 11, padding: '9px 11px' }}>
+      <div style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ color: accent || T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25, marginTop: 2 }}>{value}</div>
+      {sub && <div style={{ color: T3, fontSize: 10.5 }}>{sub}</div>}
+    </div>
+  );
+}
+
 function FunnelBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
   return (
@@ -143,10 +163,14 @@ export default function CampaignReport({ scope, basePath }: Props) {
   const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0 });
   // Attribution clic→achat 72 h (get_email_campaign_attribution, net de frais).
   const [attribution, setAttribution] = useState<{ revenue: number; buyers: number } | null>(null);
+  // Revenu attribué à la campagne ENFANT (la relance) — même RPC, même fenêtre
+  // 72 h : la porte d'attribution reste unique, on lit juste une autre ligne.
+  const [fuAttribution, setFuAttribution] = useState<{ revenue: number; buyers: number } | null>(null);
   // Test A/B d'objet : échantillons + ouvertures par variante (RPC dédiée).
   const [ab, setAb] = useState<AbStats | null>(null);
   // Liens les plus cliqués — agrégés depuis le payload Resend des événements.
   const [topLinks, setTopLinks] = useState<LinkStat[]>([]);
+  const [attributionRows, setAttributionRows] = useState<Array<{ id: string; revenue: number; buyers: number }>>([]);
   const [tab, setTab] = useState<'performance' | 'design'>('performance');
   // Rechargement complet (attribution, liens, A/B) quand l'envoi se termine.
   const [reloadKey, setReloadKey] = useState(0);
@@ -159,6 +183,13 @@ export default function CampaignReport({ scope, basePath }: Props) {
       .then(({ data }) => { if (!cancelled) setFu(((data as unknown) as FollowupStats | null) || null); });
     return () => { cancelled = true; };
   }, [id, reloadKey]);
+
+  useEffect(() => {
+    const childId = fu?.child?.id;
+    if (!childId) { setFuAttribution(null); return; }
+    const row = attributionRows.find((r) => r.id === childId);
+    setFuAttribution(row ? { revenue: row.revenue, buyers: row.buyers } : { revenue: 0, buyers: 0 });
+  }, [fu, attributionRows]);
   const inFlight = campaign?.status === 'sending' || campaign?.status === 'paused';
 
   useEffect(() => {
@@ -241,8 +272,10 @@ export default function CampaignReport({ scope, basePath }: Props) {
             const { data: attr } = await supabase.rpc('get_email_campaign_attribution' as never, args as never);
             const payload = attr as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number; buyers: number }> } | null;
             if (!cancelled && payload?.supported) {
-              const mine = (payload.campaigns || []).find((campRow) => campRow.id === id);
+              const rows = payload.campaigns || [];
+              const mine = rows.find((campRow) => campRow.id === id);
               setAttribution(mine ? { revenue: mine.revenue, buyers: mine.buyers } : { revenue: 0, buyers: 0 });
+              setAttributionRows(rows);
             }
           }
         } catch { /* tuiles absentes */ }
@@ -330,7 +363,13 @@ export default function CampaignReport({ scope, basePath }: Props) {
 
   const rc = campaign?.recipients_count || 0;
   const opens = campaign?.opens_count || 0;
+  // Un clic n'est pas une personne : `clicks_count` compte les ÉVÉNEMENTS
+  // (quelqu'un qui ouvre trois liens compte trois fois, et les scanners de
+  // certaines messageries pré-chargent les liens). Les taux se calculent donc
+  // sur les CLIQUEURS uniques, comme les ouvertures — sinon on affiche « 600 %
+  // de taux de clic » pour 36 clics de 5 personnes.
   const clicks = campaign?.clicks_count || 0;
+  const clickers = campaign?.clickers_count ?? 0;
   const unsubs = campaign?.unsubscribes_count || 0;
   const delivered = extra.delivered;
   const fmtPct = (n: number, d: number) => `${d > 0 ? ((n / d) * 100).toFixed(1) : '0'}%`;
@@ -408,6 +447,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   key={campaign.id}
                   campaignId={campaign.id}
                   scope={scope}
+                  eventId={campaign.event_id}
                   initial={{
                     enabled: !!campaign.followup_enabled,
                     delayHours: Math.min(168, Math.max(1, Number(campaign.followup_delay_hours) || 24)),
@@ -419,7 +459,10 @@ export default function CampaignReport({ scope, basePath }: Props) {
               </div>
             )}
 
-            {/* Relance après clic : bilan (mère) ou rattachement (enfant). */}
+            {/* Relance après clic : bilan (mère) ou rattachement (enfant).
+                La stratégie a ses propres chiffres — clics repérés, relances
+                parties, ouvertures, clics, ventes attribuées : sans eux, le pro
+                ne sait pas si l'automatisme lui rapporte quoi que ce soit. */}
             {fu && (
               <div className="mb-5" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px 16px' }}>
                 {fu.is_child ? (
@@ -434,30 +477,72 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-                      <div>
-                        <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('em.report.fu.title')}</div>
+                    <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+                          <Repeat className="w-4 h-4 shrink-0" style={{ color: RED }} />
+                          {t('em.report.fu.title')}
+                          {!fu.enabled && (
+                            <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: T3, background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                              {t('em.report.fu.off')}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('em.report.fu.sub').replace('{h}', String(fu.delay_hours))}</div>
                       </div>
                       {fu.child && (
                         <button
                           type="button" onClick={() => navigate(`${basePath}/${fu.child!.id}/report`)}
-                          className="cursor-pointer" style={{ color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none' }}
+                          className="cursor-pointer shrink-0" style={{ color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none' }}
                         >{t('em.report.fu.open')} →</button>
                       )}
                     </div>
-                    {fu.child || fu.queued > 0 ? (
-                      <div className="flex flex-wrap gap-x-5 gap-y-1" style={{ color: T2, fontSize: 12.5 }}>
-                        <span><b style={{ color: T1 }}>{(fu.child?.sent || 0).toLocaleString()}</b> {t('em.report.fu.sent')}</span>
-                        <span><b style={{ color: T1 }}>{(fu.child?.opens || 0).toLocaleString()}</b> {t('em.report.fu.opens')}</span>
-                        <span><b style={{ color: T1 }}>{(fu.child?.clicks || 0).toLocaleString()}</b> {t('em.report.fu.clicks')}</span>
-                        {fu.queued > 0 && <span><b style={{ color: T1 }}>{fu.queued.toLocaleString()}</b> {t('em.report.fu.queued')}</span>}
-                      </div>
+                    {fu.child || fu.clicks_seen > 0 ? (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <FuStat label={t('em.report.fu.clicksSeen')} value={fu.clicks_seen.toLocaleString()} />
+                          <FuStat
+                            label={t('em.report.fu.sent')}
+                            value={(fu.child?.sent || 0).toLocaleString()}
+                            sub={fu.pending > 0 ? `${fu.pending.toLocaleString()} ${t('em.report.fu.queued')}` : undefined}
+                          />
+                          <FuStat
+                            label={t('em.report.fu.opens')}
+                            value={(fu.child?.opens || 0).toLocaleString()}
+                            sub={fu.child ? fmtPct(fu.child.opens, fu.child.sent) : undefined}
+                            accent={RED}
+                          />
+                          <FuStat
+                            label={t('em.report.fu.clickers')}
+                            value={(fu.child?.clickers || 0).toLocaleString()}
+                            sub={fu.child ? fmtPct(fu.child.clickers, fu.child.sent) : undefined}
+                            accent={RED}
+                          />
+                          {fuAttribution && (
+                            <>
+                              <FuStat
+                                label={t('em.report.fu.revenue')}
+                                value={`${fuAttribution.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}€`}
+                                accent={POS}
+                              />
+                              <FuStat label={t('em.report.fu.buyers')} value={fuAttribution.buyers.toLocaleString()} accent={POS} />
+                            </>
+                          )}
+                          {(fu.child?.unsubscribes || 0) > 0 && (
+                            <FuStat label={t('em.report.fu.unsubs')} value={(fu.child?.unsubscribes || 0).toLocaleString()} accent={WARN} />
+                          )}
+                        </div>
+                        {fu.child && fu.child.clicks > fu.child.clickers && (
+                          <div style={{ color: T3, fontSize: 11, marginTop: 8 }}>
+                            {t('em.report.fu.clicksTotal').replace('{n}', fu.child.clicks.toLocaleString())}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div style={{ color: T3, fontSize: 12 }}>{t('em.report.fu.none').replace('{h}', String(fu.delay_hours))}</div>
                     )}
                     {Object.keys(fu.skipped || {}).length > 0 && (
-                      <div style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>
+                      <div style={{ color: T3, fontSize: 11.5, marginTop: 8 }}>
                         {t('em.report.fu.skipped')}
                         {Object.entries(fu.skipped).map(([k, n]) => `${n} ${t(`em.report.fu.skip.${k}`)}`).join(' · ')}
                       </div>
@@ -496,7 +581,12 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   <MetricTile icon={Users} label={t('em.report.recipients')} value={rc.toLocaleString()} />
                   <MetricTile icon={CheckCircle2} label={t('em.report.delivered')} value={delivered.toLocaleString()} sub={fmtPct(delivered, rc)} accent={POS} />
                   <MetricTile icon={Eye} label={t('em.report.opens')} value={opens.toLocaleString()} sub={`${fmtPct(opens, rc)} ${t('em.report.openRate')}`} accent={RED} />
-                  <MetricTile icon={MousePointerClick} label={t('em.report.clicks')} value={clicks.toLocaleString()} sub={`${fmtPct(clicks, rc)} ${t('em.report.clickRate')}`} accent={RED} />
+                  <MetricTile
+                    icon={MousePointerClick} label={t('em.report.clickers')}
+                    value={clickers.toLocaleString()}
+                    sub={`${fmtPct(clickers, rc)} ${t('em.report.clickRate')}${clicks > clickers ? ` · ${clicks.toLocaleString()} ${t('em.report.clicksTotalShort')}` : ''}`}
+                    accent={RED}
+                  />
                   <MetricTile icon={UserMinus} label={t('em.report.unsubscribes')} value={unsubs.toLocaleString()} sub={fmtPct(unsubs, rc)} accent={unsubs > 0 ? WARN : undefined} />
                   <MetricTile icon={AlertTriangle} label={t('em.report.bounces')} value={extra.bounced.toLocaleString()} sub={fmtPct(extra.bounced, rc)} accent={extra.bounced > 0 ? WARN : undefined} />
                   {attribution && (
@@ -566,7 +656,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                     <FunnelBar label={t('em.report.recipients')} value={rc} total={rc} color="rgba(255,255,255,0.28)" />
                     <FunnelBar label={t('em.report.delivered')} value={delivered} total={rc} color={POS} />
                     <FunnelBar label={t('em.report.opens')} value={opens} total={rc} color={RED} />
-                    <FunnelBar label={t('em.report.clicks')} value={clicks} total={rc} color="#A78BFA" />
+                    <FunnelBar label={t('em.report.clickers')} value={clickers} total={rc} color="#A78BFA" />
                   </div>
                   {(extra.complained > 0 || extra.failed > 0) && (
                     <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
