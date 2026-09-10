@@ -798,7 +798,11 @@ export default function TicketSelection() {
                         ) : (
                           <p className="text-2xl font-bold text-orange-400">0 €</p>
                         )}
-                        {!isFull && c.counter !== null && <p className="text-[10px] text-white/60">{c.counter} {t('guestList.spotsLeft')}</p>}
+                        {!isFull && c.counter !== null && (
+                          <span className="inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
+                            {c.counter} {t('guestList.spotsLeft')}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -1102,9 +1106,9 @@ function TicketCard({
             </p>
           )}
           {!previewOnly && showRemainingCount && hasRealLimit && (
-            <p className="text-[10px] mt-1 text-amber-400 font-medium">
+            <span className="mt-1.5 inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
               {emojiEnabled ? '🎟️ ' : ''}{displayRemaining} {t('scarcity.ticketsLeft')}
-            </p>
+            </span>
           )}
 
           {round.description && (
@@ -1256,7 +1260,9 @@ function PackCard({
               <p className="text-[11px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
             )}
             {pack.limitTables && !isSoldOut && remaining > 0 && remaining <= 3 && (
-              <p className="text-[11px] text-white/60">{remaining} {t('ticketSel.tablesLeft')}</p>
+              <span className="inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
+                {remaining} {t('ticketSel.tablesLeft')}
+              </span>
             )}
             {onSite ? (
               <p className="text-[11px] text-emerald-400 font-semibold">{t('ticketSel.onSitePayment')}</p>
