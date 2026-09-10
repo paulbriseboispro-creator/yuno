@@ -498,6 +498,41 @@ function BlockVisibility({ block, patch }: {
   );
 }
 
+/**
+ * Arguments de vente — la même liste pour les blocs Soirée, Liste invités et
+ * Table VIP. Trois copies de ce petit éditeur, c'était trois occasions de
+ * diverger : le pro doit retrouver le même geste d'un bloc à l'autre.
+ */
+function PerksEditor({ perks, onChange }: { perks: string[]; onChange: (next: string[]) => void }) {
+  const { t } = useLanguage();
+  return (
+    <>
+      <MicroLabel>{t('studio.inspector.tablePerks')}</MicroLabel>
+      <Help>{t('studio.inspector.tablePerksHelp')}</Help>
+      {perks.map((perk, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <TextInput value={perk} onChange={(e) => onChange(perks.map((p, idx) => (idx === i ? e.target.value : p)))} />
+          <IconBtn size={26} danger ariaLabel={t('studio.inspector.rowRemove')}
+            onClick={() => onChange(perks.filter((_, idx) => idx !== i))}>
+            <Trash2 size={13} strokeWidth={1.75} />
+          </IconBtn>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...perks, t('studio.inspector.tablePerkNew')])}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
+          borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
+          color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+        }}
+      >
+        <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.tablePerkAdd')}
+      </button>
+    </>
+  );
+}
+
 function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
   block: EmailBlock; patch: (p: Partial<EmailBlock>) => void;
   events: StudioEvent[]; live: LiveData; bucketFolder: string;
@@ -594,6 +629,12 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
     }
     case 'event': {
       const b = block as EventBlock;
+      const evLayout = b.layout || 'showcase';
+      // Le côte à côte n'a rien à poser à gauche sans affiche, et le bandeau
+      // range sa fiche sur une ligne quoi qu'on choisisse : on ne montre pas
+      // un réglage qui ne changera rien à ce qui part.
+      const evMetaLocked = evLayout === 'banner';
+      const evCoverPosLocked = evLayout === 'split';
       return (
         <>
           <PanelCard>
@@ -603,16 +644,21 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
               {t('studio.inspector.eventHelp')}
             </Banner>
             <Help>{t('studio.inspector.trackedLinkHelp')}</Help>
-          </PanelCard>
-          <PanelCard>
-            <MicroLabel>{t('studio.inspector.display')}</MicroLabel>
-            <ToggleRow checked={b.cover} onChange={(v) => patch({ cover: v })} label={t('studio.inspector.showCover')} />
-            <ToggleRow checked={b.venue} onChange={(v) => patch({ venue: v })} label={t('studio.inspector.showVenue')} />
-            <ToggleRow checked={b.price} onChange={(v) => patch({ price: v })} label={t('studio.inspector.showPrice')} />
-          </PanelCard>
-          <PanelCard>
-            <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
-            <TextInput value={b.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} />
+            <MicroLabel>{t('studio.inspector.tableLayout')}</MicroLabel>
+            <OptionPills
+              value={evLayout}
+              ariaLabel={t('studio.inspector.tableLayout')}
+              options={[
+                { value: 'showcase', label: t('studio.inspector.tableLayoutShowcase') },
+                { value: 'split', label: t('studio.inspector.eventLayoutSplit') },
+                { value: 'banner', label: t('studio.inspector.tableLayoutBanner') },
+                { value: 'minimal', label: t('studio.inspector.tableLayoutMinimal') },
+              ]}
+              onChange={(v) => patch({ layout: v })}
+            />
+            <Help>{t('studio.inspector.eventLayoutHelp')}</Help>
+            <MicroLabel>{t('studio.inspector.align')}</MicroLabel>
+            {alignPills(b.align || 'left', (v) => patch({ align: v }))}
             <ThemedColor
               label={t('studio.inspector.accentColor')}
               value={b.accent}
@@ -620,12 +666,91 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
               onChange={(v) => patch({ accent: v })}
             />
           </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.tableKicker')}</MicroLabel>
+            <TextInput
+              value={b.kicker ?? ''}
+              placeholder={t('studio.inspector.eventKickerPlaceholder')}
+              onChange={(e) => patch({ kicker: e.target.value })}
+            />
+            <MicroLabel>{t('studio.inspector.eventSub')}</MicroLabel>
+            <TextInput
+              value={b.sub || ''}
+              placeholder={t('studio.inspector.eventSubPlaceholder')}
+              onChange={(e) => patch({ sub: e.target.value })}
+            />
+            <Help>{t('studio.inspector.eventTitleHelp')}</Help>
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.eventMeta')}</MicroLabel>
+            <OptionPills
+              value={evMetaLocked ? 'inline' : (b.metaDisplay || 'stack')}
+              ariaLabel={t('studio.inspector.eventMeta')}
+              disabled={evMetaLocked}
+              options={[
+                { value: 'stack', label: t('studio.inspector.eventMetaStack') },
+                { value: 'inline', label: t('studio.inspector.eventMetaInline') },
+                { value: 'rows', label: t('studio.inspector.eventMetaRows') },
+              ]}
+              onChange={(v) => patch({ metaDisplay: v })}
+            />
+            <Help>{evMetaLocked ? t('studio.inspector.eventMetaBanner') : t('studio.inspector.eventMetaHelp')}</Help>
+            <ToggleRow checked={b.venue} onChange={(v) => patch({ venue: v })} label={t('studio.inspector.showVenue')} />
+            <ToggleRow checked={b.price} onChange={(v) => patch({ price: v })} label={t('studio.inspector.showPrice')} />
+          </PanelCard>
+
+          <PanelCard>
+            <PerksEditor perks={b.perks || []} onChange={(next) => patch({ perks: next })} />
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.display')}</MicroLabel>
+            <ToggleRow checked={b.cover} onChange={(v) => patch({ cover: v })} label={t('studio.inspector.showCover')} />
+            {b.cover && !evCoverPosLocked && (
+              <>
+                <MicroLabel>{t('studio.inspector.tableCoverPos')}</MicroLabel>
+                <OptionPills
+                  value={b.coverPos || 'top'}
+                  ariaLabel={t('studio.inspector.tableCoverPos')}
+                  options={[
+                    { value: 'top', label: t('studio.inspector.tableCoverTop') },
+                    { value: 'bottom', label: t('studio.inspector.tableCoverBottom') },
+                  ]}
+                  onChange={(v) => patch({ coverPos: v })}
+                />
+              </>
+            )}
+            {b.cover && evCoverPosLocked && <Help>{t('studio.inspector.eventCoverSplit')}</Help>}
+          </PanelCard>
+
+          <PanelCard>
+            <MicroLabel>{t('studio.inspector.blockButton')}</MicroLabel>
+            <TextInput value={b.ctaLabel} onChange={(e) => patch({ ctaLabel: e.target.value })} />
+            <ToggleRow
+              checked={b.full ?? (evLayout !== 'minimal')}
+              onChange={(v) => patch({ full: v })}
+              label={t('studio.inspector.ctaFull')}
+            />
+            <MicroLabel>{t('studio.inspector.tableNote')}</MicroLabel>
+            <TextInput value={b.note || ''} onChange={(e) => patch({ note: e.target.value })}
+              placeholder={t('studio.inspector.eventNotePlaceholder')} />
+          </PanelCard>
+
           {!b.eventId && (
             <PanelCard>
               <MicroLabel>{t('studio.inspector.staticContent')}</MicroLabel>
               <TextInput value={b.title} onChange={(e) => patch({ title: e.target.value })} placeholder={t('studio.inspector.eventTitle')} />
               <TextInput value={b.dateLabel} onChange={(e) => patch({ dateLabel: e.target.value })} placeholder={t('studio.inspector.eventDate')} />
               <TextInput value={b.venueLabel} onChange={(e) => patch({ venueLabel: e.target.value })} placeholder={t('studio.inspector.eventVenue')} />
+              <MicroLabel>{t('studio.inspector.tableCover')}</MicroLabel>
+              <ImageUploader
+                value={b.coverUrl || null}
+                onChange={(url) => patch({ coverUrl: url || undefined })}
+                bucketFolder={bucketFolder}
+              />
+              <Help>{t('studio.inspector.eventCoverStatic')}</Help>
             </PanelCard>
           )}
         </>
@@ -669,6 +794,10 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
             <TextInput value={b.title || ''} onChange={(e) => patch({ title: e.target.value })} />
             <MicroLabel>{t('studio.inspector.tableSub')}</MicroLabel>
             <TextInput value={b.sub || ''} onChange={(e) => patch({ sub: e.target.value })} />
+          </PanelCard>
+
+          <PanelCard>
+            <PerksEditor perks={b.perks || []} onChange={(next) => patch({ perks: next })} />
           </PanelCard>
 
           <PanelCard>
@@ -897,8 +1026,6 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
       const b = block as TableBlock;
       const perks = b.perks || [];
       const packs = b.packs || [];
-      const setPerk = (i: number, value: string) =>
-        patch({ perks: perks.map((p, idx) => (idx === i ? value : p)) });
       const setPack = (i: number, next: Partial<TablePackRow>) =>
         patch({ packs: packs.map((p, idx) => (idx === i ? { ...p, ...next } : p)) });
       // Les formules live remplacent les lignes figées dès qu'une soirée est
@@ -943,28 +1070,7 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
           </PanelCard>
 
           <PanelCard>
-            <MicroLabel>{t('studio.inspector.tablePerks')}</MicroLabel>
-            <Help>{t('studio.inspector.tablePerksHelp')}</Help>
-            {perks.map((perk, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <TextInput value={perk} onChange={(e) => setPerk(i, e.target.value)} />
-                <IconBtn size={26} danger ariaLabel={t('studio.inspector.rowRemove')}
-                  onClick={() => patch({ perks: perks.filter((_, idx) => idx !== i) })}>
-                  <Trash2 size={13} strokeWidth={1.75} />
-                </IconBtn>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => patch({ perks: [...perks, t('studio.inspector.tablePerkNew')] })}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
-                borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
-                color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
-              }}
-            >
-              <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.tablePerkAdd')}
-            </button>
+            <PerksEditor perks={perks} onChange={(next) => patch({ perks: next })} />
           </PanelCard>
 
           <PanelCard>

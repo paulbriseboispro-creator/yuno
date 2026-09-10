@@ -131,25 +131,33 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 
 // ── Pills d'options (prototype optSt) ────────────────────────────────────────
 
-export function OptionPills<T extends string | number>({ value, options, onChange, ariaLabel }: {
+export function OptionPills<T extends string | number>({ value, options, onChange, ariaLabel, disabled }: {
   value: T;
   options: { value: T; label: ReactNode }[];
   onChange: (v: T) => void;
   ariaLabel?: string;
+  /**
+   * Réglage sans effet dans l'état courant : il reste LISIBLE (on voit ce que
+   * fait la mise en page choisie) mais il ne se clique plus. Le masquer ferait
+   * disparaître un réglage que le pro vient de régler.
+   */
+  disabled?: boolean;
 }) {
   return (
     <div role="group" aria-label={ariaLabel} style={{
       display: 'flex', gap: 4, padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)',
+      opacity: disabled ? 0.5 : 1,
     }}>
       {options.map((o) => {
         const active = o.value === value;
         return (
           <button
-            key={String(o.value)} type="button" aria-pressed={active}
+            key={String(o.value)} type="button" aria-pressed={active} disabled={disabled}
             onClick={() => onChange(o.value)}
             style={{
               flex: 1, textAlign: 'center', padding: '7px 4px', borderRadius: 9,
-              fontSize: 11.5, fontWeight: 560, cursor: 'pointer', transition: 'all .15s',
+              fontSize: 11.5, lineHeight: 1.25, fontWeight: 560,
+              cursor: disabled ? 'default' : 'pointer', transition: 'all .15s',
               border: 'none', fontFamily: FONT_UI,
               color: active ? T1 : T3,
               background: active ? ACTIVE_GRAD : 'transparent',
