@@ -88,11 +88,41 @@ export interface ColumnsBlock extends BlockBase {
   right: { title: string; body: string };
 }
 
-/** Bloc Yuno — carte événement à données live. */
+/**
+ * Mise en page du bloc Soirée : les trois de la carte d'offre, plus le côte à
+ * côte, qui n'a de sens que pour une AFFICHE. Un flyer 4:5 posé en pleine
+ * largeur mange un écran de téléphone entier avant qu'on lise la date ; à
+ * gauche d'un texte, il annonce la soirée sans repousser le bouton sous la
+ * ligne de flottaison.
+ */
+export type EventLayout = TableLayout | 'split';
+
+export const EVENT_LAYOUTS: readonly EventLayout[] = ['showcase', 'split', 'banner', 'minimal'];
+
+/**
+ * Forme de la fiche (date, lieu, tarif) :
+ * - 'stack'  : une info par ligne, la date en tête — la lecture d'un flyer ;
+ * - 'inline' : tout sur une ligne mono — la relance qui ne veut pas peser ;
+ * - 'rows'   : tableau libellé/valeur — la même grammaire que les formules du
+ *   bloc Table VIP et les tranches du bloc Billetterie.
+ */
+export type EventMetaDisplay = 'stack' | 'inline' | 'rows';
+
+export const EVENT_META_DISPLAYS: readonly EventMetaDisplay[] = ['stack', 'inline', 'rows'];
+
+/**
+ * Bloc Yuno — carte événement à données live.
+ *
+ * Mêmes réglages de présentation que les blocs Billetterie et Table VIP : le
+ * pro qui a appris à régler l'un sait régler les autres, et les trois passent
+ * par le même squelette de rendu (offerCard). Ce bloc ne vend pas un tarif, il
+ * vend une DATE : c'est la fiche (date, lieu, prix d'appel) qui remplace les
+ * lignes de tarifs, pas un tableau de prix.
+ */
 export interface EventBlock extends BlockBase {
   type: 'event';
   eventId?: string;
-  /** Couleur d'accent du bloc (bouton) — hex. Absent = accent du thème. */
+  /** Couleur d'accent du bloc (kicker, coches, prix, bouton) — hex. */
   accent?: string;
   title: string;
   dateLabel: string;
@@ -103,6 +133,32 @@ export interface EventBlock extends BlockBase {
   cover: boolean;
   venue: boolean;
   price: boolean;
+  /** Mise en page. Absent = 'showcase'. */
+  layout?: EventLayout;
+  /**
+   * Alignement du kicker, du titre, de l'accroche, de la fiche en lignes, des
+   * arguments, de la note et du bouton. Absent = 'left'. La fiche en TABLEAU
+   * garde sa propre lecture (libellé à gauche, valeur à droite) : une date
+   * centrée dans un tableau ne s'aligne plus sur rien.
+   */
+  align?: 'left' | 'center' | 'right';
+  /** Sur-titre. Absent ou vide = aucun. */
+  kicker?: string;
+  /** Accroche sous le titre — la phrase qui donne envie d'y être. */
+  sub?: string;
+  /** Arguments, un par ligne, précédés d'une coche accent (line-up, dress code…). */
+  perks?: string[];
+  /** Forme de la fiche. Absent = 'stack'. */
+  metaDisplay?: EventMetaDisplay;
+  /**
+   * Où poser l'affiche : en tête ('top', défaut) ou juste avant le bouton
+   * ('bottom'). Sans effet en côte à côte, où elle vit à gauche du texte.
+   */
+  coverPos?: 'top' | 'bottom';
+  /** Rassurance sous le bouton (annulation, âge minimum, vestiaire…). */
+  note?: string;
+  /** Bouton pleine largeur. Absent = pleine largeur sauf en 'minimal'. */
+  full?: boolean;
 }
 
 /**

@@ -265,6 +265,16 @@ export function isTableScarce(left: number): boolean {
 export const TABLE_KICKER = 'Bottle service';
 export const TABLE_CTA_LABEL = 'Réserver une table';
 
+/**
+ * Libellés par défaut du bloc Soirée. Comme partout dans le rendu email, ils
+ * ne passent PAS par l'i18n : un email part dans la langue de sa campagne,
+ * écrite en français, et le canvas doit afficher exactement ce qui partira.
+ */
+export const EVENT_CTA_LABEL = "Voir l'événement";
+export const EVENT_META_DATE = 'Date';
+export const EVENT_META_VENUE = 'Lieu';
+export const EVENT_META_PRICE = 'Tarif';
+
 /** Colonnes de `table_zones` nécessaires à une ligne de zone. */
 export interface TableZoneOffer {
   id?: string | null;

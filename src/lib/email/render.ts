@@ -16,7 +16,7 @@
 import { GUEST_LIST_ROW_ID } from './types';
 import type {
   BlockCond, EmailBlock, EmailTheme, RenderCtx, SocialLinks, TicketRow,
-  HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock,
+  HeaderBlock, ImageBlock, TextBlock, CtaBlock, ColumnsBlock, EventBlock, EventLayout,
   TicketsBlock, TableBlock, TablePackRow, TableLayout, CountdownBlock, SpacerBlock,
   HtmlBlock, DividerBlock,
   GuestListBlock,
@@ -26,6 +26,7 @@ import {
   isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
   ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
   GUEST_LIST_CTA_LABEL, GUEST_LIST_KICKER, GUEST_LIST_PRICE, guestListSummary,
+  EVENT_CTA_LABEL, EVENT_META_DATE, EVENT_META_VENUE, EVENT_META_PRICE,
 } from './live';
 import { interpolateVariables } from './variables';
 
@@ -299,6 +300,60 @@ function renderColumns(b: ColumnsBlock, theme: EmailTheme, ctx: RenderCtx, pad: 
   );
 }
 
+/** Une ligne de la fiche : un libellé, sa valeur, et si elle porte l'accent. */
+interface EventMetaItem { k: string; v: string; strong?: boolean }
+
+/**
+ * Fiche en TABLEAU — même grammaire que les formules du bloc Table VIP et les
+ * tranches du bloc Billetterie : libellé à gauche, valeur à droite. Le prix
+ * d'appel prend l'accent, comme un tarif ailleurs dans l'email.
+ */
+function renderEventMetaRows(items: EventMetaItem[], theme: EmailTheme, accent: string): string {
+  return items.map((it, i) => {
+    const sep = i > 0 ? `border-top:1px solid ${theme.divider};` : '';
+    return `
+    <tr>
+      <td valign="middle" style="padding:11px 16px;${sep}font-family:${MONO};font-size:10.5px;line-height:15px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${theme.muted};white-space:nowrap;">${escapeHtml(it.k)}</td>
+      <td align="right" valign="middle" style="padding:11px 16px;${sep}font-family:${FONT};font-size:15px;line-height:20px;mso-line-height-rule:exactly;font-weight:700;letter-spacing:-0.01em;color:${it.strong ? accent : theme.text};">${escapeHtml(it.v)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/**
+ * Fiche en LIGNES ou sur UNE ligne. Les deux suivent l'alignement du bloc —
+ * c'est la seule forme de fiche qui peut se centrer, un tableau à deux
+ * colonnes n'ayant plus de sens une fois centré.
+ */
+function renderEventMetaFlow(
+  items: EventMetaItem[], theme: EmailTheme, accent: string, align: string, inline: boolean,
+): string {
+  if (!items.length) return '';
+  if (inline) {
+    // Le séparateur est un caractère et non une bordure : il survit au
+    // blocage des images comme au repli des cellules sur téléphone.
+    const line = items.map((it) => escapeHtml(it.v)).join('&nbsp;&middot; ');
+    return `<p style="margin:0 0 16px;font-family:${MONO};font-size:12px;line-height:19px;mso-line-height-rule:exactly;letter-spacing:0.04em;color:${theme.muted};text-align:${align};">${line}</p>`;
+  }
+  // La DATE porte la lecture : c'est elle qu'on cherche dans un email de
+  // soirée, avant le lieu et avant le prix.
+  const rows = items.map((it, i) => {
+    const last = i === items.length - 1;
+    const lead = i === 0;
+    const color = lead ? theme.text : it.strong ? accent : theme.muted;
+    const weight = lead || it.strong ? 'font-weight:700;' : '';
+    return `<p style="margin:0 0 ${last ? 0 : 5}px;font-family:${FONT};font-size:${lead ? 15.5 : 14}px;line-height:${lead ? 21 : 20}px;mso-line-height-rule:exactly;${weight}color:${color};text-align:${align};">${escapeHtml(it.v)}</p>`;
+  }).join('');
+  return `<div style="margin:0 0 16px;">${rows}</div>`;
+}
+
+/**
+ * Bloc Soirée — la carte qui vend une DATE.
+ *
+ * Il passe par le même squelette que la Billetterie et les Tables VIP
+ * (offerCard) : mêmes mises en page, même alignement, mêmes arguments, même
+ * place du visuel, même note de réassurance. Ce qui change, c'est ce qui
+ * remplace les lignes de tarifs — ici la fiche : date, lieu, prix d'appel.
+ */
 function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const live = b.eventId ? ctx.live?.[b.eventId] : undefined;
   const title = live?.title || b.title;
@@ -308,32 +363,45 @@ function renderEvent(b: EventBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
   const priceLabel = live?.priceFromLabel;
 
-  const cover = b.cover && coverUrl
-    ? `<tr><td style="font-size:0;line-height:0;"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(title)}" width="552" style="width:100%;max-width:552px;height:auto;display:block;border:0;" /></td></tr>`
-    : '';
-  const venueRow = b.venue
-    ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${escapeHtml(venueLabel)}</p>`
-    : '';
-  const priceRow = b.price && priceLabel
-    ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${escapeHtml(priceLabel)}</p>`
-    : '';
   const btnColors = ctaColors(b.accent, theme);
-  const btn = buttonHtml({ href: url, label: b.ctaLabel || "Voir l'événement", bg: btnColors.bg, color: btnColors.color, radius: 6, full: false, ctx, small: true });
-  const cardBg = theme.dark ? theme.tile : '#ffffff';
-  return td(
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${theme.divider};border-radius:12px;background:${cardBg};">
-      ${cover}
-      <tr><td style="padding:20px;">
-        <h2 style="margin:0 0 8px;font-family:${FONT};font-size:20px;line-height:26px;mso-line-height-rule:exactly;font-weight:700;color:${theme.text};">${escapeHtml(title)}</h2>
-        <p style="margin:0 0 4px;font-family:${FONT};font-size:14px;color:${theme.muted};">${escapeHtml(dateLabel)}</p>
-        ${venueRow}
-        ${priceRow}
-        <div style="height:14px;line-height:14px;font-size:0;">&nbsp;</div>
-        ${btn}
-      </td></tr>
-    </table>`,
-    `padding:${pad.py}px ${pad.px}px;background:${bg};`,
-  );
+  const accent = btnColors.bg;
+  const layout: EventLayout = b.layout || 'showcase';
+  const align = b.align || 'left';
+  const c = offerCardColors(accent, theme, layout, bg);
+
+  const items: EventMetaItem[] = [];
+  if (dateLabel) items.push({ k: EVENT_META_DATE, v: dateLabel });
+  if (b.venue && venueLabel) items.push({ k: EVENT_META_VENUE, v: venueLabel });
+  if (b.price && priceLabel) items.push({ k: EVENT_META_PRICE, v: priceLabel, strong: true });
+
+  // Le bandeau est une relance de trois lignes : sa fiche tient sur une ligne,
+  // quoi qu'ait choisi le pro. En côte à côte, la demi-colonne ne porte pas un
+  // tableau à deux colonnes de plus.
+  const display = layout === 'banner' ? 'inline'
+    : (layout === 'split' && (b.metaDisplay || 'stack') === 'rows') ? 'stack'
+    : (b.metaDisplay || 'stack');
+  const useRows = display === 'rows' && items.length > 0;
+
+  return offerCard({
+    theme, ctx, pad, bg, layout, align, accent,
+    kicker: b.kicker || '',
+    title,
+    sub: b.sub || '',
+    perks: b.perks || [],
+    extraHtml: useRows ? '' : renderEventMetaFlow(items, theme, c.inkOnCard, align, display === 'inline'),
+    rowsHtml: useRows ? renderEventMetaRows(items, theme, c.inkOnRows) : '',
+    btn: buttonHtml({
+      href: url, label: b.ctaLabel || EVENT_CTA_LABEL,
+      bg: btnColors.bg, color: btnColors.color, radius: 10,
+      full: b.full ?? (layout !== 'minimal'), ctx,
+    }),
+    note: b.note || '',
+    // L'affiche vient de la soirée dès qu'elle est reliée ; l'interrupteur du
+    // pro la coupe sans effacer l'image figée d'un modèle.
+    coverUrl: b.cover ? coverUrl : undefined,
+    coverPos: b.coverPos,
+    coverAlt: title,
+  });
 }
 
 /**
@@ -561,12 +629,19 @@ function tableScarcityChip(left: number, theme: EmailTheme, cardBg: string): str
  * deux fois cette mise en page (et deux fois de plus dans le port Deno) était
  * la garantie qu'elles divergeraient au premier correctif.
  */
+/**
+ * Mises en page acceptées par la carte d'offre. 'split' (affiche à gauche,
+ * texte à droite) n'est proposé que par le bloc Soirée : les tarifs d'une
+ * billetterie ou d'une carte de tables ne tiennent pas dans une demi-colonne.
+ */
+export type OfferLayout = TableLayout | 'split';
+
 export interface OfferCardOpts {
   theme: EmailTheme;
   ctx: RenderCtx;
   pad: Pad;
   bg: string;
-  layout: TableLayout;
+  layout: OfferLayout;
   align: 'left' | 'center' | 'right';
   /** Accent BRUT (aplats : bouton, fond de pastille). */
   accent: string;
@@ -590,7 +665,7 @@ export interface OfferCardOpts {
 }
 
 /** Teintes de la carte — accent aplati sur le fond, jamais de rgba. */
-export function offerCardColors(accent: string, theme: EmailTheme, layout: TableLayout, bg: string) {
+export function offerCardColors(accent: string, theme: EmailTheme, layout: OfferLayout, bg: string) {
   const baseCard = theme.dark ? theme.tile : '#ffffff';
   const cardBg = mixHex(accent, baseCard, theme.dark ? 0.10 : 0.05);
   return {
@@ -622,7 +697,7 @@ export function offerCard(o: OfferCardOpts): string {
       </p>`
     : '';
 
-  const titleSize = layout === 'banner' ? 24 : 22;
+  const titleSize = layout === 'banner' ? 24 : layout === 'split' ? 19 : 22;
   const titleText = String(o.title || '').trim();
   const subText = String(o.sub || '').trim();
   // Un bloc sans titre (billetterie d'avant les réglages de contenu) ne doit
@@ -651,22 +726,37 @@ export function offerCard(o: OfferCardOpts): string {
     ? `<p style="margin:11px 0 0;font-family:${MONO};font-size:11px;line-height:16px;mso-line-height-rule:exactly;letter-spacing:0.03em;color:${theme.muted};text-align:${align};">${escapeHtml(interpolateVariables(noteText, ctx))}</p>`
     : '';
 
-  // Le visuel existe sur les TROIS mises en page. En tête il pose l'ambiance ;
-  // après les tarifs il sert de plan de salle — on sait alors quoi y chercher.
+  // Le visuel existe sur les QUATRE mises en page. En tête il pose l'ambiance ;
+  // après les tarifs il sert de plan de salle — on sait alors quoi y chercher ;
+  // en côte à côte il annonce la soirée sans repousser le bouton hors de vue.
   const coverAtTop = (o.coverPos || 'top') === 'top';
+  const coverRadius = (layout === 'minimal' || layout === 'split')
+    ? 'border-radius:12px;'
+    : coverAtTop ? 'border-radius:14px 14px 0 0;' : '';
   const coverImg = o.coverUrl
-    ? `<img src="${escapeHtml(o.coverUrl)}" alt="${escapeHtml(titleText || o.coverAlt || '')}" width="560" style="width:100%;height:auto;display:block;border:0;${layout === 'minimal' ? 'border-radius:12px;' : coverAtTop ? 'border-radius:14px 14px 0 0;' : ''}" class="yn-img" />`
+    ? `<img src="${escapeHtml(o.coverUrl)}" alt="${escapeHtml(titleText || o.coverAlt || '')}" width="${layout === 'split' ? 232 : 560}" style="width:100%;height:auto;display:block;border:0;${coverRadius}" class="yn-img" />`
     : '';
+  // Côte à côte SANS affiche : il n'y a rien à poser à gauche, la carte
+  // retombe sur une colonne plutôt que d'ouvrir une demi-largeur vide.
+  const split = layout === 'split' && !!coverImg;
   // En bas, l'image vit DANS la cellule de contenu : elle garde les marges de
   // la carte au lieu d'en toucher les bords, qui sont déjà arrondis en haut.
-  const coverBottom = (coverImg && !coverAtTop)
+  const coverBottom = (coverImg && !coverAtTop && !split)
     ? `<div style="margin:0 0 18px;font-size:0;line-height:0;">${coverImg}</div>`
     : '';
-  const coverInline = (coverImg && coverAtTop && layout === 'minimal')
+  const coverInline = (coverImg && coverAtTop && !split && layout === 'minimal')
     ? `<div style="margin:0 0 16px;font-size:0;line-height:0;">${coverImg}</div>`
     : '';
 
-  const body = `${coverInline}${kickerHtml}${title}${sub}${perksHtml}${extra}${rows}${coverBottom}${btnHtml}${note}`;
+  const flow = `${coverInline}${kickerHtml}${title}${sub}${perksHtml}${extra}${rows}${coverBottom}${btnHtml}${note}`;
+  // Les deux cellules s'empilent sous 620 px (.yn-col) : sur téléphone le côte
+  // à côte redevient une affiche pleine largeur suivie de son texte.
+  const body = split
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td class="yn-col" width="40%" valign="top" style="padding:0 16px 0 0;font-size:0;line-height:0;">${coverImg}</td>
+        <td class="yn-col" width="60%" valign="top" style="font-family:${FONT};">${flow}</td>
+      </tr></table>`
+    : flow;
 
   // 'minimal' : aucun cadre. Le bloc se pose sur le fond de l'email, pour les
   // designs qui portent déjà leur mise en page ailleurs.
@@ -674,7 +764,7 @@ export function offerCard(o: OfferCardOpts): string {
     return td(body, `padding:${pad.py}px ${pad.px}px;background:${bg};`);
   }
 
-  const cover = (coverImg && coverAtTop)
+  const cover = (coverImg && coverAtTop && !split)
     ? `<tr><td style="font-size:0;line-height:0;">${coverImg}</td></tr>`
     : '';
 
@@ -683,7 +773,7 @@ export function offerCard(o: OfferCardOpts): string {
   const bannerBg = mixHex(accent, c.baseCard, theme.dark ? 0.18 : 0.10);
   const shellBg = layout === 'banner' ? bannerBg : c.cardBg;
   const shellBorder = layout === 'banner' ? mixHex(accent, theme.divider, 0.55) : c.cardBorder;
-  const innerPad = layout === 'banner' ? '26px 24px' : '22px 20px';
+  const innerPad = layout === 'banner' ? '26px 24px' : layout === 'split' ? '18px' : '22px 20px';
 
   return td(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${shellBorder};border-radius:14px;background:${shellBg};">

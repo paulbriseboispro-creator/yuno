@@ -36,9 +36,18 @@ export function makeBlock(type: BlockType, ctx: MakeBlockCtx = {}): EmailBlock {
     case 'event':
       return {
         id, type, eventId: ctx.eventId,
+        // Kicker vide par défaut : le titre de la soirée EST le sur-titre. Le
+        // pro l'allume quand il annonce une série (« Résidence », « Closing »).
+        kicker: '',
         title: 'Ta prochaine soirée', dateLabel: 'Vendredi · 23h30 → 06h00',
         venueLabel: ctx.venueName || 'LE SILO', ctaLabel: "Voir l'événement",
-        cover: true, venue: true, price: false,
+        sub: '',
+        // Le prix d'appel est allumé : une carte qui annonce une soirée sans
+        // dire ce qu'elle coûte fait cliquer pour rien la moitié des lecteurs.
+        cover: true, venue: true, price: true,
+        // Mêmes réglages que les blocs Billetterie et Table VIP. La fiche part
+        // en tableau : c'est la forme qui se lit au pouce sans rien chercher.
+        layout: 'showcase', align: 'left', metaDisplay: 'rows', full: true,
       };
     case 'tickets':
       return {
