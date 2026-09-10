@@ -16,6 +16,7 @@ import {
   type SocialLinks as StudioSocialLinks,
 } from '@/lib/email';
 import { useStudioLiveData, type StudioScope as SenderScope } from '@/components/email-studio/hooks';
+import FollowupSettings from './FollowupSettings';
 
 // ─── Yuno Design Tokens (match OwnerCampaigns) ───────────────────────────────
 const RED         = '#E8192C';
@@ -60,6 +61,10 @@ type CampaignRow = {
   social_links_json: unknown;
   logo_url: string | null;
   event_id: string | null;
+  followup_enabled: boolean | null;
+  followup_delay_hours: number | null;
+  followup_template_id: string | null;
+  parent_campaign_id: string | null;
 };
 
 interface AbStats { sent_a: number; sent_b: number; opens_a: number; opens_b: number; winner: string | null }
@@ -392,6 +397,24 @@ export default function CampaignReport({ scope, basePath }: Props) {
             {(campaign.status === 'sending' || campaign.status === 'paused') && (
               <div className="mb-5">
                 <CampaignSendProgress campaignId={campaign.id} />
+              </div>
+            )}
+
+            {/* Relance après clic : réglable ICI pour une campagne partie (le
+                studio n'est plus accessible), les clics sont déjà là. */}
+            {!campaign.parent_campaign_id && campaign.event_id && campaign.type !== 'informational' && (
+              <div className="mb-5">
+                <FollowupSettings
+                  key={campaign.id}
+                  campaignId={campaign.id}
+                  scope={scope}
+                  initial={{
+                    enabled: !!campaign.followup_enabled,
+                    delayHours: Math.min(168, Math.max(1, Number(campaign.followup_delay_hours) || 24)),
+                    templateId: campaign.followup_template_id,
+                  }}
+                  onSaved={() => setReloadKey((k) => k + 1)}
+                />
               </div>
             )}
 
