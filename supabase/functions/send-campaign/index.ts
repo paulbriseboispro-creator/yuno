@@ -32,7 +32,7 @@ import {
   type StudioBlock, type StudioSocialLinks,
 } from '../_shared/email-studio-html.ts';
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
-import { sendResendBatch, batchIdempotencyKey, sleep, type ResendEmail } from '../_shared/resend-batch.ts';
+import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type ResendEmail } from '../_shared/resend-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { isSupportSessionToken } from '../_shared/support-session.ts';
 
@@ -67,6 +67,60 @@ interface Recipient {
   ab_variant?: string | null;
   /** Règles de visibilité satisfaites (résolues par lot avant le rendu). */
   conds?: Set<string>;
+}
+
+// ── Adresses expédiables ────────────────────────────────────────────────────
+// Resend refuse tout le LOT (422 « non-ASCII characters ») dès qu'UNE adresse
+// contient un caractère hors ASCII. Le 2026-09-09, « josé@… » dans un lot de
+// 100 a bloqué 99 envois valides et mis la campagne en pause. Règle :
+//   · partie locale non ASCII → inexpédiable, point (échec définitif + liste
+//     de suppression 'invalid', pour ne plus jamais la réclamer) ;
+//   · domaine non ASCII (IDN, « müller.de ») → punycode, ça part.
+const ASCII_PRINTABLE = /^[\x21-\x7E]+$/;
+
+function toSendableAddress(email: string): string | null {
+  const at = email.lastIndexOf('@');
+  if (at <= 0 || at === email.length - 1) return null;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (!ASCII_PRINTABLE.test(local)) return null;
+  let host = domain;
+  if (!ASCII_PRINTABLE.test(domain)) {
+    try { host = new URL(`http://${domain}`).hostname; } catch { return null; }
+    if (!ASCII_PRINTABLE.test(host)) return null;
+  }
+  if (!/^[A-Za-z0-9.-]+\.[A-Za-z0-9-]{2,}$/.test(host)) return null;
+  return `${local}@${host}`;
+}
+
+interface IsolatedSend {
+  sent: Array<{ email: string; id: string | null }>;
+  /** Refusées une par une par Resend (422) : échec définitif, pas de pause. */
+  rejected: Array<{ email: string; error: string }>;
+  /** Refus non isolable (auth, domaine, réseau) : traité comme avant. */
+  fatal?: BatchOutcome;
+}
+
+/**
+ * Envoie un lot ; sur un 422, coupe le lot en deux et recommence jusqu'à
+ * isoler la ou les adresses fautives. Sept requêtes au pire pour 100 emails,
+ * contre 100 envois bloqués et une campagne en pause avant.
+ */
+async function sendBatchIsolating(
+  apiKey: string, campaignId: string, payload: ResendEmail[], emails: string[],
+): Promise<IsolatedSend> {
+  const key = await batchIdempotencyKey(campaignId, emails);
+  const outcome = await sendResendBatch(apiKey, payload, { idempotencyKey: key });
+  if (outcome.ok) return { sent: emails.map((e, i) => ({ email: e, id: outcome.ids[i] })), rejected: [] };
+  if (outcome.status !== 422) return { sent: [], rejected: [], fatal: outcome };
+  if (payload.length === 1) return { sent: [], rejected: [{ email: emails[0], error: outcome.error || 'HTTP 422' }] };
+  const mid = Math.ceil(payload.length / 2);
+  await sleep(BATCH_SPACING_MS);
+  const a = await sendBatchIsolating(apiKey, campaignId, payload.slice(0, mid), emails.slice(0, mid));
+  if (a.fatal) return a;
+  await sleep(BATCH_SPACING_MS);
+  const b = await sendBatchIsolating(apiKey, campaignId, payload.slice(mid), emails.slice(mid));
+  return { sent: [...a.sent, ...b.sent], rejected: [...a.rejected, ...b.rejected], fatal: b.fatal };
 }
 
 // ── Quiet hours (Europe/Paris) — opt-in par campagne ───────────────────────
@@ -400,18 +454,48 @@ async function drainSlice(
       break;
     }
 
-    // 3 bis. Blocs conditionnels : quelles règles CE lot satisfait-il ?
+    // 3 bis. Adresses inexpédiables écartées AVANT l'envoi : échec définitif,
+    //        liste de suppression, quota rendu. Jamais de pause pour ça.
+    const addressOf = new Map<string, string>();
+    const bad: Recipient[] = [];
+    for (const r of rows) {
+      const to = toSendableAddress(r.email);
+      if (to) addressOf.set(r.email, to); else bad.push(r);
+    }
+    if (bad.length > 0) {
+      await admin.rpc('mark_campaign_recipients_failed', {
+        p_campaign_id: campaignId,
+        p_emails: bad.map((r) => r.email),
+        p_error: 'invalid_email: caractères non ASCII, inexpédiable',
+        p_retry_at: null,
+      });
+      for (const r of bad) {
+        try {
+          await admin.rpc('suppress_email', {
+            p_email: r.email, p_reason: 'invalid', p_source: 'send-campaign',
+            p_campaign_id: campaignId, p_metadata: { cause: 'non_ascii' },
+          });
+        } catch (e) { console.error('suppress_email failed:', e); }
+      }
+      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: bad.length });
+      failed += bad.length;
+      console.warn(`${bad.length} adresse(s) inexpédiable(s) écartée(s) du lot`);
+    }
+    const sendable = rows.filter((r) => addressOf.has(r.email));
+    if (sendable.length === 0) continue;
+
+    // 3 ter. Blocs conditionnels : quelles règles CE lot satisfait-il ?
     if (usedConds.length > 0) {
-      const condMap = await fetchRecipientConds(admin, campaignId, rows.map((r) => r.email), usedConds);
-      for (const r of rows) r.conds = condMap.get(r.email.toLowerCase()) || new Set();
+      const condMap = await fetchRecipientConds(admin, campaignId, sendable.map((r) => r.email), usedConds);
+      for (const r of sendable) r.conds = condMap.get(r.email.toLowerCase()) || new Set();
     }
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
     //    peut faire exploser la taille du payload : on adapte plutôt que de se
     //    prendre un 413 en pleine campagne.
-    const payload: ResendEmail[] = rows.map((r) => ({
+    const payload: ResendEmail[] = sendable.map((r) => ({
       from: sender.from,
-      to: [r.email],
+      to: [addressOf.get(r.email)!],
       subject: subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
@@ -420,32 +504,47 @@ async function drainSlice(
     }));
 
     const approxBytes = payload.reduce((n, p) => n + p.html.length + 200, 0);
-    if (approxBytes > 0 && rows.length > 0) {
-      const perEmail = approxBytes / rows.length;
+    if (approxBytes > 0 && sendable.length > 0) {
+      const perEmail = approxBytes / sendable.length;
       batchSize = Math.max(10, Math.min(MAX_BATCH, Math.floor(MAX_PAYLOAD_BYTES / perEmail)));
     }
 
-    // 5. Envoi.
-    const key = await batchIdempotencyKey(campaignId, rows.map((r) => r.email));
-    const outcome = await sendResendBatch(RESEND_API_KEY!, payload, { idempotencyKey: key });
+    // 5. Envoi. Un 422 (adresse que Resend refuse malgré le tri) isole la
+    //    fautive par bissection : les autres partent, elle seule échoue.
+    const result = await sendBatchIsolating(RESEND_API_KEY!, campaignId, payload, sendable.map((r) => r.email));
 
-    if (outcome.ok) {
-      const marked = rows.map((r, i) => ({ email: r.email, resend_email_id: outcome.ids[i] }));
+    if (result.sent.length > 0) {
+      const marked = result.sent.map((x) => ({ email: x.email, resend_email_id: x.id }));
       const { error: mErr } = await admin.rpc('mark_campaign_recipients_sent', {
         p_campaign_id: campaignId, p_rows: marked,
       });
       if (mErr) console.error('mark sent failed:', mErr.message);
-      sent += rows.length;
+      sent += result.sent.length;
 
       await admin.from('email_campaign_events').insert(
-        rows.map((r, i) => ({
+        result.sent.map((x) => ({
           campaign_id: campaignId,
-          recipient_email: r.email,
+          recipient_email: x.email,
           event_type: 'sent',
-          resend_email_id: outcome.ids[i],
+          resend_email_id: x.id,
         })),
       );
-    } else {
+    }
+    if (result.rejected.length > 0) {
+      await admin.rpc('mark_campaign_recipients_failed', {
+        p_campaign_id: campaignId,
+        p_emails: result.rejected.map((x) => x.email),
+        p_error: `resend_422: ${result.rejected[0].error}`.slice(0, 500),
+        p_retry_at: null,
+      });
+      await admin.rpc('refund_email_send_quota', { p_scope_key: sender.scopeKey, p_amount: result.rejected.length });
+      failed += result.rejected.length;
+      console.warn(`${result.rejected.length} adresse(s) refusée(s) par Resend (422), isolée(s) :`, result.rejected[0].error);
+    }
+    if (result.fatal) {
+      const outcome = result.fatal;
+      const done = new Set([...result.sent.map((x) => x.email), ...result.rejected.map((x) => x.email)]);
+      const left = sendable.filter((r) => !done.has(r.email));
       // Transitoire → retour en file dans 2 min. Définitif → échec marqué.
       // Toujours remettre en file : un refus « définitif » de Resend est presque
       // toujours systémique (domaine non vérifié, clé invalide) donc réparable.
@@ -454,11 +553,11 @@ async function drainSlice(
       const retryAt = new Date(Date.now() + (outcome.retryable ? 120_000 : 60_000)).toISOString();
       await admin.rpc('mark_campaign_recipients_failed', {
         p_campaign_id: campaignId,
-        p_emails: rows.map((r) => r.email),
+        p_emails: left.map((r) => r.email),
         p_error: outcome.error || 'send failed',
         p_retry_at: retryAt,
       });
-      failed += rows.length;
+      failed += left.length;
       console.error(`batch failed (${outcome.status ?? 'net'}, retryable=${outcome.retryable}):`, outcome.error);
 
       if (!outcome.retryable) {

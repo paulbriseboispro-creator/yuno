@@ -137,6 +137,7 @@ code sont décorrélés exprès.
    │    1. consume_email_send_quota()   ← plafond expéditeur + plateforme
    │    2. claim_campaign_recipients()  ← FOR UPDATE SKIP LOCKED
    │    3. POST /emails/batch           ← + Idempotency-Key, retry 429/5xx
+   │       (adresses non ASCII écartées AVANT ; 422 → bissection du lot)
    │    4. mark_campaign_recipients_*() ← marquage EN LOT
    │    5. campaign_circuit_breaker()   ← toutes les 3 salves
    │    6. pause 600 ms                 ← ~1,6 req/s, sous la limite Resend
@@ -145,6 +146,18 @@ code sont décorrélés exprès.
    process-scheduled-campaigns (cron, 1×/min)
      └─ sweepSendingCampaigns()  ← filet : réservations mortes + relance
 ```
+
+### Une adresse inexpédiable ne bloque jamais un lot (2026-09-10)
+
+Resend refuse tout le lot (422 « non-ASCII characters ») dès qu'une adresse
+contient un caractère accentué avant le `@`. Quatre adresses de ce type dans
+une liste de 9 600 ont bloqué 99 envois valides à chaque lot et mis la
+campagne en pause. Le worker écarte désormais ces adresses AVANT l'envoi
+(échec définitif + liste de suppression `invalid` + quota rendu), convertit
+un domaine IDN en punycode, et si un 422 passe quand même, coupe le lot en
+deux jusqu'à isoler la fautive (`sendBatchIsolating`). Un 422 ne met plus
+jamais la campagne en pause ; seuls les refus systémiques (clé, domaine)
+le font encore.
 
 ### Pourquoi deux garde-fous anti-doublon
 
