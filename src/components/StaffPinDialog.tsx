@@ -211,30 +211,34 @@ export function StaffPinDialog({ open, onVerified, onCancel, venueId, allowedRol
             </motion.button>
           </div>
 
-          {/* Réinitialisation par email après trop d'échecs (pas de blocage) */}
-          <AnimatePresence>
-            {attempts >= MAX_ATTEMPTS_BEFORE_RESET && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mt-5 flex flex-col items-center gap-2 relative z-10"
-              >
-                <p className="text-[11px] text-muted-foreground text-center leading-snug">
-                  {t('pin.tooManyAttempts') || 'Trop de tentatives ? Réinitialise ton code PIN par email.'}
-                </p>
-                <button
-                  onClick={handleForgotPin}
-                  disabled={forgotLoading}
-                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-4 disabled:opacity-50"
+          {/* Réinitialisation par email — TOUJOURS atteignable.
+              Elle n'apparaissait qu'après cinq échecs : à la porte, quelqu'un
+              qui ne se souvient pas de son code devait se tromper cinq fois
+              devant la file avant de voir la sortie de secours. La phrase
+              d'explication, elle, ne sert qu'après les échecs. */}
+          <div className="mt-5 flex flex-col items-center gap-2 relative z-10">
+            <AnimatePresence>
+              {attempts >= MAX_ATTEMPTS_BEFORE_RESET && (
+                <motion.p
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-[11px] text-muted-foreground text-center leading-snug"
                 >
-                  {forgotLoading
-                    ? (t('pin.forgotSending') || 'Envoi en cours…')
-                    : (t('pin.forgot') || 'Réinitialiser mon PIN par email')}
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  {t('pin.tooManyAttempts') || 'Trop de tentatives ? Réinitialise ton code PIN par email.'}
+                </motion.p>
+              )}
+            </AnimatePresence>
+            <button
+              onClick={handleForgotPin}
+              disabled={forgotLoading}
+              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-4 disabled:opacity-50"
+            >
+              {forgotLoading
+                ? (t('pin.forgotSending') || 'Envoi en cours…')
+                : (t('pin.forgot') || 'Réinitialiser mon PIN par email')}
+            </button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
