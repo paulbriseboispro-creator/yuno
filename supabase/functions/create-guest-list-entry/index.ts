@@ -10,6 +10,7 @@ import {
   resolveGuestListPlace,
 } from "../_shared/guest-list-email.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
+import { isCompleteName } from "../_shared/guest-name.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -173,6 +174,15 @@ serve(async (req) => {
     // Length caps keep junk/oversized rows out; email format keeps the list clean.
     if (!fullName || fullName.length < 1 || fullName.length > 120) {
       throw new Error("Please provide a valid name.");
+    }
+    // Nom SAISI par la personne (inscription sans compte, ou proche inscrit via
+    // un lien unique) : il part tel quel sur la liste de porte, qui ne montre ni
+    // email ni téléphone. Un seul mot n'y identifie personne — et c'est par ce
+    // chemin qu'un pseudo de navigateur in-app (« Inactif », 11/09/2026) est
+    // entré sur une liste. Le chemin PROFIL garde son repli tolérant : il n'a
+    // pas de champ à corriger sous la main, le front s'en charge en amont.
+    if (!useProfileIdentity && !isCompleteName(fullName)) {
+      throw new Error("Please provide your first name and last name.");
     }
     if (!isValidEmail(email)) {
       throw new Error("Please provide a valid email address.");

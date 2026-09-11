@@ -28,6 +28,7 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { GuestAccountUnlock } from '@/components/account/GuestAccountUnlock';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { composeFullName, isCompleteName } from '@/lib/guestName';
 import {
   useMarketingConsent, usePlatformMarketingConsent, recordConsentGrant,
   recordPlatformConsentGrant, marketingConsentWording,
@@ -103,9 +104,19 @@ export default function GuestListCheckout() {
   const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [timeLeft, setTimeLeft] = useState('');
   // Guest registration (no account) — mirrors the ticket/table guest flow.
-  const [guestName, setGuestName] = useState('');
+  // Prénom ET nom, séparément — cf. src/lib/guestName.ts : la liste de porte
+  // ne montre que le nom, un seul mot n'y identifie personne.
+  const [guestFirstName, setGuestFirstName] = useState('');
+  const [guestLastName, setGuestLastName] = useState('');
+  const guestName = composeFullName(guestFirstName, guestLastName);
+  const guestNameReady = isCompleteName(guestName);
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  // Inscrit CONNECTÉ : le serveur compose son nom depuis `profiles`. On montre
+  // ce nom, on le laisse corriger, et on l'écrit avant d'appeler la fonction.
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const profileNameReady = isCompleteName(composeFullName(profileFirstName, profileLastName));
   // Identifiants de l'inscription qui vient d'être créée — c'est ce couple
   // (id + email) qui permet de rattacher l'inscription au compte créé juste
   // après. Sans lui, l'invité repart avec un QR que personne ne peut relier.
@@ -155,6 +166,18 @@ export default function GuestListCheckout() {
     fetchGuestList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    supabase.from('profiles').select('first_name, last_name').eq('id', user.id).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setProfileFirstName(data.first_name || '');
+        setProfileLastName(data.last_name || '');
+      });
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Retour de connexion pour un email qui avait deja un compte : on rattache
   // l'inscription maintenant que la session existe. La preuve est la meme que
@@ -370,8 +393,17 @@ export default function GuestListCheckout() {
       return;
     }
     // Guests register without an account — validate their contact info up front.
-    if (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim())) {
+    if (!user && (!guestEmail.trim() || !guestPhone.trim())) {
       toast.error(t('tickets.fillRequired'));
+      return;
+    }
+    // Le nom part sur la liste de porte : un seul mot n'y identifie personne.
+    if (!user && !guestNameReady) {
+      toast.error(t('guestList.nameIncomplete'));
+      return;
+    }
+    if (user && !profileNameReady) {
+      toast.error(t('guestList.nameIncomplete'));
       return;
     }
 
@@ -416,6 +448,15 @@ export default function GuestListCheckout() {
           wordingText: t('consent.yunoOffers'), wordingKey: 'consent.yunoOffers',
           email: consentEmail, locale: language, source: 'guestlist_checkout',
         });
+      }
+
+      // Le nom corrigé sur cet écran doit être en base AVANT l'appel : la
+      // fonction lit `profiles` pour composer `full_name` de l'entrée.
+      if (user) {
+        const { error: profileError } = await supabase.from('profiles')
+          .update({ first_name: profileFirstName.trim(), last_name: profileLastName.trim() })
+          .eq('id', user.id);
+        if (profileError) throw profileError;
       }
 
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
@@ -480,7 +521,8 @@ export default function GuestListCheckout() {
         navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
-      if (msg.includes('full')) toast.error(t('guestList.full'));
+      if (/first name and last name/i.test(msg)) toast.error(t('guestList.nameIncomplete'));
+      else if (msg.includes('full')) toast.error(t('guestList.full'));
       else if (msg.includes('already registered')) toast.error(t('guestList.alreadyRegistered'));
       else if (msg.includes('quota reached')) toast.error(t('guestList.quotaReached'));
       else toast.error(msg);
@@ -749,13 +791,25 @@ export default function GuestListCheckout() {
             </button>
 
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="gl-name" className="text-xs text-white/55">{t('guestList.fullName')} *</Label>
-                <Input id="gl-name" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t('guestList.namePlaceholder')} />
+              {/* `autoComplete` explicite : sans lui, un navigateur in-app
+                  (Instagram, TikTok) remplit le champ avec le pseudo du profil
+                  au lieu du nom civil. */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="gl-first-name" className="text-xs text-white/55">{t('guest.firstName')} *</Label>
+                  <Input id="gl-first-name" name="given-name" autoComplete="given-name" value={guestFirstName}
+                    onChange={(e) => setGuestFirstName(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="gl-last-name" className="text-xs text-white/55">{t('guest.lastName')} *</Label>
+                  <Input id="gl-last-name" name="family-name" autoComplete="family-name" value={guestLastName}
+                    onChange={(e) => setGuestLastName(e.target.value)} />
+                </div>
               </div>
+              <p className="text-[11px] text-white/45">{t('guestList.nameDoorHint')}</p>
               <div className="space-y-1.5">
                 <Label htmlFor="gl-email" className="text-xs text-white/55">{t('guestList.email')} *</Label>
-                <Input id="gl-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
+                <Input id="gl-email" type="email" name="email" autoComplete="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
                 {/* Dit tout de suite ce qu'on ne disait qu'après le mot de passe.
                     Simple information : la place reste accessible sans compte. */}
                 {typedEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
@@ -808,6 +862,23 @@ export default function GuestListCheckout() {
               <p className="text-sm text-white/45">{user.email}</p>
             </div>
 
+            {/* Le nom lu à la porte — montré, et corrigeable ici. */}
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="gl-me-first" className="text-xs text-white/55">{t('guest.firstName')} *</Label>
+                  <Input id="gl-me-first" name="given-name" autoComplete="given-name" value={profileFirstName}
+                    onChange={(e) => setProfileFirstName(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="gl-me-last" className="text-xs text-white/55">{t('guest.lastName')} *</Label>
+                  <Input id="gl-me-last" name="family-name" autoComplete="family-name" value={profileLastName}
+                    onChange={(e) => setProfileLastName(e.target.value)} />
+                </div>
+              </div>
+              <p className="text-[11px] text-white/45">{t('guestList.nameDoorHint')}</p>
+            </div>
+
             {genderRequired && (
               <div>
                 <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
@@ -853,7 +924,7 @@ export default function GuestListCheckout() {
           label={`${displayTitle} · ${t('guestList.free')}`}
           buttonText={t('guestList.confirmRegistration')}
           isLoading={submitting}
-          disabled={(genderRequired && !gender) || (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()))}
+          disabled={(genderRequired && !gender) || (user ? !profileNameReady : (!guestNameReady || !guestEmail.trim() || !guestPhone.trim()))}
           onClick={handleConfirm}
         />
       )}
