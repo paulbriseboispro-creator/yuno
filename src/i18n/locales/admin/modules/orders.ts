@@ -14,6 +14,17 @@ const dict: AdminDict = {
   'adm.orders.reasonRequired': ['A reason is required', 'La raison est obligatoire', 'El motivo es obligatorio'],
   'adm.orders.refundFailed': ['Refund failed', 'Échec du remboursement', 'Reembolso fallido'],
   'adm.orders.refunded': ['Refund of {v} issued', 'Remboursement de {v} effectué', 'Reembolso de {v} emitido'],
+  // Onglet Guest list — pilier sans argent : ce qui compte est qui est inscrit
+  // et qui est vraiment passé à la porte.
+  'adm.orders.guestlist': ['Guest list', 'Guest list', 'Guest list'],
+  'adm.orders.gl.signups': ['Sign-ups', 'Inscriptions', 'Inscripciones'],
+  'adm.orders.gl.entered': ['Checked in', 'Entrées', 'Entradas'],
+  'adm.orders.gl.cancelled': ['Cancelled', 'Annulations', 'Cancelaciones'],
+  'adm.orders.gl.showRate': ['{v} of sign-ups', '{v} des inscrits', '{v} de los inscritos'],
+  'adm.orders.gl.host': ['Host', 'Hôte', 'Anfitrión'],
+  'adm.orders.gl.part': ['List', 'Part', 'Lista'],
+  'adm.orders.gl.type': ['Type', 'Type', 'Tipo'],
+  'adm.orders.gl.searchPh': ['Search by email or name', 'Rechercher par email ou nom', 'Buscar por email o nombre'],
   'adm.orders.refundUnavailable': ['Refund service unavailable (owner-refund function not deployed).', 'Service de remboursement indisponible (fonction owner-refund non déployée).', 'Servicio de reembolso no disponible (función owner-refund sin desplegar).'],
 };
 

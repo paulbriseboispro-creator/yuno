@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Search, Wine, Ticket, Armchair, RefreshCw, ShoppingCart, TrendingUp, RotateCcw, X, FlaskConical, type LucideIcon } from 'lucide-react';
+import { Search, Wine, Ticket, Armchair, UserCheck, RefreshCw, ShoppingCart, TrendingUp, RotateCcw, DoorOpen, XCircle, X, FlaskConical, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -35,6 +35,14 @@ interface OrderRow {
   status: string;
   created_at: string;
   items: unknown;
+  // Guest list seulement : une inscription ne se paie pas, elle se rattache à
+  // un hôte (club OU organisateur), à une part et à un type d'entrée.
+  host_name?: string | null;
+  part_label?: string | null;
+  holder_type?: string | null;
+  entry_type?: string | null;
+  event_start_at?: string | null;
+  scanned_at?: string | null;
 }
 
 const PAGE_SIZE = 25;
@@ -52,8 +60,8 @@ const selectStyle: React.CSSProperties = {
 };
 
 // ─── Status pill ──────────────────────────────────────────────────────────────
-function StatusPill({ status }: { status: string }) {
-  const pos = status === 'paid' || status === 'confirmed' || status === 'served';
+function StatusPill({ status, label }: { status: string; label?: string }) {
+  const pos = status === 'paid' || status === 'confirmed' || status === 'served' || status === 'entered';
   const neg = status === 'refunded' || status === 'cancelled';
   const tone = pos
     ? { color: POS, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }
@@ -62,7 +70,7 @@ function StatusPill({ status }: { status: string }) {
     : { color: T3, background: C_FAINT, border: `1px solid ${BORDER}` };
   return (
     <span style={{ ...tone, fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, textTransform: 'capitalize', display: 'inline-block' }}>
-      {status}
+      {label || status}
     </span>
   );
 }
@@ -77,12 +85,16 @@ export default function AdminOrders() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [venues, setVenues] = useState<Record<string, string>>({});
-  const [kpis, setKpis] = useState({ total: 0, revenue: 0, refunds: 0 });
+  const [kpis, setKpis] = useState({ total: 0, revenue: 0, refunds: 0, entered: 0, signups: 0 });
   const [includeDemo, setIncludeDemo] = useState(false);
   const [refundRow, setRefundRow] = useState<OrderRow | null>(null);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [refunding, setRefunding] = useState(false);
+
+  // La guest list est le seul pilier sans argent : pas de montant, pas de
+  // remboursement, et des compteurs qui parlent de gens plutôt que d'euros.
+  const isGuest = tab === 'guestlist';
 
   // drinks tab → 'order' ; tickets → 'ticket' ; tables → 'table_reservation'
   const refundType = tab === 'drinks' ? 'order' : tab === 'tickets' ? 'ticket' : 'table_reservation';
@@ -137,35 +149,56 @@ export default function AdminOrders() {
     });
     if (error) console.error('[AdminOrders] list error', error);
     const payload = data as unknown as
-      { total: number; revenue: number; refunds: number; rows: OrderRow[] } | null;
+      { total: number; revenue: number; refunds: number; entered?: number; signups?: number; rows: OrderRow[] } | null;
     setData(payload?.rows ?? []);
     setCount(payload?.total ?? 0);
     setKpis({
       total: payload?.total ?? 0,
       revenue: Number(payload?.revenue ?? 0),
       refunds: payload?.refunds ?? 0,
+      entered: payload?.entered ?? 0,
+      // `signups` ignore le filtre de statut : c'est le dénominateur du taux
+      // de présence, il ne doit pas fondre quand on isole les entrées.
+      signups: payload?.signups ?? payload?.total ?? 0,
     });
     setLoading(false);
-  }, [tab, search, statusFilter, page, includeDemo]);
+  }, [tab, debouncedSearch, statusFilter, page, includeDemo]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(0); }, [tab, debouncedSearch, statusFilter, includeDemo]);
+  // Les états d'une guest list (inscrit / entré / annulé) ne sont pas ceux d'une
+  // vente : garder le filtre en changeant d'onglet renverrait une liste vide.
+  useEffect(() => { setStatusFilter('all'); }, [tab]);
 
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
-  const kpiCards = useMemo(() => [
-    { label: t('admin.orders.totalTransactions'), value: kpis.total.toLocaleString(), icon: ShoppingCart, highlight: false, tone: undefined as 'pos' | 'neg' | undefined },
-    { label: t('admin.orders.totalRevenue'), value: fmtEur(kpis.revenue), icon: TrendingUp, highlight: true, tone: undefined as 'pos' | 'neg' | undefined },
-    { label: t('admin.orders.totalRefunds'), value: kpis.refunds.toLocaleString(), icon: RotateCcw, highlight: false, tone: (kpis.refunds > 0 ? 'neg' : undefined) as 'pos' | 'neg' | undefined },
-  ], [kpis, t]);
+  // Sur la guest list le chiffre qui décide n'est pas un euro, c'est le taux de
+  // présence : combien d'inscrits sont vraiment passés à la porte.
+  const showRate = kpis.signups > 0 ? Math.round((kpis.entered / kpis.signups) * 100) : 0;
+
+  const kpiCards = useMemo(() => (isGuest ? [
+    { label: t('adm.orders.gl.signups'), value: kpis.signups.toLocaleString(), sub: undefined as string | undefined, icon: UserCheck, highlight: false, tone: undefined as 'pos' | 'neg' | undefined },
+    { label: t('adm.orders.gl.entered'), value: kpis.entered.toLocaleString(), sub: t('adm.orders.gl.showRate').replace('{v}', `${showRate} %`), icon: DoorOpen, highlight: true, tone: undefined as 'pos' | 'neg' | undefined },
+    { label: t('adm.orders.gl.cancelled'), value: kpis.refunds.toLocaleString(), sub: undefined as string | undefined, icon: XCircle, highlight: false, tone: (kpis.refunds > 0 ? 'neg' : undefined) as 'pos' | 'neg' | undefined },
+  ] : [
+    { label: t('admin.orders.totalTransactions'), value: kpis.total.toLocaleString(), sub: undefined as string | undefined, icon: ShoppingCart, highlight: false, tone: undefined as 'pos' | 'neg' | undefined },
+    { label: t('admin.orders.totalRevenue'), value: fmtEur(kpis.revenue), sub: undefined as string | undefined, icon: TrendingUp, highlight: true, tone: undefined as 'pos' | 'neg' | undefined },
+    { label: t('admin.orders.totalRefunds'), value: kpis.refunds.toLocaleString(), sub: undefined as string | undefined, icon: RotateCcw, highlight: false, tone: (kpis.refunds > 0 ? 'neg' : undefined) as 'pos' | 'neg' | undefined },
+  ]), [kpis, t, isGuest, showRate]);
 
   const tabs: { key: string; label: string; icon: LucideIcon }[] = [
     { key: 'drinks', label: t('admin.orders.drinks'), icon: Wine },
     { key: 'tickets', label: t('admin.orders.tickets'), icon: Ticket },
     { key: 'tables', label: t('admin.orders.tables'), icon: Armchair },
+    { key: 'guestlist', label: t('adm.orders.guestlist'), icon: UserCheck },
   ];
 
-  const statusOptions = [
+  const statusOptions = isGuest ? [
+    { value: 'all', label: t('admin.orders.allStatuses') },
+    { value: 'registered', label: t('owner.gl.st.registered') },
+    { value: 'entered', label: t('owner.gl.st.entered') },
+    { value: 'cancelled', label: t('owner.gl.st.cancelled') },
+  ] : [
     { value: 'all', label: t('admin.orders.allStatuses') },
     { value: 'paid', label: t('admin.orders.paid') },
     { value: 'confirmed', label: t('admin.orders.confirmed') },
@@ -175,7 +208,66 @@ export default function AdminOrders() {
     { value: 'cancelled', label: t('admin.orders.cancelled') },
   ];
 
-  const colCount = 6 + (tab === 'tickets' || tab === 'tables' ? 1 : 0) + (tab === 'tickets' || tab === 'tables' ? 1 : 0);
+  // Une colonne par pilier plutôt qu'une cascade de ternaires : quatre onglets
+  // ne partagent plus assez de colonnes pour que l'inline reste lisible.
+  const columns = useMemo<{ key: string; label: string; align?: 'right'; cell: (r: OrderRow) => ReactNode }[]>(() => {
+    const glType = (r: OrderRow) => {
+      const ty = r.entry_type || 'normal';
+      const key = `owner.gl.type.${ty}`;
+      const label = t(key);
+      return label === key ? ty : label;
+    };
+    const glPart = (r: OrderRow) => {
+      if (r.part_label) return r.part_label;
+      // La part maison n'est pas « Club » : une soirée d'organisateur en a une aussi.
+      if (r.holder_type === 'club') return t('guestList.holderType.house');
+      return r.holder_type ? t(`guestList.holderType.${r.holder_type}`) : '—';
+    };
+    const cols: { key: string; label: string; align?: 'right'; cell: (r: OrderRow) => ReactNode }[] = [
+      { key: 'email', label: t('admin.orders.email'), cell: r => <span style={{ color: T1 }}>{r.user_email || '—'}</span> },
+    ];
+    if (tab !== 'drinks') cols.push({ key: 'name', label: t('admin.orders.name'), cell: r => r.full_name || '—' });
+    cols.push({
+      key: 'venue',
+      label: isGuest ? t('adm.orders.gl.host') : t('admin.orders.venue'),
+      cell: r => (isGuest ? r.host_name : r.venue_name) || venues[r.venue_id] || '—',
+    });
+    if (tab === 'tickets' || isGuest) cols.push({ key: 'event', label: t('admin.orders.event'), cell: r => r.event_title || '—' });
+    if (tab === 'tables') cols.push({ key: 'zone', label: t('admin.orders.zone'), cell: r => r.zone_name || '—' });
+    if (isGuest) {
+      cols.push({ key: 'part', label: t('adm.orders.gl.part'), cell: glPart });
+      cols.push({ key: 'type', label: t('adm.orders.gl.type'), cell: glType });
+    } else {
+      cols.push({ key: 'amount', label: t('admin.orders.amount'), align: 'right', cell: r => <span className="tabular-nums font-[620]" style={{ color: T1 }}>{fmtEur(r.amount ?? 0)}</span> });
+    }
+    cols.push({
+      key: 'status',
+      label: t('admin.orders.status'),
+      cell: r => <StatusPill status={r.status} label={isGuest ? t(`owner.gl.st.${r.status}`) : undefined} />,
+    });
+    cols.push({
+      key: 'date',
+      label: t('admin.orders.date'),
+      cell: r => <span className="tabular-nums" style={{ color: T3 }}>{format(new Date(r.created_at), 'dd/MM/yy HH:mm')}</span>,
+    });
+    if (!isGuest) {
+      cols.push({
+        key: 'action',
+        label: '',
+        align: 'right',
+        cell: r => ['paid', 'confirmed', 'served'].includes(r.status) ? (
+          <button
+            onClick={() => openRefund(r)}
+            className="inline-flex items-center gap-1.5 rounded-lg cursor-pointer transition-all"
+            style={{ padding: '5px 10px', background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.28)', color: NEG, fontSize: 12, fontWeight: 600 }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> {t('adm.orders.refund')}
+          </button>
+        ) : <span style={{ color: T3, fontSize: 12 }}>—</span>,
+      });
+    }
+    return cols;
+  }, [tab, isGuest, t, venues]);
 
   return (
     <div className="min-h-screen pb-16" style={{ background: '#000' }}>
@@ -218,6 +310,7 @@ export default function AdminOrders() {
                 <div>
                   <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{kpi.label}</p>
                   <p className="tabular-nums" style={{ color: valueColor, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em', marginTop: 3 }}>{kpi.value}</p>
+                  {kpi.sub && <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{kpi.sub}</p>}
                 </div>
               </div>
             );
@@ -250,7 +343,7 @@ export default function AdminOrders() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
-            <input placeholder={t('admin.orders.searchEmail')} value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
+            <input placeholder={isGuest ? t('adm.orders.gl.searchPh') : t('admin.orders.searchEmail')} value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
             {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
@@ -286,51 +379,39 @@ export default function AdminOrders() {
             <table className="w-full text-[13px]" style={{ minWidth: 640 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
-                  <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.email')}</th>
-                  {(tab === 'tickets' || tab === 'tables') && <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.name')}</th>}
-                  <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.venue')}</th>
-                  {tab === 'tickets' && <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.event')}</th>}
-                  {tab === 'tables' && <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.zone')}</th>}
-                  <th className="px-4 py-3 text-right font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.amount')}</th>
-                  <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.status')}</th>
-                  <th className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.orders.date')}</th>
-                  <th className="px-4 py-3 text-right font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}></th>
+                  {columns.map(col => (
+                    <th
+                      key={col.key}
+                      className={`px-4 py-3 font-medium ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                      style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={colCount} className="text-center py-10">
+                  <tr><td colSpan={columns.length} className="text-center py-10">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 mx-auto mb-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
                     <span style={{ color: T3, fontSize: 12 }}>{t('admin.orders.loading')}</span>
                   </td></tr>
                 ) : data.length === 0 ? (
-                  <tr><td colSpan={colCount} className="text-center py-12">
+                  <tr><td colSpan={columns.length} className="text-center py-12">
                     <ShoppingCart className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
                     <span style={{ color: T3, fontSize: 12 }}>{t('admin.orders.noResults')}</span>
                   </td></tr>
                 ) : data.map((item, index) => (
                   <tr key={item.id} style={{ borderBottom: index < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
-                    <td className="px-4 py-3 max-w-[180px] truncate" style={{ color: T1 }}>{item.user_email || '—'}</td>
-                    {(tab === 'tickets' || tab === 'tables') && <td className="px-4 py-3" style={{ color: T2 }}>{item.full_name || '—'}</td>}
-                    <td className="px-4 py-3" style={{ color: T2 }}>{item.venue_name || venues[item.venue_id] || '—'}</td>
-                    {tab === 'tickets' && <td className="px-4 py-3" style={{ color: T2 }}>{item.event_title || '—'}</td>}
-                    {tab === 'tables' && <td className="px-4 py-3" style={{ color: T2 }}>{item.zone_name || '—'}</td>}
-                    <td className="px-4 py-3 text-right tabular-nums font-[620]" style={{ color: T1 }}>{fmtEur(item.amount ?? 0)}</td>
-                    <td className="px-4 py-3"><StatusPill status={item.status} /></td>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: T3 }}>{format(new Date(item.created_at), 'dd/MM/yy HH:mm')}</td>
-                    <td className="px-4 py-3 text-right">
-                      {['paid', 'confirmed', 'served'].includes(item.status) ? (
-                        <button
-                          onClick={() => openRefund(item)}
-                          className="inline-flex items-center gap-1.5 rounded-lg cursor-pointer transition-all"
-                          style={{ padding: '5px 10px', background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.28)', color: NEG, fontSize: 12, fontWeight: 600 }}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" /> {t('adm.orders.refund')}
-                        </button>
-                      ) : (
-                        <span style={{ color: T3, fontSize: 12 }}>—</span>
-                      )}
-                    </td>
+                    {columns.map(col => (
+                      <td
+                        key={col.key}
+                        className={`px-4 py-3 ${col.align === 'right' ? 'text-right' : ''} ${col.key === 'email' ? 'max-w-[180px] truncate' : ''}`}
+                        style={{ color: T2 }}
+                      >
+                        {col.cell(item)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
