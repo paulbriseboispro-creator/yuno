@@ -39,10 +39,13 @@ export interface StaffIdentity {
   venueId: string | null;
   venueName: string | null;
   /**
-   * Organisateur dont la personne est le staff, quand elle n'appartient à aucun
-   * club. C'est le périmètre de porte d'une soirée org-led — un videur invité
-   * depuis /organizer-app/team n'a PAS de venue_id, son lien vit dans
-   * `org_staff`. NULL pour tout le staff de club.
+   * Organisateur dont la personne est le staff (`org_staff`, invitation
+   * acceptée). C'est le périmètre de porte d'une soirée org-led — un videur
+   * invité depuis /organizer-app/team n'a pas de club dans l'équation.
+   *
+   * Renseigné INDÉPENDAMMENT de `venueId` : une même personne peut tenir la
+   * porte d'un club ET celle d'un organisateur. NULL si elle n'est le staff
+   * d'aucun organisateur.
    */
   organizerUserId: string | null;
   roles: StaffRole[];
@@ -77,21 +80,24 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
   const profile = profileRes.data;
   const allRoles = (rolesRes.data ?? []).map(r => r.role as string);
 
-  // Périmètre organisateur : lu UNIQUEMENT quand la personne n'a pas de club.
-  // Le club prime — quelqu'un qui cumule les deux (les comptes de démo, par
-  // exemple) garde exactement le comportement d'avant, et le staff de club ne
-  // paie pas une requête de plus.
-  let organizerUserId: string | null = null;
-  if (!profile?.venue_id) {
-    const { data: orgStaff } = await supabase
-      .from('org_staff')
-      .select('organizer_user_id')
-      .eq('user_id', user.id)
-      .eq('invitation_status', 'accepted')
-      .limit(1)
-      .maybeSingle();
-    organizerUserId = orgStaff?.organizer_user_id ?? null;
-  }
+  // Périmètre organisateur : lu TOUJOURS, même quand la personne a un club.
+  //
+  // Ce `if (!profile?.venue_id)` a coûté une soirée. `profiles.venue_id` est un
+  // scalaire qui survit à tout (un ancien poste en club, un compte de démo) ;
+  // un videur recruté par un organisateur et qui portait encore un venue_id se
+  // voyait donner le périmètre de l'ANCIEN club, et la porte refusait chaque QR
+  // de la soirée en « mauvais club ». Côté base, `is_event_door_staff()` ne
+  // regarde jamais `profiles.venue_id` : les droits étaient là, seul le front
+  // les ignorait. On rend les deux faces du périmètre et `isInDoorScope` accepte
+  // l'une OU l'autre — cumuler deux portes, c'est tenir les deux.
+  const { data: orgStaff } = await supabase
+    .from('org_staff')
+    .select('organizer_user_id')
+    .eq('user_id', user.id)
+    .eq('invitation_status', 'accepted')
+    .limit(1)
+    .maybeSingle();
+  const organizerUserId = orgStaff?.organizer_user_id ?? null;
   const staffRoles = allRoles.filter((r): r is StaffRole =>
     ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'].includes(r)
   );

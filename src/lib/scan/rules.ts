@@ -23,20 +23,24 @@ import type {
 /**
  * La personne qui scanne est-elle bien à la porte de CETTE soirée ?
  *
- * Le club prime quand la porte en a un : la comparaison est alors mot pour mot
- * celle d'avant, donc aucun club ne change de comportement. Une porte sans club
- * (soirée org-led) se rabat sur l'organisateur.
+ * Le périmètre a DEUX faces, et elles ne s'excluent pas : la même personne peut
+ * être employée d'un club et recrutée par un organisateur pour une soirée sans
+ * club. Le QR passe s'il correspond à l'UNE ou à l'AUTRE. Faire primer le club
+ * sur l'organisateur faisait refuser toute la soirée d'un videur qui traînait un
+ * `profiles.venue_id` d'un ancien poste, alors que la base (`is_event_door_staff`)
+ * lui donnait bien les droits.
  *
  * Fermé par défaut : une porte sans périmètre ne valide rien. C'est ce qui
  * évite qu'un `null === null` fasse passer n'importe quel QR d'une soirée
- * org-led sur la porte d'une autre.
+ * org-led sur la porte d'une autre — chaque branche exige un périmètre POSÉ,
+ * jamais une égalité de deux absences.
  */
 export function isInDoorScope(
   entity: { venueId: string | null; organizerUserId: string | null },
   scope: DoorScope,
 ): boolean {
-  if (scope.venueId) return entity.venueId === scope.venueId;
-  if (scope.organizerUserId) return entity.organizerUserId === scope.organizerUserId;
+  if (scope.venueId && entity.venueId === scope.venueId) return true;
+  if (scope.organizerUserId && entity.organizerUserId === scope.organizerUserId) return true;
   return false;
 }
 

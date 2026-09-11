@@ -185,12 +185,14 @@ export default function Bouncer() {
   const { t, language } = useLanguage();
   const { venueId, organizerUserId, loading: venueLoading } = useStaffIdentity();
   /**
-   * Périmètre de cette porte. Un club quand la personne en a un — c'est le
-   * cas de tout le staff de club, et rien ne change pour lui. Sinon
-   * l'organisateur qui l'a recrutée : une soirée org-led n'a aucun club.
+   * Périmètre de cette porte, ses DEUX faces à la fois : le club qui l'emploie
+   * et l'organisateur qui l'a recrutée. Écraser la seconde dès qu'un club
+   * existait faisait refuser toute une soirée org-led à un videur qui portait
+   * encore le `venue_id` d'un ancien poste — alors que la base lui donnait bien
+   * les droits de porte (`is_event_door_staff`).
    */
   const doorScope = useMemo<DoorScope>(
-    () => ({ venueId: venueId ?? null, organizerUserId: venueId ? null : (organizerUserId ?? null) }),
+    () => ({ venueId: venueId ?? null, organizerUserId: organizerUserId ?? null }),
     [venueId, organizerUserId],
   );
   const hasDoorScope = !!doorScope.venueId || !!doorScope.organizerUserId;
@@ -448,14 +450,21 @@ export default function Bouncer() {
   }, [venueId]);
 
   const fetchStats = async () => {
-    // Filtre des soirées de CETTE porte. Un club voit les siennes (lead ou
-    // partenaire, la co-soirée org-led pose le club en partner_venue_id) ;
-    // une porte d'organisateur voit celles de son organisateur.
-    const eventFilter = doorScope.venueId
-      ? `venue_id.eq.${doorScope.venueId},partner_venue_id.eq.${doorScope.venueId}`
-      : doorScope.organizerUserId
-        ? `organizer_user_id.eq.${doorScope.organizerUserId},partner_organizer_id.eq.${doorScope.organizerUserId}`
-        : null;
+    // Filtre des soirées de CETTE porte, sur les deux faces du périmètre : un
+    // club voit les siennes (lead ou partenaire — la co-soirée org-led pose le
+    // club en partner_venue_id), un organisateur voit celles de son
+    // organisateur, et qui cumule voit les deux. C'est le cumul qui manquait.
+    const orParts: string[] = [];
+    if (doorScope.venueId) {
+      orParts.push(`venue_id.eq.${doorScope.venueId}`, `partner_venue_id.eq.${doorScope.venueId}`);
+    }
+    if (doorScope.organizerUserId) {
+      orParts.push(
+        `organizer_user_id.eq.${doorScope.organizerUserId}`,
+        `partner_organizer_id.eq.${doorScope.organizerUserId}`,
+      );
+    }
+    const eventFilter = orParts.length ? orParts.join(',') : null;
     if (!eventFilter) return;
 
     try {

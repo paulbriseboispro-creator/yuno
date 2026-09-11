@@ -16,8 +16,9 @@ export type ScanEntityType =
  * tous les deux NULL). Le contrôle « ce QR appartient-il bien à ma porte ? »
  * doit donc pouvoir s'ancrer sur l'un ou l'autre.
  *
- * Un seul des deux champs est renseigné à la fois. Le club prime quand il
- * existe : c'est exactement le comportement d'avant pour tout le parc clubs.
+ * Les DEUX champs peuvent être renseignés en même temps : une personne employée
+ * par un club et recrutée par un organisateur tient deux portes. `isInDoorScope`
+ * accepte alors l'une ou l'autre. Aucun des deux renseigné = porte fermée.
  */
 export interface DoorScope {
   venueId: string | null;
