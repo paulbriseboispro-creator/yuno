@@ -12121,7 +12121,6 @@ const en: Record<string, string> = {
   'door.typeMore': 'Type at least two letters.',
   'door.noMatch': 'No one by that name tonight.',
   'door.empty': 'No names on this event yet.',
-  'door.tooMany': 'List truncated — search a name to find someone.',
   'door.letIn': 'Let in',
   'door.alreadyIn': 'Already checked in',
 

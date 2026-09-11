@@ -151,19 +151,20 @@ export function useDoorRoster(eventId: string | null) {
   }, []);
 
   /**
-   * Liste complète, dans l'ordre de la porte : ceux qui ne sont pas encore
-   * entrés d'abord, puis A→Z. C'est la vue par défaut de l'onglet Liste — un
-   * videur qui l'ouvre doit VOIR la soirée, pas un champ de recherche vide.
-   * Chaque personne pointée descend d'elle-même sous les autres.
+   * Liste complète, STRICTEMENT alphabétique. C'est la vue par défaut de
+   * l'onglet Liste — un videur qui l'ouvre doit VOIR la soirée, pas un champ
+   * de recherche vide.
+   *
+   * L'ordre est purement alphabétique et rien d'autre : c'est lui qui rend
+   * l'index A→Z honnête. Faire remonter les non-pointés (tentant) ferait
+   * mentir chaque lettre de la colonne dès la première entrée validée, et
+   * déplacerait sous le doigt le nom qu'on cherche. Qui est déjà entré se lit
+   * à la coche verte, pas à sa position.
    */
-  const all = useMemo(() => {
-    const sorted = [...people];
-    sorted.sort((a, b) => {
-      if (a.scanned !== b.scanned) return a.scanned ? 1 : -1;
-      return normalize(a.name).localeCompare(normalize(b.name), 'fr');
-    });
-    return sorted;
-  }, [people]);
+  const all = useMemo(
+    () => [...people].sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'fr')),
+    [people],
+  );
 
   const search = useCallback((query: string, limit = 40): DoorRosterPerson[] => {
     const q = normalize(query.trim());

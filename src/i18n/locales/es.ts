@@ -12463,7 +12463,6 @@ const es: Record<string, string> = {
   'door.typeMore': 'Escribe al menos dos letras.',
   'door.noMatch': 'Nadie con ese nombre esta noche.',
   'door.empty': 'Todavía no hay nombres en esta noche.',
-  'door.tooMany': 'Lista recortada: busca un nombre para encontrar a alguien.',
   'door.letIn': 'Dejar entrar',
   'door.alreadyIn': 'Ya entró',
 
