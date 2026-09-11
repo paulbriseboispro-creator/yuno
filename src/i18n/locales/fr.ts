@@ -5809,6 +5809,8 @@ const fr: Record<string, string> = {
   'guestList.cancelled': 'Annulé',
   'guestList.waiting': 'En attente',
   'guestList.noEntries': 'Aucune inscription pour le moment',
+  'guestList.nameDoorHint': "Le videur ne lit que ce nom à l'entrée : mets celui de ta pièce d'identité.",
+  'guestList.nameIncomplete': "Indique ton prénom ET ton nom — c'est ce que le videur lit à l'entrée.",
   'guestList.fullName': 'Nom complet',
   'guestList.email': 'Email',
   'guestList.phone': 'Téléphone',

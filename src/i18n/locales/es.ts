@@ -6091,6 +6091,8 @@ const es: Record<string, string> = {
   'guestList.cancelled': 'Cancelado',
   'guestList.waiting': 'Esperando',
   'guestList.noEntries': 'Sin inscripciones',
+  'guestList.nameDoorHint': "En la puerta solo se lee este nombre: pon el de tu documento.",
+  'guestList.nameIncomplete': "Indica tu nombre Y tu apellido — es lo que se lee en la puerta.",
   'guestList.fullName': 'Nombre completo',
   'guestList.email': 'Email',
   'guestList.phone': 'Teléfono',

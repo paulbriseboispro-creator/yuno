@@ -5904,6 +5904,8 @@ const en: Record<string, string> = {
   'guestList.cancelled': 'Cancelled',
   'guestList.waiting': 'Waiting',
   'guestList.noEntries': 'No registrations yet',
+  'guestList.nameDoorHint': "The door only reads this name: use the one on your ID.",
+  'guestList.nameIncomplete': "Enter your first name AND last name — that's what the door reads.",
   'guestList.fullName': 'Full Name',
   'guestList.email': 'Email',
   'guestList.phone': 'Phone',
