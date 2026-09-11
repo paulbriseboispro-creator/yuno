@@ -234,7 +234,7 @@ serve(async (req) => {
 
     const glQuery = supabaseAdmin
       .from("guest_lists")
-      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_address, location_city, location_is_secret, reveal_address_in_email)")
+      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_address, location_city, location_is_secret, reveal_address_in_email, guest_list_sold_out)")
       .eq("is_active", true);
     const { data: guestList, error: glError } = await (guestListId
       ? glQuery.eq("id", guestListId)
@@ -247,6 +247,16 @@ serve(async (req) => {
 
     if (new Date(guestList.events.end_at) < new Date()) {
       throw new Error("Event has ended");
+    }
+
+    // « Complet » posé à la main : la soirée ferme TOUTE sa guest list
+    // (events.guest_list_sold_out), ou cette part seule
+    // (guest_lists.manually_sold_out). Vaut pour les trois canaux — lien public,
+    // lien de part, lien d'invitation nominatif : quand le club dit complet,
+    // plus personne ne s'inscrit tout seul. L'ajout manuel par le club et le
+    // promoteur, lui, ne passe pas par ici et reste ouvert.
+    if (guestList.manually_sold_out || guestList.events.guest_list_sold_out) {
+      throw new Error("Guest list is closed");
     }
 
     // Anti-bot throttle — public, JWT-less endpoint. Counted before the dedup/quota

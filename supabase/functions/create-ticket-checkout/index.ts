@@ -139,7 +139,7 @@ serve(async (req) => {
     // Get event details
     const { data: event, error: eventError } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility, tickets_sold_out")
       .eq("id", eventId)
       .single();
 
@@ -253,6 +253,11 @@ serve(async (req) => {
 
     if (roundError || !ticketRound) throw new Error("Ticket round not found");
     if (!ticketRound.is_active) throw new Error("Ticket round is not active");
+    // Billetterie de la SOIRÉE marquée complète à la main (events.tickets_sold_out).
+    // Interrupteur réversible : il ne referme aucun palier, il ferme la vente.
+    if ((event as { tickets_sold_out?: boolean }).tickets_sold_out) {
+      throw new Error(t("checkout.soldOut", lang));
+    }
     // Épuisé forcé manuellement par le club/orga → non achetable même si capacité dispo.
     if ((ticketRound as any).manually_sold_out) throw new Error(t("checkout.soldOut", lang));
 

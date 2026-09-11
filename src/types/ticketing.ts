@@ -198,6 +198,13 @@ export type EventWithTicketing = {
   ticketingEnabled: boolean;
   maxTickets?: number;
   tablesEnabled: boolean;
+  /** « Complet » posé à la main sur un pilier de CETTE soirée (voir lib/soldOut.ts).
+   *  Ce n'est pas `…Enabled = false` : la vente reste affichée, elle est fermée. */
+  ticketsSoldOut?: boolean;
+  tablesSoldOut?: boolean;
+  guestListSoldOut?: boolean;
+  /** Formules de table marquées complètes pour cette soirée (table_packs.id). */
+  soldOutPackIds?: string[];
   /** Event-level: minors allowed → alcohol-free. Derived from the creator's global
    *  setting minus a per-event opt-out; maintained denormalized in events.alcohol_free. */
   alcoholFree?: boolean;

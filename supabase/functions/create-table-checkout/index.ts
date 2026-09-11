@@ -175,11 +175,16 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, tables_mode, tables_enabled, end_at")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, tables_mode, tables_enabled, tables_sold_out, sold_out_pack_ids, end_at")
       .eq("id", eventId)
       .single();
     if (!event || !event.is_active) throw new Error("Event not found or inactive");
     if (!event.tables_enabled) throw new Error("Table sales not enabled for this event");
+    // « Complet » posé à la main sur TOUTE la soirée (events.tables_sold_out).
+    // Distinct de tables_enabled : la soirée reste affichée, elle est pleine.
+    if ((event as { tables_sold_out?: boolean }).tables_sold_out) {
+      throw new Error(t("checkout.tablesSoldOut", lang));
+    }
     // Une soirée terminée ne se vend plus — même garde que create-ticket-checkout.
     if (event.end_at && new Date(event.end_at) < new Date()) {
       throw new Error(t("checkout.eventAlreadyEnded", lang));
@@ -236,6 +241,13 @@ serve(async (req) => {
     const packQuery = supabaseAdmin.from("table_packs").select("*").eq("id", packId);
     const { data: pack } = await packQuery.single();
     if (!pack || !pack.is_active) throw new Error("Table pack not found or inactive");
+    // Formule marquée complète POUR CETTE SOIRÉE. La liste vit sur l'événement,
+    // jamais sur le pack : les formules d'un club sont venue-scopées et servent
+    // toutes ses soirées — les éteindre les fermerait partout.
+    const soldOutPackIds = ((event as { sold_out_pack_ids?: string[] | null }).sold_out_pack_ids) ?? [];
+    if (Array.isArray(soldOutPackIds) && soldOutPackIds.includes(packId)) {
+      throw new Error(t("checkout.tablesSoldOut", lang));
+    }
     if (eventScopedTables && pack.event_id !== eventId) {
       throw new Error(t("table.invalidPack", lang));
     }
