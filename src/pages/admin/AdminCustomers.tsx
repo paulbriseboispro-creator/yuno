@@ -326,7 +326,7 @@ export default function AdminSegmentation() {
   const [reach, setReach] = useState<string>('');       // '' | 'email' | 'sms' | 'push' | 'none'
   const [tagFilter, setTagFilter] = useState<string>('');
   const [allTags, setAllTags] = useState<string[]>([]);
-  const [sort, setSort] = useState('total_spent');
+  const [sort, setSort] = useState('last_at');
   const [exporting, setExporting] = useState(false);
 
   // Drawer state
