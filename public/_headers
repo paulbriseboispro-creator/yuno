@@ -1,8 +1,14 @@
+# camera=(self) : les scanners de porte (videur, barman, vestiaire, check-in
+# organisateur) lisent un QR avec getUserMedia. Une liste VIDE interdit la
+# caméra à tout le monde, l'origine elle-même comprise — le scan était donc mort
+# sur yunoapp.eu, et ne marchait que dans l'app native (origine locale, ces
+# en-têtes ne s'y appliquent pas). `self` n'ouvre rien à un tiers : aucun iframe
+# d'une autre origine n'est autorisé par ce fichier.
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(self)
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=(self)
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; worker-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.mapbox.com https://events.mapbox.com https://cloudflareinsights.com; img-src 'self' data: blob: https://*.supabase.co https://*.stripe.com https://api.mapbox.com https://cdn.simpleicons.org; media-src 'self' blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'
 
 # Assets hashés (Vite) : le nom porte le hash de contenu → jamais réutilisé pour
