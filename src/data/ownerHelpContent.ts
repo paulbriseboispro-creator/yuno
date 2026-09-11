@@ -365,6 +365,9 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.guestlist.s15h', bodyKey: 'ohelp.ev.guestlist.s15b' },
           // Enveloppe guest list accordée à une agence de promoteurs partenaire.
           { headingKey: 'ohelp.ev.guestlist.s16h', bodyKey: 'ohelp.ev.guestlist.s16b' },
+          // Ce que l'inscription rapporte au club : accords marketing nommés +
+          // conversion en compte (mot de passe pour afficher le QR).
+          { headingKey: 'ohelp.ev.guestlist.s17h', bodyKey: 'ohelp.ev.guestlist.s17b' },
         ],
       },
       {
