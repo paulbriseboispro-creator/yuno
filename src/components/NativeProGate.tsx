@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Monitor, ArrowLeft } from 'lucide-react';
-import { isNative, isProApp, isProPath } from '@/lib/native';
+import { Monitor, ArrowLeft, Smartphone } from 'lucide-react';
+import { canHandOffToProApp, isNative, isProApp, isProPath, openProApp } from '@/lib/native';
 import { openOnWebWithSession } from '@/lib/webHandoff';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
@@ -23,6 +23,15 @@ export function NativeProGate({ children }: { children: ReactNode }) {
   if (isProApp()) return <>{children}</>;
   if (!isNative() || !isProPath(location.pathname)) return <>{children}</>;
 
+  // Un Universal Link de surface pro (invitation de videur, lien de PIN, lien
+  // de scan) atterrit encore dans l'app CLIENT sur les binaires déjà installés :
+  // l'app Pro n'a reçu son entitlement Associated Domains qu'aujourd'hui, et il
+  // ne part pas en OTA. Le schéma `yunopro://`, lui, est compilé depuis
+  // longtemps — c'est le seul passage qui marche ce soir. Jamais en
+  // redirection automatique : sans l'app Pro, iOS laisse une page morte.
+  const canOpenPro = canHandOffToProApp();
+  const proPath = location.pathname + location.search;
+
   return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center px-6">
       <motion.div
@@ -37,9 +46,22 @@ export function NativeProGate({ children }: { children: ReactNode }) {
         <h1 className="text-xl font-bold text-white mb-3">{t('natGate.title')}</h1>
         <p className="text-sm text-white/60 leading-relaxed mb-8">{t('natGate.body')}</p>
         <div className="space-y-3">
+          {canOpenPro && (
+            <button
+              onClick={() => openProApp(proPath)}
+              className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity inline-flex items-center justify-center gap-2"
+            >
+              <Smartphone className="h-4 w-4 flex-none" />
+              <span className="truncate">{t('natGate.openProApp')}</span>
+            </button>
+          )}
           <button
             onClick={() => { void openOnWebWithSession(location.pathname); }}
-            className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
+            className={`w-full rounded-xl font-semibold text-sm py-3.5 active:opacity-80 transition-opacity ${
+              canOpenPro
+                ? 'bg-white/5 border border-white/10 text-white/80 font-medium'
+                : 'bg-white text-black'
+            }`}
           >
             {t('natGate.openWeb')}
           </button>

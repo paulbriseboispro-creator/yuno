@@ -9,6 +9,8 @@
         "components": [
           { "/": "/accept-staff-invitation*", "comment": "Invitation de staff opérationnel (barman, videur, vestiaire, hôte VIP, manager)" },
           { "/": "/setup-pin*", "comment": "Pose du code PIN de prise de poste" },
+          { "/": "/reset-pin*", "comment": "Lien de réinitialisation du code PIN (email) — même surface que la pose" },
+          { "/": "/staff/*", "comment": "Onboarding et compte du staff de terrain" },
           { "/": "/join/*", "comment": "Lien d'onboarding sans email" },
           { "/": "/owner/*" },
           { "/": "/manager/*" },
@@ -23,7 +25,7 @@
           { "/": "/admin/*" }
         ],
         "paths": [
-          "/accept-staff-invitation*", "/setup-pin*", "/join/*",
+          "/accept-staff-invitation*", "/setup-pin*", "/reset-pin*", "/staff/*", "/join/*",
           "/owner/*", "/manager/*", "/organizer-app/*", "/agency-app/*",
           "/affiliate/*", "/promoter/*",
           "/barman*", "/bouncer*", "/cloakroom*", "/vip-host*", "/admin/*"
@@ -38,6 +40,8 @@
           { "/": "/promo/*/agenda", "exclude": true, "comment": "Agenda public promoteur d'agence — toujours web" },
           { "/": "/accept-staff-invitation*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
           { "/": "/setup-pin*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
+          { "/": "/reset-pin*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
+          { "/": "/staff/*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
           { "/": "/join/*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
           { "/": "/owner/*", "exclude": true },
           { "/": "/manager/*", "exclude": true },
@@ -54,7 +58,7 @@
         ],
         "paths": [
           "NOT /promoteur/*/agenda", "NOT /p/*/agenda", "NOT /promo/*/agenda",
-          "NOT /accept-staff-invitation*", "NOT /setup-pin*", "NOT /join/*",
+          "NOT /accept-staff-invitation*", "NOT /setup-pin*", "NOT /reset-pin*", "NOT /staff/*", "NOT /join/*",
           "NOT /owner/*", "NOT /manager/*", "NOT /organizer-app/*", "NOT /agency-app/*",
           "NOT /affiliate/*", "NOT /promoter/*",
           "NOT /barman*", "NOT /bouncer*", "NOT /cloakroom*", "NOT /vip-host*", "NOT /admin/*",

@@ -8320,6 +8320,7 @@ const en: Record<string, string> = {
   'natGate.title': 'The pro dashboard lives on the web',
   'natGate.body': 'The Yuno app is made for going out. To manage your venue, events and team, open your dashboard in the browser at yunoapp.eu.',
   'natGate.openWeb': 'Open on the web',
+  'natGate.openProApp': 'Open in Yuno Pro',
   'natGate.backHome': 'Back to the app',
   'natBridge.checkoutClosedTitle': 'Payment window closed',
   'natBridge.checkoutClosedBody': 'If you completed your payment, your order is in My orders.',
