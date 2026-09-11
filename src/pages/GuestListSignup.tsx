@@ -29,6 +29,12 @@ import QRCode from 'qrcode';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { GuestAccountUnlock } from '@/components/account/GuestAccountUnlock';
+import { MarketingOptIns } from '@/components/MarketingOptIns';
+import {
+  useMarketingConsent, usePlatformMarketingConsent, recordConsentGrant,
+  recordPlatformConsentGrant, marketingConsentWording,
+} from '@/hooks/useMarketingConsent';
 import { GuestListSignupSkeleton } from '@/components/skeletons/GuestListSignupSkeleton';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
 import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
@@ -41,6 +47,8 @@ interface GuestListEventInfo {
   end_at: string;
   venue_id: string | null;
   partner_venue_id: string | null;
+  organizer_user_id: string | null;
+  partner_organizer_id: string | null;
   poster_url: string | null;
   timezone: string | null;
   location_city: string | null;
@@ -176,6 +184,27 @@ export default function GuestListSignup() {
   // bout du parcours. Information seule — l'inscription reste ouverte sans compte.
   const { exists: typedEmailHasAccount } = useExistingAccountCheck(guestEmail, !user);
 
+  // ── Accords marketing ────────────────────────────────────────────────────
+  // Une inscription guest list est gratuite, mais c'est une VENUE : sans la
+  // question posée ici, le club (ou l'organisateur) remplit sa soirée et
+  // n'a personne à qui réécrire le lendemain, et Yuno n'a rien non plus.
+  // Jamais pré-cochées, chacune nomme son destinataire.
+  const [newsletterOptIn, setNewsletterOptIn] = useState(false);
+  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [yunoOptIn, setYunoOptIn] = useState(false);
+  // Portée du consentement : le club de la soirée (celui du contrat de
+  // co-soirée compris), sinon l'organisateur quand il n'y a pas de club.
+  const [consentScope, setConsentScope] = useState<{
+    venueId: string | null;
+    organizerUserId: string | null;
+    scopeName: string;
+  } | null>(null);
+  const marketingConsent = useMarketingConsent(consentScope);
+  const platformConsent = usePlatformMarketingConsent(true);
+  // Compte créé depuis l'écran de confirmation : débloque le QR sans attendre
+  // que la session se propage jusqu'à `user`.
+  const [accountCreated, setAccountCreated] = useState(false);
+
   // Countdown
   const [timeLeft, setTimeLeft] = useState('');
 
@@ -195,6 +224,30 @@ export default function GuestListSignup() {
     // resolves (it can settle after the first fetch, otherwise it's missed).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, eventId, user, inviteParam]);
+
+  // Retour de connexion pour un email qui avait déjà un compte : on rattache
+  // l'inscription maintenant que la session existe. Le serveur vérifie la
+  // preuve — l'email authentifié doit être celui de l'inscription. Puis on
+  // envoie sur /my-orders, où le QR vit désormais pour de bon.
+  const linkParam = searchParams.get('link');
+  useEffect(() => {
+    if (!linkParam || !user || authLoading) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await supabase.functions.invoke('claim-guest-order', {
+          body: { action: 'link_after_signup', purchaseId: linkParam, purchaseType: 'guestlist', userId: user.id },
+        });
+        if (!cancelled) toast.success(t('glconf.linked'));
+      } catch (err) {
+        console.error('Guest list link error:', err);
+      } finally {
+        if (!cancelled) navigate('/my-orders?tab=tickets', { replace: true });
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkParam, user, authLoading]);
 
   useEffect(() => {
     if (!guestList) return;
@@ -284,7 +337,7 @@ export default function GuestListSignup() {
         if (parsed?.invite && parsed.guest_list?.is_active) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url, timezone, location_city')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city')
             .eq('id', parsed.guest_list.event_id)
             .maybeSingle();
           if (ev) {
@@ -321,7 +374,7 @@ export default function GuestListSignup() {
         if (glRow) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url, timezone, location_city')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city')
             .eq('id', glRow.event_id)
             .maybeSingle();
           data = { ...glRow, events: ev };
@@ -333,7 +386,7 @@ export default function GuestListSignup() {
         // found" for a list that exists. Prefer the club part, else the first.
         const { data: glRows, error: glErr } = await supabase
           .from('guest_lists')
-          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, poster_url, timezone, location_city)')
+          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city)')
           .eq('is_active', true)
           .eq('event_id', eventId);
         if (glErr) throw glErr;
@@ -354,6 +407,31 @@ export default function GuestListSignup() {
       const { data: venue } = eventVenueId
         ? await supabase.from('venues').select('name, city').eq('id', eventVenueId).single()
         : { data: null };
+
+      // Destinataire du consentement marketing : le club, sinon l'organisateur
+      // d'une soirée sans club. MIROIR EXACT de la résolution du trigger
+      // auto_subscribe_guest_list_entry — la case nomme qui recevra vraiment.
+      const eventOrganizerId = data.events!.organizer_user_id ?? data.events!.partner_organizer_id;
+      if (eventVenueId && venue?.name) {
+        setConsentScope({ venueId: eventVenueId, organizerUserId: null, scopeName: venue.name });
+      } else if (eventOrganizerId) {
+        // Le nom public de l'organisateur vit dans `organizer_profiles` — PAS
+        // dans `profiles`, que l'anon ne peut pas lire (la case s'affichait
+        // alors au nom de la SOIRÉE, ce qui ne désigne aucun destinataire).
+        // `profiles.organization_name` reste le repli hérité, utile aux
+        // organisateurs d'avant la table publique et lisible par un connecté.
+        const [{ data: orgPublic }, { data: legacyProfile }] = await Promise.all([
+          supabase.from('organizer_profiles').select('display_name').eq('user_id', eventOrganizerId).maybeSingle(),
+          supabase.from('profiles').select('organization_name').eq('id', eventOrganizerId).maybeSingle(),
+        ]);
+        const orgName = orgPublic?.display_name || legacyProfile?.organization_name || '';
+        // Sans nom, pas de case : un consentement qui ne nomme pas son
+        // destinataire ne couvre personne (EDPB 05/2020 §65). Seule la ligne
+        // Yuno reste alors affichée — elle, elle nomme bien qui reçoit.
+        setConsentScope(orgName ? { venueId: null, organizerUserId: eventOrganizerId, scopeName: orgName } : null);
+      } else {
+        setConsentScope(null);
+      }
 
       // Offre publique de la part : choix explicite du détenteur, sinon tous les
       // types réellement alloués (quota > 0). Même règle que le serveur.
@@ -444,6 +522,59 @@ export default function GuestListSignup() {
     }
   };
 
+  // Retrait immédiat, sans quitter la page (EDPB 05/2020 §114 : le retrait
+  // doit être possible sur la même interface que l'accord).
+  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
+    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'guestlist_signup');
+    if (ok) {
+      if (channel === 'email') setNewsletterOptIn(false);
+      else setSmsOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
+  const handleWithdrawYuno = async (wordingText: string) => {
+    const ok = await platformConsent.withdraw(wordingText, language, 'guestlist_signup');
+    if (ok) {
+      setYunoOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
+  /**
+   * Les cases d'accord marketing, identiques sur les deux formulaires (invité
+   * et connecté). Absentes quand on inscrit un proche : cocher en son nom ne
+   * vaudrait pas consentement, et le serveur l'ignorerait de toute façon.
+   */
+  const marketingOptIns = !addAnother ? (
+    <MarketingOptIns
+      // Destinataire du club/organisateur introuvable = pas de case à son nom,
+      // mais la ligne Yuno reste : elle nomme bien qui reçoit.
+      showEmail={!!consentScope}
+      showSms={!!consentScope}
+      newsletterOptIn={newsletterOptIn}
+      onNewsletterChange={setNewsletterOptIn}
+      smsOptIn={smsOptIn}
+      onSmsChange={setSmsOptIn}
+      scopeName={consentScope?.scopeName}
+      emailAlreadyGranted={marketingConsent.emailGranted}
+      smsAlreadyGranted={marketingConsent.smsGranted}
+      pending={marketingConsent.pending || platformConsent.pending}
+      onWithdraw={handleWithdrawConsent}
+      showYuno
+      yunoOptIn={yunoOptIn}
+      onYunoChange={setYunoOptIn}
+      yunoAlreadyGranted={platformConsent.granted}
+      onWithdrawYuno={handleWithdrawYuno}
+    />
+  ) : null;
+
   const handleConfirm = async () => {
     if (!guestList) return;
 
@@ -470,6 +601,44 @@ export default function GuestListSignup() {
       // checkouts billets et tables.
       const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const trackedLinkId = trackedLinkParam || getTrackedLinkForCheckout(eventId);
+
+      // ── Accords marketing ──────────────────────────────────────────────
+      // Inscrire un proche (lien unique) ne donne l'accord de personne : les
+      // cases ne sont alors pas affichées, et rien n'est transmis.
+      const consentEmail = (user?.email ?? guestEmail).trim();
+      const askedConsent = !addAnother;
+      // Ce qu'on transmet = la case cochée maintenant OU l'accord déjà actif
+      // pour ce destinataire (aucune case n'a alors été affichée). Le renvoyer
+      // remet à zéro le compteur des 36 mois : un habitué ne périme jamais.
+      const effectiveNewsletter = askedConsent && (newsletterOptIn || marketingConsent.emailGranted);
+      const effectiveSms = askedConsent && (smsOptIn || marketingConsent.smsGranted);
+      const effectiveYuno = askedConsent && (yunoOptIn || platformConsent.granted);
+      const { email: emailWording, sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
+      // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD) : rejouer un
+      // accord déjà actif gonflerait le journal sans rien prouver de plus.
+      if (askedConsent && newsletterOptIn && !marketingConsent.emailGranted) {
+        void recordConsentGrant({
+          channel: 'email', wordingText: emailWording, wordingKey: 'consent.emailOffersFrom',
+          venueId: consentScope?.venueId ?? null,
+          organizerUserId: consentScope?.organizerUserId ?? null,
+          email: consentEmail, locale: language, source: 'guestlist_signup',
+        });
+      }
+      if (askedConsent && smsOptIn && !marketingConsent.smsGranted) {
+        void recordConsentGrant({
+          channel: 'sms', wordingText: smsWording, wordingKey: 'consent.smsOffersFrom',
+          venueId: consentScope?.venueId ?? null,
+          organizerUserId: consentScope?.organizerUserId ?? null,
+          email: consentEmail, phoneE164: guestPhone.trim() || undefined,
+          locale: language, source: 'guestlist_signup',
+        });
+      }
+      if (askedConsent && yunoOptIn && !platformConsent.granted) {
+        void recordPlatformConsentGrant({
+          wordingText: t('consent.yunoOffers'), wordingKey: 'consent.yunoOffers',
+          email: consentEmail, locale: language, source: 'guestlist_signup',
+        });
+      }
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
           // Langue lue par l'invité = langue de son email de confirmation.
@@ -485,6 +654,10 @@ export default function GuestListSignup() {
             : {}),
           gender: gender || undefined,
           promoterCode: ref || undefined,
+          // Accords marketing : le serveur écrit l'abonnement, jamais le client.
+          newsletterOptIn: effectiveNewsletter,
+          smsOptIn: effectiveSms,
+          platformOptIn: effectiveYuno,
           // Guest contact info — used by the function when no JWT is present or
           // when a logged-in user registers someone else via a unique link.
           ...(useGuestFields ? {
@@ -759,9 +932,21 @@ export default function GuestListSignup() {
   // ── Success state ──
   if (success) {
     const inviteRemainingNow = inviteMeta ? Math.max(0, inviteMeta.maxUses - inviteMeta.usedCount) : 0;
+    // ── Le QR est derrière un mot de passe ─────────────────────────────────
+    // Ce lien privé est le plus gros flux d'inconnus de Yuno : sans cette
+    // marche, ils repartent inconnus. La contrepartie est immédiate et lisible
+    // (le QR, puis les soirées suivantes), la place est déjà acquise, et le QR
+    // part aussi par email — le mot de passe ne peut donc enfermer personne
+    // dehors. Deux exceptions : quelqu'un de connecté (le compte existe déjà)
+    // et l'inscription d'un proche (le QR est le SIEN, il doit pouvoir partir).
+    const qrLocked = !user && !accountCreated && !addAnother && !!successEntryId;
+    const relinkBackUrl = successEntryId
+      ? `${window.location.pathname}${window.location.search ? window.location.search + '&' : '?'}link=${successEntryId}`
+      : '';
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-sm w-full border-border/50">
+        <div className="max-w-sm w-full space-y-4">
+        <Card className="border-border/50">
           <CardContent className="p-6 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
               <CheckCircle className="h-9 w-9 text-primary" />
@@ -785,43 +970,77 @@ export default function GuestListSignup() {
                 </p>
               )}
             </div>
-            {qrImage && (
-              <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />
+            {!qrLocked && (
+              <>
+                {qrImage && (
+                  <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />
+                )}
+                <p className="text-xs text-muted-foreground">{t('guestList.showQR')}</p>
+                {successEmailSent !== null && (
+                  <p className={`text-xs ${successEmailSent ? 'text-muted-foreground' : 'text-amber-500'}`}>
+                    {t(successEmailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
+                  </p>
+                )}
+              </>
             )}
-            <p className="text-xs text-muted-foreground">{t('guestList.showQR')}</p>
-            {successEmailSent !== null && (
-              <p className={`text-xs ${successEmailSent ? 'text-muted-foreground' : 'text-amber-500'}`}>
-                {t(successEmailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
-              </p>
+            {/* Tant que le QR est verrouillé, l'écran ne propose qu'UNE chose :
+                le déverrouiller. « Mes commandes » est de toute façon un
+                cul-de-sac sans compte (la policy filtre sur user_id), et une
+                sortie vers l'accueil juste sous le cadenas ne serait qu'une
+                façon de perdre la personne. */}
+            {!qrLocked && (
+              <>
+                {/* Apple Wallet — juste sous le QR, au moment où « ne pas le
+                    reperdre » est l'action évidente. Le composant se masque hors
+                    appareil Apple et pour une inscription sans compte (l'émission
+                    du pass exige une session). */}
+                {successEntryId && <WalletButtons type="guestlist" id={successEntryId} variant="hero" />}
+                {/* Lien unique multi-places : proposer d'inscrire un proche tant
+                    qu'il reste des places sur CE lien. */}
+                {inviteMeta && inviteRemainingNow > 0 && (
+                  <Button variant="outline" className="w-full" onClick={() => {
+                    setSuccess(false);
+                    setAddAnother(true);
+                    setQrImage('');
+                    setGuestName(''); setGuestEmail(''); setGuestPhone('');
+                    setGender(genderFromUrl || '');
+                  }}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {t('guestList.invite.addAnother')} ({inviteRemainingNow})
+                  </Button>
+                )}
+                {(user || accountCreated) && (
+                  <Button className="w-full" onClick={() => navigate('/my-orders')}>
+                    <Ticket className="h-4 w-4 mr-2" />
+                    {t('guestList.viewInOrders')}
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full" onClick={() => navigate(slug ? `/club/${slug}` : `${basePath}`, { state: { eventId } })}>
+                  {t('common.backToHome')}
+                </Button>
+              </>
             )}
-            {/* Apple Wallet — juste sous le QR, au moment où « ne pas le
-                reperdre » est l'action évidente. Le composant se masque hors
-                appareil Apple et pour une inscription sans compte (l'émission
-                du pass exige une session). */}
-            {successEntryId && <WalletButtons type="guestlist" id={successEntryId} variant="hero" />}
-            {/* Lien unique multi-places : proposer d'inscrire un proche tant
-                qu'il reste des places sur CE lien. */}
-            {inviteMeta && inviteRemainingNow > 0 && (
-              <Button variant="outline" className="w-full" onClick={() => {
-                setSuccess(false);
-                setAddAnother(true);
-                setQrImage('');
-                setGuestName(''); setGuestEmail(''); setGuestPhone('');
-                setGender(genderFromUrl || '');
-              }}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                {t('guestList.invite.addAnother')} ({inviteRemainingNow})
-              </Button>
-            )}
-            <Button className="w-full" onClick={() => navigate('/my-orders')}>
-              <Ticket className="h-4 w-4 mr-2" />
-              {t('guestList.viewInOrders')}
-            </Button>
-            <Button variant="outline" className="w-full" onClick={() => navigate(slug ? `/club/${slug}` : `${basePath}`, { state: { eventId } })}>
-              {t('common.backToHome')}
-            </Button>
           </CardContent>
         </Card>
+
+        {/* Le déverrouillage vit SOUS la carte de confirmation, pas dedans :
+            la place est acquise (la carte le dit), le mot de passe est l'étape
+            suivante, pas une condition rétroactive. */}
+        {qrLocked && (
+          <GuestAccountUnlock
+            email={guestEmail.trim()}
+            fullName={guestName.trim()}
+            entryId={successEntryId!}
+            qrImage={qrImage}
+            relinkBackUrl={relinkBackUrl}
+            emailSent={successEmailSent}
+            onCreated={() => {
+              setAccountCreated(true);
+              toast.success(t('glconf.created'));
+            }}
+          />
+        )}
+        </div>
       </div>
     );
   }
@@ -970,6 +1189,8 @@ export default function GuestListSignup() {
                     )}
                   </div>
                 )}
+
+                {marketingOptIns}
 
                 {/* Summary */}
                 <div className="border-t border-border pt-3 space-y-2">
@@ -1122,6 +1343,8 @@ export default function GuestListSignup() {
                   )}
                 </div>
               )}
+
+              {marketingOptIns}
 
               {/* Summary */}
               <div className="border-t border-border pt-3 space-y-2">
