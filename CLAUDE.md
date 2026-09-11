@@ -135,6 +135,25 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   (PDF porte / détail / Excel) depuis le Service VIP orga, avec paiement,
   email, remarques, référence.
 - **Revenu club** : « CA Club / Net », fee Stripe 1.5 %, helpers dans `utils/fees.ts`. Refund côté club.
+- **« Complet » posé à la main = porte unique `src/lib/soldOut.ts`** (2026-09-11,
+  migration `20260911210000`). Fermer la vente d'un pilier SANS dépublier la
+  soirée : `events.tickets_sold_out` / `tables_sold_out` / `guest_list_sold_out`
+  (toute la soirée), `events.sold_out_pack_ids` (certaines formules) et
+  `guest_lists.manually_sold_out` (une part). **Tout est EVENT-scopé, y compris
+  les formules** : les packs d'un club sont venue-scopés et servent toutes ses
+  dates — marquer `table_packs` fermerait la formule partout. Une seule mécanique
+  pour le club et pour l'organisateur. Ces drapeaux ne ferment QUE le
+  libre-service (page publique, checkout, inscription) : l'ajout manuel d'un
+  invité, la résa walk-in et le placement restent ouverts. Les gardes serveur
+  vivent dans `create-ticket-checkout`, `create-table-checkout` et
+  `create-guest-list-entry` (ce dernier ferme les TROIS canaux d'une part, lien
+  d'invitation nominatif compris — d'où `manually_sold_out` dans
+  `get_guest_list_invite`). Ne pas confondre avec `…_enabled = false` (l'offre
+  disparaît) ni avec `ticket_rounds.manually_sold_out` (qui referme le palier et
+  ouvre le suivant via trigger, donc n'est PAS réversible d'un clic). Réglage
+  centralisé : rangée « Marquer complet » sous les trois interrupteurs de la
+  fiche soirée (`OwnerEvents`, club ET orga) ; réglage fin dans `OwnerTables`
+  (onglet Soirées), `OrgEventTablesPanel` et `PartCard`.
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.

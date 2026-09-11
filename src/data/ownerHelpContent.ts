@@ -300,7 +300,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToEvents', path: '/events' },
         relatedArticleIds: ['ticketing-setup', 'guest-list-setup', 'tables-vip-setup', 'dj-management'],
-        keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'vidéo', 'video', 'reel', 'story', '9:16', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'nuevo evento'],
+        keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'vidéo', 'video', 'reel', 'story', '9:16', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'complet', 'sold out', 'agotado', 'épuisé', 'fermer la vente', 'nuevo evento'],
         sections: [
           { headingKey: 'ohelp.ev.events.s1h', bodyKey: 'ohelp.ev.events.s1b' },
           { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.webp' },
@@ -310,6 +310,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.events.s6h', bodyKey: 'ohelp.ev.events.s6b' },
           { headingKey: 'ohelp.ev.events.s9h', bodyKey: 'ohelp.ev.events.s9b' },
           { headingKey: 'ohelp.ev.events.s7h', bodyKey: 'ohelp.ev.events.s7b', type: 'tip' },
+          { headingKey: 'ohelp.ev.events.s10h', bodyKey: 'ohelp.ev.events.s10b' },
           { headingKey: 'ohelp.ev.events.s8h', bodyKey: 'ohelp.ev.events.s8b', type: 'warning' },
         ],
       },
@@ -344,7 +345,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Users',
         actionLink: { labelKey: 'ohelp.action.goToGuestList', path: '/guest-list' },
         relatedArticleIds: ['events-setup', 'promoter-system', 'scarcity-fomo'],
-        keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados', 'places restantes', 'remaining spots', 'compteur', 'counter', 'modèle', 'template', 'récurrente', 'recurring', 'automatique', 'automatic', 'lien unique', 'unique link', 'invite link', 'ajout direct', 'boisson', 'vip', 'types proposés', 'agence', 'agency', 'enveloppe', 'envelope', 'partition', 'pool', 'répartition'],
+        keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados', 'places restantes', 'remaining spots', 'compteur', 'counter', 'modèle', 'template', 'récurrente', 'recurring', 'automatique', 'automatic', 'lien unique', 'unique link', 'invite link', 'ajout direct', 'boisson', 'vip', 'types proposés', 'agence', 'agency', 'enveloppe', 'envelope', 'partition', 'pool', 'répartition', 'complet', 'sold out', 'agotado', 'fermer', 'close'],
         sections: [
           { headingKey: 'ohelp.ev.guestlist.s1h', bodyKey: 'ohelp.ev.guestlist.s1b' },
           { headingKey: 'ohelp.ev.guestlist.s2h', bodyKey: 'ohelp.ev.guestlist.s2b', screenshotUrl: '/help/owner-guest-list.webp' },
@@ -368,6 +369,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           // Ce que l'inscription rapporte au club : accords marketing nommés +
           // conversion en compte (mot de passe pour afficher le QR).
           { headingKey: 'ohelp.ev.guestlist.s17h', bodyKey: 'ohelp.ev.guestlist.s17b' },
+          // « Complet » posé à la main sur une part (ou sur toute la soirée).
+          { headingKey: 'ohelp.ev.guestlist.s18h', bodyKey: 'ohelp.ev.guestlist.s18b' },
         ],
       },
       {
@@ -377,7 +380,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Wine',
         actionLink: { labelKey: 'ohelp.action.goToTables', path: '/tables' },
         relatedArticleIds: ['events-setup', 'vip-service-mgmt'],
-        keywords: ['table', 'VIP', 'réservation', 'reservation', 'zone', 'pack', 'minimum', 'bouteille', 'bottle', 'carré', 'floor plan', 'plan de salle', 'gold', 'platinum', 'silver', 'diamond', 'mesa', 'heure d\'arrivée', 'arrivée limite', 'arrival cutoff', 'retard', 'late', 'formule', 'formule fixée', 'nombre de tables', 'tables par formule', 'package per table', 'fórmula'],
+        keywords: ['table', 'VIP', 'réservation', 'reservation', 'zone', 'pack', 'minimum', 'bouteille', 'bottle', 'carré', 'floor plan', 'plan de salle', 'gold', 'platinum', 'silver', 'diamond', 'mesa', 'heure d\'arrivée', 'arrivée limite', 'arrival cutoff', 'retard', 'late', 'formule', 'formule fixée', 'nombre de tables', 'tables par formule', 'package per table', 'fórmula', 'complet', 'sold out', 'agotado', 'épuisé'],
         sections: [
           { headingKey: 'ohelp.ev.tables.s1h', bodyKey: 'ohelp.ev.tables.s1b' },
           { headingKey: 'ohelp.ev.tables.s2h', bodyKey: 'ohelp.ev.tables.s2b', screenshotUrl: '/help/owner-tables.webp' },
@@ -388,6 +391,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.tables.s7h', bodyKey: 'ohelp.ev.tables.s7b' },
           { headingKey: 'ohelp.ev.tables.s12h', bodyKey: 'ohelp.ev.tables.s12b' },
           { headingKey: 'ohelp.ev.tables.s13h', bodyKey: 'ohelp.ev.tables.s13b' },
+          { headingKey: 'ohelp.ev.tables.s14h', bodyKey: 'ohelp.ev.tables.s14b' },
           { headingKey: 'ohelp.ev.tables.s10h', bodyKey: 'ohelp.ev.tables.s10b', screenshotUrl: '/help/owner-menu.webp' },
           { headingKey: 'ohelp.ev.tables.s11h', bodyKey: 'ohelp.ev.tables.s11b' },
           { headingKey: 'ohelp.ev.tables.s8h', bodyKey: 'ohelp.ev.tables.s8b', type: 'tip' },
