@@ -19,13 +19,19 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, countryOfPlace } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar, QrCode as QrCodeIcon, Sparkles, Bell, UserPlus, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar } from 'lucide-react';
 import QRCode from 'qrcode';
 import { haptics } from '@/lib/haptics';
 import { PublicPage } from '@/components/PublicPage';
-import { useGuestSignup } from '@/hooks/useGuestSignup';
+import { WalletButtons } from '@/components/WalletButtons';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { GuestAccountUnlock } from '@/components/account/GuestAccountUnlock';
+import { MarketingOptIns } from '@/components/MarketingOptIns';
+import {
+  useMarketingConsent, usePlatformMarketingConsent, recordConsentGrant,
+  recordPlatformConsentGrant, marketingConsentWording,
+} from '@/hooks/useMarketingConsent';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { GuestListCheckoutSkeleton } from '@/components/skeletons/GuestListCheckoutSkeleton';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
@@ -105,16 +111,25 @@ export default function GuestListCheckout() {
   // après. Sans lui, l'invité repart avec un QR que personne ne peut relier.
   const [entryId, setEntryId] = useState('');
   const [entryEmail, setEntryEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
-  const { submitting: signingUp, error: signupError, setError: setSignupError, signup } = useGuestSignup();
-  // « Cet email a-t-il déjà un compte ? » posée pendant la saisie, puis sur
-  // l'email réellement enregistré. Sans ça, la réponse ne tombait qu'après un
-  // mot de passe choisi pour rien.
+  // « Cet email a-t-il déjà un compte ? » posée pendant la saisie — la réponse
+  // arrive avant qu'un mot de passe soit choisi pour rien. (Sur l'écran de
+  // déverrouillage, GuestAccountUnlock repose la question pour son compte.)
   const { exists: typedEmailHasAccount } = useExistingAccountCheck(guestEmail, !user);
-  const { exists: entryEmailHasAccount } = useExistingAccountCheck(entryEmail, !user && !accountCreated);
+
+  // ── Accords marketing ────────────────────────────────────────────────────
+  // Même question que sur le lien privé : sans elle, le club remplit sa soirée
+  // et n'a personne à qui réécrire. Jamais pré-cochées, chacune nomme qui reçoit.
+  const [newsletterOptIn, setNewsletterOptIn] = useState(false);
+  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [yunoOptIn, setYunoOptIn] = useState(false);
+  const [consentScope, setConsentScope] = useState<{
+    venueId: string | null;
+    organizerUserId: string | null;
+    scopeName: string;
+  } | null>(null);
+  const marketingConsent = useMarketingConsent(consentScope);
+  const platformConsent = usePlatformMarketingConsent(true);
 
   // Retour vers la sélection : on DÉPILE, comme partout ailleurs dans le tunnel
   // (fiche event, billets, checkout billet). Empiler `/billets` d'ici enfermait
@@ -197,7 +212,7 @@ export default function GuestListCheckout() {
       // Public-only gate: a direct URL must point at a list the club chose to show.
       const { data: glRows, error: glError } = await supabase
         .from('guest_lists')
-        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url, timezone, location_city)')
+        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city)')
         .eq('event_id', eventId)
         .eq('is_active', true)
         .eq('visible_on_club_page', true);
@@ -211,12 +226,34 @@ export default function GuestListCheckout() {
       const ev = (gl as any).events;
       let venueName = '';
       let venueCity = '';
-      if (ev?.venue_id) {
-        const { data: venue } = await supabase.from('venues').select('name, city').eq('id', ev.venue_id).maybeSingle();
+      // Co-soirée menée par un organisateur : le club physique est partner_venue_id.
+      const eventVenueId = ev?.venue_id ?? ev?.partner_venue_id ?? null;
+      if (eventVenueId) {
+        const { data: venue } = await supabase.from('venues').select('name, city').eq('id', eventVenueId).maybeSingle();
         venueName = venue?.name || '';
         venueCity = venue?.city || '';
-        const { data: sub } = await supabase.from('venue_subscriptions').select('subscription_plan').eq('venue_id', ev.venue_id).in('status', ['active', 'trialing']).maybeSingle();
+        const { data: sub } = await supabase.from('venue_subscriptions').select('subscription_plan').eq('venue_id', eventVenueId).in('status', ['active', 'trialing']).maybeSingle();
         setVenuePlan(sub?.subscription_plan || 'core');
+      }
+
+      // Destinataire des accords marketing : le club, sinon l'organisateur d'une
+      // soirée sans club. MIROIR de la résolution du trigger
+      // auto_subscribe_guest_list_entry et de celle de GuestListSignup — la case
+      // nomme exactement qui recevra. Le nom public d'un organisateur vit dans
+      // `organizer_profiles` : `profiles` n'est pas lisible par un anonyme.
+      const eventOrganizerId = ev?.organizer_user_id ?? ev?.partner_organizer_id ?? null;
+      if (eventVenueId && venueName) {
+        setConsentScope({ venueId: eventVenueId, organizerUserId: null, scopeName: venueName });
+      } else if (eventOrganizerId) {
+        const [{ data: orgPublic }, { data: legacyProfile }] = await Promise.all([
+          supabase.from('organizer_profiles').select('display_name').eq('user_id', eventOrganizerId).maybeSingle(),
+          supabase.from('profiles').select('organization_name').eq('id', eventOrganizerId).maybeSingle(),
+        ]);
+        const orgName = orgPublic?.display_name || legacyProfile?.organization_name || '';
+        // Sans nom, pas de case à son nom : seule la ligne Yuno reste affichée.
+        setConsentScope(orgName ? { venueId: null, organizerUserId: eventOrganizerId, scopeName: orgName } : null);
+      } else {
+        setConsentScope(null);
       }
 
       setGuestList({
@@ -232,7 +269,7 @@ export default function GuestListCheckout() {
         eventStartAt: ev.start_at,
         eventEndAt: ev.end_at,
         eventImageUrl: ev.poster_url || null,
-        venueId: ev.venue_id || null,
+        venueId: eventVenueId,
         venueName,
         // Indicatif par défaut = pays de la soirée (fuseau figé à la
         // publication, ville en repli). venues.timezone n'est pas anon-readable.
@@ -271,45 +308,60 @@ export default function GuestListCheckout() {
     }
   };
 
-  const accountPerks: Array<{ Icon: typeof QrCodeIcon; label: string }> = [
-    { Icon: QrCodeIcon, label: t('glconf.perkQr') },
-    { Icon: Sparkles, label: t('glconf.perkLoyalty') },
-    { Icon: Bell, label: t('glconf.perkAlerts') },
-  ];
-
-  // Transforme l'inscription invite en compte Yuno. Le compte est cree sur
-  // l'email de l'inscription, puis le serveur rattache l'inscription parce que
-  // l'email authentifie est exactement celui qu'elle porte.
-  // Email deja pris : on renvoie vers la connexion, avec `?link=` en retour --
-  // le rattachement se fera a l'arrivee, session en main. Le parcours OTP
-  // `/claim` des billets ne sait pas lire une guest list, on ne l'emprunte pas.
-  // Retour de connexion qui rattache l'inscription à l'arrivée (`?link=`).
-  // Partagé par le panneau « compte existant » et par le repli du signup.
+  // Retour de connexion qui rattache l'inscription à l'arrivée (`?link=`) —
+  // le chemin de l'email déjà pris, que GuestAccountUnlock propose à la place
+  // d'un mot de passe qui serait refusé.
   const relinkBackUrl = entryId
     ? `${location.pathname}${location.search ? location.search + '&' : '?'}link=${entryId}`
     : '';
 
-  const handleCreateAccount = () => {
-    if (!entryEmail || !entryId) return;
-    const [firstName, ...rest] = guestName.trim().split(' ');
-    signup(
-      {
-        email: entryEmail,
-        firstName: firstName || undefined,
-        lastName: rest.join(' ') || undefined,
-        purchaseId: entryId,
-        purchaseType: 'guestlist',
-        existingAccountRedirect: relinkBackUrl,
-      },
-      password,
-      confirmPassword,
-      () => {
-        setAccountCreated(true);
-        toast.success(t('glconf.created'));
-        navigate('/my-orders?tab=tickets');
-      },
-    );
+  // Retrait immédiat, sans quitter la page (EDPB 05/2020 §114).
+  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
+    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'guestlist_checkout');
+    if (ok) {
+      if (channel === 'email') setNewsletterOptIn(false);
+      else setSmsOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
   };
+
+  const handleWithdrawYuno = async (wordingText: string) => {
+    const ok = await platformConsent.withdraw(wordingText, language, 'guestlist_checkout');
+    if (ok) {
+      setYunoOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
+  /** Les cases d'accord, identiques sur les deux formulaires (invité et connecté). */
+  const marketingOptIns = (
+    <MarketingOptIns
+      // Destinataire introuvable = pas de case à son nom, mais la ligne Yuno
+      // reste : elle, elle nomme bien qui reçoit.
+      showEmail={!!consentScope}
+      showSms={!!consentScope}
+      newsletterOptIn={newsletterOptIn}
+      onNewsletterChange={setNewsletterOptIn}
+      smsOptIn={smsOptIn}
+      onSmsChange={setSmsOptIn}
+      scopeName={consentScope?.scopeName}
+      emailAlreadyGranted={marketingConsent.emailGranted}
+      smsAlreadyGranted={marketingConsent.smsGranted}
+      pending={marketingConsent.pending || platformConsent.pending}
+      onWithdraw={handleWithdrawConsent}
+      showYuno
+      yunoOptIn={yunoOptIn}
+      onYunoChange={setYunoOptIn}
+      yunoAlreadyGranted={platformConsent.granted}
+      onWithdrawYuno={handleWithdrawYuno}
+    />
+  );
 
   const handleConfirm = async () => {
     if (!guestList || submitting) return;
@@ -331,6 +383,41 @@ export default function GuestListCheckout() {
       // seul le lien mémorisé fait foi, comme pour les billets et les tables.
       const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const trackedLinkId = searchParams.get('tl') || getTrackedLinkForCheckout(eventId);
+
+      // ── Accords marketing ──────────────────────────────────────────────
+      // On transmet la case cochée maintenant OU l'accord déjà actif pour ce
+      // destinataire (aucune case n'a alors été affichée) : le renvoyer remet à
+      // zéro le compteur des 36 mois, un habitué ne périme jamais.
+      const consentEmail = (user?.email ?? guestEmail).trim();
+      const effectiveNewsletter = newsletterOptIn || marketingConsent.emailGranted;
+      const effectiveSms = smsOptIn || marketingConsent.smsGranted;
+      const effectiveYuno = yunoOptIn || platformConsent.granted;
+      const { email: emailWording, sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
+      // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD).
+      if (newsletterOptIn && !marketingConsent.emailGranted) {
+        void recordConsentGrant({
+          channel: 'email', wordingText: emailWording, wordingKey: 'consent.emailOffersFrom',
+          venueId: consentScope?.venueId ?? null,
+          organizerUserId: consentScope?.organizerUserId ?? null,
+          email: consentEmail, locale: language, source: 'guestlist_checkout',
+        });
+      }
+      if (smsOptIn && !marketingConsent.smsGranted) {
+        void recordConsentGrant({
+          channel: 'sms', wordingText: smsWording, wordingKey: 'consent.smsOffersFrom',
+          venueId: consentScope?.venueId ?? null,
+          organizerUserId: consentScope?.organizerUserId ?? null,
+          email: consentEmail, phoneE164: guestPhone.trim() || undefined,
+          locale: language, source: 'guestlist_checkout',
+        });
+      }
+      if (yunoOptIn && !platformConsent.granted) {
+        void recordPlatformConsentGrant({
+          wordingText: t('consent.yunoOffers'), wordingKey: 'consent.yunoOffers',
+          email: consentEmail, locale: language, source: 'guestlist_checkout',
+        });
+      }
+
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
           shareToken: guestList.shareToken,
@@ -339,6 +426,10 @@ export default function GuestListCheckout() {
           lang: language,
           gender: gender || undefined,
           promoterCode,
+          // Accords marketing : le serveur écrit l'abonnement, jamais le client.
+          newsletterOptIn: effectiveNewsletter,
+          smsOptIn: effectiveSms,
+          platformOptIn: effectiveYuno,
           // Guest contact info — the function uses these only when no valid JWT
           // is present, creating an entry with user_id = null.
           ...(user ? {} : {
@@ -480,8 +571,13 @@ export default function GuestListCheckout() {
 
   // ── Success (QR) ──
   if (success) {
+    // Le QR est derrière un mot de passe, exactement comme sur le lien privé :
+    // c'est la même inscription, le même inconnu, la même contrepartie. La place
+    // est acquise avant cette étape et le QR part aussi par email — le verrou
+    // n'enferme personne dehors. Un compte déjà connecté n'est pas concerné.
+    const qrLocked = !user && !accountCreated && !!entryId;
     return (
-      <CheckoutShell title={displayTitle} onBack={() => navigate('/my-orders')}>
+      <CheckoutShell title={displayTitle} onBack={() => navigate(qrLocked ? '/' : '/my-orders')}>
         <div className="max-w-lg mx-auto px-4 pt-6 pb-10">
           <CheckoutSteps currentStep={3} />
           <motion.div
@@ -501,133 +597,49 @@ export default function GuestListCheckout() {
                 <p className="text-orange-400"><Wine className="h-3.5 w-3.5 inline mr-1" />{t('guestList.drinkIncluded')}</p>
               )}
             </div>
-            {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />}
-            <p className="text-xs text-white/40">{t('guestList.showQR')}</p>
-            {emailSent !== null && (
-              <p className={`text-xs ${emailSent ? 'text-white/40' : 'text-amber-500'}`}>
-                {t(emailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
-              </p>
-            )}
-            {/* Un invite sans compte n'a RIEN dans /my-orders : lui proposer d'y
-                aller etait une impasse. Le bouton n'apparait que pour quelqu'un
-                de connecte ; l'invite, lui, se voit proposer un compte. */}
-            {(user || accountCreated) && (
-              <Button className="w-full" onClick={() => navigate('/my-orders?tab=tickets')}>
-                <Ticket className="h-4 w-4 mr-2" />{t('guestList.viewInOrders')}
-              </Button>
+            {/* Tant que le QR est verrouillé, cette carte ne dit QUE l'essentiel :
+                la place est prise. Le QR, le pass Wallet et les sorties vivent
+                sous le verrou. */}
+            {!qrLocked && (
+              <>
+                {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />}
+                <p className="text-xs text-white/40">{t('guestList.showQR')}</p>
+                {emailSent !== null && (
+                  <p className={`text-xs ${emailSent ? 'text-white/40' : 'text-amber-500'}`}>
+                    {t(emailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
+                  </p>
+                )}
+                {/* Apple Wallet juste sous le QR : le pass se prend ici, pas
+                    seulement depuis Mes Commandes. Le composant se masque hors
+                    appareil Apple et sans session. */}
+                {entryId && <WalletButtons type="guestlist" id={entryId} variant="hero" />}
+                {(user || accountCreated) && (
+                  <Button className="w-full" onClick={() => navigate('/my-orders?tab=tickets')}>
+                    <Ticket className="h-4 w-4 mr-2" />{t('guestList.viewInOrders')}
+                  </Button>
+                )}
+              </>
             )}
           </motion.div>
 
-          {/* ---- Creation de compte ----
-              Meme mecanique que la confirmation de billet : l'inscription vient
-              d'etre faite avec un email, on propose de la transformer en compte
-              Yuno. Le mot de passe cree le compte sur CET email, et le serveur
-              rattache l'inscription parce que l'email authentifie est celui de
-              l'inscription. Proposition, jamais mur : le QR est deja acquis. */}
-          {!user && !accountCreated && entryEmail && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.15 }}
-              className="mt-6 border border-white/[0.08] bg-[#141414] p-5"
-              style={{ borderRadius: 12 }}
-            >
-              <p className="section-label-ruled" style={{ marginBottom: 14 }}>{t('glconf.accountLabel')}</p>
-
-              {/* Email déjà pris : on ne demande PAS un mot de passe que
-                  `auth.signUp` refusera. La connexion prend toute la place, et
-                  `?link=` rattache l'inscription dès le retour. */}
-              {entryEmailHasAccount ? (
-                <ExistingAccountNotice
-                  variant="panel"
-                  email={entryEmail}
-                  redirectTo={relinkBackUrl}
-                  description={t('glconf.existingAccountDesc')}
-                />
-              ) : (
-              <>
-              <h3 className="font-display font-bold" style={{ fontSize: 'clamp(19px, 4.6vw, 24px)', color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.08 }}>
-                {t('glconf.accountPitch')}
-              </h3>
-
-              <ul style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {accountPerks.map(({ Icon, label }) => (
-                  <li key={label} className="flex items-center gap-3">
-                    <span
-                      className="flex items-center justify-center flex-shrink-0"
-                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(249,115,22,0.09)', border: '1px solid rgba(249,115,22,0.22)' }}
-                    >
-                      <Icon style={{ width: 15, height: 15, color: '#F97316' }} />
-                    </span>
-                    <span className="font-sans text-left" style={{ fontSize: '13.5px', color: '#E5E5E5' }}>{label}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ position: 'relative' }}>
-                  {/* iOS WebKit garde son etat "secure text entry" si on ne fait
-                      que basculer type=password->text : la key force le remount
-                      pour que la revelation marche aussi en WebView. */}
-                  <Input
-                    key={showPassword ? 'gl-pwd-shown' : 'gl-pwd-hidden'}
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); if (signupError) setSignupError(''); }}
-                    placeholder={t('finalize.passwordPlaceholder')}
-                    autoComplete="new-password"
-                    style={{ paddingRight: 44 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-0 flex items-center justify-center"
-                    style={{ width: 44, color: '#9A9A9A' }}
-                    aria-label={showPassword ? t('glconf.hidePassword') : t('glconf.showPassword')}
-                  >
-                    {showPassword ? <EyeOff style={{ width: 17, height: 17 }} /> : <Eye style={{ width: 17, height: 17 }} />}
-                  </button>
-                </div>
-                <Input
-                  key={showPassword ? 'gl-confirm-shown' : 'gl-confirm-hidden'}
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); if (signupError) setSignupError(''); }}
-                  placeholder={t('finalize.confirmPlaceholder')}
-                  autoComplete="new-password"
-                />
-              </div>
-
-              {signupError && (
-                <p className="font-sans text-center" style={{ fontSize: '13px', color: '#E8192C', marginTop: 12 }}>{signupError}</p>
-              )}
-
-              <Button
-                className="w-full mt-4"
-                disabled={signingUp || !password || !confirmPassword}
-                onClick={handleCreateAccount}
-              >
-                {signingUp
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <><UserPlus className="h-4 w-4 mr-2" />{t('glconf.createCta')}</>}
-              </Button>
-
-              <p className="font-mono uppercase text-center truncate" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.06em', marginTop: 12 }}>
-                {t('glconf.accountFor')} {entryEmail}
-              </p>
-              </>
-              )}
-
-              <button
-                className="w-full flex items-center justify-center gap-2 font-sans"
-                style={{ marginTop: 16, fontSize: '13px', color: '#9A9A9A', minHeight: 40 }}
-                onClick={() => navigate('/')}
-              >
-                {t('glconf.skipCta')}
-                <ArrowRight style={{ width: 15, height: 15 }} />
-              </button>
-              <p className="font-sans text-center" style={{ fontSize: '12px', color: '#5A5A5E', marginTop: 8 }}>{t('glconf.skipNote')}</p>
-            </motion.div>
+          {/* Le déverrouillage vit SOUS la carte de confirmation : la place est
+              acquise (la carte le dit), le mot de passe est l'étape suivante. */}
+          {qrLocked && (
+            <div className="mt-6">
+              <GuestAccountUnlock
+                email={entryEmail}
+                fullName={guestName.trim()}
+                entryId={entryId}
+                qrImage={qrImage}
+                relinkBackUrl={relinkBackUrl}
+                emailSent={emailSent}
+                accent="#F97316"
+                onCreated={() => {
+                  setAccountCreated(true);
+                  toast.success(t('glconf.created'));
+                }}
+              />
+            </div>
           )}
         </div>
       </CheckoutShell>
@@ -773,6 +785,8 @@ export default function GuestListCheckout() {
               </div>
             )}
 
+            {marketingOptIns}
+
             <div className="border-t border-white/[0.08] pt-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-white/70">{displayTitle} — {guestList.eventTitle}</span>
@@ -812,6 +826,8 @@ export default function GuestListCheckout() {
                 </Select>
               </div>
             )}
+
+            {marketingOptIns}
 
             <div className="border-t border-white/[0.08] pt-3 space-y-2">
               <div className="flex justify-between text-sm">
