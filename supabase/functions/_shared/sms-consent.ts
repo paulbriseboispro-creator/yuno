@@ -22,8 +22,10 @@
 // de liste.
 //
 // Appelé sur CHAQUE chemin qui confirme un paiement (billet + table VIP, démo et
-// Stripe live). Best-effort : ne jamais faire échouer un paiement déjà encaissé
-// parce que l'écriture d'un consentement marketing a échoué.
+// Stripe live) ET sur l'inscription guest list, qui est gratuite mais reste une
+// venue : c'est même le canal qui apporte le plus de monde. Best-effort : ne
+// jamais faire échouer une réservation déjà acquise parce que l'écriture d'un
+// consentement marketing a échoué.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
@@ -42,7 +44,7 @@ export interface SmsConsentInput {
   /** `true` pour une table VIP : le pro segmente ses contacts VIP. */
   isVip?: boolean;
   /** D'où vient le consentement — tracé pour la preuve RGPD. */
-  source: "ticket_checkout" | "table_checkout";
+  source: "ticket_checkout" | "table_checkout" | "guestlist_signup";
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   resolveGuestListHolderName,
   resolveGuestListPlace,
 } from "../_shared/guest-list-email.ts";
+import { recordSmsConsent } from "../_shared/sms-consent.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -102,7 +103,14 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { shareToken, inviteToken, trackedLinkId, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone, lang } = await req.json();
+    const {
+      shareToken, inviteToken, trackedLinkId, entryType, gender, promoterCode,
+      guestEmail, guestFullName, guestPhone, lang,
+      // Accords marketing cochés sur le formulaire : le club (ou l'organisateur)
+      // de la soirée pour email/SMS, Yuno lui-même pour la plateforme. Jamais
+      // pré-cochés côté front — ici on ne fait que transporter la réponse.
+      newsletterOptIn, smsOptIn, platformOptIn,
+    } = await req.json();
     // Langue affichée au moment de l'inscription : c'est celle que l'invité
     // vient de lire, donc celle de son email de confirmation.
     const requestedLang = normalizeLang(lang);
@@ -177,6 +185,16 @@ serve(async (req) => {
     // un proche via des coordonnées explicites) — gouverne user_id, le check
     // « déjà inscrit » et le crédit boisson.
     const registrantUser = useProfileIdentity ? user : null;
+
+    // Un accord marketing n'est valable que donné POUR SOI. Quand quelqu'un de
+    // connecté inscrit un proche via un lien unique, les coordonnées saisies
+    // sont celles du proche : cocher une case en son nom ne vaut pas
+    // consentement (RGPD art. 4(11), acte positif de la personne concernée).
+    // Le front ne montre alors aucune case ; ceci est le garde-fou serveur.
+    const proxyRegistration = Boolean(user) && hasExplicitGuestInfo;
+    const wantsNewsletter = newsletterOptIn === true && !proxyRegistration;
+    const wantsSms = smsOptIn === true && !proxyRegistration;
+    const wantsPlatform = platformOptIn === true && !proxyRegistration;
 
     logStep("Registrant resolved", { fullName, email, isGuest: !registrantUser });
 
@@ -498,6 +516,12 @@ serve(async (req) => {
         // promoter-add-guest) so the door scanner enforces the same condition
         // regardless of the sign-up channel.
         entry_deadline: guestList.entry_deadline ?? null,
+        // Accords marketing. Les deux colonnes email déclenchent le trigger
+        // auto_subscribe_guest_list_entry (club/organisateur + plateforme) ;
+        // le SMS, lui, passe par recordSmsConsent juste après l'insertion.
+        newsletter_opt_in: wantsNewsletter,
+        sms_opt_in: wantsSms,
+        platform_opt_in: wantsPlatform,
       })
       .select()
       .single();
@@ -529,6 +553,23 @@ serve(async (req) => {
     }
 
     logStep("Entry created", { entryId: entry.id, userId: registrantUser?.id ?? null, inviteId: invite?.id ?? null, reservationCode });
+
+    // ── Consentement SMS ─────────────────────────────────────────────────────
+    // Même helper que les checkouts billet et table : il normalise en E.164,
+    // résout l'organisateur quand la soirée n'a pas de club, et n'écrit jamais
+    // rien si le numéro n'est pas envoyable. L'accord email, lui, est écrit par
+    // le trigger de la table (auto_subscribe_guest_list_entry).
+    if (wantsSms && phone) {
+      await recordSmsConsent(supabaseAdmin, {
+        venueId: guestList.venue_id ?? guestList.events.venue_id ?? guestList.events.partner_venue_id ?? null,
+        userId: registrantUser?.id ?? null,
+        phone,
+        fullName: fullName.trim(),
+        email: email.toLowerCase().trim(),
+        eventId: guestList.events.id,
+        source: "guestlist_signup",
+      });
+    }
 
     // ── Grant drink credits if guest list includes_drink AND venue uses credits mode ──
     // Credits key on user_id, so only logged-in registrants get them here. A guest
