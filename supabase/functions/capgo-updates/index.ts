@@ -34,7 +34,7 @@ serve(async (req) => {
     // changement natif prend une nouvelle famille : ne PAS l'ajouter ici —
     // c'est ce qui préserve le garde-fou anti-downgrade.
     const NATIVE_FAMILY: Record<string, Record<string, string>> = {
-      "eu.yunoapp.pro": { "1.0.1": "1.0", "1.0.2": "1.0", "1.0.3": "1.0" },
+      "eu.yunoapp.pro": { "1.0.1": "1.0", "1.0.2": "1.0", "1.0.3": "1.0", "1.0.4": "1.0" },
       "eu.yunoapp.app": { "1.0.1": "1.0", "1.0.2": "1.0", "1.0.3": "1.0" },
     };
     const nativeFamily = NATIVE_FAMILY[appId]?.[nativeVersion] ?? nativeVersion;
