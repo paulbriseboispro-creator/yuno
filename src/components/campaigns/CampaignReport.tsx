@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Link2, Loader2, Mail, Users, Eye, MousePointerClick, Split, Trophy,
   UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette, Euro, Repeat,
+  Ticket, Crown, UserPlus, Wine,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,6 +18,10 @@ import {
 } from '@/lib/email';
 import { useStudioLiveData, type StudioScope as SenderScope } from '@/components/email-studio/hooks';
 import FollowupSettings from './FollowupSettings';
+import {
+  hasPillarActivity, pillarLines, pillarSummary,
+  type CampaignAttribution, type PillarKey,
+} from '@/lib/emailAttribution';
 
 // ─── Yuno Design Tokens (match OwnerCampaigns) ───────────────────────────────
 const RED         = '#E8192C';
@@ -153,6 +158,69 @@ function FunnelBar({ label, value, total, color }: { label: string; value: numbe
   );
 }
 
+const PILLAR_ICON: Record<PillarKey, typeof Ticket> = {
+  tickets: Ticket, tables: Crown, guestlist: UserPlus, drinks: Wine,
+};
+
+/**
+ * Ce que l'email a produit, pilier par pilier. Le CA seul ne le dit pas : une
+ * campagne de liste invités peut remplir la porte sans encaisser un euro, et
+ * « 420 € » ne dit pas si c'est huit billets ou une table.
+ */
+function PillarBreakdown({ attr, t }: { attr: CampaignAttribution; t: (k: string) => string }) {
+  const lines = pillarLines(attr, t);
+  return (
+    <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>
+      <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: '0 0 4px' }}>
+        <Ticket className="w-4 h-4" style={{ color: RED }} /> {t('em.report.pillars.title')}
+      </h3>
+      <p style={{ color: T3, fontSize: 11.5, margin: '0 0 14px' }}>{t('em.report.pillars.sub')}</p>
+      {lines.length === 0 ? (
+        <div style={{ color: T3, fontSize: 12 }}>{t('em.report.pillars.none')}</div>
+      ) : (
+        <div className="space-y-2">
+          {lines.map((line) => {
+            const Icon = PILLAR_ICON[line.key];
+            return (
+              <div
+                key={line.key}
+                className="flex items-center gap-3"
+                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '11px 13px' }}
+              >
+                <div style={{
+                  width: 30, height: 30, borderRadius: 10, flex: 'none', color: RED,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.22)',
+                }}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t(`em.attr.${line.key}`)}</div>
+                  <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
+                    {line.value}{line.sub ? ` · ${line.sub}` : ''}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flex: 'none' }}>
+                  <div style={{ color: T1, fontSize: 16, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
+                    {line.count.toLocaleString()}
+                  </div>
+                  <div style={{
+                    color: line.revenue != null ? POS : T3, fontSize: 11.5, fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {line.revenue != null
+                      ? `${line.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}€`
+                      : t('em.attr.free')}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CampaignReport({ scope, basePath }: Props) {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -161,16 +229,18 @@ export default function CampaignReport({ scope, basePath }: Props) {
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState<CampaignRow | null>(null);
   const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0 });
-  // Attribution clic→achat 72 h (get_email_campaign_attribution, net de frais).
-  const [attribution, setAttribution] = useState<{ revenue: number; buyers: number } | null>(null);
-  // Revenu attribué à la campagne ENFANT (la relance) — même RPC, même fenêtre
+  // Attribution clic→action 72 h (get_email_campaign_attribution, net de frais).
+  // La ligne porte le CA ET la ventilation par pilier : billets, tables VIP,
+  // liste invités, boissons. Un CA seul ne dit pas ce que l'email a rempli.
+  const [attribution, setAttribution] = useState<CampaignAttribution | null>(null);
+  // Attribution de la campagne ENFANT (la relance) — même RPC, même fenêtre
   // 72 h : la porte d'attribution reste unique, on lit juste une autre ligne.
-  const [fuAttribution, setFuAttribution] = useState<{ revenue: number; buyers: number } | null>(null);
+  const [fuAttribution, setFuAttribution] = useState<CampaignAttribution | null>(null);
   // Test A/B d'objet : échantillons + ouvertures par variante (RPC dédiée).
   const [ab, setAb] = useState<AbStats | null>(null);
   // Liens les plus cliqués — agrégés depuis le payload Resend des événements.
   const [topLinks, setTopLinks] = useState<LinkStat[]>([]);
-  const [attributionRows, setAttributionRows] = useState<Array<{ id: string; revenue: number; buyers: number }>>([]);
+  const [attributionRows, setAttributionRows] = useState<CampaignAttribution[]>([]);
   const [tab, setTab] = useState<'performance' | 'design'>('performance');
   // Rechargement complet (attribution, liens, A/B) quand l'envoi se termine.
   const [reloadKey, setReloadKey] = useState(0);
@@ -188,7 +258,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
     const childId = fu?.child?.id;
     if (!childId) { setFuAttribution(null); return; }
     const row = attributionRows.find((r) => r.id === childId);
-    setFuAttribution(row ? { revenue: row.revenue, buyers: row.buyers } : { revenue: 0, buyers: 0 });
+    setFuAttribution(row || { id: childId, revenue: 0, buyers: 0 });
   }, [fu, attributionRows]);
   const inFlight = campaign?.status === 'sending' || campaign?.status === 'paused';
 
@@ -270,11 +340,11 @@ export default function CampaignReport({ scope, basePath }: Props) {
               : null;
           if (args) {
             const { data: attr } = await supabase.rpc('get_email_campaign_attribution' as never, args as never);
-            const payload = attr as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number; buyers: number }> } | null;
+            const payload = attr as { supported?: boolean; campaigns?: CampaignAttribution[] } | null;
             if (!cancelled && payload?.supported) {
               const rows = payload.campaigns || [];
               const mine = rows.find((campRow) => campRow.id === id);
-              setAttribution(mine ? { revenue: mine.revenue, buyers: mine.buyers } : { revenue: 0, buyers: 0 });
+              setAttribution(mine || { id, revenue: 0, buyers: 0 });
               setAttributionRows(rows);
             }
           }
@@ -532,6 +602,11 @@ export default function CampaignReport({ scope, basePath }: Props) {
                             <FuStat label={t('em.report.fu.unsubs')} value={(fu.child?.unsubscribes || 0).toLocaleString()} accent={WARN} />
                           )}
                         </div>
+                        {fuAttribution && hasPillarActivity(fuAttribution) && (
+                          <div style={{ color: T2, fontSize: 11.5, marginTop: 8 }}>
+                            {pillarSummary(fuAttribution, t)}
+                          </div>
+                        )}
                         {fu.child && fu.child.clicks > fu.child.clickers && (
                           <div style={{ color: T3, fontSize: 11, marginTop: 8 }}>
                             {t('em.report.fu.clicksTotal').replace('{n}', fu.child.clicks.toLocaleString())}
@@ -596,6 +671,9 @@ export default function CampaignReport({ scope, basePath }: Props) {
                     </>
                   )}
                 </div>
+                {attribution && hasPillarActivity(attribution) && (
+                  <PillarBreakdown attr={attribution} t={t} />
+                )}
                 {attribution && (
                   <p style={{ color: T3, fontSize: 11, lineHeight: 1.5, marginTop: -8 }}>{t('em.report.attributionNote')}</p>
                 )}

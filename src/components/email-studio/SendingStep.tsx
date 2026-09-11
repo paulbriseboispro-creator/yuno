@@ -3,6 +3,7 @@ import { PauseCircle, Send, TrendingUp, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStudio } from './store';
+import { hasPillarActivity, pillarSummary, type CampaignAttribution } from '@/lib/emailAttribution';
 import { useSendProgress } from './hooks';
 import {
   BORDER, FONT_UI, GhostBtn, Help, PrimaryBtn, RED,
@@ -14,7 +15,9 @@ export default function SendingStep({ onExit, onStudio }: { onExit: () => void; 
   const { t } = useLanguage();
   const campaign = useStudio((s) => s.campaign);
   const progress = useSendProgress(campaign.id, true);
-  const [revenue, setRevenue] = useState<number | null>(null);
+  // CA attribué ET ce qui a été réservé (billets, tables, liste invités…) :
+  // la même ligne d'attribution porte les deux depuis 20260911120000.
+  const [attribution, setAttribution] = useState<CampaignAttribution | null>(null);
 
   const total = progress?.total ?? 0;
   const sent = progress?.sent ?? 0;
@@ -39,10 +42,10 @@ export default function SendingStep({ onExit, onStudio }: { onExit: () => void; 
         const { data: attr } = await supabase.rpc('get_email_campaign_attribution' as never, {
           p_subject_type: subjectType, p_subject_id: subjectId,
         } as never);
-        const payload = attr as unknown as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number }> } | null;
+        const payload = attr as unknown as { supported?: boolean; campaigns?: CampaignAttribution[] } | null;
         if (!cancelled && payload?.supported) {
           const mine = (payload.campaigns || []).find((c) => c.id === campaign.id);
-          setRevenue(mine ? mine.revenue : 0);
+          setAttribution(mine || { id: campaign.id, revenue: 0, buyers: 0 });
         }
       } catch { /* tuiles absentes */ }
     })();
@@ -119,16 +122,23 @@ export default function SendingStep({ onExit, onStudio }: { onExit: () => void; 
           <Help style={{ marginTop: 14 }}>{t('studio.sending.backgroundNote')}</Help>
         )}
 
-        {finished && revenue != null && (
+        {finished && attribution && (
           <div style={{
-            marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, padding: '13px 15px',
+            marginTop: 16, padding: '13px 15px',
             borderRadius: 14, background: RED_SOFT_GRAD, border: '1px solid rgba(232,25,44,0.22)',
           }}>
-            <TrendingUp size={15} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />
-            <span style={{ flex: 1, color: T2, fontSize: 12, fontFamily: FONT_UI }}>{t('studio.sending.revenue')}</span>
-            <span style={{ color: T1, fontSize: 16, fontWeight: 640, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
-              {revenue.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <TrendingUp size={15} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />
+              <span style={{ flex: 1, color: T2, fontSize: 12, fontFamily: FONT_UI }}>{t('studio.sending.revenue')}</span>
+              <span style={{ color: T1, fontSize: 16, fontWeight: 640, fontVariantNumeric: 'tabular-nums', fontFamily: FONT_UI }}>
+                {attribution.revenue.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+              </span>
+            </div>
+            {hasPillarActivity(attribution) && (
+              <div style={{ color: T2, fontSize: 11.5, marginTop: 7, fontFamily: FONT_UI }}>
+                {pillarSummary(attribution, t)}
+              </div>
+            )}
           </div>
         )}
 
