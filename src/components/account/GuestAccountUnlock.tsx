@@ -21,6 +21,13 @@ interface GuestAccountUnlockProps {
   relinkBackUrl: string;
   /** L'email de confirmation est-il réellement parti ? Décide de la phrase de secours. */
   emailSent?: boolean | null;
+  /**
+   * Couleur d'accent des éléments décoratifs (cadenas, pastilles des bénéfices).
+   * Le rouge de la marque par défaut ; le tunnel depuis la page de la soirée est
+   * en orange de bout en bout — un panneau rouge posé au milieu s'y lirait comme
+   * une alerte. Le bouton principal, lui, reste le rouge Yuno dans les deux cas.
+   */
+  accent?: string;
   onCreated: () => void;
 }
 
@@ -48,6 +55,7 @@ export function GuestAccountUnlock({
   qrImage,
   relinkBackUrl,
   emailSent,
+  accent = '#E8192C',
   onCreated,
 }: GuestAccountUnlockProps) {
   const { t } = useLanguage();
@@ -115,11 +123,11 @@ export function GuestAccountUnlock({
               width: 46,
               height: 46,
               borderRadius: 999,
-              background: 'rgba(232,25,44,0.16)',
-              border: '1px solid rgba(232,25,44,0.45)',
+              background: `${accent}29`,
+              border: `1px solid ${accent}73`,
             }}
           >
-            <Lock style={{ width: 20, height: 20, color: '#E8192C' }} strokeWidth={2.2} />
+            <Lock style={{ width: 20, height: 20, color: accent }} strokeWidth={2.2} />
           </span>
           <span
             className="font-mono uppercase text-center"
@@ -171,11 +179,11 @@ export function GuestAccountUnlock({
                     width: 30,
                     height: 30,
                     borderRadius: 8,
-                    background: 'rgba(232,25,44,0.09)',
-                    border: '1px solid rgba(232,25,44,0.22)',
+                    background: `${accent}17`,
+                    border: `1px solid ${accent}38`,
                   }}
                 >
-                  <Icon style={{ width: 14, height: 14, color: '#E8192C' }} />
+                  <Icon style={{ width: 14, height: 14, color: accent }} />
                 </span>
                 <span className="font-sans text-left" style={{ fontSize: '13.5px', color: '#E5E5E5' }}>
                   {label}
