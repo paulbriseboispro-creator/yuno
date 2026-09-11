@@ -74,7 +74,7 @@ serve(async (req) => {
       eventId, ticketRoundId, quantity, fullName, phone, drinkId, drinkName, 
       // `hasInsurance` is intentionally NOT destructured — cancellation insurance is
       // withdrawn from sale and the field is ignored if a client still sends it.
-      newsletterOptIn, smsOptIn, promoCode, promoterId, attendees,
+      newsletterOptIn, smsOptIn, platformOptIn, promoCode, promoterId, attendees,
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
       purchaseSource, minorAuthDocUrl, language, trackedLinkId,
@@ -754,6 +754,18 @@ serve(async (req) => {
         });
       }
 
+      // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct
+      // du club : sa case est distincte, son abonnement l'est aussi. Best-effort
+      // — une écriture marketing ne coûte jamais une vente.
+      if (platformOptIn) {
+        await supabaseAdmin.rpc("subscribe_platform_marketing", {
+          p_email: user?.email || guestEmail || null,
+          p_user_id: user?.id ?? null,
+          p_full_name: fullName || guestFullName || null,
+          p_source: "platform:ticket_purchase",
+        });
+      }
+
       // Update tickets_sold count - for group tickets, deduct groupSize per ticket
       const soldIncrement = isGroupRound ? quantity * groupSize : quantity;
       await supabaseAdmin
@@ -1019,6 +1031,18 @@ serve(async (req) => {
     }
 
     logStep("Pending ticket created", { ticketId: ticket.id });
+
+    // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct
+    // du club : sa case est distincte, son abonnement l'est aussi. Best-effort
+    // — une écriture marketing ne coûte jamais une vente.
+    if (platformOptIn) {
+      await supabaseAdmin.rpc("subscribe_platform_marketing", {
+        p_email: user?.email || guestEmail || null,
+        p_user_id: user?.id ?? null,
+        p_full_name: fullName || guestFullName || null,
+        p_source: "platform:ticket_purchase",
+      });
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 

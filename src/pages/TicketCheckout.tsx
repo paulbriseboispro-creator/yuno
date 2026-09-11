@@ -28,7 +28,10 @@ import { MinorAuthGate } from '@/components/MinorAuthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { useCommunityAccess, CommunityCta, communityStatus } from '@/components/ticketing/CommunityTicketGate';
 import { normalizeTicketAudience } from '@/types/ticketing';
-import { useMarketingConsent, recordConsentGrant, marketingConsentWording } from '@/hooks/useMarketingConsent';
+import {
+  useMarketingConsent, usePlatformMarketingConsent,
+  recordConsentGrant, recordPlatformConsentGrant, marketingConsentWording,
+} from '@/hooks/useMarketingConsent';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
@@ -87,6 +90,10 @@ export default function TicketCheckout() {
   const { exists: buyerEmailHasAccount } = useExistingAccountCheck(attendees[0]?.email || '', !user);
    const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  // Accord donné à YUNO lui-même. Troisième case, jamais fusionnée avec celles
+  // du club : le consentement donné au Club A ne couvre pas Yuno (EDPB 05/2020
+  // §65), pas plus que l'email ne couvre le SMS.
+  const [yunoOptIn, setYunoOptIn] = useState(false);
   // Portée du consentement marketing : le club, ou l'organisateur pour une
   // soirée sans club. `venue` ci-dessus fusionne les deux cas sous un même id
   // d'affichage, ce qui ne suffit pas ici — il faut savoir LEQUEL des deux.
@@ -97,6 +104,8 @@ export default function TicketCheckout() {
   } | null>(null);
   // « A-t-elle déjà dit oui à CE club ? » — la seule question qui vaille.
   const marketingConsent = useMarketingConsent(consentScope);
+  // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
+  const platformConsent = usePlatformMarketingConsent(true);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
   const [acceptCgv, setAcceptCgv] = useState(false);
   // Single age/minor gate for ticket sales (decision tree in MinorAuthGate). A
@@ -526,6 +535,18 @@ export default function TicketCheckout() {
     return ok;
   };
 
+  // Retrait de l'accord Yuno, au même endroit et au même prix qu'un clic.
+  const handleWithdrawYuno = async (wordingText: string) => {
+    const ok = await platformConsent.withdraw(wordingText, language, 'ticket_checkout');
+    if (ok) {
+      setYunoOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
 
   // Clamp the selected quantity down when the per-person allowance shrinks.
   useEffect(() => {
@@ -659,6 +680,7 @@ export default function TicketCheckout() {
       // 36 mois côté base : un habitué ne bascule jamais en contact périmé.
       const effectiveNewsletterOptIn = newsletterOptIn || marketingConsent.emailGranted;
       const effectiveSmsOptIn = smsOptIn || marketingConsent.smsGranted;
+      const effectivePlatformOptIn = yunoOptIn || platformConsent.granted;
 
       // Preuve d'un consentement NOUVEAU uniquement (art. 7(1) RGPD). Un
       // consentement déjà actif a déjà sa ligne au journal : le rejouer à chaque
@@ -692,6 +714,15 @@ export default function TicketCheckout() {
           source: 'ticket_checkout',
         });
       }
+      if (yunoOptIn && !platformConsent.granted) {
+        void recordPlatformConsentGrant({
+          wordingText: t('consent.yunoOffers'),
+          wordingKey: 'consent.yunoOffers',
+          email: consentEmail,
+          locale: language,
+          source: 'ticket_checkout',
+        });
+      }
 
       const { data, error } = await invokeEdgeFunction('create-ticket-checkout', {
         body: {
@@ -709,6 +740,7 @@ export default function TicketCheckout() {
           phone: attendees[0].phone.trim(),
           newsletterOptIn: effectiveNewsletterOptIn,
           smsOptIn: effectiveSmsOptIn,
+          platformOptIn: effectivePlatformOptIn,
           // Signed minor authorization uploaded by the buyer (alcohol-free events).
           minorAuthDocUrl: minorDocUrl,
           // Always send promoCode if we have it stored (even if client can't read promoters table due to RLS).
@@ -1076,6 +1108,11 @@ export default function TicketCheckout() {
             )}
 
             <MarketingOptIns
+              // Pas de nom de destinataire résolu = pas de case à son nom : une
+              // case qui ne nomme pas qui écrit ne couvre personne (EDPB
+              // 05/2020 §65). La ligne Yuno, elle, se nomme toujours.
+              showEmail={!!consentScope}
+              showSms={!!consentScope}
               newsletterOptIn={newsletterOptIn}
               onNewsletterChange={setNewsletterOptIn}
               smsOptIn={smsOptIn}
@@ -1083,8 +1120,13 @@ export default function TicketCheckout() {
               scopeName={consentScope?.scopeName}
               emailAlreadyGranted={marketingConsent.emailGranted}
               smsAlreadyGranted={marketingConsent.smsGranted}
-              pending={marketingConsent.pending}
+              pending={marketingConsent.pending || platformConsent.pending}
               onWithdraw={handleWithdrawConsent}
+              showYuno
+              yunoOptIn={yunoOptIn}
+              onYunoChange={setYunoOptIn}
+              yunoAlreadyGranted={platformConsent.granted}
+              onWithdrawYuno={handleWithdrawYuno}
             />
 
             {/* Terms consent lives in the scroll flow, right below the marketing

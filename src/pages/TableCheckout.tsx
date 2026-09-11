@@ -13,7 +13,10 @@ import { ZoneUpsellSheet } from '@/components/vip/ZoneUpsellSheet';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
-import { useMarketingConsent, recordConsentGrant, marketingConsentWording } from '@/hooks/useMarketingConsent';
+import {
+  useMarketingConsent, usePlatformMarketingConsent,
+  recordConsentGrant, recordPlatformConsentGrant, marketingConsentWording,
+} from '@/hooks/useMarketingConsent';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Separator } from '@/components/ui/separator';
 import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
@@ -121,6 +124,10 @@ export default function TableCheckout() {
   const [remarks, setRemarks] = useState('');
   const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  // Accord donné à YUNO lui-même. Troisième case, jamais fusionnée avec celles
+  // du club : le consentement donné au Club A ne couvre pas Yuno (EDPB 05/2020
+  // §65), pas plus que l'email ne couvre le SMS.
+  const [yunoOptIn, setYunoOptIn] = useState(false);
   // Portée du consentement : le club quand la soirée en a un, sinon
   // l'organisateur (soirée sans club) — même règle que TicketCheckout.
   const marketingConsent = useMarketingConsent(
@@ -130,6 +137,8 @@ export default function TableCheckout() {
         ? { venueId: null, organizerUserId: organizer.user_id, scopeName: organizer.display_name ?? '' }
         : null,
   );
+  // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
+  const platformConsent = usePlatformMarketingConsent(true);
   const scopeName = venue?.name ?? organizer?.display_name ?? undefined;
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
@@ -230,6 +239,18 @@ export default function TableCheckout() {
     if (ok) {
       if (channel === 'email') setNewsletterOptIn(false);
       else setSmsOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
+  // Retrait de l'accord Yuno, au même endroit et au même prix qu'un clic.
+  const handleWithdrawYuno = async (wordingText: string) => {
+    const ok = await platformConsent.withdraw(wordingText, language, 'table_checkout');
+    if (ok) {
+      setYunoOptIn(false);
       toast.success(t('consent.unsubscribed'));
     } else {
       toast.error(t('consent.withdrawFailed'));
@@ -633,6 +654,7 @@ export default function TableCheckout() {
       // club et remet à zéro le compteur des 36 mois.
       const effectiveNewsletterOptIn = newsletterOptIn || marketingConsent.emailGranted;
       const effectiveSmsOptIn = smsOptIn || marketingConsent.smsGranted;
+      const effectivePlatformOptIn = yunoOptIn || platformConsent.granted;
 
       // Preuve d'un consentement nouveau seulement (art. 7(1) RGPD ; EDPB
       // 05/2020 §108 pour le libellé exact, §106 pour ne pas journaliser plus
@@ -665,6 +687,15 @@ export default function TableCheckout() {
           source: 'table_checkout',
         });
       }
+      if (yunoOptIn && !platformConsent.granted) {
+        void recordPlatformConsentGrant({
+          wordingText: t('consent.yunoOffers'),
+          wordingKey: 'consent.yunoOffers',
+          email: email.trim(),
+          locale: language,
+          source: 'table_checkout',
+        });
+      }
 
       const { data, error } = await invokeEdgeFunction('create-table-checkout', {
         body: {
@@ -682,6 +713,7 @@ export default function TableCheckout() {
             : remarks.trim(),
           newsletterOptIn: effectiveNewsletterOptIn,
           smsOptIn: effectiveSmsOptIn,
+          platformOptIn: effectivePlatformOptIn,
           // Le code stocké part TOUJOURS, même sans remise table.
           //
           // Ces deux champs venaient de promoterDiscount, qui n'est renseigné
@@ -1079,6 +1111,11 @@ export default function TableCheckout() {
                   </div>
                   <AgeGate userId={user?.id} onVerified={(v, bd) => { setAgeVerified(v); if (bd) setAgeBirthDate(bd); }} />
                   <MarketingOptIns
+                    // Pas de nom de destinataire résolu = pas de case à son nom :
+                    // une case qui ne nomme pas qui écrit ne couvre personne
+                    // (EDPB 05/2020 §65). La ligne Yuno, elle, se nomme toujours.
+                    showEmail={!!scopeName}
+                    showSms={!!scopeName}
                     newsletterOptIn={newsletterOptIn}
                     onNewsletterChange={setNewsletterOptIn}
                     smsOptIn={smsOptIn}
@@ -1086,8 +1123,13 @@ export default function TableCheckout() {
                     scopeName={scopeName}
                     emailAlreadyGranted={marketingConsent.emailGranted}
                     smsAlreadyGranted={marketingConsent.smsGranted}
-                    pending={marketingConsent.pending}
+                    pending={marketingConsent.pending || platformConsent.pending}
                     onWithdraw={handleWithdrawConsent}
+                    showYuno
+                    yunoOptIn={yunoOptIn}
+                    onYunoChange={setYunoOptIn}
+                    yunoAlreadyGranted={platformConsent.granted}
+                    onWithdrawYuno={handleWithdrawYuno}
                   />
                   <TermsAcceptance userId={user?.id} guestEmail={!user ? email : null} context="table" onAcceptedChange={setAcceptTerms} />
                 </form>

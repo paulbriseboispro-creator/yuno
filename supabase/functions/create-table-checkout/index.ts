@@ -73,6 +73,7 @@ serve(async (req) => {
       remarks, 
       newsletterOptIn,
       smsOptIn,
+      platformOptIn,
       promoCode,
       // Renommé : le promoteur effectif est résolu plus bas (par id fourni, sinon
       // par code) et porté par la variable `promoterId`.
@@ -616,6 +617,20 @@ serve(async (req) => {
         } : {}),
       }).eq("id", onSiteReservationId);
 
+      // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct du
+      // club : sa case est distincte, son abonnement l'est aussi. Écrit au même
+      // moment que celui du club (trigger AFTER INSERT), y compris sur une résa
+      // encore `pending` — cocher la case EST l'acte positif, un paiement Stripe
+      // abandonné ensuite ne retire pas un consentement donné.
+      if (platformOptIn) {
+        await supabaseAdmin.rpc("subscribe_platform_marketing", {
+          p_email: user?.email || guestEmail || null,
+          p_user_id: user?.id ?? null,
+          p_full_name: fullName || null,
+          p_source: "platform:table_purchase",
+        });
+      }
+
       if (smsOptIn) {
         await recordSmsConsent(supabaseAdmin, {
           venueId: event.venue_id,
@@ -729,6 +744,20 @@ serve(async (req) => {
         age_declaration_birth_date: ageRecord.birthDate,
         age_declaration_ip: ageRecord.ip,
       }).eq('id', reservation.id);
+
+      // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct du
+      // club : sa case est distincte, son abonnement l'est aussi. Écrit au même
+      // moment que celui du club (trigger AFTER INSERT), y compris sur une résa
+      // encore `pending` — cocher la case EST l'acte positif, un paiement Stripe
+      // abandonné ensuite ne retire pas un consentement donné.
+      if (platformOptIn) {
+        await supabaseAdmin.rpc("subscribe_platform_marketing", {
+          p_email: user?.email || guestEmail || null,
+          p_user_id: user?.id ?? null,
+          p_full_name: fullName || null,
+          p_source: "platform:table_purchase",
+        });
+      }
 
       // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
       // (préparée pour l'arrivée, réglée à la table). Non bloquant.
@@ -974,6 +1003,20 @@ serve(async (req) => {
       age_declaration_birth_date: ageRecord.birthDate,
       age_declaration_ip: ageRecord.ip,
     }).eq('id', reservation.id);
+
+    // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct du
+    // club : sa case est distincte, son abonnement l'est aussi. Écrit au même
+    // moment que celui du club (trigger AFTER INSERT), y compris sur une résa
+    // encore `pending` — cocher la case EST l'acte positif, un paiement Stripe
+    // abandonné ensuite ne retire pas un consentement donné.
+    if (platformOptIn) {
+      await supabaseAdmin.rpc("subscribe_platform_marketing", {
+        p_email: user?.email || guestEmail || null,
+        p_user_id: user?.id ?? null,
+        p_full_name: fullName || null,
+        p_source: "platform:table_purchase",
+      });
+    }
 
     // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
     // (préparée pour l'arrivée, réglée à la table). Non bloquant ; survit au pending->paid.
