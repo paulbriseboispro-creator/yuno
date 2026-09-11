@@ -163,3 +163,47 @@ export function launchCheckout(url: string): void {
     window.location.href = url;
   }
 }
+
+/**
+ * Schéma d'URL de l'app « Yuno Pro ». Compilé dans le binaire
+ * (pro/ios/App/App/Info.plist → CFBundleURLTypes), donc joignable depuis
+ * Safari, depuis l'app client, et depuis n'importe quel email — sans rien
+ * redéployer côté natif.
+ *
+ * Pourquoi il existe : le fichier d'association de domaines
+ * (public/.well-known/apple-app-site-association) ne déclare que l'app CLIENT,
+ * et l'app Pro n'a pas encore l'entitlement Associated Domains. Un Universal
+ * Link https://yunoapp.eu/... ouvre donc TOUJOURS l'app client — y compris une
+ * invitation de videur, qui n'a rien à y faire. Tant que l'app Pro n'est pas
+ * rebâtie avec l'entitlement, ce schéma est le seul passage direct.
+ */
+export function proAppUrl(path: string): string {
+  const clean = path.startsWith('/') ? path : `/${path}`;
+  return `yunopro://open?path=${encodeURIComponent(clean)}`;
+}
+
+/**
+ * Bascule vers l'app Yuno Pro sur un path donné (NativeBridge écoute
+ * `appUrlOpen` et navigue). Sans effet visible si l'app n'est pas installée :
+ * iOS ne rend aucune erreur exploitable sur un schéma inconnu, d'où l'appel
+ * toujours posé derrière un geste explicite — jamais une redirection
+ * automatique, qui laisserait une page morte à qui n'a pas l'app.
+ */
+export function openProApp(path: string): void {
+  window.location.href = proAppUrl(path);
+}
+
+/**
+ * Vrai quand proposer « Ouvrir dans Yuno Pro » a un sens : sur un téléphone,
+ * hors de l'app Pro elle-même. Couvre les deux cas vécus — le lien ouvert dans
+ * Safari mobile, et le lien capté par l'app CLIENT via Universal Link.
+ */
+export function canHandOffToProApp(): boolean {
+  if (isProApp()) return false;
+  if (isNative()) return true;
+  try {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  } catch {
+    return false;
+  }
+}
