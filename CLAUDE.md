@@ -544,6 +544,87 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   17,5 Mo du zip (une seule faisait 1440 × 67 221 px). Après conversion :
   1,9 Mo, zip à 8,3 Mo. Le SW web, lui, ignore déjà `help/**` (`globIgnores`).
 
+## Dashboard super admin — refonte complète (2026-09-11)
+
+`/admin` a été reconstruit de zéro. Quatre groupes dans la sidebar, 34 pages
+ramenées à une arborescence lisible. Les règles qui suivent ne sont pas des
+préférences : chacune répare un défaut constaté.
+
+- **Quatre groupes, pas une liste** : **Pilotage** (`/admin` cockpit,
+  `/admin/growth`, `/admin/revenue`, `/admin/product`, `/admin/customers`,
+  `/admin/ai`), **Acteurs** (`/admin/people`, `/admin/venues`,
+  `/admin/organizers`, `/admin/agencies`, `/admin/events`, `/admin/orders`),
+  **Communication** (`/admin/marketing`, `/admin/notifications`,
+  `/admin/links`, `/admin/feedback`, `/admin/alerts`), **Système**
+  (`/admin/system`, `/admin/audit`, `/admin/support-access`, `/admin/demo`).
+  Les anciennes adresses (`/admin/analytics`, `accounting`, `traffic`,
+  `segmentation`, `waitlist`, `directory`, `affiliates`, `emails`) sont des
+  `<Navigate>` — des liens vivent encore dans des alertes déjà émises.
+- **Un chiffre affiché vient d'une RPC, jamais d'un `select` agrégé côté
+  front.** Sept RPC portent le dashboard : `admin_cockpit`,
+  `admin_activity_feed`, `admin_product_insights`, `admin_release_health`,
+  `admin_directory_counts`, `admin_venue_overview` (migration
+  `20260910130000`) et `admin_ai_usage` (`20260910120000`). Toutes prennent
+  `p_include_demo` et **matérialisent la porte démo une seule fois** (CTE
+  `WITH d AS MATERIALIZED`) — cf. la section suivante.
+- **`AdminScope` est la porte démo côté front** (`src/components/admin/AdminScope.tsx`) :
+  un seul interrupteur, persisté en localStorage, passé en `p_include_demo` à
+  CHAQUE appel. Ne jamais filtrer la démo dans un composant.
+- **Tous les tokens et primitives vivent dans `src/components/admin/ui.tsx`**
+  (~30 composants : `AdminPage`, `Card`, `Stat`, `SectionHeading`, `Seg`,
+  `PeriodFilter`, `TabBar`, `RankRow`, `DistRow`, `Notice`, `EmptyState`…).
+  Aucune page admin ne redéclare une couleur, un fond de carte ou un rayon.
+  Tout le formatage (nombres, €, $, tokens, durées, dates, pluriels) passe par
+  `src/lib/adminFormat.ts`. Un `toFixed(2)` ou un `fr-FR` codé en dur dans une
+  page admin est un bug.
+- **Pluriels : `fmtPlural`, jamais `.replace('{n}', …)` sur un libellé au
+  pluriel.** Yuno a de très petits nombres ; « 1 invitations en attente » se
+  voit tout de suite. Chaque clé comptée a sa jumelle `…One`.
+- **Les séries recharts du super admin ont `isAnimationActive={false}`.** Sur un
+  dashboard dense l'animation retarde la lecture, et elle rend toute capture
+  headless vide.
+- **Deux ordres de grandeur ⇒ deux axes.** Les sessions écrasent les
+  inscriptions ; la série de contexte part sur un `<YAxis hide>` à droite
+  (cockpit et croissance). Une courbe collée à zéro n'informe personne.
+- **`cron.job_run_details` ne se lit qu'une fois, et jamais depuis le
+  cockpit.** La table fait des dizaines de Mo sans index, et `postgres` n'en
+  est pas propriétaire (donc `CREATE INDEX` échoue) : `admin_cockpit` la
+  scannait jusqu'à 74 fois (4,1 s). Elle est lue par `admin_release_health`
+  seule, en UN scan matérialisé de 7 jours, et le cron `cron-history-purge`
+  la taille à 30 jours.
+- **i18n : le super admin est une SECTION à part** (`useLocaleSection('admin')`),
+  jamais dans le dictionnaire principal — un client ne télécharge pas les
+  libellés d'un dashboard qu'il ne verra jamais. Les clés vivent dans
+  `src/i18n/locales/admin/modules/*.ts` sous forme de triplets
+  **`[EN, FR, ES]` côte à côte** : une traduction manquante devient
+  structurellement impossible. `src/i18n/locales/admin/{en,fr,es}.ts` ne font
+  que projeter (`pickLanguage(0|1|2)`). Gardé par
+  `src/i18n/__tests__/admin.test.ts`.
+
+## Consommation IA — l'observabilité des assistants (2026-09-11)
+
+Yuno paie OpenAI à chaque conversation et ne savait pas combien. La chaîne
+complète : module partagé → table → RPC → page `/admin/ai`.
+
+- **`supabase/functions/_shared/ai-usage.ts` est la porte unique.**
+  `logAiUsage()` **ne lève jamais et ne bloque jamais la réponse** (fire and
+  forget) : une panne d'observabilité ne doit pas coûter une conversation
+  client. `trackOpenAiStream()` tee le flux SSE pour récupérer l'`usage`
+  final ; `estimateCostUsd()` porte la table de prix publics OpenAI.
+- **Pour une réponse NON streamée**, lire le champ `usage` de la réponse.
+  **Pour une réponse streamée**, il faut `stream_options: { include_usage:
+  true }` — sans lui OpenAI n'envoie aucun décompte et le coût reste à zéro.
+- **`ai_usage_events` : RLS activée, AUCUNE policy.** Seul `service_role`
+  écrit, seule la RPC `admin_ai_usage` (SECURITY DEFINER) lit. Purge à 13 mois
+  par le cron `ai-usage-purge`.
+- **On enregistre la QUESTION (tronquée à 240 caractères), jamais la réponse.**
+  C'est ce qui permet de lire ce que les gens demandent vraiment sans stocker
+  de conversation.
+- **Toute nouvelle fonction edge qui appelle OpenAI doit appeler `logAiUsage`**,
+  sinon elle dépense en silence. Déjà branchées : `yuno-assistant`,
+  `owner-assistant`, `agency-assistant`, `translate-text`,
+  `_shared/event-embeddings.ts`, `_shared/taste-embeddings.ts`.
+
 ## Tracking super admin — la démo n'est pas un chiffre (2026-09-08)
 
 Le dashboard `/admin` agrégeait TOUT : au 08/09 il affichait 261 811 € dont
@@ -669,6 +750,51 @@ Doc complète : `docs/CONTACT_INTELLIGENCE.md`. Règles intouchables :
   et le nom traduit est ce qui est stocké ; `suggestion_key` reste stable.
 - Une personne présente dans plusieurs fichiers = sa ligne la plus récente
   (`contact_rows`), à date égale la plus renseignée.
+
+## Marketing plateforme — Yuno écrit à sa propre base (2026-09-08)
+
+Doc complète : `docs/PLATFORM_MARKETING.md`. Écran `/admin/marketing`
+(+ `/admin/marketing/sms`). Ce n'est PAS un second système : c'est la
+**troisième portée** du moteur qui sert déjà les clubs et les organisateurs
+(Email Studio, file d'envoi, gouverneur de quota, liste de suppression, file
+SMS, imports attestés, segments). Règles intouchables :
+
+- **La portée plateforme = les DEUX colonnes de portée à NULL**
+  (`venue_id IS NULL AND organizer_user_id IS NULL`). Ce créneau n'est
+  atteignable que par `is_super_admin()` ou `service_role` : deux NULL ne
+  satisfont ni la branche club ni la branche organisateur d'aucune policy. Ne
+  JAMAIS écrire une policy qui accorderait cette portée sur un autre critère.
+- **Une seule porte de comparaison de portée : `marketing_scope_match()`.** Le
+  prédicat écrit à la main `(p_venue_id IS NOT NULL AND …) OR (p_organizer_user_id
+  IS NOT NULL AND …)` est FAUX quand les deux sont NULL — donc muet sur toute la
+  portée plateforme, sans jamais lever d'erreur. Toute nouvelle fonction de
+  portée passe par cette fonction, et les gardes deviennent « au plus une
+  portée », jamais « exactement une ».
+- **Rien n'entre dans une campagne sans passer par le registre de
+  consentement** (`newsletter_subscriptions` / `venue_sms_contacts` en portée
+  plateforme). Les sources internes (comptes, `launch_waitlist`,
+  `links_pro_leads`) y sont VERSÉES par `sync_platform_marketing_contacts`, pas
+  lues à l'envoi : le jeton de désinscription n'existe que sur une ligne du
+  registre, et un email marketing sans porte de sortie ne part pas. La synchro
+  ne réveille jamais un désabonné explicite, n'écrit jamais une adresse
+  supprimée, et écarte démo, profils orphelins et comptes suspendus.
+- **Clé de quota `yuno`, JAMAIS `platform`.** `platform` est déjà l'étage 1 de
+  `consume_email_send_quota` (le pool global) : réutiliser cette clé pour
+  l'expéditeur ferait consommer deux fois le même compteur dans le même appel.
+- **Audience vide ⇒ personne.** Le miroir v1 (`audience_type`) n'a aucun chemin
+  plateforme. Les segments sont des POPULATIONS (`clients`, `pros`, `waitlist`,
+  `leads`, `app_users`, `no_account`, `buyers`, `import`, `contact_segment`),
+  pas des paliers de dépense : Yuno n'encaisse pas pour lui-même.
+- **Le SMS plateforme n'a pas de crédits** — il part sur le compte Twilio de
+  Yuno. `balanceIdFor` rend `null` et le débit/remboursement devient un no-op ;
+  le coût reste lisible dans `sms_campaign_recipients.credits`. Ne pas
+  réintroduire un solde plateforme.
+- **Piège vécu, à ne pas rejouer** : `210100` a ouvert la portée sur les
+  fonctions de contact, `220000` (contact_intelligence_fast) les a réécrites
+  juste après avec la garde stricte, et la portée est retombée. `230000` reprend
+  les corps RAPIDES et n'y change que la portée. Toute réécriture de ces
+  fonctions repart de l'ÉTAT LIVE (`pg_get_functiondef` sur la base liée),
+  jamais d'un ancien fichier de migration.
 
 ## SMS marketing (club + organisateur — 2026-09-07)
 
