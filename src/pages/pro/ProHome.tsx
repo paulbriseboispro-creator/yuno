@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { useStaffNightPulse } from '@/hooks/useStaffNightPulse';
+import { useDoorManifestPreload } from '@/hooks/useDoorManifestPreload';
 import { greetingKey, staffInitials } from '@/lib/staffIdentity';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -81,6 +82,22 @@ export default function ProHome() {
   const { isSupported, isSubscribed, permission, subscribe, ready: pushReady } = usePushNotifications();
 
   const [roles, setRoles] = useState<string[] | null>(null);
+
+  /**
+   * La liste de porte se télécharge ICI, au premier écran de l'app — pas
+   * seulement dans l'écran de scan. Une ouverture quelconque dans la journée
+   * suffit alors à armer la porte pour le soir. Aucun serveur ne peut remplir
+   * le cache d'un téléphone : c'est l'app qui doit aller chercher, et le plus
+   * tôt possible.
+   */
+  const doorScope = useMemo(
+    () => ({ venueId: identity?.venueId ?? null, organizerUserId: identity?.organizerUserId ?? null }),
+    [identity?.venueId, identity?.organizerUserId],
+  );
+  useDoorManifestPreload(
+    doorScope,
+    !!identity?.roles?.some((r) => r === 'bouncer' || r === 'manager'),
+  );
 
   // Session requise : l'app pro est réservée au staff connecté.
   useEffect(() => {

@@ -11,6 +11,7 @@ import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Us
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
+import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import type { DoorScope } from '@/lib/scan/types';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
 import { IncidentQuickReport } from '@/components/bouncer/IncidentQuickReport';
@@ -474,56 +475,14 @@ export default function Bouncer() {
   }, [venueId]);
 
   const fetchStats = async () => {
-    // Filtre des soirées de CETTE porte, sur les deux faces du périmètre : un
-    // club voit les siennes (lead ou partenaire — la co-soirée org-led pose le
-    // club en partner_venue_id), un organisateur voit celles de son
-    // organisateur, et qui cumule voit les deux. C'est le cumul qui manquait.
-    const orParts: string[] = [];
-    if (doorScope.venueId) {
-      orParts.push(`venue_id.eq.${doorScope.venueId}`, `partner_venue_id.eq.${doorScope.venueId}`);
-    }
-    if (doorScope.organizerUserId) {
-      orParts.push(
-        `organizer_user_id.eq.${doorScope.organizerUserId}`,
-        `partner_organizer_id.eq.${doorScope.organizerUserId}`,
-      );
-    }
-    const eventFilter = orParts.length ? orParts.join(',') : null;
-    if (!eventFilter) return;
+    if (!hasDoorScope) return;
 
     try {
-      const now = new Date().toISOString();
-
-      // Soirée en cours (commencée, pas finie). Triées de la plus récemment
-      // ouverte à la plus ancienne : une porte qui couvre deux périmètres (club
-      // ET organisateur) peut voir deux soirées se chevaucher, et l'ancre du
-      // manifeste hors ligne ne peut pas être tirée au sort. La porte qui vient
-      // d'ouvrir est celle qu'on tient.
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .or(eventFilter)
-        .eq('is_active', true)
-        .lte('start_at', now)
-        .gte('end_at', now)
-        .order('start_at', { ascending: false });
-
-      let eventIds = (events ?? []).map(e => e.id);
-
-      // À défaut, la soirée du jour — c'est elle qu'on prépare en amont, et
-      // c'est son manifeste qu'il faut avoir téléchargé AVANT d'ouvrir.
-      if (eventIds.length === 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const { data: todayEvents } = await supabase
-          .from('events')
-          .select('id')
-          .or(eventFilter)
-          .gte('end_at', today.toISOString())
-          .lte('start_at', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString())
-          .order('start_at', { ascending: false });
-        eventIds = (todayEvents ?? []).map(e => e.id);
-      }
+      // Soirées de CETTE porte (en cours, sinon celle du jour), résolues par
+      // la porte unique partagée avec le pré-chargement du manifeste : deux
+      // implémentations du même choix, c'est un téléphone qui télécharge la
+      // liste d'une soirée et en valide une autre.
+      const eventIds = await resolveDoorEventIds(doorScope);
 
       if (eventIds.length === 0) {
         setStats({ scanned: 0, total: 0 });
