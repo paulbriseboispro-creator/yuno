@@ -13,6 +13,10 @@ export type OwnerEventRow = Event & {
   ticketingEnabled?: boolean;
   tablesEnabled?: boolean;
   guestListEnabled?: boolean;
+  /** Au moins UNE part de guest list active sur la soirée — maison, DJ,
+   *  promoteur ou agence. `guestListEnabled` ne parle, lui, que de la part
+   *  maison (c'est elle que publie l'interrupteur de la fiche). */
+  hasGuestList?: boolean;
   /** « Complet » posé à la main sur un pilier de cette soirée (voir lib/soldOut.ts).
    *  Ce n'est pas `…Enabled = false` : l'offre reste affichée, elle ne se vend plus. */
   ticketsSoldOut?: boolean;

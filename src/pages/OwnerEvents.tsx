@@ -232,6 +232,7 @@ export default function OwnerEvents() {
         ticketingEnabled: event.ticketing_enabled ?? false,
         tablesEnabled: event.tables_enabled ?? false,
         guestListEnabled: false,
+        hasGuestList: false,
         ticketsSoldOut: event.tickets_sold_out ?? false,
         tablesSoldOut: event.tables_sold_out ?? false,
         guestListSoldOut: event.guest_list_sold_out ?? false,
@@ -252,14 +253,23 @@ export default function OwnerEvents() {
         mappedEvents.forEach(e => { e.roundsCount = counts[e.id] || 0; });
 
         // Club guest list presence + active state per event (drives the inline toggle).
+        // Toutes les parts, pas seulement la maison : l'interrupteur publie la
+        // part maison, mais « Complet » doit pouvoir fermer une soirée dont la
+        // liste ne vient que des promoteurs ou des DJs.
         const { data: glData } = await supabase
           .from('guest_lists')
-          .select('event_id, is_active')
-          .eq('holder_type', 'club')
+          .select('event_id, is_active, holder_type')
           .in('event_id', eventIds);
         const glMap: Record<string, boolean> = {};
-        (glData || []).forEach(gl => { glMap[gl.event_id] = gl.is_active; });
-        mappedEvents.forEach(e => { e.guestListEnabled = glMap[e.id] ?? false; });
+        const anyMap: Record<string, boolean> = {};
+        (glData || []).forEach(gl => {
+          if (gl.holder_type === 'club') glMap[gl.event_id] = gl.is_active;
+          if (gl.is_active) anyMap[gl.event_id] = true;
+        });
+        mappedEvents.forEach(e => {
+          e.guestListEnabled = glMap[e.id] ?? false;
+          e.hasGuestList = anyMap[e.id] ?? false;
+        });
       }
 
       setEvents(mappedEvents);
@@ -1751,7 +1761,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               soirée. La page publique continue d'afficher l'offre, marquée
               complète. Le réglage fin (formule par formule, part par part) vit
               dans les pages Tables VIP et Guest list. */}
-          {(event.ticketingEnabled || event.tablesEnabled || event.guestListEnabled) && (
+          {(event.ticketingEnabled || event.tablesEnabled || event.guestListEnabled || event.hasGuestList) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="inline-flex items-center gap-1" style={{ color: T3_C, fontSize: 11 }}>
                 <Ban className="w-3 h-3" />{t('soldOut.markAs')}
@@ -1759,7 +1769,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               {([
                 { key: 'tickets' as const, on: !!event.ticketingEnabled, out: !!event.ticketsSoldOut, label: t('owner.ev.ticketing') },
                 { key: 'tables' as const, on: !!event.tablesEnabled, out: !!event.tablesSoldOut, label: t('owner.ev.tablesVip') },
-                { key: 'guestList' as const, on: !!event.guestListEnabled, out: !!event.guestListSoldOut, label: t('owner.ev.guestList') },
+                { key: 'guestList' as const, on: !!event.guestListEnabled || !!event.hasGuestList, out: !!event.guestListSoldOut, label: t('owner.ev.guestList') },
               ]).filter(p => p.on).map(p => (
                 <button
                   key={p.key}
