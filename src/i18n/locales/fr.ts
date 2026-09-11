@@ -12093,6 +12093,8 @@ const fr: Record<string, string> = {
   'door.refresh': 'Actualiser',
   'door.typeMore': 'Tapez au moins deux lettres.',
   'door.noMatch': 'Personne à ce nom ce soir.',
+  'door.empty': 'Aucun nom sur cette soirée pour le moment.',
+  'door.tooMany': 'Liste tronquée — cherchez un nom pour trouver quelqu’un.',
   'door.letIn': 'Faire entrer',
   'door.alreadyIn': 'Déjà entré',
 

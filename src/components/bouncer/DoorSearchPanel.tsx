@@ -23,6 +23,9 @@ const T3 = 'rgba(255,255,255,0.36)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const INNER_BG = 'rgba(255,255,255,0.032)';
 
+/** Plafond d'affichage de la liste complète (au-delà : passer par la recherche). */
+const MAX_LISTED = 300;
+
 const KIND_ICON = {
   guest_list: ClipboardList,
   ticket: Ticket,
@@ -45,8 +48,14 @@ export function DoorSearchPanel({ eventId, onPick }: Props) {
   const [picking, setPicking] = useState<string | null>(null);
   const roster = useDoorRoster(eventId);
 
-  const results = roster.search(query);
-  const tooShort = query.trim().length > 0 && query.trim().length < 2;
+  // Sans recherche, on montre TOUTE la liste. L'onglet s'appelle « Liste » : il
+  // s'ouvrait sur un champ vide et zéro nom, et le videur en concluait que la
+  // soirée n'avait personne. On plafonne l'affichage — au-delà, le doigt ne
+  // défile plus, c'est la recherche qui sert.
+  const searching = query.trim().length >= 2;
+  const tooShort = query.trim().length > 0 && !searching;
+  const results = searching ? roster.search(query) : roster.all.slice(0, MAX_LISTED);
+  const truncated = !searching && roster.all.length > MAX_LISTED;
 
   const pick = async (p: DoorRosterPerson) => {
     if (picking) return;
@@ -104,8 +113,12 @@ export function DoorSearchPanel({ eventId, onPick }: Props) {
 
       {tooShort && <p style={{ color: T3, fontSize: 12.5 }}>{t('door.typeMore')}</p>}
 
-      {!tooShort && query.trim().length >= 2 && results.length === 0 && !roster.loading && (
+      {searching && results.length === 0 && !roster.loading && (
         <p style={{ color: T3, fontSize: 13 }} className="py-6 text-center">{t('door.noMatch')}</p>
+      )}
+
+      {!searching && results.length === 0 && !roster.loading && !roster.error && (
+        <p style={{ color: T3, fontSize: 13 }} className="py-6 text-center">{t('door.empty')}</p>
       )}
 
       <div className="space-y-1.5">
@@ -148,6 +161,12 @@ export function DoorSearchPanel({ eventId, onPick }: Props) {
           );
         })}
       </div>
+
+      {truncated && (
+        <p style={{ color: T3, fontSize: 12 }} className="pt-3 text-center">
+          {t('door.tooMany')}
+        </p>
+      )}
     </div>
   );
 }

@@ -150,6 +150,21 @@ export function useDoorRoster(eventId: string | null) {
       p.qr === qr ? { ...p, scanned: true, scannedAt: new Date().toISOString() } : p));
   }, []);
 
+  /**
+   * Liste complète, dans l'ordre de la porte : ceux qui ne sont pas encore
+   * entrés d'abord, puis A→Z. C'est la vue par défaut de l'onglet Liste — un
+   * videur qui l'ouvre doit VOIR la soirée, pas un champ de recherche vide.
+   * Chaque personne pointée descend d'elle-même sous les autres.
+   */
+  const all = useMemo(() => {
+    const sorted = [...people];
+    sorted.sort((a, b) => {
+      if (a.scanned !== b.scanned) return a.scanned ? 1 : -1;
+      return normalize(a.name).localeCompare(normalize(b.name), 'fr');
+    });
+    return sorted;
+  }, [people]);
+
   const search = useCallback((query: string, limit = 40): DoorRosterPerson[] => {
     const q = normalize(query.trim());
     if (q.length < 2) return [];
@@ -178,5 +193,5 @@ export function useDoorRoster(eventId: string | null) {
     scanned: people.filter((p) => p.scanned).length,
   }), [people]);
 
-  return { people, loading, error, fromCache, stats, search, reload: load, markScannedLocally };
+  return { people, all, loading, error, fromCache, stats, search, reload: load, markScannedLocally };
 }
