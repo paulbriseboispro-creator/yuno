@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { hasPhoneNumber } from '@/lib/countries';
+import { soldOutFlags, isGuestListSoldOut } from '@/lib/soldOut';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -53,6 +54,8 @@ interface GuestListEventInfo {
   poster_url: string | null;
   timezone: string | null;
   location_city: string | null;
+  /** Toute la guest list de la soirée fermée à la main (voir lib/soldOut.ts). */
+  guest_list_sold_out?: boolean | null;
 }
 
 interface GuestListWithEvent extends Tables<'guest_lists'> {
@@ -85,6 +88,9 @@ interface GuestListInfo {
   shareToken: string;
   /** Types offerts sur le lien public (canal 1). NULL/[] = pas de choix affiché. */
   publicEntryTypes: GLEntryType[] | null;
+  /** « Complet » posé à la main — toute la soirée, ou cette part seule. Le
+   *  formulaire se ferme : le serveur refuserait l'inscription de toute façon. */
+  soldOut: boolean;
 }
 
 /** Remplissage agrégé renvoyé par get_guest_list_public_fill (aucune donnée d'invité). */
@@ -359,12 +365,13 @@ export default function GuestListSignup() {
             id: string; event_id: string; holder_type: string; quota: number | null;
             quota_female: number | null; quota_male: number | null; show_remaining: boolean;
             free_before_time: string; entry_deadline: string | null; includes_drink: boolean; is_active: boolean;
+            manually_sold_out?: boolean | null;
           };
         } | null;
         if (parsed?.invite && parsed.guest_list?.is_active) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city, guest_list_sold_out')
             .eq('id', parsed.guest_list.event_id)
             .maybeSingle();
           if (ev) {
@@ -379,6 +386,7 @@ export default function GuestListSignup() {
               revoked: parsed.invite.revoked,
             });
             data = {
+              manually_sold_out: !!gl.manually_sold_out,
               id: gl.id,
               quota: gl.quota,
               quota_female: gl.quota_female,
@@ -401,7 +409,7 @@ export default function GuestListSignup() {
         if (glRow) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city, guest_list_sold_out')
             .eq('id', glRow.event_id)
             .maybeSingle();
           data = { ...glRow, events: ev };
@@ -413,7 +421,7 @@ export default function GuestListSignup() {
         // found" for a list that exists. Prefer the club part, else the first.
         const { data: glRows, error: glErr } = await supabase
           .from('guest_lists')
-          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city)')
+          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city, guest_list_sold_out)')
           .eq('is_active', true)
           .eq('event_id', eventId);
         if (glErr) throw glErr;
@@ -499,6 +507,7 @@ export default function GuestListSignup() {
         })?.code ?? null,
         shareToken: data.share_token,
         publicEntryTypes: publicTypes.length ? publicTypes : null,
+        soldOut: isGuestListSoldOut(soldOutFlags(data.events), data),
       });
       if (publicTypes.length) setChosenType(prev => (prev && publicTypes.includes(prev) ? prev : publicTypes[0]));
 
@@ -869,7 +878,8 @@ export default function GuestListSignup() {
 
   // Un quota genre à 0 = pas de quota : le tester avec `!== null` rendait toute
   // liste genrée « complète » d'entrée (count >= 0 toujours vrai).
-  const isFull = (guestList.quota !== null && entriesCount >= guestList.quota)
+  const isFull = guestList.soldOut
+    || (guestList.quota !== null && entriesCount >= guestList.quota)
     || (offeredRemaining !== null && offeredRemaining <= 0)
     || (genderFromUrl === 'female' && (guestList.quotaFemale ?? 0) > 0 && femaleCount >= guestList.quotaFemale!)
     || (genderFromUrl === 'male' && (guestList.quotaMale ?? 0) > 0 && maleCount >= guestList.quotaMale!);

@@ -347,6 +347,9 @@ export default function TicketCheckout() {
         timezone: eventData.timezone,
         isActive: eventData.is_active,
         ticketingEnabled: eventData.ticketing_enabled,
+        // Billetterie de la soirée marquée complète à la main (lib/soldOut.ts) :
+        // la vente est fermée même si la capacité n'est pas atteinte.
+        ticketsSoldOut: !!eventData.tickets_sold_out,
         maxTickets: eventData.max_tickets,
         tablesEnabled: eventData.tables_enabled,
         alcoholFree: (eventData as any).alcohol_free ?? false,
@@ -418,6 +421,14 @@ export default function TicketCheckout() {
       if (salesStatus === 'ended') {
         toast.error(t('salesStatus.ended'));
         navigate(-1);
+        return;
+      }
+
+      // Billetterie marquée complète à la main : porte fermée ici, URL directe
+      // comprise — le serveur refuserait de toute façon au clic « Payer ».
+      if (eventData.tickets_sold_out) {
+        toast(t('event.soldOut'));
+        navigate(basePath, { replace: true });
         return;
       }
 
@@ -494,7 +505,7 @@ export default function TicketCheckout() {
   const upsellTotal = selectedUpsells.reduce((sum, u) => sum + u.price, 0);
   const total = discountedSubtotal + serviceFee + upsellTotal;
   // Un round marqué épuisé manuellement n'a aucune dispo, même si la capacité n'est pas atteinte.
-  const remainingTickets = round ? (round.manuallySoldOut ? 0 : round.maxTickets - round.ticketsSold) : 0;
+  const remainingTickets = round && !event?.ticketsSoldOut ? (round.manuallySoldOut ? 0 : round.maxTickets - round.ticketsSold) : 0;
   // Per-person allowance: limit minus what this buyer already holds. No limit → 10.
   const perOrderAllowance = perPersonLimit != null ? perPersonLimit - alreadyPurchased : 10;
   const maxQuantity = Math.min(Math.max(perOrderAllowance, 0), remainingTickets);

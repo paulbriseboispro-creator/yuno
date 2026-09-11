@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
 import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { areAllPacksSoldOut, isPackSoldOut, isGuestListSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -538,6 +539,12 @@ export default function EventDetails() {
         ticketingEnabled: eventData.ticketing_enabled,
         maxTickets: eventData.max_tickets,
         tablesEnabled: eventData.tables_enabled,
+        // « Complet » posé à la main, pilier par pilier (lib/soldOut.ts) : la
+        // soirée reste en ligne, c'est la vente qui ferme.
+        ticketsSoldOut: !!eventData.tickets_sold_out,
+        tablesSoldOut: !!eventData.tables_sold_out,
+        guestListSoldOut: !!eventData.guest_list_sold_out,
+        soldOutPackIds: (eventData.sold_out_pack_ids as string[] | null) ?? [],
         ticketSellingMode: (eventData.ticket_selling_mode as 'rounds' | 'timed_entry' | null) || 'rounds',
         presaleStartAt: eventData.presale_start_at || undefined,
         publicSaleStartAt: eventData.public_sale_start_at || undefined,
@@ -660,12 +667,18 @@ export default function EventDetails() {
   // (elle n'est jamais dans le chemin critique du premier pixel). Même filtre
   // que la page billetterie — seules les parts marquées « visible sur la page
   // club » comptent ; les parts déléguées ne vivent que derrière leur lien.
+  const soldOut: SoldOutFlags = {
+    ticketsSoldOut: !!event?.ticketsSoldOut,
+    tablesSoldOut: !!event?.tablesSoldOut,
+    guestListSoldOut: !!event?.guestListSoldOut,
+    soldOutPackIds: event?.soldOutPackIds ?? [],
+  };
   const publicGuestListQuery = useQuery({
     queryKey: ['event-public-guest-list', eventId],
     queryFn: async () => {
       const { data } = await supabase
         .from('guest_lists')
-        .select('id, free_before_time, includes_drink, quota, show_remaining')
+        .select('id, free_before_time, includes_drink, quota, show_remaining, manually_sold_out')
         .eq('event_id', eventId as string)
         .eq('is_active', true)
         .eq('visible_on_club_page', true)
@@ -682,7 +695,10 @@ export default function EventDetails() {
     staleTime: 5 * 60 * 1000,
   });
   const publicGuestList = publicGuestListQuery.data ?? null;
-  const hasPublicGuestList = !!publicGuestList;
+  // Liste fermée à la main (toute la soirée, ou cette part seule) : elle reste en
+  // base et côté pro, elle n'est simplement plus proposée à l'inscription.
+  const guestListSoldOut = isGuestListSoldOut(soldOut, publicGuestList);
+  const hasPublicGuestList = !!publicGuestList && !guestListSoldOut;
   // Rareté de la guest list : même règle que les billets (lib/guestListScarcity).
   const eventScarcity = useEventScarcity(eventId);
   const glSignal = publicGuestList
@@ -709,15 +725,20 @@ export default function EventDetails() {
   const breakdownRounds = [...activeRounds, ...communityRounds];
   // Packs « règlement sur place » : rien n'est encaissé en ligne, ils restent
   // proposés même sans compte Stripe (soirée d'organisateur qui règle au club).
-  const activePacks = packs.filter(p => p.isActive && (paymentsReady || p.paymentMode === 'on_site'));
-  const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0 && paymentsReady;
+  // « Complet » posé à la main sur cette soirée : l'inventaire continue d'exister,
+  // il ne se vend plus. Une formule marquée complète quitte donc `activePacks`
+  // (rien à proposer) sans disparaître de l'offre (`offeredPacks` la porte encore).
+  const offeredPacks = packs.filter(p => p.isActive && (paymentsReady || p.paymentMode === 'on_site'));
+  const activePacks = offeredPacks.filter(p => !isPackSoldOut(soldOut, p.id));
+  const tablesSoldOutLabel = !!event?.tablesEnabled && offeredPacks.length > 0 && areAllPacksSoldOut(soldOut, offeredPacks.map(p => p.id));
+  const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0 && paymentsReady && !soldOut.ticketsSoldOut;
   const hasTables = !!event?.tablesEnabled && activePacks.length > 0;
   const hasTicketsOrTables = hasTickets || hasTables;
 
   // Low stock detection
   const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
   const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
-  const isSoldOut = !!event?.ticketingEnabled && allBuyableRounds.length === 0 && ticketRounds.length > 0;
+  const isSoldOut = !!event?.ticketingEnabled && (soldOut.ticketsSoldOut || (allBuyableRounds.length === 0 && ticketRounds.length > 0));
   const rawSalesStatus = getEventSalesStatus(
     {
       presaleStartAt: event?.presaleStartAt,
@@ -731,7 +752,7 @@ export default function EventDetails() {
   // paiements fermés ET aucune liste invités gratuite ouverte.
   // Un pack « règlement sur place » est vendable sans Stripe : il tient la
   // page ouverte au même titre qu'une guest list gratuite.
-  const hasOnSitePacks = !!event?.tablesEnabled && packs.some(p => p.isActive && p.paymentMode === 'on_site');
+  const hasOnSitePacks = !!event?.tablesEnabled && packs.some(p => p.isActive && p.paymentMode === 'on_site' && !isPackSoldOut(soldOut, p.id));
   const paymentsGateClosed =
     paidBlocked && !hasPublicGuestList && !hasOnSitePacks && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
   const eventSalesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
@@ -789,7 +810,9 @@ export default function EventDetails() {
 
   // Availability text
   const getAvailabilityInfo = () => {
-    if (isSoldOut && !hasTables) {
+    // « Complet » : soit les billets le sont et il n'y a pas de table à vendre,
+    // soit c'est le pilier tables qui est marqué complet et il n'y a pas de billet.
+    if ((isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets)) {
       return { text: t('event.soldOut'), color: 'text-destructive', urgent: true };
     }
     if (lowStockRounds.length > 0 && totalTicketsRemaining <= 30) {
@@ -826,6 +849,10 @@ export default function EventDetails() {
     ? `${t('guestList.freeBefore')} ${publicGuestList.free_before_time.substring(0, 5)}`
     : null;
   const availability = canUserAccessSales ? getAvailabilityInfo() : null;
+  // Bandeau « SOLD OUT » sur l'affiche : il ne se pose que s'il ne reste vraiment
+  // rien à prendre. Une soirée dont les billets sont épuisés mais dont les tables
+  // restent ouvertes n'est pas complète.
+  const showSoldOutBadge = (isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets);
 
   return (
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
@@ -912,7 +939,7 @@ export default function EventDetails() {
         >
           {/* Genre / status badges */}
           <div className="flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
-            {isSoldOut && (
+            {showSoldOutBadge && (
               <span className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
                 SOLD OUT
               </span>

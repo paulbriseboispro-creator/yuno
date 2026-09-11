@@ -24,6 +24,7 @@ import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { VipMenuPreview, type PreorderSelection } from '@/components/vip/VipMenuPreview';
 import { VipTableWaitlistDialog } from '@/components/vip/VipTableWaitlistDialog';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
+import { soldOutFlags, isPackSoldOut, type SoldOutEvent } from '@/lib/soldOut';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
 import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
@@ -160,10 +161,25 @@ export default function TableCheckout() {
   // Plafond propre à la formule (limit_tables) — le serveur reste le juge final.
   const packUsed = pack ? (reservationsByPack[pack.id] || 0) : 0;
   const packFull = !!pack?.limitTables && pack.tablesCount > 0 && packUsed >= pack.tablesCount;
+  // « Complet » posé à la main par le club/organisateur sur cette soirée : toutes
+  // les tables, ou cette formule. Le serveur refuse déjà le checkout — on ne
+  // laisse pas remplir un formulaire condamné.
+  const soldOut = soldOutFlags(event as SoldOutEvent | null);
+  const packSoldOut = isPackSoldOut(soldOut, pack?.id);
   // Formules connues de cette soirée (même périmètre que le checkout) : sert à
   // lire la formule fixée d'une table du plan et à basculer dessus.
   const allPacks = useMemo(() => Object.values(packsByZone).flat(), [packsByZone]);
   const packNames = useMemo(() => Object.fromEntries(allPacks.map((p) => [p.id, p.name])), [allPacks]);
+  // Formules encore proposables à la bascule de zone : une formule marquée
+  // complète ne s'offre pas en alternative (le serveur la refuserait).
+  const sellablePacksByZone = useMemo(() => {
+    const out: Record<string, TablePack[]> = {};
+    for (const [zid, list] of Object.entries(packsByZone)) {
+      const keep = list.filter((p) => !isPackSoldOut(soldOut, p.id));
+      if (keep.length) out[zid] = keep;
+    }
+    return out;
+  }, [packsByZone, soldOut.tablesSoldOut, soldOut.soldOutPackIds]);
 
   // Table hors périmètre (autre zone ou autre formule) : on n'y bascule
   // jamais en douce. La feuille montre la formule, l'écart de prix et attend
@@ -626,6 +642,12 @@ export default function TableCheckout() {
     if (!acceptTerms) { toast.error(t('cgv.required')); return; }
     if (!ageVerified) { toast.error(t('ageGate.required')); return; }
     
+    if (packSoldOut) {
+      toast.error(t('tables.soldOutNotice'));
+      setSubmitting(false);
+      return;
+    }
+
     if (zoneFull) {
       toast.error(
         t('tableCheckout.zoneFull') ||
@@ -1056,7 +1078,7 @@ export default function TableCheckout() {
                   currentPackName={pack.name}
                   currentPackId={pack.id}
                   zones={allZones}
-                  packsByZone={packsByZone}
+                  packsByZone={sellablePacksByZone}
                   guestCount={guestCount}
                   onSelectZone={handleZoneChange}
                   targetTable={upsellTable}
@@ -1164,12 +1186,14 @@ export default function TableCheckout() {
             </div>
             <button
               onClick={handleSubmit}
-              disabled={submitting || zoneFull}
+              disabled={submitting || zoneFull || packSoldOut}
               className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 flex items-center"
               style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
             >
               {submitting ? (
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : packSoldOut ? (
+                <>{t('tables.soldOut')}</>
               ) : zoneFull ? (
                 <>{t('tableCheckout.zoneFullShort') || 'Zone complète'}</>
               ) : (

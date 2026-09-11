@@ -27,6 +27,7 @@ import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { VenueFloorPlan } from '@/types';
 import { useEventScarcity, type ScarcitySettings } from '@/hooks/useScarcitySettings';
 import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { isPackSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -73,6 +74,8 @@ export default function TicketSelection() {
     waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
     alcoholFree?: boolean; maxTicketsPerPerson?: number | null; salePasswordEnabled?: boolean;
     isBde?: boolean;
+    /** « Complet » posé à la main sur cette soirée — voir lib/soldOut.ts. */
+    soldOut?: SoldOutFlags;
   } | null>(null);
   const [hasPresaleAccess, setHasPresaleAccess] = useState(false);
   // Password-gated sale: unlocked state is per-event, persisted for the session.
@@ -87,7 +90,7 @@ export default function TicketSelection() {
   const [, setNowTick] = useState(Date.now());
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
-  const [guestList, setGuestList] = useState<{ id: string; quota: number | null; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; showRemaining: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
+  const [guestList, setGuestList] = useState<{ id: string; quota: number | null; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; showRemaining: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number; soldOut: boolean } | null>(null);
   // A DJ's personal guest list, surfaced ONLY when the visitor arrives with the
   // DJ's private link (?dj=<share_token>) — invisible to the general public.
   const [djGuestList, setDjGuestList] = useState<{ shareToken: string; freeBeforeTime: string; includesDrink: boolean; djName: string } | null>(null);
@@ -143,7 +146,7 @@ export default function TicketSelection() {
     try {
       const { data: ev, error } = await supabase
         .from('events')
-        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled')
+        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -168,6 +171,12 @@ export default function TicketSelection() {
         isBde: ev.is_bde ?? false,
         maxTicketsPerPerson: ev.max_tickets_per_person ?? null,
         salePasswordEnabled: ev.sale_password_enabled ?? false,
+        soldOut: {
+          ticketsSoldOut: !!ev.tickets_sold_out,
+          tablesSoldOut: !!ev.tables_sold_out,
+          guestListSoldOut: !!ev.guest_list_sold_out,
+          soldOutPackIds: (ev.sold_out_pack_ids as string[] | null) ?? [],
+        } as SoldOutFlags,
       };
       setEventData(evData);
 
@@ -279,7 +288,7 @@ export default function TicketSelection() {
         }
       }
 
-      const { data: glRows } = await supabase.from('guest_lists').select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, visible_on_club_page, holder_type')
+      const { data: glRows } = await supabase.from('guest_lists').select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, visible_on_club_page, holder_type, manually_sold_out')
         .eq('event_id', eventId!).eq('is_active', true).eq('visible_on_club_page', true);
       // La liste club est prioritaire ; sinon on affiche la première part marquée
       // « publique » (une part déléguée dont le preset a choisi la visibilité publique).
@@ -295,7 +304,7 @@ export default function TicketSelection() {
           .rpc('get_guest_list_public_fill', { _guest_list_id: glData.id })
           .maybeSingle();
         const fill = fillRaw as { total_count: number; female_count: number; male_count: number } | null;
-        setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, showRemaining: glData.show_remaining ?? true, shareToken: glData.share_token, count: fill?.total_count || 0, femaleCount: fill?.female_count || 0, maleCount: fill?.male_count || 0 });
+        setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, showRemaining: glData.show_remaining ?? true, shareToken: glData.share_token, count: fill?.total_count || 0, femaleCount: fill?.female_count || 0, maleCount: fill?.male_count || 0, soldOut: !!glData.manually_sold_out });
       }
 
       // DJ guest list via private link (?dj=<share_token>). Resolved by a SECURITY
@@ -347,7 +356,10 @@ export default function TicketSelection() {
   const simpleGlobalSoldOut = isSimple && eventData?.maxTickets ? totalSoldAllRounds >= eventData.maxTickets : false;
   // Un round est épuisé s'il a atteint sa capacité OU s'il a été marqué épuisé manuellement.
   const isRoundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
-  const allRoundsSoldOut = simpleGlobalSoldOut || (ticketRounds.length > 0 && ticketRounds.every(isRoundSoldOut));
+  // « Complet » posé sur TOUTE la billetterie de la soirée : même effet qu'un
+  // épuisement organique, sans refermer aucun palier (donc réversible d'un clic).
+  const soldOutFlagsEv: SoldOutFlags = eventData?.soldOut ?? { ticketsSoldOut: false, tablesSoldOut: false, guestListSoldOut: false, soldOutPackIds: [] };
+  const allRoundsSoldOut = soldOutFlagsEv.ticketsSoldOut || simpleGlobalSoldOut || (ticketRounds.length > 0 && ticketRounds.every(isRoundSoldOut));
   const rawSalesStatus = eventData
     ? getEventSalesStatus({ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled, endAt: eventData.endAt }, allRoundsSoldOut)
     : 'public_sale' as const;
@@ -415,7 +427,7 @@ export default function TicketSelection() {
   // Tickets ⇄ Tables VIP quick-nav: only worth showing when the event sells both.
   const ticketsExist = salesIsOpen && !saleLocked && !paidBlocked && (standardRounds.length > 0 || vipRounds.length > 0);
   // Sans Stripe, seuls les packs « règlement sur place » restent proposés.
-  const sellablePacks = paidBlocked ? packs.filter(p => p.paymentMode === 'on_site') : packs;
+  const sellablePacks = (paidBlocked ? packs.filter(p => p.paymentMode === 'on_site') : packs);
   const tablesBlocked = paidBlocked && sellablePacks.length === 0;
   const tablesExist = salesIsOpen && !saleLocked && !tablesBlocked && zones.length > 0;
   const showSectionTabs = ticketsExist && tablesExist;
@@ -729,6 +741,9 @@ export default function TicketSelection() {
           // le compteur brut suit `show_remaining` de la part, comme avant.
           const signal = (capKey: string, quota: number | null, count: number) =>
             guestListScarcity(scarcitySettings, { capKey, quota, count, showRemaining: guestList.showRemaining });
+          // Liste fermée à la main (toute la soirée, ou cette part) : elle reste
+          // affichée, marquée « Complet » — c'est le signal que la soirée marche.
+          const glClosed = soldOutFlagsEv.guestListSoldOut || guestList.soldOut;
           const cards: { gender?: 'female' | 'male'; label: string; symbol: string; isFull: boolean; badge: { label: string; emoji: boolean } | null; counter: number | null }[] = hasSplit
             ? [
                 ...(guestList.quotaFemale && guestList.quotaFemale > 0
@@ -740,14 +755,16 @@ export default function TicketSelection() {
               ]
             : [{ label: t('guestList.title'), symbol: '', ...signal(guestList.id, guestList.quota, guestList.count) }];
 
-          // Hide the section only when every card is full.
-          if (cards.every(c => c.isFull)) return null;
+          // Une liste pleine d'elle-même disparaît (comportement historique) ; une
+          // liste FERMÉE À LA MAIN reste et affiche « Complet » : le club a choisi
+          // de le dire, pas de faire disparaître son offre.
+          if (!glClosed && cards.every(c => c.isFull)) return null;
 
           return (
             <>
               <SectionDivider icon={<Users className="h-2.5 w-2.5" />} label={t('guestList.title')} />
               {cards.map(c => {
-                const isFull = c.isFull;
+                const isFull = c.isFull || glClosed;
                 const selId = c.gender ? `${guestList.id}:${c.gender}` : guestList.id;
                 const isSel = selection?.type === 'guestlist' && selection.id === selId;
                 return (
@@ -814,7 +831,7 @@ export default function TicketSelection() {
 
         {/* DJ GUEST LIST — only rendered when ?dj=<token> resolved a DJ's personal
             list. Routes straight to the standalone signup (resolves by token). */}
-        {salesIsOpen && !saleLocked && djGuestList && (
+        {salesIsOpen && !saleLocked && djGuestList && !soldOutFlagsEv.guestListSoldOut && (
           <>
             <SectionDivider icon={<Music className="h-2.5 w-2.5" />} label={t('guestList.dj.guestOf').replace('{name}', djGuestList.djName)} />
             <button
@@ -863,7 +880,11 @@ export default function TicketSelection() {
                     {sortedZones.map(zone => {
                       const reserved = reservationsByZone[zone.id] || 0;
                       const remaining = zone.tablesCount - reserved;
-                      const isSoldOut = remaining <= 0;
+                      // Zone complète : plus de table libre, OU toutes ses formules
+                      // sont marquées complètes à la main pour cette soirée.
+                      const zonePackIds = sellablePacks.filter(p => p.zoneId === zone.id).map(p => p.id);
+                      const isSoldOut = remaining <= 0
+                        || (zonePackIds.length > 0 && zonePackIds.every(id => isPackSoldOut(soldOutFlagsEv, id)));
                       const isActive = selectedZoneId === zone.id;
                       return (
                         <button
@@ -903,7 +924,7 @@ export default function TicketSelection() {
                   // Formule plafonnée : son propre reste, en plus de celui de la zone.
                   const packUsed = reservationsByPack[pack.id] || 0;
                   const packRemaining = pack.limitTables && pack.tablesCount > 0 ? pack.tablesCount - packUsed : remaining;
-                  const packSoldOut = isSoldOut || packRemaining <= 0;
+                  const packSoldOut = isSoldOut || packRemaining <= 0 || isPackSoldOut(soldOutFlagsEv, pack.id);
                   return (
                   <PackCard
                     key={pack.id}

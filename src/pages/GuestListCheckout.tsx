@@ -37,6 +37,7 @@ import { Wordmark } from '@/components/brand/Wordmark';
 import { GuestListCheckoutSkeleton } from '@/components/skeletons/GuestListCheckoutSkeleton';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
 import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { soldOutFlags, isGuestListSoldOut } from '@/lib/soldOut';
 
 interface GuestListInfo {
   id: string;
@@ -56,6 +57,8 @@ interface GuestListInfo {
   venueName: string;
   /** Pays où se déroule la soirée — indicatif par défaut du champ téléphone. */
   phoneCountry: string | null;
+  /** « Complet » posé à la main — toute la soirée, ou cette part (lib/soldOut.ts). */
+  soldOut: boolean;
 }
 
 /**
@@ -235,7 +238,7 @@ export default function GuestListCheckout() {
       // Public-only gate: a direct URL must point at a list the club chose to show.
       const { data: glRows, error: glError } = await supabase
         .from('guest_lists')
-        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city)')
+        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, manually_sold_out, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_city, guest_list_sold_out)')
         .eq('event_id', eventId)
         .eq('is_active', true)
         .eq('visible_on_club_page', true);
@@ -280,6 +283,7 @@ export default function GuestListCheckout() {
       }
 
       setGuestList({
+        soldOut: isGuestListSoldOut(soldOutFlags(ev), gl),
         id: gl.id,
         quota: gl.quota,
         quotaFemale: gl.quota_female,
@@ -568,7 +572,8 @@ export default function GuestListCheckout() {
   const effectiveCount = genderParam ? genderCount : entriesCount;
   // Convention quota NULL = illimité : jamais plein, aucun « restantes » à montrer
   // (sans ce garde, quota - count donnait NaN dans le compteur).
-  const isFull = (effectiveQuota !== null && effectiveCount >= effectiveQuota)
+  const isFull = guestList.soldOut
+    || (effectiveQuota !== null && effectiveCount >= effectiveQuota)
     || (guestList.quota !== null && entriesCount >= guestList.quota);
   const caps = [
     effectiveQuota !== null ? effectiveQuota - effectiveCount : null,
