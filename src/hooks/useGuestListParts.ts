@@ -39,6 +39,10 @@ export interface Part {
   /** Affiche le compteur « X places restantes » sur les pages publiques. */
   show_remaining: boolean;
   is_active: boolean;
+  /** « Complet » posé à la main sur CETTE part : plus aucune inscription en
+   *  libre-service (lien public, lien de part, lien nominatif), mais la part
+   *  reste active et ses invités restent gérables. Voir lib/soldOut.ts. */
+  manually_sold_out: boolean;
   share_token: string;
   created_at: string;
   /** Resolved holder name for dj/promoter parts (club/custom resolve in the UI). */
@@ -64,7 +68,7 @@ export interface PartScopeCtx {
   organizerUserId: string | null;
 }
 
-const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, agency_id, venue_id, organizer_user_id, agency_distribution_mode, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, entry_kind, public_entry_types, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, share_token, created_at';
+const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, agency_id, venue_id, organizer_user_id, agency_distribution_mode, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, entry_kind, public_entry_types, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, manually_sold_out, share_token, created_at';
 
 // Club part first, then by creation order — the host list always leads the stack.
 function orderParts(a: Part, b: Part) {
@@ -259,6 +263,14 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
     await load();
   }, [load]);
 
+  // « Complet » d'une part : enregistré au clic, hors du formulaire (comme la
+  // visibilité), parce qu'on le bascule un soir de rush, pas en configurant.
+  const setSoldOut = useCallback(async (id: string, soldOut: boolean) => {
+    const { error } = await supabase.from('guest_lists').update({ manually_sold_out: soldOut }).eq('id', id);
+    if (error) throw error;
+    setParts(prev => prev.map(p => p.id === id ? { ...p, manually_sold_out: soldOut } : p));
+  }, []);
+
   const setActive = useCallback(async (id: string, active: boolean) => {
     const { error } = await supabase.from('guest_lists').update({ is_active: active }).eq('id', id);
     if (error) throw error;
@@ -268,6 +280,6 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   return {
     parts, entriesByPart, loading, reload: load,
     createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart,
-    updatePart, deletePart, setActive,
+    updatePart, deletePart, setActive, setSoldOut,
   };
 }

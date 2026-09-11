@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash2, CheckCircle, ChevronDown, Ticket, Crown, Hash, Building2, Infinity as InfinityIcon } from 'lucide-react';
+import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash2, CheckCircle, ChevronDown, Ticket, Crown, Hash, Building2, Ban, Infinity as InfinityIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Part, PartEntry, HolderType } from '@/hooks/useGuestListParts';
 import { buildShareLink } from '@/lib/guestListShare';
@@ -29,6 +29,8 @@ interface PartCardProps {
   onUpdate?: (id: string, payload: Record<string, unknown>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onToggleActive?: (id: string, active: boolean) => Promise<void>;
+  /** Bascule « Complet » de la part — voir lib/soldOut.ts. */
+  onToggleSoldOut?: (id: string, soldOut: boolean) => Promise<void>;
   onSaveAsPreset?: (config: Record<string, unknown>, holderType: HolderType) => void;
   defaultOpen?: boolean;
   /** Quota fixé par le club (part d'allocation de l'orga) : on le montre, on ne
@@ -42,7 +44,7 @@ interface PartCardProps {
   trackedOrganizerUserId?: string | null;
 }
 
-export function PartCard({ part, holderType, displayName, entries, slug, eventId, t, onCreate, onUpdate, onDelete, onToggleActive, onSaveAsPreset, defaultOpen, quotaLocked = false, trackedVenueId, trackedOrganizerUserId }: PartCardProps) {
+export function PartCard({ part, holderType, displayName, entries, slug, eventId, t, onCreate, onUpdate, onDelete, onToggleActive, onToggleSoldOut, onSaveAsPreset, defaultOpen, quotaLocked = false, trackedVenueId, trackedOrganizerUserId }: PartCardProps) {
   const isClub = holderType === 'club';
   const Icon = HOLDER_ICON[holderType];
 
@@ -50,6 +52,8 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const [saving, setSaving] = useState(false);
   const [addGuestOpen, setAddGuestOpen] = useState(false);
   const [visSaving, setVisSaving] = useState(false);
+  const [soldOutSaving, setSoldOutSaving] = useState(false);
+  const [soldOut, setSoldOut] = useState(part?.manually_sold_out ?? false);
 
   const [quota, setQuota] = useState(part?.quota ?? (isClub ? 100 : 20));
   // quota NULL = part illimitée (déléguées uniquement).
@@ -88,11 +92,12 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
     setIncludesDrink(part?.includes_drink ?? false);
     setVisibleOnClubPage(part?.visible_on_club_page ?? isClub);
     setShowRemaining(part?.show_remaining ?? true);
+    setSoldOut(part?.manually_sold_out ?? false);
     setEnableGenderQuota((part?.quota_female ?? null) !== null || (part?.quota_male ?? null) !== null);
     setQuotaFemale(part?.quota_female ?? 70);
     setQuotaMale(part?.quota_male ?? 30);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [part?.id, part?.quota, part?.quota_normal, part?.quota_drink, part?.quota_table, part?.quota_female, part?.quota_male, part?.free_before_time, part?.entry_deadline, part?.includes_drink, part?.visible_on_club_page, part?.show_remaining]);
+  }, [part?.id, part?.quota, part?.quota_normal, part?.quota_drink, part?.quota_table, part?.quota_female, part?.quota_male, part?.free_before_time, part?.entry_deadline, part?.includes_drink, part?.visible_on_club_page, part?.show_remaining, part?.manually_sold_out]);
 
   // Delegated parts allocate per type; the club keeps a single editable quota.
   const perTypeTotal = qNormal + qDrink + qTable;
@@ -167,6 +172,24 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
     }
   };
 
+  // « Complet » : enregistré au clic comme la visibilité — c'est un geste de
+  // soirée, pas un réglage. La part reste active : ses invités déjà inscrits
+  // restent scannables, le club peut toujours en ajouter à la main.
+  const toggleSoldOut = async (v: boolean) => {
+    if (!part || !onToggleSoldOut) { setSoldOut(v); return; }
+    setSoldOut(v);
+    setSoldOutSaving(true);
+    try {
+      await onToggleSoldOut(part.id, v);
+      toast.success(v ? t('soldOut.marked') : t('soldOut.cleared'));
+    } catch (e) {
+      setSoldOut(!v);
+      toast.error(e instanceof Error ? e.message : t('guestList.saveError'));
+    } finally {
+      setSoldOutSaving(false);
+    }
+  };
+
   const shareLink = (gender?: 'female' | 'male') =>
     part ? buildShareLink({ slug, eventId, token: part.share_token, gender }) : '';
   const copy = (gender?: 'female' | 'male') => { navigator.clipboard.writeText(shareLink(gender)); toast.success(t('common.copied')); };
@@ -186,7 +209,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
             <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{displayName}</p>
             <p style={{ color: T3, fontSize: 11, margin: 0 }}>
               {isClub ? t('guestList.holderType.house') : t(`guestList.holderType.${holderType}`)}
-              {part && <> · {activeEntries.length}/{part.quota ?? '∞'}{full && <span style={{ color: NEG, fontWeight: 600 }}> · {t('guestList.quotaFull')}</span>}</>}
+              {part && <> · {activeEntries.length}/{part.quota ?? '∞'}{full && <span style={{ color: NEG, fontWeight: 600 }}> · {t('guestList.quotaFull')}</span>}{soldOut && <span style={{ color: NEG, fontWeight: 600 }}> · {t('tables.soldOut')}</span>}</>}
             </p>
           </div>
         </button>
@@ -212,6 +235,23 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
           </div>
           <p style={{ color: T3, fontSize: 11, marginTop: 4, marginBottom: 0 }}>
             {visibleOnClubPage ? t('guestList.parts.visibleHintOn') : t('guestList.parts.visibleHintOff')}
+          </p>
+        </div>
+      )}
+
+      {/* Complet — ferme les inscriptions de CETTE part sans la désactiver :
+          la liste reste visible et marquée « Complet », les invités déjà
+          inscrits restent scannables, le club peut toujours ajouter à la main. */}
+      {part && onToggleSoldOut && (
+        <div className="mt-2" style={{ padding: '10px 12px', borderRadius: 12, background: soldOut ? 'rgba(232,25,44,0.07)' : INNER_BG, border: `1px solid ${soldOut ? 'rgba(232,25,44,0.28)' : BORDER}` }}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2" style={{ color: soldOut ? '#ff5d68' : T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
+              <Ban className="h-4 w-4" style={{ color: soldOut ? '#ff5d68' : T3 }} />{t('soldOut.title')}
+            </p>
+            <YunoSwitch checked={soldOut} onChange={toggleSoldOut} disabled={soldOutSaving} />
+          </div>
+          <p style={{ color: T3, fontSize: 11, marginTop: 4, marginBottom: 0 }}>
+            {soldOut ? t('soldOut.partHintOn') : t('soldOut.partHintOff')}
           </p>
         </div>
       )}

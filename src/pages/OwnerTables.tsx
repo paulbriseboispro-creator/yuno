@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Package, Layers, Save, FolderOpen, Zap, Calendar, Check, LayoutGrid, Clock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Layers, Save, FolderOpen, Zap, Calendar, Check, LayoutGrid, Clock, Ban } from 'lucide-react';
 import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -70,7 +70,7 @@ export default function OwnerTables() {
   const { venueId, loading: venueLoading } = useVenueContext();
   const { isReadOnly: collabReadOnly } = useCollabReadOnly();
 
-  const [events, setEvents] = useState<(Event & { tablesEnabled: boolean })[]>([]);
+  const [events, setEvents] = useState<(Event & { tablesEnabled: boolean; tablesSoldOut: boolean; soldOutPackIds: string[] })[]>([]);
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
   const [presets, setPresets] = useState<TablePackPreset[]>([]);
@@ -157,7 +157,7 @@ export default function OwnerTables() {
     try {
       const { data, error } = await supabase.from('events').select('*').or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`).gte('end_at', nowInParis().toISOString()).order('start_at', { ascending: true });
       if (error) throw error;
-      setEvents((data || []).map(ev => ({ id: ev.id, venueId: ev.venue_id, title: ev.title, description: ev.description || undefined, startAt: ev.start_at, endAt: ev.end_at, isActive: ev.is_active, tablesEnabled: ev.tables_enabled, isCoEventPartner: ev.venue_id !== venueId && ev.partner_venue_id === venueId, createdAt: ev.created_at, updatedAt: ev.updated_at })));
+      setEvents((data || []).map(ev => ({ id: ev.id, venueId: ev.venue_id, title: ev.title, description: ev.description || undefined, startAt: ev.start_at, endAt: ev.end_at, isActive: ev.is_active, tablesEnabled: ev.tables_enabled, tablesSoldOut: !!ev.tables_sold_out, soldOutPackIds: (ev.sold_out_pack_ids as string[] | null) ?? [], isCoEventPartner: ev.venue_id !== venueId && ev.partner_venue_id === venueId, createdAt: ev.created_at, updatedAt: ev.updated_at })));
     } catch { toast.error(t('tables.errorLoading')); }
     finally { setLoading(false); }
   };
@@ -208,6 +208,32 @@ export default function OwnerTables() {
       if (error) throw error;
       toast.success(event.tablesEnabled ? t('tables.tablesDisabled') : t('tables.tablesEnabled'));
       fetchEvents();
+    } catch { toast.error(t('tables.errorSaving')); }
+  };
+
+  // « Complet » des tables, POUR CETTE SOIRÉE. Les formules d'un club sont
+  // venue-scopées (elles servent toutes ses soirées) : la liste des formules
+  // complètes vit donc sur l'événement, jamais sur `table_packs`. Marquer
+  // « toutes » remet la liste par formule à plat — un seul état à lire.
+  const handleToggleEventTablesSoldOut = async (event: { id: string; tablesSoldOut: boolean }) => {
+    const next = !event.tablesSoldOut;
+    try {
+      const { error } = await supabase.from('events')
+        .update({ tables_sold_out: next, ...(next ? { sold_out_pack_ids: [] } : {}) })
+        .eq('id', event.id);
+      if (error) throw error;
+      toast.success(next ? t('soldOut.marked') : t('soldOut.cleared'));
+      fetchEvents();
+    } catch { toast.error(t('tables.errorSaving')); }
+  };
+
+  const handleTogglePackSoldOut = async (event: { id: string; soldOutPackIds: string[] }, packId: string) => {
+    const current = event.soldOutPackIds ?? [];
+    const next = current.includes(packId) ? current.filter(id => id !== packId) : [...current, packId];
+    try {
+      const { error } = await supabase.from('events').update({ sold_out_pack_ids: next }).eq('id', event.id);
+      if (error) throw error;
+      setEvents(prev => prev.map(e => e.id === event.id ? { ...e, soldOutPackIds: next } : e));
     } catch { toast.error(t('tables.errorSaving')); }
   };
 
@@ -448,6 +474,33 @@ export default function OwnerTables() {
                           )}
                         </div>
                       </div>
+
+                      {/* Complet — par soirée. La vente reste en ligne, la page
+                          publique affiche « Complet ». « Toutes les tables »
+                          prime sur le détail par formule : un seul état à lire. */}
+                      {ev.tablesEnabled && packs.filter(p => p.isActive).length > 0 && (
+                        <div className="mt-3 pt-3 flex flex-wrap items-center gap-1.5" style={{ borderTop: `1px solid ${BORDER}` }}>
+                          <span className="inline-flex items-center gap-1" style={{ color: T3, fontSize: 11 }}>
+                            <Ban className="w-3 h-3" />{t('soldOut.markAs')}
+                          </span>
+                          <button type="button" onClick={() => handleToggleEventTablesSoldOut(ev)}
+                            title={ev.tablesSoldOut ? t('soldOut.reopenHint') : t('soldOut.closeHint')}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
+                            style={{ background: ev.tablesSoldOut ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${ev.tablesSoldOut ? 'rgba(232,25,44,0.45)' : BORDER}`, color: ev.tablesSoldOut ? '#FF7A82' : T3, fontSize: 11.5, fontWeight: 600 }}>
+                            {ev.tablesSoldOut && <Check className="w-3 h-3" />}{t('soldOut.allTables')}
+                          </button>
+                          {!ev.tablesSoldOut && packs.filter(p => p.isActive).map(pk => {
+                            const out = (ev.soldOutPackIds ?? []).includes(pk.id);
+                            return (
+                              <button key={pk.id} type="button" onClick={() => handleTogglePackSoldOut(ev, pk.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
+                                style={{ background: out ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${out ? 'rgba(232,25,44,0.45)' : BORDER}`, color: out ? '#FF7A82' : T3, fontSize: 11.5, fontWeight: 600 }}>
+                                {out && <Check className="w-3 h-3" />}{pk.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}

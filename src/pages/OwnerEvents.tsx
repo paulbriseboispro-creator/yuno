@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, type LucideIcon } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -232,6 +232,9 @@ export default function OwnerEvents() {
         ticketingEnabled: event.ticketing_enabled ?? false,
         tablesEnabled: event.tables_enabled ?? false,
         guestListEnabled: false,
+        ticketsSoldOut: event.tickets_sold_out ?? false,
+        tablesSoldOut: event.tables_sold_out ?? false,
+        guestListSoldOut: event.guest_list_sold_out ?? false,
         ticketSellingMode: event.ticket_selling_mode || 'rounds',
         roundsCount: 0,
       }));
@@ -667,6 +670,28 @@ export default function OwnerEvents() {
 
   // Toggle ticketing. Returns false when activation needs a preset (no rounds yet)
   // so the card can open its inline preset picker instead.
+  // « Complet » d'un pilier, depuis la fiche de la soirée. Ce n'est PAS la
+  // bascule de vente juste au-dessus : la billetterie / les tables / la liste
+  // restent en ligne et affichées, elles ne se vendent plus. Réversible d'un clic
+  // (aucun palier refermé, aucune formule désactivée), et le réglage fin
+  // (formule par formule, part par part) vit dans les pages Tables et Guest list.
+  const handleToggleSoldOut = async (event: OwnerEventRow, pillar: 'tickets' | 'tables' | 'guestList') => {
+    const column = pillar === 'tickets' ? 'tickets_sold_out' : pillar === 'tables' ? 'tables_sold_out' : 'guest_list_sold_out';
+    const current = pillar === 'tickets' ? !!event.ticketsSoldOut : pillar === 'tables' ? !!event.tablesSoldOut : !!event.guestListSoldOut;
+    const next = !current;
+    try {
+      const { error } = await supabase.from('events').update({ [column]: next } as TablesUpdate<'events'>).eq('id', event.id);
+      if (error) throw error;
+      setEvents(prev => prev.map(e => e.id === event.id
+        ? { ...e, ...(pillar === 'tickets' ? { ticketsSoldOut: next } : pillar === 'tables' ? { tablesSoldOut: next } : { guestListSoldOut: next }) }
+        : e));
+      toast.success(next ? t('soldOut.marked') : t('soldOut.cleared'));
+    } catch (e) {
+      console.error('Error toggling sold out:', e);
+      toast.error(t('owner.ev.saveError'));
+    }
+  };
+
   const handleToggleTicketing = async (event: OwnerEventRow): Promise<boolean> => {
     // Putting tickets on sale requires the organizer's Stripe account to be able to charge,
     // otherwise buyers reach a checkout that cannot collect money. Turning sales OFF is always allowed.
@@ -1015,6 +1040,7 @@ export default function OwnerEvents() {
                       onToggleTicketing={() => handleToggleTicketing(event)}
                       onToggleTables={() => handleToggleTables(event)}
                       onToggleGuestList={() => handleToggleGuestList(event)}
+                      onToggleSoldOut={(pillar) => handleToggleSoldOut(event, pillar)}
                       onApplyPreset={(preset) => handleApplyPresetAndPublish(event, preset)}
                       onApplyGuestListPreset={(tpl) => handleApplyGuestListPresetAndPublish(event, tpl)}
                       presets={presets}
@@ -1538,7 +1564,7 @@ const BORDER_C  = 'rgba(255,255,255,0.085)';
 const CARD_BG_C = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW_C = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onApplyPreset, onApplyGuestListPreset, presets, guestPresets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
+function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onToggleSoldOut, onApplyPreset, onApplyGuestListPreset, presets, guestPresets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
   event: OwnerEventRow;
   onEdit: () => void;
   onDelete: () => void;
@@ -1546,6 +1572,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   onToggleTicketing: () => Promise<boolean>;
   onToggleTables: () => Promise<boolean>;
   onToggleGuestList: () => Promise<boolean>;
+  onToggleSoldOut: (pillar: 'tickets' | 'tables' | 'guestList') => Promise<void>;
   onApplyPreset: (preset: VenuePreset) => void;
   onApplyGuestListPreset: (tpl: GuestPreset) => void;
   presets: VenuePreset[];
@@ -1718,6 +1745,42 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <Switch checked={!!event.guestListEnabled} onCheckedChange={handleGuestListClick} />
             </div>
           </div>
+
+          {/* « Complet » — même endroit que la mise en ligne, parce que c'est le
+              même geste un soir de rush : fermer un pilier sans dépublier la
+              soirée. La page publique continue d'afficher l'offre, marquée
+              complète. Le réglage fin (formule par formule, part par part) vit
+              dans les pages Tables VIP et Guest list. */}
+          {(event.ticketingEnabled || event.tablesEnabled || event.guestListEnabled) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1" style={{ color: T3_C, fontSize: 11 }}>
+                <Ban className="w-3 h-3" />{t('soldOut.markAs')}
+              </span>
+              {([
+                { key: 'tickets' as const, on: !!event.ticketingEnabled, out: !!event.ticketsSoldOut, label: t('owner.ev.ticketing') },
+                { key: 'tables' as const, on: !!event.tablesEnabled, out: !!event.tablesSoldOut, label: t('owner.ev.tablesVip') },
+                { key: 'guestList' as const, on: !!event.guestListEnabled, out: !!event.guestListSoldOut, label: t('owner.ev.guestList') },
+              ]).filter(p => p.on).map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => onToggleSoldOut(p.key)}
+                  title={p.out ? t('soldOut.reopenHint') : t('soldOut.closeHint')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
+                  style={{
+                    background: p.out ? 'rgba(232,25,44,0.14)' : C_FAINT_C,
+                    border: `1px solid ${p.out ? 'rgba(232,25,44,0.45)' : BORDER_C}`,
+                    color: p.out ? '#FF7A82' : T3_C,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  {p.out && <Check className="w-3 h-3" />}
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Inline preset picker — appears when publishing tickets with no rounds yet */}
           <AnimatePresence>

@@ -102,7 +102,7 @@ export default function OwnerGuestList() {
   const ctx = { isOrganizerScope, venueId: venueId ?? null, organizerUserId: organizerUserId ?? null };
   const {
     parts, entriesByPart, loading, reload,
-    createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart, updatePart, deletePart, setActive,
+    createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart, updatePart, deletePart, setActive, setSoldOut,
   } = useGuestListParts(selectedEventId, ctx);
   const { templates, createTemplate, updateTemplate, deleteTemplate } = useGuestListTemplates(ctx);
 
@@ -318,6 +318,7 @@ export default function OwnerGuestList() {
                     t={t}
                     onUpdate={updatePart}
                     onToggleActive={setActive}
+                    onToggleSoldOut={setSoldOut}
                     quotaLocked
                     trackedOrganizerUserId={organizerUserId ?? null}
                   />
@@ -358,6 +359,7 @@ export default function OwnerGuestList() {
                 onCreate={createClubPart}
                 onUpdate={updatePart}
                 onToggleActive={setActive}
+                onToggleSoldOut={setSoldOut}
                 onSaveAsPreset={openPresetFromConfig}
                 defaultOpen={!clubPart}
                 trackedVenueId={isOrganizerScope ? null : venueId ?? null}
@@ -379,6 +381,7 @@ export default function OwnerGuestList() {
                 onUpdate={updatePart}
                 onDelete={deletePart}
                 onToggleActive={setActive}
+                onToggleSoldOut={setSoldOut}
                 onSaveAsPreset={openPresetFromConfig}
               />
             ))}

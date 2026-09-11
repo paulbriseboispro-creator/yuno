@@ -13,6 +13,11 @@ export type OwnerEventRow = Event & {
   ticketingEnabled?: boolean;
   tablesEnabled?: boolean;
   guestListEnabled?: boolean;
+  /** « Complet » posé à la main sur un pilier de cette soirée (voir lib/soldOut.ts).
+   *  Ce n'est pas `…Enabled = false` : l'offre reste affichée, elle ne se vend plus. */
+  ticketsSoldOut?: boolean;
+  tablesSoldOut?: boolean;
+  guestListSoldOut?: boolean;
   ticketSellingMode?: string;
   roundsCount?: number;
   /** Organizer private events: their only shareable URL is the direct link, surfaced on the card. */

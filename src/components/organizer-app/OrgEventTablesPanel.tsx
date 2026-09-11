@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2, Ruler } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2, Ruler, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
@@ -89,6 +89,11 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
   const [loading, setLoading] = useState(true);
   const [tablesEnabled, setTablesEnabled] = useState(false);
+  // « Complet » de cette soirée : toutes les tables, ou certaines formules.
+  // La liste vit sur l'ÉVÉNEMENT (jamais sur table_packs) — même mécanique que
+  // pour un club, dont les formules sont partagées entre ses soirées.
+  const [tablesSoldOut, setTablesSoldOut] = useState(false);
+  const [soldOutPackIds, setSoldOutPackIds] = useState<string[]>([]);
   const [tablesMode, setTablesMode] = useState<string | null>(null);
   const [tablesOwnerId, setTablesOwnerId] = useState<string | null>(null);
   const [eventMode, setEventMode] = useState<string | null>(null);
@@ -171,7 +176,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     setLoading(true);
     try {
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
-        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name').eq('id', eventId).maybeSingle(),
+        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name, tables_sold_out, sold_out_pack_ids').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
@@ -180,6 +185,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       setRooms((rms ?? []) as VipRoomOption[]);
       if (!saveRoomName) setSaveRoomName(ev?.location_name ?? '');
       setTablesEnabled(!!ev?.tables_enabled);
+      setTablesSoldOut(!!ev?.tables_sold_out);
+      setSoldOutPackIds((ev?.sold_out_pack_ids as string[] | null) ?? []);
       setTablesMode(ev?.tables_mode ?? null);
       setTablesOwnerId(ev?.tables_owner_user_id ?? null);
       setEventMode(ev?.event_mode ?? null);
@@ -510,6 +517,29 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   }
 
   // ── Résumé (page de la soirée) : état, interrupteur, liens. Pas d'argent. ──
+  // « Complet » — la vente reste en ligne, la page de la soirée affiche
+  // « Complet ». « Toutes les tables » prime sur le détail par formule.
+  const toggleTablesSoldOut = async () => {
+    const next = !tablesSoldOut;
+    const { error } = await supabase.from('events')
+      .update({ tables_sold_out: next, ...(next ? { sold_out_pack_ids: [] } : {}) })
+      .eq('id', eventId);
+    if (error) { toast.error(error.message); return; }
+    setTablesSoldOut(next);
+    if (next) setSoldOutPackIds([]);
+    toast.success(next ? tt('Tables marquées complètes.', 'Tables marked sold out.', 'Mesas marcadas como agotadas.')
+                       : tt('Tables rouvertes à la vente.', 'Tables back on sale.', 'Mesas de nuevo a la venta.'));
+  };
+
+  const togglePackSoldOut = async (packId: string) => {
+    const next = soldOutPackIds.includes(packId)
+      ? soldOutPackIds.filter((id) => id !== packId)
+      : [...soldOutPackIds, packId];
+    const { error } = await supabase.from('events').update({ sold_out_pack_ids: next }).eq('id', eventId);
+    if (error) { toast.error(error.message); return; }
+    setSoldOutPackIds(next);
+  };
+
   if (variant === 'summary') {
     const statusLabel = !tablesEnabled
       ? tt('Non activées', 'Not enabled', 'No activadas')
@@ -801,7 +831,17 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       {/* PACKS */}
       {tab === 'packs' && (
         <div className="space-y-3 pt-4">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Complet — même geste que sur la fiche de la soirée, à portée de
+                main là où on règle les formules. */}
+            {tablesEnabled && packs.length > 0 ? (
+              <button type="button" onClick={toggleTablesSoldOut}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 transition-all duration-150"
+                style={{ background: tablesSoldOut ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${tablesSoldOut ? 'rgba(232,25,44,0.45)' : BORDER}`, color: tablesSoldOut ? '#FF7A82' : T3, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                <Ban className="h-3 w-3" />
+                {tt('Toutes les tables complètes', 'All tables sold out', 'Todas las mesas agotadas')}
+              </button>
+            ) : <span />}
             <OrgButton variant="primary" size="sm" onClick={() => openPackDialog(null)} disabled={zones.length === 0}>
               <Plus className="h-4 w-4" /> {tt('Nouveau pack', 'New pack', 'Nuevo pack')}
             </OrgButton>
@@ -832,7 +872,15 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                           : Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
+                      {tablesEnabled && !tablesSoldOut && (
+                        <button type="button" onClick={() => togglePackSoldOut(p.id)}
+                          title={tt('Marquer cette formule complète', 'Mark this pack sold out', 'Marcar este pack como agotado')}
+                          className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 transition-all duration-150"
+                          style={{ background: soldOutPackIds.includes(p.id) ? 'rgba(232,25,44,0.14)' : 'transparent', border: `1px solid ${soldOutPackIds.includes(p.id) ? 'rgba(232,25,44,0.45)' : BORDER}`, color: soldOutPackIds.includes(p.id) ? '#FF7A82' : T3, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                          <Ban className="h-3 w-3" />{tt('Complet', 'Sold out', 'Agotado')}
+                        </button>
+                      )}
                       <OrgButton variant="ghost" size="sm" className="!px-2" onClick={() => openPackDialog(p)}><Pencil className="h-4 w-4" /></OrgButton>
                       <OrgButton variant="ghost" size="sm" className="!px-2" onClick={() => deletePack(p.id)}><Trash2 className="h-4 w-4" style={{ color: RED_SOFT }} /></OrgButton>
                     </div>
