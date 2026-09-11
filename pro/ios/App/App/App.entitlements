@@ -8,5 +8,18 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Universal Links. Sans cet entitlement, l'app Pro ne pouvait revendiquer
+	     AUCUNE URL de yunoapp.eu : une invitation de videur envoyée par email
+	     ouvrait l'app CLIENT, qui n'a ni code PIN ni scan. Le fichier
+	     public/.well-known/apple-app-site-association lui attribue les chemins
+	     staff/pro ; cet entitlement est l'autre moitié du contrat, et il vit
+	     dans le BINAIRE — il n'arrive donc jamais par OTA. Prérequis côté
+	     Apple : la capacité « Associated Domains » activée sur l'App ID
+	     eu.yunoapp.pro, sinon la signature échoue. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:yunoapp.eu</string>
+		<string>webcredentials:yunoapp.eu</string>
+	</array>
 </dict>
 </plist>

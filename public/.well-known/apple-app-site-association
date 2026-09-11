@@ -1,20 +1,69 @@
 {
+  "_comment": "Deux apps partagent yunoapp.eu. Les chemins doivent rester DISJOINTS : quand deux entrées revendiquent la même URL, iOS choisit seule et on ne sait plus quelle app s'ouvre. Les surfaces staff/pro appartiennent à eu.yunoapp.pro (une invitation de videur n'a rien à faire dans l'app client) ; tout le reste est client. Les agendas publics ne s'ouvrent dans aucune app.",
   "applinks": {
     "apps": [],
     "details": [
       {
+        "appID": "A2WV4J86F9.eu.yunoapp.pro",
+        "comment": "App Yuno Pro — staff, organisateurs, clubs, promoteurs, agences.",
+        "components": [
+          { "/": "/accept-staff-invitation*", "comment": "Invitation de staff opérationnel (barman, videur, vestiaire, hôte VIP, manager)" },
+          { "/": "/setup-pin*", "comment": "Pose du code PIN de prise de poste" },
+          { "/": "/join/*", "comment": "Lien d'onboarding sans email" },
+          { "/": "/owner/*" },
+          { "/": "/manager/*" },
+          { "/": "/organizer-app/*" },
+          { "/": "/agency-app/*" },
+          { "/": "/affiliate/*" },
+          { "/": "/promoter/*" },
+          { "/": "/barman*" },
+          { "/": "/bouncer*" },
+          { "/": "/cloakroom*" },
+          { "/": "/vip-host*" },
+          { "/": "/admin/*" }
+        ],
+        "paths": [
+          "/accept-staff-invitation*", "/setup-pin*", "/join/*",
+          "/owner/*", "/manager/*", "/organizer-app/*", "/agency-app/*",
+          "/affiliate/*", "/promoter/*",
+          "/barman*", "/bouncer*", "/cloakroom*", "/vip-host*", "/admin/*"
+        ]
+      },
+      {
         "appID": "A2WV4J86F9.eu.yunoapp.app",
+        "comment": "App Yuno (client) — tout le reste, sauf les surfaces pro ci-dessus et les agendas publics.",
         "components": [
           { "/": "/promoteur/*/agenda", "exclude": true, "comment": "Agenda public promoteur — toujours ouvert dans le navigateur, jamais dans l'app" },
           { "/": "/p/*/agenda", "exclude": true, "comment": "Agenda public agence — toujours web" },
           { "/": "/promo/*/agenda", "exclude": true, "comment": "Agenda public promoteur d'agence — toujours web" },
+          { "/": "/accept-staff-invitation*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
+          { "/": "/setup-pin*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
+          { "/": "/join/*", "exclude": true, "comment": "Surface staff : appartient à Yuno Pro" },
+          { "/": "/owner/*", "exclude": true },
+          { "/": "/manager/*", "exclude": true },
+          { "/": "/organizer-app/*", "exclude": true },
+          { "/": "/agency-app/*", "exclude": true },
+          { "/": "/affiliate/*", "exclude": true },
+          { "/": "/promoter/*", "exclude": true },
+          { "/": "/barman*", "exclude": true },
+          { "/": "/bouncer*", "exclude": true },
+          { "/": "/cloakroom*", "exclude": true },
+          { "/": "/vip-host*", "exclude": true },
+          { "/": "/admin/*", "exclude": true },
           { "/": "*" }
         ],
-        "paths": ["NOT /promoteur/*/agenda", "NOT /p/*/agenda", "NOT /promo/*/agenda", "*"]
+        "paths": [
+          "NOT /promoteur/*/agenda", "NOT /p/*/agenda", "NOT /promo/*/agenda",
+          "NOT /accept-staff-invitation*", "NOT /setup-pin*", "NOT /join/*",
+          "NOT /owner/*", "NOT /manager/*", "NOT /organizer-app/*", "NOT /agency-app/*",
+          "NOT /affiliate/*", "NOT /promoter/*",
+          "NOT /barman*", "NOT /bouncer*", "NOT /cloakroom*", "NOT /vip-host*", "NOT /admin/*",
+          "*"
+        ]
       }
     ]
   },
   "webcredentials": {
-    "apps": ["A2WV4J86F9.eu.yunoapp.app"]
+    "apps": ["A2WV4J86F9.eu.yunoapp.app", "A2WV4J86F9.eu.yunoapp.pro"]
   }
 }
