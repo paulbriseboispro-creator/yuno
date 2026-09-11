@@ -5,6 +5,7 @@
 // sans aucun achat obtient quand même un vecteur de goût dès le quiz.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { logAiUsage, sumUsage, type OpenAiUsage } from "./ai-usage.ts";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const BATCH_LIMIT = 50;
@@ -35,14 +36,19 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function embed(inputs: string[], openaiKey: string): Promise<(number[] | undefined)[]> {
+async function embed(inputs: string[], openaiKey: string, admin?: SupabaseClient): Promise<(number[] | undefined)[]> {
+  const startedAt = Date.now();
   const response = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input: inputs }),
   });
-  if (!response.ok) throw new Error(`Embeddings API error: ${response.status}`);
-  const result = (await response.json()) as { data?: { embedding?: number[] }[] };
+  if (!response.ok) {
+    if (admin) logAiUsage(admin, { assistant: 'embeddings', model: EMBEDDING_MODEL, status: response.status === 429 ? 'rate_limited' : 'error', error: `embeddings ${response.status}`, latencyMs: Date.now() - startedAt, promptPreview: `taste batch ${inputs.length}` });
+    throw new Error(`Embeddings API error: ${response.status}`);
+  }
+  const result = (await response.json()) as { data?: { embedding?: number[] }[]; usage?: OpenAiUsage };
+  if (admin) logAiUsage(admin, { assistant: 'embeddings', model: EMBEDDING_MODEL, ...sumUsage(result.usage), latencyMs: Date.now() - startedAt, promptPreview: `taste batch ${inputs.length}` });
   return inputs.map((_, i) => result.data?.[i]?.embedding);
 }
 
@@ -96,7 +102,7 @@ export async function refreshTasteEmbeddings(
 
   if (!candidates.length) return { scanned: list.length, updated: 0 };
 
-  const vectors = await embed(candidates.map((c) => c.content), openaiKey);
+  const vectors = await embed(candidates.map((c) => c.content), openaiKey, admin);
 
   let updated = 0;
   for (let i = 0; i < candidates.length; i++) {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -820,6 +821,22 @@ serve(async (req) => {
 
     log("request_start", { agency_id: agencyId, msg_count: safeMessages.length });
 
+    // Suivi de consommation IA (super admin).
+    const startedAt = Date.now();
+    const chatUsage: AiUsageEvent = {
+      assistant: 'agency',
+      model: OPENAI_MODEL,
+      userId: user.id,
+      userEmail: user.email ?? null,
+      agencyId,
+      language: (req.headers.get("accept-language") || "").split(",")[0].slice(0, 2).toLowerCase() || null,
+      turnCount: safeMessages.length,
+      promptChars: systemPrompt.length + messagesChars(safeMessages),
+      promptPreview: lastUserPrompt(safeMessages),
+    };
+    const roundUsages: OpenAiUsage[] = [];
+    const calledTools: string[] = [];
+
     // ═══ Boucle multi-tours (max 3) — même mécanique qu'owner-assistant ═══
     const conversationMessages: any[] = [
       { role: "system", content: systemPrompt },
@@ -843,6 +860,10 @@ serve(async (req) => {
 
       if (!roundResponse.ok) {
         const status = roundResponse.status;
+        logAiUsage(supabase, {
+          ...chatUsage, ...sumUsage(...roundUsages), rounds: round + 1, toolCalls: calledTools,
+          status: status === 429 ? 'rate_limited' : 'error', error: `openai ${status}`, latencyMs: Date.now() - startedAt,
+        });
         if (status === 429) {
           return new Response(JSON.stringify({ error: "Rate limited" }), {
             status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -854,12 +875,17 @@ serve(async (req) => {
       }
 
       const roundResult = await roundResponse.json();
+      if (roundResult?.usage) roundUsages.push(roundResult.usage as OpenAiUsage);
       const choice = roundResult.choices?.[0];
 
       // Pas de tool call → réponse finale, emballée en SSE single-chunk.
       if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
         const finalContent = choice?.message?.content || "";
         log("final_answer", { round, content_length: finalContent.length });
+        logAiUsage(supabase, {
+          ...chatUsage, ...sumUsage(...roundUsages), rounds: round + 1, toolCalls: calledTools,
+          completionChars: finalContent.length, latencyMs: Date.now() - startedAt,
+        });
         const ssePayload = `data: ${JSON.stringify({ choices: [{ delta: { content: finalContent } }] })}\n\ndata: [DONE]\n\n`;
         return new Response(ssePayload, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
@@ -868,6 +894,7 @@ serve(async (req) => {
 
       const toolCalls = choice.message.tool_calls;
       log("tool_calls", { round, tools: toolCalls.map((tc: any) => tc.function.name) });
+      for (const tc of toolCalls) if (tc?.function?.name) calledTools.push(String(tc.function.name));
       conversationMessages.push(choice.message);
 
       for (const tc of toolCalls) {
@@ -908,12 +935,22 @@ serve(async (req) => {
         model: OPENAI_MODEL,
         messages: conversationMessages,
         stream: true,
+        stream_options: { include_usage: true },
       }),
     });
 
-    if (!finalStream.ok) throw new Error("Final stream error");
+    if (!finalStream.ok) {
+      logAiUsage(supabase, {
+        ...chatUsage, ...sumUsage(...roundUsages), rounds: MAX_ROUNDS + 1, toolCalls: calledTools,
+        status: 'error', error: `openai final ${finalStream.status}`, latencyMs: Date.now() - startedAt,
+      });
+      throw new Error("Final stream error");
+    }
 
-    return new Response(finalStream.body, {
+    const trackedBody = trackOpenAiStream(finalStream.body, supabase,
+      { ...chatUsage, rounds: MAX_ROUNDS + 1, toolCalls: calledTools },
+      { startedAt, priorUsage: sumUsage(...roundUsages) });
+    return new Response(trackedBody, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
 

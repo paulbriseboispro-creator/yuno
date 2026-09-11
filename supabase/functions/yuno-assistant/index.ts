@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import { lastUserPrompt, logAiUsage, messagesChars, trackOpenAiStream, type AiUsageEvent } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -546,12 +547,18 @@ async function handleSemanticSearch(
   supabaseAuth: any,
   openaiKey: string,
   corsHeaders: Record<string, string>,
+  // deno-lint-ignore no-explicit-any
+  usage: { supabase: any; base: AiUsageEvent; startedAt: number },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const q = query.trim().slice(0, 200);
   if (q.length < 3) {
     return new Response(JSON.stringify({ results: [] }), { headers: jsonHeaders });
   }
+  const track = (extra: Partial<AiUsageEvent>) => logAiUsage(usage.supabase, {
+    ...usage.base, model: EMBEDDING_MODEL, promptPreview: q, promptChars: q.length,
+    latencyMs: Date.now() - usage.startedAt, ...extra,
+  });
 
   const embRes = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
@@ -561,12 +568,14 @@ async function handleSemanticSearch(
     signal: AbortSignal.timeout(10000),
   });
   if (!embRes.ok) {
+    track({ status: embRes.status === 429 ? 'rate_limited' : 'error', error: `embeddings ${embRes.status}` });
     if (embRes.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
     }
     throw new Error(`Embeddings API error: ${embRes.status}`);
   }
   const embData = await embRes.json();
+  track({ promptTokens: Number(embData?.usage?.prompt_tokens || 0), completionTokens: 0 });
   const vector = embData.data?.[0]?.embedding;
   if (!Array.isArray(vector)) {
     return new Response(JSON.stringify({ results: [] }), { headers: jsonHeaders });
@@ -619,12 +628,25 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
+    // Suivi de consommation IA (super admin) : tout ce qu'on sait déjà de
+    // l'appel, complété à la fin par les tokens et la latence.
+    const startedAt = Date.now();
+    const usageClient = createClient(supabaseUrl, supabaseServiceKey);
+    const usageBase: AiUsageEvent = {
+      assistant: 'client',
+      model: OPENAI_MODEL,
+      userId: user.id,
+      userEmail: user.email ?? null,
+      language: (req.headers.get("accept-language") || "").split(",")[0].slice(0, 2).toLowerCase() || null,
+    };
+
     // ── Action hors chat : repêchage sémantique de la recherche Explore ──
     // Quand la recherche par mots-clés ne trouve rien, on cherche par le SENS.
     // Authentifiée (même porte que le chat) : pas d'endpoint d'embedding ouvert
     // à l'anonyme, qui serait un vecteur d'abus de coût.
     if (body?.action === "semantic_search") {
-      return await handleSemanticSearch(String(body.query || ""), supabaseAuth, OPENAI_API_KEY, corsHeaders);
+      return await handleSemanticSearch(String(body.query || ""), supabaseAuth, OPENAI_API_KEY, corsHeaders,
+        { supabase: usageClient, base: { ...usageBase, assistant: 'client_search' }, startedAt });
     }
 
     const { messages, timezone } = body;
@@ -816,10 +838,26 @@ Un lien s'écrit toujours [en Markdown](url), jamais en URL nue au milieu d'une 
         ],
         max_tokens: 800,
         stream: true,
+        // Le dernier chunk porte le décompte de tokens (choices vide) : le
+        // front l'ignore, le suivi de consommation le lit.
+        stream_options: { include_usage: true },
       }),
     });
 
+    const chatUsage: AiUsageEvent = {
+      ...usageBase,
+      turnCount: safeMessages.length,
+      promptChars: systemPrompt.length + messagesChars(safeMessages),
+      promptPreview: lastUserPrompt(safeMessages),
+    };
+
     if (!response.ok) {
+      logAiUsage(usageClient, {
+        ...chatUsage,
+        status: response.status === 429 ? 'rate_limited' : response.status === 402 ? 'unavailable' : 'error',
+        error: `openai ${response.status}`,
+        latencyMs: Date.now() - startedAt,
+      });
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Trop de requêtes, réessaie dans quelques instants." }), {
           status: 429,
@@ -840,7 +878,7 @@ Un lien s'écrit toujours [en Markdown](url), jamais en URL nue au milieu d'une 
       });
     }
 
-    return new Response(response.body, {
+    return new Response(trackOpenAiStream(response.body, usageClient, chatUsage, { startedAt }), {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {

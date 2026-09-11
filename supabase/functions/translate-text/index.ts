@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { logAiUsage, sumUsage, type OpenAiUsage } from "../_shared/ai-usage.ts";
 
 const OPENAI_MODEL = "gpt-4o-mini";
 
@@ -50,6 +51,7 @@ serve(async (req) => {
 
     const langName = targetLanguage === 'fr' ? 'French' : targetLanguage === 'es' ? 'Spanish' : 'English';
 
+    const startedAt = Date.now();
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -70,7 +72,15 @@ serve(async (req) => {
       }),
     });
 
+    const usageClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const usageBase = {
+      assistant: 'translate' as const, model: OPENAI_MODEL,
+      userId: (claims.claims as { sub?: string }).sub ?? null,
+      userEmail: (claims.claims as { email?: string }).email ?? null,
+      language: targetLanguage, promptChars: String(text).length,
+    };
     if (!response.ok) {
+      logAiUsage(usageClient, { ...usageBase, status: response.status === 429 ? 'rate_limited' : 'error', error: `openai ${response.status}`, latencyMs: Date.now() - startedAt });
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -81,6 +91,7 @@ serve(async (req) => {
 
     const data = await response.json();
     const translated = data.choices?.[0]?.message?.content || text;
+    logAiUsage(usageClient, { ...usageBase, ...sumUsage(data?.usage as OpenAiUsage), completionChars: String(translated).length, latencyMs: Date.now() - startedAt });
 
     return new Response(JSON.stringify({ translatedText: translated }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,3 +1,4 @@
+import { logAiUsage, sumUsage, type OpenAiUsage } from "./ai-usage.ts";
 // Rafraîchissement des embeddings (fondation pgvector) — events pour les
 // recommandations « Pour toi », profils DJ pour le matching DJ↔soirée.
 // Appelés best-effort par le cron 5 min de process-scheduled-campaigns —
@@ -162,7 +163,7 @@ export async function refreshEventEmbeddings(
 
   if (candidates.length === 0) return { scanned: events.length, updated: 0 };
 
-  const vectors = await embed(candidates.map((c) => c.content), openaiKey);
+  const vectors = await embed(candidates.map((c) => c.content), openaiKey, admin);
 
   const rows = candidates.map((c, i) => ({
     event_id: c.id,
@@ -181,16 +182,19 @@ export async function refreshEventEmbeddings(
 }
 
 /** Un seul appel OpenAI pour tout le batch. */
-async function embed(inputs: string[], openaiKey: string): Promise<(number[] | undefined)[]> {
+async function embed(inputs: string[], openaiKey: string, admin?: EmbeddingAdminClient): Promise<(number[] | undefined)[]> {
+  const startedAt = Date.now();
   const response = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input: inputs }),
   });
   if (!response.ok) {
+    if (admin) logAiUsage(admin, { assistant: 'embeddings', model: EMBEDDING_MODEL, status: response.status === 429 ? 'rate_limited' : 'error', error: `embeddings ${response.status}`, latencyMs: Date.now() - startedAt, promptPreview: `batch ${inputs.length}` });
     throw new Error(`Embeddings API error: ${response.status}`);
   }
-  const result = (await response.json()) as { data?: { embedding?: number[] }[] };
+  const result = (await response.json()) as { data?: { embedding?: number[] }[]; usage?: OpenAiUsage };
+  if (admin) logAiUsage(admin, { assistant: 'embeddings', model: EMBEDDING_MODEL, ...sumUsage(result.usage), latencyMs: Date.now() - startedAt, promptPreview: `batch ${inputs.length}` });
   return inputs.map((_, i) => result.data?.[i]?.embedding);
 }
 
@@ -238,7 +242,7 @@ export async function refreshDjEmbeddings(
 
   if (candidates.length === 0) return { scanned: djs.length, updated: 0 };
 
-  const vectors = await embed(candidates.map((c) => c.content), openaiKey);
+  const vectors = await embed(candidates.map((c) => c.content), openaiKey, admin);
 
   const rows = candidates.map((c, i) => ({
     dj_id: c.id,
