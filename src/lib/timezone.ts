@@ -1,4 +1,5 @@
 import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { countryFromTimezone, type Country } from '@/lib/countries';
 
 export const PARIS_TIMEZONE = 'Europe/Paris';
 
@@ -116,4 +117,20 @@ export const tzOffsetLabel = (timeZone: string): string => {
   } catch {
     return '';
   }
+};
+
+/**
+ * Pays d'une soirée, pour pré-régler l'indicatif du champ téléphone sur le
+ * pays où elle se déroule (`countryFromTimezone`). Aucune table ne porte de
+ * colonne pays : le fuseau fait foi, la ville sert de repli pour les lignes
+ * antérieures au champ `timezone`. Null quand on ne sait pas — l'appelant
+ * garde alors son propre défaut plutôt que d'inventer un indicatif.
+ */
+export const countryOfPlace = (
+  place?: { timezone?: string | null; city?: string | null } | null,
+): Country | null => {
+  const fromZone = countryFromTimezone(place?.timezone);
+  if (fromZone) return fromZone;
+  const city = (place?.city || '').trim();
+  return city ? countryFromTimezone(cityToTimezone(city)) : null;
 };

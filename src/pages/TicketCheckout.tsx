@@ -14,7 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
-import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
+import { PARIS_TIMEZONE, getEventTimezone, countryOfPlace } from '@/lib/timezone';
 import { TicketRound, EventWithTicketing, customerTransactionFee } from '@/types/ticketing';
 import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -59,6 +59,10 @@ export default function TicketCheckout() {
   const [event, setEvent] = useState<EventWithTicketing | null>(null);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string } | null>(null);
   const [round, setRound] = useState<TicketRound | null>(null);
+  // Indicatif par défaut du champ téléphone = pays de la soirée. Un acheteur à
+  // Madrid qui tape son numéro sous un drapeau français laisse un téléphone
+  // injoignable sur son billet, et on ne le découvre qu'à la porte.
+  const phoneCountry = countryOfPlace({ timezone: event?.timezone, city: venue?.city })?.code ?? null;
   // Billet communauté : statut de la personne (hôte + abonné profil / newsletter).
   // La porte réelle est serveur ; ici on évite un clic « Payer » condamné et on
   // montre l'action qui débloque. `communityDenied` = refus serveur (lien direct
@@ -1026,6 +1030,7 @@ export default function TicketCheckout() {
                 index={idx}
                 attendee={attendee}
                 onChange={handleAttendeeChange}
+                defaultCountry={phoneCountry}
                 isPrimary={idx === 0}
                 showConfirmEmail={idx === 0}
                 confirmEmail={confirmEmail}

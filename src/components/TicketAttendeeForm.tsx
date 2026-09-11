@@ -20,6 +20,8 @@ interface TicketAttendeeFormProps {
   onConfirmEmailChange?: (value: string) => void;
   /** Encart posé sous les champs email (ex. « un compte existe déjà »). */
   emailNotice?: ReactNode;
+  /** Indicatif pré-sélectionné : le pays où se déroule la soirée (code ISO). */
+  defaultCountry?: string | null;
 }
 
 const inputClass =
@@ -34,7 +36,8 @@ export function TicketAttendeeForm({
   showConfirmEmail = false,
   confirmEmail = '',
   onConfirmEmailChange,
-  emailNotice
+  emailNotice,
+  defaultCountry,
 }: TicketAttendeeFormProps) {
   const { t } = useLanguage();
 
@@ -127,6 +130,7 @@ export function TicketAttendeeForm({
           value={attendee.phone}
           onChange={(value) => onChange(index, 'phone', value)}
           placeholder="6 12 34 56 78"
+          defaultCountry={defaultCountry}
         />
       </div>
     </div>

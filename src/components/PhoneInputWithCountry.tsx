@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { COUNTRIES, countryFromPhone, formatNationalNumber, type Country } from '@/lib/countries';
+import { COUNTRIES, countryByCode, countryFromPhone, formatNationalNumber, type Country } from '@/lib/countries';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // La liste des pays est celle de `@/lib/countries` — une seule source, sinon
@@ -17,6 +17,14 @@ interface PhoneInputWithCountryProps {
   id?: string;
   placeholder?: string;
   className?: string;
+  /**
+   * Indicatif pré-sélectionné tant que le champ est vide — le pays où se
+   * déroule la soirée, pas celui du siège de Yuno. Un client à Madrid qui tape
+   * « 6xx » sous un drapeau français laisse un numéro injoignable, et personne
+   * ne s'en aperçoit avant d'en avoir besoin. Code ISO alpha-2 ; inconnu ou
+   * absent = France, le défaut historique.
+   */
+  defaultCountry?: string | null;
 }
 
 export function PhoneInputWithCountry({ 
@@ -24,11 +32,13 @@ export function PhoneInputWithCountry({
   onChange, 
   id, 
   placeholder = '6 12 34 56 78',
-  className 
+  className,
+  defaultCountry,
 }: PhoneInputWithCountryProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
+  const fallbackCountry = countryByCode(defaultCountry) ?? countries[0];
   
   const getCountryName = (country: Country) => {
     return country.names[language as keyof typeof country.names] || country.names.en;
@@ -37,7 +47,7 @@ export function PhoneInputWithCountry({
   // Parse the value to extract country code and number
   const parsePhoneValue = (phone: string): { country: Country; number: string } => {
     if (!phone) {
-      return { country: countries[0], number: '' };
+      return { country: fallbackCountry, number: '' };
     }
     
     // Même résolution que la carte des origines : le préfixe le PLUS LONG
@@ -56,8 +66,8 @@ export function PhoneInputWithCountry({
       }
     }
     
-    // Default to France if no match
-    return { country: countries[0], number: phone.replace(/^\+\d+\s*/, '') };
+    // Aucun indicatif reconnu : on retombe sur le pays de la soirée.
+    return { country: fallbackCountry, number: phone.replace(/^\+\d+\s*/, '') };
   };
   
   const { country: selectedCountry, number: phoneNumber } = parsePhoneValue(value);

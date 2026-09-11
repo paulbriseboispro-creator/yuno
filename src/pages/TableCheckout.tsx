@@ -31,7 +31,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { PARIS_TIMEZONE, countryOfPlace } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
@@ -57,7 +57,7 @@ const MANAGEMENT_FEE_MAX = 25;
 
 // Sous-ensemble des colonnes PUBLIC_VENUE_COLUMNS réellement utilisées par cette page.
 type PublicVenueRow = Pick<Tables<'venues'>,
-  'id' | 'name' | 'address' | 'absorb_yuno_fees' | 'vip_menu_visibility' | 'vip_menu_display_mode' | 'vip_preorder_enabled' | 'vip_placement_enabled'>;
+  'id' | 'name' | 'address' | 'city' | 'absorb_yuno_fees' | 'vip_menu_visibility' | 'vip_menu_display_mode' | 'vip_preorder_enabled' | 'vip_placement_enabled'>;
 
 const tableInputClass =
   'h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
@@ -84,6 +84,9 @@ export default function TableCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [event, setEvent] = useState<Tables<'events'> | null>(null);
   const [venue, setVenue] = useState<PublicVenueRow | null>(null);
+  // Indicatif par défaut du champ téléphone = pays de la soirée (fuseau figé à
+  // la publication, ville en repli) — pas le pays du siège de Yuno.
+  const phoneCountry = countryOfPlace({ timezone: event?.timezone, city: venue?.city ?? event?.location_city })?.code ?? null;
   // Organisateur de la soirée (soirée sans club) : c'est lui qui encaisse,
   // porte le consentement marketing et absorbe (ou non) les frais.
   const [organizer, setOrganizer] = useState<{ user_id: string; display_name: string | null; absorb_yuno_fees: boolean } | null>(null);
@@ -1068,7 +1071,7 @@ export default function TableCheckout() {
                   {!user && guestEmailHasAccount && <ExistingAccountNotice email={email.trim()} />}
                   <div className="space-y-1.5">
                     <Label htmlFor="phone" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.phone')} *</Label>
-                    <PhoneInputWithCountry id="phone" value={phone} onChange={setPhone} />
+                    <PhoneInputWithCountry id="phone" value={phone} onChange={setPhone} defaultCountry={phoneCountry} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="remarks" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.remarks')}</Label>

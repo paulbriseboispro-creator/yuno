@@ -16,7 +16,7 @@ import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { formatInTimeZone } from 'date-fns-tz';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { PARIS_TIMEZONE, countryOfPlace } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar, QrCode as QrCodeIcon, Sparkles, Bell, UserPlus, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
@@ -47,6 +47,8 @@ interface GuestListInfo {
   eventImageUrl: string | null;
   venueId: string | null;
   venueName: string;
+  /** Pays où se déroule la soirée — indicatif par défaut du champ téléphone. */
+  phoneCountry: string | null;
 }
 
 /**
@@ -195,7 +197,7 @@ export default function GuestListCheckout() {
       // Public-only gate: a direct URL must point at a list the club chose to show.
       const { data: glRows, error: glError } = await supabase
         .from('guest_lists')
-        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
+        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url, timezone, location_city)')
         .eq('event_id', eventId)
         .eq('is_active', true)
         .eq('visible_on_club_page', true);
@@ -208,9 +210,11 @@ export default function GuestListCheckout() {
 
       const ev = (gl as any).events;
       let venueName = '';
+      let venueCity = '';
       if (ev?.venue_id) {
-        const { data: venue } = await supabase.from('venues').select('name').eq('id', ev.venue_id).maybeSingle();
+        const { data: venue } = await supabase.from('venues').select('name, city').eq('id', ev.venue_id).maybeSingle();
         venueName = venue?.name || '';
+        venueCity = venue?.city || '';
         const { data: sub } = await supabase.from('venue_subscriptions').select('subscription_plan').eq('venue_id', ev.venue_id).in('status', ['active', 'trialing']).maybeSingle();
         setVenuePlan(sub?.subscription_plan || 'core');
       }
@@ -230,6 +234,12 @@ export default function GuestListCheckout() {
         eventImageUrl: ev.poster_url || null,
         venueId: ev.venue_id || null,
         venueName,
+        // Indicatif par défaut = pays de la soirée (fuseau figé à la
+        // publication, ville en repli). venues.timezone n'est pas anon-readable.
+        phoneCountry: countryOfPlace({
+          timezone: ev.timezone,
+          city: venueCity || ev.location_city,
+        })?.code ?? null,
       });
 
       // Fill counts via the aggregated SECURITY DEFINER RPC. A direct count() on
@@ -740,7 +750,7 @@ export default function GuestListCheckout() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="gl-phone" className="text-xs text-white/55">{t('guestList.phone')} *</Label>
-                <PhoneInputWithCountry id="gl-phone" value={guestPhone} onChange={setGuestPhone} />
+                <PhoneInputWithCountry id="gl-phone" value={guestPhone} onChange={setGuestPhone} defaultCountry={guestList?.phoneCountry} />
               </div>
             </div>
 

@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
+import { hasPhoneNumber } from '@/lib/countries';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -21,7 +23,7 @@ import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper,
 import { GL_ENTRY_TYPES, effectivePublicTypes, entryTypeLabelKey, type GLEntryType } from '@/lib/guestListTypes';
 import { WalletButtons } from '@/components/WalletButtons';
 import { formatInTimeZone } from 'date-fns-tz';
-import { PARIS_TIMEZONE, fromParisTime } from '@/lib/timezone';
+import { PARIS_TIMEZONE, fromParisTime, countryOfPlace } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import QRCode from 'qrcode';
 import { PublicPage } from '@/components/PublicPage';
@@ -40,6 +42,8 @@ interface GuestListEventInfo {
   venue_id: string | null;
   partner_venue_id: string | null;
   poster_url: string | null;
+  timezone: string | null;
+  location_city: string | null;
 }
 
 interface GuestListWithEvent extends Tables<'guest_lists'> {
@@ -67,6 +71,8 @@ interface GuestListInfo {
   eventImageUrl: string | null;
   venueId: string;
   venueName: string;
+  /** Pays où se déroule la soirée — indicatif par défaut du champ téléphone. */
+  phoneCountry: string | null;
   shareToken: string;
   /** Types offerts sur le lien public (canal 1). NULL/[] = pas de choix affiché. */
   publicEntryTypes: GLEntryType[] | null;
@@ -278,7 +284,7 @@ export default function GuestListSignup() {
         if (parsed?.invite && parsed.guest_list?.is_active) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url, timezone, location_city')
             .eq('id', parsed.guest_list.event_id)
             .maybeSingle();
           if (ev) {
@@ -315,7 +321,7 @@ export default function GuestListSignup() {
         if (glRow) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url, timezone, location_city')
             .eq('id', glRow.event_id)
             .maybeSingle();
           data = { ...glRow, events: ev };
@@ -327,7 +333,7 @@ export default function GuestListSignup() {
         // found" for a list that exists. Prefer the club part, else the first.
         const { data: glRows, error: glErr } = await supabase
           .from('guest_lists')
-          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, poster_url)')
+          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, poster_url, timezone, location_city)')
           .eq('is_active', true)
           .eq('event_id', eventId);
         if (glErr) throw glErr;
@@ -346,7 +352,7 @@ export default function GuestListSignup() {
       // Co-soirée org-led : le club physique est partner_venue_id.
       const eventVenueId = data.events!.venue_id ?? data.events!.partner_venue_id;
       const { data: venue } = eventVenueId
-        ? await supabase.from('venues').select('name').eq('id', eventVenueId).single()
+        ? await supabase.from('venues').select('name, city').eq('id', eventVenueId).single()
         : { data: null };
 
       // Offre publique de la part : choix explicite du détenteur, sinon tous les
@@ -378,6 +384,14 @@ export default function GuestListSignup() {
         eventImageUrl: data.events!.poster_url || null,
         venueId: eventVenueId as string,
         venueName: venue?.name || '',
+        // Le fuseau de la soirée prime (figé à la publication) ; la ville du
+        // club, sinon celle de la soirée, sert de repli pour les lignes
+        // antérieures au champ `timezone`. On ne lit PAS venues.timezone :
+        // cette colonne n'est pas dans l'allow-list anon (publicColumns.ts).
+        phoneCountry: countryOfPlace({
+          timezone: data.events!.timezone,
+          city: venue?.city || data.events!.location_city,
+        })?.code ?? null,
         shareToken: data.share_token,
         publicEntryTypes: publicTypes.length ? publicTypes : null,
       });
@@ -442,7 +456,7 @@ export default function GuestListSignup() {
     // « inscrire une autre personne » (lien unique) exige aussi des coordonnées
     // explicites, même connecté.
     const useGuestFields = !user || addAnother;
-    if (useGuestFields && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim())) {
+    if (useGuestFields && (!guestName.trim() || !guestEmail.trim() || !hasPhoneNumber(guestPhone))) {
       toast.error(t('tickets.fillRequired'));
       return;
     }
@@ -918,7 +932,12 @@ export default function GuestListSignup() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="gls-phone" className="text-xs text-muted-foreground">{t('guestList.phone')} *</Label>
-                  <Input id="gls-phone" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t('guestList.phonePlaceholder')} />
+                  <PhoneInputWithCountry
+                    id="gls-phone"
+                    value={guestPhone}
+                    onChange={setGuestPhone}
+                    defaultCountry={guestList?.phoneCountry}
+                  />
                 </div>
 
                 {/* Choix du type d'entrée (offre publique multi-types) */}
@@ -969,7 +988,7 @@ export default function GuestListSignup() {
                 <Button
                   className="w-full h-12 font-semibold"
                   onClick={handleConfirm}
-                  disabled={submitting || !guestName.trim() || !guestEmail.trim() || !guestPhone.trim()}
+                  disabled={submitting || !guestName.trim() || !guestEmail.trim() || !hasPhoneNumber(guestPhone)}
                 >
                   {submitting ? '...' : t('guestList.confirmRegistration')}
                 </Button>

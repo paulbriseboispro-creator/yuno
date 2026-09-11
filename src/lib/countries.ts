@@ -186,3 +186,101 @@ export function formatNationalNumber(
   if (di < digits.length) out += (out ? ' ' : '') + digits.slice(di);
   return out;
 }
+
+export const COUNTRY_BY_CODE = new Map<string, Country>(COUNTRIES.map(c => [c.code, c]));
+
+/** Pays d'un code ISO alpha-2 (insensible à la casse), null si inconnu. */
+export function countryByCode(code: string | null | undefined): Country | null {
+  if (!code) return null;
+  return COUNTRY_BY_CODE.get(code.trim().toUpperCase()) ?? null;
+}
+
+// Fuseau IANA → pays. Sert à pré-régler l'indicatif du champ téléphone sur le
+// pays où se déroule la soirée : un client à Madrid qui tape « 6xx » sous un
+// indicatif français laisse un numéro injoignable, et un numéro injoignable
+// c'est un billet qu'on ne peut plus rattraper à la porte. Le fuseau est la
+// seule donnée de lieu portée par TOUTES les soirées (`events.timezone`, figé
+// à la publication ; `venues.timezone`) — il n'existe pas de colonne pays.
+// Une zone absente de la table retombe sur null (donc sur le défaut du champ).
+const COUNTRY_BY_TIMEZONE: Record<string, string> = {
+  'Europe/Paris': 'FR',
+  'Europe/Madrid': 'ES', 'Africa/Ceuta': 'ES', 'Atlantic/Canary': 'ES',
+  'Europe/London': 'GB', 'Europe/Belfast': 'GB',
+  'Europe/Berlin': 'DE', 'Europe/Busingen': 'DE',
+  'Europe/Rome': 'IT',
+  'Europe/Lisbon': 'PT', 'Atlantic/Madeira': 'PT', 'Atlantic/Azores': 'PT',
+  'Europe/Brussels': 'BE',
+  'Europe/Amsterdam': 'NL',
+  'Europe/Zurich': 'CH',
+  'Europe/Luxembourg': 'LU',
+  'Europe/Monaco': 'MC',
+  'Europe/Vienna': 'AT',
+  'Europe/Warsaw': 'PL',
+  'Europe/Dublin': 'IE',
+  'Europe/Stockholm': 'SE',
+  'Europe/Oslo': 'NO',
+  'Europe/Copenhagen': 'DK',
+  'Europe/Helsinki': 'FI',
+  'Europe/Athens': 'GR',
+  'Europe/Prague': 'CZ',
+  'Europe/Bucharest': 'RO',
+  'Europe/Budapest': 'HU',
+  'Europe/Moscow': 'RU',
+  'Europe/Istanbul': 'TR',
+  'America/New_York': 'US', 'America/Detroit': 'US', 'America/Chicago': 'US',
+  'America/Denver': 'US', 'America/Phoenix': 'US', 'America/Los_Angeles': 'US',
+  'America/Anchorage': 'US', 'Pacific/Honolulu': 'US',
+  'America/Toronto': 'CA', 'America/Montreal': 'CA', 'America/Vancouver': 'CA',
+  'America/Edmonton': 'CA', 'America/Winnipeg': 'CA', 'America/Halifax': 'CA',
+  'America/St_Johns': 'CA',
+  'Africa/Casablanca': 'MA',
+  'Africa/Algiers': 'DZ',
+  'Africa/Tunis': 'TN',
+  'America/Sao_Paulo': 'BR', 'America/Bahia': 'BR', 'America/Fortaleza': 'BR',
+  'America/Recife': 'BR', 'America/Manaus': 'BR',
+  'America/Mexico_City': 'MX', 'America/Cancun': 'MX', 'America/Monterrey': 'MX',
+  'America/Tijuana': 'MX',
+  'America/Argentina/Buenos_Aires': 'AR',
+  'America/Bogota': 'CO',
+  'Asia/Tokyo': 'JP',
+  'Asia/Shanghai': 'CN',
+  'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
+  'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Brisbane': 'AU',
+  'Australia/Perth': 'AU', 'Australia/Adelaide': 'AU',
+  'Asia/Dubai': 'AE',
+  'Asia/Riyadh': 'SA',
+  'America/Guadeloupe': 'GP',
+  'America/Martinique': 'MQ',
+  'America/Cayenne': 'GF',
+  'Indian/Reunion': 'RE',
+  'Indian/Mayotte': 'YT',
+  'America/Miquelon': 'PM',
+  'Pacific/Noumea': 'NC',
+  'Pacific/Tahiti': 'PF', 'Pacific/Marquesas': 'PF', 'Pacific/Gambier': 'PF',
+  'Pacific/Wallis': 'WF',
+  'America/Nuuk': 'GL', 'America/Godthab': 'GL',
+  'Atlantic/Faroe': 'FO',
+  'America/Aruba': 'AW',
+  'America/Curacao': 'CW',
+  'America/Puerto_Rico': 'PR',
+};
+
+/** Pays d'un fuseau IANA ; null si le fuseau est absent ou inconnu. */
+export function countryFromTimezone(timezone: string | null | undefined): Country | null {
+  if (!timezone) return null;
+  return countryByCode(COUNTRY_BY_TIMEZONE[timezone.trim()]);
+}
+
+/**
+ * Un numéro saisi porte-t-il vraiment un numéro ? Le champ téléphone affiche
+ * l'indicatif du pays de la soirée dès l'ouverture : « +34 » seul est un champ
+ * VIDE, pas un numéro, et ne doit jamais débloquer un bouton d'inscription.
+ */
+export function hasPhoneNumber(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const country = countryFromPhone(value);
+  const digits = country
+    ? nationalDigits(value, country)
+    : value.replace(/\D/g, '');
+  return digits.length >= 5;
+}
