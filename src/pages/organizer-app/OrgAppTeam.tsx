@@ -52,6 +52,7 @@ export default function OrgAppTeam() {
   // -------- STAFF (barman/bouncer/cloakroom) --------
   const [staff, setStaff] = useState<Staff[]>([]);
   const [staffPinSet, setStaffPinSet] = useState<Set<string>>(new Set());
+  const [pinLinkSending, setPinLinkSending] = useState<string | null>(null);
   const [pendingStaffInvites, setPendingStaffInvites] = useState<{ id: string; email: string; role: StaffRole; created_at: string }[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [staffOpen, setStaffOpen] = useState(false);
@@ -81,14 +82,16 @@ export default function OrgAppTeam() {
     const staffRows = (data ?? []) as Staff[];
     setStaff(staffRows);
 
-    // PIN status comes from the employee's own profile (self-set), not org_staff.pin_hash.
-    const userIds = staffRows.map((s) => s.user_id).filter(Boolean) as string[];
-    if (userIds.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, employee_pin').in('id', userIds);
-      setStaffPinSet(new Set((profs ?? []).filter((p) => p.employee_pin).map((p) => p.id)));
-    } else {
-      setStaffPinSet(new Set());
-    }
+    // Le PIN vit sur le profil de l'employé (il le pose lui-même), pas sur
+    // org_staff.pin_hash. Il se lit par RPC et JAMAIS en direct : aucune policy
+    // de `profiles` n'ouvre la ligne d'un tiers à un organisateur, donc la
+    // lecture directe rendait zéro ligne sans erreur — « PIN à configurer »
+    // s'affichait pour tout le monde, y compris un videur qui avait son code
+    // depuis des mois.
+    const { data: pinRows } = await supabase.rpc('get_org_staff_pin_status', {
+      p_organizer_user_id: user.id,
+    });
+    setStaffPinSet(new Set((pinRows ?? []).filter((r) => r.has_pin).map((r) => r.user_id)));
 
     // Pending email invitations (not accepted yet — not in org_staff).
     const { data: invs } = await supabase
@@ -169,6 +172,26 @@ export default function OrgAppTeam() {
       loadStaff();
     } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSubmittingStaff(false); }
+  };
+
+  /**
+   * Envoie à l'employé le lien qui lui fait poser son code PIN. L'organisateur
+   * déclenche, l'employé choisit : le code ne transite jamais par l'écran de
+   * l'employeur. C'est la sortie du blocage « PIN à configurer » quand la
+   * personne ne trouve pas l'écran toute seule.
+   */
+  const sendPinLink = async (s: Staff) => {
+    if (!s.user_id || pinLinkSending) return;
+    setPinLinkSending(s.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('request-pin-reset', {
+        body: { targetUserId: s.user_id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(t('Lien envoyé à ' + s.email, 'Link sent to ' + s.email));
+    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
+    finally { setPinLinkSending(null); }
   };
 
   const removeStaff = async (id: string) => {
@@ -323,6 +346,14 @@ export default function OrgAppTeam() {
                       <OrgPill tone={staffRoleTone(s.role)}>
                         {staffRoleIcon(s.role)} {staffRoleLabel(s.role)}
                       </OrgPill>
+                      {!hasPin && s.user_id && (
+                        <OrgButton size="sm" variant="secondary" disabled={pinLinkSending === s.id} onClick={() => sendPinLink(s)}>
+                          {pinLinkSending === s.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <KeyRound className="h-3.5 w-3.5" />}
+                          {t('Envoyer le lien PIN', 'Send PIN link')}
+                        </OrgButton>
+                      )}
                       <OrgButton size="sm" variant="danger" onClick={() => removeStaff(s.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </OrgButton>

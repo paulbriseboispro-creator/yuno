@@ -2,12 +2,70 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 import { buildSecureLink } from "../_shared/email-templates.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+
+/**
+ * Vue structurelle du client service_role. Les génériques de `SupabaseClient`
+ * diffèrent d'un import esm.sh à l'autre : les nommer ici ne ferait que figer
+ * une version.
+ */
+interface AdminLike {
+  from: (table: string) => any;
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
+}
+
+/**
+ * Qui peut déclencher la pose d'un PIN pour quelqu'un d'autre : l'organisateur
+ * dont la personne est le staff accepté (ou un membre de son équipe qui gère le
+ * personnel), et le propriétaire du club où elle travaille. Fermé par défaut —
+ * un doute renvoie false, jamais un lien de plus.
+ */
+async function canManageStaffPin(
+  admin: AdminLike,
+  callerId: string,
+  targetId: string,
+): Promise<boolean> {
+  const { data: staffRows } = await admin
+    .from("org_staff")
+    .select("organizer_user_id")
+    .eq("user_id", targetId)
+    .eq("invitation_status", "accepted");
+
+  for (const row of staffRows ?? []) {
+    const organizerId = (row as { organizer_user_id: string }).organizer_user_id;
+    if (organizerId === callerId) return true;
+    const { data: perm } = await admin.rpc("org_member_has_permission", {
+      _user_id: callerId,
+      _organizer_user_id: organizerId,
+      _permission: "manage_team",
+    });
+    if (perm === true) return true;
+  }
+
+  // Staff de club : le propriétaire du lieu où la personne est rattachée.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("venue_id")
+    .eq("id", targetId)
+    .maybeSingle();
+  const venueId = (profile as { venue_id: string | null } | null)?.venue_id;
+  if (venueId) {
+    const { data: venue } = await admin
+      .from("venues")
+      .select("owner_id")
+      .eq("id", venueId)
+      .maybeSingle();
+    if ((venue as { owner_id: string } | null)?.owner_id === callerId) return true;
+  }
+
+  return false;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -43,13 +101,42 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
+    // Demande POUR QUELQU'UN D'AUTRE : un organisateur ou un club débloque un
+    // employé qui n'a pas encore de code PIN (ou qui l'a perdu). Le lien part
+    // toujours dans la boîte de l'EMPLOYÉ : l'employeur déclenche l'envoi, il
+    // ne voit jamais le code. Sans ce chemin, l'écran d'équipe affichait « PIN
+    // à configurer » sans qu'aucun bouton puisse rien y faire.
+    let body: { targetUserId?: string } = {};
+    try { body = await req.json(); } catch { /* corps vide : demande pour soi */ }
+    const targetUserId = typeof body?.targetUserId === "string" ? body.targetUserId : null;
+    const forSelf = !targetUserId || targetUserId === user.id;
+
+    if (!forSelf) {
+      // Le PIN est une clé d'accès : une session d'assistance Yuno n'en
+      // déclenche pas la remise à zéro pour un tiers.
+      if (await isSupportSessionToken(supabaseAdmin, authHeader.replace("Bearer ", ""))) {
+        return new Response(JSON.stringify({ error: "support_session_forbidden", success: false }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const allowed = await canManageStaffPin(supabaseAdmin as unknown as AdminLike, user.id, targetUserId!);
+      if (!allowed) {
+        return new Response(
+          JSON.stringify({ error: "forbidden", success: false }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const subjectUserId = forSelf ? user.id : targetUserId!;
+
     // Verify user has an eligible role. Tous les comptes pro qui protègent leur
     // espace par un PIN (talent + staff opérationnel) doivent pouvoir se
     // réinitialiser par email — sinon un videur qui oublie son PIN est bloqué.
     const { data: roles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", subjectUserId)
       .in("role", [
         "dj", "promoter", "organizer", "affiliate", "affiliate_member",
         "barman", "bouncer", "cloakroom", "vip_host", "manager",
@@ -62,6 +149,17 @@ serve(async (req) => {
       );
     }
 
+    // Destinataire : toujours la boîte du porteur du PIN.
+    const { data: subject, error: subjectError } = await supabaseAdmin.auth.admin
+      .getUserById(subjectUserId);
+    const subjectEmail = subject?.user?.email;
+    if (subjectError || !subjectEmail) {
+      return new Response(
+        JSON.stringify({ error: "recipient_not_found", success: false }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Generate secure token
     const token = crypto.randomUUID() + "-" + crypto.randomUUID();
 
@@ -69,7 +167,7 @@ serve(async (req) => {
     const { error: insertError } = await supabaseAdmin
       .from("pin_reset_tokens")
       .insert({
-        user_id: user.id,
+        user_id: subjectUserId,
         token,
         expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
       });
@@ -86,9 +184,11 @@ serve(async (req) => {
 
     const mail = buildSecureLink({
       lang: "fr",
-      title: "Réinitialise ton code PIN",
-      message: "Tu as demandé à réinitialiser ton code PIN. Clique sur le bouton ci-dessous pour en créer un nouveau. Ce lien expire dans 1 heure.",
-      ctaLabel: "Créer un nouveau PIN",
+      title: forSelf ? "Réinitialise ton code PIN" : "Ton code PIN Yuno",
+      message: forSelf
+        ? "Tu as demandé à réinitialiser ton code PIN. Clique sur le bouton ci-dessous pour en créer un nouveau. Ce lien expire dans 1 heure."
+        : "Ton équipe t'a envoyé ce lien pour que tu poses ton code PIN — c'est lui qui ouvre ton poste au moment du service. Choisis un code à 6 chiffres, connu de toi seul. Ce lien expire dans 1 heure.",
+      ctaLabel: forSelf ? "Créer un nouveau PIN" : "Créer mon code PIN",
       ctaUrl: resetUrl,
       footnote: "Tu n'es pas à l'origine de cette demande ? Ignore cet email.",
     });
@@ -113,8 +213,10 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: RESEND_FROM_EMAIL,
-        to: [user.email],
-        subject: "🔐 Réinitialisation de ton code PIN — Yuno",
+        to: [subjectEmail],
+        subject: forSelf
+          ? "🔐 Réinitialisation de ton code PIN — Yuno"
+          : "🔐 Crée ton code PIN — Yuno",
         html: mail.html,
       }),
     });
@@ -128,7 +230,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("PIN reset email sent to:", user.email);
+    console.log("PIN reset email sent for user:", subjectUserId);
 
     return new Response(
       JSON.stringify({ success: true }),

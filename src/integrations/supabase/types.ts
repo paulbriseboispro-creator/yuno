@@ -6749,6 +6749,7 @@ export type Database = {
           event_kind: Database["public"]["Enums"]["event_kind"]
           event_mode: Database["public"]["Enums"]["event_mode"] | null
           event_type: string
+          guest_list_sold_out: boolean
           hide_yuno_navigation: boolean
           id: string
           image_url: string | null
@@ -6782,6 +6783,7 @@ export type Database = {
           sale_password_enabled: boolean
           search_title: string | null
           slug: string | null
+          sold_out_pack_ids: string[]
           split_approved_by_organizer: boolean
           split_approved_by_venue: boolean
           split_locked_at: string | null
@@ -6793,8 +6795,10 @@ export type Database = {
           tables_locked_to_venue: boolean
           tables_mode: string | null
           tables_owner_user_id: string | null
+          tables_sold_out: boolean
           ticket_selling_mode: string | null
           ticketing_enabled: boolean
+          tickets_sold_out: boolean
           timezone: string | null
           title: string
           updated_at: string
@@ -6820,6 +6824,7 @@ export type Database = {
           event_kind?: Database["public"]["Enums"]["event_kind"]
           event_mode?: Database["public"]["Enums"]["event_mode"] | null
           event_type?: string
+          guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
           image_url?: string | null
@@ -6853,6 +6858,7 @@ export type Database = {
           sale_password_enabled?: boolean
           search_title?: string | null
           slug?: string | null
+          sold_out_pack_ids?: string[]
           split_approved_by_organizer?: boolean
           split_approved_by_venue?: boolean
           split_locked_at?: string | null
@@ -6864,8 +6870,10 @@ export type Database = {
           tables_locked_to_venue?: boolean
           tables_mode?: string | null
           tables_owner_user_id?: string | null
+          tables_sold_out?: boolean
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
+          tickets_sold_out?: boolean
           timezone?: string | null
           title: string
           updated_at?: string
@@ -6891,6 +6899,7 @@ export type Database = {
           event_kind?: Database["public"]["Enums"]["event_kind"]
           event_mode?: Database["public"]["Enums"]["event_mode"] | null
           event_type?: string
+          guest_list_sold_out?: boolean
           hide_yuno_navigation?: boolean
           id?: string
           image_url?: string | null
@@ -6924,6 +6933,7 @@ export type Database = {
           sale_password_enabled?: boolean
           search_title?: string | null
           slug?: string | null
+          sold_out_pack_ids?: string[]
           split_approved_by_organizer?: boolean
           split_approved_by_venue?: boolean
           split_locked_at?: string | null
@@ -6935,8 +6945,10 @@ export type Database = {
           tables_locked_to_venue?: boolean
           tables_mode?: string | null
           tables_owner_user_id?: string | null
+          tables_sold_out?: boolean
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
+          tickets_sold_out?: boolean
           timezone?: string | null
           title?: string
           updated_at?: string
@@ -7536,6 +7548,7 @@ export type Database = {
           id: string
           includes_drink: boolean
           is_active: boolean
+          manually_sold_out: boolean
           organizer_user_id: string | null
           promoter_id: string | null
           public_entry_types: string[] | null
@@ -7565,6 +7578,7 @@ export type Database = {
           id?: string
           includes_drink?: boolean
           is_active?: boolean
+          manually_sold_out?: boolean
           organizer_user_id?: string | null
           promoter_id?: string | null
           public_entry_types?: string[] | null
@@ -7594,6 +7608,7 @@ export type Database = {
           id?: string
           includes_drink?: boolean
           is_active?: boolean
+          manually_sold_out?: boolean
           organizer_user_id?: string | null
           promoter_id?: string | null
           public_entry_types?: string[] | null
@@ -17113,6 +17128,7 @@ export type Database = {
         Args: { p_subject_id: string; p_subject_type: string }
         Returns: Json
       }
+      auth_user_id_for_email: { Args: { _email: string }; Returns: string }
       auto_dispute_stale_collab_settlements: { Args: never; Returns: Json }
       auto_dispute_stale_promoter_payouts: { Args: never; Returns: Json }
       award_loyalty_points: {
@@ -18372,6 +18388,7 @@ export type Database = {
           id: string
           includes_drink: boolean
           is_active: boolean
+          manually_sold_out: boolean
           organizer_user_id: string | null
           promoter_id: string | null
           public_entry_types: string[] | null
@@ -18553,6 +18570,13 @@ export type Database = {
         Returns: string
       }
       get_org_staff_organizer: { Args: { _user_id: string }; Returns: string }
+      get_org_staff_pin_status: {
+        Args: { p_organizer_user_id?: string }
+        Returns: {
+          has_pin: boolean
+          user_id: string
+        }[]
+      }
       get_organizer_claim_invitation: {
         Args: { p_token: string }
         Returns: Json
@@ -19859,6 +19883,15 @@ export type Database = {
           p_wording_text: string
         }
         Returns: boolean
+      }
+      subscribe_platform_marketing: {
+        Args: {
+          p_email: string
+          p_full_name?: string
+          p_source?: string
+          p_user_id?: string
+        }
+        Returns: undefined
       }
       suppress_email: {
         Args: {
