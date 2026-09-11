@@ -200,6 +200,30 @@ export default function Bouncer() {
   const [activeTab, setActiveTab] = useState<'entry' | 'search' | 'cancel' | 'client'>('entry');
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+  /**
+   * Onglets de la porte. « Client » (avertir / bannir) est une surface de CLUB :
+   * elle interroge `venue_customers` et n'écrit que dans le périmètre d'un
+   * lieu. Sur une soirée d'organisateur sans club, sa recherche sortait en
+   * silence dès la première ligne (`if (!venueId) return`) — un champ qui ne
+   * répond jamais, sans message, à la porte. On ne montre pas un outil qui ne
+   * peut pas fonctionner.
+   */
+  const TABS = useMemo(() => {
+    const base = [
+      { key: 'entry', icon: CheckCircle, label: t('bouncer.entry') },
+      { key: 'search', icon: ClipboardList, label: t('bouncer.listTab') },
+      { key: 'cancel', icon: Ban, label: t('bouncer.cancelTab') },
+    ] as const;
+    return venueId
+      ? [...base, { key: 'client', icon: Search, label: t('bouncer.clientTab') } as const]
+      : base;
+  }, [venueId, t]);
+
+  // Un onglet qui disparaît (perte du périmètre club) ne doit pas laisser la
+  // page sur un contenu mort.
+  useEffect(() => {
+    if (!TABS.some((tab) => tab.key === activeTab)) setActiveTab('entry');
+  }, [TABS, activeTab]);
   const [scanning, setScanning] = useState(false);
   const [scannedTicket, setScannedTicket] = useState<ScannedTicket | null>(null);
   const [scannedVipReservation, setScannedVipReservation] = useState<ScannedVipReservation | null>(null);
@@ -1795,15 +1819,10 @@ export default function Bouncer() {
                 min-w-0 + truncate sur les libellés : sans ça un libellé long (ES)
                 déborde du segment. */}
             <div
-              className="mb-4 grid grid-cols-4 gap-1"
+              className={`mb-4 grid gap-1 ${TABS.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}
               style={{ padding: 4, borderRadius: 14, background: INNER_BG, border: `1px solid ${BORDER}` }}
             >
-              {([
-                { key: 'entry', icon: CheckCircle, label: t('bouncer.entry') },
-                { key: 'search', icon: ClipboardList, label: t('bouncer.listTab') },
-                { key: 'cancel', icon: Ban, label: t('bouncer.cancelTab') },
-                { key: 'client', icon: Search, label: t('bouncer.clientTab') },
-              ] as const).map(({ key, icon: Icon, label }) => {
+              {TABS.map(({ key, icon: Icon, label }) => {
                 const isActive = activeTab === key;
                 const isDestructive = key === 'cancel';
                 const segColor = isActive ? (isDestructive ? RED : T1) : T3;
