@@ -82,6 +82,25 @@ async function uniqueOrgSlug(supabase: SupabaseClient, display: string): Promise
 }
 
 // ─── Branch: create an onboarding link (authenticated) ───────────────────────
+/**
+ * Email → id du compte auth VIVANT, ou null.
+ *
+ * Ne JAMAIS chercher un destinataire avec `profiles.eq('email').limit(1)` : sur
+ * un email en doublon (profils orphelins hérités des suppressions douces, cf.
+ * docs/ORPHAN_PROFILES.md) PostgREST rend la ligne en ordre physique, et c'est
+ * souvent l'ORPHELIN — un profil sans ligne auth.users. Les upserts qui suivent
+ * pointent une FK vers auth.users : ils échouent en 23503 et l'invitation
+ * finissait « acceptée » sans qu'aucun rôle ne soit posé.
+ */
+async function liveAuthUserIdForEmail(supabase: SupabaseClient, email: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('auth_user_id_for_email', { _email: email });
+  if (error) {
+    console.error('auth_user_id_for_email failed:', error.message);
+    return null;
+  }
+  return (data as string | null) ?? null;
+}
+
 async function handleCreateOnboardingLink(req: Request, supabase: SupabaseClient, body: any): Promise<Response> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return json({ error: 'Unauthorized' }, 401);
@@ -207,8 +226,9 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
   if (!userId) {
     if (!email) return json({ error: 'Email requis', code: 'need_email' }, 400);
     // The link's email is untrusted, so never auto-grant onto an existing account.
-    const { data: existingProfiles } = await supabase.from('profiles').select('id').eq('email', email).limit(1);
-    if (existingProfiles && existingProfiles.length > 0) {
+    // Existence se juge sur auth.users : un profil orphelin resté derrière une
+    // suppression douce bloquait une inscription légitime sur ce même email.
+    if (await liveAuthUserIdForEmail(supabase, email)) {
       return json({ error: 'Un compte existe déjà pour cet email. Connecte-toi puis rouvre le lien.', code: 'account_exists' }, 409);
     }
     // No account at this email yet → the frontend now reveals a password field.
@@ -351,6 +371,52 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
 // Vérifie le mot de passe côté base (RPC SECURITY DEFINER service-role), puis mint
 // une session pour le compte démo ciblé et renvoie ses tokens. Le mot de passe démo
 // ne quitte jamais le serveur ; la lecture seule est imposée côté client.
+/**
+ * Décrit une invitation staff à partir de son SEUL token (service_role).
+ *
+ * La page d'acceptation lisait `staff_invitations` directement avec la clé anon.
+ * Or cette table n'a aucune policy anon — et la policy `authenticated` exige que
+ * l'email du profil connecté soit celui de l'invitation. Résultat : quelqu'un qui
+ * ouvre le lien depuis sa boîte mail sans être connecté (le cas NORMAL), ou
+ * connecté sur un autre compte, ne lisait RIEN et tombait sur une page BLANCHE
+ * (`return null` en fin de composant). Le token est la pièce d'identité du lien :
+ * c'est le serveur qui le lit, pas la RLS de quelqu'un qui n'est pas encore
+ * l'employé.
+ */
+async function handleDescribeInvitation(supabase: SupabaseClient, body: any): Promise<Response> {
+  const token = String(body.token ?? '');
+  if (!token) return json({ error: 'Token requis' }, 400);
+
+  const { data: invitation, error } = await supabase
+    .from('staff_invitations')
+    .select('email, role, status, expires_at, display_name, venue_id, organizer_user_id, venues(name)')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (error || !invitation) return json({ error: 'Invitation non trouvée', code: 'not_found' }, 404);
+
+  let inviterName: string | null = (invitation.venues as { name?: string } | null)?.name ?? null;
+  if (!inviterName && invitation.organizer_user_id) {
+    const { data: orgProfile } = await supabase
+      .from('organizer_profiles').select('display_name')
+      .eq('user_id', invitation.organizer_user_id).maybeSingle();
+    inviterName = orgProfile?.display_name ?? null;
+  }
+
+  const expired = new Date(invitation.expires_at) < new Date();
+  return json({
+    email: invitation.email,
+    inviter_name: inviterName || 'Yuno',
+    role: invitation.role,
+    display_name: invitation.display_name ?? null,
+    status: expired && invitation.status === 'pending' ? 'expired' : invitation.status,
+    // « Faut-il créer un compte ? » se juge sur auth.users, jamais sur profiles :
+    // un profil orphelin faisait répondre « compte existant » sur un email qui
+    // n'en a plus, et la RLS anon faisait répondre « aucun compte » pour tous.
+    requires_account_creation: !(await liveAuthUserIdForEmail(supabase, invitation.email)),
+  });
+}
+
 async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any): Promise<Response> {
   const token = String(body?.token ?? '').trim();
   const password = String(body?.password ?? '');
@@ -505,6 +571,9 @@ Deno.serve(async (req) => {
     // Demo preview links (folded in — same edge-fn cap reason).
     if (body?.action === 'redeem_demo_preview_link') return await handleRedeemDemoPreviewLink(supabase, body);
 
+    // Lecture seule d'une invitation par son token (la page d'acceptation).
+    if (body?.action === 'describe_invitation') return await handleDescribeInvitation(supabase, body);
+
     // ─── Default behavior: accept an email-based staff invitation ────────────
     const { token, first_name, last_name } = body;
     if (!token) {
@@ -564,19 +633,26 @@ Deno.serve(async (req) => {
           userId = user.id;
           userEmail = profile.email;
         } else if (profile) {
-          return new Response(JSON.stringify({ error: 'Cette invitation est destinée à une autre adresse email' }), {
-            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          // La personne est connectée sur un AUTRE compte (très courant : le
+          // compte client de tous les jours, ou un compte d'admin). Le refus nu
+          // arrivait à l'écran en « Edge Function returned a non-2xx status
+          // code » et la soirée était perdue. On nomme les deux emails pour que
+          // la page propose la déconnexion.
+          return new Response(JSON.stringify({
+            error: `Vous êtes connecté avec ${profile.email}, mais cette invitation a été envoyée à ${invitation.email}.`,
+            code: 'email_mismatch',
+            invited_email: invitation.email,
+            signed_in_email: profile.email,
+          }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
     }
 
     if (!userId) {
-      const { data: existingProfiles } = await supabase
-        .from('profiles').select('id').eq('email', invitation.email.toLowerCase()).limit(1);
+      const liveUserId = await liveAuthUserIdForEmail(supabase, invitation.email);
 
-      if (existingProfiles && existingProfiles.length > 0) {
-        userId = existingProfiles[0].id;
+      if (liveUserId) {
+        userId = liveUserId;
       } else {
         const tempPassword = crypto.randomUUID();
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
@@ -673,13 +749,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Les écritures qui FONT l'embauche ────────────────────────────────────
+    // Chaque `await` ci-dessous était lancé sans lire son erreur : une FK violée
+    // (destinataire orphelin) laissait l'invitation passer en « accepted » et
+    // renvoyait un écran de succès à quelqu'un qui n'avait AUCUN droit. Un
+    // videur ne découvre pas ça à la porte. On échoue fort, et on le dit.
+    const linkFailed = (what: string, message: string) => {
+      console.error(`accept-staff-invitation: ${what} failed:`, message);
+      return new Response(JSON.stringify({
+        error: "L'invitation n'a pas pu être enregistrée. Réessayez, ou contactez Yuno.",
+        code: 'link_failed',
+        detail: `${what}: ${message}`,
+      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    };
+
     // Assign the role (idempotent). NO PIN is set — the employee sets it after login.
-    await supabase.from('user_roles')
+    const { error: roleError } = await supabase.from('user_roles')
       .upsert({ user_id: userId, role: invitation.role, email: userEmail.toLowerCase() }, { onConflict: 'user_id,role' });
+    if (roleError) return linkFailed('user_roles', roleError.message);
 
     if (isOrganizerScope) {
       // Link the org staff membership (no pin_hash).
-      await supabase.from('org_staff').upsert({
+      const { error: orgStaffError } = await supabase.from('org_staff').upsert({
         organizer_user_id: invitation.organizer_user_id,
         user_id: userId,
         email: invitation.email.toLowerCase(),
@@ -687,9 +778,12 @@ Deno.serve(async (req) => {
         role: invitation.role,
         invitation_status: 'accepted',
       }, { onConflict: 'organizer_user_id,email,role' });
+      if (orgStaffError) return linkFailed('org_staff', orgStaffError.message);
     } else {
       // Club scope: bind the employee to the venue.
-      await supabase.from('profiles').update({ venue_id: invitation.venue_id }).eq('id', userId);
+      const { error: venueBindError } = await supabase.from('profiles')
+        .update({ venue_id: invitation.venue_id }).eq('id', userId);
+      if (venueBindError) return linkFailed('profiles.venue_id', venueBindError.message);
 
       if (invitation.role === 'manager' && invitation.manager_permissions) {
         await supabase.from('manager_permissions').upsert({
