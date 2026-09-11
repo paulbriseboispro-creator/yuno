@@ -10184,6 +10184,9 @@ const en: Record<string, string> = {
   'offline.drawer.applied': '{count} scan(s) synced',
   'offline.drawer.conflict': 'Already scanned on another device at {time}',
   'offline.drawer.syncNow': 'Sync now',
+  'offline.drawer.loaded': 'QR codes stored on this phone',
+  'offline.drawer.downloadList': 'Reload the list',
+  'offline.qrLoaded': '{n} QR',
   'offline.drawer.waitingNetwork': 'Waiting for network…',
 
   'profile.securityMfa': 'MFA required',

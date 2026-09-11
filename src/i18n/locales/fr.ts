@@ -10158,6 +10158,9 @@ const fr: Record<string, string> = {
   'offline.drawer.applied': '{count} scan(s) synchronisé(s)',
   'offline.drawer.conflict': 'Déjà scanné sur un autre appareil à {time}',
   'offline.drawer.syncNow': 'Synchroniser maintenant',
+  'offline.drawer.loaded': 'QR chargés dans le téléphone',
+  'offline.drawer.downloadList': 'Recharger la liste',
+  'offline.qrLoaded': '{n} QR',
   'offline.drawer.waitingNetwork': 'En attente de réseau…',
 
   'profile.securityMfa': 'MFA requis',

@@ -17,7 +17,7 @@ import { IncidentQuickReport } from '@/components/bouncer/IncidentQuickReport';
 import { OfflinePill } from '@/components/pro/OfflinePill';
 import { SyncQueueDrawer } from '@/components/pro/SyncQueueDrawer';
 import { isProApp } from '@/lib/native';
-import { CloudOff } from 'lucide-react';
+import { CloudOff, Download } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
 
@@ -1772,8 +1772,19 @@ export default function Bouncer() {
                 </span>
               )}
             </div>
+            {/* Deux chiffres, deux sens — ils ne doivent JAMAIS se confondre :
+                « 29 QR » = ce que la porte peut valider sans réseau,
+                « 3 en attente » = ce qui reste à remonter au serveur.
+                Le badge n'affichait que le second : la porte lisait « 0 » et
+                croyait n'avoir rien chargé alors que la soirée entière était
+                dans le téléphone. */}
             <button
-              onClick={() => setSyncDrawerOpen(true)}
+              onClick={() => {
+                // Le geste dit « mets-moi ça à jour » : on ouvre le tiroir ET
+                // on relance le téléchargement de la liste dans la foulée.
+                setSyncDrawerOpen(true);
+                if (navigator.onLine) void offline.refreshManifest();
+              }}
               className="inline-flex flex-none min-h-[36px] items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold tabular-nums"
               style={{
                 background: offline.pending > 0 ? 'rgba(251,191,36,0.10)' : INNER_BG,
@@ -1781,8 +1792,15 @@ export default function Bouncer() {
                 color: offline.pending > 0 ? '#FBBF24' : T3,
               }}
             >
-              <CloudOff className="h-3 w-3" />
-              {offline.pending}
+              <Download className="h-3 w-3 flex-none" />
+              <span>{t('offline.qrLoaded').replace('{n}', String(offline.manifestCount))}</span>
+              {offline.pending > 0 && (
+                <>
+                  <span aria-hidden style={{ opacity: 0.5 }}>·</span>
+                  <CloudOff className="h-3 w-3 flex-none" />
+                  <span>{offline.pending}</span>
+                </>
+              )}
             </button>
           </div>
         )}
@@ -2974,6 +2992,10 @@ export default function Bouncer() {
           lastSummary={offline.lastSummary}
           onSync={offline.replay}
           online={offline.online}
+          manifestCount={offline.manifestCount}
+          manifestAgeMs={offline.manifestAgeMs}
+          refreshing={offline.refreshing}
+          onRefreshManifest={offline.refreshManifest}
         />
       )}
     </div>

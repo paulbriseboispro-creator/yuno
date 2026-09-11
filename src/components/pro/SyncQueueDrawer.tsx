@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, CloudOff, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { RefreshCw, CloudOff, CheckCircle, AlertTriangle, Loader2, Download } from 'lucide-react';
 import { getOfflineDb, type PendingScan } from '@/lib/offline/db';
 import type { ReplaySummary } from '@/lib/offline/queue';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +19,10 @@ export function SyncQueueDrawer({
   lastSummary,
   onSync,
   online,
+  manifestCount,
+  manifestAgeMs,
+  refreshing,
+  onRefreshManifest,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,6 +31,11 @@ export function SyncQueueDrawer({
   lastSummary: ReplaySummary | null;
   onSync: () => Promise<unknown>;
   online: boolean;
+  /** Nombre de QR déjà dans le téléphone — ce que la porte peut valider sans réseau. */
+  manifestCount: number;
+  manifestAgeMs: number | null;
+  refreshing: boolean;
+  onRefreshManifest: () => Promise<unknown> | void;
 }) {
   const { t, language } = useLanguage();
   const [items, setItems] = useState<PendingScan[]>([]);
@@ -78,6 +87,35 @@ export function SyncQueueDrawer({
           className="px-4 space-y-4 max-h-[50vh] overflow-y-auto"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
         >
+          {/* Ce que la porte peut valider SANS réseau. C'est le chiffre qui
+              décide si on peut ouvrir en zone morte — il doit se lire ici, et
+              se recharger d'un geste : un videur ne fouille pas des réglages
+              à 1 h du matin. */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm text-white/60">{t('offline.drawer.loaded')}</span>
+              <span className="text-xl font-semibold tabular-nums text-white">{manifestCount}</span>
+            </div>
+            {manifestAgeMs !== null && (
+              <p className="mt-1 text-xs text-white/35">
+                {t('offline.syncedAgo').replace('{min}', String(Math.max(0, Math.round(manifestAgeMs / 60000))))}
+              </p>
+            )}
+            <Button
+              variant="secondary"
+              className="mt-3 h-11 w-full"
+              disabled={!online || refreshing}
+              onClick={() => { void onRefreshManifest(); }}
+            >
+              {refreshing
+                ? <Loader2 className="h-4 w-4 mr-2 flex-none animate-spin" />
+                : <Download className="h-4 w-4 mr-2 flex-none" />}
+              <span className="truncate">
+                {online ? t('offline.drawer.downloadList') : t('offline.drawer.waitingNetwork')}
+              </span>
+            </Button>
+          </div>
+
           {items.length > 0 && (
             <ul className="space-y-2">
               {items.map((item) => (
