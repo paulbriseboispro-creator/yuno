@@ -53,8 +53,16 @@ export function MarketingSubscriptions() {
     void load();
   }, [load]);
 
+  /**
+   * Identité de ligne. La portée PLATEFORME (Yuno) porte ses deux colonnes à
+   * NULL : sans `scope_type` dans la clé, elle valait `undefined` — clé React
+   * invalide, et collision avec toute autre ligne sans portée.
+   */
+  const rowKey = (row: SubscriptionRow) =>
+    `${row.scope_type}:${row.venue_id ?? row.organizer_user_id ?? 'platform'}`;
+
   const withdraw = async (row: SubscriptionRow, channel: 'email' | 'sms') => {
-    const key = `${row.venue_id ?? row.organizer_user_id}:${channel}`;
+    const key = `${rowKey(row)}:${channel}`;
     setBusyKey(key);
     const { error } = await supabase.rpc('withdraw_my_marketing_consent', {
       p_channel: channel,
@@ -95,14 +103,14 @@ export function MarketingSubscriptions() {
         ) : (
           <div className="divide-y divide-border/40">
             {rows.map((row) => (
-              <div key={row.venue_id ?? row.organizer_user_id} className="py-3 space-y-2">
+              <div key={rowKey(row)} className="py-3 space-y-2">
                 <div className="text-sm font-medium">{row.scope_name}</div>
                 <div className="flex flex-wrap gap-2">
                   {row.email_opted_in && (
                     <ChannelChip
                       icon={<Mail className="h-3.5 w-3.5" />}
                       label={t('consent.channelEmail')}
-                      busy={busyKey === `${row.venue_id ?? row.organizer_user_id}:email`}
+                      busy={busyKey === `${rowKey(row)}:email`}
                       onWithdraw={() => withdraw(row, 'email')}
                       withdrawLabel={t('consent.unsubscribe')}
                     />
@@ -111,7 +119,7 @@ export function MarketingSubscriptions() {
                     <ChannelChip
                       icon={<MessageSquare className="h-3.5 w-3.5" />}
                       label={t('consent.channelSms')}
-                      busy={busyKey === `${row.venue_id ?? row.organizer_user_id}:sms`}
+                      busy={busyKey === `${rowKey(row)}:sms`}
                       onWithdraw={() => withdraw(row, 'sms')}
                       withdrawLabel={t('consent.unsubscribe')}
                     />
