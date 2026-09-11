@@ -544,6 +544,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         sections: [
           { headingKey: 'ohelp.pg.consent.s1h', bodyKey: 'ohelp.pg.consent.s1b' },
           { headingKey: 'ohelp.pg.consent.s2h', bodyKey: 'ohelp.pg.consent.s2b' },
+          { headingKey: 'ohelp.pg.consent.s5h', bodyKey: 'ohelp.pg.consent.s5b' },
           { headingKey: 'ohelp.pg.consent.s3h', bodyKey: 'ohelp.pg.consent.s3b', type: 'warning' },
           { headingKey: 'ohelp.pg.consent.s4h', bodyKey: 'ohelp.pg.consent.s4b', type: 'tip' },
         ],
