@@ -470,14 +470,19 @@ export default function Bouncer() {
     try {
       const now = new Date().toISOString();
 
-      // Soirée en cours (commencée, pas finie).
+      // Soirée en cours (commencée, pas finie). Triées de la plus récemment
+      // ouverte à la plus ancienne : une porte qui couvre deux périmètres (club
+      // ET organisateur) peut voir deux soirées se chevaucher, et l'ancre du
+      // manifeste hors ligne ne peut pas être tirée au sort. La porte qui vient
+      // d'ouvrir est celle qu'on tient.
       const { data: events } = await supabase
         .from('events')
         .select('id')
         .or(eventFilter)
         .eq('is_active', true)
         .lte('start_at', now)
-        .gte('end_at', now);
+        .gte('end_at', now)
+        .order('start_at', { ascending: false });
 
       let eventIds = (events ?? []).map(e => e.id);
 
@@ -491,7 +496,8 @@ export default function Bouncer() {
           .select('id')
           .or(eventFilter)
           .gte('end_at', today.toISOString())
-          .lte('start_at', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString());
+          .lte('start_at', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString())
+          .order('start_at', { ascending: false });
         eventIds = (todayEvents ?? []).map(e => e.id);
       }
 
@@ -501,7 +507,9 @@ export default function Bouncer() {
         return;
       }
 
-      // Event de référence du manifeste offline.
+      // Event de référence du manifeste offline : la soirée la plus récemment
+      // ouverte du périmètre (cf. le tri ci-dessus), jamais la première ligne
+      // que la base a bien voulu rendre.
       setOfflineEventId(eventIds[0] ?? null);
 
       const { data: tickets } = await supabase
