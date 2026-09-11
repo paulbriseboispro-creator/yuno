@@ -43,7 +43,7 @@ export async function loadLocale(lang: Language): Promise<Record<string, string>
 // 2 000 clés `ohelp.*`) vivent dans des chunks séparés, fusionnés dans le
 // dictionnaire de la langue UNIQUEMENT quand la surface se monte.
 
-export type LocaleSection = 'help';
+export type LocaleSection = 'help' | 'admin';
 
 const sectionCache: Partial<Record<Language, Partial<Record<LocaleSection, Record<string, string>>>>> = {};
 
@@ -61,17 +61,33 @@ export async function loadLocaleSection(lang: Language, section: LocaleSection):
   const already = sectionCache[lang]?.[section];
   if (already) return cache[lang] ?? base;
   let mod: { default: Record<string, string> };
-  // Imports explicites (pas de template string) : un chunk par langue.
-  switch (lang) {
-    case 'fr':
-      mod = await import('./locales/help/fr');
-      break;
-    case 'es':
-      mod = await import('./locales/help/es');
-      break;
-    default:
-      mod = await import('./locales/help/en');
-      break;
+  // Imports explicites (pas de template string) : un chunk par langue et par
+  // section. `admin` = tout le super admin (src/i18n/locales/admin/modules/*),
+  // jamais téléchargé par un client ni un pro.
+  if (section === 'admin') {
+    switch (lang) {
+      case 'fr':
+        mod = await import('./locales/admin/fr');
+        break;
+      case 'es':
+        mod = await import('./locales/admin/es');
+        break;
+      default:
+        mod = await import('./locales/admin/en');
+        break;
+    }
+  } else {
+    switch (lang) {
+      case 'fr':
+        mod = await import('./locales/help/fr');
+        break;
+      case 'es':
+        mod = await import('./locales/help/es');
+        break;
+      default:
+        mod = await import('./locales/help/en');
+        break;
+    }
   }
   (sectionCache[lang] ??= {})[section] = mod.default;
   const merged = { ...(cache[lang] ?? base), ...mod.default };

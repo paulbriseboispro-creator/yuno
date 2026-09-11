@@ -10,6 +10,7 @@ import {
 
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fmtDate } from '@/lib/adminFormat';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -23,7 +24,7 @@ import {
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
 const POS         = '#34D399';
-const WARN        = '#FBBF24';
+const WARN        = '#FCD34D';
 const T1          = 'rgba(255,255,255,0.96)';
 const T2          = 'rgba(255,255,255,0.58)';
 const T3          = 'rgba(255,255,255,0.36)';
@@ -412,12 +413,12 @@ export default function AdminAlerts() {
                             </span>
                             {d.due_at && (
                               <span style={{ color: T3, fontSize: 10.5 }} className="tabular-nums">
-                                {t('adminAlerts.dueOn')} {new Date(`${d.due_at}T00:00:00`).toLocaleDateString()}
+                                {t('adminAlerts.dueOn')} {fmtDate(`${d.due_at}T00:00:00`, language)}
                               </span>
                             )}
                             {d.last_rotated_at && (
                               <span style={{ color: T3, fontSize: 10.5 }} className="tabular-nums">
-                                · {t('adminAlerts.lastDone')} {new Date(`${d.last_rotated_at}T00:00:00`).toLocaleDateString()}
+                                · {t('adminAlerts.lastDone')} {fmtDate(`${d.last_rotated_at}T00:00:00`, language)}
                               </span>
                             )}
                             {d.console_url && (
@@ -515,7 +516,7 @@ export default function AdminAlerts() {
                   <TabsTrigger value="urgent" className="h-7 px-3 text-xs data-[state=active]:bg-white/[0.08] data-[state=active]:text-white text-white/50 cursor-pointer">
                     {t('notif.urgent')}
                     {urgentCount > 0 && (
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-400/20 px-1 text-[9px] font-bold text-orange-400">
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: 'rgba(252,211,77,0.18)', color: '#FCD34D' }}>
                         {urgentCount}
                       </span>
                     )}

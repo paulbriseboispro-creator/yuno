@@ -180,15 +180,16 @@ export default function AdminVenues() {
       const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
         body: { action: 'create-showcase-owner', venueId: showcaseTarget.id, email: showcaseEmail.trim() },
       });
-      if (error || (data as any)?.error) throw new Error((data as any)?.error ?? error?.message);
-      setShowcaseLink((data as any).action_link as string);
-      toast.success('Compte vitrine prêt — ouvre le lien en fenêtre privée pour construire.');
+      const res = data as { error?: string; action_link?: string } | null;
+      if (error || res?.error) throw new Error(res?.error ?? error?.message);
+      setShowcaseLink(res?.action_link ?? '');
+      toast.success(t('adm.vn.showcaseReady'));
       fetchData();
-    } catch (e: any) {
+    } catch (e) {
       const msg = String(e?.message ?? '');
       if (msg.includes('venue_already_owned')) toast.error('Ce club a déjà un vrai propriétaire.');
-      else if (msg.includes('email_already_used')) toast.error('Cet email est déjà utilisé par un autre compte.');
-      else if (msg.includes('womber_email_forbidden')) toast.error('Jamais d\'email @womber.fr pour un fantôme.');
+      else if (msg.includes('email_already_used')) toast.error(t('adm.vn.emailUsed'));
+      else if (msg.includes('womber_email_forbidden')) toast.error(t('adm.vn.womberForbidden'));
       else toast.error(msg || 'Erreur');
     } finally {
       setCreatingShowcase(false);
@@ -199,8 +200,8 @@ export default function AdminVenues() {
     if (!showcaseLink) return;
     try {
       await navigator.clipboard.writeText(showcaseLink);
-      toast.success('Lien builder copié');
-    } catch { toast.error('Copie impossible'); }
+      toast.success(t('adm.vn.builderCopied'));
+    } catch { toast.error(t('adm.common.copyFailed')); }
   };
 
   const openCreateDialog = () => {
@@ -510,17 +511,11 @@ export default function AdminVenues() {
                       par son fantôme). Le fantôme EST l'owner → owner_email affiché. */}
                   {venue.showcase_shadow_owner_id ? (
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED, fontSize: 10, fontWeight: 600 }}>
-                        Vitrine
-                      </span>
-                      <button style={{ ...secondaryBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12 }} onClick={() => openShowcaseDialog(venue)}>
-                        Lien builder
-                      </button>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED, fontSize: 10, fontWeight: 600 }}>{t('adm.vn.showcase')}</span>
+                      <button style={{ ...secondaryBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12 }} onClick={() => openShowcaseDialog(venue)}>{t('adm.vn.builderLink')}</button>
                     </div>
                   ) : (!venue.owner_email && !venue.decommissioned_at && (
-                    <button style={{ ...secondaryBtnStyle, width: '100%', padding: '7px 10px', fontSize: 12 }} onClick={() => openShowcaseDialog(venue)}>
-                      Compte vitrine
-                    </button>
+                    <button style={{ ...secondaryBtnStyle, width: '100%', padding: '7px 10px', fontSize: 12 }} onClick={() => openShowcaseDialog(venue)}>{t('adm.vn.showcaseAccount')}</button>
                   ))}
 
                   <a href={`/club/${venue.id}`} target="_blank" rel="noopener noreferrer" style={{ ...secondaryBtnStyle, width: '100%', padding: '7px 10px', fontSize: 12, textDecoration: 'none' }}>
@@ -649,7 +644,7 @@ export default function AdminVenues() {
             {showcaseLink ? (
               <div className="space-y-3">
                 <p style={{ fontSize: 13, color: T2 }}>
-                  Lien builder prêt (usage unique, ouvre-le en <strong style={{ color: T1 }}>fenêtre privée</strong>) :
+                  {t('adm.vn.builderReady')}
                 </p>
                 <div className="flex items-center gap-2">
                   <input readOnly value={showcaseLink} style={{ ...inputStyle, flex: 1 }} onFocus={(e) => e.currentTarget.select()} />
@@ -658,13 +653,13 @@ export default function AdminVenues() {
                   </button>
                 </div>
                 <button onClick={() => { setShowcaseTarget(null); setShowcaseLink(null); }} style={{ ...primaryBtnStyle, width: '100%' }}>
-                  Terminé
+                  {t('adm.vn.done')}
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label style={labelStyle}>Email du compte fantôme</label>
+                  <label style={labelStyle}>{t('adm.vn.ghostEmail')}</label>
                   <input
                     type="email"
                     value={showcaseEmail}
@@ -682,7 +677,7 @@ export default function AdminVenues() {
                   style={{ ...primaryBtnStyle, width: '100%', opacity: (creatingShowcase || !showcaseEmail) ? 0.5 : 1, cursor: (creatingShowcase || !showcaseEmail) ? 'not-allowed' : 'pointer' }}
                 >
                   {creatingShowcase && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {showcaseTarget?.showcase_shadow_owner_id ? 'Regénérer le lien builder' : 'Créer le compte vitrine'}
+                  {showcaseTarget?.showcase_shadow_owner_id ? t('adm.vn.regenBuilder') : t('adm.vn.createShowcase')}
                 </button>
               </div>
             )}

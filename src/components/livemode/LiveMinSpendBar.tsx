@@ -17,10 +17,10 @@ export function LiveMinSpendBar({ reservationId }: Props) {
 
   const fetchSpend = useCallback(async () => {
     try {
-      const { data, error } = await (supabase.rpc as (
+      const { data, error } = await (supabase.rpc as unknown as (
         fn: string,
         args: Record<string, unknown>
-      ) => ReturnType<typeof supabase.rpc>)('get_my_table_spend', {
+      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>)('get_my_table_spend', {
         p_reservation_id: reservationId,
       });
       if (error) throw error;

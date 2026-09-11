@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fmtDate } from '@/lib/adminFormat';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Bell, Send, Loader2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -44,7 +45,7 @@ interface Campaign {
 }
 
 export default function AdminPushNotifications() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const SEGMENTS = [
     { value: 'all', label: t('adminPush.segAll') },
@@ -95,24 +96,31 @@ export default function AdminPushNotifications() {
   }, [segment, city]);
 
   const fetchCampaigns = async () => {
-    const { data } = await supabase
-      .from('push_campaigns' as any)
+    // Portée plateforme uniquement : les campagnes d'un club (OwnerPush), d'une
+    // agence (AgencyPush) ou d'une automatisation (source='auto') ne sont pas
+    // l'historique du super admin — elles ont leurs propres écrans.
+    const { data, error } = await supabase
+      .from('push_campaigns' as never)
       .select('*')
+      .is('venue_id', null)
+      .is('agency_id', null)
+      .neq('source', 'auto')
       .order('created_at', { ascending: false })
       .limit(20);
-    const rows = ((data as any) || []) as Campaign[];
+    if (error) toast.error((error as Error)?.message);
+    const rows = ((data as unknown) || []) as Campaign[];
     setCampaigns(rows);
     setLoading(false);
 
     // Clics par campagne (tracking ?pc= → push_campaign_events).
     if (rows.length > 0) {
       const { data: events } = await supabase
-        .from('push_campaign_events' as any)
+        .from('push_campaign_events' as never)
         .select('campaign_id')
         .eq('event_type', 'clicked')
         .in('campaign_id', rows.map(r => r.id));
       const counts: Record<string, number> = {};
-      ((events as any) || []).forEach((e: { campaign_id: string }) => {
+      ((events as { campaign_id: string }[] | null) || []).forEach((e) => {
         counts[e.campaign_id] = (counts[e.campaign_id] || 0) + 1;
       });
       setClicks(counts);
@@ -150,8 +158,8 @@ export default function AdminPushNotifications() {
       setCity('');
       setScheduledAt('');
       fetchCampaigns();
-    } catch (error: any) {
-      toast.error(error.message || t('adminPush.sendError'));
+    } catch (error) {
+      toast.error((error as Error)?.message || t('adminPush.sendError'));
     } finally {
       setSending(false);
     }
@@ -162,10 +170,9 @@ export default function AdminPushNotifications() {
   const statusChip = (c: Campaign) => {
     if (!c.status || c.status === 'sent') return null;
     const cfg: Record<string, { label: string; color: string }> = {
-      scheduled: { label: t('adminPush.statusScheduled'), color: '#60A5FA' },
-      sending: { label: t('adminPush.statusSending'), color: '#FBBF24' },
+      scheduled: { label: t('adminPush.statusScheduled'), color: 'rgba(255,255,255,0.40)' },
+      sending: { label: t('adminPush.statusSending'), color: '#FCD34D' },
       failed: { label: t('adminPush.statusFailed'), color: RED },
-      draft: { label: 'Draft', color: T3 },
     };
     const s = cfg[c.status];
     if (!s) return null;
@@ -208,11 +215,11 @@ export default function AdminPushNotifications() {
           <div className="space-y-4">
             <div>
               <label style={labelStyle}>{t('adminPush.titleLabel')}</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ce soir à 23h..." maxLength={80} style={inputStyle} />
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('adm.push.titlePlaceholder')} maxLength={80} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>{t('adminPush.messageLabel')}</label>
-              <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Casanova ouvre ses portes..." maxLength={200} rows={3} style={{ ...inputStyle, resize: 'none', lineHeight: 1.5 }} />
+              <textarea value={body} onChange={e => setBody(e.target.value)} placeholder={t('adm.push.bodyPlaceholder')} maxLength={200} rows={3} style={{ ...inputStyle, resize: 'none', lineHeight: 1.5 }} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -244,7 +251,7 @@ export default function AdminPushNotifications() {
                   type="datetime-local"
                   value={scheduledAt}
                   onChange={e => setScheduledAt(e.target.value)}
-                  min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+                  min={(() => { const d = new Date(Date.now() + 5 * 60 * 1000 - new Date().getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); })()}
                   style={{ ...inputStyle, colorScheme: 'dark' }}
                 />
               </div>
@@ -307,7 +314,7 @@ export default function AdminPushNotifications() {
                       {statusChip(c)}
                       <span className="flex items-center gap-1 tabular-nums" style={{ color: T3, fontSize: 10 }}>
                         <Clock className="h-3 w-3" />
-                        {new Date(c.scheduled_at && c.status === 'scheduled' ? c.scheduled_at : c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {fmtDate(c.scheduled_at && c.status === 'scheduled' ? c.scheduled_at : c.created_at, language, 'datetime')}
                       </span>
                     </div>
                   </div>

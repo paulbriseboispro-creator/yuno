@@ -106,10 +106,10 @@ export default function AdminSearchBar({ pages = [] }: { pages?: AdminSearchPage
         (profilesRes.data || []).forEach((p) => items.push({
           kind: 'user', id: p.id,
           label: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || p.id,
-          sub: p.email, icon: User, to: `/admin/directory/user/${p.id}`,
+          sub: p.email, icon: User, to: `/admin/people/${p.id}`,
         }));
         (venuesRes.data || []).forEach((v) => items.push({
-          kind: 'venue', id: v.id, label: v.name, sub: v.city, icon: Building2, to: `/admin/directory/venue/${v.id}`,
+          kind: 'venue', id: v.id, label: v.name, sub: v.city, icon: Building2, to: `/admin/venues/${v.id}`,
         }));
         (eventsRes.data || []).forEach((e) => items.push({
           kind: 'event', id: e.id, label: e.title,

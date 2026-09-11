@@ -258,35 +258,43 @@ const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
 const YunoAssistantPage = lazyWithRetry(() => import("./pages/YunoAssistantPage"));
 
 // Admin pages
+// Super admin — tour de contrôle (src/pages/admin/*). Les chiffres passent par
+// des RPC `admin_*` démo-exclues ; le dictionnaire i18n est une section à part.
 const AdminLayout = lazyWithRetry(() => import("./pages/admin/AdminLayout"));
-const AdminDashboard = lazyWithRetry(() => import("./pages/admin/AdminDashboard"));
+const AdminCockpit = lazyWithRetry(() => import("./pages/admin/AdminCockpit"));
+const AdminGrowth = lazyWithRetry(() => import("./pages/admin/AdminGrowth"));
+const AdminRevenue = lazyWithRetry(() => import("./pages/admin/AdminRevenue"));
+const AdminProduct = lazyWithRetry(() => import("./pages/admin/AdminProduct"));
+const AdminAi = lazyWithRetry(() => import("./pages/admin/AdminAi"));
+const AdminCustomers = lazyWithRetry(() => import("./pages/admin/AdminCustomers"));
+const AdminSystem = lazyWithRetry(() => import("./pages/admin/AdminSystem"));
 const AdminVenues = lazyWithRetry(() => import("./pages/admin/AdminVenues"));
-const AdminAnalytics = lazyWithRetry(() => import("./pages/admin/AdminAnalytics"));
-const AdminTraffic = lazyWithRetry(() => import("./pages/admin/AdminTraffic"));
-const AdminSegmentation = lazyWithRetry(() => import("./pages/admin/AdminSegmentation"));
-const AdminAccounting = lazyWithRetry(() => import("./pages/admin/AdminAccounting"));
 const AdminFeedback = lazyWithRetry(() => import("./pages/admin/AdminFeedback"));
 const AdminDrinkCatalog = lazyWithRetry(() => import("./pages/admin/AdminDrinkCatalog"));
-const AdminEmailTemplates = lazyWithRetry(() => import("./pages/admin/AdminEmailTemplates"));
-const AdminWaitlist = lazyWithRetry(() => import("./pages/admin/AdminWaitlist"));
 const SetupPinPage = lazyWithRetry(() => import("./pages/SetupPinPage"));
 const ResetPinPage = lazyWithRetry(() => import("./pages/ResetPinPage"));
 
 const AdminPushNotifications = lazyWithRetry(() => import("./pages/admin/AdminPushNotifications"));
 const AdminNotificationAutomations = lazyWithRetry(() => import("./pages/admin/AdminNotificationAutomations"));
-const AdminDirectory = lazyWithRetry(() => import("./pages/admin/AdminDirectory"));
+const AdminPeople = lazyWithRetry(() => import("./pages/admin/AdminPeople"));
 const AdminUserDetail = lazyWithRetry(() => import("./pages/admin/AdminUserDetail"));
 const AdminVenueDetail = lazyWithRetry(() => import("./pages/admin/AdminVenueDetail"));
 const AdminOrders = lazyWithRetry(() => import("./pages/admin/AdminOrders"));
 const AdminSubscriptions = lazyWithRetry(() => import("./pages/admin/AdminSubscriptions"));
-const AdminPlatformInvitations = lazyWithRetry(() => import("./pages/admin/AdminPlatformInvitations"));
-const AdminAffiliates = lazyWithRetry(() => import("./pages/admin/AdminAffiliates"));
+const AdminOrganizers = lazyWithRetry(() => import("./pages/admin/AdminOrganizers"));
+const AdminAgencies = lazyWithRetry(() => import("./pages/admin/AdminAgencies"));
 const AdminEvents = lazyWithRetry(() => import("./pages/admin/AdminEvents"));
 const AdminAuditLog = lazyWithRetry(() => import("./pages/admin/AdminAuditLog"));
 const AdminDemoAccess = lazyWithRetry(() => import("./pages/admin/AdminDemoAccess"));
 const AdminSupportAccess = lazyWithRetry(() => import("./pages/admin/AdminSupportAccess"));
 const AdminAlerts = lazyWithRetry(() => import("./pages/admin/AdminAlerts"));
 const AdminLinks = lazyWithRetry(() => import("./pages/admin/AdminLinks"));
+// Marketing plateforme : Yuno ecrit a sa propre base (3e portee du moteur
+// de campagnes, voir docs/PLATFORM_MARKETING.md).
+const AdminMarketing = lazyWithRetry(() => import("./pages/admin/AdminMarketing"));
+const AdminMarketingEmailEditor = lazyWithRetry(() => import("./pages/admin/AdminMarketing").then(m => ({ default: m.AdminMarketingEmailEditor })));
+const AdminMarketingEmailReport = lazyWithRetry(() => import("./pages/admin/AdminMarketing").then(m => ({ default: m.AdminMarketingEmailReport })));
+const AdminMarketingSms = lazyWithRetry(() => import("./pages/admin/AdminMarketingSms"));
 const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
 // Affiliate app pages
@@ -1159,38 +1167,68 @@ const App = () => (
 
                 {/* Admin routes */}
                 <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<AdminDashboard />} />
-                  {/* /admin/alerts = boîte de réception plateforme (échéances +
-                      incidents). À ne pas confondre avec /admin/notifications,
-                      qui est le registre des push automatiques aux clients. */}
-                  <Route path="alerts" element={<AdminAlerts />} />
-                  <Route path="venues" element={<AdminVenues />} />
-                  <Route path="analytics" element={<AdminAnalytics />} />
-                  {/* /admin/traffic = audience web+app (visiteurs, acquisition,
-                      pages, temps réel) — /admin/analytics reste le CA. */}
-                  <Route path="traffic" element={<AdminTraffic />} />
-                  {/* /admin/links = la page bio (/links) : réglages, audience, leads pro. */}
+                  {/* ── Pilotage ── */}
+                  <Route index element={<AdminCockpit />} />
+                  {/* /admin/growth = comptes, installs, audience web+app (ex-trafic). */}
+                  <Route path="growth" element={<AdminGrowth />} />
+                  {/* /admin/revenue = ventes, frais Yuno, exports par mois (ex-analytics + compta). */}
+                  <Route path="revenue" element={<AdminRevenue />} />
+                  {/* /admin/product = ce que les clients regardent, aiment, demandent. */}
+                  <Route path="product" element={<AdminProduct />} />
+                  {/* /admin/ai = consommation des assistants IA (tokens, coût, questions). */}
+                  <Route path="ai" element={<AdminAi />} />
+                  {/* /admin/customers = CRM plateforme, segments RFM (ex-segmentation). */}
+                  <Route path="customers" element={<AdminCustomers />} />
+                  {/* /admin/links = la page bio (/links) : réglages, audience, leads, liste d'attente. */}
                   <Route path="links" element={<AdminLinks />} />
-                  <Route path="segmentation" element={<AdminSegmentation />} />
-                  <Route path="accounting" element={<AdminAccounting />} />
-                  <Route path="feedback" element={<AdminFeedback />} />
-                  <Route path="drinks" element={<AdminDrinkCatalog />} />
-                  <Route path="emails" element={<AdminEmailTemplates />} />
-                  <Route path="waitlist" element={<AdminWaitlist />} />
-                  
-                  <Route path="push" element={<AdminPushNotifications />} />
-                  <Route path="notifications" element={<AdminNotificationAutomations />} />
-                  <Route path="directory" element={<AdminDirectory />} />
-                  <Route path="directory/user/:userId" element={<AdminUserDetail />} />
-                  <Route path="directory/venue/:venueId" element={<AdminVenueDetail />} />
+
+                  {/* ── Acteurs ── */}
+                  <Route path="venues" element={<AdminVenues />} />
+                  <Route path="venues/:venueId" element={<AdminVenueDetail />} />
+                  <Route path="organizers" element={<AdminOrganizers />} />
+                  <Route path="agencies" element={<AdminAgencies />} />
                   <Route path="events" element={<AdminEvents />} />
+                  <Route path="people" element={<AdminPeople />} />
+                  <Route path="people/:userId" element={<AdminUserDetail />} />
                   <Route path="orders" element={<AdminOrders />} />
-                  <Route path="subscriptions" element={<AdminSubscriptions />} />
-                  <Route path="organizers" element={<AdminPlatformInvitations />} />
-                  <Route path="affiliates" element={<AdminAffiliates />} />
                   <Route path="demo-access" element={<AdminDemoAccess />} />
                   <Route path="support" element={<AdminSupportAccess />} />
+
+                  {/* ── Communication ──
+                      /admin/marketing = email + SMS de Yuno vers sa propre base.
+                      /admin/push = campagnes push manuelles. /admin/notifications =
+                      registre des push automatiques. /admin/alerts = boîte de
+                      réception plateforme (échéances + incidents). */}
+                  <Route path="marketing" element={<AdminMarketing />} />
+                  <Route path="marketing/email/new" element={<AdminMarketingEmailEditor />} />
+                  <Route path="marketing/email/:id/edit" element={<AdminMarketingEmailEditor />} />
+                  <Route path="marketing/email/:id/report" element={<AdminMarketingEmailReport />} />
+                  <Route path="marketing/sms" element={<AdminMarketingSms />} />
+                  <Route path="marketing/sms/:id" element={<AdminMarketingSms />} />
+                  <Route path="push" element={<AdminPushNotifications />} />
+                  <Route path="notifications" element={<AdminNotificationAutomations />} />
+                  <Route path="feedback" element={<AdminFeedback />} />
+
+                  {/* ── Système ── */}
+                  <Route path="system" element={<AdminSystem />} />
+                  <Route path="alerts" element={<AdminAlerts />} />
                   <Route path="audit" element={<AdminAuditLog />} />
+                  <Route path="drinks" element={<AdminDrinkCatalog />} />
+                  {/* Abonnements : fonctionnalité coupée (SUBSCRIPTIONS_ENABLED=false),
+                      page gardée hors navigation, atteignable depuis la santé technique. */}
+                  <Route path="subscriptions" element={<AdminSubscriptions />} />
+
+                  {/* Anciennes adresses (favoris, liens dans les alertes déjà émises). */}
+                  <Route path="analytics" element={<Navigate to="/admin/revenue" replace />} />
+                  <Route path="accounting" element={<Navigate to="/admin/revenue" replace />} />
+                  <Route path="traffic" element={<Navigate to="/admin/growth" replace />} />
+                  <Route path="segmentation" element={<Navigate to="/admin/customers" replace />} />
+                  <Route path="waitlist" element={<Navigate to="/admin/links?tab=waitlist" replace />} />
+                  <Route path="directory" element={<Navigate to="/admin/people" replace />} />
+                  <Route path="directory/user/:userId" element={<AdminUserDetail />} />
+                  <Route path="directory/venue/:venueId" element={<AdminVenueDetail />} />
+                  <Route path="affiliates" element={<Navigate to="/admin/agencies" replace />} />
+                  <Route path="emails" element={<Navigate to="/admin/marketing" replace />} />
                 </Route>
 
                 {/* Affiliate app */}

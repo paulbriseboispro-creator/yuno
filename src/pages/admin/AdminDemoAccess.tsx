@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Label } from '@/components/ui/label';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -146,6 +147,7 @@ function AccountPicker({ selected, onToggle }: { selected: TargetAccount[]; onTo
 }
 
 export default function AdminDemoAccess() {
+  const { t } = useLanguage();
   const [links, setLinks] = useState<PreviewLink[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -192,21 +194,21 @@ export default function AdminDemoAccess() {
     setLoading(true);
     const [linksRes, venuesRes, orgsRes, claimsRes] = await Promise.all([
       supabase
-        .from('demo_preview_links' as any)
+        .from('demo_preview_links')
         .select('*, venues(name)')
         .order('created_at', { ascending: false }),
       supabase
-        .from('venues' as any)
+        .from('venues')
         .select('id, name')
         .not('showcase_shadow_owner_id', 'is', null)
         .order('name'),
       supabase
-        .from('organizer_profiles' as any)
+        .from('organizer_profiles')
         .select('user_id, display_name')
         .eq('is_showcase_shadow', true)
         .order('display_name'),
       supabase
-        .from('showcase_claim_requests' as any)
+        .from('showcase_claim_requests')
         .select('*, venues(name)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
@@ -223,9 +225,9 @@ export default function AdminDemoAccess() {
   const copyLink = async (token: string) => {
     try {
       await navigator.clipboard.writeText(previewUrl(token));
-      toast.success('Lien copié');
+      toast.success(t('adm.demo.linkCopied'));
     } catch {
-      toast.error('Copie impossible');
+      toast.error(t('adm.common.copyFailed'));
     }
   };
 
@@ -233,7 +235,7 @@ export default function AdminDemoAccess() {
     if (!label || !password || (!showcaseSel && accounts.length === 0)) return;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('create_demo_preview_link' as any, {
+      const { data, error } = await supabase.rpc('create_demo_preview_link', {
         p_label: label,
         p_password: password,
         p_target_accounts: selVenueId ? ['owner'] : selOrgId ? ['organizer'] : accounts,
@@ -243,20 +245,20 @@ export default function AdminDemoAccess() {
         p_organizer_user_id: selOrgId || null,
       });
       if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
-      const token = (row as any)?.token as string | undefined;
+      const row = Array.isArray(data) ? data[0] : (data ?? null);
+      const token = (row as { token?: string } | null)?.token;
       if (token) {
         try { await navigator.clipboard.writeText(previewUrl(token)); } catch { /* ignore */ }
-        toast.success(`Lien créé pour ${label} — copié dans le presse-papier`);
+        toast.success(t('adm.demo.linkCreated').replace('{name}', label));
       } else {
-        toast.success('Lien créé');
+        toast.success(t('adm.demo.linkCreatedShort'));
       }
       setLabel(''); setPassword(''); setAccounts(['owner']); setLanguage('en'); setExpiresAt('');
       setShowcaseSel('');
       setCreateOpen(false);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error)?.message ?? 'Erreur');
     } finally {
       setSubmitting(false);
     }
@@ -270,7 +272,8 @@ export default function AdminDemoAccess() {
     if (!inviteTarget || !inviteEmail || inviting) return;
     setInviting(true);
     try {
-      let data: any, error: any;
+      let data: { error?: string; user_exists?: boolean } | null = null;
+      let error: { message: string } | null = null;
       if (inviteTarget.venue_id) {
         ({ data, error } = await supabase.functions.invoke('invite-owner', {
           body: {
@@ -294,14 +297,14 @@ export default function AdminDemoAccess() {
       if (data?.user_exists) {
         // Orga déjà existant : le handoff a fusionné le contenu vitrine dans
         // son profil (qui adopte la présentation construite).
-        toast.success('Compte existant : la vitrine vient d\'être transférée immédiatement.');
+        toast.success(t('adm.demo.existingAccount'));
       } else {
-        toast.success(`Invitation envoyée à ${inviteEmail.trim()}`);
+        toast.success(t('adm.demo.inviteSent').replace('{email}', inviteEmail.trim()));
       }
       setInviteTarget(null);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error)?.message ?? 'Erreur');
     } finally {
       setInviting(false);
     }
@@ -309,20 +312,20 @@ export default function AdminDemoAccess() {
 
   const dismissClaim = async (claim: ClaimRequest) => {
     const { error } = await supabase
-      .from('showcase_claim_requests' as any)
+      .from('showcase_claim_requests')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', claim.id);
-    if (error) toast.error(error.message);
-    else { toast.success('Demande écartée'); load(); }
+    if (error) toast.error((error as Error)?.message);
+    else { toast.success(t('adm.demo.claimDismissed')); load(); }
   };
 
   const revoke = async (link: PreviewLink) => {
     const { error } = await supabase
-      .from('demo_preview_links' as any)
+      .from('demo_preview_links')
       .update({ is_active: false, revoked_at: new Date().toISOString() })
       .eq('id', link.id);
-    if (error) toast.error(error.message);
-    else { toast.success('Lien désactivé'); load(); }
+    if (error) toast.error((error as Error)?.message);
+    else { toast.success(t('adm.demo.linkDisabled')); load(); }
   };
 
   // Met à jour les rôles accessibles d'un lien existant. On garde target_account
@@ -334,15 +337,15 @@ export default function AdminDemoAccess() {
     setSavingEdit(true);
     try {
       const { error } = await supabase
-        .from('demo_preview_links' as any)
+        .from('demo_preview_links')
         .update({ target_accounts: editAccounts, target_account: editAccounts[0] })
         .eq('id', editTarget.id);
       if (error) throw error;
-      toast.success('Accès mis à jour');
+      toast.success(t('adm.demo.accessUpdated'));
       setEditTarget(null);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error)?.message ?? 'Erreur');
     } finally {
       setSavingEdit(false);
     }
@@ -352,13 +355,13 @@ export default function AdminDemoAccess() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from('demo_preview_links' as any).delete().eq('id', deleteTarget.id);
+      const { error } = await supabase.from('demo_preview_links').delete().eq('id', deleteTarget.id);
       if (error) throw error;
-      toast.success('Lien supprimé');
+      toast.success(t('adm.demo.linkDeleted'));
       setDeleteTarget(null);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error)?.message ?? 'Erreur');
     } finally {
       setDeleting(false);
     }
@@ -367,9 +370,9 @@ export default function AdminDemoAccess() {
   const isRevoked = (l: PreviewLink) => !l.is_active || !!l.revoked_at;
   const isExpired = (l: PreviewLink) => !!l.expires_at && new Date(l.expires_at) < new Date();
   const statusPill = (l: PreviewLink) => {
-    if (isRevoked(l)) return <span style={pillStyle(NEG, 'rgba(255,92,99,0.1)', 'rgba(255,92,99,0.25)')}>Désactivé</span>;
-    if (isExpired(l)) return <span style={pillStyle(T3, C_FAINT, BORDER)}>Expiré</span>;
-    return <span style={pillStyle(POS, 'rgba(52,211,153,0.1)', 'rgba(52,211,153,0.25)')}>Actif</span>;
+    if (isRevoked(l)) return <span style={pillStyle(NEG, 'rgba(255,92,99,0.1)', 'rgba(255,92,99,0.25)')}>{t('adm.demo.st.disabled')}</span>;
+    if (isExpired(l)) return <span style={pillStyle(T3, C_FAINT, BORDER)}>{t('adm.demo.st.expired')}</span>;
+    return <span style={pillStyle(POS, 'rgba(52,211,153,0.1)', 'rgba(52,211,153,0.25)')}>{t('adm.demo.st.active')}</span>;
   };
 
   return (
@@ -380,9 +383,7 @@ export default function AdminDemoAccess() {
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
         <header className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
-              Accès démo
-            </h1>
+            <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>{t('adm.demo.title')}</h1>
             <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>
               Génère un lien d'aperçu unique par personne, protégé par son propre mot de passe.
               Le destinataire voit le dashboard démo en lecture seule.
@@ -394,36 +395,33 @@ export default function AdminDemoAccess() {
                 className="inline-flex items-center gap-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150"
                 style={{ background: RED, color: '#fff', padding: '10px 16px', boxShadow: `0 0 18px -6px ${RED}88` }}
               >
-                <Plus className="h-4 w-4" />Nouveau lien
-              </button>
+                <Plus className="h-4 w-4" />{t('adm.demo.newLink')}</button>
             </DialogTrigger>
             <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
-              <DialogHeader><DialogTitle style={{ color: T1 }}>Nouveau lien d'aperçu</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle style={{ color: T1 }}>{t('adm.demo.newLinkTitle')}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-2">
                 <div>
-                  <Label style={{ color: T2 }}>Personne</Label>
+                  <Label style={{ color: T2 }}>{t('adm.demo.person')}</Label>
                   <input value={label} onChange={(e) => setLabel(e.target.value)}
-                    placeholder="Ex : Noah" style={{ ...inputStyle, marginTop: 6 }} />
+                    placeholder={t('adm.demo.personPh')} style={{ ...inputStyle, marginTop: 6 }} />
                 </div>
                 <div>
-                  <Label style={{ color: T2 }}>Mot de passe</Label>
+                  <Label style={{ color: T2 }}>{t('adm.demo.password')}</Label>
                   <input value={password} onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Ex : el sorbo" style={{ ...inputStyle, marginTop: 6 }} />
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
-                    À communiquer à la personne. C'est le mot de passe qui ouvrira son aperçu.
-                  </p>
+                    placeholder={t('adm.demo.passwordPh')} style={{ ...inputStyle, marginTop: 6 }} />
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>{t('adm.demo.passwordHint')}</p>
                 </div>
                 <div>
-                  <Label style={{ color: T2 }}>Compte vitrine (optionnel)</Label>
+                  <Label style={{ color: T2 }}>{t('adm.demo.showcaseOptional')}</Label>
                   <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
                     Vise un club ou un organisateur vitrine précis : le prospect verra SA page publique
                     et SON dashboard en lecture seule, au lieu des comptes démo génériques.
                   </p>
                   <select value={showcaseSel} onChange={(e) => setShowcaseSel(e.target.value)}
                     style={inputStyle}>
-                    <option value="" style={{ background: '#0a0a0c' }}>— Lien démo classique —</option>
+                    <option value="" style={{ background: '#0a0a0c' }}>{t('adm.demo.plainLink')}</option>
                     {showcaseVenues.length > 0 && (
-                      <optgroup label="Clubs vitrine">
+                      <optgroup label={t('adm.demo.showcaseVenues')}>
                         {showcaseVenues.map((v) => (
                           <option key={v.id} value={`v:${v.id}`} style={{ background: '#0a0a0c' }}>
                             {v.name}
@@ -432,7 +430,7 @@ export default function AdminDemoAccess() {
                       </optgroup>
                     )}
                     {showcaseOrgs.length > 0 && (
-                      <optgroup label="Organisateurs vitrine">
+                      <optgroup label={t('adm.demo.showcaseOrganizers')}>
                         {showcaseOrgs.map((o) => (
                           <option key={o.user_id} value={`o:${o.user_id}`} style={{ background: '#0a0a0c' }}>
                             {o.display_name}
@@ -445,14 +443,12 @@ export default function AdminDemoAccess() {
                 {!showcaseSel && (
                   <div>
                     <Label style={{ color: T2 }}>Dashboards accessibles ({accounts.length})</Label>
-                    <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
-                      Coche un ou plusieurs rôles. La personne pourra basculer entre eux depuis l'aperçu.
-                    </p>
+                    <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>{t('adm.demo.rolesHint')}</p>
                     <AccountPicker selected={accounts} onToggle={toggleAccount} />
                   </div>
                 )}
                 <div>
-                  <Label style={{ color: T2 }}>Langue par défaut</Label>
+                  <Label style={{ color: T2 }}>{t('adm.demo.defaultLanguage')}</Label>
                   <select value={language} onChange={(e) => setLanguage(e.target.value)}
                     style={{ ...inputStyle, marginTop: 6 }}>
                     {LANGUAGES.map((l) => (
@@ -463,7 +459,7 @@ export default function AdminDemoAccess() {
                   </select>
                 </div>
                 <div>
-                  <Label style={{ color: T2 }}>Expiration (optionnel)</Label>
+                  <Label style={{ color: T2 }}>{t('adm.demo.expiry')}</Label>
                   <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)}
                     style={{ ...inputStyle, marginTop: 6 }} />
                 </div>
@@ -504,10 +500,8 @@ export default function AdminDemoAccess() {
                     onClick={() => { setInviteTarget(cl); setInviteEmail(cl.requested_email); setOfferHelp(true); }}
                     className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold cursor-pointer transition-all duration-150"
                     style={{ background: RED, color: '#fff', boxShadow: `0 0 14px -6px ${RED}88` }}
-                  >
-                    Inviter
-                  </button>
-                  <button onClick={() => dismissClaim(cl)} title="Écarter la demande" style={iconBtn('neutral')}>
+                  >{t('adm.demo.invite')}</button>
+                  <button onClick={() => dismissClaim(cl)} title={t('adm.demo.dismissClaim')} style={iconBtn('neutral')}>
                     <Ban className="h-4 w-4" />
                   </button>
                 </div>
@@ -525,7 +519,7 @@ export default function AdminDemoAccess() {
           ) : links.length === 0 ? (
             <div className="text-center py-8 px-4">
               <Eye className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
-              <p className="text-xs" style={{ color: T3 }}>Aucun lien d'aperçu. Crée le premier.</p>
+              <p className="text-xs" style={{ color: T3 }}>{t('adm.demo.noLinks')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -547,24 +541,23 @@ export default function AdminDemoAccess() {
                   </div>
                   {(l.venue_id || l.organizer_user_id) && (
                     <span style={pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')}>
-                      <Store className="h-3 w-3" />Vitrine
-                    </span>
+                      <Store className="h-3 w-3" />{t('adm.demo.showcase')}</span>
                   )}
                   {statusPill(l)}
                   {!l.venue_id && !l.organizer_user_id && (
-                    <button onClick={() => openEdit(l)} title="Modifier les accès" style={iconBtn('neutral')}>
+                    <button onClick={() => openEdit(l)} title={t('adm.demo.editAccess')} style={iconBtn('neutral')}>
                       <Pencil className="h-4 w-4" />
                     </button>
                   )}
-                  <button onClick={() => copyLink(l.token)} title="Copier le lien" style={iconBtn('neutral')}>
+                  <button onClick={() => copyLink(l.token)} title={t('adm.demo.copyLink')} style={iconBtn('neutral')}>
                     <Copy className="h-4 w-4" />
                   </button>
                   {!isRevoked(l) && (
-                    <button onClick={() => revoke(l)} title="Désactiver" style={iconBtn('neutral')}>
+                    <button onClick={() => revoke(l)} title={t('adm.demo.disable')} style={iconBtn('neutral')}>
                       <Ban className="h-4 w-4" />
                     </button>
                   )}
-                  <button onClick={() => setDeleteTarget(l)} title="Supprimer" style={iconBtn('danger')}>
+                  <button onClick={() => setDeleteTarget(l)} title={t('adm.demo.delete')} style={iconBtn('danger')}>
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -614,7 +607,7 @@ export default function AdminDemoAccess() {
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div>
-                <Label style={{ color: T2 }}>Email du prospect</Label>
+                <Label style={{ color: T2 }}>{t('adm.demo.prospectEmail')}</Label>
                 <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
                   style={{ ...inputStyle, marginTop: 6 }} />
                 <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
@@ -654,14 +647,13 @@ export default function AdminDemoAccess() {
         <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
           <AlertDialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
             <AlertDialogHeader>
-              <AlertDialogTitle style={{ color: T1 }}>Supprimer ce lien d'aperçu ?</AlertDialogTitle>
+              <AlertDialogTitle style={{ color: T1 }}>{t('adm.demo.deleteTitle')}</AlertDialogTitle>
               <AlertDialogDescription style={{ color: T3 }}>
-                Le lien de <strong style={{ color: T2 }}>{deleteTarget?.label}</strong> ne fonctionnera plus.
-                Cette action est définitive.
+                {t('adm.demo.deleteHint').replace('{name}', deleteTarget?.label ?? '')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>Annuler</AlertDialogCancel>
+              <AlertDialogCancel style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>{t('adm.common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDelete} disabled={deleting} style={{ background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)', color: NEG }}>
                 {deleting ? 'Suppression…' : 'Supprimer'}
               </AlertDialogAction>

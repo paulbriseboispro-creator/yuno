@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSearchParams } from 'react-router-dom';
+import WaitlistTab from './links/WaitlistTab';
+import { Pill } from '@/components/admin/ui';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -44,7 +47,7 @@ const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,2
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 const AXIS_TICK   = { fill: 'rgba(255,255,255,0.36)', fontSize: 10.5 } as const;
 
-type Tab = 'audience' | 'settings' | 'leads';
+type Tab = 'audience' | 'settings' | 'leads' | 'waitlist';
 
 // ─── Primitives ──────────────────────────────────────────────────────────────
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -137,16 +140,15 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 const TARGET_KEYS = new Set(['app_store', 'web_app', 'instagram', 'tiktok', 'whatsapp', 'share', 'featured_all', 'event']);
 const LEAD_TYPES = new Set(['club', 'organizer', 'promoter', 'agency', 'other']);
 
-function flagEmoji(code: string): string {
-  if (!/^[A-Z]{2}$/.test(code)) return '';
-  return code.replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
-}
-
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function AdminLinks() {
   const { t, language } = useLanguage();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const [tab, setTab] = useState<Tab>('audience');
+  // L'onglet vit dans l'URL : les alertes « inscription liste d'attente » et le
+  // mode maintenance y renvoient directement (?tab=waitlist).
+  const [params, setParams] = useSearchParams();
+  const tab = ((params.get('tab') as Tab) || 'audience');
+  const setTab = useCallback((k: Tab) => setParams(k === 'audience' ? {} : { tab: k }, { replace: true }), [setParams]);
 
   // Audience
   const [period, setPeriod] = useState<string>('28');
@@ -292,6 +294,7 @@ export default function AdminLinks() {
     { key: 'audience', label: t('adminLinks.tabAudience'), icon: Eye },
     { key: 'settings', label: t('adminLinks.tabSettings'), icon: Link2 },
     { key: 'leads', label: t('adminLinks.tabLeads'), icon: Briefcase, badge: leads.filter((l) => !l.contacted_at).length || undefined },
+    { key: 'waitlist', label: t('adm.links.tabWaitlist'), icon: Users },
   ];
 
   const btn = (primary?: boolean): React.CSSProperties => ({
@@ -391,9 +394,9 @@ export default function AdminLinks() {
                         <XAxis dataKey="t" tick={AXIS_TICK} axisLine={false} tickLine={false} interval={xInterval} />
                         <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} allowDecimals={false} />
                         <Tooltip content={<CountTooltip />} cursor={{ stroke: BORDER }} />
-                        <Area type="monotone" dataKey="views" name={t('adminLinks.kViews')} stroke={RED} strokeWidth={2} fill="url(#ynl-views)" />
-                        <Area type="monotone" dataKey="clicks" name={t('adminLinks.kClicks')} stroke="rgba(255,255,255,0.7)" strokeWidth={1.5} fill="url(#ynl-clicks)" />
-                        <Area type="monotone" dataKey="signups" name={t('adminLinks.kSignups')} stroke={POS} strokeWidth={1.5} fill="none" />
+                        <Area type="monotone" dataKey="views" name={t('adminLinks.kViews')} stroke={RED} strokeWidth={2} fill="url(#ynl-views)" isAnimationActive={false} />
+                        <Area type="monotone" dataKey="clicks" name={t('adminLinks.kClicks')} stroke="rgba(255,255,255,0.7)" strokeWidth={1.5} fill="url(#ynl-clicks)" isAnimationActive={false} />
+                        <Area type="monotone" dataKey="signups" name={t('adminLinks.kSignups')} stroke={POS} strokeWidth={1.5} fill="none" isAnimationActive={false} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -427,7 +430,7 @@ export default function AdminLinks() {
                   </Card>
                   <Card>
                     <CardTitle icon={Globe}>{t('adminLinks.countriesTitle')}</CardTitle>
-                    <div className="space-y-3">{(stats!.countries ?? []).map((x) => <BarRow key={x.k} label={`${flagEmoji(x.k)} ${x.k}`.trim()} value={x.n} max={max(stats!.countries, 'n')} />)}</div>
+                    <div className="space-y-3">{(stats!.countries ?? []).map((x) => <BarRow key={x.k} label={x.k} value={x.n} max={max(stats!.countries, 'n')} />)}</div>
                   </Card>
                   <Card>
                     <CardTitle icon={Languages}>{t('adminLinks.langsTitle')}</CardTitle>
@@ -453,7 +456,7 @@ export default function AdminLinks() {
                       {(stats!.waitlist_cities ?? []).map((x) => <BarRow key={x.k} label={x.k} value={x.n} max={max(stats!.waitlist_cities, 'n')} accent />)}
                       {!stats!.waitlist_cities?.length && <p style={{ color: T3, fontSize: 13 }}>{t('adminLinks.noWaitlist')}</p>}
                     </div>
-                    <a href="/admin/waitlist" style={{ display: 'inline-flex', marginTop: 14, color: RED, fontSize: 12.5, fontWeight: 600 }}>{t('adminLinks.wlOpen')} →</a>
+                    <button type="button" onClick={() => setTab('waitlist')} style={{ display: 'inline-flex', marginTop: 14, color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>{t('adminLinks.wlOpen')}</button>
                   </Card>
                   <Card>
                     <CardTitle icon={Briefcase}>{t('adminLinks.leadTypesTitle')}</CardTitle>
@@ -461,7 +464,7 @@ export default function AdminLinks() {
                       {(stats!.lead_types ?? []).map((x) => <BarRow key={x.k} label={leadTypeLabel(x.k)} value={x.n} max={max(stats!.lead_types, 'n')} />)}
                       {!stats!.lead_types?.length && <p style={{ color: T3, fontSize: 13 }}>{t('adminLinks.leadsEmpty')}</p>}
                     </div>
-                    <button type="button" onClick={() => setTab('leads')} style={{ display: 'inline-flex', marginTop: 14, color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>{t('adminLinks.tabLeads')} →</button>
+                    <button type="button" onClick={() => setTab('leads')} style={{ display: 'inline-flex', marginTop: 14, color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>{t('adminLinks.tabLeads')}</button>
                   </Card>
                 </div>
               </>
@@ -534,6 +537,9 @@ export default function AdminLinks() {
           </div>
         )}
 
+        {/* ── Liste d'attente ── */}
+        {tab === 'waitlist' && <WaitlistTab />}
+
         {/* ── Leads pro ── */}
         {tab === 'leads' && (
           <Card>
@@ -556,7 +562,7 @@ export default function AdminLinks() {
                           <div className="flex flex-wrap items-center gap-2">
                             <span style={{ color: T1, fontSize: 15, fontWeight: 650 }}>{lead.name}</span>
                             <span style={{ color: RED, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.25)', borderRadius: 999, padding: '2px 8px' }}>{leadTypeLabel(lead.org_type)}</span>
-                            {done && <span style={{ color: POS, fontSize: 11.5, fontWeight: 600 }}>✓ {t('adminLinks.leadContacted')}</span>}
+                            {done && <Pill size="xs" tone="pos">{t('adminLinks.leadContacted')}</Pill>}
                           </div>
                           <p style={{ color: T2, fontSize: 13, marginTop: 4 }}>
                             {[lead.org_name, lead.city].filter(Boolean).join(' · ') || '—'}

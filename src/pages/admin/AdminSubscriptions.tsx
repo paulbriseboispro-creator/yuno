@@ -290,7 +290,7 @@ export default function AdminSubscriptions() {
                       {s.is_early_adopter ? (
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider"
-                            style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
+                            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.92)' }}>
                             <Gem className="w-3 h-3" />{t('admin.subs.ea')}
                           </span>
                           {s.price_locked && <Lock className="w-3.5 h-3.5" style={{ color: POS }} aria-label={t('plan.priceLockedBadge')} />}
@@ -332,8 +332,8 @@ export default function AdminSubscriptions() {
             style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24, width: '100%', maxWidth: 420 }}>
             <div className="flex items-start justify-between gap-3 mb-1">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(167,139,250,0.12)' }}>
-                  <Gem className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <Gem className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.92)' }} />
                 </div>
                 <h2 style={{ color: T1, fontSize: 16, fontWeight: 700 }}>{t('admin.subs.grantEaTitle')}</h2>
               </div>
@@ -359,7 +359,7 @@ export default function AdminSubscriptions() {
               </button>
               <button onClick={grantEarlyAdopter} disabled={granting}
                 className="px-4 py-2 rounded-xl text-[12.5px] font-semibold cursor-pointer disabled:opacity-50"
-                style={{ background: '#A78BFA', color: '#0a0a0c' }}>
+                style={{ background: 'rgba(255,255,255,0.92)', color: '#0a0a0c' }}>
                 {granting ? '…' : t('admin.subs.grantEaConfirm')}
               </button>
             </div>

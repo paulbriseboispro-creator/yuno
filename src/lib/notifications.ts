@@ -118,6 +118,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_waitlist_signup:     { icon: Users,         category: 'growth',    label: 'notif.type.admin_waitlist_signup' },
   admin_links_pro_lead:      { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_links_pro_lead' },
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
+  // Accuse de fin d'envoi d'une campagne Yuno (portee plateforme).
+  admin_platform_campaign_sent: { icon: Mail,      category: 'growth',    label: 'notif.type.admin_platform_campaign_sent' },
   // Encaissement : ce qui empêche l'argent d'entrer, ou le fait ressortir.
   admin_stripe_onboarding_stuck: { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_stripe_onboarding_stuck' },
   admin_subscription_changed:    { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_subscription_changed' },
@@ -482,31 +484,31 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_new_venue':
     case 'admin_venue_first_sale':
     case 'admin_stripe_onboarding_stuck':
-      return ref ? `/admin/directory/venue/${ref}` : '/admin/venues';
+      return ref ? `/admin/venues/${ref}` : '/admin/venues';
 
     case 'admin_new_organizer':
-      return ref ? `/admin/directory/user/${ref}` : '/admin/organizers';
+      return ref ? `/admin/people/${ref}` : '/admin/organizers';
 
     // Accès assisté prêt : atterrir directement sur la fiche du pro, là où vit
     // le bouton « Ouvrir une session ».
     case 'admin_support_access_ready': {
       const target = typeof n.metadata?.target_user_id === 'string' ? n.metadata.target_user_id : null;
-      return target ? `/admin/directory/user/${target}` : '/admin/directory';
+      return target ? `/admin/people/${target}` : '/admin/support';
     }
 
     case 'admin_new_agency':
-      return '/admin/directory';
+      return '/admin/agencies';
 
     // Quota email : atterrir sur la fiche du compte concerné.
     case 'admin_email_quota_80':
     case 'admin_email_quota_100': {
       const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
       const o = typeof n.metadata?.organizer_user_id === 'string' ? n.metadata.organizer_user_id : null;
-      return v ? `/admin/directory/venue/${v}` : o ? `/admin/directory/user/${o}` : '/admin/directory';
+      return v ? `/admin/venues/${v}` : o ? `/admin/people/${o}` : '/admin/people';
     }
 
     case 'admin_agency_club_lead':
-      return '/admin/affiliates';
+      return '/admin/agencies';
 
     // Lead pro « Ouvrir un club » : les coordonnées vivent dans le corps de
     // l'alerte elle-même — on reste sur la page des alertes.
@@ -519,32 +521,36 @@ function adminNotifLink(n: AppNotif): string | null {
       return '/admin/demo-access';
 
     case 'admin_waitlist_signup':
-      return '/admin/waitlist';
+      return '/admin/links?tab=waitlist';
 
     case 'admin_links_pro_lead':
       return '/admin/links';
 
+    // Le rapport de la campagne, pas la liste : l'alerte annonce un resultat.
+    case 'admin_platform_campaign_sent':
+      return n.reference_id ? `/admin/marketing/email/${n.reference_id}/report` : '/admin/marketing';
+
     case 'admin_subscription_changed':
-      return '/admin/subscriptions';
+      return '/admin/system';
 
     case 'admin_refund_spike':
       return '/admin/orders';
 
-    // Pas de page dédiée aux règlements promoteur côté admin : la comptabilité
-    // est l'endroit où le litige se tranche.
+    // Pas de page dédiée aux règlements promoteur côté admin : la fiche de
+    // l'organisateur ou du club concerné est le point d'atterrissage.
     case 'admin_payout_disputed':
-      return '/admin/accounting';
+      return ref ? `/admin/people/${ref}` : '/admin/revenue';
 
     case 'admin_feedback_new':
     case 'admin_feedback_critical':
       return '/admin/feedback';
 
     case 'admin_mfa_reset_requested':
-      return ref ? `/admin/directory/user/${ref}` : '/admin/directory';
+      return ref ? `/admin/people/${ref}` : '/admin/people';
 
     case 'admin_maintenance_mode':
     case 'admin_payments_switch':
-      return '/admin';
+      return '/admin/system';
 
     // Le club purgé n'existe plus : la liste des clubs est le seul point
     // d'atterrissage qui reste vrai (et celui d'où on relance une purge ratée).
@@ -561,7 +567,7 @@ function adminNotifLink(n: AppNotif): string | null {
     // Un profil sans compte ne s'ouvre nulle part : l'annuaire est le seul
     // endroit d'où on peut comparer les deux lignes d'un même email.
     case 'admin_orphan_profiles':
-      return '/admin/directory';
+      return '/admin/people';
 
     default:
       return null;

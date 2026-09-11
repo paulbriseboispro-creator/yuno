@@ -1,355 +1,155 @@
-import { useState, useEffect } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Bug, Lightbulb, MessageSquare, AlertTriangle, CheckCircle, Clock, XCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+import { AlertTriangle, Bug, CheckCircle, Clock, HelpCircle, Lightbulb, MessageSquare, Plus, RefreshCw, Trash2, XCircle, type LucideIcon } from 'lucide-react';
+import { AdminPage, Card, Stat, Btn, Pill, Modal, Field, EmptyState, Spinner, INPUT_STYLE, RED, POS, NEG, WARN, T1, T2, T3, F_BORDER } from '@/components/admin/ui';
+import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
+import { SearchBox } from './directory/Paginator';
 
-// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const RED        = '#E8192C';
-const POS        = '#34D399';
-const NEG        = '#FF5C63';
-const T1         = 'rgba(255,255,255,0.96)';
-const T2         = 'rgba(255,255,255,0.58)';
-const T3         = 'rgba(255,255,255,0.36)';
-const C_FAINT    = 'rgba(255,255,255,0.06)';
-const BORDER     = 'rgba(255,255,255,0.085)';
-const F_BORDER   = 'rgba(255,255,255,0.055)';
-const INNER_BG   = 'rgba(255,255,255,0.032)';
-const TILE_BG    = 'rgba(255,255,255,0.025)';
-const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-
-const inputStyle: React.CSSProperties = {
-  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
-  color: T1, fontSize: 13, padding: '9px 12px', width: '100%', outline: 'none',
-};
-
-const selectTriggerStyle: React.CSSProperties = {
-  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
-  color: T1, fontSize: 13, height: 'auto', padding: '9px 12px',
-};
-
-interface Feedback {
-  id: string;
-  venue_id: string | null;
-  venue_name?: string;
-  title: string;
-  description: string | null;
-  category: string;
-  priority: string;
-  status: string;
-  created_at: string;
-  resolved_at: string | null;
-}
-
-interface Venue { id: string; name: string; }
-
-// ─── Pill primitives ──────────────────────────────────────────────────────────
-function pillStyle(color: string, bg: string, border: string): React.CSSProperties {
-  return {
-    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px',
-    borderRadius: 999, fontSize: 11, fontWeight: 600, color, background: bg, border: `1px solid ${border}`,
-  };
-}
+interface Feedback { id: string; venue_id: string | null; title: string; description: string | null; category: string; priority: string; status: string; reported_by: string | null; created_at: string; resolved_at: string | null; venue_name?: string; reporter_email?: string | null }
+const CATEGORIES = ['bug', 'question', 'feature', 'complaint', 'other'] as const;
+const PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
+const STATUSES = ['open', 'in_progress', 'resolved', 'closed'] as const;
+const CAT_ICON: Record<string, LucideIcon> = { bug: Bug, feature: Lightbulb, question: HelpCircle, complaint: MessageSquare, other: AlertTriangle };
+const STATUS_ICON: Record<string, { icon: LucideIcon; color: string }> = { open: { icon: Clock, color: NEG }, in_progress: { icon: AlertTriangle, color: WARN }, resolved: { icon: CheckCircle, color: POS }, closed: { icon: XCircle, color: T3 } };
 
 export default function AdminFeedback() {
   const { t, language } = useLanguage();
-  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
+  const [items, setItems] = useState<Feedback[]>([]);
+  const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [formData, setFormData] = useState({ title: '', description: '', category: 'bug', priority: 'medium', venue_id: '' });
+  const [status, setStatus] = useState('all');
+  const [category, setCategory] = useState('all');
+  const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selected, setSelected] = useState<Feedback | null>(null);
+  const [form, setForm] = useState({ title: '', description: '', category: 'bug', priority: 'medium', venue_id: '' });
 
-  useEffect(() => { fetchData(); }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [fb, vs] = await Promise.all([
+      supabase.from('feedback_issues').select('id, venue_id, title, description, category, priority, status, reported_by, created_at, resolved_at').order('created_at', { ascending: false }),
+      supabase.from('venues').select('id, name').is('decommissioned_at', null).order('name'),
+    ]);
+    if (fb.error) { toast.error(fb.error.message); setLoading(false); return; }
+    const rows = (fb.data ?? []) as Feedback[];
+    const reporters = [...new Set(rows.map((r) => r.reported_by).filter(Boolean))] as string[];
+    const { data: profs } = reporters.length ? await supabase.from('profiles').select('id, email').in('id', reporters) : { data: [] as { id: string; email: string | null }[] };
+    const emailMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.email]));
+    const venueMap = Object.fromEntries(((vs.data ?? []) as { id: string; name: string }[]).map((v) => [v.id, v.name]));
+    setVenues((vs.data ?? []) as { id: string; name: string }[]);
+    setItems(rows.map((r) => ({ ...r, venue_name: r.venue_id ? venueMap[r.venue_id] : undefined, reporter_email: r.reported_by ? emailMap[r.reported_by] ?? null : null })));
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const fetchData = async () => {
-    try {
-      const [feedbackRes, venuesRes] = await Promise.all([
-        supabase.from('feedback_issues').select('*').order('created_at', { ascending: false }),
-        supabase.from('venues').select('id, name'),
-      ]);
-      setVenues(venuesRes.data || []);
-      setFeedbacks((feedbackRes.data || []).map(f => ({ ...f, venue_name: venuesRes.data?.find(v => v.id === f.venue_id)?.name })));
-    } catch (error) { console.error('Error fetching data:', error); }
-    finally { setLoading(false); }
+  const catLabel = (c: string) => { const k = `adm.fb.cat.${c}`; const v = t(k); return v === k ? c : v; };
+  const stLabel = (s: string) => t(`adminFeedback.${s === 'in_progress' ? 'inProgress' : s}`);
+  const prLabel = (p: string) => t(`adminFeedback.${p}`);
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return items.filter((f) => (status === 'all' || f.status === status) && (category === 'all' || f.category === category) && (!s || f.title.toLowerCase().includes(s) || (f.description ?? '').toLowerCase().includes(s)));
+  }, [items, status, category, search]);
+  const counts = { open: items.filter((f) => f.status === 'open').length, prog: items.filter((f) => f.status === 'in_progress').length, res: items.filter((f) => f.status === 'resolved').length };
+
+  const update = async (id: string, patch: { status?: string; priority?: string; resolved_at?: string }, ok: string) => {
+    const { error } = await supabase.from('feedback_issues').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); return false; }
+    toast.success(ok); load(); return true;
+  };
+  const setStatusOf = async (f: Feedback, s: string) => {
+    const ok = await update(f.id, { status: s, ...(s === 'resolved' ? { resolved_at: new Date().toISOString() } : {}) }, t('adminFeedback.statusUpdated'));
+    if (ok && selected?.id === f.id) setSelected({ ...selected, status: s });
+  };
+  const setPriorityOf = async (f: Feedback, p: string) => { const ok = await update(f.id, { priority: p }, t('adminFeedback.priorityUpdated')); if (ok && selected?.id === f.id) setSelected({ ...selected, priority: p }); };
+  const remove = async (f: Feedback) => {
+    if (!window.confirm(t('adminFeedback.confirmDelete'))) return;
+    const { error } = await supabase.from('feedback_issues').delete().eq('id', f.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('adminFeedback.issueDeleted')); setSelected(null); load();
+  };
+  const create = async () => {
+    if (!form.title.trim()) { toast.error(t('adminFeedback.titleRequired')); return; }
+    const { error } = await supabase.from('feedback_issues').insert({ title: form.title.trim(), description: form.description || null, category: form.category, priority: form.priority, venue_id: form.venue_id || null });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('adminFeedback.issueCreated')); setCreateOpen(false); setForm({ title: '', description: '', category: 'bug', priority: 'medium', venue_id: '' }); load();
   };
 
-  const handleCreate = async () => {
-    if (!formData.title) { toast.error(t('adminFeedback.titleRequired')); return; }
-    try {
-      const { error } = await supabase.from('feedback_issues').insert({ title: formData.title, description: formData.description || null, category: formData.category, priority: formData.priority, venue_id: formData.venue_id || null });
-      if (error) throw error;
-      toast.success(t('adminFeedback.issueCreated'));
-      setDialogOpen(false);
-      setFormData({ title: '', description: '', category: 'bug', priority: 'medium', venue_id: '' });
-      fetchData();
-    } catch (error: any) { toast.error(error.message || 'Error'); }
-  };
-
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      const updates: any = { status };
-      if (status === 'resolved') updates.resolved_at = new Date().toISOString();
-      const { error } = await supabase.from('feedback_issues').update(updates).eq('id', id);
-      if (error) throw error;
-      toast.success(t('adminFeedback.statusUpdated'));
-      fetchData();
-    } catch (error: any) { toast.error(error.message || 'Error'); }
-  };
-
-  const updatePriority = async (id: string, priority: string) => {
-    try {
-      const { error } = await supabase.from('feedback_issues').update({ priority }).eq('id', id);
-      if (error) throw error;
-      toast.success(t('adminFeedback.priorityUpdated'));
-      fetchData();
-    } catch (error: any) { toast.error(error.message || 'Error'); }
-  };
-
-  const deleteFeedback = async (id: string) => {
-    if (!confirm(t('adminFeedback.confirmDelete'))) return;
-    try {
-      const { error } = await supabase.from('feedback_issues').delete().eq('id', id);
-      if (error) throw error;
-      toast.success(t('adminFeedback.issueDeleted'));
-      fetchData();
-    } catch (error: any) { toast.error(error.message || 'Error'); }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'bug': return <Bug className="h-3.5 w-3.5" />;
-      case 'feature': return <Lightbulb className="h-3.5 w-3.5" />;
-      case 'complaint': return <MessageSquare className="h-3.5 w-3.5" />;
-      default: return <AlertTriangle className="h-3.5 w-3.5" />;
-    }
-  };
-
-  const getCategoryBadge = (category: string) => {
-    const labels: Record<string, string> = { bug: 'Bug', feature: 'Feature', complaint: t('adminFeedback.complaint'), other: t('adminFeedback.other') };
-    // single-accent: bug → RED, everything else neutral
-    const style = category === 'bug'
-      ? pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')
-      : pillStyle(T1, C_FAINT, BORDER);
-    return <span style={style}>{getCategoryIcon(category)}<span>{labels[category] || category}</span></span>;
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    const labels: Record<string, string> = { low: t('adminFeedback.low'), medium: t('adminFeedback.medium'), high: t('adminFeedback.high'), critical: t('adminFeedback.critical') };
-    // single-accent: critical/high emphasis → RED, medium → faint, low → faint
-    const style = (priority === 'critical' || priority === 'high')
-      ? pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')
-      : pillStyle(T2, C_FAINT, BORDER);
-    return <span style={style}>{labels[priority] || priority}</span>;
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open': return <Clock className="h-4 w-4" style={{ color: NEG }} />;
-      case 'in_progress': return <AlertTriangle className="h-4 w-4" style={{ color: RED }} />;
-      case 'resolved': return <CheckCircle className="h-4 w-4" style={{ color: POS }} />;
-      case 'closed': return <XCircle className="h-4 w-4" style={{ color: T3 }} />;
-      default: return <Clock className="h-4 w-4" style={{ color: T3 }} />;
-    }
-  };
-
-  const filteredFeedbacks = feedbacks.filter(f => {
-    if (filterStatus !== 'all' && f.status !== filterStatus) return false;
-    if (filterCategory !== 'all' && f.category !== filterCategory) return false;
-    return true;
-  });
-
-  const openCount = feedbacks.filter(f => f.status === 'open').length;
-  const inProgressCount = feedbacks.filter(f => f.status === 'in_progress').length;
-  const resolvedCount = feedbacks.filter(f => f.status === 'resolved').length;
-
-  const statCards = [
-    { label: t('adminFeedback.opened'), value: openCount, icon: Clock, color: NEG },
-    { label: t('adminFeedback.inProgress'), value: inProgressCount, icon: AlertTriangle, color: RED },
-    { label: t('adminFeedback.resolved'), value: resolvedCount, icon: CheckCircle, color: POS },
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
-        <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-2 mx-auto" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
-          <p className="text-sm" style={{ color: T3 }}>{t('adminFeedback.title')}…</p>
-        </div>
-      </div>
-    );
-  }
+  const selectStyle = { ...INPUT_STYLE, width: 'auto', minWidth: 150 };
+  const PriorityPill = ({ p }: { p: string }) => <Pill size="xs" tone={p === 'critical' ? 'hot' : p === 'high' ? 'accent' : 'default'}>{prLabel(p)}</Pill>;
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
-      {/* Ambient vignette */}
-      <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
+    <AdminPage eyebrow={t('adm.fb.eyebrow')} title={t('adminFeedback.title')} subtitle={t('adm.fb.subtitle')}
+      actions={<><Btn onClick={load} icon={RefreshCw} loading={loading}>{t('adm.common.refresh')}</Btn><Btn variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{t('adminFeedback.newIssue')}</Btn></>}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Stat compact label={t('adminFeedback.opened')} value={fmtNum(counts.open, language)} icon={Clock} tone={counts.open > 0 ? 'neg' : undefined} />
+        <Stat compact label={t('adminFeedback.inProgress')} value={fmtNum(counts.prog, language)} icon={AlertTriangle} tone={counts.prog > 0 ? 'warn' : undefined} />
+        <Stat compact label={t('adminFeedback.resolved')} value={fmtNum(counts.res, language)} icon={CheckCircle} tone="pos" />
+        <Stat compact label={t('adm.fb.total')} value={fmtNum(items.length, language)} icon={MessageSquare} />
+      </div>
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+      <SearchBox value={search} onChange={setSearch} placeholder={t('adm.fb.search')} right={<>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} style={selectStyle}><option value="all">{t('adminFeedback.allStatuses')}</option>{STATUSES.map((s) => <option key={s} value={s}>{stLabel(s)}</option>)}</select>
+        <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}><option value="all">{t('adminFeedback.allCategories')}</option>{CATEGORIES.map((c) => <option key={c} value={c}>{catLabel(c)}</option>)}</select>
+      </>} />
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
-              {t('adminFeedback.title')}
-            </h1>
-            <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>{t('adminFeedback.subtitle')}</p>
-          </div>
-          <button
-            onClick={() => setDialogOpen(true)}
-            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
-            style={{ background: RED, color: '#fff', padding: '10px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: 'pointer' }}
-          >
-            <Plus className="h-4 w-4" />{t('adminFeedback.newIssue')}
-          </button>
-        </div>
-
-        {/* KPI tiles */}
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-          {statCards.map((c, i) => {
-            const Icon = c.icon;
+      {loading ? <Card><Spinner /></Card> : filtered.length === 0 ? <Card><EmptyState icon={MessageSquare} text={t('adminFeedback.noIssues')} /></Card> : (
+        <div className="space-y-3">
+          {filtered.map((f) => {
+            const Icon = CAT_ICON[f.category] ?? AlertTriangle; const S = STATUS_ICON[f.status] ?? STATUS_ICON.open;
             return (
-              <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '16px 18px', height: '100%' }} className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl flex-none" style={{ background: C_FAINT, border: `1px solid ${F_BORDER}` }}>
-                    <Icon className="h-5 w-5" style={{ color: c.color }} />
+              <Card key={f.id} pad={18} style={{ cursor: 'pointer' }} className="transition-all duration-150 hover:border-white/20">
+                <div className="flex items-start justify-between gap-4" onClick={() => setSelected(f)}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5"><S.icon className="h-4 w-4 flex-none" style={{ color: S.color }} /><h3 className="truncate" style={{ color: T1, fontSize: 14.5, fontWeight: 600, margin: 0 }}>{f.title}</h3></div>
+                    {f.description && <p className="line-clamp-2 mb-2" style={{ color: T2, fontSize: 13, lineHeight: 1.5, margin: '0 0 8px' }}>{f.description}</p>}
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <Pill size="xs" tone={f.category === 'bug' ? 'hot' : 'default'} icon={Icon}>{catLabel(f.category)}</Pill>
+                      <PriorityPill p={f.priority} />
+                      {f.venue_name && <Pill size="xs" tone="muted">{f.venue_name}</Pill>}
+                      <span style={{ color: T3, fontSize: 11.5 }}>{f.reporter_email ? `${t('adm.fb.reporter')} ${f.reporter_email}` : t('adm.fb.byAdmin')} · {fmtRelative(f.created_at, language)}</span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="tabular-nums" style={{ color: c.color, fontSize: 24, fontWeight: 640, letterSpacing: '-0.025em', lineHeight: 1 }}>{c.value}</p>
-                    <p style={{ color: T3, fontSize: 11, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>{c.label}</p>
-                  </div>
+                  <select value={f.status} onChange={(e) => setStatusOf(f, e.target.value)} onClick={(e) => e.stopPropagation()} style={selectStyle}>{STATUSES.map((s) => <option key={s} value={s}>{stLabel(s)}</option>)}</select>
                 </div>
-              </motion.div>
+              </Card>
             );
           })}
         </div>
+      )}
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2">
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-full sm:w-[150px]" style={selectTriggerStyle}><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('adminFeedback.allStatuses')}</SelectItem>
-              <SelectItem value="open">{t('adminFeedback.open')}</SelectItem>
-              <SelectItem value="in_progress">{t('adminFeedback.inProgress')}</SelectItem>
-              <SelectItem value="resolved">{t('adminFeedback.resolved')}</SelectItem>
-              <SelectItem value="closed">{t('adminFeedback.closed')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-full sm:w-[150px]" style={selectTriggerStyle}><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('adminFeedback.allCategories')}</SelectItem>
-              <SelectItem value="bug">Bug</SelectItem>
-              <SelectItem value="feature">Feature</SelectItem>
-              <SelectItem value="complaint">{t('adminFeedback.complaint')}</SelectItem>
-              <SelectItem value="other">{t('adminFeedback.other')}</SelectItem>
-            </SelectContent>
-          </Select>
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('adminFeedback.newIssueTitle')} subtitle={t('adminFeedback.newIssueDesc')}
+        footer={<><Btn onClick={() => setCreateOpen(false)}>{t('adminFeedback.cancel')}</Btn><Btn variant="primary" onClick={create} icon={Plus}>{t('adminFeedback.createBtn')}</Btn></>}>
+        <Field label={t('adminFeedback.issueTitle')}><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={t('adminFeedback.issueTitlePlaceholder')} style={INPUT_STYLE} /></Field>
+        <Field label={t('adminFeedback.description')}><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t('adminFeedback.descriptionPlaceholder')} rows={4} style={{ ...INPUT_STYLE, resize: 'vertical' }} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('adminFeedback.category')}><select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={INPUT_STYLE}>{CATEGORIES.map((c) => <option key={c} value={c}>{catLabel(c)}</option>)}</select></Field>
+          <Field label={t('adminFeedback.priority')}><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={INPUT_STYLE}>{PRIORITIES.map((p) => <option key={p} value={p}>{prLabel(p)}</option>)}</select></Field>
         </div>
+        <Field label={t('adminFeedback.relatedClub')}><select value={form.venue_id} onChange={(e) => setForm({ ...form, venue_id: e.target.value })} style={INPUT_STYLE}><option value="">{t('adm.fb.noVenue')}</option>{venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></Field>
+      </Modal>
 
-        {/* Issues list */}
-        <div className="space-y-3">
-          {filteredFeedbacks.length === 0 ? (
-            <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }} className="text-center py-12 px-4">
-              <MessageSquare className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
-              <p className="text-xs" style={{ color: T3 }}>{t('adminFeedback.noIssues')}</p>
-            </div>
-          ) : (
-            filteredFeedbacks.map((feedback, index) => (
-              <motion.div key={feedback.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.04, 0.3) }}>
-                <div
-                  onClick={() => setSelectedFeedback(feedback)}
-                  className="cursor-pointer transition-all duration-150"
-                  style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: 18, overflow: 'hidden' }}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">{getStatusIcon(feedback.status)}<h3 className="truncate" style={{ color: T1, fontSize: 14.5, fontWeight: 600 }}>{feedback.title}</h3></div>
-                      {feedback.description && <p className="line-clamp-2 mb-2.5" style={{ color: T2, fontSize: 13, lineHeight: 1.5 }}>{feedback.description}</p>}
-                      <div className="flex flex-wrap gap-2 items-center">
-                        {getCategoryBadge(feedback.category)}
-                        {getPriorityBadge(feedback.priority)}
-                        {feedback.venue_name && <span style={pillStyle(T2, TILE_BG, BORDER)}>{feedback.venue_name}</span>}
-                        <span className="tabular-nums" style={{ color: T3, fontSize: 11.5 }}>{format(new Date(feedback.created_at), 'dd MMM yyyy', { locale: dateLocale })}</span>
-                      </div>
-                    </div>
-                    <Select value={feedback.status} onValueChange={(value) => { event?.stopPropagation(); updateStatus(feedback.id, value); }}>
-                      <SelectTrigger className="w-[130px]" style={selectTriggerStyle} onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">{t('adminFeedback.open')}</SelectItem>
-                        <SelectItem value="in_progress">{t('adminFeedback.inProgress')}</SelectItem>
-                        <SelectItem value="resolved">{t('adminFeedback.resolved')}</SelectItem>
-                        <SelectItem value="closed">{t('adminFeedback.closed')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </motion.div>
-            ))
-          )}
-        </div>
-
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
-            <DialogHeader>
-              <DialogTitle style={{ color: T1 }}>{t('adminFeedback.newIssueTitle')}</DialogTitle>
-              <DialogDescription style={{ color: T3 }}>{t('adminFeedback.newIssueDesc')}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div><Label htmlFor="title" style={{ color: T2 }}>{t('adminFeedback.issueTitle')}</Label><input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder={t('adminFeedback.issueTitlePlaceholder')} style={{ ...inputStyle, marginTop: 6 }} /></div>
-              <div><Label htmlFor="description" style={{ color: T2 }}>{t('adminFeedback.description')}</Label><textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={t('adminFeedback.descriptionPlaceholder')} rows={4} style={{ ...inputStyle, marginTop: 6, resize: 'none', lineHeight: 1.5 }} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label style={{ color: T2 }}>{t('adminFeedback.category')}</Label><Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}><SelectTrigger style={{ ...selectTriggerStyle, marginTop: 6 }}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bug">Bug</SelectItem><SelectItem value="feature">Feature</SelectItem><SelectItem value="complaint">{t('adminFeedback.complaint')}</SelectItem><SelectItem value="other">{t('adminFeedback.other')}</SelectItem></SelectContent></Select></div>
-                <div><Label style={{ color: T2 }}>{t('adminFeedback.priority')}</Label><Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}><SelectTrigger style={{ ...selectTriggerStyle, marginTop: 6 }}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">{t('adminFeedback.low')}</SelectItem><SelectItem value="medium">{t('adminFeedback.medium')}</SelectItem><SelectItem value="high">{t('adminFeedback.high')}</SelectItem><SelectItem value="critical">{t('adminFeedback.critical')}</SelectItem></SelectContent></Select></div>
-              </div>
-              <div><Label style={{ color: T2 }}>{t('adminFeedback.relatedClub')}</Label><Select value={formData.venue_id} onValueChange={(value) => setFormData({ ...formData, venue_id: value })}><SelectTrigger style={{ ...selectTriggerStyle, marginTop: 6 }}><SelectValue placeholder={t('adminFeedback.none')} /></SelectTrigger><SelectContent><SelectItem value="">{t('adminFeedback.none')}</SelectItem>{venues.map(venue => (<SelectItem key={venue.id} value={venue.id}>{venue.name}</SelectItem>))}</SelectContent></Select></div>
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setDialogOpen(false)} className="flex-1 inline-flex items-center justify-center rounded-xl text-[13px] font-medium cursor-pointer transition-all duration-150" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, padding: '10px 16px' }}>{t('adminFeedback.cancel')}</button>
-                <button onClick={handleCreate} className="flex-1 inline-flex items-center justify-center rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150" style={{ background: RED, color: '#fff', padding: '10px 16px', boxShadow: `0 0 18px -6px ${RED}88` }}>{t('adminFeedback.createBtn')}</button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={!!selectedFeedback} onOpenChange={() => setSelectedFeedback(null)}>
-          <DialogContent className="max-w-2xl" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
-            <DialogHeader>
-              <DialogTitle style={{ color: T1 }}>{selectedFeedback?.title}</DialogTitle>
-              <DialogDescription style={{ color: T3 }}>
-                {selectedFeedback && format(new Date(selectedFeedback.created_at), 'dd MMMM yyyy HH:mm', { locale: dateLocale })}
-              </DialogDescription>
-            </DialogHeader>
-            {selectedFeedback && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">{getCategoryBadge(selectedFeedback.category)}{getPriorityBadge(selectedFeedback.priority)}{selectedFeedback.venue_name && <span style={pillStyle(T2, TILE_BG, BORDER)}>{selectedFeedback.venue_name}</span>}</div>
-                {selectedFeedback.description && <div><Label style={{ color: T3 }}>{t('adminFeedback.description')}</Label><p className="mt-1 whitespace-pre-wrap" style={{ color: T1, fontSize: 13.5, lineHeight: 1.5 }}>{selectedFeedback.description}</p></div>}
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label style={{ color: T2 }}>{t('adminFeedback.status')}</Label><Select value={selectedFeedback.status} onValueChange={(value) => { updateStatus(selectedFeedback.id, value); setSelectedFeedback({ ...selectedFeedback, status: value }); }}><SelectTrigger style={{ ...selectTriggerStyle, marginTop: 6 }}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="open">{t('adminFeedback.open')}</SelectItem><SelectItem value="in_progress">{t('adminFeedback.inProgress')}</SelectItem><SelectItem value="resolved">{t('adminFeedback.resolved')}</SelectItem><SelectItem value="closed">{t('adminFeedback.closed')}</SelectItem></SelectContent></Select></div>
-                  <div><Label style={{ color: T2 }}>{t('adminFeedback.priority')}</Label><Select value={selectedFeedback.priority} onValueChange={(value) => { updatePriority(selectedFeedback.id, value); setSelectedFeedback({ ...selectedFeedback, priority: value }); }}><SelectTrigger style={{ ...selectTriggerStyle, marginTop: 6 }}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">{t('adminFeedback.low')}</SelectItem><SelectItem value="medium">{t('adminFeedback.medium')}</SelectItem><SelectItem value="high">{t('adminFeedback.high')}</SelectItem><SelectItem value="critical">{t('adminFeedback.critical')}</SelectItem></SelectContent></Select></div>
-                </div>
-                {selectedFeedback.resolved_at && <p style={{ color: POS, fontSize: 13 }}>{t('adminFeedback.resolvedOn').replace('{date}', format(new Date(selectedFeedback.resolved_at), 'dd MMMM yyyy HH:mm', { locale: dateLocale }))}</p>}
-                <div className="flex gap-2 pt-2">
-                  <button onClick={() => { deleteFeedback(selectedFeedback.id); setSelectedFeedback(null); }} className="inline-flex items-center justify-center rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150" style={{ background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, padding: '10px 16px' }}>{t('adminFeedback.delete')}</button>
-                  <button onClick={() => setSelectedFeedback(null)} className="ml-auto inline-flex items-center justify-center rounded-xl text-[13px] font-medium cursor-pointer transition-all duration-150" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, padding: '10px 16px' }}>{t('adminFeedback.close')}</button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-      </div>
-    </div>
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? ''} subtitle={selected ? fmtDate(selected.created_at, language, 'datetime') : undefined} width={640}
+        footer={selected ? <><Btn variant="danger" icon={Trash2} onClick={() => remove(selected)}>{t('adminFeedback.delete')}</Btn><Btn onClick={() => setSelected(null)}>{t('adminFeedback.close')}</Btn></> : undefined}>
+        {selected && (<>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Pill size="xs" tone={selected.category === 'bug' ? 'hot' : 'default'} icon={CAT_ICON[selected.category] ?? AlertTriangle}>{catLabel(selected.category)}</Pill>
+            <PriorityPill p={selected.priority} />
+            {selected.venue_name && (selected.venue_id ? <Link to={`/admin/venues/${selected.venue_id}`}><Pill size="xs" tone="muted">{selected.venue_name}</Pill></Link> : <Pill size="xs" tone="muted">{selected.venue_name}</Pill>)}
+          </div>
+          <div style={{ color: T3, fontSize: 12, borderBottom: `1px solid ${F_BORDER}`, paddingBottom: 8 }}>
+            {selected.reporter_email ? <>{t('adm.fb.reporter')} <span style={{ color: T1 }}>{selected.reporter_email}</span> {selected.reported_by && <Link to={`/admin/people/${selected.reported_by}`} className="hover:underline" style={{ color: RED }}>· {t('adm.fb.openProfile')}</Link>}</> : t('adm.fb.byAdmin')}
+          </div>
+          {selected.description && <p className="whitespace-pre-wrap" style={{ color: T1, fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>{selected.description}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('adminFeedback.status')}><select value={selected.status} onChange={(e) => setStatusOf(selected, e.target.value)} style={INPUT_STYLE}>{STATUSES.map((s) => <option key={s} value={s}>{stLabel(s)}</option>)}</select></Field>
+            <Field label={t('adminFeedback.priority')}><select value={selected.priority} onChange={(e) => setPriorityOf(selected, e.target.value)} style={INPUT_STYLE}>{PRIORITIES.map((p) => <option key={p} value={p}>{prLabel(p)}</option>)}</select></Field>
+          </div>
+          {selected.resolved_at && <p style={{ color: POS, fontSize: 12.5, margin: 0 }}>{t('adminFeedback.resolvedOn').replace('{date}', fmtDate(selected.resolved_at, language, 'datetime'))}</p>}
+        </>)}
+      </Modal>
+    </AdminPage>
   );
 }

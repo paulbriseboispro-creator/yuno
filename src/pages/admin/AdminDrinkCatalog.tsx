@@ -135,16 +135,16 @@ export default function AdminDrinkCatalog() {
     try {
       const { data: catalogEntry, error: catalogError } = await supabase.from('drink_catalog').insert({ name: request.drink_name, category: request.category, brand: request.brand, description: request.description, image_url: request.image_url }).select().single();
       if (catalogError) throw catalogError;
-      await supabase.from('drink_requests').update({ status: 'approved', catalog_drink_id: catalogEntry.id }).eq('id', request.id);
+      const { error: reqError } = await supabase.from('drink_requests').update({ status: 'approved', catalog_drink_id: catalogEntry.id }).eq('id', request.id); if (reqError) throw reqError;
       toast.success(t('adminDrinks.requestApproved')); fetchData();
     } catch (error) { toast.error((error instanceof Error && error.message) || 'Error'); }
   };
 
-  const handleRejectRequest = async (requestId: string) => { try { await supabase.from('drink_requests').update({ status: 'rejected' }).eq('id', requestId); toast.success(t('adminDrinks.requestRejected')); fetchData(); } catch { toast.error('Error'); } };
+  const handleRejectRequest = async (requestId: string) => { try { const { error } = await supabase.from('drink_requests').update({ status: 'rejected' }).eq('id', requestId); if (error) throw error; toast.success(t('adminDrinks.requestRejected')); fetchData(); } catch (e) { toast.error(e instanceof Error ? e.message : t('adm.common.actionFailed')); } };
 
   const handleDeleteCatalog = async (id: string) => {
     if (!confirm(t('adminDrinks.confirmDelete'))) return;
-    try { await supabase.from('drink_catalog').delete().eq('id', id); toast.success(t('adminDrinks.drinkDeleted')); fetchData(); } catch { toast.error('Error'); }
+    try { const { error } = await supabase.from('drink_catalog').delete().eq('id', id); if (error) throw error; toast.success(t('adminDrinks.drinkDeleted')); fetchData(); } catch (e) { toast.error(e instanceof Error ? e.message : t('adm.common.actionFailed')); }
   };
 
   const resetForm = () => { setFormData({ name: '', category: 'drink', description: '', brand: '', alc_pct: 0 }); setImageFile(null); setImagePreview(''); };

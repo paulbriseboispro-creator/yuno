@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fmtDate } from '@/lib/adminFormat';
 import { Switch } from '@/components/ui/switch';
 import { BellRing, Loader2, Receipt, Clock, HeartHandshake, Megaphone, Building2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -30,7 +31,7 @@ const CATEGORIES: { id: Category; icon: LucideIcon }[] = [
   { id: 'club_automation', icon: Building2 },
 ];
 
-const CATALOG: { key: string; category: Category }[] = [
+const CATALOG: { key: string; category: Category; dormant?: boolean }[] = [
   { key: 'purchase_ticket', category: 'transactional' },
   { key: 'purchase_table', category: 'transactional' },
   { key: 'order_ready', category: 'transactional' },
@@ -59,6 +60,12 @@ const CATALOG: { key: string; category: Category }[] = [
   { key: 'cart_abandonment', category: 'marketing' },
   { key: 'inactivity_reminder', category: 'marketing' },
   { key: 'taste_discovery', category: 'marketing' },
+  { key: 'audience_weekly_recap', category: 'engagement' },
+  // Clés encore semées en base mais qu'aucune fonction n'envoie plus : gardées
+  // visibles (et éteignables) plutôt que masquées.
+  { key: 'weekly_digest', category: 'marketing', dormant: true },
+  { key: 'discovery_week', category: 'marketing', dormant: true },
+  { key: 'discovery_weekend', category: 'marketing', dormant: true },
   { key: 'reminder_day_of', category: 'club_automation' },
   { key: 'event_live', category: 'club_automation' },
   { key: 'thank_you', category: 'club_automation' },
@@ -81,7 +88,7 @@ interface KeyStats {
 }
 
 export default function AdminNotificationAutomations() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
@@ -191,7 +198,11 @@ export default function AdminNotificationAutomations() {
           </div>
         ) : (
           CATEGORIES.map(({ id, icon: Icon }) => {
-            const items = CATALOG.filter((c) => c.category === id);
+            const known = new Set(CATALOG.map((c) => c.key));
+            const orphans = id === 'engagement'
+              ? Object.keys(enabled).filter((k) => !known.has(k)).map((key) => ({ key, category: id as Category, dormant: false, orphan: true }))
+              : [];
+            const items = [...CATALOG.filter((c) => c.category === id), ...orphans];
             if (items.length === 0) return null;
             return (
               <div key={id} style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22, overflow: 'hidden' }}>
@@ -206,7 +217,16 @@ export default function AdminNotificationAutomations() {
                 </p>
 
                 <div className="space-y-2.5">
-                  {items.map(({ key }) => {
+                  {items.map((entry) => {
+                    const { key } = entry;
+                    const dormant = 'dormant' in entry && entry.dormant;
+                    const orphan = 'orphan' in entry && entry.orphan;
+                    const label = (base: 'name' | 'desc') => {
+                      const own = t(`adm.auto.k.${key}.${base}`);
+                      if (!own.startsWith('adm.auto.k.')) return own;
+                      const legacy = t(`adminAutoPush.k.${key}.${base}`);
+                      return legacy.startsWith('adminAutoPush.k.') ? (base === 'name' ? key : '') : legacy;
+                    };
                     const s = stats[key];
                     const keyCtr = ctr(s);
                     const isOn = enabled[key] !== false;
@@ -217,12 +237,15 @@ export default function AdminNotificationAutomations() {
                         style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, opacity: isOn ? 1 : 0.55 }}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-[560]" style={{ color: T1, fontSize: 13 }}>
-                            {t(`adminAutoPush.k.${key}.name`)}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-[560]" style={{ color: T1, fontSize: 13 }}>{label('name')}</p>
+                            {dormant && <span title={t('adm.auto.dormantHint')} style={{ color: T3, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', border: `1px solid ${F_BORDER}`, borderRadius: 999, padding: '1px 7px' }}>{t('adm.auto.dormant')}</span>}
+                            {orphan && <span style={{ color: T3, fontSize: 10, fontWeight: 600, border: `1px solid ${F_BORDER}`, borderRadius: 999, padding: '1px 7px' }}>{t('adm.auto.unknownKey')}</span>}
+                          </div>
                           <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
-                            {t(`adminAutoPush.k.${key}.desc`)}
+                            {label('desc')}
                           </p>
+                          <code style={{ color: T3, fontSize: 10.5 }}>{key}</code>
                           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                             <StatPill label={t('adminAutoPush.sent30d')} value={String(s?.sent_30d ?? 0)} color={(s?.sent_30d ?? 0) > 0 ? POS : undefined} />
                             <StatPill label={t('adminAutoPush.ctr')} value={keyCtr === null ? '—' : `${keyCtr}%`} color={keyCtr !== null && keyCtr > 0 ? POS : undefined} />
@@ -232,7 +255,7 @@ export default function AdminNotificationAutomations() {
                             <StatPill label={t('adminAutoPush.total')} value={String(s?.sent_total ?? 0)} />
                             <span style={{ color: T3, fontSize: 10.5 }} className="tabular-nums">
                               {s?.last_sent_at
-                                ? `${t('adminAutoPush.lastSent')} ${new Date(s.last_sent_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                                ? `${t('adminAutoPush.lastSent')} ${fmtDate(s.last_sent_at, language, 'datetime')}`
                                 : t('adminAutoPush.neverSent')}
                             </span>
                             {id === 'club_automation' && (

@@ -12,7 +12,7 @@ import {
   Users, UserPlus, Trophy, Heart, Sparkles, AlertTriangle, Moon, UserX,
   Search, ChevronLeft, ChevronRight, Download, Ticket, Wine, Crown, Layers,
   ArrowUpRight, ArrowDownRight, MapPin, CalendarDays, Building2, Copy, Check,
-  ExternalLink, Ban, Bell, Mail, Flame, Repeat, type LucideIcon,
+  ExternalLink, Ban, Bell, Mail, Flame, Repeat, X, type LucideIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -34,21 +34,21 @@ const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(
 type SegmentKey = 'champions' | 'loyal' | 'promising' | 'new' | 'at_risk' | 'dormant' | 'lost';
 const SEGMENTS: { key: SegmentKey; accent: string; icon: LucideIcon }[] = [
   { key: 'champions', accent: '#FCD34D', icon: Trophy },
-  { key: 'loyal',     accent: '#60A5FA', icon: Heart },
-  { key: 'promising', accent: '#A78BFA', icon: Sparkles },
+  { key: 'loyal',     accent: 'rgba(255,255,255,0.40)', icon: Heart },
+  { key: 'promising', accent: 'rgba(255,255,255,0.92)', icon: Sparkles },
   { key: 'new',       accent: POS,       icon: UserPlus },
-  { key: 'at_risk',   accent: '#FB923C', icon: AlertTriangle },
+  { key: 'at_risk',   accent: '#FCD34D', icon: AlertTriangle },
   { key: 'dormant',   accent: T2,        icon: Moon },
-  { key: 'lost',      accent: '#EF4444', icon: UserX },
+  { key: 'lost',      accent: '#FF5C63', icon: UserX },
 ];
 const SEG_BY_KEY = Object.fromEntries(SEGMENTS.map(s => [s.key, s])) as Record<SegmentKey, typeof SEGMENTS[number]>;
 
-const TIER_COLORS: Record<string, string> = { bronze: '#C08A5A', silver: 'rgba(255,255,255,0.6)', gold: '#FCD34D', platinum: '#818CF8' };
+const TIER_COLORS: Record<string, string> = { bronze: 'rgba(255,255,255,0.40)', silver: 'rgba(255,255,255,0.6)', gold: '#FCD34D', platinum: 'rgba(255,255,255,0.92)' };
 const TIER_ORDER = ['platinum', 'gold', 'silver', 'bronze'];
 const CAT_META: Record<string, { color: string; icon: LucideIcon }> = {
-  tickets: { color: '#818CF8', icon: Ticket },
+  tickets: { color: 'rgba(255,255,255,0.92)', icon: Ticket },
   drinks:  { color: RED,       icon: Wine },
-  tables:  { color: '#F59E0B', icon: Crown },
+  tables:  { color: '#FCD34D', icon: Crown },
   mixed:   { color: 'rgba(255,255,255,0.5)', icon: Layers },
   // Venu sans jamais payer : une entrée en guest list fait un client, pas un
   // acheteur. Le confondre avec 'mixed' effaçait la distinction.
@@ -137,10 +137,10 @@ function IdentityBadges({
   return (
     <div className="flex items-center gap-1 flex-wrap">
       {chip(t('adminSeg.id.account'), hasAccount, t('adminSeg.id.accountHint'))}
-      {chip(isPro ? t('adminSeg.id.appPro') : t('adminSeg.id.app'), hasApp, t('adminSeg.id.appHint'), '#818CF8')}
+      {chip(isPro ? t('adminSeg.id.appPro') : t('adminSeg.id.app'), hasApp, t('adminSeg.id.appHint'), 'rgba(255,255,255,0.92)')}
       {chip('@', emailOptIn && !suppressed, suppressed ? t('adminSeg.id.suppressed') : t('adminSeg.id.emailHint'),
         suppressed ? NEG : undefined)}
-      {chip('SMS', smsOptIn, t('adminSeg.id.smsHint'), '#F59E0B')}
+      {chip('SMS', smsOptIn, t('adminSeg.id.smsHint'), '#FCD34D')}
     </div>
   );
 }
@@ -156,7 +156,7 @@ function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (tag: string)
           {tg}
           {onRemove && (
             <button onClick={e => { e.stopPropagation(); onRemove(tg); }}
-              className="cursor-pointer leading-none" style={{ color: T3 }} aria-label={`retirer ${tg}`}>×</button>
+              className="cursor-pointer leading-none" style={{ color: T3 }} aria-label={tg}><X className="h-2.5 w-2.5" /></button>
           )}
         </span>
       ))}
@@ -456,7 +456,7 @@ export default function AdminSegmentation() {
           p_multi_venue: multiVenue ? true : null,
           p_account: account || null, p_app: app || null,
           p_reach: reach || null, p_tag: tagFilter || null,
-          p_sort: sort, p_dir: 'desc', p_limit: CHUNK, p_offset: offset,
+          p_sort: sort, p_dir: sort === 'first_at' ? 'asc' : 'desc', p_limit: CHUNK, p_offset: offset,
         });
         const payload = data as unknown as { total: number; rows: CustomerRow[] } | null;
         if (!payload?.rows?.length) break;
@@ -560,7 +560,7 @@ export default function AdminSegmentation() {
         ) : overview && (
           <>
             {/* KPI strip */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
               {[
                 { label: t('adminSeg.kpi.customers'), value: overview.totals.customers.toLocaleString(), sub: `${overview.totals.paying?.toLocaleString() ?? 0} ${t('adminSeg.kpi.paying')} · ${overview.totals.guestlist_only?.toLocaleString() ?? 0} ${t('adminSeg.kpi.guestOnly')}`, icon: Users },
                 // Compte et app : la profondeur de la relation. Un client sans
@@ -638,7 +638,7 @@ export default function AdminSegmentation() {
                         <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={8} tick={{ fill: 'rgba(255,255,255,0.36)', fontSize: 9.5 }} interval={1} />
                         <YAxis hide />
                         <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                        <Bar dataKey="n" name={t('adminSeg.cohorts.newCustomers')} fill={RED} radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="n" name={t('adminSeg.cohorts.newCustomers')} fill={RED} radius={[3, 3, 0, 0]} isAnimationActive={false} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -655,7 +655,7 @@ export default function AdminSegmentation() {
                       <div style={{ width: 130, height: 130, flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={tierData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="#000">
+                            <Pie data={tierData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="#000"isAnimationActive={false}>
                               {tierData.map(d => <Cell key={d.key} fill={TIER_COLORS[d.key]} />)}
                             </Pie>
                             <Tooltip content={<DarkTooltip />} />
@@ -690,7 +690,7 @@ export default function AdminSegmentation() {
                       <div style={{ width: 130, height: 130, flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={catData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="#000">
+                            <Pie data={catData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="#000"isAnimationActive={false}>
                               {catData.map(d => <Cell key={d.key} fill={CAT_META[d.key].color} />)}
                             </Pie>
                             <Tooltip content={<DarkTooltip />} />
@@ -1020,7 +1020,7 @@ export default function AdminSegmentation() {
                             : t('adminSeg.drawer.statusNoAccount')}
                         </p>
                         {(detail?.identity?.profile_count ?? 0) > 1 && (
-                          <p className="mt-1.5" style={{ color: '#F59E0B', fontSize: 11.5, lineHeight: 1.5 }}>
+                          <p className="mt-1.5" style={{ color: '#FCD34D', fontSize: 11.5, lineHeight: 1.5 }}>
                             {t('adminSeg.drawer.duplicateProfiles').replace('{n}', String(detail?.identity?.profile_count))}
                           </p>
                         )}
@@ -1221,7 +1221,7 @@ export default function AdminSegmentation() {
                           {(detail?.incidents ?? []).slice(0, 6).map((inc, i) => (
                             <div key={`i${i}`} className="flex items-start gap-2.5 rounded-xl px-3.5 py-2.5"
                               style={{ background: 'rgba(251,146,60,0.06)', border: '1px solid rgba(251,146,60,0.2)' }}>
-                              <AlertTriangle className="w-3.5 h-3.5 flex-none mt-0.5" style={{ color: '#FB923C' }} />
+                              <AlertTriangle className="w-3.5 h-3.5 flex-none mt-0.5" style={{ color: '#FCD34D' }} />
                               <div className="min-w-0">
                                 <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
                                   {inc.type} · {inc.venue_name}
@@ -1238,7 +1238,7 @@ export default function AdminSegmentation() {
                     {/* Open full profile */}
                     {(detail?.identity?.user_id || selected.user_id) && (
                       <Link
-                        to={`/admin/directory/user/${detail?.identity?.user_id || selected.user_id}`}
+                        to={`/admin/people/${detail?.identity?.user_id || selected.user_id}`}
                         className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150"
                         style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88`, textDecoration: 'none' }}
                       >

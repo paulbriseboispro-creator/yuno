@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, UserCircle, Shield, ShieldOff, Plus, Trash2, MapPin, Mail, Calendar, Star, ShoppingBag, Ticket, AlertTriangle, Building2, KeyRound, Ban, UserCheck, ShieldAlert, type LucideIcon } from 'lucide-react';
@@ -76,19 +77,9 @@ interface PromoterProfile {
   venueName?: string;
 }
 
-const ROLE_META: Record<string, { label: string; description: string }> = {
-  client: { label: 'Client', description: 'Utilisateur standard' },
-  admin: { label: 'Super Admin', description: 'Accès total à la plateforme' },
-  owner: { label: 'Propriétaire', description: 'Propriétaire d\'un établissement' },
-  manager: { label: 'Manager', description: 'Gestion d\'un établissement' },
-  barman: { label: 'Barman', description: 'Préparation des commandes' },
-  bouncer: { label: 'Videur', description: 'Contrôle d\'entrée' },
-  vip_host: { label: 'Hôte VIP', description: 'Gestion des tables VIP' },
-  cloakroom: { label: 'Vestiaire', description: 'Gestion du vestiaire' },
-  promoter: { label: 'Promoteur', description: 'Promotion d\'événements' },
-  dj: { label: 'DJ', description: 'Sets musicaux' },
-  organizer: { label: 'Organisateur', description: 'Organisation d\'événements' },
-};
+// Les libellés de rôle viennent du dictionnaire admin (adm.role.*) : la liste
+// ne garde que l'ordre, jamais un mot français en dur.
+const ROLE_KEYS = ['client', 'admin', 'owner', 'manager', 'barman', 'bouncer', 'vip_host', 'cloakroom', 'promoter', 'dj', 'organizer'] as const;
 
 const ALL_ROLES = [...PLATFORM_ROLES, OWNER_ROLE, ...STAFF_ROLES, ...AUTONOMOUS_ROLES] as const;
 
@@ -96,14 +87,28 @@ function needsVenue(role: string): boolean {
   return (STAFF_ROLES as readonly string[]).includes(role) || role === OWNER_ROLE;
 }
 
+type AppRole = Database['public']['Enums']['app_role'];
+// Les requêtes ne lisent qu'une partie des colonnes et ajoutent le nom du club :
+// on décrit la forme réellement manipulée, pas la ligne complète.
+type ProfileRow = Pick<Database['public']['Tables']['profiles']['Row'],
+  'id' | 'email' | 'first_name' | 'last_name' | 'city' | 'venue_id' | 'avatar_url' | 'created_at' | 'mfa_enabled' | 'is_suspended' | 'suspension_reason'>;
+type VenueCustomerRow = Pick<Database['public']['Tables']['venue_customers']['Row'],
+  'id' | 'venue_id' | 'email' | 'order_count' | 'ticket_count' | 'table_count' | 'total_spent' | 'last_visit_at' | 'is_banned' | 'favorite_drink_category'> & { venueName?: string };
+type LoyaltyRow = Pick<Database['public']['Tables']['customer_loyalty']['Row'],
+  'id' | 'venue_id' | 'current_balance' | 'total_points_earned' | 'tier'> & { venueName?: string };
+
 export default function AdminUserDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [profile, setProfile] = useState<any>(null);
+  // Libellé et description d'un rôle, traduits. Une clé inconnue retombe sur
+  // son identifiant plutôt que sur une chaîne vide.
+  const roleLabel = (r: string) => { const k = `adm.role.${r}.label`; const v = t(k); return v === k ? r : v; };
+  const roleDesc = (r: string) => { const k = `adm.role.${r}.desc`; const v = t(k); return v === k ? '' : v; };
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
-  const [venueCustomers, setVenueCustomers] = useState<any[]>([]);
-  const [loyalty, setLoyalty] = useState<any[]>([]);
+  const [venueCustomers, setVenueCustomers] = useState<VenueCustomerRow[]>([]);
+  const [loyalty, setLoyalty] = useState<LoyaltyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingRole, setAddingRole] = useState('');
   const [selectedVenueId, setSelectedVenueId] = useState('');
@@ -167,19 +172,15 @@ export default function AdminUserDetail() {
 
   const handleResetMfa = async () => {
     if (!userId) return;
-    if (!confirm(
-      `Réinitialiser la double authentification de ${profile?.email || 'cet utilisateur'} ?\n\n` +
-      `Utile si le pro est verrouillé hors de son compte (téléphone perdu). Il devra ` +
-      `ré-enrôler une nouvelle app à la prochaine connexion. Action tracée.`
-    )) return;
+    if (!window.confirm(t('adm.user.confirmResetMfa').replace('{email}', profile?.email ?? ''))) return;
     setSecurityBusy(true);
     try {
       const { error } = await supabase.rpc('admin_reset_user_mfa', { _user_id: userId });
       if (error) throw error;
-      toast.success('MFA réinitialisé — le pro pourra se reconnecter et ré-enrôler.');
+      toast.success(t('adm.user.mfaReset'));
       await loadUser();
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+    } catch (err) {
+      toast.error((err as Error)?.message || t('adm.common.actionFailed'));
     } finally {
       setSecurityBusy(false);
     }
@@ -187,19 +188,17 @@ export default function AdminUserDetail() {
 
   const handleResetPassword = async () => {
     if (!userId) return;
-    if (!confirm(
-      `Envoyer un lien de réinitialisation de mot de passe à ${profile?.email || 'cet utilisateur'} ?`
-    )) return;
+    if (!window.confirm(t('adm.user.confirmResetPw').replace('{email}', profile?.email ?? ''))) return;
     setSecurityBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
         body: { action: 'reset-password', userId },
       });
       if (error) throw error;
-      if (data && data.success === false) throw new Error(data.error || 'Échec');
-      toast.success('Email de réinitialisation envoyé.');
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+      if (data && data.success === false) throw new Error(data.error || t('adm.common.actionFailed'));
+      toast.success(t('adm.user.pwSent'));
+    } catch (err) {
+      toast.error((err as Error)?.message || t('adm.common.actionFailed'));
     } finally {
       setSecurityBusy(false);
     }
@@ -210,13 +209,10 @@ export default function AdminUserDetail() {
     const currentlySuspended = !!profile?.is_suspended;
     let reason: string | null = null;
     if (!currentlySuspended) {
-      if (!confirm(
-        `Suspendre le compte ${profile?.email || ''} ?\n\n` +
-        `L'utilisateur perdra l'accès aux dashboards pro. Réversible. Action tracée.`
-      )) return;
-      reason = window.prompt('Raison de la suspension (journal d\'audit) :', '') ?? '';
+      if (!window.confirm(t('adm.user.confirmSuspend').replace('{email}', profile?.email ?? ''))) return;
+      reason = window.prompt(t('adm.user.suspendReason'), '') ?? '';
     } else {
-      if (!confirm(`Réactiver le compte ${profile?.email || ''} ?`)) return;
+      if (!window.confirm(t('adm.user.confirmReactivate').replace('{email}', profile?.email ?? ''))) return;
     }
     setSecurityBusy(true);
     try {
@@ -228,8 +224,8 @@ export default function AdminUserDetail() {
       if (error) throw error;
       toast.success(currentlySuspended ? 'Compte réactivé' : 'Compte suspendu');
       await loadUser();
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+    } catch (err) {
+      toast.error((err as Error)?.message || t('adm.common.actionFailed'));
     } finally {
       setSecurityBusy(false);
     }
@@ -243,10 +239,10 @@ export default function AdminUserDetail() {
       await supabase.from('venues').update({ owner_id: null }).eq('owner_id', userId).neq('id', resyncVenueId);
       const { error } = await supabase.from('venues').update({ owner_id: userId }).eq('id', resyncVenueId);
       if (error) throw error;
-      toast.success('Lien propriétaire mis à jour');
+      toast.success(t('adm.user.resynced'));
       await loadOwnedVenue();
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur lors de la mise à jour');
+    } catch (err) {
+      toast.error((err as Error)?.message || t('adm.common.actionFailed'));
     } finally {
       setResyncing(false);
     }
@@ -262,8 +258,8 @@ export default function AdminUserDetail() {
       if (error) throw error;
       toast.success(currentActive ? 'Promoteur désactivé' : 'Promoteur activé');
       await loadPromoterProfiles();
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur');
+    } catch (err) {
+      toast.error((err as Error)?.message || t('adm.common.actionFailed'));
     } finally {
       setTogglingPromoter(null);
     }
@@ -308,20 +304,16 @@ export default function AdminUserDetail() {
 
     const requiresVenue = needsVenue(addingRole);
     if (requiresVenue && !selectedVenueId) {
-      toast.error('Veuillez sélectionner un établissement pour ce rôle.');
+      toast.error(t('adm.user.pickVenueFirst'));
       return;
     }
 
     // Garde-fou escalade de privilège : confirmation explicite pour le rôle admin.
-    if (addingRole === 'admin' && !confirm(
-      `Donner le rôle SUPER ADMIN à ${profile?.email || 'cet utilisateur'} ?\n\n` +
-      `Ce rôle donne un accès TOTAL à la plateforme (remboursements, suppression, ` +
-      `suspension de comptes). Action tracée dans le journal d'audit. Confirmer ?`
-    )) return;
+    if (addingRole === 'admin' && !window.confirm(t('adm.user.confirmAdmin').replace('{email}', profile?.email ?? ''))) return;
 
     const { error: roleInsertError } = await supabase
       .from('user_roles')
-      .insert({ user_id: userId, role: addingRole as any, email: profile?.email });
+      .insert({ user_id: userId, role: addingRole as AppRole, email: profile?.email });
 
     if (roleInsertError) {
       toast.error(roleInsertError.message);
@@ -335,8 +327,8 @@ export default function AdminUserDetail() {
         .eq('id', userId);
 
       if (profileLinkError) {
-        await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', addingRole as any);
-        toast.error(`Rôle ajouté puis annulé : liaison club impossible (${profileLinkError.message}).`);
+        await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', addingRole as AppRole);
+        toast.error(t('adm.user.roleAddedRolledBackVenue').replace('{msg}', profileLinkError.message));
         return;
       }
     }
@@ -348,8 +340,8 @@ export default function AdminUserDetail() {
         .eq('id', selectedVenueId);
 
       if (ownerLinkError) {
-        await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', addingRole as any);
-        toast.error(`Rôle ajouté puis annulé : liaison propriétaire impossible (${ownerLinkError.message}).`);
+        await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', addingRole as AppRole);
+        toast.error(t('adm.user.roleAddedRolledBackOwner').replace('{msg}', ownerLinkError.message));
         return;
       }
     }
@@ -362,19 +354,18 @@ export default function AdminUserDetail() {
       _metadata: { role: addingRole, venue_id: needsVenue(addingRole) ? selectedVenueId : null },
     });
 
-    const meta = ROLE_META[addingRole];
-    toast.success(`Rôle "${meta?.label || addingRole}" ajouté`);
+    toast.success(`${t('adm.user.roleAdded')} · ${roleLabel(addingRole)}`);
     setAddingRole('');
     loadUser();
   };
 
   const handleRemoveRole = async (role: string) => {
     if (!userId) return;
-    if (role === 'admin' && !confirm('Retirer le rôle admin ? Cette action est critique.')) return;
+    if (role === 'admin' && !confirm(t('adm.user.confirmRevokeAdmin'))) return;
 
-    const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role as any);
+    const { error } = await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', role as AppRole);
     if (error) {
-      toast.error(error.message);
+      toast.error((error as Error)?.message);
       return;
     }
 
@@ -398,8 +389,7 @@ export default function AdminUserDetail() {
       _metadata: { role },
     });
 
-    const meta = ROLE_META[role];
-    toast.success(`Rôle "${meta?.label || role}" retiré`);
+        toast.success(`${t('adm.user.roleRemoved')} · ${roleLabel(role)}`);
     loadUser();
   };
 
@@ -423,9 +413,8 @@ export default function AdminUserDetail() {
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors"
             style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 13 }}
           >
-            <ArrowLeft className="h-4 w-4" />Retour
-          </button>
-          <p className="mt-4" style={{ color: T3, fontSize: 13 }}>Utilisateur introuvable.</p>
+            <ArrowLeft className="h-4 w-4" />{t('adm.common.back')}</button>
+          <p className="mt-4" style={{ color: T3, fontSize: 13 }}>{t('adm.user.notFound')}</p>
         </div>
       </div>
     );
@@ -443,7 +432,7 @@ export default function AdminUserDetail() {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>Détail utilisateur</h1>
+          <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>{t('adm.user.title')}</h1>
         </div>
 
         {/* Profile card */}
@@ -473,15 +462,14 @@ export default function AdminUserDetail() {
               </div>
               {venueName && (
                 <div className="flex items-center gap-2" style={{ fontSize: 13, color: T2 }}>
-                  <Building2 className="h-3.5 w-3.5" style={{ color: T3 }} />
-                  Établissement rattaché : <span style={{ fontWeight: 600, color: T1 }}>{venueName}</span>
+                  <Building2 className="h-3.5 w-3.5" style={{ color: T3 }} />{t('adm.user.attachedVenue')}<span style={{ fontWeight: 600, color: T1 }}>{venueName}</span>
                 </div>
               )}
               <div className="flex items-center gap-2" style={{ fontSize: 13 }}>
                 {profile.mfa_enabled ? (
-                  <span className="flex items-center gap-1" style={{ color: POS }}><Shield className="h-3.5 w-3.5" /> MFA activé</span>
+                  <span className="flex items-center gap-1" style={{ color: POS }}><Shield className="h-3.5 w-3.5" />{t('adm.user.mfaOn')}</span>
                 ) : (
-                  <span className="flex items-center gap-1" style={{ color: T3 }}><ShieldOff className="h-3.5 w-3.5" /> MFA désactivé</span>
+                  <span className="flex items-center gap-1" style={{ color: T3 }}><ShieldOff className="h-3.5 w-3.5" />{t('adm.user.mfaOff')}</span>
                 )}
               </div>
             </div>
@@ -490,13 +478,13 @@ export default function AdminUserDetail() {
 
         {/* Roles management */}
         <div style={cardStyle}>
-          <SectionHeader icon={Shield} label="Rôles" />
+          <SectionHeader icon={Shield} label={t('adm.user.roles')} />
           <div className="space-y-5">
             {/* Current roles */}
             <div className="flex flex-wrap gap-2">
-              {roles.length === 0 && <span style={{ fontSize: 13, color: T3 }}>Aucun rôle assigné</span>}
+              {roles.length === 0 && <span style={{ fontSize: 13, color: T3 }}>{t('adm.user.noRole')}</span>}
               {roles.map(role => {
-                const meta = ROLE_META[role] || { label: role };
+                const meta = { label: roleLabel(role), description: roleDesc(role) };
                 return (
                   <span
                     key={role}
@@ -520,15 +508,15 @@ export default function AdminUserDetail() {
             {/* Add role form */}
             {availableRoles.length > 0 && (
               <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T1 }}>Ajouter un rôle</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T1 }}>{t('adm.user.addRole')}</p>
 
                 <Select value={addingRole} onValueChange={(v) => { setAddingRole(v); if (!needsVenue(v)) setSelectedVenueId(''); else if (profile?.venue_id) setSelectedVenueId(profile.venue_id); }}>
                   <SelectTrigger className="w-full md:w-64">
-                    <SelectValue placeholder="Sélectionner un rôle…" />
+                    <SelectValue placeholder={t('adm.user.pickRole')} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableRoles.map(r => {
-                      const meta = ROLE_META[r] || { label: r, description: '' };
+                      const meta = { label: roleLabel(r), description: roleDesc(r) };
                       return (
                         <SelectItem key={r} value={r}>
                           <span className="font-medium">{meta.label}</span>
@@ -551,7 +539,7 @@ export default function AdminUserDetail() {
                     </div>
                     <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
                       <SelectTrigger className="w-full md:w-64">
-                        <SelectValue placeholder="Sélectionner un établissement…" />
+                        <SelectValue placeholder={t('adm.user.pickVenue')} />
                       </SelectTrigger>
                       <SelectContent>
                         {venues.map(v => (
@@ -567,8 +555,7 @@ export default function AdminUserDetail() {
                   disabled={!addingRole || (showVenueSelector && !selectedVenueId)}
                   style={{ ...primaryBtnStyle, opacity: (!addingRole || (showVenueSelector && !selectedVenueId)) ? 0.5 : 1 }}
                 >
-                  <Plus className="h-4 w-4" /> Ajouter
-                </button>
+                  <Plus className="h-4 w-4" />{t('adm.user.add')}</button>
               </div>
             )}
           </div>
@@ -576,13 +563,13 @@ export default function AdminUserDetail() {
 
         {/* Sécurité & accès — recovery pro + suspension plateforme */}
         <div style={cardStyle}>
-          <SectionHeader icon={ShieldAlert} label="Sécurité & accès" accent />
+          <SectionHeader icon={ShieldAlert} label={t('adm.user.security')} accent />
           {profile?.is_suspended && (
             <div className="flex items-start gap-2 mb-4 rounded-xl p-3" style={{ background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.3)' }}>
               <Ban className="h-4 w-4 mt-0.5 shrink-0" style={{ color: NEG }} />
               <div style={{ fontSize: 13, color: T1 }}>
-                <span style={{ fontWeight: 600, color: NEG }}>Compte suspendu.</span>{' '}
-                {profile.suspension_reason ? <span style={{ color: T2 }}>Motif : {profile.suspension_reason}</span> : <span style={{ color: T3 }}>Aucun motif renseigné.</span>}
+                <span style={{ fontWeight: 600, color: NEG }}>{t('adm.user.suspended')}</span>{' '}
+                {profile.suspension_reason ? <span style={{ color: T2 }}>Motif : {profile.suspension_reason}</span> : <span style={{ color: T3 }}>{t('adm.user.noReason')}</span>}
               </div>
             </div>
           )}
@@ -592,15 +579,13 @@ export default function AdminUserDetail() {
               disabled={securityBusy}
               style={{ ...secondaryBtnStyle, opacity: securityBusy ? 0.5 : 1 }}
             >
-              <KeyRound className="h-4 w-4" /> Réinitialiser le MFA
-            </button>
+              <KeyRound className="h-4 w-4" />{t('adm.user.resetMfa')}</button>
             <button
               onClick={handleResetPassword}
               disabled={securityBusy}
               style={{ ...secondaryBtnStyle, opacity: securityBusy ? 0.5 : 1 }}
             >
-              <Mail className="h-4 w-4" /> Réinitialiser le mot de passe
-            </button>
+              <Mail className="h-4 w-4" />{t('adm.user.resetPassword')}</button>
             <button
               onClick={handleToggleSuspend}
               disabled={securityBusy || roles.includes('admin')}
@@ -610,15 +595,15 @@ export default function AdminUserDetail() {
                 opacity: (securityBusy || roles.includes('admin')) ? 0.5 : 1,
               }}
             >
-              {profile?.is_suspended ? <><UserCheck className="h-4 w-4" /> Réactiver le compte</> : <><Ban className="h-4 w-4" /> Suspendre le compte</>}
+              {profile?.is_suspended ? <><UserCheck className="h-4 w-4" />{t('adm.user.reactivate')}</> : <><Ban className="h-4 w-4" />{t('adm.user.suspend')}</>}
             </button>
           </div>
           <p style={{ fontSize: 12, color: T3, marginTop: 12, lineHeight: 1.5 }}>
-            <strong style={{ color: T2 }}>Reset MFA</strong> : débloque un pro verrouillé (téléphone perdu) ; il ré-enrôle à la prochaine connexion.
+            <strong style={{ color: T2 }}>{t('adm.user.mfaShort')}</strong> : débloque un pro verrouillé (téléphone perdu) ; il ré-enrôle à la prochaine connexion.
             <br />
-            <strong style={{ color: T2 }}>Reset mot de passe</strong> : envoie un lien de réinitialisation au pro.
+            <strong style={{ color: T2 }}>{t('adm.user.pwShort')}</strong> : envoie un lien de réinitialisation au pro.
             <br />
-            <strong style={{ color: T2 }}>Suspension</strong> : coupe l'accès aux dashboards pro (effet à la prochaine navigation).
+            <strong style={{ color: T2 }}>{t('adm.user.suspendShort')}</strong> : coupe l'accès aux dashboards pro (effet à la prochaine navigation).
           </p>
         </div>
 
@@ -637,21 +622,18 @@ export default function AdminUserDetail() {
         {/* Owner venue sync — shown when user has owner role */}
         {roles.includes(OWNER_ROLE) && (
           <div style={cardStyle}>
-            <SectionHeader icon={Building2} label="Établissement propriétaire" accent />
+            <SectionHeader icon={Building2} label={t('adm.user.ownerVenue')} accent />
             <div className="space-y-3">
               {ownedVenue ? (
-                <p style={{ fontSize: 13, color: T2 }}>
-                  Actuellement lié à : <span style={{ fontWeight: 600, color: T1 }}>{ownedVenue.name}</span>
+                <p style={{ fontSize: 13, color: T2 }}>{t('adm.user.currentlyLinked')}<span style={{ fontWeight: 600, color: T1 }}>{ownedVenue.name}</span>
                 </p>
               ) : (
-                <p style={{ fontSize: 13, color: NEG, fontWeight: 600 }}>
-                  ⚠ Aucun établissement lié — c'est pourquoi l'owner voit l'erreur "Aucun établissement assigné".
-                </p>
+                <p style={{ fontSize: 13, color: NEG, fontWeight: 600 }}>{t('adm.user.noVenueLinked')}</p>
               )}
               <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
                 <Select value={resyncVenueId} onValueChange={setResyncVenueId}>
                   <SelectTrigger className="w-full sm:w-72">
-                    <SelectValue placeholder="Sélectionner l'établissement à lier…" />
+                    <SelectValue placeholder={t('adm.user.pickOwnerVenue')} />
                   </SelectTrigger>
                   <SelectContent>
                     {venues.map(v => (
@@ -674,22 +656,18 @@ export default function AdminUserDetail() {
         {/* Promoter profiles — shown when user has promoter role */}
         {roles.includes('promoter') && (
           <div style={cardStyle}>
-            <SectionHeader icon={Star} label="Profils promoteur" accent />
+            <SectionHeader icon={Star} label={t('adm.user.promoterProfiles')} accent />
             {promoterProfiles.length === 0 ? (
-              <p style={{ fontSize: 13, color: NEG, fontWeight: 600, lineHeight: 1.6 }}>
-                ⚠ Aucun profil dans la table <code style={{ background: C_FAINT, padding: '1px 5px', borderRadius: 4, color: T1 }}>promoters</code> — c'est pourquoi le dashboard promoteur est inaccessible.
-                L'owner doit inviter cet utilisateur depuis son dashboard Promoteurs, ou utiliser le script SQL
-                <code style={{ background: C_FAINT, padding: '1px 5px', borderRadius: 4, color: T1 }}>migration-kit/12_DIAGNOSTIC_OWNER_PROMOTER_SYNC.sql</code> (correction B2).
-              </p>
+              <p style={{ fontSize: 13, color: NEG, fontWeight: 560, lineHeight: 1.6 }}>{t('adm.user.noPromoter')}</p>
             ) : (
               <div className="overflow-x-auto -mx-1">
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
-                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Établissement</th>
-                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Code promo</th>
-                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Statut</th>
-                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Action</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.venue')}</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.promoCode')}</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.common.status')}</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -699,8 +677,8 @@ export default function AdminUserDetail() {
                         <td className="px-2 py-3 font-mono text-xs" style={{ color: T2 }}>{p.promo_code}</td>
                         <td className="px-2 py-3">
                           {p.is_active
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>Actif</span>
-                            : <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 11, fontWeight: 600 }}>Inactif</span>}
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>{t('adm.common.active')}</span>
+                            : <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 11, fontWeight: 600 }}>{t('adm.user.inactive')}</span>}
                         </td>
                         <td className="px-2 py-3">
                           <button
@@ -725,18 +703,18 @@ export default function AdminUserDetail() {
         {/* Activity per venue */}
         {venueCustomers.length > 0 && (
           <div style={cardStyle}>
-            <SectionHeader icon={ShoppingBag} label="Activité par établissement" />
+            <SectionHeader icon={ShoppingBag} label={t('adm.user.activityByVenue')} />
             <div className="overflow-x-auto -mx-1">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Établissement</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}><ShoppingBag className="h-4 w-4 inline mr-1" />Commandes</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}><Ticket className="h-4 w-4 inline mr-1" />Billets</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Tables</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Dépensé</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Dernière visite</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Statut</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.venue')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}><ShoppingBag className="h-4 w-4 inline mr-1" />{t('adm.user.orders')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}><Ticket className="h-4 w-4 inline mr-1" />{t('adm.user.tickets')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.common.tables')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.spent')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.lastVisit')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.common.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -752,9 +730,9 @@ export default function AdminUserDetail() {
                       </td>
                       <td className="px-2 py-3">
                         {vc.is_banned ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 11, fontWeight: 600 }}>Banni</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 11, fontWeight: 600 }}>{t('adm.user.banned')}</span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>Actif</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>{t('adm.common.active')}</span>
                         )}
                       </td>
                     </tr>
@@ -768,15 +746,15 @@ export default function AdminUserDetail() {
         {/* Loyalty */}
         {loyalty.length > 0 && (
           <div style={cardStyle}>
-            <SectionHeader icon={Star} label="Fidélité" accent />
+            <SectionHeader icon={Star} label={t('adm.user.loyalty')} accent />
             <div className="overflow-x-auto -mx-1">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Établissement</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Tier</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Solde</th>
-                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Total gagné</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.venue')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.tier')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.balance')}</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>{t('adm.user.totalEarned')}</th>
                   </tr>
                 </thead>
                 <tbody>

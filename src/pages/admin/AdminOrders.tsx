@@ -96,8 +96,8 @@ export default function AdminOrders() {
   const submitRefund = async () => {
     if (!refundRow) return;
     const amount = Number(refundAmount);
-    if (!amount || amount <= 0) { toast.error('Montant invalide'); return; }
-    if (!refundReason.trim()) { toast.error('La raison est obligatoire'); return; }
+    if (!amount || amount <= 0) { toast.error(t('adm.orders.invalidAmount')); return; }
+    if (!refundReason.trim()) { toast.error(t('adm.orders.reasonRequired')); return; }
     setRefunding(true);
     try {
       const { data, error } = await supabase.functions.invoke('owner-refund', {
@@ -105,22 +105,20 @@ export default function AdminOrders() {
       });
       if (error) throw error;
       const result = data?.results?.[0];
-      if (result && !result.success) throw new Error(result.error || 'Échec du remboursement');
-      toast.success(`Remboursement de ${(result?.amount ?? amount).toFixed(2)} € effectué`);
+      if (result && !result.success) throw new Error(result.error || t('adm.orders.refundFailed'));
+      toast.success(t('adm.orders.refunded').replace('{v}', fmtEur(result?.amount ?? amount)));
       setRefundRow(null);
       load();
-    } catch (err: any) {
-      toast.error(err.message || 'Erreur — la fonction owner-refund doit être déployée (cap 402).');
+    } catch (err) {
+      toast.error((err as Error)?.message || t('adm.orders.refundUnavailable'));
     } finally {
       setRefunding(false);
     }
   };
 
-  useEffect(() => {
-    supabase.from('venues').select('id, name').then(({ data }) => {
-      if (data) setVenues(Object.fromEntries(data.map(v => [v.id, v.name])));
-    });
-  }, []);
+  // Recherche débouncée : un appel serveur par pause de frappe, pas par touche.
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => { const id = window.setTimeout(() => setDebouncedSearch(search), 300); return () => clearTimeout(id); }, [search]);
 
   // Liste ET compteurs viennent du même appel serveur. La démo est exclue par
   // défaut : au 08/09 les 1 210 commandes, 2 616 billets et 84 réservations de
@@ -131,7 +129,7 @@ export default function AdminOrders() {
     setLoading(true);
     const { data, error } = await supabase.rpc('admin_orders_list', {
       p_kind: tab,
-      p_search: search || null,
+      p_search: debouncedSearch || null,
       p_status: statusFilter === 'all' ? null : statusFilter,
       p_limit: PAGE_SIZE,
       p_offset: page * PAGE_SIZE,
@@ -151,7 +149,7 @@ export default function AdminOrders() {
   }, [tab, search, statusFilter, page, includeDemo]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(0); }, [tab, search, statusFilter, includeDemo]);
+  useEffect(() => { setPage(0); }, [tab, debouncedSearch, statusFilter, includeDemo]);
 
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
@@ -327,7 +325,7 @@ export default function AdminOrders() {
                           className="inline-flex items-center gap-1.5 rounded-lg cursor-pointer transition-all"
                           style={{ padding: '5px 10px', background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.28)', color: NEG, fontSize: 12, fontWeight: 600 }}
                         >
-                          <RotateCcw className="h-3.5 w-3.5" /> Rembourser
+                          <RotateCcw className="h-3.5 w-3.5" /> {t('adm.orders.refund')}
                         </button>
                       ) : (
                         <span style={{ color: T3, fontSize: 12 }}>—</span>
@@ -365,8 +363,8 @@ export default function AdminOrders() {
           >
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Rembourser</h2>
-                <p style={{ color: T3, fontSize: 12.5, marginTop: 2 }}>{refundRow.user_email || '—'} · {refundRow.venue_name || venues[refundRow.venue_id] || '—'}</p>
+                <h2 style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{t('adm.orders.refund')}</h2>
+                <p style={{ color: T3, fontSize: 12.5, marginTop: 2 }}>{refundRow.user_email || '—'} · {refundRow.venue_name || '—'}</p>
               </div>
               <button onClick={() => !refunding && setRefundRow(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: T3 }}>
                 <X className="h-5 w-5" />
@@ -374,11 +372,11 @@ export default function AdminOrders() {
             </div>
 
             <div className="rounded-xl p-3 mb-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-              <p style={{ color: T3, fontSize: 11.5 }}>Montant payé</p>
+              <p style={{ color: T3, fontSize: 11.5 }}>{t('adm.orders.paidAmount')}</p>
               <p className="tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 640 }}>{fmtEur(refundRow.amount ?? 0)}</p>
             </div>
 
-            <label style={{ color: T2, fontSize: 12.5, fontWeight: 560, display: 'block', marginBottom: 6 }}>Montant à rembourser (€)</label>
+            <label style={{ color: T2, fontSize: 12.5, fontWeight: 560, display: 'block', marginBottom: 6 }}>{t('adm.orders.refundAmount')}</label>
             <input
               type="number" step="0.01" min="0"
               value={refundAmount}
@@ -386,17 +384,17 @@ export default function AdminOrders() {
               style={{ ...inputStyle, paddingLeft: 12, marginBottom: 14 }}
             />
 
-            <label style={{ color: T2, fontSize: 12.5, fontWeight: 560, display: 'block', marginBottom: 6 }}>Raison (obligatoire)</label>
+            <label style={{ color: T2, fontSize: 12.5, fontWeight: 560, display: 'block', marginBottom: 6 }}>{t('adm.orders.reason')}</label>
             <textarea
               value={refundReason}
               onChange={(e) => setRefundReason(e.target.value)}
               rows={3}
-              placeholder="Ex : événement annulé, double paiement…"
+              placeholder={t('adm.orders.reasonPh')}
               style={{ ...inputStyle, paddingLeft: 12, resize: 'vertical' }}
             />
 
             <p style={{ color: T3, fontSize: 11.5, marginTop: 10, lineHeight: 1.5 }}>
-              Stripe rembourse au client et inverse le transfert au club. Le montant est plafonné côté serveur à (payé − frais de service Yuno).
+              {t('adm.orders.refundHint')}
             </p>
 
             <div className="flex gap-2 mt-5">
@@ -406,7 +404,7 @@ export default function AdminOrders() {
                 className="flex-1 rounded-xl cursor-pointer transition-all"
                 style={{ padding: '10px', background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13, fontWeight: 560 }}
               >
-                Annuler
+                {t('adm.common.cancel')}
               </button>
               <button
                 onClick={submitRefund}
@@ -414,7 +412,7 @@ export default function AdminOrders() {
                 className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl cursor-pointer transition-all"
                 style={{ padding: '10px', background: RED, border: '1px solid rgba(232,25,44,0.6)', color: '#fff', fontSize: 13, fontWeight: 600, opacity: refunding ? 0.6 : 1 }}
               >
-                <RotateCcw className="h-4 w-4" /> {refunding ? 'Traitement…' : 'Confirmer le remboursement'}
+                <RotateCcw className="h-4 w-4" /> {refunding ? t('adm.orders.processing') : t('adm.orders.confirmRefund')}
               </button>
             </div>
           </div>

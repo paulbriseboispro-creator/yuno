@@ -193,7 +193,7 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
       // session fabriquée sur le club démo, sans scan. Le RPC lui-même
       // rejette les non-démos (SECURITY DEFINER + gate email).
       const demoForced = isDemoEmail(user.email) && isDemoLiveForced();
-      const { data, error } = await (supabase.rpc as (fn: string) => ReturnType<typeof supabase.rpc>)(
+      const { data, error } = await (supabase.rpc as unknown as (fn: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>)(
         demoForced ? 'demo_live_session' : 'get_live_session'
       );
       if (error) throw error;
