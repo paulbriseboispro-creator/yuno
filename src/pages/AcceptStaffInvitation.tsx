@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { canHandOffToProApp, openProApp } from '@/lib/native';
 import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, XCircle, Loader2, LogIn, Mail, UserPlus } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, LogIn, Mail, UserPlus, Smartphone, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -31,6 +33,30 @@ const PAGE_SAFE = {
   paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
 };
 
+/**
+ * Bouton « Ouvrir dans Yuno Pro ».
+ *
+ * Une invitation de staff se termine TOUJOURS dans l'app Pro (code PIN, scan à
+ * la porte). Mais le lien de l'email est un Universal Link de yunoapp.eu, et le
+ * fichier d'association ne déclare que l'app CLIENT : le lien ouvre donc la
+ * mauvaise app, ou reste dans Safari. Ce bouton passe par le schéma
+ * `yunopro://`, déjà compilé dans le binaire Pro — il marche sur les apps DÉJÀ
+ * installées, sans attendre une nouvelle version.
+ *
+ * Jamais de redirection automatique : sans l'app Pro, iOS laisserait une page
+ * morte. C'est un geste, proposé seulement sur un téléphone hors app Pro.
+ */
+function ProHandoff({ path }: { path: string }) {
+  const { t } = useLanguage();
+  if (!canHandOffToProApp()) return null;
+  return (
+    <Button className="mt-6 h-11 w-full" onClick={() => openProApp(path)}>
+      <Smartphone className="h-4 w-4 mr-2 flex-none" />
+      <span className="truncate">{t('acceptInv.openProApp')}</span>
+    </Button>
+  );
+}
+
 export default function AcceptStaffInvitation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -43,11 +69,15 @@ export default function AcceptStaffInvitation() {
     email: string;
     inviter_name: string;
     role: string;
+    status: string;
     requires_account_creation: boolean;
   } | null>(null);
+  /** Cause de lecture impossible (token inconnu, réseau) — jamais un écran blanc. */
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
+    code?: string;
     account_created?: boolean;
     password_reset_sent?: boolean;
   } | null>(null);
@@ -63,43 +93,39 @@ export default function AcceptStaffInvitation() {
         setCheckingInvitation(false);
         return;
       }
+      // L'invitation est lue PAR LE SERVEUR, à partir du token.
+      // `staff_invitations` n'a aucune policy anon, et sa policy authenticated
+      // exige que l'email du compte connecté soit celui de l'invitation : lire
+      // la table depuis le client rendait zéro ligne dans le cas NORMAL (lien
+      // ouvert depuis la boîte mail, déconnecté) comme dans le cas fréquent
+      // (connecté sur son compte de tous les jours). La page finissait sur un
+      // écran blanc. Le token est la pièce d'identité du lien ; c'est au serveur
+      // de le lire.
       try {
-        const { data: invitation, error } = await supabase
-          .from('staff_invitations')
-          .select('email, status, expires_at, role, venue_id, organizer_user_id, venues(name)')
-          .eq('token', token)
-          .single();
+        const { data, error } = await invokeEdgeFunction<{
+          email?: string;
+          inviter_name?: string;
+          role?: string;
+          status?: string;
+          requires_account_creation?: boolean;
+          error?: string;
+        }>('accept-staff-invitation', { body: { action: 'describe_invitation', token } });
 
-        if (error || !invitation) {
-          setCheckingInvitation(false);
+        if (error || !data?.email) {
+          setLookupError(data?.error || error?.message || t('acceptInv.invalidLinkDesc'));
           return;
         }
 
-        let inviterName = (invitation.venues as any)?.name || 'Yuno';
-        if (invitation.organizer_user_id) {
-          const { data: orgProfile } = await supabase
-            .from('organizer_profiles')
-            .select('display_name')
-            .eq('user_id', invitation.organizer_user_id)
-            .maybeSingle();
-          inviterName = orgProfile?.display_name || 'Une organisation';
-        }
-
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', invitation.email.toLowerCase())
-          .limit(1);
-        const hasAccount = profiles && profiles.length > 0;
-
         setInvitationData({
-          email: invitation.email,
-          inviter_name: inviterName,
-          role: invitation.role,
-          requires_account_creation: !hasAccount,
+          email: data.email,
+          inviter_name: data.inviter_name || 'Yuno',
+          role: data.role || '',
+          status: data.status || 'pending',
+          requires_account_creation: !!data.requires_account_creation,
         });
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error checking staff invitation:', err);
+        setLookupError(err instanceof Error ? err.message : t('acceptInv.invalidLinkDesc'));
       } finally {
         setCheckingInvitation(false);
       }
@@ -120,38 +146,78 @@ export default function AcceptStaffInvitation() {
         }
       }
 
-      const response = await supabase.functions.invoke('accept-staff-invitation', {
+      // `invokeEdgeFunction` plutôt que l'invoke nu : supabase-js jette le corps
+      // JSON de toute réponse non-2xx et ne laisse que « Edge Function returned a
+      // non-2xx status code ». C'est CE message que voyait l'employé à la place
+      // de « vous êtes connecté avec un autre compte ».
+      const { data, error } = await invokeEdgeFunction<{
+        success?: boolean;
+        message?: string;
+        error?: string;
+        code?: string;
+        invited_email?: string;
+        signed_in_email?: string;
+        account_created?: boolean;
+        password_reset_sent?: boolean;
+      }>('accept-staff-invitation', {
         body: { token, first_name: firstName || undefined, last_name: lastName || undefined },
         headers: Object.keys(headers).length > 0 ? headers : undefined,
       });
 
-      if (response.error) throw new Error(response.error.message);
-
-      if (response.data.error) {
-        setResult({ success: false, message: response.data.error });
-      } else {
-        setResult({
-          success: true,
-          message: response.data.message,
-          account_created: response.data.account_created,
-          password_reset_sent: response.data.password_reset_sent,
-        });
-        toast.success(response.data.message);
+      const serverError = data?.error || error?.message;
+      if (serverError) {
+        setResult({ success: false, message: serverError, code: data?.code });
+        return;
       }
-    } catch (error: any) {
+
+      setResult({
+        success: true,
+        message: data?.message ?? '',
+        account_created: data?.account_created,
+        password_reset_sent: data?.password_reset_sent,
+      });
+      toast.success(data?.message ?? '');
+    } catch (error: unknown) {
       console.error('Error accepting staff invitation:', error);
-      setResult({ success: false, message: error.message || t('acceptInv.acceptError') });
+      setResult({
+        success: false,
+        message: error instanceof Error ? error.message : t('acceptInv.acceptError'),
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-accept when already logged in with a matching account.
+  /**
+   * Connecté sur un AUTRE compte que celui invité. C'est le cas le plus courant
+   * (on ouvre ses mails sur le téléphone où l'app est déjà connectée), et c'est
+   * celui qui produisait un cul-de-sac : on se déconnecte ICI et on reste sur le
+   * lien, au lieu de renvoyer la personne se débrouiller dans les réglages.
+   */
+  const emailMismatch =
+    !!user?.email && !!invitationData?.email &&
+    user.email.toLowerCase() !== invitationData.email.toLowerCase();
+
+  const signOutAndStay = async () => {
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Session déjà morte côté serveur : le rechargement suffit.
+    }
+    window.location.reload();
+  };
+
+  // Auto-accept when already logged in with a matching account. Un compte qui ne
+  // correspond pas ne déclenche RIEN : on lui montre la carte de bascule.
   useEffect(() => {
-    if (!authLoading && user && token && !result && !checkingInvitation && invitationData) {
+    if (
+      !authLoading && user && token && !result && !checkingInvitation &&
+      invitationData && invitationData.status === 'pending' && !emailMismatch
+    ) {
       acceptInvitation(true);
     }
-  }, [user, authLoading, token, result, checkingInvitation, invitationData]);
+  }, [user, authLoading, token, result, checkingInvitation, invitationData, emailMismatch]);
 
   const roleLabel = invitationData
     ? (ROLE_LABEL_KEYS[invitationData.role] ? t(ROLE_LABEL_KEYS[invitationData.role]) : invitationData.role)
@@ -173,6 +239,78 @@ export default function AcceptStaffInvitation() {
           <h1 className="text-xl font-semibold mb-2">{t('acceptInv.invalidLink')}</h1>
           <p className="text-muted-foreground break-words">{t('acceptInv.invalidLinkDesc')}</p>
           <Button className="mt-6 h-11" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Lien illisible (token inconnu, invitation supprimée, réseau coupé).
+  if (lookupError && !invitationData) {
+    return (
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md">
+          <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2">{t('acceptInv.invalidLink')}</h1>
+          <p className="text-muted-foreground break-words">{lookupError}</p>
+          <Button className="mt-6 h-11" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Invitation déjà acceptée ou expirée : on le dit, et on pousse vers la suite
+  // utile (se connecter, poser son code PIN) au lieu d'un refus sec du serveur.
+  if (invitationData && invitationData.status !== 'pending' && !result) {
+    const isExpired = invitationData.status === 'expired';
+    return (
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md">
+          {isExpired ? (
+            <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+          ) : (
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+          )}
+          <h1 className="text-xl font-semibold mb-2 break-words">
+            {isExpired ? t('acceptInv.expiredTitle') : t('acceptInv.alreadyAcceptedTitle')}
+          </h1>
+          <p className="text-muted-foreground break-words">
+            {isExpired ? t('acceptInv.expiredDesc') : t('acceptInv.alreadyAcceptedDesc')}
+          </p>
+          {!isExpired && <ProHandoff path="/setup-pin" />}
+          <Button
+            variant={isExpired ? 'default' : 'outline'}
+            className="mt-3 h-11 w-full"
+            onClick={() => navigate(isExpired ? '/' : '/setup-pin')}
+          >
+            {isExpired ? t('acceptInv.backHome') : t('acceptStaff.setPin')}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Connecté sur un autre compte que l'invité : on bascule ici, sans détour.
+  if (emailMismatch && invitationData && !result) {
+    return (
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md w-full">
+          <UserCog className="h-16 w-16 text-primary mx-auto mb-4" />
+          <h1 className="text-xl font-semibold mb-2 break-words">{t('acceptInv.wrongAccountTitle')}</h1>
+          <p className="text-muted-foreground break-words">
+            {t('acceptInv.wrongAccountDesc')
+              .replace('{signedIn}', user?.email ?? '')
+              .replace('{invited}', invitationData.email)}
+          </p>
+          <div className="mt-4 p-3 bg-primary/10 rounded-lg">
+            <p className="text-xs text-muted-foreground">{t('acceptStaff.yourRole')}</p>
+            <p className="text-lg font-bold text-primary break-words">
+              {invitationData.inviter_name} · {roleLabel}
+            </p>
+          </div>
+          <Button className="mt-6 h-11 w-full" onClick={signOutAndStay} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2 flex-none" /> : null}
+            <span className="truncate">{t('acceptInv.switchAccount')}</span>
+          </Button>
         </Card>
       </div>
     );
@@ -209,8 +347,11 @@ export default function AcceptStaffInvitation() {
                   <p className="text-sm text-muted-foreground break-words">{t('acceptInv.passwordEmailSent')}</p>
                 </div>
               )}
+              {/* La suite du métier (PIN puis scan) vit dans l'app Pro. */}
+              <ProHandoff path={result.account_created ? '/auth' : '/setup-pin'} />
               <Button
-                className="mt-6 h-11"
+                variant={canHandOffToProApp() ? 'outline' : 'default'}
+                className="mt-3 h-11 w-full"
                 onClick={() => navigate(result.account_created ? '/auth' : '/setup-pin')}
               >
                 {result.account_created ? t('acceptInv.login') : t('acceptStaff.setPin')}
@@ -221,7 +362,18 @@ export default function AcceptStaffInvitation() {
               <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
               <h1 className="text-xl font-semibold mb-2">{t('acceptInv.error')}</h1>
               <p className="text-muted-foreground break-words">{result.message}</p>
-              <Button className="mt-6 h-11" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
+              {result.code === 'email_mismatch' ? (
+                <Button className="mt-6 h-11 w-full" onClick={signOutAndStay} disabled={loading}>
+                  <span className="truncate">{t('acceptInv.switchAccount')}</span>
+                </Button>
+              ) : (
+                <Button className="mt-6 h-11 w-full" onClick={() => { setResult(null); acceptInvitation(!!user); }}>
+                  <span className="truncate">{t('acceptInv.retry')}</span>
+                </Button>
+              )}
+              <Button variant="outline" className="mt-3 h-11 w-full" onClick={() => navigate('/')}>
+                {t('acceptInv.backHome')}
+              </Button>
             </>
           )}
         </Card>
@@ -304,5 +456,34 @@ export default function AcceptStaffInvitation() {
     );
   }
 
-  return null;
+  /**
+   * Dernier recours : invitation lisible mais aucun des cas ci-dessus (connecté
+   * sans profil, course entre deux états). Avant, ce chemin rendait `null` —
+   * une page BLANCHE, sans rien à toucher. On propose toujours une action.
+   */
+  return (
+    <div className={PAGE_WRAP} style={PAGE_SAFE}>
+      <Card className="p-6 sm:p-8 text-center max-w-md w-full">
+        <UserPlus className="h-16 w-16 text-primary mx-auto mb-4" />
+        <h1 className="text-xl font-semibold mb-2 break-words">{t('acceptStaff.joinTeam')}</h1>
+        {invitationData && (
+          <p className="text-primary font-medium mb-6 break-words">
+            {invitationData.inviter_name} · {roleLabel}
+          </p>
+        )}
+        <Button className="h-11 w-full" onClick={() => acceptInvitation(!!user)} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2 flex-none" /> : null}
+          <span className="truncate">{t('acceptInv.createAndAccept')}</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="mt-3 h-11 w-full"
+          onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+        >
+          <LogIn className="h-4 w-4 mr-2 flex-none" />
+          <span className="truncate">{t('acceptInv.haveAccount')}</span>
+        </Button>
+      </Card>
+    </div>
+  );
 }
