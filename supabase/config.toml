@@ -148,6 +148,11 @@ verify_jwt = false
 [functions.send-pre-night-checklist]
 verify_jwt = false
 
+# Rappel « charge la liste » au staff de porte, 2 à 5 h avant l'ouverture.
+# Appelée par pg_cron avec le secret partagé — jamais par un client.
+[functions.door-manifest-preload]
+verify_jwt = false
+
 [functions.send-next-event-recommendation]
 verify_jwt = false
 

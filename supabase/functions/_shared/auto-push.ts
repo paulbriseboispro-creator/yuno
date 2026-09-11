@@ -86,6 +86,21 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
       },
     },
   },
+  // Porte : ouvrir l'app AVANT la soirée, pour que la liste soit dans le
+  // téléphone quand le réseau manquera. Aucun serveur ne peut remplir le cache
+  // d'un appareil — cette notification est le seul levier qu'on ait pour le
+  // faire arriver avant le sous-sol.
+  door_manifest_preload: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Charge la liste avant la porte 📥", body: "{event} ouvre bientôt. Ouvre Yuno Pro maintenant : la liste se met dans ton téléphone et le scan marchera même sans réseau." },
+        en: { title: "Load the list before doors 📥", body: "{event} opens soon. Open Yuno Pro now: the list is stored on your phone and scanning works with no signal." },
+        es: { title: "Carga la lista antes de la puerta 📥", body: "{event} abre pronto. Abre Yuno Pro ahora: la lista se guarda en tu teléfono y el escaneo funciona sin cobertura." },
+      },
+    },
+  },
   // Récap hebdo poussé au pro : l'habitude qui donne une raison de faire plus d'events.
   audience_weekly_recap: {
     logType: "reminder",
