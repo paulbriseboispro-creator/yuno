@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Mail, MessageSquare, Check, Loader2 } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Check, Loader2, Sparkles } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { marketingConsentWording } from '@/hooks/useMarketingConsent';
 
@@ -22,6 +22,28 @@ interface MarketingOptInsProps {
   onWithdraw?: (channel: 'email' | 'sms', wordingText: string) => Promise<boolean>;
   /** Masque la ligne SMS quand aucun numéro n'est collecté sur cette surface. */
   showSms?: boolean;
+  /**
+   * Masque les lignes du club / de l'organisateur quand son NOM n'a pas pu être
+   * résolu. Une case qui ne nomme pas son destinataire ne couvre personne
+   * (EDPB 05/2020 §65) : mieux vaut ne rien demander pour lui que demander mal.
+   */
+  showEmail?: boolean;
+  /**
+   * Ligne « Yuno » — portée PLATEFORME (les deux colonnes de portée à NULL).
+   *
+   * C'est un DESTINATAIRE de plus, pas une reformulation du premier : le club
+   * nommé au-dessus ne couvre jamais Yuno (EDPB 05/2020 §65). D'où une case
+   * séparée, décochée elle aussi, sous un intertitre qui dit qui reçoit quoi.
+   * Absente par défaut : seules les surfaces où Yuno se présente comme
+   * expéditeur la montrent.
+   */
+  showYuno?: boolean;
+  yunoOptIn?: boolean;
+  onYunoChange?: (value: boolean) => void;
+  /** Accord Yuno déjà actif → statut + retrait, pas de case. */
+  yunoAlreadyGranted?: boolean;
+  /** Retrait de l'accord Yuno, sur la même interface (EDPB §114). */
+  onWithdrawYuno?: (wordingText: string) => Promise<boolean>;
   /**
    * Lecture du consentement par club encore en cours (RPC get_my_marketing_consent).
    *
@@ -65,6 +87,12 @@ export function MarketingOptIns({
   smsAlreadyGranted = false,
   onWithdraw,
   showSms = true,
+  showEmail = true,
+  showYuno = false,
+  yunoOptIn = false,
+  onYunoChange,
+  yunoAlreadyGranted = false,
+  onWithdrawYuno,
   pending = false,
 }: MarketingOptInsProps) {
   const { t } = useLanguage();
@@ -73,8 +101,14 @@ export function MarketingOptIns({
   const [manageOpen, setManageOpen] = useState(false);
 
   const { email: emailLabel, sms: smsLabel } = marketingConsentWording(t, scopeName);
+  const yunoLabel = t('consent.yunoOffers');
 
-  const bothGranted = emailAlreadyGranted && (smsAlreadyGranted || !showSms);
+  // Le repli « une seule ligne, tout est déjà accepté » ne vaut que si TOUT
+  // l'est. Avec la ligne Yuno affichée et pas encore accordée, replier la carte
+  // escamoterait la seule question encore posée.
+  const bothGranted = (emailAlreadyGranted || !showEmail)
+    && (smsAlreadyGranted || !showSms || !showEmail)
+    && (yunoAlreadyGranted || !showYuno);
 
   const named = (scopeName ?? '').trim();
   const summaryLabel = named
@@ -96,7 +130,7 @@ export function MarketingOptIns({
       </div>
 
       {pending ? (
-        <PendingRows showSms={showSms} label={t('consent.checkingPreferences')} />
+        <PendingRows showEmail={showEmail} showSms={showEmail && showSms} showYuno={showYuno} label={t('consent.checkingPreferences')} />
       ) : bothGranted && !manageOpen ? (
         <button
           type="button"
@@ -114,7 +148,7 @@ export function MarketingOptIns({
       ) : (
         <>
           <div className="divide-y divide-white/[0.06]">
-            {emailAlreadyGranted ? (
+            {!showEmail ? null : emailAlreadyGranted ? (
               <GrantedRow
                 icon={<Mail className="h-4 w-4" />}
                 label={emailLabel}
@@ -129,7 +163,7 @@ export function MarketingOptIns({
               />
             )}
 
-            {showSms &&
+            {showEmail && showSms &&
               (smsAlreadyGranted ? (
                 <GrantedRow
                   icon={<MessageSquare className="h-4 w-4" />}
@@ -145,6 +179,32 @@ export function MarketingOptIns({
                 />
               ))}
           </div>
+
+          {/* Yuno est un destinataire distinct : il porte son propre intertitre,
+              sinon la case se lit comme une deuxième ligne du club nommé plus
+              haut — et un consentement qui ne nomme pas son destinataire ne
+              couvre personne. */}
+          {showYuno && (
+            <div className={showEmail ? 'mt-1 border-t border-white/[0.06] pt-1' : ''}>
+              <p className="pt-2 font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[#5A5A5E]">
+                {t('consent.fromYuno')}
+              </p>
+              {yunoAlreadyGranted ? (
+                <GrantedRow
+                  icon={<Sparkles className="h-4 w-4" />}
+                  label={yunoLabel}
+                  onWithdraw={onWithdrawYuno ? () => onWithdrawYuno(yunoLabel) : undefined}
+                />
+              ) : (
+                <ConsentRow
+                  icon={<Sparkles className="h-4 w-4" />}
+                  label={yunoLabel}
+                  checked={yunoOptIn}
+                  onToggle={() => onYunoChange?.(!yunoOptIn)}
+                />
+              )}
+            </div>
+          )}
 
           {bothGranted && (
             <p className="mt-2.5 text-[11px] leading-snug text-[#5A5A5E]">
@@ -162,17 +222,25 @@ export function MarketingOptIns({
  * une case décochée avant de savoir : un abonné de retour ne doit pas voir « on
  * me redemande de cocher » le temps d'un aller-retour réseau.
  */
-function PendingRows({ showSms, label }: { showSms: boolean; label: string }) {
+function PendingRows({ showEmail = true, showSms, showYuno, label }: { showEmail?: boolean; showSms: boolean; showYuno?: boolean; label: string }) {
   return (
     <div className="py-1" aria-busy="true">
-      <div className="flex items-center gap-3 py-2.5">
-        <span className="shrink-0 h-5 w-5 rounded-[4px] border border-white/10 bg-white/[0.04] animate-pulse" />
-        <span className="h-3 flex-1 max-w-[70%] rounded bg-white/[0.06] animate-pulse" />
-      </div>
+      {showEmail && (
+        <div className="flex items-center gap-3 py-2.5">
+          <span className="shrink-0 h-5 w-5 rounded-[4px] border border-white/10 bg-white/[0.04] animate-pulse" />
+          <span className="h-3 flex-1 max-w-[70%] rounded bg-white/[0.06] animate-pulse" />
+        </div>
+      )}
       {showSms && (
         <div className="flex items-center gap-3 py-2.5">
           <span className="shrink-0 h-5 w-5 rounded-[4px] border border-white/10 bg-white/[0.04] animate-pulse" />
           <span className="h-3 flex-1 max-w-[55%] rounded bg-white/[0.06] animate-pulse" />
+        </div>
+      )}
+      {showYuno && (
+        <div className="flex items-center gap-3 py-2.5">
+          <span className="shrink-0 h-5 w-5 rounded-[4px] border border-white/10 bg-white/[0.04] animate-pulse" />
+          <span className="h-3 flex-1 max-w-[62%] rounded bg-white/[0.06] animate-pulse" />
         </div>
       )}
       <span className="sr-only">{label}</span>

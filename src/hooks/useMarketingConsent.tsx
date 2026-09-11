@@ -209,3 +209,91 @@ export async function recordConsentGrant(params: {
     console.error('[marketing-consent] preuve non enregistrée', err);
   }
 }
+
+/**
+ * Le même contrat, pour la portée PLATEFORME : « cette personne a-t-elle déjà
+ * accepté de recevoir les actus de Yuno ? »
+ *
+ * Yuno est un destinataire comme un autre — le consentement donné au Club A ne
+ * l'a jamais couvert (EDPB 05/2020 §65). D'où une lecture séparée, et la même
+ * règle d'affichage : tant qu'on ne sait pas (`pending`), on ne montre JAMAIS
+ * une case décochée à quelqu'un qui est peut-être déjà abonné.
+ *
+ * Un invité non connecté est « résolu » tout de suite à `false` : aucune ligne
+ * ne peut le désigner, et re-cocher reste un acte positif valide.
+ */
+export function usePlatformMarketingConsent(enabled = true) {
+  const { user } = useAuth();
+  const [granted, setGranted] = useState(false);
+  const [resolved, setResolved] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!enabled || !user) {
+      setGranted(false);
+      setResolved(true);
+      return;
+    }
+    setResolved(false);
+    const { data, error } = await supabase.rpc('get_my_platform_marketing_consent');
+    if (error) {
+      // Échouer en « on redemande » plutôt qu'en « on suppose que oui » : une
+      // case en trop est une gêne, une case masquée à tort est un envoi sans
+      // base légale.
+      console.error('[marketing-consent] lecture plateforme impossible', error);
+      setGranted(false);
+    } else {
+      setGranted(data === true);
+    }
+    setResolved(true);
+  }, [enabled, user]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const withdraw = useCallback(
+    async (wordingText: string, locale: string, source: string) => {
+      if (!user) return false;
+      const { error } = await supabase.rpc('withdraw_my_platform_marketing_consent', {
+        p_wording_text: wordingText,
+        p_locale: locale,
+        p_source: source,
+      });
+      if (error) {
+        console.error('[marketing-consent] retrait plateforme impossible', error);
+        return false;
+      }
+      setGranted(false);
+      return true;
+    },
+    [user],
+  );
+
+  return { granted, pending: !resolved, refresh, withdraw };
+}
+
+/**
+ * Preuve d'un accord donné à Yuno (portée plateforme). Même best-effort que
+ * `recordConsentGrant` : une trace qui n'a pas pu s'écrire ne doit jamais
+ * coûter une inscription.
+ */
+export async function recordPlatformConsentGrant(params: {
+  wordingText: string;
+  wordingKey?: string;
+  email?: string | null;
+  locale: string;
+  source: string;
+}): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('record_platform_marketing_consent', {
+      p_wording_text: params.wordingText,
+      p_email: params.email ?? null,
+      p_wording_key: params.wordingKey ?? null,
+      p_locale: params.locale,
+      p_source: params.source,
+    });
+    if (error) console.error('[marketing-consent] preuve plateforme non enregistrée', error);
+  } catch (err) {
+    console.error('[marketing-consent] preuve plateforme non enregistrée', err);
+  }
+}
