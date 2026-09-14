@@ -98,13 +98,22 @@ serve(async (req) => {
 
     console.log(`Inviting organizer ${normalizedEmail} for ${organization_name}`);
 
-    // Look for an existing user — query profiles (avoids listUsers pagination limit)
-    const { data: existingProfile } = await supabaseAdmin
+    // Look for an existing user — query profiles (avoids listUsers pagination limit).
+    // JAMAIS .maybeSingle() ici : un email peut porter DEUX lignes profiles (une
+    // suppression douce laisse un profil orphelin derrière elle), et PostgREST
+    // répond alors PGRST116 — l'invitation échouerait sans raison lisible. On
+    // prend donc toutes les lignes et on garde le compte encore vivant.
+    const { data: emailProfiles } = await supabaseAdmin
       .from("profiles")
-      .select("id")
+      .select("id, created_at")
       .eq("email", normalizedEmail)
-      .maybeSingle();
-    const existingUser = existingProfile ? { id: existingProfile.id } : null;
+      .order("created_at", { ascending: false });
+
+    let existingUser: { id: string } | null = null;
+    for (const row of emailProfiles ?? []) {
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(row.id);
+      if (authUser?.user) { existingUser = { id: row.id }; break; }
+    }
 
     if (existingUser) {
       // Réclamation de vitrine par un compte existant : le re-parentage doit
@@ -157,13 +166,18 @@ serve(async (req) => {
       // lui qui accepte. On n'accorde jamais à sa place.
       let supportOffered = false;
       if (offerHelp) {
-        const { data: openGrant } = await supabaseAdmin
+        // Un grant vit jusqu'à révocation depuis le 07/09 : expires_at y est
+        // NULL. Un filtre .gt() sur cette colonne écarterait justement les
+        // grants ouverts et en redéposerait un doublon à chaque invitation.
+        const { data: openGrants } = await supabaseAdmin
           .from("admin_support_grants")
-          .select("id")
+          .select("id, expires_at")
           .eq("target_user_id", existingUser.id)
-          .in("status", ["pending", "active"])
-          .gt("expires_at", new Date().toISOString())
-          .maybeSingle();
+          .in("status", ["pending", "active"]);
+        const nowIso = new Date().toISOString();
+        const openGrant = (openGrants ?? []).find(
+          (g) => g.expires_at === null || g.expires_at > nowIso,
+        );
         if (!openGrant) {
           const { error: grantErr } = await supabaseAdmin
             .from("admin_support_grants")
