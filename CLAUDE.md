@@ -1113,6 +1113,56 @@ intouchables :
   `status='failed'` en cas d'erreur réseau : l'envoi est asynchrone, il continue
   côté serveur. Le serveur est seul maître du statut.
 
+## Meta — Pixel + Conversions API (phase 1 livrée 2026-09-14)
+
+Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchables :
+
+- **Une connexion par portée** (`meta_connections`, migration `20260914120000`) :
+  club (`venue_id`), organisateur (`organizer_user_id`) ou plateforme (les deux
+  NULL = le pixel de Yuno, réglé dans `/admin/system`). Même patron « au plus une
+  portée » que le marketing plateforme. Le jeton Conversions API vit dans le
+  Vault (`store_meta_capi_token` / `get_meta_capi_token`, service_role seul) et
+  **ne ressort jamais** : le front n'a que `token_hint`. Owner ou orga lui-même,
+  jamais un manager ; trigger `block_support_session_write` sur la table.
+- **Pixel ET envoi serveur gatés sur la catégorie `marketing` du CMP**
+  (`src/lib/consent.ts`, version 2). Le consentement voyage dans le corps des
+  `create-*` (`meta`, injecté par `invokeEdgeFunction` pour les trois checkouts,
+  explicite pour la guest list) puis dans les métadonnées Stripe `meta_*`, et
+  il est relu dans les `verify-*`. **Natif = jamais de consentement pub** tant
+  qu'un consentement in-app n'existe pas (phase 2). Ne jamais gater l'attribution
+  promoteur/affilié là-dessus.
+- **La preuve avant l'envoi** : `enqueueMetaEvent` (`_shared/meta-capi.ts`)
+  écrit `meta_consent_log` pour CHAQUE commande (accepté ou refusé) puis ne met
+  en file que si consentement. Responsabilité conjointe art. 26 RGPD : c'est ce
+  journal que le pro montre à la CNIL.
+- **Purchase = une seule fois, sous la transition atomique** `pending→paid` des
+  trois `verify-*` (jamais dans `stripe-webhook`, jamais dans `create-*`).
+  `event_id` déterministe (`ticket:<id>`, `table:<id>`, `order:<id>`, `gl:<id>`),
+  identique au `eventID` du pixel navigateur des pages `Verify*Payment` : Meta
+  dédoublonne sous 48 h. Guest list et table `on_site` = `Lead`, jamais
+  `Purchase`. Valeur d'une table = `total_price` (l'engagement), pas l'acompte.
+- **Une requête CAPI par événement**, `event_time` en secondes, refusé au-delà
+  de 6 jours, données personnelles normalisées puis SHA-256, jamais
+  `client_ip_address` / `client_user_agent` / `fbp` / `fbc` hachés. Le drainer
+  (`drainMetaOutbox`) tourne en fire-and-forget après la vente
+  (`EdgeRuntime.waitUntil`) ET dans `process-scheduled-campaigns` ; réclamation
+  par `claim_meta_capi_outbox` (SKIP LOCKED). Code 190 = jeton invalide →
+  `status = 'token_invalid'`, alerte `admin_meta_token_invalid` (dedup) + notif
+  owner/orga `meta_token_invalid`. Le module ne lève jamais vers une vente.
+- **Front** : `src/lib/metaPixel.ts` (chargeur unique, `trackSingle` par pixel,
+  révocation + purge `_fbp`/`_fbc`, `fbclid` gardé en mémoire jusqu'au
+  consentement), `useMetaPixel` (RPC publique `get_public_meta_pixels`, ids
+  seulement), `useMetaCheckoutPixel`, `useMetaPurchasePixel`. Jamais en natif,
+  jamais en app Pro, jamais sur une surface pro (`isProPath`). CSP :
+  `connect.facebook.net` (script), `www.facebook.com` (img/connect).
+- **Mode test** : `test_event_code` sur la connexion, 7 jours max, purgé par
+  `meta_capi_housekeeping`. `checkMetaToken` ne refuse qu'un 190 (un jeton
+  Events Manager n'a pas toujours le droit de LIRE le dataset mais écrit).
+- Edge `meta-connect` : save / test / update / disconnect. **Le cap des
+  fonctions a de nouveau mordu le 14/09** (402) : `bulk-notify-waitlist`
+  (aucun appelant, aucun cron, aucune réponse HTTP sur 30 j) est le slot à
+  libérer, code conservé dans le repo, ne pas la redéployer.
+
 ## Claude Design — design system public synchronisé
 
 Le design system **public** (et lui seul) est synchronisé vers claude.ai/design, projet
