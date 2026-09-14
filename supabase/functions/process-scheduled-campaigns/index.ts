@@ -12,6 +12,7 @@ import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
+import { syncMetaInsights, syncMetaAudiences, processMetaLeads } from "../_shared/meta-ads.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -238,6 +239,14 @@ Deno.serve(async (req) => {
       metaCapi = await drainMetaOutbox(admin, { limit: 100, timeBudgetMs: 25_000 });
       await admin.rpc('meta_capi_housekeeping');
       await sweepMetaTokenExpiry(admin);
+      // Publicité : leads en attente à chaque passage, insights au plus une
+      // fois par heure par campagne, audiences au plus une fois par jour.
+      const metaAppSecret = Deno.env.get('META_APP_SECRET');
+      if (metaAppSecret) {
+        await processMetaLeads(admin, metaAppSecret);
+        await syncMetaInsights(admin, metaAppSecret);
+        await syncMetaAudiences(admin, metaAppSecret);
+      }
     } catch (e) {
       console.error('[META-CAPI] drain failed:', String(e));
     }

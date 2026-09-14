@@ -83,6 +83,12 @@ Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu),
 // ═══════════════════════════════════════════
 
 const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
+  "ads": {
+    title: "Publicité : lancer et mesurer ses pubs Instagram / Facebook depuis Yuno",
+    keywords: ["publicité", "publicite", "pub", "pubs", "ads", "booster", "boost", "campagne", "campagne instagram", "campagne facebook", "audience", "audiences", "jumeaux", "lookalike", "leads", "formulaire", "coût par vente", "cout par vente", "combien a rapporté ma pub", "ma pub", "sponsoriser", "sponsorisé"],
+    path: "/owner/ads",
+    snippet: "Marketing & CRM → Publicité (ou bouton « Booster » sur la fiche d'une soirée). Il faut d'abord la connexion Meta en un clic (Réglages → Intégrations). L'assistant en cinq écrans : soirée + objectif (Ventes = optimise sur tes vraies ventes, Visites = clics), budget (total ou par jour, min 5 €, facturé par Meta sur ton compte pub, jamais par Yuno), ciblage (pays, villes + rayon, âge, genre, tes audiences Yuno à cibler ou exclure, « laisser Meta élargir »), visuel (affiche par défaut, titre 40 caractères, texte 400, bouton, aperçu feed), récapitulatif → « Créer en pause » ou « Lancer » (Meta valide sous 24 h). Chaque pub porte un lien Yuno : la page compte les billets, tables et boissons vendus PAR la pub et le coût par vente, en plus des impressions/clics lus chez Meta toutes les heures. Audiences : cinq prêtes (contacts consentants, acheteurs 12 mois, tables VIP, guest list, habitués 3+) ou tes segments ; seuls les contacts opt-in email/SMS partent, hachés ; à 100 personnes, bouton « Jumeaux ». Leads : « Activer la réception » et les formulaires Instagram/Facebook tombent dans la base de contacts comme abonnés (jamais un désabonné). Refus Meta fréquents : trop de texte sur l'image, alcool mis en avant ; le motif s'affiche sur la campagne. Réservé au propriétaire.",
+  },
   "meta-ads": {
     title: "Meta (Facebook & Instagram) : pixel + Conversions API",
     keywords: ["meta", "facebook", "instagram", "pixel", "pub", "publicité", "publicite", "ads", "ads manager", "events manager", "conversions api", "capi", "roas", "retour sur investissement", "jeton", "token", "intégration", "integration", "intégrations", "tracking pub", "suivre mes pubs", "mes pubs marchent", "campagne instagram", "campagne facebook"],

@@ -32,6 +32,12 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { checkMetaToken, sendMetaTestEvent } from "../_shared/meta-capi.ts";
 import {
+  PUBLIC_BASE as ADS_PUBLIC_BASE, searchGeo, createFullCampaign, setCampaignStatus, syncMetaInsights, syncMetaAudiences,
+  processMetaLeads, pageAccessToken, pageInstagramAccount, subscribePageToLeads, adAccountInfo,
+  webhookVerifyToken, verifyHubSignature, graphPost,
+  type CampaignTargeting, type CampaignCreative,
+} from "../_shared/meta-ads.ts";
+import {
   readMetaAppConfig, signState, verifyState, safeReturnTo, buildDialogUrl,
   exchangeCode, exchangeLongLived, discoverAssets, debugToken, datasetQuality,
   graphDelete, parseSignedRequest, type MetaAssets,
@@ -180,6 +186,54 @@ Deno.serve(async (req) => {
       const confirmation = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
       await admin.from("meta_data_requests").insert({ kind, meta_user_id: sr.user_id, confirmation_code: confirmation, connections_affected: ids.length });
       return json({ url: `${PUBLIC_BASE}/legal/confidentialite?meta_request=${confirmation}`, confirmation_code: confirmation }, 200, cors);
+    }
+
+    // ── Webhook Lead Ads (Meta, sans JWT) ───────────────────────────────────
+    if (path.endsWith("/webhook")) {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const url = new URL(req.url);
+      if (req.method === "GET") {
+        const mode = url.searchParams.get("hub.mode");
+        const verify = url.searchParams.get("hub.verify_token");
+        const challenge = url.searchParams.get("hub.challenge") ?? "";
+        if (mode === "subscribe" && verify === await webhookVerifyToken(cfg.appSecret)) {
+          return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+        }
+        return json({ error: "verify_failed" }, 403, cors);
+      }
+      if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, cors);
+      // Signature calculée sur les OCTETS BRUTS, avant tout parse.
+      const raw = await req.text();
+      if (!(await verifyHubSignature(cfg.appSecret, raw, req.headers.get("x-hub-signature-256")))) {
+        return json({ error: "bad_signature" }, 401, cors);
+      }
+      let payload: { object?: string; entry?: Array<{ id?: string; changes?: Array<{ field?: string; value?: Record<string, unknown> }> }> } = {};
+      try { payload = JSON.parse(raw); } catch { return json({ error: "bad_json" }, 400, cors); }
+      let inserted = 0;
+      if (payload.object === "page") {
+        for (const entry of payload.entry ?? []) {
+          for (const ch of entry.changes ?? []) {
+            if (ch.field !== "leadgen" || !ch.value) continue;
+            const v = ch.value as { leadgen_id?: string | number; page_id?: string | number; form_id?: string | number; ad_id?: string | number; created_time?: number };
+            if (!v.leadgen_id) continue;
+            const pageId = String(v.page_id ?? entry.id ?? "");
+            const { data: conn } = await admin.from("meta_connections").select("id").eq("page_id", pageId).eq("status", "active").maybeSingle();
+            const { error } = await admin.from("meta_leads").upsert({
+              leadgen_id: String(v.leadgen_id), connection_id: (conn as { id: string } | null)?.id ?? null,
+              page_id: pageId, form_id: v.form_id ? String(v.form_id) : null, ad_id: v.ad_id ? String(v.ad_id) : null,
+              received_at: v.created_time ? new Date(v.created_time * 1000).toISOString() : new Date().toISOString(),
+            }, { onConflict: "leadgen_id", ignoreDuplicates: true });
+            if (!error) inserted++;
+          }
+        }
+      }
+      // Réponse immédiate (Meta réessaie 36 h sinon) ; traitement en arrière-plan.
+      if (inserted > 0) {
+        const p = processMetaLeads(admin, cfg.appSecret).catch(() => undefined);
+        const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+        if (rt?.waitUntil) rt.waitUntil(p);
+      }
+      return json({ ok: true, inserted }, 200, cors);
     }
 
     if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, cors);
@@ -361,6 +415,240 @@ Deno.serve(async (req) => {
       if (Object.keys(patch).length === 0) return json({ ok: true }, 200, cors);
       const { error } = await admin.from("meta_connections").update(patch).eq("id", existing.id);
       if (error) return json({ error: "update_failed", detail: error.message }, 500, cors);
+      return json({ ok: true }, 200, cors);
+    }
+
+    // ── Publicité : recherche de villes ─────────────────────────────────────
+    if (action === "ads_search_geo") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const existing = await findConnection(admin, scope);
+      if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      const token = await tokenOf(admin, existing.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
+      if (q.length < 2) return json({ ok: true, results: [] }, 200, cors);
+      const country = typeof body.country === "string" && /^[A-Z]{2}$/.test(body.country) ? body.country : null;
+      const results = await searchGeo(q, country, token, cfg.appSecret);
+      return json({ ok: true, results }, 200, cors);
+    }
+
+    // ── Publicité : état du compte pub (CGU audiences, devise, paiement) ────
+    if (action === "ads_account_status") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, ad_account_id, page_id, vault_secret_id, last_health").eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; ad_account_id: string | null; page_id: string | null; vault_secret_id: string | null; last_health: Record<string, unknown> | null } | null;
+      if (!conn?.vault_secret_id || !conn.ad_account_id) return json({ error: "no_ad_account" }, 404, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const info = await adAccountInfo(conn.ad_account_id, token, cfg.appSecret);
+      if (!info.ok) return json({ error: "meta_error", detail: info.error.message ?? null }, 502, cors);
+      const status = {
+        currency: info.data.currency ?? null,
+        account_status: info.data.account_status ?? null,
+        has_funding: !!info.data.funding_source,
+        custom_audience_tos: (info.data.tos_accepted?.custom_audience_tos ?? 0) === 1,
+        tos_url: `https://business.facebook.com/ads/manage/customaudiences/tos/?act=${conn.ad_account_id.replace(/^act_/, "")}`,
+        checked_at: new Date().toISOString(),
+      };
+      await admin.from("meta_connections").update({ last_health: { ...(conn.last_health ?? {}), ad_account: status } }).eq("id", conn.id);
+      return json({ ok: true, status }, 200, cors);
+    }
+
+    // ── Publicité : audiences ───────────────────────────────────────────────
+    if (action === "audience_create" || action === "audience_lookalike" || action === "audience_sync" || action === "audience_delete") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const existing = await findConnection(admin, scope);
+      if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      if (action === "audience_create") {
+        const kind = typeof body.kind === "string" && ["builtin", "venue_segment", "contact_segment"].includes(body.kind) ? body.kind : null;
+        const ref = typeof body.ref === "string" ? body.ref.trim().slice(0, 80) : "";
+        const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
+        if (!kind || !ref || !name) return json({ error: "invalid_audience" }, 400, cors);
+        const { data: row, error } = await admin.from("meta_audiences")
+          .upsert({ connection_id: existing.id, kind, ref, name, created_by: user.id, status: "pending" }, { onConflict: "connection_id,kind,ref" })
+          .select("id").single();
+        if (error || !row) return json({ error: "insert_failed", detail: error?.message ?? null }, 500, cors);
+        const r = await syncMetaAudiences(admin, cfg.appSecret, { onlyAudienceId: row.id as string, force: true });
+        return json({ ok: r.failed === 0, audienceId: row.id }, 200, cors);
+      }
+      if (action === "audience_lookalike") {
+        const originId = typeof body.audienceId === "string" ? body.audienceId : "";
+        const ratio = typeof body.ratio === "number" ? body.ratio : 0.03;
+        const country = typeof body.country === "string" && /^[A-Z]{2}$/.test(body.country) ? body.country : "FR";
+        const { data: origin } = await admin.from("meta_audiences").select("id, name, connection_id").eq("id", originId).eq("connection_id", existing.id).maybeSingle();
+        if (!origin) return json({ error: "not_found" }, 404, cors);
+        const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : `${(origin as { name: string }).name} — jumeaux ${Math.round(ratio * 100)} % ${country}`;
+        const { data: row, error } = await admin.from("meta_audiences")
+          .insert({ connection_id: existing.id, kind: "lookalike", ref: originId, name, lookalike_ratio: ratio, lookalike_country: country, created_by: user.id })
+          .select("id").single();
+        if (error || !row) return json({ error: "insert_failed", detail: error?.message ?? null }, 500, cors);
+        const r = await syncMetaAudiences(admin, cfg.appSecret, { onlyAudienceId: row.id as string, force: true });
+        return json({ ok: r.failed === 0, audienceId: row.id }, 200, cors);
+      }
+      if (action === "audience_sync") {
+        const id = typeof body.audienceId === "string" ? body.audienceId : "";
+        const { data: a } = await admin.from("meta_audiences").select("id").eq("id", id).eq("connection_id", existing.id).maybeSingle();
+        if (!a) return json({ error: "not_found" }, 404, cors);
+        const r = await syncMetaAudiences(admin, cfg.appSecret, { onlyAudienceId: id, force: true });
+        return json({ ok: r.failed === 0 }, 200, cors);
+      }
+      const id = typeof body.audienceId === "string" ? body.audienceId : "";
+      const { data: a } = await admin.from("meta_audiences").select("id, meta_audience_id").eq("id", id).eq("connection_id", existing.id).maybeSingle();
+      if (!a) return json({ ok: true }, 200, cors);
+      const metaId = (a as { meta_audience_id: string | null }).meta_audience_id;
+      if (metaId) {
+        const token = await tokenOf(admin, existing.id);
+        if (token) await graphPost(metaId, { method: "delete" }, token, cfg.appSecret).catch(() => undefined);
+      }
+      await admin.from("meta_audiences").delete().eq("id", id);
+      return json({ ok: true }, 200, cors);
+    }
+
+    // ── Publicité : campagnes ───────────────────────────────────────────────
+    if (action === "campaign_create") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, venue_id, organizer_user_id, pixel_id, ad_account_id, page_id, ig_user_id, status, mode, vault_secret_id")
+        .eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; venue_id: string | null; organizer_user_id: string | null; pixel_id: string; ad_account_id: string | null; page_id: string | null; ig_user_id: string | null; status: string; mode: string; vault_secret_id: string | null } | null;
+      if (!conn?.vault_secret_id || conn.status !== "active") return json({ error: "not_connected" }, 404, cors);
+      if (conn.mode !== "oauth" || !conn.ad_account_id || !conn.page_id) return json({ error: "ads_not_ready" }, 400, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+
+      const eventId = typeof body.eventId === "string" && /^[0-9a-f-]{36}$/i.test(body.eventId) ? body.eventId : null;
+      const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
+      const objective = body.objective === "OUTCOME_TRAFFIC" ? "OUTCOME_TRAFFIC" : "OUTCOME_SALES";
+      const budgetType = body.budgetType === "daily" ? "daily" : "lifetime";
+      const budgetCents = Math.round(Number(body.budgetCents));
+      const startAt = typeof body.startAt === "string" ? new Date(body.startAt) : new Date();
+      const endAt = typeof body.endAt === "string" ? new Date(body.endAt) : null;
+      const targeting = (body.targeting && typeof body.targeting === "object" ? body.targeting : {}) as CampaignTargeting;
+      const creativeIn = (body.creative && typeof body.creative === "object" ? body.creative : {}) as Partial<CampaignCreative>;
+      const placements = (body.placements && typeof body.placements === "object" ? body.placements : { facebook: true, instagram: true }) as { facebook?: boolean; instagram?: boolean };
+      if (!eventId || !name || !Number.isFinite(budgetCents) || budgetCents < 500) return json({ error: "invalid_campaign" }, 400, cors);
+      if (Number.isNaN(startAt.getTime()) || (endAt && (Number.isNaN(endAt.getTime()) || endAt <= startAt))) return json({ error: "invalid_dates" }, 400, cors);
+      if (budgetType === "lifetime" && !endAt) return json({ error: "invalid_dates" }, 400, cors);
+      if (!creativeIn.image_url || !/^https:\/\//.test(creativeIn.image_url)) return json({ error: "invalid_creative" }, 400, cors);
+      const headline = (creativeIn.headline ?? "").toString().trim().slice(0, 40);
+      const bodyText = (creativeIn.body ?? "").toString().trim().slice(0, 400);
+      if (!headline || !bodyText) return json({ error: "invalid_creative" }, 400, cors);
+      const cta = ["BUY_TICKETS", "LEARN_MORE", "BOOK_NOW", "SIGN_UP", "GET_OFFER"].includes(String(creativeIn.cta)) ? String(creativeIn.cta) : "LEARN_MORE";
+
+      // La soirée doit appartenir à la portée.
+      const { data: ev } = await admin.from("events").select("id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id").eq("id", eventId).maybeSingle();
+      const e = ev as { id: string; title: string; venue_id: string | null; partner_venue_id: string | null; organizer_user_id: string | null; partner_organizer_id: string | null } | null;
+      const inScope = !!e && ((conn.venue_id && (e.venue_id === conn.venue_id || e.partner_venue_id === conn.venue_id)) || (conn.organizer_user_id && (e.organizer_user_id === conn.organizer_user_id || e.partner_organizer_id === conn.organizer_user_id)));
+      if (!inScope) return json({ error: "event_out_of_scope" }, 400, cors);
+
+      // Audiences : ids Yuno → ids Meta, restreints à cette connexion.
+      const mapAud = async (ids: unknown): Promise<string[]> => {
+        if (!Array.isArray(ids) || ids.length === 0) return [];
+        const { data: rows } = await admin.from("meta_audiences").select("id, meta_audience_id, status").in("id", ids.filter((x) => typeof x === "string")).eq("connection_id", conn.id);
+        return ((rows ?? []) as Array<{ meta_audience_id: string | null; status: string }>).filter((r) => r.meta_audience_id && r.status === "ready").map((r) => r.meta_audience_id!);
+      };
+      const yunoAudienceIds = Array.isArray(targeting.audience_ids) ? targeting.audience_ids : [];
+      const yunoExcludeIds = Array.isArray(targeting.exclude_audience_ids) ? targeting.exclude_audience_ids : [];
+      const metaTargeting: CampaignTargeting = {
+        ...targeting,
+        audience_ids: await mapAud(yunoAudienceIds),
+        exclude_audience_ids: await mapAud(yunoExcludeIds),
+      };
+
+      const { data: inserted, error: insErr } = await admin.from("meta_campaigns").insert({
+        connection_id: conn.id, venue_id: conn.venue_id, organizer_user_id: conn.organizer_user_id, event_id: eventId,
+        name, objective, status: "creating", budget_type: budgetType, budget_cents: budgetCents,
+        start_at: startAt.toISOString(), end_at: endAt ? endAt.toISOString() : null,
+        targeting: { ...targeting, audience_ids: yunoAudienceIds, exclude_audience_ids: yunoExcludeIds },
+        creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, description: creativeIn.description ?? null },
+        placements, created_by: user.id,
+      }).select("id").single();
+      if (insErr || !inserted) return json({ error: "insert_failed", detail: insErr?.message ?? null }, 500, cors);
+      const campaignRowId = inserted.id as string;
+
+      const { data: code } = await admin.rpc("meta_ads_ensure_tracked_link", { p_campaign_id: campaignRowId });
+      const link = typeof code === "string" && code ? `${ADS_PUBLIC_BASE}/l/${code}` : `${ADS_PUBLIC_BASE}/event/${eventId}`;
+
+      let dsa = "";
+      if (conn.venue_id) {
+        const { data: v } = await admin.from("venues").select("legal_name, name").eq("id", conn.venue_id).maybeSingle();
+        dsa = ((v as { legal_name: string | null; name: string } | null)?.legal_name || (v as { name: string } | null)?.name || "").trim();
+      } else if (conn.organizer_user_id) {
+        const { data: op } = await admin.from("organizer_profiles").select("display_name").eq("user_id", conn.organizer_user_id).maybeSingle();
+        dsa = ((op as { display_name: string | null } | null)?.display_name || "").trim();
+      }
+      if (!dsa) dsa = "Yuno";
+      const igActor = placements.instagram === false ? null : (conn.ig_user_id || await pageInstagramAccount(conn.page_id, token, cfg.appSecret));
+      if (igActor && !conn.ig_user_id) await admin.from("meta_connections").update({ ig_user_id: igActor }).eq("id", conn.id);
+
+      const result = await createFullCampaign({
+        adAccountId: conn.ad_account_id, pageId: conn.page_id, instagramActorId: igActor, pixelId: conn.pixel_id,
+        name, objective, budgetType, budgetCents, startAt: startAt.toISOString(), endAt: endAt ? endAt.toISOString() : null,
+        targeting: metaTargeting,
+        creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, link, description: creativeIn.description ? String(creativeIn.description).slice(0, 120) : undefined },
+        placements, dsaBeneficiary: dsa, dsaPayor: dsa,
+      }, token, cfg.appSecret);
+
+      const patch: Record<string, unknown> = {
+        meta_campaign_id: result.campaignId ?? null, meta_adset_id: result.adsetId ?? null,
+        meta_creative_id: result.creativeId ?? null, meta_ad_id: result.adId ?? null, meta_image_hash: result.imageHash ?? null,
+        creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, link, description: creativeIn.description ?? null },
+      };
+      if (result.ok) {
+        patch.status = "paused"; patch.last_error = null;
+        if (body.launch === true) {
+          const act = await setCampaignStatus({ campaignId: result.campaignId!, adsetId: result.adsetId, adId: result.adId }, "ACTIVE", token, cfg.appSecret);
+          if (act.ok) patch.status = "active"; else patch.last_error = act.error ?? null;
+        }
+      } else {
+        patch.status = "error"; patch.last_error = `${result.step ?? "?"}: ${result.error ?? "unknown"}`.slice(0, 500);
+      }
+      await admin.from("meta_campaigns").update(patch).eq("id", campaignRowId);
+      return json({ ok: result.ok, campaignId: campaignRowId, status: patch.status, error: result.ok ? null : patch.last_error }, 200, cors);
+    }
+
+    if (action === "campaign_set_status" || action === "campaign_refresh" || action === "campaign_delete") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const existing = await findConnection(admin, scope);
+      if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      const id = typeof body.campaignId === "string" ? body.campaignId : "";
+      const { data: row } = await admin.from("meta_campaigns").select("id, meta_campaign_id, meta_adset_id, meta_ad_id, status").eq("id", id).eq("connection_id", existing.id).maybeSingle();
+      const camp = row as { id: string; meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; status: string } | null;
+      if (!camp) return json({ error: "not_found" }, 404, cors);
+      const token = await tokenOf(admin, existing.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      if (action === "campaign_refresh") {
+        await syncMetaInsights(admin, cfg.appSecret, { onlyCampaignId: camp.id, force: true });
+        return json({ ok: true }, 200, cors);
+      }
+      if (action === "campaign_delete") {
+        if (camp.meta_campaign_id) await setCampaignStatus({ campaignId: camp.meta_campaign_id }, "ARCHIVED", token, cfg.appSecret);
+        await admin.from("meta_campaigns").delete().eq("id", camp.id);
+        return json({ ok: true }, 200, cors);
+      }
+      const wanted = body.status === "active" ? "ACTIVE" : body.status === "archived" ? "ARCHIVED" : "PAUSED";
+      if (!camp.meta_campaign_id) return json({ error: "not_on_meta" }, 400, cors);
+      const r = await setCampaignStatus({ campaignId: camp.meta_campaign_id, adsetId: camp.meta_adset_id, adId: camp.meta_ad_id }, wanted, token, cfg.appSecret);
+      if (!r.ok) {
+        await admin.from("meta_campaigns").update({ last_error: r.error ?? null }).eq("id", camp.id);
+        return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
+      }
+      await admin.from("meta_campaigns").update({ status: wanted === "ACTIVE" ? "active" : wanted === "ARCHIVED" ? "archived" : "paused", last_error: null }).eq("id", camp.id);
+      return json({ ok: true }, 200, cors);
+    }
+
+    // ── Publicité : abonner la Page aux leads ───────────────────────────────
+    if (action === "leads_subscribe") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, page_id, vault_secret_id, last_health").eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; page_id: string | null; vault_secret_id: string | null; last_health: Record<string, unknown> | null } | null;
+      if (!conn?.vault_secret_id || !conn.page_id) return json({ error: "no_page" }, 404, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const pageToken = await pageAccessToken(conn.page_id, token, cfg.appSecret);
+      if (!pageToken) return json({ error: "page_token_missing" }, 502, cors);
+      const r = await subscribePageToLeads(conn.page_id, pageToken, cfg.appSecret);
+      if (!r.ok) return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
+      await admin.from("meta_connections").update({ last_health: { ...(conn.last_health ?? {}), leads_subscribed_at: new Date().toISOString() } }).eq("id", conn.id);
       return json({ ok: true }, 200, cors);
     }
 

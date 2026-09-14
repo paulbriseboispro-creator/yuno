@@ -133,7 +133,7 @@ export function buildDialogUrl(cfg: MetaAppConfig, state: string): string {
 
 // ── Graph ────────────────────────────────────────────────────────────────────
 
-export interface GraphError { code?: number; error_subcode?: number; message?: string; type?: string; fbtrace_id?: string }
+export interface GraphError { code?: number; error_subcode?: number; message?: string; error_user_msg?: string; error_user_title?: string; type?: string; fbtrace_id?: string }
 
 export async function graphGet<T = Record<string, unknown>>(
   path: string,
