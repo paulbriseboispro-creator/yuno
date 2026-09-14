@@ -18,7 +18,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { OrgPage, OrgPageHeader } from '@/components/org-ui';
-import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
+import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { CampaignWizard } from '@/components/ads/CampaignWizard';
 import {
   BUILTIN_AUDIENCES, attributedRevenueCents, attributedSales, costPerSaleCents,
@@ -89,6 +89,7 @@ export default function AdsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { venueId, organizerUserId, scope, mode, loading: scopeLoading } = useVenueContext();
+  const metaLive = useMetaIntegrationLive();
   const [data, setData] = useState<AdsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export default function AdsPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (searchParams.get('event') && data?.connection?.ads_ready && META_INTEGRATION_LIVE) setWizardOpen(true);
+    if (searchParams.get('event') && data?.connection?.ads_ready && metaLive) setWizardOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.connection?.ads_ready]);
 
@@ -172,7 +173,7 @@ export default function AdsPage() {
   const body = (() => {
     if (scopeLoading || (loading && !data)) return <OwnerPageSkeleton />;
 
-    if (!META_INTEGRATION_LIVE) {
+    if (!metaLive) {
       return (
         <Card>
           <div className="flex items-start justify-between gap-4 flex-wrap">

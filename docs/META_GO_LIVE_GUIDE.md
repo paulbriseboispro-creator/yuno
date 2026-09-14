@@ -322,7 +322,11 @@ se connecter. Pour les clubs, il faut :
    envoyer leurs conversions à leur pixel. ~5 jours.
 2. **App Review** : Dashboard → Révision de l'app → Permissions et
    fonctionnalités → demander **l'accès avancé** pour chacune des huit
-   permissions de l'étape 2.1. Pour chacune : un texte d'usage précis (pas générique) et
+   permissions de l'étape 2.1. **Plan de tournage détaillé, une vidéo par
+   permission, textes d'usage et instructions pour le reviewer :
+   `docs/META_APP_REVIEW_VIDEOS.md`.** Les comptes démo (`@womber.fr`) et le
+   super admin voient les vraies pages Meta même en « En construction » :
+   c'est avec eux qu'on filme et que le reviewer teste. Pour chacune : un texte d'usage précis (pas générique) et
    **une vidéo par permission** montrant : connexion sur yunoapp.eu →
    Réglages → Intégrations → Connecter avec Facebook → fenêtre Meta → retour
    → ce que le club obtient (carte santé, événements dans Events Manager).
