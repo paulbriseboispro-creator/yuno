@@ -235,6 +235,8 @@ interface ConnectionRow {
   vault_secret_id: string | null;
   test_event_code: string | null;
   test_event_code_expires_at: string | null;
+  token_kind?: string | null;
+  token_expires_at?: string | null;
 }
 
 const EVENT_FLAG: Record<MetaEventName, string> = {
@@ -498,12 +500,13 @@ export async function drainMetaOutbox(
       if (cached) return cached;
       const { data } = await admin
         .from("meta_connections")
-        .select("id, venue_id, organizer_user_id, pixel_id, status, events_enabled, send_native, vault_secret_id, test_event_code, test_event_code_expires_at")
+        .select("id, venue_id, organizer_user_id, pixel_id, status, events_enabled, send_native, vault_secret_id, test_event_code, test_event_code_expires_at, token_kind, token_expires_at")
         .eq("id", id)
         .maybeSingle();
       const conn = (data ?? null) as ConnectionRow | null;
       let token: string | null = null;
-      if (conn && conn.status === "active" && conn.vault_secret_id) {
+      const expired = !!conn?.token_expires_at && new Date(conn.token_expires_at) <= new Date();
+      if (conn && conn.status === "active" && conn.vault_secret_id && !expired) {
         const { data: t } = await admin.rpc("get_meta_capi_token", { p_connection_id: id });
         token = typeof t === "string" && t ? t : null;
       }
@@ -610,6 +613,46 @@ async function notifyTokenInvalid(admin: SupabaseClient, conn: ConnectionRow, ms
   } catch (e) {
     console.error("[meta-capi] notify:", e instanceof Error ? e.message : String(e));
   }
+}
+
+/**
+ * Jetons utilisateur (connexion en un clic sans Business Manager) : ~60 jours.
+ * Une semaine avant, le pro est prévenu (une fois) ; passé la date, la
+ * connexion s'éteint proprement et l'alerte part. Appelé par le cron.
+ */
+export async function sweepMetaTokenExpiry(admin: SupabaseClient): Promise<{ warned: number; expired: number }> {
+  const out = { warned: 0, expired: 0 };
+  try {
+    const soon = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+    const { data } = await admin
+      .from("meta_connections")
+      .select("id, venue_id, organizer_user_id, pixel_id, status, token_expires_at, last_health")
+      .eq("status", "active")
+      .not("token_expires_at", "is", null)
+      .lte("token_expires_at", soon);
+    for (const c of (data ?? []) as Array<{ id: string; venue_id: string | null; organizer_user_id: string | null; pixel_id: string; token_expires_at: string; last_health: Record<string, unknown> | null }>) {
+      const isExpired = new Date(c.token_expires_at) <= new Date();
+      const title = isExpired ? "Connexion Meta expirée" : "Connexion Meta : reconnexion nécessaire";
+      const message = isExpired
+        ? "L'autorisation Facebook a expiré. Reconnectez Meta dans Réglages → Intégrations pour reprendre l'envoi des ventes."
+        : "L'autorisation Facebook expire dans moins de 7 jours. Cliquez « Reconnecter » dans Réglages → Intégrations.";
+      if (isExpired) {
+        await admin.from("meta_connections").update({ status: "token_invalid", last_error: "token_expired", last_error_at: new Date().toISOString() }).eq("id", c.id);
+        out.expired++;
+      } else {
+        const warnedAt = c.last_health?.expiry_warned_at as string | undefined;
+        if (warnedAt && Date.now() - new Date(warnedAt).getTime() < 3 * 24 * 3600 * 1000) continue;
+        await admin.from("meta_connections").update({ last_health: { ...(c.last_health ?? {}), expiry_warned_at: new Date().toISOString() } }).eq("id", c.id);
+        out.warned++;
+      }
+      const row = { notification_type: isExpired ? "meta_token_invalid" : "meta_token_expiring", title, message, priority: "high", reference_type: "meta_connection", reference_id: c.id, metadata: { pixel_id: c.pixel_id, expires_at: c.token_expires_at } };
+      if (c.venue_id) await admin.from("staff_notifications").insert({ venue_id: c.venue_id, target_role: "owner", ...row });
+      else if (c.organizer_user_id) await admin.from("organizer_notifications").insert({ organizer_user_id: c.organizer_user_id, ...row });
+    }
+  } catch (e) {
+    console.error("[meta-capi] token expiry sweep:", e instanceof Error ? e.message : String(e));
+  }
+  return out;
 }
 
 /** Lance le drain sans bloquer la réponse HTTP (EdgeRuntime.waitUntil si dispo). */

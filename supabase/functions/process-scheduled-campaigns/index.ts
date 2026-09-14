@@ -11,7 +11,7 @@ import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts"
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
-import { drainMetaOutbox } from "../_shared/meta-capi.ts";
+import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -237,6 +237,7 @@ Deno.serve(async (req) => {
     try {
       metaCapi = await drainMetaOutbox(admin, { limit: 100, timeBudgetMs: 25_000 });
       await admin.rpc('meta_capi_housekeeping');
+      await sweepMetaTokenExpiry(admin);
     } catch (e) {
       console.error('[META-CAPI] drain failed:', String(e));
     }
