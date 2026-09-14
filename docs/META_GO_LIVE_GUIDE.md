@@ -236,6 +236,19 @@ Attendu : `302` (redirection vers yunoapp.eu avec `meta=error&reason=state_inval
 Tout se fait depuis `/admin/system`, carte Meta (portée plateforme, active
 même quand les pros voient « En construction »).
 
+**Règle Meta à connaître avant de cliquer** : l'entreprise qui POSSÈDE l'app
+ne peut pas s'y connecter par la fenêtre « Connecter avec Facebook » (le
+portefeuille « Yuno » apparaît grisé avec la mention « owns the app »). Ça ne
+concerne que nous. Conséquences :
+
+- pour TESTER le parcours d'un club, choisis « Create a business portfolio »
+  dans la fenêtre : Meta crée un portefeuille de test (« Yuno test ») et un
+  pixel neuf, exactement comme pour un petit club sans portefeuille ;
+- pour le VRAI pixel de Yuno (portefeuille principal, acquisition Yuno), passe
+  par le « Mode avancé » de la carte : Pixel ID + jeton généré dans Events
+  Manager du portefeuille Yuno. C'est le seul chemin possible pour le
+  propriétaire de l'app, et il fait la même chose.
+
 1. Dans le Business Manager de Yuno, crée un jeu de données « Yuno — test »
    (Events Manager → Connecter des sources de données → Web, sans installer
    de code).
