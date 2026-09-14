@@ -13580,6 +13580,8 @@ const en: Record<string, string> = {
   "integ.meta.healthChecked": "Checked {date}",
   "integ.meta.emq": "Match quality (Purchase)",
   "integ.meta.err.oauth_not_configured": "One-click connection is not enabled yet. Use advanced mode below.",
+  "integ.meta.missingScopes": "Permissions missing on Meta's side: {list}. Yuno cannot read your assets or the connection health. Reconnect and keep every box checked in the Facebook window.",
+  "integ.meta.scopes": "Permissions granted",
   "integ.meta.err.invalid_scope": "Invalid scope.",
 };
 

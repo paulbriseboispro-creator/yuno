@@ -13554,6 +13554,8 @@ const fr: Record<string, string> = {
   "integ.meta.healthChecked": "Vérifié le {date}",
   "integ.meta.emq": "Qualité de correspondance (Purchase)",
   "integ.meta.err.oauth_not_configured": "La connexion en un clic n'est pas encore activée. Utilisez le mode avancé ci-dessous.",
+  "integ.meta.missingScopes": "Permissions manquantes côté Meta : {list}. Yuno ne peut pas lire vos actifs ni la santé de la connexion. Reconnectez en laissant toutes les cases cochées dans la fenêtre Facebook.",
+  "integ.meta.scopes": "Permissions accordées",
   "integ.meta.err.invalid_scope": "Portée invalide.",
 };
 

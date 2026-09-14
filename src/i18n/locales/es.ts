@@ -13922,6 +13922,8 @@ const es: Record<string, string> = {
   "integ.meta.healthChecked": "Comprobado el {date}",
   "integ.meta.emq": "Calidad de coincidencia (Purchase)",
   "integ.meta.err.oauth_not_configured": "La conexión en un clic aún no está activada. Usa el modo avanzado de abajo.",
+  "integ.meta.missingScopes": "Faltan permisos en Meta: {list}. Yuno no puede leer tus activos ni la salud de la conexión. Reconecta dejando todas las casillas marcadas en la ventana de Facebook.",
+  "integ.meta.scopes": "Permisos concedidos",
   "integ.meta.err.invalid_scope": "Ámbito no válido.",
 };
 

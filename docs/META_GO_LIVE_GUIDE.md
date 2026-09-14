@@ -55,36 +55,106 @@ Rien à coller. Le « mode avancé » (Pixel ID + jeton) reste replié en dessou
    de l'app pour les appels serveur »** (le code envoie `appsecret_proof`
    sur chaque appel). Enregistre.
 
-## Étape 2 — Facebook Login for Business (15 min)
+## Étape 2 — Cas d'usage, produit Facebook Login for Business, configuration (30 min)
 
-1. Dans le tableau de bord de l'app, « Ajouter un produit » →
-   **Facebook Login for Business** (PAS « Facebook Login » classique).
-2. **Paramètres** du produit :
-   - **URI de redirection OAuth valides** :
-     `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/oauth/callback`
-   - **URL de rappel de désautorisation** :
-     `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/deauthorize`
-   - Connexion OAuth client : oui. Connexion OAuth web : oui.
-   - Enregistre.
-3. **Configurations → Créer une configuration** :
-   - Nom : `Yuno — connexion club / organisateur`
-   - Type de jeton : **Utilisateur système d'intégration d'entreprise**
-     (« Business Integration System User ») — c'est le jeton qui n'expire
-     pas. Le code gère aussi le repli jeton utilisateur 60 jours pour les
-     pros sans Business Manager.
-   - Expiration du jeton : **Jamais**.
-   - Actifs à demander : **Comptes publicitaires**, **Pages**, **Pixels /
-     jeux de données**, **Comptes Instagram** (facultatif).
-   - Permissions : `ads_read`, `ads_management`, `business_management`,
-     `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`,
-     `pages_manage_ads`, `leads_retrieval`, `instagram_basic`.
-     (Pour la phase 1+2 seules, `ads_read` + `business_management` +
-     `pages_read_engagement` suffisent ; demande tout maintenant pour ne pas
-     refaire une App Review aux phases 3-4.)
-   - Enregistre, puis copie l'**ID de configuration** → `META_LOGIN_CONFIG_ID`.
-4. Ajoute-toi comme **testeur** (Rôles de l'app → Testeurs) : en mode
-   Développement, seuls les comptes avec un rôle peuvent se connecter — c'est
-   ce qui te permet de tester avant l'App Review.
+Le tableau de bord Meta est organisé par **cas d'usage** : chacun pré-sélectionne
+un paquet de permissions. On en ajoute trois, et dans chacun on ne garde QUE
+les permissions listées ci-dessous. Chaque permission en trop est une vidéo de
+plus à fournir à l'App Review et une raison de rejet en plus.
+
+### 2.1 Ajouter les cas d'usage
+
+Tableau de bord de l'app → **Cas d'usage** → « Ajouter un cas d'usage » :
+
+| Cas d'usage | On l'ajoute ? | Permissions à GARDER | À décocher / ignorer |
+|---|---|---|---|
+| **Create & manage ads with Marketing API** | **Oui** | `ads_read`, `ads_management`, `business_management` | rien d'autre |
+| **Manage everything on your Page** | **Oui** | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads` | `pages_manage_posts`, `pages_messaging`, `pages_manage_engagement`, `pages_read_user_content` (publication, messagerie, contenu : Yuno n'y touche pas) |
+| **Capture & manage ad leads with Marketing API** | **Oui** | `leads_retrieval` (+ `pages_manage_ads` déjà pris) | rien d'autre |
+| Manage messaging & content on Instagram | **Non** | — | le code n'utilise pas `instagram_basic` ; les permissions Instagram (messagerie, contenu) sont les plus scrutées par les reviewers. À ajouter seulement le jour où on associe les comptes Instagram. |
+
+Pourquoi tout demander maintenant alors que la connexion en un clic n'a
+besoin que de `ads_read` + `business_management` + `pages_read_engagement` :
+les audiences (phase 3) et Lead Ads / « Booster » (phase 4) exigent
+`ads_management` et `leads_retrieval`, et une App Review se fait par lot.
+Si tu préfères un premier dossier plus court, garde seulement le premier
+cas d'usage avec `ads_read` + `business_management`, et le deuxième avec
+`pages_show_list` + `pages_read_engagement` ; le reste passera dans un
+second dossier.
+
+Ce que chaque permission fait dans Yuno (à réutiliser tel quel dans les
+textes de l'App Review) :
+
+- `ads_read` : lire la qualité du dataset et, plus tard, la dépense et les
+  résultats des campagnes pour les afficher au pro.
+- `business_management` : lister les pixels, comptes publicitaires et Pages
+  du portefeuille du pro pour qu'il choisisse ceux à connecter.
+- `ads_management` : créer les audiences personnalisées à partir des
+  contacts consentants du pro, et créer des campagnes en pause qu'il active.
+- `pages_show_list`, `pages_read_engagement` : identifier la Page du pro et
+  la proposer à la connexion.
+- `pages_manage_metadata` : abonner la Page au webhook `leadgen`.
+- `pages_manage_ads`, `leads_retrieval` : recevoir et lire les formulaires
+  Lead Ads remplis sur les pubs du pro pour les verser dans sa base de contacts.
+
+### 2.2 Ajouter le produit Facebook Login for Business
+
+Toujours dans le tableau de bord : « Ajouter un produit » → **Facebook Login
+for Business**. Attention : PAS « Facebook Login » (classique), qui ne donne
+que des jetons utilisateur et n'est pas prévu pour agir au nom d'autres
+entreprises. Si les deux apparaissent, c'est bien celui avec « for Business ».
+
+**Paramètres** du produit :
+
+- **URI de redirection OAuth valides** (copie exacte, `https`, sans `/` final) :
+  `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/oauth/callback`
+- **URL de rappel de désautorisation** :
+  `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/deauthorize`
+- **Connexion OAuth client** : oui. **Connexion OAuth web** : oui.
+  **Connexion OAuth intégrée au navigateur** : oui.
+- **Appliquer HTTPS** : oui. Le reste par défaut. Enregistre.
+
+### 2.3 Créer la configuration de connexion
+
+Facebook Login for Business → **Configurations** → « Créer une configuration » :
+
+- **Nom** : `Yuno — connexion club / organisateur`
+- **Type de jeton d'accès** : **Utilisateur système d'intégration
+  d'entreprise** (« Business Integration System User »). C'est le jeton qui
+  n'expire pas et qui est rattaché à l'entreprise du pro, pas à sa personne.
+  Le code sait aussi recevoir un jeton utilisateur (60 jours) si le pro n'a
+  pas de portefeuille d'entreprise ; Meta le propose alors de lui-même.
+- **Expiration du jeton** : **Jamais**.
+- **Actifs** demandés : **Comptes publicitaires**, **Pages**, **Pixels /
+  jeux de données**. (Instagram : non coché.)
+- **Permissions** : exactement celles de la colonne « à garder » du tableau,
+  soit `ads_read`, `ads_management`, `business_management`,
+  `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`,
+  `pages_manage_ads`, `leads_retrieval`. Meta ne propose ici que les
+  permissions apportées par tes cas d'usage : si une manque, retourne à 2.1.
+- Enregistre, puis copie l'**ID de configuration** (un nombre) →
+  ce sera `META_LOGIN_CONFIG_ID` (étape 4).
+
+Une deuxième configuration, plus petite, peut servir plus tard aux clubs qui
+ne veulent que le tracking (`ads_read` + `business_management` +
+`pages_read_engagement`) ; le code en accepte une seule pour l'instant, on
+verra selon les retours.
+
+### 2.4 Rôles de test
+
+**Rôles de l'app → Testeurs** : ajoute ton compte Facebook (celui qui
+administre le Business Manager de Yuno) et, si tu veux tester avec un vrai
+club avant l'App Review, le compte Facebook de ce club. En mode
+Développement, seuls les comptes ayant un rôle peuvent passer la fenêtre
+Meta ; les autres voient « L'app n'est pas disponible ».
+
+### 2.5 Vérifier depuis Yuno
+
+Une fois les secrets posés (étape 4) et la fonction déployée (étape 5), le
+bouton « Vérifier maintenant » de la carte Meta affiche les permissions
+réellement accordées par la fenêtre. Si `ads_read`, `business_management`
+ou `pages_read_engagement` manquent (le pro les a décochées), la carte le
+dit en clair et propose de reconnecter.
 
 ## Étape 3 — Meta Business Verification (1 à 3 jours, à lancer tout de suite)
 
@@ -172,8 +242,8 @@ se connecter. Pour les clubs, il faut :
    traite des données d'autres entreprises (clubs, organisateurs) pour
    envoyer leurs conversions à leur pixel. ~5 jours.
 2. **App Review** : Dashboard → Révision de l'app → Permissions et
-   fonctionnalités → demander **l'accès avancé** pour chaque permission de
-   l'étape 2. Pour chacune : un texte d'usage précis (pas générique) et
+   fonctionnalités → demander **l'accès avancé** pour chacune des huit
+   permissions de l'étape 2.1. Pour chacune : un texte d'usage précis (pas générique) et
    **une vidéo par permission** montrant : connexion sur yunoapp.eu →
    Réglages → Intégrations → Connecter avec Facebook → fenêtre Meta → retour
    → ce que le club obtient (carte santé, événements dans Events Manager).

@@ -45,6 +45,9 @@ const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 const META_BLUE = '#0866FF';
+// Permissions sans lesquelles la connexion en un clic ne peut ni lister les
+// actifs ni lire la santé : si la fenêtre Meta les a décochées, on le dit.
+const REQUIRED_SCOPES = ['ads_read', 'business_management', 'pages_read_engagement'];
 
 export interface MetaScope {
   venueId?: string | null;
@@ -317,6 +320,9 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   const consentPct = consent && consent.orders_30d > 0 ? Math.round((consent.consented_30d / consent.orders_30d) * 100) : null;
   const expiresSoon = conn?.token_expires_at ? (new Date(conn.token_expires_at).getTime() - Date.now()) < 7 * 24 * 3600 * 1000 : false;
   const health = conn?.last_health as { is_valid?: boolean | null; scopes?: string[] | null; dataset_quality?: Record<string, unknown> } | null;
+  const missingScopes = Array.isArray(health?.scopes) && conn?.mode === 'oauth'
+    ? REQUIRED_SCOPES.filter((s) => !(health!.scopes as string[]).includes(s))
+    : [];
   const emq = (() => {
     const q = health?.dataset_quality as { data?: Array<{ event_match_quality?: { score?: number }; event_name?: string }> } | undefined;
     const rows = q?.data;
@@ -531,6 +537,15 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
               </div>
             </div>
           )}
+          {conn.status === 'active' && missingScopes.length > 0 && (
+            <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+              <div className="flex-1">
+                <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.missingScopes').replace('{list}', missingScopes.join(', '))}</p>
+                {oauthAvailable && <div className="mt-2"><FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} /></div>}
+              </div>
+            </div>
+          )}
           {conn.status === 'active' && conn.token_kind === 'user' && expiresSoon && (
             <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
@@ -560,6 +575,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
               {conn.mode === 'oauth' && conn.token_kind === 'user' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.tokenExpires')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(conn.token_expires_at)}</span></div>}
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.lastEvent')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(stats?.last_sent_at ?? conn.last_ok_at)}</span></div>
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.connectedSince')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(conn.created_at)}</span></div>
+              {Array.isArray(health?.scopes) && conn.mode === 'oauth' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.scopes')}</span><span style={{ color: T1, fontSize: 12.5, textAlign: 'right' }}>{(health!.scopes as string[]).length}</span></div>}
               {emq != null && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.emq')}</span><span style={{ color: emq >= 6 ? POS : WARN, fontSize: 12.5, fontWeight: 700 }}>{emq.toFixed(1)} / 10</span></div>}
               {conn.test_event_code && (
                 <div className="flex items-center justify-between gap-3 pt-1">

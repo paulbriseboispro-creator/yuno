@@ -378,8 +378,8 @@ phases 2 à 4. Ordre :
    démo, un compte pub, une Page et un pixel de test). Permissions à
    demander en accès avancé : `ads_management`, `ads_read`,
    `business_management`, `pages_show_list`, `pages_read_engagement`,
-   `pages_manage_metadata`, `pages_manage_ads`, `leads_retrieval`,
-   `instagram_basic`. Motifs de rejet fréquents : texte générique, une
+   `pages_manage_metadata`, `pages_manage_ads`, `leads_retrieval`
+   (pas `instagram_basic` : rien dans Yuno ne lit Instagram). Motifs de rejet fréquents : texte générique, une
    vidéo pour plusieurs permissions, URL de suppression absente, reviewer
    qui ne peut pas reproduire.
 5. **Marketing API « Full Access »** : demande possible seulement après 500
