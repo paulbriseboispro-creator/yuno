@@ -555,6 +555,36 @@ export async function processMetaLeads(admin: SupabaseClient, appSecret: string)
   return out;
 }
 
+/**
+ * Abonne l'APP (pas une Page) au champ `leadgen` de l'objet Page, avec le
+ * jeton d'app `app_id|app_secret`. Idempotent : lit d'abord, n'écrit que si
+ * l'abonnement manque ou pointe ailleurs. Remplace le clic manuel dans
+ * App Dashboard → Webhooks. Rend l'état pour l'admin.
+ */
+export async function ensureAppWebhookSubscription(cfg: { appId: string; appSecret: string }, callbackUrl: string): Promise<{ ok: boolean; registered: boolean; error?: string }> {
+  const appToken = `${cfg.appId}|${cfg.appSecret}`;
+  const verify = await webhookVerifyToken(cfg.appSecret);
+  const current = await graphGet<{ data?: Array<{ object?: string; callback_url?: string; fields?: Array<{ name?: string }>; active?: boolean }> }>(
+    `${cfg.appId}/subscriptions`, {}, { token: appToken },
+  );
+  if (current.ok) {
+    const page = (current.data.data ?? []).find((s) => s.object === "page");
+    const hasLeadgen = !!page?.fields?.some((f) => f.name === "leadgen");
+    if (page && hasLeadgen && page.callback_url === callbackUrl && page.active !== false) return { ok: true, registered: true };
+  }
+  const form = new URLSearchParams({
+    object: "page", callback_url: callbackUrl, fields: "leadgen", verify_token: verify, include_values: "true", access_token: appToken,
+  });
+  try {
+    const res = await fetch(`${GRAPH}/${cfg.appId}/subscriptions`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString(), signal: AbortSignal.timeout(20_000) });
+    const json = await res.json().catch(() => null) as { success?: boolean; error?: GraphError } | null;
+    if (res.ok && json?.success) return { ok: true, registered: true };
+    return { ok: false, registered: false, error: json?.error ? graphErrorText(json.error) : `HTTP ${res.status}` };
+  } catch (e) {
+    return { ok: false, registered: false, error: e instanceof Error ? e.message : "network" };
+  }
+}
+
 /** Vérification du webhook Meta (GET hub.*). Le verify token dérive du secret d'app. */
 export async function webhookVerifyToken(appSecret: string): Promise<string> {
   return (await sha256Hex(`yuno-meta-webhook:${appSecret}`)).slice(0, 32);

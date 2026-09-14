@@ -283,13 +283,14 @@ génère les appels API nécessaires à l'étape 7.
 
 Tout est codé et se règle dans la même app Meta. Trois réglages en plus :
 
-1. **Webhook Lead Ads** : App Dashboard → **Webhooks** → objet **Page** →
-   « S'abonner à cet objet » :
-   - URL de rappel : `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/webhook`
-   - Jeton de vérification : lance `node -e "const c=require('crypto');console.log(c.createHash('sha256').update('yuno-meta-webhook:'+process.argv[1]).digest('hex').slice(0,32))" "<META_APP_SECRET>"`
-     dans le terminal (c'est le même calcul que `webhookVerifyToken` côté edge).
-   - Champ à cocher : **leadgen**. Meta appelle l'URL avec `hub.challenge`, la
-     fonction répond, l'abonnement passe au vert.
+1. **Webhook Lead Ads : rien à faire.** L'app s'abonne elle-même au champ
+   `leadgen` de l'objet Page par l'API (jeton d'app), à chaque passage du cron
+   et à chaque « Vérifier maintenant » de la carte Meta de `/admin/system`
+   (ligne `app_webhook.registered` dans la santé). Pour le voir côté Meta :
+   App Dashboard → Webhooks → objet Page → `leadgen` coché, URL
+   `…/functions/v1/meta-connect/webhook`. Si tu devais le refaire à la main,
+   le jeton de vérification se calcule avec
+   `node -e "const c=require('crypto');console.log(c.createHash('sha256').update('yuno-meta-webhook:'+process.argv[1]).digest('hex').slice(0,32))" "<META_APP_SECRET>"`.
    Ensuite chaque club clique « Activer la réception » dans sa page Publicité
    (abonne SA Page) ; la fonction vérifie la signature `X-Hub-Signature-256`
    de chaque envoi et verse les leads dans `meta_leads` puis dans la base de

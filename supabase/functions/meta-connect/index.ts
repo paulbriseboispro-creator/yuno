@@ -34,7 +34,7 @@ import { checkMetaToken, sendMetaTestEvent } from "../_shared/meta-capi.ts";
 import {
   PUBLIC_BASE as ADS_PUBLIC_BASE, searchGeo, createFullCampaign, setCampaignStatus, syncMetaInsights, syncMetaAudiences,
   processMetaLeads, pageAccessToken, pageInstagramAccount, subscribePageToLeads, adAccountInfo,
-  webhookVerifyToken, verifyHubSignature, graphPost,
+  webhookVerifyToken, verifyHubSignature, graphPost, ensureAppWebhookSubscription,
   type CampaignTargeting, type CampaignCreative,
 } from "../_shared/meta-ads.ts";
 import {
@@ -315,6 +315,11 @@ Deno.serve(async (req) => {
         if (PIXEL_RE.test(existing.pixel_id)) {
           const q = await datasetQuality(existing.pixel_id, token, cfg.appSecret);
           health.dataset_quality = q.ok ? q.data : { error: q.error.message ?? null };
+        }
+        // Portée plateforme (super admin) : état de l'abonnement webhook de l'app.
+        if (!scope.venueId && !scope.organizerUserId) {
+          const wh = await ensureAppWebhookSubscription(cfg, `${SUPABASE_URL}/functions/v1/meta-connect/webhook`);
+          health.app_webhook = { registered: wh.registered, error: wh.error ?? null };
         }
       } else {
         health.note = "oauth_not_configured";

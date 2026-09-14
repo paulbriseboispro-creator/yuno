@@ -12,7 +12,7 @@ import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
-import { syncMetaInsights, syncMetaAudiences, processMetaLeads } from "../_shared/meta-ads.ts";
+import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhookSubscription } from "../_shared/meta-ads.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -242,7 +242,14 @@ Deno.serve(async (req) => {
       // Publicité : leads en attente à chaque passage, insights au plus une
       // fois par heure par campagne, audiences au plus une fois par jour.
       const metaAppSecret = Deno.env.get('META_APP_SECRET');
+      const metaAppId = Deno.env.get('META_APP_ID');
       if (metaAppSecret) {
+        // L'app s'abonne elle-même au webhook Page/leadgen (idempotent) : plus
+        // rien à cliquer dans App Dashboard → Webhooks.
+        if (metaAppId) {
+          const wh = await ensureAppWebhookSubscription({ appId: metaAppId, appSecret: metaAppSecret }, `${SUPABASE_URL}/functions/v1/meta-connect/webhook`);
+          if (!wh.ok) console.error('[META-ADS] webhook subscription failed:', wh.error);
+        }
         await processMetaLeads(admin, metaAppSecret);
         await syncMetaInsights(admin, metaAppSecret);
         await syncMetaAudiences(admin, metaAppSecret);
