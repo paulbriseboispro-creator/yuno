@@ -31,6 +31,7 @@ import {
 	CalculatorIcon,
 	LifeBuoyIcon,
 	PlugIcon,
+	RocketIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
@@ -156,6 +157,12 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.push'),
 					path: "/owner/push",
 					icon: <BellIcon />,
+				},
+				{
+					title: t('sidebar.ads'),
+					path: "/owner/ads",
+					icon: <RocketIcon />,
+					badge: META_INTEGRATION_LIVE ? undefined : t('integ.buildingBadge'),
 				},
 				{
 					title: t('sidebar.promoters'),

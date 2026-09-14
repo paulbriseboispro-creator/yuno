@@ -478,6 +478,23 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
     icon: 'Settings',
     articles: [
       {
+        id: 'org-ads',
+        titleKey: 'ohelp.ads.title',
+        descKey: 'ohelp.ads.desc',
+        icon: 'Rocket',
+        actionLink: { labelKey: 'ohelp.action.goToAds', path: '/ads' },
+        relatedArticleIds: ['org-meta-ads'],
+        keywords: ['publicité', 'pub', 'ads', 'meta', 'facebook', 'instagram', 'booster', 'boost', 'campagne', 'audience', 'jumeaux', 'lookalike', 'leads', 'coût par vente', 'anuncios', 'publicidad'],
+        sections: [
+          { headingKey: 'ohelp.ads.s1h', bodyKey: 'ohelp.ads.s1b' },
+          { headingKey: 'ohelp.ads.s2h', bodyKey: 'ohelp.ads.s2b', type: 'steps' },
+          { headingKey: 'ohelp.ads.s3h', bodyKey: 'ohelp.ads.s3b' },
+          { headingKey: 'ohelp.ads.s4h', bodyKey: 'ohelp.ads.s4b', type: 'example' },
+          { headingKey: 'ohelp.ads.s5h', bodyKey: 'ohelp.ads.s5b' },
+          { headingKey: 'ohelp.ads.s6h', bodyKey: 'ohelp.ads.s6b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-meta-ads',
         titleKey: 'ohelp.meta.title',
         descKey: 'ohelp.meta.desc',

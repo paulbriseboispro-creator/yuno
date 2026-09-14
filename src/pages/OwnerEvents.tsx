@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, type LucideIcon } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, Rocket, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { isCollabPlan } from '@/lib/planFeatures';
+import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
 import { useOrganizerPartnerships, useVenuePartnerships } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useProposeCollab, fetchLiveEventContract } from '@/hooks/useProposeCollab';
@@ -1791,6 +1792,19 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               ))}
             </div>
           )}
+
+          {/* Booster : une pub Instagram / Facebook pour cette soirée, créée et
+              suivie depuis Yuno (page Publicité). */}
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => onNavigate(`${basePath}/ads?event=${event.id}`)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
+              style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T3_C, fontSize: 11.5, fontWeight: 600 }}
+            >
+              <Rocket className="w-3 h-3" />{t('ads.boostEvent')}{META_INTEGRATION_LIVE ? '' : ` · ${t('integ.buildingBadge')}`}
+            </button>
+          </div>
 
           {/* Inline preset picker — appears when publishing tickets with no rounds yet */}
           <AnimatePresence>
