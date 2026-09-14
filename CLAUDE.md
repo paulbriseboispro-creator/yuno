@@ -1176,10 +1176,28 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   et le badge « Bientôt » ; la carte plateforme (`/admin/system`) reste active
   pour tester le bout en bout. Ne le passer à `true` qu'à la fin de la
   checklist du guide (App Review accordée, app en Live, parcours validé).
-- Edge `meta-connect` **pas encore déployée** : le cap des fonctions a de
-  nouveau mordu le 14/09 (402). `bulk-notify-waitlist` (aucun appelant, aucun
-  cron, aucune réponse HTTP sur 30 j) est le slot à libérer, code conservé
-  dans le repo, ne pas la redéployer.
+- **Publicité pilotée depuis Yuno (phases 3-4, migration `20260915100000`,
+  `_shared/meta-ads.ts`, page `AdsPage`)** : `meta-campaigns` /
+  `meta_audiences` / `meta_insights_daily` / `meta_leads`, RLS sans policy,
+  lecture par `get_my_meta_ads`, écriture par les actions `campaign_*`,
+  `audience_*`, `ads_*`, `leads_subscribe` de `meta-connect` (même fonction :
+  le cap des fonctions interdit d'en créer une). Règles : tout est créé en
+  PAUSED chez Meta, l'activation est un clic du pro ; `special_ad_categories`
+  toujours envoyé, `dsa_beneficiary`/`dsa_payor` obligatoires (UE),
+  `promoted_object.pixel_id` + `custom_event_type`, `advantage_audience`
+  explicite ; **les ventes attribuées viennent du lien suivi `meta_ads`**
+  (`meta_ads_ensure_tracked_link`, un par campagne, `utm_campaign` = id),
+  jamais des chiffres Meta, qui sont copiés à part dans `meta_insights_daily`
+  (cron, ≤ 1 lecture/h/campagne). **Une audience = contacts CONSENTANTS
+  seulement** (`_resolve_meta_audience_rows` : opt-in newsletter non supprimé
+  ∪ SMS < 36 mois, filtrés par activité), hachés côté edge, `usersreplace`
+  par sessions de 10 000, resync nocturne ; jumeaux refusés sous 100
+  personnes ; CGU audiences (`custom_audience_tos`) acceptées par un humain.
+  Leads : webhook `POST /meta-connect/webhook` (signature sur les octets
+  bruts, dedup `leadgen_id`, 200 immédiat) → `claim_meta_leads` (SKIP LOCKED)
+  → `meta_lead_to_contact` (registre de consentement, jamais un désabonné,
+  `consent_source = 'social'`). `bulk-notify-waitlist` a été supprimée le
+  14/09 pour libérer le slot de `meta-connect` : ne pas la redéployer.
 
 ## Claude Design — design system public synchronisé
 

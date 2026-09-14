@@ -4,7 +4,10 @@
 > (developers.facebook.com), les termes légaux Meta, la CNIL et les pages
 > d'aide des plateformes concurrentes. Statut : **phase 1 livrée le
 > 2026-09-14** (migration, `_shared/meta-capi.ts`, `meta-connect`, CMP v2,
-> pixel, page Intégrations) ; phases 2-4 en attente des dossiers Meta.
+> pixel, page Intégrations) ; **phases 2, 3 et 4 codées le 14-15/09**
+> (connexion un clic, audiences + jumeaux, campagnes depuis Yuno, leads) ;
+> tout est derrière `META_INTEGRATION_LIVE = false` en attendant l'App Review
+> (docs/META_GO_LIVE_GUIDE.md).
 > Compléte `docs/designs/MARKETING_GROWTH_PLAN.md` (chantier D).
 
 ---

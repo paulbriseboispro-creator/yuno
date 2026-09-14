@@ -19,6 +19,7 @@
 | Envoi serveur des achats / leads (Conversions API) | `_shared/meta-capi.ts`, `verify-*`, `create-*` | **en prod** |
 | Pixel navigateur, CMP v2, pages Intégrations, textes légaux, mode d'emploi | front | **en prod** (carte « En construction ») |
 | Edge `meta-connect` : un clic (OAuth), manuel, santé, rappels Meta | `supabase/functions/meta-connect` | **codée, PAS déployée** (cap 402, voir étape 5) |
+| Publicité (campagnes, audiences, jumeaux), leads (webhook), résultats | migration `20260915100000`, `_shared/meta-ads.ts`, page `/owner/ads` et `/organizer-app/ads`, bouton « Booster » | **codé**, à tester (étape 6 bis) |
 | Interrupteur pros | `src/lib/metaIntegration.ts` → `META_INTEGRATION_LIVE = false` | à flipper à l'étape 8 |
 
 Le parcours pro, une fois live : Réglages → Intégrations → « Connecter avec
@@ -277,6 +278,37 @@ concerne que nous. Conséquences :
 Si tout passe, le système est bon. Reconnecte le pixel de Yuno (étape 2 du
 test) pour qu'il reste actif : c'est aussi notre propre acquisition, et il
 génère les appels API nécessaires à l'étape 7.
+
+## Étape 6 bis — Publicité, audiences, leads (phases 3-4, même app)
+
+Tout est codé et se règle dans la même app Meta. Trois réglages en plus :
+
+1. **Webhook Lead Ads** : App Dashboard → **Webhooks** → objet **Page** →
+   « S'abonner à cet objet » :
+   - URL de rappel : `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/webhook`
+   - Jeton de vérification : lance `node -e "const c=require('crypto');console.log(c.createHash('sha256').update('yuno-meta-webhook:'+process.argv[1]).digest('hex').slice(0,32))" "<META_APP_SECRET>"`
+     dans le terminal (c'est le même calcul que `webhookVerifyToken` côté edge).
+   - Champ à cocher : **leadgen**. Meta appelle l'URL avec `hub.challenge`, la
+     fonction répond, l'abonnement passe au vert.
+   Ensuite chaque club clique « Activer la réception » dans sa page Publicité
+   (abonne SA Page) ; la fonction vérifie la signature `X-Hub-Signature-256`
+   de chaque envoi et verse les leads dans `meta_leads` puis dans la base de
+   contacts du club.
+2. **Conditions d'usage des audiences** : par compte publicitaire, un humain
+   doit les accepter une fois (`business.facebook.com/ads/manage/customaudiences/tos/?act=…`).
+   La page Publicité affiche le lien tant que ce n'est pas fait ; sans ça,
+   la création d'audience répond `custom_audience_tos`.
+3. **Marketing API « Full Access »** (étape 7.3) : sans lui, la création de
+   campagnes et d'audiences répond avec une erreur de permission / de
+   limite. Le palier Limited suffit pour tester sur ton propre compte pub.
+
+Test de bout en bout depuis un compte de club testeur (l'app en mode
+Développement suffit) : page Publicité → « Vérifier le compte » (devise,
+moyen de paiement, CGU) → Audiences → « Acheteurs 12 mois » → Envoyer à Meta
+(statut « prête », taille) → « Booster une soirée » → Créer en pause →
+la campagne apparaît en pause dans Ads Manager avec l'affiche → Activer →
+« en validation Meta » → après validation, « Rafraîchir » ramène dépense et
+impressions ; un achat via le lien copié apparaît en « Ventes Yuno ».
 
 ## Étape 7 — App Review (5 à 20 jours ouvrés par cycle)
 
