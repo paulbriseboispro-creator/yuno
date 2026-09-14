@@ -9,6 +9,7 @@ import { usePushListener } from '@/hooks/usePushListener';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
+import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 
 export default function VerifyPayment() {
   const [searchParams] = useSearchParams();
@@ -27,6 +28,7 @@ export default function VerifyPayment() {
   const { showFallbackToast } = usePushListener();
   const venueId = sessionStorage.getItem('yuno_venue_id') || undefined;
   const { trackOrderComplete } = useVisitorTracking(venueId);
+  const { firePurchase } = useMetaPurchasePixel();
   
   const sessionId = searchParams.get('session_id');
   const orderId = searchParams.get('order_id');
@@ -52,6 +54,10 @@ export default function VerifyPayment() {
         setStatus('success');
         clearCart();
         if (orderId) trackOrderComplete(orderId);
+        // Pixel Meta : Purchase navigateur (dédoublonné avec l'envoi serveur).
+        if (orderId && !data.alreadyProcessed && data.metaPurchase) {
+          firePurchase({ eventID: `order:${orderId}`, ...data.metaPurchase });
+        }
         
         if (data.pointsEarned && data.pointsEarned > 0) {
           setPointsEarned(data.pointsEarned);

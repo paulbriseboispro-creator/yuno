@@ -8,6 +8,7 @@ import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePushListener } from '@/hooks/usePushListener';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
+import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 
 export default function VerifyTablePayment() {
   const [searchParams] = useSearchParams();
@@ -21,6 +22,7 @@ export default function VerifyTablePayment() {
   const [errorMessage, setErrorMessage] = useState('');
   const venueId = sessionStorage.getItem('yuno_venue_id') || undefined;
   const { trackOrderComplete } = useVisitorTracking(venueId);
+  const { firePurchase } = useMetaPurchasePixel();
   const { showFallbackToast } = usePushListener();
   
   const sessionId = searchParams.get('session_id');
@@ -45,6 +47,10 @@ export default function VerifyTablePayment() {
 
       if (data?.paid) {
         if (reservationId) trackOrderComplete(reservationId);
+        // Pixel Meta : Purchase navigateur (dédoublonné avec l'envoi serveur).
+        if (reservationId && !data.alreadyProcessed && data.metaPurchase) {
+          firePurchase({ eventID: `table:${reservationId}`, ...data.metaPurchase });
+        }
 
         if (isNativeReturn) {
           setStatus('nativeReturn');

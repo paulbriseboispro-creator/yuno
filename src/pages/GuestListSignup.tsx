@@ -40,6 +40,7 @@ import {
 import { GuestListSignupSkeleton } from '@/components/skeletons/GuestListSignupSkeleton';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
 import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
+import { getMetaCheckoutContext } from '@/lib/metaPixel';
 
 /** Colonnes d'event embarquées avec la guest list (select imbriqué). */
 interface GuestListEventInfo {
@@ -699,6 +700,8 @@ export default function GuestListSignup() {
         body: {
           // Langue lue par l'invité = langue de son email de confirmation.
           lang: language,
+          // Consentement publicité + identifiants Meta (Lead côté serveur).
+          meta: getMetaCheckoutContext(),
           // Lien unique (?invite=) OU lien public de la part.
           ...(inviteParam
             ? { inviteToken: inviteParam }

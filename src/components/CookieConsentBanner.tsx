@@ -16,13 +16,16 @@ import {
  * openConsentSettings() (« Gérer les cookies »). « Refuser » est aussi simple
  * qu'« Accepter » (deux boutons de poids égal) : exigence CNIL. Tant que
  * l'utilisateur n'a pas accepté l'analytics, useVisitorTracking /
- * useAffiliateVisitorTracking ne posent aucun identifiant.
+ * useAffiliateVisitorTracking ne posent aucun identifiant ; tant qu'il n'a pas
+ * accepté la publicité, aucun pixel Meta n'est chargé et aucun achat n'est
+ * envoyé à Meta côté serveur (src/lib/metaPixel.ts, _shared/meta-capi.ts).
  */
 export function CookieConsentBanner() {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [analytics, setAnalytics] = useState(true);
+  const [marketing, setMarketing] = useState(true);
 
   useEffect(() => {
     // Premier affichage : uniquement si aucun choix n'a encore été fait.
@@ -30,6 +33,7 @@ export function CookieConsentBanner() {
     const reopen = () => {
       setShowDetails(true);
       setAnalytics(true);
+      setMarketing(true);
       setOpen(true);
     };
     window.addEventListener(CONSENT_OPEN_EVENT, reopen);
@@ -39,15 +43,15 @@ export function CookieConsentBanner() {
   if (!open) return null;
 
   const acceptAll = () => {
-    setConsent({ analytics: true });
+    setConsent({ analytics: true, marketing: true });
     setOpen(false);
   };
   const refuseAll = () => {
-    setConsent({ analytics: false });
+    setConsent({ analytics: false, marketing: false });
     setOpen(false);
   };
   const saveChoice = () => {
-    setConsent({ analytics });
+    setConsent({ analytics, marketing });
     setOpen(false);
   };
 
@@ -86,6 +90,17 @@ export function CookieConsentBanner() {
                 checked={analytics}
                 onCheckedChange={setAnalytics}
                 aria-label={t('cookies.banner.analyticsLabel')}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-medium text-white">{t('cookies.banner.marketingLabel')}</p>
+                <p className="text-xs text-white/55">{t('cookies.banner.marketingDesc')}</p>
+              </div>
+              <Switch
+                checked={marketing}
+                onCheckedChange={setMarketing}
+                aria-label={t('cookies.banner.marketingLabel')}
               />
             </div>
           </div>

@@ -46,6 +46,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   ticket_round_sold_out: { icon: Ticket,        category: 'capacity', label: 'notif.type.ticket_round_sold_out' },
   tables_warning:        { icon: AlertTriangle, category: 'capacity', label: 'notif.type.tables_warning' },
   tables_sold_out:       { icon: Crown,         category: 'capacity', label: 'notif.type.tables_sold_out' },
+  // 🔌 Intégrations
+  meta_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.meta_token_invalid' },
   // 📅 Events
   event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
   event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
@@ -135,6 +137,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_venue_purge_failed:  { icon: AlertTriangle, category: 'system',    label: 'notif.type.admin_venue_purge_failed' },
   admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
   admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
+  admin_meta_token_invalid:  { icon: AlertTriangle, category: 'system',    label: 'notif.type.admin_meta_token_invalid' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
   admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MaintenanceToggle } from '@/components/admin/MaintenanceToggle';
 import { PaymentsToggle } from '@/components/admin/PaymentsToggle';
+import { MetaConnectionCard } from '@/components/integrations/MetaConnectionCard';
 import {
   Activity, Bell, Bot, Clock, CreditCard, Database, Mail, RefreshCw, Shield, Smartphone, Package, TriangleAlert, FlaskConical,
 } from 'lucide-react';
@@ -63,6 +64,8 @@ export default function AdminSystem() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <MaintenanceToggle />
           <PaymentsToggle />
+          {/* Pixel Meta de Yuno lui-même (portée plateforme : les deux ids NULL) — acquisition Yuno, même chaîne que les pros. */}
+          <MetaConnectionCard scope={{}} />
         </div>
         <div className="flex items-center gap-2 flex-wrap mt-3" style={{ color: T3, fontSize: 11.5 }}>
           <Pill tone={data.settings.demo_live ? 'accent' : 'muted'} icon={FlaskConical}>{data.settings.demo_live ? t('adm.system.demoLive') : t('adm.system.demoOff')}</Pill>

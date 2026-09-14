@@ -1,5 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { purgeServiceWorkersAndReload } from './swRecovery';
+import { getMetaCheckoutContext } from './metaPixel';
+
+// Fonctions de vente : on leur joint le contexte Meta (consentement publicité,
+// identifiants _fbp/_fbc) pour que l'achat, confirmé plus tard par webhook,
+// puisse être envoyé à Meta — ou pas. Un seul endroit, pour les 8 appelants.
+const META_CONTEXT_FUNCTIONS = new Set(['create-ticket-checkout', 'create-table-checkout', 'create-checkout']);
 
 const EDGE_RELOAD_KEY = 'yuno-edge-fetch-reload-attempted';
 
@@ -68,6 +74,13 @@ export async function invokeEdgeFunction<T = any>(
   name: string,
   options?: Parameters<typeof supabase.functions.invoke>[1],
 ): Promise<Awaited<ReturnType<typeof supabase.functions.invoke<T>>>> {
+  if (META_CONTEXT_FUNCTIONS.has(name) && options?.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+    try {
+      options = { ...options, body: { ...(options.body as Record<string, unknown>), meta: getMetaCheckoutContext() } };
+    } catch {
+      // Le contexte Meta est optionnel : jamais un obstacle au paiement.
+    }
+  }
   const result = await supabase.functions.invoke<T>(name, options);
   if (
     result.error &&

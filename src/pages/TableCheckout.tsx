@@ -46,6 +46,7 @@ import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { TableCheckoutSkeleton } from '@/components/skeletons/TableCheckoutSkeleton';
+import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -88,6 +89,7 @@ export default function TableCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [event, setEvent] = useState<Tables<'events'> | null>(null);
   const [venue, setVenue] = useState<PublicVenueRow | null>(null);
+  useMetaCheckoutPixel({ eventId: eventId ?? null, enabled: !!eventId });
   // Indicatif par défaut du champ téléphone = pays de la soirée (fuseau figé à
   // la publication, ville en repli) — pas le pays du siège de Yuno.
   const phoneCountry = countryOfPlace({ timezone: event?.timezone, city: venue?.city ?? event?.location_city })?.code ?? null;

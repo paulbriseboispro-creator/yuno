@@ -949,6 +949,23 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'meta-ads',
+        titleKey: 'ohelp.meta.title',
+        descKey: 'ohelp.meta.desc',
+        icon: 'Plug',
+        actionLink: { labelKey: 'ohelp.action.goToIntegrations', path: '/integrations' },
+        relatedArticleIds: ['support-access'],
+        keywords: ['meta', 'facebook', 'instagram', 'pixel', 'pub', 'publicité', 'ads', 'conversions api', 'capi', 'events manager', 'roas', 'retour sur investissement', 'jeton', 'token', 'intégrations', 'integrations', 'píxel', 'anuncios'],
+        sections: [
+          { headingKey: 'ohelp.meta.s1h', bodyKey: 'ohelp.meta.s1b' },
+          { headingKey: 'ohelp.meta.s2h', bodyKey: 'ohelp.meta.s2b', type: 'steps' },
+          { headingKey: 'ohelp.meta.s3h', bodyKey: 'ohelp.meta.s3b', type: 'example' },
+          { headingKey: 'ohelp.meta.s4h', bodyKey: 'ohelp.meta.s4b' },
+          { headingKey: 'ohelp.meta.s5h', bodyKey: 'ohelp.meta.s5b', type: 'warning' },
+          { headingKey: 'ohelp.meta.s6h', bodyKey: 'ohelp.meta.s6b', type: 'tip' },
+        ],
+      },
+      {
         // Accès assisté Yuno : consentement explicite, verrous base de données,
         // journal lisible par le pro. Vit dans Réglages, comme l'entrée sidebar.
         id: 'support-access',

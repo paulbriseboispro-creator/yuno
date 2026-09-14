@@ -38,6 +38,7 @@ import { GuestListCheckoutSkeleton } from '@/components/skeletons/GuestListCheck
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
 import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
 import { soldOutFlags, isGuestListSoldOut } from '@/lib/soldOut';
+import { getMetaCheckoutContext } from '@/lib/metaPixel';
 
 interface GuestListInfo {
   id: string;
@@ -467,6 +468,8 @@ export default function GuestListCheckout() {
         body: {
           shareToken: guestList.shareToken,
           ...(trackedLinkId ? { trackedLinkId } : {}),
+          // Consentement publicité + identifiants Meta (Lead côté serveur).
+          meta: getMetaCheckoutContext(),
           // Langue lue par l'invité = langue de son email de confirmation.
           lang: language,
           gender: gender || undefined,

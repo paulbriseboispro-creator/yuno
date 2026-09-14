@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -39,6 +40,7 @@ export default function VerifyTicketPayment() {
 
   const venueId = sessionStorage.getItem('yuno_venue_id') || undefined;
   const { trackOrderComplete } = useVisitorTracking(venueId);
+  const { firePurchase } = useMetaPurchasePixel();
   const { showFallbackToast } = usePushListener();
 
   const sessionId = searchParams.get('session_id');
@@ -64,6 +66,10 @@ export default function VerifyTicketPayment() {
 
       if (data?.paid) {
         if (ticketId) trackOrderComplete(ticketId);
+        // Pixel Meta : Purchase navigateur (dédoublonné avec l'envoi serveur).
+        if (ticketId && !data.alreadyProcessed && data.metaPurchase) {
+          firePurchase({ eventID: `ticket:${ticketId}`, ...data.metaPurchase });
+        }
 
         if (data.isGuest) {
           // A guest checkout is the one case where this screen earns its keep:

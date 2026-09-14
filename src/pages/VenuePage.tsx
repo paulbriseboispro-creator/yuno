@@ -35,6 +35,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { VenuePromoSection } from '@/components/upsell/VenuePromoSection';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 interface VenueData extends Venue {
   description?: string;
@@ -93,6 +94,7 @@ export default function VenuePage() {
   const [resolvedVenueId, setResolvedVenueId] = useState<string | null>(null);
   const slug = resolvedVenueId ?? undefined;
   const { trackAddToCart } = useVisitorTracking(slug); // Track visitors for this venue
+  useMetaPixel({ venueId: slug ?? null, enabled: !!slug }); // Pixel Meta du club (après consentement publicité)
   usePromoterTracking(slug); // Capture promoter code from URL
   const navigate = usePreviewNavigate();
 

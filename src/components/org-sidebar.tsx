@@ -41,6 +41,7 @@ import {
 	UserIcon,
 	HelpCircleIcon,
 	SparklesIcon,
+	PlugIcon,
 } from "lucide-react";
 
 type TT = (fr: string, en: string) => string;
@@ -101,6 +102,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			label: tt("Réglages", "Settings"),
 			items: [
 				{ title: tt("Mon organisation", "My organization"), path: "/organizer-app/organization", icon: <SettingsIcon /> },
+				{ title: tt("Intégrations", "Integrations"), path: "/organizer-app/integrations", icon: <PlugIcon /> },
 			],
 		},
 	];

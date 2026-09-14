@@ -132,6 +132,7 @@ const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
 const OwnerHelpCenter = lazyWithRetry(() => import("./pages/OwnerHelpCenter"));
 const OwnerSupportRequest = lazyWithRetry(() => import("./pages/OwnerSupportRequest"));
 const SupportAccessSettings = lazyWithRetry(() => import("./pages/SupportAccessSettings"));
+const IntegrationsSettings = lazyWithRetry(() => import("./pages/IntegrationsSettings"));
 const OwnerGuestList = lazyWithRetry(() => import("./pages/OwnerGuestList"));
 const OwnerRefunds = lazyWithRetry(() => import("./pages/OwnerRefunds"));
 const OwnerNotifications = lazyWithRetry(() => import("./pages/OwnerNotifications"));
@@ -740,6 +741,7 @@ const App = () => (
                   <Route path="sms" element={<OrgAppSms />} />
                   <Route path="sms/:id" element={<OrgAppSms />} />
                   <Route path="organization" element={<OrgAppOrganization />} />
+                  <Route path="integrations" element={<IntegrationsSettings />} />
                   <Route path="support-access" element={<SupportAccessSettings />} />
                   <Route path="payments" element={<OrgAppPayments />} />
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
@@ -928,6 +930,7 @@ const App = () => (
                   <Route path="notifications" element={<OwnerNotifications />} />
                   <Route path="help" element={<OwnerHelpCenter />} />
                   <Route path="support" element={<OwnerSupportRequest />} />
+                  <Route path="integrations" element={<IntegrationsSettings />} />
                   <Route path="support-access" element={<SupportAccessSettings />} />
                 </Route>
 

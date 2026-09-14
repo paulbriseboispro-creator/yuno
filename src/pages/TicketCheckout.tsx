@@ -37,6 +37,7 @@ import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { TicketCheckoutSkeleton } from '@/components/skeletons/TicketCheckoutSkeleton';
+import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -61,6 +62,7 @@ export default function TicketCheckout() {
   
   const [event, setEvent] = useState<EventWithTicketing | null>(null);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string } | null>(null);
+  useMetaCheckoutPixel({ eventId: event?.id ?? null, enabled: !!event?.id });
   const [round, setRound] = useState<TicketRound | null>(null);
   // Indicatif par défaut du champ téléphone = pays de la soirée. Un acheteur à
   // Madrid qui tape son numéro sous un drapeau français laisse un téléphone

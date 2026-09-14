@@ -37,6 +37,7 @@ import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurc
 import { useStore } from '@/store/useStore';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useEventPaymentsReady } from '@/lib/paymentsReady';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 type EventDJ = {
   id: string;
@@ -125,6 +126,18 @@ export default function EventDetails() {
     eventId || undefined,
     organizerIdForTracking || undefined,
   );
+  // Pixel Meta du club / de l'organisateur / de Yuno (après consentement
+  // publicité seulement) : ViewContent sur la soirée, une fois par chargement.
+  const metaPixel = useMetaPixel({ eventId: eventId || null, enabled: !!eventId });
+  useEffect(() => {
+    if (!eventId || !event || !metaPixel.active) return;
+    metaPixel.track('ViewContent', {
+      content_ids: [eventId],
+      content_type: 'product',
+      content_name: (event as { title?: string }).title ?? undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, event?.id, metaPixel.active]);
 
   const getLocale = () => {
     switch (language) {

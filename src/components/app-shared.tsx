@@ -30,6 +30,7 @@ import {
 	ActivityIcon,
 	CalculatorIcon,
 	LifeBuoyIcon,
+	PlugIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
@@ -226,6 +227,12 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t(SUBSCRIPTIONS_ENABLED ? 'sidebar.subscription' : 'plan.payments'),
 					path: "/owner/billing",
 					icon: <CreditCardIcon />,
+				},
+				{
+					// Connexions externes (Meta Pixel + Conversions API…).
+					title: t('sidebar.integrations'),
+					path: "/owner/integrations",
+					icon: <PlugIcon />,
 				},
 				{
 					// Accès assisté Yuno : consentement, journal, révocation.
