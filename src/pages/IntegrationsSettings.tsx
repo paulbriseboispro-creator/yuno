@@ -12,6 +12,7 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 import { MetaConnectionCard } from '@/components/integrations/MetaConnectionCard';
+import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
 
 export default function IntegrationsSettings() {
   const { t } = useLanguage();
@@ -30,7 +31,7 @@ export default function IntegrationsSettings() {
       <OrgPage>
         <OrgPageHeader title={t('integ.title')} subtitle={t('integ.subtitle')} />
         <div className="space-y-5">
-          {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} />}
+          {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} live={META_INTEGRATION_LIVE} returnTo="/organizer-app/integrations" />}
         </div>
       </OrgPage>
     );
@@ -43,7 +44,7 @@ export default function IntegrationsSettings() {
       <OwnerHeader title={t('integ.title')} />
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
         <p style={{ color: 'rgba(255,255,255,0.58)', fontSize: 13.5, maxWidth: 720 }}>{t('integ.subtitle')}</p>
-        {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} />}
+        {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} live={META_INTEGRATION_LIVE} returnTo="/owner/integrations" />}
       </div>
     </div>
   );

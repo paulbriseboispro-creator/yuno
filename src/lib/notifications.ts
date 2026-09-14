@@ -48,6 +48,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   tables_sold_out:       { icon: Crown,         category: 'capacity', label: 'notif.type.tables_sold_out' },
   // 🔌 Intégrations
   meta_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.meta_token_invalid' },
+  meta_token_expiring: { icon: AlertTriangle, category: 'system', label: 'notif.type.meta_token_expiring' },
   // 📅 Events
   event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
   event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },

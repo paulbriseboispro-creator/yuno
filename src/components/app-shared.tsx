@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
+import { META_INTEGRATION_LIVE } from "@/lib/metaIntegration";
 
 export type SidebarNavItem = {
 	title: string;
@@ -233,6 +234,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.integrations'),
 					path: "/owner/integrations",
 					icon: <PlugIcon />,
+					badge: META_INTEGRATION_LIVE ? undefined : t('integ.buildingBadge'),
 				},
 				{
 					// Accès assisté Yuno : consentement, journal, révocation.

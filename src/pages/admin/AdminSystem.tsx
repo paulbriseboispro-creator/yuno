@@ -65,7 +65,7 @@ export default function AdminSystem() {
           <MaintenanceToggle />
           <PaymentsToggle />
           {/* Pixel Meta de Yuno lui-même (portée plateforme : les deux ids NULL) — acquisition Yuno, même chaîne que les pros. */}
-          <MetaConnectionCard scope={{}} />
+          <MetaConnectionCard scope={{}} live returnTo="/admin/system" />
         </div>
         <div className="flex items-center gap-2 flex-wrap mt-3" style={{ color: T3, fontSize: 11.5 }}>
           <Pill tone={data.settings.demo_live ? 'accent' : 'muted'} icon={FlaskConical}>{data.settings.demo_live ? t('adm.system.demoLive') : t('adm.system.demoOff')}</Pill>

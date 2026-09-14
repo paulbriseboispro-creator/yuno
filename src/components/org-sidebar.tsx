@@ -15,6 +15,7 @@ import type { SidebarNavGroup, SidebarNavItem } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translate } from '@/i18n/orgTranslate';
 import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
+import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
 import {
 	LayoutGridIcon,
 	BarChart3Icon,
@@ -102,7 +103,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			label: tt("Réglages", "Settings"),
 			items: [
 				{ title: tt("Mon organisation", "My organization"), path: "/organizer-app/organization", icon: <SettingsIcon /> },
-				{ title: tt("Intégrations", "Integrations"), path: "/organizer-app/integrations", icon: <PlugIcon /> },
+				{ title: tt("Intégrations", "Integrations"), path: "/organizer-app/integrations", icon: <PlugIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
 			],
 		},
 	];

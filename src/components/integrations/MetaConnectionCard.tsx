@@ -1,23 +1,29 @@
 // Carte « Meta (Facebook & Instagram) » — Réglages → Intégrations.
-// Design : docs/designs/META_ADS_INTEGRATION_PLAN.md (phase 1, mode manuel).
+// Design : docs/designs/META_ADS_INTEGRATION_PLAN.md ; mise en service de la
+// connexion en un clic : docs/META_GO_LIVE_GUIDE.md.
 //
-// Ce que la carte fait et ne fait pas :
-//   - Le pro colle son identifiant de pixel et un jeton Conversions API généré
-//     dans Events Manager. Le jeton part vers l'edge `meta-connect`, entre dans
-//     le Vault et n'en ressort JAMAIS : on n'affiche que « ••••1234 ».
-//   - Tout le reste (statistiques, derniers événements, part de consentement)
-//     vient de la RPC `get_my_meta_connection`, jamais d'un select direct.
-//   - Un manager ne voit pas cette carte (surface argent, comme Stripe).
-//   - Le même composant sert le club, l'organisateur et la plateforme
-//     (super admin, portée vide) : seule la `scope` change.
+// Deux chemins vers la même connexion :
+//   - « Connecter avec Facebook » (phase 2) : une fenêtre Meta, le pro choisit
+//     son entreprise, Yuno découvre ses pixels / comptes pub / Pages ; s'il n'a
+//     qu'un pixel c'est fini, sinon il le choisit ici. Aucun jeton à coller.
+//   - « Mode avancé » (phase 1) : Pixel ID + jeton Conversions API collés.
+//     Reste disponible, replié, pour les pros qui gèrent ça eux-mêmes.
+// Le jeton part vers l'edge `meta-connect`, entre dans le Vault et n'en
+// ressort JAMAIS : on n'affiche que « ••••1234 ». Tout le reste vient de la
+// RPC `get_my_meta_connection`. Un manager ne voit pas cette carte.
+//
+// `live = false` (META_INTEGRATION_LIVE) : état « En construction », aucune
+// action possible — sauf sur la carte plateforme (super admin) qui sert à
+// tester le bout en bout.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import {
   Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ExternalLink, RefreshCw,
-  Unplug, FlaskConical, Eye, EyeOff, Info,
+  Unplug, FlaskConical, Eye, EyeOff, Info, Hammer, ChevronDown, ChevronUp, Activity,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -45,15 +51,26 @@ export interface MetaScope {
   organizerUserId?: string | null;
 }
 
+interface Asset { id: string; name: string }
+interface Assets { pixels: Asset[]; ad_accounts: Asset[]; pages: Asset[] }
+
 interface ConnectionView {
   id: string;
   mode: 'manual' | 'oauth';
   pixel_id: string;
   token_hint: string | null;
   has_token: boolean;
+  token_kind: 'capi' | 'bisu' | 'user';
+  token_expires_at: string | null;
+  assets: Assets | null;
+  business_id: string | null;
+  ad_account_id: string | null;
+  page_id: string | null;
+  last_health: Record<string, unknown> | null;
+  last_health_at: string | null;
   test_event_code: string | null;
   test_event_code_expires_at: string | null;
-  status: 'active' | 'token_invalid';
+  status: 'active' | 'token_invalid' | 'pending_assets';
   events_enabled: Record<string, boolean>;
   send_native: boolean;
   verified_at: string | null;
@@ -64,40 +81,15 @@ interface ConnectionView {
 }
 
 interface Stats {
-  queued: number;
-  sent_7d: number;
-  failed_7d: number;
-  sent_30d: number;
-  value_30d_cents: number;
-  last_sent_at: string | null;
-  by_event: { event_name: string; n: number }[];
+  queued: number; sent_7d: number; failed_7d: number; sent_30d: number;
+  value_30d_cents: number; last_sent_at: string | null; by_event: { event_name: string; n: number }[];
 }
-
 interface RecentRow {
-  id: string;
-  event_name: string;
-  event_kind: string;
-  status: string;
-  attempts: number;
-  value_cents: number | null;
-  currency: string | null;
-  last_error: string | null;
-  created_at: string;
-  sent_at: string | null;
+  id: string; event_name: string; event_kind: string; status: string; attempts: number;
+  value_cents: number | null; currency: string | null; last_error: string | null; created_at: string; sent_at: string | null;
 }
-
-interface ConsentStats {
-  orders_30d: number;
-  consented_30d: number;
-  native_30d: number;
-}
-
-interface Payload {
-  connection: ConnectionView | null;
-  stats?: Stats;
-  recent?: RecentRow[];
-  consent?: ConsentStats;
-}
+interface ConsentStats { orders_30d: number; consented_30d: number; native_30d: number }
+interface Payload { connection: ConnectionView | null; stats?: Stats; recent?: RecentRow[]; consent?: ConsentStats }
 
 const EVENT_FLAGS: { key: string; labelKey: string }[] = [
   { key: 'pixel', labelKey: 'integ.meta.flag.pixel' },
@@ -131,27 +123,42 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'po
   );
 }
 
-export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; helpPath?: string }) {
+function FacebookButton({ onClick, busy, label }: { onClick: () => void; busy: boolean; label: string }) {
+  return (
+    <button type="button" onClick={onClick} disabled={busy}
+      className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-[13.5px] font-semibold disabled:opacity-60"
+      style={{ background: META_BLUE, color: '#fff' }}>
+      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.1 24 18.1 24 12.07z" />
+        </svg>
+      )}
+      {label}
+    </button>
+  );
+}
+
+export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: { scope: MetaScope; helpPath?: string; live?: boolean; returnTo?: string }) {
   const { t, language } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<null | 'save' | 'test' | 'update' | 'disconnect'>(null);
+  const [busy, setBusy] = useState<null | 'oauth' | 'select' | 'health' | 'save' | 'test' | 'update' | 'disconnect'>(null);
+  const [oauthAvailable, setOauthAvailable] = useState(true);
+  const [advanced, setAdvanced] = useState(false);
   const [pixelId, setPixelId] = useState('');
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [testCode, setTestCode] = useState('');
   const [editToken, setEditToken] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [chosenPixel, setChosenPixel] = useState('');
+  const [chosenAdAccount, setChosenAdAccount] = useState('');
+  const [chosenPage, setChosenPage] = useState('');
 
-  const scopeArgs = useMemo(() => ({
-    p_venue_id: scope.venueId ?? null,
-    p_organizer_user_id: scope.organizerUserId ?? null,
-  }), [scope.venueId, scope.organizerUserId]);
-  const scopeBody = useMemo(() => ({
-    venueId: scope.venueId ?? null,
-    organizerUserId: scope.organizerUserId ?? null,
-  }), [scope.venueId, scope.organizerUserId]);
+  const scopeArgs = useMemo(() => ({ p_venue_id: scope.venueId ?? null, p_organizer_user_id: scope.organizerUserId ?? null }), [scope.venueId, scope.organizerUserId]);
+  const scopeBody = useMemo(() => ({ venueId: scope.venueId ?? null, organizerUserId: scope.organizerUserId ?? null }), [scope.venueId, scope.organizerUserId]);
 
   const load = useCallback(async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,19 +168,36 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
     } else {
       const payload = d as unknown as Payload;
       setData(payload);
-      if (payload.connection) setPixelId(payload.connection.pixel_id);
+      const c = payload.connection;
+      if (c && /^[0-9]+$/.test(c.pixel_id)) setPixelId(c.pixel_id);
+      if (c?.assets) {
+        setChosenPixel(/^[0-9]+$/.test(c.pixel_id) ? c.pixel_id : (c.assets.pixels[0]?.id ?? ''));
+        setChosenAdAccount(c.ad_account_id ?? c.assets.ad_accounts[0]?.id ?? '');
+        setChosenPage(c.page_id ?? c.assets.pages[0]?.id ?? '');
+      }
     }
     setLoading(false);
   }, [scopeArgs]);
 
   useEffect(() => { load(); }, [load]);
 
+  // Retour du dialogue Meta : ?meta=connected|choose|error&reason=…
+  useEffect(() => {
+    const m = searchParams.get('meta');
+    if (!m) return;
+    if (m === 'connected') toast.success(t('integ.meta.oauthConnected'));
+    else if (m === 'choose') toast.info(t('integ.meta.oauthChoose'));
+    else if (m === 'error') toast.error(`${t('integ.meta.oauthFailed')} ${searchParams.get('reason') ?? ''}`.trim());
+    const next = new URLSearchParams(searchParams);
+    next.delete('meta'); next.delete('reason');
+    setSearchParams(next, { replace: true });
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const call = async (action: string, body: Record<string, unknown>) => {
-    const { data: res, error } = await supabase.functions.invoke('meta-connect', {
-      body: { action, scope: scopeBody, ...body },
-    });
+    const { data: res, error } = await supabase.functions.invoke('meta-connect', { body: { action, scope: scopeBody, ...body } });
     if (error) {
-      // Corps d'erreur JSON du serveur (code lisible) si disponible.
       const ctx = (error as { context?: Response }).context;
       let code: string | null = null;
       if (ctx instanceof Response) {
@@ -190,10 +214,42 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
     return v === k ? t('integ.meta.err.generic') : v;
   };
 
+  const handleOauth = async () => {
+    setBusy('oauth');
+    try {
+      const res = await call('oauth_start', { returnTo: returnTo ?? window.location.pathname });
+      if (typeof res.url === 'string') { window.location.assign(res.url); return; }
+      throw new Error('generic');
+    } catch (e) {
+      const code = e instanceof Error ? e.message : 'generic';
+      if (code === 'oauth_not_configured') { setOauthAvailable(false); setAdvanced(true); toast.info(t('integ.meta.err.oauth_not_configured')); }
+      else toast.error(errorLabel(code));
+      setBusy(null);
+    }
+  };
+
+  const handleSelect = async () => {
+    if (!chosenPixel) return;
+    setBusy('select');
+    try {
+      await call('select_assets', { pixelId: chosenPixel, adAccountId: chosenAdAccount || undefined, pageId: chosenPage || undefined });
+      toast.success(t('integ.meta.saved'));
+      await load();
+    } catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
+    finally { setBusy(null); }
+  };
+
+  const handleHealth = async () => {
+    setBusy('health');
+    try { await call('health', {}); await load(); }
+    catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
+    finally { setBusy(null); }
+  };
+
   const handleSave = async () => {
     if (!/^[0-9]{6,32}$/.test(pixelId.trim())) { toast.error(t('integ.meta.err.invalid_pixel_id')); return; }
     const conn = data?.connection;
-    if (!conn && token.trim().length < 20) { toast.error(t('integ.meta.err.invalid_token')); return; }
+    if ((!conn || conn.mode !== 'manual') && token.trim().length < 20) { toast.error(t('integ.meta.err.invalid_token')); return; }
     setBusy('save');
     try {
       const res = await call('save', {
@@ -207,11 +263,8 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
       else toast.success(t('integ.meta.saved'));
       setToken(''); setEditToken(false); setShowToken(false);
       await load();
-    } catch (e) {
-      toast.error(errorLabel(e instanceof Error ? e.message : 'generic'));
-    } finally {
-      setBusy(null);
-    }
+    } catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
+    finally { setBusy(null); }
   };
 
   const handleTest = async () => {
@@ -223,11 +276,8 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
       if (test?.ok) toast.success(t('integ.meta.testSent'));
       else toast.error(`${t('integ.meta.testFailed')} ${test?.message ?? ''}`.trim());
       await load();
-    } catch (e) {
-      toast.error(errorLabel(e instanceof Error ? e.message : 'generic'));
-    } finally {
-      setBusy(null);
-    }
+    } catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
+    finally { setBusy(null); }
   };
 
   const handleFlag = async (key: string, value: boolean) => {
@@ -236,14 +286,9 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
     const next = { ...conn.events_enabled, [key]: value };
     setData({ ...data!, connection: { ...conn, events_enabled: next } });
     setBusy('update');
-    try {
-      await call('update', { eventsEnabled: next });
-    } catch (e) {
-      toast.error(errorLabel(e instanceof Error ? e.message : 'generic'));
-      await load();
-    } finally {
-      setBusy(null);
-    }
+    try { await call('update', { eventsEnabled: next }); }
+    catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); await load(); }
+    finally { setBusy(null); }
   };
 
   const handleClearTest = async () => {
@@ -260,19 +305,71 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
       toast.success(t('integ.meta.disconnected'));
       setPixelId(''); setToken(''); setTestCode('');
       await load();
-    } catch (e) {
-      toast.error(errorLabel(e instanceof Error ? e.message : 'generic'));
-    } finally {
-      setBusy(null); setConfirmDisconnect(false);
-    }
+    } catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
+    finally { setBusy(null); setConfirmDisconnect(false); }
   };
 
   const conn = data?.connection ?? null;
   const stats = data?.stats;
   const consent = data?.consent;
-  const fmtDate = (iso: string | null) => (iso ? format(new Date(iso), 'd MMM yyyy, HH:mm', { locale }) : '—');
+  const fmtDate = (iso: string | null | undefined) => (iso ? format(new Date(iso), 'd MMM yyyy, HH:mm', { locale }) : '—');
   const fmtMoney = (cents: number) => new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(cents / 100);
   const consentPct = consent && consent.orders_30d > 0 ? Math.round((consent.consented_30d / consent.orders_30d) * 100) : null;
+  const expiresSoon = conn?.token_expires_at ? (new Date(conn.token_expires_at).getTime() - Date.now()) < 7 * 24 * 3600 * 1000 : false;
+  const health = conn?.last_health as { is_valid?: boolean | null; scopes?: string[] | null; dataset_quality?: Record<string, unknown> } | null;
+  const emq = (() => {
+    const q = health?.dataset_quality as { data?: Array<{ event_match_quality?: { score?: number }; event_name?: string }> } | undefined;
+    const rows = q?.data;
+    if (!Array.isArray(rows)) return null;
+    const purchase = rows.find((r) => r.event_name === 'Purchase') ?? rows[0];
+    const score = purchase?.event_match_quality?.score;
+    return typeof score === 'number' ? score : null;
+  })();
+
+  const openEventsManager = (
+    <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
+      {t('integ.meta.openEventsManager')} <ExternalLink className="w-3.5 h-3.5" />
+    </a>
+  );
+  const helpLink = helpPath && (
+    <a href={helpPath} className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
+      <Info className="w-3.5 h-3.5" /> {t('integ.meta.howTo')}
+    </a>
+  );
+
+  const manualForm = (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label hint={t('integ.meta.pixelIdHint')}>{t('integ.meta.pixelId')}</Label>
+          <input value={pixelId} onChange={(e) => setPixelId(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric"
+            placeholder="1234567890123456" style={inputStyle} autoComplete="off" />
+        </div>
+        <div>
+          <Label hint={t('integ.meta.tokenHint')}>{t('integ.meta.token')}</Label>
+          <div className="relative">
+            <input value={token} onChange={(e) => setToken(e.target.value)} type={showToken ? 'text' : 'password'}
+              placeholder="EAA…" style={{ ...inputStyle, paddingRight: 40 }} autoComplete="off" spellCheck={false} />
+            <button type="button" onClick={() => setShowToken((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md"
+              style={{ color: T3 }} aria-label={showToken ? t('integ.meta.hideToken') : t('integ.meta.showToken')}>
+              {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <Label hint={t('integ.meta.testCodeHint')}>{t('integ.meta.testCode')} <span style={{ color: T3, fontWeight: 400 }}>· {t('integ.meta.optional')}</span></Label>
+          <input value={testCode} onChange={(e) => setTestCode(e.target.value.trim())} placeholder="TEST12345" style={{ ...inputStyle, maxWidth: 260 }} autoComplete="off" />
+        </div>
+      </div>
+      <button type="button" onClick={handleSave} disabled={busy !== null}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold disabled:opacity-60"
+        style={{ background: RED, color: '#fff' }}>
+        {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+        {t('integ.meta.connect')}
+      </button>
+    </div>
+  );
 
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24 }}>
@@ -288,25 +385,51 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
             <p style={{ color: T2, fontSize: 13, marginTop: 2, maxWidth: 560 }}>{t('integ.meta.subtitle')}</p>
           </div>
         </div>
-        {conn && (
+        {!live ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider"
+            style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: WARN }}>
+            <Hammer className="w-3 h-3" /> {t('integ.meta.status.building')}
+          </span>
+        ) : conn && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider"
             style={conn.status === 'active'
               ? { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', color: POS }
-              : { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.35)', color: RED }}>
+              : conn.status === 'pending_assets'
+                ? { background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: WARN }
+                : { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.35)', color: RED }}>
             {conn.status === 'active' ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
             {conn.status === 'active'
               ? (conn.verified_at ? t('integ.meta.status.verified') : t('integ.meta.status.pending'))
-              : t('integ.meta.status.tokenInvalid')}
+              : conn.status === 'pending_assets' ? t('integ.meta.status.choose') : t('integ.meta.status.tokenInvalid')}
           </span>
         )}
       </div>
 
-      {loading ? (
+      {!live ? (
+        /* ── En construction ─────────────────────────────────────────────── */
+        <div className="mt-5 space-y-4">
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(['why1', 'why2', 'why3'] as const).map((k) => (
+              <div key={k} className="rounded-xl px-3 py-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t(`integ.meta.${k}.h`)}</p>
+                <p style={{ color: T2, fontSize: 12.5, marginTop: 4, lineHeight: 1.45 }}>{t(`integ.meta.${k}.b`)}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
+            <Hammer className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+            <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.buildingBody')}</p>
+          </div>
+          <div className="flex items-center gap-2 opacity-60 pointer-events-none" aria-disabled="true">
+            <FacebookButton onClick={() => undefined} busy={false} label={t('integ.meta.oauthButton')} />
+          </div>
+        </div>
+      ) : loading ? (
         <div className="flex items-center gap-2 mt-6" style={{ color: T3 }}>
           <Loader2 className="w-4 h-4 animate-spin" /> <span style={{ fontSize: 13 }}>{t('integ.meta.loading')}</span>
         </div>
       ) : !conn ? (
-        /* ── Non connecté : explication + formulaire ─────────────────────── */
+        /* ── Non connecté ────────────────────────────────────────────────── */
         <div className="mt-5 space-y-5">
           <div className="grid gap-2 sm:grid-cols-3">
             {(['why1', 'why2', 'why3'] as const).map((k) => (
@@ -317,50 +440,79 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
             ))}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label hint={t('integ.meta.pixelIdHint')}>{t('integ.meta.pixelId')}</Label>
-              <input value={pixelId} onChange={(e) => setPixelId(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric"
-                placeholder="1234567890123456" style={inputStyle} autoComplete="off" />
-            </div>
-            <div>
-              <Label hint={t('integ.meta.tokenHint')}>{t('integ.meta.token')}</Label>
-              <div className="relative">
-                <input value={token} onChange={(e) => setToken(e.target.value)} type={showToken ? 'text' : 'password'}
-                  placeholder="EAA…" style={{ ...inputStyle, paddingRight: 40 }} autoComplete="off" spellCheck={false} />
-                <button type="button" onClick={() => setShowToken((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md"
-                  style={{ color: T3 }} aria-label={showToken ? t('integ.meta.hideToken') : t('integ.meta.showToken')}>
-                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="sm:col-span-2">
-              <Label hint={t('integ.meta.testCodeHint')}>{t('integ.meta.testCode')} <span style={{ color: T3, fontWeight: 400 }}>· {t('integ.meta.optional')}</span></Label>
-              <input value={testCode} onChange={(e) => setTestCode(e.target.value.trim())} placeholder="TEST12345" style={{ ...inputStyle, maxWidth: 260 }} autoComplete="off" />
-            </div>
-          </div>
-
           <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.18)' }}>
             <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: POS }} />
             <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.consentNote')}</p>
           </div>
 
+          {oauthAvailable && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
+              <p style={{ color: T3, fontSize: 12, maxWidth: 420, lineHeight: 1.45 }}>{t('integ.meta.oauthHint')}</p>
+            </div>
+          )}
+
+          <div className="rounded-xl" style={{ border: `1px solid ${BORDER}` }}>
+            <button type="button" onClick={() => setAdvanced((v) => !v)}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 text-left">
+              <span style={{ color: T2, fontSize: 12.5, fontWeight: 600 }}>{t('integ.meta.advanced')}</span>
+              {advanced ? <ChevronUp className="w-4 h-4" style={{ color: T3 }} /> : <ChevronDown className="w-4 h-4" style={{ color: T3 }} />}
+            </button>
+            {advanced && (
+              <div className="px-3.5 pb-4">
+                <p style={{ color: T3, fontSize: 12, marginBottom: 12, lineHeight: 1.45 }}>{t('integ.meta.advancedHint')}</p>
+                {manualForm}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">{openEventsManager}{helpLink}</div>
+        </div>
+      ) : conn.status === 'pending_assets' && conn.assets ? (
+        /* ── Connecté, choix du pixel ────────────────────────────────────── */
+        <div className="mt-5 space-y-4">
+          <p style={{ color: T2, fontSize: 13, lineHeight: 1.5 }}>{t('integ.meta.chooseBody')}</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label>{t('integ.meta.choosePixel')}</Label>
+              <select value={chosenPixel} onChange={(e) => setChosenPixel(e.target.value)} style={inputStyle}>
+                {conn.assets.pixels.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{t('integ.meta.chooseAdAccount')}</Label>
+              <select value={chosenAdAccount} onChange={(e) => setChosenAdAccount(e.target.value)} style={inputStyle}>
+                <option value="">—</option>
+                {conn.assets.ad_accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{t('integ.meta.choosePage')}</Label>
+              <select value={chosenPage} onChange={(e) => setChosenPage(e.target.value)} style={inputStyle}>
+                <option value="">—</option>
+                {conn.assets.pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+          {conn.assets.pixels.length === 0 && (
+            <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+              <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.noPixelFound')}</p>
+            </div>
+          )}
           <div className="flex items-center gap-3 flex-wrap">
-            <button type="button" onClick={handleSave} disabled={busy !== null}
+            <button type="button" onClick={handleSelect} disabled={busy !== null || !chosenPixel}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold disabled:opacity-60"
               style={{ background: RED, color: '#fff' }}>
-              {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              {t('integ.meta.connect')}
+              {busy === 'select' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              {t('integ.meta.confirmChoice')}
             </button>
-            <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
-              {t('integ.meta.openEventsManager')} <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-            {helpPath && (
-              <a href={helpPath} className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
-                <Info className="w-3.5 h-3.5" /> {t('integ.meta.howTo')}
-              </a>
-            )}
+            <button type="button" onClick={() => setConfirmDisconnect(true)} disabled={busy !== null}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
+              style={{ background: 'transparent', color: RED, border: '1px solid rgba(232,25,44,0.35)' }}>
+              <Unplug className="w-4 h-4" /> {t('integ.meta.disconnect')}
+            </button>
+            {openEventsManager}
           </div>
         </div>
       ) : (
@@ -371,8 +523,20 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: RED }} />
               <div>
                 <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('integ.meta.tokenInvalidTitle')}</p>
-                <p style={{ color: T2, fontSize: 12.5, marginTop: 2, lineHeight: 1.45 }}>{t('integ.meta.tokenInvalidBody')}</p>
+                <p style={{ color: T2, fontSize: 12.5, marginTop: 2, lineHeight: 1.45 }}>{conn.mode === 'oauth' ? t('integ.meta.tokenInvalidOauthBody') : t('integ.meta.tokenInvalidBody')}</p>
                 {conn.last_error && <p style={{ color: T3, fontSize: 11.5, marginTop: 4, fontFamily: 'ui-monospace, monospace' }}>{conn.last_error}</p>}
+                {conn.mode === 'oauth' && oauthAvailable && (
+                  <div className="mt-3"><FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} /></div>
+                )}
+              </div>
+            </div>
+          )}
+          {conn.status === 'active' && conn.token_kind === 'user' && expiresSoon && (
+            <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+              <div className="flex-1">
+                <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.expiresSoon').replace('{date}', fmtDate(conn.token_expires_at))}</p>
+                {oauthAvailable && <div className="mt-2"><FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} /></div>}
               </div>
             </div>
           )}
@@ -390,10 +554,13 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl p-3.5 space-y-2" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t('integ.meta.connection')}</p>
-              <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.pixelId')}</span><span style={{ color: T1, fontSize: 12.5, fontFamily: 'ui-monospace, monospace' }}>{conn.pixel_id}</span></div>
-              <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.token')}</span><span style={{ color: T1, fontSize: 12.5, fontFamily: 'ui-monospace, monospace' }}>••••{conn.token_hint ?? ''}</span></div>
+              <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.mode')}</span><span style={{ color: T1, fontSize: 12.5 }}>{conn.mode === 'oauth' ? t('integ.meta.modeOauth') : t('integ.meta.modeManual')}</span></div>
+              <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.pixelId')}</span><span style={{ color: T1, fontSize: 12.5, fontFamily: 'ui-monospace, monospace' }}>{conn.assets?.pixels.find((p) => p.id === conn.pixel_id)?.name ? `${conn.assets.pixels.find((p) => p.id === conn.pixel_id)!.name} · ` : ''}{conn.pixel_id}</span></div>
+              {conn.mode === 'manual' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.token')}</span><span style={{ color: T1, fontSize: 12.5, fontFamily: 'ui-monospace, monospace' }}>••••{conn.token_hint ?? ''}</span></div>}
+              {conn.mode === 'oauth' && conn.token_kind === 'user' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.tokenExpires')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(conn.token_expires_at)}</span></div>}
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.lastEvent')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(stats?.last_sent_at ?? conn.last_ok_at)}</span></div>
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.connectedSince')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(conn.created_at)}</span></div>
+              {emq != null && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.emq')}</span><span style={{ color: emq >= 6 ? POS : WARN, fontSize: 12.5, fontWeight: 700 }}>{emq.toFixed(1)} / 10</span></div>}
               {conn.test_event_code && (
                 <div className="flex items-center justify-between gap-3 pt-1">
                   <span className="inline-flex items-center gap-1.5" style={{ color: WARN, fontSize: 12.5 }}><FlaskConical className="w-3.5 h-3.5" /> {t('integ.meta.testModeOn').replace('{code}', conn.test_event_code)}</span>
@@ -413,7 +580,6 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
             </div>
           </div>
 
-          {/* Derniers événements */}
           {data?.recent && data.recent.length > 0 && (
             <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
               <div className="px-3.5 py-2.5" style={{ background: INNER_BG }}>
@@ -439,7 +605,6 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
             </div>
           )}
 
-          {/* Test + jeton */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label hint={t('integ.meta.testCodeHint')}>{t('integ.meta.sendTest')}</Label>
@@ -453,26 +618,41 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
                 </button>
               </div>
             </div>
-            <div>
-              <Label hint={t('integ.meta.updateTokenHint')}>{t('integ.meta.updateToken')}</Label>
-              {!editToken ? (
-                <button type="button" onClick={() => setEditToken(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
-                  style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
-                  <RefreshCw className="w-4 h-4" /> {t('integ.meta.updateTokenBtn')}
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder="EAA…" style={inputStyle} autoComplete="off" spellCheck={false} />
-                  <button type="button" onClick={handleSave} disabled={busy !== null || token.trim().length < 20}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold flex-shrink-0 disabled:opacity-50"
-                    style={{ background: RED, color: '#fff' }}>
-                    {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                    {t('integ.meta.save')}
+            {conn.mode === 'manual' ? (
+              <div>
+                <Label hint={t('integ.meta.updateTokenHint')}>{t('integ.meta.updateToken')}</Label>
+                {!editToken ? (
+                  <button type="button" onClick={() => setEditToken(true)}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
+                    style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                    <RefreshCw className="w-4 h-4" /> {t('integ.meta.updateTokenBtn')}
                   </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder="EAA…" style={inputStyle} autoComplete="off" spellCheck={false} />
+                    <button type="button" onClick={handleSave} disabled={busy !== null || token.trim().length < 20}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold flex-shrink-0 disabled:opacity-50"
+                      style={{ background: RED, color: '#fff' }}>
+                      {busy === 'save' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      {t('integ.meta.save')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <Label hint={t('integ.meta.healthHint')}>{t('integ.meta.health')}</Label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button type="button" onClick={handleHealth} disabled={busy !== null}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
+                    style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                    {busy === 'health' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+                    {t('integ.meta.healthBtn')}
+                  </button>
+                  {conn.last_health_at && <span style={{ color: T3, fontSize: 12 }}>{t('integ.meta.healthChecked').replace('{date}', fmtDate(conn.last_health_at))}</span>}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
@@ -481,17 +661,7 @@ export function MetaConnectionCard({ scope, helpPath }: { scope: MetaScope; help
           </div>
 
           <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              <a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
-                {t('integ.meta.openEventsManager')} <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-              {helpPath && (
-                <a href={helpPath} className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
-                  <Info className="w-3.5 h-3.5" /> {t('integ.meta.howTo')}
-                </a>
-              )}
-            </div>
+            <div className="flex items-center gap-3 flex-wrap">{openEventsManager}{helpLink}</div>
             <button type="button" onClick={() => setConfirmDisconnect(true)} disabled={busy !== null}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
               style={{ background: 'transparent', color: RED, border: '1px solid rgba(232,25,44,0.35)' }}>
