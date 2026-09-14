@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Check, ChevronDown, ChevronRight, Rocket,
   ArrowRight, SkipForward, Minimize2, Maximize2,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
+import { shouldAutoOpenGuide, snoozeGuide, markGuideOpened } from '@/lib/onboardingGuide';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { SupportHelpOptIn } from '@/components/onboarding/SupportHelpOptIn';
 
@@ -163,8 +164,23 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
   const { loading, stepStatuses, currentStep, isComplete, completeStep, skipStep, refetch } =
     useOwnerOnboarding(venueId);
 
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const { pathname } = useLocation();
+  const reduce = useReducedMotion();
+  const autoRef = useRef(false);
+
+  // Ouverture automatique : au plus une fois par session, et jamais ailleurs
+  // que sur le tableau de bord. Voir src/lib/onboardingGuide.ts.
+  useEffect(() => {
+    if (loading || isComplete || autoRef.current) return;
+    autoRef.current = true;
+    const isHome = pathname === '/owner' || pathname === '/owner/dashboard';
+    if (shouldAutoOpenGuide('owner', venueId, isHome)) setIsOpen(true);
+  }, [loading, isComplete, pathname, venueId]);
+
+  const openGuide = () => { markGuideOpened('owner', venueId); setIsOpen(true); };
+  const closeGuide = () => { snoozeGuide('owner', venueId); setIsOpen(false); };
 
   // Auto-open current step when hook loads
   useEffect(() => {
@@ -194,7 +210,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
 
   const handleCta = (step: StepDef) => {
     navigate(step.page);
-    setIsOpen(false);
+    closeGuide();
   };
 
   const handleSkip = async (step: StepDef) => {
@@ -207,12 +223,18 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
     if (next) setExpanded(next.key);
   };
 
-  // ── Mini pill ────────────────────────────────────────────────────────────────
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-[84px] z-50 flex items-center gap-2.5 cursor-pointer transition-all hover:scale-105 active:scale-95"
+  // ── Pastille réduite ─────────────────────────────────────────────────────────
+  const pill = (
+      <motion.button
+        key="pill"
+        onClick={openGuide}
+        initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={reduce ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.9 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.7 }}
+        whileHover={reduce ? undefined : { scale: 1.04 }}
+        whileTap={reduce ? undefined : { scale: 0.96 }}
+        className="fixed bottom-6 right-[84px] z-50 flex items-center gap-2.5 cursor-pointer"
         style={{
           background: BG,
           border: `1px solid ${BORDER}`,
@@ -239,17 +261,26 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
           {doneCount}/{TOTAL}
         </span>
         <Maximize2 className="w-3.5 h-3.5 flex-none" style={{ color: T3 }} />
-      </button>
-    );
-  }
+      </motion.button>
+  );
 
-  // ── Full-page overlay ────────────────────────────────────────────────────────
-  return (
-    <div
+  // ── Plein écran ──────────────────────────────────────────────────────────────
+  const overlay = (
+    <motion.div
+      key="guide"
       className="fixed inset-0 z-[100] overflow-y-auto flex items-start justify-center"
-      style={{ background: BG }}
+      style={{ background: BG, transformOrigin: 'calc(100% - 170px) calc(100% - 40px)' }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.26, ease: [0.22, 0.61, 0.36, 1] }}
     >
-      <div className="w-full max-w-2xl px-4 pb-12 pt-8">
+      <motion.div
+        className="w-full max-w-2xl px-4 pb-12 pt-8"
+        initial={reduce ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.04, ease: [0.22, 0.61, 0.36, 1] }}
+      >
 
         {/* ── Header ── */}
         <div className="flex items-start gap-4 mb-6">
@@ -276,7 +307,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
             </p>
           </div>
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={closeGuide}
             className="flex items-center gap-1.5 flex-none cursor-pointer hover:opacity-70 mt-1"
             style={{ color: T3, fontSize: 12 }}
           >
@@ -491,7 +522,13 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
             ? 'La guía desaparece automáticamente al completar todos los pasos.'
             : 'The guide disappears automatically once all steps are complete.'}
         </p>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {isOpen ? overlay : pill}
+    </AnimatePresence>
   );
 }
