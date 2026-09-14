@@ -140,8 +140,12 @@ Business (bien « for Business », PAS le Facebook Login classique).
 - **URL de rappel de désautorisation** :
   `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/deauthorize`
 - **Connexion OAuth client** : oui. **Connexion OAuth web** : oui.
-  **Connexion OAuth intégrée au navigateur** : oui.
-- **Appliquer HTTPS** : oui. Le reste par défaut. Enregistre.
+  **Connexion OAuth intégrée au navigateur** (webview) : **non** — la
+  connexion part toujours d'un vrai navigateur (dans l'app Pro, Safari).
+- **Appliquer HTTPS** : oui. **Mode strict pour les URI** : oui. Login
+  depuis un appareil, SDK JavaScript, domaines du SDK : non / vide.
+  Le champ « Check URI » avec example.com en haut est un testeur, sans
+  effet. Enregistre.
 
 ### 2.3 Créer la configuration de connexion
 
