@@ -62,25 +62,46 @@ un paquet de permissions. On en ajoute trois, et dans chacun on ne garde QUE
 les permissions listées ci-dessous. Chaque permission en trop est une vidéo de
 plus à fournir à l'App Review et une raison de rejet en plus.
 
-### 2.1 Ajouter les cas d'usage
+### 2.1 Choisir les cas d'usage (à la création de l'app)
 
-Tableau de bord de l'app → **Cas d'usage** → « Ajouter un cas d'usage » :
+À la création, Meta demande de cocher des **cas d'usage** ; chacun
+pré-sélectionne un paquet de permissions. Facebook Login for Business n'est
+PAS dans cette liste : il est ajouté automatiquement dès qu'un cas d'usage
+« entreprise » est coché, et ses réglages apparaissent après la création
+(2.2). Le « Authenticate and request data from users with Facebook Login »
+grisé est le Login classique grand public, incompatible : c'est normal.
 
-| Cas d'usage | On l'ajoute ? | Permissions à GARDER | À décocher / ignorer |
-|---|---|---|---|
-| **Create & manage ads with Marketing API** | **Oui** | `ads_read`, `ads_management`, `business_management` | rien d'autre |
-| **Manage everything on your Page** | **Oui** | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads` | `pages_manage_posts`, `pages_messaging`, `pages_manage_engagement`, `pages_read_user_content` (publication, messagerie, contenu : Yuno n'y touche pas) |
-| **Capture & manage ad leads with Marketing API** | **Oui** | `leads_retrieval` (+ `pages_manage_ads` déjà pris) | rien d'autre |
-| Manage messaging & content on Instagram | **Non** | — | le code n'utilise pas `instagram_basic` ; les permissions Instagram (messagerie, contenu) sont les plus scrutées par les reviewers. À ajouter seulement le jour où on associe les comptes Instagram. |
+| Cas d'usage | On le coche ? | Pourquoi |
+|---|---|---|
+| **Create & manage ads with Marketing API** | **Oui** | `ads_read`, `ads_management`, `business_management` ; audiences et campagnes (phases 3-4) |
+| **Measure ad performance data with Marketing API** | **Oui** | c'est celui de la Conversions API, des audiences personnalisées et de la qualité du dataset : le cœur de ce que Yuno fait en premier |
+| **Capture & manage ad leads with Marketing API** | **Oui** | `leads_retrieval` (Lead Ads, phase 4) |
+| **Manage everything on your Page** | **Oui** | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads` |
+| Manage messaging & content on Instagram | **Non** | le code n'utilise pas Instagram ; ses permissions (messagerie, contenu) sont les plus scrutées |
+| Other / Create an app without a use case | **Non** | ancienne expérience, en voie de disparition |
+
+Puis **Next**, type **Entreprise**, portefeuille d'entreprise de Yuno.
+
+### 2.1 bis Élaguer les permissions (après création)
+
+Tableau de bord → **Cas d'usage** → sur chaque cas, **Personnaliser** : la
+liste des permissions apportées s'affiche, avec « Ajouter » / « Retirer ».
+Ne garde que celles-ci ; chaque permission en trop est une vidéo de plus à
+fournir à l'App Review et une raison de rejet en plus.
+
+| Cas d'usage | Permissions à GARDER | À retirer |
+|---|---|---|
+| Create & manage ads / Measure ad performance | `ads_read`, `ads_management`, `business_management` | le reste |
+| Manage everything on your Page | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads` | `pages_manage_posts`, `pages_messaging`, `pages_manage_engagement`, `pages_read_user_content` (publication, messagerie, contenu) |
+| Capture & manage ad leads | `leads_retrieval` | le reste |
 
 Pourquoi tout demander maintenant alors que la connexion en un clic n'a
 besoin que de `ads_read` + `business_management` + `pages_read_engagement` :
 les audiences (phase 3) et Lead Ads / « Booster » (phase 4) exigent
 `ads_management` et `leads_retrieval`, et une App Review se fait par lot.
-Si tu préfères un premier dossier plus court, garde seulement le premier
-cas d'usage avec `ads_read` + `business_management`, et le deuxième avec
-`pages_show_list` + `pages_read_engagement` ; le reste passera dans un
-second dossier.
+Si tu préfères un premier dossier plus court, ne garde que
+`ads_read` + `business_management` + `pages_show_list` +
+`pages_read_engagement` ; le reste passera dans un second dossier.
 
 Ce que chaque permission fait dans Yuno (à réutiliser tel quel dans les
 textes de l'App Review) :
@@ -97,14 +118,15 @@ textes de l'App Review) :
 - `pages_manage_ads`, `leads_retrieval` : recevoir et lire les formulaires
   Lead Ads remplis sur les pubs du pro pour les verser dans sa base de contacts.
 
-### 2.2 Ajouter le produit Facebook Login for Business
+### 2.2 Régler Facebook Login for Business
 
-Toujours dans le tableau de bord : « Ajouter un produit » → **Facebook Login
-for Business**. Attention : PAS « Facebook Login » (classique), qui ne donne
-que des jetons utilisateur et n'est pas prévu pour agir au nom d'autres
-entreprises. Si les deux apparaissent, c'est bien celui avec « for Business ».
+Il est déjà là : **Cas d'usage → Personnaliser** (sur un cas Marketing API)
+→ onglet **Paramètres**, section « Facebook Login for Business » ; ou dans
+le menu de gauche **Facebook Login for Business → Paramètres**. Si vraiment
+il n'apparaît nulle part : « Ajouter un produit » → Facebook Login for
+Business (bien « for Business », PAS le Facebook Login classique).
 
-**Paramètres** du produit :
+**Paramètres** :
 
 - **URI de redirection OAuth valides** (copie exacte, `https`, sans `/` final) :
   `https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/meta-connect/oauth/callback`
@@ -127,11 +149,11 @@ Facebook Login for Business → **Configurations** → « Créer une configurati
 - **Expiration du jeton** : **Jamais**.
 - **Actifs** demandés : **Comptes publicitaires**, **Pages**, **Pixels /
   jeux de données**. (Instagram : non coché.)
-- **Permissions** : exactement celles de la colonne « à garder » du tableau,
+- **Permissions** : exactement celles de la colonne « à garder » du tableau 2.1 bis,
   soit `ads_read`, `ads_management`, `business_management`,
   `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`,
   `pages_manage_ads`, `leads_retrieval`. Meta ne propose ici que les
-  permissions apportées par tes cas d'usage : si une manque, retourne à 2.1.
+  permissions apportées par tes cas d'usage : si une manque, retourne à 2.1 bis.
 - Enregistre, puis copie l'**ID de configuration** (un nombre) →
   ce sera `META_LOGIN_CONFIG_ID` (étape 4).
 
