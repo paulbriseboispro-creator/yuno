@@ -15,6 +15,7 @@ import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
+import { parseMetaClientContext, metaContextToStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from "../_shared/meta-capi.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 
 // Production mode - payments go through Stripe Connect
@@ -88,6 +89,8 @@ serve(async (req) => {
       placementStatus,
       // Source tracking
       purchaseSource, trackedLinkId,
+      // Contexte Meta (consentement pub, _fbp/_fbc)
+      meta,
       // Déclaration sur l'honneur de majorité
       ageDeclaration,
       // Pré-commande de bouteilles (préparées pour l'arrivée, réglées à la table)
@@ -105,6 +108,7 @@ serve(async (req) => {
     // supprimé, reset démo, campagne finie — heurterait la FK et ferait échouer la
     // réservation. L'attribution dégrade en « non attribué », jamais en échec de vente.
     const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
+    const metaCtx = parseMetaClientContext(meta, req);
 
     // ── Déclaration sur l'honneur de majorité (bouteilles / bottle service) ───
     // Obligatoire et enregistrée côté serveur, comme pour la commande de boissons.
@@ -629,6 +633,26 @@ serve(async (req) => {
         } : {}),
       }).eq("id", onSiteReservationId);
 
+      // Meta Conversions API : une résa à régler sur place n'encaisse rien en
+      // ligne → `Lead` (valeur = prix de la formule), pas `Purchase`.
+      try {
+        const scopes = await resolveEventScopes(supabaseAdmin, eventId);
+        await enqueueMetaEvent(supabaseAdmin, {
+          eventName: "Lead",
+          eventId: `table:${onSiteReservationId}`,
+          eventKind: "table",
+          orderId: onSiteReservationId,
+          venueIds: [...scopes.venueIds, effectiveVenueId ?? null],
+          organizerUserIds: [...scopes.organizerIds, effectiveOrganizerId ?? null],
+          person: { email: user?.email || guestEmail || null, phone: phone || null, fullName: fullName || null, externalId: user?.id ?? null },
+          custom: { valueCents: Math.round(Number(onSiteTotal || 0) * 100), currency: "eur", contentIds: [eventId], contentName: scopes.title, orderId: onSiteReservationId, numItems: 1 },
+          ctx: metaCtx,
+        });
+        drainMetaOutboxInBackground(supabaseAdmin);
+      } catch (metaErr) {
+        console.error("[META] on-site lead enqueue failed (non-blocking):", metaErr);
+      }
+
       // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct du
       // club : sa case est distincte, son abonnement l'est aussi. Écrit au même
       // moment que celui du club (trigger AFTER INSERT), y compris sur une résa
@@ -1128,7 +1152,7 @@ serve(async (req) => {
       cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx) },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;

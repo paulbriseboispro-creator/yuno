@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
+import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -142,6 +143,42 @@ serve(async (req) => {
 
       // ── Side effects: run EXACTLY ONCE, gated by the atomic transition above ──
       if (didTransition) {
+
+      // Meta Conversions API — `Purchase` serveur (même event_id que le pixel de
+      // la page de succès : `order:<id>`). Portées : le club de la commande et,
+      // pour une soirée d'organisateur, celles de la soirée.
+      try {
+        const metaCtx = metaContextFromStripeMetadata(session.metadata as Record<string, string> | null);
+        const scopes = await resolveEventScopes(supabaseAdmin, order.event_id);
+        const cd = session.customer_details;
+        await enqueueMetaEvent(supabaseAdmin, {
+          eventName: 'Purchase',
+          eventId: `order:${orderId}`,
+          eventKind: 'order',
+          orderId,
+          venueIds: [...scopes.venueIds, order.venue_id ?? null],
+          organizerUserIds: scopes.organizerIds,
+          person: {
+            email: cd?.email || session.customer_email || order.user_email || null,
+            phone: cd?.phone || order.guest_phone || null,
+            firstName: order.guest_first_name || null,
+            lastName: order.guest_last_name || null,
+            fullName: cd?.name || null,
+            externalId: order.user_id ?? null,
+          },
+          custom: {
+            valueCents: session.amount_total ?? Math.round(Number(order.total || 0) * 100),
+            currency: session.currency || 'eur',
+            contentIds: order.event_id ? [order.event_id] : [`venue:${order.venue_id}`],
+            contentName: scopes.title,
+            orderId,
+          },
+          ctx: metaCtx,
+        });
+        drainMetaOutboxInBackground(supabaseAdmin);
+      } catch (metaErr) {
+        console.error('[META] purchase enqueue failed (non-blocking):', metaErr);
+      }
 
       // Create invoice — resolve ownership for co-events (venue OR organizer)
       try {
@@ -338,6 +375,7 @@ serve(async (req) => {
           orderNumber: order.order_number,
           isGuest: order.is_guest || false,
           guestEmail: order.is_guest ? order.user_email : undefined,
+          metaPurchase: { eventId: order.event_id ?? null, venueId: order.venue_id ?? null, valueCents: session.amount_total ?? null, currency: session.currency ?? 'eur' },
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

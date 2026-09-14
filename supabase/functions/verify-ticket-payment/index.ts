@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush, localizedDate } from '../_shared/auto-push.ts';
+import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -134,6 +135,43 @@ serve(async (req) => {
 
       // ── Side effects: run EXACTLY ONCE, gated by the atomic transition above ──
       if (didTransition) {
+        // Meta Conversions API — `Purchase` serveur, une seule fois (sous la
+        // transition atomique). Même event_id que le pixel navigateur de la page
+        // de succès (`ticket:<id>`) : Meta dédoublonne. Consentement relu depuis
+        // les métadonnées Stripe ; sans lui, seule la preuve est journalisée.
+        try {
+          const metaCtx = metaContextFromStripeMetadata(session.metadata as Record<string, string> | null);
+          const scopes = await resolveEventScopes(supabaseAdmin, ticket.event_id);
+          const cd = session.customer_details;
+          await enqueueMetaEvent(supabaseAdmin, {
+            eventName: 'Purchase',
+            eventId: `ticket:${ticketId}`,
+            eventKind: 'ticket',
+            orderId: ticketId,
+            venueIds: scopes.venueIds,
+            organizerUserIds: scopes.organizerIds,
+            person: {
+              email: cd?.email || session.customer_email || ticket.user_email || null,
+              phone: cd?.phone || ticket.guest_phone || null,
+              firstName: ticket.guest_first_name || null,
+              lastName: ticket.guest_last_name || null,
+              fullName: ticket.full_name || cd?.name || null,
+              externalId: effectiveUserId ?? null,
+            },
+            custom: {
+              valueCents: session.amount_total ?? Math.round(Number(ticket.total_price || 0) * 100),
+              currency: session.currency || 'eur',
+              contentIds: [ticket.event_id],
+              contentName: scopes.title,
+              orderId: ticketId,
+              numItems: ticket.quantity || 1,
+            },
+            ctx: metaCtx,
+          });
+          drainMetaOutboxInBackground(supabaseAdmin);
+        } catch (metaErr) {
+          console.error('[META] purchase enqueue failed (non-blocking):', metaErr);
+        }
 
       // Consentement SMS marketing. Le chemin Stripe live ne l'enregistrait nulle
       // part : la case cochée au checkout atterrissait dans tickets.sms_opt_in et
@@ -812,6 +850,8 @@ serve(async (req) => {
           isGuest: isGuestTicket,
           guestEmail: isGuestTicket ? ticket.user_email : undefined,
           ticketDetails,
+          // Pixel Meta navigateur (Purchase dédoublonné avec l'envoi serveur).
+          metaPurchase: { eventId: ticket.event_id, valueCents: session.amount_total ?? null, currency: session.currency ?? 'eur' },
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

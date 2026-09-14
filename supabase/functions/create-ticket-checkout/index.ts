@@ -14,6 +14,7 @@ import {
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
+import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -78,6 +79,8 @@ serve(async (req) => {
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
       purchaseSource, minorAuthDocUrl, language, trackedLinkId,
+      // Contexte Meta (consentement pub, _fbp/_fbc) → métadonnées Stripe, relues par verify-ticket-payment.
+      meta,
     } = await req.json();
     const lang = resolveLang(language);
 
@@ -90,6 +93,7 @@ serve(async (req) => {
     // échouer TOUT le checkout. L'attribution dégrade en « non attribué », jamais en
     // échec de vente. Voir _shared/tracked-link.ts.
     const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
+    const metaCtx = parseMetaClientContext(meta, req);
 
     if (!eventId || !ticketRoundId || !quantity) {
       throw new Error("Missing required fields");
@@ -1143,6 +1147,9 @@ serve(async (req) => {
         isGuest: isGuestCheckout ? 'true' : 'false',
         upsells: upsellMeta,
         reservationId: reservationId || '',
+        // Meta Conversions API : consentement + identifiants navigateur, relus au
+        // moment où l'achat est confirmé (verify-ticket-payment).
+        ...metaContextToStripeMetadata(metaCtx),
       },
       payment_intent_data: (() => {
         const clientTotalCents = split.grossAmountCents;

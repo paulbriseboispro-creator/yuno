@@ -349,3 +349,9 @@ verify_jwt = true
 # valide existe → pas de JWT garanti.
 [functions.demo-login]
 verify_jwt = false
+
+# Meta Pixel + Conversions API : connexion d'un club / organisateur / de la
+# plateforme (mode manuel). Owner, organisateur ou super admin authentifié ;
+# refusée en session support. Le jeton entre dans le Vault et n'en ressort jamais.
+[functions.meta-connect]
+verify_jwt = true

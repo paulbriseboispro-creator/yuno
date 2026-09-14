@@ -11,6 +11,7 @@ import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts"
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
+import { drainMetaOutbox } from "../_shared/meta-capi.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -230,7 +231,17 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, followups, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Meta Conversions API : filet sous le fire-and-forget des fonctions de
+    // vente (retries, worker tué) + entretien (codes de test périmés, purge 90 j).
+    let metaCapi: unknown = null;
+    try {
+      metaCapi = await drainMetaOutbox(admin, { limit: 100, timeBudgetMs: 25_000 });
+      await admin.rpc('meta_capi_housekeeping');
+    } catch (e) {
+      console.error('[META-CAPI] drain failed:', String(e));
+    }
+
+    return new Response(JSON.stringify({ processed, followups, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

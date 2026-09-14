@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush } from '../_shared/auto-push.ts';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
+import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -129,6 +130,43 @@ serve(async (req) => {
       logStep("Reservation marked as paid", { reservationId });
 
       const effectiveUserId = userId || reservation.user_id;
+
+      // Meta Conversions API — `Purchase` serveur (une seule fois, ici sous la
+      // transition atomique). Valeur = prix de la réservation (ce que le client
+      // s'engage à dépenser), pas seulement l'acompte encaissé. Même event_id
+      // que le pixel de la page de succès (`table:<id>`).
+      try {
+        const metaCtx = metaContextFromStripeMetadata(session.metadata as Record<string, string> | null);
+        const scopes = await resolveEventScopes(supabaseAdmin, reservation.event_id);
+        const cd = session.customer_details;
+        const bookingCents = Math.round(Number(reservation.total_price || 0) * 100);
+        await enqueueMetaEvent(supabaseAdmin, {
+          eventName: 'Purchase',
+          eventId: `table:${reservationId}`,
+          eventKind: 'table',
+          orderId: reservationId,
+          venueIds: scopes.venueIds,
+          organizerUserIds: scopes.organizerIds,
+          person: {
+            email: cd?.email || session.customer_email || reservation.user_email || null,
+            phone: cd?.phone || reservation.phone || reservation.guest_phone || null,
+            fullName: reservation.full_name || cd?.name || null,
+            externalId: effectiveUserId ?? null,
+          },
+          custom: {
+            valueCents: bookingCents > 0 ? bookingCents : (session.amount_total ?? 0),
+            currency: session.currency || 'eur',
+            contentIds: [reservation.event_id],
+            contentName: scopes.title,
+            orderId: reservationId,
+            numItems: reservation.guest_count || 1,
+          },
+          ctx: metaCtx,
+        });
+        drainMetaOutboxInBackground(supabaseAdmin);
+      } catch (metaErr) {
+        console.error('[META] purchase enqueue failed (non-blocking):', metaErr);
+      }
 
       const { data: event } = await supabaseAdmin
         .from('events')
@@ -515,6 +553,8 @@ serve(async (req) => {
           pushSent,
           isGuest: isGuestReservation,
           guestEmail: isGuestReservation ? reservation.user_email : undefined,
+          // Pixel Meta navigateur (Purchase dédoublonné avec l'envoi serveur). Valeur = prix de la réservation.
+          metaPurchase: { eventId: reservation.event_id, valueCents: Math.round(Number(reservation.total_price || 0) * 100) || (session.amount_total ?? null), currency: session.currency ?? 'eur' },
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -11,6 +11,7 @@ import {
 } from "../_shared/guest-list-email.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { isCompleteName } from "../_shared/guest-name.ts";
+import { parseMetaClientContext, enqueueMetaEvent, drainMetaOutboxInBackground } from "../_shared/meta-capi.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -111,6 +112,8 @@ serve(async (req) => {
       // de la soirée pour email/SMS, Yuno lui-même pour la plateforme. Jamais
       // pré-cochés côté front — ici on ne fait que transporter la réponse.
       newsletterOptIn, smsOptIn, platformOptIn,
+      // Contexte Meta (consentement pub, _fbp/_fbc) : une inscription guest list = `Lead`.
+      meta,
     } = await req.json();
     // Langue affichée au moment de l'inscription : c'est celle que l'invité
     // vient de lire, donc celle de son email de confirmation.
@@ -573,6 +576,28 @@ serve(async (req) => {
     }
 
     logStep("Entry created", { entryId: entry.id, userId: registrantUser?.id ?? null, inviteId: invite?.id ?? null, reservationCode });
+
+    // Meta Conversions API — une inscription guest list est un `Lead` pour le
+    // club et l'organisateur de la soirée (jamais un Purchase : rien n'est payé).
+    // Consentement lu depuis le corps (bandeau CMP) ; sans lui, preuve seulement.
+    try {
+      const metaCtx = parseMetaClientContext(meta, req);
+      const ev = guestList.events as { id: string; title: string | null; venue_id: string | null; partner_venue_id: string | null; organizer_user_id: string | null; partner_organizer_id: string | null };
+      await enqueueMetaEvent(supabaseAdmin, {
+        eventName: "Lead",
+        eventId: `gl:${entry.id}`,
+        eventKind: "guest_list",
+        orderId: entry.id,
+        venueIds: [ev.venue_id, ev.partner_venue_id],
+        organizerUserIds: [ev.organizer_user_id, ev.partner_organizer_id],
+        person: { email: email || null, phone: phone || null, fullName: fullName || null, externalId: registrantUser?.id ?? null },
+        custom: { contentIds: [ev.id], contentName: ev.title, orderId: entry.id, numItems: 1 },
+        ctx: metaCtx,
+      });
+      drainMetaOutboxInBackground(supabaseAdmin);
+    } catch (metaErr) {
+      console.error("[META] guest list lead enqueue failed (non-blocking):", metaErr);
+    }
 
     // ── Consentement SMS ─────────────────────────────────────────────────────
     // Même helper que les checkouts billet et table : il normalise en E.164,
