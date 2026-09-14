@@ -1158,10 +1158,28 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
 - **Mode test** : `test_event_code` sur la connexion, 7 jours max, purgé par
   `meta_capi_housekeeping`. `checkMetaToken` ne refuse qu'un 190 (un jeton
   Events Manager n'a pas toujours le droit de LIRE le dataset mais écrit).
-- Edge `meta-connect` : save / test / update / disconnect. **Le cap des
-  fonctions a de nouveau mordu le 14/09** (402) : `bulk-notify-waitlist`
-  (aucun appelant, aucun cron, aucune réponse HTTP sur 30 j) est le slot à
-  libérer, code conservé dans le repo, ne pas la redéployer.
+- **Connexion en un clic (phase 2, Facebook Login for Business)** :
+  `meta-connect` porte `oauth_start` (state HMAC signé par `META_APP_SECRET`,
+  15 min), `GET /oauth/callback` (échange du code, `discoverAssets` : jeton
+  BISU non expirant si `client_business_id`, sinon jeton utilisateur échangé
+  en longue durée 60 j avec `token_expires_at`), `select_assets` (statut
+  `pending_assets` quand plusieurs pixels), `health` (`debug_token` +
+  `dataset_quality`), `POST /data-deletion` et `/deauthorize` (`signed_request`
+  vérifié, connexions effacées par `meta_user_id`, journal
+  `meta_data_requests`). `verify_jwt = false` : chaque action POST vérifie le
+  JWT elle-même. Secrets : `META_APP_ID`, `META_APP_SECRET`,
+  `META_LOGIN_CONFIG_ID` (sans eux → `oauth_not_configured`, mode avancé
+  seul). Tout appel Graph porte `appsecret_proof` (`_shared/meta-oauth.ts`).
+  Mise en service pas à pas : `docs/META_GO_LIVE_GUIDE.md`.
+- **`META_INTEGRATION_LIVE` (`src/lib/metaIntegration.ts`) = interrupteur
+  pros.** À `false`, la carte Meta des clubs/orgas affiche « En construction »
+  et le badge « Bientôt » ; la carte plateforme (`/admin/system`) reste active
+  pour tester le bout en bout. Ne le passer à `true` qu'à la fin de la
+  checklist du guide (App Review accordée, app en Live, parcours validé).
+- Edge `meta-connect` **pas encore déployée** : le cap des fonctions a de
+  nouveau mordu le 14/09 (402). `bulk-notify-waitlist` (aucun appelant, aucun
+  cron, aucune réponse HTTP sur 30 j) est le slot à libérer, code conservé
+  dans le repo, ne pas la redéployer.
 
 ## Claude Design — design system public synchronisé
 
