@@ -77,7 +77,7 @@ grisé est le Login classique grand public, incompatible : c'est normal.
 | **Measure ad performance data with Marketing API** | **Oui** | c'est celui de la Conversions API, des audiences personnalisées et de la qualité du dataset : le cœur de ce que Yuno fait en premier |
 | **Capture & manage ad leads with Marketing API** | **Oui** | `leads_retrieval` (Lead Ads, phase 4) |
 | **Manage everything on your Page** | **Oui** | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads` |
-| Manage messaging & content on Instagram | **Non** | le code n'utilise pas Instagram ; ses permissions (messagerie, contenu) sont les plus scrutées |
+| Manage messaging & content on Instagram | **Optionnel** | uniquement pour `instagram_basic` : afficher les pubs « Booster » (phase 4) sous le compte Instagram du club plutôt que sa Page Facebook. À ne cocher que si Personnaliser permet de ne garder QUE `instagram_basic` (retirer toute la messagerie et le contenu, les permissions les plus scrutées). Sinon, seconde App Review en phase 4. |
 | Other / Create an app without a use case | **Non** | ancienne expérience, en voie de disparition |
 
 Puis **Next**, type **Entreprise**, portefeuille d'entreprise de Yuno.
@@ -94,6 +94,7 @@ fournir à l'App Review et une raison de rejet en plus.
 | Create & manage ads / Measure ad performance | `ads_read`, `ads_management`, `business_management` | le reste |
 | Manage everything on your Page | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads` | `pages_manage_posts`, `pages_messaging`, `pages_manage_engagement`, `pages_read_user_content` (publication, messagerie, contenu) |
 | Capture & manage ad leads | `leads_retrieval` | le reste |
+| Instagram (si coché) | `instagram_basic` | tout le reste (`instagram_manage_messages`, `instagram_content_publish`, `instagram_manage_comments`…) |
 
 Pourquoi tout demander maintenant alors que la connexion en un clic n'a
 besoin que de `ads_read` + `business_management` + `pages_read_engagement` :
@@ -106,6 +107,9 @@ Si tu préfères un premier dossier plus court, ne garde que
 Ce que chaque permission fait dans Yuno (à réutiliser tel quel dans les
 textes de l'App Review) :
 
+- `public_profile` et la fonctionnalité **Marketing API Access Tier** sont
+  ajoutés d'office : on les laisse, ils ne demandent rien.
+
 - `ads_read` : lire la qualité du dataset et, plus tard, la dépense et les
   résultats des campagnes pour les afficher au pro.
 - `business_management` : lister les pixels, comptes publicitaires et Pages
@@ -117,6 +121,9 @@ textes de l'App Review) :
 - `pages_manage_metadata` : abonner la Page au webhook `leadgen`.
 - `pages_manage_ads`, `leads_retrieval` : recevoir et lire les formulaires
   Lead Ads remplis sur les pubs du pro pour les verser dans sa base de contacts.
+- `instagram_basic` (optionnel) : retrouver le compte Instagram lié à la Page
+  pour que les campagnes créées par Yuno s'affichent sous le nom Instagram
+  du club.
 
 ### 2.2 Régler Facebook Login for Business
 
