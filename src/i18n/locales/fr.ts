@@ -13996,6 +13996,23 @@ const fr: Record<string, string> = {
   'em.auto.kind.table_upsell.target': 'les détenteurs d\'un billet payé sans table',
   'em.auto.kind.tier_closing.target': 'ceux qui ont cliqué sur la soirée dans un email ou rejoint sa liste d\'attente, sans place',
   'em.auto.kind.new_event.target': 'toute ta base sans place, fichiers importés compris, les plus engagés d\'abord',
+  'em.auto.sug.title': 'Yuno te propose d\'allumer…',
+  'em.auto.sug.subtitle': 'Des recettes éteintes que tes chiffres des 30 derniers jours justifient. Un clic crée le modèle Yuno et allume la recette ; tu la retouches quand tu veux.',
+  'em.auto.sug.turnOn': 'Allumer',
+  'em.auto.sug.seeAll': 'Toutes les automatisations',
+  'em.auto.sug.reach': '{n} personnes concernées',
+  'em.auto.sug.reachOne': '1 personne concernée',
+  'em.auto.sug.enabled': 'Recette « {r} » allumée. Le moteur passe toutes les 5 minutes.',
+  'em.auto.sug.abandoned': '{n} paniers abandonnés ce mois, personne ne les a relancés.',
+  'em.auto.sug.lastCall': '{event} dans {d} jours, {n} contacts sans billet.',
+  'em.auto.sug.tableUpsell': '{event} : {n} billets vendus et des tables encore libres.',
+  'em.auto.sug.newEvent': '{n} soirée(s) publiée(s) ce mois sans aucun email d\'annonce.',
+  'em.auto.sug.thanks': '{n} soirée(s) scannée(s) ce mois : un merci peut partir tout seul.',
+  'em.auto.sug.missed': '{n} soirée(s) scannée(s) ce mois : les absents peuvent être relancés.',
+  'em.auto.sug.winBack': '{n} clients silencieux depuis 60 jours.',
+  'em.auto.sug.welcome': '{n} nouvelles inscriptions ce mois, sans mot de bienvenue.',
+  'em.auto.sug.tier': '{event} : le palier ouvert est à {p} %.',
+  'notif.type.automation_suggested': 'Recette à allumer',
 };
 
 export default fr;

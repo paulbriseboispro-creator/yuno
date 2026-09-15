@@ -14364,6 +14364,23 @@ const es: Record<string, string> = {
   'em.auto.kind.table_upsell.target': 'quienes tienen entrada pagada sin mesa',
   'em.auto.kind.tier_closing.target': 'quienes pincharon la fiesta en un email o se apuntaron a su lista de espera, sin plaza',
   'em.auto.kind.new_event.target': 'toda tu base sin plaza, archivos importados incluidos, los más comprometidos primero',
+  'em.auto.sug.title': 'Yuno te propone encender…',
+  'em.auto.sug.subtitle': 'Recetas apagadas que tus cifras de los últimos 30 días justifican. Un clic crea la plantilla Yuno y enciende la receta; la retocas cuando quieras.',
+  'em.auto.sug.turnOn': 'Encender',
+  'em.auto.sug.seeAll': 'Todas las automatizaciones',
+  'em.auto.sug.reach': '{n} personas afectadas',
+  'em.auto.sug.reachOne': '1 persona afectada',
+  'em.auto.sug.enabled': 'Receta «{r}» encendida. El motor pasa cada 5 minutos.',
+  'em.auto.sug.abandoned': '{n} carritos abandonados este mes, nadie los ha recuperado.',
+  'em.auto.sug.lastCall': '{event} en {d} días, {n} contactos sin entrada.',
+  'em.auto.sug.tableUpsell': '{event}: {n} entradas vendidas y mesas aún libres.',
+  'em.auto.sug.newEvent': '{n} fiesta(s) publicada(s) este mes sin ningún email de anuncio.',
+  'em.auto.sug.thanks': '{n} fiesta(s) escaneada(s) este mes: un gracias puede salir solo.',
+  'em.auto.sug.missed': '{n} fiesta(s) escaneada(s) este mes: se puede recuperar a los ausentes.',
+  'em.auto.sug.winBack': '{n} clientes en silencio desde hace 60 días.',
+  'em.auto.sug.welcome': '{n} nuevas inscripciones este mes, sin bienvenida.',
+  'em.auto.sug.tier': '{event}: el tramo abierto está al {p} %.',
+  'notif.type.automation_suggested': 'Receta por encender',
 };
 
 export default es;

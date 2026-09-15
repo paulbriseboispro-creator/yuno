@@ -24,6 +24,7 @@ import {
 } from '@/lib/email';
 import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/components/email-studio/hooks';
 import FollowupPreviewDialog from './FollowupPreviewDialog';
+import AutomationSuggestions from './AutomationSuggestions';
 
 const RED = '#E8192C';
 const T1 = 'rgba(255,255,255,0.96)';
@@ -240,6 +241,11 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
             </div>
           ))}
         </div>
+
+        {/* ── Yuno te propose d'allumer… (recettes éteintes que les faits justifient) ── */}
+        {!loading && !isPlatform && (
+          <AutomationSuggestions scope={scope} basePath={basePath} variant="banner" onEnabled={() => void load()} />
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" style={{ color: T3 }} /></div>

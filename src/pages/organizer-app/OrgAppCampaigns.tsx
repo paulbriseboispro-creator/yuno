@@ -18,6 +18,7 @@ import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import TemplatesSection from '@/components/campaigns/TemplatesSection';
 import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
+import AutomationSuggestions from '@/components/campaigns/AutomationSuggestions';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
   T1, T2, T3,
@@ -125,6 +126,15 @@ export default function OrgAppCampaigns() {
             scope={{ kind: 'organizer', organizerId: user.id, name: orgName }}
             onBuy={() => setCreditsOpen(true)}
             refreshKey={quotaSeq}
+          />
+        )}
+
+        {/* Yuno te propose d'allumer… (recettes éteintes que les faits justifient) */}
+        {user?.id && (
+          <AutomationSuggestions
+            scope={{ kind: 'organizer', organizerId: user.id, name: orgName }}
+            basePath="/organizer-app/campaigns"
+            variant="card"
           />
         )}
 

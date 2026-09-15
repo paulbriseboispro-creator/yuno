@@ -83,6 +83,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
   // 📧 Marketing
   campaign_sent: { icon: Mail, category: 'marketing', label: 'notif.type.campaign_sent' },
+  // « Yuno te propose d'allumer… » — une recette éteinte que les faits justifient
+  // (email_automation_suggestions_sweep, une fois par recette et par mois).
+  automation_suggested: { icon: Zap, category: 'marketing', label: 'notif.type.automation_suggested' },
   // 🔴 Live ops — alertes du centre de commandement (moteur cron 5 min)
   liveops_bar_backlog:    { icon: Martini,       category: 'liveops', label: 'notif.type.liveops_bar_backlog' },
   liveops_order_stuck:    { icon: Clock,         category: 'liveops', label: 'notif.type.liveops_order_stuck' },
@@ -402,6 +405,8 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     // Marketing.
     case 'campaign_sent':
       return isManager ? null : `${basePath}/campaigns`;
+    case 'automation_suggested':
+      return isManager ? null : `${basePath}/campaigns/automations`;
 
     // CRM.
     case 'favorite_added':

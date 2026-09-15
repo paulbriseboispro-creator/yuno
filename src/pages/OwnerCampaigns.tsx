@@ -19,6 +19,7 @@ import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import TemplatesSection from '@/components/campaigns/TemplatesSection';
 import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
+import AutomationSuggestions from '@/components/campaigns/AutomationSuggestions';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
 const RED = '#E8192C';
@@ -230,6 +231,15 @@ export default function OwnerCampaigns() {
             scope={{ kind: 'venue', venueId, name: venue?.name || '' }}
             onBuy={() => setCreditsOpen(true)}
             refreshKey={quotaSeq}
+          />
+        )}
+
+        {/* ── Yuno te propose d'allumer… (recettes éteintes que les faits justifient) ── */}
+        {venueId && (
+          <AutomationSuggestions
+            scope={{ kind: 'venue', venueId, name: venue?.name || '' }}
+            basePath="/owner/campaigns"
+            variant="card"
           />
         )}
 

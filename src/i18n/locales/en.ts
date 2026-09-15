@@ -14022,6 +14022,23 @@ const en: Record<string, string> = {
   'em.auto.kind.table_upsell.target': 'paid ticket holders without a table',
   'em.auto.kind.tier_closing.target': 'people who clicked the event in an email or joined its waitlist, without a spot',
   'em.auto.kind.new_event.target': 'your whole base without a spot, imported files included, most engaged first',
+  'em.auto.sug.title': 'Yuno suggests turning on…',
+  'em.auto.sug.subtitle': 'Recipes that are off, but that your last 30 days justify. One click creates the Yuno template and turns the recipe on; edit it whenever you like.',
+  'em.auto.sug.turnOn': 'Turn on',
+  'em.auto.sug.seeAll': 'All automations',
+  'em.auto.sug.reach': '{n} people concerned',
+  'em.auto.sug.reachOne': '1 person concerned',
+  'em.auto.sug.enabled': 'Recipe “{r}” is on. The engine runs every 5 minutes.',
+  'em.auto.sug.abandoned': '{n} abandoned checkouts this month, nobody followed up.',
+  'em.auto.sug.lastCall': '{event} in {d} days, {n} contacts without a ticket.',
+  'em.auto.sug.tableUpsell': '{event}: {n} tickets sold and tables still available.',
+  'em.auto.sug.newEvent': '{n} event(s) published this month without any announcement email.',
+  'em.auto.sug.thanks': '{n} scanned event(s) this month: a thank-you can go out by itself.',
+  'em.auto.sug.missed': '{n} scanned event(s) this month: the no-shows can be followed up.',
+  'em.auto.sug.winBack': '{n} customers silent for 60 days.',
+  'em.auto.sug.welcome': '{n} new sign-ups this month, without a welcome.',
+  'em.auto.sug.tier': '{event}: the open tier is at {p}%.',
+  'notif.type.automation_suggested': 'Recipe to turn on',
 };
 
 export default en;

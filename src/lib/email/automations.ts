@@ -148,6 +148,20 @@ export interface AutomationPreview {
   next_due_at: string | null;
 }
 
+/**
+ * Une entrée de `get_email_automation_suggestions` : une recette ÉTEINTE que
+ * les faits des 30 derniers jours justifient d'allumer. `reason_key` est une
+ * clé i18n `em.auto.sug.*`, `reason_vars` ses variables ({n}, {event}, {d},
+ * {p}), `reach` le nombre de personnes concernées maintenant.
+ */
+export interface AutomationSuggestion {
+  kind: AutomationKind;
+  reason_key: string;
+  reason_vars: Record<string, string | number>;
+  reach: number;
+  event_id?: string | null;
+}
+
 /** Réponse de `get_email_send_time_insights`. */
 export interface SendTimeInsights {
   sample: number;
