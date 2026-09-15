@@ -225,13 +225,13 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Upsell boissons post-achat",
     keywords: ["upsell", "post-achat", "post-purchase", "presale", "prévente", "boisson après billet", "drinks after ticket", "page upsell", "zéro file", "skip queue"],
     path: "/owner/menu",
-    snippet: "Juste après l'achat d'un billet, le client voit une page boissons (presale d'abord, prix barré) et peut commander en un geste — la commande est liée à la soirée, retrait au bar par QR le soir J. Activée par défaut, toggle « Upsell post-achat » dans Événements → Menu boissons. Complément : automatisation push « Boissons jour J » (Notifications push) et bouton commande dans l'email de confirmation de billet.",
+    snippet: "Juste après l'achat d'un billet, le client voit une page boissons (presale d'abord, prix barré) et peut commander en un geste — la commande est liée à la soirée, retrait au bar par QR le soir J. Activée par défaut, toggle « Upsell post-achat » dans Événements → Bar → Menu boissons. Complément : automatisation push « Boissons jour J » (Notifications push) et bouton commande dans l'email de confirmation de billet.",
   },
   "live-mode": {
     title: "Mode Live (soirée)",
     keywords: ["mode live", "live mode", "live", "scan", "entrée", "entry", "takeover", "push bienvenue", "welcome push", "soirée", "night mode"],
     path: "/owner/menu",
-    snippet: "Au scan d'entrée (billet, guest list ou résa VIP), l'app du client bascule en mode soirée plein écran : ta carte en premier plan, re-commande 1 tap, statut de commande en direct avec QR de retrait, crédits conso et upsell « X tables restantes ». Le client reçoit aussi un push de bienvenue. Activé par défaut — toggle « Mode Live » dans Événements → Menu boissons pour le couper. Dure jusqu'à 2 h après la fin de l'événement.",
+    snippet: "Au scan d'entrée (billet, guest list ou résa VIP), l'app du client bascule en mode soirée plein écran : ta carte en premier plan, re-commande 1 tap, statut de commande en direct avec QR de retrait, crédits conso et upsell « X tables restantes ». Le client reçoit aussi un push de bienvenue. Activé par défaut — toggle « Mode Live » dans Événements → Bar → Menu boissons pour le couper. Dure jusqu'à 2 h après la fin de l'événement.",
   },
   "solo-bottles": {
     title: "Bouteilles sans table (Mode Live)",
