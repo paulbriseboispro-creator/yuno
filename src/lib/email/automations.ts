@@ -18,6 +18,14 @@ export const AUTOMATION_KINDS: readonly AutomationKind[] = [
   'abandoned_checkout', 'last_call', 'post_event_thanks', 'post_event_missed', 'welcome', 'win_back',
 ];
 
+/**
+ * Recettes qui ont un sens pour Yuno lui-même (portée plateforme, super admin) :
+ * pas de « dernier appel » à toute la base pour chaque soirée de chaque club.
+ */
+export const PLATFORM_AUTOMATION_KINDS: readonly AutomationKind[] = [
+  'welcome', 'abandoned_checkout', 'post_event_thanks', 'post_event_missed', 'win_back',
+];
+
 export interface AutomationMeta {
   kind: AutomationKind;
   /** Modèle Yuno créé d'un clic quand la recette n'a pas encore de modèle. */
@@ -61,7 +69,9 @@ export interface EmailAutomationRow {
 }
 
 export type AutomationSkipReason =
-  | 'bought' | 'guest_list' | 'unsubscribed' | 'suppressed' | 'no_consent' | 'cooldown' | 'event_over';
+  | 'bought' | 'guest_list' | 'unsubscribed' | 'suppressed' | 'no_consent' | 'cooldown' | 'event_over'
+  // Règles Yuno (email_send_policy) et « une soirée, un message » entre expéditeurs.
+  | 'already_event' | 'pressure_24h' | 'pressure_7d' | 'fatigue' | 'averse';
 
 /** Une entrée de `get_email_automation_stats`. */
 export interface AutomationStats {

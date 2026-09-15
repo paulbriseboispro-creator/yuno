@@ -464,7 +464,9 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
   useEmailCreditsReturn();
   const live = useStudioLiveData(campaign.blocks, campaign.eventId);
 
-  const bucketFolder = scope.kind === 'venue' ? `venue/${scope.venueId}` : `org/${scope.organizerId}`;
+  const bucketFolder = scope.kind === 'venue'
+    ? `venue/${scope.venueId}`
+    : scope.kind === 'organizer' ? `org/${scope.organizerId}` : 'platform';
 
   // Une campagne planifiée reste modifiable jusqu'au départ. « Annuler la
   // programmation » la remet en brouillon (la date est conservée pour la

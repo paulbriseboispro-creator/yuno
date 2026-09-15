@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Link2, Loader2, Mail, Users, Eye, MousePointerClick, Split, Trophy,
-  UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette, Euro, Repeat,
+  UserMinus, AlertTriangle, ShieldCheck, ShieldX, CheckCircle2, BarChart3, Palette, Euro, Repeat,
   Ticket, Crown, UserPlus, Wine,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +62,8 @@ type CampaignRow = {
   delivered_count: number;
   bounced_count: number;
   complained_count: number;
+  /** Destinataires écartés à la constitution de la file par les règles Yuno (pression, fatigue). */
+  policy_skipped_count: number | null;
   blocks_json: unknown;
   blocks_version: number | null;
   theme_json: unknown;
@@ -231,7 +233,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
 
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState<CampaignRow | null>(null);
-  const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0 });
+  const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0, policySkipped: 0 });
   // Attribution clic→action 72 h (get_email_campaign_attribution, net de frais).
   // La ligne porte le CA ET la ventilation par pilier : billets, tables VIP,
   // liste invités, boissons. Un CA seul ne dit pas ce que l'email a rempli.
@@ -291,6 +293,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
             bounced: counters.bounced_count || 0,
             complained: counters.complained_count || 0,
             failed: failedCount || 0,
+            policySkipped: counters.policy_skipped_count || 0,
           });
         }
         // Test A/B : stats par variante — best-effort, carte absente sans A/B.
@@ -381,6 +384,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
         bounced: row.bounced_count || 0,
         complained: row.complained_count || 0,
         failed: count || 0,
+        policySkipped: row.policy_skipped_count || 0,
       });
       if (row.status !== 'sending' && row.status !== 'paused') setReloadKey((k) => k + 1);
     };
@@ -754,8 +758,13 @@ export default function CampaignReport({ scope, basePath }: Props) {
                     <FunnelBar label={t('em.report.opens')} value={opens} total={rc} color={RED} />
                     <FunnelBar label={t('em.report.clickers')} value={clickers} total={rc} color="#A78BFA" />
                   </div>
-                  {(extra.complained > 0 || extra.failed > 0) && (
+                  {(extra.complained > 0 || extra.failed > 0 || extra.policySkipped > 0) && (
                     <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+                      {extra.policySkipped > 0 && (
+                        <span className="inline-flex items-center gap-1.5" style={{ color: T2, fontSize: 12 }}>
+                          <ShieldCheck className="w-3.5 h-3.5" style={{ color: POS }} /> {extra.policySkipped.toLocaleString()} {t('em.report.policySkipped')}
+                        </span>
+                      )}
                       {extra.failed > 0 && (
                         <span className="inline-flex items-center gap-1.5" style={{ color: NEG, fontSize: 12 }}>
                           <AlertTriangle className="w-3.5 h-3.5" /> {extra.failed.toLocaleString()} {t('em.report.failed')}

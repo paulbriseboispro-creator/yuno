@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AtSign, Download, Loader2, Mail, MessageSquare, Plus, RefreshCw, ShieldOff,
-  Upload, Users, Wallet,
+  Upload, Users, Wallet, Workflow,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
+import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
 import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import type { StudioScope } from '@/components/email-studio/hooks';
 
@@ -211,6 +212,7 @@ export default function AdminMarketing() {
               {t('pm.sync')}
             </Btn>
             <Btn onClick={() => setImportOpen(true)}><Upload className="h-3.5 w-3.5" />{t('pm.import')}</Btn>
+            <Btn onClick={() => navigate('/admin/marketing/automations')}><Workflow className="h-3.5 w-3.5" />{t('pm.automations')}</Btn>
             <Btn onClick={() => navigate('/admin/marketing/sms')}><MessageSquare className="h-3.5 w-3.5" />{t('pm.smsLink')}</Btn>
             <Btn variant="primary" onClick={() => navigate(`${EMAIL_BASE}/new`)}>
               <Plus className="h-3.5 w-3.5" />{t('pm.newCampaign')}
@@ -370,4 +372,20 @@ export function AdminMarketingEmailEditor() {
 /** Rapport de campagne en portée plateforme. */
 export function AdminMarketingEmailReport() {
   return <CampaignReport basePath={EMAIL_BASE} scope={PLATFORM_SCOPE} />;
+}
+
+/** Modèle d'email de Yuno, ouvert seul dans le studio (même contrat que le club). */
+export function AdminMarketingTemplateEditor() {
+  return <StudioShell basePath={EMAIL_BASE} scope={PLATFORM_SCOPE} templateMode />;
+}
+
+/**
+ * Recettes automatiques de Yuno lui-même : bienvenue, merci d'être venu, on t'a
+ * manqué, panier abandonné, reconquête — dans les modèles Yuno, vers le
+ * registre de consentement plateforme uniquement. Même moteur, mêmes règles
+ * que les clubs ; quand une recette Yuno est allumée, l'email historique
+ * équivalent (send-missed-you) s'efface : une soirée, un message.
+ */
+export function AdminMarketingAutomations() {
+  return <EmailAutomationsPanel basePath={EMAIL_BASE} scope={PLATFORM_SCOPE} />;
 }

@@ -116,3 +116,51 @@ Le worker `send-campaign` ne change pas : les enfants sont des campagnes
 ordinaires en `sending`, remplies contact par contact, drainées par le balayage
 du cron, avec les mêmes liens suivis (`yc=`, canal `newsletter`), donc la même
 attribution par pilier que n'importe quelle campagne.
+
+
+## Addendum 2026-09-15 — la politique d'envoi Yuno et le tri des emails Yuno
+
+**Le problème que la première version ignorait.** Yuno est multi-tenant : une
+même adresse est dans la base de trois clubs, d'un organisateur et de Yuno.
+Chacun a ses campagnes, ses recettes, et Yuno avait ses propres emails
+automatiques (récap, on t'a manqué, upsell, recommandations). Sans arbitre, la
+même personne recevait six emails marketing en 24 h. Le désabonnement et le
+signalement « spam » qui suivent tombent sur un domaine partagé : ce sont les
+confirmations de billets de tout le monde qui finissent en indésirable.
+
+**La réponse : une politique SQL unique, non modifiable** (`email_send_policy`,
+migration `20260915140000`), appliquée à tout le marketing, jamais au
+transactionnel :
+
+| Règle | Automatisation | Urgent (panier, upsell) | Campagne / renvoi |
+|---|---|---|---|
+| Pression 24 h | 1 | 2 | 3 |
+| Pression 7 j | 3 | 5 | 8 |
+| Fatigue (8 envois / 90 j sans ouverture) | bloque | bloque | bloque |
+| Aversion (2 désabonnements / 30 j) | bloque | bloque | — |
+| Une soirée, un message par recette | oui, tous expéditeurs, le pro avant Yuno | | |
+
+Le pro voit l'effet (« protégés par les règles Yuno ») dans ses rapports et
+dans le bilan de chaque recette. Rien n'est réglable : c'est la condition pour
+que la réputation partagée tienne.
+
+**Le tri des emails automatiques de Yuno vers les clients.** Gardés, parce que
+transactionnels ou relationnels : confirmations (billet, guest list, invitation,
+table, commande, walk-in), statuts de table, remboursement, mise à jour de
+soirée, « c'est ce soir », liste d'attente (inscription et ouverture),
+« bientôt complet », points de fidélité, codes et alertes de sécurité. Gardés
+comme marketing Yuno, désormais policés et coupables depuis
+`/admin/notifications` : « on t'a manqué » et « des soirées pour toi ».
+Retirés : « ta soirée en chiffres » (récap statistique, pas assez premium) et
+l'upsell post-achat (la confirmation de billet porte déjà la commande de
+boissons). Tous les emails clients passent par `email-kit.ts`, la traduction
+email-safe de `DESIGN_SYSTEM_PUBLIC.md` ; les quatre derniers rendus hors
+système (statuts VIP, récap walk-in, inscription liste d'attente, alerte 2FA)
+ont reçu leur builder.
+
+**Les recettes de Yuno lui-même.** Le super admin dispose des mêmes recettes
+(bienvenue, merci d'être venu, on t'a manqué, panier abandonné, reconquête) en
+portée plateforme, dans les modèles Yuno, vers le seul registre de
+consentement plateforme. Quand une recette Yuno est allumée, l'email historique
+équivalent s'efface (« une soirée, un message »), et les recettes des pros
+passent toujours avant.

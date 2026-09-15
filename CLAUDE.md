@@ -1072,6 +1072,52 @@ Migration `20260915120000`, module `_shared/email-automations.ts`, page
 - Assistant owner : `list_email_automations` (lecture) et
   `set_email_automation` (écriture, confirmation) ; il ne crée pas de modèle.
 
+## Politique d'envoi Yuno — les règles qu'aucun expéditeur ne désactive (2026-09-15)
+
+Migration `20260915140000_email_send_policy.sql`, miroir Deno
+`_shared/email-policy.ts`. Une adresse vit dans la base de plusieurs clubs, d'un
+organisateur et de Yuno ; la réputation d'envoi est partagée. D'où UNE politique
+SQL, constante, appliquée à tout le marketing, jamais au transactionnel :
+
+- **`email_send_policy(email, kind)` est la porte unique** : NULL = permis,
+  sinon `suppressed` / `pressure_24h` / `pressure_7d` / `fatigue` / `averse`.
+  Paliers : automatisation 1/24 h · 3/7 j ; urgent (`abandoned_checkout`,
+  `upsell`) 2/24 h · 5/7 j ; campagne (`campaign`, `resend`) 3/24 h · 8/7 j.
+  Fatigue = 8 envois marketing en 90 j sans `opened`/`clicked` ; aversion =
+  2 `opted_out_at` en 30 j (automatisations seulement). Elle lit
+  `email_campaign_recipients` (status `sent`, campagnes `promotional`) ET
+  `marketing_email_log`, le journal des emails marketing hors campagne.
+- **Où elle s'applique** : `enqueue_campaign_recipients` (campagnes
+  manuelles : écartés en `status = 'skipped'`, `error_message = 'policy:…'`,
+  comptés dans `policy_skipped_count`, affichés « protégés par les règles
+  Yuno » dans le rapport), `collect_email_automations` (CASE `judged`),
+  `collect_campaign_resends`, et les emails Yuno historiques via
+  `emailSendPolicy()` + `logMarketingEmail()`. Un email de service
+  (`type = 'informational'`) n'est jamais filtré par la pression.
+- **R5 « une soirée, un message »** : index unique
+  `(kind, trigger_event_id, lower(email))` sur les lignes `queued` de
+  `email_automation_sends`, tous expéditeurs ; le moteur traite les pros
+  avant Yuno (`ORDER BY is_platform`). `email_automation_covers_event(event,
+  kind)` dit si une recette (club, orga ou Yuno) couvre une soirée : les
+  emails historiques de Yuno s'effacent alors.
+- **Portée plateforme des recettes** : `email_automations` accepte les deux
+  colonnes à NULL (super admin, `/admin/marketing/automations`,
+  `PLATFORM_AUTOMATION_KINDS` — pas de `last_call` pour Yuno). Candidats lus
+  dans le registre plateforme seul, démo exclue, sans « prochaine soirée » ni
+  blocs live. Modèles Yuno édités dans `/admin/marketing/email/templates/:id`.
+- **Emails automatiques Yuno → clients, état 2026-09-15** : conservés
+  `send-missed-you` (mercredi) et `send-next-event-recommendation` (quotidien,
+  1/semaine/personne), gatés dans `/admin/notifications` (`email_missed_you`,
+  `email_next_event_rec`), policés et journalisés. **Retirés** :
+  `send-event-recap` (« ta soirée en chiffres ») et `send-upsell-email`
+  (redondant avec la section boissons de la confirmation) — fonctions,
+  crons et builders supprimés ; ne pas les ressusciter, le « merci d'être
+  venu » est une recette. Tout email client passe par `email-kit.ts`
+  (DESIGN_SYSTEM_PUBLIC) ; `wrapEmailWithBranding` ne sert plus à aucun
+  email client (statuts VIP, récap walk-in, liste d'attente et alerte 2FA
+  ont leur builder). `send-test-email` action `preview` envoie chaque
+  builder avec des données mock au fondateur.
+
 ## Envoi de masse email (2026-08-29)
 
 Doc complète + runbook DNS : `docs/EMAIL_DELIVERABILITY.md`. Les règles

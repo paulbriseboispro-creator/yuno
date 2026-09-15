@@ -59,6 +59,9 @@ const CATALOG: { key: string; category: Category; dormant?: boolean }[] = [
   { key: 'promoter_team_override', category: 'engagement' },
   { key: 'promoter_event_assigned', category: 'engagement' },
   { key: 'cart_abandonment', category: 'marketing' },
+  // Emails automatiques de Yuno (pas des push) : même interrupteur, même registre.
+  { key: 'email_missed_you', category: 'marketing' },
+  { key: 'email_next_event_rec', category: 'marketing' },
   { key: 'inactivity_reminder', category: 'marketing' },
   { key: 'taste_discovery', category: 'marketing' },
   { key: 'audience_weekly_recap', category: 'engagement' },

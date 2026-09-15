@@ -298,6 +298,8 @@ const AdminLinks = lazyWithRetry(() => import("./pages/admin/AdminLinks"));
 const AdminMarketing = lazyWithRetry(() => import("./pages/admin/AdminMarketing"));
 const AdminMarketingEmailEditor = lazyWithRetry(() => import("./pages/admin/AdminMarketing").then(m => ({ default: m.AdminMarketingEmailEditor })));
 const AdminMarketingEmailReport = lazyWithRetry(() => import("./pages/admin/AdminMarketing").then(m => ({ default: m.AdminMarketingEmailReport })));
+const AdminMarketingTemplateEditor = lazyWithRetry(() => import("./pages/admin/AdminMarketing").then(m => ({ default: m.AdminMarketingTemplateEditor })));
+const AdminMarketingAutomations = lazyWithRetry(() => import("./pages/admin/AdminMarketing").then(m => ({ default: m.AdminMarketingAutomations })));
 const AdminMarketingSms = lazyWithRetry(() => import("./pages/admin/AdminMarketingSms"));
 const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
@@ -1213,6 +1215,8 @@ const App = () => (
                   <Route path="marketing/email/new" element={<AdminMarketingEmailEditor />} />
                   <Route path="marketing/email/:id/edit" element={<AdminMarketingEmailEditor />} />
                   <Route path="marketing/email/:id/report" element={<AdminMarketingEmailReport />} />
+                  <Route path="marketing/email/templates/:id" element={<AdminMarketingTemplateEditor />} />
+                  <Route path="marketing/automations" element={<AdminMarketingAutomations />} />
                   <Route path="marketing/sms" element={<AdminMarketingSms />} />
                   <Route path="marketing/sms/:id" element={<AdminMarketingSms />} />
                   <Route path="push" element={<AdminPushNotifications />} />

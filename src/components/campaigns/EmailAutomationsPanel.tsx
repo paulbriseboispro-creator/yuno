@@ -12,13 +12,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowLeft, Clock3, Eye, HeartHandshake, Loader2, MailOpen, Moon, PartyPopper, ScanLine,
-  ShieldCheck, ShoppingCart, Sparkles, UserRoundPlus, Zap,
+  ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, UserRoundPlus, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  AUTOMATION_KINDS, AUTOMATION_META, buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
+  AUTOMATION_KINDS, AUTOMATION_META, PLATFORM_AUTOMATION_KINDS, buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
   type AutomationKind, type AutomationSkipReason, type AutomationStats, type EmailAutomationRow,
 } from '@/lib/email';
 import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/components/email-studio/hooks';
@@ -46,6 +46,7 @@ const ICONS: Record<AutomationKind, typeof Zap> = {
 
 const SKIP_REASONS: readonly AutomationSkipReason[] = [
   'bought', 'guest_list', 'unsubscribed', 'suppressed', 'no_consent', 'cooldown', 'event_over',
+  'already_event', 'pressure_24h', 'pressure_7d', 'fatigue', 'averse',
 ];
 
 interface ChildRow {
@@ -60,7 +61,8 @@ interface ChildRow {
 const nf = (n: number) => n.toLocaleString('fr-FR');
 
 export default function EmailAutomationsPanel({ scope, basePath }: {
-  scope: Extract<StudioScope, { kind: 'venue' | 'organizer' }>;
+  /** Club, organisateur, ou Yuno lui-même (super admin : les deux colonnes de portée à NULL). */
+  scope: StudioScope;
   /** Racine des campagnes de la portée (rapports, modèles). */
   basePath: string;
 }) {
@@ -77,21 +79,24 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const [busy, setBusy] = useState<AutomationKind | null>(null);
   const [preview, setPreview] = useState<AutomationKind | null>(null);
 
+  const isPlatform = scope.kind === 'platform';
   const scopeCol = scope.kind === 'venue' ? 'venue_id' : 'organizer_user_id';
-  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.kind === 'organizer' ? scope.organizerId : null;
+  const kinds = isPlatform ? PLATFORM_AUTOMATION_KINDS : AUTOMATION_KINDS;
 
   const load = useCallback(async () => {
+    const autoQ = supabase.from('email_automations' as never)
+      .select('id,kind,enabled,enabled_at,delay_hours,template_id,subject');
     const [{ data: autoRows }, { data: statRows }, { data: attribution }] = await Promise.all([
-      supabase.from('email_automations' as never)
-        .select('id,kind,enabled,enabled_at,delay_hours,template_id,subject')
-        .eq(scopeCol, scopeId),
+      isPlatform ? autoQ.is('venue_id', null).is('organizer_user_id', null) : autoQ.eq(scopeCol, scopeId as string),
       supabase.rpc('get_email_automation_stats' as never, {
         p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
         p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
       } as never),
-      supabase.rpc('get_email_campaign_attribution' as never, {
-        p_subject_type: scope.kind, p_subject_id: scopeId,
-      } as never),
+      // Yuno n'encaisse rien pour lui-même : pas de revenu attribué en portée plateforme.
+      isPlatform
+        ? Promise.resolve({ data: null })
+        : supabase.rpc('get_email_campaign_attribution' as never, { p_subject_type: scope.kind, p_subject_id: scopeId } as never),
     ]);
     const byKind: Partial<Record<AutomationKind, EmailAutomationRow>> = {};
     for (const r of ((autoRows || []) as unknown as EmailAutomationRow[])) byKind[r.kind] = r;
@@ -117,7 +122,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
       setChildren([]);
     }
     setLoading(false);
-  }, [scope, scopeCol, scopeId]);
+  }, [scope, scopeCol, scopeId, isPlatform]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -133,7 +138,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
         const { data: auth } = await supabase.auth.getUser();
         const meta = AUTOMATION_META[kind];
         const { error } = await supabase.from('email_automations' as never).insert({
-          [scopeCol]: scopeId, kind, enabled: false,
+          ...(isPlatform ? {} : { [scopeCol]: scopeId }), kind, enabled: false,
           delay_hours: delayToHours(meta, meta.defaultDelay), template_id: null, subject: null,
           created_by: auth.user?.id || null,
           ...patch,
@@ -145,7 +150,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
     } finally {
       setBusy(null);
     }
-  }, [rows, scopeCol, scopeId, load]);
+  }, [rows, scopeCol, scopeId, isPlatform, load]);
 
   /** Modèle Yuno de la recette, créé d'un clic et attaché. */
   const createStarter = useCallback(async (kind: AutomationKind, thenEnable: boolean) => {
@@ -193,7 +198,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
           <div style={{ flex: 1 }}>
             <div style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{scope.name}</div>
             <h1 style={{ margin: '6px 0 0', color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{t('em.auto.title')}</h1>
-            <div style={{ color: T2, fontSize: 13, marginTop: 6, lineHeight: 1.5, maxWidth: 720 }}>{t('em.auto.subtitle')}</div>
+            <div style={{ color: T2, fontSize: 13, marginTop: 6, lineHeight: 1.5, maxWidth: 720 }}>{isPlatform ? t('em.auto.platformNote') : t('em.auto.subtitle')}</div>
           </div>
           <div style={{ padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, color: enabledCount > 0 ? POS : T3, background: enabledCount > 0 ? 'rgba(52,211,153,0.10)' : INNER_BG, border: `1px solid ${enabledCount > 0 ? 'rgba(52,211,153,0.25)' : BORDER}`, flex: 'none' }}>
             {t('em.auto.enabledCount').replace('{n}', String(enabledCount))}
@@ -207,6 +212,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
             { icon: ShieldCheck, key: 'how2' },
             { icon: Moon, key: 'how3' },
             { icon: Clock3, key: 'how4' },
+            { icon: ShieldAlert, key: 'how5' },
           ].map(({ icon: Icon, key }) => (
             <div key={key} className="flex items-start gap-2.5">
               <Icon className="w-4 h-4 shrink-0 mt-0.5" style={{ color: RED }} />
@@ -219,7 +225,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
           <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin" style={{ color: T3 }} /></div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {AUTOMATION_KINDS.map((kind) => (
+            {kinds.map((kind) => (
               <RecipeCard
                 key={kind}
                 kind={kind}
@@ -227,7 +233,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
                 stats={stats[kind] || null}
                 templates={templates}
                 childrenRows={children.filter((c) => c.automation_id === rows[kind]?.id).slice(0, 3)}
-                revenue={(stats[kind]?.campaign_ids || []).reduce((sum, id) => sum + (revenue[id] || 0), 0)}
+                revenue={isPlatform ? null : (stats[kind]?.campaign_ids || []).reduce((sum, id) => sum + (revenue[id] || 0), 0)}
                 busy={busy === kind}
                 basePath={basePath}
                 onToggle={(v) => void toggle(kind, v)}
@@ -267,7 +273,8 @@ function RecipeCard({
   stats: AutomationStats | null;
   templates: Array<{ id: string; name: string; subject?: string }>;
   childrenRows: ChildRow[];
-  revenue: number;
+  /** null = pas de revenu à montrer (portée Yuno). */
+  revenue: number | null;
   busy: boolean;
   basePath: string;
   onToggle: (v: boolean) => void;
@@ -312,7 +319,7 @@ function RecipeCard({
             <Stat label={t('em.auto.stat.sent')} value={nf(stats.sent)} />
             <Stat label={t('em.auto.stat.opens')} value={nf(stats.opens)} />
             <Stat label={t('em.auto.stat.clickers')} value={nf(stats.clickers)} />
-            <Stat label={t('em.auto.stat.revenue')} value={formatEuro(revenue)} accent />
+            {revenue != null && <Stat label={t('em.auto.stat.revenue')} value={formatEuro(revenue)} accent />}
           </div>
         )}
         <button
@@ -419,7 +426,7 @@ function RecipeCard({
                     <Stat label={t('em.auto.stat.opens')} value={nf(stats.opens)} />
                     <Stat label={t('em.auto.stat.clickers')} value={nf(stats.clickers)} />
                     <Stat label={t('em.auto.stat.unsubscribes')} value={nf(stats.unsubscribes)} />
-                    <Stat label={t('em.auto.stat.revenue')} value={formatEuro(revenue)} accent />
+                    {revenue != null && <Stat label={t('em.auto.stat.revenue')} value={formatEuro(revenue)} accent />}
                   </div>
                   {skipped.length > 0 && (
                     <div style={{ color: T3, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
