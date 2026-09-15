@@ -90,8 +90,18 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   (le nom est un lien, le chevron ne fait qu'ouvrir la liste) et sa section
   s'ouvre toute seule quand la route entre dedans. Une page nouvelle se range
   sous l'entrée dont elle est le prolongement (Service VIP sous Tables VIP,
-  Automatisations sous Campagnes email, Remboursements sous Commandes) — jamais
-  une sixième entrée à plat. Tout vit dans `buildNavGroups` (`app-shared.tsx`,
+  Automatisations sous Email, Remboursements sous Commandes) — jamais une
+  sixième entrée à plat. **Une sous-entrée est un JOB, pas une vue** : les
+  onglets de préparation en sont (Tables VIP → Zones / Packs / Templates,
+  Staff → Briefing / Activité), les onglets qui filtrent une même liste n'en
+  sont pas (les quatre piliers de Commandes restent des onglets, la barre ne
+  double pas la barre d'onglets d'une page). Un onglet visé depuis la barre
+  doit être adressable : passer par `useTabParam` (`src/hooks/useTabParam.ts`,
+  `?tab=`), jamais un `useState` nu — sinon le lien ouvre la page sur son
+  onglet par défaut. Quand un parent et son premier enfant sont deux jumeaux
+  (Email → Campagnes + Automatisations, Bar → Carte + Upsells, Facturation →
+  Factures + Compta), le parent NOMME la catégorie et pointe sur la première
+  page : c'est ce qui évite une section qui s'ouvre sur une ligne unique. Tout vit dans `buildNavGroups` (`app-shared.tsx`,
   club) et `buildOrgNavGroups` (`org-sidebar.tsx`, orga) ; le rendu commun est
   `nav-group.tsx`, partagé avec les barres DJ / promoteur / affilié / agence.
   L'entrée active se déduit du PRÉFIXE de route (`/owner/campaigns/new` allume
