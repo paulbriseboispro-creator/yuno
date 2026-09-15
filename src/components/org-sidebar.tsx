@@ -46,11 +46,16 @@ import {
 	PlugIcon,
 	RocketIcon,
 	LifeBuoyIcon,
+	FolderOpenIcon,
+	LayersIcon,
+	GlobeIcon,
+	UserCheckIcon,
+	CoinsIcon,
 } from "lucide-react";
 
 type TT = (fr: string, en: string, es?: string) => string;
 
-function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
+function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
@@ -68,7 +73,8 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			],
 		},
 		{
-			// Les soirées et les piliers qui s'y vendent.
+			// Les soirées et les piliers qui s'y vendent. Les sous-entrées pointent
+			// sur les onglets de préparation (?tab=), pas sur des filtres.
 			label: tt("Soirées", "Events", "Noches"),
 			items: [
 				{
@@ -80,13 +86,28 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 						{ title: tt("Rareté & FOMO", "Scarcity & FOMO"), path: "/organizer-app/scarcity", icon: <SparklesIcon /> },
 					],
 				},
-				{ title: tt("Billetterie", "Ticketing"), path: "/organizer-app/ticketing", icon: <TicketIcon /> },
-				{ title: tt("Guest List", "Guest List"), path: "/organizer-app/guest-list", icon: <UsersIcon /> },
+				{
+					title: tt("Billetterie", "Ticketing"),
+					path: "/organizer-app/ticketing",
+					icon: <TicketIcon />,
+					subItems: [
+						{ title: t('tickets.presets'), path: "/organizer-app/ticketing?tab=presets", icon: <FolderOpenIcon /> },
+					],
+				},
+				{
+					title: tt("Guest List", "Guest List"),
+					path: "/organizer-app/guest-list",
+					icon: <UsersIcon />,
+					subItems: [
+						{ title: t('guestList.tabs.templates'), path: "/organizer-app/guest-list?tab=templates", icon: <FolderOpenIcon /> },
+					],
+				},
 				{
 					title: tt("Tables VIP", "VIP Tables"),
 					path: "/organizer-app/tables",
 					icon: <CrownIcon />,
 					subItems: [
+						{ title: tt("Salles VIP", "VIP rooms", "Salas VIP"), path: "/organizer-app/tables?tab=rooms", icon: <LayersIcon /> },
 						{ title: tt("Service VIP", "VIP Service"), path: "/organizer-app/vip-service", icon: <CrownIcon /> },
 					],
 				},
@@ -96,6 +117,8 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 					path: "/organizer-app/djs",
 					icon: <Music2Icon />,
 					subItems: [
+						{ title: t('owner.calendar'), path: "/organizer-app/djs?tab=calendar", icon: <CalendarIcon /> },
+						{ title: t('owner.djList'), path: "/organizer-app/djs?tab=djs", icon: <Music2Icon /> },
 						{ title: tt("Booking DJ", "Booking DJ"), path: "/organizer-app/book-dj", icon: <WandIcon /> },
 					],
 				},
@@ -114,10 +137,11 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 					],
 				},
 				{
-					title: tt("Factures", "Invoices"),
+					title: tt("Facturation", "Invoicing", "Facturación"),
 					path: "/organizer-app/invoices",
 					icon: <FileTextIcon />,
 					subItems: [
+						{ title: tt("Factures", "Invoices"), path: "/organizer-app/invoices", icon: <FileTextIcon /> },
 						{ title: tt("Compta", "Accounting"), path: "/organizer-app/accounting", icon: <CalculatorIcon /> },
 					],
 				},
@@ -128,22 +152,36 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			// Les gens, puis chaque canal pour leur parler.
 			label: tt("Marketing & CRM", "Marketing & CRM"),
 			items: [
-				{ title: tt("Clients", "Customers"), path: "/organizer-app/customers", icon: <UsersIcon /> },
 				{
-					title: tt("Campagnes Email", "Email Campaigns"),
+					title: tt("Clients", "Customers"),
+					path: "/organizer-app/customers",
+					icon: <UsersIcon />,
+					subItems: [
+						{ title: t('customers.originsTab'), path: "/organizer-app/customers?tab=origins", icon: <GlobeIcon /> },
+					],
+				},
+				{
+					title: t('sidebar.emailMarketing'),
 					path: "/organizer-app/campaigns",
 					icon: <MailIcon />,
 					subItems: [
+						{ title: tt("Campagnes Email", "Email Campaigns"), path: "/organizer-app/campaigns", icon: <MailIcon /> },
 						{ title: tt("Automatisations email", "Email automations"), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
 					],
 				},
 				{ title: tt("Campagnes SMS", "SMS Campaigns"), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{ title: tt("Publicité", "Ads"), path: "/organizer-app/ads", icon: <RocketIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{
+					// Les quatre pages du programme promoteur n'étaient atteignables
+					// que par des cartes au milieu de la page d'accueil du programme.
 					title: tt("Promoteurs", "Promoters"),
 					path: "/organizer-app/promoters",
 					icon: <MegaphoneIcon />,
 					subItems: [
+						{ title: t('sidebar.promoterTemplates'), path: "/organizer-app/promoters/templates", icon: <FileTextIcon /> },
+						{ title: t('sidebar.promoterTeams'), path: "/organizer-app/promoters/teams", icon: <UsersIcon /> },
+						{ title: t('owner.announcements'), path: "/organizer-app/promoters/announcements", icon: <MegaphoneIcon /> },
+						{ title: t('sidebar.promoterFinance'), path: "/organizer-app/promoters/finance", icon: <CoinsIcon /> },
 						{ title: tt("Agences", "Agencies"), path: "/organizer-app/agencies", icon: <HandshakeIcon /> },
 					],
 				},
@@ -153,7 +191,14 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			label: tt("Réglages", "Settings"),
 			items: [
 				{ title: tt("Mon organisation", "My organization"), path: "/organizer-app/organization", icon: <SettingsIcon /> },
-				{ title: tt("Équipe", "Team"), path: "/organizer-app/team", icon: <ShieldIcon /> },
+				{
+					title: tt("Équipe", "Team"),
+					path: "/organizer-app/team",
+					icon: <ShieldIcon />,
+					subItems: [
+						{ title: tt("Staff Opérationnel", "Operational Staff"), path: "/organizer-app/team?tab=staff", icon: <UserCheckIcon /> },
+					],
+				},
 				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },
 				{ title: tt("Intégrations", "Integrations"), path: "/organizer-app/integrations", icon: <PlugIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{ title: tt("Assistance Yuno", "Yuno support", "Asistencia Yuno"), path: "/organizer-app/support-access", icon: <LifeBuoyIcon /> },
@@ -171,9 +216,9 @@ function buildOrgFooterNavLinks(tt: TT): SidebarNavItem[] {
 }
 
 export function OrgAppSidebar() {
-	const { language } = useLanguage();
+	const { language, t } = useLanguage();
 	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
-	const navGroups = buildOrgNavGroups(tt);
+	const navGroups = buildOrgNavGroups(tt, t);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (

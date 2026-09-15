@@ -36,6 +36,10 @@ import {
 	ListChecksIcon,
 	CoinsIcon,
 	ShieldIcon,
+	FolderOpenIcon,
+	LayersIcon,
+	PackageIcon,
+	GlobeIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
@@ -86,7 +90,8 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 			],
 		},
 		{
-			// Les soirées et les trois piliers qui s'y vendent.
+			// Les soirées et les trois piliers qui s'y vendent. Les sous-entrées
+			// pointent sur les onglets de préparation (?tab=), pas sur des filtres.
 			label: t('sidebar.group.events'),
 			items: [
 				{
@@ -103,6 +108,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/ticketing",
 					icon: <TicketIcon />,
 					subItems: [
+						{ title: t('tickets.presets'), path: "/owner/ticketing?tab=presets", icon: <FolderOpenIcon /> },
 						{ title: t('waitlist.title'), path: "/owner/waitlist", icon: <ListChecksIcon /> },
 					],
 				},
@@ -110,20 +116,29 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.guestList'),
 					path: "/owner/guest-list",
 					icon: <UsersIcon />,
+					subItems: [
+						{ title: t('guestList.tabs.templates'), path: "/owner/guest-list?tab=templates", icon: <FolderOpenIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.vipTables'),
 					path: "/owner/tables",
 					icon: <Wine />,
 					subItems: [
+						{ title: t('tables.zones'), path: "/owner/tables?tab=zones", icon: <LayersIcon /> },
+						{ title: t('tables.packs'), path: "/owner/tables?tab=packs", icon: <PackageIcon /> },
+						{ title: t('tables.presets'), path: "/owner/tables?tab=presets", icon: <FolderOpenIcon /> },
 						{ title: t('sidebar.vipService'), path: "/owner/vip-service", icon: <CrownIcon /> },
 					],
 				},
 				{
-					title: t('sidebar.drinkMenu'),
+					// Le bar : la carte et ce qu'on vend en plus. Deux jobs jumeaux,
+					// d'où un parent qui les nomme tous les deux.
+					title: t('sidebar.bar'),
 					path: "/owner/menu",
 					icon: <Martini />,
 					subItems: [
+						{ title: t('sidebar.drinkMenu'), path: "/owner/menu", icon: <Martini /> },
 						{ title: t('sidebar.upsells'), path: "/owner/upsell", icon: <GiftIcon /> },
 					],
 				},
@@ -132,6 +147,8 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/djs",
 					icon: <Music2Icon />,
 					subItems: [
+						{ title: t('owner.calendar'), path: "/owner/djs?tab=calendar", icon: <CalendarIcon /> },
+						{ title: t('owner.djList'), path: "/owner/djs?tab=djs", icon: <Music2Icon /> },
 						{ title: t('sidebar.bookDJ'), path: "/owner/book-dj", icon: <WandIcon /> },
 					],
 				},
@@ -150,10 +167,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					],
 				},
 				{
-					title: t('sidebar.invoices'),
+					title: t('sidebar.invoicing'),
 					path: "/owner/invoices",
 					icon: <FileTextIcon />,
 					subItems: [
+						{ title: t('sidebar.invoices'), path: "/owner/invoices", icon: <FileTextIcon /> },
 						{ title: t('sidebar.accounting'), path: "/owner/accounting", icon: <CalculatorIcon /> },
 					],
 				},
@@ -175,23 +193,26 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/customers",
 					icon: <UsersIcon />,
 					subItems: [
+						{ title: t('customers.originsTab'), path: "/owner/customers?tab=origins", icon: <GlobeIcon /> },
 						{ title: t('sidebar.loyalty'), path: "/owner/loyalty", icon: <HeartIcon /> },
 					],
 				},
 				{
-					title: t('sidebar.emailCampaigns'),
+					title: t('sidebar.emailMarketing'),
 					path: "/owner/campaigns",
 					icon: <MailIcon />,
 					subItems: [
+						{ title: t('sidebar.emailCampaigns'), path: "/owner/campaigns", icon: <MailIcon /> },
 						{ title: t('sidebar.emailAutomations'), path: "/owner/campaigns/automations", icon: <ZapIcon /> },
 					],
 				},
 				{
-					title: t('sidebar.sms'),
+					title: t('sidebar.smsMarketing'),
 					path: "/owner/sms-campaigns",
 					icon: <MessageSquareIcon />,
 					badge: SMS_MARKETING_LIVE ? undefined : t('smsc.soonBadge'),
 					subItems: [
+						{ title: t('sidebar.smsCampaigns'), path: "/owner/sms-campaigns", icon: <MessageSquareIcon /> },
 						{ title: t('sms.title'), path: "/owner/sms", icon: <CoinsIcon /> },
 					],
 				},
@@ -207,10 +228,16 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					badge: META_INTEGRATION_LIVE ? undefined : t('integ.buildingBadge'),
 				},
 				{
+					// Les quatre pages du programme promoteur n'étaient atteignables
+					// que par des cartes au milieu de la page d'accueil du programme.
 					title: t('sidebar.promoters'),
 					path: "/owner/promoters",
 					icon: <MegaphoneIcon />,
 					subItems: [
+						{ title: t('sidebar.promoterTemplates'), path: "/owner/promoters/templates", icon: <FileTextIcon /> },
+						{ title: t('sidebar.promoterTeams'), path: "/owner/promoters/teams", icon: <UsersIcon /> },
+						{ title: t('owner.announcements'), path: "/owner/promoters/announcements", icon: <MegaphoneIcon /> },
+						{ title: t('sidebar.promoterFinance'), path: "/owner/promoters/finance", icon: <CoinsIcon /> },
 						{ title: t('sidebar.agencies'), path: "/owner/agencies", icon: <HandshakeIcon /> },
 					],
 				},
@@ -229,6 +256,8 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/staff",
 					icon: <UserCheckIcon />,
 					subItems: [
+						{ title: t('ownerteam.tabBriefing'), path: "/owner/staff?tab=briefing", icon: <MegaphoneIcon /> },
+						{ title: t('ownerteam.tabActivity'), path: "/owner/staff?tab=activity", icon: <ActivityIcon /> },
 						{ title: t('managers.title'), path: "/owner/managers", icon: <ShieldIcon /> },
 					],
 				},
