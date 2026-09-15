@@ -23,6 +23,14 @@ import { isDemoEmail } from '@/lib/demoPlan';
 
 export const META_INTEGRATION_LIVE = false;
 
+/**
+ * Comptes pros bêta qui voient les pages Meta live avant l'ouverture générale
+ * (le compte organisateur Amoris de Paul, un club testeur…). Emails en
+ * minuscules. Aucun secret ici : ça n'ouvre que l'interface, l'autorisation
+ * reste côté serveur (propriétaire du club / organisateur lui-même).
+ */
+export const META_BETA_EMAILS: string[] = [];
+
 let superAdminCache: boolean | null = null;
 
 /** Live pour tout le monde, ou pour le super admin et les comptes démo (tournage + reviewer). */
@@ -42,5 +50,6 @@ export function useMetaIntegrationLive(): boolean {
 
   if (META_INTEGRATION_LIVE) return true;
   if (!user) return false;
-  return superAdmin || isDemoEmail(user.email);
+  const email = (user.email ?? '').toLowerCase();
+  return superAdmin || isDemoEmail(user.email) || META_BETA_EMAILS.includes(email);
 }
