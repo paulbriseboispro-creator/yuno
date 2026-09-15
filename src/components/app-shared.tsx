@@ -12,6 +12,7 @@ import {
 	MegaphoneIcon,
 	HeartIcon,
 	MailIcon,
+	ZapIcon,
 	MessageSquareIcon,
 	BellIcon,
 	TrendingUpIcon,
@@ -146,6 +147,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.emailCampaigns'),
 					path: "/owner/campaigns",
 					icon: <MailIcon />,
+				},
+				{
+					title: t('sidebar.emailAutomations'),
+					path: "/owner/campaigns/automations",
+					icon: <ZapIcon />,
 				},
 				{
 					title: t('sidebar.sms'),

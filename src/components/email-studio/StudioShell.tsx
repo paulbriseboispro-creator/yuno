@@ -77,6 +77,9 @@ function templateRowToCampaign(row: EmailTemplateRow): StudioCampaign {
     followupDelayHours: 24,
     followupTemplateId: null,
     parentCampaignId: null,
+    resendEnabled: false,
+    resendDelayHours: 48,
+    resendSubject: '',
   };
 }
 
@@ -108,6 +111,9 @@ interface CampaignRow {
   followup_delay_hours: number | null;
   followup_template_id: string | null;
   parent_campaign_id: string | null;
+  resend_enabled: boolean | null;
+  resend_delay_hours: number | null;
+  resend_subject: string | null;
 }
 
 /** Plan de lissage relu depuis la base ; forme inconnue ⇒ on repart de la proposition. */
@@ -165,6 +171,9 @@ function rowToCampaign(row: CampaignRow, venueName: string): StudioCampaign {
     followupDelayHours: Math.min(168, Math.max(1, Math.floor(Number(row.followup_delay_hours) || 24))),
     followupTemplateId: row.followup_template_id,
     parentCampaignId: row.parent_campaign_id,
+    resendEnabled: !!row.resend_enabled,
+    resendDelayHours: Math.min(168, Math.max(12, Math.floor(Number(row.resend_delay_hours) || 48))),
+    resendSubject: row.resend_subject || '',
   };
 }
 
@@ -213,6 +222,10 @@ function campaignToRow(c: StudioCampaign, scope: StudioScope): Record<string, un
     followup_enabled: c.followupEnabled && c.type === 'promotional' && !!c.eventId,
     followup_delay_hours: c.followupDelayHours,
     followup_template_id: c.followupTemplateId,
+    // Renvoi aux non-ouvreurs : campagne marketing seulement.
+    resend_enabled: c.resendEnabled && c.type === 'promotional',
+    resend_delay_hours: c.resendDelayHours,
+    resend_subject: c.resendSubject.trim() || null,
   };
   if (scope.kind === 'venue') payload.segment_id = legacy.segment_id;
   return payload;

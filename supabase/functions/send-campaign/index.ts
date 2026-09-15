@@ -649,7 +649,7 @@ async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign:
   // Une relance après clic se vide et se remplit à chaque vague du cron : un
   // accusé « campagne envoyée » à chaque fois serait du bruit. Son bilan vit
   // dans le rapport de la campagne mère.
-  if (campaign.parent_campaign_id) return;
+  if (campaign.parent_campaign_id || campaign.automation_id) return;
   // Portée plateforme : l'accusé part dans le flux d'alertes super admin
   // (`emit_admin_notification`), jamais dans `staff_notifications` — il n'y a
   // pas de club à notifier.
@@ -755,8 +755,8 @@ Deno.serve(async (req) => {
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
     const body = await req.json();
-    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id } = body ?? {};
-    if (!campaign_id) {
+    const { campaign_id, send_test, test_email, test_emails, scheduled, mode, followup_template_id, automation_id, event_id } = body ?? {};
+    if (!campaign_id && !(send_test && automation_id)) {
       return new Response(JSON.stringify({ error: 'campaign_id required' }), { status: 400, headers: jsonHeaders });
     }
 
@@ -783,9 +783,40 @@ Deno.serve(async (req) => {
       actingUserId = userData.user.id;
     }
 
-    const { data: campaign, error: cErr } = await admin
-      .from('email_campaigns').select('*').eq('id', campaign_id).single();
-    if (cErr || !campaign) throw new Error('Campaign not found');
+    // Test d'une RECETTE automatique : il n'y a pas de campagne, l'email
+    // enfant est monté par le cron. On rejoue ici exactement sa composition
+    // (modèle de la recette, portée, soirée choisie) pour un envoi de test.
+    // deno-lint-ignore no-explicit-any
+    let campaign: Record<string, any>;
+    if (!campaign_id && send_test && typeof automation_id === 'string') {
+      const { data: auto } = await admin
+        .from('email_automations').select('*').eq('id', automation_id).maybeSingle();
+      if (!auto) throw new Error('Automation not found');
+      if (!auto.template_id) throw new Error('automation_without_template');
+      const { data: tpl } = await admin
+        .from('email_campaign_templates').select('*').eq('id', auto.template_id).maybeSingle();
+      if (!tpl) throw new Error('Template not found');
+      const bindEvent = typeof event_id === 'string' && event_id ? event_id : null;
+      const blocks = (tpl.blocks_json as StudioBlock[]) || [];
+      campaign = {
+        id: `automation-test-${automation_id}`,
+        venue_id: auto.venue_id, organizer_user_id: auto.organizer_user_id,
+        name: tpl.name, type: 'promotional',
+        subject: (auto.subject as string) || tpl.subject || tpl.name,
+        preheader: tpl.preheader || '',
+        // Sans soirée reliée, les blocs Yuno partent — jamais de chiffres inventés.
+        blocks_json: bindEvent ? blocks : blocks.filter((b) => !['event', 'tickets', 'guestlist', 'table', 'countdown'].includes(b.type)),
+        blocks_version: 2,
+        theme_json: tpl.theme_json || {}, social_links_json: tpl.social_links_json || {},
+        logo_url: tpl.logo_url, event_id: bindEvent, status: 'draft',
+        subject_b: null, ab_enabled: false, automation_id,
+      };
+    } else {
+      const { data: row, error: cErr } = await admin
+        .from('email_campaigns').select('*').eq('id', campaign_id).single();
+      if (cErr || !row) throw new Error('Campaign not found');
+      campaign = row;
+    }
 
     const sender = await resolveSender(admin, campaign);
 
@@ -826,7 +857,7 @@ Deno.serve(async (req) => {
           ab_enabled: false,
         };
       }
-      const n = await sendTest(admin, campaign_id, testCampaign, sender, test_email, test_emails);
+      const n = await sendTest(admin, (campaign_id as string) || (campaign.id as string), testCampaign, sender, test_email, test_emails);
       return new Response(JSON.stringify({ success: true, sent: n, test: true }), { headers: jsonHeaders });
     }
 

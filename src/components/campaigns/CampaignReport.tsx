@@ -18,6 +18,7 @@ import {
 } from '@/lib/email';
 import { useStudioLiveData, type StudioScope as SenderScope } from '@/components/email-studio/hooks';
 import FollowupSettings from './FollowupSettings';
+import ResendSettings from './ResendSettings';
 import {
   hasPillarActivity, pillarLines, pillarSummary,
   type CampaignAttribution, type PillarKey,
@@ -71,6 +72,8 @@ type CampaignRow = {
   followup_delay_hours: number | null;
   followup_template_id: string | null;
   parent_campaign_id: string | null;
+  automation_id: string | null;
+  child_kind: string | null;
 };
 
 interface AbStats { sent_a: number; sent_b: number; opens_a: number; opens_b: number; winner: string | null }
@@ -525,6 +528,21 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   }}
                   onSaved={() => setReloadKey((k) => k + 1)}
                   basePath={basePath}
+                />
+              </div>
+            )}
+
+            {/* Renvoi aux non-ouvreurs : réglable ici pour une campagne partie,
+                bilan de l'enfant au même endroit. Un enfant (relance, renvoi,
+                recette) ne se renvoie pas. */}
+            {campaign.type !== 'informational' && !campaign.automation_id && (
+              <div className="mb-5">
+                <ResendSettings
+                  key={`rs-${campaign.id}`}
+                  campaignId={campaign.id}
+                  editable={!campaign.parent_campaign_id && campaign.status === 'sent'}
+                  basePath={basePath}
+                  onSaved={() => setReloadKey((k) => k + 1)}
                 />
               </div>
             )}

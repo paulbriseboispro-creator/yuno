@@ -12,7 +12,12 @@ import { DEFAULT_STUDIO_THEME } from './themes';
 import type { TemplateContent } from './templates';
 import type { EmailBlock, EmailTheme } from './types';
 
-export type StarterKey = 'invitation' | 'last_call' | 'vip_tables' | 'announcement' | 'click_followup';
+export type StarterKey =
+  | 'invitation' | 'last_call' | 'vip_tables' | 'announcement' | 'click_followup'
+  // Modèles des RECETTES automatiques (page Automatisations) — jamais dans la
+  // galerie « Nouvelle campagne », créés d'un clic depuis la recette.
+  | 'auto_welcome' | 'auto_abandoned_checkout' | 'auto_last_call'
+  | 'auto_post_event_thanks' | 'auto_post_event_missed' | 'auto_win_back';
 
 export interface StarterMeta {
   key: StarterKey;
@@ -121,6 +126,114 @@ export function buildStarter(key: StarterKey, ctx: StarterCtx): TemplateContent 
           block('text', venueName, { body: k('t1') }),
           block('event', venueName, { title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
           block('countdown', venueName, { label: k('countdownLabel') }),
+          block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
+          block('table', venueName, {
+            cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
+            sub: k('tableSub'), ctaLabel: k('tableCta'), perks: [], note: '',
+          }),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // ── Recettes automatiques ─────────────────────────────────────────────
+    // Toutes reliées à une soirée AU MOMENT de l'envoi (la soirée déclencheuse
+    // ou la prochaine date) : les blocs Yuno se remplissent avec le vrai
+    // inventaire, et le moteur les retire s'il n'y a aucune date à relier.
+
+    // Bienvenue : la première impression, avec la prochaine soirée en carte.
+    case 'auto_welcome':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { kicker: k('eventKicker'), title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
+          block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Panier abandonné : la place est encore là, le compte à rebours dit
+    // pour combien de temps.
+    case 'auto_abandoned_checkout':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { title: k('eventTitle'), ctaLabel: k('eventCta'), price: true, layout: 'banner' }),
+          block('countdown', venueName, { label: k('countdownLabel') }),
+          block('tickets', venueName, { live: true }),
+          block('table', venueName, {
+            cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
+            sub: k('tableSub'), ctaLabel: k('tableCta'), perks: [], note: '',
+          }),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Dernier appel : à toute la base qui n'a pas encore sa place.
+    case 'auto_last_call':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1'), align: 'center' }),
+          block('event', venueName, { title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
+          block('countdown', venueName, { label: k('countdownLabel') }),
+          block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
+          block('table', venueName, {
+            cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
+            sub: k('tableSub'), ctaLabel: k('tableCta'), perks: [], note: '',
+          }),
+          block('text', venueName, { body: k('t2'), size: 14, align: 'center' }),
+        ],
+      };
+
+    // Merci d'être venu : aux SCANNÉS, avec la prochaine date.
+    case 'auto_post_event_thanks':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { kicker: k('eventKicker'), title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
+          block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // On t'a manqué : à ceux qui avaient une place et ne sont pas venus.
+    case 'auto_post_event_missed':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { kicker: k('eventKicker'), title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
+          block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Reconquête : le dormant relancé avec ce qui arrive.
+    case 'auto_win_back':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { kicker: k('eventKicker'), title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
           block('tickets', venueName, { live: true }),
           block('guestlist', venueName),
           block('table', venueName, {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -18,6 +18,7 @@ import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaign
 import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import TemplatesSection from '@/components/campaigns/TemplatesSection';
+import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
 const RED = '#E8192C';
@@ -74,7 +75,8 @@ export default function OwnerCampaigns() {
     if (!venueId) return;
     supabase.from('email_campaigns')
       .select('id,name,type,subject,status,recipients_count,opens_count,clicks_count,created_at,sent_at,scheduled_at')
-      .eq('venue_id', venueId).order('created_at', { ascending: false })
+      // Les enfants des recettes automatiques vivent sur la page Automatisations.
+      .eq('venue_id', venueId).is('automation_id' as never, null).order('created_at', { ascending: false })
       .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
 
     // Revenu attribué (clic → achat 72 h) : un appel pour toute la liste.
@@ -186,6 +188,17 @@ export default function OwnerCampaigns() {
               }}
             >
               <Sparkles className="w-4 h-4" /> {t('cseg.button')}
+            </button>
+            <button
+              onClick={() => navigate('/owner/campaigns/automations')}
+              className="cursor-pointer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px',
+                borderRadius: 10, border: `1px solid ${BORDER}`, background: SUBTLE,
+                color: T2, fontSize: 12.5, fontWeight: 500,
+              }}
+            >
+              <Zap className="w-4 h-4" style={{ color: RED }} /> {t('em.autoButton')}
             </button>
             <button
               onClick={() => navigate('/owner/campaigns/new')}
@@ -488,6 +501,25 @@ export function OwnerCampaignReport() {
   if (loading || !venueId) return <OwnerPageSkeleton />;
   return (
     <CampaignReport
+      basePath="/owner/campaigns"
+      scope={{
+        kind: 'venue',
+        venueId,
+        name: venue?.name || 'Mon club',
+        logoUrl: (venue as { logoUrl?: string | null; logo_url?: string | null } | null)?.logoUrl
+          || (venue as { logo_url?: string | null } | null)?.logo_url || null,
+        city: (venue as { city?: string | null } | null)?.city || null,
+      }}
+    />
+  );
+}
+
+/** Page Automatisations email (route campaigns/automations). */
+export function OwnerEmailAutomations() {
+  const { venueId, venue, loading } = useVenueContext();
+  if (loading || !venueId) return <OwnerPageSkeleton />;
+  return (
+    <EmailAutomationsPanel
       basePath="/owner/campaigns"
       scope={{
         kind: 'venue',

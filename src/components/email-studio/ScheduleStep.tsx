@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, CalendarClock, ChevronDown, Eye, Info, Loader2, Plus, Repeat, ShieldCheck, Sparkles, Split, Waves, Zap,
+  AlertTriangle, CalendarClock, ChevronDown, Clock3, Eye, Info, Loader2, MailOpen, Plus, Repeat, ShieldCheck, Sparkles, Split, Waves, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,8 @@ import {
   DEFAULT_STUDIO_THEME, MIN_RATE, MAX_DAYS, MIN_DAYS, SMALL_AUDIENCE,
   type PlanWarning, type StudioCampaign, type ThrottleMode, type ThrottlePlan, type ThrottlePlanResult,
 } from '@/lib/email';
+import { supabase } from '@/integrations/supabase/client';
+import { RESEND_DELAYS, type SendTimeInsights } from '@/lib/email';
 import { useStudio } from './store';
 import { useAudienceCount, useEmailQuota, useEmailTemplates, type EmailQuota, type StudioScope } from './hooks';
 import {
@@ -257,6 +259,14 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
           </span>
         </div>
       </FlowCard>
+
+      {/* ── La meilleure heure de la base ── */}
+      <SendTimeCard scope={scope} />
+
+      {/* ── Renvoi aux non-ouvreurs ── */}
+      {campaign.type === 'promotional' && (
+        <ResendCard campaign={campaign} onPatch={patchCampaign} />
+      )}
 
       {/* ── Relance ciblée après clic ── */}
       {campaign.type === 'promotional' && (
@@ -791,5 +801,144 @@ function ModeCard({ on, onClick, icon, title, desc, badge, disabled }: {
         boxShadow: on ? 'inset 0 0 0 3px #0a0a0c' : 'none',
       }} />
     </button>
+  );
+}
+
+// ── Renvoi aux non-ouvreurs ──────────────────────────────────────────────────
+// Le même email, sous un autre objet, N h après la fin de l'envoi, à ceux qui
+// ne l'ont pas ouvert. Jamais à un acheteur de la soirée, jamais après son
+// début, jamais à un désabonné (collect_campaign_resends).
+
+function ResendCard({ campaign, onPatch }: {
+  campaign: StudioCampaign;
+  onPatch: (patch: Partial<StudioCampaign>) => void;
+}) {
+  const { t } = useLanguage();
+  const on = campaign.resendEnabled;
+  const fill = (key: string, vars: Record<string, string | number>) =>
+    Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
+
+  return (
+    <FlowCard red={on}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', background: 'rgba(232,25,44,0.1)',
+          border: '1px solid rgba(232,25,44,0.2)', color: RED, flex: 'none',
+        }}><MailOpen size={16} strokeWidth={1.75} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: T1, fontSize: 13, fontWeight: 560, fontFamily: FONT_UI }}>{t('studio.sched.rs.title')}</div>
+          <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI, lineHeight: 1.45 }}>
+            {fill('studio.sched.rs.sub', { h: campaign.resendDelayHours })}
+          </div>
+        </div>
+        <Switch checked={on} onChange={(v) => onPatch({ resendEnabled: v })} ariaLabel={t('studio.sched.rs.title')} />
+      </div>
+
+      {on && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
+          <div>
+            <MicroLabel style={{ marginBottom: 8 }}>{t('studio.sched.rs.delay')}</MicroLabel>
+            <OptionPills
+              value={campaign.resendDelayHours}
+              onChange={(h) => onPatch({ resendDelayHours: h })}
+              ariaLabel={t('studio.sched.rs.delay')}
+              options={RESEND_DELAYS.map((h) => ({ value: h, label: fill('studio.sched.fu.hours', { h }) }))}
+            />
+          </div>
+          <div>
+            <MicroLabel style={{ marginBottom: 8 }}>{t('studio.sched.rs.subject')}</MicroLabel>
+            <input
+              value={campaign.resendSubject}
+              onChange={(e) => onPatch({ resendSubject: e.target.value })}
+              placeholder={t('studio.sched.rs.subjectPh')}
+              aria-label={t('studio.sched.rs.subject')}
+              maxLength={200}
+              style={{ ...inputStyle, width: '100%' }}
+            />
+            <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5, fontFamily: FONT_UI }}>{t('studio.sched.rs.subjectHint')}</div>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {['rule1', 'rule2', 'rule3'].map((k) => (
+              <li key={k} style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{t(`studio.sched.rs.${k}`)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </FlowCard>
+  );
+}
+
+// ── La meilleure heure de la base ────────────────────────────────────────────
+// Les ouvertures des 120 derniers jours de la portée, par heure de Paris. Le
+// pro voit à quelle heure SA base lit, au lieu d'envoyer à midi parce que
+// c'est midi. Sous 30 ouvertures, on ne conclut rien.
+
+function SendTimeCard({ scope }: { scope: StudioScope }) {
+  const { t, language } = useLanguage();
+  const [data, setData] = useState<SendTimeInsights | null>(null);
+  // Arguments de portée des RPC — calculés ici pour ne dépendre que du type.
+  const args = {
+    p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
+    p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!args.p_venue_id && !args.p_organizer_user_id) return;
+    supabase.rpc('get_email_send_time_insights' as never, args as never)
+      .then(({ data: d }) => { if (!cancelled) setData(((d as unknown) as SendTimeInsights | null) || null); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [args.p_venue_id, args.p_organizer_user_id]);
+
+  if (!data) return null;
+  const byHour = Array.isArray(data.by_hour) && data.by_hour.length === 24 ? data.by_hour : new Array(24).fill(0);
+  const max = Math.max(1, ...byHour);
+  const fill = (key: string, vars: Record<string, string | number>) =>
+    Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
+  // Nom du jour dans la langue de l'écran (1 = lundi … 7 = dimanche).
+  const dayName = (isoDow: number) => {
+    const ref = new Date(Date.UTC(2024, 0, 1 + (isoDow - 1))); // 2024-01-01 est un lundi
+    return new Intl.DateTimeFormat(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { weekday: 'long', timeZone: 'UTC' }).format(ref);
+  };
+  const enough = data.sample >= 30 && data.best_hour != null;
+
+  return (
+    <FlowCard>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', background: CARD_INNER, border: `1px solid ${BORDER}`, color: T2, flex: 'none',
+        }}><Clock3 size={16} strokeWidth={1.75} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: T1, fontSize: 13, fontWeight: 560, fontFamily: FONT_UI }}>{t('studio.sched.best.title')}</div>
+          <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI, lineHeight: 1.45 }}>
+            {enough
+              ? fill('studio.sched.best.best', { h: `${data.best_hour}h–${((data.best_hour as number) + 2) % 24}h`, d: data.best_dow ? dayName(data.best_dow) : '' })
+              : t('studio.sched.best.none')}
+          </div>
+        </div>
+        <span style={{ color: T3, fontSize: 11, fontFamily: FONT_UI, flex: 'none' }}>{fill('studio.sched.best.sample', { n: data.sample })}</span>
+      </div>
+      {data.sample > 0 && (
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 44, marginTop: 12 }} aria-hidden="true">
+          {byHour.map((n, h) => {
+            const best = enough && (h === data.best_hour || h === ((data.best_hour as number) + 1) % 24);
+            return (
+              <div key={h} title={`${h}h · ${n}`} style={{
+                flex: 1, height: `${Math.max(6, Math.round((n / max) * 100))}%`, borderRadius: 3,
+                background: best ? RED : 'rgba(255,255,255,0.14)',
+              }} />
+            );
+          })}
+        </div>
+      )}
+      {data.sample > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: T3, fontSize: 10, fontFamily: FONT_UI, marginTop: 4 }}>
+          <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+        </div>
+      )}
+    </FlowCard>
   );
 }

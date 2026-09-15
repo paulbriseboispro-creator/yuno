@@ -277,7 +277,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Mail',
         actionLink: { labelKey: OPEN, path: '/campaigns' },
         relatedArticleIds: ['org-customers', 'org-events'],
-        keywords: ['campaigns', 'campagnes', 'email', 'newsletter', 'marketing', 'campañas'],
+        keywords: ['campaigns', 'campagnes', 'email', 'newsletter', 'marketing', 'campañas', 'automatisation', 'automatisations', 'automation', 'automatizacion', 'panier abandonné', 'abandoned checkout', 'dernier appel', 'last call', 'bienvenue', 'welcome', 'reconquête', 'win-back', 'non-ouvreurs', 'renvoyer', 'resend', 'meilleure heure', 'best hour'],
         sections: [
           { headingKey: 'ohelp.org.campaigns.s1h', bodyKey: 'ohelp.org.campaigns.s1b' },
           { headingKey: 'ohelp.org.campaigns.s2h', bodyKey: 'ohelp.org.campaigns.s2b', screenshotUrl: '/help/org-campaigns.webp' },
@@ -288,6 +288,9 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.campaigns.s8h', bodyKey: 'ohelp.org.campaigns.s8b', type: 'warning' },
           { headingKey: 'ohelp.org.campaigns.s9h', bodyKey: 'ohelp.org.campaigns.s9b' },
           { headingKey: 'ohelp.org.campaigns.s5h', bodyKey: 'ohelp.org.campaigns.s5b', type: 'tip' },
+          { headingKey: 'ohelp.org.campaigns.s10h', bodyKey: 'ohelp.org.campaigns.s10b' },
+          { headingKey: 'ohelp.org.campaigns.s11h', bodyKey: 'ohelp.org.campaigns.s11b', type: 'tip' },
+          { headingKey: 'ohelp.org.campaigns.s12h', bodyKey: 'ohelp.org.campaigns.s12b', type: 'tip' },
         ],
       },
       {

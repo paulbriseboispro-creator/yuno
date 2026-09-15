@@ -630,4 +630,10 @@ export interface StudioCampaign {
   followupTemplateId: string | null;
   /** Campagne mère quand CETTE campagne est une relance (lecture seule). */
   parentCampaignId: string | null;
+  /** Renvoi aux non-ouvreurs : même email, autre objet, N h après la fin de l'envoi. */
+  resendEnabled: boolean;
+  /** Délai après la fin de l'envoi, en heures (12-168). */
+  resendDelayHours: number;
+  /** Objet du renvoi ; vide = objet de la campagne. */
+  resendSubject: string;
 }

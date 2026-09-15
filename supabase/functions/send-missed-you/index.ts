@@ -75,9 +75,23 @@ serve(async (req) => {
       );
     }
 
+    // Un club ou un organisateur qui a allumé la recette « On t'a manqué »
+    // (Automatisations email, dans SON design, tous piliers) ne reçoit plus
+    // cette version Yuno : deux « on t'a manqué » pour la même soirée, c'est
+    // un désabonnement.
+    const { data: autoRows } = await supabaseAdmin
+      .from('email_automations')
+      .select('venue_id, organizer_user_id')
+      .eq('kind', 'post_event_missed')
+      .eq('enabled', true);
+    const autoVenues = new Set((autoRows || []).map((r: any) => r.venue_id).filter(Boolean));
+    const autoOrgs = new Set((autoRows || []).map((r: any) => r.organizer_user_id).filter(Boolean));
+
     let sentCount = 0;
 
     for (const event of recentEvents) {
+      if ((event.venue_id && autoVenues.has(event.venue_id))
+        || ((event as any).organizer_user_id && autoOrgs.has((event as any).organizer_user_id))) continue;
       const venueName = (event.venues as any)?.name || '';
       const safeEventTitle = escapeHtml(event.title);
       const safeVenueName = escapeHtml(venueName);

@@ -1164,6 +1164,7 @@ describe("modèles d'email", () => {
       blocks, theme, socialLinks: {}, logoUrl: null, eventId: 'ev-1',
       audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, throttleWindowMinutes: 60, throttlePlan: null, quietHours: false,
       followupEnabled: false, followupDelayHours: 24, followupTemplateId: null, parentCampaignId: null,
+      resendEnabled: false, resendDelayHours: 48, resendSubject: '',
     };
     const content = campaignToTemplateContent(campaign);
     expect(content.blocks.some((b) => 'eventId' in b && b.eventId)).toBe(false);
@@ -1177,6 +1178,7 @@ describe("modèles d'email", () => {
       abOn: false, preheader: '', blocks: partyBound(), theme, socialLinks: {}, logoUrl: null,
       eventId: null, audiences: [], exclusions: {}, scheduledAt: null, throttlePerHour: null, throttleWindowMinutes: 60, throttlePlan: null, quietHours: false,
       followupEnabled: false, followupDelayHours: 24, followupTemplateId: null, parentCampaignId: null,
+      resendEnabled: false, resendDelayHours: 48, resendSubject: '',
     });
     const reused = templateToCampaignContent(content);
     const before = content.blocks.map((b) => b.id);

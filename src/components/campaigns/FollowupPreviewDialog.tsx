@@ -25,7 +25,7 @@ const POS = '#34D399';
 
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
-export default function FollowupPreviewDialog({ template, scope, eventId, campaignId, onClose }: {
+export default function FollowupPreviewDialog({ template, scope, eventId, campaignId, automationId, onClose }: {
   /** Modèle choisi pour la relance — son design est ce qui partira. */
   template: EmailTemplate;
   scope: StudioScope;
@@ -33,6 +33,9 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
   eventId: string | null;
   /** Campagne mère : porte la portée et l'expéditeur du test. */
   campaignId: string | null;
+  /** Recette automatique (page Automatisations) : le test se compose depuis
+   *  la recette, sans campagne — même builder côté serveur. */
+  automationId?: string | null;
   onClose: () => void;
 }) {
   const { t } = useLanguage();
@@ -64,16 +67,18 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
       setError(t('studio.test.invalidEmail'));
       return;
     }
-    if (!campaignId) { setError(t('studio.test.saveFailed')); return; }
+    if (!campaignId && !automationId) { setError(t('studio.test.saveFailed')); return; }
     setSending(true); setError(null); setSent(false);
     try {
       const { error: fnError } = await supabase.functions.invoke('send-campaign', {
-        body: {
-          campaign_id: campaignId,
-          send_test: true,
-          followup_template_id: template.id,
-          test_emails: extra ? [extra] : undefined,
-        },
+        body: automationId && !campaignId
+          ? { send_test: true, automation_id: automationId, event_id: eventId, test_emails: extra ? [extra] : undefined }
+          : {
+            campaign_id: campaignId,
+            send_test: true,
+            followup_template_id: template.id,
+            test_emails: extra ? [extra] : undefined,
+          },
       });
       if (fnError) throw fnError;
       setSent(true);
@@ -147,11 +152,11 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
               }}
             />
             <button
-              type="button" onClick={() => void sendTest()} disabled={sending || !campaignId}
+              type="button" onClick={() => void sendTest()} disabled={sending || !(campaignId || automationId)}
               className="inline-flex items-center gap-2 cursor-pointer"
               style={{
                 padding: '10px 14px', borderRadius: 10, border: 'none', background: RED, color: '#fff',
-                fontSize: 12.5, fontWeight: 600, opacity: sending || !campaignId ? 0.6 : 1,
+                fontSize: 12.5, fontWeight: 600, opacity: sending || !(campaignId || automationId) ? 0.6 : 1,
                 boxShadow: `0 0 20px -8px ${RED}`,
               }}
             >

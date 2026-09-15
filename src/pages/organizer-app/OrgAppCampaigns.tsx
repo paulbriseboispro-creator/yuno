@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, BarChart3, Loader2, Mail, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BarChart3, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -17,6 +17,7 @@ import EmailCreditsDialog, { useEmailCreditsReturn } from '@/components/campaign
 import EmailQuotaCard from '@/components/campaigns/EmailQuotaCard';
 import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import TemplatesSection from '@/components/campaigns/TemplatesSection';
+import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
   T1, T2, T3,
@@ -62,7 +63,8 @@ export default function OrgAppCampaigns() {
   useEffect(() => {
     if (!user?.id) return;
     supabase.from('email_campaigns').select('id,name,type,subject,status,recipients_count,opens_count,clicks_count')
-      .eq('organizer_user_id', user.id).order('created_at', { ascending: false })
+      // Les enfants des recettes automatiques vivent sur la page Automatisations.
+      .eq('organizer_user_id', user.id).is('automation_id' as never, null).order('created_at', { ascending: false })
       .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
   }, [user?.id]);
 
@@ -102,6 +104,9 @@ export default function OrgAppCampaigns() {
                 </OrgButton>
                 <OrgButton variant="secondary" size="sm" onClick={() => setSegmentsOpen(true)}>
                   <Sparkles className="h-4 w-4" /> <span className="hidden sm:inline">{t('Segments intelligents', 'Smart segments', 'Segmentos inteligentes')}</span>
+                </OrgButton>
+                <OrgButton variant="secondary" size="sm" onClick={() => navigate('/organizer-app/campaigns/automations')}>
+                  <Zap className="h-4 w-4" /> <span className="hidden sm:inline">{t('Automatisations', 'Automations', 'Automatizaciones')}</span>
                 </OrgButton>
                 <OrgButton variant="primary" size="sm" onClick={() => navigate('/organizer-app/campaigns/new')}>
                   <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t('Nouvelle campagne', 'New campaign', 'Nueva campaña')}</span>
@@ -325,6 +330,31 @@ export function OrgAppCampaignReport() {
         organizerId: user.id,
         name: profile?.organizationName || 'Mon organisation',
         logoUrl: (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+        city: null,
+      }}
+    />
+  );
+}
+
+/** Page Automatisations email (route campaigns/automations). */
+export function OrgAppEmailAutomations() {
+  const { user } = useAuth();
+  const { profile, loading } = useProfileType();
+  const logoUrl = useOrganizerLogo(
+    user?.id,
+    (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+  );
+  if (!user?.id || loading) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+  return (
+    <EmailAutomationsPanel
+      basePath="/organizer-app/campaigns"
+      scope={{
+        kind: 'organizer',
+        organizerId: user.id,
+        name: profile?.organizationName || 'Mon organisation',
+        logoUrl,
         city: null,
       }}
     />

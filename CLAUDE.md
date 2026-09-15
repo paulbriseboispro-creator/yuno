@@ -1015,6 +1015,63 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
 
+## Automatisations email — recettes, renvoi aux non-ouvreurs, meilleure heure (2026-09-15)
+
+Doc complète : `docs/designs/EMAIL_AUTOMATION_PLAN.md` (analyse marché + doctrine).
+Migration `20260915120000`, module `_shared/email-automations.ts`, page
+`/owner/campaigns/automations` et `/organizer-app/campaigns/automations`
+(`EmailAutomationsPanel`, partagé). Règles intouchables :
+
+- **Une recette = une ligne `email_automations` (portée, kind)** : `welcome`,
+  `abandoned_checkout`, `last_call`, `post_event_thanks`, `post_event_missed`,
+  `win_back`. Interrupteur, `delay_hours` (sens selon la recette : après
+  l'inscription / le checkout, AVANT le début, après la fin, sans venue),
+  `template_id` (Email Studio), `subject`. **Sans modèle, rien ne part** ; le
+  front crée le modèle Yuno (`buildStarter('auto_<kind>')`) en allumant.
+  `enabled_at` borne les déclencheurs : une bienvenue ne part jamais à toute
+  la base existante le jour où on allume.
+- **Le registre `email_automation_sends` est la garantie** : unique
+  (automation, `trigger_key`, email) — `trigger_key` = id de soirée, `once`
+  (bienvenue) ou `wb-YYYY-MM` (reconquête) — raison d'exclusion écrite,
+  évaluée AU MOMENT où l'envoi est dû. Toute nouvelle exclusion se pose dans
+  le CASE de `collect_email_automations()`, jamais dans le Deno. Ne jamais
+  vider le registre.
+- **Au plus UNE automatisation par contact et par 48 h par portée**
+  (`cooldown`), le panier abandonné excepté. Rien n'écrit hors du registre
+  de consentement : le panier abandonné VERSE d'abord dans
+  `newsletter_subscriptions` l'accord coché au checkout (`source =
+  'checkout_started'`, même arbitre partiel que le trigger d'achat), puis lit
+  le registre comme tout le monde.
+- **Campagnes enfants** : `email_campaigns.automation_id` + `child_kind =
+  'automation'`, une par (recette, soirée reliée, déclencheur), `quiet_hours
+  = true`, `status = 'sending'` remplie contact par contact, drainée par
+  `sweepSendingCampaigns`. **Les listes Campagnes les excluent**
+  (`.is('automation_id', null)`) ; `notifyOwnerIfFinished` les ignore. Un
+  enfant sans soirée reliée perd ses blocs Yuno
+  (`_email_blocks_without_live`) : jamais de tarifs d'exemple à un client.
+  Les recettes d'après-soirée, de bienvenue et de reconquête se relient à la
+  PROCHAINE soirée publiée (`_email_automation_next_event`).
+- **« Merci » et « On t'a manqué » exigent un scan** (`entry_scanned`, `used`,
+  `checked_in_at`) : une soirée sans aucun scan ne déclenche rien. Quand la
+  recette `post_event_missed` est allumée, `send-missed-you` (version Yuno
+  historique) saute la portée.
+- **Renvoi aux non-ouvreurs** = option de campagne (`resend_enabled`,
+  `resend_delay_hours` 12-168, `resend_subject`, `resend_campaign_id`,
+  `resend_done_at`), `collect_campaign_resends()` : enfant `child_kind =
+  'resend'` copié de la mère, destinataires `sent` sans événement
+  opened/clicked, ni supprimés, ni désabonnés, ni acheteurs/inscrits de la
+  soirée ; évalué une seule fois (`resend_done_at`). `collect_campaign_followups`
+  lit les clics de la mère ET du renvoi. Un enfant ne se renvoie jamais.
+- **Test d'une recette** : `send-campaign` accepte `send_test + automation_id
+  (+ event_id)` sans `campaign_id` — même builder, même expéditeur.
+- Rapports : `get_email_automation_stats` (page), `get_campaign_resend_stats`
+  (rapport de la mère), `get_email_send_time_insights` (écran Planification,
+  ouvertures 120 j par heure/jour Paris, muet sous 30 ouvertures). Le revenu
+  attribué des enfants vient de `get_email_campaign_attribution` (ids dans
+  `campaign_ids`), jamais recalculé.
+- Assistant owner : `list_email_automations` (lecture) et
+  `set_email_automation` (écriture, confirmation) ; il ne crée pas de modèle.
+
 ## Envoi de masse email (2026-08-29)
 
 Doc complète + runbook DNS : `docs/EMAIL_DELIVERABILITY.md`. Les règles

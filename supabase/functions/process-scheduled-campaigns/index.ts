@@ -10,6 +10,7 @@ import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.t
 import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
 import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 import { dispatchCampaignFollowups } from "../_shared/campaign-followups.ts";
+import { dispatchEmailAutomations, dispatchCampaignResends } from "../_shared/email-automations.ts";
 import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
 import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhookSubscription } from "../_shared/meta-ads.ts";
@@ -72,6 +73,23 @@ Deno.serve(async (req) => {
       followups = await dispatchCampaignFollowups(admin);
     } catch (e) {
       console.error('dispatchCampaignFollowups error:', e);
+    }
+
+    // Recettes automatiques (bienvenue, panier abandonné, dernier appel,
+    // merci / on t'a manqué, reconquête) et renvoi aux non-ouvreurs : même
+    // mécanique que la relance après clic — registre SQL, campagne enfant,
+    // file remplie contact par contact, reprise par le balayage juste après.
+    let automations: unknown = null;
+    try {
+      automations = await dispatchEmailAutomations(admin);
+    } catch (e) {
+      console.error('dispatchEmailAutomations error:', e);
+    }
+    let resends: unknown = null;
+    try {
+      resends = await dispatchCampaignResends(admin);
+    } catch (e) {
+      console.error('dispatchCampaignResends error:', e);
     }
 
     let emailSweep: unknown = null;
@@ -258,7 +276,7 @@ Deno.serve(async (req) => {
       console.error('[META-CAPI] drain failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, followups, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
