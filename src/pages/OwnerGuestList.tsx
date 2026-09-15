@@ -28,6 +28,7 @@ import { GuestListAllocation } from '@/components/owner/guest-list/GuestListAllo
 import { GuestListRequestsInbox } from '@/components/owner/guest-list/GuestListRequestsInbox';
 import { AgencyEnvelopeGrant } from '@/components/owner/guest-list/AgencyEnvelopeGrant';
 import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
+import { useTabParam } from '@/hooks/useTabParam';
 
 interface EventOption { id: string; title: string; startAt: string; endAt: string; timezone: string | null }
 
@@ -96,7 +97,7 @@ export default function OwnerGuestList() {
   const [selectedEventId, setSelectedEventId] = useState('');
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [tab, setTab] = useState<'events' | 'templates'>('events');
+  const [tab, setTab] = useTabParam<'events' | 'templates'>('events', ['events', 'templates']);
   const [exportOpen, setExportOpen] = useState(false);
 
   const ctx = { isOrganizerScope, venueId: venueId ?? null, organizerUserId: organizerUserId ?? null };

@@ -13,6 +13,7 @@ import {
   FieldLabel, DarkInput, DarkSelect,
   T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
+import { useTabParam } from '@/hooks/useTabParam';
 
 type TeamRole = 'admin' | 'editor' | 'scanner';
 type StaffRole = 'barman' | 'bouncer' | 'cloakroom';
@@ -35,7 +36,7 @@ export default function OrgAppTeam() {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
-  const [tab, setTab] = useState<'team' | 'staff'>('team');
+  const [tab, setTab] = useTabParam<'team' | 'staff'>('team', ['team', 'staff']);
 
   // -------- TEAM (admin/editor/scanner) --------
   const [members, setMembers] = useState<Member[]>([]);

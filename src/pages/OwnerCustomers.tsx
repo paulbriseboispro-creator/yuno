@@ -24,6 +24,7 @@ import { SavedSegments, type SegmentDefinition } from '@/components/crm/SavedSeg
 import { OwnerCustomerOrigins } from '@/components/owner/OwnerCustomerOrigins';
 import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
 import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -128,7 +129,7 @@ export default function OwnerCustomers() {
   const [warnedCustomers, setWarnedCustomers] = useState<VenueCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const [activeTab, setActiveTab] = useTabParam<TabKey>('all', ['all', 'top', 'minors', 'warned', 'origins']);
   // Minor-ticket record per lowercased email (badge + filter + signed doc in detail).
   const [minorByEmail, setMinorByEmail] = useState<Map<string, MinorDoc>>(new Map());
   const [selectedCustomer, setSelectedCustomer] = useState<VenueCustomer | null>(null);

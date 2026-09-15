@@ -42,6 +42,7 @@ import { EventSalePasswordControl } from '@/components/owner/ticketing/EventSale
 import { EventSellingModeToggle } from '@/components/owner/ticketing/EventSellingModeToggle';
 import { EventRoundsVisibility } from '@/components/owner/ticketing/EventRoundsVisibility';
 import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCapacity';
+import { useTabParam } from '@/hooks/useTabParam';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -63,7 +64,7 @@ export default function OwnerTicketing() {
   const [isBulkDrinkDialogOpen, setIsBulkDrinkDialogOpen] = useState(false);
   const [editingRound, setEditingRound] = useState<TicketRound | null>(null);
   const [editingPreset, setEditingPreset] = useState<TicketPreset | null>(null);
-  const [activeTab, setActiveTab] = useState('events');
+  const [activeTab, setActiveTab] = useTabParam('events', ['events', 'presets']);
   // Accordion: keep only one event expanded to full config at a time; the rest
   // collapse to a compact preview so a long list of nights stays scannable.
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);

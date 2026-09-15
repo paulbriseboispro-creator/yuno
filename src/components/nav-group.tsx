@@ -26,12 +26,20 @@ import { ChevronRightIcon } from "lucide-react";
  * Une entrée couvre sa page et tout ce qui vit dessous (`/owner/campaigns`
  * couvre `/owner/campaigns/new`), sauf si elle est marquée `exact` — le
  * dashboard organisateur vit à `/organizer-app`, qui préfixe toute l'app.
+ *
+ * Une entrée qui vise un onglet (`/owner/tables?tab=packs`) exige en plus que
+ * l'URL porte ce `tab` : sans ça les quatre sous-entrées d'une même page
+ * s'allumeraient toutes en même temps.
  */
-function matchesPath(pathname: string, item: SidebarNavItem): boolean {
+function matchesPath(location: { pathname: string; search: string }, item: SidebarNavItem): boolean {
 	if (!item.path) return false;
-	if (pathname === item.path) return true;
-	if (item.exact) return false;
-	return pathname.startsWith(`${item.path}/`);
+	const [itemPath, itemQuery] = item.path.split("?");
+	const samePath =
+		location.pathname === itemPath || (!item.exact && location.pathname.startsWith(`${itemPath}/`));
+	if (!samePath) return false;
+	if (!itemQuery) return true;
+	const current = new URLSearchParams(location.search);
+	return [...new URLSearchParams(itemQuery)].every(([k, v]) => current.get(k) === v);
 }
 
 function NavBadge({ label, inset }: { label: string; inset?: boolean }) {
@@ -53,11 +61,11 @@ function NavBadge({ label, inset }: { label: string; inset?: boolean }) {
  * reste comme l'utilisateur l'a laissée le reste du temps.
  */
 function NavItemRow({ item }: { item: SidebarNavItem }) {
-	const { pathname } = useLocation();
+	const location = useLocation();
 	const { isMobile, setOpen: setSidebarOpen, state } = useSidebar();
 	const subItems = item.subItems ?? [];
-	const activeSub = subItems.find((sub) => matchesPath(pathname, sub));
-	const inSection = !!activeSub || matchesPath(pathname, item);
+	const activeSub = subItems.find((sub) => matchesPath(location, sub));
+	const inSection = !!activeSub || matchesPath(location, item);
 	const [open, setOpen] = useState(inSection);
 
 	useEffect(() => {
@@ -74,7 +82,7 @@ function NavItemRow({ item }: { item: SidebarNavItem }) {
 	if (!subItems.length) {
 		return (
 			<SidebarMenuItem>
-				<SidebarMenuButton asChild isActive={matchesPath(pathname, item)} tooltip={item.title}>
+				<SidebarMenuButton asChild isActive={matchesPath(location, item)} tooltip={item.title}>
 					<Link to={item.path ?? "#"}>
 						{item.icon}
 						<span className="truncate">{item.title}</span>
@@ -90,7 +98,7 @@ function NavItemRow({ item }: { item: SidebarNavItem }) {
 			<SidebarMenuItem>
 				<SidebarMenuButton
 					asChild
-					isActive={!activeSub && matchesPath(pathname, item)}
+					isActive={!activeSub && matchesPath(location, item)}
 					tooltip={item.title}
 				>
 					<Link onClick={revealWhenCollapsed} to={item.path ?? "#"}>

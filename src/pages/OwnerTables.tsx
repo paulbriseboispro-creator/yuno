@@ -19,6 +19,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
 import { enUS, es, fr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -77,7 +78,7 @@ export default function OwnerTables() {
   const [eventSettings, setEventSettings] = useState<EventTableSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'zone' | 'pack' | 'preset'; id: string; name: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('events');
+  const [activeTab, setActiveTab] = useTabParam<TabKey>('events', ['events', 'zones', 'packs', 'presets']);
   const [showFloorPlanEditor, setShowFloorPlanEditor] = useState(false);
   const [labelsSaving, setLabelsSaving] = useState(false);
   const [floorPlan, setFloorPlan] = useState<any>(null);

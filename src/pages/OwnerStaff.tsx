@@ -17,6 +17,7 @@ import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -112,7 +113,7 @@ export default function OwnerStaff() {
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; role: EmployeeRole; created_at: string }[]>([]);
 
   // Hub équipe : Équipe (gestion) / Briefing (consigne du soir) / Activité (relevé).
-  const [tab, setTab] = useState<'team' | 'briefing' | 'activity'>('team');
+  const [tab, setTab] = useTabParam<'team' | 'briefing' | 'activity'>('team', ['team', 'briefing', 'activity']);
 
   // Édition inline de l'intitulé de poste (il appartient au club, pas au staff).
   const [titleEditId, setTitleEditId] = useState<string | null>(null);

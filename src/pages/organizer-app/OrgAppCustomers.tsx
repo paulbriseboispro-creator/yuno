@@ -21,6 +21,7 @@ import { OwnerCustomerOrigins } from '@/components/owner/OwnerCustomerOrigins';
 import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
 import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { OrgPageHeader } from '@/components/org-ui';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -103,7 +104,7 @@ export default function OrgAppCustomers() {
   const [emailBans, setEmailBans] = useState<{ email: string; ban_reason: string | null; banned_at: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const [activeTab, setActiveTab] = useTabParam<TabKey>('all', ['all', 'top', 'minors', 'warned', 'origins']);
   const [minorByEmail, setMinorByEmail] = useState<Map<string, MinorDoc>>(new Map());
   const [selectedCustomer, setSelectedCustomer] = useState<OrgCustomer | null>(null);
   const [showBanDialog, setShowBanDialog] = useState(false);

@@ -14,6 +14,7 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED         = '#E8192C';
@@ -141,7 +142,7 @@ export default function OwnerDJs() {
   const isOrganizerScope = scope === 'organizer';
   const scopeId = isOrganizerScope ? organizerUserId : venueId;
 
-  const [activeTab, setActiveTab] = useState<'calendar' | 'djs'>('calendar');
+  const [activeTab, setActiveTab] = useTabParam<'calendar' | 'djs'>('calendar', ['calendar', 'djs']);
   const [djs, setDJs] = useState<DJ[]>([]);
   const [sets, setSets] = useState<DJSet[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
