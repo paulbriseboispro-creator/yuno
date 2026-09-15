@@ -342,7 +342,11 @@ refusent la session support.
 
 ## 6. Import d'une base existante
 
-RPC `import_email_contacts` (bloquée en session support). Trois règles :
+RPC `import_email_contacts`. **Ouverte à la session support depuis le
+2026-09-15** (décision de lancement, migration `20260915170000`, à refermer
+après) : la ligne d'import porte alors `attested_via_support = true` et le
+journal d'accès assisté nomme l'admin. Envoyer une campagne reste bloqué.
+Trois règles :
 
 1. **Pas d'import sans attestation** : origine du consentement + date de
    collecte, horodatées avec l'auteur, dans `email_list_imports`. C'est la pièce

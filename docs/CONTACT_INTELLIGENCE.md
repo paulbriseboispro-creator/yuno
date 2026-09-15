@@ -39,8 +39,10 @@ fichier CSV ─▶ parseContactFile (front, src/lib/contactImport.ts)
 
 - **L'import unifié APPELLE les RPC existantes** (`import_email_contacts`,
   `import_sms_contacts`). Les portes de conformité (attestation, désabonné
-  jamais réactivé, liste repoussoir STOP, suppression, session support) restent
-  au seul endroit qui les porte. Ne jamais écrire dans
+  jamais réactivé, liste repoussoir STOP, suppression) restent au seul endroit
+  qui les porte. La session support, elle, est AUTORISÉE à importer depuis le
+  2026-09-15 (décision de lancement, à refermer) et laisse sa trace dans
+  `attested_via_support` + `admin_support_audit`. Ne jamais écrire dans
   `newsletter_subscriptions` ou `venue_sms_contacts` depuis l'import unifié.
 - **Un segment ne joint personne sans consentement.** `count_contact_segment_def`
   et les résolveurs email/SMS ne comptent que les emails opt-in non supprimés et

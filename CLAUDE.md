@@ -1237,8 +1237,17 @@ intouchables :
   fallback sur `EMAIL_DOMAIN` : le poser avant la vérification Resend ferait
   échouer 100 % des envois.
 - **Import de liste** (`import_email_contacts`) : attestation de consentement
-  obligatoire et horodatée, jamais de réactivation d'un désabonné explicite,
-  bloqué en session support. Envoyer une campagne l'est aussi
+  obligatoire et horodatée, jamais de réactivation d'un désabonné explicite.
+  **Autorisé en session support depuis le 2026-09-15 — décision de lancement,
+  à REFERMER ensuite** (migration `20260915170000`) : les premiers testeurs
+  sont méfiants et pressés, le support remplit le fichier pour eux dans la
+  session qu'ils ont approuvée. Aucune règle de consentement ne bouge ;
+  seulement la porte de saisie. Comme `auth.uid()` est alors le PRO, la ligne
+  d'import dirait qu'il a attesté lui-même : d'où `attested_via_support` sur
+  les trois tables d'import (`email_list_imports`, `sms_list_imports`,
+  `contact_list_imports`) et le trigger `log_support_session_write`, qui nomme
+  l'admin réel dans `admin_support_audit`. Le support remplit la matière, il ne
+  parle à personne à la place du pro : ENVOYER une campagne reste bloqué
   (`isSupportSessionToken` dans `send-campaign`) ; l'envoi de TEST reste ouvert.
 - **Purge d'une liste importée = repoussoir d'abord, destruction ensuite**
   (`purge_email_list`, migration `20260909130000`). La ligne désabonnée de
