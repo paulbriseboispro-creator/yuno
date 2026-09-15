@@ -45,69 +45,118 @@ import {
 	SparklesIcon,
 	PlugIcon,
 	RocketIcon,
+	LifeBuoyIcon,
 } from "lucide-react";
 
-type TT = (fr: string, en: string) => string;
+type TT = (fr: string, en: string, es?: string) => string;
 
 function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 	return [
 		{
+			// Pilotage : où on regarde avant d'agir.
 			label: tt("Aperçu", "Overview"),
 			items: [
-				{ title: tt("Dashboard", "Dashboard"), path: "/organizer-app", icon: <LayoutGridIcon /> },
-				{ title: tt("Analytique", "Analytics"), path: "/organizer-app/analytics", icon: <BarChart3Icon /> },
-				{ title: tt("Audience", "Audience"), path: "/organizer-app/audience", icon: <UsersIcon /> },
+				{ title: tt("Dashboard", "Dashboard"), path: "/organizer-app", icon: <LayoutGridIcon />, exact: true },
+				{
+					title: tt("Analytique", "Analytics"),
+					path: "/organizer-app/analytics",
+					icon: <BarChart3Icon />,
+					subItems: [
+						{ title: tt("Audience", "Audience"), path: "/organizer-app/audience", icon: <UsersIcon /> },
+					],
+				},
 			],
 		},
 		{
-			label: tt("Événements", "Events"),
+			// Les soirées et les piliers qui s'y vendent.
+			label: tt("Soirées", "Events", "Noches"),
 			items: [
-				{ title: tt("Événements", "Events"), path: "/organizer-app/events", icon: <CalendarIcon /> },
+				{
+					title: tt("Événements", "Events"),
+					path: "/organizer-app/events",
+					icon: <CalendarIcon />,
+					subItems: [
+						{ title: tt("Collaborations", "Collaborations"), path: "/organizer-app/collaborations", icon: <HandshakeIcon /> },
+						{ title: tt("Rareté & FOMO", "Scarcity & FOMO"), path: "/organizer-app/scarcity", icon: <SparklesIcon /> },
+					],
+				},
 				{ title: tt("Billetterie", "Ticketing"), path: "/organizer-app/ticketing", icon: <TicketIcon /> },
-				{ title: tt("Tables VIP", "VIP Tables"), path: "/organizer-app/tables", icon: <CrownIcon /> },
-				{ title: tt("Service VIP", "VIP Service"), path: "/organizer-app/vip-service", icon: <CrownIcon /> },
-				{ title: tt("Rareté & FOMO", "Scarcity & FOMO"), path: "/organizer-app/scarcity", icon: <SparklesIcon /> },
-				{ title: tt("Commandes", "Orders"), path: "/organizer-app/orders", icon: <ShoppingCartIcon /> },
 				{ title: tt("Guest List", "Guest List"), path: "/organizer-app/guest-list", icon: <UsersIcon /> },
+				{
+					title: tt("Tables VIP", "VIP Tables"),
+					path: "/organizer-app/tables",
+					icon: <CrownIcon />,
+					subItems: [
+						{ title: tt("Service VIP", "VIP Service"), path: "/organizer-app/vip-service", icon: <CrownIcon /> },
+					],
+				},
 				{ title: tt("Check-in", "Check-in"), path: "/organizer-app/checkin", icon: <ScanLineIcon /> },
-				{ title: tt("DJs", "DJs"), path: "/organizer-app/djs", icon: <Music2Icon /> },
-				{ title: tt("Booking DJ", "Booking DJ"), path: "/organizer-app/book-dj", icon: <WandIcon /> },
+				{
+					title: tt("DJs", "DJs"),
+					path: "/organizer-app/djs",
+					icon: <Music2Icon />,
+					subItems: [
+						{ title: tt("Booking DJ", "Booking DJ"), path: "/organizer-app/book-dj", icon: <WandIcon /> },
+					],
+				},
 			],
 		},
 		{
+			// L'argent qui rentre : ce qui a été vendu, puis ce qui en découle.
+			label: tt("Ventes & finances", "Sales & finance", "Ventas y finanzas"),
+			items: [
+				{
+					title: tt("Commandes", "Orders"),
+					path: "/organizer-app/orders",
+					icon: <ShoppingCartIcon />,
+					subItems: [
+						{ title: tt("Remboursements", "Refunds"), path: "/organizer-app/refunds", icon: <RotateCcwIcon /> },
+					],
+				},
+				{
+					title: tt("Factures", "Invoices"),
+					path: "/organizer-app/invoices",
+					icon: <FileTextIcon />,
+					subItems: [
+						{ title: tt("Compta", "Accounting"), path: "/organizer-app/accounting", icon: <CalculatorIcon /> },
+					],
+				},
+				{ title: tt("Paiements", "Payments"), path: "/organizer-app/payments", icon: <CreditCardIcon /> },
+			],
+		},
+		{
+			// Les gens, puis chaque canal pour leur parler.
 			label: tt("Marketing & CRM", "Marketing & CRM"),
 			items: [
 				{ title: tt("Clients", "Customers"), path: "/organizer-app/customers", icon: <UsersIcon /> },
-				{ title: tt("Campagnes Email", "Email Campaigns"), path: "/organizer-app/campaigns", icon: <MailIcon /> },
-				{ title: tt("Automatisations email", "Email automations"), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
+				{
+					title: tt("Campagnes Email", "Email Campaigns"),
+					path: "/organizer-app/campaigns",
+					icon: <MailIcon />,
+					subItems: [
+						{ title: tt("Automatisations email", "Email automations"), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
+					],
+				},
 				{ title: tt("Campagnes SMS", "SMS Campaigns"), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{ title: tt("Publicité", "Ads"), path: "/organizer-app/ads", icon: <RocketIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
-				{ title: tt("Promoteurs", "Promoters"), path: "/organizer-app/promoters", icon: <MegaphoneIcon /> },
-				{ title: tt("Agences", "Agencies"), path: "/organizer-app/agencies", icon: <HandshakeIcon /> },
-			],
-		},
-		{
-			label: tt("Écosystème", "Ecosystem"),
-			items: [
-				{ title: tt("Collaborations", "Collaborations"), path: "/organizer-app/collaborations", icon: <HandshakeIcon /> },
-				{ title: tt("Équipe", "Team"), path: "/organizer-app/team", icon: <ShieldIcon /> },
-				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },
-			],
-		},
-		{
-			label: tt("Finances", "Finance"),
-			items: [
-				{ title: tt("Paiements", "Payments"), path: "/organizer-app/payments", icon: <CreditCardIcon /> },
-				{ title: tt("Factures", "Invoices"), path: "/organizer-app/invoices", icon: <FileTextIcon /> },
-				{ title: tt("Compta", "Accounting"), path: "/organizer-app/accounting", icon: <CalculatorIcon /> },
-				{ title: tt("Remboursements", "Refunds"), path: "/organizer-app/refunds", icon: <RotateCcwIcon /> },
+				{
+					title: tt("Promoteurs", "Promoters"),
+					path: "/organizer-app/promoters",
+					icon: <MegaphoneIcon />,
+					subItems: [
+						{ title: tt("Agences", "Agencies"), path: "/organizer-app/agencies", icon: <HandshakeIcon /> },
+					],
+				},
 			],
 		},
 		{
 			label: tt("Réglages", "Settings"),
 			items: [
 				{ title: tt("Mon organisation", "My organization"), path: "/organizer-app/organization", icon: <SettingsIcon /> },
+				{ title: tt("Équipe", "Team"), path: "/organizer-app/team", icon: <ShieldIcon /> },
+				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },
 				{ title: tt("Intégrations", "Integrations"), path: "/organizer-app/integrations", icon: <PlugIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
+				{ title: tt("Assistance Yuno", "Yuno support", "Asistencia Yuno"), path: "/organizer-app/support-access", icon: <LifeBuoyIcon /> },
 			],
 		},
 	];
@@ -123,7 +172,7 @@ function buildOrgFooterNavLinks(tt: TT): SidebarNavItem[] {
 
 export function OrgAppSidebar() {
 	const { language } = useLanguage();
-	const tt: TT = (fr, en) => translate(language, fr, en);
+	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
 	const navGroups = buildOrgNavGroups(tt);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
