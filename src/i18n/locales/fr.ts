@@ -9882,6 +9882,7 @@ const fr: Record<string, string> = {
   'sidebar.group.events': 'Événements',
   'sidebar.group.marketingCRM': 'Marketing & CRM',
   'sidebar.group.operations': 'Opérations',
+  'sidebar.group.sales': 'Ventes & finances',
   'sidebar.group.settings': 'Paramètres',
   'sidebar.dashboard': 'Dashboard',
   'sidebar.analytics': 'Analytics',

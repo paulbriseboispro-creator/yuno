@@ -42,7 +42,7 @@ function buildGroups(role: AffiliateRole, t: T): SidebarNavGroup[] {
       {
         label: t('aff.nav.overview'),
         items: [
-          { title: t('aff.nav.mySpace'), path: '/affiliate/promoteur', icon: <LayoutDashboard /> },
+          { title: t('aff.nav.mySpace'), path: '/affiliate/promoteur', icon: <LayoutDashboard />, exact: true },
           { title: t('aff.nav.analytics'), path: '/affiliate/analytics', icon: <BarChart2 /> },
           { title: t('aff.nav.inbox'), path: '/affiliate/inbox', icon: <Inbox /> },
         ],
@@ -67,7 +67,7 @@ function buildGroups(role: AffiliateRole, t: T): SidebarNavGroup[] {
     {
       label: t('aff.nav.overview'),
       items: [
-        { title: t('aff.nav.home'), path: '/affiliate', icon: <LayoutDashboard /> },
+        { title: t('aff.nav.home'), path: '/affiliate', icon: <LayoutDashboard />, exact: true },
         { title: t('aff.nav.week'), path: '/affiliate/semaine', icon: <CalendarRange /> },
         { title: t('aff.nav.analytics'), path: '/affiliate/analytics', icon: <BarChart2 /> },
         { title: t('aff.nav.inbox'), path: '/affiliate/inbox', icon: <Inbox /> },

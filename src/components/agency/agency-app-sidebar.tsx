@@ -41,7 +41,7 @@ function buildGroups(t: T): SidebarNavGroup[] {
     {
       label: t('aff.nav.overview'),
       items: [
-        { title: t('agc.nav.home'), path: '/agency-app', icon: <LayoutDashboard /> },
+        { title: t('agc.nav.home'), path: '/agency-app', icon: <LayoutDashboard />, exact: true },
         { title: t('aff.nav.inbox'), path: '/agency-app/inbox', icon: <Inbox /> },
       ],
     },

@@ -33,6 +33,9 @@ import {
 	LifeBuoyIcon,
 	PlugIcon,
 	RocketIcon,
+	ListChecksIcon,
+	CoinsIcon,
+	ShieldIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
@@ -45,6 +48,8 @@ export type SidebarNavItem = {
 	/** Pastille courte à droite du libellé (« Bientôt », « Beta »…). */
 	badge?: string;
 	isActive?: boolean;
+	/** N'est active que sur sa route exacte (une racine qui préfixe toute l'app). */
+	exact?: boolean;
 	subItems?: SidebarNavItem[];
 };
 
@@ -56,6 +61,7 @@ export type SidebarNavGroup = {
 export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 	return [
 		{
+			// Pilotage : où on regarde avant d'agir.
 			label: t('sidebar.group.overview'),
 			items: [
 				{
@@ -67,36 +73,38 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.analytics'),
 					path: "/owner/analytics",
 					icon: <BarChart3Icon />,
-				},
-				{
-					title: t('sidebar.audience'),
-					path: "/owner/audience",
-					icon: <UsersIcon />,
+					subItems: [
+						{ title: t('sidebar.audience'), path: "/owner/audience", icon: <UsersIcon /> },
+						{ title: t('sidebar.hypeScore'), path: "/owner/hype", icon: <TrendingUpIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.liveNight'),
 					path: "/owner/live",
 					icon: <RadioIcon />,
 				},
-				{
-					title: t('sidebar.hypeScore'),
-					path: "/owner/hype",
-					icon: <TrendingUpIcon />,
-				},
 			],
 		},
 		{
+			// Les soirées et les trois piliers qui s'y vendent.
 			label: t('sidebar.group.events'),
 			items: [
 				{
 					title: t('sidebar.evenings'),
 					path: "/owner/events",
 					icon: <CalendarIcon />,
+					subItems: [
+						{ title: t('sidebar.collaborations'), path: "/owner/collaborations", icon: <HandshakeIcon /> },
+						{ title: t('sidebar.scarcityFOMO'), path: "/owner/scarcity", icon: <SparklesIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.ticketing'),
 					path: "/owner/ticketing",
 					icon: <TicketIcon />,
+					subItems: [
+						{ title: t('waitlist.title'), path: "/owner/waitlist", icon: <ListChecksIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.guestList'),
@@ -107,57 +115,85 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.vipTables'),
 					path: "/owner/tables",
 					icon: <Wine />,
+					subItems: [
+						{ title: t('sidebar.vipService'), path: "/owner/vip-service", icon: <CrownIcon /> },
+					],
+				},
+				{
+					title: t('sidebar.drinkMenu'),
+					path: "/owner/menu",
+					icon: <Martini />,
+					subItems: [
+						{ title: t('sidebar.upsells'), path: "/owner/upsell", icon: <GiftIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.djs'),
 					path: "/owner/djs",
 					icon: <Music2Icon />,
-				},
-				{
-					title: t('sidebar.bookDJ'),
-					path: "/owner/book-dj",
-					icon: <WandIcon />,
-				},
-				{
-					title: t('sidebar.collaborations'),
-					path: "/owner/collaborations",
-					icon: <HandshakeIcon />,
-				},
-				{
-					title: t('sidebar.scarcityFOMO'),
-					path: "/owner/scarcity",
-					icon: <SparklesIcon />,
+					subItems: [
+						{ title: t('sidebar.bookDJ'), path: "/owner/book-dj", icon: <WandIcon /> },
+					],
 				},
 			],
 		},
 		{
+			// L'argent qui rentre : ce qui a été vendu, puis ce qui en découle.
+			label: t('sidebar.group.sales'),
+			items: [
+				{
+					title: t('sidebar.orders'),
+					path: "/owner/orders",
+					icon: <ShoppingCartIcon />,
+					subItems: [
+						{ title: t('sidebar.refunds'), path: "/owner/refunds", icon: <RotateCcwIcon /> },
+					],
+				},
+				{
+					title: t('sidebar.invoices'),
+					path: "/owner/invoices",
+					icon: <FileTextIcon />,
+					subItems: [
+						{ title: t('sidebar.accounting'), path: "/owner/accounting", icon: <CalculatorIcon /> },
+					],
+				},
+				{
+					// Abonnement coupé (lancement) : la page /owner/billing ne montre
+					// que Stripe Connect → l'entrée s'appelle « Paiements ».
+					title: t(SUBSCRIPTIONS_ENABLED ? 'sidebar.subscription' : 'plan.payments'),
+					path: "/owner/billing",
+					icon: <CreditCardIcon />,
+				},
+			],
+		},
+		{
+			// Les gens, puis chaque canal pour leur parler.
 			label: t('sidebar.group.marketingCRM'),
 			items: [
 				{
 					title: t('sidebar.customers'),
 					path: "/owner/customers",
 					icon: <UsersIcon />,
-				},
-				{
-					title: t('sidebar.loyalty'),
-					path: "/owner/loyalty",
-					icon: <HeartIcon />,
+					subItems: [
+						{ title: t('sidebar.loyalty'), path: "/owner/loyalty", icon: <HeartIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.emailCampaigns'),
 					path: "/owner/campaigns",
 					icon: <MailIcon />,
-				},
-				{
-					title: t('sidebar.emailAutomations'),
-					path: "/owner/campaigns/automations",
-					icon: <ZapIcon />,
+					subItems: [
+						{ title: t('sidebar.emailAutomations'), path: "/owner/campaigns/automations", icon: <ZapIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.sms'),
-					path: "/owner/sms",
+					path: "/owner/sms-campaigns",
 					icon: <MessageSquareIcon />,
 					badge: SMS_MARKETING_LIVE ? undefined : t('smsc.soonBadge'),
+					subItems: [
+						{ title: t('sms.title'), path: "/owner/sms", icon: <CoinsIcon /> },
+					],
 				},
 				{
 					title: t('sidebar.push'),
@@ -174,56 +210,9 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.promoters'),
 					path: "/owner/promoters",
 					icon: <MegaphoneIcon />,
-				},
-				{
-					title: t('sidebar.agencies'),
-					path: "/owner/agencies",
-					icon: <HandshakeIcon />,
-				},
-			],
-		},
-		{
-			label: t('sidebar.group.operations'),
-			items: [
-				{
-					title: t('sidebar.orders'),
-					path: "/owner/orders",
-					icon: <ShoppingCartIcon />,
-				},
-				{
-					title: t('sidebar.invoices'),
-					path: "/owner/invoices",
-					icon: <FileTextIcon />,
-				},
-				{
-					title: t('sidebar.accounting'),
-					path: "/owner/accounting",
-					icon: <CalculatorIcon />,
-				},
-				{
-					title: t('sidebar.refunds'),
-					path: "/owner/refunds",
-					icon: <RotateCcwIcon />,
-				},
-				{
-					title: t('sidebar.staff'),
-					path: "/owner/staff",
-					icon: <UserCheckIcon />,
-				},
-				{
-					title: t('sidebar.drinkMenu'),
-					path: "/owner/menu",
-					icon: <Martini />,
-				},
-				{
-					title: t('sidebar.vipService'),
-					path: "/owner/vip-service",
-					icon: <CrownIcon />,
-				},
-				{
-					title: t('sidebar.upsells'),
-					path: "/owner/upsell",
-					icon: <GiftIcon />,
+					subItems: [
+						{ title: t('sidebar.agencies'), path: "/owner/agencies", icon: <HandshakeIcon /> },
+					],
 				},
 			],
 		},
@@ -236,11 +225,12 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					icon: <StoreIcon />,
 				},
 				{
-					// Abonnement coupé (lancement) : la page /owner/billing ne montre
-					// que Stripe Connect → l'entrée s'appelle « Paiements ».
-					title: t(SUBSCRIPTIONS_ENABLED ? 'sidebar.subscription' : 'plan.payments'),
-					path: "/owner/billing",
-					icon: <CreditCardIcon />,
+					title: t('sidebar.staff'),
+					path: "/owner/staff",
+					icon: <UserCheckIcon />,
+					subItems: [
+						{ title: t('managers.title'), path: "/owner/managers", icon: <ShieldIcon /> },
+					],
 				},
 				{
 					// Connexions externes (Meta Pixel + Conversions API…).

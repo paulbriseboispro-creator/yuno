@@ -10022,6 +10022,7 @@ const es: Record<string, string> = {
   'sidebar.group.events': 'Eventos',
   'sidebar.group.marketingCRM': 'Marketing & CRM',
   'sidebar.group.operations': 'Operaciones',
+  'sidebar.group.sales': 'Ventas y finanzas',
   'sidebar.group.settings': 'Configuración',
   'sidebar.dashboard': 'Dashboard',
   'sidebar.analytics': 'Analytics',

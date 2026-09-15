@@ -29,7 +29,7 @@ export function DJAppSidebar() {
     {
       label: t('sidebar.group.overview'),
       items: [
-        { title: t('dj.overview'), path: '/dj', icon: <LayoutDashboard /> },
+        { title: t('dj.overview'), path: '/dj', icon: <LayoutDashboard />, exact: true },
         { title: t('dj.mySchedule'), path: '/dj/planning', icon: <CalendarDays /> },
         { title: tt('Statistiques', 'Analytics', 'Estadísticas'), path: '/dj/analytics', icon: <LineChart /> },
       ],

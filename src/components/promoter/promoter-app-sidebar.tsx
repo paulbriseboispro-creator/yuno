@@ -50,7 +50,7 @@ export function PromoterAppSidebar() {
     {
       label: t('sidebar.group.overview'),
       items: [
-        { title: t('promoter.overview'), path: '/promoter', icon: <LayoutDashboard /> },
+        { title: t('promoter.overview'), path: '/promoter', icon: <LayoutDashboard />, exact: true },
         { title: t('promoter.myEvents'), path: '/promoter/events', icon: <CalendarDays /> },
         { title: t('promoter.linkTools'), path: '/promoter/links', icon: <Link2 /> },
       ],
