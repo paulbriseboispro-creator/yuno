@@ -6,6 +6,8 @@ import { buildNextEventRec, fmtDateParts } from "../_shared/email-templates.ts";
 import { formatEventDate } from "../_shared/event-time.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isAutoPushEnabled } from "../_shared/auto-push.ts";
+import { emailSendPolicy, logMarketingEmail } from "../_shared/email-policy.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -58,6 +60,12 @@ serve(async (req) => {
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
     const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
+
+    // Registre super admin (/admin/notifications, clé 'email_next_event_rec').
+    if (!(await isAutoPushEnabled(supabaseAdmin, 'email_next_event_rec'))) {
+      return new Response(JSON.stringify({ success: true, sent: 0, skipped: 'disabled' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     const now = new Date().toISOString();
     const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -130,6 +138,8 @@ serve(async (req) => {
       try {
         const alreadySent = await wasAlreadySent(supabaseAdmin, userId, 'next_event_rec', weekKey);
         if (alreadySent) continue;
+        // Règles Yuno : pression, fatigue, aversion — tous expéditeurs confondus.
+        if (await emailSendPolicy(supabaseAdmin, userData.email, 'next_event_rec')) continue;
 
         const { data: existingTickets } = await supabaseAdmin
           .from('tickets')
@@ -238,6 +248,7 @@ serve(async (req) => {
         });
         if (res.ok) {
           await markSent(supabaseAdmin, userId, 'next_event_rec', weekKey);
+          await logMarketingEmail(supabaseAdmin, userData.email, 'next_event_rec');
           sentCount++;
         }
       } catch (err) {

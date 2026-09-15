@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 import { buildWinBack, fmtDateParts } from "../_shared/email-templates.ts";
+import { isAutoPushEnabled } from "../_shared/auto-push.ts";
+import { emailSendPolicy, logMarketingEmail, automationCoversEvent } from "../_shared/email-policy.ts";
 import { formatEventDate } from "../_shared/event-time.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
@@ -59,6 +61,12 @@ serve(async (req) => {
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
     const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
 
+    // Registre super admin (/admin/notifications, clé 'email_missed_you').
+    if (!(await isAutoPushEnabled(supabaseAdmin, 'email_missed_you'))) {
+      return new Response(JSON.stringify({ success: true, sent: 0, skipped: 'disabled' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 
@@ -75,23 +83,12 @@ serve(async (req) => {
       );
     }
 
-    // Un club ou un organisateur qui a allumé la recette « On t'a manqué »
-    // (Automatisations email, dans SON design, tous piliers) ne reçoit plus
-    // cette version Yuno : deux « on t'a manqué » pour la même soirée, c'est
-    // un désabonnement.
-    const { data: autoRows } = await supabaseAdmin
-      .from('email_automations')
-      .select('venue_id, organizer_user_id')
-      .eq('kind', 'post_event_missed')
-      .eq('enabled', true);
-    const autoVenues = new Set((autoRows || []).map((r: any) => r.venue_id).filter(Boolean));
-    const autoOrgs = new Set((autoRows || []).map((r: any) => r.organizer_user_id).filter(Boolean));
-
     let sentCount = 0;
 
     for (const event of recentEvents) {
-      if ((event.venue_id && autoVenues.has(event.venue_id))
-        || ((event as any).organizer_user_id && autoOrgs.has((event as any).organizer_user_id))) continue;
+      // Une recette « On t'a manqué » (club, organisateur ou Yuno) couvre cette
+      // soirée : une seule voix par soirée, cette version historique s'efface.
+      if (await automationCoversEvent(supabaseAdmin, event.id, 'post_event_missed')) continue;
       const venueName = (event.venues as any)?.name || '';
       const safeEventTitle = escapeHtml(event.title);
       const safeVenueName = escapeHtml(venueName);
@@ -143,6 +140,8 @@ serve(async (req) => {
 
         const alreadySent = await wasAlreadySent(supabaseAdmin, ticket.user_id, 'missed_you', event.id);
         if (alreadySent) continue;
+        // Règles Yuno : pression, fatigue, aversion — tous expéditeurs confondus.
+        if (await emailSendPolicy(supabaseAdmin, ticket.user_email, 'missed_you')) continue;
 
         try {
           let lang: EmailLanguage = 'fr';
@@ -247,6 +246,7 @@ serve(async (req) => {
           });
           if (res.ok) {
             await markSent(supabaseAdmin, ticket.user_id, 'missed_you', event.id);
+            await logMarketingEmail(supabaseAdmin, ticket.user_email, 'missed_you', { venueId: event.venue_id, organizerUserId: (event as any).organizer_user_id });
             sentCount++;
           }
         } catch (err) {
