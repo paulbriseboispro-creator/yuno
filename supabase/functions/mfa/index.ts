@@ -1,8 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "npm:resend@2.0.0";
-import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
-import { buildSecureLink } from "../_shared/email-templates.ts";
+import { buildSecureLink, buildSecurityAlert } from "../_shared/email-templates.ts";
 import { generateSecret, generateOTPAuthURL, verifyTOTP } from "../_shared/totp.ts";
 import { encode } from "https://deno.land/std@0.190.0/encoding/hex.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
@@ -154,24 +153,18 @@ serve(async (req) => {
           const resend = new Resend(resendApiKey);
           const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "inconnue";
           const when = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
-          const alertContent = `<div style="padding:32px 24px">
-            <h1 style="color:#fff;font-size:22px;margin:0 0 16px">⚠️ 2FA désactivée sur ton compte</h1>
-            <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">L'authentification à deux facteurs vient d'être désactivée sur ton compte Yuno.</p>
-            <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:16px;margin:0 0 24px">
-              <p style="color:#ccc;font-size:13px;margin:0 0 6px">📅 <strong>Date:</strong> ${when} (Paris)</p>
-              <p style="color:#ccc;font-size:13px;margin:0">🌐 <strong>IP:</strong> ${ipAddress}</p>
-            </div>
-            <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 16px">✅ Si c'est bien toi, tu n'as rien à faire.</p>
-            <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:16px;margin-top:16px">
-              <p style="color:#f87171;font-size:13px;margin:0 0 8px">🚨 <strong>Si ce n'est PAS toi:</strong></p>
-              <p style="color:#ccc;font-size:13px;line-height:1.6;margin:0">Change ton mot de passe immédiatement et réactive la 2FA depuis tes paramètres de sécurité.</p>
-            </div>
-          </div>`;
+          const mail = buildSecurityAlert({
+            lang: "fr",
+            title: "2FA désactivée sur ton compte",
+            message: "L'authentification à deux facteurs vient d'être désactivée sur ton compte Yuno. Si c'est bien toi, tu n'as rien à faire.",
+            rows: [{ k: "Date", v: `${when} (Paris)` }, { k: "IP", v: ipAddress }],
+            warning: "Si ce n'est PAS toi : change ton mot de passe immédiatement et réactive la 2FA depuis tes paramètres de sécurité.",
+          });
           await resend.emails.send({
             from: `Yuno Sécurité <${fromEmail}>`,
             to: [request.email],
-            subject: "⚠️ 2FA désactivée sur ton compte Yuno",
-            html: wrapEmailWithBranding(alertContent, "fr"),
+            subject: "2FA désactivée sur ton compte Yuno",
+            html: mail.html,
           });
         }
       } catch (emailErr) {

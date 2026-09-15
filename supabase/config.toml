@@ -115,9 +115,6 @@ verify_jwt = false
 [functions.cart-abandonment-check]
 verify_jwt = false
 
-[functions.send-event-recap]
-verify_jwt = false
-
 [functions.send-test-email]
 verify_jwt = true
 
@@ -137,9 +134,6 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.cleanup-pending-purchases]
-verify_jwt = false
-
-[functions.send-upsell-email]
 verify_jwt = false
 
 [functions.send-low-ticket-alert]

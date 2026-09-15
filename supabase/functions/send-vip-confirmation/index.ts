@@ -1,12 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import {
-  EmailLanguage,
-  t,
-  wrapEmailWithBranding,
-  escapeHtml
-} from "../_shared/email-branding.ts";
-import { buildVipConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
+import { EmailLanguage, escapeHtml } from "../_shared/email-branding.ts";
+import { buildVipConfirmation, buildVipStatus, buildWalkinSummary, fmtDateParts } from "../_shared/email-templates.ts";
 import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 
 const corsHeaders = {
@@ -163,15 +158,6 @@ serve(async (req) => {
     const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
     const isGuest = !reservation.user_id;
     const reservationRef = reservation.reference_code || reservation.qr_code || '';
-    const guestClaimBlock = (isGuest && reservationRef) ? `
-      <div style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 12px; padding: 20px; margin: 0 0 24px; text-align: center;">
-        <p style="color: #fff; font-size: 15px; font-weight: 600; margin: 0 0 8px;">${t('vip.guestClaimTitle', lang)}</p>
-        <p style="color: #999; font-size: 13px; margin: 0 0 16px;">${t('vip.guestClaimDesc', lang)}</p>
-        <a href="${appBaseUrl}/claim?type=table&ref=${encodeURIComponent(reservationRef)}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-          ${t('vip.guestClaimCta', lang)} →
-        </a>
-      </div>
-    ` : '';
 
     // ── Récap walk-in : commande servie + accès rapide « créer mon compte » ──
     // (nom/prénom/email déjà connus du club, pré-remplis → le client n'a qu'à
@@ -187,48 +173,21 @@ serve(async (req) => {
       const prefillName = reservation.full_name || firstName || '';
       const signupUrl = `${appBaseUrl}/auth?signup=true&email=${encodeURIComponent(customerEmail)}${prefillName ? `&name=${encodeURIComponent(prefillName)}` : ''}`;
 
-      const L = ({
-        fr: { subject: `Votre table chez ${venueName}`, hi: 'Bonjour', intro: 'Voici le récapitulatif de votre table.', order: 'Votre commande', total: 'Total', acctTitle: 'Créez votre compte Yuno', acctDesc: 'Retrouvez vos tables et commandez plus vite la prochaine fois. Vos infos sont déjà pré-remplies, il ne reste qu’à choisir un mot de passe.', acctCta: 'Créer mon compte', thanks: 'Merci et à très vite.' },
-        en: { subject: `Your table at ${venueName}`, hi: 'Hi', intro: 'Here is the summary of your table.', order: 'Your order', total: 'Total', acctTitle: 'Create your Yuno account', acctDesc: 'Find your tables and order faster next time. Your details are pre-filled, just pick a password.', acctCta: 'Create my account', thanks: 'Thanks, see you soon.' },
-        es: { subject: `Tu mesa en ${venueName}`, hi: 'Hola', intro: 'Aquí tienes el resumen de tu mesa.', order: 'Tu pedido', total: 'Total', acctTitle: 'Crea tu cuenta Yuno', acctDesc: 'Encuentra tus mesas y pide más rápido la próxima vez. Tus datos ya están rellenados, solo falta elegir una contraseña.', acctCta: 'Crear mi cuenta', thanks: 'Gracias, hasta pronto.' },
-      } as const)[lang];
-
-      const rows = items.map(c => `
-        <tr>
-          <td style="padding:8px 0;color:#E7C15A;font-weight:700;width:36px;">${(c.quantity ?? 1)}×</td>
-          <td style="padding:8px 0;color:#fff;font-size:14px;">${escapeHtml(c.item_name || '')}</td>
-          <td style="padding:8px 0;color:#ccc;text-align:right;font-size:14px;">€${(Number(c.total_price) || 0).toFixed(2)}</td>
-        </tr>`).join('');
-
-      const content = `
-        <div style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);padding:24px 28px;text-align:center;">
-          <div style="font-size:20px;font-weight:bold;color:#fff;">${safeVenueName}</div>
-        </div>
-        <div style="padding:28px;">
-          <p style="color:#fff;font-size:16px;margin:0 0 8px;">${L.hi}${firstName ? ` ${escapeHtml(firstName)}` : ''} 👋</p>
-          <p style="color:#a0a0a0;font-size:14px;margin:0 0 20px;">${L.intro}</p>
-          ${items.length ? `
-          <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px;">${L.order}</p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(255,255,255,.1);margin-bottom:8px;">${rows}</table>
-          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(255,255,255,.1);">
-            <tr><td style="padding:12px 0;color:#fff;font-weight:700;">${L.total}</td>
-            <td style="padding:12px 0;text-align:right;color:#E7C15A;font-size:22px;font-weight:800;">€${total.toFixed(2)}</td></tr>
-          </table>` : ''}
-          <div style="background:rgba(231,193,90,.08);border:1px solid rgba(231,193,90,.3);border-radius:12px;padding:20px;text-align:center;margin-top:24px;">
-            <p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 6px;">${L.acctTitle}</p>
-            <p style="color:#999;font-size:13px;margin:0 0 16px;">${L.acctDesc}</p>
-            <a href="${signupUrl}" style="display:inline-block;background:#E7C15A;color:#1a1206;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px;">${L.acctCta} →</a>
-          </div>
-          <p style="text-align:center;color:#666;font-size:13px;margin-top:24px;">${L.thanks}</p>
-        </div>`;
-
-      const html = wrapEmailWithBranding(content, lang, venueName);
+      const mail = buildWalkinSummary({
+        lang,
+        firstName: firstName || undefined,
+        venueName,
+        items: items.map((c) => ({ k: `${c.quantity ?? 1} × ${c.item_name || ''}`, v: `€${(Number(c.total_price) || 0).toFixed(2)}` })),
+        total: `€${total.toFixed(2)}`,
+        signupUrl,
+      });
+      const html = mail.html;
       const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
       const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-        body: JSON.stringify({ from, to: [customerEmail], subject: L.subject, html }),
+        body: JSON.stringify({ from, to: [customerEmail], subject: mail.subject, html }),
         signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) throw new Error(`Resend error: ${await res.text()}`);
@@ -249,183 +208,11 @@ serve(async (req) => {
       });
     } catch { /* ignore */ }
 
-    let subjectKey = '';
-    let titleKey = '';
-    let bodyKey = '';
-    let extraContent = '';
-
-    switch (type) {
-      case 'request_received':
-        subjectKey = 'vip.requestReceivedSubject';
-        titleKey = 'vip.requestReceivedTitle';
-        bodyKey = 'vip.requestReceivedBody';
-        extraContent = `
-          <p style="color: #999; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-            ${t('vip.requestReceivedNote', lang)}
-          </p>
-        `;
-        break;
-
-      case 'confirmed':
-        subjectKey = 'vip.confirmedSubject';
-        titleKey = 'vip.confirmedTitle';
-        bodyKey = 'vip.confirmedBody';
-        extraContent = `
-          <!-- Details Card -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 24px;">
-            ${formattedDate ? `
-            <tr>
-              <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <p style="color: #888; font-size: 12px; margin: 0;">📅 ${t('ticket.eventDate', lang)}</p>
-                <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${formattedDate}</p>
-              </td>
-            </tr>
-            ` : ''}
-            ${zone?.name ? `
-            <tr>
-              <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <p style="color: #888; font-size: 12px; margin: 0;">🎫 ${t('vip.zone', lang)}</p>
-                <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${escapeHtml(zone.name)}</p>
-              </td>
-            </tr>
-            ` : ''}
-            ${reservation.minimum_spend ? `
-            <tr>
-              <td style="padding: 12px 16px;">
-                <p style="color: #888; font-size: 12px; margin: 0;">${t('vip.minimumSpend', lang)}</p>
-                <p style="color: #dc2626; font-size: 20px; font-weight: 700; margin: 4px 0 0;">€${reservation.minimum_spend.toFixed(2)}</p>
-              </td>
-            </tr>
-            ` : ''}
-          </table>
-
-          ${reservation.qr_code ? `
-          <!-- QR Code -->
-          <div style="text-align: center; margin: 24px 0; padding: 24px 20px; background-color: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-            <h3 style="color: #0a0a0a; margin-bottom: 16px; font-size: 17px; font-weight: 700;">${t('ticket.yourQRCode', lang)}</h3>
-            <div style="background: #f8f8f8; border-radius: 12px; padding: 20px; display: inline-block;">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(reservation.qr_code)}" alt="QR Code" style="width: 220px; height: 220px; display: block;" />
-            </div>
-            <div style="margin-top: 16px; background: #f5f5f5; border-radius: 8px; padding: 12px 16px; display: inline-block;">
-              <p style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 4px;">${t('ticket.reference', lang)}</p>
-              <p style="color: #0a0a0a; font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 2px; margin: 0;">${escapeHtml(reservation.reference_code || reservation.qr_code)}</p>
-            </div>
-            <p style="color: #999; font-size: 12px; margin-top: 12px;">${t('ticket.showAtEntry', lang)}</p>
-          </div>
-          ` : ''}
-
-          ${venueAddress ? `
-          <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-            <p style="margin: 0; color: #f59e0b; font-size: 14px;">
-              <strong>📍</strong> ${venueAddress}
-            </p>
-          </div>
-          ` : addressDeferred ? `
-          <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-            <p style="margin: 0; color: #f59e0b; font-size: 14px;">
-              <strong>📍</strong> ${addressDeferredText}
-            </p>
-          </div>
-          ` : ''}
-        `;
-        break;
-
-      case 'modified':
-        subjectKey = 'vip.modifiedSubject';
-        titleKey = 'vip.modifiedTitle';
-        bodyKey = 'vip.modifiedBody';
-        extraContent = changes ? `
-          <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
-            <p style="color: #ccc; font-size: 14px; line-height: 1.6; margin: 0;">${escapeHtml(changes)}</p>
-          </div>
-        ` : '';
-        break;
-
-      case 'refused':
-        subjectKey = 'vip.refusedSubject';
-        titleKey = 'vip.refusedTitle';
-        bodyKey = 'vip.refusedBody';
-        extraContent = `
-          <p style="color: #999; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-            ${t('vip.refusedNote', lang)}
-          </p>
-        `;
-        break;
-    }
-
-    const subject = t(subjectKey, lang, { eventTitle });
-
-    const emailContent = `
-      ${eventImageUrl ? `
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td>
-            <img src="${eventImageUrl}" alt="${safeEventTitle}" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" />
-          </td>
-        </tr>
-      </table>
-      ` : ''}
-
-      <!-- Header gradient -->
-      <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 24px 28px; text-align: center;">
-        <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 4px;">${safeVenueName}</div>
-        <h1 style="color: white; margin: 0; font-size: 22px;">${t(titleKey, lang)}</h1>
-      </div>
-
-      <!-- Content -->
-      <div style="padding: 28px;">
-        <p style="color: #fff; font-size: 16px; margin-bottom: 16px;">
-          ${nameStr ? `${t('ticket.greeting', lang)}${nameStr}!` : `${t('ticket.greeting', lang)}!`}
-        </p>
-
-        <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-          ${t(bodyKey, lang, { eventTitle: safeEventTitle, venueName: safeVenueName })}
-        </p>
-        
-        ${extraContent}
-
-        ${guestClaimBlock}
-
-        ${(type !== 'refused' && !isGuest) ? `
-        <table cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
-          <tr>
-            <td>
-              <a href="${appBaseUrl}/my-orders"
-                 style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
-                ${t('vip.viewReservation', lang)}
-              </a>
-            </td>
-          </tr>
-        </table>
-        ` : ''}
-        
-        <!-- Invoice Download -->
-        <div style="text-align: center; margin: 24px 0; padding: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
-          <p style="color: #fff; font-size: 16px; font-weight: 600; margin: 0 0 8px;">${t('invoice.sectionTitle', lang)}</p>
-          <p style="color: #999; font-size: 13px; margin: 0 0 16px;">${t('invoice.description', lang)}</p>
-          <a href="https://yunoapp.eu/order-confirmation?type=table&id=${reservationId}" 
-             style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
-            ${t('invoice.downloadCta', lang)} →
-          </a>
-        </div>
-        
-        <!-- Footer -->
-        <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-          <p style="color: #fff; font-size: 14px; margin: 5px 0;">
-            ${t('ticket.thanks', lang)}
-          </p>
-          <p style="color: #666; font-size: 13px; margin: 8px 0 0;">
-            ${t('vip.teamSign', lang)}
-          </p>
-        </div>
-      </div>
-    `;
-
     // For the "confirmed" (booked) email, render via the new shared editorial
     // builder. The other types (request_received / modified / refused) have no
     // dedicated builder, so they keep the inline emailContent above.
     let html: string;
-    let finalSubject = subject;
+    let finalSubject = '';
     if (type === 'confirmed') {
       // Apple Wallet : lien de téléchargement direct du pass VIP (idempotent,
       // seul canal pass pour les invités sans compte). Jamais bloquant.
@@ -465,7 +252,30 @@ serve(async (req) => {
       html = mail.html;
       finalSubject = mail.subject;
     } else {
-      html = wrapEmailWithBranding(emailContent, lang, venueName);
+      // request_received / modified / refused : même grille éditoriale que la
+      // confirmation, sans bouton sur un refus.
+      const dp = fmtDateParts(event.start_at, lang);
+      const gc = reservation.guest_count ?? 0;
+      const mail = buildVipStatus({
+        lang,
+        kind: type as 'request_received' | 'modified' | 'refused',
+        firstName: firstName || undefined,
+        eventTitle,
+        venueName,
+        posterUrl: event?.poster_url || undefined,
+        day: dp.day,
+        month: dp.month,
+        arrivalTime: dp.time,
+        tableName: zone?.name || undefined,
+        guests: gc > 0 ? String(gc) : undefined,
+        changes: changes || undefined,
+        address: venueAddress ? rawAddress : undefined,
+        addressDeferred,
+        manageUrl: !isGuest ? `${appBaseUrl}/my-orders` : undefined,
+        claimUrl: isGuest && reservationRef ? `${appBaseUrl}/claim?type=table&ref=${encodeURIComponent(reservationRef)}` : undefined,
+      });
+      html = mail.html;
+      finalSubject = mail.subject;
     }
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');

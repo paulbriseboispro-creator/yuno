@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import { wrapEmailWithBranding, t, escapeHtml, type EmailLanguage } from '../_shared/email-branding.ts';
-import { buildWaitlistOpen, fmtDateParts } from "../_shared/email-templates.ts";
+import { type EmailLanguage } from '../_shared/email-branding.ts';
+import { buildWaitlistOpen, buildWaitlistJoined, fmtDateParts } from "../_shared/email-templates.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
 
 const corsHeaders = {
@@ -27,43 +27,21 @@ function buildWaitlistConfirmationEmail(
   entry: { full_name?: string | null },
   eventTitle: string,
   venueName: string,
+  posterUrl: string | null,
+  eventDate: string | null,
   lang: EmailLanguage = 'fr'
 ): { subject: string; html: string } {
-  const name = escapeHtml(entry.full_name) || '';
-  const safeEventTitle = escapeHtml(eventTitle);
-  const safeVenueName = escapeHtml(venueName);
-
-  const subject = t('waitlist.confirmationSubject', lang, { eventTitle: safeEventTitle });
-
-  const content = `
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="padding: 32px 28px;">
-          <h1 style="color: #fff; font-size: 22px; font-weight: 700; margin: 0 0 24px; line-height: 1.3;">
-            ${t('waitlist.confirmationTitle', lang)}
-          </h1>
-          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-            ${t('waitlist.confirmationGreeting', lang, { name })}
-          </p>
-          <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-            ${t('waitlist.confirmationBody', lang, { eventTitle: safeEventTitle, venueName: safeVenueName })}
-          </p>
-          <p style="color: #999; font-size: 14px; line-height: 1.6; margin: 0 0 28px;">
-            ${t('waitlist.confirmationNote', lang)}
-          </p>
-          <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 0 0 20px;"></div>
-          <p style="color: #666; font-size: 13px; margin: 0;">
-            ${t('waitlist.teamSign', lang)}
-          </p>
-        </td>
-      </tr>
-    </table>
-  `;
-
-  return {
-    subject,
-    html: wrapEmailWithBranding(content, lang, safeVenueName),
-  };
+  const dp = eventDate ? fmtDateParts(eventDate, lang) : null;
+  const meta = dp ? [`${dp.day} ${dp.month}`.trim(), dp.time].filter(Boolean).join(' · ') : undefined;
+  const mail = buildWaitlistJoined({
+    lang,
+    firstName: (entry.full_name || '').trim().split(' ')[0] || undefined,
+    eventTitle,
+    venueName,
+    posterUrl: posterUrl || undefined,
+    meta,
+  });
+  return { subject: mail.subject, html: mail.html };
 }
 
 function buildWaitlistOpeningEmail(
@@ -202,7 +180,7 @@ serve(async (req) => {
       for (const entry of entries) {
         try {
           const emailData = type === 'confirmation'
-            ? buildWaitlistConfirmationEmail(entry, event.title, venueName, lang)
+            ? buildWaitlistConfirmationEmail(entry, event.title, venueName, eventImageUrl, event.start_at, lang)
             : buildWaitlistOpeningEmail(entry, event.title, venueName, eventUrl, eventImageUrl, event.start_at, (event as WaitlistEventRow).description, lang);
 
           const res = await fetch('https://api.resend.com/emails', {

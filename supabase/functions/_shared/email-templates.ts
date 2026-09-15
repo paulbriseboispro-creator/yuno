@@ -354,34 +354,164 @@ export function buildWinBack(d: {
   return { subject, preheader: d.nextEvent ? d.nextEvent.title : '', html };
 }
 
-// ── 5. Upsell (post-achat : VIP / boissons) — MARKETING ───────────────────────
-export function buildUpsell(d: {
-  lang?: Lang; firstName?: string; eventTitle: string; venueName: string;
-  vipEnabled?: boolean; venueUrl: string; unsubscribeUrl: string; recipientEmail: string;
+// ── 4b. Inscription liste d'attente confirmée (opérationnel) ─────────────────
+// La personne vient de s'inscrire : un seul message, pas de CTA — le prochain
+// email sera l'ouverture des ventes (buildWaitlistOpen).
+export function buildWaitlistJoined(d: {
+  lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string; meta?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
-  const hi = d.firstName ? `${d.firstName}, ` : '';
-  const subject = p(lang, { en: `Level up your night — ${d.eventTitle}`, fr: `Améliore ta soirée — ${d.eventTitle}`, es: `Mejora tu noche — ${d.eventTitle}` });
-  const opts: string[] = [];
-  if (d.vipEnabled) opts.push(p(lang, { en: '<strong style="color:#fff">VIP table</strong> — skip the queue, your own space.', fr: '<strong style="color:#fff">Table VIP</strong> — coupe la file, ton espace à toi.', es: '<strong style="color:#fff">Mesa VIP</strong> — sáltate la cola, tu propio espacio.' }));
-  opts.push(p(lang, { en: '<strong style="color:#fff">Pre-order drinks</strong> — ready when you arrive.', fr: '<strong style="color:#fff">Commande tes boissons</strong> — prêtes à ton arrivée.', es: '<strong style="color:#fff">Pide tus bebidas</strong> — listas al llegar.' }));
+  const hi = d.firstName ? `${esc(d.firstName)}, ` : '';
+  const subject = `${p(lang, { en: "You're on the list", fr: 'Tu es sur la liste', es: 'Estás en la lista' })} — ${d.eventTitle}`;
   const html = shell({
     title: subject,
-    preheader: p(lang, { en: 'VIP tables & pre-ordered drinks for your night.', fr: 'Tables VIP & boissons en pré-commande pour ta soirée.', es: 'Mesas VIP y bebidas por adelantado para tu noche.' }),
+    preheader: p(lang, { en: 'We write to you the minute tickets open.', fr: "On t'écrit à la minute où la billetterie ouvre.", es: 'Te escribimos en cuanto se abra la venta.' }),
     body: [
       brandBar(),
-      section(ruleLabel(p(lang, { en: 'Make it bigger', fr: 'Passe la vitesse', es: 'Sube de nivel' })) + `<div style="height:14px"></div>` +
-        title(`${hi}${p(lang, { en: 'your night, upgraded', fr: 'ta soirée, en mieux', es: 'tu noche, mejorada' })}`, 28) + `<div style="height:14px"></div>` +
+      poster(d.posterUrl || '', d.eventTitle),
+      section(ruleLabel(p(lang, { en: 'Private list', fr: 'Liste privée', es: 'Lista privada' })) + `<div style="height:14px"></div>` +
+        title(`${hi}${p(lang, { en: "you're in the loop", fr: 'tu es dans la boucle', es: 'estás en la lista' })}`, 30) + `<div style="height:14px"></div>` +
         body(p(lang, {
-          en: `You're set for <strong style="color:${C.white}">${d.eventTitle}</strong>. Want to go all in?`,
-          fr: `Tu es prêt pour <strong style="color:${C.white}">${d.eventTitle}</strong>. Envie de tout donner ?`,
-          es: `Estás listo para <strong style="color:${C.white}">${d.eventTitle}</strong>. ¿Lo damos todo?`,
-        }) + `<div style="height:14px"></div><ul style="margin:0;padding-left:18px;color:${C.gray1};font-family:${F.body};font-size:15px;line-height:1.8;">${opts.map((o) => `<li>${o}</li>`).join('')}</ul>`), { border: false }),
-      section(ctaPill(p(lang, { en: 'Upgrade my night', fr: 'Améliorer ma soirée', es: 'Mejorar mi noche' }), d.venueUrl), { border: false }),
-      footer({ lang, recipientEmail: d.recipientEmail, reason: reasonTicket(lang), unsubscribeUrl: d.unsubscribeUrl, venueName: d.venueName }),
+          en: `You're on the private list for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> by <strong style="color:${C.white}">${esc(d.venueName)}</strong>. The minute tickets open, you hear it first.`,
+          fr: `Tu es sur la liste privée de <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> par <strong style="color:${C.white}">${esc(d.venueName)}</strong>. À la minute où la billetterie ouvre, tu es prévenu·e en premier.`,
+          es: `Estás en la lista privada de <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> por <strong style="color:${C.white}">${esc(d.venueName)}</strong>. En cuanto se abra la venta, serás la primera persona en saberlo.`,
+        })), { border: !!d.meta }),
+      ...(d.meta ? [section(mono(d.meta, C.gray2), { border: false })] : []),
+      footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
-  return { subject, preheader: '', html };
+  return { subject, preheader: d.meta || '', html };
+}
+
+// ── 4c. Statut d'une demande de table VIP (reçue / modifiée / refusée) ───────
+// Même grille que la confirmation : le client reconnaît l'email d'un coup
+// d'œil. Un refus ne porte pas de bouton : il n'y a rien à ouvrir.
+export function buildVipStatus(d: {
+  lang?: Lang; kind: 'request_received' | 'modified' | 'refused'; firstName?: string;
+  eventTitle: string; venueName: string; posterUrl?: string; day: string; month: string; arrivalTime?: string;
+  tableName?: string; guests?: string; changes?: string; address?: string; addressDeferred?: boolean;
+  manageUrl?: string; claimUrl?: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const hi = d.firstName ? `${esc(d.firstName)}, ` : '';
+  const ev = `<strong style="color:${C.white}">${esc(d.eventTitle)}</strong>`;
+  const vn = `<strong style="color:${C.white}">${esc(d.venueName)}</strong>`;
+  const K = {
+    request_received: {
+      subject: p(lang, { en: 'Table request received', fr: 'Demande de table reçue', es: 'Solicitud de mesa recibida' }),
+      label: p(lang, { en: 'Request received', fr: 'Demande reçue', es: 'Solicitud recibida' }),
+      title: p(lang, { en: "we're on it", fr: "on s'en occupe", es: 'nos ocupamos' }),
+      body: p(lang, {
+        en: `Your table request for ${ev} at ${vn} is in. The venue confirms your placement shortly — you get an email the moment it's done.`,
+        fr: `Ta demande de table pour ${ev} chez ${vn} est bien arrivée. Le club confirme ton placement très vite — tu reçois un email dès que c'est fait.`,
+        es: `Tu solicitud de mesa para ${ev} en ${vn} ha llegado. El club confirma tu ubicación muy pronto: recibirás un email en cuanto esté hecho.`,
+      }),
+    },
+    modified: {
+      subject: p(lang, { en: 'Your table was updated', fr: 'Ta table a été modifiée', es: 'Tu mesa ha sido modificada' }),
+      label: p(lang, { en: 'Table updated', fr: 'Table modifiée', es: 'Mesa modificada' }),
+      title: p(lang, { en: 'heads up', fr: 'à noter', es: 'atención' }),
+      body: p(lang, {
+        en: `Your table for ${ev} at ${vn} was updated by the venue.${d.changes ? ' Here is what changed:' : ''}`,
+        fr: `Ta table pour ${ev} chez ${vn} a été modifiée par le club.${d.changes ? ' Voici ce qui change :' : ''}`,
+        es: `Tu mesa para ${ev} en ${vn} ha sido modificada por el club.${d.changes ? ' Esto es lo que cambia:' : ''}`,
+      }),
+    },
+    refused: {
+      subject: p(lang, { en: 'Table request not confirmed', fr: 'Demande de table non confirmée', es: 'Solicitud de mesa no confirmada' }),
+      label: p(lang, { en: 'Not confirmed', fr: 'Non confirmée', es: 'No confirmada' }),
+      title: p(lang, { en: 'sorry', fr: 'désolé', es: 'lo sentimos' }),
+      body: p(lang, {
+        en: `${vn} couldn't confirm your table request for ${ev}. Nothing has been charged. For another date or another package, reach out to the venue directly.`,
+        fr: `${vn} n'a pas pu confirmer ta demande de table pour ${ev}. Rien ne t'a été débité. Pour une autre date ou une autre formule, contacte directement le club.`,
+        es: `${vn} no ha podido confirmar tu solicitud de mesa para ${ev}. No se te ha cobrado nada. Para otra fecha u otra fórmula, contacta directamente con el club.`,
+      }),
+    },
+  }[d.kind];
+  const subject = `${K.subject} — ${d.eventTitle}`;
+  const deferred = p(lang, {
+    en: 'The exact address is sent to you by the host before the event.',
+    fr: "L'adresse exacte te sera communiquée par l'organisateur avant la soirée.",
+    es: 'El organizador te comunicará la dirección exacta antes del evento.',
+  });
+  const rows = [
+    { k: lbl(lang, 'party'), v: d.eventTitle },
+    { k: lbl(lang, 'club'), v: d.venueName },
+    ...(d.tableName ? [{ k: lbl(lang, 'table'), v: d.tableName }] : []),
+    ...(d.guests ? [{ k: lbl(lang, 'guests'), v: d.guests }] : []),
+    ...(d.address ? [{ k: p(lang, { en: 'Address', fr: 'Adresse', es: 'Dirección' }), v: d.address }] : []),
+  ];
+  const cta = d.kind === 'refused' ? '' : d.manageUrl
+    ? ctaPill(p(lang, { en: 'View my booking', fr: 'Voir ma réservation', es: 'Ver mi reserva' }), d.manageUrl)
+    : d.claimUrl ? ctaPill(p(lang, { en: 'Find my booking', fr: 'Retrouver ma réservation', es: 'Encontrar mi reserva' }), d.claimUrl) : '';
+  const html = shell({
+    title: subject,
+    preheader: `${d.day} ${d.month}${d.arrivalTime ? ` · ${d.arrivalTime}` : ''} · ${d.venueName}`,
+    body: [
+      brandBar(),
+      poster(d.posterUrl || '', d.eventTitle),
+      section(ruleLabel(K.label) + `<div style="height:14px"></div>` + title(`${hi}${K.title}`, 30) + `<div style="height:14px"></div>` + body(K.body)),
+      ...(d.changes ? [section(`<div style="border:1px solid ${C.borderStrong};border-radius:4px;background:${C.card};padding:16px 18px;">${body(esc(d.changes))}</div>`)] : []),
+      ...(d.kind === 'refused' ? [] : [section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' }))]),
+      section(infoRows(rows) + (d.addressDeferred && !d.address ? `<div style="height:12px"></div>${mono(deferred, C.gray3, 11)}` : ''), { border: !!cta }),
+      ...(cta ? [section(cta, { border: false })] : []),
+      footer({ lang, venueName: d.venueName }),
+    ].join(''),
+  });
+  return { subject, preheader: `${d.day} ${d.month} · ${d.venueName}`, html };
+}
+
+// ── 4d. Récap d'une table walk-in (consommation servie + création de compte) ─
+export function buildWalkinSummary(d: {
+  lang?: Lang; firstName?: string; venueName: string; items: Array<{ k: string; v: string }>; total: string; signupUrl: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const hi = d.firstName ? `${esc(d.firstName)}, ` : '';
+  const subject = `${p(lang, { en: 'Your table at', fr: 'Ta table chez', es: 'Tu mesa en' })} ${d.venueName}`;
+  const html = shell({
+    title: subject,
+    preheader: `${d.total} · ${d.venueName}`,
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Your table', fr: 'Ta table', es: 'Tu mesa' })) + `<div style="height:14px"></div>` +
+        title(`${hi}${p(lang, { en: 'thanks for tonight', fr: 'merci pour ce soir', es: 'gracias por esta noche' })}`, 30) + `<div style="height:14px"></div>` +
+        body(p(lang, {
+          en: `Here is the summary of your table at <strong style="color:${C.white}">${esc(d.venueName)}</strong>.`,
+          fr: `Voici le récapitulatif de ta table chez <strong style="color:${C.white}">${esc(d.venueName)}</strong>.`,
+          es: `Aquí tienes el resumen de tu mesa en <strong style="color:${C.white}">${esc(d.venueName)}</strong>.`,
+        }))),
+      ...(d.items.length ? [section(infoRows([...d.items, { k: lbl(lang, 'total'), v: d.total }]))] : []),
+      section(ruleLabel(p(lang, { en: 'Next time', fr: 'La prochaine fois', es: 'La próxima vez' })) + `<div style="height:12px"></div>` +
+        body(p(lang, {
+          en: 'Create your Yuno account to find your tables and book faster next time. Your details are pre-filled — just pick a password.',
+          fr: 'Crée ton compte Yuno pour retrouver tes tables et réserver plus vite la prochaine fois. Tes infos sont déjà pré-remplies, il ne reste qu\'à choisir un mot de passe.',
+          es: 'Crea tu cuenta Yuno para encontrar tus mesas y reservar más rápido la próxima vez. Tus datos ya están rellenados: solo falta elegir una contraseña.',
+        })) + `<div style="height:16px"></div>` +
+        ctaPill(p(lang, { en: 'Create my account', fr: 'Créer mon compte', es: 'Crear mi cuenta' }), d.signupUrl), { border: false }),
+      footer({ lang, venueName: d.venueName }),
+    ].join(''),
+  });
+  return { subject, preheader: d.total, html };
+}
+
+// ── 13c. Alerte de sécurité (sans lien : on informe, on ne fait rien cliquer) ─
+export function buildSecurityAlert(d: {
+  lang?: Lang; title: string; message: string; rows?: Array<{ k: string; v: string }>; warning?: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const html = shell({
+    title: d.title,
+    preheader: d.message.replace(/<[^>]+>/g, '').slice(0, 90),
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Security', fr: 'Sécurité', es: 'Seguridad' })) + `<div style="height:16px"></div>` +
+        title(d.title, 26) + `<div style="height:14px"></div>` + body(d.message), { border: !!(d.rows && d.rows.length) }),
+      ...(d.rows && d.rows.length ? [section(infoRows(d.rows), { border: !!d.warning })] : []),
+      ...(d.warning ? [section(`<div style="border:1px solid rgba(232,25,44,0.30);border-radius:4px;background:${C.redTint};padding:14px 18px;">${body(d.warning, C.gray1)}</div>`, { border: false })] : []),
+      footer({ lang }),
+    ].join(''),
+  });
+  return { subject: d.title, preheader: '', html };
 }
 
 // ── 6. Recommandation soirées — MARKETING ─────────────────────────────────────
@@ -403,31 +533,6 @@ export function buildNextEventRec(d: {
         body(p(lang, { en: 'Based on the nights you loved, here\'s what\'s coming.', fr: 'D\'après les soirées que tu as aimées, voici ce qui arrive.', es: 'Según las noches que te gustaron, esto es lo que viene.' })), { border: false }),
       section(cards, { border: false, padTop: 4 }),
       footer({ lang, recipientEmail: d.recipientEmail, reason: p(lang, { en: 'you attended events on Yuno', fr: 'tu as participé à des soirées sur Yuno', es: 'asististe a eventos en Yuno' }), unsubscribeUrl: d.unsubscribeUrl }),
-    ].join(''),
-  });
-  return { subject, preheader: '', html };
-}
-
-// ── 7. Recap post-soirée (opérationnel) ───────────────────────────────────────
-export function buildEventRecap(d: {
-  lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
-  stats: Array<{ k: string; v: string }>; venueUrl: string;
-}): BuiltEmail {
-  const lang = L(d.lang || 'en');
-  const hi = d.firstName ? `${d.firstName}, ` : '';
-  const subject = p(lang, { en: `Your night in numbers — ${d.eventTitle}`, fr: `Ta soirée en chiffres — ${d.eventTitle}`, es: `Tu noche en cifras — ${d.eventTitle}` });
-  const html = shell({
-    title: subject,
-    preheader: p(lang, { en: 'Thanks for being there.', fr: 'Merci d\'avoir été là.', es: 'Gracias por estar ahí.' }),
-    body: [
-      brandBar(),
-      poster(d.posterUrl || '', d.eventTitle),
-      section(ruleLabel(p(lang, { en: 'Recap', fr: 'Récap', es: 'Resumen' })) + `<div style="height:14px"></div>` +
-        title(`${hi}${p(lang, { en: 'what a night', fr: 'quelle soirée', es: 'qué noche' })}`, 30) + `<div style="height:14px"></div>` +
-        body(p(lang, { en: `Here's <strong style="color:${C.white}">${d.eventTitle}</strong>, your night in numbers. Thanks for being there.`, fr: `Voici <strong style="color:${C.white}">${d.eventTitle}</strong>, ta soirée en chiffres. Merci d'avoir été là.`, es: `Aquí está <strong style="color:${C.white}">${d.eventTitle}</strong>, tu noche en cifras. Gracias por estar ahí.` }))),
-      section(infoRows(d.stats)),
-      section(ctaPill(p(lang, { en: `See ${d.venueName}`, fr: `Voir ${d.venueName}`, es: `Ver ${d.venueName}` }), d.venueUrl), { border: false }),
-      footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
   return { subject, preheader: '', html };
@@ -795,9 +900,13 @@ export const PREVIEW_SAMPLES: Record<string, () => BuiltEmail> = {
   vip: () => buildVipConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6 personnes', bottles: '2 × Grey Goose', total: '890,00 €', reference: 'VP-2M8X4Q', manageUrl: `${APP}/reservations`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-VP-2M8X4Q' }),
   order: () => buildOrderConfirmation({ lang: 'fr', firstName: 'Paul', venueName: 'Night Square', items: [{ k: '2 × Mojito', v: '24,00 €' }, { k: '1 × Red Bull', v: '6,00 €' }], total: '30,00 €', reference: 'OR-9920XB', pickupInfo: 'Récupère au bar avec ta référence.', orderUrl: `${APP}/orders` }),
   winback: () => buildWinBack({ lang: 'fr', firstName: 'Paul', pastEventTitle: 'Techno Sundays #12', venueName: 'Night Square', posterUrl: POSTER, attendeeCount: '340', nextEvent: { title: 'Yuno Boat Party Seine', meta: '22 Juin · 18:00 · Paris', url: `${APP}/event/demo`, img: POSTER }, venueUrl: `${APP}/club/night-square`, unsubscribeUrl: `${APP}/unsubscribe?token=demo`, recipientEmail: 'paul.brisebois.pro@gmail.com' }),
-  upsell: () => buildUpsell({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', vipEnabled: true, venueUrl: `${APP}/club/night-square`, unsubscribeUrl: `${APP}/unsubscribe?token=demo`, recipientEmail: 'paul.brisebois.pro@gmail.com' }),
   nextEventRec: () => buildNextEventRec({ lang: 'fr', firstName: 'Paul', events: [{ title: 'Yuno Boat Party Seine', meta: '22 Juin · Paris · Techno', url: `${APP}/event/1`, img: POSTER }, { title: 'Rooftop Sunset Sessions', meta: '28 Juin · Paris · House', url: `${APP}/event/2` }], unsubscribeUrl: `${APP}/unsubscribe?token=demo`, recipientEmail: 'paul.brisebois.pro@gmail.com' }),
-  eventRecap: () => buildEventRecap({ lang: 'fr', firstName: 'Paul', eventTitle: 'Techno Sundays #12', venueName: 'Night Square', posterUrl: POSTER, stats: [{ k: 'Tes dépenses', v: '64,00 €' }, { k: 'Points gagnés', v: '+120' }, { k: 'Présents', v: '340' }], venueUrl: `${APP}/club/night-square` }),
+  waitlistJoined: () => buildWaitlistJoined({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, meta: '22 Juin · 18:00 · Paris' }),
+  vipRequest: () => buildVipStatus({ lang: 'fr', kind: 'request_received', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6', manageUrl: `${APP}/my-orders` }),
+  vipModified: () => buildVipStatus({ lang: 'fr', kind: 'modified', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '8', changes: 'Ta table passe en Carré Prestige, 8 personnes, arrivée avant 23h30.', manageUrl: `${APP}/my-orders` }),
+  vipRefused: () => buildVipStatus({ lang: 'fr', kind: 'refused', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026' }),
+  walkinSummary: () => buildWalkinSummary({ lang: 'fr', firstName: 'Paul', venueName: 'Night Square', items: [{ k: '2 × Grey Goose 70cl', v: '€360.00' }, { k: '6 × Red Bull', v: '€36.00' }], total: '€396.00', signupUrl: `${APP}/auth?signup=true` }),
+  securityAlert: () => buildSecurityAlert({ lang: 'fr', title: '2FA désactivée sur ton compte', message: "L'authentification à deux facteurs vient d'être désactivée sur ton compte Yuno.", rows: [{ k: 'Date', v: '15/09/2026 14:02 (Paris)' }, { k: 'IP', v: '203.0.113.7' }], warning: "Si ce n'est pas toi : change ton mot de passe immédiatement et réactive la 2FA depuis tes paramètres de sécurité." }),
   lowTicketOwner: () => buildLowTicketAlert({ lang: 'fr', audience: 'owner', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', pctSold: '85%', meta: '', url: `${APP}/owner` }),
   lowTicketFan: () => buildLowTicketAlert({ lang: 'fr', audience: 'fan', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, meta: '22 Juin · 18:00 · Paris', url: `${APP}/event/demo` }),
   preNight: () => buildPreNightChecklist({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, doorsTime: '18:00', address: 'Port de la Bourdonnais, Paris', reference: 'TK-7F3K9P', ticketUrl: `${APP}/tickets` }),
