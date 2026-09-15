@@ -14013,6 +14013,10 @@ const fr: Record<string, string> = {
   'em.auto.sug.welcome': '{n} nouvelles inscriptions ce mois, sans mot de bienvenue.',
   'em.auto.sug.tier': '{event} : le palier ouvert est à {p} %.',
   'notif.type.automation_suggested': 'Recette à allumer',
+  'em.auto.upcomingTitle': 'Prochains départs',
+  'em.auto.upcomingInFlight': '{n} en attente d\'envoi (file, quota du jour, nuit)',
+  'em.auto.upcomingNone': 'Rien en attente.',
+  'em.auto.weekTitle': 'Cette semaine :',
 };
 
 export default fr;

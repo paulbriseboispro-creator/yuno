@@ -121,6 +121,8 @@ export interface AutomationStats {
   subject: string | null;
   /** En file, pas encore posés dans une campagne enfant. */
   pending: number;
+  /** Posés dans une campagne enfant, pas encore partis (file, quota, nuit). */
+  in_flight: number;
   queued: number;
   skipped: Partial<Record<AutomationSkipReason, number>>;
   last_queued_at: string | null;

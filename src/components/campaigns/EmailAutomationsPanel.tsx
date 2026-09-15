@@ -78,6 +78,8 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const nextEvent = events[0] || null;
   const [rows, setRows] = useState<Partial<Record<AutomationKind, EmailAutomationRow>>>({});
   const [stats, setStats] = useState<Partial<Record<AutomationKind, AutomationStats>>>({});
+  /** Le même bilan sur 7 jours glissants (« cette semaine »). */
+  const [week, setWeek] = useState<Partial<Record<AutomationKind, AutomationStats>>>({});
   const [previews, setPreviews] = useState<Partial<Record<AutomationKind, AutomationPreview>>>({});
   const [children, setChildren] = useState<ChildRow[]>([]);
   const [revenue, setRevenue] = useState<Record<string, number>>({});
@@ -93,11 +95,16 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const load = useCallback(async () => {
     const autoQ = supabase.from('email_automations' as never)
       .select('id,kind,enabled,enabled_at,delay_hours,threshold_pct,template_id,subject');
-    const [{ data: autoRows }, { data: statRows }, { data: attribution }] = await Promise.all([
+    const [{ data: autoRows }, { data: statRows }, { data: weekRows }, { data: attribution }] = await Promise.all([
       isPlatform ? autoQ.is('venue_id', null).is('organizer_user_id', null) : autoQ.eq(scopeCol, scopeId as string),
       supabase.rpc('get_email_automation_stats' as never, {
         p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
         p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+      } as never),
+      supabase.rpc('get_email_automation_stats' as never, {
+        p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
+        p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+        p_days: 7,
       } as never),
       // Yuno n'encaisse rien pour lui-même : pas de revenu attribué en portée plateforme.
       isPlatform
@@ -110,6 +117,9 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
     const st: Partial<Record<AutomationKind, AutomationStats>> = {};
     for (const s of ((statRows || []) as unknown as AutomationStats[])) st[s.kind] = s;
     setStats(st);
+    const wk: Partial<Record<AutomationKind, AutomationStats>> = {};
+    for (const s of ((weekRows || []) as unknown as AutomationStats[])) wk[s.kind] = s;
+    setWeek(wk);
     const payload = attribution as unknown as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number }> } | null;
     if (payload?.supported) {
       const map: Record<string, number> = {};
@@ -257,6 +267,8 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
                 kind={kind}
                 row={rows[kind] || null}
                 stats={stats[kind] || null}
+                week={week[kind] || null}
+                weekRevenue={isPlatform ? null : (week[kind]?.campaign_ids || []).reduce((sum, id) => sum + (revenue[id] || 0), 0)}
                 preview={isPlatform ? null : (previews[kind] || null)}
                 templates={templates}
                 childrenRows={children.filter((c) => c.automation_id === rows[kind]?.id).slice(0, 3)}
@@ -293,12 +305,16 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
 // ── Une recette ──────────────────────────────────────────────────────────────
 
 function RecipeCard({
-  kind, row, stats, preview, templates, childrenRows, revenue, busy, basePath,
+  kind, row, stats, week, weekRevenue, preview, templates, childrenRows, revenue, busy, basePath,
   onToggle, onDelay, onThreshold, onTemplate, onSubject, onCreateStarter, onPreview,
 }: {
   kind: AutomationKind;
   row: EmailAutomationRow | null;
   stats: AutomationStats | null;
+  /** Le même bilan sur 7 jours glissants. */
+  week: AutomationStats | null;
+  /** Revenu attribué aux enfants actifs cette semaine ; null en portée Yuno. */
+  weekRevenue: number | null;
   /** null = pas d'aperçu d'audience (portée Yuno, ou pas encore chargé). */
   preview: AutomationPreview | null;
   templates: Array<{ id: string; name: string; subject?: string }>;
@@ -494,6 +510,34 @@ function RecipeCard({
                 </div>
               )}
             </div>
+
+            {/* Prochains départs : en attente d'envoi + prochain déclencheur connu. */}
+            {enabled && (
+              <div style={{ padding: '10px 12px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <Micro>{t('em.auto.upcomingTitle')}</Micro>
+                <div style={{ color: T2, fontSize: 11.5, lineHeight: 1.55 }}>
+                  {(stats?.in_flight || 0) + (stats?.pending || 0) > 0
+                    ? fill('em.auto.upcomingInFlight', { n: nf((stats?.in_flight || 0) + (stats?.pending || 0)) })
+                    : t('em.auto.upcomingNone')}
+                  {preview?.next_due_at && (
+                    <>
+                      {' · '}
+                      {fill('em.auto.nextDue', { d: new Date(preview.next_due_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })}
+                      {preview.next_event_title && <span style={{ color: T3 }}>{' · '}{preview.next_event_title}</span>}
+                    </>
+                  )}
+                </div>
+                {week && (week.sent > 0 || week.queued > 0) && (
+                  <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+                    {t('em.auto.weekTitle')}{' '}
+                    <span style={{ color: T1, fontVariantNumeric: 'tabular-nums' }}>{nf(week.sent)}</span> {t('em.auto.stat.sent')}
+                    {' · '}<span style={{ color: T1, fontVariantNumeric: 'tabular-nums' }}>{nf(week.opens)}</span> {t('em.auto.stat.opens')}
+                    {' · '}<span style={{ color: T1, fontVariantNumeric: 'tabular-nums' }}>{nf(week.clickers)}</span> {t('em.auto.stat.clickers')}
+                    {weekRevenue != null && weekRevenue > 0 && <>{' · '}<span style={{ color: RED, fontVariantNumeric: 'tabular-nums' }}>{formatEuro(weekRevenue)}</span> {t('em.auto.stat.revenue')}</>}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div style={{ padding: '10px 12px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <Micro>{t('em.auto.statsTitle')}</Micro>

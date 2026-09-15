@@ -3,7 +3,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Ticket, Wine, Crown, ScanLine, CreditCard, MapPin, Sparkles, Loader2, ShieldAlert, FileText, Download } from 'lucide-react';
+import { Ticket, Wine, Crown, ScanLine, CreditCard, MapPin, Sparkles, Loader2, ShieldAlert, FileText, Download, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr as frLocale, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -20,7 +20,7 @@ interface Props {
 
 interface ActivityItem {
   ts: string;
-  type: 'ticket' | 'table' | 'order' | 'scan' | 'visit' | 'other';
+  type: 'ticket' | 'table' | 'order' | 'scan' | 'visit' | 'email' | 'other';
   label: string;
   amount?: number;
   eventTitle?: string;
@@ -32,6 +32,7 @@ const TYPE_META: Record<ActivityItem['type'], { icon: any; cls: string }> = {
   order: { icon: Wine, cls: 'bg-purple-500/15 text-purple-400 border-purple-500/30' },
   scan: { icon: ScanLine, cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
   visit: { icon: MapPin, cls: 'bg-muted text-muted-foreground' },
+  email: { icon: Mail, cls: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
   other: { icon: Sparkles, cls: 'bg-muted text-muted-foreground' },
 };
 
@@ -148,6 +149,42 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
               label: tt(`Commande de ${itemCount} produit(s)`, `Order of ${itemCount} item(s)`, `Pedido de ${itemCount} producto(s)`),
               amount: Number(o.total ?? 0),
               eventTitle: o.event_id ? eventTitles.get(o.event_id) : undefined,
+            });
+          });
+        }
+
+        // Emails automatiques (recettes) reçus par la personne — ou la raison
+        // pour laquelle elle a été écartée. Registre email_automation_sends,
+        // lu par RPC (la table n'a aucune policy).
+        if (venueId || organizerUserId) {
+          const { data: autos } = await supabase.rpc('get_customer_automation_emails' as never, {
+            p_venue_id: venueId || null,
+            p_organizer_user_id: organizerUserId || null,
+            p_email: lc,
+          } as never);
+          const KIND: Record<string, [string, string, string]> = {
+            abandoned_checkout: ['Panier abandonné', 'Abandoned checkout', 'Carrito abandonado'],
+            last_call: ['Dernier appel', 'Last call', 'Última llamada'],
+            table_upsell: ['Passe en table', 'Upgrade to a table', 'Pásate a mesa'],
+            tier_closing: ['Le tarif monte', 'Price goes up', 'El precio sube'],
+            new_event: ['Nouvelle soirée', 'New event', 'Nueva fiesta'],
+            post_event_thanks: ['Merci d\'être venu', 'Thanks for coming', 'Gracias por venir'],
+            post_event_missed: ['On t\'a manqué', 'We missed you', 'Te echamos de menos'],
+            welcome: ['Bienvenue', 'Welcome', 'Bienvenida'],
+            win_back: ['Reconquête', 'Win-back', 'Reconquista'],
+          };
+          (Array.isArray(autos) ? (autos as unknown as Array<{ kind: string; status: string; skip_reason: string | null; created_at: string; sent_at: string | null; opened: boolean; clicked: boolean; event_title: string | null }>) : []).forEach((a) => {
+            const name = KIND[a.kind] ? tt(...KIND[a.kind]) : a.kind;
+            const state = a.status === 'skipped'
+              ? tt(`écarté (${a.skip_reason || '—'})`, `skipped (${a.skip_reason || '—'})`, `descartado (${a.skip_reason || '—'})`)
+              : a.sent_at
+                ? (a.clicked ? tt('cliqué', 'clicked', 'clic') : a.opened ? tt('ouvert', 'opened', 'abierto') : tt('envoyé', 'sent', 'enviado'))
+                : tt('en file', 'queued', 'en cola');
+            list.push({
+              ts: a.sent_at || a.created_at,
+              type: 'email',
+              label: `${tt('Email auto', 'Auto email', 'Email auto')} · ${name} · ${state}`,
+              eventTitle: a.event_title || undefined,
             });
           });
         }

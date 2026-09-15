@@ -14039,6 +14039,10 @@ const en: Record<string, string> = {
   'em.auto.sug.welcome': '{n} new sign-ups this month, without a welcome.',
   'em.auto.sug.tier': '{event}: the open tier is at {p}%.',
   'notif.type.automation_suggested': 'Recipe to turn on',
+  'em.auto.upcomingTitle': 'Upcoming sends',
+  'em.auto.upcomingInFlight': '{n} waiting to go out (queue, daily quota, night)',
+  'em.auto.upcomingNone': 'Nothing waiting.',
+  'em.auto.weekTitle': 'This week:',
 };
 
 export default en;

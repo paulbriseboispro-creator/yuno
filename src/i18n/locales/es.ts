@@ -14381,6 +14381,10 @@ const es: Record<string, string> = {
   'em.auto.sug.welcome': '{n} nuevas inscripciones este mes, sin bienvenida.',
   'em.auto.sug.tier': '{event}: el tramo abierto está al {p} %.',
   'notif.type.automation_suggested': 'Receta por encender',
+  'em.auto.upcomingTitle': 'Próximos envíos',
+  'em.auto.upcomingInFlight': '{n} a la espera de salir (cola, cuota del día, noche)',
+  'em.auto.upcomingNone': 'Nada en espera.',
+  'em.auto.weekTitle': 'Esta semana:',
 };
 
 export default es;

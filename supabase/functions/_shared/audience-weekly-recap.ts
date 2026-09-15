@@ -48,15 +48,33 @@ export async function dispatchAudienceWeeklyRecaps(
       // Rien à raconter cette semaine → pas de récap vide (déjà réclamé, pas de retry).
       if (followers <= 0 && revenue <= 0 && pushes <= 0) continue;
 
+      // Automatisations email de la semaine : « X emails, Y ventes attribuées ».
+      // Une ligne de plus dans le MÊME push (variante), jamais un email de plus.
+      let autoEmails = 0;
+      let autoSales = 0;
+      try {
+        const { data: digest } = await admin.rpc("email_automation_weekly_digest", {
+          p_subject_type: "venue", p_subject_id: v.id,
+        });
+        const d = digest as { emails?: number; sales?: number } | null;
+        autoEmails = Number(d?.emails || 0);
+        autoSales = Number(d?.sales || 0);
+      } catch (e) {
+        console.error(`[WEEKLY-RECAP] digest ${v.id} failed:`, String(e));
+      }
+
       processed++;
       const res = await sendAutoPush(admin, {
         key: "audience_weekly_recap",
         userId: v.owner_id,
         url: "/owner/audience",
+        variant: autoEmails > 0 ? "with_automations" : "default",
         vars: {
           followers: String(Math.max(0, followers)),
           pushes: String(pushes),
           revenue: `${Math.round(revenue).toLocaleString("fr-FR")} €`,
+          auto_emails: String(autoEmails),
+          auto_sales: String(autoSales),
         },
       });
       sent += res.sent;

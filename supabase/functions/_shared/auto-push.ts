@@ -111,6 +111,12 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
         en: { title: "Your week on Yuno 📊", body: "+{followers} subscribers, {pushes} pushes, {revenue} in sales this week." },
         es: { title: "Tu semana en Yuno 📊", body: "+{followers} suscriptores, {pushes} push, {revenue} en ventas esta semana." },
       },
+      // Quand des recettes email ont travaillé : une ligne de plus, pas un push de plus.
+      with_automations: {
+        fr: { title: "Ta semaine sur Yuno 📊", body: "+{followers} abonnés, {pushes} push, {revenue} de ventes. Automatisations : {auto_emails} emails, {auto_sales} ventes attribuées." },
+        en: { title: "Your week on Yuno 📊", body: "+{followers} subscribers, {pushes} pushes, {revenue} in sales. Automations: {auto_emails} emails, {auto_sales} attributed sales." },
+        es: { title: "Tu semana en Yuno 📊", body: "+{followers} suscriptores, {pushes} push, {revenue} en ventas. Automatizaciones: {auto_emails} emails, {auto_sales} ventas atribuidas." },
+      },
     },
   },
   purchase_ticket: {
