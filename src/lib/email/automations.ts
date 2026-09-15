@@ -12,11 +12,19 @@
 import type { StarterKey } from './starters';
 
 export type AutomationKind =
-  | 'welcome' | 'abandoned_checkout' | 'last_call' | 'post_event_thanks' | 'post_event_missed' | 'win_back';
+  | 'welcome' | 'abandoned_checkout' | 'last_call' | 'post_event_thanks' | 'post_event_missed' | 'win_back'
+  // v2 (2026-09-15) : passe en table, le tarif monte, nouvelle soirée.
+  | 'table_upsell' | 'tier_closing' | 'new_event';
 
+/** Ordre d'affichage : la vente d'abord (avant la soirée), la relation ensuite. */
 export const AUTOMATION_KINDS: readonly AutomationKind[] = [
-  'abandoned_checkout', 'last_call', 'post_event_thanks', 'post_event_missed', 'welcome', 'win_back',
+  'new_event', 'abandoned_checkout', 'tier_closing', 'last_call', 'table_upsell',
+  'post_event_thanks', 'post_event_missed', 'welcome', 'win_back',
 ];
+
+/** Seuils proposés pour « le tarif monte » (part du palier ouvert déjà vendue). */
+export const TIER_THRESHOLDS: readonly number[] = [75, 85, 95];
+export const DEFAULT_TIER_THRESHOLD = 85;
 
 /**
  * Recettes qui ont un sens pour Yuno lui-même (portée plateforme, super admin) :
@@ -38,6 +46,16 @@ export interface AutomationMeta {
   direction: 'after' | 'before' | 'dormant';
   /** La recette exige un scan à la porte pour savoir qui est venu. */
   needsScan?: boolean;
+  /**
+   * Pas un délai, un SEUIL : le sélecteur de délai est masqué et remplacé par
+   * le choix du seuil (`email_automations.threshold_pct`).
+   */
+  noDelay?: boolean;
+  /**
+   * Recette urgente (rareté réelle) : palier de pression 2 / 24 h, 5 / 7 j
+   * dans `email_send_policy`, et exemptée du cooldown de 48 h.
+   */
+  urgent?: boolean;
 }
 
 export const AUTOMATION_META: Record<AutomationKind, AutomationMeta> = {
@@ -47,7 +65,21 @@ export const AUTOMATION_META: Record<AutomationKind, AutomationMeta> = {
   post_event_missed: { kind: 'post_event_missed', starter: 'auto_post_event_missed', delays: [12, 24, 48, 72], defaultDelay: 24, unit: 'hours', direction: 'after', needsScan: true },
   welcome: { kind: 'welcome', starter: 'auto_welcome', delays: [1, 6, 24, 48], defaultDelay: 24, unit: 'hours', direction: 'after' },
   win_back: { kind: 'win_back', starter: 'auto_win_back', delays: [45, 60, 90, 120], defaultDelay: 90, unit: 'days', direction: 'dormant' },
+  table_upsell: { kind: 'table_upsell', starter: 'auto_table_upsell', delays: [48, 72, 120, 168], defaultDelay: 72, unit: 'hours', direction: 'before' },
+  // Le délai est sans objet (delay_hours garde sa valeur par défaut) : la
+  // recette part sur un seuil de remplissage du palier ouvert.
+  tier_closing: { kind: 'tier_closing', starter: 'auto_tier_closing', delays: [24], defaultDelay: 24, unit: 'hours', direction: 'after', noDelay: true, urgent: true },
+  new_event: { kind: 'new_event', starter: 'auto_new_event', delays: [2, 6, 24], defaultDelay: 6, unit: 'hours', direction: 'after' },
 };
+
+/** Types de blocs que le moteur retire d'un email enfant sans soirée reliée
+ *  (miroir de `_email_blocks_without_live`) : jamais de tarifs inventés. */
+export const LIVE_BLOCK_TYPES: readonly string[] = ['event', 'tickets', 'guestlist', 'table', 'countdown'];
+
+/** Miroir TS de `_email_blocks_without_live` : sert aux tests et aux aperçus. */
+export function blocksWithoutLive<T extends { type: string }>(blocks: readonly T[]): T[] {
+  return blocks.filter((b) => !LIVE_BLOCK_TYPES.includes(b.type));
+}
 
 /** Délai en heures tel que stocké (`email_automations.delay_hours`). */
 export function delayToHours(meta: AutomationMeta, value: number): number {
@@ -64,6 +96,8 @@ export interface EmailAutomationRow {
   enabled: boolean;
   enabled_at: string | null;
   delay_hours: number;
+  /** tier_closing : seuil de remplissage du palier (75 / 85 / 95). */
+  threshold_pct: number;
   template_id: string | null;
   subject: string | null;
 }
@@ -71,7 +105,9 @@ export interface EmailAutomationRow {
 export type AutomationSkipReason =
   | 'bought' | 'guest_list' | 'unsubscribed' | 'suppressed' | 'no_consent' | 'cooldown' | 'event_over'
   // Règles Yuno (email_send_policy) et « une soirée, un message » entre expéditeurs.
-  | 'already_event' | 'pressure_24h' | 'pressure_7d' | 'fatigue' | 'averse';
+  | 'already_event' | 'pressure_24h' | 'pressure_7d' | 'fatigue' | 'averse'
+  // table_upsell : déjà une table (réservée ou en cours) pour la soirée.
+  | 'has_table';
 
 /** Une entrée de `get_email_automation_stats`. */
 export interface AutomationStats {
@@ -80,6 +116,7 @@ export interface AutomationStats {
   enabled: boolean;
   enabled_at: string | null;
   delay_hours: number;
+  threshold_pct: number;
   template_id: string | null;
   subject: string | null;
   /** En file, pas encore posés dans une campagne enfant. */

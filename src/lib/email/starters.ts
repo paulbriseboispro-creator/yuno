@@ -17,7 +17,9 @@ export type StarterKey =
   // Modèles des RECETTES automatiques (page Automatisations) — jamais dans la
   // galerie « Nouvelle campagne », créés d'un clic depuis la recette.
   | 'auto_welcome' | 'auto_abandoned_checkout' | 'auto_last_call'
-  | 'auto_post_event_thanks' | 'auto_post_event_missed' | 'auto_win_back';
+  | 'auto_post_event_thanks' | 'auto_post_event_missed' | 'auto_win_back'
+  // v2 (2026-09-15) : passe en table, le tarif monte, nouvelle soirée.
+  | 'auto_table_upsell' | 'auto_tier_closing' | 'auto_new_event';
 
 export interface StarterMeta {
   key: StarterKey;
@@ -240,6 +242,62 @@ export function buildStarter(key: StarterKey, ctx: StarterCtx): TemplateContent 
             cond: null, kicker: k('tableKicker'), title: k('tableTitle'),
             sub: k('tableSub'), ctaLabel: k('tableCta'), perks: [], note: '',
           }),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Passe en table : ils ont leur billet, voilà la même soirée en mieux. Pas
+    // de bloc Billetterie (ils l'ont déjà), le bloc Table VIP en vitrine avec
+    // les arguments REMPLIS : c'est la copie qui vend, pas la structure.
+    case 'auto_table_upsell':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('table', venueName, {
+            cond: null, layout: 'showcase', kicker: k('tableKicker'), title: k('tableTitle'),
+            sub: k('tableSub'), ctaLabel: k('tableCta'),
+            perks: [k('tablePerk1'), k('tablePerk2'), k('tablePerk3')],
+            note: k('tableNote'),
+          }),
+          block('divider', venueName),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Le tarif monte : une relance courte. Les tranches en lignes montrent
+    // que la prévente monte, le compte à rebours dit pour combien de temps.
+    // Mise en page « minimal » (compacte) et non « banner » : la bannière
+    // n'affiche jamais les tranches, or c'est la ligne épuisée à côté de la
+    // ligne ouverte qui fait comprendre que le prix monte.
+    case 'auto_tier_closing':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('tickets', venueName, {
+            live: true, layout: 'minimal', priceDisplay: 'rows',
+            kicker: k('ticketsKicker'), title: k('ticketsTitle'), ctaLabel: k('ticketsCta'),
+          }),
+          block('countdown', venueName, { label: k('countdownLabel') }),
+          block('text', venueName, { body: k('t2'), size: 14 }),
+        ],
+      };
+
+    // Nouvelle soirée : l'email d'annonce (même grammaire que l'invitation) —
+    // l'affiche en grand, la billetterie et la liste invités en direct.
+    case 'auto_new_event':
+      return {
+        ...base,
+        blocks: [
+          block('header', venueName),
+          block('text', venueName, { body: k('t1') }),
+          block('event', venueName, { layout: 'showcase', kicker: k('eventKicker'), title: k('eventTitle'), ctaLabel: k('eventCta'), price: true }),
+          block('tickets', venueName, { live: true }),
+          block('guestlist', venueName),
           block('divider', venueName),
           block('text', venueName, { body: k('t2'), size: 14 }),
         ],

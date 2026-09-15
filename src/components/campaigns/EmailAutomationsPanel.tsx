@@ -11,14 +11,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowLeft, Clock3, Eye, HeartHandshake, Loader2, MailOpen, Moon, PartyPopper, ScanLine,
-  ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, UserRoundPlus, Zap,
+  AlertTriangle, ArrowLeft, CalendarPlus, Clock3, Crown, Eye, HeartHandshake, Loader2, MailOpen, Moon, PartyPopper, ScanLine,
+  ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, TrendingUp, UserRoundPlus, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  AUTOMATION_KINDS, AUTOMATION_META, PLATFORM_AUTOMATION_KINDS, buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
+  AUTOMATION_KINDS, AUTOMATION_META, PLATFORM_AUTOMATION_KINDS, TIER_THRESHOLDS, DEFAULT_TIER_THRESHOLD,
+  buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
   type AutomationKind, type AutomationSkipReason, type AutomationStats, type EmailAutomationRow,
 } from '@/lib/email';
 import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/components/email-studio/hooks';
@@ -42,10 +43,13 @@ const ICONS: Record<AutomationKind, typeof Zap> = {
   post_event_missed: HeartHandshake,
   welcome: UserRoundPlus,
   win_back: MailOpen,
+  table_upsell: Crown,
+  tier_closing: TrendingUp,
+  new_event: CalendarPlus,
 };
 
 const SKIP_REASONS: readonly AutomationSkipReason[] = [
-  'bought', 'guest_list', 'unsubscribed', 'suppressed', 'no_consent', 'cooldown', 'event_over',
+  'bought', 'guest_list', 'has_table', 'unsubscribed', 'suppressed', 'no_consent', 'cooldown', 'event_over',
   'already_event', 'pressure_24h', 'pressure_7d', 'fatigue', 'averse',
 ];
 
@@ -86,7 +90,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
 
   const load = useCallback(async () => {
     const autoQ = supabase.from('email_automations' as never)
-      .select('id,kind,enabled,enabled_at,delay_hours,template_id,subject');
+      .select('id,kind,enabled,enabled_at,delay_hours,threshold_pct,template_id,subject');
     const [{ data: autoRows }, { data: statRows }, { data: attribution }] = await Promise.all([
       isPlatform ? autoQ.is('venue_id', null).is('organizer_user_id', null) : autoQ.eq(scopeCol, scopeId as string),
       supabase.rpc('get_email_automation_stats' as never, {
@@ -127,7 +131,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   useEffect(() => { void load(); }, [load]);
 
   /** Écrit la recette (insert à la première écriture), puis relit tout. */
-  const save = useCallback(async (kind: AutomationKind, patch: Partial<Pick<EmailAutomationRow, 'enabled' | 'delay_hours' | 'template_id' | 'subject'>>) => {
+  const save = useCallback(async (kind: AutomationKind, patch: Partial<Pick<EmailAutomationRow, 'enabled' | 'delay_hours' | 'threshold_pct' | 'template_id' | 'subject'>>) => {
     setBusy(kind);
     try {
       const existing = rows[kind];
@@ -139,7 +143,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
         const meta = AUTOMATION_META[kind];
         const { error } = await supabase.from('email_automations' as never).insert({
           ...(isPlatform ? {} : { [scopeCol]: scopeId }), kind, enabled: false,
-          delay_hours: delayToHours(meta, meta.defaultDelay), template_id: null, subject: null,
+          delay_hours: delayToHours(meta, meta.defaultDelay), threshold_pct: DEFAULT_TIER_THRESHOLD, template_id: null, subject: null,
           created_by: auth.user?.id || null,
           ...patch,
         } as never);
@@ -238,6 +242,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
                 basePath={basePath}
                 onToggle={(v) => void toggle(kind, v)}
                 onDelay={(h) => void save(kind, { delay_hours: h })}
+                onThreshold={(p) => void save(kind, { threshold_pct: p })}
                 onTemplate={(id) => void save(kind, { template_id: id })}
                 onSubject={(s) => void save(kind, { subject: s.trim() || null })}
                 onCreateStarter={() => void createStarter(kind, false)}
@@ -266,7 +271,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
 
 function RecipeCard({
   kind, row, stats, templates, childrenRows, revenue, busy, basePath,
-  onToggle, onDelay, onTemplate, onSubject, onCreateStarter, onPreview,
+  onToggle, onDelay, onThreshold, onTemplate, onSubject, onCreateStarter, onPreview,
 }: {
   kind: AutomationKind;
   row: EmailAutomationRow | null;
@@ -279,6 +284,7 @@ function RecipeCard({
   basePath: string;
   onToggle: (v: boolean) => void;
   onDelay: (hours: number) => void;
+  onThreshold: (pct: number) => void;
   onTemplate: (id: string | null) => void;
   onSubject: (s: string) => void;
   onCreateStarter: () => void;
@@ -290,6 +296,7 @@ function RecipeCard({
   const Icon = ICONS[kind];
   const enabled = !!row?.enabled;
   const delay = row ? hoursToDelay(meta, row.delay_hours) : meta.defaultDelay;
+  const threshold = row?.threshold_pct || DEFAULT_TIER_THRESHOLD;
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState(row?.subject || '');
   useEffect(() => { setSubject(row?.subject || ''); }, [row?.subject]);
@@ -297,6 +304,9 @@ function RecipeCard({
   const fill = (key: string, vars: Record<string, string | number>) =>
     Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{${k}}`).join(String(v)), t(key));
   const unitLabel = (n: number) => meta.unit === 'days' ? fill('em.auto.days', { d: n }) : fill('studio.sched.fu.hours', { h: n });
+  const pctLabel = (p: number) => fill('em.auto.pct', { p });
+  // Le déclencheur se lit avec le délai… ou le seuil, pour « le tarif monte ».
+  const triggerVar = meta.noDelay ? pctLabel(threshold) : unitLabel(delay);
   const skipped = SKIP_REASONS
     .map((r) => ({ r, n: stats?.skipped?.[r] || 0 }))
     .filter((x) => x.n > 0);
@@ -311,7 +321,7 @@ function RecipeCard({
         <button type="button" onClick={() => setOpen((v) => !v)} className="min-w-0 flex-1 text-left cursor-pointer" style={{ background: 'none', border: 'none', padding: 0 }}>
           <div style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t(`em.auto.kind.${kind}.title`)}</div>
           <div style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
-            {enabled ? fill(`em.auto.kind.${kind}.trigger`, { n: unitLabel(delay) }) : t(`em.auto.kind.${kind}.desc`)}
+            {enabled ? fill(`em.auto.kind.${kind}.trigger`, { n: triggerVar }) : t(`em.auto.kind.${kind}.desc`)}
           </div>
         </button>
         {stats && enabled && (stats.sent > 0 || stats.pending > 0) && (
@@ -335,18 +345,34 @@ function RecipeCard({
         <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}>
           {/* Réglages */}
           <div className="space-y-3 min-w-0">
-            <div>
-              <Micro>{t(`em.auto.delay.${meta.direction}`)}</Micro>
-              <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)' }}>
-                {meta.delays.map((d) => (
-                  <button
-                    key={d} type="button" aria-pressed={delay === d} disabled={busy}
-                    onClick={() => onDelay(delayToHours(meta, d))}
-                    style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: delay === d ? T1 : T3, background: delay === d ? 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))' : 'transparent' }}
-                  >{unitLabel(d)}</button>
-                ))}
+            {meta.noDelay ? (
+              <div>
+                <Micro>{t('em.auto.delay.threshold')}</Micro>
+                <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)' }}>
+                  {TIER_THRESHOLDS.map((p) => (
+                    <button
+                      key={p} type="button" aria-pressed={threshold === p} disabled={busy}
+                      onClick={() => onThreshold(p)}
+                      style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: threshold === p ? T1 : T3, background: threshold === p ? 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))' : 'transparent' }}
+                    >{pctLabel(p)}</button>
+                  ))}
+                </div>
+                <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{t('em.auto.thresholdHint')}</div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <Micro>{t(`em.auto.delay.${meta.direction}`)}</Micro>
+                <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)' }}>
+                  {meta.delays.map((d) => (
+                    <button
+                      key={d} type="button" aria-pressed={delay === d} disabled={busy}
+                      onClick={() => onDelay(delayToHours(meta, d))}
+                      style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: delay === d ? T1 : T3, background: delay === d ? 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))' : 'transparent' }}
+                    >{unitLabel(d)}</button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <Micro>{t('em.auto.template')}</Micro>
@@ -405,6 +431,7 @@ function RecipeCard({
               <ul style={{ margin: 0, paddingLeft: 16, color: T2, fontSize: 11.5, lineHeight: 1.55 }}>
                 {['rule1', 'rule2', 'rule3'].map((k) => <li key={k}>{t(`em.auto.kind.${kind}.${k}`)}</li>)}
                 <li>{t('em.auto.ruleNight')}</li>
+                {meta.urgent && <li>{t('em.auto.ruleUrgent')}</li>}
               </ul>
               {meta.needsScan && (
                 <div className="flex items-start gap-2 mt-2">
