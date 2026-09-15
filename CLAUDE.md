@@ -1015,18 +1015,62 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   templates transactionnels admin (`AdminEmailTemplates`) — ne pas les
   utiliser pour les campagnes.
 
-## Automatisations email — recettes, renvoi aux non-ouvreurs, meilleure heure (2026-09-15)
+## Automatisations email — neuf recettes, audiences automatiques, suggestions (2026-09-15)
 
-Doc complète : `docs/designs/EMAIL_AUTOMATION_PLAN.md` (analyse marché + doctrine).
-Migration `20260915120000`, module `_shared/email-automations.ts`, page
+Doc complète : `docs/designs/EMAIL_AUTOMATION_PLAN.md` (analyse marché + doctrine)
+et `docs/designs/EMAIL_AUTOMATION_V2_BRIEF.md` (v2). Migrations `20260915120000`
+(v1), `20260915160000` → `163000` (v2), module `_shared/email-automations.ts`, page
 `/owner/campaigns/automations` et `/organizer-app/campaigns/automations`
 (`EmailAutomationsPanel`, partagé). Règles intouchables :
 
-- **Une recette = une ligne `email_automations` (portée, kind)** : `welcome`,
-  `abandoned_checkout`, `last_call`, `post_event_thanks`, `post_event_missed`,
-  `win_back`. Interrupteur, `delay_hours` (sens selon la recette : après
-  l'inscription / le checkout, AVANT le début, après la fin, sans venue),
-  `template_id` (Email Studio), `subject`. **Sans modèle, rien ne part** ; le
+- **Une recette = une ligne `email_automations` (portée, kind)** : `new_event`,
+  `abandoned_checkout`, `tier_closing`, `last_call`, `table_upsell`,
+  `post_event_thanks`, `post_event_missed`, `welcome`, `win_back`. Interrupteur,
+  `delay_hours` (sens selon la recette : après la publication / l'inscription /
+  le checkout, AVANT le début, après la fin, sans venue), `threshold_pct`
+  (75/85/95, `tier_closing` seulement : un seuil, pas un délai, `meta.noDelay`),
+  `template_id` (Email Studio), `subject`.
+- **`events.status` vaut `active | cancelled | postponed`, JAMAIS
+  `published`/`featured`** (c'est le vocabulaire d'`affiliate_events`). Le moteur
+  v1 filtrait sur le mauvais et ne trouvait aucune soirée ; toute requête sur les
+  soirées d'une recette filtre `status = 'active' AND is_active AND cancelled_at
+  IS NULL`.
+- **Le pro ne choisit JAMAIS l'audience d'une recette.** Source = registre de
+  consentement de la portée (achats, guest list, formulaire, suivi, fichiers
+  importés — `new_event`, `last_call`, `win_back` prennent les imports ; `welcome`
+  les exclut ; les autres partent d'un fait). Exclusions au moment dû (CASE
+  `judged0`), puis **priorité par engagement** avant `LIMIT`
+  (`_email_engagement_rank` : 0 a ouvert/cliqué 90 j, 1 venu 180 j, 2 inscrit
+  30 j, 3 le reste) dans les branches « à toute la base ». La ligne « Yuno
+  cible : … » (`em.auto.kind.<kind>.target`) et le compteur d'éligibles
+  (`preview_email_automation`, compter jamais lister) l'expliquent.
+- **Cooldown INTRA-passage** (`judged`, `row_number` par contact) : plusieurs
+  soirées dues en même temps pour un même contact ne font qu'UN email, la plus
+  proche (`_auto_cand.ord`), les autres tracées `cooldown`. Les recettes sont
+  parcourues par PRIORITÉ (`abandoned_checkout`, `tier_closing`, merci, on t'a
+  manqué, `table_upsell`, `last_call`, `new_event`, `welcome`, `win_back`), le
+  pro avant Yuno. Les deux recettes URGENTES (panier, tarif) sont exemptées du
+  cooldown et ont le palier de pression 2/24 h · 5/7 j.
+- **`new_event`** part de `events.published_at` (jamais `created_at`, jamais une
+  re-génération de modèle récurrent, soirée publique sans code d'accès à plus de
+  48 h qui vend quelque chose). Rafale : dates publiées à moins de 24 h les unes
+  des autres → une seule annonce (la plus proche), les autres `already_event`,
+  définitivement. **`table_upsell`** exige `_event_tables_left(e) > 0` (même
+  calcul que le bloc Table VIP : formules actives moins réservations, formules
+  marquées complètes exclues) et écarte `has_table` (réservée ou en cours).
+  **`tier_closing`** = palier ouvert ≥ `threshold_pct`, ≥ 1 billet restant, un
+  palier suivant plus cher ; cible = clic sur la soirée dans un email de la
+  portée ou `event_waitlist`. Aucune des trois n'existe en portée plateforme.
+- **Suggestions** : `get_email_automation_suggestions` (faits 30 j, démo exclue,
+  recettes éteintes seulement) → bandeau Automatisations, carte Campagnes
+  (`AutomationSuggestions`, `turnOnAutomation` partagé), notification
+  `automation_suggested` une fois par recette et par mois
+  (`email_automation_suggestions_sweep`, cron 08:15 UTC, `dedup_key` — ajouté
+  à `organizer_notifications` avec `emit_organizer_notification`). Jamais de push.
+- **Traçabilité** : `get_email_automation_stats(portée, p_days)` (fenêtre 7 j =
+  « cette semaine », `in_flight`), `get_customer_automation_emails` (fiche client
+  CRM), `email_automation_weekly_digest` (ligne « automatisations : X emails,
+  Y ventes » du push `audience_weekly_recap`, variante `with_automations`). **Sans modèle, rien ne part** ; le
   front crée le modèle Yuno (`buildStarter('auto_<kind>')`) en allumant.
   `enabled_at` borne les déclencheurs : une bienvenue ne part jamais à toute
   la base existante le jour où on allume.
@@ -1037,7 +1081,7 @@ Migration `20260915120000`, module `_shared/email-automations.ts`, page
   le CASE de `collect_email_automations()`, jamais dans le Deno. Ne jamais
   vider le registre.
 - **Au plus UNE automatisation par contact et par 48 h par portée**
-  (`cooldown`), le panier abandonné excepté. Rien n'écrit hors du registre
+  (`cooldown`), le panier abandonné et le tarif qui monte exceptés. Rien n'écrit hors du registre
   de consentement : le panier abandonné VERSE d'abord dans
   `newsletter_subscriptions` l'accord coché au checkout (`source =
   'checkout_started'`, même arbitre partiel que le trigger d'achat), puis lit
@@ -1069,8 +1113,9 @@ Migration `20260915120000`, module `_shared/email-automations.ts`, page
   ouvertures 120 j par heure/jour Paris, muet sous 30 ouvertures). Le revenu
   attribué des enfants vient de `get_email_campaign_attribution` (ids dans
   `campaign_ids`), jamais recalculé.
-- Assistant owner : `list_email_automations` (lecture) et
-  `set_email_automation` (écriture, confirmation) ; il ne crée pas de modèle.
+- Assistant owner : `list_email_automations` (lecture : recettes, qui Yuno
+  cible, suggestions) et `set_email_automation` (écriture, confirmation :
+  interrupteur, délai, seuil) ; il ne crée pas de modèle.
 
 ## Politique d'envoi Yuno — les règles qu'aucun expéditeur ne désactive (2026-09-15)
 
