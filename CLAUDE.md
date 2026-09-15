@@ -83,6 +83,25 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   s'estime pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px,
   soit 3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
   c'est l'icône rendue en volume, pas un wordmark à plat.
+- **Barres latérales pro = groupe → entrée → sous-entrées** (2026-09-15, modèle
+  Shopify). Owner et organisateur portent les MÊMES cinq groupes, dans le même
+  ordre : Vue d'ensemble, Événements/Soirées, Ventes & finances, Marketing & CRM,
+  Paramètres/Réglages. Une entrée à sous-entrées reste une **vraie destination**
+  (le nom est un lien, le chevron ne fait qu'ouvrir la liste) et sa section
+  s'ouvre toute seule quand la route entre dedans. Une page nouvelle se range
+  sous l'entrée dont elle est le prolongement (Service VIP sous Tables VIP,
+  Automatisations sous Campagnes email, Remboursements sous Commandes) — jamais
+  une sixième entrée à plat. Tout vit dans `buildNavGroups` (`app-shared.tsx`,
+  club) et `buildOrgNavGroups` (`org-sidebar.tsx`, orga) ; le rendu commun est
+  `nav-group.tsx`, partagé avec les barres DJ / promoteur / affilié / agence.
+  L'entrée active se déduit du PRÉFIXE de route (`/owner/campaigns/new` allume
+  Campagnes email) : toute entrée dont le chemin préfixe son app entière
+  (`/organizer-app`, `/agency-app`, `/dj`, `/affiliate`, `/promoter`) doit
+  porter `exact: true`, sinon elle reste allumée partout. Une entrée ajoutée
+  sans sous-entrée visible est une page injoignable : il n'y a plus de barre à
+  35 lignes où tout se voit d'un coup. Réorganiser un groupe oblige à corriger
+  les fils d'Ariane du mode d'emploi (`ohelp.*`, 3 langues) ET les snippets de
+  `owner-assistant` — ils nomment les groupes en toutes lettres.
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
