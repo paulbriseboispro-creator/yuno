@@ -15,7 +15,25 @@ const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined
 
 export type StudioScope =
   | { kind: 'venue'; venueId: string; name: string; logoUrl?: string | null; city?: string | null }
-  | { kind: 'organizer'; organizerId: string; name: string; logoUrl?: string | null; city?: string | null };
+  | { kind: 'organizer'; organizerId: string; name: string; logoUrl?: string | null; city?: string | null }
+  /** Marketing de Yuno lui-même (super admin) : les deux colonnes de portée à
+   *  NULL en base. Voir supabase/migrations/20260908210000_platform_marketing_scope.sql */
+  | { kind: 'platform'; name: string; logoUrl?: string | null; city?: string | null };
+
+/** Id de portée, `null` pour la plateforme (qui n'en a pas). */
+export function studioScopeId(scope: StudioScope): string | null {
+  if (scope.kind === 'venue') return scope.venueId;
+  if (scope.kind === 'organizer') return scope.organizerId;
+  return null;
+}
+
+/** Arguments `p_venue_id` / `p_organizer_user_id` de toutes les RPC de portée. */
+export function studioScopeArgs(scope: StudioScope): { p_venue_id: string | null; p_organizer_user_id: string | null } {
+  return {
+    p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
+    p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+  };
+}
 
 export interface StudioEvent {
   id: string;
@@ -26,7 +44,7 @@ export interface StudioEvent {
 /** Soirées à venir du scope (+ celle déjà liée à la campagne, même passée). */
 export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | null): StudioEvent[] {
   const [events, setEvents] = useState<StudioEvent[]>([]);
-  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const scopeId = studioScopeId(scope);
 
   useEffect(() => {
     const todayStart = new Date();
@@ -34,9 +52,10 @@ export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | nul
     let q = supabase.from('events').select('id,title,start_at')
       .gte('start_at', todayStart.toISOString())
       .order('start_at', { ascending: true }).limit(80);
-    q = scope.kind === 'venue'
-      ? q.or(`venue_id.eq.${scopeId},partner_venue_id.eq.${scopeId}`)
-      : q.or(`organizer_user_id.eq.${scopeId},partner_organizer_id.eq.${scopeId}`);
+    // Portée plateforme : Yuno peut mettre N'IMPORTE QUELLE soirée à venir dans
+    // sa newsletter — c'est tout l'intérêt d'un « à l'affiche cette semaine ».
+    if (scope.kind === 'venue') q = q.or(`venue_id.eq.${scopeId},partner_venue_id.eq.${scopeId}`);
+    else if (scope.kind === 'organizer') q = q.or(`organizer_user_id.eq.${scopeId},partner_organizer_id.eq.${scopeId}`);
     q.then(({ data }) => setEvents((data || []) as StudioEvent[]));
   }, [scope.kind, scopeId]);
 
@@ -380,13 +399,12 @@ export interface ContactSegmentLite {
  */
 export function useContactSegments(scope: StudioScope, refreshKey = 0): ContactSegmentLite[] {
   const [segments, setSegments] = useState<ContactSegmentLite[]>([]);
-  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const scopeId = studioScopeId(scope);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data } = await supabase.rpc('get_contact_intelligence_overview' as never, {
-        p_venue_id: scope.kind === 'venue' ? scopeId : null,
-        p_organizer_user_id: scope.kind === 'organizer' ? scopeId : null,
+        ...studioScopeArgs(scope),
       } as never);
       if (cancelled) return;
       const rows = (((data as unknown) as { segments?: Array<{ id: string; name: string; description: string | null; counts: { emails: number } }> } | null)?.segments) || [];
@@ -417,13 +435,12 @@ export interface EmailQuota {
 export function useEmailQuota(scope: StudioScope): { quota: EmailQuota | null; refresh: () => void } {
   const [quota, setQuota] = useState<EmailQuota | null>(null);
   const [seq, setSeq] = useState(0);
-  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const scopeId = studioScopeId(scope);
 
   useEffect(() => {
     let cancelled = false;
     supabase.rpc('get_email_quota_status' as never, {
-      p_venue_id: scope.kind === 'venue' ? scopeId : null,
-      p_organizer_user_id: scope.kind === 'organizer' ? scopeId : null,
+      ...studioScopeArgs(scope),
     } as never).then(({ data }) => {
       if (cancelled || !data) return;
       const d = (data as unknown) as {
@@ -517,7 +534,7 @@ export function useSendProgress(campaignId: string | null, active: boolean): Sen
 export function useEmailTemplates(scope: StudioScope) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const scopeId = scope.kind === 'venue' ? scope.venueId : scope.organizerId;
+  const scopeId = studioScopeId(scope);
   const scopeKind = scope.kind;
 
   const load = useCallback(async () => {
@@ -527,7 +544,9 @@ export function useEmailTemplates(scope: StudioScope) {
       .limit(60);
     const { data } = scopeKind === 'venue'
       ? await q.eq('venue_id', scopeId)
-      : await q.eq('organizer_user_id', scopeId);
+      : scopeKind === 'organizer'
+        ? await q.eq('organizer_user_id', scopeId)
+        : await q.is('venue_id', null).is('organizer_user_id', null);
     setTemplates(((data || []) as unknown as EmailTemplateRow[]).map(rowToTemplate));
     setLoading(false);
   }, [scopeKind, scopeId]);
@@ -546,7 +565,8 @@ export function useEmailTemplates(scope: StudioScope) {
       created_by: auth.user?.id || null,
     };
     if (scopeKind === 'venue') payload.venue_id = scopeId;
-    else payload.organizer_user_id = scopeId;
+    else if (scopeKind === 'organizer') payload.organizer_user_id = scopeId;
+    // Portée plateforme : les deux colonnes restent NULL.
     const { data, error } = await supabase.from('email_campaign_templates')
       .insert(payload as never).select('id').single();
     if (error || !data) return null;

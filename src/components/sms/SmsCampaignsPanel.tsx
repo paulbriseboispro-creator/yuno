@@ -21,7 +21,7 @@ import { SMS_MARKETING_LIVE, type SmsScope } from '@/lib/smsMarketing';
 import SmsCampaignEditor from './SmsCampaignEditor';
 import SmsCampaignReport from './SmsCampaignReport';
 import SmsCreditsDialog, { useSmsCreditsReturn } from './SmsCreditsDialog';
-import ContactImportDialog from '@/components/contacts/ContactImportDialog';
+import ContactImportDialog, { type ImportScope } from '@/components/contacts/ContactImportDialog';
 import type { ContactIntelligenceOverview, ContactSegment } from '@/lib/contactSegments';
 import { SmsStatusPill } from './SmsStatusPill';
 import {
@@ -100,13 +100,13 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const eventTitle = useMemo(() => new Map(events.map((e) => [e.id, e.title])), [events]);
 
   const openBuy = (missing: number | null) => { setCreditsMissing(missing); setCreditsOpen(true); };
-  // L'import unifié et la segmentation valent pour un club ou un organisateur ;
-  // la portée plateforme (marketing Yuno) n'a pas de base importée.
-  const importScope = scope.kind === 'venue'
-    ? { kind: 'venue' as const, venueId: scope.venueId }
+  // L'import unifie et la segmentation valent aux TROIS portees : Yuno importe
+  // ses listes de prospection exactement comme un club importe sa billetterie.
+  const importScope: ImportScope = scope.kind === 'venue'
+    ? { kind: 'venue', venueId: scope.venueId }
     : scope.kind === 'organizer'
-      ? { kind: 'organizer' as const, organizerId: scope.organizerUserId }
-      : null;
+      ? { kind: 'organizer', organizerId: scope.organizerUserId }
+      : { kind: 'platform' };
 
   const openCampaign = (c: SmsCampaignRow) => {
     if (c.status === 'draft') { setEditing(c); setEditorOpen(true); return; }
@@ -155,8 +155,10 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         <ComingSoonBanner title={t('smsCampaigns.comingSoonTitle')} description={t('smsc.comingSoonDesc')} />
       )}
 
-      {/* Solde + audience */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Solde + audience. La plateforme n'a pas de solde : le SMS de Yuno est
+          deja sur la facture Twilio de Yuno, il n'y a rien a acheter. */}
+      <div className={cn('grid gap-3 sm:grid-cols-2', scope.kind === 'platform' ? 'lg:grid-cols-3' : 'lg:grid-cols-5')}>
+        {scope.kind !== 'platform' && (
         <Card className="relative overflow-hidden border-white/[0.06] bg-gradient-to-br from-primary/15 via-background to-background sm:col-span-2 lg:col-span-2">
           <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/20 blur-2xl" />
           <CardContent className="relative flex items-center justify-between gap-3 p-4">
@@ -173,10 +175,13 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
             </Button>
           </CardContent>
         </Card>
+        )}
         {[
           { icon: <Users className="h-3.5 w-3.5 text-sky-400" />, label: t('smsc.overview.active'), value: overview?.active ?? 0 },
           { icon: <UserPlus className="h-3.5 w-3.5 text-emerald-400" />, label: t('smsc.overview.last30d'), value: overview?.last_30d ?? 0 },
-          { icon: <Crown className="h-3.5 w-3.5 text-amber-400" />, label: t('smsc.overview.vip'), value: overview?.vip ?? 0 },
+          ...(scope.kind === 'platform'
+            ? []
+            : [{ icon: <Crown className="h-3.5 w-3.5 text-amber-400" />, label: t('smsc.overview.vip'), value: overview?.vip ?? 0 }]),
         ].map((k) => (
           <Card key={k.label} className="border-white/[0.06] bg-surface/40">
             <CardContent className="p-4">
@@ -322,12 +327,8 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         presetEventId={editing ? null : presetEventId}
       />
       <SmsCreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} scope={scope} missing={creditsMissing} onCredited={() => void load()} />
-      {importScope && (
-        <>
-          <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />
-          <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void load()} />
-        </>
-      )}
+      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />
+      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void load()} />
     </div>
   );
 }

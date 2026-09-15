@@ -20,9 +20,15 @@ export function marketingDomain(): string {
   return Deno.env.get('EMAIL_MARKETING_DOMAIN') || transactionalDomain();
 }
 
-/** Clé de quota / warm-up. Un club et un organisateur chauffent séparément. */
+/**
+ * Clé de quota / warm-up. Un club et un organisateur chauffent séparément.
+ *
+ * Portée plateforme (les deux à NULL) = 'yuno', JAMAIS 'platform'. Cette
+ * dernière est déjà l'étage 1 de `consume_email_send_quota`, le pool global :
+ * la réutiliser ferait consommer deux fois le même compteur dans le même appel.
+ */
 export function senderScopeKey(venueId?: string | null, organizerUserId?: string | null): string {
   if (venueId) return `venue:${venueId}`;
   if (organizerUserId) return `org:${organizerUserId}`;
-  return 'unknown';
+  return 'yuno';
 }

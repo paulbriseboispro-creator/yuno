@@ -144,7 +144,19 @@ function chainNextSlice(campaignId: string) {
   if (rt?.waitUntil) rt.waitUntil(p);
 }
 
-async function balanceIdFor(admin: Admin, venueId: string | null, organizerId: string | null): Promise<string> {
+/**
+ * Portée d'une campagne. La PLATEFORME (les deux à NULL) est le marketing de
+ * Yuno lui-même : la facture Twilio est déjà la sienne, il n'y a pas de compte
+ * de crédits à débiter. Toute la mécanique de crédits devient un no-op, et le
+ * coût réel reste lisible dans `sms_campaign_recipients.credits`.
+ */
+function isPlatformScope(venueId: string | null, organizerId: string | null): boolean {
+  return !venueId && !organizerId;
+}
+
+/** `null` = portée plateforme : aucun solde, aucun débit. */
+async function balanceIdFor(admin: Admin, venueId: string | null, organizerId: string | null): Promise<string | null> {
+  if (isPlatformScope(venueId, organizerId)) return null;
   const { data, error } = await admin.rpc("get_or_create_sms_balance", {
     p_venue_id: venueId,
     p_organizer_id: organizerId,
@@ -153,9 +165,22 @@ async function balanceIdFor(admin: Admin, venueId: string | null, organizerId: s
   return data as string;
 }
 
-async function currentBalance(admin: Admin, balanceId: string): Promise<number> {
+/** Solde de la portée. La plateforme n'en a pas : elle n'est jamais bloquée. */
+async function currentBalance(admin: Admin, balanceId: string | null): Promise<number> {
+  if (!balanceId) return Number.MAX_SAFE_INTEGER;
   const { data } = await admin.from("sms_credit_balances").select("balance").eq("id", balanceId).single();
   return Number(data?.balance ?? 0);
+}
+
+async function consumeCredits(admin: Admin, balanceId: string | null, amount: number): Promise<boolean> {
+  if (!balanceId) return true;
+  const { data, error } = await admin.rpc("consume_sms_credits", { p_balance_id: balanceId, p_amount: amount });
+  return !error && data === true;
+}
+
+async function refundCredits(admin: Admin, balanceId: string | null, amount: number, smsLogId: string | null, notes: string): Promise<void> {
+  if (!balanceId) return;
+  await admin.rpc("refund_sms_credits", { p_balance_id: balanceId, p_amount: amount, p_sms_log_id: smsLogId, p_notes: notes });
 }
 
 /** Le pro connecté a-t-il la main sur cette portée ? (owner du club, organisateur, ou admin) */
@@ -165,6 +190,7 @@ async function userOwnsScope(admin: Admin, userId: string, venueId: string | nul
     const { data: ok } = await admin.rpc("can_manage_venue", { _user_id: userId, _venue_id: venueId });
     if (ok === true) return true;
   }
+  // La portée plateforme n'appartient qu'au super admin — comme la RLS.
   const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
   return isAdmin === true;
 }
@@ -258,8 +284,7 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
       const text = bodyFor(r.lang);
       const credits = Math.max(1, smsSizing(text).segments);
 
-      const { data: consumed, error: consErr } = await admin.rpc("consume_sms_credits", { p_balance_id: balanceId, p_amount: credits });
-      if (consErr || consumed !== true) { halt.credits = true; retryIds.push(r.id); return; }
+      if (!(await consumeCredits(admin, balanceId, credits))) { halt.credits = true; retryIds.push(r.id); return; }
 
       const { data: log, error: logErr } = await admin.from("sms_logs").insert({
         venue_id: venueId, organizer_id: organizerId, target_user_id: r.user_id ?? null,
@@ -267,7 +292,7 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
         campaign_id: campaignId, event_id: (campaign.event_id as string | null) ?? null, credits_consumed: credits,
       }).select("id").single();
       if (logErr || !log) {
-        await admin.rpc("refund_sms_credits", { p_balance_id: balanceId, p_amount: credits, p_sms_log_id: null, p_notes: "log insert failed" });
+        await refundCredits(admin, balanceId, credits, null, "log insert failed");
         deadIds.push({ id: r.id, code: "log_error", msg: logErr?.message ?? "log insert failed" });
         return;
       }
@@ -279,7 +304,7 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
         return;
       }
       await admin.from("sms_logs").update({ status: "failed", error_code: out.code, error_message: out.message.slice(0, 500) }).eq("id", log.id);
-      await admin.rpc("refund_sms_credits", { p_balance_id: balanceId, p_amount: credits, p_sms_log_id: log.id, p_notes: `Twilio ${out.code}` });
+      await refundCredits(admin, balanceId, credits, log.id, `Twilio ${out.code}`);
       if (out.systemic) { halt.systemic = { code: out.code, message: out.message }; retryIds.push(r.id); return; }
       if (out.retryable) retryIds.push(r.id);
       else deadIds.push({ id: r.id, code: out.code, msg: out.message });
@@ -365,6 +390,9 @@ async function drainSlice(admin: Admin, campaign: Record<string, unknown>, cfg: 
 interface TestPayload {
   venue_id?: string | null;
   organizer_user_id?: string | null;
+  /** Portée plateforme explicite : sans ce drapeau, deux portées à NULL est
+   *  une erreur d'appel, pas « écris au nom de Yuno ». */
+  platform?: boolean;
   body: string;
   body_i18n?: Record<string, string> | null;
   sender_name?: string | null;
@@ -376,7 +404,7 @@ interface TestPayload {
 async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: TwilioConfig) {
   const venueId = p.venue_id || null;
   const organizerId = venueId ? null : (p.organizer_user_id || null);
-  if (!venueId && !organizerId) return json({ error: "scope required" }, 400);
+  if (!venueId && !organizerId && p.platform !== true) return json({ error: "scope required" }, 400);
   if (!(await userOwnsScope(admin, userId, venueId, organizerId))) return json({ error: "Forbidden" }, 403);
 
   const { data: prof } = await admin.from("profiles").select("phone, preferred_language").eq("id", userId).maybeSingle();
@@ -396,8 +424,9 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Twili
   const credits = Math.max(1, smsSizing(text).segments);
 
   const balanceId = await balanceIdFor(admin, venueId, organizerId);
-  const { data: consumed } = await admin.rpc("consume_sms_credits", { p_balance_id: balanceId, p_amount: credits });
-  if (consumed !== true) return json({ error: "INSUFFICIENT_CREDITS", needed: credits, balance: await currentBalance(admin, balanceId) }, 402);
+  if (!(await consumeCredits(admin, balanceId, credits))) {
+    return json({ error: "INSUFFICIENT_CREDITS", needed: credits, balance: await currentBalance(admin, balanceId) }, 402);
+  }
 
   const { data: log } = await admin.from("sms_logs").insert({
     venue_id: venueId, organizer_id: organizerId, target_user_id: userId, to_phone: phone, body: text,
@@ -407,7 +436,7 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Twili
   const out = await sendTwilio(cfg, phone, text, `${SUPABASE_URL}/functions/v1/sms-twilio-status-webhook`);
   if (!out.ok) {
     if (log) await admin.from("sms_logs").update({ status: "failed", error_code: out.code, error_message: out.message.slice(0, 500) }).eq("id", log.id);
-    await admin.rpc("refund_sms_credits", { p_balance_id: balanceId, p_amount: credits, p_sms_log_id: log?.id ?? null, p_notes: `Test refusé: Twilio ${out.code}` });
+    await refundCredits(admin, balanceId, credits, log?.id ?? null, `Test refusé: Twilio ${out.code}`);
     return json({ error: "TWILIO_ERROR", code: out.code, message: out.message }, 502);
   }
   if (log) await admin.from("sms_logs").update({ twilio_sid: out.sid, status: "sent", sent_at: new Date().toISOString() }).eq("id", log.id);

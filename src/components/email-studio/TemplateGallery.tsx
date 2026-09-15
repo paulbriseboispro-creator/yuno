@@ -104,7 +104,9 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
       status: 'draft',
     };
     if (scope.kind === 'venue') insert.venue_id = scope.venueId;
-    else insert.organizer_user_id = scope.organizerId;
+    else if (scope.kind === 'organizer') insert.organizer_user_id = scope.organizerId;
+    // Portee plateforme : les deux colonnes restent NULL - signature d'une
+    // campagne Yuno, et la RLS n'y laisse entrer que le super admin.
 
     const { data, error } = await supabase.from('email_campaigns')
       .insert(insert as never).select('id').single();

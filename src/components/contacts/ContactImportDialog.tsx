@@ -44,7 +44,9 @@ import {
 
 export type ImportScope =
   | { kind: 'venue'; venueId: string }
-  | { kind: 'organizer'; organizerId: string };
+  | { kind: 'organizer'; organizerId: string }
+  /** Base marketing de Yuno (super admin) : les deux colonnes de portee a NULL. */
+  | { kind: 'platform' };
 
 interface Props {
   open: boolean;
@@ -83,6 +85,8 @@ const FIELD_LABEL_KEYS: Record<ContactField, string> = {
 };
 
 function scopeArgs(scope: ImportScope) {
+  // Portee plateforme : les deux a null, ce que la base lit comme « Yuno »
+  // (voir marketing_scope_match). L'autorisation reste serveur : super admin.
   return {
     p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
     p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
