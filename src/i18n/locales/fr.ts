@@ -13982,6 +13982,20 @@ const fr: Record<string, string> = {
   'em.auto.pct': '{p} %',
   'em.auto.ruleUrgent': 'Recette urgente (rareté réelle) : jusqu\'à 2 emails par 24 h et 5 par semaine pour cette personne, et pas de délai de 48 h avec les autres automatisations.',
   'em.auto.skip.has_table': 'déjà une table',
+  'em.auto.targetLabel': 'Yuno cible :',
+  'em.auto.eligibleNow': 'éligibles maintenant',
+  'em.auto.eligibleNowOne': 'éligible maintenant',
+  'em.auto.nextDue': 'prochain départ {d}',
+  'em.auto.priorityNote': 'Tu ne choisis pas l\'audience : Yuno la calcule (achats, liste invités, formulaire, fichiers importés), retire au moment de l\'envoi ceux qui ont déjà leur place, et sert les plus engagés d\'abord quand le quota du jour ne suffit pas. Les autres partent le lendemain.',
+  'em.auto.kind.abandoned_checkout.target': 'ceux qui ont commencé un paiement sans le finir, avec l\'accord marketing coché',
+  'em.auto.kind.last_call.target': 'toute ta base sans place pour la soirée, fichiers importés compris, les plus engagés d\'abord',
+  'em.auto.kind.post_event_thanks.target': 'ceux dont le QR a été scanné à la porte',
+  'em.auto.kind.post_event_missed.target': 'ceux qui avaient une place et n\'ont pas été scannés',
+  'em.auto.kind.welcome.target': 'chaque nouvelle inscription à ta base (hors fichiers importés et achats)',
+  'em.auto.kind.win_back.target': 'les clients venus il y a longtemps et plus revus depuis, les plus engagés d\'abord',
+  'em.auto.kind.table_upsell.target': 'les détenteurs d\'un billet payé sans table',
+  'em.auto.kind.tier_closing.target': 'ceux qui ont cliqué sur la soirée dans un email ou rejoint sa liste d\'attente, sans place',
+  'em.auto.kind.new_event.target': 'toute ta base sans place, fichiers importés compris, les plus engagés d\'abord',
 };
 
 export default fr;

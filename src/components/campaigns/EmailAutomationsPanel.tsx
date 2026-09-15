@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowLeft, CalendarPlus, Clock3, Crown, Eye, HeartHandshake, Loader2, MailOpen, Moon, PartyPopper, ScanLine,
-  ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, TrendingUp, UserRoundPlus, Zap,
+  ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, Target, TrendingUp, UserRoundPlus, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AUTOMATION_KINDS, AUTOMATION_META, PLATFORM_AUTOMATION_KINDS, TIER_THRESHOLDS, DEFAULT_TIER_THRESHOLD,
   buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
-  type AutomationKind, type AutomationSkipReason, type AutomationStats, type EmailAutomationRow,
+  type AutomationKind, type AutomationPreview, type AutomationSkipReason, type AutomationStats, type EmailAutomationRow,
 } from '@/lib/email';
 import { useEmailTemplates, useStudioEvents, type StudioScope } from '@/components/email-studio/hooks';
 import FollowupPreviewDialog from './FollowupPreviewDialog';
@@ -77,6 +77,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const nextEvent = events[0] || null;
   const [rows, setRows] = useState<Partial<Record<AutomationKind, EmailAutomationRow>>>({});
   const [stats, setStats] = useState<Partial<Record<AutomationKind, AutomationStats>>>({});
+  const [previews, setPreviews] = useState<Partial<Record<AutomationKind, AutomationPreview>>>({});
   const [children, setChildren] = useState<ChildRow[]>([]);
   const [revenue, setRevenue] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -114,6 +115,21 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
       for (const c of payload.campaigns || []) map[c.id] = c.revenue;
       setRevenue(map);
     }
+    // « Yuno cible : … » — éligibles maintenant, par recette. Une RPC légère
+    // par recette (compter, pas lister) ; la portée Yuno n'a pas d'audience.
+    if (!isPlatform) {
+      const found = await Promise.all(kinds.map(async (kind) => {
+        const { data } = await supabase.rpc('preview_email_automation' as never, {
+          p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
+          p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+          p_kind: kind,
+        } as never);
+        return [kind, data as unknown as AutomationPreview | null] as const;
+      }));
+      const pv: Partial<Record<AutomationKind, AutomationPreview>> = {};
+      for (const [kind, data] of found) if (data) pv[kind] = data;
+      setPreviews(pv);
+    }
     const ids = Object.values(byKind).map((r) => r.id);
     if (ids.length > 0) {
       const { data: kids } = await supabase.from('email_campaigns')
@@ -126,7 +142,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
       setChildren([]);
     }
     setLoading(false);
-  }, [scope, scopeCol, scopeId, isPlatform]);
+  }, [scope, scopeCol, scopeId, isPlatform, kinds]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -235,6 +251,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
                 kind={kind}
                 row={rows[kind] || null}
                 stats={stats[kind] || null}
+                preview={isPlatform ? null : (previews[kind] || null)}
                 templates={templates}
                 childrenRows={children.filter((c) => c.automation_id === rows[kind]?.id).slice(0, 3)}
                 revenue={isPlatform ? null : (stats[kind]?.campaign_ids || []).reduce((sum, id) => sum + (revenue[id] || 0), 0)}
@@ -270,12 +287,14 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
 // ── Une recette ──────────────────────────────────────────────────────────────
 
 function RecipeCard({
-  kind, row, stats, templates, childrenRows, revenue, busy, basePath,
+  kind, row, stats, preview, templates, childrenRows, revenue, busy, basePath,
   onToggle, onDelay, onThreshold, onTemplate, onSubject, onCreateStarter, onPreview,
 }: {
   kind: AutomationKind;
   row: EmailAutomationRow | null;
   stats: AutomationStats | null;
+  /** null = pas d'aperçu d'audience (portée Yuno, ou pas encore chargé). */
+  preview: AutomationPreview | null;
   templates: Array<{ id: string; name: string; subject?: string }>;
   childrenRows: ChildRow[];
   /** null = pas de revenu à montrer (portée Yuno). */
@@ -424,8 +443,37 @@ function RecipeCard({
             </div>
           </div>
 
-          {/* Règles + bilan */}
+          {/* Cible + règles + bilan */}
           <div className="space-y-3 min-w-0">
+            {/* Ce que Yuno cible : le pro ne choisit jamais l'audience, il la lit. */}
+            <div style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.18)' }}>
+              <div className="flex items-start gap-2">
+                <Target className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: RED }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: T1, fontSize: 12, lineHeight: 1.5 }}>
+                    <span style={{ color: T2 }}>{t('em.auto.targetLabel')}</span>{' '}
+                    {t(`em.auto.kind.${kind}.target`)}
+                  </div>
+                  {preview && (
+                    <div style={{ color: T2, fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+                      <span style={{ color: T1, fontWeight: 640, fontVariantNumeric: 'tabular-nums' }}>{nf(preview.eligible)}</span>{' '}
+                      {t(preview.eligible === 1 ? 'em.auto.eligibleNowOne' : 'em.auto.eligibleNow')}
+                      {preview.next_due_at && (
+                        <>
+                          {' · '}
+                          {fill('em.auto.nextDue', { d: new Date(preview.next_due_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })}
+                        </>
+                      )}
+                      {preview.next_event_title && (
+                        <span style={{ color: T3 }}>{' · '}{preview.next_event_title}</span>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ color: T3, fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>{t('em.auto.priorityNote')}</div>
+                </div>
+              </div>
+            </div>
+
             <div style={{ padding: '10px 12px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <Micro>{t('em.auto.rulesTitle')}</Micro>
               <ul style={{ margin: 0, paddingLeft: 16, color: T2, fontSize: 11.5, lineHeight: 1.55 }}>

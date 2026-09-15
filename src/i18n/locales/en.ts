@@ -14008,6 +14008,20 @@ const en: Record<string, string> = {
   'em.auto.pct': '{p}%',
   'em.auto.ruleUrgent': 'Urgent recipe (real scarcity): up to 2 emails per 24 h and 5 per week for this person, and no 48 h gap with other automations.',
   'em.auto.skip.has_table': 'already have a table',
+  'em.auto.targetLabel': 'Yuno targets:',
+  'em.auto.eligibleNow': 'eligible right now',
+  'em.auto.eligibleNowOne': 'eligible right now',
+  'em.auto.nextDue': 'next send {d}',
+  'em.auto.priorityNote': 'You don\'t pick the audience: Yuno computes it (purchases, guest list, form, imported files), removes at send time anyone who already has a spot, and serves the most engaged first when the day\'s quota isn\'t enough. The rest go the next day.',
+  'em.auto.kind.abandoned_checkout.target': 'people who started a checkout without finishing it, with the marketing consent ticked',
+  'em.auto.kind.last_call.target': 'your whole base without a spot for the event, imported files included, most engaged first',
+  'em.auto.kind.post_event_thanks.target': 'people whose QR was scanned at the door',
+  'em.auto.kind.post_event_missed.target': 'people who had a spot and were not scanned',
+  'em.auto.kind.welcome.target': 'every new sign-up to your base (imported files and purchases excluded)',
+  'em.auto.kind.win_back.target': 'customers who came a while ago and haven\'t been seen since, most engaged first',
+  'em.auto.kind.table_upsell.target': 'paid ticket holders without a table',
+  'em.auto.kind.tier_closing.target': 'people who clicked the event in an email or joined its waitlist, without a spot',
+  'em.auto.kind.new_event.target': 'your whole base without a spot, imported files included, most engaged first',
 };
 
 export default en;

@@ -133,6 +133,21 @@ export interface AutomationStats {
   campaign_ids: string[];
 }
 
+/**
+ * Réponse de `preview_email_automation` : ce que Yuno cible MAINTENANT pour
+ * une recette (compte, jamais de liste), la prochaine soirée concernée et le
+ * prochain départ connu. `next_due_at` est NULL quand le déclencheur n'est
+ * pas une date (seuil de palier) ou qu'il est déjà passé.
+ */
+export interface AutomationPreview {
+  eligible: number;
+  /** Taille de la base opt-in de la portée. */
+  base: number;
+  next_event_id: string | null;
+  next_event_title: string | null;
+  next_due_at: string | null;
+}
+
 /** Réponse de `get_email_send_time_insights`. */
 export interface SendTimeInsights {
   sample: number;
