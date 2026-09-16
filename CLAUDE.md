@@ -810,7 +810,16 @@ Doc complète : `docs/CONTACT_INTELLIGENCE.md`. Règles intouchables :
   effectif live (`count_contact_segment_def`). L'analyseur, lui, se tait sous
   10 personnes / 30 % de couverture : sur une base qui démarre, ces quatre-là
   n'apparaissaient jamais. Même `suggestion_key` que l'analyseur quand la
-  règle est la même (`spend_tables`) : jamais de doublon.
+  règle est la même (`spend_tables`) : jamais de doublon. **Le seuil du panier
+  est DYNAMIQUE** : `suggest_basket_threshold(portée)` (migration
+  `20260916140000`) rend la valeur Yuno de la portée — 3e quartile de la
+  dépense par soirée dès 20 clients payeurs, sinon prix par convive de la
+  formule de table la moins chère, sinon 1,5 × le billet le plus cher, sinon
+  60 € — avec sa base (`history` / `offer_tables` / `offer_tickets` /
+  `default`), et le pro la remplace dans `BasketThresholdField` (écran
+  Audience et dialogue Segments). Clé `spend_tables:<n>` hors 60 € : deux
+  seuils = deux segments ; le panier de l'analyseur (60 € fixe) s'efface
+  derrière le préréglage dans le dialogue.
 - **Audiences intégrées d'un ORGANISATEUR (VIP, gros dépensiers, réguliers,
   nouveaux, dormants) = billets + tables + guest list** via
   `contact_scope_customers` (`20260916120000`), plus les seuls billets ; les

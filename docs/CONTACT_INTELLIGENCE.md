@@ -133,7 +133,7 @@ Effectif live par `count_contact_segment_def` ; un préréglage vide est tu.
 | Clé | Règle | Plaquette |
 |---|---|---|
 | `yuno_tables` | `tables ≥ 1` | Prend des tables |
-| `spend_tables` | `spent_per_event ≥ 60` (même clé que l'analyseur) | Panier moyen élevé |
+| `spend_tables` / `spend_tables:<n>` | `spent_per_event ≥ n` — n = valeur Yuno de la portée (`suggest_basket_threshold` : 3e quartile des paniers payés dès 20 payeurs, sinon prix par convive de la formule de table la moins chère, sinon 1,5 × le billet le plus cher, sinon 60), remplaçable par le pro | Panier moyen élevé |
 | `yuno_seen_60` | `last_seen_days ≤ 60` | Vus il y a moins de 60 jours |
 | `yuno_lapsing` | `events ≥ 3` et `last_seen_days > 90` | Habitués qui décrochent |
 
