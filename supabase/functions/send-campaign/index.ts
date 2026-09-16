@@ -646,6 +646,18 @@ async function drainSlice(
 
 async function notifyOwnerIfFinished(admin: Admin, campaignId: string, campaign: Record<string, unknown>, status: string) {
   if (status !== 'sent') return;
+  // La base apprend de chaque envoi : photo « avant » de la base et des
+  // segments (baseline du bilan), puis rafraîchissement de l'engagement.
+  // Best-effort : une panne d'observabilité ne coûte jamais une campagne.
+  try {
+    await admin.rpc('record_campaign_list_baseline', { p_campaign_id: campaignId });
+    await admin.rpc('refresh_contact_engagement', {
+      p_venue_id: (campaign.venue_id as string | null) ?? null,
+      p_organizer_user_id: (campaign.organizer_user_id as string | null) ?? null,
+    });
+  } catch (e) {
+    console.error('contact base refresh after send:', e);
+  }
   // Une relance après clic se vide et se remplit à chaque vague du cron : un
   // accusé « campagne envoyée » à chaque fois serait du bruit. Son bilan vit
   // dans le rapport de la campagne mère.
