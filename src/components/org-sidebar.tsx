@@ -154,7 +154,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/orders",
 					icon: <ShoppingCartIcon />,
 					subItems: [
-						{ title: tt("Billetterie", "Ticketing"), path: "/organizer-app/orders?tab=tickets", icon: <TicketIcon />, isDefault: true },
+						{ title: t('sidebar.tickets'), path: "/organizer-app/orders?tab=tickets", icon: <TicketIcon />, isDefault: true },
 						{ title: t('owner.tablesVIP'), path: "/organizer-app/orders?tab=vip", icon: <CrownIcon /> },
 						{ title: t('owner.gl.tab'), path: "/organizer-app/orders?tab=guestlist", icon: <UsersIcon /> },
 						{ title: tt("Remboursements", "Refunds"), path: "/organizer-app/refunds", icon: <RotateCcwIcon /> },
@@ -181,10 +181,10 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/customers",
 					icon: <UsersIcon />,
 					subItems: [
-						{ title: t('customers.allClients'), path: "/organizer-app/customers?tab=all", icon: <UsersIcon />, isDefault: true },
-						{ title: t('customers.topClients'), path: "/organizer-app/customers?tab=top", icon: <CrownIcon /> },
+						{ title: t('sidebar.customersAll'), path: "/organizer-app/customers?tab=all", icon: <UsersIcon />, isDefault: true },
+						{ title: t('sidebar.customersTop'), path: "/organizer-app/customers?tab=top", icon: <CrownIcon /> },
 						{ title: t('minorClients.filter'), path: "/organizer-app/customers?tab=minors", icon: <ShieldAlertIcon /> },
-						{ title: t('customers.warnedClients'), path: "/organizer-app/customers?tab=warned", icon: <AlertTriangleIcon /> },
+						{ title: t('sidebar.customersWarned'), path: "/organizer-app/customers?tab=warned", icon: <AlertTriangleIcon /> },
 						{ title: t('customers.originsTab'), path: "/organizer-app/customers?tab=origins", icon: <GlobeIcon /> },
 					],
 				},
@@ -193,12 +193,12 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/campaigns",
 					icon: <MailIcon />,
 					subItems: [
-						{ title: tt("Campagnes Email", "Email Campaigns"), path: "/organizer-app/campaigns", icon: <MailIcon /> },
-						{ title: tt("Automatisations email", "Email automations"), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
-						{ title: tt("Ma base de contacts", "My contacts"), path: "/organizer-app/campaigns/contacts", icon: <UsersIcon /> },
+						{ title: t('sidebar.emailCampaigns'), path: "/organizer-app/campaigns", icon: <MailIcon /> },
+						{ title: t('sidebar.emailAutomations'), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
+						{ title: t('sidebar.contactBase'), path: "/organizer-app/campaigns/contacts", icon: <UsersIcon /> },
 					],
 				},
-				{ title: tt("Campagnes SMS", "SMS Campaigns"), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
+				{ title: t('sidebar.smsMarketing'), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{ title: tt("Publicité", "Ads"), path: "/organizer-app/ads", icon: <RocketIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
 				{
 					// Les quatre pages du programme promoteur n'étaient atteignables
@@ -226,7 +226,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					icon: <ShieldIcon />,
 					subItems: [
 						{ title: tt("Équipe", "Team"), path: "/organizer-app/team?tab=team", icon: <ShieldIcon />, isDefault: true },
-						{ title: tt("Staff Opérationnel", "Operational Staff"), path: "/organizer-app/team?tab=staff", icon: <UserCheckIcon /> },
+						{ title: tt("Staff", "Staff"), path: "/organizer-app/team?tab=staff", icon: <UserCheckIcon /> },
 					],
 				},
 				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },

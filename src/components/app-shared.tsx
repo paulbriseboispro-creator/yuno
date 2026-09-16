@@ -179,7 +179,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					icon: <ShoppingCartIcon />,
 					subItems: [
 						{ title: t('owner.drinks'), path: "/owner/orders?tab=drinks", icon: <Martini />, isDefault: true },
-						{ title: t('sidebar.ticketing'), path: "/owner/orders?tab=tickets", icon: <TicketIcon /> },
+						{ title: t('sidebar.tickets'), path: "/owner/orders?tab=tickets", icon: <TicketIcon /> },
 						{ title: t('owner.gl.tab'), path: "/owner/orders?tab=guestlist", icon: <UsersIcon /> },
 						{ title: t('owner.tablesVIP'), path: "/owner/orders?tab=vip", icon: <Wine /> },
 						{ title: t('sidebar.refunds'), path: "/owner/refunds", icon: <RotateCcwIcon /> },
@@ -212,10 +212,10 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/customers",
 					icon: <UsersIcon />,
 					subItems: [
-						{ title: t('customers.allClients'), path: "/owner/customers?tab=all", icon: <UsersIcon />, isDefault: true },
-						{ title: t('customers.topClients'), path: "/owner/customers?tab=top", icon: <CrownIcon /> },
+						{ title: t('sidebar.customersAll'), path: "/owner/customers?tab=all", icon: <UsersIcon />, isDefault: true },
+						{ title: t('sidebar.customersTop'), path: "/owner/customers?tab=top", icon: <CrownIcon /> },
 						{ title: t('minorClients.filter'), path: "/owner/customers?tab=minors", icon: <ShieldAlertIcon /> },
-						{ title: t('customers.warnedClients'), path: "/owner/customers?tab=warned", icon: <AlertTriangleIcon /> },
+						{ title: t('sidebar.customersWarned'), path: "/owner/customers?tab=warned", icon: <AlertTriangleIcon /> },
 						{ title: t('customers.originsTab'), path: "/owner/customers?tab=origins", icon: <GlobeIcon /> },
 						{ title: t('sidebar.loyalty'), path: "/owner/loyalty", icon: <HeartIcon /> },
 					],
@@ -237,7 +237,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					badge: SMS_MARKETING_LIVE ? undefined : t('smsc.soonBadge'),
 					subItems: [
 						{ title: t('sidebar.smsCampaigns'), path: "/owner/sms-campaigns", icon: <MessageSquareIcon /> },
-						{ title: t('sms.title'), path: "/owner/sms", icon: <CoinsIcon /> },
+						{ title: t('sidebar.smsCredits'), path: "/owner/sms", icon: <CoinsIcon /> },
 					],
 				},
 				{
