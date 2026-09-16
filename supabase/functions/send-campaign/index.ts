@@ -615,13 +615,22 @@ async function drainSlice(
   }
 
   // ── Clôture ───────────────────────────────────────────────────────────────
-  const { count: remaining } = await admin
+  // Un comptage en échec n'est PAS une file vide. Le 10/09, une campagne WOH
+  // de 9 597 destinataires a été fermée « envoyée » avec 2 366 personnes
+  // jamais servies : `remaining ?? 0` prenait un count null (requête en
+  // erreur) pour zéro. Sans compte fiable, on ne conclut rien : le cron
+  // repasse dans 5 minutes.
+  const { count: remaining, error: remErr } = await admin
     .from('email_campaign_recipients')
     .select('id', { count: 'exact', head: true })
     .eq('campaign_id', campaignId)
     .in('status', ['pending', 'sending']);
 
-  const left = remaining ?? 0;
+  if (remErr || remaining == null) {
+    console.error('remaining count failed, campaign left open:', remErr?.message || 'null count');
+    return { sent, failed, remaining: -1, status, stopped: 'error', detail: `remaining count: ${remErr?.message || 'null'}` };
+  }
+  const left = remaining;
 
   if (left === 0 && status === 'sending') {
     const { data: totals } = await admin

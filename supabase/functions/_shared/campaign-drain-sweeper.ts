@@ -73,13 +73,19 @@ export async function sweepSendingCampaigns(admin: any, supabaseUrl: string, ser
     const last = c.last_slice_at ? new Date(c.last_slice_at).getTime() : 0;
     if (last && Date.now() - last < 120_000) continue;
 
-    // Reste-t-il vraiment du travail ?
-    const { count } = await admin
+    // Reste-t-il vraiment du travail ? Un comptage en échec ne dit RIEN :
+    // on ne ferme jamais une campagne sur un count null (le 10/09, ce
+    // raccourci a fermé une campagne avec 2 366 destinataires en attente).
+    const { count, error: countErr } = await admin
       .from('email_campaign_recipients')
       .select('id', { count: 'exact', head: true })
       .eq('campaign_id', c.id)
       .in('status', ['pending', 'sending']);
-    if (!count) {
+    if (countErr || count == null) {
+      out.errors.push(`count ${c.id}: ${countErr?.message || 'null count'}`);
+      continue;
+    }
+    if (count === 0) {
       // File vide mais statut 'sending' : la clôture a été manquée (worker tué
       // juste avant). On la finalise ici plutôt que de laisser la campagne
       // afficher « envoi en cours » pour toujours.
