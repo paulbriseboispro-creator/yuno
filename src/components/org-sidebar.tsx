@@ -51,6 +51,11 @@ import {
 	GlobeIcon,
 	UserCheckIcon,
 	CoinsIcon,
+	RepeatIcon,
+	ShieldAlertIcon,
+	AlertTriangleIcon,
+	ShirtIcon,
+	Martini,
 } from "lucide-react";
 
 type TT = (fr: string, en: string, es?: string) => string;
@@ -67,6 +72,8 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/analytics",
 					icon: <BarChart3Icon />,
 					subItems: [
+						{ title: t('owner.an.global'), path: "/organizer-app/analytics?tab=global", icon: <GlobeIcon />, isDefault: true },
+						{ title: t('owner.an.event'), path: "/organizer-app/analytics?tab=event", icon: <CalendarIcon /> },
 						{ title: tt("Audience", "Audience"), path: "/organizer-app/audience", icon: <UsersIcon /> },
 					],
 				},
@@ -82,6 +89,8 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/events",
 					icon: <CalendarIcon />,
 					subItems: [
+						{ title: t('owner.ev.tabEvents'), path: "/organizer-app/events?tab=events", icon: <CalendarIcon />, isDefault: true },
+						{ title: t('owner.ev.tabRecurring'), path: "/organizer-app/events?tab=recurring", icon: <RepeatIcon /> },
 						{ title: tt("Collaborations", "Collaborations"), path: "/organizer-app/collaborations", icon: <HandshakeIcon /> },
 						{ title: tt("Rareté & FOMO", "Scarcity & FOMO"), path: "/organizer-app/scarcity", icon: <SparklesIcon /> },
 					],
@@ -91,6 +100,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/ticketing",
 					icon: <TicketIcon />,
 					subItems: [
+						{ title: t('tickets.events'), path: "/organizer-app/ticketing?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('tickets.presets'), path: "/organizer-app/ticketing?tab=presets", icon: <FolderOpenIcon /> },
 					],
 				},
@@ -99,6 +109,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/guest-list",
 					icon: <UsersIcon />,
 					subItems: [
+						{ title: t('guestList.tabs.events'), path: "/organizer-app/guest-list?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('guestList.tabs.templates'), path: "/organizer-app/guest-list?tab=templates", icon: <FolderOpenIcon /> },
 					],
 				},
@@ -107,17 +118,27 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/tables",
 					icon: <CrownIcon />,
 					subItems: [
+						{ title: t('tables.events'), path: "/organizer-app/tables?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: tt("Salles VIP", "VIP rooms", "Salas VIP"), path: "/organizer-app/tables?tab=rooms", icon: <LayersIcon /> },
 						{ title: tt("Service VIP", "VIP Service"), path: "/organizer-app/vip-service", icon: <CrownIcon /> },
 					],
 				},
-				{ title: tt("Check-in", "Check-in"), path: "/organizer-app/checkin", icon: <ScanLineIcon /> },
+				{
+					title: tt("Check-in", "Check-in"),
+					path: "/organizer-app/checkin",
+					icon: <ScanLineIcon />,
+					subItems: [
+						{ title: tt("Billets", "Tickets"), path: "/organizer-app/checkin?tab=tickets", icon: <TicketIcon />, isDefault: true },
+						{ title: tt("Boissons", "Drinks"), path: "/organizer-app/checkin?tab=drinks", icon: <Martini /> },
+						{ title: tt("Vestiaire", "Cloakroom"), path: "/organizer-app/checkin?tab=cloakroom", icon: <ShirtIcon /> },
+					],
+				},
 				{
 					title: tt("DJs", "DJs"),
 					path: "/organizer-app/djs",
 					icon: <Music2Icon />,
 					subItems: [
-						{ title: t('owner.calendar'), path: "/organizer-app/djs?tab=calendar", icon: <CalendarIcon /> },
+						{ title: t('owner.calendar'), path: "/organizer-app/djs?tab=calendar", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('owner.djList'), path: "/organizer-app/djs?tab=djs", icon: <Music2Icon /> },
 						{ title: tt("Booking DJ", "Booking DJ"), path: "/organizer-app/book-dj", icon: <WandIcon /> },
 					],
@@ -133,6 +154,9 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/orders",
 					icon: <ShoppingCartIcon />,
 					subItems: [
+						{ title: tt("Billetterie", "Ticketing"), path: "/organizer-app/orders?tab=tickets", icon: <TicketIcon />, isDefault: true },
+						{ title: t('owner.tablesVIP'), path: "/organizer-app/orders?tab=vip", icon: <CrownIcon /> },
+						{ title: t('owner.gl.tab'), path: "/organizer-app/orders?tab=guestlist", icon: <UsersIcon /> },
 						{ title: tt("Remboursements", "Refunds"), path: "/organizer-app/refunds", icon: <RotateCcwIcon /> },
 					],
 				},
@@ -157,6 +181,10 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/customers",
 					icon: <UsersIcon />,
 					subItems: [
+						{ title: t('customers.allClients'), path: "/organizer-app/customers?tab=all", icon: <UsersIcon />, isDefault: true },
+						{ title: t('customers.topClients'), path: "/organizer-app/customers?tab=top", icon: <CrownIcon /> },
+						{ title: t('minorClients.filter'), path: "/organizer-app/customers?tab=minors", icon: <ShieldAlertIcon /> },
+						{ title: t('customers.warnedClients'), path: "/organizer-app/customers?tab=warned", icon: <AlertTriangleIcon /> },
 						{ title: t('customers.originsTab'), path: "/organizer-app/customers?tab=origins", icon: <GlobeIcon /> },
 					],
 				},
@@ -197,6 +225,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					path: "/organizer-app/team",
 					icon: <ShieldIcon />,
 					subItems: [
+						{ title: tt("Équipe", "Team"), path: "/organizer-app/team?tab=team", icon: <ShieldIcon />, isDefault: true },
 						{ title: tt("Staff Opérationnel", "Operational Staff"), path: "/organizer-app/team?tab=staff", icon: <UserCheckIcon /> },
 					],
 				},

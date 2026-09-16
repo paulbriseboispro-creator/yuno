@@ -40,6 +40,10 @@ import {
 	LayersIcon,
 	PackageIcon,
 	GlobeIcon,
+	RepeatIcon,
+	TagIcon,
+	ShieldAlertIcon,
+	AlertTriangleIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { SMS_MARKETING_LIVE } from "@/lib/smsMarketing";
@@ -54,6 +58,9 @@ export type SidebarNavItem = {
 	isActive?: boolean;
 	/** N'est active que sur sa route exacte (une racine qui préfixe toute l'app). */
 	exact?: boolean;
+	/** Sous-entrée qui correspond à la vue par DÉFAUT du parent : elle s'allume
+	 *  quand l'URL n'a pas encore d'onglet (`/owner/analytics` = Global). */
+	isDefault?: boolean;
 	subItems?: SidebarNavItem[];
 };
 
@@ -78,6 +85,8 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/analytics",
 					icon: <BarChart3Icon />,
 					subItems: [
+						{ title: t('owner.an.global'), path: "/owner/analytics?tab=global", icon: <GlobeIcon />, isDefault: true },
+						{ title: t('owner.an.event'), path: "/owner/analytics?tab=event", icon: <CalendarIcon /> },
 						{ title: t('sidebar.audience'), path: "/owner/audience", icon: <UsersIcon /> },
 						{ title: t('sidebar.hypeScore'), path: "/owner/hype", icon: <TrendingUpIcon /> },
 					],
@@ -99,6 +108,8 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/events",
 					icon: <CalendarIcon />,
 					subItems: [
+						{ title: t('owner.ev.tabEvents'), path: "/owner/events?tab=events", icon: <CalendarIcon />, isDefault: true },
+						{ title: t('owner.ev.tabRecurring'), path: "/owner/events?tab=recurring", icon: <RepeatIcon /> },
 						{ title: t('sidebar.collaborations'), path: "/owner/collaborations", icon: <HandshakeIcon /> },
 						{ title: t('sidebar.scarcityFOMO'), path: "/owner/scarcity", icon: <SparklesIcon /> },
 					],
@@ -108,6 +119,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/ticketing",
 					icon: <TicketIcon />,
 					subItems: [
+						{ title: t('tickets.events'), path: "/owner/ticketing?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('tickets.presets'), path: "/owner/ticketing?tab=presets", icon: <FolderOpenIcon /> },
 						{ title: t('waitlist.title'), path: "/owner/waitlist", icon: <ListChecksIcon /> },
 					],
@@ -117,6 +129,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/guest-list",
 					icon: <UsersIcon />,
 					subItems: [
+						{ title: t('guestList.tabs.events'), path: "/owner/guest-list?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('guestList.tabs.templates'), path: "/owner/guest-list?tab=templates", icon: <FolderOpenIcon /> },
 					],
 				},
@@ -125,6 +138,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/tables",
 					icon: <Wine />,
 					subItems: [
+						{ title: t('tables.events'), path: "/owner/tables?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('tables.zones'), path: "/owner/tables?tab=zones", icon: <LayersIcon /> },
 						{ title: t('tables.packs'), path: "/owner/tables?tab=packs", icon: <PackageIcon /> },
 						{ title: t('tables.presets'), path: "/owner/tables?tab=presets", icon: <FolderOpenIcon /> },
@@ -140,6 +154,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					subItems: [
 						{ title: t('sidebar.drinkMenu'), path: "/owner/menu", icon: <Martini /> },
 						{ title: t('sidebar.upsells'), path: "/owner/upsell", icon: <GiftIcon /> },
+						{ title: t('upsell.tabPromos'), path: "/owner/upsell?tab=promos", icon: <TagIcon /> },
 					],
 				},
 				{
@@ -147,7 +162,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/djs",
 					icon: <Music2Icon />,
 					subItems: [
-						{ title: t('owner.calendar'), path: "/owner/djs?tab=calendar", icon: <CalendarIcon /> },
+						{ title: t('owner.calendar'), path: "/owner/djs?tab=calendar", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('owner.djList'), path: "/owner/djs?tab=djs", icon: <Music2Icon /> },
 						{ title: t('sidebar.bookDJ'), path: "/owner/book-dj", icon: <WandIcon /> },
 					],
@@ -163,6 +178,10 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/orders",
 					icon: <ShoppingCartIcon />,
 					subItems: [
+						{ title: t('owner.drinks'), path: "/owner/orders?tab=drinks", icon: <Martini />, isDefault: true },
+						{ title: t('sidebar.ticketing'), path: "/owner/orders?tab=tickets", icon: <TicketIcon /> },
+						{ title: t('owner.gl.tab'), path: "/owner/orders?tab=guestlist", icon: <UsersIcon /> },
+						{ title: t('owner.tablesVIP'), path: "/owner/orders?tab=vip", icon: <Wine /> },
 						{ title: t('sidebar.refunds'), path: "/owner/refunds", icon: <RotateCcwIcon /> },
 					],
 				},
@@ -193,6 +212,10 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/customers",
 					icon: <UsersIcon />,
 					subItems: [
+						{ title: t('customers.allClients'), path: "/owner/customers?tab=all", icon: <UsersIcon />, isDefault: true },
+						{ title: t('customers.topClients'), path: "/owner/customers?tab=top", icon: <CrownIcon /> },
+						{ title: t('minorClients.filter'), path: "/owner/customers?tab=minors", icon: <ShieldAlertIcon /> },
+						{ title: t('customers.warnedClients'), path: "/owner/customers?tab=warned", icon: <AlertTriangleIcon /> },
 						{ title: t('customers.originsTab'), path: "/owner/customers?tab=origins", icon: <GlobeIcon /> },
 						{ title: t('sidebar.loyalty'), path: "/owner/loyalty", icon: <HeartIcon /> },
 					],
@@ -257,6 +280,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/staff",
 					icon: <UserCheckIcon />,
 					subItems: [
+						{ title: t('ownerteam.tabTeam'), path: "/owner/staff?tab=team", icon: <UserCheckIcon />, isDefault: true },
 						{ title: t('ownerteam.tabBriefing'), path: "/owner/staff?tab=briefing", icon: <MegaphoneIcon /> },
 						{ title: t('ownerteam.tabActivity'), path: "/owner/staff?tab=activity", icon: <ActivityIcon /> },
 						{ title: t('managers.title'), path: "/owner/managers", icon: <ShieldIcon /> },

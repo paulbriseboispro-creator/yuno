@@ -64,8 +64,13 @@ function NavItemRow({ item }: { item: SidebarNavItem }) {
 	const location = useLocation();
 	const { isMobile, setOpen: setSidebarOpen, state } = useSidebar();
 	const subItems = item.subItems ?? [];
-	const activeSub = subItems.find((sub) => matchesPath(location, sub));
-	const inSection = !!activeSub || matchesPath(location, item);
+	const onParentPage = matchesPath(location, item);
+	// Sur `/owner/analytics` sans onglet, aucune sous-entrée ne matche alors qu'on
+	// REGARDE bien « Global » : c'est elle qu'il faut allumer, pas le parent.
+	const activeSub =
+		subItems.find((sub) => matchesPath(location, sub)) ??
+		(onParentPage ? subItems.find((sub) => sub.isDefault) : undefined);
+	const inSection = !!activeSub || onParentPage;
 	const [open, setOpen] = useState(inSection);
 
 	useEffect(() => {
@@ -98,7 +103,7 @@ function NavItemRow({ item }: { item: SidebarNavItem }) {
 			<SidebarMenuItem>
 				<SidebarMenuButton
 					asChild
-					isActive={!activeSub && matchesPath(location, item)}
+					isActive={!activeSub && onParentPage}
 					tooltip={item.title}
 				>
 					<Link onClick={revealWhenCollapsed} to={item.path ?? "#"}>
