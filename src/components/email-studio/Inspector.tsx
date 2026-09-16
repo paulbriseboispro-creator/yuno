@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import {
   Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, EyeOff, Italic, Link2, Lock,
-  MousePointer, PanelBottom, Plus, RefreshCw, Strikethrough, Trash2, Underline, Users, Zap,
+  MousePointer, PanelBottom, Plus, RefreshCw, RemoveFormatting, Strikethrough, Trash2,
+  Underline, Users, Zap,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ImageUploader from '@/components/campaigns/ImageUploader';
@@ -12,6 +13,8 @@ import type {
   TicketsBlock, GuestListBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
 import { blockPadDefaults, BLOCK_COND_LABELS, BLOCK_CONDS } from '@/lib/email';
+import RichTextField from './RichTextField';
+import type { RichTextHandle } from './RichTextField';
 import { useStudio } from './store';
 import type { StudioEvent } from './hooks';
 import { blockMeta, FOOTER_SELECTION_ID } from './meta';
@@ -281,36 +284,39 @@ const FMT_COLORS = ['accent', '#E8192C', '#D4AF37', '#34D399', '#3B82F6', '#8A8A
 const FMT_SIZES = [12, 14, 18, 22, 28] as const;
 
 /**
- * Textarea + barre de mise en forme : chaque bouton enveloppe la sélection
- * avec le mini-markup rendu par inlineMarkup (render.ts). Le canvas montre le
- * résultat en direct, l'email envoyé rend exactement pareil.
+ * Barre de mise en forme + champ de saisie.
+ *
+ * Le champ montre la mise en forme, PAS les signes qui la portent
+ * (`RichTextField` + `src/lib/email/markup.ts`) : un texte collé avec ses
+ * `**gras**` arrive déjà en gras, signes cachés. Le bloc, lui, continue de
+ * stocker du texte brut + mini-markup — l'email rend exactement pareil.
+ *
+ * Chaque bouton agit sur la SÉLECTION : recliquer la même couleur ou la même
+ * taille l'enlève, et la gomme retire tout. Sans rien de sélectionné, le clic
+ * pose un mot d'exemple déjà mis en forme, sinon il n'aurait aucun effet
+ * visible.
  */
-function TextEditorWithFormatBar({ body, onBody }: { body: string; onBody: (v: string) => void }) {
+function TextEditorWithFormatBar({ body, onBody, accent }: {
+  body: string;
+  onBody: (v: string) => void;
+  /** Couleur d'accent du thème : ce que `[c=accent]` et les liens valent à l'écran. */
+  accent: string;
+}) {
   const { t } = useLanguage();
-  const taRef = useRef<HTMLTextAreaElement>(null);
-
-  const wrap = (before: string, after: string) => {
-    const el = taRef.current;
-    if (!el) return;
-    const { selectionStart: s, selectionEnd: e, value } = el;
-    const sel = value.slice(s, e) || t('studio.inspector.fmtPlaceholder');
-    const next = value.slice(0, s) + before + sel + after + value.slice(e);
-    onBody(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(s + before.length, s + before.length + sel.length);
-    });
-  };
+  const editor = useRef<RichTextHandle>(null);
 
   const addLink = () => {
     const url = window.prompt(t('studio.inspector.fmtLinkPrompt'), 'https://');
     if (!url || !url.trim() || url.trim() === 'https://') return;
-    wrap(`[url=${url.trim()}]`, '[/url]');
+    editor.current?.applyLink(url.trim());
   };
 
   const fmtBtn = (label: string, icon: React.ReactNode, onClick: () => void) => (
     <button
-      type="button" aria-label={label} title={label} onClick={onClick}
+      type="button" aria-label={label} title={label}
+      // onMouseDown plutôt que onClick : un bouton qui prend le focus ferait
+      // perdre la sélection du texte avant même qu'on sache quoi mettre en gras.
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       style={{
@@ -327,16 +333,16 @@ function TextEditorWithFormatBar({ body, onBody }: { body: string; onBody: (v: s
         display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', padding: 3,
         borderRadius: 9, background: SUBTLE, border: `1px solid ${BORDER}`,
       }}>
-        {fmtBtn(t('studio.inspector.fmtBold'), <Bold size={13} strokeWidth={2.25} />, () => wrap('**', '**'))}
-        {fmtBtn(t('studio.inspector.fmtItalic'), <Italic size={13} strokeWidth={1.75} />, () => wrap('*', '*'))}
-        {fmtBtn(t('studio.inspector.fmtStrike'), <Strikethrough size={13} strokeWidth={1.75} />, () => wrap('~~', '~~'))}
-        {fmtBtn(t('studio.inspector.fmtUnderline'), <Underline size={13} strokeWidth={1.75} />, () => wrap('__', '__'))}
+        {fmtBtn(t('studio.inspector.fmtBold'), <Bold size={13} strokeWidth={2.25} />, () => editor.current?.toggle('b'))}
+        {fmtBtn(t('studio.inspector.fmtItalic'), <Italic size={13} strokeWidth={1.75} />, () => editor.current?.toggle('i'))}
+        {fmtBtn(t('studio.inspector.fmtStrike'), <Strikethrough size={13} strokeWidth={1.75} />, () => editor.current?.toggle('s'))}
+        {fmtBtn(t('studio.inspector.fmtUnderline'), <Underline size={13} strokeWidth={1.75} />, () => editor.current?.toggle('u'))}
         <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px', flex: 'none' }} />
         {FMT_SIZES.map((n) => (
           <button
             key={n} type="button"
             aria-label={`${t('studio.inspector.fmtSize')} ${n}px`} title={`${t('studio.inspector.fmtSize')} ${n}px`}
-            onClick={() => wrap(`[s=${n}]`, '[/s]')}
+            onMouseDown={(e) => { e.preventDefault(); editor.current?.applySize(n); }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             style={{
@@ -350,6 +356,7 @@ function TextEditorWithFormatBar({ body, onBody }: { body: string; onBody: (v: s
         ))}
         <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px', flex: 'none' }} />
         {fmtBtn(t('studio.inspector.fmtLink'), <Link2 size={13} strokeWidth={1.75} />, addLink)}
+        {fmtBtn(t('studio.inspector.fmtClear'), <RemoveFormatting size={13} strokeWidth={1.75} />, () => editor.current?.clearFormat())}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
         <Baseline size={12} strokeWidth={1.75} style={{ color: T3, flex: 'none' }} />
@@ -357,7 +364,7 @@ function TextEditorWithFormatBar({ body, onBody }: { body: string; onBody: (v: s
           <button
             key={c} type="button"
             aria-label={`${t('studio.inspector.fmtColor')} ${c}`} title={`${t('studio.inspector.fmtColor')} ${c}`}
-            onClick={() => wrap(`[c=${c}]`, '[/c]')}
+            onMouseDown={(e) => { e.preventDefault(); editor.current?.applyColor(c); }}
             style={{
               width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', padding: 0, flex: 'none',
               border: '1px solid rgba(255,255,255,0.25)',
@@ -370,14 +377,22 @@ function TextEditorWithFormatBar({ body, onBody }: { body: string; onBody: (v: s
         <input
           type="color"
           aria-label={t('studio.inspector.fmtColor')} title={t('studio.inspector.fmtColor')}
-          onChange={(e) => wrap(`[c=${e.target.value}]`, '[/c]')}
+          onChange={(e) => editor.current?.applyColor(e.target.value)}
           style={{
             width: 20, height: 18, padding: 0, border: `1px solid ${BORDER}`, borderRadius: 5,
             background: 'transparent', cursor: 'pointer', flex: 'none',
           }}
         />
       </div>
-      <TextArea ref={taRef} value={body} onChange={(e) => onBody(e.target.value)} style={{ minHeight: 120 }} />
+      <RichTextField
+        ref={editor}
+        value={body}
+        onChange={onBody}
+        accent={accent}
+        placeholder={t('studio.inspector.fmtPlaceholder')}
+        ariaLabel={t('studio.inspector.textContent')}
+        style={{ ...inputStyle, minHeight: 120, lineHeight: 1.55 }}
+      />
       <Help>{t('studio.inspector.fmtHint')}</Help>
     </div>
   );
@@ -566,7 +581,7 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
         <>
           <PanelCard>
             <MicroLabel>{t('studio.inspector.textContent')}</MicroLabel>
-            <TextEditorWithFormatBar body={b.body} onBody={(body) => patch({ body })} />
+            <TextEditorWithFormatBar body={b.body} onBody={(body) => patch({ body })} accent={theme.accent} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: T3, fontSize: 11, fontFamily: FONT_UI }}>
               <Braces size={12} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />
               {t('studio.inspector.textVarsHint')}

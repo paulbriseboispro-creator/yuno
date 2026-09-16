@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, GripVertical, Lock, PanelBottom, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailBlock } from '@/lib/email';
+import { parseMarkup } from '@/lib/email';
 import { useStudio } from './store';
 import { blockMeta, FOOTER_SELECTION_ID } from './meta';
 import { FONT_UI, RED, T1, T3 } from './ui';
@@ -9,7 +10,9 @@ import { FONT_UI, RED, T1, T3 } from './ui';
 function blockSnippet(b: EmailBlock): string {
   switch (b.type) {
     case 'header': return b.venueName;
-    case 'text': return b.body.replace(/<[^>]+>/g, ' ').trim().slice(0, 34);
+    // Le texte du bloc, débarrassé de sa mise en forme : l'arborescence donne
+    // un repère, pas un aperçu du code ([b], [s=22]… n'y ont rien à faire).
+    case 'text': return parseMarkup(b.body.replace(/<[^>]+>/g, ' ')).text.trim().slice(0, 34);
     case 'image': return b.label || '';
     case 'cta': return b.label;
     case 'event': return b.title;
