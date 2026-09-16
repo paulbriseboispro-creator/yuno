@@ -795,8 +795,28 @@ Doc complète : `docs/CONTACT_INTELLIGENCE.md`. Règles intouchables :
   `contact_segment`) n'atteignent que l'opt-in newsletter non supprimé et le
   numéro consenti < 36 mois sans STOP.
 - **`contact_segments` vaut aux DEUX portées** (contrairement à
-  `venue_segments`). Définition jsonb v1 résolue à l'envoi par
-  `contact_row_matches` ; condition inconnue ⇒ FAUX.
+  `venue_segments`). Définition jsonb v1 compilée à l'envoi par
+  `contact_definition_predicate` ; condition inconnue ⇒ FAUX (et jamais une
+  exception : un littéral nu `parts || 'false'` faisait PLANTER la résolution,
+  corrigé en `20260916120000` — `array_append`, toujours). Vocabulaire étendu
+  le 16/09 aux faits Yuno de la base vivante : `tables` / `tickets` / `orders`
+  `{op,value}` et `last_seen_days {op,value}` (achat, venue OU clic).
+- **Les quatre segments de la plaquette sont des PRÉRÉGLAGES front**
+  (`YUNO_SEGMENT_PRESETS`, `src/lib/contactSegments.ts`) : « Prend des
+  tables », « Panier moyen élevé », « Vus il y a moins de 60 jours »,
+  « Habitués qui décrochent ». Proposés aux DEUX portées dans l'écran Audience
+  (section « Segments Yuno », un clic crée le segment via
+  `save_contact_segments` ET le cible) et dans le dialogue Segments, avec leur
+  effectif live (`count_contact_segment_def`). L'analyseur, lui, se tait sous
+  10 personnes / 30 % de couverture : sur une base qui démarre, ces quatre-là
+  n'apparaissaient jamais. Même `suggestion_key` que l'analyseur quand la
+  règle est la même (`spend_tables`) : jamais de doublon.
+- **Audiences intégrées d'un ORGANISATEUR (VIP, gros dépensiers, réguliers,
+  nouveaux, dormants) = billets + tables + guest list** via
+  `contact_scope_customers` (`20260916120000`), plus les seuls billets ; les
+  effectifs viennent de `count_organizer_audience_kinds` en un appel
+  (`count_campaign_recipients` est venue-scopée, l'écran d'un orga n'affichait
+  aucun chiffre).
 - **L'analyse (`analyze_contact_lists`) est déterministe, sans IA, scope-wide** :
   ≥ 10 personnes par proposition, couverture ≥ 30 % de la donnée. Le libellé et
   la raison sont traduits côté front (`describeSuggestion`, clés `cseg.sug.*`)
@@ -942,6 +962,16 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
 - **Blocs Yuno (event, tickets, table, countdown) = données live** : lues en
   base AU RENDU (une requête par tranche d'envoi, `fetchStudioLiveData`),
   jamais figées à la composition. Source des tarifs : `ticket_rounds`.
+  **L'email lit les drapeaux « Complet » de `src/lib/soldOut.ts`** (2026-09-16,
+  helpers `liveSoldOut` / `applyTicketsSoldOut` / `openTablePacks` /
+  `tablesLeftFor` / `isGuestListClosed` dans `live.ts`, dupliqués dans le port
+  Deno) : billetterie fermée à la main ⇒ chaque tranche « épuisé » et pas de
+  prix d'appel ; `sold_out_pack_ids` ⇒ formule retirée des lignes ET du stock
+  (miroir de `_event_tables_left`) ; `tables_sold_out` ⇒ 0 table, la carte dit
+  « Complet » sans bouton ; `guest_list_sold_out` / `manually_sold_out` ⇒ liste
+  « complet » sans bouton ; `ticketing_enabled` / `tables_enabled = false` ⇒
+  le bloc s'efface (`tablesOpen: false`). Sans ça l'email vendait une formule
+  que la page refusait au clic.
   **Live = la base fait foi** (2026-08-31) : un événement SANS billetterie
   (guest list seule) EFFACE le bloc billets et le prix de la carte événement —
   ne jamais retomber sur les lignes placeholder quand l'événement est résolu.
@@ -1039,10 +1069,14 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   `theme.divider` clair ne se dessine que si `contrastText(footerBg)`
   est foncé (footer clair). Sinon il traçait une ligne blanche entre un
   contenu sombre et le footer noir (email + aperçu Canvas).
-- **Règles de visibilité par bloc** (`cond`: vip_table / new_subscribers /
-  buyers, onglet Dynamique) : résolues À L'ENVOI par lot via la RPC
-  `get_recipient_block_conds` (fail-closed — RPC en échec ⇒ blocs
-  conditionnels masqués). Les envois de TEST rendent tout (`ignoreConds`).
+- **Règles de visibilité par bloc** (`cond`: vip_table / no_vip_table / buyers /
+  no_buyers / new_subscribers, carte « Qui voit ce bloc » de l'inspecteur) :
+  résolues À L'ENVOI par lot via la RPC `get_recipient_block_conds`
+  (fail-closed — RPC en échec ⇒ blocs conditionnels masqués). Les formes
+  `no_*` sont le COMPLÉMENT exact sur le lot demandé (2026-09-16) : « le bloc
+  Table VIP pour ceux qui en ont pris une, le bloc Liste invités pour les
+  autres » = deux blocs, `vip_table` + `no_vip_table`. Les envois de TEST
+  rendent tout (`ignoreConds`).
 - **L'heure de Paris se lit par `formatToParts`, jamais par `Number(format())`**
   (2026-09-10) : en `fr-FR`, `format()` rend « 23 h » → NaN → aucune heure
   calme détectée, la campagne envoyait à 1 h du matin. Copier `parisHour()`

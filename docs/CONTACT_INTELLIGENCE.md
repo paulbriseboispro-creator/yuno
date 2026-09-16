@@ -92,6 +92,15 @@ la première version faisait 12 000 × résolution ⇒ timeout). SMS :
 `age {min,max}` · `gender {in[]}` · `newsletter_opt_in {value}` ·
 `has_email {value}` · `has_phone {value}` · `list {in[]}` — `op` ∈ gte, gt, lte, lt, eq.
 
+Ajouts du 2026-09-15 (base vivante) : `engagement {in[]}` · `origin {in[]}` ·
+`emails_received` / `opens` / `clicks {op,value}` · `last_open_days` /
+`last_click_days {op,value}` · `guest_lists {op,value}` · `yuno_customer {value}`
+· `has_account {value}`. Ajouts du 2026-09-16 (faits Yuno) : `tables` /
+`tickets` / `orders {op,value}` (réservations de table, billets, commandes bar
+chez ce pro) · `last_seen_days {op,value}` (dernier achat, venue OU clic).
+Une condition inconnue rend FAUX — et ne lève jamais (le littéral nu
+`parts || 'false'` plantait la compilation jusqu'au 16/09).
+
 ### Propositions (clé → règle)
 
 | Famille | Clé | Règle |
@@ -110,6 +119,23 @@ la première version faisait 12 000 × résolution ⇒ timeout). SMS :
 | demo | `age_18_21` … `age_31_plus`, `gender_female`, `gender_male` | |
 | consent | `newsletter_yes` | opt-in déclaré dans l'ancien outil |
 | channel | `channel_both` / `channel_sms_only` | |
+
+### Les segments Yuno — préréglages en un clic (2026-09-16)
+
+L'analyseur se tait sous 10 personnes ou 30 % de couverture : sur une base qui
+démarre, « Prend des tables » n'apparaissait jamais. Quatre définitions FIXES
+vivent dans le front (`YUNO_SEGMENT_PRESETS`, `src/lib/contactSegments.ts`) et
+sont proposées aux deux portées — écran Audience du studio (section « Segments
+Yuno », un clic crée le segment via `save_contact_segments` ET l'ajoute à la
+campagne) et dialogue Segments (fusionnées aux propositions de l'analyseur).
+Effectif live par `count_contact_segment_def` ; un préréglage vide est tu.
+
+| Clé | Règle | Plaquette |
+|---|---|---|
+| `yuno_tables` | `tables ≥ 1` | Prend des tables |
+| `spend_tables` | `spent_per_event ≥ 60` (même clé que l'analyseur) | Panier moyen élevé |
+| `yuno_seen_60` | `last_seen_days ≤ 60` | Vus il y a moins de 60 jours |
+| `yuno_lapsing` | `events ≥ 3` et `last_seen_days > 90` | Habitués qui décrochent |
 
 ## La base vivante : engagement, clients Yuno, bilan par campagne (2026-09-15)
 
