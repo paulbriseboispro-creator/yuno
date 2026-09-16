@@ -204,6 +204,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					subItems: [
 						{ title: t('sidebar.emailCampaigns'), path: "/owner/campaigns", icon: <MailIcon /> },
 						{ title: t('sidebar.emailAutomations'), path: "/owner/campaigns/automations", icon: <ZapIcon /> },
+						{ title: t('sidebar.contactBase'), path: "/owner/campaigns/contacts", icon: <UsersIcon /> },
 					],
 				},
 				{

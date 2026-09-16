@@ -22,6 +22,7 @@ import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
 import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { OrgPageHeader } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
+import { exportContactBase } from '@/lib/contactBaseExport';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -364,7 +365,15 @@ export default function OrgAppCustomers() {
     { name: t('customers.mixed'), value: analytics.categories.mixed },
   ].filter(d => d.value > 0);
 
-  const exportCustomersCsv = () => {
+  // Export = la base UNIFIÉE (fichier importé mis à jour + clients venus par
+  // Yuno + engagement + segments), pas la vue filtrée de cet écran. Le CSV
+  // local de la vue ne sert plus que de repli si la RPC échoue.
+  const exportCustomersCsv = async () => {
+    if (user?.id) {
+      const res = await exportContactBase({ scopeArgs: { p_venue_id: null, p_organizer_user_id: user.id }, scopeName: 'Yuno', t, language });
+      if (res.outcome === 'downloaded' || res.outcome === 'shared') { toast({ title: t('cbase.exportDone').replace('{n}', String(res.rows)) }); return; }
+      if (res.outcome === 'cancelled') return;
+    }
     const sep = ',';
     const rows = [['Email', t('profile.firstName'), t('profile.lastName'), 'Phone', 'Segment', 'Tier', 'Tickets', 'Tables', 'TotalSpent', 'Revenue30d', 'VisitsPerMonth', 'LastActivity', 'Status'].join(sep)];
     filteredCustomers.forEach(c => {
@@ -478,7 +487,7 @@ export default function OrgAppCustomers() {
             <button onClick={exportCustomersCsv}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-              <Download className="w-3.5 h-3.5" />CSV
+              <Download className="w-3.5 h-3.5" />{t('cbase.exportShort')}
             </button>
           }
         />

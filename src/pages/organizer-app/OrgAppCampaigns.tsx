@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, BarChart3, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BarChart3, Database, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -19,6 +19,7 @@ import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import TemplatesSection from '@/components/campaigns/TemplatesSection';
 import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
 import AutomationSuggestions from '@/components/campaigns/AutomationSuggestions';
+import ContactBasePanel from '@/components/contacts/ContactBasePanel';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
   T1, T2, T3,
@@ -105,6 +106,9 @@ export default function OrgAppCampaigns() {
                 </OrgButton>
                 <OrgButton variant="secondary" size="sm" onClick={() => setSegmentsOpen(true)}>
                   <Sparkles className="h-4 w-4" /> <span className="hidden sm:inline">{t('Segments intelligents', 'Smart segments', 'Segmentos inteligentes')}</span>
+                </OrgButton>
+                <OrgButton variant="secondary" size="sm" onClick={() => navigate('/organizer-app/campaigns/contacts')}>
+                  <Database className="h-4 w-4" /> <span className="hidden sm:inline">{t('Ma base', 'My contacts', 'Mi base')}</span>
                 </OrgButton>
                 <OrgButton variant="secondary" size="sm" onClick={() => navigate('/organizer-app/campaigns/automations')}>
                   <Zap className="h-4 w-4" /> <span className="hidden sm:inline">{t('Automatisations', 'Automations', 'Automatizaciones')}</span>
@@ -242,6 +246,7 @@ export default function OrgAppCampaigns() {
             mode="analyze"
             onClose={() => setSegmentsOpen(false)}
             scope={{ kind: 'organizer', organizerId: user.id }}
+            basePath="/organizer-app/campaigns"
           />
         </>
       )}
@@ -342,6 +347,21 @@ export function OrgAppCampaignReport() {
         logoUrl: (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
         city: null,
       }}
+    />
+  );
+}
+
+/** Ma base de contacts (route campaigns/contacts). */
+export function OrgAppContactBase() {
+  const { user } = useAuth();
+  const { profile, loading } = useProfileType();
+  if (!user?.id || loading) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+  return (
+    <ContactBasePanel
+      basePath="/organizer-app/campaigns"
+      scope={{ kind: 'organizer', organizerId: user.id, name: profile?.organizationName || 'Mon organisation' }}
     />
   );
 }

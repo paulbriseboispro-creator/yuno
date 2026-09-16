@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Database, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,6 +20,7 @@ import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import TemplatesSection from '@/components/campaigns/TemplatesSection';
 import EmailAutomationsPanel from '@/components/campaigns/EmailAutomationsPanel';
 import AutomationSuggestions from '@/components/campaigns/AutomationSuggestions';
+import ContactBasePanel from '@/components/contacts/ContactBasePanel';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
 const RED = '#E8192C';
@@ -189,6 +190,17 @@ export default function OwnerCampaigns() {
               }}
             >
               <Sparkles className="w-4 h-4" /> {t('cseg.button')}
+            </button>
+            <button
+              onClick={() => navigate('/owner/campaigns/contacts')}
+              className="cursor-pointer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px',
+                borderRadius: 10, border: `1px solid ${BORDER}`, background: SUBTLE,
+                color: T2, fontSize: 12.5, fontWeight: 500,
+              }}
+            >
+              <Database className="w-4 h-4" /> {t('cbase.button')}
             </button>
             <button
               onClick={() => navigate('/owner/campaigns/automations')}
@@ -434,6 +446,7 @@ export default function OwnerCampaigns() {
             mode="analyze"
             onClose={() => setSegmentsOpen(false)}
             scope={{ kind: 'venue', venueId }}
+            basePath="/owner/campaigns"
           />
         </>
       )}
@@ -525,6 +538,18 @@ export function OwnerCampaignReport() {
 }
 
 /** Page Automatisations email (route campaigns/automations). */
+/** Ma base de contacts (route campaigns/contacts). */
+export function OwnerContactBase() {
+  const { venueId, venue, loading } = useVenueContext();
+  if (loading || !venueId) return <OwnerPageSkeleton />;
+  return (
+    <ContactBasePanel
+      basePath="/owner/campaigns"
+      scope={{ kind: 'venue', venueId, name: venue?.name || 'Mon club' }}
+    />
+  );
+}
+
 export function OwnerEmailAutomations() {
   const { venueId, venue, loading } = useVenueContext();
   if (loading || !venueId) return <OwnerPageSkeleton />;

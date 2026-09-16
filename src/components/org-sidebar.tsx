@@ -167,6 +167,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					subItems: [
 						{ title: tt("Campagnes Email", "Email Campaigns"), path: "/organizer-app/campaigns", icon: <MailIcon /> },
 						{ title: tt("Automatisations email", "Email automations"), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
+						{ title: tt("Ma base de contacts", "My contacts"), path: "/organizer-app/campaigns/contacts", icon: <UsersIcon /> },
 					],
 				},
 				{ title: tt("Campagnes SMS", "SMS Campaigns"), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
