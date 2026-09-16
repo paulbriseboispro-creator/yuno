@@ -41,6 +41,7 @@ import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboar
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -420,7 +421,7 @@ export default function OwnerAnalytics() {
   const hasVipTables = hasFeature('vip_tables');
 
   const [dateRange, setDateRange] = useState<DateRange>('7days');
-  const [mode, setMode] = useState<AnalyticsMode>('global');
+  const [mode, setMode] = useTabParam<AnalyticsMode>('global', ['global', 'event']);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);

@@ -45,6 +45,7 @@ import { EventVideoField } from '@/components/owner/events/EventVideoField';
 import { uploadEventVideo } from '@/lib/eventVideo';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 import { publicUrl } from '@/lib/native';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
 type PresetRound = {
@@ -109,7 +110,7 @@ export default function OwnerEvents() {
   const activeOrgPartners = venuePartnerships.filter((p) => p.status === 'active');
   const { propose } = useProposeCollab(isOrganizerScope ? 'organizer' : 'venue', isOrganizerScope ? organizerUserId : venueId);
   const [events, setEvents] = useState<OwnerEventRow[]>([]);
-  const [view, setView] = useState<'events' | 'recurring'>('events');
+  const [view, setView] = useTabParam<'events' | 'recurring'>('events', ['events', 'recurring']);
   const [presets, setPresets] = useState<VenuePreset[]>([]);
   const [guestPresets, setGuestPresets] = useState<GuestPreset[]>([]);
   const [loading, setLoading] = useState(true);

@@ -11,13 +11,14 @@ import { OwnerUpsellPromos } from '@/components/owner/upsell/OwnerUpsellPromos';
 import { OwnerUpsellTicketOffers } from '@/components/owner/upsell/OwnerUpsellTicketOffers';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { UPage, RED, T1, T3, BORDER } from '@/components/owner/upsell/upsell-ui';
+import { useTabParam } from '@/hooks/useTabParam';
 
 type TabKey = 'ticket' | 'cart' | 'promos';
 
 export default function OwnerUpsell() {
   const { t } = useLanguage();
   const { venueId, loading: venueLoading } = useVenueContext();
-  const [activeTab, setActiveTab] = useState<TabKey>('ticket');
+  const [activeTab, setActiveTab] = useTabParam<TabKey>('ticket', ['ticket', 'cart', 'promos']);
 
   if (venueLoading) return <OwnerPageSkeleton />;
 

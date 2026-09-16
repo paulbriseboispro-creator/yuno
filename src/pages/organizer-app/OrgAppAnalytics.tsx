@@ -38,6 +38,7 @@ import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { AudienceInsights } from '@/components/analytics/AudienceInsights';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
+import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -410,7 +411,7 @@ export default function OrgAppAnalytics() {
 
   const [searchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState<DateRange>('7days');
-  const [mode, setMode] = useState<AnalyticsMode>('global');
+  const [mode, setMode] = useTabParam<AnalyticsMode>('global', ['global', 'event']);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // Deep-link: /organizer-app/analytics?event=<id> jumps straight to that night's

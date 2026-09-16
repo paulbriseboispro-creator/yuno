@@ -23,6 +23,7 @@ import {
   FieldLabel, DarkSelect, DarkTextarea,
   POS, RED, RED_SOFT, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
+import { useTabParam } from '@/hooks/useTabParam';
 
 type ScanTab = 'tickets' | 'drinks' | 'cloakroom';
 type TicketMode = 'entry' | 'cancel';
@@ -75,7 +76,7 @@ export default function OrgAppCheckin() {
 
   const [events, setEvents] = useState<any[]>([]);
   const [eventId, setEventId] = useState<string>('');
-  const [tab, setTab] = useState<ScanTab>('tickets');
+  const [tab, setTab] = useTabParam<ScanTab>('tickets', ['tickets', 'drinks', 'cloakroom']);
   const [ticketMode, setTicketMode] = useState<TicketMode>('entry');
   const [processing, setProcessing] = useState(false);
   const [lastScan, setLastScanState] = useState<{ ok: boolean; name?: string; reason?: string } | null>(null);
