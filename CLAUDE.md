@@ -98,7 +98,12 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   double pas la barre d'onglets d'une page). Un onglet visé depuis la barre
   doit être adressable : passer par `useTabParam` (`src/hooks/useTabParam.ts`,
   `?tab=`), jamais un `useState` nu — sinon le lien ouvre la page sur son
-  onglet par défaut. Quand un parent et son premier enfant sont deux jumeaux
+  onglet par défaut. Une section liste TOUTES les vues de sa page, dans
+  l'ordre de la page, y compris celle qui s'affiche par défaut — et cette
+  dernière porte `isDefault: true`, sinon c'est le parent qui s'allume quand
+  l'URL n'a pas encore d'onglet. Le défaut ne se devine pas : Commandes ouvre
+  sur Boissons au club et sur Billetterie chez l'organisateur, qui ne tient
+  pas de bar. Quand un parent et son premier enfant sont deux jumeaux
   (Email → Campagnes + Automatisations, Bar → Carte + Upsells, Facturation →
   Factures + Compta), le parent NOMME la catégorie et pointe sur la première
   page : c'est ce qui évite une section qui s'ouvre sur une ligne unique. Tout vit dans `buildNavGroups` (`app-shared.tsx`,
