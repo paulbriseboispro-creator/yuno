@@ -1597,6 +1597,7 @@ const es: Record<string, string> = {
   'pm.seg.buyers': "Ya han comprado",
   'pm.seg.buyers.d': "Al menos una entrada pagada en la plataforma.",
   'notif.type.admin_platform_campaign_sent': "Campaña Yuno enviada",
+  'notif.type.admin_campaign_closed_early': "Campaña cerrada con destinatarios en espera",
   'em.seg.all_subscribers': "Todos mis suscriptores de newsletter",
   'em.seg.event_subscribers': "Suscriptores que asistieron a un evento",
   'em.seg.vip': "VIP (≥500€ gastados)",

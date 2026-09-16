@@ -126,6 +126,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
   // Accuse de fin d'envoi d'une campagne Yuno (portee plateforme).
   admin_platform_campaign_sent: { icon: Mail,      category: 'growth',    label: 'notif.type.admin_platform_campaign_sent' },
+  admin_campaign_closed_early: { icon: AlertTriangle, category: 'capacity', label: 'notif.type.admin_campaign_closed_early' },
   // Encaissement : ce qui empêche l'argent d'entrer, ou le fait ressortir.
   admin_stripe_onboarding_stuck: { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_stripe_onboarding_stuck' },
   admin_subscription_changed:    { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_subscription_changed' },
@@ -514,6 +515,14 @@ function adminNotifLink(n: AppNotif): string | null {
       const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
       const o = typeof n.metadata?.organizer_user_id === 'string' ? n.metadata.organizer_user_id : null;
       return v ? `/admin/venues/${v}` : o ? `/admin/people/${o}` : '/admin/people';
+    }
+
+    // Campagne fermée avec des destinataires en attente : la fiche du compte
+    // qui l'a envoyée (le rapport n'est lisible que par lui).
+    case 'admin_campaign_closed_early': {
+      const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
+      const o = typeof n.metadata?.organizer_user_id === 'string' ? n.metadata.organizer_user_id : null;
+      return v ? `/admin/venues/${v}` : o ? `/admin/people/${o}` : '/admin/marketing';
     }
 
     case 'admin_agency_club_lead':
