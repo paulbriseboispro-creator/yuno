@@ -799,6 +799,43 @@ Doc complète : `docs/CONTACT_INTELLIGENCE.md`. Règles intouchables :
 - Une personne présente dans plusieurs fichiers = sa ligne la plus récente
   (`contact_rows`), à date égale la plus renseignée.
 
+## La base de contacts vivante (import ∪ clients Yuno, engagement — 2026-09-15)
+
+Doc : `docs/CONTACT_INTELLIGENCE.md` § « La base vivante ». Migrations
+`20260915180000` → `182000`. Page `/owner/campaigns/contacts` et
+`/organizer-app/campaigns/contacts` (`ContactBasePanel`), carte
+`CampaignImpactCard` (rapport de campagne + dialogue de segmentation), export
+`src/lib/contactBaseExport.ts`. Règles intouchables :
+
+- **`contact_rows` = fichier importé ∪ clients venus par Yuno, une ligne par
+  email.** Identité Yuno d'abord (prénom, téléphone, compte), montants et
+  soirées ADDITIONNÉS, origine `import|yuno|both`. Tout ce qui segmente,
+  compte, liste ou exporte lit cette base ; ne jamais re-lire
+  `imported_contacts` seule pour une audience.
+- **`imported_contacts` n'est jamais modifiée par l'engagement** (pièce du
+  dossier de consentement). L'engagement vit dans `contact_engagement`,
+  écrite UNIQUEMENT par `refresh_contact_engagement` : fin d'envoi
+  (`send-campaign`), cron `contact-engagement-sweep` toutes les 10 min,
+  bouton Actualiser. Jamais en ligne dans une RPC lue par le front (4,9 s sur
+  12 300 contacts, plafond 8 s).
+- **Six statuts, une seule définition** (dans `refresh_contact_engagement`) :
+  `unreachable` avant `unsubscribed` (un bounce dur n'est pas un choix ;
+  `suppress_email` coupe aussi `opted_in`), puis `active` / `passive` /
+  `silent` / `new`. Un statut DÉCRIT ; seul le consentement (`email_ok`,
+  `phone_ok`) AUTORISE.
+- **Gardes internes = `session_user`, jamais `current_user`**
+  (`contact_scope_allowed_or_internal`) : en SECURITY DEFINER `current_user`
+  est toujours le propriétaire et ouvrirait tout.
+- **Bilan de campagne** : `record_campaign_list_baseline` prend la photo
+  « avant » UNE fois à la fin de l'envoi ; `refresh_campaign_list_impacts`
+  recalcule la photo « maintenant » ≤ 30 j ; `get_campaign_list_impact` ne
+  rafraîchit que les photos. Écart par segment = current − baseline.
+- **Export** = `export_contact_base` (une passe, `{columns, rows[][]}`),
+  refusé en session support ; la page Clients (club et orga) exporte cette
+  base unifiée, pas la vue filtrée.
+- Variables plpgsql préfixées `v_` : une variable `c` masque l'alias de table
+  `c` (« record c is not assigned yet »).
+
 ## Marketing plateforme — Yuno écrit à sa propre base (2026-09-08)
 
 Doc complète : `docs/PLATFORM_MARKETING.md`. Écran `/admin/marketing`

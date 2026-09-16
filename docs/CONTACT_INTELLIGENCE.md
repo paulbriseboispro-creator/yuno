@@ -111,6 +111,67 @@ la première version faisait 12 000 × résolution ⇒ timeout). SMS :
 | consent | `newsletter_yes` | opt-in déclaré dans l'ancien outil |
 | channel | `channel_both` / `channel_sms_only` | |
 
+## La base vivante : engagement, clients Yuno, bilan par campagne (2026-09-15)
+
+Migrations `20260915180000_contact_base_engagement` (+ `181000`, `182000`).
+Page `/owner/campaigns/contacts` et `/organizer-app/campaigns/contacts`
+(`ContactBasePanel`), carte `CampaignImpactCard` dans le rapport de campagne
+et dans le dialogue de segmentation, export unifié (`contactBaseExport.ts`).
+
+```
+campagne envoyée ─▶ record_campaign_list_baseline (photo « avant » : base + segments)
+                 ─▶ refresh_contact_engagement  (fin d'envoi, cron 10 min, bouton Actualiser)
+                       ├─ newsletter_subscriptions.user_id ← compte auth VIVANT (identité Yuno)
+                       ├─ contact_engagement (portée, email) : envois, ouvertures, clics, bounce dur,
+                       │    plainte, désabonnement, statut daté
+                       └─ contact_engagement_state (dernière lecture par portée + résumé)
+                 ─▶ refresh_campaign_list_impacts (photo « maintenant » par campagne ≤ 30 j :
+                       destinataires par statut, nouveaux engagés, réactivés, segments)
+contact_rows v3 = imported_contacts (consolidés) FULL OUTER JOIN contact_scope_customers
+                  (billets, tables, commandes, guest list, abonnés entrés par Yuno) par email
+                  LEFT JOIN contact_engagement  → origin import|yuno|both, eng_status, …
+```
+
+### Règles intouchables (suite)
+
+- **`contact_rows` est LA base** : tout ce qui segmente (email ET SMS), compte,
+  liste ou exporte passe par elle. Pour une personne des deux côtés, l'identité
+  Yuno gagne (prénom, nom, téléphone E.164, compte), `total_spent` et
+  `event_count` s'ADDITIONNENT (le fichier est le passé, Yuno le présent),
+  `last_purchase_at` = le plus récent. Origine : `import` / `yuno` / `both`.
+- **`imported_contacts` n'est jamais modifiée par l'engagement** : c'est la
+  pièce du dossier de consentement. L'engagement vit dans `contact_engagement`
+  (RLS lecture par portée, aucune écriture hors `refresh_contact_engagement`).
+- **Statuts** (seule définition, dans `refresh_contact_engagement`) :
+  `unreachable` (suppression, bounce dur `Permanent`, plainte — passe DEVANT
+  `unsubscribed` parce que `suppress_email` coupe aussi `opted_in`) ·
+  `unsubscribed` · `active` (clic < 90 j ou ≥ 2 ouvertures en 90 j) ·
+  `passive` (ouverture < 180 j) · `silent` (≥ 2 emails reçus, rien) · `new`.
+  Un bounce transitoire (boîte pleine) ne rend pas injoignable. Le statut
+  DÉCRIT ; seul `email_ok` / `phone_ok` (consentement) AUTORISE.
+- **Le rafraîchissement ne se fait jamais « en ligne » dans une RPC lue par le
+  front** (4,9 s pour 12 300 contacts, plafond 8 s) : fin d'envoi
+  (`send-campaign` → `notifyOwnerIfFinished`), cron `contact-engagement-sweep`
+  (`*/10`), bouton Actualiser. Les bilans (`get_campaign_list_impact`) ne
+  recalculent que les photos. Les gardes des fonctions de rafraîchissement
+  acceptent le contexte interne via `session_user` (`contact_scope_allowed_or_internal`),
+  JAMAIS `current_user` (toujours le propriétaire en SECURITY DEFINER).
+- **Bilan de campagne** : baseline prise UNE fois à la fin de l'envoi (jamais
+  réécrite) ; `current` recalculée ≤ 30 j. Écarts par segment = current −
+  baseline ; sans baseline (campagnes d'avant le 15/09), la carte le dit.
+- **Vocabulaire v2** : `engagement {in[]}`, `origin {in[]}`, `emails_received`,
+  `opens`, `clicks`, `last_open_days`, `last_click_days`, `guest_lists`
+  (`{op,value}`), `yuno_customer {value}`, `has_account {value}`. Familles
+  proposées en plus : `eng_active`, `eng_clickers`, `eng_passive`,
+  `eng_silent`, `eng_never_sent` (dès qu'une campagne est partie),
+  `src_yuno`, `src_yuno_only`, `src_both`, `src_guest_list` (seuil 3).
+- **Export** (`export_contact_base`) : une passe, `{columns, rows[][]}`
+  (12 347 lignes en 0,7 s), appartenance aux segments dans la même requête.
+  Refusé en session support. La page Clients (club et orga) exporte CETTE
+  base, plus la vue filtrée de l'écran.
+- **`list_contact_base`** : recherche (email, nom, téléphone, ville, LIKE
+  échappé), filtres statut / origine / segment / liste, tris, 200 max par page.
+
 ## Tester
 
 - Parseur : `npx vitest run src/lib/__tests__/contactImport.test.ts` (joue aussi
