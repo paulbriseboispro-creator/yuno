@@ -6,7 +6,7 @@
 // traduit est ce qui est enregistré en base (`contact_segments.name`) : c'est
 // lui que le pro retrouve à l'écran Audience.
 
-export type SegmentGroup = 'geo' | 'spend' | 'freq' | 'recency' | 'demo' | 'consent' | 'channel';
+export type SegmentGroup = 'geo' | 'spend' | 'freq' | 'recency' | 'demo' | 'consent' | 'channel' | 'engagement' | 'source';
 
 export interface SegmentSuggestion {
   key: string;
@@ -38,7 +38,12 @@ export interface ContactAnalysis {
     gender?: { female: number; male: number };
     newsletter_yes?: number;
     channels?: { emails: number; phones: number; both: number; emails_reachable: number; phones_reachable: number };
+    /** Ce que les campagnes ont appris (depuis 2026-09-15). */
+    engagement?: { campaigns: number; sent_any: number; active: number; passive: number; silent: number; new: number; unreachable: number; unsubscribed: number };
+    /** Fichier importé / venus par Yuno / les deux. */
+    origin?: { import: number; yuno: number; both: number; with_account: number };
   };
+  campaigns?: number;
   suggestions: SegmentSuggestion[];
 }
 
@@ -70,11 +75,19 @@ export interface ContactListSummary {
 export interface ContactIntelligenceOverview {
   lists: ContactListSummary[];
   segments: ContactSegment[];
+  /** Fichier importé ∪ clients venus par Yuno, une ligne par email. */
   contacts: number;
+  reachable_emails?: number;
+  reachable_phones?: number;
+  engagement?: { active: number; passive: number; silent: number; new: number; unreachable: number; unsubscribed: number; sent_any: number };
+  origin?: { import: number; yuno: number; both: number; with_account: number };
+  refreshed_at?: string | null;
+  /** Bilans des dernières campagnes (voir src/lib/contactBase.ts). */
+  impacts?: unknown[];
   analysis: ContactAnalysis | null;
 }
 
-export const SEGMENT_GROUPS: SegmentGroup[] = ['geo', 'spend', 'freq', 'recency', 'demo', 'consent', 'channel'];
+export const SEGMENT_GROUPS: SegmentGroup[] = ['engagement', 'source', 'geo', 'spend', 'freq', 'recency', 'demo', 'consent', 'channel'];
 
 /** « geo_zone:paris » → « geo_zone ». */
 export function suggestionBase(key: string): string {

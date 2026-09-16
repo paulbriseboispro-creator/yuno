@@ -41,6 +41,10 @@ import {
   SEGMENT_GROUPS, countryName, describeSuggestion,
   type ContactAnalysis, type ContactIntelligenceOverview, type ContactSegment, type SegmentGroup, type SegmentSuggestion,
 } from '@/lib/contactSegments';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, MailOpen, Database } from 'lucide-react';
+import CampaignImpactCard from '@/components/contacts/CampaignImpactCard';
+import { impactFromOverview, type CampaignImpact } from '@/lib/contactBase';
 
 export type ImportScope =
   | { kind: 'venue'; venueId: string }
@@ -55,6 +59,8 @@ interface Props {
   mode?: 'import' | 'analyze';
   /** Appelé après un import réussi ET après la création de segments. */
   onChanged?: () => void;
+  /** Racine des campagnes de la portée : affiche « Voir toute la base » (→ `${basePath}/contacts`). */
+  basePath?: string;
 }
 
 interface ImportTotals {
@@ -98,7 +104,7 @@ function errMsg(e: unknown): string {
     : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message) : String(e);
 }
 
-export default function ContactImportDialog({ open, onClose, scope, mode = 'import', onChanged }: Props) {
+export default function ContactImportDialog({ open, onClose, scope, mode = 'import', onChanged, basePath }: Props) {
   const { t, language } = useLanguage();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -230,6 +236,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
             listImportId={listImportId}
             onChanged={onChanged}
             onDone={close}
+            basePath={basePath}
           />
         )}
 
@@ -451,12 +458,15 @@ function ImportReport({ totals, wantEmail, wantSms, onSegments, onDone, t }: {
 // ── Propositions de segments ────────────────────────────────────────────────
 const GROUP_ICON: Record<SegmentGroup, typeof MapPin> = {
   geo: MapPin, spend: Euro, freq: Repeat, recency: Clock, demo: Users, consent: BadgeCheck, channel: Smartphone,
+  engagement: MailOpen, source: Database,
 };
 
-export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
-  scope: ImportScope; listImportId: string | null; onChanged?: () => void; onDone: () => void;
+export function SegmentProposals({ scope, listImportId, onChanged, onDone, basePath }: {
+  scope: ImportScope; listImportId: string | null; onChanged?: () => void; onDone: () => void; basePath?: string;
 }) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
+  const [impacts, setImpacts] = useState<CampaignImpact[]>([]);
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<ContactAnalysis | null>(null);
   const [segments, setSegments] = useState<ContactSegment[]>([]);
@@ -474,6 +484,7 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
       if (e1) throw e1;
       const overview = (ov ?? {}) as unknown as ContactIntelligenceOverview;
       setSegments(overview.segments || []);
+      setImpacts(((overview.impacts || []) as Parameters<typeof impactFromOverview>[0][]).map(impactFromOverview));
       if ((overview.contacts || 0) === 0) { setAnalysis({ generated_at: '', contacts: 0, lists: 0, suggestions: [] }); return; }
       const { data: an, error: e2 } = listImportId
         ? await supabase.rpc('analyze_contact_list_import' as never, { p_list_import_id: listImportId } as never)
@@ -577,6 +588,25 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
 
   return (
     <div className="space-y-5">
+      {/* Ce que la dernière campagne a fait à la base */}
+      {impacts.length > 0 && (
+        <div className="space-y-2">
+          <CampaignImpactCard impact={impacts[0]} basePath={basePath || ''} compact />
+          {basePath && (
+            <button type="button" onClick={() => { onDone(); navigate(`${basePath}/contacts`); }}
+              className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#E8192C' }}>
+              {t('cimpact.seeBase')} <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+      {impacts.length === 0 && basePath && (
+        <button type="button" onClick={() => { onDone(); navigate(`${basePath}/contacts`); }}
+          className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#E8192C' }}>
+          {t('cimpact.seeBase')} <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      )}
+
       {/* Ce que Yuno a lu */}
       <div className="rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
         <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-55">{t('cseg.facts.title')}</div>
@@ -584,6 +614,12 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone }: {
           <div>{t('cseg.facts.base').replace('{n}', nf(analysis.contacts)).replace('{lists}', String(analysis.lists))}</div>
           {f?.channels && (
             <div>{t('cseg.facts.channels').replace('{e}', nf(f.channels.emails_reachable)).replace('{p}', nf(f.channels.phones_reachable))}</div>
+          )}
+          {f?.origin && (f.origin.yuno + f.origin.both) > 0 && (
+            <div>{t('cseg.facts.origin').replace('{yuno}', nf(f.origin.yuno + f.origin.both)).replace('{both}', nf(f.origin.both)).replace('{acc}', nf(f.origin.with_account))}</div>
+          )}
+          {f?.engagement && f.engagement.sent_any > 0 && (
+            <div>{t('cseg.facts.engagement').replace('{c}', String(f.engagement.campaigns)).replace('{sent}', nf(f.engagement.sent_any)).replace('{active}', nf(f.engagement.active)).replace('{passive}', nf(f.engagement.passive)).replace('{silent}', nf(f.engagement.silent)).replace('{unsub}', nf(f.engagement.unsubscribed)).replace('{dead}', nf(f.engagement.unreachable))}</div>
           )}
           {analysis.home_country && homeN > 0 && (
             <div>{t('cseg.facts.home').replace('{country}', countryName(analysis.home_country, language)).replace('{pct}', String(Math.round((homeN / analysis.contacts) * 100)))}</div>

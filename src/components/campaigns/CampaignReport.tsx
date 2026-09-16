@@ -19,6 +19,7 @@ import {
 import { useStudioLiveData, type StudioScope as SenderScope } from '@/components/email-studio/hooks';
 import FollowupSettings from './FollowupSettings';
 import ResendSettings from './ResendSettings';
+import CampaignImpactCard from '@/components/contacts/CampaignImpactCard';
 import {
   hasPillarActivity, pillarLines, pillarSummary,
   type CampaignAttribution, type PillarKey,
@@ -548,6 +549,15 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   basePath={basePath}
                   onSaved={() => setReloadKey((k) => k + 1)}
                 />
+              </div>
+            )}
+
+            {/* Effet sur la base : ce que la campagne a appris à la liste et
+                déplacé dans les segments. La RPC recalcule la photo si elle a
+                plus de 10 minutes ; l'engagement suit le cron (10 min). */}
+            {campaign.status === 'sent' && campaign.type !== 'informational' && (
+              <div className="mb-5">
+                <CampaignImpactCard key={`imp-${campaign.id}-${reloadKey}`} campaignId={campaign.id} basePath={basePath} />
               </div>
             )}
 
