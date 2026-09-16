@@ -14,9 +14,16 @@ export type BlockType =
   | 'divider' | 'spacer' | 'html';
 
 /** Règle de visibilité par destinataire, résolue À L'ENVOI (jamais figée). */
-export type BlockCond = 'vip_table' | 'new_subscribers' | 'buyers';
+/**
+ * Règles de visibilité d'un bloc, résolues à l'envoi par la RPC
+ * `get_recipient_block_conds`. Les formes `no_*` sont les COMPLÉMENTS exacts
+ * de leur positive sur le même lot : « le bloc Table VIP pour ceux qui en ont
+ * déjà pris une, le bloc Liste invités pour les autres » se compose avec
+ * `vip_table` + `no_vip_table`.
+ */
+export type BlockCond = 'vip_table' | 'no_vip_table' | 'new_subscribers' | 'buyers' | 'no_buyers';
 
-export const BLOCK_CONDS: readonly BlockCond[] = ['vip_table', 'new_subscribers', 'buyers'];
+export const BLOCK_CONDS: readonly BlockCond[] = ['vip_table', 'no_vip_table', 'buyers', 'no_buyers', 'new_subscribers'];
 
 /** Props communes à tous les blocs (prototype : marges + fond + règle). */
 export interface BlockBase {
@@ -463,6 +470,11 @@ export interface GuestListLive {
   includesDrink: boolean;
   /** Places restantes, seulement si le pro les affiche (show_remaining). */
   remaining: number | null;
+  /**
+   * Liste fermée : « Complet » posé à la main (soirée entière ou cette part)
+   * ou quota atteint. La carte le dit et retire son bouton.
+   */
+  soldOut?: boolean;
 }
 
 export interface LiveEventData {
@@ -470,11 +482,6 @@ export interface LiveEventData {
   startAt: string;
   dateLabel: string;
   venueLabel: string;
-  /**
-   * Liste fermée : « Complet » posé à la main (soirée entière ou cette part)
-   * ou quota atteint. La carte le dit et retire son bouton.
-   */
-  soldOut?: boolean;
   coverUrl?: string | null;
   url: string;
   priceFromLabel?: string | null;
@@ -505,18 +512,18 @@ export interface LiveEventData {
    */
   tablesLeft?: number | null;
   /**
+   * false = le pilier tables est ÉTEINT sur cette soirée (`tables_enabled`) :
+   * le bloc s'efface, comme le bloc Billetterie sans tranche ouverte. Absent
+   * ou true = le pilier est ouvert.
+   */
+  tablesOpen?: boolean;
+  /**
    * Formules de table de la soirée, relues dans `table_packs` au rendu.
    * `undefined` = non résolu (le bloc retombe sur ses formules figées),
    * tableau vide = aucune formule ouverte.
    */
   tablePacks?: TablePackRow[];
   /**
-  /**
-   * false = le pilier tables est ÉTEINT sur cette soirée (`tables_enabled`) :
-   * le bloc s'efface, comme le bloc Billetterie sans tranche ouverte. Absent
-   * ou true = le pilier est ouvert.
-   */
-  tablesOpen?: boolean;
    * Zones de tables (carrés) avec leur prix d'appel — la vue épurée du même
    * inventaire que `tablePacks`. Mêmes règles de résolution.
    */

@@ -405,6 +405,8 @@ export interface ContactSegmentLite {
   id: string;
   name: string;
   description: string | null;
+  /** Clé de la proposition d'origine (analyseur ou préréglage Yuno), sinon null. */
+  suggestionKey: string | null;
   /** Emails RÉELLEMENT joignables (opt-in newsletter, non supprimés). */
   emails: number;
 }
@@ -424,8 +426,10 @@ export function useContactSegments(scope: StudioScope, refreshKey = 0): ContactS
         ...studioScopeArgs(scope),
       } as never);
       if (cancelled) return;
-      const rows = (((data as unknown) as { segments?: Array<{ id: string; name: string; description: string | null; counts: { emails: number } }> } | null)?.segments) || [];
-      setSegments(rows.map((r) => ({ id: r.id, name: r.name, description: r.description, emails: Number(r.counts?.emails || 0) })));
+      const rows = (((data as unknown) as { segments?: Array<{ id: string; name: string; description: string | null; suggestion_key?: string | null; counts: { emails: number } }> } | null)?.segments) || [];
+      setSegments(rows.map((r) => ({
+        id: r.id, name: r.name, description: r.description, suggestionKey: r.suggestion_key ?? null, emails: Number(r.counts?.emails || 0),
+      })));
     })();
     return () => { cancelled = true; };
   }, [scope.kind, scopeId, refreshKey]);

@@ -38,7 +38,7 @@ import type { ConsentSource } from '@/lib/emailImport';
 import { IMPORT_COUNTRIES } from '@/lib/smsImport';
 import { chunkRows, parseContactFile, type ContactField, type ContactParseResult } from '@/lib/contactImport';
 import {
-  SEGMENT_GROUPS, countryName, describeSuggestion,
+  SEGMENT_GROUPS, countryName, describeSuggestion, loadYunoPresetSuggestions,
   type ContactAnalysis, type ContactIntelligenceOverview, type ContactSegment, type SegmentGroup, type SegmentSuggestion,
 } from '@/lib/contactSegments';
 import { useNavigate } from 'react-router-dom';
@@ -490,7 +490,18 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         ? await supabase.rpc('analyze_contact_list_import' as never, { p_list_import_id: listImportId } as never)
         : await supabase.rpc('analyze_contact_lists' as never, scopeArgs(scope) as never);
       if (e2) throw e2;
-      const a = (an ?? {}) as unknown as ContactAnalysis;
+      const a0 = (an ?? {}) as unknown as ContactAnalysis;
+      // Les segments Yuno (prend des tables, panier moyen élevé, vus depuis
+      // peu, habitués qui décrochent) s'ajoutent aux propositions de
+      // l'analyseur, qui les tait sous 10 personnes ou 30 % de couverture.
+      // Portée entière seulement : sur l'analyse d'UN fichier, un effectif
+      // calculé sur toute la base serait un mensonge.
+      let a = a0;
+      if (!listImportId) {
+        const presets = await loadYunoPresetSuggestions(scopeArgs(scope), overview.segments || [], a0.contacts || 0);
+        const known = new Set((a0.suggestions || []).map((s) => s.key));
+        a = { ...a0, suggestions: [...(a0.suggestions || []), ...presets.filter((p) => !known.has(p.key))] };
+      }
       setAnalysis(a);
       // Pré-cochées : toutes les propositions pas encore créées.
       setSelected(new Set((a.suggestions || []).filter((s) => !s.existing_id).map((s) => s.key)));

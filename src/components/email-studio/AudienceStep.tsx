@@ -3,11 +3,13 @@ import { Check, Download, Eraser, Layers, Loader2, Lock, Pencil, UserMinus, User
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import type { AudienceKind, AudienceSel } from '@/lib/email';
 import { deliverRoster } from '@/lib/rosterExport';
+import { describeSuggestion, loadYunoPresetSuggestions, type SegmentSuggestion } from '@/lib/contactSegments';
 import { useStudio } from './store';
 import {
-  useAudienceCount, useContactSegments, useImportedLists,
+  studioScopeArgs, studioScopeId, useAudienceCount, useContactSegments, useImportedLists,
   type ImportedListHealth, type SavedSegment, type StudioEvent, type StudioScope,
 } from './hooks';
 import {
@@ -53,7 +55,7 @@ interface Projection { openRate: number; clickRate: number; revPerSent: number |
 export default function AudienceStep({ scope, events, segments }: {
   scope: StudioScope; events: StudioEvent[]; segments: SavedSegment[];
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const campaign = useStudio((s) => s.campaign);
   const saveSeq = useStudio((s) => s.saveSeq);
   const patchCampaign = useStudio((s) => s.patchCampaign);
@@ -97,7 +99,73 @@ export default function AudienceStep({ scope, events, segments }: {
       toast.error(t('studio.aud.exportError'));
     }
   };
-  const contactSegments = useContactSegments(scope);
+  const [segRefresh, setSegRefresh] = useState(0);
+  const contactSegments = useContactSegments(scope, segRefresh);
+  const scopeId = studioScopeId(scope);
+
+  // Les segments Yuno pas encore créés dans cette portée, avec leur effectif
+  // du moment. Ceux qui existent déjà sont dans `contactSegments` : on ne les
+  // propose pas deux fois.
+  const [yunoPresets, setYunoPresets] = useState<SegmentSuggestion[]>([]);
+  useEffect(() => {
+    if (scope.kind === 'platform' || campaign.type !== 'promotional') { setYunoPresets([]); return; }
+    let cancelled = false;
+    loadYunoPresetSuggestions(
+      studioScopeArgs(scope),
+      contactSegments.map((s) => ({ id: s.id, suggestion_key: s.suggestionKey })),
+      0,
+    ).then((rows) => { if (!cancelled) setYunoPresets(rows.filter((r) => !r.existing_id)); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope.kind, scopeId, campaign.type, contactSegments, saveSeq]);
+
+  // Un clic : le préréglage devient un vrai segment (recalculé à chaque envoi)
+  // et entre dans l'audience de cette campagne.
+  const [creatingKey, setCreatingKey] = useState<string | null>(null);
+  const addYunoPreset = async (s: SegmentSuggestion) => {
+    if (creatingKey) return;
+    if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return; }
+    setCreatingKey(s.key);
+    try {
+      const d = describeSuggestion(s, t, language);
+      const { data, error } = await supabase.rpc('save_contact_segments' as never, {
+        ...studioScopeArgs(scope),
+        p_segments: [{ key: s.key, name: d.name, description: d.why, definition: s.definition }] as never,
+        p_list_import_id: null,
+      } as never);
+      if (error) throw error;
+      const created = ((data as unknown) as Array<{ id: string; name: string }> | null)?.[0];
+      if (!created?.id) throw new Error(t('studio.aud.yunoError'));
+      if (!campaign.audiences.some((a) => a.kind === 'contact_segment' && a.segmentId === created.id)) {
+        setAudiences([...campaign.audiences, { kind: 'contact_segment', segmentId: created.id }]);
+      }
+      setSegRefresh((n) => n + 1);
+      toast.success(t('studio.aud.yunoCreated').replace('{name}', d.name));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('studio.aud.yunoError'));
+    } finally {
+      setCreatingKey(null);
+    }
+  };
+
+  // Effectifs par audience, portée organisateur : une seule RPC rend tout
+  // (billets + tables + guest list, mêmes seuils que l'envoi). Sans elle
+  // l'écran d'un organisateur n'affichait aucun chiffre à côté des segments.
+  useEffect(() => {
+    if (scope.kind !== 'organizer' || campaign.type !== 'promotional') return;
+    let cancelled = false;
+    supabase.rpc('count_organizer_audience_kinds' as never, {
+      p_organizer_user_id: scope.organizerId, p_event_id: campaign.eventId,
+    } as never).then(({ data }) => {
+      if (cancelled) return;
+      const raw = (data as unknown as Record<string, number> | null) || {};
+      const out: Record<string, number> = {};
+      for (const [k, v] of Object.entries(raw)) out[k] = Number(v || 0);
+      setPerKindCounts(out);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope.kind, scopeId, campaign.type, campaign.eventId, saveSeq]);
 
   // Effectifs par segment, portee plateforme : une seule RPC rend les huit.
   useEffect(() => {
@@ -214,7 +282,10 @@ export default function AudienceStep({ scope, events, segments }: {
       return acc + (perKindCounts[key] || 0);
     }, 0)
     : (count?.gross ?? 0);
-  const maxCount = Math.max(1, ...Object.values(perKindCounts), ...imports.map((l) => l.count), ...contactSegments.map((s) => s.emails));
+  const maxCount = Math.max(
+    1, ...Object.values(perKindCounts), ...imports.map((l) => l.count),
+    ...contactSegments.map((s) => s.emails), ...yunoPresets.map((s) => s.emails),
+  );
   const net = count?.net ?? 0;
   const dedupAndExcl = Math.max(0, grossSum - (count?.gross ?? grossSum));
   const baseAll = perKindCounts['all_subscribers'] || 0;
@@ -324,6 +395,32 @@ export default function AudienceStep({ scope, events, segments }: {
                   />
                 ))}
               </div>
+            </>
+          )}
+
+          {/* Segments Yuno (la plaquette) : prend des tables, panier moyen
+              élevé, vus depuis peu, habitués qui décrochent. Un clic crée le
+              segment ET le cible. Disparaît une fois créé (il est au-dessus). */}
+          {campaign.type === 'promotional' && scope.kind !== 'platform' && yunoPresets.length > 0 && (
+            <>
+              <MicroLabel style={{ margin: '14px 0 7px' }}>{t('studio.aud.yunoSegments')}</MicroLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {yunoPresets.map((s) => {
+                  const d = describeSuggestion(s, t, language);
+                  return (
+                    <SegmentRow
+                      key={s.key}
+                      on={false}
+                      onClick={() => { void addYunoPreset(s); }}
+                      name={creatingKey === s.key ? `${d.name} …` : d.name}
+                      desc={d.why || t('studio.aud.desc.yunoPreset')}
+                      count={s.emails}
+                      barPct={Math.round((s.emails / maxCount) * 100)}
+                    />
+                  );
+                })}
+              </div>
+              <Help style={{ marginTop: 8 }}>{t('studio.aud.yunoSegmentsHelp')}</Help>
             </>
           )}
 

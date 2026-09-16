@@ -6,6 +6,8 @@
 // traduit est ce qui est enregistré en base (`contact_segments.name`) : c'est
 // lui que le pro retrouve à l'écran Audience.
 
+import { supabase } from '@/integrations/supabase/client';
+
 export type SegmentGroup = 'geo' | 'spend' | 'freq' | 'recency' | 'demo' | 'consent' | 'channel' | 'engagement' | 'source';
 
 export interface SegmentSuggestion {
@@ -89,6 +91,79 @@ export interface ContactIntelligenceOverview {
 
 export const SEGMENT_GROUPS: SegmentGroup[] = ['engagement', 'source', 'geo', 'spend', 'freq', 'recency', 'demo', 'consent', 'channel'];
 
+// ── Les segments Yuno — ceux de la plaquette, en un clic ────────────────────
+//
+// L'analyseur serveur (`analyze_contact_lists`) ne propose un segment qu'à
+// partir de 10 personnes et 30 % de couverture : sur une base qui démarre,
+// « Prend des tables » n'apparaissait jamais. Ces quatre définitions sont
+// FIXES, calculées sur la base vivante (billets + tables + guest list, cf.
+// contact_rows), et proposées aux deux portées avec leur effectif du moment.
+// Même contrat de sauvegarde que les propositions (`save_contact_segments`,
+// dédoublonné par `suggestion_key`) : un préréglage devient un vrai segment,
+// recalculé à chaque envoi.
+
+export interface YunoSegmentPreset {
+  key: string;
+  group: SegmentGroup;
+  definition: SegmentSuggestion['definition'];
+  params: Record<string, string | number | null>;
+}
+
+const def = (conditions: Array<Record<string, unknown>>): SegmentSuggestion['definition'] =>
+  ({ version: 1, match: 'all', conditions });
+
+/** Seuil du « panier moyen élevé » — le même que l'analyseur (spend_tables). */
+export const YUNO_BASKET_THRESHOLD = 60;
+
+export const YUNO_SEGMENT_PRESETS: readonly YunoSegmentPreset[] = [
+  // A déjà réservé au moins une table VIP chez ce pro.
+  { key: 'yuno_tables', group: 'spend', definition: def([{ type: 'tables', op: 'gte', value: 1 }]), params: {} },
+  // Dépense par soirée au-dessus du seuil (même clé que l'analyseur : un
+  // segment déjà créé depuis les propositions n'est pas dupliqué).
+  { key: 'spend_tables', group: 'spend', definition: def([{ type: 'spent_per_event', op: 'gte', value: YUNO_BASKET_THRESHOLD }]), params: { threshold: YUNO_BASKET_THRESHOLD } },
+  // Vus (achat, venue, clic) il y a moins de 60 jours : encore chauds.
+  { key: 'yuno_seen_60', group: 'recency', definition: def([{ type: 'last_seen_days', op: 'lte', value: 60 }]), params: { days: 60 } },
+  // Venaient souvent, plus rien depuis trois mois.
+  { key: 'yuno_lapsing', group: 'recency', definition: def([{ type: 'events', op: 'gte', value: 3 }, { type: 'last_seen_days', op: 'gt', value: 90 }]), params: { days: 90 } },
+];
+
+/**
+ * Les préréglages sous forme de propositions, avec leur effectif LIVE
+ * (`count_contact_segment_def`, le même compteur que l'écran Audience) et
+ * l'id du segment s'il existe déjà. Les préréglages vides sont tus : « Prend
+ * des tables · 0 » n'aide personne. Un échec de comptage tait le préréglage.
+ */
+export async function loadYunoPresetSuggestions(
+  scopeArgs: { p_venue_id: string | null; p_organizer_user_id: string | null },
+  existing: ReadonlyArray<{ id: string; suggestion_key: string | null }>,
+  totalContacts: number,
+): Promise<SegmentSuggestion[]> {
+  const out: SegmentSuggestion[] = [];
+  await Promise.all(YUNO_SEGMENT_PRESETS.map(async (p) => {
+    const { data, error } = await supabase.rpc('count_contact_segment_def' as never, {
+      ...scopeArgs, p_definition: p.definition as never,
+    } as never);
+    if (error) return;
+    const c = (data as unknown as { contacts?: number; emails?: number; phones?: number } | null) || {};
+    const contacts = Number(c.contacts || 0);
+    if (contacts <= 0) return;
+    out.push({
+      key: p.key,
+      group: p.group,
+      definition: p.definition,
+      params: p.params,
+      contacts,
+      emails: Number(c.emails || 0),
+      phones: Number(c.phones || 0),
+      share: totalContacts > 0 ? contacts / totalContacts : 0,
+      existing_id: existing.find((s) => s.suggestion_key === p.key)?.id ?? null,
+    });
+  }));
+  // Ordre stable : celui de la liste, pas celui des réponses réseau.
+  out.sort((a, b) => YUNO_SEGMENT_PRESETS.findIndex((p) => p.key === a.key) - YUNO_SEGMENT_PRESETS.findIndex((p) => p.key === b.key));
+  return out;
+}
+
 /** « geo_zone:paris » → « geo_zone ». */
 export function suggestionBase(key: string): string {
   return key.split(':')[0];
@@ -125,6 +200,7 @@ export function describeSuggestion(
     zone: String(p.zone ?? ''),
     threshold: nf(Number(p.threshold ?? 0), language),
     median: nf(Number(p.median ?? 0), language),
+    days: String(p.days ?? ''),
   };
   const fill = (s: string) => s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
   const nameKey = `cseg.sug.${base}.name`;

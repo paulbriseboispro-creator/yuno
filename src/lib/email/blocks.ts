@@ -130,9 +130,11 @@ export function duplicateBlock(b: EmailBlock): EmailBlock {
 
 /** Libellés des règles de visibilité (prototype : onglet Dynamique). */
 export const BLOCK_COND_LABELS: Record<BlockCond, string> = {
-  vip_table: 'VIP · Table',
-  new_subscribers: 'Nouveaux abonnés',
-  buyers: 'A déjà acheté',
+  vip_table: 'A déjà pris une table',
+  no_vip_table: 'N’a jamais pris de table',
+  buyers: 'A déjà acheté un billet',
+  no_buyers: 'N’a jamais acheté de billet',
+  new_subscribers: 'Nouveaux abonnés (30 j)',
 };
 
 /** Slug d'adresse expéditeur — même règle que l'edge (email-sender-identity). */
