@@ -958,14 +958,29 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   `claim_campaign_recipients`, gagnant déclaré à l'ouverture par le cron
   (`resolve_campaign_ab_winner`) puis le drain repart avec l'objet gagnant.
 - **Le corps des blocs texte est du TEXTE BRUT + mini-markup inline**
-  (2026-08-31) : `\n` = paragraphe, variables `{{…}}`, et depuis la passe
-  d'amélioration `**gras**`, `*italique*`, `~~barré~~`, `__souligné__`,
-  `[c=#hex|accent]…[/c]`, `[s=px]…[/s]`, `[url=…]…[/url]` — rendus par
-  `inlineMarkup()` (appliqué APRÈS `escapeHtml`, jamais de HTML utilisateur),
-  dupliqué à l'identique dans le port Deno. La barre de mise en forme de
-  l'inspecteur enveloppe la sélection avec ces tokens ; l'édition reste un
-  textarea, ne pas introduire de rich-text WYSIWYG/contenteditable. Les
-  brouillons v1 migrés peuvent encore contenir du HTML (`looksLikeHtml`).
+  (2026-08-31) : `\n` = paragraphe, variables `{{…}}`, `[b]gras[/b]`,
+  `[i]italique[/i]`, `[u]souligné[/u]`, `[k]barré[/k]`, `[c=#hex|accent]…[/c]`,
+  `[s=px]…[/s]`, `[url=…]…[/url]` — rendus par `inlineMarkup()` (appliqué APRÈS
+  `escapeHtml`, jamais de HTML utilisateur), dupliqué à l'identique dans le port
+  Deno. Les signes markdown (`**gras**`, `*italique*`, `~~barré~~`,
+  `__souligné__`) restent LUS — brouillons déjà écrits, texte collé — mais ne
+  sont plus ÉCRITS : ils ne s'imbriquent pas (`**a *b***` n'est lisible par
+  personne), la forme à crochets si. Toute règle ajoutée à `inlineMarkup` se
+  répercute dans le port Deno ET dans `RULES` de `src/lib/email/markup.ts`.
+  Les brouillons v1 migrés peuvent encore contenir du HTML (`looksLikeHtml`).
+- **L'éditeur de texte cache les signes et montre leur effet** (2026-09-16) :
+  `RichTextField.tsx` (contenteditable) + `src/lib/email/markup.ts` (markup ⇄
+  document « texte + un attribut par caractère »). Un texte collé avec ses
+  signes arrive déjà mis en forme, signes cachés. **Le modèle ne change pas** :
+  le bloc stocke toujours du markup, jamais du HTML saisi par le pro — c'est
+  `serializeMarkup` qui remonte au bloc à chaque frappe, et le champ est
+  redessiné depuis le markup SÉRIALISÉ (l'écran ne peut donc pas montrer une
+  mise en forme que l'email ne rendrait pas). L'analyseur doit rester le miroir
+  des PASSES successives d'`inlineMarkup`, pas une descente récursive : c'est ce
+  qui fait que `***x***` est gras + italique des deux côtés. Pendant la frappe on
+  ne redessine jamais (le curseur sauterait) ; la barre d'outils renormalise.
+  ⚠️ Une évolution de la syntaxe oblige à REDÉPLOYER `send-campaign` avant que
+  le pro l'utilise, sinon les nouveaux signes partent en clair dans l'email.
 - **Marges par bloc = `TYPE_PAD_DEFAULTS`** (types.ts, miroir edge) : défauts
   PAR TYPE (header 30/24, image 0/0, divider 10/24, cta 24/24, html 0/24…),
   `py: 0` est un choix légitime (blocs collés). Ne jamais recoder un padding
