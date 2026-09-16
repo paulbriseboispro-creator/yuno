@@ -112,20 +112,110 @@ export interface YunoSegmentPreset {
 const def = (conditions: Array<Record<string, unknown>>): SegmentSuggestion['definition'] =>
   ({ version: 1, match: 'all', conditions });
 
-/** Seuil du « panier moyen élevé » — le même que l'analyseur (spend_tables). */
+/**
+ * Seuil du « panier moyen élevé » établi par Yuno — le même que l'analyseur
+ * (spend_tables) : en dessous, un profil billet ; à partir de là, un profil
+ * table ou bouteille. Le pro peut le remplacer par le sien (voir
+ * `basketPreset`) : un club à 900 € la table et un bar à 15 € l'entrée n'ont
+ * pas le même « panier élevé ».
+ */
 export const YUNO_BASKET_THRESHOLD = 60;
+export const BASKET_THRESHOLD_MIN = 1;
+export const BASKET_THRESHOLD_MAX = 100000;
 
-export const YUNO_SEGMENT_PRESETS: readonly YunoSegmentPreset[] = [
-  // A déjà réservé au moins une table VIP chez ce pro.
-  { key: 'yuno_tables', group: 'spend', definition: def([{ type: 'tables', op: 'gte', value: 1 }]), params: {} },
-  // Dépense par soirée au-dessus du seuil (même clé que l'analyseur : un
-  // segment déjà créé depuis les propositions n'est pas dupliqué).
-  { key: 'spend_tables', group: 'spend', definition: def([{ type: 'spent_per_event', op: 'gte', value: YUNO_BASKET_THRESHOLD }]), params: { threshold: YUNO_BASKET_THRESHOLD } },
-  // Vus (achat, venue, clic) il y a moins de 60 jours : encore chauds.
-  { key: 'yuno_seen_60', group: 'recency', definition: def([{ type: 'last_seen_days', op: 'lte', value: 60 }]), params: { days: 60 } },
-  // Venaient souvent, plus rien depuis trois mois.
-  { key: 'yuno_lapsing', group: 'recency', definition: def([{ type: 'events', op: 'gte', value: 3 }, { type: 'last_seen_days', op: 'gt', value: 90 }]), params: { days: 90 } },
-];
+/** Clé du segment « panier moyen élevé » : celle de l'analyseur au seuil Yuno,
+ *  suffixée sinon (« spend_tables:80 ») — `suggestionBase` retombe sur le même
+ *  libellé, et deux seuils différents font deux segments. */
+export function basketPresetKey(threshold: number): string {
+  return threshold === YUNO_BASKET_THRESHOLD ? 'spend_tables' : `spend_tables:${threshold}`;
+}
+
+/** Seuil saisi → entier borné ; une saisie vide ou invalide retombe sur Yuno. */
+export function normalizeBasketThreshold(raw: unknown): number {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < BASKET_THRESHOLD_MIN) return YUNO_BASKET_THRESHOLD;
+  return Math.min(BASKET_THRESHOLD_MAX, n);
+}
+
+export function basketPreset(threshold: number = YUNO_BASKET_THRESHOLD): YunoSegmentPreset {
+  const t = normalizeBasketThreshold(threshold);
+  return {
+    key: basketPresetKey(t),
+    group: 'spend',
+    definition: def([{ type: 'spent_per_event', op: 'gte', value: t }]),
+    params: { threshold: t },
+  };
+}
+
+export const BASKET_PRESET_BASE = 'spend_tables';
+
+/**
+ * La valeur Yuno du panier, établie PAR PORTÉE par `suggest_basket_threshold`
+ * (migration 20260916140000) : 3e quartile de la dépense par soirée quand il
+ * y a assez de paniers payés, sinon le prix par convive de la formule de
+ * table la moins chère, sinon 1,5 × le billet le plus cher, sinon 60 €.
+ */
+export interface BasketSuggestion {
+  threshold: number;
+  basis: 'history' | 'offer_tables' | 'offer_tickets' | 'default';
+  payers: number;
+  p75: number;
+  median: number;
+  max_ticket: number;
+  min_table_pp: number;
+}
+
+export const DEFAULT_BASKET_SUGGESTION: BasketSuggestion = {
+  threshold: YUNO_BASKET_THRESHOLD, basis: 'default', payers: 0, p75: 0, median: 0, max_ticket: 0, min_table_pp: 0,
+};
+
+/** Jamais d'exception : en cas d'échec, la valeur de repli (60 €, base « default »). */
+export async function loadBasketSuggestion(
+  scopeArgs: { p_venue_id: string | null; p_organizer_user_id: string | null },
+): Promise<BasketSuggestion> {
+  try {
+    const { data, error } = await supabase.rpc('suggest_basket_threshold' as never, scopeArgs as never);
+    if (error) throw error;
+    const d = (data as unknown as Partial<BasketSuggestion> | null) || {};
+    const threshold = normalizeBasketThreshold(d.threshold);
+    const basis = (['history', 'offer_tables', 'offer_tickets', 'default'] as const).includes(d.basis as never)
+      ? (d.basis as BasketSuggestion['basis']) : 'default';
+    return {
+      threshold, basis,
+      payers: Number(d.payers || 0), p75: Number(d.p75 || 0), median: Number(d.median || 0),
+      max_ticket: Number(d.max_ticket || 0), min_table_pp: Number(d.min_table_pp || 0),
+    };
+  } catch {
+    return DEFAULT_BASKET_SUGGESTION;
+  }
+}
+
+/** « 3e quartile de vos 412 paniers », « d'après vos formules de table »… */
+export function describeBasketBasis(s: BasketSuggestion, t: (k: string) => string, language: string): string {
+  const raw = t(`cseg.basket.basis.${s.basis}`);
+  if (raw === `cseg.basket.basis.${s.basis}`) return '';
+  return raw
+    .replace('{payers}', nf(s.payers, language))
+    .replace('{ticket}', nf(Math.round(s.max_ticket), language))
+    .replace('{pp}', nf(Math.round(s.min_table_pp), language));
+}
+
+/** Les préréglages, avec le seuil de panier demandé (Yuno par défaut). */
+export function yunoSegmentPresets(opts: { basketThreshold?: number } = {}): YunoSegmentPreset[] {
+  return [
+    // A déjà réservé au moins une table VIP chez ce pro.
+    { key: 'yuno_tables', group: 'spend', definition: def([{ type: 'tables', op: 'gte', value: 1 }]), params: {} },
+    // Dépense par soirée au-dessus du seuil (même clé que l'analyseur au seuil
+    // Yuno : un segment déjà créé depuis les propositions n'est pas dupliqué).
+    basketPreset(opts.basketThreshold),
+    // Vus (achat, venue, clic) il y a moins de 60 jours : encore chauds.
+    { key: 'yuno_seen_60', group: 'recency', definition: def([{ type: 'last_seen_days', op: 'lte', value: 60 }]), params: { days: 60 } },
+    // Venaient souvent, plus rien depuis trois mois.
+    { key: 'yuno_lapsing', group: 'recency', definition: def([{ type: 'events', op: 'gte', value: 3 }, { type: 'last_seen_days', op: 'gt', value: 90 }]), params: { days: 90 } },
+  ];
+}
+
+export const YUNO_SEGMENT_PRESETS: readonly YunoSegmentPreset[] = yunoSegmentPresets();
 
 /**
  * Les préréglages sous forme de propositions, avec leur effectif LIVE
@@ -137,16 +227,20 @@ export async function loadYunoPresetSuggestions(
   scopeArgs: { p_venue_id: string | null; p_organizer_user_id: string | null },
   existing: ReadonlyArray<{ id: string; suggestion_key: string | null }>,
   totalContacts: number,
+  opts: { basketThreshold?: number } = {},
 ): Promise<SegmentSuggestion[]> {
   const out: SegmentSuggestion[] = [];
-  await Promise.all(YUNO_SEGMENT_PRESETS.map(async (p) => {
+  const presets = yunoSegmentPresets(opts);
+  await Promise.all(presets.map(async (p) => {
     const { data, error } = await supabase.rpc('count_contact_segment_def' as never, {
       ...scopeArgs, p_definition: p.definition as never,
     } as never);
     if (error) return;
     const c = (data as unknown as { contacts?: number; emails?: number; phones?: number } | null) || {};
     const contacts = Number(c.contacts || 0);
-    if (contacts <= 0) return;
+    // Le panier reste visible même vide : c'est son champ de seuil qui permet
+    // au pro de descendre jusqu'à trouver du monde.
+    if (contacts <= 0 && suggestionBase(p.key) !== BASKET_PRESET_BASE) return;
     out.push({
       key: p.key,
       group: p.group,
@@ -160,7 +254,7 @@ export async function loadYunoPresetSuggestions(
     });
   }));
   // Ordre stable : celui de la liste, pas celui des réponses réseau.
-  out.sort((a, b) => YUNO_SEGMENT_PRESETS.findIndex((p) => p.key === a.key) - YUNO_SEGMENT_PRESETS.findIndex((p) => p.key === b.key));
+  out.sort((a, b) => presets.findIndex((p) => p.key === a.key) - presets.findIndex((p) => p.key === b.key));
   return out;
 }
 

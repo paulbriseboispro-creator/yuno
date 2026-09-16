@@ -38,9 +38,12 @@ import type { ConsentSource } from '@/lib/emailImport';
 import { IMPORT_COUNTRIES } from '@/lib/smsImport';
 import { chunkRows, parseContactFile, type ContactField, type ContactParseResult } from '@/lib/contactImport';
 import {
-  SEGMENT_GROUPS, countryName, describeSuggestion, loadYunoPresetSuggestions,
-  type ContactAnalysis, type ContactIntelligenceOverview, type ContactSegment, type SegmentGroup, type SegmentSuggestion,
+  BASKET_PRESET_BASE, SEGMENT_GROUPS, countryName, describeSuggestion, loadBasketSuggestion, loadYunoPresetSuggestions,
+  suggestionBase,
+  type BasketSuggestion, type ContactAnalysis, type ContactIntelligenceOverview, type ContactSegment, type SegmentGroup,
+  type SegmentSuggestion,
 } from '@/lib/contactSegments';
+import BasketThresholdField from '@/components/contacts/BasketThresholdField';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, MailOpen, Database } from 'lucide-react';
 import CampaignImpactCard from '@/components/contacts/CampaignImpactCard';
@@ -470,6 +473,11 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<ContactAnalysis | null>(null);
   const [segments, setSegments] = useState<ContactSegment[]>([]);
+  // Le seuil du panier moyen élevé : valeur Yuno de la portée, ou celle du pro.
+  const [basketSuggestion, setBasketSuggestion] = useState<BasketSuggestion | null>(null);
+  const [basketThreshold, setBasketThreshold] = useState<number | null>(null);
+  const [basketDebounced, setBasketDebounced] = useState<number | null>(null);
+  const [presets, setPresets] = useState<SegmentSuggestion[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [createdCount, setCreatedCount] = useState<number | null>(null);
@@ -490,21 +498,16 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         ? await supabase.rpc('analyze_contact_list_import' as never, { p_list_import_id: listImportId } as never)
         : await supabase.rpc('analyze_contact_lists' as never, scopeArgs(scope) as never);
       if (e2) throw e2;
-      const a0 = (an ?? {}) as unknown as ContactAnalysis;
-      // Les segments Yuno (prend des tables, panier moyen élevé, vus depuis
-      // peu, habitués qui décrochent) s'ajoutent aux propositions de
-      // l'analyseur, qui les tait sous 10 personnes ou 30 % de couverture.
-      // Portée entière seulement : sur l'analyse d'UN fichier, un effectif
-      // calculé sur toute la base serait un mensonge.
-      let a = a0;
-      if (!listImportId) {
-        const presets = await loadYunoPresetSuggestions(scopeArgs(scope), overview.segments || [], a0.contacts || 0);
-        const known = new Set((a0.suggestions || []).map((s) => s.key));
-        a = { ...a0, suggestions: [...(a0.suggestions || []), ...presets.filter((p) => !known.has(p.key))] };
-      }
+      const a = (an ?? {}) as unknown as ContactAnalysis;
       setAnalysis(a);
       // Pré-cochées : toutes les propositions pas encore créées.
       setSelected(new Set((a.suggestions || []).filter((s) => !s.existing_id).map((s) => s.key)));
+      // La valeur Yuno du panier, une fois par portée.
+      if (!listImportId) {
+        const bs = await loadBasketSuggestion(scopeArgs(scope));
+        setBasketSuggestion(bs);
+        setBasketThreshold((cur) => cur ?? bs.threshold);
+      }
     } catch (e) {
       // Une erreur n'est PAS « base vide » : on la montre telle quelle, avec
       // un bouton pour réessayer — jamais l'écran « importez d'abord ».
@@ -517,11 +520,51 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    const h = setTimeout(() => setBasketDebounced(basketThreshold), 350);
+    return () => clearTimeout(h);
+  }, [basketThreshold]);
+
+  // Les segments Yuno (prend des tables, panier moyen élevé, vus depuis peu,
+  // habitués qui décrochent) s'ajoutent aux propositions de l'analyseur, qui
+  // les tait sous 10 personnes ou 30 % de couverture. Portée entière
+  // seulement : sur l'analyse d'UN fichier, un effectif calculé sur toute la
+  // base serait un mensonge. Recomptés quand le seuil du panier change.
+  useEffect(() => {
+    if (listImportId || !analysis || basketDebounced == null) { setPresets([]); return; }
+    let cancelled = false;
+    loadYunoPresetSuggestions(scopeArgs(scope), segments, analysis.contacts || 0, { basketThreshold: basketDebounced })
+      .then((rows) => {
+        if (cancelled) return;
+        setPresets(rows);
+        // Un préréglage neuf arrive pré-coché, comme une proposition.
+        setSelected((prev) => {
+          const n = new Set(prev);
+          for (const r of rows) if (!r.existing_id && suggestionBase(r.key) !== BASKET_PRESET_BASE) n.add(r.key);
+          return n;
+        });
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listImportId, analysis, segments, basketDebounced, scope.kind, scope.kind === 'platform' ? '' : scope.kind === 'venue' ? scope.venueId : scope.organizerId]);
+
   const toggle = (key: string) => setSelected((prev) => {
     const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n;
   });
 
-  const suggestions = useMemo(() => analysis?.suggestions || [], [analysis]);
+  // Propositions de l'analyseur ∪ préréglages Yuno. Le panier de l'analyseur
+  // (seuil fixe à 60 €) s'efface derrière le préréglage, qui porte le seuil
+  // réglable — deux lignes « Panier moyen élevé » seraient une énigme.
+  const suggestions = useMemo(() => {
+    const base = analysis?.suggestions || [];
+    if (presets.length === 0) return base;
+    const known = new Set(presets.map((s) => s.key));
+    const hasBasket = presets.some((s) => suggestionBase(s.key) === BASKET_PRESET_BASE);
+    return [
+      ...base.filter((s) => !known.has(s.key) && !(hasBasket && suggestionBase(s.key) === BASKET_PRESET_BASE)),
+      ...presets,
+    ];
+  }, [analysis, presets]);
   const pending = suggestions.filter((s) => !s.existing_id);
   const selectable = pending.map((s) => s.key);
 
@@ -677,7 +720,14 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
                 <Icon className="h-3.5 w-3.5" />{t(`cseg.g.${g}`)}
               </div>
               <div className="space-y-1.5">
-                {items.map((s) => <SuggestionRow key={s.key} s={s} on={selected.has(s.key)} onToggle={() => toggle(s.key)} t={t} language={language} />)}
+                {items.map((s) => (
+                  <div key={s.key}>
+                    <SuggestionRow s={s} on={selected.has(s.key)} onToggle={() => toggle(s.key)} t={t} language={language} />
+                    {suggestionBase(s.key) === BASKET_PRESET_BASE && basketThreshold != null && !s.existing_id && (
+                      <BasketThresholdField compact value={basketThreshold} onChange={setBasketThreshold} suggestion={basketSuggestion} />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           );

@@ -6,7 +6,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import type { AudienceKind, AudienceSel } from '@/lib/email';
 import { deliverRoster } from '@/lib/rosterExport';
-import { describeSuggestion, loadYunoPresetSuggestions, type SegmentSuggestion } from '@/lib/contactSegments';
+import {
+  BASKET_PRESET_BASE, describeSuggestion, loadBasketSuggestion, loadYunoPresetSuggestions, suggestionBase,
+  type BasketSuggestion, type SegmentSuggestion,
+} from '@/lib/contactSegments';
+import BasketThresholdField from '@/components/contacts/BasketThresholdField';
 import { useStudio } from './store';
 import {
   studioScopeArgs, studioScopeId, useAudienceCount, useContactSegments, useImportedLists,
@@ -107,17 +111,39 @@ export default function AudienceStep({ scope, events, segments }: {
   // du moment. Ceux qui existent déjà sont dans `contactSegments` : on ne les
   // propose pas deux fois.
   const [yunoPresets, setYunoPresets] = useState<SegmentSuggestion[]>([]);
+  // Le seuil du panier : la valeur Yuno de la portée (historique, sinon
+  // offre), remplaçable par le pro. Le préréglage se recompte à chaque
+  // changement, après une courte pause de frappe.
+  const [basketSuggestion, setBasketSuggestion] = useState<BasketSuggestion | null>(null);
+  const [basketThreshold, setBasketThreshold] = useState<number | null>(null);
+  const [basketDebounced, setBasketDebounced] = useState<number | null>(null);
   useEffect(() => {
-    if (scope.kind === 'platform' || campaign.type !== 'promotional') { setYunoPresets([]); return; }
+    if (scope.kind === 'platform') return;
+    let cancelled = false;
+    loadBasketSuggestion(studioScopeArgs(scope)).then((s) => {
+      if (cancelled) return;
+      setBasketSuggestion(s);
+      setBasketThreshold((cur) => cur ?? s.threshold);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope.kind, scopeId]);
+  useEffect(() => {
+    const h = setTimeout(() => setBasketDebounced(basketThreshold), 350);
+    return () => clearTimeout(h);
+  }, [basketThreshold]);
+  useEffect(() => {
+    if (scope.kind === 'platform' || campaign.type !== 'promotional' || basketDebounced == null) { setYunoPresets([]); return; }
     let cancelled = false;
     loadYunoPresetSuggestions(
       studioScopeArgs(scope),
       contactSegments.map((s) => ({ id: s.id, suggestion_key: s.suggestionKey })),
       0,
+      { basketThreshold: basketDebounced },
     ).then((rows) => { if (!cancelled) setYunoPresets(rows.filter((r) => !r.existing_id)); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.kind, scopeId, campaign.type, contactSegments, saveSeq]);
+  }, [scope.kind, scopeId, campaign.type, contactSegments, saveSeq, basketDebounced]);
 
   // Un clic : le préréglage devient un vrai segment (recalculé à chaque envoi)
   // et entre dans l'audience de cette campagne.
@@ -407,16 +433,26 @@ export default function AudienceStep({ scope, events, segments }: {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {yunoPresets.map((s) => {
                   const d = describeSuggestion(s, t, language);
+                  const isBasket = suggestionBase(s.key) === BASKET_PRESET_BASE;
                   return (
-                    <SegmentRow
-                      key={s.key}
-                      on={false}
-                      onClick={() => { void addYunoPreset(s); }}
-                      name={creatingKey === s.key ? `${d.name} …` : d.name}
-                      desc={d.why || t('studio.aud.desc.yunoPreset')}
-                      count={s.emails}
-                      barPct={Math.round((s.emails / maxCount) * 100)}
-                    />
+                    <div key={s.key} style={{ display: 'flex', flexDirection: 'column' }}>
+                      <SegmentRow
+                        on={false}
+                        onClick={() => { void addYunoPreset(s); }}
+                        name={creatingKey === s.key ? `${d.name} …` : d.name}
+                        desc={d.why || t('studio.aud.desc.yunoPreset')}
+                        count={s.emails}
+                        barPct={Math.round((s.emails / maxCount) * 100)}
+                      />
+                      {isBasket && basketThreshold != null && (
+                        <BasketThresholdField
+                          compact
+                          value={basketThreshold}
+                          onChange={setBasketThreshold}
+                          suggestion={basketSuggestion}
+                        />
+                      )}
+                    </div>
                   );
                 })}
               </div>
