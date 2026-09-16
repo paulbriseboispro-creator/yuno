@@ -4,6 +4,7 @@ export * from './blocks';
 export * from './variables';
 export * from './live';
 export * from './render';
+export * from './markup';
 export * from './checklist';
 export * from './migrate';
 export * from './templates';
