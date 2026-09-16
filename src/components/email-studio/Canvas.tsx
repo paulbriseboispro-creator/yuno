@@ -501,7 +501,12 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 {/* Signature Yuno — miroir de poweredBy (render.ts) : label mono
                     tracké + le mot-symbole officiel. La teinte se choisit sur le
                     fond du PIED de page, pas sur celui de l'email (un footer
-                    clair sur thème sombre est un cas réel : preset classic_dark). */}
+                    clair sur thème sombre est un cas réel : preset classic_dark).
+                    `margin: auto` est OBLIGATOIRE : Wordmark pose display:block
+                    avec une largeur EXPLICITE (jamais auto, sinon flex l'étire),
+                    et un bloc de largeur fixe ignore le text-align du parent —
+                    le mot partait à gauche sous un « POWERED BY » centré, alors
+                    que l'email envoyé porte bien `margin:5px auto 0`. */}
                 <div style={{ marginTop: 18 }}>
                   <div style={{
                     fontFamily: MONO, fontSize: 9.5, lineHeight: '13px', fontWeight: 700,
@@ -510,7 +515,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                   <Wordmark
                     height={14}
                     tone={isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff' ? 'white' : 'dark'}
-                    style={{ marginTop: 5 }}
+                    style={{ margin: '5px auto 0' }}
                   />
                 </div>
               </div>
