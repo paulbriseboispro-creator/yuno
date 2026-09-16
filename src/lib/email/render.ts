@@ -95,9 +95,17 @@ export interface InlineMarkupOpts {
 /**
  * Mini-markup inline des blocs texte — s'applique APRÈS échappement HTML,
  * donc aucun HTML utilisateur ne passe. Syntaxe (une ligne à la fois) :
- *   **gras**   *italique*   ~~barré~~   __souligné__
+ *   [b]gras[/b]   [i]italique[/i]   [u]souligné[/u]   [k]barré[/k]
+ *   **gras**   *italique*   ~~barré~~   __souligné__   (formes markdown, LUES)
  *   [c=#ff0000]couleur[/c]   [c=accent]couleur du thème[/c]
  *   [s=22]taille en px[/s]   [url=https://…]lien[/url]
+ *
+ * Les deux écritures rendent la même chose. La forme à CROCHETS existe parce
+ * que les signes markdown ne s'imbriquent pas : `**a *b***` n'est lisible ni
+ * par cette fonction ni par personne, alors que `[b]a [i]b[/i][/b]` l'est
+ * toujours. L'éditeur (markup.ts) n'écrit donc plus que des crochets ; les
+ * signes markdown restent compris pour les brouillons déjà écrits et pour un
+ * texte collé depuis ailleurs.
  */
 export function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
   let s = escaped;
@@ -112,6 +120,10 @@ export function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
     const px = Math.max(10, Math.min(40, Number(n)));
     return `<span style="font-size:${px}px;line-height:1.4;">${inner}</span>`;
   });
+  s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>');
+  s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>');
+  s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<span style="text-decoration:underline;">$1</span>');
+  s = s.replace(/\[k\]([\s\S]*?)\[\/k\]/gi, '<span style="text-decoration:line-through;">$1</span>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/~~([^~]+)~~/g, '<span style="text-decoration:line-through;">$1</span>');
   s = s.replace(/__([^_]+)__/g, '<span style="text-decoration:underline;">$1</span>');

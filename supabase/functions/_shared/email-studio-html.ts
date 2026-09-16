@@ -202,7 +202,11 @@ function looksLikeHtml(body: string): boolean {
 
 interface InlineMarkupOpts { accent: string; track?: (url: string) => string }
 
-/** Mini-markup inline (miroir strict de inlineMarkup dans src/lib/email/render.ts). */
+/**
+ * Mini-markup inline (miroir strict de inlineMarkup dans src/lib/email/render.ts).
+ * Forme à crochets ([b] [i] [u] [k], celle qu'écrit l'éditeur) ET signes
+ * markdown (**, *, ~~, __, ceux des brouillons déjà écrits) : même rendu.
+ */
 function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
   let s = escaped;
   s = s.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, (_m, rawHref: string, label: string) => {
@@ -216,6 +220,10 @@ function inlineMarkup(escaped: string, opts: InlineMarkupOpts): string {
     const px = Math.max(10, Math.min(40, Number(n)));
     return `<span style="font-size:${px}px;line-height:1.4;">${inner}</span>`;
   });
+  s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>');
+  s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>');
+  s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<span style="text-decoration:underline;">$1</span>');
+  s = s.replace(/\[k\]([\s\S]*?)\[\/k\]/gi, '<span style="text-decoration:line-through;">$1</span>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/~~([^~]+)~~/g, '<span style="text-decoration:line-through;">$1</span>');
   s = s.replace(/__([^_]+)__/g, '<span style="text-decoration:underline;">$1</span>');
