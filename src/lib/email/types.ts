@@ -470,6 +470,11 @@ export interface LiveEventData {
   startAt: string;
   dateLabel: string;
   venueLabel: string;
+  /**
+   * Liste fermée : « Complet » posé à la main (soirée entière ou cette part)
+   * ou quota atteint. La carte le dit et retire son bouton.
+   */
+  soldOut?: boolean;
   coverUrl?: string | null;
   url: string;
   priceFromLabel?: string | null;
@@ -506,6 +511,12 @@ export interface LiveEventData {
    */
   tablePacks?: TablePackRow[];
   /**
+  /**
+   * false = le pilier tables est ÉTEINT sur cette soirée (`tables_enabled`) :
+   * le bloc s'efface, comme le bloc Billetterie sans tranche ouverte. Absent
+   * ou true = le pilier est ouvert.
+   */
+  tablesOpen?: boolean;
    * Zones de tables (carrés) avec leur prix d'appel — la vue épurée du même
    * inventaire que `tablePacks`. Mêmes règles de résolution.
    */

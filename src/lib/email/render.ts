@@ -25,7 +25,7 @@ import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES } from './types';
 import {
   isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
   ticketsCtaLabel, ticketsKicker, TABLE_CTA_LABEL, TABLE_KICKER, tablesLeftLabel,
-  GUEST_LIST_CTA_LABEL, GUEST_LIST_KICKER, GUEST_LIST_PRICE, guestListSummary,
+  GUEST_LIST_CTA_LABEL, GUEST_LIST_KICKER, GUEST_LIST_PRICE, guestListSummary, isGuestListClosed,
   EVENT_CTA_LABEL, EVENT_META_DATE, EVENT_META_VENUE, EVENT_META_PRICE,
 } from './live';
 import { interpolateVariables } from './variables';
@@ -814,7 +814,7 @@ function renderGuestList(b: GuestListBlock, theme: EmailTheme, ctx: RenderCtx, p
   const c = offerCardColors(accent, theme, layout, bg);
   const row: TicketRow = {
     id: GUEST_LIST_ROW_ID, n: 'Liste invités',
-    s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: gl?.remaining === 0,
+    s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: isGuestListClosed(gl),
   };
   return offerCard({
     theme, ctx, pad, bg, layout, align, accent,
@@ -826,7 +826,7 @@ function renderGuestList(b: GuestListBlock, theme: EmailTheme, ctx: RenderCtx, p
     extraHtml: '',
     // Liste complète : la carte le dit, le bouton s'efface — un bouton vers une
     // liste pleine coûte plus de confiance qu'il ne rapporte de clics.
-    btn: gl?.remaining === 0 ? '' : buttonHtml({
+    btn: isGuestListClosed(gl) ? '' : buttonHtml({
       href: url, label: b.ctaLabel || GUEST_LIST_CTA_LABEL,
       bg: btnColors.bg, color: btnColors.color, radius: 10,
       full: b.full ?? (layout !== 'minimal'), ctx,
@@ -843,6 +843,9 @@ function renderTable(b: TableBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
   // Le bouton mène à la page de la SOIRÉE (billets ET tables), avec le `tl=`
   // du canal : c'est là que le client compare et choisit. Une URL posée à la
   // main par le pro (`ctaUrl`) n'est jamais réécrite : c'est son choix.
+  // Pilier tables éteint sur la soirée : rien à réserver, le bloc s'efface
+  // (même règle que le bloc Billetterie sans tranche ouverte).
+  if (live && live.tablesOpen === false) return '';
   const url = live?.trackedUrl || live?.url || b.ctaUrl || ctx.baseUrl;
   const btnColors = ctaColors(b.accent, theme);
   const accent = btnColors.bg;

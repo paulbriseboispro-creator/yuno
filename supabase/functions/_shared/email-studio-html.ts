@@ -36,6 +36,15 @@ const GUEST_LIST_ROW_ID = 'guest-list';
 /** Formule de table telle qu'elle se lit dans l'email (miroir de TablePackRow). */
 export interface StudioTablePackRow { id?: string; n: string; s: string; p: string }
 
+/** Miroir de GuestListLive (types.ts). */
+export interface StudioGuestListLive {
+  freeBefore: string | null;
+  includesDrink: boolean;
+  remaining: number | null;
+  /** Liste fermée : « Complet » posé à la main ou quota atteint. */
+  soldOut?: boolean;
+}
+
 export interface StudioLiveEventData {
   title: string; startAt: string; dateLabel: string; venueLabel: string;
   coverUrl?: string | null; url: string; priceFromLabel?: string | null;
@@ -44,8 +53,10 @@ export interface StudioLiveEventData {
   /** true = la seule entrée publique est une liste invités gratuite. */
   guestListOnly?: boolean;
   /** Part publique de liste invités (bloc « Liste invités ») ; null = aucune. */
-  guestList?: { freeBefore: string | null; includesDrink: boolean; remaining: number | null } | null;
+  guestList?: StudioGuestListLive | null;
   tablesLeft?: number | null;
+  /** false = pilier tables éteint sur la soirée (`tables_enabled`) : le bloc s'efface. */
+  tablesOpen?: boolean;
   /**
    * Formules de table de la soirée, relues dans `table_packs` au rendu.
    * `undefined` = non résolu (le bloc garde ses formules figées), tableau
@@ -753,7 +764,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       const c = offerCardColors(accent, theme, layout, bg);
       const row: StudioTicketRow = {
         id: GUEST_LIST_ROW_ID, n: 'Liste invités',
-        s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: gl?.remaining === 0,
+        s: gl ? guestListSummary(gl) : 'Inscription gratuite', p: GUEST_LIST_PRICE, out: isGuestListClosed(gl),
       };
       return offerCard({
         theme, ctx, pad, bg, layout, align, accent,
@@ -763,7 +774,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
         perks: (b.perks as string[]) || [],
         rowsHtml: layout !== 'banner' ? renderTicketRows([row], theme, c.inkOnRows, btnColors.color, accent) : '',
         extraHtml: '',
-        btn: gl?.remaining === 0 ? '' : buttonHtml({
+        btn: isGuestListClosed(gl) ? '' : buttonHtml({
           href: url, label: (b.ctaLabel as string) || GUEST_LIST_CTA_LABEL,
           bg: btnColors.bg, color: btnColors.color, radius: 10,
           full: typeof b.full === 'boolean' ? b.full : (layout !== 'minimal'), ctx,
@@ -776,6 +787,8 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'table': {
       const live = b.eventId ? ctx.live?.[b.eventId as string] : undefined;
+      // Pilier tables éteint sur la soirée : le bloc s'efface (miroir de render.ts).
+      if (live && live.tablesOpen === false) return '';
       // Page de la SOIRÉE — billets et tables (miroir de render.ts). Une URL
       // posée à la main par le pro n'est jamais réécrite.
       const url = live?.trackedUrl || live?.url || (b.ctaUrl as string) || ctx.baseUrl;
@@ -944,6 +957,55 @@ interface GuestListOffer {
   holder_type?: string | null;
   free_before_time?: string | null;
   includes_drink?: boolean | null;
+  manually_sold_out?: boolean | null;
+}
+
+// ── « Complet » posé à la main — miroir de live.ts (LiveSoldOut & co) ──────
+// src/lib/soldOut.ts est la porte unique côté pages publiques ; l'email lit
+// les mêmes drapeaux pour ne jamais vendre une formule que la page refuse.
+interface LiveSoldOut {
+  ticketsSoldOut: boolean;
+  tablesSoldOut: boolean;
+  guestListSoldOut: boolean;
+  soldOutPackIds: string[];
+}
+
+function liveSoldOut(e: {
+  tickets_sold_out?: boolean | null;
+  tables_sold_out?: boolean | null;
+  guest_list_sold_out?: boolean | null;
+  sold_out_pack_ids?: string[] | null;
+} | null | undefined): LiveSoldOut {
+  if (!e) return { ticketsSoldOut: false, tablesSoldOut: false, guestListSoldOut: false, soldOutPackIds: [] };
+  return {
+    ticketsSoldOut: !!e.tickets_sold_out,
+    tablesSoldOut: !!e.tables_sold_out,
+    guestListSoldOut: !!e.guest_list_sold_out,
+    soldOutPackIds: Array.isArray(e.sold_out_pack_ids) ? e.sold_out_pack_ids.map(String) : [],
+  };
+}
+
+/** Billetterie fermée à la main : chaque tranche se lit « épuisé ». */
+function applyTicketsSoldOut(rows: StudioTicketRow[], flags: LiveSoldOut): StudioTicketRow[] {
+  return flags.ticketsSoldOut ? rows.map((r) => ({ ...r, out: true })) : [...rows];
+}
+
+/** Formules encore proposées pour CETTE soirée (miroir de _event_tables_left). */
+function openTablePacks<T extends { id?: string | null }>(packs: T[], flags: LiveSoldOut): T[] {
+  if (!flags.soldOutPackIds.length) return [...packs];
+  return packs.filter((p) => !p.id || !flags.soldOutPackIds.includes(String(p.id)));
+}
+
+/** null = aucune table ouverte (bloc effacé) ; 0 = complet ; sinon le stock. */
+function tablesLeftFor(openTotal: number, reserved: number, flags: LiveSoldOut): number | null {
+  if (flags.tablesSoldOut) return 0;
+  if (openTotal <= 0) return null;
+  return Math.max(0, openTotal - reserved);
+}
+
+/** true = la liste n'accepte plus d'inscription (fermée à la main ou pleine). */
+function isGuestListClosed(gl: StudioGuestListLive | null | undefined): boolean {
+  return !!gl && (!!gl.soldOut || gl.remaining === 0);
 }
 
 /** Part maison d'abord, sinon la première publique — miroir de la page billetterie. */
@@ -971,12 +1033,14 @@ function buildEntryRows(
 }
 
 /** Sous-titre live du bloc Liste invités (miroir de live.ts guestListSummary). */
-function guestListSummary(gl: { freeBefore: string | null; includesDrink: boolean; remaining: number | null }): string {
+function guestListSummary(gl: StudioGuestListLive): string {
   const bits: string[] = [];
   bits.push(gl.freeBefore ? `Gratuit avant ${gl.freeBefore}` : 'Entrée gratuite');
   if (gl.includesDrink) bits.push('boisson offerte');
-  if (gl.remaining != null) {
-    bits.push(gl.remaining === 0 ? 'complet' : `${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
+  if (isGuestListClosed(gl)) {
+    bits.push('complet');
+  } else if (gl.remaining != null) {
+    bits.push(`${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
   }
   return bits.join(' · ');
 }
@@ -1383,7 +1447,7 @@ export async function fetchStudioLiveData(
   try {
     const { data: events } = await admin
       .from('events')
-      .select('id, title, start_at, timezone, slug, poster_url, image_url, venue_id, partner_venue_id, location_name, location_city, ticketing_enabled, tables_enabled')
+      .select('id, title, start_at, timezone, slug, poster_url, image_url, venue_id, partner_venue_id, location_name, location_city, ticketing_enabled, tables_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids')
       .in('id', ids);
 
     const venueIds = [...new Set((events || []).map((e: any) => e.venue_id || e.partner_venue_id).filter(Boolean))];
@@ -1403,7 +1467,7 @@ export async function fetchStudioLiveData(
     // que derrière leur propre lien, on ne les révèle pas à toute une audience.
     const { data: guestLists } = await admin
       .from('guest_lists')
-      .select('id, event_id, holder_type, free_before_time, includes_drink, quota, show_remaining, created_at')
+      .select('id, event_id, holder_type, free_before_time, includes_drink, quota, show_remaining, manually_sold_out, created_at')
       .in('event_id', ids)
       .eq('is_active', true)
       .eq('visible_on_club_page', true)
@@ -1467,13 +1531,13 @@ export async function fetchStudioLiveData(
       for (const e of events || []) {
         const venueId = e.venue_id || e.partner_venue_id;
         let total = 0;
-        const mine: any[] = [];
-        for (const p of packs || []) {
-          if (p.event_id === e.id || (!p.event_id && venueId && p.venue_id === venueId)) {
-            total += Number(p.tables_count || 0);
-            mine.push(p);
-          }
-        }
+        // Les formules nommées « complètes » pour cette soirée n'entrent ni
+        // dans les lignes ni dans le stock (miroir de _event_tables_left).
+        const mine: any[] = openTablePacks(
+          ((packs || []) as any[]).filter((p) => p.event_id === e.id || (!p.event_id && venueId && p.venue_id === venueId)),
+          liveSoldOut(e),
+        );
+        for (const p of mine) total += Number(p.tables_count || 0);
         packsByEvent.set(e.id, total);
         packRowsByEvent.set(e.id, buildTablePackRows(mine));
         zoneRowsByEvent.set(e.id, buildTableZoneRows(allZones, mine));
@@ -1491,34 +1555,42 @@ export async function fetchStudioLiveData(
       const start = new Date(e.start_at);
       const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
 
+      const flags = liveSoldOut(e);
       const evRounds = (rounds || []).filter((r: any) => r.event_id === e.id);
       const isOut = (r: any) => !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)));
       const visible = evRounds.filter((r: any) => r.is_active || isOut(r)).slice(0, 4);
-      const roundRows: StudioTicketRow[] = visible.map((r: any) => ({
+      // Billetterie éteinte : aucune tranche (bloc effacé). Fermée à la main :
+      // chaque tranche « épuisé », aucun prix d'appel (miroir de hooks.ts).
+      const roundRows: StudioTicketRow[] = e.ticketing_enabled === false ? [] : applyTicketsSoldOut(visible.map((r: any) => ({
         n: r.name || 'Billet',
         s: r.description || '',
         p: euro(Number(r.price || 0)),
         out: isOut(r),
-      }));
-      const activePrices = evRounds
-        .filter((r: any) => r.is_active && !isOut(r))
-        .map((r: any) => Number(r.price || 0));
+      })), flags);
+      const activePrices = roundRows.length === 0 || flags.ticketsSoldOut
+        ? []
+        : evRounds
+          .filter((r: any) => r.is_active && !isOut(r))
+          .map((r: any) => Number(r.price || 0));
       const guestList = pickPublicGuestList(
         ((guestLists || []) as any[]).filter((g: any) => g.event_id === e.id),
       );
       const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
       const glQuota = guestList && (guestList as any).quota != null ? Number((guestList as any).quota) : null;
-      const guestListLive = guestList ? {
+      const glClosed = !!guestList && (flags.guestListSoldOut || !!guestList.manually_sold_out);
+      const glRemaining = !guestList ? null : glClosed ? 0
+        : ((guestList as any).show_remaining && glQuota != null
+          ? Math.max(0, glQuota - (entriesByList.get((guestList as any).id || '') || 0)) : null);
+      const guestListLive: StudioGuestListLive | null = guestList ? {
         freeBefore: String(guestList.free_before_time || '').slice(0, 5) || null,
         includesDrink: !!guestList.includes_drink,
-        remaining: (guestList as any).show_remaining && glQuota != null
-          ? Math.max(0, glQuota - (entriesByList.get((guestList as any).id) || 0)) : null,
+        remaining: glRemaining,
+        soldOut: glClosed || glRemaining === 0,
       } : null;
 
+      const tablesOpen = e.tables_enabled !== false;
       const totalTables = packsByEvent.get(e.id) || 0;
-      const tablesLeft = needTables && totalTables > 0
-        ? Math.max(0, totalTables - (reservedByEvent.get(e.id) || 0))
-        : null;
+      const tablesLeft = needTables && tablesOpen ? tablesLeftFor(totalTables, reservedByEvent.get(e.id) || 0, flags) : null;
 
       live[e.id] = {
         title: e.title,
@@ -1534,8 +1606,9 @@ export async function fetchStudioLiveData(
         guestListOnly,
         guestList: guestListLive,
         tablesLeft,
-        tablePacks: needTables ? (packRowsByEvent.get(e.id) || []) : undefined,
-        tableZones: needTables ? (zoneRowsByEvent.get(e.id) || []) : undefined,
+        tablesOpen,
+        tablePacks: needTables ? (tablesOpen ? (packRowsByEvent.get(e.id) || []) : []) : undefined,
+        tableZones: needTables ? (tablesOpen ? (zoneRowsByEvent.get(e.id) || []) : []) : undefined,
       };
     }
   } catch (e) {

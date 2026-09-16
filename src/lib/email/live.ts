@@ -14,6 +14,71 @@
 import type { GuestListLive, TablePackRow, TicketRow } from './types';
 import { GUEST_LIST_ROW_ID } from './types';
 
+// ── « Complet » posé à la main ───────────────────────────────────────────────
+//
+// Le pro peut fermer un pilier SANS dépublier la soirée (src/lib/soldOut.ts :
+// `events.tickets_sold_out` / `tables_sold_out` / `guest_list_sold_out`,
+// `events.sold_out_pack_ids`, `guest_lists.manually_sold_out`). La page
+// publique et les checkouts s'y plient ; l'email doit dire la même chose,
+// sinon il vend une formule que la page refuse au clic. Les helpers ci-dessous
+// sont le SEUL endroit où l'email lit ces drapeaux — canvas et envoi passent
+// tous les deux par eux.
+
+/** Les drapeaux d'une soirée, tels que le rendu email les consomme. */
+export interface LiveSoldOut {
+  ticketsSoldOut: boolean;
+  tablesSoldOut: boolean;
+  guestListSoldOut: boolean;
+  soldOutPackIds: string[];
+}
+
+export const LIVE_OPEN: LiveSoldOut = {
+  ticketsSoldOut: false, tablesSoldOut: false, guestListSoldOut: false, soldOutPackIds: [],
+};
+
+/** Lit les drapeaux d'une ligne `events` (snake_case) — jamais d'exception. */
+export function liveSoldOut(e: {
+  tickets_sold_out?: boolean | null;
+  tables_sold_out?: boolean | null;
+  guest_list_sold_out?: boolean | null;
+  sold_out_pack_ids?: string[] | null;
+} | null | undefined): LiveSoldOut {
+  if (!e) return LIVE_OPEN;
+  return {
+    ticketsSoldOut: !!e.tickets_sold_out,
+    tablesSoldOut: !!e.tables_sold_out,
+    guestListSoldOut: !!e.guest_list_sold_out,
+    soldOutPackIds: Array.isArray(e.sold_out_pack_ids) ? e.sold_out_pack_ids.map(String) : [],
+  };
+}
+
+/** Billetterie fermée à la main : chaque tranche se lit « épuisé ». */
+export function applyTicketsSoldOut(rows: readonly TicketRow[], flags: LiveSoldOut): TicketRow[] {
+  return flags.ticketsSoldOut ? rows.map((r) => ({ ...r, out: true })) : [...rows];
+}
+
+/**
+ * Formules encore proposées : celles que le pro n'a pas nommées complètes
+ * pour CETTE soirée. Miroir de `_event_tables_left` (SQL) — les formules d'un
+ * club sont venue-scopées, donc c'est l'événement qui porte la fermeture.
+ */
+export function openTablePacks<T extends { id?: string | null }>(packs: readonly T[], flags: LiveSoldOut): T[] {
+  if (!flags.soldOutPackIds.length) return [...packs];
+  return packs.filter((p) => !p.id || !flags.soldOutPackIds.includes(String(p.id)));
+}
+
+/**
+ * Tables encore libres. `null` = la soirée n'ouvre aucune table (le bloc
+ * s'efface) ; 0 = complet (la carte le dit, le bouton s'efface). Même calcul
+ * que `_event_tables_left` : formules ouvertes moins réservations, et une
+ * soirée fermée à la main est complète quel que soit le stock.
+ */
+export function tablesLeftFor(openTotal: number, reserved: number, flags: LiveSoldOut): number | null {
+  if (flags.tablesSoldOut) return 0;
+  if (openTotal <= 0) return null;
+  return Math.max(0, openTotal - reserved);
+}
+
 /** Colonnes de `guest_lists` nécessaires au bloc Liste invités. */
 export interface GuestListOffer {
   id?: string;
@@ -22,21 +87,35 @@ export interface GuestListOffer {
   includes_drink?: boolean | null;
   quota?: number | null;
   show_remaining?: boolean | null;
+  manually_sold_out?: boolean | null;
 }
 
 /**
  * Données live du bloc « Liste invités ». `entries` = inscrits de la part ;
- * les places restantes ne s'affichent que si le pro l'a voulu.
+ * les places restantes ne s'affichent que si le pro l'a voulu. Une part
+ * fermée à la main (toute la soirée, ou cette part seule) se lit « complet »
+ * même sans quota affiché : c'est ce que dit la page d'inscription.
  */
-export function buildGuestListLive(part: GuestListOffer | null, entries: number): GuestListLive | null {
+export function buildGuestListLive(
+  part: GuestListOffer | null,
+  entries: number,
+  flags: LiveSoldOut = LIVE_OPEN,
+): GuestListLive | null {
   if (!part) return null;
   const quota = part.quota != null ? Number(part.quota) : null;
-  const remaining = part.show_remaining && quota != null ? Math.max(0, quota - entries) : null;
+  const closed = flags.guestListSoldOut || !!part.manually_sold_out;
+  const remaining = closed ? 0 : (part.show_remaining && quota != null ? Math.max(0, quota - entries) : null);
   return {
     freeBefore: String(part.free_before_time || '').slice(0, 5) || null,
     includesDrink: !!part.includes_drink,
     remaining,
+    soldOut: closed || remaining === 0,
   };
+}
+
+/** true = la liste n'accepte plus d'inscription (fermée à la main ou pleine). */
+export function isGuestListClosed(gl: GuestListLive | null | undefined): boolean {
+  return !!gl && (!!gl.soldOut || gl.remaining === 0);
 }
 
 /**
@@ -128,8 +207,10 @@ export function guestListSummary(gl: GuestListLive): string {
   const bits: string[] = [];
   bits.push(gl.freeBefore ? `Gratuit avant ${gl.freeBefore}` : 'Entrée gratuite');
   if (gl.includesDrink) bits.push('boisson offerte');
-  if (gl.remaining != null) {
-    bits.push(gl.remaining === 0 ? 'complet' : `${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
+  if (isGuestListClosed(gl)) {
+    bits.push('complet');
+  } else if (gl.remaining != null) {
+    bits.push(`${gl.remaining} place${gl.remaining > 1 ? 's' : ''} restante${gl.remaining > 1 ? 's' : ''}`);
   }
   return bits.join(' · ');
 }

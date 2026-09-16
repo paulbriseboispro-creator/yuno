@@ -4,9 +4,10 @@ import type {
   EmailBlock, EmailTemplate, EmailTemplateRow, LiveData, TemplateContent, TicketRow,
 } from '@/lib/email';
 import {
-  buildEntryRows, buildGuestListLive, buildTablePackRows, buildTableZoneRows, formatEuro, pickPublicGuestList,
-  priceFromLabel, rowToTemplate, templateContentToRow, YUNO_BLOCK_TYPES,
-  type GuestListOffer, type TablePackOffer, type TableZoneOffer,
+  applyTicketsSoldOut, buildEntryRows, buildGuestListLive, buildTablePackRows, buildTableZoneRows, formatEuro,
+  liveSoldOut, openTablePacks, pickPublicGuestList, priceFromLabel, rowToTemplate, tablesLeftFor,
+  templateContentToRow, YUNO_BLOCK_TYPES,
+  type GuestListOffer, type LiveSoldOut, type TablePackOffer, type TableZoneOffer,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
 
@@ -103,15 +104,17 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       // à la poubelle. Même filtre que la page publique — seules les parts
       // marquées « visible sur la page club » comptent.
       const [{ data: events }, { data: rounds }, { data: guestLists }] = await Promise.all([
+        // Les drapeaux « Complet » et les piliers éteints voyagent avec la
+        // soirée : l'aperçu doit montrer exactement ce que l'envoi dira.
         supabase.from('events')
-          .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city')
+          .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city,ticketing_enabled,tables_enabled,tickets_sold_out,tables_sold_out,guest_list_sold_out,sold_out_pack_ids')
           .in('id', wanted),
         supabase.from('ticket_rounds')
           .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position')
           .in('event_id', wanted)
           .order('position', { ascending: true }),
         supabase.from('guest_lists')
-          .select('id,event_id,holder_type,free_before_time,includes_drink,quota,show_remaining,created_at')
+          .select('id,event_id,holder_type,free_before_time,includes_drink,quota,show_remaining,manually_sold_out,created_at')
           .in('event_id', wanted)
           .eq('is_active', true)
           .eq('visible_on_club_page', true)
@@ -183,12 +186,18 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
        * tables encore libres. Une soirée sans aucune formule renvoie
        * `tablesLeft: null` — le bloc ne vend alors rien qui n'existe pas.
        */
-      const tableLiveFor = (eventId: string, venueId: string | null) => {
-        const mine = ((packs || []) as (TablePackOffer & { event_id?: string | null; venue_id?: string | null; tables_count?: number | null })[])
-          .filter((p) => p.event_id === eventId || (!p.event_id && venueId && p.venue_id === venueId));
+      const tableLiveFor = (eventId: string, venueId: string | null, flags: LiveSoldOut, tablesOpen: boolean) => {
+        // Pilier éteint : aucune formule, aucun stock — le bloc s'efface.
+        if (!tablesOpen) return { tablesLeft: null, tablesOpen: false, tablePacks: [], tableZones: [] };
+        const mine = openTablePacks(
+          ((packs || []) as (TablePackOffer & { event_id?: string | null; venue_id?: string | null; tables_count?: number | null })[])
+            .filter((p) => p.event_id === eventId || (!p.event_id && venueId && p.venue_id === venueId)),
+          flags,
+        );
         const total = mine.reduce((sum, p) => sum + Number(p.tables_count || 0), 0);
         return {
-          tablesLeft: total > 0 ? Math.max(0, total - (reservedByEvent.get(eventId) || 0)) : null,
+          tablesLeft: tablesLeftFor(total, reservedByEvent.get(eventId) || 0, flags),
+          tablesOpen: true,
           tablePacks: buildTablePackRows(mine),
           tableZones: buildTableZoneRows(allZones, mine),
         };
@@ -201,7 +210,11 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           poster_url?: string | null; image_url?: string | null;
           venue_id?: string | null; partner_venue_id?: string | null;
           location_name?: string | null; location_city?: string | null;
+          ticketing_enabled?: boolean | null; tables_enabled?: boolean | null;
+          tickets_sold_out?: boolean | null; tables_sold_out?: boolean | null;
+          guest_list_sold_out?: boolean | null; sold_out_pack_ids?: string[] | null;
         };
+        const flags = liveSoldOut(e);
         const venue = venueById.get(e.venue_id || e.partner_venue_id || '');
         const tz = e.timezone && e.timezone.trim() ? e.timezone : 'Europe/Paris';
         const start = new Date(e.start_at);
@@ -213,16 +226,20 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
         }>;
         const isOut = (r: typeof evRounds[number]) =>
           !!r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets));
-        const roundRows: TicketRow[] = evRounds
+        // Billetterie éteinte sur la soirée : aucune tranche (le bloc s'efface).
+        // Fermée à la main : chaque tranche se lit « épuisé », aucun prix d'appel.
+        const roundRows: TicketRow[] = e.ticketing_enabled === false ? [] : applyTicketsSoldOut(evRounds
           .filter((r) => r.is_active || isOut(r))
           .slice(0, 4)
-          .map((r) => ({ n: r.name || 'Billet', s: r.description || '', p: formatEuro(Number(r.price || 0)), out: isOut(r) }));
-        const activePrices = evRounds.filter((r) => r.is_active && !isOut(r)).map((r) => Number(r.price || 0));
+          .map((r) => ({ n: r.name || 'Billet', s: r.description || '', p: formatEuro(Number(r.price || 0)), out: isOut(r) })), flags);
+        const activePrices = roundRows.length === 0 || flags.ticketsSoldOut
+          ? []
+          : evRounds.filter((r) => r.is_active && !isOut(r)).map((r) => Number(r.price || 0));
         const guestList = pickPublicGuestList(
           ((guestLists || []) as (GuestListOffer & { event_id: string })[]).filter((g) => g.event_id === e.id),
         );
         const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
-        const guestListLive = buildGuestListLive(guestList, guestList?.id ? (entriesByList.get(guestList.id) || 0) : 0);
+        const guestListLive = buildGuestListLive(guestList, guestList?.id ? (entriesByList.get(guestList.id) || 0) : 0, flags);
         const venueName = venue?.name || e.location_name || '';
         const city = venue?.city || e.location_city || '';
 
@@ -239,7 +256,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           tickets,
           guestListOnly,
           guestList: guestListLive,
-          ...tableLiveFor(e.id, e.venue_id || e.partner_venue_id || null),
+          ...tableLiveFor(e.id, e.venue_id || e.partner_venue_id || null, flags, e.tables_enabled !== false),
         };
       }
       setLive(next);
