@@ -1027,6 +1027,16 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   markup, jamais du HTML venu d'ailleurs. Sans `text/html` (⇧⌘V), c'est
   l'analyseur de markup qui reprend, et un bouton « Coller en texte brut »
   apparaît sous le champ juste après un collage riche.
+  **Une couleur importée qui ne se lit pas sur le fond du bloc est JETÉE**
+  (contraste < 2:1, `dropUnreadableInk`) : copier depuis une page sombre posait
+  sinon du texte blanc sur le blanc de l'email — présent dans le modèle,
+  invisible chez le client. Et quand le bloc en porte déjà une (collage
+  antérieur, couleur choisie à la main), une ligne « Rendre lisible » sous le
+  champ la retire.
+  **Le champ de saisie porte les couleurs de l'EMAIL, pas celles du panneau**
+  (fond du bloc + encre par défaut) : c'est la seule façon de voir qu'un texte
+  noir se lit sur le blanc de la campagne — et qu'un texte invisible dans
+  l'email l'est aussi à l'écran.
   ⚠️ Une évolution de la syntaxe oblige à REDÉPLOYER `send-campaign` avant que
   le pro l'utilise, sinon les nouveaux signes partent en clair dans l'email.
 - **Le Studio se mesure, il ne suppose pas `100vh`** (2026-09-17) : l'app
@@ -1035,6 +1045,20 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   pli. `useShellHeight` (`email-studio/ui.tsx`) additionne les `offsetTop` —
   stables au défilement, contrairement à `getBoundingClientRect()` — et rend
   `calc(100dvh - <offset>px)`. Tout écran plein du Studio passe par là.
+- **L'encre par défaut d'un bloc suit SON fond** (2026-09-17, `defaultInkOn` /
+  `solidBlockBg` dans `render.ts`, dupliqués dans le port Deno et miroités par
+  `TextView`) : la couleur du thème tant qu'elle se lit sur le fond du bloc
+  (contraste ≥ 3), sinon noir sur clair et blanc sur sombre. Un fond posé à la
+  main renverse donc la règle du thème — un bloc blanc dans un thème sombre
+  servait du texte blanc sur blanc. La couleur choisie par le pro gagne
+  toujours.
+- **⌘Z appartient au Studio, même en pleine frappe** (2026-09-17) : le champ de
+  texte est un contenteditable qu'on redessine, la pile d'annulation du
+  navigateur n'y survit pas — le raccourci n'est donc plus ignoré quand le
+  focus est dans un champ (`StudioShell`). Et l'historique FUSIONNE les
+  modifications successives d'un même champ dans une fenêtre de 700 ms
+  (`MERGE_MS`, `store.ts`) : sans ça une frappe = un état, ⌘Z rendait une
+  lettre à la fois et les 40 places de l'historique partaient en une phrase.
 - **Marges par bloc = `TYPE_PAD_DEFAULTS`** (types.ts, miroir edge) : défauts
   PAR TYPE (header 30/24, image 0/0, divider 10/24, cta 24/24, html 0/24…),
   `py: 0` est un choix légitime (blocs collés). Ne jamais recoder un padding
