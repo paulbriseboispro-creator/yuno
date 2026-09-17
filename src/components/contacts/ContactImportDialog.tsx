@@ -470,7 +470,19 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [impacts, setImpacts] = useState<CampaignImpact[]>([]);
+  // Deux chargements, jamais confondus :
+  //   • la vue d'ensemble = l'ÉTAT ACTUEL de la base — les segments
+  //     enregistrés avec leur effectif du moment. Un aller-retour, toujours
+  //     joué à l'ouverture.
+  //   • l'analyseur (`analyze_contact_lists`) = la recherche de NOUVEAUX
+  //     segments, qui relit toute la base et coûte plusieurs secondes.
+  //     Il n'est JAMAIS rejoué tout seul sur une portée qui a déjà ses
+  //     segments : un segment est une définition, pas une photo — il est
+  //     recalculé à chaque envoi, et les envois faits depuis l'ont déjà fait
+  //     bouger. Le réafficher ne demande pas de repartir de zéro.
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [overview, setOverview] = useState<ContactIntelligenceOverview | null>(null);
   const [analysis, setAnalysis] = useState<ContactAnalysis | null>(null);
   const [segments, setSegments] = useState<ContactSegment[]>([]);
   // Le seuil du panier moyen élevé : valeur Yuno de la portée, ou celle du pro.
@@ -482,43 +494,84 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
   const [saving, setSaving] = useState(false);
   const [createdCount, setCreatedCount] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const nf = (n: number) => n.toLocaleString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR');
 
-  const load = useCallback(async () => {
+  // Les appelants passent `scope={{ kind: 'venue', venueId }}` en littéral :
+  // un objet NEUF à chaque rendu du parent. Les effets se règlent donc sur la
+  // CLÉ de portée, jamais sur l'objet — sinon le chargement repartait à chaque
+  // rendu du parent.
+  const scopeKey = scope.kind === 'venue' ? `v:${scope.venueId}`
+    : scope.kind === 'organizer' ? `o:${scope.organizerId}` : 'p';
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+
+  /** L'état actuel : segments et leurs effectifs, bilans de campagne, base vivante. */
+  const loadOverview = useCallback(async (): Promise<ContactIntelligenceOverview | null> => {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data: ov, error: e1 } = await supabase.rpc('get_contact_intelligence_overview' as never, scopeArgs(scope) as never);
-      if (e1) throw e1;
-      const overview = (ov ?? {}) as unknown as ContactIntelligenceOverview;
-      setSegments(overview.segments || []);
-      setImpacts(((overview.impacts || []) as Parameters<typeof impactFromOverview>[0][]).map(impactFromOverview));
-      if ((overview.contacts || 0) === 0) { setAnalysis({ generated_at: '', contacts: 0, lists: 0, suggestions: [] }); return; }
-      const { data: an, error: e2 } = listImportId
+      const { data, error } = await supabase.rpc('get_contact_intelligence_overview' as never, scopeArgs(scopeRef.current) as never);
+      if (error) throw error;
+      const ov = (data ?? {}) as unknown as ContactIntelligenceOverview;
+      setOverview(ov);
+      setSegments(ov.segments || []);
+      setImpacts(((ov.impacts || []) as Parameters<typeof impactFromOverview>[0][]).map(impactFromOverview));
+      return ov;
+    } catch (e) {
+      // Une erreur n'est PAS « base vide » : on la montre telle quelle, avec
+      // un bouton pour réessayer — jamais l'écran « importez d'abord ».
+      setLoadError(errMsg(e));
+      setOverview(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
+
+  /** La recherche de nouveaux segments : à la demande, ou quand il n'y a rien d'autre à montrer. */
+  const runAnalysis = useCallback(async () => {
+    setAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const args = scopeArgs(scopeRef.current);
+      const { data: an, error } = listImportId
         ? await supabase.rpc('analyze_contact_list_import' as never, { p_list_import_id: listImportId } as never)
-        : await supabase.rpc('analyze_contact_lists' as never, scopeArgs(scope) as never);
-      if (e2) throw e2;
+        : await supabase.rpc('analyze_contact_lists' as never, args as never);
+      if (error) throw error;
       const a = (an ?? {}) as unknown as ContactAnalysis;
       setAnalysis(a);
       // Pré-cochées : toutes les propositions pas encore créées.
       setSelected(new Set((a.suggestions || []).filter((s) => !s.existing_id).map((s) => s.key)));
       // La valeur Yuno du panier, une fois par portée.
       if (!listImportId) {
-        const bs = await loadBasketSuggestion(scopeArgs(scope));
+        const bs = await loadBasketSuggestion(args);
         setBasketSuggestion(bs);
         setBasketThreshold((cur) => cur ?? bs.threshold);
       }
     } catch (e) {
-      // Une erreur n'est PAS « base vide » : on la montre telle quelle, avec
-      // un bouton pour réessayer — jamais l'écran « importez d'abord ».
-      setLoadError(errMsg(e));
+      setAnalysisError(errMsg(e));
       setAnalysis(null);
     } finally {
-      setLoading(false);
+      setAnalyzing(false);
     }
-  }, [scope, listImportId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey, listImportId]);
 
-  useEffect(() => { void load(); }, [load]);
+  const started = useRef('');
+  useEffect(() => {
+    if (started.current === `${scopeKey}|${listImportId ?? ''}`) return;
+    started.current = `${scopeKey}|${listImportId ?? ''}`;
+    void (async () => {
+      const ov = await loadOverview();
+      if (!ov || (ov.contacts || 0) === 0) return;
+      // Yuno ne cherche de nouveaux segments tout seul que là où il n'y a rien
+      // d'autre à montrer : le fichier qu'on vient d'importer, ou une portée
+      // qui n'a encore aucun segment.
+      if (listImportId || (ov.segments || []).length === 0) await runAnalysis();
+    })();
+  }, [scopeKey, listImportId, loadOverview, runAnalysis]);
 
   useEffect(() => {
     const h = setTimeout(() => setBasketDebounced(basketThreshold), 350);
@@ -533,7 +586,7 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
   useEffect(() => {
     if (listImportId || !analysis || basketDebounced == null) { setPresets([]); return; }
     let cancelled = false;
-    loadYunoPresetSuggestions(scopeArgs(scope), segments, analysis.contacts || 0, { basketThreshold: basketDebounced })
+    loadYunoPresetSuggestions(scopeArgs(scopeRef.current), segments, analysis.contacts || 0, { basketThreshold: basketDebounced })
       .then((rows) => {
         if (cancelled) return;
         setPresets(rows);
@@ -545,8 +598,7 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         });
       });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listImportId, analysis, segments, basketDebounced, scope.kind, scope.kind === 'platform' ? '' : scope.kind === 'venue' ? scope.venueId : scope.organizerId]);
+  }, [listImportId, analysis, segments, basketDebounced, scopeKey]);
 
   const toggle = (key: string) => setSelected((prev) => {
     const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n;
@@ -569,7 +621,7 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
   const selectable = pending.map((s) => s.key);
 
   const save = useCallback(async () => {
-    if (!analysis || selected.size === 0) return;
+    if (selected.size === 0) return;
     if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return; }
     setSaving(true);
     try {
@@ -578,20 +630,28 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         return { key: s.key, name: d.name, description: d.why, definition: s.definition };
       });
       const { data, error } = await supabase.rpc('save_contact_segments' as never, {
-        ...scopeArgs(scope), p_segments: payload as unknown as Json, p_list_import_id: listImportId,
+        ...scopeArgs(scopeRef.current), p_segments: payload as unknown as Json, p_list_import_id: listImportId,
       } as never);
       if (error) throw error;
-      const created = ((data as unknown) as unknown[] | null)?.length ?? 0;
-      setCreatedCount(created);
+      const rows = ((data as unknown) as Array<{ key: string | null; id: string }> | null) || [];
+      setCreatedCount(rows.length);
+      // Les propositions retenues passent en « Déjà créé » avec l'id rendu par
+      // la RPC : relancer l'analyse entière pour retrouver cette information
+      // ferait repayer plusieurs secondes pour rien.
+      const ids = new Map(rows.filter((r) => r.key).map((r) => [r.key as string, r.id]));
+      const mark = (list: SegmentSuggestion[]) => list.map((s) => (ids.has(s.key) ? { ...s, existing_id: ids.get(s.key) as string } : s));
+      setAnalysis((a) => (a ? { ...a, suggestions: mark(a.suggestions || []) } : a));
+      setPresets(mark);
+      setSelected(new Set());
       onChanged?.();
-      toast.success(t('cseg.created').replace('{n}', String(created)));
-      await load();
+      toast.success(t('cseg.created').replace('{n}', String(rows.length)));
+      await loadOverview();
     } catch (e) {
       toast.error(errMsg(e));
     } finally {
       setSaving(false);
     }
-  }, [analysis, selected, suggestions, scope, listImportId, onChanged, load, t, language]);
+  }, [selected, suggestions, listImportId, onChanged, loadOverview, t, language]);
 
   const remove = useCallback(async (seg: ContactSegment) => {
     if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return; }
@@ -599,13 +659,13 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
     if (error) { toast.error(error.message); return; }
     toast.success(t('cseg.deleted'));
     onChanged?.();
-    await load();
-  }, [load, onChanged, t]);
+    await loadOverview();
+  }, [loadOverview, onChanged, t]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-[13px] opacity-70">
-        <Loader2 className="h-4 w-4 animate-spin" />{t('cimp.analyzing')}
+        <Loader2 className="h-4 w-4 animate-spin" />{t('cseg.loading')}
       </div>
     );
   }
@@ -622,13 +682,13 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onDone}>{t('common.close')}</Button>
-          <Button onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" />{t('cseg.rerun')}</Button>
+          <Button onClick={() => void loadOverview()}><RefreshCw className="mr-2 h-4 w-4" />{t('cseg.retry')}</Button>
         </div>
       </div>
     );
   }
 
-  if (!analysis || analysis.contacts === 0) {
+  if (!overview || (overview.contacts || 0) === 0) {
     return (
       <div className="space-y-4">
         <p className="text-[13px] opacity-75">{t('cseg.noLists')}</p>
@@ -637,8 +697,18 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
     );
   }
 
-  const f = analysis.facts;
+  // Les faits : ceux de l'analyse quand elle a tourné, ceux de la vue
+  // d'ensemble sinon — la base, les canaux, l'origine et l'engagement sont
+  // connus sans relire toute la base.
+  const f = analysis?.facts;
   const homeN = f?.top_countries?.[0]?.n ?? 0;
+  const contactsTotal = analysis?.contacts ?? overview.contacts ?? 0;
+  const listsCount = analysis?.lists ?? (overview.lists || []).length;
+  const reachE = f?.channels?.emails_reachable ?? overview.reachable_emails ?? 0;
+  const reachP = f?.channels?.phones_reachable ?? overview.reachable_phones ?? 0;
+  const origin = f?.origin ?? overview.origin ?? null;
+  const eng = f?.engagement ?? overview.engagement ?? null;
+  const engCampaigns = f?.engagement?.campaigns ?? null;
 
   return (
     <div className="space-y-5">
@@ -665,18 +735,20 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
       <div className="rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
         <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-55">{t('cseg.facts.title')}</div>
         <div className="space-y-1 opacity-85">
-          <div>{t('cseg.facts.base').replace('{n}', nf(analysis.contacts)).replace('{lists}', String(analysis.lists))}</div>
-          {f?.channels && (
-            <div>{t('cseg.facts.channels').replace('{e}', nf(f.channels.emails_reachable)).replace('{p}', nf(f.channels.phones_reachable))}</div>
+          <div>{t('cseg.facts.base').replace('{n}', nf(contactsTotal)).replace('{lists}', String(listsCount))}</div>
+          <div>{t('cseg.facts.channels').replace('{e}', nf(reachE)).replace('{p}', nf(reachP))}</div>
+          {origin && (origin.yuno + origin.both) > 0 && (
+            <div>{t('cseg.facts.origin').replace('{yuno}', nf(origin.yuno + origin.both)).replace('{both}', nf(origin.both)).replace('{acc}', nf(origin.with_account))}</div>
           )}
-          {f?.origin && (f.origin.yuno + f.origin.both) > 0 && (
-            <div>{t('cseg.facts.origin').replace('{yuno}', nf(f.origin.yuno + f.origin.both)).replace('{both}', nf(f.origin.both)).replace('{acc}', nf(f.origin.with_account))}</div>
+          {eng && eng.sent_any > 0 && (
+            <div>{(engCampaigns != null
+              ? t('cseg.facts.engagement').replace('{c}', String(engCampaigns))
+              : t('cseg.facts.engagementSent'))
+              .replace('{sent}', nf(eng.sent_any)).replace('{active}', nf(eng.active)).replace('{passive}', nf(eng.passive))
+              .replace('{silent}', nf(eng.silent)).replace('{unsub}', nf(eng.unsubscribed)).replace('{dead}', nf(eng.unreachable))}</div>
           )}
-          {f?.engagement && f.engagement.sent_any > 0 && (
-            <div>{t('cseg.facts.engagement').replace('{c}', String(f.engagement.campaigns)).replace('{sent}', nf(f.engagement.sent_any)).replace('{active}', nf(f.engagement.active)).replace('{passive}', nf(f.engagement.passive)).replace('{silent}', nf(f.engagement.silent)).replace('{unsub}', nf(f.engagement.unsubscribed)).replace('{dead}', nf(f.engagement.unreachable))}</div>
-          )}
-          {analysis.home_country && homeN > 0 && (
-            <div>{t('cseg.facts.home').replace('{country}', countryName(analysis.home_country, language)).replace('{pct}', String(Math.round((homeN / analysis.contacts) * 100)))}</div>
+          {analysis?.home_country && homeN > 0 && (
+            <div>{t('cseg.facts.home').replace('{country}', countryName(analysis.home_country, language)).replace('{pct}', String(Math.round((homeN / Math.max(1, contactsTotal)) * 100)))}</div>
           )}
           {f?.top_zones && f.top_zones.length > 0 && (
             <div>{t('cseg.facts.zones').replace('{list}', f.top_zones.slice(0, 4).map((z) => `${z.value} (${nf(z.n)})`).join(' · '))}</div>
@@ -693,51 +765,11 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         </div>
       </div>
 
-      {/* Propositions */}
-      <div>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[13px] font-semibold">{t('cseg.title')}</div>
-          {pending.length > 0 && (
-            <div className="flex gap-3 text-[11.5px]">
-              <button type="button" className="opacity-60 hover:opacity-100" onClick={() => setSelected(new Set(selectable))}>{t('cseg.selectAll')}</button>
-              <button type="button" className="opacity-60 hover:opacity-100" onClick={() => setSelected(new Set())}>{t('cseg.selectNone')}</button>
-            </div>
-          )}
-        </div>
-        <p className="mb-3 text-[12px] leading-relaxed opacity-70">
-          {suggestions.length === 0
-            ? t('cseg.introEmpty')
-            : t('cseg.intro').replace('{n}', nf(analysis.contacts)).replace('{lists}', String(analysis.lists)).replace('{k}', String(suggestions.length))}
-        </p>
-
-        {SEGMENT_GROUPS.map((g) => {
-          const items = suggestions.filter((s) => s.group === g);
-          if (items.length === 0) return null;
-          const Icon = GROUP_ICON[g];
-          return (
-            <div key={g} className="mb-3">
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-55">
-                <Icon className="h-3.5 w-3.5" />{t(`cseg.g.${g}`)}
-              </div>
-              <div className="space-y-1.5">
-                {items.map((s) => (
-                  <div key={s.key}>
-                    <SuggestionRow s={s} on={selected.has(s.key)} onToggle={() => toggle(s.key)} t={t} language={language} />
-                    {suggestionBase(s.key) === BASKET_PRESET_BASE && basketThreshold != null && !s.existing_id && (
-                      <BasketThresholdField compact value={basketThreshold} onChange={setBasketThreshold} suggestion={basketSuggestion} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Segments existants */}
+      {/* Vos segments, dans leur état du moment */}
       {segments.length > 0 && (
         <div>
           <div className="mb-1.5 text-[13px] font-semibold">{t('cseg.existingTitle')} <span className="opacity-50">· {segments.length}</span></div>
+          <p className="mb-2 text-[11.5px] leading-relaxed opacity-60">{t('cseg.existingLive')}</p>
           <ul className="divide-y rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
             {segments.map((seg) => (
               <li key={seg.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -754,10 +786,72 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         </div>
       )}
 
+      {/* Propositions — seulement quand l'analyseur a tourné */}
+      {analysis && (
+        <div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[13px] font-semibold">{t('cseg.title')}</div>
+            {pending.length > 0 && (
+              <div className="flex gap-3 text-[11.5px]">
+                <button type="button" className="opacity-60 hover:opacity-100" onClick={() => setSelected(new Set(selectable))}>{t('cseg.selectAll')}</button>
+                <button type="button" className="opacity-60 hover:opacity-100" onClick={() => setSelected(new Set())}>{t('cseg.selectNone')}</button>
+              </div>
+            )}
+          </div>
+          <p className="mb-3 text-[12px] leading-relaxed opacity-70">
+            {suggestions.length === 0
+              ? t('cseg.introEmpty')
+              : t('cseg.intro').replace('{n}', nf(contactsTotal)).replace('{lists}', String(listsCount)).replace('{k}', String(suggestions.length))}
+          </p>
+
+          {SEGMENT_GROUPS.map((g) => {
+            const items = suggestions.filter((s) => s.group === g);
+            if (items.length === 0) return null;
+            const Icon = GROUP_ICON[g];
+            return (
+              <div key={g} className="mb-3">
+                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-55">
+                  <Icon className="h-3.5 w-3.5" />{t(`cseg.g.${g}`)}
+                </div>
+                <div className="space-y-1.5">
+                  {items.map((s) => (
+                    <div key={s.key}>
+                      <SuggestionRow s={s} on={selected.has(s.key)} onToggle={() => toggle(s.key)} t={t} language={language} />
+                      {suggestionBase(s.key) === BASKET_PRESET_BASE && basketThreshold != null && !s.existing_id && (
+                        <BasketThresholdField compact value={basketThreshold} onChange={setBasketThreshold} suggestion={basketSuggestion} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Chercher de NOUVEAUX segments : à la demande, jamais à l'ouverture
+          d'une base qui a déjà les siens. */}
+      {!analysis && (
+        <div className="rounded-lg p-3" style={{ background: 'rgba(232,25,44,0.07)', border: '1px solid rgba(232,25,44,0.25)' }}>
+          <div className="flex items-center gap-2 text-[13px] font-semibold">
+            <Sparkles className="h-4 w-4" style={{ color: '#E8192C' }} />{t('cseg.look.title')}
+          </div>
+          <p className="mt-1 text-[12px] leading-relaxed opacity-75">{t('cseg.look.body')}</p>
+          {analysisError && <div className="mt-1.5 font-mono text-[11px]" style={{ color: '#FCA5A5' }}>{analysisError}</div>}
+          <Button className="mt-2.5" size="sm" onClick={() => void runAnalysis()} disabled={analyzing}>
+            {analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {analyzing ? t('cimp.analyzing') : t('cseg.look.cta')}
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" className="inline-flex items-center gap-1.5 text-[12px] opacity-60 hover:opacity-100" onClick={() => void load()}>
-          <RefreshCw className="h-3.5 w-3.5" />{t('cseg.rerun')}
-        </button>
+        {analysis ? (
+          <button type="button" className="inline-flex items-center gap-1.5 text-[12px] opacity-60 hover:opacity-100 disabled:opacity-30"
+            disabled={analyzing} onClick={() => void runAnalysis()}>
+            {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}{t('cseg.rerun')}
+          </button>
+        ) : <span />}
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onDone}>{createdCount != null ? t('common.close') : t('cseg.skip')}</Button>
           {pending.length > 0 && (
