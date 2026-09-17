@@ -3,7 +3,7 @@ import {
   makeBlock, renderEmailHtml, renderBlock, countdownParts, looksLikeHtml,
   THEME_PRESETS, THEME_SWATCHES, DEFAULT_STUDIO_THEME,
   interpolateVariables, usesVariables, inlineMarkup, escapeHtml,
-  contrastText, ctaColors, contrastRatio, readableOn, mixHex,
+  contrastText, ctaColors, contrastRatio, readableOn, mixHex, defaultInkOn, solidBlockBg,
   runChecklist, checklistBlocksSend,
   migrateV1Blocks, migrateV1Theme, migrateV1Audience, htmlToPlain, normalizeV2Blocks,
   stripEventBindings, eventBoundBlocks, needsEventBinding,
@@ -914,6 +914,42 @@ describe('personnalisation — couleur CTA, countdown manuel, image arrondie', (
     expect(renderOne(b)).toContain('border-radius:40px');
     if (b.type === 'image') b.radius = undefined;
     expect(renderOne(b)).not.toContain('border-radius');
+  });
+});
+
+describe('texte — l\'encre par défaut suit le fond du bloc', () => {
+  const darkTheme = { ...theme, dark: true, card: '#101014', text: '#f4f4f5' };
+
+  const textOn = (bgc: string | undefined, t = theme) => {
+    const b = makeBlock('text');
+    if (b.type === 'text') { b.body = 'Salut'; if (bgc) b.bgc = bgc; }
+    return renderBlock(b, t, ctx);
+  };
+
+  it('sans fond propre, le texte reste celui du thème', () => {
+    expect(textOn(undefined)).toContain(`color:${theme.text}`);
+  });
+
+  it('fond blanc posé sur un thème sombre → texte noir', () => {
+    expect(textOn('#ffffff', darkTheme)).toContain('color:#111111');
+  });
+
+  it('fond noir posé sur un thème clair → texte blanc', () => {
+    expect(textOn('#0a0a0a')).toContain('color:#ffffff');
+  });
+
+  it('la couleur choisie par le pro gagne toujours', () => {
+    const b = makeBlock('text');
+    if (b.type === 'text') { b.body = 'Salut'; b.bgc = '#ffffff'; b.color = '#e8192c'; }
+    expect(renderBlock(b, darkTheme, ctx)).toContain('color:#e8192c');
+  });
+
+  it('defaultInkOn / solidBlockBg : le fond opaque décide', () => {
+    expect(solidBlockBg('transparent', theme)).toBe(theme.card);
+    expect(solidBlockBg('#ffffff', darkTheme)).toBe('#ffffff');
+    expect(defaultInkOn('transparent', theme)).toBe(theme.text);
+    expect(defaultInkOn('#ffffff', darkTheme)).toBe('#111111');
+    expect(defaultInkOn('#0a0a0a', theme)).toBe('#ffffff');
   });
 });
 

@@ -323,6 +323,19 @@ function blockPad(b: StudioBlock): { px: number; py: number } {
   return { px: typeof b.px === 'number' ? b.px : d.px, py: typeof b.py === 'number' ? b.py : d.py };
 }
 
+/** Le fond OPAQUE sous un bloc — miroir de solidBlockBg (render.ts). */
+function solidBlockBg(bg: string, theme: StudioTheme): string {
+  return isHexColor(bg) ? bg.trim() : theme.card;
+}
+
+/** Texte par défaut d'un bloc — miroir de defaultInkOn (render.ts). */
+function defaultInkOn(bg: string, theme: StudioTheme): string {
+  const solid = solidBlockBg(bg, theme);
+  if (!isHexColor(solid)) return theme.text;
+  if (isHexColor(theme.text) && contrastRatio(theme.text, solid) >= 3) return theme.text.trim();
+  return contrastText(solid);
+}
+
 function blockBg(b: StudioBlock, theme: StudioTheme): string {
   if (isHexColor(b.bgc)) return (b.bgc as string).trim();
   if (b.bg === 'tile') return theme.tile;
@@ -627,7 +640,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
     }
     case 'text': {
       const size = Math.max(11, Math.min(28, Number(b.size) || 16));
-      const color = isHexColor(b.color) ? (b.color as string).trim() : theme.text;
+      const color = isHexColor(b.color) ? (b.color as string).trim() : defaultInkOn(bg, theme);
       const raw = interpolate((b.body as string) || '', ctx);
       const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
       const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, color, markup);

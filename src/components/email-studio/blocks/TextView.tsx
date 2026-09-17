@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 import type { EmailTheme, TextBlock } from '@/lib/email';
-import { escapeHtml, inlineMarkup, isHexColor, looksLikeHtml } from '@/lib/email';
-import { EMAIL_FONT, blockPad, varChipStyle } from './common';
+import { defaultInkOn, escapeHtml, inlineMarkup, isHexColor, looksLikeHtml } from '@/lib/email';
+import { EMAIL_FONT, blockBgColor, blockPad, varChipStyle } from './common';
 
 /**
  * Texte brut avec \n = paragraphe, mini-markup inline (**gras**, *italique*,
@@ -12,7 +12,10 @@ export default function TextView({ block, theme }: { block: TextBlock; theme: Em
   const size = Math.max(11, Math.min(28, block.size || 16));
   const pad = blockPad(block);
   const chip = varChipStyle(theme, size);
-  const baseColor = isHexColor(block.color) ? block.color.trim() : theme.text;
+  // Miroir de renderText : le fond du bloc décide de l'encre par défaut.
+  const baseColor = isHexColor(block.color)
+    ? block.color.trim()
+    : defaultInkOn(blockBgColor(block, theme), theme);
 
   if (looksLikeHtml(block.body)) {
     return (

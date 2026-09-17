@@ -180,6 +180,29 @@ export function contrastText(hex: string): '#111111' | '#ffffff' {
   return lum > 150 ? '#111111' : '#ffffff';
 }
 
+/**
+ * Le fond OPAQUE sous un bloc : sa propre couleur quand il en pose une, sinon
+ * la carte de l'email. C'est ce sur quoi son texte doit se lire.
+ */
+export function solidBlockBg(bg: string, theme: EmailTheme): string {
+  return isHexColor(bg) ? bg.trim() : theme.card;
+}
+
+/**
+ * Couleur de texte par défaut d'un bloc : celle du thème tant qu'elle se lit
+ * sur le fond du bloc, sinon le noir ou le blanc que ce fond réclame.
+ *
+ * Un fond posé à la main renverse la règle du thème — un bloc blanc dans un
+ * thème sombre servait sinon du texte blanc sur blanc, invisible dans l'email
+ * comme dans l'aperçu.
+ */
+export function defaultInkOn(bg: string, theme: EmailTheme): string {
+  const solid = solidBlockBg(bg, theme);
+  if (!isHexColor(solid)) return theme.text;
+  if (isHexColor(theme.text) && contrastRatio(theme.text, solid) >= 3) return theme.text.trim();
+  return contrastText(solid);
+}
+
 /** Fond + texte du bouton CTA : couleur du bloc si custom, sinon le thème. */
 export function ctaColors(blockColor: unknown, theme: { accent: string; btnText: string }): { bg: string; color: string } {
   if (isHexColor(blockColor) && blockColor.trim().toLowerCase() !== theme.accent.toLowerCase()) {
@@ -280,7 +303,7 @@ function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad,
 
 function renderText(b: TextBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   const size = Math.max(11, Math.min(28, b.size || 16));
-  const color = isHexColor(b.color) ? b.color.trim() : theme.text;
+  const color = isHexColor(b.color) ? b.color.trim() : defaultInkOn(bg, theme);
   const raw = interpolateVariables(b.body || '', ctx);
   const markup: InlineMarkupOpts = { accent: theme.accent, track: (u) => trackUrl(u, ctx) };
   const inner = looksLikeHtml(raw) ? raw : plainToParagraphs(raw, size, color, markup);
