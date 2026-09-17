@@ -815,8 +815,8 @@ export default function EventDetails() {
   }
 
   const heroImage = event.posterUrl;
-  // La vidéo 9:16 ne remplace l'affiche QUE sur cette page, et seulement si
-  // la personne n'a pas demandé moins d'animations / moins de données.
+  // La vidéo 16:9 ne prend le haut de la page QUE sur cette page, et seulement
+  // si la personne n'a pas demandé moins d'animations / moins de données.
   const heroVideo = event.videoUrl && shouldAutoplayHeroVideo() ? event.videoUrl : undefined;
 
   // Min price
@@ -886,149 +886,226 @@ export default function EventDetails() {
   // restent ouvertes n'est pas complète.
   const showSoldOutBadge = (isSoldOut && !hasTables) || (tablesSoldOutLabel && !hasTickets);
 
+  // ── Héros ─────────────────────────────────────────────────────────────────
+  // Deux mises en page pour une seule matière.
+  //   • sans vidéo : l'affiche 1:1 porte le titre en surimpression — une image
+  //     fixe, assombrie au bon endroit, supporte du texte.
+  //   • avec vidéo : le plan 16:9 reste INTACT. Aucun texte, aucun voile, aucun
+  //     bouton par-dessus : un plan qui bouge et un titre au même endroit
+  //     s'annulent (le texte danse sur le montage, le montage disparaît sous le
+  //     texte). Le titre descend sous le film, sur le noir de la page, où il est
+  //     à son contraste maximum et où le film garde son cadrage entier.
+  // Largeur max du film : on borne la HAUTEUR du plan sur grand écran en bornant
+  // sa largeur, deux marges noires valant mieux qu'un recadrage — le pro a cadré
+  // en 16:9, il retrouve son cadrage entier.
+  const HERO_FILM_MAX_WIDTH = 'calc(66vh * 16 / 9)';
+
+  const heroChip = (onImage: boolean): React.CSSProperties =>
+    onImage
+      ? { width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }
+      : { width: 36, height: 36, borderRadius: '2px', background: 'rgba(255,255,255,0.045)', color: '#E5E5E5', border: '1px solid rgba(255,255,255,0.10)', cursor: 'pointer' };
+
+  const heroControls = (onImage: boolean) => (
+    <>
+      {/* Back button — hidden when the organizer locks visitors to the event page */}
+      {event.hideYunoNavigation ? (
+        <div aria-hidden="true" />
+      ) : (
+        <button
+          onClick={handleBack}
+          aria-label={t('common.back')}
+          className="flex items-center justify-center hover:opacity-80 transition-opacity"
+          style={heroChip(onImage)}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+      )}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleShare}
+          aria-label={t('share.shareEvent')}
+          className="flex items-center justify-center hover:opacity-80 transition-opacity"
+          style={heroChip(onImage)}
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+        <FavoriteButton
+          type="event"
+          id={event.id}
+          variant="ghost"
+          size="icon"
+          className="text-white shadow-none ring-0 outline-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:opacity-80 border-none"
+          style={heroChip(onImage) as React.CSSProperties}
+        />
+      </div>
+    </>
+  );
+
+  const heroBadges = (
+    <div className="flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
+      {showSoldOutBadge && (
+        <span className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
+          SOLD OUT
+        </span>
+      )}
+      {event.eventType && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)', color: '#E5E5E5', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+          {event.eventType}
+        </span>
+      )}
+      {/* Genre musical de la soirée — pilule rouge à côté du type */}
+      {event.musicGenres?.slice(0, 2).map((genre) => (
+        <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(232,25,44,0.85)', border: '1px solid rgba(232,25,44,0.9)', color: '#fff', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+          {genre}
+        </span>
+      ))}
+    </div>
+  );
+
+  const heroTitle = (fontSize: string) => (
+    <h1
+      className="font-display text-white uppercase animate-hero-h1"
+      style={{ fontSize, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 0.9, marginBottom: '18px' }}
+    >
+      {event.title}
+    </h1>
+  );
+
+  const heroMeta = (
+    <div className="flex items-end justify-between gap-4 flex-wrap animate-hero-body">
+      <div>
+        {primaryOrganizer && (
+          <div className="flex items-center gap-2 mb-1">
+            {primaryOrganizer.avatar_url && (
+              <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64, height: 64, resize: 'contain' })} alt={primaryOrganizer.display_name} className="rounded-full object-contain shrink-0" style={{ width: 18, height: 18, background: '#191919' }} />
+            )}
+            <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
+              {primaryOrganizer.display_name.toUpperCase()}
+            </span>
+            {venue && venue.id !== primaryOrganizer.user_id && (
+              <>
+                <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
+                <span className="font-mono text-[#9A9A9A] tracking-[0.08em]" style={{ fontSize: '11px' }}>{venue.name.toUpperCase()}</span>
+              </>
+            )}
+          </div>
+        )}
+        <p className="font-mono text-[#9A9A9A] tracking-[0.06em]" style={{ fontSize: '12px' }}>
+          {[
+            !primaryOrganizer && venue ? venue.name.toUpperCase() : null,
+            formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
+            `OPENS ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}`,
+            `CLOSES ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`,
+          ].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+      <EventCountdown startAt={event.startAt} compact />
+    </div>
+  );
+
+  const heroPoster = heroImage ? (
+    <img
+      src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
+      alt={event.title}
+      {...({ fetchpriority: "high" } as Record<string, string>)}
+      className="absolute inset-0 w-full h-full object-cover object-center"
+    />
+  ) : (
+    <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
+  );
+
   return (
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
       <PublicPage variant="immersive">
 
       {/* ── CINEMATIC HERO ─────────────────────────────────────── */}
-      <section
-        className="relative overflow-hidden"
-        style={{
-          aspectRatio: heroVideo ? '9 / 16' : '1 / 1',
-          // Plafond de hauteur sur écran large. `width: 100%` est obligatoire avec
-          // lui : en largeur auto, la hauteur bornée se « transfère » à la largeur
-          // via l'aspect-ratio et le héros rétrécit à 446 px sur un bureau.
-          maxHeight: heroVideo ? 'min(88vh, 900px)' : undefined,
-          width: heroVideo ? '100%' : undefined,
-          background: 'rgba(255,255,255,0.05)',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
-        }}
-      >
-        {/* Background image — reste sous la vidéo : premier rendu et repli */}
-        {heroImage ? (
-          <img
-            src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
-            alt={event.title}
-            {...({ fetchpriority: "high" } as Record<string, string>)}
-            className="absolute inset-0 w-full h-full object-cover object-center"
-          />
-        ) : (
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
-        )}
-        {heroVideo && (
-          <EventHeroVideo src={heroVideo} className="absolute inset-0 w-full h-full object-cover object-center" />
-        )}
-
-        {/* Gradient overlay */}
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.2) 50%, rgba(10,10,10,0.55) 100%)' }}
-        />
-
-        {/* Top: back (left) + share/fav (right) */}
-        <div
-          className="absolute top-0 left-0 right-0 z-20 flex items-start justify-between"
-          style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 16px 0' }}
-        >
-          {/* Back button — hidden when the organizer locks visitors to the event page */}
-          {event.hideYunoNavigation ? (
-            <div aria-hidden="true" />
-          ) : (
-            <button
-              onClick={handleBack}
-              aria-label={t('common.back')}
-              className="flex items-center justify-center hover:opacity-80 transition-opacity"
-              style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          )}
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleShare}
-              aria-label={t('share.shareEvent')}
-              className="flex items-center justify-center hover:opacity-80 transition-opacity"
-              style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }}
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
-            <FavoriteButton
-              type="event"
-              id={event.id}
-              variant="ghost"
-              size="icon"
-              className="text-white shadow-none ring-0 outline-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:opacity-80 border-none"
-              style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' } as React.CSSProperties}
-            />
-          </div>
-        </div>
-
-        {/* Bottom: badges + title + meta */}
-        <div
-          className="absolute bottom-0 left-0 right-0 z-10"
-          style={{ padding: '0 20px clamp(24px, 5vh, 44px)' }}
-        >
-          {/* Genre / status badges */}
-          <div className="flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
-            {showSoldOutBadge && (
-              <span className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
-                SOLD OUT
-              </span>
-            )}
-            {event.eventType && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)', color: '#E5E5E5', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
-                {event.eventType}
-              </span>
-            )}
-            {/* Genre musical de la soirée — pilule rouge à côté du type */}
-            {event.musicGenres?.slice(0, 2).map((genre) => (
-              <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(232,25,44,0.85)', border: '1px solid rgba(232,25,44,0.9)', color: '#fff', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
-                {genre}
-              </span>
-            ))}
-          </div>
-
-          {/* Event title */}
-          <h1
-            className="font-display text-white uppercase animate-hero-h1"
-            style={{ fontSize: 'clamp(38px, 9vw, 100px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 0.9, marginBottom: '18px' }}
+      {heroVideo ? (
+        /* Variante FILM : contrôles au-dessus, plan intact, titre en dessous. */
+        <header className="relative" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          {/* Contrôles alignés sur les bords du cadre, jamais posés dessus. */}
+          <div
+            className="flex items-start justify-between mx-auto"
+            style={{ width: '100%', maxWidth: HERO_FILM_MAX_WIDTH, padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px' }}
           >
-            {event.title}
-          </h1>
-
-          {/* Date / venue / countdown row */}
-          <div className="flex items-end justify-between gap-4 flex-wrap animate-hero-body">
-            <div>
-              {primaryOrganizer && (
-                <div className="flex items-center gap-2 mb-1">
-                  {primaryOrganizer.avatar_url && (
-                    <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64, height: 64, resize: 'contain' })} alt={primaryOrganizer.display_name} className="rounded-full object-contain shrink-0" style={{ width: 18, height: 18, background: '#191919' }} />
-                  )}
-                  <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
-                    {primaryOrganizer.display_name.toUpperCase()}
-                  </span>
-                  {venue && venue.id !== primaryOrganizer.user_id && (
-                    <>
-                      <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
-                      <span className="font-mono text-[#9A9A9A] tracking-[0.08em]" style={{ fontSize: '11px' }}>{venue.name.toUpperCase()}</span>
-                    </>
-                  )}
-                </div>
-              )}
-              <p className="font-mono text-[#9A9A9A] tracking-[0.06em]" style={{ fontSize: '12px' }}>
-                {[
-                  !primaryOrganizer && venue ? venue.name.toUpperCase() : null,
-                  formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
-                  `OPENS ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}`,
-                  `CLOSES ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            </div>
-            <EventCountdown startAt={event.startAt} compact />
+            {heroControls(false)}
           </div>
-        </div>
-      </section>
+
+          {/* Le film — plein cadre sur mobile, encadré de noir sur grand écran. */}
+          <div
+            className="relative overflow-hidden mx-auto"
+            style={{ width: '100%', maxWidth: HERO_FILM_MAX_WIDTH, aspectRatio: '16 / 9', background: '#000' }}
+          >
+            {/* L'affiche reste sous la vidéo : premier rendu, et repli si le fichier
+                ne se lit pas. Elle est carrée, le cadre est large : elle tient
+                ENTIÈRE au centre sur son propre flou plutôt que d'être rognée de
+                moitié — le repli doit ressembler à un choix, pas à un accident. */}
+            {heroImage ? (
+              <>
+                <img
+                  src={getOptimizedImageUrl(heroImage, { width: 320, quality: 55 })}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover object-center"
+                  style={{ filter: 'blur(28px) saturate(0.9)', transform: 'scale(1.14)', opacity: 0.5 }}
+                />
+                <img
+                  src={getOptimizedImageUrl(heroImage, { width: 1200, quality: 85 })}
+                  alt={event.title}
+                  {...({ fetchpriority: "high" } as Record<string, string>)}
+                  className="absolute inset-0 w-full h-full object-contain object-center"
+                />
+              </>
+            ) : (
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />
+            )}
+            <EventHeroVideo src={heroVideo} className="absolute inset-0 w-full h-full object-cover object-center" />
+          </div>
+
+          {/* Bloc titre — aligné sur la colonne de lecture, sur le noir de la page. */}
+          <div style={{ maxWidth: '768px', margin: '0 auto', padding: 'clamp(22px, 4.5vw, 34px) 20px clamp(22px, 4vw, 30px)' }}>
+            {heroBadges}
+            {heroTitle('clamp(34px, 8vw, 68px)')}
+            {heroMeta}
+          </div>
+        </header>
+      ) : (
+        /* Variante AFFICHE : image fixe 1:1, titre en surimpression. */
+        <section
+          className="relative overflow-hidden"
+          style={{
+            aspectRatio: '1 / 1',
+            background: 'rgba(255,255,255,0.05)',
+            borderBottom: '1px solid rgba(255,255,255,0.07)',
+          }}
+        >
+          {heroPoster}
+
+          {/* Gradient overlay */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.2) 50%, rgba(10,10,10,0.55) 100%)' }}
+          />
+
+          {/* Top: back (left) + share/fav (right) */}
+          <div
+            className="absolute top-0 left-0 right-0 z-20 flex items-start justify-between"
+            style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 16px 0' }}
+          >
+            {heroControls(true)}
+          </div>
+
+          {/* Bottom: badges + title + meta */}
+          <div
+            className="absolute bottom-0 left-0 right-0 z-10"
+            style={{ padding: '0 20px clamp(24px, 5vh, 44px)' }}
+          >
+            {heroBadges}
+            {heroTitle('clamp(38px, 9vw, 100px)')}
+            {heroMeta}
+          </div>
+        </section>
+      )}
 
       {/* ── CONTENT ─────────────────────────────────────────────── */}
       <div style={{ maxWidth: '768px', margin: '0 auto' }}>
