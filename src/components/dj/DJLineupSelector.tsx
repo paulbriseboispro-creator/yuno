@@ -10,6 +10,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import { djDisplayName, type LineupEntry } from '@/lib/djLineup';
+import { GuestArtistsEditor } from '@/components/dj/GuestArtistsEditor';
+import type { GuestArtist } from '@/lib/guestArtists';
 
 interface DJ {
   id: string;
@@ -29,6 +31,12 @@ interface DJLineupSelectorProps {
   defaultEnd?: string;
   /** Date locale de la soirée ('yyyy-MM-dd') — sert au contrôle de disponibilité. */
   eventLocalDate?: string;
+  /**
+   * Line-up invité — artistes sans compte Yuno. Facultatif : une surface qui
+   * ne le passe pas n'affiche tout simplement pas le bloc.
+   */
+  guestArtists?: GuestArtist[];
+  onGuestArtistsChange?: (artists: GuestArtist[]) => void;
 }
 
 /**
@@ -38,12 +46,17 @@ interface DJLineupSelectorProps {
  *   (djs.organizer_user_id = current user). Prevents organizers from poaching
  *   DJs they have not invited.
  *
+ * Le composant porte les DEUX moitiés du line-up : le sélecteur de DJ à compte
+ * Yuno ci-dessous, et l'éditeur d'artistes invités (sans compte) en dessous.
+ * C'est ce qui fait que les deux formulaires de soirée — club et organisateur —
+ * héritent du line-up invité sans qu'aucun des deux ait à le savoir.
+ *
  * Handshake booking : un DJ qui a un compte Yuno passe par une demande de
  * booking (horaires, cachet, message) au lieu d'un ajout direct — le mini-dialog
  * collecte le brief et l'entrée reste « en attente » jusqu'à sa validation
  * dans l'app DJ. Un profil roster sans compte est ajouté directement.
  */
-export function DJLineupSelector({ entries, onChange, defaultStart, defaultEnd, eventLocalDate }: DJLineupSelectorProps) {
+export function DJLineupSelector({ entries, onChange, defaultStart, defaultEnd, eventLocalDate, guestArtists, onGuestArtistsChange }: DJLineupSelectorProps) {
   const { t, language } = useLanguage();
   const tt = makeDjT(language);
   const { scope, organizerUserId } = useVenueContext();
@@ -266,6 +279,13 @@ export function DJLineupSelector({ entries, onChange, defaultStart, defaultEnd, 
             </div>
           )}
         </>
+      )}
+
+      {/* Line-up invité : les artistes qui n'ont pas de compte à valider. */}
+      {guestArtists && onGuestArtistsChange && (
+        <div className="pt-3 mt-1 border-t border-border">
+          <GuestArtistsEditor artists={guestArtists} onChange={onGuestArtistsChange} />
+        </div>
       )}
 
       {/* Brief de booking — DJ avec compte : horaires, cachet, message */}

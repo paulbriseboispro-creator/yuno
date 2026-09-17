@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { notifyDjLineup } from '@/lib/djNotify';
 import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
+import { loadGuestArtists, saveGuestArtists, type GuestArtist } from '@/lib/guestArtists';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -184,6 +185,8 @@ export function OrgEventFormDialog({
   const [musicGenres, setMusicGenres] = useState<string[]>(['Open Format']);
   const [eventType, setEventType] = useState<string>('club');
   const [lineupEntries, setLineupEntries] = useState<LineupEntry[]>([]);
+  // Line-up invité : artistes sans compte Yuno (nom + photo + Instagram).
+  const [guestArtists, setGuestArtists] = useState<GuestArtist[]>([]);
   const [initialLineupEntries, setInitialLineupEntries] = useState<LineupEntry[]>([]);
 
   // Org-specific
@@ -278,6 +281,7 @@ export function OrgEventFormDialog({
       setMusicGenres(['Open Format']);
       setEventType('club');
       setLineupEntries([]);
+      setGuestArtists([]);
       setInitialLineupEntries([]);
       setEventKind('public_event');
       setCollabMode('solo');
@@ -357,6 +361,7 @@ export function OrgEventFormDialog({
         const entries = await loadLineupEntries(eventId);
         setLineupEntries(entries);
         setInitialLineupEntries(entries);
+        setGuestArtists(await loadGuestArtists(eventId));
       }
       setLoading(false);
     })();
@@ -540,6 +545,14 @@ export function OrgEventFormDialog({
           initialEntries: initialLineupEntries,
           eventGenres: musicGenres,
         });
+        // Line-up invité : diff, jamais delete+insert — chaque ligne porte son
+        // compteur de clics Instagram.
+        const guestRes = await saveGuestArtists(savedId, guestArtists);
+        for (const err of guestRes.errors) {
+          toast.error(t(`Artiste non enregistré : ${err.name}`, `Artist not saved: ${err.name}`), {
+            description: err.message,
+          });
+        }
         if (res.addedDirectIds.length > 0) notifyDjLineup(savedId, res.addedDirectIds);
         if (res.requestsSent > 0) {
           toast.success(t('Demande de booking envoyée', 'Booking request sent'), {
@@ -723,6 +736,8 @@ export function OrgEventFormDialog({
               defaultStart={startAt ? startAt.slice(11, 16) : undefined}
               defaultEnd={endAt ? endAt.slice(11, 16) : undefined}
               eventLocalDate={startAt ? startAt.slice(0, 10) : undefined}
+              guestArtists={guestArtists}
+              onGuestArtistsChange={setGuestArtists}
             />
 
             {/* Dates */}

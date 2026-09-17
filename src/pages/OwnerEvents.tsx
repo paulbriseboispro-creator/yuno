@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { PARIS_TIMEZONE, toParisTime, fromParisTime, nowInParis, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
 import { notifyDjLineup } from '@/lib/djNotify';
 import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
+import { loadGuestArtists, saveGuestArtists, type GuestArtist } from '@/lib/guestArtists';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -127,6 +128,8 @@ export default function OwnerEvents() {
   const [isSaving, setIsSaving] = useState(false);
   const [lineupEntries, setLineupEntries] = useState<LineupEntry[]>([]);
   const [initialLineupEntries, setInitialLineupEntries] = useState<LineupEntry[]>([]);
+  // Line-up invité : artistes sans compte Yuno (nom + photo + Instagram).
+  const [guestArtists, setGuestArtists] = useState<GuestArtist[]>([]);
   const [formData, setFormData] = useState({
     title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '',
     isActive: true, musicGenres: ['Open Format'] as string[], eventType: 'club',
@@ -336,6 +339,11 @@ export default function OwnerEvents() {
       initialEntries: initialLineupEntries,
       eventGenres: formData.musicGenres,
     });
+    // Le line-up invité se persiste par DIFF (jamais delete+insert) : chaque
+    // ligne porte son compteur de clics Instagram, qu'un réenregistrement de la
+    // soirée ne doit pas remettre à zéro.
+    const guestRes = await saveGuestArtists(eventId, guestArtists);
+    for (const e of guestRes.errors) toast.error(`${e.name} : ${e.message}`);
     if (res.addedDirectIds.length > 0) notifyDjLineup(eventId, res.addedDirectIds);
     if (res.requestsSent > 0) {
       toast.success(
@@ -539,7 +547,7 @@ export default function OwnerEvents() {
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).select('id').single();
         if (error) throw error;
-        if (newEvent && lineupEntries.length > 0) {
+        if (newEvent && (lineupEntries.length > 0 || guestArtists.length > 0)) {
           await persistLineup(newEvent.id);
         }
         toast.success(t('owner.toastEventCreated'));
@@ -812,6 +820,7 @@ export default function OwnerEvents() {
     const entries = await loadLineupEntries(event.id);
     setLineupEntries(entries);
     setInitialLineupEntries(entries);
+    setGuestArtists(await loadGuestArtists(event.id));
     const { data: mdRow } = await supabase.from('events').select('minors_disabled').eq('id', event.id).maybeSingle();
     setMinorsDisabled(mdRow?.minors_disabled ?? false);
     // Contrat vivant + rattachement courant : c'est ce qui permet de proposer une
@@ -859,7 +868,7 @@ export default function OwnerEvents() {
   };
 
   const resetForm = () => {
-    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setVideoFile(null); setVideoRemoved(false); setLineupEntries([]); setInitialLineupEntries([]);
+    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setVideoFile(null); setVideoRemoved(false); setLineupEntries([]); setInitialLineupEntries([]); setGuestArtists([]);
     setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setCollabResponsibilities(defaultResponsibilities('co_event')); setLiveContract(null);
@@ -1229,6 +1238,8 @@ export default function OwnerEvents() {
               defaultStart={formData.startAt ? formData.startAt.slice(11, 16) : undefined}
               defaultEnd={formData.endAt ? formData.endAt.slice(11, 16) : undefined}
               eventLocalDate={formData.startAt ? formData.startAt.slice(0, 10) : undefined}
+              guestArtists={guestArtists}
+              onGuestArtistsChange={setGuestArtists}
             />
 
             {/* Dates */}
