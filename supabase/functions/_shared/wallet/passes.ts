@@ -130,6 +130,7 @@ interface WalletQuery<Row> {
   select(columns: string): WalletQuery<Row>;
   eq(column: string, value: unknown): WalletQuery<Row>;
   in(column: string, values: unknown[]): WalletQuery<Row>;
+  order(column: string): WalletQuery<Row>;
   single(): PromiseLike<{ data: Row | null; error: unknown }>;
   maybeSingle(): PromiseLike<{ data: Row | null; error?: unknown }>;
   then<R>(cb: (r: { data: Row[] | null; error?: unknown }) => R): PromiseLike<R>;
@@ -149,6 +150,7 @@ interface AdminClient {
   from(table: 'venues'): WalletQuery<WalletVenueRow>;
   from(table: 'organizer_profiles'): WalletQuery<{ display_name: string | null }>;
   from(table: 'event_djs'): WalletQuery<{ dj_id: string | null }>;
+  from(table: 'event_guest_artists'): WalletQuery<{ name: string | null }>;
   from(table: 'djs_public'): WalletQuery<{ id: string; stage_name: string | null }>;
   from(table: 'agencies'): WalletQuery<{ name: string | null }>;
   from(table: 'promoters'): WalletQuery<{ user_id: string | null; promo_code: string | null }>;
@@ -221,18 +223,33 @@ async function resolveBrand(admin: AdminClient, event: WalletEventRow): Promise<
 }
 
 /**
- * Line-up public de la soirée (`event_djs` → `djs_public`, la même porte que la
- * page événement). Sert au dos du pass ET aux `semantics.performerNames`, que
+ * Line-up public de la soirée — les DJ à compte Yuno (`event_djs` → `djs_public`)
+ * PUIS les artistes invités (`event_guest_artists`), dans le même ordre que la
+ * page événement. Sert au dos du pass ET aux `semantics.performerNames`, que
  * Wallet lit pour proposer la soirée sur l'écran verrouillé.
  */
 async function resolveLineup(admin: AdminClient, eventId: string | null | undefined): Promise<string[]> {
   if (!eventId) return [];
   try {
-    const { data: links } = await admin.from('event_djs').select('dj_id').eq('event_id', eventId);
-    const ids = (links ?? []).map((l) => l.dj_id).filter(Boolean) as string[];
-    if (ids.length === 0) return [];
-    const { data: djs } = await admin.from('djs_public').select('id, stage_name').in('id', ids);
-    return (djs ?? []).map((d) => d.stage_name).filter(Boolean) as string[];
+    // Le line-up a deux moitiés et le pass doit porter les deux : sans les
+    // invités, un billet annoncerait la moitié de l'affiche.
+    const [linksRes, guestsRes] = await Promise.all([
+      admin.from('event_djs').select('dj_id').eq('event_id', eventId),
+      admin.from('event_guest_artists').select('name').eq('event_id', eventId).order('position'),
+    ]);
+
+    const ids = (linksRes.data ?? []).map((l) => l.dj_id).filter(Boolean) as string[];
+    let djNames: string[] = [];
+    if (ids.length > 0) {
+      const { data: djs } = await admin.from('djs_public').select('id, stage_name').in('id', ids);
+      djNames = (djs ?? []).map((d) => d.stage_name).filter(Boolean) as string[];
+    }
+
+    const guestNames = (guestsRes.data ?? [])
+      .map((g) => (g.name ?? '').trim())
+      .filter(Boolean);
+
+    return [...djNames, ...guestNames];
   } catch {
     return [];
   }

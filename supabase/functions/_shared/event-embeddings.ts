@@ -58,6 +58,7 @@ interface EmbeddingAdminClient {
   from(table: "djs"): EmbeddingQuery<EmbeddableDjRow>;
   from(table: "dj_embeddings"): EmbeddingQuery<{ dj_id: string; content_hash: string }>;
   from(table: "event_djs"): EmbeddingQuery<{ event_id: string; dj_id: string }>;
+  from(table: "event_guest_artists"): EmbeddingQuery<{ event_id: string; name: string }>;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -146,6 +147,21 @@ export async function refreshEventEmbeddings(
       if (list) list.push(name);
       else lineups.set(row.event_id, [name]);
     }
+  }
+
+  // Artistes invités (sans compte Yuno) : leurs noms comptent autant que ceux
+  // des DJ Yuno pour décrire une soirée. Une affiche « Amoris b2b X » ne doit
+  // pas être vue comme une soirée sans tête d'affiche par le moteur de goût.
+  const { data: guestRows } = await admin
+    .from("event_guest_artists")
+    .select("event_id, name")
+    .in("event_id", events.map((e) => e.id));
+  for (const row of guestRows || []) {
+    const name = (row.name || "").trim();
+    if (!name) continue;
+    const list = lineups.get(row.event_id);
+    if (list) list.push(name);
+    else lineups.set(row.event_id, [name]);
   }
 
   // Candidats : embedding manquant ou contenu modifié.
