@@ -67,8 +67,14 @@ function NavItemRow({ item }: { item: SidebarNavItem }) {
 	const onParentPage = matchesPath(location, item);
 	// Sur `/owner/analytics` sans onglet, aucune sous-entrée ne matche alors qu'on
 	// REGARDE bien « Global » : c'est elle qu'il faut allumer, pas le parent.
+	// Plusieurs sous-entrées peuvent matcher : `/owner/campaigns/automations`
+	// tombe DANS « Campagnes » (`/owner/campaigns`) autant que dans
+	// « Automatisations ». La plus SPÉCIFIQUE gagne — sinon la première de la
+	// liste s'allume et la barre ment sur la page qu'on regarde.
 	const activeSub =
-		subItems.find((sub) => matchesPath(location, sub)) ??
+		subItems
+			.filter((sub) => matchesPath(location, sub))
+			.sort((a, b) => (b.path ?? "").length - (a.path ?? "").length)[0] ??
 		(onParentPage ? subItems.find((sub) => sub.isDefault) : undefined);
 	const inSection = !!activeSub || onParentPage;
 	const [open, setOpen] = useState(inSection);

@@ -112,7 +112,11 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   L'entrée active se déduit du PRÉFIXE de route (`/owner/campaigns/new` allume
   Campagnes email) : toute entrée dont le chemin préfixe son app entière
   (`/organizer-app`, `/agency-app`, `/dj`, `/affiliate`, `/promoter`) doit
-  porter `exact: true`, sinon elle reste allumée partout. Une entrée ajoutée
+  porter `exact: true`, sinon elle reste allumée partout. Entre deux
+  sous-entrées qui matchent (`/owner/campaigns/automations` tombe DANS
+  « Campagnes » autant que dans « Automatisations »), c'est la plus SPÉCIFIQUE
+  qui s'allume, jamais la première de la liste — sinon la barre nomme une autre
+  page que celle qu'on regarde. Une entrée ajoutée
   sans sous-entrée visible est une page injoignable : il n'y a plus de barre à
   35 lignes où tout se voit d'un coup. Réorganiser un groupe oblige à corriger
   les fils d'Ariane du mode d'emploi (`ohelp.*`, 3 langues) ET les snippets de
