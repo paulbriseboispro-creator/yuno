@@ -20,7 +20,7 @@ import {
 } from './hooks';
 import {
   StudioGlobalStyles, APP_BG, BORDER, FONT_UI, GhostBtn, PANEL_BG, PAGE_HALO,
-  PrimaryBtn, RED, SUBTLE, T1, T2, T3, TOPBAR_BG, UnderlineTabs,
+  PrimaryBtn, RED, SUBTLE, T1, T2, T3, TOPBAR_BG, UnderlineTabs, useShellHeight,
 } from './ui';
 import TopBar from './TopBar';
 import BlockPalette from './BlockPalette';
@@ -440,6 +440,9 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
 }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  // Le Studio tient dans la fenêtre, en-tête du shell pro compris : sans ça
+  // son bas (barre d'actions, fond de l'inspecteur) tombait sous le pli.
+  const { ref: shellRef, height: shellHeight } = useShellHeight<HTMLDivElement>();
   const step = useStudio((s) => s.step);
   const setStep = useStudio((s) => s.setStep);
   // Un modèle n'a qu'un écran : le Studio. Toute tentative d'aller plus loin
@@ -534,7 +537,7 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
   // ── Écran Envoi : plein écran, sans en-tête de parcours ───────────────────
   if (step === 'sending') {
     return (
-      <div className="yn-studio" style={{ height: '100vh', background: APP_BG, overflow: 'hidden', position: 'relative' }}>
+      <div ref={shellRef} className="yn-studio" style={{ height: shellHeight, background: APP_BG, overflow: 'hidden', position: 'relative' }}>
         <SendingStep onExit={() => navigate(basePath)} onStudio={() => setStep('studio')} />
         <TestEmailDialog
           open={testOpen}
@@ -547,8 +550,8 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
   }
 
   return (
-    <div className="yn-studio" style={{
-      height: '100vh', display: 'flex', flexDirection: 'column',
+    <div ref={shellRef} className="yn-studio" style={{
+      height: shellHeight, display: 'flex', flexDirection: 'column',
       background: APP_BG, overflow: 'hidden', position: 'relative',
     }}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: PAGE_HALO }} />

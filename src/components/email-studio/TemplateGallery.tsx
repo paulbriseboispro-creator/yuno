@@ -15,7 +15,7 @@ import { useEmailTemplates, useStudioEvents, type StudioEvent, type StudioScope 
 import { DeleteTemplateDialog, RenameTemplateDialog } from './TemplateDialogs';
 import {
   APP_BG, BORDER, BORDER_FAINT, FONT_UI, FLOW_CARD_BG, FLOW_CARD_SHADOW, GhostBtn, PAGE_HALO,
-  PrimaryBtn, RED, SUBTLE, T1, T2, T3, TextInput, TOPBAR_BG,
+  PrimaryBtn, RED, SUBTLE, T1, T2, T3, TextInput, TOPBAR_BG, useShellHeight,
 } from './ui';
 
 /** Thème du club mémorisé par le panneau Thème — sinon le preset par défaut. */
@@ -54,6 +54,8 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
   const [pendingDelete, setPendingDelete] = useState<EmailTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
   const theme = useMemo(clubTheme, []);
+  // L'écran tient dans la fenêtre : la barre de création reste sous les yeux.
+  const { ref: shellRef, height: shellHeight } = useShellHeight<HTMLDivElement>();
 
   const starters = useMemo(
     () => STARTER_TEMPLATES.map((meta) => ({
@@ -138,8 +140,8 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
   };
 
   return (
-    <div className="yn-studio" style={{
-      height: '100vh', overflow: 'hidden', background: APP_BG, position: 'relative',
+    <div ref={shellRef} className="yn-studio" style={{
+      height: shellHeight, overflow: 'hidden', background: APP_BG, position: 'relative',
       display: 'flex', flexDirection: 'column', fontFamily: FONT_UI,
     }}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: PAGE_HALO }} />
@@ -160,7 +162,7 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
         </div>
       </header>
 
-      <div style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: '26px 28px 140px' }}>
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, overflowY: 'auto', padding: '26px 28px 48px' }}>
         <div style={{ maxWidth: 1160, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 26 }}>
 
           <p style={{ color: T2, fontSize: 13, margin: 0, maxWidth: 640 }}>{t('studio.tpl.newSub')}</p>

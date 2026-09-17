@@ -1,4 +1,7 @@
-import { CSSProperties, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes, forwardRef, useEffect } from 'react';
+import {
+  CSSProperties, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes,
+  forwardRef, useEffect, useLayoutEffect, useRef, useState,
+} from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Email Studio — tokens UI + primitives.
@@ -35,6 +38,44 @@ export const RED_RADIAL_BG = 'radial-gradient(ellipse 70% 50% at 90% -20%, rgba(
 export const ACTIVE_GRAD = 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))';
 export const RED_SOFT_GRAD = 'linear-gradient(135deg,rgba(232,25,44,0.12),rgba(232,25,44,0.03))';
 export const PAGE_HALO = 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)';
+
+/**
+ * Hauteur réellement disponible pour un écran plein du Studio.
+ *
+ * Le Studio occupe tout l'écran — mais il ne commence pas toujours en haut de
+ * la fenêtre : l'app organisateur pose son en-tête au-dessus de lui. Un
+ * `height: 100vh` nu poussait donc son BAS sous le pli, et la barre de
+ * création d'une campagne (nom, soirée, bouton) n'apparaissait qu'après avoir
+ * fait défiler la page du shell. On retranche l'écart de mise en page : on
+ * additionne les `offsetTop`, qui décrivent la position posée par la mise en
+ * page et ne bougent PAS avec le défilement, contrairement à un
+ * `getBoundingClientRect()`.
+ */
+export function useShellHeight<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [top, setTop] = useState(0);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = ref.current;
+      if (!el) return;
+      let offset = 0;
+      for (let n: HTMLElement | null = el; n; n = n.offsetParent as HTMLElement | null) offset += n.offsetTop;
+      setTop((prev) => (Math.abs(prev - offset) > 0.5 ? offset : prev));
+    };
+    measure();
+    // Une seconde passe à la frame suivante : l'en-tête du shell peut encore
+    // grandir (polices, bannières) après le premier rendu.
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  return { ref, height: top > 0 ? `calc(100dvh - ${Math.round(top)}px)` : '100dvh' };
+}
 
 /** Styles globaux du Studio : scrollbars fines, animations ynIn / ynPing. */
 export function StudioGlobalStyles() {
