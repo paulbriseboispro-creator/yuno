@@ -11,8 +11,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowLeft, CalendarPlus, Clock3, Crown, Eye, HeartHandshake, Loader2, MailOpen, Moon, PartyPopper, ScanLine,
-  ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, Target, TrendingUp, UserRoundPlus, Zap,
+  AlertTriangle, ArrowLeft, CalendarPlus, ChevronDown, Clock3, Crown, Eye, HeartHandshake, Info, Loader2, MailOpen, Moon,
+  PartyPopper, ScanLine, ShieldAlert, ShieldCheck, ShoppingCart, Sparkles, Target, TrendingUp, UserRoundPlus, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +48,19 @@ const ICONS: Record<AutomationKind, typeof Zap> = {
   tier_closing: TrendingUp,
   new_event: CalendarPlus,
 };
+
+/**
+ * Les cinq règles du moteur. Repliées, elles tiennent en une rangée de
+ * pastilles ; dépliées, chacune garde sa phrase complète. Les cinq paragraphes
+ * en grille tombaient en 4 + 1 et mangeaient l'écran avant la première recette.
+ */
+const HOW_RULES = [
+  { icon: Sparkles, key: 'how1' },
+  { icon: ShieldCheck, key: 'how2' },
+  { icon: Moon, key: 'how3' },
+  { icon: Clock3, key: 'how4' },
+  { icon: ShieldAlert, key: 'how5' },
+] as const;
 
 const SKIP_REASONS: readonly AutomationSkipReason[] = [
   'bought', 'guest_list', 'has_table', 'unsubscribed', 'suppressed', 'no_consent', 'cooldown', 'event_over',
@@ -86,6 +99,8 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<AutomationKind | null>(null);
   const [preview, setPreview] = useState<AutomationKind | null>(null);
+  /** Les règles du moteur : repliées par défaut, on vient ici pour allumer une recette. */
+  const [howOpen, setHowOpen] = useState(false);
 
   const isPlatform = scope.kind === 'platform';
   const scopeCol = scope.kind === 'venue' ? 'venue_id' : 'organizer_user_id';
@@ -219,7 +234,7 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
       <div className="max-w-[1100px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
           <button
             onClick={() => navigate(basePath)} aria-label={t('studio.top.back')} className="cursor-pointer"
             style={{ width: 34, height: 34, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', background: INNER_BG, border: `1px solid ${BORDER}`, flex: 'none', marginBottom: 2 }}
@@ -229,27 +244,57 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
           <div style={{ flex: 1 }}>
             <div style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{scope.name}</div>
             <h1 style={{ margin: '6px 0 0', color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{t('em.auto.title')}</h1>
-            <div style={{ color: T2, fontSize: 13, marginTop: 6, lineHeight: 1.5, maxWidth: 720 }}>{isPlatform ? t('em.auto.platformNote') : t('em.auto.subtitle')}</div>
+            <div style={{ color: T2, fontSize: 13, marginTop: 6, lineHeight: 1.5, maxWidth: 620 }}>{isPlatform ? t('em.auto.platformNote') : t('em.auto.subtitle')}</div>
           </div>
           <div style={{ padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, color: enabledCount > 0 ? POS : T3, background: enabledCount > 0 ? 'rgba(52,211,153,0.10)' : INNER_BG, border: `1px solid ${enabledCount > 0 ? 'rgba(52,211,153,0.25)' : BORDER}`, flex: 'none' }}>
             {t('em.auto.enabledCount').replace('{n}', String(enabledCount))}
           </div>
         </div>
 
-        {/* ── Comment ça marche ── */}
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '14px 18px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          {[
-            { icon: Sparkles, key: 'how1' },
-            { icon: ShieldCheck, key: 'how2' },
-            { icon: Moon, key: 'how3' },
-            { icon: Clock3, key: 'how4' },
-            { icon: ShieldAlert, key: 'how5' },
-          ].map(({ icon: Icon, key }) => (
-            <div key={key} className="flex items-start gap-2.5">
-              <Icon className="w-4 h-4 shrink-0 mt-0.5" style={{ color: RED }} />
-              <span style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>{t(`em.auto.${key}`)}</span>
+        {/* ── Comment ça marche — replié, c'est une rangée de pastilles ── */}
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '11px 14px' }}>
+          <button
+            type="button" aria-expanded={howOpen} onClick={() => setHowOpen((v) => !v)}
+            className="w-full flex items-center gap-2.5 text-left cursor-pointer"
+            style={{ background: 'none', border: 'none', padding: 0 }}
+          >
+            <Info className="w-4 h-4 shrink-0" style={{ color: T3 }} />
+            <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('em.auto.howTitle')}</span>
+            <ChevronDown
+              className="w-4 h-4 ml-auto shrink-0"
+              style={{ color: T3, transform: howOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }}
+            />
+          </button>
+          {howOpen ? (
+            <div className="mt-3 flex flex-col gap-2">
+              {HOW_RULES.map(({ icon: Icon, key }) => (
+                <div
+                  key={key}
+                  className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3"
+                  style={{ padding: '9px 11px', borderRadius: 11, background: INNER_BG, border: `1px solid ${BORDER}` }}
+                >
+                  <span className="flex items-center gap-2 shrink-0" style={{ width: 138 }}>
+                    <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: RED }} />
+                    <span style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{t(`em.auto.${key}.short`)}</span>
+                  </span>
+                  {/* Borné : au-delà de ~75 caractères la ligne se relit mal. */}
+                  <span className="min-w-0" style={{ color: T2, fontSize: 12, lineHeight: 1.55, maxWidth: 660 }}>{t(`em.auto.${key}`)}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {HOW_RULES.map(({ icon: Icon, key }) => (
+                <span
+                  key={key} className="inline-flex items-center gap-1.5"
+                  style={{ padding: '5px 10px', borderRadius: 999, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5, fontWeight: 500 }}
+                >
+                  <Icon className="w-3 h-3 shrink-0" style={{ color: RED }} />
+                  {t(`em.auto.${key}.short`)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Yuno te propose d'allumer… (recettes éteintes que les faits justifient) ── */}
