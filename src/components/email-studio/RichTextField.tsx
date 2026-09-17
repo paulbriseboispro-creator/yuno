@@ -1,9 +1,9 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { ClipboardEvent, CSSProperties, KeyboardEvent } from 'react';
 import type { MarkupAttr, MarkupDoc, MarkupToggle } from '@/lib/email';
 import {
-  attrAt, clampMarkupSize, clearRange, escapeHtml, normalizeAttr, parseMarkup,
-  patchRange, rangeHas, replaceRange, replaceRangeWithDoc, sameAttr, serializeMarkup,
+  attrAt, clampMarkupSize, clearRange, contrastRatio, escapeHtml, isHexColor, normalizeAttr,
+  parseMarkup, patchRange, rangeHas, replaceRange, replaceRangeWithDoc, sameAttr, serializeMarkup,
 } from '@/lib/email';
 
 /**
@@ -51,6 +51,13 @@ interface Props {
   onChange: (markup: string) => void;
   /** Accent du thème : la couleur réelle derrière `[c=accent]` et les liens. */
   accent: string;
+  /**
+   * Fond du bloc dans l'email, et encre par défaut de ce bloc. Le champ se
+   * peint avec : un texte noir se lit sur le blanc de l'email, pas sur le noir
+   * du panneau — et un texte invisible dans l'email l'est aussi ici.
+   */
+  background?: string;
+  ink?: string;
   /** Mot posé quand on clique un style sans rien avoir sélectionné. */
   placeholder: string;
   ariaLabel?: string;
@@ -58,6 +65,9 @@ interface Props {
   /** Libellés du rappel « mise en forme collée » (sans eux, pas de rappel). */
   pasteKeptLabel?: string;
   pastePlainLabel?: string;
+  /** Libellés de l'alerte « cette couleur ne se lit pas sur ce fond ». */
+  unreadableLabel?: string;
+  unreadableFixLabel?: string;
 }
 
 // ── Document → HTML de l'éditeur ─────────────────────────────────────────────
@@ -330,7 +340,7 @@ const CLIPBOARD_DROP = 'script,style,noscript,template,head,meta,link,title,ifra
  * du balisage. C'est l'invariant du Studio — le bloc ne stocke que du markup,
  * l'email n'affiche jamais du HTML écrit par quelqu'un d'autre.
  */
-function htmlToDoc(html: string): MarkupDoc | null {
+function htmlToDoc(html: string, bg?: string): MarkupDoc | null {
   if (typeof DOMParser === 'undefined') return null;
   let body: HTMLElement | null = null;
   try {
@@ -342,7 +352,27 @@ function htmlToDoc(html: string): MarkupDoc | null {
   } catch {
     return null;
   }
-  return tidyPastedDoc(scan(body, false).doc);
+  return dropUnreadableInk(tidyPastedDoc(scan(body, false).doc), bg);
+}
+
+/**
+ * Une couleur importée qui ne se lit pas sur le fond du bloc est JETÉE, pas
+ * collée : copier depuis une page sombre posait sinon du texte blanc sur le
+ * blanc de l'email — présent dans le modèle, invisible chez le client. Sans
+ * couleur, le passage retombe sur l'encre par défaut du bloc, qui elle suit le
+ * fond.
+ */
+function dropUnreadableInk(doc: MarkupDoc, bg?: string): MarkupDoc {
+  if (!bg || !isHexColor(bg)) return doc;
+  return {
+    text: doc.text,
+    attrs: doc.attrs.map((a) => {
+      const c = a?.color && isHexColor(a.color) ? a.color.trim() : null;
+      if (!c || !unreadableOn(c, bg)) return a;
+      const { color: _drop, ...rest } = a;
+      return rest;
+    }),
+  };
 }
 
 /**
@@ -402,10 +432,28 @@ function tidyPastedDoc(doc: MarkupDoc): MarkupDoc {
   return { text: text.join(''), attrs };
 }
 
+/** La couleur RÉELLE d'un passage (`accent` résolu), ou rien. */
+function inkOf(attr: MarkupAttr | undefined, accent: string): string | null {
+  const c = attr?.color === 'accent' ? accent : attr?.color;
+  return c && isHexColor(c) ? c.trim() : null;
+}
+
+/**
+ * Une couleur ne se lit pas sur un fond quand leur contraste tombe sous 2:1 —
+ * du blanc sur blanc, du noir sur noir. En dessous, ce n'est plus une nuance,
+ * c'est du texte perdu.
+ */
+const READABLE_MIN = 2;
+const unreadableOn = (color: string, bg: string) =>
+  isHexColor(bg) && contrastRatio(color, bg) < READABLE_MIN;
+
 // ── Le champ ─────────────────────────────────────────────────────────────────
 
 const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
-  { value, onChange, accent, placeholder, ariaLabel, style, pasteKeptLabel, pastePlainLabel }, handleRef,
+  {
+    value, onChange, accent, background, ink, placeholder, ariaLabel, style,
+    pasteKeptLabel, pastePlainLabel, unreadableLabel, unreadableFixLabel,
+  }, handleRef,
 ) {
   const boxRef = useRef<HTMLDivElement>(null);
   /** Dernier markup connu — ce qui distingue « je viens de l'écrire » de « on me l'impose ». */
@@ -440,8 +488,10 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     const el = boxRef.current;
     if (!el) return;
     if (value === known.current && accent === shownAccent.current) return;
-    const keepCaret = value === known.current;
-    const sel = keepCaret ? scan(el, true).sel : null;
+    // Le curseur est repris tel quel (borné à la nouvelle longueur) : c'est ce
+    // qui rend ⌘Z utilisable en pleine frappe — sans lui, chaque annulation
+    // renvoyait le curseur au début du bloc.
+    const sel = scan(el, true).sel;
     paint(value, sel?.start, sel?.end);
     setPasted(null);
   }, [value, accent, paint]);
@@ -530,7 +580,7 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     e.preventDefault();
     const plain = (e.clipboardData.getData('text/plain') || '').replace(/\r\n?/g, '\n');
     const html = e.clipboardData.getData('text/html');
-    const rich = html ? htmlToDoc(html) : null;
+    const rich = html ? htmlToDoc(html, background) : null;
     const insert = rich && rich.text ? rich : parseMarkup(plain);
     if (!insert.text) return;
     mutate((doc, start, end) => {
@@ -538,7 +588,7 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
       setPasted(rich && rich.text && plain.trim() ? { start, end: caret, plain } : null);
       return { doc: replaceRangeWithDoc(doc, start, end, insert), start: caret, end: caret };
     });
-  }, [mutate]);
+  }, [mutate, background]);
 
   /** Le même collage, sans rien garder : la porte de sortie du collage riche. */
   const pasteAsPlainText = useCallback(() => {
@@ -568,7 +618,37 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     applyToSelection({ [mark]: on } as Partial<MarkupAttr>);
   }, [applyToSelection]);
 
+  /** Des couleurs du texte qui ne se lisent pas sur le fond du bloc ? */
+  const hasUnreadableInk = useMemo(() => {
+    if (!background || !isHexColor(background)) return false;
+    const doc = parseMarkup(value);
+    return doc.attrs.some((a, i) => {
+      if (doc.text[i] === '\n') return false;
+      const c = inkOf(a, accent);
+      return !!c && unreadableOn(c, background);
+    });
+  }, [value, background, accent]);
+
+  /** Retire ces couleurs-là : le passage repart sur l'encre du bloc. */
+  const clearUnreadableInk = useCallback(() => {
+    if (!background) return;
+    mutate((doc, start, end) => ({
+      doc: {
+        text: doc.text,
+        attrs: doc.attrs.map((a) => {
+          const c = inkOf(a, accent);
+          if (!c || !unreadableOn(c, background)) return a;
+          const { color: _drop, ...rest } = a;
+          return rest;
+        }),
+      },
+      start,
+      end,
+    }));
+  }, [mutate, background, accent]);
+
   const showPasteUndo = !!pasted && !!pasteKeptLabel && !!pastePlainLabel;
+  const showInkWarning = hasUnreadableInk && !!unreadableLabel && !!unreadableFixLabel;
 
   return (
     <>
@@ -589,29 +669,46 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
           overflowWrap: 'break-word',
           outline: 'none',
           ...style,
+          // Le champ porte les couleurs de l'EMAIL, pas celles du panneau :
+          // c'est la seule façon de voir qu'un texte noir se lit sur le blanc
+          // de la campagne, et qu'un texte blanc n'y existe pas.
+          ...(background ? { background, caretColor: ink } : null),
+          ...(ink ? { color: ink } : null),
         }}
       />
       {showPasteUndo && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-          fontSize: 11, color: 'rgba(255,255,255,0.45)',
-        }}>
-          <span>{pasteKeptLabel}</span>
-          <button
-            type="button"
-            // onMouseDown : un bouton qui prend le focus ferait sortir du champ,
-            // et le rappel disparaîtrait avant même d'être cliqué.
-            onMouseDown={(e) => { e.preventDefault(); pasteAsPlainText(); }}
-            style={{
-              padding: '3px 8px', borderRadius: 7, cursor: 'pointer',
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.085)',
-              color: 'rgba(255,255,255,0.72)', fontSize: 11, fontFamily: 'inherit',
-            }}
-          >{pastePlainLabel}</button>
-        </div>
+        <NoticeRow label={pasteKeptLabel!} action={pastePlainLabel!} onAct={pasteAsPlainText} />
+      )}
+      {showInkWarning && (
+        <NoticeRow label={unreadableLabel!} action={unreadableFixLabel!} onAct={clearUnreadableInk} warn />
       )}
     </>
   );
 });
+
+/** Une ligne de rappel sous le champ : un constat, un bouton qui le règle. */
+function NoticeRow({ label, action, onAct, warn }: {
+  label: string; action: string; onAct: () => void; warn?: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+      fontSize: 11, color: warn ? '#FCD34D' : 'rgba(255,255,255,0.45)',
+    }}>
+      <span>{label}</span>
+      <button
+        type="button"
+        // onMouseDown : un bouton qui prend le focus ferait sortir du champ, et
+        // le rappel disparaîtrait avant même d'être cliqué.
+        onMouseDown={(e) => { e.preventDefault(); onAct(); }}
+        style={{
+          padding: '3px 8px', borderRadius: 7, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.085)',
+          color: 'rgba(255,255,255,0.72)', fontSize: 11, fontFamily: 'inherit',
+        }}
+      >{action}</button>
+    </div>
+  );
+}
 
 export default RichTextField;

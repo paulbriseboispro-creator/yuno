@@ -12679,6 +12679,8 @@ const en: Record<string, string> = {
   'studio.inspector.fmtHint': 'Select part of the text then click a style: you see the result, not the codes. Click the same colour or size again to remove it, or use the eraser to clear everything. Pasted text keeps its formatting; ⇧⌘V pastes it as plain text.',
   'studio.inspector.pasteKept': 'Formatting pasted',
   'studio.inspector.pastePlain': 'Paste as plain text',
+  'studio.inspector.inkUnreadable': 'One of the text colours cannot be read on this background.',
+  'studio.inspector.inkUnreadableFix': 'Make it readable',
   'studio.inspector.ticketsNone': 'No tickets and no public guest list on this event — this block will not be sent.',
   'studio.inspector.ctaColor': 'Button color',
   'studio.inspector.ctaColorAuto': 'Back to theme color',

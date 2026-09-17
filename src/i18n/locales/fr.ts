@@ -12653,6 +12653,8 @@ const fr: Record<string, string> = {
   'studio.inspector.fmtHint': 'Sélectionne une partie du texte puis clique un style : tu vois le résultat, pas les codes. Reclique la même couleur ou la même taille pour l’enlever, ou utilise la gomme pour tout retirer. Un texte collé garde sa mise en forme ; ⇧⌘V le colle en texte brut.',
   'studio.inspector.pasteKept': 'Mise en forme collée',
   'studio.inspector.pastePlain': 'Coller en texte brut',
+  'studio.inspector.inkUnreadable': 'Une couleur du texte ne se lit pas sur ce fond.',
+  'studio.inspector.inkUnreadableFix': 'Rendre lisible',
   'studio.inspector.ticketsNone': 'Aucun billet ni liste invités publique sur cette soirée — ce bloc ne sera pas envoyé.',
   'studio.inspector.ctaColor': 'Couleur du bouton',
   'studio.inspector.ctaColorAuto': 'Revenir à la couleur du thème',

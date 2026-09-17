@@ -13021,6 +13021,8 @@ const es: Record<string, string> = {
   'studio.inspector.fmtHint': 'Selecciona una parte del texto y pulsa un estilo: ves el resultado, no los códigos. Vuelve a pulsar el mismo color o tamaño para quitarlo, o usa la goma para borrarlo todo. Un texto pegado conserva su formato; ⇧⌘V lo pega como texto sin formato.',
   'studio.inspector.pasteKept': 'Formato pegado',
   'studio.inspector.pastePlain': 'Pegar como texto sin formato',
+  'studio.inspector.inkUnreadable': 'Un color del texto no se lee sobre este fondo.',
+  'studio.inspector.inkUnreadableFix': 'Hacerlo legible',
   'studio.inspector.ticketsNone': 'Este evento no tiene ni entradas ni lista de invitados pública — este bloque no se enviará.',
   'studio.inspector.ctaColor': 'Color del botón',
   'studio.inspector.ctaColorAuto': 'Volver al color del tema',

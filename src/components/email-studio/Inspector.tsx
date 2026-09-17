@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, EyeOff, Italic, Link2, Lock,
   MousePointer, PanelBottom, Plus, RefreshCw, RemoveFormatting, Strikethrough, Trash2,
@@ -12,12 +12,16 @@ import type {
   LiveData, SpacerBlock, TableBlock, TablePackRow, TextBlock, TicketRow,
   TicketsBlock, GuestListBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
-import { blockPadDefaults, BLOCK_COND_LABELS, BLOCK_CONDS } from '@/lib/email';
+import {
+  blockPadDefaults, defaultInkOn, isHexColor, solidBlockBg,
+  BLOCK_COND_LABELS, BLOCK_CONDS,
+} from '@/lib/email';
 import RichTextField from './RichTextField';
 import type { RichTextHandle } from './RichTextField';
 import { useStudio } from './store';
 import type { StudioEvent } from './hooks';
 import { blockMeta, FOOTER_SELECTION_ID } from './meta';
+import { blockBgColor } from './blocks/common';
 import {
   BORDER, FONT_UI, Help, IconBtn, MicroLabel, MONO, OptionPills, PanelCard, POS,
   RED, SUBTLE, T1, T3, TextArea, TextInput, ToggleRow, inputStyle,
@@ -298,11 +302,14 @@ const FMT_SIZES = [12, 14, 18, 22, 28] as const;
  * pose un mot d'exemple déjà mis en forme, sinon il n'aurait aucun effet
  * visible.
  */
-function TextEditorWithFormatBar({ body, onBody, accent }: {
+function TextEditorWithFormatBar({ body, onBody, accent, background, ink }: {
   body: string;
   onBody: (v: string) => void;
   /** Couleur d'accent du thème : ce que `[c=accent]` et les liens valent à l'écran. */
   accent: string;
+  /** Fond du bloc dans l'email, et encre par défaut : le champ s'y peint. */
+  background: string;
+  ink: string;
 }) {
   const { t } = useLanguage();
   const editor = useRef<RichTextHandle>(null);
@@ -391,10 +398,14 @@ function TextEditorWithFormatBar({ body, onBody, accent }: {
         value={body}
         onChange={onBody}
         accent={accent}
+        background={background}
+        ink={ink}
         placeholder={t('studio.inspector.fmtPlaceholder')}
         ariaLabel={t('studio.inspector.textContent')}
         pasteKeptLabel={t('studio.inspector.pasteKept')}
         pastePlainLabel={t('studio.inspector.pastePlain')}
+        unreadableLabel={t('studio.inspector.inkUnreadable')}
+        unreadableFixLabel={t('studio.inspector.inkUnreadableFix')}
         style={{ ...inputStyle, minHeight: 120, lineHeight: 1.55 }}
       />
       <Help>{t('studio.inspector.fmtHint')}</Help>
@@ -581,11 +592,22 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
   switch (block.type) {
     case 'text': {
       const b = block as TextBlock;
+      // Le fond réel du bloc dans l'email : le sien s'il en pose un, sinon la
+      // carte. C'est lui qui décide de l'encre par défaut — et le champ de
+      // saisie se peint avec, pour montrer ce que le client verra.
+      const textBg = solidBlockBg(blockBgColor(b, theme), theme);
+      const textInk = isHexColor(b.color) ? b.color.trim() : defaultInkOn(blockBgColor(b, theme), theme);
       return (
         <>
           <PanelCard>
             <MicroLabel>{t('studio.inspector.textContent')}</MicroLabel>
-            <TextEditorWithFormatBar body={b.body} onBody={(body) => patch({ body })} accent={theme.accent} />
+            <TextEditorWithFormatBar
+              body={b.body}
+              onBody={(body) => patch({ body })}
+              accent={theme.accent}
+              background={textBg}
+              ink={textInk}
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: T3, fontSize: 11, fontFamily: FONT_UI }}>
               <Braces size={12} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />
               {t('studio.inspector.textVarsHint')}
@@ -603,7 +625,7 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
             <ThemedColor
               label={t('studio.inspector.textColor')}
               value={b.color}
-              themeDefault={theme.text}
+              themeDefault={defaultInkOn(blockBgColor(b, theme), theme)}
               onChange={(v) => patch({ color: v })}
             />
           </PanelCard>
