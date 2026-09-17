@@ -121,6 +121,46 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   35 lignes où tout se voit d'un coup. Réorganiser un groupe oblige à corriger
   les fils d'Ariane du mode d'emploi (`ohelp.*`, 3 langues) ET les snippets de
   `owner-assistant` — ils nomment les groupes en toutes lettres.
+- **Le line-up d'une soirée a DEUX moitiés, et une seule bande à l'écran**
+  (2026-09-17, migrations `20260917100000`→`100200`). Les DJ à compte Yuno vivent
+  dans `event_djs` → `djs` et passent par le handshake booking
+  (`src/lib/djLineup.ts`) ; les artistes SANS compte vivent dans
+  `event_guest_artists` (nom, photo, Instagram, `position`) et n'ont rien à
+  valider. Un artiste invité n'est JAMAIS une ligne `djs` : pas de page
+  publique, pas de booking, pas de cachet, pas d'audience — c'est ce qui permet
+  de mettre n'importe quel nom à l'affiche sans polluer l'annuaire des DJ. Les
+  deux moitiés se composent dans le MÊME composant (`DJLineupSelector`, qui
+  embarque `GuestArtistsEditor`), donc les deux formulaires de soirée — club et
+  organisateur — en héritent sans le savoir, et s'affichent dans la même bande
+  sur `EventDetails`, invités en second. Elles se propagent ensemble au dos du
+  pass Wallet (`_shared/wallet/passes.ts`, `resolveLineup`) et au texte du
+  moteur de goût (`_shared/event-embeddings.ts`) : redéployer
+  `send-ticket-confirmation` + `send-vip-confirmation` ENSEMBLE, et
+  `process-scheduled-campaigns` pour les embeddings.
+  **La photo se met à la main, et c'est la bonne réponse.** Mesuré le 17/09 :
+  Instagram n'a plus d'API publique de profil, le HTML de instagram.com est un
+  mur JS sans `og:image`, et le dernier endpoint interne qui répondait encore
+  (`users/web_profile_info`) est bloqué depuis les IP de datacenter — 0 réussite
+  sur 6 depuis une edge function Supabase, alors que le même appel passe depuis
+  une connexion résidentielle. Une edge `artist-avatar` a été écrite, déployée,
+  mesurée, puis SUPPRIMÉE (slot rendu) : ne pas la ressusciter sans nouvelle
+  mesure. Ce qui coûte cher au pro n'est pas la première saisie mais sa
+  répétition hebdomadaire — d'où `get_guest_artist_book()`, qui repropose en un
+  clic tout artiste déjà programmé par l'appelant, avec sa photo et son
+  Instagram.
+  **Le clic sortant se mesure sans cookie** : `track_guest_artist_click`
+  (SECURITY DEFINER, visiteur reconstruit par `links_visitor_context()`, dédup
+  30 min par visiteur et par artiste, anti-flood 60/h) incrémente
+  `event_guest_artists.instagram_clicks` ; lecture pro par
+  `get_event_guest_artist_clicks(event)`, gardée par `can_manage_event_design`
+  — la fonction qui REPRODUIT la policy « design » d'`event_djs` et sert de
+  porte unique à la table, à la RPC de lecture et au carnet. Piège déjà payé :
+  le trigger de normalisation porte une LISTE DE COLONNES
+  (`UPDATE OF name, photo_url, instagram_url, instagram_handle, position`) —
+  sans elle, l'incrément du compteur déclenche le trigger, qui rétablit
+  `OLD.instagram_clicks` et fige le compteur à zéro. Et la persistance du
+  line-up invité se fait par DIFF, jamais par delete+insert comme `event_djs` :
+  chaque ligne porte son compteur.
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
