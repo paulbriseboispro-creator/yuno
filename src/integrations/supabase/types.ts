@@ -3018,12 +3018,15 @@ export type Database = {
           email_count: number
           email_import_id: string | null
           filename: string | null
+          fingerprint: string | null
           id: string
           list_name: string | null
           organizer_user_id: string | null
           phone_count: number
           row_count: number
           sms_import_id: string | null
+          superseded_at: string | null
+          superseded_by: string | null
           venue_id: string | null
         }
         Insert: {
@@ -3043,12 +3046,15 @@ export type Database = {
           email_count?: number
           email_import_id?: string | null
           filename?: string | null
+          fingerprint?: string | null
           id?: string
           list_name?: string | null
           organizer_user_id?: string | null
           phone_count?: number
           row_count?: number
           sms_import_id?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
           venue_id?: string | null
         }
         Update: {
@@ -3068,12 +3074,15 @@ export type Database = {
           email_count?: number
           email_import_id?: string | null
           filename?: string | null
+          fingerprint?: string | null
           id?: string
           list_name?: string | null
           organizer_user_id?: string | null
           phone_count?: number
           row_count?: number
           sms_import_id?: string | null
+          superseded_at?: string | null
+          superseded_by?: string | null
           venue_id?: string | null
         }
         Relationships: [
@@ -3103,6 +3112,13 @@ export type Database = {
             columns: ["sms_import_id"]
             isOneToOne: false
             referencedRelation: "sms_list_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_list_imports_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "contact_list_imports"
             referencedColumns: ["id"]
           },
           {
@@ -5406,6 +5422,7 @@ export type Database = {
           segment_id: string | null
           send_started_at: string | null
           sent_at: string | null
+          sent_via_support: boolean
           social_links_json: Json | null
           status: string
           subject: string
@@ -5470,6 +5487,7 @@ export type Database = {
           segment_id?: string | null
           send_started_at?: string | null
           sent_at?: string | null
+          sent_via_support?: boolean
           social_links_json?: Json | null
           status?: string
           subject: string
@@ -5534,6 +5552,7 @@ export type Database = {
           segment_id?: string | null
           send_started_at?: string | null
           sent_at?: string | null
+          sent_via_support?: boolean
           social_links_json?: Json | null
           status?: string
           subject?: string
@@ -5754,6 +5773,7 @@ export type Database = {
           created_at: string
           duplicate_count: number
           filename: string | null
+          fingerprint: string | null
           id: string
           inserted_count: number
           invalid_count: number
@@ -5761,6 +5781,8 @@ export type Database = {
           organizer_user_id: string | null
           reactivated_count: number
           submitted_count: number
+          superseded_at: string | null
+          superseded_by: string | null
           suppressed_count: number
           unchanged_count: number
           venue_id: string | null
@@ -5775,6 +5797,7 @@ export type Database = {
           created_at?: string
           duplicate_count?: number
           filename?: string | null
+          fingerprint?: string | null
           id?: string
           inserted_count?: number
           invalid_count?: number
@@ -5782,6 +5805,8 @@ export type Database = {
           organizer_user_id?: string | null
           reactivated_count?: number
           submitted_count?: number
+          superseded_at?: string | null
+          superseded_by?: string | null
           suppressed_count?: number
           unchanged_count?: number
           venue_id?: string | null
@@ -5796,6 +5821,7 @@ export type Database = {
           created_at?: string
           duplicate_count?: number
           filename?: string | null
+          fingerprint?: string | null
           id?: string
           inserted_count?: number
           invalid_count?: number
@@ -5803,6 +5829,8 @@ export type Database = {
           organizer_user_id?: string | null
           reactivated_count?: number
           submitted_count?: number
+          superseded_at?: string | null
+          superseded_by?: string | null
           suppressed_count?: number
           unchanged_count?: number
           venue_id?: string | null
@@ -5820,6 +5848,13 @@ export type Database = {
             columns: ["organizer_user_id"]
             isOneToOne: false
             referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_list_imports_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "email_list_imports"
             referencedColumns: ["id"]
           },
           {
@@ -13266,12 +13301,15 @@ export type Database = {
           default_country: string | null
           duplicate_count: number
           filename: string | null
+          fingerprint: string | null
           id: string
           inserted_count: number
           invalid_count: number
           list_name: string | null
           organizer_user_id: string | null
           submitted_count: number
+          superseded_at: string | null
+          superseded_by: string | null
           suppressed_count: number
           unchanged_count: number
           venue_id: string | null
@@ -13287,12 +13325,15 @@ export type Database = {
           default_country?: string | null
           duplicate_count?: number
           filename?: string | null
+          fingerprint?: string | null
           id?: string
           inserted_count?: number
           invalid_count?: number
           list_name?: string | null
           organizer_user_id?: string | null
           submitted_count?: number
+          superseded_at?: string | null
+          superseded_by?: string | null
           suppressed_count?: number
           unchanged_count?: number
           venue_id?: string | null
@@ -13308,12 +13349,15 @@ export type Database = {
           default_country?: string | null
           duplicate_count?: number
           filename?: string | null
+          fingerprint?: string | null
           id?: string
           inserted_count?: number
           invalid_count?: number
           list_name?: string | null
           organizer_user_id?: string | null
           submitted_count?: number
+          superseded_at?: string | null
+          superseded_by?: string | null
           suppressed_count?: number
           unchanged_count?: number
           venue_id?: string | null
@@ -13331,6 +13375,13 @@ export type Database = {
             columns: ["organizer_user_id"]
             isOneToOne: false
             referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_list_imports_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "sms_list_imports"
             referencedColumns: ["id"]
           },
           {
@@ -17737,6 +17788,7 @@ export type Database = {
           created_at: string
           duplicate_count: number
           filename: string | null
+          fingerprint: string | null
           id: string
           inserted_count: number
           invalid_count: number
@@ -17744,6 +17796,8 @@ export type Database = {
           organizer_user_id: string | null
           reactivated_count: number
           submitted_count: number
+          superseded_at: string | null
+          superseded_by: string | null
           suppressed_count: number
           unchanged_count: number
           venue_id: string | null
@@ -18309,6 +18363,15 @@ export type Database = {
         Args: { p_email: string; p_round_id: string; p_user_id: string }
         Returns: boolean
       }
+      check_contact_import: {
+        Args: {
+          p_emails?: string[]
+          p_organizer_user_id?: string
+          p_phones?: string[]
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       check_mfa_disable_rate_limit: {
         Args: { _user_id: string }
         Returns: boolean
@@ -18499,6 +18562,11 @@ export type Database = {
         Returns: string
       }
       contact_engagement_sweep: { Args: never; Returns: Json }
+      contact_fingerprint: { Args: { p_values: string[] }; Returns: string }
+      contact_import_absorb: {
+        Args: { p_list_import_id: string }
+        Returns: Json
+      }
       contact_num_cmp: {
         Args: { a: number; b: number; op: string }
         Returns: boolean
@@ -19361,6 +19429,14 @@ export type Database = {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: Json
       }
+      get_contact_segment_panel: {
+        Args: {
+          p_organizer_user_id: string
+          p_presets?: Json
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       get_customer_automation_emails: {
         Args: {
           p_email: string
@@ -20201,8 +20277,10 @@ export type Database = {
           p_default_country?: string
           p_detected?: Json
           p_filename?: string
+          p_final?: boolean
           p_list_import_id?: string
           p_list_name?: string
+          p_mode?: string
           p_organizer_user_id?: string
           p_rows: Json
           p_venue_id?: string
