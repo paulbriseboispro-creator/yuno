@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { ClipboardEvent, CSSProperties, KeyboardEvent } from 'react';
 import type { MarkupAttr, MarkupDoc, MarkupToggle } from '@/lib/email';
 import {
@@ -26,9 +26,15 @@ import {
  * 2. **Pendant la frappe on ne redessine PAS.** Réécrire le HTML à chaque
  *    caractère replacerait le curseur en boucle. Le DOM fait foi jusqu'à la
  *    prochaine action de la barre d'outils, qui renormalise tout.
- * 3. **Le collage passe par l'analyseur.** Un texte collé avec ses signes
- *    (`**gras**`, `[c=accent]…[/c]`) arrive donc déjà mis en forme, signes
- *    cachés — c'est le même chemin que l'email.
+ * 3. **Le collage garde la mise en forme, et on peut la refuser.** Un contenu
+ *    copié ailleurs (page web, doc, autre email) arrive avec son gras, ses
+ *    couleurs, ses tailles et ses liens : le HTML du presse-papier est relu
+ *    par le MÊME analyseur que le champ, puis re-sérialisé en markup — rien
+ *    d'autre n'entre dans le modèle. Un texte collé avec ses signes
+ *    (`**gras**`, `[c=accent]…[/c]`) arrive lui aussi déjà mis en forme,
+ *    signes cachés. Et « coller en texte brut » reste à un geste :
+ *    ⇧⌘V (le presse-papier ne livre alors que du texte), ou le bouton qui
+ *    apparaît sous le champ juste après un collage.
  */
 
 export interface RichTextHandle {
@@ -49,6 +55,9 @@ interface Props {
   placeholder: string;
   ariaLabel?: string;
   style?: CSSProperties;
+  /** Libellés du rappel « mise en forme collée » (sans eux, pas de rappel). */
+  pasteKeptLabel?: string;
+  pastePlainLabel?: string;
 }
 
 // ── Document → HTML de l'éditeur ─────────────────────────────────────────────
@@ -143,6 +152,9 @@ function cssColorToHex(css: string): string | undefined {
   return `#${[1, 2, 3].map((i) => Number(m[i]).toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** Ce que vaut un titre collé, faute de taille explicite (borné 10 → 40 px). */
+const HEADING_SIZE: Record<string, number> = { H1: 30, H2: 26, H3: 22, H4: 20, H5: 18, H6: 16 };
+
 /** Style d'un élément → attribut, en préférant toujours nos propres data-*. */
 function attrOf(el: HTMLElement, base: MarkupAttr): MarkupAttr {
   const a: MarkupAttr = { ...base };
@@ -155,9 +167,15 @@ function attrOf(el: HTMLElement, base: MarkupAttr): MarkupAttr {
   if (tag === 'U' || d.u) a.u = true;
   if (tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || d.k) a.s = true;
 
+  // Un style explicite peut aussi ÉTEINDRE : Google Docs enveloppe tout son
+  // presse-papier dans un `<b style="font-weight:normal">`, et sans ce retour
+  // en arrière le document entier arrivait en gras.
   const weight = st.fontWeight;
-  if (weight === 'bold' || weight === 'bolder' || Number(weight) >= 600) a.b = true;
+  const numWeight = Number(weight);
+  if (weight === 'bold' || weight === 'bolder' || numWeight >= 600) a.b = true;
+  else if (weight === 'normal' || weight === 'lighter' || (numWeight && numWeight < 600)) a.b = false;
   if (st.fontStyle === 'italic') a.i = true;
+  else if (st.fontStyle === 'normal') a.i = false;
   const deco = `${st.textDecorationLine || ''} ${st.textDecoration || ''}`;
   if (deco.includes('underline')) a.u = true;
   if (deco.includes('line-through')) a.s = true;
@@ -173,6 +191,12 @@ function attrOf(el: HTMLElement, base: MarkupAttr): MarkupAttr {
 
   if (d.size) a.size = clampMarkupSize(Number(d.size));
   else if (/px$/.test(st.fontSize)) a.size = clampMarkupSize(parseFloat(st.fontSize));
+  // Word et Google Docs mesurent en points ; l'email, lui, ne connaît que le px.
+  else if (/pt$/.test(st.fontSize)) a.size = clampMarkupSize(parseFloat(st.fontSize) * (4 / 3));
+  else if (HEADING_SIZE[tag]) a.size = clampMarkupSize(HEADING_SIZE[tag]);
+
+  // Un titre collé reste un titre : gras, et plus gros que le corps du texte.
+  if (HEADING_SIZE[tag]) a.b = true;
 
   return normalizeAttr(a);
 }
@@ -290,15 +314,105 @@ function setSelection(root: HTMLElement, start: number, end: number) {
   sel.addRange(range);
 }
 
+// ── HTML du presse-papier → document ─────────────────────────────────────────
+
+/**
+ * Ce dont le texte ne doit JAMAIS entrer dans un bloc email : une feuille de
+ * style copiée avec la page arriverait sinon en clair dans la campagne.
+ */
+const CLIPBOARD_DROP = 'script,style,noscript,template,head,meta,link,title,iframe,object,embed,svg,img,video,audio,canvas,input,select,textarea';
+
+/**
+ * Presse-papier HTML → document, par le MÊME analyseur que le champ.
+ *
+ * Le HTML est lu hors du document vivant (`DOMParser` n'exécute rien et ne
+ * charge rien) : on n'en extrait que du texte et de la mise en forme, jamais
+ * du balisage. C'est l'invariant du Studio — le bloc ne stocke que du markup,
+ * l'email n'affiche jamais du HTML écrit par quelqu'un d'autre.
+ */
+function htmlToDoc(html: string): MarkupDoc | null {
+  if (typeof DOMParser === 'undefined') return null;
+  let body: HTMLElement | null = null;
+  try {
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    body = parsed.body;
+    if (!body) return null;
+    body.querySelectorAll(CLIPBOARD_DROP).forEach((n) => n.remove());
+    collapseSourceWhitespace(parsed, body);
+  } catch {
+    return null;
+  }
+  return tidyPastedDoc(scan(body, false).doc);
+}
+
+/**
+ * Les retours à la ligne et l'indentation du code source ne sont pas du texte :
+ * le navigateur les replie à l'affichage, l'analyseur les prendrait au mot et
+ * la campagne hériterait de l'indentation de la page copiée.
+ */
+function collapseSourceWhitespace(doc: Document, root: HTMLElement) {
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+
+  const isBlock = (n: Node | null) =>
+    !n || (n.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has((n as HTMLElement).tagName));
+
+  for (const node of nodes) {
+    if (node.parentElement?.closest('pre')) continue;
+    const collapsed = (node.nodeValue || '').replace(/[\t\n\r ]+/g, ' ');
+    // Un blanc collé à un bloc n'est qu'une mise en page du source.
+    if (!collapsed.trim() && (isBlock(node.previousSibling) || isBlock(node.nextSibling))) {
+      node.remove();
+      continue;
+    }
+    node.nodeValue = collapsed;
+  }
+}
+
+/**
+ * Ménage d'un collage : espaces de bord, lignes vides en tête et en queue, et
+ * jamais deux lignes vides de suite. Une page web copiée en apporte des
+ * dizaines, qui deviendraient autant de paragraphes vides dans l'email.
+ */
+function tidyPastedDoc(doc: MarkupDoc): MarkupDoc {
+  const lines: { text: string; attrs: MarkupAttr[] }[] = [];
+  let from = 0;
+  for (let i = 0; i <= doc.text.length; i++) {
+    if (i !== doc.text.length && doc.text[i] !== '\n') continue;
+    let a = from;
+    let b = i;
+    while (a < b && doc.text[a] === ' ') a++;
+    while (b > a && doc.text[b - 1] === ' ') b--;
+    lines.push({ text: doc.text.slice(a, b), attrs: doc.attrs.slice(a, b) });
+    from = i + 1;
+  }
+  while (lines.length && !lines[0].text) lines.shift();
+  while (lines.length && !lines[lines.length - 1].text) lines.pop();
+
+  const text: string[] = [];
+  const attrs: MarkupAttr[] = [];
+  let blank = false;
+  for (const line of lines) {
+    if (!line.text && blank) continue;
+    blank = !line.text;
+    if (text.length) { text.push('\n'); attrs.push({}); }
+    for (let i = 0; i < line.text.length; i++) { text.push(line.text[i]); attrs.push(normalizeAttr(line.attrs[i])); }
+  }
+  return { text: text.join(''), attrs };
+}
+
 // ── Le champ ─────────────────────────────────────────────────────────────────
 
 const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
-  { value, onChange, accent, placeholder, ariaLabel, style }, handleRef,
+  { value, onChange, accent, placeholder, ariaLabel, style, pasteKeptLabel, pastePlainLabel }, handleRef,
 ) {
   const boxRef = useRef<HTMLDivElement>(null);
   /** Dernier markup connu — ce qui distingue « je viens de l'écrire » de « on me l'impose ». */
   const known = useRef<string | null>(null);
   const shownAccent = useRef(accent);
+  /** Dernier collage avec mise en forme — ce qui rend « texte brut » rejouable. */
+  const [pasted, setPasted] = useState<{ start: number; end: number; plain: string } | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -329,6 +443,7 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     const keepCaret = value === known.current;
     const sel = keepCaret ? scan(el, true).sel : null;
     paint(value, sel?.start, sel?.end);
+    setPasted(null);
   }, [value, accent, paint]);
 
   /** Frappe ordinaire : on relit le DOM et on remonte le markup, sans redessiner. */
@@ -337,6 +452,8 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     if (!el) return;
     const markup = serializeMarkup(scan(el, false).doc);
     known.current = markup;
+    // La frappe déplace les décalages : le rappel de collage ne vise plus rien.
+    setPasted(null);
     onChangeRef.current(markup);
   }, []);
 
@@ -402,20 +519,39 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     )),
   }), [applyToSelection, mutate]);
 
-  /** Collage : texte brut uniquement, relu par l'analyseur de markup. */
+  /**
+   * Collage. Le HTML du presse-papier est relu par notre propre analyseur :
+   * gras, couleurs, tailles, liens et paragraphes arrivent posés, et rien
+   * d'autre que du markup n'entre dans le bloc. À défaut de HTML — « coller
+   * et adapter le style » (⇧⌘V) ne livre que du texte — on retombe sur
+   * l'analyseur de markup, qui lit les signes écrits à la main.
+   */
   const handlePaste = useCallback((e: ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text/plain');
-    if (!text) return;
+    const plain = (e.clipboardData.getData('text/plain') || '').replace(/\r\n?/g, '\n');
+    const html = e.clipboardData.getData('text/html');
+    const rich = html ? htmlToDoc(html) : null;
+    const insert = rich && rich.text ? rich : parseMarkup(plain);
+    if (!insert.text) return;
     mutate((doc, start, end) => {
-      const insert = parseMarkup(text.replace(/\r\n?/g, '\n'));
-      return {
-        doc: replaceRangeWithDoc(doc, start, end, insert),
-        start: start + insert.text.length,
-        end: start + insert.text.length,
-      };
+      const caret = start + insert.text.length;
+      setPasted(rich && rich.text && plain.trim() ? { start, end: caret, plain } : null);
+      return { doc: replaceRangeWithDoc(doc, start, end, insert), start: caret, end: caret };
     });
   }, [mutate]);
+
+  /** Le même collage, sans rien garder : la porte de sortie du collage riche. */
+  const pasteAsPlainText = useCallback(() => {
+    const last = pasted;
+    if (!last) return;
+    setPasted(null);
+    mutate((doc) => {
+      const insert = parseMarkup(last.plain);
+      const end = Math.min(last.end, doc.text.length);
+      const caret = last.start + insert.text.length;
+      return { doc: replaceRangeWithDoc(doc, last.start, end, insert), start: caret, end: caret };
+    });
+  }, [mutate, pasted]);
 
   /** Raccourcis clavier : on les prend nous-mêmes, sinon le navigateur pose son propre HTML. */
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
@@ -432,26 +568,49 @@ const RichTextField = forwardRef<RichTextHandle, Props>(function RichTextField(
     applyToSelection({ [mark]: on } as Partial<MarkupAttr>);
   }, [applyToSelection]);
 
+  const showPasteUndo = !!pasted && !!pasteKeptLabel && !!pastePlainLabel;
+
   return (
-    <div
-      ref={boxRef}
-      contentEditable
-      suppressContentEditableWarning
-      role="textbox"
-      aria-multiline="true"
-      aria-label={ariaLabel}
-      spellCheck
-      onInput={readOut}
-      onBlur={readOut}
-      onPaste={handlePaste}
-      onKeyDown={handleKeyDown}
-      style={{
-        whiteSpace: 'pre-wrap',
-        overflowWrap: 'break-word',
-        outline: 'none',
-        ...style,
-      }}
-    />
+    <>
+      <div
+        ref={boxRef}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label={ariaLabel}
+        spellCheck
+        onInput={readOut}
+        onBlur={readOut}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
+        style={{
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'break-word',
+          outline: 'none',
+          ...style,
+        }}
+      />
+      {showPasteUndo && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+          fontSize: 11, color: 'rgba(255,255,255,0.45)',
+        }}>
+          <span>{pasteKeptLabel}</span>
+          <button
+            type="button"
+            // onMouseDown : un bouton qui prend le focus ferait sortir du champ,
+            // et le rappel disparaîtrait avant même d'être cliqué.
+            onMouseDown={(e) => { e.preventDefault(); pasteAsPlainText(); }}
+            style={{
+              padding: '3px 8px', borderRadius: 7, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.085)',
+              color: 'rgba(255,255,255,0.72)', fontSize: 11, fontFamily: 'inherit',
+            }}
+          >{pastePlainLabel}</button>
+        </div>
+      )}
+    </>
   );
 });
 

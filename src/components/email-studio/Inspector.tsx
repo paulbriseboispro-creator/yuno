@@ -287,9 +287,11 @@ const FMT_SIZES = [12, 14, 18, 22, 28] as const;
  * Barre de mise en forme + champ de saisie.
  *
  * Le champ montre la mise en forme, PAS les signes qui la portent
- * (`RichTextField` + `src/lib/email/markup.ts`) : un texte collé avec ses
- * `**gras**` arrive déjà en gras, signes cachés. Le bloc, lui, continue de
- * stocker du texte brut + mini-markup — l'email rend exactement pareil.
+ * (`RichTextField` + `src/lib/email/markup.ts`) : un texte collé depuis une
+ * page ou un document arrive avec son gras, ses couleurs et ses liens, et un
+ * texte collé avec ses `**gras**` arrive déjà en gras, signes cachés. Le bloc,
+ * lui, continue de stocker du texte brut + mini-markup — l'email rend
+ * exactement pareil.
  *
  * Chaque bouton agit sur la SÉLECTION : recliquer la même couleur ou la même
  * taille l'enlève, et la gomme retire tout. Sans rien de sélectionné, le clic
@@ -391,6 +393,8 @@ function TextEditorWithFormatBar({ body, onBody, accent }: {
         accent={accent}
         placeholder={t('studio.inspector.fmtPlaceholder')}
         ariaLabel={t('studio.inspector.textContent')}
+        pasteKeptLabel={t('studio.inspector.pasteKept')}
+        pastePlainLabel={t('studio.inspector.pastePlain')}
         style={{ ...inputStyle, minHeight: 120, lineHeight: 1.55 }}
       />
       <Help>{t('studio.inspector.fmtHint')}</Help>
