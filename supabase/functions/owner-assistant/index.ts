@@ -241,9 +241,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "events-create": {
     title: "Créer et publier une soirée",
-    keywords: ["événement", "event", "soirée", "créer", "create", "publier", "publish", "poster", "affiche", "vidéo", "video", "reel", "story", "9:16", "hevc", "h264", "codec", "line-up", "privé", "mot de passe", "visibilité", "secret", "fuseau", "fuseau horaire", "timezone", "heure", "décalage"],
+    keywords: ["événement", "event", "soirée", "créer", "create", "publier", "publish", "poster", "affiche", "vidéo", "video", "reel", "story", "9:16", "hevc", "h264", "codec", "line-up", "lineup", "affiche", "artiste invité", "artiste sans compte", "dj pas inscrit", "dj sans compte yuno", "privé", "mot de passe", "visibilité", "secret", "fuseau", "fuseau horaire", "timezone", "heure", "décalage"],
     path: "/owner/events",
-    snippet: "Depuis Événements, crée une soirée : titre, dates, fuseau horaire, affiche, genre musical, line-up DJ. En option, sous l'affiche, « Vidéo de la soirée (9:16) » : une courte vidéo verticale (MP4 H.264 ou MOV, 1080 × 1920, 60 s et 30 Mo max, vérifiée avant envoi) qui remplace l'affiche en haut de la page de la soirée, en boucle, sans son, sans bouton ; partout ailleurs (Explore, cartes, emails, passes Wallet) l'affiche reste le seul visuel, et les clients en mode économie de données ou animations réduites voient l'affiche — garde-la nette. Remplacer / Retirer au même endroit, envoi à l'enregistrement seulement. Yuno REFUSE une vidéo HEVC (réglage iPhone « Haute efficacité ») ou tout codec autre que H.264 (illisible sur Android) : réexporter en H.264 ou passer l'iPhone en Réglages → Appareil photo → Formats → « Le plus compatible ». Une soirée récurrente porte aussi sa vidéo par défaut (réglée sur le modèle, recopiée sur chaque date, propagée aux dates à venir non personnalisées). Le champ Fuseau horaire fixe le fuseau dans lequel les heures de début/fin que tu saisis sont interprétées ET affichées (clients, notifications, billets) ; il est pré-rempli avec le fuseau de la ville de ton club et tu peux le changer par soirée. Ainsi une soirée saisie à 23h30 reste 23h30 partout, sans décalage. Ajouter au line-up un DJ qui a un compte Yuno envoie une demande de booking (horaires du set, cachet proposé, message pour le style attendu) : il n'apparaît sur l'affiche qu'après avoir accepté depuis son app, et reste « En attente » d'ici là ; un profil sans compte est ajouté directement. Active ensuite la billetterie, la guest list et les tables VIP selon tes besoins. Une soirée peut être publique (visible dans Explorer) ou privée avec mot de passe. Les événements sans lieu fixe peuvent utiliser une adresse secrète révélée aux acheteurs.",
+    snippet: "Depuis Événements, crée une soirée : titre, dates, fuseau horaire, affiche, genre musical, line-up DJ. En option, sous l'affiche, « Vidéo de la soirée (9:16) » : une courte vidéo verticale (MP4 H.264 ou MOV, 1080 × 1920, 60 s et 30 Mo max, vérifiée avant envoi) qui remplace l'affiche en haut de la page de la soirée, en boucle, sans son, sans bouton ; partout ailleurs (Explore, cartes, emails, passes Wallet) l'affiche reste le seul visuel, et les clients en mode économie de données ou animations réduites voient l'affiche — garde-la nette. Remplacer / Retirer au même endroit, envoi à l'enregistrement seulement. Yuno REFUSE une vidéo HEVC (réglage iPhone « Haute efficacité ») ou tout codec autre que H.264 (illisible sur Android) : réexporter en H.264 ou passer l'iPhone en Réglages → Appareil photo → Formats → « Le plus compatible ». Une soirée récurrente porte aussi sa vidéo par défaut (réglée sur le modèle, recopiée sur chaque date, propagée aux dates à venir non personnalisées). Le champ Fuseau horaire fixe le fuseau dans lequel les heures de début/fin que tu saisis sont interprétées ET affichées (clients, notifications, billets) ; il est pré-rempli avec le fuseau de la ville de ton club et tu peux le changer par soirée. Ainsi une soirée saisie à 23h30 reste 23h30 partout, sans décalage. Ajouter au line-up un DJ qui a un compte Yuno envoie une demande de booking (horaires du set, cachet proposé, message pour le style attendu) : il n'apparaît sur l'affiche qu'après avoir accepté depuis son app, et reste « En attente » d'ici là ; un profil sans compte est ajouté directement. Sous le sélecteur de DJ, le bloc « Artistes sans compte Yuno » met à l'affiche n'importe quel artiste : un nom, une photo, un lien Instagram — rien à valider, personne à inviter. Sur la page publique ils s'affichent à la suite des DJ Yuno, dans l'ordre que tu choisis (flèches ↑↓), et leur photo ouvre leur Instagram. Yuno compte ces clics (un par personne et par demi-heure) et affiche le total à côté du nom : c'est la mesure de ce que l'affiche rapporte aux artistes. La photo se met à la main — Instagram n'autorise plus aucun site à récupérer une photo de profil — mais une seule fois : « Déjà programmés chez toi » repropose ensuite l'artiste avec sa photo et son Instagram sur chaque nouvelle soirée. Un artiste invité n'est jamais un profil DJ : pas de page publique, pas de booking, pas de cachet. S'il crée un compte Yuno, retire-le de ce bloc et ajoute-le par le sélecteur de DJ. Active ensuite la billetterie, la guest list et les tables VIP selon tes besoins. Une soirée peut être publique (visible dans Explorer) ou privée avec mot de passe. Les événements sans lieu fixe peuvent utiliser une adresse secrète révélée aux acheteurs.",
   },
   "recurring-events": {
     title: "Soirées récurrentes",
@@ -604,6 +604,20 @@ const TOOLS = [
       name: "get_live_ops",
       description: "MUST use for any question about the night currently in progress ('comment se passe ma soirée', 'briefing', 'point de situation', 'que se passe-t-il en ce moment'). Returns the full command-center state: door (entries, pace, VIP no-shows), bar (backlog, oldest waiting order, out-of-stock products), VIP tables (arrived, min-spend at risk), cloakroom, staff on duty, tonight's incidents and active alerts. Complements get_tonight_stats (which is revenue-focused).",
       parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_event_lineup",
+      description: "Get the full line-up of an event: Yuno DJs (confirmed) and guest artists without a Yuno account, with the number of clicks each guest artist's photo sent to their Instagram. Use for questions about who plays, the line-up, or how many people clicked an artist's Instagram.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "UUID of the event" },
+        },
+        required: ["event_id"],
+      },
     },
   },
   {
@@ -1465,6 +1479,39 @@ async function executeTool(
       }
 
       // ─── EVENT DETAILS (with revenue) ───
+      case "get_event_lineup": {
+        const { data: evt } = await supabase.from("events").select("id, title").eq("id", args.event_id).eq("venue_id", venueId).maybeSingle();
+        if (!evt) return JSON.stringify({ error: "Event not found" });
+
+        const [djLinksRes, guestsRes] = await Promise.all([
+          supabase.from("event_djs").select("dj_id").eq("event_id", args.event_id),
+          supabase.from("event_guest_artists")
+            .select("name, instagram_handle, instagram_clicks")
+            .eq("event_id", args.event_id).order("position"),
+        ]);
+
+        const djIds = (djLinksRes.data || []).map((d: any) => d.dj_id).filter(Boolean);
+        let djNames: string[] = [];
+        if (djIds.length > 0) {
+          const { data: djRows } = await supabase.from("djs").select("id, stage_name, first_name, last_name").in("id", djIds);
+          djNames = (djRows || []).map((d: any) => d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`.trim()).filter(Boolean);
+        }
+
+        const guests = (guestsRes.data || []).map((g: any) => ({
+          name: g.name,
+          instagram: g.instagram_handle ? `@${g.instagram_handle}` : null,
+          instagram_clicks: g.instagram_clicks ?? 0,
+        }));
+
+        return JSON.stringify({
+          event: evt.title,
+          yuno_djs: djNames,
+          guest_artists: guests,
+          total_instagram_clicks: guests.reduce((sum: number, g: any) => sum + g.instagram_clicks, 0),
+          note: "guest_artists = artistes sans compte Yuno, ajoutés à la main sur la fiche de la soirée. instagram_clicks = clics sortants depuis l'affiche publique, dédupliqués par visiteur sur 30 minutes.",
+        });
+      }
+
       case "get_event_details": {
         const { data: evt } = await supabase.from("events").select("*").eq("id", args.event_id).eq("venue_id", venueId).maybeSingle();
         if (!evt) return JSON.stringify({ error: "Event not found" });
