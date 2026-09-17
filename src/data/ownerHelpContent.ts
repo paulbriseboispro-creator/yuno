@@ -300,7 +300,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToEvents', path: '/events' },
         relatedArticleIds: ['ticketing-setup', 'guest-list-setup', 'tables-vip-setup', 'dj-management'],
-        keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'vidéo', 'video', 'reel', 'story', '9:16', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'complet', 'sold out', 'agotado', 'épuisé', 'fermer la vente', 'nuevo evento', 'line-up', 'lineup', 'cartel', 'artiste invité', 'guest artist', 'artista invitado', 'sans compte', 'without account', 'sin cuenta', 'instagram', 'dj pas inscrit'],
+        keywords: ['event', 'événement', 'soirée', 'party', 'créer', 'create', 'poster', 'flyer', 'vidéo', 'video', 'reel', 'story', '16:9', '9:16', 'date', 'genre', 'musique', 'music', 'night', 'nuit', 'recurring', 'récurrente', 'complet', 'sold out', 'agotado', 'épuisé', 'fermer la vente', 'nuevo evento', 'line-up', 'lineup', 'cartel', 'artiste invité', 'guest artist', 'artista invitado', 'sans compte', 'without account', 'sin cuenta', 'instagram', 'dj pas inscrit'],
         sections: [
           { headingKey: 'ohelp.ev.events.s1h', bodyKey: 'ohelp.ev.events.s1b' },
           { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.webp' },
