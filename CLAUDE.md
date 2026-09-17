@@ -1018,8 +1018,23 @@ le prototype claude.design `Email Studio Yuno.dc.html` (copie locale :
   des PASSES successives d'`inlineMarkup`, pas une descente récursive : c'est ce
   qui fait que `***x***` est gras + italique des deux côtés. Pendant la frappe on
   ne redessine jamais (le curseur sauterait) ; la barre d'outils renormalise.
+  **Le collage garde la mise en forme** (2026-09-17) : le `text/html` du
+  presse-papier est relu par le MÊME `scan()` que le champ (`DOMParser`, hors
+  document vivant, `script`/`style`/`head` jetés, blancs du source repliés,
+  titres → gras + taille, `pt` → `px`, et le `<b style="font-weight:normal">`
+  dont Google Docs enveloppe tout son presse-papier ÉTEINT le gras au lieu de
+  le poser), puis re-sérialisé en markup — le bloc ne stocke toujours que du
+  markup, jamais du HTML venu d'ailleurs. Sans `text/html` (⇧⌘V), c'est
+  l'analyseur de markup qui reprend, et un bouton « Coller en texte brut »
+  apparaît sous le champ juste après un collage riche.
   ⚠️ Une évolution de la syntaxe oblige à REDÉPLOYER `send-campaign` avant que
   le pro l'utilise, sinon les nouveaux signes partent en clair dans l'email.
+- **Le Studio se mesure, il ne suppose pas `100vh`** (2026-09-17) : l'app
+  organisateur pose son en-tête au-dessus de lui, donc un `height: 100vh` nu
+  poussait son bas (barre « Nouvelle campagne » : nom, soirée, bouton) sous le
+  pli. `useShellHeight` (`email-studio/ui.tsx`) additionne les `offsetTop` —
+  stables au défilement, contrairement à `getBoundingClientRect()` — et rend
+  `calc(100dvh - <offset>px)`. Tout écran plein du Studio passe par là.
 - **Marges par bloc = `TYPE_PAD_DEFAULTS`** (types.ts, miroir edge) : défauts
   PAR TYPE (header 30/24, image 0/0, divider 10/24, cta 24/24, html 0/24…),
   `py: 0` est un choix légitime (blocs collés). Ne jamais recoder un padding
