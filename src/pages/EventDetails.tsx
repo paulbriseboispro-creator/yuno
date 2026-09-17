@@ -38,6 +38,7 @@ import { useStore } from '@/store/useStore';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useEventPaymentsReady } from '@/lib/paymentsReady';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
 
 type EventDJ = {
   id: string;
@@ -95,6 +96,8 @@ export default function EventDetails() {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [djs, setDjs] = useState<EventDJ[]>([]);
   const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
+  // Line-up invité : artistes sans compte Yuno, affichés à la suite des DJ.
+  const [guestArtists, setGuestArtists] = useState<GuestArtist[]>([]);
   const [eventOrganizers, setEventOrganizers] = useState<{ id: string; name: string; slug: string | null; logo_url: string | null }[]>([]);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -284,9 +287,16 @@ export default function EventDetails() {
          activés : le rendu les filtre déjà (`hasTickets = event.ticketingEnabled
          && ...`), donc une liste inutile ne coûte rien à l'écran — alors qu'un
          aller-retour de plus dans le chemin critique, si. ══ */
-      const [eventRes, eventDjsRes, roundsRes, tableSettingsRes, userRes] = await Promise.all([
+      const [eventRes, eventDjsRes, guestArtistsRes, roundsRes, tableSettingsRes, userRes] = await Promise.all([
         supabase.from('events').select('*').eq('id', eventId).single(),
         supabase.from('event_djs').select('dj_id').eq('event_id', eventId!),
+        // Line-up invité : une requête à plat dans la même salve. Elle ne
+        // dépend que de l'eventId, elle n'a aucune raison d'attendre.
+        supabase.from('event_guest_artists')
+          .select('id, name, photo_url, instagram_url, instagram_handle')
+          .eq('event_id', eventId!)
+          .order('position', { ascending: true })
+          .order('created_at', { ascending: true }),
         supabase.from('ticket_rounds').select('*').eq('event_id', eventId).order('position', { ascending: true }),
         supabase.from('event_table_settings').select('*').eq('event_id', eventId).maybeSingle(),
         supabase.auth.getUser(),
@@ -298,6 +308,15 @@ export default function EventDetails() {
       const user = userRes.data?.user ?? null;
       const eventSettingsData = tableSettingsRes.data;
       const djIds = (eventDjsRes.data ?? []).map((ed) => ed.dj_id).filter(Boolean);
+
+      setGuestArtists((guestArtistsRes.data ?? []).map((g) => ({
+        id: g.id,
+        name: g.name,
+        photoUrl: g.photo_url,
+        instagram: g.instagram_url,
+        instagramUrl: g.instagram_url,
+        instagramHandle: g.instagram_handle,
+      })));
 
       const isOrganizerLed = !!eventData.organizer_user_id;
       // Host venue: main venue_id (club event) OR partner_venue_id (organizer-led co-event)
@@ -1368,7 +1387,7 @@ export default function EventDetails() {
         </FadeInView>
 
         {/* ── DJ LINE-UP ── (right below the event info — the line-up is the headline of a night) */}
-        {djs.length > 0 && (
+        {(djs.length > 0 || guestArtists.length > 0) && (
           <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-6">Line-up</p>
             <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide" style={{ margin: '0 -20px', padding: '0 20px' }}>
@@ -1404,6 +1423,63 @@ export default function EventDetails() {
                       </p>
                     )}
                   </button>
+                );
+              })}
+
+              {/* Artistes invités : mêmes vignettes, dans la même bande — pour
+                  le public, un line-up est un line-up. La différence tient au
+                  geste : un DJ Yuno ouvre sa page Yuno, un invité ouvre son
+                  Instagram (nouvel onglet, lien non suivi par les moteurs). */}
+              {guestArtists.map((artist) => {
+                const inner = (
+                  <>
+                    {/* La note de musique est posée AU FOND et la photo par-dessus :
+                        si l'URL ne charge pas, l'image s'efface et le repli est
+                        déjà là. Sans ça, une photo morte affiche son texte
+                        alternatif en travers de la vignette — et une photo
+                        d'invité, saisie à la main, casse plus facilement que
+                        celle d'un DJ qui tient son propre profil. */}
+                    <div className="overflow-hidden relative flex items-center justify-center" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
+                      <Music className="h-9 w-9" style={{ color: '#5A5A5E' }} />
+                      {artist.photoUrl && (
+                        <img
+                          src={getOptimizedImageUrl(artist.photoUrl, { width: 240 })}
+                          alt={artist.name}
+                          loading="lazy"
+                          className="absolute inset-0 w-full h-full object-cover object-top"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      )}
+                    </div>
+                    <p className="font-mono text-center leading-tight mt-1" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
+                      {artist.name}
+                    </p>
+                    {artist.instagramHandle && (
+                      <p className="font-mono text-center leading-tight" style={{ fontSize: '10px', color: '#7A7A7E', letterSpacing: '0.04em', maxWidth: 116 }}>
+                        @{artist.instagramHandle}
+                      </p>
+                    )}
+                  </>
+                );
+                const box = 'flex flex-col items-center gap-2 flex-shrink-0';
+                // Un artiste sans Instagram reste à l'affiche : il s'affiche,
+                // il ne clique pas. Pas de lien mort, pas de vignette manquante.
+                return artist.instagramUrl ? (
+                  <a
+                    key={artist.id}
+                    href={artist.instagramUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    onClick={() => trackGuestArtistClick(artist.id)}
+                    className={`${box} active:opacity-70 transition-opacity`}
+                    style={{ width: 116 }}
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={artist.id} className={box} style={{ width: 116 }}>
+                    {inner}
+                  </div>
                 );
               })}
             </div>
