@@ -70,6 +70,51 @@ interface ImportTotals {
   submitted: number; rows: number; invalid: number; duplicates: number;
   emailsAdded: number; emailsUnchanged: number; emailsSuppressed: number;
   phonesAdded: number; phonesUnchanged: number; phonesSuppressed: number;
+  /** Listes absorbées par cet import (fusion demandée ou doublon exact). */
+  merged: number;
+}
+
+/** Une liste déjà présente qui contient une partie du fichier qu'on importe. */
+interface ImportOverlap {
+  import_id: string;
+  channel: 'email' | 'sms';
+  list_name: string | null;
+  filename: string | null;
+  created_at: string;
+  size: number;
+  shared: number;
+}
+
+/**
+ * L'avis rendu par `check_contact_import` AVANT toute écriture : ce fichier
+ * est-il déjà dans la base, et combien de ses contacts appartiennent déjà à
+ * quelle liste. C'est ce qui évite le fichier réimporté qui fabrique une
+ * deuxième liste au lieu de rafraîchir la première.
+ */
+interface ImportCheck {
+  emails: number; phones: number;
+  known_emails: number; known_phones: number;
+  new_emails: number; new_phones: number;
+  duplicate_of: Omit<ImportOverlap, 'shared'> | null;
+  overlaps: ImportOverlap[];
+}
+
+/**
+ * Quand faut-il s'arrêter et demander ? Deux cas, et deux seulement :
+ *   - le fichier est déjà là à l'identique ;
+ *   - il reprend au moins la moitié d'une liste existante (c'est la situation
+ *     qui fabrique deux listes pour un seul public).
+ * Quelques adresses déjà connues parce que ces gens sont clients ne méritent
+ * pas une question : l'import continue tout seul.
+ */
+function needsDecision(c: ImportCheck): boolean {
+  if (c.duplicate_of) return true;
+  return (c.overlaps || []).some((o) => o.shared >= 10 && o.shared >= o.size * 0.5);
+}
+
+/** Nom affiché d'une liste : celui du pro, sinon son fichier sans extension. */
+function overlapName(o: { list_name: string | null; filename: string | null }, fallback: string): string {
+  return (o.list_name || '').trim() || (o.filename || '').replace(/\.[a-z0-9]+$/i, '').trim() || fallback;
 }
 
 const CONSENT_OPTIONS: Array<{ value: ConsentSource; labelKey: string }> = [
@@ -125,7 +170,8 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
   const [progress, setProgress] = useState(0);
   const [totals, setTotals] = useState<ImportTotals | null>(null);
   const [listImportId, setListImportId] = useState<string | null>(null);
-  const [phase, setPhase] = useState<'form' | 'report' | 'segments'>('form');
+  const [check, setCheck] = useState<ImportCheck | null>(null);
+  const [phase, setPhase] = useState<'form' | 'verdict' | 'report' | 'segments'>('form');
 
   const country = IMPORT_COUNTRIES.find((c) => c.code === countryCode) ?? IMPORT_COUNTRIES[0];
   const parsed: ContactParseResult | null = useMemo(() => (raw.trim() ? parseContactFile(raw, country) : null), [raw, country]);
@@ -133,7 +179,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
   const reset = useCallback(() => {
     setRaw(''); setFilename(null); setListName(''); setWantEmail(true); setWantSms(true);
     setConsentSource(''); setConsentDetails(''); setCollectedSince(''); setAttested(false);
-    setBusy(false); setProgress(0); setTotals(null); setListImportId(null); setPhase('form');
+    setBusy(false); setProgress(0); setTotals(null); setListImportId(null); setCheck(null); setPhase('form');
   }, []);
   const close = useCallback(() => { if (!busy) { reset(); onClose(); } }, [busy, reset, onClose]);
 
@@ -161,14 +207,31 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
   const canImport = !!parsed && parsed.rows.length > 0 && (effectiveEmails > 0 || effectivePhones > 0)
     && !!consentSource && attested && !busy;
 
-  const runImport = useCallback(async () => {
-    if (!parsed || !canImport) return;
-    if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return; }
+  // ── L'avis avant écriture ──────────────────────────────────────────────
+  // Le fichier est déjà lu côté navigateur : on envoie les identités, rien
+  // d'autre, et le serveur dit si ce fichier est déjà là. Sans cette étape, un
+  // pro qui réimporte sa base fabrique une deuxième liste qui n'annonce pas la
+  // bonne taille — et qui, choisie comme audience, touche beaucoup moins de
+  // monde que son nom ne le promet.
+  const runCheck = useCallback(async (): Promise<ImportCheck | null> => {
+    if (!parsed) return null;
+    const emails = wantEmail ? parsed.rows.map((r) => r.email).filter((v): v is string => !!v) : [];
+    const phones = wantSms ? parsed.rows.map((r) => r.phone).filter((v): v is string => !!v) : [];
+    const { data, error } = await supabase.rpc('check_contact_import' as never, {
+      ...scopeArgs(scope), p_emails: emails, p_phones: phones,
+    } as never);
+    if (error) return null; // La vérification est un confort : elle ne bloque jamais un import.
+    return (data ?? null) as unknown as ImportCheck | null;
+  }, [parsed, scope, wantEmail, wantSms]);
+
+  const doImport = useCallback(async (importMode: 'append' | 'merge') => {
+    if (!parsed) return;
     setBusy(true); setProgress(0);
     const chunks = chunkRows(parsed.rows, CHUNK);
     const tot: ImportTotals = {
       submitted: 0, rows: 0, invalid: parsed.invalid.length, duplicates: parsed.duplicates,
       emailsAdded: 0, emailsUnchanged: 0, emailsSuppressed: 0, phonesAdded: 0, phonesUnchanged: 0, phonesSuppressed: 0,
+      merged: 0,
     };
     let importId: string | null = null;
     const detected = Object.fromEntries(Object.entries(parsed.detected).map(([k, v]) => [k, v ?? true]));
@@ -186,6 +249,12 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
           p_default_country: country.code,
           p_channels: { email: wantEmail, sms: wantSms },
           p_detected: detected,
+          p_mode: importMode,
+          // Le dernier lot : c'est là que le serveur calcule l'empreinte du
+          // fichier reçu et fusionne si c'est un doublon exact. La garantie
+          // est serveur, la case ci-dessous ne fait que la déclencher au bon
+          // moment.
+          p_final: i === chunks.length - 1,
         } as never);
         if (error) throw error;
         const r = (data ?? {}) as unknown as Record<string, unknown>;
@@ -205,6 +274,10 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
           tot.phonesUnchanged += Number(sm.unchanged || 0);
           tot.phonesSuppressed += Number(sm.suppressed || 0);
         }
+        const absorbed = (r.absorbed ?? null) as { retired_email_lists?: string[]; retired_sms_lists?: string[] } | null;
+        if (absorbed) {
+          tot.merged += (absorbed.retired_email_lists?.length ?? 0) + (absorbed.retired_sms_lists?.length ?? 0);
+        }
         setProgress(Math.round(((i + 1) / chunks.length) * 100));
       }
       setTotals(tot);
@@ -218,7 +291,22 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
     } finally {
       setBusy(false);
     }
-  }, [parsed, canImport, consentSource, scope, filename, listName, consentDetails, collectedSince, country.code, wantEmail, wantSms, onChanged, t]);
+  }, [parsed, consentSource, scope, filename, listName, consentDetails, collectedSince, country.code, wantEmail, wantSms, onChanged, t]);
+
+  // Le pro clique « Importer » : on demande d'abord l'avis, et on ne
+  // l'interrompt que s'il y a vraiment quelque chose à décider. Un
+  // recouvrement anecdotique (quelques adresses déjà clientes) passe tout
+  // seul ; un fichier déjà importé, ou qui reprend une liste existante, pose
+  // la question une fois.
+  const startImport = useCallback(async () => {
+    if (!parsed || !canImport) return;
+    if (isPreviewActive()) { toast.error(t('smsc.previewReadOnly')); return; }
+    setBusy(true);
+    const verdict = await runCheck();
+    setBusy(false);
+    if (verdict && needsDecision(verdict)) { setCheck(verdict); setPhase('verdict'); return; }
+    await doImport('append');
+  }, [parsed, canImport, runCheck, doImport, t]);
 
   const isAnalyze = phase === 'segments';
 
@@ -250,6 +338,18 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
             wantSms={wantSms}
             onSegments={() => setPhase('segments')}
             onDone={close}
+            t={t}
+          />
+        )}
+
+        {phase === 'verdict' && check && (
+          <ImportVerdict
+            check={check}
+            busy={busy}
+            progress={progress}
+            language={language}
+            onChoose={(m) => { void doImport(m); }}
+            onBack={() => { setCheck(null); setPhase('form'); }}
             t={t}
           />
         )}
@@ -412,15 +512,117 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
 
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={close} disabled={busy}>{t('common.cancel')}</Button>
-              <Button onClick={runImport} disabled={!canImport}>
+              <Button onClick={startImport} disabled={!canImport}>
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {busy ? t('cimp.importing') : t('cimp.cta').replace('{n}', String(parsed?.rows.length ?? 0))}
+                {busy ? t('cimp.checking') : t('cimp.cta').replace('{n}', String(parsed?.rows.length ?? 0))}
               </Button>
             </div>
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Ce fichier est-il déjà là ? ──────────────────────────────────────────────
+//
+// L'écran ne s'affiche que quand il y a une vraie décision à prendre (voir
+// `needsDecision`). Il dit ce qui est déjà en base, nomme les listes
+// concernées, et n'offre que deux issues — fusionner ou garder séparé. Les
+// deux sont légitimes : un pro qui remplace sa base fusionne, un pro qui
+// importe ses VIP après sa base générale garde séparé.
+function ImportVerdict({ check, busy, progress, language, onChoose, onBack, t }: {
+  check: ImportCheck;
+  busy: boolean;
+  progress: number;
+  language: string;
+  onChoose: (mode: 'append' | 'merge') => void;
+  onBack: () => void;
+  t: (k: string) => string;
+}) {
+  const dup = check.duplicate_of;
+  const total = check.emails + check.phones;
+  const known = check.known_emails + check.known_phones;
+  const fresh = check.new_emails + check.new_phones;
+  const day = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border p-3.5"
+           style={{ background: 'rgba(252,211,77,0.07)', borderColor: 'rgba(252,211,77,0.28)' }}>
+        <div className="flex items-start gap-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#FCD34D' }} />
+          <div className="space-y-1.5">
+            <p className="text-[13.5px] font-semibold">{t(dup ? 'cimp.dup.title' : 'cimp.ov.title')}</p>
+            <p className="text-[12.5px] leading-relaxed opacity-80">
+              {dup
+                ? t('cimp.dup.body')
+                    .replace('{n}', String(total))
+                    .replace('{list}', overlapName(dup, t('cimp.ov.unnamed')))
+                    .replace('{date}', day(dup.created_at))
+                : t('cimp.ov.body').replace('{n}', String(known)).replace('{total}', String(total))}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!dup && check.overlaps.length > 0 && (
+        <ul className="space-y-1.5">
+          {check.overlaps.map((o) => (
+            <li key={`${o.channel}:${o.import_id}`} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-[12.5px]"
+                style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <span className="inline-flex items-center gap-1.5 truncate">
+                {o.channel === 'sms' ? <Smartphone className="h-3.5 w-3.5 opacity-60" /> : <MailOpen className="h-3.5 w-3.5 opacity-60" />}
+                <span className="truncate">{overlapName(o, t('cimp.ov.unnamed'))}</span>
+              </span>
+              <span className="shrink-0 opacity-70">
+                {t('cimp.ov.shared').replace('{n}', String(o.shared)).replace('{size}', String(o.size))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {busy && (
+        <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div className="h-full transition-all" style={{ width: `${progress}%`, background: '#E8192C' }} />
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <button type="button" disabled={busy} onClick={() => onChoose('merge')}
+                className="w-full rounded-lg border p-3 text-left transition-colors disabled:opacity-50"
+                style={{ borderColor: 'rgba(232,25,44,0.45)', background: 'rgba(232,25,44,0.08)' }}>
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {t(dup ? 'cimp.dup.cta' : 'cimp.ov.merge')}
+          </span>
+          <span className="mt-1 block text-[11.5px] leading-relaxed opacity-70">
+            {t(dup ? 'cimp.dup.hint' : 'cimp.ov.mergeHint')}
+          </span>
+        </button>
+
+        {!dup && (
+          <button type="button" disabled={busy} onClick={() => onChoose('append')}
+                  className="w-full rounded-lg border p-3 text-left transition-colors disabled:opacity-50"
+                  style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+            <span className="flex items-center gap-2 text-[13px] font-semibold">
+              <Database className="h-4 w-4" />{t('cimp.ov.keep')}
+            </span>
+            <span className="mt-1 block text-[11.5px] leading-relaxed opacity-70">
+              {t('cimp.ov.keepHint').replace('{n}', String(fresh))}
+            </span>
+          </button>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Button variant="ghost" onClick={onBack} disabled={busy}>{t('cimp.ov.back')}</Button>
+      </div>
+    </div>
   );
 }
 
@@ -432,6 +634,10 @@ function ImportReport({ totals, wantEmail, wantSms, onSegments, onDone, t }: {
   if (wantEmail) rows.push([t('cimp.rep.emailsAdded'), totals.emailsAdded], [t('cimp.rep.emailsAlready'), totals.emailsUnchanged], [t('cimp.rep.emailsSuppressed'), totals.emailsSuppressed]);
   if (wantSms) rows.push([t('cimp.rep.phonesAdded'), totals.phonesAdded], [t('cimp.rep.phonesAlready'), totals.phonesUnchanged], [t('cimp.rep.phonesSuppressed'), totals.phonesSuppressed]);
   rows.push([t('cimp.rep.dupes'), totals.duplicates], [t('cimp.rep.invalid'), totals.invalid]);
+  // Une liste absorbée n'est pas une perte : elle a été REMPLACÉE par
+  // celle-ci, qui porte désormais tous ses contacts. On le dit, sinon le pro
+  // croit avoir effacé quelque chose.
+  if (totals.merged > 0) rows.push([t('cimp.rep.merged'), totals.merged]);
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2.5">
