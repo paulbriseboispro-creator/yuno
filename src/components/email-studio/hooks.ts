@@ -413,28 +413,11 @@ export interface ContactSegmentLite {
 
 /**
  * Segments intelligents sur la base importée (contact_segments) — disponibles
- * aux DEUX portées. L'effectif email vient du serveur (`count_contact_segment_def`
- * via la vue d'ensemble) : c'est le nombre que le pro obtiendra à l'envoi.
+ * aux DEUX portées. L'écran Audience les charge avec l'effectif des segments
+ * Yuno en un seul appel : `loadContactSegmentPanel` (src/lib/contactSegments).
+ * Il n'y a plus de hook ici — un appel par liste faisait six reconstructions
+ * concurrentes de la base vivante et se faisait couper à 8 s.
  */
-export function useContactSegments(scope: StudioScope, refreshKey = 0): ContactSegmentLite[] {
-  const [segments, setSegments] = useState<ContactSegmentLite[]>([]);
-  const scopeId = studioScopeId(scope);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.rpc('get_contact_intelligence_overview' as never, {
-        ...studioScopeArgs(scope),
-      } as never);
-      if (cancelled) return;
-      const rows = (((data as unknown) as { segments?: Array<{ id: string; name: string; description: string | null; suggestion_key?: string | null; counts: { emails: number } }> } | null)?.segments) || [];
-      setSegments(rows.map((r) => ({
-        id: r.id, name: r.name, description: r.description, suggestionKey: r.suggestion_key ?? null, emails: Number(r.counts?.emails || 0),
-      })));
-    })();
-    return () => { cancelled = true; };
-  }, [scope.kind, scopeId, refreshKey]);
-  return segments;
-}
 
 
 export interface EmailQuota {
@@ -486,6 +469,12 @@ export interface AudienceCount { gross: number; net: number; suppressed: number 
 /**
  * Net réel de destinataires. La RPC lit la campagne SAUVEGARDÉE : on recompte
  * après chaque autosave abouti (saveSeq), pas à chaque frappe.
+ *
+ * Un appel COUPÉ n'est jamais rendu « 0 destinataire ». Résoudre une audience
+ * sur une base de plusieurs milliers de contacts frôle le plafond de 8 s du
+ * rôle `authenticated` ; annoncer 0 sur une campagne qui en a mille ferait
+ * croire au pro que son ciblage est vide. On retente, et à défaut on garde le
+ * chiffre précédent (ou le compteur en cours de calcul).
  */
 export function useAudienceCount(campaignId: string | null, saveSeq: number, enabled: boolean): {
   count: AudienceCount | null; loading: boolean;
@@ -495,15 +484,27 @@ export function useAudienceCount(campaignId: string | null, saveSeq: number, ena
   useEffect(() => {
     if (!campaignId || !enabled) return;
     let cancelled = false;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setLoading(true);
-    supabase.rpc('count_campaign_audience' as never, { p_campaign_id: campaignId } as never)
-      .then(({ data }) => {
-        if (cancelled) return;
-        const d = (data as unknown) as AudienceCount | null;
-        setCount(d && typeof d.net === 'number' ? d : { gross: 0, net: 0, suppressed: 0 });
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
+    const run = () => {
+      void supabase.rpc('count_campaign_audience' as never, { p_campaign_id: campaignId } as never)
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error || !data) {
+            if (tries >= 2) { if (count) setLoading(false); return; }
+            tries += 1;
+            timer = setTimeout(run, 1500 * tries);
+            return;
+          }
+          const d = (data as unknown) as AudienceCount | null;
+          setCount(d && typeof d.net === 'number' ? d : { gross: 0, net: 0, suppressed: 0 });
+          setLoading(false);
+        });
+    };
+    run();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId, saveSeq, enabled]);
   return { count, loading };
 }

@@ -258,6 +258,70 @@ export async function loadYunoPresetSuggestions(
   return out;
 }
 
+/** Ce que l'écran Audience affiche de la base : segments enregistrés,
+ *  préréglages Yuno pas encore créés, et la taille de la base vivante. */
+export interface ContactSegmentPanel {
+  contacts: number;
+  segments: ContactSegment[];
+  presets: SegmentSuggestion[];
+}
+
+/**
+ * TOUT l'écran Audience en UN aller-retour : les segments enregistrés de la
+ * portée ET l'effectif des préréglages Yuno (`get_contact_segment_panel`,
+ * migration 20260917130000).
+ *
+ * Pourquoi un seul appel : chaque comptage reconstruit la base vivante
+ * (fichier importé ∪ clients venus par Yuno). Sur 12 000 contacts cette
+ * construction coûte ~2,5 s ; l'écran en lançait six en parallèle alors que
+ * le rôle `authenticated` est coupé à 8 s par requête. La vue d'ensemble
+ * perdait la course, elle était annulée, et la section « Segments
+ * intelligents » disparaissait sans un mot.
+ *
+ * Contrairement à `loadYunoPresetSuggestions`, cette fonction LÈVE en cas
+ * d'échec : l'appelant garde ce qu'il affichait et retente, au lieu de
+ * conclure que le pro n'a aucun segment.
+ */
+export async function loadContactSegmentPanel(
+  scopeArgs: { p_venue_id: string | null; p_organizer_user_id: string | null },
+  opts: { basketThreshold?: number; presets?: readonly YunoSegmentPreset[] } = {},
+): Promise<ContactSegmentPanel> {
+  const presets = opts.presets ?? yunoSegmentPresets(opts);
+  const { data, error } = await supabase.rpc('get_contact_segment_panel' as never, {
+    ...scopeArgs,
+    p_presets: presets.map((p) => ({ key: p.key, definition: p.definition })) as never,
+  } as never);
+  if (error) throw error;
+  const d = (data as unknown as {
+    contacts?: number;
+    segments?: ContactSegment[];
+    presets?: Array<{ key: string; counts?: { contacts?: number; emails?: number; phones?: number } }>;
+  } | null) || {};
+  const segments = (d.segments || []) as ContactSegment[];
+  const total = Number(d.contacts || 0);
+  const counts = new Map((d.presets || []).map((p) => [p.key, p.counts || {}]));
+  const out: SegmentSuggestion[] = [];
+  for (const p of presets) {
+    const c = counts.get(p.key) || {};
+    const contacts = Number(c.contacts || 0);
+    // Le panier reste visible même vide : c'est son champ de seuil qui permet
+    // au pro de descendre jusqu'à trouver du monde.
+    if (contacts <= 0 && suggestionBase(p.key) !== BASKET_PRESET_BASE) continue;
+    out.push({
+      key: p.key,
+      group: p.group,
+      definition: p.definition,
+      params: p.params,
+      contacts,
+      emails: Number(c.emails || 0),
+      phones: Number(c.phones || 0),
+      share: total > 0 ? contacts / total : 0,
+      existing_id: segments.find((s) => s.suggestion_key === p.key)?.id ?? null,
+    });
+  }
+  return { contacts: total, segments, presets: out };
+}
+
 /** « geo_zone:paris » → « geo_zone ». */
 export function suggestionBase(key: string): string {
   return key.split(':')[0];

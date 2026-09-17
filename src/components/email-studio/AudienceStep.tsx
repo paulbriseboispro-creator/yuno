@@ -7,14 +7,14 @@ import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import type { AudienceKind, AudienceSel } from '@/lib/email';
 import { deliverRoster } from '@/lib/rosterExport';
 import {
-  BASKET_PRESET_BASE, describeSuggestion, loadBasketSuggestion, loadYunoPresetSuggestions, suggestionBase,
-  type BasketSuggestion, type SegmentSuggestion,
+  BASKET_PRESET_BASE, describeSuggestion, loadBasketSuggestion, loadContactSegmentPanel, suggestionBase,
+  yunoSegmentPresets, type BasketSuggestion, type SegmentSuggestion,
 } from '@/lib/contactSegments';
 import BasketThresholdField from '@/components/contacts/BasketThresholdField';
 import { useStudio } from './store';
 import {
-  studioScopeArgs, studioScopeId, useAudienceCount, useContactSegments, useImportedLists,
-  type ImportedListHealth, type SavedSegment, type StudioEvent, type StudioScope,
+  studioScopeArgs, studioScopeId, useAudienceCount, useImportedLists,
+  type ContactSegmentLite, type ImportedListHealth, type SavedSegment, type StudioEvent, type StudioScope,
 } from './hooks';
 import {
   BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, POS, RED, RED_SOFT_GRAD, SegBtns,
@@ -104,12 +104,19 @@ export default function AudienceStep({ scope, events, segments }: {
     }
   };
   const [segRefresh, setSegRefresh] = useState(0);
-  const contactSegments = useContactSegments(scope, segRefresh);
   const scopeId = studioScopeId(scope);
 
-  // Les segments Yuno pas encore créés dans cette portée, avec leur effectif
-  // du moment. Ceux qui existent déjà sont dans `contactSegments` : on ne les
-  // propose pas deux fois.
+  // La segmentation intelligente de la base : les segments enregistrés de la
+  // portée, et les segments Yuno pas encore créés (ceux qui existent déjà
+  // sont dans la première liste — on ne les propose pas deux fois).
+  //
+  // Les DEUX viennent d'un SEUL aller-retour (`get_contact_segment_panel`).
+  // Chaque comptage reconstruit la base vivante — 2,5 s sur 12 000 contacts —
+  // et l'écran en lançait six en parallèle, alors que le rôle `authenticated`
+  // est coupé à 8 s par requête : la liste des segments perdait la course,
+  // était annulée, et la section disparaissait en silence (un segment déjà
+  // ciblé par la campagne affichait alors 0 destinataire).
+  const [contactSegments, setContactSegments] = useState<ContactSegmentLite[]>([]);
   const [yunoPresets, setYunoPresets] = useState<SegmentSuggestion[]>([]);
   // Le seuil du panier : la valeur Yuno de la portée (historique, sinon
   // offre), remplaçable par le pro. Le préréglage se recompte à chaque
@@ -132,18 +139,41 @@ export default function AudienceStep({ scope, events, segments }: {
     const h = setTimeout(() => setBasketDebounced(basketThreshold), 350);
     return () => clearTimeout(h);
   }, [basketThreshold]);
+  // La plateforme n'a pas de préréglages Yuno (ni de seuil de panier) : elle
+  // n'attend donc pas la suggestion de seuil pour charger ses segments.
+  const panelReady = scope.kind === 'platform' || basketDebounced != null;
   useEffect(() => {
-    if (scope.kind === 'platform' || campaign.type !== 'promotional' || basketDebounced == null) { setYunoPresets([]); return; }
+    if (campaign.type !== 'promotional' || !panelReady) return;
     let cancelled = false;
-    loadYunoPresetSuggestions(
-      studioScopeArgs(scope),
-      contactSegments.map((s) => ({ id: s.id, suggestion_key: s.suggestionKey })),
-      0,
-      { basketThreshold: basketDebounced },
-    ).then((rows) => { if (!cancelled) setYunoPresets(rows.filter((r) => !r.existing_id)); });
-    return () => { cancelled = true; };
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const run = async () => {
+      try {
+        const panel = await loadContactSegmentPanel(studioScopeArgs(scope), {
+          presets: scope.kind === 'platform' ? [] : yunoSegmentPresets({ basketThreshold: basketDebounced ?? undefined }),
+        });
+        if (cancelled) return;
+        setContactSegments(panel.segments.map((sg) => ({
+          id: sg.id,
+          name: sg.name,
+          description: sg.description,
+          suggestionKey: sg.suggestion_key ?? null,
+          emails: Number(sg.counts?.emails || 0),
+        })));
+        setYunoPresets(panel.presets.filter((r) => !r.existing_id));
+      } catch {
+        // Un échec ne vide JAMAIS la section : on garde ce qui est affiché et
+        // on retente. Sans ça, une requête coupée faisait croire au pro qu'il
+        // n'avait aucun segment.
+        if (cancelled || tries >= 2) return;
+        tries += 1;
+        timer = setTimeout(() => { void run(); }, 1500 * tries);
+      }
+    };
+    void run();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.kind, scopeId, campaign.type, contactSegments, saveSeq, basketDebounced]);
+  }, [scope.kind, scopeId, campaign.type, saveSeq, segRefresh, basketDebounced, panelReady]);
 
   // Un clic : le préréglage devient un vrai segment (recalculé à chaque envoi)
   // et entre dans l'audience de cette campagne.
