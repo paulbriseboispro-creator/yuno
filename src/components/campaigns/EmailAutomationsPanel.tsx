@@ -99,8 +99,6 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<AutomationKind | null>(null);
   const [preview, setPreview] = useState<AutomationKind | null>(null);
-  /** Les règles du moteur : repliées par défaut, on vient ici pour allumer une recette. */
-  const [howOpen, setHowOpen] = useState(false);
 
   const isPlatform = scope.kind === 'platform';
   const scopeCol = scope.kind === 'venue' ? 'venue_id' : 'organizer_user_id';
@@ -251,39 +249,27 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
           </div>
         </div>
 
-        {/* ── Comment ça marche — replié, c'est une rangée de pastilles ── */}
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '11px 14px' }}>
-          <button
-            type="button" aria-expanded={howOpen} onClick={() => setHowOpen((v) => !v)}
-            className="w-full flex items-center gap-2.5 text-left cursor-pointer"
-            style={{ background: 'none', border: 'none', padding: 0 }}
+        {/* ── Comment ça marche ──────────────────────────────────────────────
+             Repli NATIF (`<details>`), jamais un `useState` : le détail restait
+             fermé au clic, et cette page se remonte dès que le contexte club
+             repasse par son squelette — un état React y est reparti à zéro sans
+             qu'on le voie. Le navigateur, lui, ouvre et ferme tout seul, sans
+             rien devoir à un rendu. Replié : les cinq règles en pastilles.
+             Déplié : chacune garde sa phrase, en liste régulière. ── */}
+        <details className="group" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '11px 14px' }}>
+          <summary
+            className="cursor-pointer select-none rounded-[10px] outline-none focus-visible:ring-1 focus-visible:ring-white/25 [&::-webkit-details-marker]:hidden"
+            style={{ listStyle: 'none' }}
           >
-            <Info className="w-4 h-4 shrink-0" style={{ color: T3 }} />
-            <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('em.auto.howTitle')}</span>
-            <ChevronDown
-              className="w-4 h-4 ml-auto shrink-0"
-              style={{ color: T3, transform: howOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s' }}
-            />
-          </button>
-          {howOpen ? (
-            <div className="mt-3 flex flex-col gap-2">
-              {HOW_RULES.map(({ icon: Icon, key }) => (
-                <div
-                  key={key}
-                  className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3"
-                  style={{ padding: '9px 11px', borderRadius: 11, background: INNER_BG, border: `1px solid ${BORDER}` }}
-                >
-                  <span className="flex items-center gap-2 shrink-0" style={{ width: 138 }}>
-                    <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: RED }} />
-                    <span style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{t(`em.auto.${key}.short`)}</span>
-                  </span>
-                  {/* Borné : au-delà de ~75 caractères la ligne se relit mal. */}
-                  <span className="min-w-0" style={{ color: T2, fontSize: 12, lineHeight: 1.55, maxWidth: 660 }}>{t(`em.auto.${key}`)}</span>
-                </div>
-              ))}
+            <div className="flex items-center gap-2.5">
+              <Info className="w-4 h-4 shrink-0" style={{ color: T3 }} />
+              <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('em.auto.howTitle')}</span>
+              <ChevronDown
+                className="w-4 h-4 ml-auto shrink-0 transition-transform duration-200 group-open:rotate-180"
+                style={{ color: T3 }}
+              />
             </div>
-          ) : (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <div className="mt-2.5 flex flex-wrap gap-1.5 group-open:hidden">
               {HOW_RULES.map(({ icon: Icon, key }) => (
                 <span
                   key={key} className="inline-flex items-center gap-1.5"
@@ -294,8 +280,24 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
                 </span>
               ))}
             </div>
-          )}
-        </div>
+          </summary>
+          <div className="mt-2.5 flex flex-col gap-2">
+            {HOW_RULES.map(({ icon: Icon, key }) => (
+              <div
+                key={key}
+                className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3"
+                style={{ padding: '9px 11px', borderRadius: 11, background: INNER_BG, border: `1px solid ${BORDER}` }}
+              >
+                <span className="flex items-center gap-2 shrink-0" style={{ width: 138 }}>
+                  <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: RED }} />
+                  <span style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{t(`em.auto.${key}.short`)}</span>
+                </span>
+                {/* Borné : au-delà de ~75 caractères la ligne se relit mal. */}
+                <span className="min-w-0" style={{ color: T2, fontSize: 12, lineHeight: 1.55, maxWidth: 660 }}>{t(`em.auto.${key}`)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
 
         {/* ── Yuno te propose d'allumer… (recettes éteintes que les faits justifient) ── */}
         {!loading && !isPlatform && (
