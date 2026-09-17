@@ -532,6 +532,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.campaigns.s7h', bodyKey: 'ohelp.pg.campaigns.s7b', type: 'steps' },
           { headingKey: 'ohelp.pg.campaigns.s16h', bodyKey: 'ohelp.pg.campaigns.s16b' },
           { headingKey: 'ohelp.pg.campaigns.s17h', bodyKey: 'ohelp.pg.campaigns.s17b', type: 'tip' },
+          { headingKey: 'ohelp.pg.campaigns.s26h', bodyKey: 'ohelp.pg.campaigns.s26b' },
           { headingKey: 'ohelp.pg.campaigns.s19h', bodyKey: 'ohelp.pg.campaigns.s19b' },
           { headingKey: 'ohelp.pg.campaigns.s20h', bodyKey: 'ohelp.pg.campaigns.s20b', type: 'tip' },
           { headingKey: 'ohelp.pg.campaigns.s21h', bodyKey: 'ohelp.pg.campaigns.s21b', type: 'tip' },

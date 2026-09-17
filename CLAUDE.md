@@ -877,6 +877,47 @@ Doc complète : `docs/CONTACT_INTELLIGENCE.md`. Règles intouchables :
 - Une personne présente dans plusieurs fichiers = sa ligne la plus récente
   (`contact_rows`), à date égale la plus renseignée.
 
+## Import de contacts : un fichier = une liste, jamais deux (2026-09-17)
+
+Migration `20260917140000_contact_import_dedup.sql`. Constaté sur le compte
+organisateur WOH : 10 759 + 317 adresses importées séparément le 1er septembre,
+puis le MÊME public réimporté d'un seul fichier de 12 315 le 8. Personne n'a été
+dupliqué (`newsletter_subscriptions` est unique par portée et par adresse), mais
+l'ATTRIBUTION s'est fragmentée — le `ON CONFLICT … DO UPDATE … WHERE opted_in =
+false` d'`import_email_contacts` ne retouche jamais un abonné déjà actif, donc
+les 11 076 déjà présents sont restés sur les deux anciens fichiers et la liste
+complète n'en possédait que 1 239. Choisie comme audience, elle touchait 1 239
+personnes en en annonçant 12 315 : **un manque de 90 %, silencieux**.
+
+- **L'empreinte décrit le FICHIER, pas ce que la liste possède aujourd'hui.**
+  `contact_fingerprint(text[])` rend « n:md5 » sur l'ensemble trié des
+  identités ; elle est posée sur `contact_list_imports`, `email_list_imports` et
+  `sms_list_imports` au DERNIER lot (`p_final`), lue depuis `imported_contacts`.
+  La calculer depuis les abonnés d'une liste donnerait 1 239 au lieu de 12 315.
+- **Une liste absorbée est RETIRÉE, jamais supprimée** (`superseded_by` /
+  `superseded_at`) : la ligne d'import est une pièce du dossier de consentement.
+  Les trois panneaux qui listent des imports la masquent
+  (`get_email_lists_health`, `get_sms_contacts_overview`,
+  `get_contact_intelligence_overview`).
+- **`check_contact_import(portée, emails[], phones[])`** est l'avis AVANT
+  écriture : doublon exact, et recouvrement liste par liste. Le dialogue
+  n'interrompt le pro que s'il y a une vraie décision (`needsDecision` :
+  doublon exact, ou une liste existante reprise à ≥ 50 % par ≥ 10 contacts) —
+  quelques adresses déjà clientes ne méritent pas une question.
+- **`import_contact_list` prend `p_mode` ('append' | 'merge') et `p_final`.**
+  Au dernier lot, le serveur calcule l'empreinte sur ce qu'il a REÇU et absorbe
+  d'office si le fichier est un doublon exact : la garantie ne dépend pas du
+  client, un import refait à l'identique ne crée jamais une seconde liste.
+  `append` reste légitime (les VIP importés après la base générale).
+- **`contact_import_absorb(list_import_id)`** est la seule porte de fusion :
+  la liste prend la propriété de toutes ses identités, les listes laissées
+  vides sont retirées, et **les campagnes en brouillon qui les visaient sont
+  recâblées** — sans ça un brouillon partirait à zéro destinataire sans le dire.
+  Elle ne déplace JAMAIS un opt-in, une attestation ni un désabonnement.
+- Ajouter un paramètre à `import_contact_list` = **DROP + CREATE**, comme pour
+  `import_email_contacts` : une surcharge rendrait ambigus les appels à
+  arguments nommés des bundles en cache (erreur 300).
+
 ## La base de contacts vivante (import ∪ clients Yuno, engagement — 2026-09-15)
 
 Doc : `docs/CONTACT_INTELLIGENCE.md` § « La base vivante ». Migrations
