@@ -34,7 +34,7 @@ import {
 import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
 import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type ResendEmail } from '../_shared/resend-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
-import { isSupportSessionToken } from '../_shared/support-session.ts';
+import { supportSessionFor } from '../_shared/support-session.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -885,13 +885,22 @@ Deno.serve(async (req) => {
     // ── Constitution de la file (mode 'send') ───────────────────────────────
     if (mode !== 'drain') {
       // Un envoi de masse part au nom du pro, vers ses clients, et rien ne le
-      // rattrape une fois parti. Le support peut préparer la campagne et
-      // l'envoyer en test à sa propre adresse (bloc `send_test` au-dessus,
-      // volontairement laissé ouvert) ; appuyer sur « envoyer » à 5 000
-      // personnes appartient au pro seul.
-      if (token && !internal && await isSupportSessionToken(admin as unknown as Parameters<typeof isSupportSessionToken>[0], token)) {
-        return new Response(JSON.stringify({ error: 'support_session_forbidden' }), { status: 403, headers: jsonHeaders });
-      }
+      // rattrape une fois parti — d'où le refus historique en session support.
+      //
+      // OUVERT depuis le 2026-09-17 (décision de lancement, à REFERMER ensuite,
+      // cf. CLAUDE.md) : les premiers clients ne veulent pas encore toucher à
+      // l'outil, et une campagne que personne n'envoie ne prouve rien. Le
+      // support appuie donc sur « envoyer » pour eux, dans la session qu'ils
+      // ont approuvée.
+      //
+      // Ce n'est pas silencieux. La campagne porte `sent_via_support`, et le
+      // journal d'accès assisté reçoit une ligne qui nomme l'ADMIN réel — sans
+      // elle le rapport dirait que le pro a envoyé lui-même, puisque la session
+      // est la sienne. Rien d'autre ne bouge : le consentement, la politique
+      // d'envoi, le disjoncteur et les quotas s'appliquent à l'identique.
+      const supportSession = token && !internal
+        ? await supportSessionFor(admin as unknown as Parameters<typeof supportSessionFor>[0], token)
+        : null;
       if (['sent', 'cancelled'].includes(campaign.status)) {
         return new Response(JSON.stringify({ error: `Campagne déjà ${campaign.status}` }), { status: 409, headers: jsonHeaders });
       }
@@ -907,6 +916,25 @@ Deno.serve(async (req) => {
           paused_reason: campaign.paused_reason,
         }), { status: 409, headers: jsonHeaders });
       }
+      if (supportSession) {
+        await admin.from('email_campaigns')
+          .update({ sent_via_support: true })
+          .eq('id', campaign_id);
+        // Best effort : une panne d'audit ne doit pas coûter la campagne, mais
+        // elle doit se voir dans les logs.
+        const { error: audErr } = await admin.from('admin_support_audit').insert({
+          grant_id: supportSession.grant_id,
+          session_id: supportSession.id,
+          target_user_id: supportSession.target_user_id,
+          actor_id: supportSession.admin_id,
+          action: 'campaign_send',
+          table_name: 'email_campaigns',
+          row_pk: campaign_id,
+          detail: { subject: campaign.subject, scope: campaign.venue_id || campaign.organizer_user_id },
+        });
+        if (audErr) console.error('support audit (campaign_send):', audErr.message);
+      }
+
       const { data: enq, error: eErr } = await admin.rpc('enqueue_campaign_recipients', { p_campaign_id: campaign_id });
       if (eErr) throw new Error(`Audience resolution failed: ${eErr.message}`);
       if (!enq || (Number(enq.total) - Number(enq.already_sent)) <= 0) {

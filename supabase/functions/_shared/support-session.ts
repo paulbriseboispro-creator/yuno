@@ -42,24 +42,46 @@ interface MinimalAdminClient {
   };
 }
 
+/** La session support derrière ce JWT — de quoi écrire une ligne d'audit. */
+export interface SupportSessionRow {
+  id: string;
+  grant_id: string | null;
+  target_user_id: string;
+  admin_id: string | null;
+}
+
+/**
+ * La session support active derrière ce JWT, ou null.
+ *
+ * Deux usages : refuser une écriture (le booléen suffit), ou l'AUTORISER en la
+ * traçant — et pour tracer il faut nommer l'admin réel, pas le pro dont la
+ * session est empruntée. D'où le retour de la ligne entière.
+ */
+export async function supportSessionFor(
+  supabaseAdmin: MinimalAdminClient,
+  accessToken: string,
+): Promise<SupportSessionRow | null> {
+  const sid = jwtSessionId(accessToken);
+  if (!sid) return null;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("admin_support_sessions")
+      .select("id, grant_id, target_user_id, admin_id")
+      .eq("auth_session_id", sid)
+      .eq("status", "active")
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as SupportSessionRow;
+  } catch {
+    return null;
+  }
+}
+
 /** La requête porte-t-elle un JWT de session support active ? */
 export async function isSupportSessionToken(
   supabaseAdmin: MinimalAdminClient,
   accessToken: string,
 ): Promise<boolean> {
-  const sid = jwtSessionId(accessToken);
-  if (!sid) return false;
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("admin_support_sessions")
-      .select("id")
-      .eq("auth_session_id", sid)
-      .eq("status", "active")
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
-    if (error) return false;
-    return !!data;
-  } catch {
-    return false;
-  }
+  return (await supportSessionFor(supabaseAdmin, accessToken)) !== null;
 }

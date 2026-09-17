@@ -1399,9 +1399,31 @@ intouchables :
   d'import dirait qu'il a attesté lui-même : d'où `attested_via_support` sur
   les trois tables d'import (`email_list_imports`, `sms_list_imports`,
   `contact_list_imports`) et le trigger `log_support_session_write`, qui nomme
-  l'admin réel dans `admin_support_audit`. Le support remplit la matière, il ne
-  parle à personne à la place du pro : ENVOYER une campagne reste bloqué
-  (`isSupportSessionToken` dans `send-campaign`) ; l'envoi de TEST reste ouvert.
+  l'admin réel dans `admin_support_audit`.
+- **Envoyer une campagne en session support : AUTORISÉ depuis le 2026-09-17**
+  (migration `20260917120000`, même décision de lancement, **à REFERMER
+  ensuite**). Les premiers clients ne veulent pas encore toucher à l'outil, et
+  une campagne que personne n'envoie ne prouve rien. Le support appuie sur
+  « envoyer » à leur place, dans la session qu'ils ont approuvée. Aucune règle
+  d'envoi ne bouge : consentement, `email_send_policy`, disjoncteur
+  plaintes/bounces, warm-up et quotas s'appliquent à l'identique. Traces :
+  `email_campaigns.sent_via_support` (posé par `send-campaign` au moment où la
+  file est constituée) et une ligne `admin_support_audit` d'action
+  `campaign_send` qui nomme l'admin réel — sans elle le rapport dirait que le
+  pro a envoyé lui-même, la session étant la sienne. **Pas de trigger d'audit
+  sur `email_campaigns`** : l'Email Studio enregistre à chaque frappe, un
+  AFTER UPDATE noierait le journal sous les autosaves — c'est l'edge qui écrit
+  la ligne, une fois. `supportSessionFor()` (`_shared/support-session.ts`) rend
+  la session entière ; `isSupportSessionToken()` n'en est plus qu'un raccourci
+  booléen, pour les fonctions qui refusent toujours.
+- **Une campagne refusée reste en `sending` avec une file vide, et le cron ne
+  la rattrape PAS.** C'est ce qu'a produit le refus support du 17/09 : l'éditeur
+  passe la campagne en `sending` AVANT d'appeler l'edge, seul le mode `send`
+  appelle `enqueue_campaign_recipients`, et le balayage ne connaît que le mode
+  `drain`. Résultat : « Envoi en cours, 0/0 » pendant une heure, puis `failed`
+  avec un `sent_at` posé sur une campagne qui n'a jamais eu un destinataire.
+  Toute nouvelle porte de sortie ajoutée au mode `send` doit donc soit rendre
+  la campagne à `draft`, soit être posée AVANT que le front change le statut.
 - **Purge d'une liste importée = repoussoir d'abord, destruction ensuite**
   (`purge_email_list`, migration `20260909130000`). La ligne désabonnée de
   `newsletter_subscriptions` EST la mémoire du refus (le DO UPDATE de l'import
