@@ -457,7 +457,7 @@ export function OrgEventFormDialog({
 
       const endAtUTC = fromWallClockInTz(endAt, timezone);
 
-      // Vidéo 9:16 : envoyée à l'enregistrement seulement ; un échec annule la sauvegarde.
+      // Vidéo 16:9 : envoyée à l'enregistrement seulement ; un échec annule la sauvegarde.
       let finalVideoUrl: string | null = videoRemoved ? null : (videoUrl || null);
       if (videoFile) {
         try { finalVideoUrl = await uploadEventVideo(videoFile); }
@@ -663,7 +663,7 @@ export function OrgEventFormDialog({
               )}
             </div>
 
-            {/* Vidéo 9:16 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
+            {/* Vidéo 16:9 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
             <EventVideoField
               existingUrl={videoRemoved ? '' : videoUrl}
               file={videoFile}

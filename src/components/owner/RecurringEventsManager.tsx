@@ -116,7 +116,7 @@ type TemplateRow = {
   description: string | null;
   poster_url: string | null;
   poster_position: PosterPosition | null;
-  /** Vidéo 9:16 par défaut, recopiée sur chaque occurrence. */
+  /** Vidéo 16:9 par défaut, recopiée sur chaque occurrence. */
   video_url: string | null;
   music_genres: string[];
   event_type: string;
@@ -557,7 +557,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         } catch (err) { console.error('Poster upload exception:', err); }
       }
 
-      // Vidéo 9:16 par défaut de la série : envoyée à l'enregistrement, un échec annule.
+      // Vidéo 16:9 par défaut de la série : envoyée à l'enregistrement, un échec annule.
       let videoUrl: string | null = videoRemoved ? null : (form.videoUrl || null);
       if (videoFile) {
         try { videoUrl = await uploadEventVideo(videoFile); }
@@ -950,7 +950,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
               )}
             </div>
 
-            {/* Vidéo 9:16 par défaut — recopiée sur chaque occurrence, page soirée seulement */}
+            {/* Vidéo 16:9 par défaut — recopiée sur chaque occurrence, page soirée seulement */}
             <EventVideoField
               existingUrl={videoRemoved ? '' : form.videoUrl}
               file={videoFile}

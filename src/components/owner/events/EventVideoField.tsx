@@ -66,8 +66,8 @@ export function EventVideoField({
 
       {shownUrl ? (
         <div className="flex items-stretch gap-3 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-          {/* Vignette 9:16 — lue muette, comme sur la page publique */}
-          <div className="shrink-0 overflow-hidden rounded-lg" style={{ width: 90, aspectRatio: '9 / 16', background: '#000' }}>
+          {/* Vignette 16:9 — le cadrage exact du bandeau de la page publique */}
+          <div className="shrink-0 self-start overflow-hidden rounded-lg" style={{ width: 132, aspectRatio: '16 / 9', background: '#000' }}>
             <video
               key={shownUrl}
               src={shownUrl}

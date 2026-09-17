@@ -188,7 +188,7 @@ export type EventWithTicketing = {
   title: string;
   description?: string;
   posterUrl?: string;
-  /** Vidéo portrait 9:16 lue en boucle sur la page de la soirée uniquement (events.video_url). */
+  /** Vidéo paysage 16:9 lue en boucle sur la page de la soirée uniquement (events.video_url). */
   videoUrl?: string;
   posterPosition?: { x: number; y: number; scale: number };
   startAt: string;

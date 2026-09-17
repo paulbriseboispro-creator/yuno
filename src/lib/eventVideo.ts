@@ -1,20 +1,25 @@
 /**
- * Vidéo verticale de la page soirée — règles partagées par les formulaires
+ * Vidéo paysage de la page soirée — règles partagées par les formulaires
  * (club + organisateur) et par le héros public.
  *
- * Contrat produit : une seule vidéo portrait (9:16) par soirée, lue en boucle,
+ * Contrat produit : une seule vidéo paysage (16:9) par soirée, lue en boucle,
  * muette, en autoplay, UNIQUEMENT sur la page de la soirée. Partout ailleurs
  * (Explore, cartes, emails, passes Wallet, partages) l'affiche reste le seul
  * visuel — la vidéo n'a donc jamais à être « déclinée » ni optimisée en
  * miniature.
+ *
+ * Le 16:9 n'est pas un goût, c'est ce que la page fait de la vidéo : elle est
+ * posée en bandeau plein cadre AU-DESSUS du titre, jamais dessous. Un portrait
+ * y perdrait la moitié de son cadrage, et surtout il rendait le titre illisible
+ * quand il passait en survol du plan.
  *
  * Limites (miroir du bucket `event-videos`, migrations 20260907200000 + 210000) :
  *   · 30 Mo, MP4 ou MOV, codec vidéo H.264 OBLIGATOIRE. Un .mov HEVC (réglage
  *     iPhone « Haute efficacité ») se lit sur Safari mais pas sur Chrome/Android,
  *     et le WebM ne se lit pas partout sur iOS : on refuse avant l'envoi plutôt
  *     que de laisser un client tomber sur un rectangle noir.
- *   · portrait obligatoire (la page l'affiche en 9:16, un paysage serait
- *     recadré à 20 % de sa largeur)
+ *   · paysage obligatoire (la page l'affiche en 16:9 ; en dessous de 5:4 le
+ *     recadrage mange le sujet, on refuse plutôt que de rogner à l'aveugle)
  *   · 60 s max — au-delà c'est une bande-annonce, pas un visuel de page
  */
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +34,7 @@ const ACCEPTED_TYPES = new Set(['video/mp4', 'video/quicktime']);
 /** Entrées `stsd` acceptées : H.264 sous ses deux emballages. */
 const H264_ENTRIES = new Set(['avc1', 'avc3']);
 
-export type EventVideoRejection = 'bad_type' | 'too_large' | 'too_long' | 'not_portrait' | 'unsupported_codec' | 'unreadable';
+export type EventVideoRejection = 'bad_type' | 'too_large' | 'too_long' | 'not_landscape' | 'unsupported_codec' | 'unreadable';
 
 export type EventVideoInspection =
   | { ok: true; duration: number; width: number; height: number }
@@ -88,6 +93,9 @@ async function sniffCodecs(file: File): Promise<Set<string> | null> {
 /** Codecs vidéo connus qui ne se lisent pas partout (HEVC, AV1, VP9, Dolby Vision). */
 const NON_UNIVERSAL = ['hvc1', 'hev1', 'hvt1', 'dvh1', 'dvhe', 'av01', 'vp09', 'vp08'];
 
+/** Rapport minimal accepté : en dessous, le cadrage 16:9 couperait le sujet. */
+const MIN_ASPECT_RATIO = 1.25;
+
 /**
  * Lit les métadonnées du fichier dans un <video> hors écran pour valider
  * durée et orientation AVANT l'upload — refuser après 30 Mo transférés
@@ -129,7 +137,7 @@ function probeMetadata(file: File): Promise<EventVideoInspection> {
     video.onloadedmetadata = () => {
       const { duration, videoWidth: width, videoHeight: height } = video;
       if (!width || !height) return finish({ ok: false, reason: 'unreadable' });
-      if (height <= width) return finish({ ok: false, reason: 'not_portrait' });
+      if (width / height < MIN_ASPECT_RATIO) return finish({ ok: false, reason: 'not_landscape' });
       if (Number.isFinite(duration) && duration > EVENT_VIDEO_MAX_SECONDS) return finish({ ok: false, reason: 'too_long' });
       finish({ ok: true, duration, width, height });
     };
