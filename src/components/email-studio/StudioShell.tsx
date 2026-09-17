@@ -493,13 +493,21 @@ function StudioBody({ scope, basePath, saveNow, templateMode = false }: {
       const mod = e.metaKey || e.ctrlKey;
       const key = (e.key || '').toLowerCase();
 
-      if (inField) {
-        if (e.key === 'Escape' && target && 'blur' in target) (target as HTMLElement).blur();
-        return;
-      }
+      // ⌘Z appartient au Studio, y compris en pleine frappe : le champ de
+      // texte est un contenteditable qu'on redessine nous-mêmes, la pile
+      // d'annulation du navigateur n'y survit pas. L'historique du store, si.
       if (mod && key === 'z') {
         e.preventDefault();
         if (e.shiftKey) s.redo(); else s.undo();
+        return;
+      }
+      if (mod && key === 'y') {
+        e.preventDefault();
+        s.redo();
+        return;
+      }
+      if (inField) {
+        if (e.key === 'Escape' && target && 'blur' in target) (target as HTMLElement).blur();
         return;
       }
       if (mod && key === 'd' && s.selectedId) {

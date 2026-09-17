@@ -93,13 +93,43 @@ function snapshot(c: StudioCampaign): ContentSnapshot {
   };
 }
 
+/**
+ * Fenêtre de FUSION des modifications d'un même champ. Sans elle, une frappe
+ * = un état d'historique : ⌘Z rendait une lettre à la fois et les 40 places
+ * partaient en une phrase. Au-delà de ce délai, la rafale est close et
+ * l'annulation suivante rend le texte d'avant.
+ */
+const MERGE_MS = 700;
+
 export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCtx): StoreApi<StudioState> {
   return createStore<StudioState>((set, get) => {
-    /** Pousse l'état courant dans l'historique puis applique la mutation. */
-    const withHistory = (mutate: (c: StudioCampaign) => StudioCampaign) => {
+    /** Dernière rafale fusionnée : quel champ, et quand. */
+    let burst: { key: string; at: number } | null = null;
+
+    /**
+     * Pousse l'état courant dans l'historique puis applique la mutation.
+     *
+     * `mergeKey` désigne un champ qu'on est en train de remplir : tant que la
+     * même rafale continue, on garde l'état d'AVANT la rafale au lieu d'en
+     * empiler un par caractère.
+     */
+    const withHistory = (mutate: (c: StudioCampaign) => StudioCampaign, mergeKey?: string) => {
       const { campaign, past } = get();
-      const nextPast = [...past, snapshot(campaign)].slice(-HISTORY_LIMIT);
+      const now = Date.now();
+      const merge = !!mergeKey && !!burst && burst.key === mergeKey && now - burst.at < MERGE_MS;
+      burst = mergeKey ? { key: mergeKey, at: now } : null;
+      const nextPast = merge ? past : [...past, snapshot(campaign)].slice(-HISTORY_LIMIT);
       set({ campaign: mutate(campaign), past: nextPast, future: [], dirty: true });
+    };
+
+    /**
+     * Le champ d'une rafale : un seul texte modifié sur un seul bloc. Une
+     * couleur qu'on fait glisser, un titre qu'on tape — même famille.
+     */
+    const burstKeyOf = (id: string, patch: Record<string, unknown>): string | undefined => {
+      const keys = Object.keys(patch);
+      if (keys.length !== 1) return undefined;
+      return typeof patch[keys[0]] === 'string' ? `${id}.${keys[0]}` : undefined;
     };
 
     return {
@@ -137,7 +167,10 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
       setExclusions: (exclusions) => set((s) => ({ campaign: { ...s.campaign, exclusions }, dirty: true })),
       setSocialLinks: (socialLinks) => set((s) => ({ campaign: { ...s.campaign, socialLinks }, dirty: true })),
 
-      patchContent: (patch) => withHistory((c) => ({ ...c, ...patch })),
+      patchContent: (patch) => withHistory(
+        (c) => ({ ...c, ...patch }),
+        burstKeyOf('campaign', patch as Record<string, unknown>),
+      ),
 
       addBlock: (type, index) => {
         const block = makeBlock(type, { ...blockCtx, eventId: get().campaign.eventId || blockCtx.eventId });
@@ -154,7 +187,7 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
       updateBlock: (id, patch) => withHistory((c) => ({
         ...c,
         blocks: c.blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as EmailBlock) : b)),
-      })),
+      }), burstKeyOf(id, patch as Record<string, unknown>)),
 
       moveBlock: (id, direction) => withHistory((c) => {
         const i = c.blocks.findIndex((b) => b.id === id);
@@ -206,6 +239,7 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
 
       undo: () => {
         const { past, future, campaign } = get();
+        burst = null;
         if (past.length === 0) return;
         const prev = past[past.length - 1];
         set({
@@ -218,6 +252,7 @@ export function createStudioStore(initial: StudioCampaign, blockCtx: MakeBlockCt
 
       redo: () => {
         const { past, future, campaign } = get();
+        burst = null;
         if (future.length === 0) return;
         const next = future[0];
         set({
