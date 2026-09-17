@@ -32,10 +32,10 @@ const EMPTY: GuestArtist = { name: '', photoUrl: null, instagram: null };
  * de profil DJ, de demande de booking ni de cachet — le sélecteur du dessus
  * s'en charge pour les artistes qui, eux, peuvent répondre.
  *
- * La photo se met à la main : Instagram ne laisse plus aucun serveur lire un
- * profil public (vérifié le 2026-09-17). Le carnet évite que ce soit une
- * corvée récurrente — un artiste déjà programmé revient avec sa photo et son
- * Instagram en un clic, sur toutes les soirées suivantes.
+ * Rien n'y est figé : la ligne, la vignette et le crayon ouvrent tous la même
+ * modification, et la photo d'un artiste se change à tout moment. Le carnet
+ * (`get_guest_artist_book`) sert la version la PLUS RÉCENTE de chaque artiste,
+ * donc corriger une photo ici la corrige pour toutes les soirées à venir.
  */
 export function GuestArtistsEditor({ artists, onChange }: Props) {
   const { language } = useLanguage();
@@ -122,28 +122,41 @@ export function GuestArtistsEditor({ artists, onChange }: Props) {
         {tt('Artistes sans compte Yuno', 'Artists without a Yuno account', 'Artistas sin cuenta Yuno')}
       </Label>
       <p className="text-[11px] text-muted-foreground leading-snug">
-        {tt("Ils apparaissent sur l'affiche publique à la suite des DJ Yuno. Leur photo ouvre leur Instagram, et Yuno compte les clics.",
-            'They appear on the public line-up after the Yuno DJs. Their photo opens their Instagram, and Yuno counts the clicks.',
-            'Aparecen en el cartel público después de los DJ Yuno. Su foto abre su Instagram, y Yuno cuenta los clics.')}
+        {tt("Ils apparaissent sur l'affiche publique à la suite des DJ Yuno. Leur photo ouvre leur Instagram, et Yuno compte les clics. Touche un artiste pour le modifier.",
+            'They appear on the public line-up after the Yuno DJs. Their photo opens their Instagram, and Yuno counts the clicks. Tap an artist to edit them.',
+            'Aparecen en el cartel público después de los DJ Yuno. Su foto abre su Instagram, y Yuno cuenta los clics. Toca un artista para editarlo.')}
       </p>
 
       {artists.length > 0 && (
         <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
           {artists.map((a, i) => (
             <div key={`${a.id || a.name}-${i}`} className="flex items-center gap-2 px-2 py-1.5">
-              <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden bg-muted">
+              <button
+                type="button"
+                onClick={() => openEdit(i)}
+                className="h-8 w-8 shrink-0 rounded-full overflow-hidden bg-muted"
+                title={tt('Changer la photo', 'Change the photo', 'Cambiar la foto')}
+              >
                 {a.photoUrl
                   ? <img src={a.photoUrl} alt="" className="h-full w-full object-cover" />
                   : <div className="h-full w-full flex items-center justify-center text-[10px] text-muted-foreground">
                       {a.name.trim().charAt(0).toUpperCase() || '?'}
                     </div>}
-              </div>
-              <div className="min-w-0 flex-1">
+              </button>
+              {/* Toute la ligne ouvre la modification : le crayon seul est une
+                  cible de 14 px que personne ne trouve, et rien ici n'est
+                  définitif — photo, Instagram et nom se changent quand on veut. */}
+              <button
+                type="button"
+                onClick={() => openEdit(i)}
+                className="min-w-0 flex-1 text-left"
+                title={tt('Modifier cet artiste', 'Edit this artist', 'Editar este artista')}
+              >
                 <p className="text-sm font-medium truncate">{a.name}</p>
                 {a.instagramHandle && (
                   <p className="text-[10px] text-muted-foreground truncate">@{a.instagramHandle}</p>
                 )}
-              </div>
+              </button>
               {(a.clicks ?? 0) > 0 && (
                 <span
                   className="flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0"
@@ -154,17 +167,21 @@ export function GuestArtistsEditor({ artists, onChange }: Props) {
               )}
               <div className="flex items-center shrink-0">
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
-                  className="p-1 rounded hover:bg-muted disabled:opacity-25" aria-label="up">
+                  className="p-1 rounded hover:bg-muted disabled:opacity-25"
+                  aria-label={tt('Monter', 'Move up', 'Subir')} title={tt('Monter', 'Move up', 'Subir')}>
                   <ChevronUp className="h-3.5 w-3.5" />
                 </button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === artists.length - 1}
-                  className="p-1 rounded hover:bg-muted disabled:opacity-25" aria-label="down">
+                  className="p-1 rounded hover:bg-muted disabled:opacity-25"
+                  aria-label={tt('Descendre', 'Move down', 'Bajar')} title={tt('Descendre', 'Move down', 'Bajar')}>
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => openEdit(i)} className="p-1 rounded hover:bg-muted" aria-label="edit">
+                <button type="button" onClick={() => openEdit(i)} className="p-1 rounded hover:bg-muted"
+                  aria-label={tt('Modifier', 'Edit', 'Editar')} title={tt('Modifier', 'Edit', 'Editar')}>
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => remove(i)} className="p-1 rounded hover:bg-destructive/20" aria-label="remove">
+                <button type="button" onClick={() => remove(i)} className="p-1 rounded hover:bg-destructive/20"
+                  aria-label={tt('Retirer', 'Remove', 'Quitar')} title={tt('Retirer', 'Remove', 'Quitar')}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -311,11 +328,11 @@ export function GuestArtistsEditor({ artists, onChange }: Props) {
                   className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickPhoto(f); }}
                 />
-                {/* Dit franchement pourquoi il n'y a pas de bouton magique. */}
+                {/* Ce qui compte pour le pro : il ne la remettra pas chaque semaine. */}
                 <p className="mt-1.5 text-[11px] text-muted-foreground leading-snug">
-                  {tt("Instagram n'autorise plus aucun site à récupérer une photo de profil : il faut l'enregistrer depuis son compte, puis la choisir ici. C'est à faire une seule fois — l'artiste revient ensuite tout seul dans « Déjà programmés chez toi ».",
-                      'Instagram no longer lets any site fetch a profile picture: save it from their account, then pick it here. Once is enough — the artist then comes back on their own under “Already booked by you”.',
-                      'Instagram ya no permite a ningún sitio recuperar una foto de perfil: guárdala desde su cuenta y elígela aquí. Solo una vez — después el artista vuelve solo en «Ya programados por ti».')}
+                  {tt("Une fois ajoutée, la photo reste en mémoire : l'artiste revient avec elle dans « Déjà programmés chez toi » sur tes prochaines soirées. Tu peux la changer quand tu veux.",
+                      'Once added, the photo is remembered: the artist comes back with it under “Already booked by you” on your next events. You can change it whenever you want.',
+                      'Una vez añadida, la foto queda guardada: el artista vuelve con ella en «Ya programados por ti» en tus próximos eventos. Puedes cambiarla cuando quieras.')}
                 </p>
               </div>
 
