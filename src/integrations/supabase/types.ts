@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2908,12 +2883,130 @@ export type Database = {
           },
         ]
       }
+      contact_engagement: {
+        Row: {
+          bounced_at: string | null
+          click_events: number
+          clicks: number
+          clicks_90d: number
+          complained_at: string | null
+          created_at: string
+          email: string
+          emails_delivered: number
+          emails_sent: number
+          first_sent_at: string | null
+          id: string
+          last_clicked_at: string | null
+          last_opened_at: string | null
+          last_sent_at: string | null
+          opens: number
+          opens_90d: number
+          organizer_user_id: string | null
+          origin: string
+          scope_key: string | null
+          status: string
+          status_changed_at: string
+          subscribed: boolean
+          suppressed: boolean
+          unsubscribed_at: string | null
+          updated_at: string
+          user_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          bounced_at?: string | null
+          click_events?: number
+          clicks?: number
+          clicks_90d?: number
+          complained_at?: string | null
+          created_at?: string
+          email: string
+          emails_delivered?: number
+          emails_sent?: number
+          first_sent_at?: string | null
+          id?: string
+          last_clicked_at?: string | null
+          last_opened_at?: string | null
+          last_sent_at?: string | null
+          opens?: number
+          opens_90d?: number
+          organizer_user_id?: string | null
+          origin?: string
+          scope_key?: string | null
+          status?: string
+          status_changed_at?: string
+          subscribed?: boolean
+          suppressed?: boolean
+          unsubscribed_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          bounced_at?: string | null
+          click_events?: number
+          clicks?: number
+          clicks_90d?: number
+          complained_at?: string | null
+          created_at?: string
+          email?: string
+          emails_delivered?: number
+          emails_sent?: number
+          first_sent_at?: string | null
+          id?: string
+          last_clicked_at?: string | null
+          last_opened_at?: string | null
+          last_sent_at?: string | null
+          opens?: number
+          opens_90d?: number
+          organizer_user_id?: string | null
+          origin?: string
+          scope_key?: string | null
+          status?: string
+          status_changed_at?: string
+          subscribed?: boolean
+          suppressed?: boolean
+          unsubscribed_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: []
+      }
+      contact_engagement_state: {
+        Row: {
+          duration_ms: number | null
+          organizer_user_id: string | null
+          refreshed_at: string
+          scope_key: string
+          summary: Json
+          venue_id: string | null
+        }
+        Insert: {
+          duration_ms?: number | null
+          organizer_user_id?: string | null
+          refreshed_at?: string
+          scope_key: string
+          summary?: Json
+          venue_id?: string | null
+        }
+        Update: {
+          duration_ms?: number | null
+          organizer_user_id?: string | null
+          refreshed_at?: string
+          scope_key?: string
+          summary?: Json
+          venue_id?: string | null
+        }
+        Relationships: []
+      }
       contact_list_imports: {
         Row: {
           analysis: Json | null
           analyzed_at: string | null
           attested_at: string
           attested_by: string | null
+          attested_via_support: boolean
           both_count: number
           channels: Json
           collected_since: string | null
@@ -2938,6 +3031,7 @@ export type Database = {
           analyzed_at?: string | null
           attested_at?: string
           attested_by?: string | null
+          attested_via_support?: boolean
           both_count?: number
           channels?: Json
           collected_since?: string | null
@@ -2962,6 +3056,7 @@ export type Database = {
           analyzed_at?: string | null
           attested_at?: string
           attested_by?: string | null
+          attested_via_support?: boolean
           both_count?: number
           channels?: Json
           collected_since?: string | null
@@ -4832,6 +4927,149 @@ export type Database = {
           },
         ]
       }
+      email_automation_sends: {
+        Row: {
+          automation_id: string
+          bind_event_id: string | null
+          campaign_id: string | null
+          created_at: string
+          due_at: string
+          email: string
+          id: string
+          kind: string
+          organizer_user_id: string | null
+          skip_reason: string | null
+          status: string
+          trigger_event_id: string | null
+          trigger_key: string
+          venue_id: string | null
+        }
+        Insert: {
+          automation_id: string
+          bind_event_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          due_at?: string
+          email: string
+          id?: string
+          kind: string
+          organizer_user_id?: string | null
+          skip_reason?: string | null
+          status: string
+          trigger_event_id?: string | null
+          trigger_key: string
+          venue_id?: string | null
+        }
+        Update: {
+          automation_id?: string
+          bind_event_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          due_at?: string
+          email?: string
+          id?: string
+          kind?: string
+          organizer_user_id?: string | null
+          skip_reason?: string | null
+          status?: string
+          trigger_event_id?: string | null
+          trigger_key?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_automation_sends_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "email_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_automation_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_automations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delay_hours: number
+          enabled: boolean
+          enabled_at: string | null
+          id: string
+          kind: string
+          organizer_user_id: string | null
+          subject: string | null
+          template_id: string | null
+          threshold_pct: number
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delay_hours?: number
+          enabled?: boolean
+          enabled_at?: string | null
+          id?: string
+          kind: string
+          organizer_user_id?: string | null
+          subject?: string | null
+          template_id?: string | null
+          threshold_pct?: number
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delay_hours?: number
+          enabled?: boolean
+          enabled_at?: string | null
+          id?: string
+          kind?: string
+          organizer_user_id?: string | null
+          subject?: string | null
+          template_id?: string | null
+          threshold_pct?: number
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_automations_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_automations_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_automations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaign_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_automations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_campaign_events: {
         Row: {
           campaign_id: string
@@ -4922,6 +5160,47 @@ export type Database = {
             foreignKeyName: "email_campaign_followups_parent_campaign_id_fkey"
             columns: ["parent_campaign_id"]
             isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaign_list_impact: {
+        Row: {
+          baseline: Json | null
+          baseline_at: string | null
+          campaign_id: string
+          computed_at: string | null
+          created_at: string
+          current: Json | null
+          organizer_user_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          baseline?: Json | null
+          baseline_at?: string | null
+          campaign_id: string
+          computed_at?: string | null
+          created_at?: string
+          current?: Json | null
+          organizer_user_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          baseline?: Json | null
+          baseline_at?: string | null
+          campaign_id?: string
+          computed_at?: string | null
+          created_at?: string
+          current?: Json | null
+          organizer_user_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaign_list_impact_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
             referencedRelation: "email_campaigns"
             referencedColumns: ["id"]
           },
@@ -5085,9 +5364,12 @@ export type Database = {
           ab_winner: string | null
           audience_type: string | null
           audiences_json: Json
+          automation_id: string | null
+          automation_trigger_event_id: string | null
           blocks_json: Json
           blocks_version: number
           bounced_count: number
+          child_kind: string | null
           clickers_count: number
           clicks_count: number
           complained_count: number
@@ -5111,9 +5393,15 @@ export type Database = {
           organizer_user_id: string | null
           parent_campaign_id: string | null
           paused_reason: string | null
+          policy_skipped_count: number
           preheader: string | null
           quiet_hours: boolean
           recipients_count: number
+          resend_campaign_id: string | null
+          resend_delay_hours: number
+          resend_done_at: string | null
+          resend_enabled: boolean
+          resend_subject: string | null
           scheduled_at: string | null
           segment_id: string | null
           send_started_at: string | null
@@ -5140,9 +5428,12 @@ export type Database = {
           ab_winner?: string | null
           audience_type?: string | null
           audiences_json?: Json
+          automation_id?: string | null
+          automation_trigger_event_id?: string | null
           blocks_json?: Json
           blocks_version?: number
           bounced_count?: number
+          child_kind?: string | null
           clickers_count?: number
           clicks_count?: number
           complained_count?: number
@@ -5166,9 +5457,15 @@ export type Database = {
           organizer_user_id?: string | null
           parent_campaign_id?: string | null
           paused_reason?: string | null
+          policy_skipped_count?: number
           preheader?: string | null
           quiet_hours?: boolean
           recipients_count?: number
+          resend_campaign_id?: string | null
+          resend_delay_hours?: number
+          resend_done_at?: string | null
+          resend_enabled?: boolean
+          resend_subject?: string | null
           scheduled_at?: string | null
           segment_id?: string | null
           send_started_at?: string | null
@@ -5195,9 +5492,12 @@ export type Database = {
           ab_winner?: string | null
           audience_type?: string | null
           audiences_json?: Json
+          automation_id?: string | null
+          automation_trigger_event_id?: string | null
           blocks_json?: Json
           blocks_version?: number
           bounced_count?: number
+          child_kind?: string | null
           clickers_count?: number
           clicks_count?: number
           complained_count?: number
@@ -5221,9 +5521,15 @@ export type Database = {
           organizer_user_id?: string | null
           parent_campaign_id?: string | null
           paused_reason?: string | null
+          policy_skipped_count?: number
           preheader?: string | null
           quiet_hours?: boolean
           recipients_count?: number
+          resend_campaign_id?: string | null
+          resend_delay_hours?: number
+          resend_done_at?: string | null
+          resend_enabled?: boolean
+          resend_subject?: string | null
           scheduled_at?: string | null
           segment_id?: string | null
           send_started_at?: string | null
@@ -5244,6 +5550,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "email_campaigns_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "email_automations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_campaigns_created_by_fkey"
             columns: ["created_by"]
@@ -5296,6 +5609,13 @@ export type Database = {
           {
             foreignKeyName: "email_campaigns_parent_campaign_id_fkey"
             columns: ["parent_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_campaigns_resend_campaign_id_fkey"
+            columns: ["resend_campaign_id"]
             isOneToOne: false
             referencedRelation: "email_campaigns"
             referencedColumns: ["id"]
@@ -5427,6 +5747,7 @@ export type Database = {
         Row: {
           attested_at: string
           attested_by: string | null
+          attested_via_support: boolean
           collected_since: string | null
           consent_details: string | null
           consent_source: string
@@ -5447,6 +5768,7 @@ export type Database = {
         Insert: {
           attested_at?: string
           attested_by?: string | null
+          attested_via_support?: boolean
           collected_since?: string | null
           consent_details?: string | null
           consent_source: string
@@ -5467,6 +5789,7 @@ export type Database = {
         Update: {
           attested_at?: string
           attested_by?: string | null
+          attested_via_support?: boolean
           collected_since?: string | null
           consent_details?: string | null
           consent_source?: string
@@ -6444,6 +6767,56 @@ export type Database = {
           },
         ]
       }
+      event_guest_artists: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          instagram_clicks: number
+          instagram_handle: string | null
+          instagram_url: string | null
+          name: string
+          photo_url: string | null
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          instagram_clicks?: number
+          instagram_handle?: string | null
+          instagram_url?: string | null
+          name: string
+          photo_url?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          instagram_clicks?: number
+          instagram_handle?: string | null
+          instagram_url?: string | null
+          name?: string
+          photo_url?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_guest_artists_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_notes: {
         Row: {
           created_at: string
@@ -7150,6 +7523,45 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_artist_link_clicks: {
+        Row: {
+          artist_id: string
+          clicked_at: string
+          event_id: string
+          id: string
+          visitor_hash: string
+        }
+        Insert: {
+          artist_id: string
+          clicked_at?: string
+          event_id: string
+          id?: string
+          visitor_hash: string
+        }
+        Update: {
+          artist_id?: string
+          clicked_at?: string
+          event_id?: string
+          id?: string
+          visitor_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_artist_link_clicks_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "event_guest_artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_artist_link_clicks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -8540,6 +8952,579 @@ export type Database = {
           },
         ]
       }
+      marketing_email_log: {
+        Row: {
+          email: string
+          id: string
+          kind: string
+          organizer_user_id: string | null
+          sent_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          email: string
+          id?: string
+          kind: string
+          organizer_user_id?: string | null
+          sent_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          email?: string
+          id?: string
+          kind?: string
+          organizer_user_id?: string | null
+          sent_at?: string
+          venue_id?: string | null
+        }
+        Relationships: []
+      }
+      meta_audiences: {
+        Row: {
+          connection_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          last_sync_at: string | null
+          lookalike_country: string | null
+          lookalike_ratio: number | null
+          meta_audience_id: string | null
+          name: string
+          ref: string
+          size_uploaded: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          lookalike_country?: string | null
+          lookalike_ratio?: number | null
+          meta_audience_id?: string | null
+          name: string
+          ref: string
+          size_uploaded?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          lookalike_country?: string | null
+          lookalike_ratio?: number | null
+          meta_audience_id?: string | null
+          name?: string
+          ref?: string
+          size_uploaded?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_audiences_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "meta_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_campaigns: {
+        Row: {
+          budget_cents: number
+          budget_type: string
+          connection_id: string
+          created_at: string
+          created_by: string | null
+          creative: Json
+          currency: string
+          effective_status: string | null
+          end_at: string | null
+          event_id: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          meta_campaign_id: string | null
+          meta_creative_id: string | null
+          meta_image_hash: string | null
+          name: string
+          objective: string
+          organizer_user_id: string | null
+          placements: Json
+          review_feedback: string | null
+          start_at: string
+          status: string
+          targeting: Json
+          tracked_link_id: string | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          budget_cents: number
+          budget_type?: string
+          connection_id: string
+          created_at?: string
+          created_by?: string | null
+          creative?: Json
+          currency?: string
+          effective_status?: string | null
+          end_at?: string | null
+          event_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_creative_id?: string | null
+          meta_image_hash?: string | null
+          name: string
+          objective?: string
+          organizer_user_id?: string | null
+          placements?: Json
+          review_feedback?: string | null
+          start_at: string
+          status?: string
+          targeting?: Json
+          tracked_link_id?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          budget_cents?: number
+          budget_type?: string
+          connection_id?: string
+          created_at?: string
+          created_by?: string | null
+          creative?: Json
+          currency?: string
+          effective_status?: string | null
+          end_at?: string | null
+          event_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_creative_id?: string | null
+          meta_image_hash?: string | null
+          name?: string
+          objective?: string
+          organizer_user_id?: string | null
+          placements?: Json
+          review_feedback?: string | null
+          start_at?: string
+          status?: string
+          targeting?: Json
+          tracked_link_id?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_campaigns_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "meta_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_campaigns_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_capi_outbox: {
+        Row: {
+          attempts: number
+          connection_id: string
+          created_at: string
+          currency: string | null
+          event_id: string
+          event_kind: string
+          event_name: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          response: Json | null
+          sent_at: string | null
+          status: string
+          value_cents: number | null
+        }
+        Insert: {
+          attempts?: number
+          connection_id: string
+          created_at?: string
+          currency?: string | null
+          event_id: string
+          event_kind: string
+          event_name: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload: Json
+          response?: Json | null
+          sent_at?: string | null
+          status?: string
+          value_cents?: number | null
+        }
+        Update: {
+          attempts?: number
+          connection_id?: string
+          created_at?: string
+          currency?: string | null
+          event_id?: string
+          event_kind?: string
+          event_name?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          response?: Json | null
+          sent_at?: string | null
+          status?: string
+          value_cents?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_capi_outbox_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "meta_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_connections: {
+        Row: {
+          ad_account_id: string | null
+          assets: Json | null
+          business_id: string | null
+          created_at: string
+          created_by: string | null
+          events_enabled: Json
+          granted_scopes: string[] | null
+          id: string
+          ig_user_id: string | null
+          last_error: string | null
+          last_error_at: string | null
+          last_health: Json | null
+          last_health_at: string | null
+          last_ok_at: string | null
+          meta_user_id: string | null
+          mode: string
+          organizer_user_id: string | null
+          page_id: string | null
+          pixel_id: string
+          send_native: boolean
+          status: string
+          test_event_code: string | null
+          test_event_code_expires_at: string | null
+          token_expires_at: string | null
+          token_hint: string | null
+          token_kind: string
+          updated_at: string
+          vault_secret_id: string | null
+          venue_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          ad_account_id?: string | null
+          assets?: Json | null
+          business_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          events_enabled?: Json
+          granted_scopes?: string[] | null
+          id?: string
+          ig_user_id?: string | null
+          last_error?: string | null
+          last_error_at?: string | null
+          last_health?: Json | null
+          last_health_at?: string | null
+          last_ok_at?: string | null
+          meta_user_id?: string | null
+          mode?: string
+          organizer_user_id?: string | null
+          page_id?: string | null
+          pixel_id: string
+          send_native?: boolean
+          status?: string
+          test_event_code?: string | null
+          test_event_code_expires_at?: string | null
+          token_expires_at?: string | null
+          token_hint?: string | null
+          token_kind?: string
+          updated_at?: string
+          vault_secret_id?: string | null
+          venue_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          ad_account_id?: string | null
+          assets?: Json | null
+          business_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          events_enabled?: Json
+          granted_scopes?: string[] | null
+          id?: string
+          ig_user_id?: string | null
+          last_error?: string | null
+          last_error_at?: string | null
+          last_health?: Json | null
+          last_health_at?: string | null
+          last_ok_at?: string | null
+          meta_user_id?: string | null
+          mode?: string
+          organizer_user_id?: string | null
+          page_id?: string | null
+          pixel_id?: string
+          send_native?: boolean
+          status?: string
+          test_event_code?: string | null
+          test_event_code_expires_at?: string | null
+          token_expires_at?: string | null
+          token_hint?: string | null
+          token_kind?: string
+          updated_at?: string
+          vault_secret_id?: string | null
+          venue_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_connections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_consent_log: {
+        Row: {
+          consent_marketing: boolean
+          consent_version: number | null
+          fbc: string | null
+          fbp: string | null
+          id: number
+          order_id: string
+          order_kind: string
+          organizer_user_id: string | null
+          recorded_at: string
+          source: string
+          venue_id: string | null
+        }
+        Insert: {
+          consent_marketing: boolean
+          consent_version?: number | null
+          fbc?: string | null
+          fbp?: string | null
+          id?: number
+          order_id: string
+          order_kind: string
+          organizer_user_id?: string | null
+          recorded_at?: string
+          source?: string
+          venue_id?: string | null
+        }
+        Update: {
+          consent_marketing?: boolean
+          consent_version?: number | null
+          fbc?: string | null
+          fbp?: string | null
+          id?: number
+          order_id?: string
+          order_kind?: string
+          organizer_user_id?: string | null
+          recorded_at?: string
+          source?: string
+          venue_id?: string | null
+        }
+        Relationships: []
+      }
+      meta_data_requests: {
+        Row: {
+          confirmation_code: string
+          connections_affected: number
+          created_at: string
+          id: string
+          kind: string
+          meta_user_id: string
+          status: string
+        }
+        Insert: {
+          confirmation_code: string
+          connections_affected?: number
+          created_at?: string
+          id?: string
+          kind: string
+          meta_user_id: string
+          status?: string
+        }
+        Update: {
+          confirmation_code?: string
+          connections_affected?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          meta_user_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      meta_insights_daily: {
+        Row: {
+          campaign_id: string
+          clicks: number
+          day: string
+          impressions: number
+          leads: number
+          link_clicks: number
+          purchase_value_cents: number
+          purchases: number
+          raw: Json | null
+          reach: number
+          spend_cents: number
+          synced_at: string
+        }
+        Insert: {
+          campaign_id: string
+          clicks?: number
+          day: string
+          impressions?: number
+          leads?: number
+          link_clicks?: number
+          purchase_value_cents?: number
+          purchases?: number
+          raw?: Json | null
+          reach?: number
+          spend_cents?: number
+          synced_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          clicks?: number
+          day?: string
+          impressions?: number
+          leads?: number
+          link_clicks?: number
+          purchase_value_cents?: number
+          purchases?: number
+          raw?: Json | null
+          reach?: number
+          spend_cents?: number
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_insights_daily_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "meta_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_leads: {
+        Row: {
+          ad_id: string | null
+          attempts: number
+          campaign_id: string | null
+          connection_id: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          error: string | null
+          field_data: Json | null
+          form_id: string | null
+          leadgen_id: string
+          meta_campaign_id: string | null
+          page_id: string | null
+          processed_at: string | null
+          raw: Json | null
+          received_at: string
+        }
+        Insert: {
+          ad_id?: string | null
+          attempts?: number
+          campaign_id?: string | null
+          connection_id?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          error?: string | null
+          field_data?: Json | null
+          form_id?: string | null
+          leadgen_id: string
+          meta_campaign_id?: string | null
+          page_id?: string | null
+          processed_at?: string | null
+          raw?: Json | null
+          received_at?: string
+        }
+        Update: {
+          ad_id?: string | null
+          attempts?: number
+          campaign_id?: string | null
+          connection_id?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          error?: string | null
+          field_data?: Json | null
+          form_id?: string | null
+          leadgen_id?: string
+          meta_campaign_id?: string | null
+          page_id?: string | null
+          processed_at?: string | null
+          raw?: Json | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "meta_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_leads_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "meta_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mfa_disable_requests: {
         Row: {
           created_at: string
@@ -9478,6 +10463,7 @@ export type Database = {
       organizer_notifications: {
         Row: {
           created_at: string
+          dedup_key: string | null
           event_id: string | null
           id: string
           message: string
@@ -9493,6 +10479,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dedup_key?: string | null
           event_id?: string | null
           id?: string
           message: string
@@ -9508,6 +10495,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dedup_key?: string | null
           event_id?: string | null
           id?: string
           message?: string
@@ -12270,6 +13258,7 @@ export type Database = {
         Row: {
           attested_at: string
           attested_by: string | null
+          attested_via_support: boolean
           collected_since: string | null
           consent_details: string | null
           consent_source: string
@@ -12290,6 +13279,7 @@ export type Database = {
         Insert: {
           attested_at?: string
           attested_by?: string | null
+          attested_via_support?: boolean
           collected_since?: string | null
           consent_details?: string | null
           consent_source: string
@@ -12310,6 +13300,7 @@ export type Database = {
         Update: {
           attested_at?: string
           attested_by?: string | null
+          attested_via_support?: boolean
           collected_since?: string | null
           consent_details?: string | null
           consent_source?: string
@@ -16697,11 +17688,49 @@ export type Database = {
           venue_id: string
         }[]
       }
+      _email_automation_enabled: {
+        Args: {
+          p_kind: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: boolean
+      }
+      _email_automation_kind_label: {
+        Args: { p_kind: string }
+        Returns: string
+      }
+      _email_automation_next_event: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: string
+      }
+      _email_automation_suggestion_text: {
+        Args: { p_item: Json }
+        Returns: string
+      }
+      _email_automation_suggestions: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
+      _email_blocks_without_live: { Args: { p_blocks: Json }; Returns: Json }
+      _email_engagement_rank: {
+        Args: {
+          p_email: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: number
+      }
+      _email_event_holder: {
+        Args: { p_email: string; p_event_id: string }
+        Returns: boolean
+      }
       _email_list_import_for_actor: {
         Args: { p_import_id: string }
         Returns: {
           attested_at: string
           attested_by: string | null
+          attested_via_support: boolean
           collected_since: string | null
           consent_details: string | null
           consent_source: string
@@ -16726,6 +17755,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _email_scope_guard: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: undefined
+      }
+      _event_tables_left: { Args: { p_event_id: string }; Returns: number }
       _execute_event_collab_action: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -16739,6 +17773,16 @@ export type Database = {
         Returns: number
       }
       _purge_venue: { Args: { _venue_id: string }; Returns: undefined }
+      _resolve_meta_audience_rows: {
+        Args: { p_connection_id: string; p_kind: string; p_ref: string }
+        Returns: {
+          country: string
+          email: string
+          first_name: string
+          last_name: string
+          phone: string
+        }[]
+      }
       _venue_customer_rfm: {
         Args: { p_venue_id: string }
         Returns: {
@@ -17191,6 +18235,10 @@ export type Database = {
         Returns: boolean
       }
       can_manage_email_assets: { Args: never; Returns: boolean }
+      can_manage_event_design: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_manage_event_guestlist_house: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -17280,6 +18328,59 @@ export type Database = {
         Args: { _invite_id: string }
         Returns: boolean
       }
+      claim_meta_capi_outbox: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          connection_id: string
+          created_at: string
+          currency: string | null
+          event_id: string
+          event_kind: string
+          event_name: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          response: Json | null
+          sent_at: string | null
+          status: string
+          value_cents: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "meta_capi_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_meta_leads: {
+        Args: { p_limit?: number }
+        Returns: {
+          ad_id: string | null
+          attempts: number
+          campaign_id: string | null
+          connection_id: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          error: string | null
+          field_data: Json | null
+          form_id: string | null
+          leadgen_id: string
+          meta_campaign_id: string | null
+          page_id: string | null
+          processed_at: string | null
+          raw: Json | null
+          received_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "meta_leads"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_sms_campaign_recipients: {
         Args: { p_campaign_id: string; p_limit?: number }
         Returns: {
@@ -17339,6 +18440,8 @@ export type Database = {
         }[]
       }
       collect_campaign_followups: { Args: never; Returns: Json }
+      collect_campaign_resends: { Args: never; Returns: Json }
+      collect_email_automations: { Args: never; Returns: Json }
       community_audience_allows: {
         Args: { p_audience: string; p_follower: boolean; p_subscriber: boolean }
         Returns: boolean
@@ -17383,6 +18486,10 @@ export type Database = {
         Args: { p_amount: number; p_balance_id: string }
         Returns: boolean
       }
+      contact_base_snapshot: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       contact_build_rows: {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: number
@@ -17391,6 +18498,7 @@ export type Database = {
         Args: { p_alias?: string; p_definition: Json }
         Returns: string
       }
+      contact_engagement_sweep: { Args: never; Returns: Json }
       contact_num_cmp: {
         Args: { a: number; b: number; op: string }
         Returns: boolean
@@ -17402,40 +18510,86 @@ export type Database = {
       contact_rows: {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: {
-          added_at: string | null
-          age: number | null
-          city: string | null
-          country: string | null
-          country_code: string | null
+          added_at: string
+          age: number
+          bounced: boolean
+          city: string
+          clicks: number
+          country: string
+          country_code: string
           created_at: string
-          email: string | null
-          event_count: number | null
-          extra: Json | null
-          first_name: string | null
-          gender: string | null
+          email: string
+          emails_sent: number
+          eng_status: string
+          event_count: number
+          extra: Json
+          first_name: string
+          gender: string
+          guest_list_count: number
+          has_account: boolean
           id: string
-          last_name: string | null
-          last_purchase_at: string | null
+          imported_events: number
+          imported_spent: number
+          last_clicked_at: string
+          last_name: string
+          last_opened_at: string
+          last_purchase_at: string
+          last_seen_at: string
           list_import_id: string
-          newsletter_opt_in: boolean | null
-          organizer_user_id: string | null
-          phone_e164: string | null
-          postal_code: string | null
-          region: string | null
-          total_spent: number | null
-          venue_id: string | null
-          zone: string | null
+          newsletter_opt_in: boolean
+          opens: number
+          order_count: number
+          organizer_user_id: string
+          origin: string
+          phone_e164: string
+          postal_code: string
+          region: string
+          subscribed: boolean
+          table_count: number
+          ticket_count: number
+          total_spent: number
+          unsubscribed_at: string
+          user_id: string
+          venue_id: string
+          yuno_events: number
+          yuno_first_at: string
+          yuno_last_at: string
+          yuno_spent: number
+          zone: string
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "imported_contacts"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       contact_scope_allowed: {
         Args: { p_organizer_user_id: string; p_venue_id: string }
         Returns: boolean
+      }
+      contact_scope_allowed_or_internal: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: boolean
+      }
+      contact_scope_customers: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: {
+          age: number
+          city: string
+          email: string
+          event_count: number
+          first_at: string
+          first_name: string
+          gender: string
+          guest_list_count: number
+          last_at: string
+          last_name: string
+          last_paid_at: string
+          order_count: number
+          paid_count: number
+          phone: string
+          spent: number
+          sub_source: string
+          subscribed: boolean
+          table_count: number
+          ticket_count: number
+          user_id: string
+        }[]
       }
       count_campaign_audience: {
         Args: { p_campaign_id: string }
@@ -17467,6 +18621,14 @@ export type Database = {
           p_organizer_user_id: string
           p_venue_id: string
         }
+        Returns: Json
+      }
+      count_meta_audience: {
+        Args: { p_connection_id: string; p_kind: string; p_ref: string }
+        Returns: number
+      }
+      count_organizer_audience_kinds: {
+        Args: { p_event_id?: string; p_organizer_user_id: string }
         Returns: Json
       }
       count_platform_audience_kinds: { Args: never; Returns: Json }
@@ -17684,7 +18846,30 @@ export type Database = {
       dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
       dj_team_owner_ids: { Args: never; Returns: string[] }
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
+      email_automation_covers_event: {
+        Args: { p_event_id: string; p_kind: string }
+        Returns: boolean
+      }
+      email_automation_suggestions_sweep: { Args: never; Returns: Json }
+      email_automation_weekly_digest: {
+        Args: { p_subject_id: string; p_subject_type: string }
+        Returns: Json
+      }
       email_has_account: { Args: { _email: string }; Returns: boolean }
+      email_marketing_pressure: {
+        Args: { p_email: string }
+        Returns: {
+          engaged90: boolean
+          n24: number
+          n7d: number
+          optouts30: number
+          sent90: number
+        }[]
+      }
+      email_send_policy: {
+        Args: { p_email: string; p_kind: string }
+        Returns: string
+      }
       email_sender_daily_cap: { Args: { p_scope_key: string }; Returns: number }
       email_sender_monthly_free: {
         Args: { p_scope_key: string }
@@ -17717,6 +18902,21 @@ export type Database = {
           p_type: string
         }
         Returns: undefined
+      }
+      emit_organizer_notification: {
+        Args: {
+          p_dedup_key?: string
+          p_event_id?: string
+          p_message: string
+          p_metadata?: Json
+          p_organizer_user_id: string
+          p_priority?: string
+          p_reference_id?: string
+          p_reference_type?: string
+          p_title: string
+          p_type: string
+        }
+        Returns: string
       }
       emit_staff_notification: {
         Args: {
@@ -17803,6 +19003,12 @@ export type Database = {
         Args: { p_domain: string; p_event_id: string }
         Returns: boolean
       }
+      event_door_staff_ids: {
+        Args: { p_event_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       event_has_blocking_collab_contract: {
         Args: { p_event_id: string }
         Returns: boolean
@@ -17821,6 +19027,10 @@ export type Database = {
       event_payments_ready: { Args: { p_event_id: string }; Returns: boolean }
       expire_dj_booking_requests: { Args: never; Returns: undefined }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
+      export_contact_base: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       export_email_list: { Args: { p_import_id: string }; Returns: Json }
       export_venue_ad_audience: {
         Args: { p_venue_id: string }
@@ -18127,6 +19337,14 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      get_campaign_list_impact: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
+      get_campaign_resend_stats: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
       get_campaign_send_progress: {
         Args: { p_campaign_id: string }
         Returns: Json
@@ -18141,6 +19359,14 @@ export type Database = {
       }
       get_contact_intelligence_overview: {
         Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
+      get_customer_automation_emails: {
+        Args: {
+          p_email: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
         Returns: Json
       }
       get_customer_timeline: {
@@ -18285,6 +19511,18 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_email_automation_stats: {
+        Args: {
+          p_days?: number
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      get_email_automation_suggestions: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       get_email_campaign_attribution: {
         Args: { p_subject_id: string; p_subject_type: string }
         Returns: Json
@@ -18296,6 +19534,21 @@ export type Database = {
       get_email_quota_status: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
+      }
+      get_email_send_time_insights: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
+      get_event_guest_artist_clicks: {
+        Args: { p_event_id: string }
+        Returns: {
+          artist_id: string
+          clicks: number
+          clicks_7d: number
+          instagram_handle: string
+          name: string
+          unique_visitors: number
+        }[]
       }
       get_event_managing_organizer: {
         Args: { _event_id: string }
@@ -18359,6 +19612,17 @@ export type Database = {
           venue_city: string
           venue_id: string
           venue_name: string
+        }[]
+      }
+      get_guest_artist_book: {
+        Args: { p_query?: string }
+        Returns: {
+          instagram_handle: string
+          instagram_url: string
+          last_used_at: string
+          name: string
+          photo_url: string
+          times_used: number
         }[]
       }
       get_guest_list_analytics: {
@@ -18454,6 +19718,10 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_meta_capi_token: {
+        Args: { p_connection_id: string }
+        Returns: string
+      }
       get_mfa_totp_secret: { Args: { p_user_id: string }; Returns: string }
       get_my_community_access: {
         Args: { p_event_id: string }
@@ -18487,6 +19755,14 @@ export type Database = {
           sms_opted_in: boolean
           venue_id: string
         }[]
+      }
+      get_my_meta_ads: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_my_meta_connection: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
       }
       get_my_platform_marketing_consent: { Args: never; Returns: boolean }
       get_my_support_session: {
@@ -18674,6 +19950,17 @@ export type Database = {
         Returns: {
           target_id: string
           total_count: number
+        }[]
+      }
+      get_public_meta_pixels: {
+        Args: {
+          p_event_id?: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: {
+          pixel_id: string
+          scope: string
         }[]
       }
       get_recipient_block_conds: {
@@ -19074,12 +20361,36 @@ export type Database = {
         Returns: string
       }
       links_visitor_context: { Args: never; Returns: Record<string, unknown> }
+      list_contact_base: {
+        Args: {
+          p_limit?: number
+          p_list_import_id?: string
+          p_offset?: number
+          p_organizer_user_id: string
+          p_origin?: string
+          p_search?: string
+          p_segment_id?: string
+          p_sort?: string
+          p_status?: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       log_admin_action: {
         Args: {
           _action: string
           _entity_id?: string
           _entity_type?: string
           _metadata?: Json
+        }
+        Returns: undefined
+      }
+      log_marketing_email: {
+        Args: {
+          p_email: string
+          p_kind: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
         }
         Returns: undefined
       }
@@ -19120,6 +20431,7 @@ export type Database = {
         Args: { p_campaign_id: string; p_rows: Json }
         Returns: number
       }
+      marketing_email_log_purge: { Args: never; Returns: number }
       marketing_scope_match: {
         Args: {
           p_organizer_user_id: string
@@ -19144,7 +20456,18 @@ export type Database = {
           user_id: string
         }[]
       }
+      meta_ads_ensure_tracked_link: {
+        Args: { p_campaign_id: string }
+        Returns: string
+      }
+      meta_capi_housekeeping: { Args: never; Returns: Json }
+      meta_lead_to_contact: { Args: { p_leadgen_id: string }; Returns: string }
+      meta_scope_allowed: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: boolean
+      }
       music_genre_key: { Args: { p_raw: string }; Returns: string }
+      normalize_instagram_handle: { Args: { p_raw: string }; Returns: string }
       normalize_phone_e164: { Args: { _phone: string }; Returns: string }
       normalize_split_rules: { Args: { rules: Json }; Returns: Json }
       notify_collab_party: {
@@ -19256,6 +20579,14 @@ export type Database = {
         Args: { p_period_label?: string; p_promoter_id: string }
         Returns: Json
       }
+      preview_email_automation: {
+        Args: {
+          p_kind: string
+          p_organizer_user_id: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       preview_unsubscribe: {
         Args: { p_token: string }
         Returns: {
@@ -19301,9 +20632,14 @@ export type Database = {
       purge_ai_usage_events: { Args: never; Returns: number }
       purge_email_list: { Args: { p_import_id: string }; Returns: Json }
       purge_expired_personal_data: { Args: never; Returns: undefined }
+      purge_guest_artist_clicks: { Args: never; Returns: undefined }
       purge_links_events: { Args: never; Returns: undefined }
       purge_platform_traffic: { Args: never; Returns: undefined }
       purge_promoter_push_queue: { Args: never; Returns: Json }
+      record_campaign_list_baseline: {
+        Args: { p_campaign_id: string }
+        Returns: boolean
+      }
       record_legal_acceptance: {
         Args: {
           p_context?: Json
@@ -19370,6 +20706,14 @@ export type Database = {
       }
       refresh_analytics_daily_rollup: { Args: never; Returns: undefined }
       refresh_analytics_rollup: { Args: never; Returns: undefined }
+      refresh_campaign_list_impacts: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: number
+      }
+      refresh_contact_engagement: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       refresh_user_send_profiles: { Args: never; Returns: number }
       refund_email_send_quota: {
         Args: { p_amount: number; p_scope_key: string }
@@ -19535,6 +20879,16 @@ export type Database = {
         }[]
       }
       resolve_member_slug: { Args: { p_slug: string }; Returns: string }
+      resolve_meta_audience: {
+        Args: { p_connection_id: string; p_kind: string; p_ref: string }
+        Returns: {
+          country: string
+          email: string
+          first_name: string
+          last_name: string
+          phone: string
+        }[]
+      }
       resolve_organizer_slug: { Args: { p_slug: string }; Returns: string }
       resolve_promoter_payout_dispute: {
         Args: { p_action: string; p_payout_id: string }
@@ -19858,6 +21212,10 @@ export type Database = {
         }
         Returns: string
       }
+      store_meta_capi_token: {
+        Args: { p_connection_id: string; p_token: string }
+        Returns: undefined
+      }
       store_mfa_totp_secret: {
         Args: { p_secret: string; p_user_id: string }
         Returns: undefined
@@ -19893,6 +21251,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      suggest_basket_threshold: {
+        Args: { p_organizer_user_id: string; p_venue_id: string }
+        Returns: Json
+      }
       suppress_email: {
         Args: {
           p_campaign_id?: string
@@ -19918,6 +21280,10 @@ export type Database = {
         Returns: undefined
       }
       tiktok_handle_from_url: { Args: { p_url: string }; Returns: string }
+      track_guest_artist_click: {
+        Args: { p_artist_id: string }
+        Returns: undefined
+      }
       track_links_event: {
         Args: {
           p_kind: string
@@ -20232,9 +21598,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: [
