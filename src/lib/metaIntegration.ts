@@ -24,6 +24,29 @@ import { isDemoEmail } from '@/lib/demoPlan';
 export const META_INTEGRATION_LIVE = false;
 
 /**
+ * Porte de secours des portefeuilles Meta créés DEPUIS Instagram.
+ *
+ * Meta laisse ouvrir un compte professionnel depuis Instagram seul : ces
+ * pros n'ont alors AUCUN mot de passe Facebook. Or le dialogue
+ * `facebook.com/dialog/oauth` (Facebook Login for Business) ne montre qu'un
+ * formulaire e-mail + mot de passe quand le navigateur n'a pas de session
+ * Meta — la connexion en un clic devient un mur, et le mode avancé aussi
+ * (le jeton Conversions API se génère dans Events Manager, derrière la même
+ * connexion).
+ *
+ * Meta Business Suite est le seul écran de connexion Meta qui propose
+ * « Continuer avec Instagram ». La session qu'il ouvre vaut pour tout le
+ * domaine `.facebook.com` : en revenant cliquer sur « Connecter avec
+ * Facebook », le pro tombe directement sur l'écran d'autorisation.
+ *
+ * Il n'y a pas d'autre chemin : « Business Login for Instagram »
+ * (`instagram.com/oauth/authorize`) ne donne que `instagram_business_*`
+ * (messages, contenus), jamais `ads_management` ni le pixel. Ne pas le
+ * proposer comme alternative, il ne branche rien.
+ */
+export const META_BUSINESS_LOGIN_URL = 'https://business.facebook.com/';
+
+/**
  * Comptes pros bêta qui voient les pages Meta live avant l'ouverture générale
  * (le compte organisateur Amoris de Paul, un club testeur…). Emails en
  * minuscules. Aucun secret ici : ça n'ouvre que l'interface, l'autorisation

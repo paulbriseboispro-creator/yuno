@@ -8,6 +8,12 @@
 //     qu'un pixel c'est fini, sinon il le choisit ici. Aucun jeton à coller.
 //   - « Mode avancé » (phase 1) : Pixel ID + jeton Conversions API collés.
 //     Reste disponible, replié, pour les pros qui gèrent ça eux-mêmes.
+// Un pro dont le compte professionnel Meta a été créé DEPUIS Instagram n'a
+// pas de mot de passe Facebook : la fenêtre Meta ne lui propose alors qu'un
+// formulaire e-mail + mot de passe, et les deux chemins ci-dessus sont des
+// murs. D'où le rappel « Vous n'avez qu'un compte Instagram ? » sous le
+// bouton — il ouvre Meta Business Suite, seul écran de connexion Meta qui
+// offre « Continuer avec Instagram » (cf. META_BUSINESS_LOGIN_URL).
 // Le jeton part vers l'edge `meta-connect`, entre dans le Vault et n'en
 // ressort JAMAIS : on n'affiche que « ••••1234 ». Tout le reste vient de la
 // RPC `get_my_meta_connection`. Un manager ne voit pas cette carte.
@@ -30,6 +36,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
+import { META_BUSINESS_LOGIN_URL } from '@/lib/metaIntegration';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 
@@ -350,6 +357,32 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     </a>
   );
 
+  // Portefeuille créé depuis Instagram : pas de mot de passe Facebook, donc
+  // pas de connexion possible tant que le navigateur n'a pas de session Meta.
+  // Toujours visible (pas replié) : celui que ça bloque ne saura pas qu'il
+  // doit déplier quelque chose.
+  const instagramLoginNote = (
+    <div className="rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+      <div className="flex items-start gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+          className="flex-shrink-0 mt-0.5" style={{ color: T2 }}>
+          <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07zm0 6a3.84 3.84 0 1 0 0 7.68 3.84 3.84 0 0 0 0-7.68zm0 6.34a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm4.89-6.49a.9.9 0 1 1-1.8 0 .9.9 0 0 1 1.8 0z" />
+        </svg>
+        <div>
+          <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
+            <span style={{ color: T1, fontWeight: 600 }}>{t('integ.meta.igLogin.h')}</span>{' '}
+            {t('integ.meta.igLogin.b')}
+          </p>
+          <a href={META_BUSINESS_LOGIN_URL} target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold underline underline-offset-2"
+            style={{ color: T1 }}>
+            {t('integ.meta.igLogin.cta')} <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+
   // Identités retenues (nom lisible plutôt qu'un identifiant Meta).
   const igFor = (pageId: string | null | undefined) => (pageId ? conn?.assets?.instagram?.find((i) => i.page_id === pageId) ?? null : null);
   const adAccountName = conn?.assets?.ad_accounts.find((a) => a.id === conn.ad_account_id)?.name ?? conn?.ad_account_id ?? null;
@@ -517,9 +550,12 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
           </div>
 
           {oauthAvailable && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
-              <p style={{ color: T3, fontSize: 12, maxWidth: 420, lineHeight: 1.45 }}>{t('integ.meta.oauthHint')}</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
+                <p style={{ color: T3, fontSize: 12, maxWidth: 420, lineHeight: 1.45 }}>{t('integ.meta.oauthHint')}</p>
+              </div>
+              {instagramLoginNote}
             </div>
           )}
 
@@ -570,7 +606,10 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                 <p style={{ color: T2, fontSize: 12.5, marginTop: 2, lineHeight: 1.45 }}>{conn.mode === 'oauth' ? t('integ.meta.tokenInvalidOauthBody') : t('integ.meta.tokenInvalidBody')}</p>
                 {conn.last_error && <p style={{ color: T3, fontSize: 11.5, marginTop: 4, fontFamily: 'ui-monospace, monospace' }}>{conn.last_error}</p>}
                 {conn.mode === 'oauth' && oauthAvailable && (
-                  <div className="mt-3"><FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} /></div>
+                  <div className="mt-3 space-y-3">
+                    <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} />
+                    {instagramLoginNote}
+                  </div>
                 )}
               </div>
             </div>
