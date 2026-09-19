@@ -93,7 +93,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ height: 232, background: 'rgba(255,255,255,0.04)', borderRadius: 16 }} className="animate-pulse" />
+          <div key={i} style={{ height: 122, background: 'rgba(255,255,255,0.04)', borderRadius: 16 }} className="animate-pulse" />
         ))}
       </div>
     );
@@ -163,31 +163,34 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.2) }}
                   whileHover={{ y: -3 }}
-                  className="group text-left overflow-hidden cursor-pointer"
+                  className="group text-left overflow-hidden cursor-pointer flex items-stretch gap-3.5 p-3"
                   style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW }}
                 >
-                  {/* Poster */}
-                  <div className="relative" style={{ height: 116, background: 'rgba(255,255,255,0.03)' }}>
+                  {/* Poster — square thumbnail, same grain as the event sheet (never a
+                      cropped banner: a 1:1 or portrait flyer would zoom into its middle) */}
+                  <div
+                    className="relative flex-none overflow-hidden"
+                    style={{ width: 96, height: 96, borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)' }}
+                  >
                     {e.poster_url ? (
                       <img src={e.poster_url} alt="" className="w-full h-full object-cover" loading="lazy" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Sparkles className="w-6 h-6" style={{ color: T3 }} />
+                        <Sparkles className="w-5 h-5" style={{ color: T3 }} />
                       </div>
                     )}
-                    <div className="absolute inset-x-0 bottom-0 h-12" style={{ background: 'linear-gradient(to top, rgba(10,10,12,0.9), transparent)' }} />
-                    <span
-                      className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full"
-                      style={{ background: chip.bg, color: chip.color, fontSize: 10.5, fontWeight: 600, backdropFilter: 'blur(8px)' }}
-                    >
-                      {chip.label}
-                    </span>
                   </div>
 
                   {/* Body */}
-                  <div className="p-3.5">
+                  <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
+                        <span
+                          className="inline-block px-2 py-0.5 rounded-full mb-1.5"
+                          style={{ background: chip.bg, color: chip.color, fontSize: 10.5, fontWeight: 600 }}
+                        >
+                          {chip.label}
+                        </span>
                         <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>
                           {e.title}
                         </p>
@@ -199,7 +202,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
                     </div>
 
                     {/* Sold + fill */}
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <div className="flex items-baseline justify-between">
                         <span className="tabular-nums" style={{ color: T1, fontSize: 15, fontWeight: 640 }}>
                           {e.sold}
