@@ -13747,6 +13747,7 @@ const fr: Record<string, string> = {
   "integ.meta.choose.ig.who": "Compte professionnel ouvert depuis Instagram, sans profil Facebook.",
   "integ.meta.choose.ig.b": "Ce bouton ne connecte pas Yuno : il ouvre Meta Business Suite, le seul écran de Meta où l'on se connecte avec Instagram. Allez-y dans Paramètres → Personnes, invitez un compte Facebook personnel comme administrateur de votre entreprise, acceptez l'invitation depuis ce compte, puis revenez au bouton bleu.",
   "integ.meta.choose.ig.warn": "Un compte Facebook est une PERSONNE, avec son adresse e-mail et son mot de passe. Une Page Facebook n'en est pas un : elle n'a pas d'identifiants et ne peut autoriser aucune application. Créer une Page depuis Business Suite ne débloque donc pas le bouton bleu.",
+  "integ.meta.choose.ig.mail": "Ce compte doit porter une adresse e-mail DIFFÉRENTE de celle de votre connexion Instagram : cette dernière est déjà une personne de votre entreprise, et Meta refusera l'invitation en disant que la personne est déjà invitée. Utilisez votre compte Facebook personnel s'il existe déjà, c'est le plus simple.",
   "integ.meta.choose.igButton": "Ouvrir Meta Business Suite",
   "integ.meta.choose.third": "Ni l'un ni l'autre ? Le mode avancé branche le suivi de vos ventes avec un identifiant de pixel et un jeton copiés dans Events Manager, sans aucune autorisation Facebook — mais sans les publicités pilotées depuis Yuno.",
   "integ.meta.oauthTabLoading": "Ouverture de Meta…",

@@ -13773,6 +13773,7 @@ const en: Record<string, string> = {
   "integ.meta.choose.ig.who": "Business account opened from Instagram, no Facebook profile.",
   "integ.meta.choose.ig.b": "This button doesn't connect Yuno: it opens Meta Business Suite, the one Meta screen where you can log in with Instagram. Go to Settings → People, invite a personal Facebook account as an admin of your business, accept the invitation from that account, then come back to the blue button.",
   "integ.meta.choose.ig.warn": "A Facebook account is a PERSON, with an email address and a password. A Facebook Page is not one: it has no credentials and cannot authorise any app. Creating a Page from Business Suite therefore won't unlock the blue button.",
+  "integ.meta.choose.ig.mail": "That account must use a DIFFERENT email address from your Instagram login: that one is already a person in your business, and Meta will refuse the invitation saying the person was already invited. Use your existing personal Facebook account if you have one, it's the simplest.",
   "integ.meta.choose.igButton": "Open Meta Business Suite",
   "integ.meta.choose.third": "Neither one? Advanced mode wires up sales tracking with a pixel ID and a token copied from Events Manager, with no Facebook authorisation at all — but without ads run from Yuno.",
   "integ.meta.oauthTabLoading": "Opening Meta…",

@@ -14115,6 +14115,7 @@ const es: Record<string, string> = {
   "integ.meta.choose.ig.who": "Cuenta profesional abierta desde Instagram, sin perfil de Facebook.",
   "integ.meta.choose.ig.b": "Este botón no conecta Yuno: abre Meta Business Suite, la única pantalla de Meta donde se puede iniciar sesión con Instagram. Entra en Configuración → Personas, invita a una cuenta personal de Facebook como administradora de tu empresa, acepta la invitación desde esa cuenta y vuelve al botón azul.",
   "integ.meta.choose.ig.warn": "Una cuenta de Facebook es una PERSONA, con su correo y su contraseña. Una página de Facebook no lo es: no tiene credenciales y no puede autorizar ninguna aplicación. Crear una página desde Business Suite no desbloquea el botón azul.",
+  "integ.meta.choose.ig.mail": "Esa cuenta debe usar un correo DISTINTO del de tu inicio de sesión con Instagram: ese ya es una persona de tu empresa y Meta rechazará la invitación diciendo que ya fue invitada. Usa tu cuenta personal de Facebook si ya la tienes, es lo más sencillo.",
   "integ.meta.choose.igButton": "Abrir Meta Business Suite",
   "integ.meta.choose.third": "¿Ninguno de los dos? El modo avanzado activa el seguimiento de tus ventas con un identificador de píxel y un token copiados de Events Manager, sin ninguna autorización de Facebook, pero sin los anuncios gestionados desde Yuno.",
   "integ.meta.oauthTabLoading": "Abriendo Meta…",

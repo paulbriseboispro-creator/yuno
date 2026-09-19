@@ -488,7 +488,12 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
               réglages. Une Page n'a ni email ni mot de passe : elle ne peut
               rien autoriser. Dit en avertissement parce que c'est le piège où
               le compte Amoris s'est arrêté le 19/09. */}
-          <p style={{ color: WARN, fontSize: 12, marginTop: 8, lineHeight: 1.5, flex: 1 }}>{t('integ.meta.choose.ig.warn')}</p>
+          <p style={{ color: WARN, fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>{t('integ.meta.choose.ig.warn')}</p>
+          {/* L'adresse de la connexion Instagram est DÉJÀ une personne active
+              du portefeuille : réutilisée pour le compte Facebook, Meta refuse
+              l'invitation (« This person was already invited ») et le pro
+              tourne en rond. Constaté sur Amoris Society le 19/09. */}
+          <p style={{ color: WARN, fontSize: 12, marginTop: 6, lineHeight: 1.5, flex: 1 }}>{t('integ.meta.choose.ig.mail')}</p>
           <div className="mt-3.5">
             <InstagramButton href={META_BUSINESS_LOGIN_URL} label={t('integ.meta.choose.igButton')} />
           </div>
