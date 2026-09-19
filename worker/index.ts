@@ -21,8 +21,8 @@
 // Real users are never affected — non-crawler requests fall straight through to the
 // static asset server (zero added latency), and any failure falls back to the
 // unmodified page. Only routes in wrangler.jsonc `assets.run_worker_first`
-// (/sitemap.xml, /dj/*, /event/*, /club/*, /o/*, /_next/*, /static/*) ever reach
-// this Worker.
+// (/sitemap.xml, /dj/*, /event/*, /club/*, /o/*, /affiliate-event/*, /affiliate-venue/*,
+// /_next/*, /static/*) ever reach this Worker.
 
 // Pages villes : mêmes définitions que la SPA (slug, nom, meta) — données pures.
 import { CITY_PAGES } from '../src/data/cityPages';
@@ -168,6 +168,40 @@ function fmtDate(iso: unknown): string {
   } catch {
     return '';
   }
+}
+
+// Une soirée partenaire porte une DATE et une HEURE NUES (`event_date` + `start_time`),
+// sans fuseau : la page publique les affiche telles quelles. On les rend donc en
+// date-heure LOCALE ISO 8601 (« 2026-09-19T23:00 ») — schema.org l'accepte et Google la
+// lit à l'heure du lieu. Inventer un offset (Europe/Madrid ? Paris ?) serait une donnée
+// fausse là où la base n'en porte aucune.
+function affDateTime(date: unknown, time: unknown, fallbackTime: string): string {
+  const d = typeof date === 'string' ? date.slice(0, 10) : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+  const t = typeof time === 'string' && time ? time.slice(0, 5) : fallbackTime;
+  return `${d}T${t}`;
+}
+
+// Fin de soirée : une heure de fermeture <= l'heure d'ouverture tombe le LENDEMAIN
+// (un club ouvre à 23:00 et ferme à 06:00). Sans ce décalage, endDate < startDate et
+// Google invalide l'Event entier.
+function affEndDateTime(date: unknown, startTime: unknown, endTime: unknown): string {
+  const d = typeof date === 'string' ? date.slice(0, 10) : '';
+  const end = typeof endTime === 'string' && endTime ? endTime.slice(0, 5) : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !end) return '';
+  const start = typeof startTime === 'string' && startTime ? startTime.slice(0, 5) : '22:00';
+  if (end > start) return `${d}T${end}`;
+  const next = new Date(`${d}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return `${next.toISOString().slice(0, 10)}T${end}`;
+}
+
+// `instagram` / `tiktok` des tables partenaires portent un HANDLE, pas une URL — la page
+// publique compose le lien (AffiliateVenuePage). sameAs n'accepte que des URLs.
+function handleUrl(base: string, raw: unknown): string | null {
+  const h = (typeof raw === 'string' ? raw : '').replace(/^@/, '').trim();
+  if (!h) return null;
+  return /^https?:\/\//i.test(h) ? h : `${base}${encodeURIComponent(h)}`;
 }
 
 // WhatsApp (and other social crawlers) drop link-preview images larger than a few
@@ -513,6 +547,202 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         `<p>${esc(description)}</p>` +
         (facts ? `<ul>${facts}</ul>` : '') +
         `<p><a href="${canonical}">See ${esc(name)}'s dates and book on Yuno</a></p>`,
+    };
+  }
+
+  // ── Soirées partenaires ── /affiliate-event/:slug
+  //
+  // Inventaire du bras affilié (Madrid) : ces pages sont dans le sitemap ET poussées vers
+  // IndexNow. Sans builder ici, elles servaient le index.html statique, canonical en dur sur
+  // https://yunoapp.eu/ — Google les rangeait en « Autre page avec balise canonique
+  // correcte » et ne les indexait jamais.
+  //
+  // Mêmes filtres que la page publique (AffiliateEventPage) : `status in (published,
+  // featured)` ET `event_date >= aujourd'hui`. La page REDIRIGE vers l'accueil pour une
+  // soirée passée — enrichir une URL qui renvoie un humain ailleurs serait du cloaking.
+  // ⚠️ `affiliate_events.status` vaut published/featured — vocabulaire DIFFÉRENT
+  // d'`events.status` (active/cancelled/postponed).
+  if ((m = path.match(/^\/affiliate-event\/([^/?#]+)/))) {
+    const slug = decodeURIComponent(m[1]);
+    const todayStr = nowIso.slice(0, 10);
+    const ae = await fetchRow(
+      env,
+      `affiliate_events?slug=eq.${encodeURIComponent(slug)}&status=in.(published,featured)` +
+        `&event_date=gte.${todayStr}&select=name,description,event_date,start_time,end_time,` +
+        `flyer_url,genres,dj_names,price_from,is_free,is_sold_out,tables_only,has_tables,` +
+        `has_guest_list,external_ticket_url,` +
+        `affiliate_venues(name,slug,city,neighborhood,address,lat,lng)&limit=1`,
+    );
+    if (!ae) return null;
+    const name = (ae.name as string) || 'Event';
+    const canonical = `${ORIGIN}/affiliate-event/${encodeURIComponent(slug)}`;
+    const img = ogImage((ae.flyer_url as string) || undefined);
+    const av = (ae.affiliate_venues && typeof ae.affiliate_venues === 'object' ? ae.affiliate_venues : null) as Row | null;
+    const placeName = (av?.name as string) || '';
+    const city = (av?.city as string) || '';
+    const genres = Array.isArray(ae.genres) ? (ae.genres as string[]) : [];
+    const djNames = Array.isArray(ae.dj_names) ? (ae.dj_names as string[]).filter(Boolean) : [];
+    const startDate = affDateTime(ae.event_date, ae.start_time, '22:00');
+    const endDate = affEndDateTime(ae.event_date, ae.start_time, ae.end_time);
+    const description =
+      clean(ae.description as string) ||
+      `${name}${placeName ? ` at ${placeName}` : ''}${city ? `, ${city}` : ''}. Line-up, opening times and tickets on Yuno.`;
+
+    const place: Row = { '@type': 'Place', name: placeName || city || 'Venue' };
+    const address: Row = { '@type': 'PostalAddress' };
+    if (av?.address) address.streetAddress = av.address;
+    if (city) address.addressLocality = city;
+    if (av?.address || city) place.address = address;
+    if (typeof av?.lat === 'number' && typeof av?.lng === 'number') {
+      place.geo = { '@type': 'GeoCoordinates', latitude: av.lat, longitude: av.lng };
+    }
+
+    // Un seul Offer : la billetterie est EXTERNE, on n'a que le prix d'appel.
+    // Miroir exact de `priceDisplay` (AffiliateEventPage) : un `price_from` à zéro sans
+    // `is_free` est un champ VIDE, pas une entrée gratuite — et une soirée `tables_only`
+    // n'a pas de prix d'entrée. Dans ces deux cas la page dit « voir les tarifs » : on
+    // n'émet alors aucun Offer plutôt qu'un « 0 € » inventé.
+    const priceFrom = typeof ae.price_from === 'number' ? ae.price_from : null;
+    const offers: Row[] = [];
+    if (ae.tables_only !== true) {
+      const amount = ae.is_free === true ? 0 : priceFrom && priceFrom > 0 ? priceFrom : null;
+      if (amount !== null) {
+        const o: Row = {
+          '@type': 'Offer',
+          name: amount === 0 ? 'Free entry' : 'Entry',
+          // La vente se fait chez le partenaire : l'URL d'achat est SON lien, c'est celui
+          // que l'humain clique. Yuno n'encaisse rien ici — donc pas de `seller`.
+          url: (ae.external_ticket_url as string) || canonical,
+          price: amount,
+          priceCurrency: 'EUR',
+          availability: ae.is_sold_out === true ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+        };
+        if (startDate) o.validThrough = startDate;
+        offers.push(o);
+      }
+    }
+
+    const performers = djNames.map((d) => ({ '@type': 'MusicGroup', name: clean(d, 80) })).filter((p) => p.name);
+
+    const jsonLd: Row = {
+      '@context': 'https://schema.org',
+      '@type': 'MusicEvent',
+      name,
+      description,
+      eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      location: place,
+      url: canonical,
+    };
+    if (startDate) jsonLd.startDate = startDate;
+    if (endDate) jsonLd.endDate = endDate;
+    // L'organisateur d'une soirée partenaire est le CLUB, jamais Yuno (qui ne fait que
+    // référencer la date et renvoyer vers la billetterie du lieu).
+    if (placeName) {
+      jsonLd.organizer = av?.slug
+        ? { '@type': 'NightClub', name: placeName, url: `${ORIGIN}/affiliate-venue/${encodeURIComponent(av.slug as string)}` }
+        : { '@type': 'NightClub', name: placeName };
+    }
+    if (offers.length) jsonLd.offers = offers;
+    if (performers.length) jsonLd.performer = performers;
+    if (img) jsonLd.image = [img];
+
+    const facts = [
+      startDate ? `<li>When: ${esc(startDate.replace('T', ' at '))}</li>` : '',
+      placeName ? `<li>Where: ${esc(placeName)}${city ? `, ${esc(city)}` : ''}</li>` : '',
+      djNames.length ? `<li>Line-up: ${esc(djNames.join(', '))}</li>` : '',
+      genres.length ? `<li>Music: ${esc(genres.join(', '))}</li>` : '',
+      offers.length ? `<li>Entry from €${esc((offers[0].price as number).toFixed(2))}</li>` : '',
+      ae.has_tables === true ? `<li>VIP tables available</li>` : '',
+      ae.has_guest_list === true ? `<li>Guest list available</li>` : '',
+    ].filter(Boolean).join('');
+    return {
+      title: `${name}${city ? ` · ${city}` : ''} · Yuno`,
+      description,
+      image: img,
+      canonical,
+      jsonLd,
+      h1: name,
+      bodyHtml:
+        `<p>${esc(description)}</p>` +
+        (facts ? `<ul>${facts}</ul>` : '') +
+        (av?.slug
+          ? `<p><a href="${ORIGIN}/affiliate-venue/${encodeURIComponent(av.slug as string)}">More nights at ${esc(placeName)}</a></p>`
+          : '') +
+        `<p><a href="${canonical}">See the full line-up and get in on Yuno</a></p>`,
+    };
+  }
+
+  // ── Clubs partenaires ── /affiliate-venue/:slug — même schema NightClub que /club/:slug.
+  if ((m = path.match(/^\/affiliate-venue\/([^/?#]+)/))) {
+    const slug = decodeURIComponent(m[1]);
+    const av = await fetchRow(
+      env,
+      `affiliate_venues?slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&select=id,name,city,` +
+        `neighborhood,address,description,short_description,cover_image_url,logo_url,genres,` +
+        `instagram,tiktok,website,dress_code,min_age,lat,lng&limit=1`,
+    );
+    if (!av) return null;
+    const name = (av.name as string) || 'Club';
+    const city = (av.city as string) || '';
+    const canonical = `${ORIGIN}/affiliate-venue/${encodeURIComponent(slug)}`;
+    const img = ogImage((av.cover_image_url as string) || (av.logo_url as string) || undefined);
+    const genres = Array.isArray(av.genres) ? (av.genres as string[]) : [];
+    const description =
+      clean((av.short_description as string) || (av.description as string)) ||
+      `What's on at ${name}${city ? `, ${city}` : ''}: upcoming nights, line-ups and tickets on Yuno.`;
+    const sameAs = [
+      handleUrl('https://instagram.com/', av.instagram),
+      handleUrl('https://tiktok.com/@', av.tiktok),
+      typeof av.website === 'string' && av.website ? av.website : null,
+    ].filter((u): u is string => !!u);
+
+    const address: Row = { '@type': 'PostalAddress' };
+    if (av.address) address.streetAddress = av.address;
+    if (city) address.addressLocality = city;
+    const jsonLd: Row = { '@context': 'https://schema.org', '@type': 'NightClub', name, description, url: canonical };
+    if (img) jsonLd.image = img;
+    if (av.address || city) jsonLd.address = address;
+    if (typeof av.lat === 'number' && typeof av.lng === 'number') {
+      jsonLd.geo = { '@type': 'GeoCoordinates', latitude: av.lat, longitude: av.lng };
+    }
+    if (genres.length) jsonLd.genre = genres;
+    if (sameAs.length) jsonLd.sameAs = sameAs;
+
+    // Mêmes filtres que la page (AffiliateVenuePage) : publiées/à l'affiche, à venir.
+    const evts = av.id
+      ? await fetchRows(
+          env,
+          `affiliate_events?affiliate_venue_id=eq.${encodeURIComponent(av.id as string)}` +
+            `&status=in.(published,featured)&event_date=gte.${nowIso.slice(0, 10)}` +
+            `&select=slug,name,event_date,start_time&order=event_date.asc&limit=20`,
+        )
+      : [];
+    const eventLinks = evts
+      .filter((e) => e.slug)
+      .map((e) => ({
+        href: `${ORIGIN}/affiliate-event/${encodeURIComponent(e.slug as string)}`,
+        label: `${clean(e.name, 120) || 'Event'}${e.event_date ? ` — ${esc(String(e.event_date))}` : ''}`,
+      }));
+    const facts = [
+      city ? `<li>${esc(city)}${av.neighborhood ? ` — ${esc(av.neighborhood)}` : ''}</li>` : '',
+      av.address ? `<li>${esc(av.address)}</li>` : '',
+      genres.length ? `<li>${esc(genres.join(', '))}</li>` : '',
+      av.dress_code ? `<li>Dress code: ${esc(av.dress_code)}</li>` : '',
+      typeof av.min_age === 'number' ? `<li>Minimum age: ${esc(String(av.min_age))}</li>` : '',
+    ].filter(Boolean).join('');
+    return {
+      title: `${name}${city ? ` · ${city}` : ''} · Yuno`,
+      description,
+      image: img,
+      canonical,
+      jsonLd,
+      h1: name,
+      bodyHtml:
+        `<p>${esc(description)}</p>` +
+        (facts ? `<ul>${facts}</ul>` : '') +
+        linkListHtml('Upcoming events', eventLinks) +
+        `<p><a href="${canonical}">See what's on at ${esc(name)} on Yuno</a></p>`,
     };
   }
 
@@ -963,7 +1193,10 @@ async function buildSitemap(env: Env): Promise<string> {
     fetchRows(env, 'venues?is_hidden=eq.false&select=id&limit=5000'),
     fetchRows(env, 'djs_public?is_active=eq.true&select=slug,handle&limit=5000'),
     fetchRows(env, 'organizer_profiles?is_public=eq.true&select=slug,updated_at&limit=5000'),
-    fetchRows(env, 'affiliate_events?status=in.(published,featured)&select=slug,updated_at&limit=5000'),
+    // Une soirée partenaire passée REDIRIGE vers l'accueil (AffiliateEventPage) : la
+    // soumettre gaspille du budget de crawl et se range en soft-404. Même borne que le
+    // builder et que la page.
+    fetchRows(env, `affiliate_events?status=in.(published,featured)&event_date=gte.${new Date().toISOString().slice(0, 10)}&select=slug,updated_at&limit=5000`),
     fetchRows(env, 'affiliate_venues?is_active=eq.true&select=slug,updated_at&limit=5000'),
   ]);
 
@@ -1060,7 +1293,7 @@ async function submitRecentToIndexNow(env: Env): Promise<void> {
     fetchRows(env, `venues?is_hidden=eq.false&created_at=gte.${since}&select=id&limit=5000`),
     fetchRows(env, `djs?is_active=eq.true&updated_at=gte.${since}&select=slug,handle&limit=5000`),
     fetchRows(env, `organizer_profiles?is_public=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
-    fetchRows(env, `affiliate_events?status=in.(published,featured)&updated_at=gte.${since}&select=slug&limit=5000`),
+    fetchRows(env, `affiliate_events?status=in.(published,featured)&event_date=gte.${new Date().toISOString().slice(0, 10)}&updated_at=gte.${since}&select=slug&limit=5000`),
     fetchRows(env, `affiliate_venues?is_active=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
   ]);
   const urls: string[] = [];
