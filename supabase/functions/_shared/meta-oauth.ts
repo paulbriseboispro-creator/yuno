@@ -138,7 +138,7 @@ export interface GraphError { code?: number; error_subcode?: number; message?: s
 export async function graphGet<T = Record<string, unknown>>(
   path: string,
   params: Record<string, string>,
-  opts: { token?: string; appSecret?: string; timeoutMs?: number } = {},
+  opts: { token?: string; appSecret?: string | null; timeoutMs?: number } = {},
 ): Promise<{ ok: true; data: T } | { ok: false; status: number; error: GraphError }> {
   const u = new URL(`${GRAPH}/${path.replace(/^\//, "")}`);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
@@ -157,10 +157,10 @@ export async function graphGet<T = Record<string, unknown>>(
   return { ok: false, status: res.status, error: json?.error ?? { message: `HTTP ${res.status}` } };
 }
 
-export async function graphDelete(path: string, token: string, appSecret: string): Promise<boolean> {
+export async function graphDelete(path: string, token: string, appSecret: string | null): Promise<boolean> {
   const u = new URL(`${GRAPH}/${path.replace(/^\//, "")}`);
   u.searchParams.set("access_token", token);
-  u.searchParams.set("appsecret_proof", await appSecretProof(appSecret, token));
+  if (appSecret) u.searchParams.set("appsecret_proof", await appSecretProof(appSecret, token));
   try {
     const res = await fetch(u.toString(), { method: "DELETE", signal: AbortSignal.timeout(10_000) });
     return res.ok;
@@ -195,7 +195,7 @@ export interface MetaInstagramAsset { page_id: string; id: string; username: str
 export interface MetaAssets { pixels: MetaAsset[]; ad_accounts: MetaAsset[]; pages: MetaAsset[]; instagram?: MetaInstagramAsset[] }
 
 /** Identité Instagram reliée à une Page ; null si aucune ou si la permission manque. */
-export async function pageInstagramIdentity(pageId: string, token: string, appSecret: string): Promise<{ id: string; username: string | null } | null> {
+export async function pageInstagramIdentity(pageId: string, token: string, appSecret: string | null): Promise<{ id: string; username: string | null } | null> {
   const r = await graphGet<{ instagram_business_account?: { id: string; username?: string } }>(
     pageId, { fields: "instagram_business_account{id,username}" }, { token, appSecret },
   );
@@ -204,14 +204,14 @@ export async function pageInstagramIdentity(pageId: string, token: string, appSe
 }
 
 /** Best-effort : une Page sans Instagram (ou sans `instagram_basic`) est simplement absente. */
-async function discoverInstagram(pages: MetaAsset[], token: string, appSecret: string): Promise<MetaInstagramAsset[]> {
+async function discoverInstagram(pages: MetaAsset[], token: string, appSecret: string | null): Promise<MetaInstagramAsset[]> {
   const found = await Promise.all(pages.slice(0, 20).map(async (p) => ({ page: p, ig: await pageInstagramIdentity(p.id, token, appSecret) })));
   return found.flatMap(({ page, ig }) => (ig ? [{ page_id: page.id, id: ig.id, username: ig.username }] : []));
 }
 
 interface Edge { data?: Array<{ id: string; name?: string; account_id?: string }> }
 
-async function edgeList(path: string, token: string, appSecret: string, fields: string): Promise<MetaAsset[]> {
+async function edgeList(path: string, token: string, appSecret: string | null, fields: string): Promise<MetaAsset[]> {
   const r = await graphGet<Edge>(path, { fields, limit: "100" }, { token, appSecret });
   if (!r.ok || !Array.isArray(r.data.data)) return [];
   return r.data.data.map((x) => ({ id: String(x.id), name: x.name ?? (x.account_id ? `act_${x.account_id}` : x.id) }));
@@ -228,7 +228,7 @@ function dedupe(list: MetaAsset[]): MetaAsset[] {
  * Jeton utilisateur (petit club sans Business Manager) : `/me/adaccounts`,
  * `/me/accounts`, pixels par compte pub.
  */
-export async function discoverAssets(token: string, appSecret: string): Promise<{
+export async function discoverAssets(token: string, appSecret: string | null): Promise<{
   ok: boolean;
   kind: "bisu" | "user";
   metaUserId: string | null;
@@ -277,7 +277,7 @@ export async function debugToken(cfg: MetaAppConfig, token: string) {
 }
 
 /** Qualité du dataset (EMQ, couverture) — exige ads_read ; best-effort. */
-export async function datasetQuality(pixelId: string, token: string, appSecret: string) {
+export async function datasetQuality(pixelId: string, token: string, appSecret: string | null) {
   return graphGet<Record<string, unknown>>(`${pixelId}/dataset_quality`, {}, { token, appSecret });
 }
 

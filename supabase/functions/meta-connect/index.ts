@@ -54,6 +54,9 @@ const PUBLIC_BASE = "https://yunoapp.eu";
 
 type Scope = { venueId: string | null; organizerUserId: string | null };
 
+/** Garde le choix déjà fait du pro s'il existe toujours chez Meta, sinon rien. */
+const keep = (prev: string | null | undefined, list: Array<{ id: string }>) => (prev && list.some((x) => x.id === prev) ? prev : null);
+
 interface ConnRow {
   id: string;
   mode: "manual" | "oauth";
@@ -147,7 +150,6 @@ Deno.serve(async (req) => {
       // Un choix déjà fait (reconnexion) est conservé s'il figure encore dans
       // les actifs autorisés ; un actif unique est retenu d'office ; dès
       // qu'une liste laisse le choix, le pro tranche lui-même (`meta=choose`).
-      const keep = (prev: string | null | undefined, list: Array<{ id: string }>) => (prev && list.some((x) => x.id === prev) ? prev : null);
       const pixelId = a.pixels.length === 1 ? a.pixels[0].id : (keep(existing?.pixel_id, a.pixels) ?? "pending");
       const adAccountId = keep(existing?.ad_account_id, a.ad_accounts) ?? (a.ad_accounts.length === 1 ? a.ad_accounts[0].id : null);
       const pageId = keep(existing?.page_id, a.pages) ?? (a.pages.length === 1 ? a.pages[0].id : null);
@@ -291,7 +293,8 @@ Deno.serve(async (req) => {
     // ── select_assets ───────────────────────────────────────────────────────
     if (action === "select_assets") {
       const existing = await findConnection(admin, scope);
-      if (!existing || existing.mode !== "oauth" || !existing.assets) return json({ error: "not_connected" }, 404, cors);
+      // Manual ou oauth : ce qui compte est d'avoir des actifs découverts.
+      if (!existing?.assets) return json({ error: "not_connected" }, 404, cors);
       const pixelId = typeof body.pixelId === "string" ? body.pixelId.trim() : "";
       if (!existing.assets.pixels.some((p) => p.id === pixelId)) return json({ error: "invalid_pixel_id" }, 400, cors);
       const adAccountId = typeof body.adAccountId === "string" && existing.assets.ad_accounts.some((a) => a.id === body.adAccountId) ? body.adAccountId : undefined;
@@ -365,17 +368,59 @@ Deno.serve(async (req) => {
         datasetName = check.name;
       }
 
+      // Un jeton collé n'est pas forcément un simple jeton d'événements. Un
+      // utilisateur système de Business Manager (Paramètres → Utilisateurs →
+      // Utilisateurs système) porte `ads_management` et n'expire pas — et il se
+      // crée SANS passer par Facebook Login, ce qui est la seule porte des pros
+      // qui gèrent tout depuis Instagram. On regarde donc ce que le jeton sait
+      // faire au lieu de le supposer, et on ouvre exactement ça.
+      //
+      // Le proof reste obligatoire pour piloter les publicités : il est calculé
+      // avec le secret de l'app Yuno, donc il n'est valable que pour un jeton
+      // émis POUR l'app Yuno. Un jeton d'une autre app est reconnu (découverte
+      // sans proof) mais ne débloque pas les pubs : les crons signeraient leurs
+      // appels avec un proof faux. Le pro régénère son jeton en choisissant
+      // l'app Yuno, c'est un clic dans la fenêtre de Meta.
+      let discovered: Awaited<ReturnType<typeof discoverAssets>> | null = null;
+      let foreignApp = false;
+      if (token && cfg) {
+        const withProof = await discoverAssets(token, cfg.appSecret);
+        if (withProof.ok) discovered = withProof;
+        else {
+          const withoutProof = await discoverAssets(token, null);
+          if (withoutProof.ok) foreignApp = true;
+        }
+      }
+      const a = discovered?.assets ?? null;
+      const soleAdAccount = a && a.ad_accounts.length === 1 ? a.ad_accounts[0].id : null;
+      const solePage = a && a.pages.length === 1 ? a.pages[0].id : null;
+      const assetFields: Record<string, unknown> = discovered
+        ? {
+          token_kind: discovered.kind,
+          assets: a,
+          meta_user_id: discovered.metaUserId,
+          business_id: discovered.businessId,
+          ad_account_id: keep(existing?.ad_account_id, a!.ad_accounts) ?? soleAdAccount,
+          page_id: keep(existing?.page_id, a!.pages) ?? solePage,
+          ig_user_id: a!.instagram?.find((i) => i.page_id === (keep(existing?.page_id, a!.pages) ?? solePage))?.id ?? null,
+          last_error: null, last_error_at: null,
+        }
+        : {
+          token_kind: "capi", assets: null, meta_user_id: null,
+          ...(foreignApp ? { last_error: "token_other_app", last_error_at: new Date().toISOString() } : {}),
+        };
+
       let connectionId = existing?.id ?? null;
       if (!connectionId) {
         const { data: inserted, error: insErr } = await admin
           .from("meta_connections")
-          .insert({ venue_id: scope.venueId, organizer_user_id: scope.organizerUserId, mode: "manual", token_kind: "capi", pixel_id: pixelId, created_by: user.id })
+          .insert({ venue_id: scope.venueId, organizer_user_id: scope.organizerUserId, mode: "manual", pixel_id: pixelId, created_by: user.id, ...assetFields })
           .select("id")
           .single();
         if (insErr || !inserted) return json({ error: "insert_failed", detail: insErr?.message ?? null }, 500, cors);
         connectionId = inserted.id as string;
       } else {
-        const patch: Record<string, unknown> = { pixel_id: pixelId, mode: "manual", token_kind: "capi", token_expires_at: null, assets: null, meta_user_id: null };
+        const patch: Record<string, unknown> = { pixel_id: pixelId, mode: "manual", token_expires_at: null, ...assetFields };
         if (existing && existing.pixel_id !== pixelId) patch.verified_at = null;
         const { error: updErr } = await admin.from("meta_connections").update(patch).eq("id", connectionId);
         if (updErr) return json({ error: "update_failed", detail: updErr.message }, 500, cors);
@@ -396,7 +441,11 @@ Deno.serve(async (req) => {
         const t = await tokenOf(admin, connectionId);
         if (t) test = await sendMetaTestEvent(pixelId, t, testEventCode, sourceUrl);
       }
-      return json({ ok: true, connectionId, datasetName: datasetName ?? null, test }, 200, cors);
+      return json({
+        ok: true, connectionId, datasetName: datasetName ?? null, test,
+        discovered: discovered ? { adAccounts: discovered.assets.ad_accounts.length, pages: discovered.assets.pages.length } : null,
+        foreignApp,
+      }, 200, cors);
     }
 
     // ── test ────────────────────────────────────────────────────────────────
@@ -534,7 +583,7 @@ Deno.serve(async (req) => {
         .eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
       const conn = c as { id: string; venue_id: string | null; organizer_user_id: string | null; pixel_id: string; ad_account_id: string | null; page_id: string | null; ig_user_id: string | null; status: string; mode: string; vault_secret_id: string | null } | null;
       if (!conn?.vault_secret_id || conn.status !== "active") return json({ error: "not_connected" }, 404, cors);
-      if (conn.mode !== "oauth" || !conn.ad_account_id || !conn.page_id) return json({ error: "ads_not_ready" }, 400, cors);
+      if (!conn.ad_account_id || !conn.page_id) return json({ error: "ads_not_ready" }, 400, cors);
       const token = await tokenOf(admin, conn.id);
       if (!token) return json({ error: "token_missing" }, 500, cors);
 

@@ -390,12 +390,24 @@ Les deux chemins, affichés en clair sous le bouton dans la carte Meta :
    administrateur du portefeuille, depuis `business.facebook.com` où la
    connexion Instagram fonctionne. Ensuite « Connecter avec Facebook »
    marche et tout s'ouvre : pixel, API Conversions, publicités depuis Yuno.
-2. **Mode avancé**, sans profil Facebook : Events Manager → identifiant du
-   pixel + « Générer un jeton d'accès », collés dans Yuno. Le suivi des
-   ventes marche ; les publicités pilotées depuis Yuno, non — elles passent
-   par l'autorisation Facebook. Attention, le lien « Générer un jeton
-   d'accès » n'apparaît qu'aux membres ayant les droits développeur sur le
-   portefeuille.
+2. **Mode avancé**, sans profil Facebook. Le jeton décide de ce qui s'ouvre :
+   - jeton d'événements (Events Manager → jeu de données → Paramètres →
+     « Générer un jeton d'accès ») : suivi des ventes seul ;
+   - **jeton d'utilisateur système** (Business Manager → Paramètres →
+     Utilisateurs → **Utilisateurs système** → ajouter, attribuer le compte
+     publicitaire, le pixel et la Page, puis « Générer un nouveau jeton » en
+     choisissant **l'app Yuno** et les permissions `ads_management`,
+     `ads_read`, `business_management`, `pages_read_engagement`,
+     `instagram_basic`) : **les publicités pilotées depuis Yuno s'ouvrent
+     aussi**, sans jamais passer par Facebook Login. Ce jeton n'expire pas.
+
+   Yuno découvre à l'enregistrement ce que le jeton sait faire et l'annonce.
+   Le jeton DOIT être généré pour l'app Yuno : `appsecret_proof` est signé
+   avec notre secret d'app, donc un jeton d'une autre app est reconnu mais ne
+   débloque pas les publicités.
+
+   Attention, « Utilisateurs système » et « Générer un jeton » n'apparaissent
+   qu'aux membres ayant le contrôle total du portefeuille.
 
 `instagram.com/oauth/authorize` (« Business Login for Instagram ») n'est pas
 une troisième voie : ses seules permissions sont `instagram_business_basic`,

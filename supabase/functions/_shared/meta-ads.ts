@@ -27,7 +27,7 @@ export async function graphPost<T = Record<string, unknown>>(
   path: string,
   params: Record<string, unknown>,
   token: string,
-  appSecret: string,
+  appSecret: string | null,
 ): Promise<{ ok: true; data: T } | { ok: false; status: number; error: GraphError }> {
   const form = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -35,7 +35,10 @@ export async function graphPost<T = Record<string, unknown>>(
     form.set(k, typeof v === "string" ? v : JSON.stringify(v));
   }
   form.set("access_token", token);
-  form.set("appsecret_proof", await appSecretProof(appSecret, token));
+  // Un jeton d'utilisateur système généré pour UNE AUTRE app que Yuno n'a pas
+  // de proof valide de notre côté : on l'omet plutôt que d'en envoyer un faux,
+  // que Meta rejetterait. Le proof reste posé dès que le jeton vient de nous.
+  if (appSecret) form.set("appsecret_proof", await appSecretProof(appSecret, token));
   let res: Response;
   try {
     res = await fetch(`${GRAPH}/${path.replace(/^\//, "")}`, {
@@ -58,24 +61,24 @@ export function graphErrorText(e: GraphError): string {
 
 // ── Compte publicitaire ──────────────────────────────────────────────────────
 
-export async function adAccountInfo(adAccountId: string, token: string, appSecret: string) {
+export async function adAccountInfo(adAccountId: string, token: string, appSecret: string | null) {
   return graphGet<{ id: string; name?: string; currency?: string; account_status?: number; tos_accepted?: Record<string, number>; funding_source?: string; timezone_name?: string }>(
     adAccountId, { fields: "id,name,currency,account_status,tos_accepted,funding_source,timezone_name" }, { token, appSecret },
   );
 }
 
-export async function pageAccessToken(pageId: string, token: string, appSecret: string): Promise<string | null> {
+export async function pageAccessToken(pageId: string, token: string, appSecret: string | null): Promise<string | null> {
   const r = await graphGet<{ access_token?: string }>(pageId, { fields: "access_token" }, { token, appSecret });
   return r.ok && r.data.access_token ? r.data.access_token : null;
 }
 
-export async function pageInstagramAccount(pageId: string, token: string, appSecret: string): Promise<string | null> {
+export async function pageInstagramAccount(pageId: string, token: string, appSecret: string | null): Promise<string | null> {
   const r = await graphGet<{ instagram_business_account?: { id: string } }>(pageId, { fields: "instagram_business_account" }, { token, appSecret });
   return r.ok && r.data.instagram_business_account?.id ? r.data.instagram_business_account.id : null;
 }
 
 /** Recherche de villes pour le ciblage (clé Meta + nom + pays). */
-export async function searchGeo(q: string, countryCode: string | null, token: string, appSecret: string) {
+export async function searchGeo(q: string, countryCode: string | null, token: string, appSecret: string | null) {
   const params: Record<string, string> = { type: "adgeolocation", q, location_types: JSON.stringify(["city", "region"]), limit: "12" };
   if (countryCode) params.country_code = countryCode;
   const r = await graphGet<{ data?: Array<{ key: string; name: string; type: string; country_code: string; region?: string; country_name?: string }> }>("search", params, { token, appSecret });
@@ -133,7 +136,7 @@ export interface CreateCampaignResult {
   step?: string;
 }
 
-async function uploadImage(adAccountId: string, imageUrl: string, token: string, appSecret: string): Promise<{ hash: string } | { error: string }> {
+async function uploadImage(adAccountId: string, imageUrl: string, token: string, appSecret: string | null): Promise<{ hash: string } | { error: string }> {
   try {
     const res = await fetch(imageUrl, { signal: AbortSignal.timeout(20_000) });
     if (!res.ok) return { error: `image_fetch_${res.status}` };
@@ -177,7 +180,7 @@ function buildTargeting(t: CampaignTargeting, placements: { facebook?: boolean; 
   return out;
 }
 
-export async function createFullCampaign(input: CreateCampaignInput, token: string, appSecret: string): Promise<CreateCampaignResult> {
+export async function createFullCampaign(input: CreateCampaignInput, token: string, appSecret: string | null): Promise<CreateCampaignResult> {
   const { adAccountId } = input;
   const img = await uploadImage(adAccountId, input.creative.image_url, token, appSecret);
   if ("error" in img) return { ok: false, error: img.error, step: "image" };
@@ -252,7 +255,7 @@ export async function setCampaignStatus(
   ids: { campaignId: string; adsetId?: string | null; adId?: string | null },
   status: "ACTIVE" | "PAUSED" | "ARCHIVED",
   token: string,
-  appSecret: string,
+  appSecret: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   // Activer : la campagne, puis l'ensemble, puis la pub (tous doivent l'être).
   // Mettre en pause / archiver : la campagne suffit (hérité).
@@ -266,7 +269,7 @@ export async function setCampaignStatus(
   return { ok: true };
 }
 
-export async function campaignStatusInfo(campaignId: string, adId: string | null, token: string, appSecret: string) {
+export async function campaignStatusInfo(campaignId: string, adId: string | null, token: string, appSecret: string | null) {
   const c = await graphGet<{ effective_status?: string; status?: string }>(campaignId, { fields: "effective_status,status" }, { token, appSecret });
   let review: string | null = null;
   if (adId) {
@@ -284,7 +287,7 @@ export interface DailyInsight {
   link_clicks: number; purchases: number; purchase_value_cents: number; leads: number; raw: Record<string, unknown>;
 }
 
-export async function campaignInsights(campaignId: string, token: string, appSecret: string): Promise<DailyInsight[]> {
+export async function campaignInsights(campaignId: string, token: string, appSecret: string | null): Promise<DailyInsight[]> {
   const r = await graphGet<{ data?: Array<Record<string, unknown>> }>(`${campaignId}/insights`, {
     fields: "spend,impressions,reach,clicks,inline_link_clicks,actions,action_values",
     time_increment: "1",
@@ -318,14 +321,14 @@ export async function campaignInsights(campaignId: string, token: string, appSec
 
 // ── Audiences ────────────────────────────────────────────────────────────────
 
-export async function createCustomAudience(adAccountId: string, name: string, description: string, token: string, appSecret: string) {
+export async function createCustomAudience(adAccountId: string, name: string, description: string, token: string, appSecret: string | null) {
   const r = await graphPost<{ id: string }>(`${adAccountId}/customaudiences`, {
     name, description, subtype: "CUSTOM", customer_file_source: "USER_PROVIDED_ONLY",
   }, token, appSecret);
   return r.ok ? { ok: true as const, id: r.data.id } : { ok: false as const, error: graphErrorText(r.error), code: r.error.code, subcode: r.error.error_subcode };
 }
 
-export async function createLookalike(adAccountId: string, name: string, originAudienceId: string, ratio: number, country: string, token: string, appSecret: string) {
+export async function createLookalike(adAccountId: string, name: string, originAudienceId: string, ratio: number, country: string, token: string, appSecret: string | null) {
   const r = await graphPost<{ id: string }>(`${adAccountId}/customaudiences`, {
     name, subtype: "LOOKALIKE", origin_audience_id: originAudienceId,
     lookalike_spec: { ratio: Math.min(0.2, Math.max(0.01, ratio)), country },
@@ -348,7 +351,7 @@ async function hashRow(m: AudienceMember, defaultCountry: "FR" | "ES"): Promise<
 }
 
 /** Remplace le contenu d'une audience par la liste donnée (sessions de 10 000). */
-export async function replaceAudienceUsers(audienceId: string, members: AudienceMember[], token: string, appSecret: string, defaultCountry: "FR" | "ES" = "FR"): Promise<{ ok: boolean; uploaded: number; error?: string }> {
+export async function replaceAudienceUsers(audienceId: string, members: AudienceMember[], token: string, appSecret: string | null, defaultCountry: "FR" | "ES" = "FR"): Promise<{ ok: boolean; uploaded: number; error?: string }> {
   const rows: string[][] = [];
   for (const m of members) {
     const r = await hashRow(m, defaultCountry);
@@ -371,12 +374,12 @@ export async function replaceAudienceUsers(audienceId: string, members: Audience
 
 // ── Leads ────────────────────────────────────────────────────────────────────
 
-export async function subscribePageToLeads(pageId: string, pageToken: string, appSecret: string): Promise<{ ok: boolean; error?: string }> {
+export async function subscribePageToLeads(pageId: string, pageToken: string, appSecret: string | null): Promise<{ ok: boolean; error?: string }> {
   const r = await graphPost(`${pageId}/subscribed_apps`, { subscribed_fields: ["leadgen"] }, pageToken, appSecret);
   return r.ok ? { ok: true } : { ok: false, error: graphErrorText(r.error) };
 }
 
-export async function fetchLead(leadgenId: string, token: string, appSecret: string) {
+export async function fetchLead(leadgenId: string, token: string, appSecret: string | null) {
   return graphGet<{ id: string; created_time?: string; ad_id?: string; form_id?: string; campaign_id?: string; field_data?: Array<{ name: string; values: string[] }> }>(
     leadgenId, { fields: "id,created_time,ad_id,form_id,campaign_id,field_data" }, { token, appSecret },
   );
@@ -412,7 +415,7 @@ async function connToken(admin: SupabaseClient, id: string): Promise<string | nu
   return typeof data === "string" && data ? data : null;
 }
 
-export async function syncMetaAudiences(admin: SupabaseClient, appSecret: string, opts: { onlyAudienceId?: string; force?: boolean } = {}): Promise<{ synced: number; failed: number }> {
+export async function syncMetaAudiences(admin: SupabaseClient, appSecret: string | null, opts: { onlyAudienceId?: string; force?: boolean } = {}): Promise<{ synced: number; failed: number }> {
   const out = { synced: 0, failed: 0 };
   try {
     let q = admin.from("meta_audiences").select("id, connection_id, kind, ref, name, meta_audience_id, status, last_sync_at, lookalike_ratio, lookalike_country");
@@ -465,7 +468,7 @@ export async function syncMetaAudiences(admin: SupabaseClient, appSecret: string
   return out;
 }
 
-export async function syncMetaInsights(admin: SupabaseClient, appSecret: string, opts: { onlyCampaignId?: string; force?: boolean } = {}): Promise<{ synced: number; failed: number }> {
+export async function syncMetaInsights(admin: SupabaseClient, appSecret: string | null, opts: { onlyCampaignId?: string; force?: boolean } = {}): Promise<{ synced: number; failed: number }> {
   const out = { synced: 0, failed: 0 };
   try {
     let q = admin.from("meta_campaigns").select("id, connection_id, meta_campaign_id, meta_ad_id, status, end_at, last_synced_at")
@@ -505,7 +508,7 @@ export async function syncMetaInsights(admin: SupabaseClient, appSecret: string,
   return out;
 }
 
-export async function processMetaLeads(admin: SupabaseClient, appSecret: string): Promise<{ processed: number; failed: number }> {
+export async function processMetaLeads(admin: SupabaseClient, appSecret: string | null): Promise<{ processed: number; failed: number }> {
   const out = { processed: 0, failed: 0 };
   try {
     const { data: rows, error } = await admin.rpc("claim_meta_leads", { p_limit: 50 });

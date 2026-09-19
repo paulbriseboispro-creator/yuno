@@ -1621,8 +1621,18 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   une Page dans le même écran de réglages, et c'est exactement le piège où
   le compte Amoris s'est arrêté le 19/09 — l'avertissement
   `integ.meta.choose.ig.warn` est là pour ça, ne pas l'enlever ;
-  (2) mode avancé, pixel + jeton relevés dans Events Manager — le suivi des
-  ventes marche, les publicités pilotées depuis Yuno non. **Les deux chemins
+  (2) mode avancé, pixel + jeton collés. **Le jeton décide de ce qui s'ouvre,
+  plus le mode de connexion** : `save` appelle `discoverAssets` et remplit
+  `ad_account_id` / `page_id` / `ig_user_id` comme le ferait le retour OAuth,
+  donc un jeton d'UTILISATEUR SYSTÈME (Business Manager → Paramètres →
+  Utilisateurs → Utilisateurs système, actifs attribués, généré POUR L'APP
+  YUNO) ouvre les publicités sans aucun Facebook Login. `ads_ready` ne teste
+  plus `mode = 'oauth'` mais la présence du compte pub et de la Page
+  (migration `20260919140000`). Le proof `appsecret_proof` est calculé avec le
+  secret de Yuno : un jeton émis pour une AUTRE app est reconnu (découverte
+  retentée sans proof) mais ne débloque pas les pubs — les crons signeraient
+  leurs appels avec un proof faux — et le pro est invité à le régénérer en
+  choisissant l'app Yuno (`integ.meta.tokenOtherApp`). **Les deux chemins
   sont DEUX CARTES de même poids, chacune nommant d'abord POUR QUI elle est**,
   et la carte Instagram annonce qu'elle ne connecte pas Yuno, elle ouvre Meta :
   avec un seul bouton bleu en vedette, le pro Instagram cliquait dessus en

@@ -354,6 +354,12 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
       if (test && !test.ok) toast.warning(`${t('integ.meta.testFailed')} ${test.message ?? ''}`.trim());
       else if (test?.ok) toast.success(t('integ.meta.testSent'));
       else toast.success(t('integ.meta.saved'));
+      // Un jeton collé n'est pas forcément un simple jeton d'événements : le
+      // serveur a regardé ce qu'il sait faire, on le dit au lieu de laisser le
+      // pro découvrir tout seul que la page Publicité s'est ouverte (ou pas).
+      const disc = res.discovered as { adAccounts?: number; pages?: number } | null;
+      if (disc && (disc.adAccounts ?? 0) > 0 && (disc.pages ?? 0) > 0) toast.success(t('integ.meta.adsUnlocked'));
+      if (res.foreignApp === true) toast.warning(t('integ.meta.tokenOtherApp'));
       setToken(''); setEditToken(false); setShowToken(false);
       await load();
     } catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
