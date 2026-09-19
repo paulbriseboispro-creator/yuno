@@ -13,16 +13,20 @@
 //
 // Actions POST (JSON, JWT vérifié ICI — verify_jwt=false au niveau fonction) :
 //   oauth_start   { scope, returnTo }
-//   select_assets { scope, pixelId, adAccountId?, pageId? }
+//   select_assets { scope, pixelId, adAccountId?, pageId? }   (aussi sur une connexion active)
 //   health        { scope }                          debug_token + qualité dataset
 //   save          { scope, pixelId, token?, testEventCode? }
 //   test          { scope, testEventCode }
 //   update        { scope, eventsEnabled?, clearTestCode? }
 //   disconnect    { scope }
+//   Publicité (phases 3-4) : ads_search_geo, ads_account_status, audience_create /
+//   audience_lookalike / audience_sync / audience_delete, campaign_create (toujours
+//   PAUSED), campaign_set_status / campaign_refresh / campaign_delete, leads_subscribe.
 // Sans JWT (appelées par Meta) :
 //   GET  /oauth/callback?code&state
 //   POST /data-deletion   (signed_request)  → efface les connexions de ce compte Meta
 //   POST /deauthorize     (signed_request)  → idem (l'app a été retirée côté Meta)
+//   GET/POST /webhook     (hub.* / X-Hub-Signature-256) → leads
 //
 // `scope` = { venueId } | { organizerUserId } | {} (plateforme, super admin).
 // Surface identité/argent : refusée en session support (accès assisté).
@@ -61,6 +65,8 @@ interface ConnRow {
   token_kind: "capi" | "bisu" | "user";
   assets: MetaAssets | null;
   meta_user_id: string | null;
+  ad_account_id: string | null;
+  page_id: string | null;
 }
 
 function json(body: unknown, status: number, headers: Record<string, string>) {
@@ -80,7 +86,7 @@ function parseScope(raw: unknown): Scope | null {
 }
 
 async function findConnection(admin: SupabaseClient, scope: Scope): Promise<ConnRow | null> {
-  let q = admin.from("meta_connections").select("id, mode, pixel_id, vault_secret_id, test_event_code, test_event_code_expires_at, status, token_kind, assets, meta_user_id");
+  let q = admin.from("meta_connections").select("id, mode, pixel_id, vault_secret_id, test_event_code, test_event_code_expires_at, status, token_kind, assets, meta_user_id, ad_account_id, page_id");
   q = scope.venueId ? q.eq("venue_id", scope.venueId) : q.is("venue_id", null);
   q = scope.organizerUserId ? q.eq("organizer_user_id", scope.organizerUserId) : q.is("organizer_user_id", null);
   const { data } = await q.maybeSingle();
@@ -136,41 +142,49 @@ Deno.serve(async (req) => {
         }
       }
 
-      const single = disc.assets.pixels.length === 1 ? disc.assets.pixels[0] : null;
+      const a = disc.assets;
       const existing = await findConnection(admin, scope);
+      // Un choix déjà fait (reconnexion) est conservé s'il figure encore dans
+      // les actifs autorisés ; un actif unique est retenu d'office ; dès
+      // qu'une liste laisse le choix, le pro tranche lui-même (`meta=choose`).
+      const keep = (prev: string | null | undefined, list: Array<{ id: string }>) => (prev && list.some((x) => x.id === prev) ? prev : null);
+      const pixelId = a.pixels.length === 1 ? a.pixels[0].id : (keep(existing?.pixel_id, a.pixels) ?? "pending");
+      const adAccountId = keep(existing?.ad_account_id, a.ad_accounts) ?? (a.ad_accounts.length === 1 ? a.ad_accounts[0].id : null);
+      const pageId = keep(existing?.page_id, a.pages) ?? (a.pages.length === 1 ? a.pages[0].id : null);
+      const needsChoice = pixelId === "pending" || (a.ad_accounts.length > 1 && !adAccountId) || (a.pages.length > 1 && !pageId);
       const base = {
         mode: "oauth" as const,
         token_kind: disc.kind,
         meta_user_id: disc.metaUserId,
         business_id: disc.businessId,
-        assets: disc.assets,
+        assets: a,
         token_expires_at: expiresAt,
-        ad_account_id: disc.assets.ad_accounts[0]?.id ?? null,
-        page_id: disc.assets.pages[0]?.id ?? null,
+        ad_account_id: adAccountId,
+        page_id: pageId,
+        ig_user_id: pageId ? (a.instagram?.find((i) => i.page_id === pageId)?.id ?? null) : null,
         created_by: state.userId,
       };
       let connectionId = existing?.id ?? null;
       if (!connectionId) {
         const { data: ins, error } = await admin.from("meta_connections").insert({
           venue_id: scope.venueId, organizer_user_id: scope.organizerUserId,
-          pixel_id: single?.id ?? "pending", ...base,
+          pixel_id: pixelId, ...base,
         }).select("id").single();
         if (error || !ins) return back(returnTo, `meta=error&reason=${encodeURIComponent(error?.message ?? "insert_failed")}`);
         connectionId = ins.id as string;
       } else {
         const { error } = await admin.from("meta_connections").update({
-          pixel_id: single?.id ?? (PIXEL_RE.test(existing!.pixel_id) && disc.assets.pixels.some((p) => p.id === existing!.pixel_id) ? existing!.pixel_id : "pending"),
-          verified_at: null, ...base,
+          pixel_id: pixelId,
+          ...(existing!.pixel_id !== pixelId ? { verified_at: null } : {}),
+          ...base,
         }).eq("id", connectionId);
         if (error) return back(returnTo, `meta=error&reason=${encodeURIComponent(error.message)}`);
       }
       const { error: storeErr } = await admin.rpc("store_meta_capi_token", { p_connection_id: connectionId, p_token: token });
       if (storeErr) return back(returnTo, `meta=error&reason=${encodeURIComponent(storeErr.message)}`);
-      // store_* remet status=active : on repasse en attente si le pixel n'est pas choisi.
-      const { data: after } = await admin.from("meta_connections").select("pixel_id").eq("id", connectionId).single();
-      const pixelChosen = !!after && PIXEL_RE.test(String(after.pixel_id));
-      await admin.from("meta_connections").update({ status: pixelChosen ? "active" : "pending_assets" }).eq("id", connectionId);
-      return back(returnTo, pixelChosen ? "meta=connected" : "meta=choose");
+      // store_* remet status=active : on repasse en attente tant que le pro n'a pas tranché.
+      await admin.from("meta_connections").update({ status: needsChoice ? "pending_assets" : "active" }).eq("id", connectionId);
+      return back(returnTo, needsChoice ? "meta=choose" : "meta=connected");
     }
 
     // ── Rappels signés de Meta (suppression de données, désautorisation) ────
@@ -282,10 +296,14 @@ Deno.serve(async (req) => {
       if (!existing.assets.pixels.some((p) => p.id === pixelId)) return json({ error: "invalid_pixel_id" }, 400, cors);
       const adAccountId = typeof body.adAccountId === "string" && existing.assets.ad_accounts.some((a) => a.id === body.adAccountId) ? body.adAccountId : undefined;
       const pageId = typeof body.pageId === "string" && existing.assets.pages.some((p) => p.id === body.pageId) ? body.pageId : undefined;
+      // Autorisé aussi sur une connexion active (« Changer les actifs ») : le
+      // pixel ne perd sa vérification que s'il change, et l'identité Instagram
+      // suit toujours la Page retenue.
       const { error } = await admin.from("meta_connections").update({
-        pixel_id: pixelId, status: "active", verified_at: null, last_error: null, last_error_at: null,
+        pixel_id: pixelId, status: "active", last_error: null, last_error_at: null,
+        ...(pixelId !== existing.pixel_id ? { verified_at: null } : {}),
         ...(adAccountId ? { ad_account_id: adAccountId } : {}),
-        ...(pageId ? { page_id: pageId } : {}),
+        ...(pageId ? { page_id: pageId, ig_user_id: existing.assets.instagram?.find((i) => i.page_id === pageId)?.id ?? null } : {}),
       }).eq("id", existing.id);
       if (error) return json({ error: "update_failed", detail: error.message }, 500, cors);
       return json({ ok: true }, 200, cors);
@@ -598,12 +616,10 @@ Deno.serve(async (req) => {
         meta_creative_id: result.creativeId ?? null, meta_ad_id: result.adId ?? null, meta_image_hash: result.imageHash ?? null,
         creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, link, description: creativeIn.description ?? null },
       };
+      // Toujours en pause à la création : l'activation est un clic séparé et
+      // confirmé du pro (`campaign_set_status`). Aucun chemin ne dépense sans lui.
       if (result.ok) {
         patch.status = "paused"; patch.last_error = null;
-        if (body.launch === true) {
-          const act = await setCampaignStatus({ campaignId: result.campaignId!, adsetId: result.adsetId, adId: result.adId }, "ACTIVE", token, cfg.appSecret);
-          if (act.ok) patch.status = "active"; else patch.last_error = act.error ?? null;
-        }
       } else {
         patch.status = "error"; patch.last_error = `${result.step ?? "?"}: ${result.error ?? "unknown"}`.slice(0, 500);
       }

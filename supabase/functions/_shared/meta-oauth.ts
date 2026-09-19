@@ -190,7 +190,24 @@ export async function exchangeLongLived(cfg: MetaAppConfig, shortToken: string) 
 }
 
 export interface MetaAsset { id: string; name: string }
-export interface MetaAssets { pixels: MetaAsset[]; ad_accounts: MetaAsset[]; pages: MetaAsset[] }
+/** Compte Instagram professionnel relié à une Page (découvert avec `instagram_basic`). */
+export interface MetaInstagramAsset { page_id: string; id: string; username: string | null }
+export interface MetaAssets { pixels: MetaAsset[]; ad_accounts: MetaAsset[]; pages: MetaAsset[]; instagram?: MetaInstagramAsset[] }
+
+/** Identité Instagram reliée à une Page ; null si aucune ou si la permission manque. */
+export async function pageInstagramIdentity(pageId: string, token: string, appSecret: string): Promise<{ id: string; username: string | null } | null> {
+  const r = await graphGet<{ instagram_business_account?: { id: string; username?: string } }>(
+    pageId, { fields: "instagram_business_account{id,username}" }, { token, appSecret },
+  );
+  const ig = r.ok ? r.data.instagram_business_account : undefined;
+  return ig?.id ? { id: ig.id, username: ig.username ?? null } : null;
+}
+
+/** Best-effort : une Page sans Instagram (ou sans `instagram_basic`) est simplement absente. */
+async function discoverInstagram(pages: MetaAsset[], token: string, appSecret: string): Promise<MetaInstagramAsset[]> {
+  const found = await Promise.all(pages.slice(0, 20).map(async (p) => ({ page: p, ig: await pageInstagramIdentity(p.id, token, appSecret) })));
+  return found.flatMap(({ page, ig }) => (ig ? [{ page_id: page.id, id: ig.id, username: ig.username }] : []));
+}
 
 interface Edge { data?: Array<{ id: string; name?: string; account_id?: string }> }
 
@@ -233,9 +250,10 @@ export async function discoverAssets(token: string, appSecret: string): Promise<
       edgeList(`${businessId}/owned_pages`, token, appSecret, "id,name"),
       edgeList(`${businessId}/client_pages`, token, appSecret, "id,name"),
     ]);
+    const pages = dedupe([...opg, ...cpg]);
     return {
       ok: true, kind: "bisu", metaUserId, businessId,
-      assets: { pixels: dedupe([...op, ...cp]), ad_accounts: dedupe([...oa, ...ca]), pages: dedupe([...opg, ...cpg]) },
+      assets: { pixels: dedupe([...op, ...cp]), ad_accounts: dedupe([...oa, ...ca]), pages, instagram: await discoverInstagram(pages, token, appSecret) },
     };
   }
 
@@ -246,7 +264,7 @@ export async function discoverAssets(token: string, appSecret: string): Promise<
   const pixelLists = await Promise.all(adAccounts.slice(0, 10).map((a) => edgeList(`${a.id}/adspixels`, token, appSecret, "id,name")));
   return {
     ok: true, kind: "user", metaUserId, businessId: null,
-    assets: { pixels: dedupe(pixelLists.flat()), ad_accounts: adAccounts, pages },
+    assets: { pixels: dedupe(pixelLists.flat()), ad_accounts: adAccounts, pages, instagram: await discoverInstagram(pages, token, appSecret) },
   };
 }
 
