@@ -482,7 +482,13 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
         <div className="rounded-xl px-3.5 py-3.5 flex flex-col" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
           <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{t('integ.meta.choose.ig.h')}</p>
           <p style={{ color: '#DD2A7B', fontSize: 11.5, fontWeight: 600, marginTop: 5, lineHeight: 1.4 }}>{t('integ.meta.choose.ig.who')}</p>
-          <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5, flex: 1 }}>{t('integ.meta.choose.ig.b')}</p>
+          <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>{t('integ.meta.choose.ig.b')}</p>
+          {/* « Compte » et « Page » se confondent dans le vocabulaire de Meta,
+              et Business Suite propose de créer une Page dans le même écran de
+              réglages. Une Page n'a ni email ni mot de passe : elle ne peut
+              rien autoriser. Dit en avertissement parce que c'est le piège où
+              le compte Amoris s'est arrêté le 19/09. */}
+          <p style={{ color: WARN, fontSize: 12, marginTop: 8, lineHeight: 1.5, flex: 1 }}>{t('integ.meta.choose.ig.warn')}</p>
           <div className="mt-3.5">
             <InstagramButton href={META_BUSINESS_LOGIN_URL} label={t('integ.meta.choose.igButton')} />
           </div>

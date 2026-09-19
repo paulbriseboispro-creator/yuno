@@ -1611,10 +1611,16 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   option Instagram. Vérifié en vrai le 2026-09-19 : ouvrir une session Meta
   Business Suite avec Instagram ne débloque rien, ce n'est pas un profil
   Facebook. Les deux seuls chemins, tous deux affichés EN CLAIR sous le
-  bouton (`integ.meta.igLogin.*`, jamais repliés) : (1) ajouter un profil
-  Facebook comme administrateur du portefeuille depuis
-  `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`), où la connexion
-  Instagram fonctionne — tout s'ouvre ensuite, publicités comprises ;
+  bouton (`integ.meta.igLogin.*`, jamais repliés) : (1) ajouter un compte
+  Facebook PERSONNEL comme administrateur de l'entreprise depuis
+  `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`) → Paramètres →
+  Personnes, où la connexion Instagram fonctionne — tout s'ouvre ensuite,
+  publicités comprises. **Un compte Facebook est une PERSONNE (e-mail + mot
+  de passe) ; une PAGE Facebook n'en est pas un** : elle n'a pas
+  d'identifiants et ne peut rien autoriser. Business Suite propose de créer
+  une Page dans le même écran de réglages, et c'est exactement le piège où
+  le compte Amoris s'est arrêté le 19/09 — l'avertissement
+  `integ.meta.choose.ig.warn` est là pour ça, ne pas l'enlever ;
   (2) mode avancé, pixel + jeton relevés dans Events Manager — le suivi des
   ventes marche, les publicités pilotées depuis Yuno non. **Les deux chemins
   sont DEUX CARTES de même poids, chacune nommant d'abord POUR QUI elle est**,
