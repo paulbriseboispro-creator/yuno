@@ -15,7 +15,7 @@ import type { SidebarNavGroup, SidebarNavItem } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translate } from '@/i18n/orgTranslate';
 import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
-import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
+import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import {
 	LayoutGridIcon,
 	BarChart3Icon,
@@ -60,7 +60,9 @@ import {
 
 type TT = (fr: string, en: string, es?: string) => string;
 
-function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[] {
+// `metaLive` vient de useMetaIntegrationLive() : la pastille « Bientôt » suit ce
+// que le compte voit vraiment (super admin, démo, bêta), pas la constante seule.
+function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
@@ -199,7 +201,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					],
 				},
 				{ title: t('sidebar.smsMarketing'), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
-				{ title: tt("Publicité", "Ads"), path: "/organizer-app/ads", icon: <RocketIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
+				{ title: t('sidebar.ads'), path: "/organizer-app/ads", icon: <RocketIcon />, badge: metaLive ? undefined : t('integ.buildingBadge') },
 				{
 					// Les quatre pages du programme promoteur n'étaient atteignables
 					// que par des cartes au milieu de la page d'accueil du programme.
@@ -230,7 +232,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string): SidebarNavGroup[
 					],
 				},
 				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },
-				{ title: tt("Intégrations", "Integrations"), path: "/organizer-app/integrations", icon: <PlugIcon />, badge: META_INTEGRATION_LIVE ? undefined : tt("Bientôt", "Soon") },
+				{ title: t('sidebar.integrations'), path: "/organizer-app/integrations", icon: <PlugIcon />, badge: metaLive ? undefined : t('integ.buildingBadge') },
 				{ title: tt("Assistance Yuno", "Yuno support", "Asistencia Yuno"), path: "/organizer-app/support-access", icon: <LifeBuoyIcon /> },
 			],
 		},
@@ -248,7 +250,8 @@ function buildOrgFooterNavLinks(tt: TT): SidebarNavItem[] {
 export function OrgAppSidebar() {
 	const { language, t } = useLanguage();
 	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
-	const navGroups = buildOrgNavGroups(tt, t);
+	const metaLive = useMetaIntegrationLive();
+	const navGroups = buildOrgNavGroups(tt, t, metaLive);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (

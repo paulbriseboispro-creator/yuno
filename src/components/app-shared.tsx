@@ -69,7 +69,9 @@ export type SidebarNavGroup = {
 	items: SidebarNavItem[];
 };
 
-export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
+// `metaLive` vient de useMetaIntegrationLive() (AppSidebar) : la pastille
+// « Bientôt » suit ce que le compte voit vraiment, pas la constante seule.
+export function buildNavGroups(t: (key: string) => string, metaLive: boolean = META_INTEGRATION_LIVE): SidebarNavGroup[] {
 	return [
 		{
 			// Pilotage : où on regarde avant d'agir.
@@ -249,7 +251,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.ads'),
 					path: "/owner/ads",
 					icon: <RocketIcon />,
-					badge: META_INTEGRATION_LIVE ? undefined : t('integ.buildingBadge'),
+					badge: metaLive ? undefined : t('integ.buildingBadge'),
 				},
 				{
 					// Les quatre pages du programme promoteur n'étaient atteignables
@@ -291,7 +293,7 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.integrations'),
 					path: "/owner/integrations",
 					icon: <PlugIcon />,
-					badge: META_INTEGRATION_LIVE ? undefined : t('integ.buildingBadge'),
+					badge: metaLive ? undefined : t('integ.buildingBadge'),
 				},
 				{
 					// Accès assisté Yuno : consentement, journal, révocation.

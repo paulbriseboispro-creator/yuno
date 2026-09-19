@@ -13,10 +13,12 @@ import {
 import { NavGroup } from "@/components/nav-group";
 import { buildFooterNavLinks, buildNavGroups } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useMetaIntegrationLive } from "@/lib/metaIntegration";
 
 export function AppSidebar() {
 	const { t } = useLanguage();
-	const navGroups = buildNavGroups(t);
+	const metaLive = useMetaIntegrationLive();
+	const navGroups = buildNavGroups(t, metaLive);
 	const footerNavLinks = buildFooterNavLinks(t);
 
 	return (

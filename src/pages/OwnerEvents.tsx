@@ -23,7 +23,7 @@ import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { isCollabPlan } from '@/lib/planFeatures';
-import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
+import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { useOrganizerPartnerships, useVenuePartnerships } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useProposeCollab, fetchLiveEventContract } from '@/hooks/useProposeCollab';
@@ -1587,6 +1587,12 @@ const BORDER_C  = 'rgba(255,255,255,0.085)';
 const CARD_BG_C = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW_C = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+/** Suffixe « · Bientôt » du bouton Booster, calé sur ce que le compte voit vraiment (pas la constante seule). */
+function BoostSoonSuffix({ t }: { t: (key: string) => string }) {
+  const live = useMetaIntegrationLive();
+  return live ? null : <>{` · ${t('integ.buildingBadge')}`}</>;
+}
+
 function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onToggleSoldOut, onApplyPreset, onApplyGuestListPreset, presets, guestPresets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
   event: OwnerEventRow;
   onEdit: () => void;
@@ -1814,7 +1820,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
               style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T3_C, fontSize: 11.5, fontWeight: 600 }}
             >
-              <Rocket className="w-3 h-3" />{t('ads.boostEvent')}{META_INTEGRATION_LIVE ? '' : ` · ${t('integ.buildingBadge')}`}
+              <Rocket className="w-3 h-3" />{t('ads.boostEvent')}<BoostSoonSuffix t={t} />
             </button>
           </div>
 

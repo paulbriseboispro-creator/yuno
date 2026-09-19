@@ -29,7 +29,7 @@ export const META_INTEGRATION_LIVE = false;
  * minuscules. Aucun secret ici : ça n'ouvre que l'interface, l'autorisation
  * reste côté serveur (propriétaire du club / organisateur lui-même).
  */
-export const META_BETA_EMAILS: string[] = [];
+export const META_BETA_EMAILS: string[] = ['paul.brisebois.pro@gmail.com'];
 
 let superAdminCache: boolean | null = null;
 
