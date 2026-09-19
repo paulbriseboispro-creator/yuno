@@ -1603,6 +1603,22 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   `META_LOGIN_CONFIG_ID` (sans eux → `oauth_not_configured`, mode avancé
   seul). Tout appel Graph porte `appsecret_proof` (`_shared/meta-oauth.ts`).
   Mise en service pas à pas : `docs/META_GO_LIVE_GUIDE.md`.
+- **Un pro sans compte Facebook n'est jamais un cul-de-sac.** Meta laisse
+  ouvrir un compte professionnel DEPUIS Instagram : ces pros n'ont aucun mot
+  de passe Facebook, et `facebook.com/dialog/oauth` ne leur montre qu'un
+  formulaire e-mail + mot de passe quand le navigateur n'a pas de session
+  Meta (le mode avancé est muré pareil : le jeton Conversions API se génère
+  dans Events Manager, derrière la même connexion). Le seul chemin est
+  `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`) : Meta Business
+  Suite est le seul écran de connexion Meta qui propose « Continuer avec
+  Instagram », et la session qu'il ouvre vaut pour tout `.facebook.com` —
+  le dialogue passe ensuite directement à l'autorisation. Le rappel
+  (`integ.meta.igLogin.*`) est affiché EN CLAIR sous le bouton, jamais
+  replié : celui que ça bloque ne sait pas qu'il doit déplier quelque chose.
+  Ne JAMAIS proposer « Business Login for Instagram »
+  (`instagram.com/oauth/authorize`) comme alternative : ses scopes
+  `instagram_business_*` couvrent messages et contenus, jamais
+  `ads_management` ni le pixel.
 - **`META_INTEGRATION_LIVE` (`src/lib/metaIntegration.ts`) = interrupteur
   pros.** À `false`, la carte Meta des clubs/orgas affiche « En construction »
   et le badge « Bientôt » ; la carte plateforme (`/admin/system`) reste active

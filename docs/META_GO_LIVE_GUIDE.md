@@ -372,7 +372,20 @@ l'assistant IA owner connaissent déjà la feature.
 | `meta=choose` sans pixel dans la liste | l'entreprise n'a pas de jeu de données | Events Manager → Connecter des sources de données → Web |
 | « Jeton refusé » après quelques semaines | jeton utilisateur 60 j (pro sans Business Manager) | « Reconnecter avec Facebook » ; la notif part 7 j avant |
 | « Domaine non vérifié » dans Events Manager | les ventes sont sur yunoapp.eu | normal ; le pro peut ajouter yunoapp.eu à ses domaines |
+| Fenêtre Meta : formulaire e-mail + mot de passe, le pro n'en a pas | compte professionnel Meta créé DEPUIS Instagram (pas de compte Facebook) | ouvrir `business.facebook.com` → « Continuer avec Instagram », puis revenir cliquer sur « Connecter avec Facebook » : la session vaut pour tout `.facebook.com`, le dialogue passe directement à l'autorisation. Le rappel est affiché sous le bouton dans la carte Meta (`integ.meta.igLogin.*`). |
 | 402 au déploiement | cap de fonctions | étape 5 |
+
+### Pourquoi pas « Business Login for Instagram » ?
+
+`instagram.com/oauth/authorize` existe, mais ses seules permissions sont
+`instagram_business_basic`, `instagram_business_content_publish`,
+`instagram_business_manage_messages` et `instagram_business_manage_comments` :
+messages et contenus, jamais `ads_management`, jamais le pixel ni l'API
+Conversions. Ce n'est donc pas une alternative à Facebook Login for Business
+pour Yuno, et il ne faut pas le proposer comme porte d'entrée : il ne
+brancherait rien. Le seul chemin pour un pro sans compte Facebook est
+d'ouvrir sa session Meta avec Instagram (Business Suite), puis de passer par
+le dialogue habituel.
 
 Toutes les règles de code sont dans `CLAUDE.md` (section « Meta ») et le
 détail d'architecture dans `docs/designs/META_ADS_INTEGRATION_PLAN.md`.
