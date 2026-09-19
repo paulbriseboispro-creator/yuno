@@ -55,7 +55,8 @@ export interface MetaScope {
 }
 
 interface Asset { id: string; name: string }
-interface Assets { pixels: Asset[]; ad_accounts: Asset[]; pages: Asset[] }
+interface InstagramAsset { page_id: string; id: string; username: string | null }
+interface Assets { pixels: Asset[]; ad_accounts: Asset[]; pages: Asset[]; instagram?: InstagramAsset[] }
 
 interface ConnectionView {
   id: string;
@@ -159,6 +160,8 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   const [chosenPixel, setChosenPixel] = useState('');
   const [chosenAdAccount, setChosenAdAccount] = useState('');
   const [chosenPage, setChosenPage] = useState('');
+  const [changingAssets, setChangingAssets] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const scopeArgs = useMemo(() => ({ p_venue_id: scope.venueId ?? null, p_organizer_user_id: scope.organizerUserId ?? null }), [scope.venueId, scope.organizerUserId]);
   const scopeBody = useMemo(() => ({ venueId: scope.venueId ?? null, organizerUserId: scope.organizerUserId ?? null }), [scope.venueId, scope.organizerUserId]);
@@ -167,8 +170,10 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: d, error } = await supabase.rpc('get_my_meta_connection' as any, scopeArgs);
     if (error) {
-      setData({ connection: null });
+      // Une panne de lecture n'est pas « non connecté » : on le dit, avec un bouton.
+      setLoadError(true);
     } else {
+      setLoadError(false);
       const payload = d as unknown as Payload;
       setData(payload);
       const c = payload.connection;
@@ -237,6 +242,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     try {
       await call('select_assets', { pixelId: chosenPixel, adAccountId: chosenAdAccount || undefined, pageId: chosenPage || undefined });
       toast.success(t('integ.meta.saved'));
+      setChangingAssets(false);
       await load();
     } catch (e) { toast.error(errorLabel(e instanceof Error ? e.message : 'generic')); }
     finally { setBusy(null); }
@@ -344,6 +350,52 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     </a>
   );
 
+  // Identités retenues (nom lisible plutôt qu'un identifiant Meta).
+  const igFor = (pageId: string | null | undefined) => (pageId ? conn?.assets?.instagram?.find((i) => i.page_id === pageId) ?? null : null);
+  const adAccountName = conn?.assets?.ad_accounts.find((a) => a.id === conn.ad_account_id)?.name ?? conn?.ad_account_id ?? null;
+  const pageName = conn?.assets?.pages.find((p) => p.id === conn.page_id)?.name ?? conn?.page_id ?? null;
+  const currentIg = igFor(conn?.page_id);
+
+  // Sélecteur d'actifs : à la première connexion (choix en attente) et, plus
+  // tard, derrière « Changer les actifs » sur une connexion active.
+  const assetPicker = conn?.assets ? (
+    <>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <Label>{t('integ.meta.choosePixel')}</Label>
+          <select value={chosenPixel} onChange={(e) => setChosenPixel(e.target.value)} style={inputStyle}>
+            {conn.assets.pixels.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label>{t('integ.meta.chooseAdAccount')}</Label>
+          <select value={chosenAdAccount} onChange={(e) => setChosenAdAccount(e.target.value)} style={inputStyle}>
+            <option value="">—</option>
+            {conn.assets.ad_accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label>{t('integ.meta.choosePage')}</Label>
+          <select value={chosenPage} onChange={(e) => setChosenPage(e.target.value)} style={inputStyle}>
+            <option value="">—</option>
+            {conn.assets.pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          {chosenPage && (
+            <p style={{ color: igFor(chosenPage) ? T2 : T3, fontSize: 11.5, marginTop: 6 }}>
+              {igFor(chosenPage) ? `${t('integ.meta.instagramLinked')} : @${igFor(chosenPage)!.username ?? igFor(chosenPage)!.id}` : t('integ.meta.instagramNone')}
+            </p>
+          )}
+        </div>
+      </div>
+      {conn.assets.pixels.length === 0 && (
+        <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+          <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.noPixelFound')}</p>
+        </div>
+      )}
+    </>
+  ) : null;
+
   const manualForm = (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -434,6 +486,19 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
         <div className="flex items-center gap-2 mt-6" style={{ color: T3 }}>
           <Loader2 className="w-4 h-4 animate-spin" /> <span style={{ fontSize: 13 }}>{t('integ.meta.loading')}</span>
         </div>
+      ) : loadError && !data ? (
+        /* ── Lecture impossible (réseau, session) : ce n'est pas « non connecté » ── */
+        <div className="mt-5 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+          <div className="flex-1">
+            <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.loadError')}</p>
+            <button type="button" onClick={() => { setLoading(true); load(); }}
+              className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
+              style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+              <RefreshCw className="w-4 h-4" /> {t('integ.meta.retry')}
+            </button>
+          </div>
+        </div>
       ) : !conn ? (
         /* ── Non connecté ────────────────────────────────────────────────── */
         <div className="mt-5 space-y-5">
@@ -478,34 +543,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
         /* ── Connecté, choix du pixel ────────────────────────────────────── */
         <div className="mt-5 space-y-4">
           <p style={{ color: T2, fontSize: 13, lineHeight: 1.5 }}>{t('integ.meta.chooseBody')}</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <Label>{t('integ.meta.choosePixel')}</Label>
-              <select value={chosenPixel} onChange={(e) => setChosenPixel(e.target.value)} style={inputStyle}>
-                {conn.assets.pixels.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label>{t('integ.meta.chooseAdAccount')}</Label>
-              <select value={chosenAdAccount} onChange={(e) => setChosenAdAccount(e.target.value)} style={inputStyle}>
-                <option value="">—</option>
-                {conn.assets.ad_accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label>{t('integ.meta.choosePage')}</Label>
-              <select value={chosenPage} onChange={(e) => setChosenPage(e.target.value)} style={inputStyle}>
-                <option value="">—</option>
-                {conn.assets.pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-          </div>
-          {conn.assets.pixels.length === 0 && (
-            <div className="flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)' }}>
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
-              <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.noPixelFound')}</p>
-            </div>
-          )}
+          {assetPicker}
           <div className="flex items-center gap-3 flex-wrap">
             <button type="button" onClick={handleSelect} disabled={busy !== null || !chosenPixel}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold disabled:opacity-60"
@@ -566,16 +604,48 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
             {t('integ.meta.consentExplain').replace('{n}', String(consent?.orders_30d ?? 0)).replace('{c}', String(consent?.consented_30d ?? 0))}
           </p>
 
+          {changingAssets && conn.mode === 'oauth' && conn.assets && (
+            <div className="rounded-xl p-3.5 space-y-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+              <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.changeAssetsHint')}</p>
+              {assetPicker}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button type="button" onClick={handleSelect} disabled={busy !== null || !chosenPixel}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold disabled:opacity-60"
+                  style={{ background: RED, color: '#fff' }}>
+                  {busy === 'select' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  {t('integ.meta.confirmChoice')}
+                </button>
+                <button type="button" onClick={() => setChangingAssets(false)} disabled={busy !== null}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
+                  style={{ background: 'transparent', color: T2, border: `1px solid ${BORDER}` }}>
+                  {t('integ.meta.cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl p-3.5 space-y-2" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t('integ.meta.connection')}</p>
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.mode')}</span><span style={{ color: T1, fontSize: 12.5 }}>{conn.mode === 'oauth' ? t('integ.meta.modeOauth') : t('integ.meta.modeManual')}</span></div>
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.pixelId')}</span><span style={{ color: T1, fontSize: 12.5, fontFamily: 'ui-monospace, monospace' }}>{conn.assets?.pixels.find((p) => p.id === conn.pixel_id)?.name ? `${conn.assets.pixels.find((p) => p.id === conn.pixel_id)!.name} · ` : ''}{conn.pixel_id}</span></div>
+              {conn.mode === 'oauth' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.adAccount')}</span><span style={{ color: T1, fontSize: 12.5, textAlign: 'right' }}>{adAccountName ?? '—'}</span></div>}
+              {conn.mode === 'oauth' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.page')}</span><span style={{ color: T1, fontSize: 12.5, textAlign: 'right' }}>{pageName ?? '—'}</span></div>}
+              {conn.mode === 'oauth' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.instagram')}</span><span style={{ color: currentIg ? T1 : T3, fontSize: 12.5, textAlign: 'right' }}>{currentIg ? `@${currentIg.username ?? currentIg.id}` : t('integ.meta.instagramNone')}</span></div>}
               {conn.mode === 'manual' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.token')}</span><span style={{ color: T1, fontSize: 12.5, fontFamily: 'ui-monospace, monospace' }}>••••{conn.token_hint ?? ''}</span></div>}
               {conn.mode === 'oauth' && conn.token_kind === 'user' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.tokenExpires')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(conn.token_expires_at)}</span></div>}
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.lastEvent')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(stats?.last_sent_at ?? conn.last_ok_at)}</span></div>
               <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.connectedSince')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(conn.created_at)}</span></div>
-              {Array.isArray(health?.scopes) && conn.mode === 'oauth' && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.scopes')}</span><span style={{ color: T1, fontSize: 12.5, textAlign: 'right' }}>{(health!.scopes as string[]).length}</span></div>}
+              {Array.isArray(health?.scopes) && conn.mode === 'oauth' && (
+                <div className="pt-1">
+                  <p style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.scopes')} <span style={{ color: T3 }}>· {(health!.scopes as string[]).length}</span></p>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {(health!.scopes as string[]).map((s) => (
+                      <span key={s} className="px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontFamily: 'ui-monospace, monospace' }}>{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {emq != null && <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('integ.meta.emq')}</span><span style={{ color: emq >= 6 ? POS : WARN, fontSize: 12.5, fontWeight: 700 }}>{emq.toFixed(1)} / 10</span></div>}
               {conn.test_event_code && (
                 <div className="flex items-center justify-between gap-3 pt-1">
@@ -665,6 +735,13 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                     {busy === 'health' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
                     {t('integ.meta.healthBtn')}
                   </button>
+                  {conn.assets && (
+                    <button type="button" onClick={() => setChangingAssets((v) => !v)} disabled={busy !== null}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
+                      style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                      <RefreshCw className="w-4 h-4" /> {t('integ.meta.changeAssets')}
+                    </button>
+                  )}
                   {conn.last_health_at && <span style={{ color: T3, fontSize: 12 }}>{t('integ.meta.healthChecked').replace('{date}', fmtDate(conn.last_health_at))}</span>}
                 </div>
               </div>

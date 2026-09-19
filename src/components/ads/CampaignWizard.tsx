@@ -1,5 +1,6 @@
-// Assistant « Booster une soirée » — cinq écrans, une campagne Meta créée en
-// pause (ou lancée) depuis Yuno. Design : docs/designs/META_ADS_INTEGRATION_PLAN.md.
+// Assistant « Booster une soirée » — cinq écrans, une campagne Meta créée EN
+// PAUSE depuis Yuno (l'activation est un clic séparé et confirmé sur la page
+// Publicité). Design : docs/designs/META_ADS_INTEGRATION_PLAN.md.
 //
 // Le pro ne voit jamais un identifiant Meta : il choisit une soirée, un
 // budget, une zone, un visuel et un texte. L'edge `meta-connect`
@@ -85,7 +86,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 export function CampaignWizard({
-  scope, events, audiences, homeCity, defaultEventId, currency, onClose, onCreated,
+  scope, events, audiences, homeCity, defaultEventId, currency, pageId, pageName, igUsername, onClose, onCreated,
 }: {
   scope: WizardScope;
   events: AdsEvent[];
@@ -93,13 +94,17 @@ export function CampaignWizard({
   homeCity: string | null;
   defaultEventId?: string | null;
   currency: string;
+  /** Identité retenue à la connexion : la Page (et son Instagram) sous laquelle la pub paraît. */
+  pageId?: string | null;
+  pageName?: string | null;
+  igUsername?: string | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const { t, language } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [step, setStep] = useState(0);
-  const [busy, setBusy] = useState<null | 'create' | 'launch' | 'geo'>(null);
+  const [busy, setBusy] = useState<null | 'create' | 'geo'>(null);
   const [geoQuery, setGeoQuery] = useState('');
   const [geoResults, setGeoResults] = useState<GeoChoice[]>([]);
   const geoTimer = useRef<number | null>(null);
@@ -193,8 +198,9 @@ export function CampaignWizard({
   const totalEstimate = draft.budgetType === 'daily' ? draft.budgetEuros * days : draft.budgetEuros;
   const fmtMoney = (eur: number) => new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: currency || 'EUR', maximumFractionDigits: 0 }).format(eur);
 
-  const submit = async (launch: boolean) => {
-    setBusy(launch ? 'launch' : 'create');
+  // Toujours créée en pause : aucun argent ne part d'ici.
+  const submit = async () => {
+    setBusy('create');
     try {
       const res = await call('campaign_create', {
         eventId: draft.eventId, name: draft.name.trim(), objective: draft.objective,
@@ -206,10 +212,9 @@ export function CampaignWizard({
         },
         creative: { image_url: draft.imageUrl, headline: draft.headline.trim(), body: draft.body.trim(), cta: draft.cta },
         placements: { facebook: draft.facebook, instagram: draft.instagram },
-        launch,
       });
       if (res.ok) {
-        toast.success(launch ? t('ads.wizard.launched') : t('ads.wizard.createdPaused'));
+        toast.success(t('ads.wizard.createdPaused'));
         onCreated();
         onClose();
       } else {
@@ -462,9 +467,16 @@ export function CampaignWizard({
               </div>
               {/* Aperçu façon feed */}
               <div className="rounded-2xl overflow-hidden self-start" style={{ background: '#111113', border: `1px solid ${BORDER}` }}>
+                {/* Identité : la Page retenue (photo publique de la Page) et, si la
+                    diffusion Instagram est active, le compte Instagram relié. */}
                 <div className="px-3 py-2 flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
-                  <div><p style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{t('ads.wizard.previewPage')}</p><p style={{ color: T3, fontSize: 10.5 }}>{t('ads.wizard.previewSponsored')}</p></div>
+                  <div className="h-7 w-7 rounded-full overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                    {pageId && <img src={`https://graph.facebook.com/${pageId}/picture?type=square`} alt="" className="h-full w-full object-cover" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate" style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{pageName || t('ads.wizard.previewPage')}</p>
+                    <p className="truncate" style={{ color: T3, fontSize: 10.5 }}>{t('ads.wizard.previewSponsored')}{draft.instagram && igUsername ? ` · Instagram @${igUsername}` : ''}</p>
+                  </div>
                 </div>
                 <div className="aspect-square" style={{ background: 'rgba(255,255,255,0.05)' }}>
                   {/^https:\/\//.test(draft.imageUrl) && <img src={draft.imageUrl} alt="" className="h-full w-full object-cover" />}
@@ -491,6 +503,7 @@ export function CampaignWizard({
                 [t('ads.wizard.age'), `${draft.ageMin}–${draft.ageMax} · ${draft.genders.length === 0 ? t('ads.wizard.genderAll') : draft.genders[0] === 2 ? t('ads.wizard.genderWomen') : t('ads.wizard.genderMen')}`],
                 [t('ads.wizard.audiences'), draft.audienceIds.length ? readyAudiences.filter((a) => draft.audienceIds.includes(a.id)).map((a) => a.name).join(', ') : t('ads.wizard.noAudienceSelected')],
                 [t('ads.wizard.placements'), [draft.instagram ? 'Instagram' : null, draft.facebook ? 'Facebook' : null].filter(Boolean).join(' + ')],
+                [t('ads.wizard.identity'), [pageName ? `Page · ${pageName}` : null, draft.instagram && igUsername ? `Instagram · @${igUsername}` : null].filter(Boolean).join('   ·   ') || '—'],
               ].map(([k, v]) => (
                 <div key={k} className="flex gap-3 rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                   <span className="w-32 flex-shrink-0" style={{ color: T3, fontSize: 12 }}>{k}</span>
@@ -518,18 +531,11 @@ export function CampaignWizard({
               {t('ads.wizard.next')} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => submit(false)} disabled={busy !== null}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold disabled:opacity-60"
-                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}>
-                {busy === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {t('ads.wizard.createPaused')}
-              </button>
-              <button type="button" onClick={() => submit(true)} disabled={busy !== null}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold disabled:opacity-60"
-                style={{ background: META_BLUE, color: '#fff' }}>
-                {busy === 'launch' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} {t('ads.wizard.launch')}
-              </button>
-            </div>
+            <button type="button" onClick={submit} disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold disabled:opacity-60"
+              style={{ background: META_BLUE, color: '#fff' }}>
+              {busy === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} {t('ads.wizard.createPaused')}
+            </button>
           )}
         </div>
         <span className="sr-only" style={{ color: POS }} />

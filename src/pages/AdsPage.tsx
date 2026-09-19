@@ -95,6 +95,8 @@ export default function AdsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<AdsCampaign | null>(null);
+  const [confirmActivate, setConfirmActivate] = useState<AdsCampaign | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [showAudienceForm, setShowAudienceForm] = useState(false);
   const [audKind, setAudKind] = useState<'builtin' | 'venue_segment' | 'contact_segment'>('builtin');
   const [audRef, setAudRef] = useState<string>('buyers_12m');
@@ -110,7 +112,9 @@ export default function AdsPage() {
     if (!ready) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: d, error } = await supabase.rpc('get_my_meta_ads' as any, { p_venue_id: venueId ?? null, p_organizer_user_id: isOrganizer ? organizerUserId : null });
-    if (!error) setData(d as unknown as AdsPayload);
+    // Une panne de lecture n'est pas « pas connecté » : on l'affiche, avec un bouton.
+    if (error) setLoadError(true);
+    else { setLoadError(false); setData(d as unknown as AdsPayload); }
     setLoading(false);
   }, [ready, venueId, organizerUserId, isOrganizer]);
 
@@ -149,6 +153,10 @@ export default function AdsPage() {
 
   const fmtMoney = (cents: number) => new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: data?.connection?.last_health?.ad_account?.currency ?? 'EUR', maximumFractionDigits: cents % 100 === 0 ? 0 : 2 }).format(cents / 100);
   const fmtDate = (iso: string | null | undefined, f = 'd MMM, HH:mm') => (iso ? format(new Date(iso), f, { locale }) : '—');
+  // Identité retenue à la connexion (Page + Instagram relié) : montrée dans l'aperçu de la pub.
+  const metaAssets = data?.connection?.assets as { pages?: { id: string; name: string }[]; instagram?: { page_id: string; id: string; username: string | null }[] } | null | undefined;
+  const pageName = metaAssets?.pages?.find((p) => p.id === data?.connection?.page_id)?.name ?? null;
+  const igUsername = metaAssets?.instagram?.find((i) => i.page_id === data?.connection?.page_id)?.username ?? null;
 
   const totals = useMemo(() => {
     const cs = data?.campaigns ?? [];
@@ -193,6 +201,20 @@ export default function AdsPage() {
                 <p style={{ color: T2, fontSize: 12.5, marginTop: 4, lineHeight: 1.45 }}>{t(`ads.building.${k}.b`)}</p>
               </div>
             ))}
+          </div>
+        </Card>
+      );
+    }
+
+    if (loadError && !data) {
+      return (
+        <Card>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: WARN }} />
+            <div className="flex-1">
+              <p style={{ color: T1, fontSize: 15, fontWeight: 700 }}>{t('ads.err.load')}</p>
+              <div className="mt-4"><Btn onClick={() => { setLoading(true); load(); }}><RefreshCw className="w-3.5 h-3.5" /> {t('ads.action.retry')}</Btn></div>
+            </div>
           </div>
         </Card>
       );
@@ -296,7 +318,7 @@ export default function AdsPage() {
                           {[
                             [t('ads.stat.spend'), fmtMoney(ins?.spend_cents ?? 0)],
                             [t('ads.row.impressions'), String(ins?.impressions ?? 0)],
-                            [t('ads.row.clicks'), String(ins?.link_clicks ?? 0)],
+                            [t('ads.row.metaLinkClicks'), String(ins?.link_clicks ?? 0)],
                             [t('ads.row.yunoSales'), `${sales}${rev ? ` · ${fmtMoney(rev)}` : ''}`],
                             [t('ads.stat.cps'), cps == null ? '—' : fmtMoney(cps)],
                           ].map(([k, v]) => (
@@ -307,7 +329,7 @@ export default function AdsPage() {
                     </div>
                     <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2" style={{ borderTop: `1px solid ${BORDER}` }}>
                       <div className="flex items-center gap-2 flex-wrap">
-                        {c.status === 'paused' && <Btn tone="meta" onClick={() => run(`st:${c.id}`, async () => { await call('campaign_set_status', { campaignId: c.id, status: 'active' }); }, t('ads.toast.activated'))} busy={busy === `st:${c.id}`}><Play className="w-3.5 h-3.5" /> {t('ads.action.activate')}</Btn>}
+                        {c.status === 'paused' && <Btn tone="meta" onClick={() => setConfirmActivate(c)} busy={busy === `st:${c.id}`}><Play className="w-3.5 h-3.5" /> {t('ads.action.activate')}</Btn>}
                         {c.status === 'active' && <Btn onClick={() => run(`st:${c.id}`, async () => { await call('campaign_set_status', { campaignId: c.id, status: 'paused' }); }, t('ads.toast.paused'))} busy={busy === `st:${c.id}`}><Pause className="w-3.5 h-3.5" /> {t('ads.action.pause')}</Btn>}
                         {c.meta_campaign_id && <Btn onClick={() => run(`rf:${c.id}`, async () => { await call('campaign_refresh', { campaignId: c.id }); })} busy={busy === `rf:${c.id}`}><RefreshCw className="w-3.5 h-3.5" /> {t('ads.action.refresh')}</Btn>}
                         {c.tracked_code && (
@@ -474,6 +496,9 @@ export default function AdsPage() {
           homeCity={data.home?.city ?? null}
           defaultEventId={searchParams.get('event')}
           currency={data.connection?.last_health?.ad_account?.currency ?? 'EUR'}
+          pageId={data.connection?.page_id ?? null}
+          pageName={pageName}
+          igUsername={igUsername}
           onClose={() => setWizardOpen(false)}
           onCreated={load}
         />
@@ -489,6 +514,24 @@ export default function AdsPage() {
             <AlertDialogCancel>{t('integ.meta.cancel')}</AlertDialogCancel>
             <AlertDialogAction style={{ background: RED, color: '#fff' }} onClick={() => { const c = confirmDelete; setConfirmDelete(null); if (c) run(`dl:${c.id}`, async () => { await call('campaign_delete', { campaignId: c.id }); }, t('ads.toast.deleted')); }}>
               {t('ads.delete.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Activer = la seule action qui fait dépenser : toujours confirmée. */}
+      <AlertDialog open={!!confirmActivate} onOpenChange={(o) => { if (!o) setConfirmActivate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('ads.activate.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('ads.activate.body')}{confirmActivate ? ` ${fmtMoney(confirmActivate.budget_cents)} ${confirmActivate.budget_type === 'daily' ? t('ads.wizard.perDay') : t('ads.wizard.inTotal')}.` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('integ.meta.cancel')}</AlertDialogCancel>
+            <AlertDialogAction style={{ background: META_BLUE, color: '#fff' }} onClick={() => { const c = confirmActivate; setConfirmActivate(null); if (c) run(`st:${c.id}`, async () => { await call('campaign_set_status', { campaignId: c.id, status: 'active' }); }, t('ads.toast.activated')); }}>
+              {t('ads.activate.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
