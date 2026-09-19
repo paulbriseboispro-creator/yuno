@@ -220,6 +220,37 @@ function ogImage(raw: string | undefined): string | undefined {
   return `${origin}/storage/v1/render/image/public/${objectPath}?width=1200&quality=72&format=webp${passthrough}`;
 }
 
+// « Complet » posé à la main — porte unique des trois piliers (src/lib/soldOut.ts).
+// Un club peut fermer la vente d'un pilier SANS dépublier la soirée : la page publique
+// et les checkouts s'y plient, donc le balisage doit dire la même chose. Sans ces
+// drapeaux, Google continuait d'annoncer « InStock » et des prix sur une billetterie
+// fermée. Même sémantique que le rendu email (src/lib/email/live.ts, corrigé le 16/09) :
+//   tickets_sold_out       → chaque Offer en SoldOut
+//   ticketing_enabled=false→ aucun Offer (l'offre n'existe pas)
+//   sold_out_pack_ids      → la formule sort de l'inventaire
+//   tables_sold_out / tables_enabled=false / guest_list_sold_out → idem par pilier
+interface SoldOut {
+  tickets: boolean;
+  tables: boolean;
+  guestList: boolean;
+  packIds: string[];
+  ticketingOn: boolean;
+  tablesOn: boolean;
+}
+
+function soldOutFlags(e: Row | null | undefined): SoldOut {
+  return {
+    tickets: e?.tickets_sold_out === true,
+    tables: e?.tables_sold_out === true,
+    guestList: e?.guest_list_sold_out === true,
+    packIds: Array.isArray(e?.sold_out_pack_ids) ? (e!.sold_out_pack_ids as unknown[]).map(String) : [],
+    // Une colonne absente (vieux schéma, select partiel) laisse le pilier OUVERT :
+    // seul un `false` explicite l'éteint — miroir de `e.ticketing_enabled === false`.
+    ticketingOn: e?.ticketing_enabled !== false,
+    tablesOn: e?.tables_enabled !== false,
+  };
+}
+
 async function fetchRows(env: Env, query: string): Promise<Row[]> {
   try {
     const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${query}`, {
@@ -783,7 +814,12 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       env,
       `events?id=eq.${encodeURIComponent(id)}&visibility=eq.public&select=title,description,poster_url,` +
         `start_at,end_at,music_genre,music_genres,location_name,location_city,location_address,` +
-        `location_is_secret,status,cancelled_at,venue_id,slug,organizer_user_id,venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
+        `location_is_secret,status,cancelled_at,venue_id,slug,organizer_user_id,` +
+        // Drapeaux « Complet » + interrupteurs de pilier : sans eux le balisage vend
+        // une billetterie que la page refuse au clic. Tous exposés à l'anon (vérifié).
+        `tickets_sold_out,tables_sold_out,guest_list_sold_out,sold_out_pack_ids,` +
+        `ticketing_enabled,tables_enabled,` +
+        `venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
     );
     if (!ev) return null;
     // Billetterie + line-up : alimentent offers[] (price / priceCurrency / validFrom) et
@@ -827,6 +863,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const city = (venue?.city as string) || (ev.location_city as string) || '';
     const street = (venue?.address as string) || (secret ? '' : (ev.location_address as string) || '');
     const cancelled = !!ev.cancelled_at || ev.status === 'cancelled';
+    const flags = soldOutFlags(ev);
     const genres = Array.isArray(ev.music_genres)
       ? (ev.music_genres as string[])
       : ev.music_genre
@@ -853,7 +890,10 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         typeof r.tickets_sold === 'number' &&
         r.max_tickets > 0 &&
         r.tickets_sold >= r.max_tickets);
-    const offers = rounds
+    // Billetterie ÉTEINTE (`ticketing_enabled = false`) : l'offre n'existe pas sur la
+    // page, donc aucun Offer — pas même en SoldOut. Fermée à la main
+    // (`tickets_sold_out`) : les tranches restent visibles, toutes en SoldOut.
+    const offers = (flags.ticketingOn ? rounds : [])
       .filter((r) => typeof r.price === 'number')
       .map((r) => {
         const o: Row = {
@@ -862,7 +902,8 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
           url: canonical,
           price: r.price,
           priceCurrency: 'EUR',
-          availability: isSoldOut(r) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+          availability:
+            flags.tickets || isSoldOut(r) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
         };
         // Pas de colonne "ouverture des ventes" : un palier est achetable dès qu'il existe
         // et qu'il est actif — created_at est donc la vraie date de mise en vente.
@@ -904,13 +945,17 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     if (performers.length) jsonLd.performer = performers;
     if (img) jsonLd.image = [img];
 
-    const fromPrice = offers.length ? Math.min(...offers.map((o) => o.price as number)) : null;
+    // Prix d'appel : jamais annoncé sur une billetterie fermée à la main — le bloc
+    // crawlable doit raconter la même soirée que le JSON-LD et que la page.
+    const fromPrice =
+      offers.length && !flags.tickets ? Math.min(...offers.map((o) => o.price as number)) : null;
     const facts = [
       ev.start_at ? `<li>When: ${esc(fmtDate(ev.start_at))}</li>` : '',
       placeName ? `<li>Where: ${esc(placeName)}${city ? `, ${esc(city)}` : ''}</li>` : '',
       performers.length ? `<li>Line-up: ${esc(performers.map((p) => p.name as string).join(', '))}</li>` : '',
       genres.length ? `<li>Music: ${esc(genres.join(', '))}</li>` : '',
       fromPrice !== null ? `<li>Tickets from €${esc(fromPrice.toFixed(2))}</li>` : '',
+      flags.tickets && flags.ticketingOn ? `<li>Tickets: sold out</li>` : '',
     ].filter(Boolean).join('');
     return {
       title: `${title} · Yuno`,
