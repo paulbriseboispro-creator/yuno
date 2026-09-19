@@ -1616,7 +1616,12 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`), où la connexion
   Instagram fonctionne — tout s'ouvre ensuite, publicités comprises ;
   (2) mode avancé, pixel + jeton relevés dans Events Manager — le suivi des
-  ventes marche, les publicités pilotées depuis Yuno non. Ne JAMAIS proposer
+  ventes marche, les publicités pilotées depuis Yuno non. **Les deux chemins
+  sont DEUX CARTES de même poids, chacune nommant d'abord POUR QUI elle est**,
+  et la carte Instagram annonce qu'elle ne connecte pas Yuno, elle ouvre Meta :
+  avec un seul bouton bleu en vedette, le pro Instagram cliquait dessus en
+  croyant qu'il menait à l'option Instagram (constaté sur le compte Amoris le
+  19/09). Ne pas réduire la seconde carte à une note sous le bouton. Ne JAMAIS proposer
   « Business Login for Instagram » (`instagram.com/oauth/authorize`) comme
   troisième voie : ses scopes `instagram_business_*` couvrent messages et
   contenus, jamais `ads_management` ni le pixel.

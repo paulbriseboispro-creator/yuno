@@ -154,6 +154,23 @@ function FacebookButton({ onClick, busy, label }: { onClick: () => void; busy: b
   );
 }
 
+// Jumeau du bouton Facebook, même gabarit : les deux chemins pèsent pareil à
+// l'écran. Un pro qui gère tout depuis Instagram doit reconnaître le sien du
+// premier coup d'œil, sinon il clique sur le bleu et tombe sur une page de
+// connexion à un compte qu'il n'a pas.
+function InstagramButton({ href, label }: { href: string; label: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-[13.5px] font-semibold"
+      style={{ background: 'linear-gradient(120deg,#F58529 0%,#DD2A7B 50%,#8134AF 100%)', color: '#fff' }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07zm0 6a3.84 3.84 0 1 0 0 7.68 3.84 3.84 0 0 0 0-7.68zm0 6.34a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm4.89-6.49a.9.9 0 1 1-1.8 0 .9.9 0 0 1 1.8 0z" />
+      </svg>
+      {label} <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+    </a>
+  );
+}
+
 export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: { scope: MetaScope; helpPath?: string; live?: boolean; returnTo?: string }) {
   const { t, language } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
@@ -432,47 +449,58 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     </div>
   );
 
-  // Deux chemins réels, et le pro voit les deux. Ce n'est pas un choix de
-  // présentation : Facebook Login for Business authentifie un PROFIL
-  // Facebook, et un compte professionnel ouvert depuis Instagram n'en a pas —
-  // le dialogue Meta lui sert alors sa page de connexion Facebook, sans
-  // option Instagram. Seule Business Suite accepte l'identifiant Instagram,
-  // et la session qu'elle ouvre n'est pas un profil Facebook : elle ne
-  // débloque donc pas le dialogue. Reste à ajouter un profil Facebook au
-  // portefeuille (tout s'ouvre, pubs comprises), ou à passer par le mode
-  // avancé (pixel + jeton, suivi des ventes seul). `withAdvanced` : le
-  // raccourci vers le mode avancé n'a de sens qu'avant la première connexion.
-  const instagramLoginNote = (withAdvanced: boolean) => (
-    <div className="rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-      <div className="flex items-start gap-2">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
-          className="flex-shrink-0 mt-0.5" style={{ color: T2 }}>
-          <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07zm0 6a3.84 3.84 0 1 0 0 7.68 3.84 3.84 0 0 0 0-7.68zm0 6.34a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm4.89-6.49a.9.9 0 1 1-1.8 0 .9.9 0 0 1 1.8 0z" />
-        </svg>
-        <div className="flex-1">
-          <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('integ.meta.igLogin.h')}</p>
-          <p style={{ color: T2, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('integ.meta.igLogin.b')}</p>
-
-          <p style={{ color: T2, fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>
-            <span style={{ color: T1, fontWeight: 600 }}>1.</span> {t('integ.meta.igLogin.o1')}
+  // Deux chemins, deux cartes de même poids. Ce n'est pas de la mise en page :
+  // Facebook Login for Business authentifie un PROFIL Facebook, et un compte
+  // professionnel ouvert depuis Instagram n'en a pas — le dialogue Meta lui
+  // sert sa page de connexion Facebook, sans option Instagram. Un seul bouton
+  // bleu laissait croire qu'il menait aussi à Instagram (constaté sur le
+  // compte Amoris le 19/09) : le pro cliquait et se retrouvait devant un
+  // compte qu'il n'a pas. Chaque carte dit donc POUR QUI elle est avant de
+  // dire ce qu'elle fait, et la carte Instagram annonce qu'elle ne connecte
+  // pas Yuno — elle ouvre Meta.
+  const connectChooser = (
+    <div className="space-y-3">
+      <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('integ.meta.choose.h')}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl px-3.5 py-3.5 flex flex-col" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+          <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{t('integ.meta.choose.fb.h')}</p>
+          <p style={{ color: META_BLUE, fontSize: 11.5, fontWeight: 600, marginTop: 5, lineHeight: 1.4 }}>{t('integ.meta.choose.fb.who')}</p>
+          <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5, flex: 1 }}>
+            {t('integ.meta.oauthHint')} {t('integ.meta.choose.fb.plus')}
           </p>
-          <a href={META_BUSINESS_LOGIN_URL} target="_blank" rel="noopener noreferrer"
-            className="mt-1.5 inline-flex items-center gap-1.5 text-[12.5px] font-semibold underline underline-offset-2"
-            style={{ color: T1 }}>
-            {t('integ.meta.igLogin.cta')} <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-
-          <p style={{ color: T2, fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>
-            <span style={{ color: T1, fontWeight: 600 }}>2.</span> {t('integ.meta.igLogin.o2')}
-          </p>
-          {withAdvanced && (
-            <button type="button" onClick={() => setAdvanced(true)}
-              className="mt-1.5 inline-flex items-center gap-1.5 text-[12.5px] font-semibold underline underline-offset-2"
-              style={{ color: T1 }}>
-              {t('integ.meta.igLogin.cta2')} <ChevronDown className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="mt-3.5">
+            <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
+          </div>
         </div>
+
+        <div className="rounded-xl px-3.5 py-3.5 flex flex-col" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+          <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{t('integ.meta.choose.ig.h')}</p>
+          <p style={{ color: '#DD2A7B', fontSize: 11.5, fontWeight: 600, marginTop: 5, lineHeight: 1.4 }}>{t('integ.meta.choose.ig.who')}</p>
+          <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5, flex: 1 }}>{t('integ.meta.choose.ig.b')}</p>
+          <div className="mt-3.5">
+            <InstagramButton href={META_BUSINESS_LOGIN_URL} label={t('integ.meta.choose.igButton')} />
+          </div>
+        </div>
+      </div>
+      <p style={{ color: T3, fontSize: 12, lineHeight: 1.5 }}>
+        {t('integ.meta.choose.third')}{' '}
+        <button type="button" onClick={() => setAdvanced(true)}
+          className="font-semibold underline underline-offset-2" style={{ color: T2 }}>
+          {t('integ.meta.igLogin.cta2')}
+        </button>
+      </p>
+    </div>
+  );
+
+  // Reconnexion : le pro est déjà connecté une fois, il n'a pas besoin du
+  // sélecteur complet — juste du rappel de ce qui le bloquerait à nouveau.
+  const instagramLoginNote = (
+    <div className="rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+      <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('integ.meta.igLogin.h')}</p>
+      <p style={{ color: T2, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('integ.meta.igLogin.b')}</p>
+      <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>{t('integ.meta.igLogin.o1')}</p>
+      <div className="mt-2.5">
+        <InstagramButton href={META_BUSINESS_LOGIN_URL} label={t('integ.meta.choose.igButton')} />
       </div>
     </div>
   );
@@ -645,12 +673,8 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
 
           {oauthAvailable && (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
-                <p style={{ color: T3, fontSize: 12, maxWidth: 420, lineHeight: 1.45 }}>{t('integ.meta.oauthHint')}</p>
-              </div>
+              {connectChooser}
               {oauthWaitingNote}
-              {instagramLoginNote(true)}
             </div>
           )}
 
@@ -704,7 +728,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                   <div className="mt-3 space-y-3">
                     <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} />
                     {oauthWaitingNote}
-                    {instagramLoginNote(false)}
+                    {instagramLoginNote}
                   </div>
                 )}
               </div>
