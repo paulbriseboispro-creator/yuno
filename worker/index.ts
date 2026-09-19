@@ -66,6 +66,24 @@ const ORIGIN = 'https://yunoapp.eu';
 // soirée. L'organisateur est le club (ou l'orga pour une soirée organizer-led) — les
 // confondre attribuait toutes les soirées à une seule entité, et rendait le balisage
 // incapable de distinguer deux clubs.
+// Langue du document servi au crawler.
+//
+// Le site est EN / FR / ES, mais UNE SEULE URL par entité : la langue se choisit côté
+// client (navigateur, localStorage) et ne change jamais le chemin. `/fr`, `/en`, `/es`
+// sont des raccourcis de bio qui redirigent vers /links, pas des variantes traduites.
+// Un jeu de balises hreflang exige des URLs distinctes par langue : il n'y a rien à
+// déclarer ici, et en fabriquer serait une promesse fausse. Des URLs par langue sont un
+// chantier à part entière (routage, canonical, sitemap ×3, résolution de langue dans la
+// SPA, builders du Worker) — et il buterait de toute façon sur le fond : le titre et la
+// description d'une soirée sont écrits UNE fois par le pro, dans SA langue. Traduire le
+// décor autour d'un texte espagnol ne rapporte presque rien.
+//
+// `inLanguage` n'est donc posé que là où la prose est ÉCRITE PAR LE WORKER, en anglais :
+// pages piliers, pages de parcours, pages villes. Jamais sur une fiche, dont le corps
+// est le texte du pro dans une langue qu'aucune colonne ne déclare — annoncer « en » sur
+// la description espagnole d'un club de Madrid serait une donnée fausse de plus.
+const WORKER_PROSE_LANG = 'en';
+
 const YUNO_SELLER: Row = { '@type': 'Organization', name: 'Yuno', url: `${ORIGIN}/` };
 
 // Asset prefixes belonging to OTHER frameworks — never a Yuno route. The SPA fallback
@@ -394,6 +412,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         name: pillar.title,
         description: pillar.description,
         url: `${ORIGIN}${path}`,
+        inLanguage: WORKER_PROSE_LANG,
       },
       h1: pillar.h1,
       bodyHtml:
@@ -451,6 +470,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
         name: `Nightlife in ${cityDef.name} on Yuno`,
+        inLanguage: WORKER_PROSE_LANG,
         itemListElement: eventLinks.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: l.href, name: l.label })),
       },
       h1: `Nightlife in ${cityDef.name}`,
@@ -480,6 +500,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
         name: 'Upcoming events on Yuno',
+        inLanguage: WORKER_PROSE_LANG,
         itemListElement: events
           .filter((e) => e.id)
           .map((e, i) => ({ '@type': 'ListItem', position: i + 1, url: eventCleanUrl(e, orgMap), name: clean(e.title, 120) })),
@@ -502,6 +523,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
         name: 'Nightclubs on Yuno',
+        inLanguage: WORKER_PROSE_LANG,
         itemListElement: venues
           .filter((v) => v.id)
           .map((v, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}/club/${v.id}`, name: clean(v.name, 120) })),
@@ -535,6 +557,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
         name: 'DJs on Yuno',
+        inLanguage: WORKER_PROSE_LANG,
         itemListElement: djLinks.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: l.href, name: l.label })),
       },
       h1: 'DJs & artists',
