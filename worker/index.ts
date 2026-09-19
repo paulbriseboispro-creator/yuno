@@ -1346,9 +1346,14 @@ class HeroOverlayInjector {
 // Fiches éligibles à l'overlay humain — ancrées en fin : les sous-routes
 // (billets, checkout, guestlist, epk…) n'ont JAMAIS d'overlay, un client qui
 // paie ne doit pas attendre 6 s derrière un écran. La SPA congédie sur ces
-// pages exactes (EventDetails, VenuePage, DJPublicPage, OrganizerPublicProfile).
+// pages exactes (EventDetails, VenuePage, DJPublicPage, OrganizerPublicProfile,
+// AffiliateEventPage, AffiliateVenuePage).
+//
+// Une route n'entre ici QUE si sa page appelle dismissSsrHero() : sans ce
+// congédiement l'overlay tient ses 6 s de garde-fou par-dessus une SPA déjà
+// prête, et l'enrichissement crawler se paie d'une régression pour l'humain.
 const HERO_ROUTE_RE =
-  /^\/(?:event\/[^/]+|events\/[^/]+\/[^/]+|club\/[^/]+(?:\/event\/[^/]+)?|dj\/[^/]+|o\/[^/]+)$/;
+  /^\/(?:event\/[^/]+|events\/[^/]+\/[^/]+|club\/[^/]+(?:\/event\/[^/]+)?|dj\/[^/]+|o\/[^/]+|affiliate-event\/[^/]+|affiliate-venue\/[^/]+)$/;
 
 // ---------------------------------------------------------------------------
 // Sitemap

@@ -1,3 +1,4 @@
+import { dismissSsrHero } from '@/lib/ssrHero';
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -163,6 +164,13 @@ export default function AffiliateVenuePage() {
     })();
     return () => { active = false; };
   }, [viaSlug, venue?.affiliate_id]);
+
+  // Hero server-rendered (SERP → fiche partenaire) : congédier l'overlay du
+  // Worker dès que la page est prête à être vue (données chargées OU
+  // introuvable). Sans cet appel, l'overlay tiendrait ses 6 s de garde-fou.
+  useEffect(() => {
+    if (!loading) dismissSsrHero();
+  }, [loading]);
 
   useAffiliateVisitorTracking({
     affiliateId: viaResolved ? (venue?.affiliate_id ?? '') : '',
