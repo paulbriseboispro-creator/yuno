@@ -13,6 +13,11 @@
  *    - Door scans (ticket_attendees.entry_scanned / entry_scanned_at) → the real
  *      number of people who actually showed up, when they arrived, the no-show
  *      rate, and whether the included drink was redeemed.
+ *    - Guest list entries (guest_list_entries) → FREE TICKETS. A guest list
+ *      entry is not a sub-type of ticket, it is a ticket at 0 €: it counts in
+ *      the expected head count, its scan counts as an attendance, its arrival
+ *      time feeds the timeline. On a night without ticketing the guest list is
+ *      the ONLY trace of who came — ignoring it showed 0 people for a full room.
  *    - Drink orders (orders.items + created_at) → real bar volume, attach rate,
  *      average basket, the real peak hour and the real top seller.
  *    - Tickets + tables + refunds → real gross / net revenue and revenue/head.
@@ -64,6 +69,23 @@ export interface TableLite {
   scanned: boolean;
 }
 
+/** A guest list entry = a free ticket for one person. */
+export interface GuestEntryLite {
+  createdAt: number; // signup time
+  scanned: boolean;
+  scannedAt: number | null; // ms
+  email: string | null;
+}
+
+/** What the night actually put on sale. Lets the score skip the sub-scores that
+ *  a scope can never earn (an organizer has no bar; a free night has no spend). */
+export interface NightOffer {
+  /** The scope sells drinks on Yuno (clubs yes, organizers never). */
+  drinks: boolean;
+  /** Something was on sale for money (ticketing or VIP tables enabled). */
+  paid: boolean;
+}
+
 /** Venue per-event averages, used for "vs average" deltas and relative scoring. */
 export interface VenueBenchmark {
   eventsCount: number;
@@ -79,6 +101,10 @@ export interface NightInput {
   tickets: TicketLite[];
   orders: OrderLite[];
   tables: TableLite[];
+  /** Guest list entries (free tickets). Optional for callers that predate it. */
+  guestEntries?: GuestEntryLite[];
+  /** What was on sale. Defaults to a club with a bar and paid tickets. */
+  offer?: NightOffer;
   /** Unique visitors to the event page (conversion denominator). */
   pageViews: number;
   /** Audience split from venue_customers. */
@@ -109,15 +135,18 @@ export interface NightSubScores {
 
 export interface NightStats {
   // Attendance
-  ticketsSold: number;
-  attendance: number; // real scanned people (+ scanned table guests)
+  ticketsSold: number; // ALL expected entries: paid tickets + guest list (free tickets)
+  paidTickets: number; // paid tickets only
+  guestListEntries: number; // guest list signups (free tickets), cancelled excluded
+  guestListScanned: number; // guest list entries scanned at the door
+  attendance: number; // real scanned people: tickets + guest list + scanned table guests
   capacity: number | null;
   sellThroughPct: number | null; // sold / capacity
   fillPct: number | null; // attendance / capacity
   showUpRatePct: number | null; // attendance / sold (null if no scan data)
   noShowRatePct: number | null;
   hasScanData: boolean;
-  guestListSharePct: number;
+  guestListSharePct: number; // guest list entries / all expected entries
 
   // Revenue
   ticketRevenue: number;
@@ -190,25 +219,32 @@ const hourLabel = (ms: number) => {
 
 export function computeNightStats(input: NightInput): NightStats {
   const { tickets, orders, tables, capacity, benchmark, numEvents, eventStart, eventEnd } = input;
+  const guestEntries = input.guestEntries ?? [];
+  const offer: NightOffer = input.offer ?? { drinks: true, paid: true };
   const n = Math.max(numEvents, 1);
 
   // ── Attendance ──
-  const ticketsSold = tickets.reduce((s, t) => s + (t.refunded ? 0 : t.quantity), 0);
+  // A guest list entry is a free ticket: it is expected at the door exactly like
+  // a paid one, and its scan is an attendance exactly like a paid one.
+  const paidTickets = tickets.reduce((s, t) => s + (t.refunded ? 0 : t.quantity), 0);
+  const guestListEntries = guestEntries.length;
+  const ticketsSold = paidTickets + guestListEntries;
   const allAttendees = tickets.flatMap((t) => t.attendees);
   const scannedAttendees = allAttendees.filter((a) => a.scanned);
+  const scannedGuests = guestEntries.filter((g) => g.scanned);
+  const guestListScanned = scannedGuests.length;
   const scannedTableGuests = tables
     .filter((t) => t.scanned && !t.refunded)
     .reduce((s, t) => s + Math.max(1, t.guests || 1), 0);
   const hasScanData =
-    allAttendees.some((a) => a.scanned) || tables.some((t) => t.scanned);
-  const attendance = scannedAttendees.length + scannedTableGuests;
+    scannedAttendees.length > 0 || guestListScanned > 0 || tables.some((t) => t.scanned);
+  const attendance = scannedAttendees.length + guestListScanned + scannedTableGuests;
 
   const sellThroughPct = capacity && capacity > 0 ? clamp(pct(ticketsSold, capacity), 0, 100) : null;
   const showUpRatePct = hasScanData && ticketsSold > 0 ? clamp(pct(attendance, ticketsSold), 0, 100) : null;
   const noShowRatePct = showUpRatePct != null ? clamp(100 - showUpRatePct, 0, 100) : null;
   const fillPct = capacity && capacity > 0 && hasScanData ? clamp(pct(attendance, capacity), 0, 100) : null;
-  const guestTickets = tickets.filter((t) => t.isGuest).reduce((s, t) => s + t.quantity, 0);
-  const guestListSharePct = ticketsSold > 0 ? clamp(pct(guestTickets, ticketsSold), 0, 100) : 0;
+  const guestListSharePct = ticketsSold > 0 ? clamp(pct(guestListEntries, ticketsSold), 0, 100) : 0;
 
   // Effective head count for per-head metrics: real attendance if scanned, else sold.
   const heads = attendance > 0 ? attendance : ticketsSold;
@@ -257,6 +293,11 @@ export function computeNightStats(input: NightInput): NightStats {
     anyRedemption && entitled > 0 ? clamp(pct(redeemed, entitled), 0, 100) : null;
 
   // ── Timing ──
+  // Every door scan with a timestamp — paid ticket or guest list alike.
+  const scanTimes = [
+    ...scannedAttendees.map((a) => a.scannedAt),
+    ...scannedGuests.map((g) => g.scannedAt),
+  ].filter((x): x is number => x != null);
   // Orders + entries bucketed across the event window (15-min for one night).
   const windowMs = Math.max(eventEnd - eventStart, 3_600_000);
   const bucketMs = windowMs > 8 * 3_600_000 ? 3_600_000 : 15 * 60_000;
@@ -264,7 +305,7 @@ export function computeNightStats(input: NightInput): NightStats {
   for (let t = eventStart; t <= eventEnd; t += bucketMs) {
     const end = t + bucketMs;
     const o = orders.filter((x) => x.createdAt >= t && x.createdAt < end).length;
-    const e = scannedAttendees.filter((a) => a.scannedAt != null && a.scannedAt >= t && a.scannedAt < end).length;
+    const e = scanTimes.filter((ms) => ms >= t && ms < end).length;
     buckets.push({ time: hourLabel(t), orders: Math.round(o / n), entries: Math.round(e / n) });
   }
 
@@ -279,7 +320,7 @@ export function computeNightStats(input: NightInput): NightStats {
   const peakHourRevenue = peakEntry ? Math.round(peakEntry[1] / n) : 0;
 
   // Real arrival distribution from scan timestamps.
-  const arrivalTimes = scannedAttendees.map((a) => a.scannedAt).filter((x): x is number => x != null);
+  const arrivalTimes = scanTimes;
   const medArrival = median(arrivalTimes);
   const medianArrivalLabel = medArrival != null ? hourLabel(medArrival) : null;
   const pctBeforeMidnight =
@@ -304,8 +345,11 @@ export function computeNightStats(input: NightInput): NightStats {
   const returningRatePct = audienceTotal > 0 ? clamp(pct(returningCustomers, audienceTotal), 0, 100) : 0;
 
   // ── Funnel ──
+  // A guest list signup converts the event page exactly like a purchase does.
   const uniqueBuyers = new Set(
-    [...tickets.map((t) => t.email), ...orders.map((o) => o.email)].filter(Boolean),
+    [...tickets.map((t) => t.email), ...orders.map((o) => o.email), ...guestEntries.map((g) => g.email)]
+      .filter(Boolean)
+      .map((e) => (e as string).toLowerCase()),
   ).size;
   const conversionRatePct = input.pageViews > 0 ? clamp(pct(uniqueBuyers, input.pageViews), 0, 100) : null;
 
@@ -343,7 +387,10 @@ export function computeNightStats(input: NightInput): NightStats {
 
   const subScores: NightSubScores = { fill, showUp, bar, spend, audience, conversion };
 
-  // Weights — drop show-up when no scan data and renormalize.
+  // Weights — drop what the night could not earn and renormalize: show-up when
+  // nobody scanned, bar when the scope sells no drinks (organizers), spend when
+  // nothing was on sale for money (a free guest-list night). Without this a full
+  // free room could never score above ~5/10.
   const w = { fill: 0.28, showUp: 0.18, bar: 0.2, spend: 0.16, audience: 0.1, conversion: 0.08 };
   let totalW = w.fill + w.showUp + w.bar + w.spend + w.audience + w.conversion;
   let weighted =
@@ -352,6 +399,14 @@ export function computeNightStats(input: NightInput): NightStats {
     weighted -= showUp * w.showUp;
     totalW -= w.showUp;
   }
+  if (!offer.drinks && orders.length === 0) {
+    weighted -= bar * w.bar;
+    totalW -= w.bar;
+  }
+  if (!offer.paid && grossRevenue === 0) {
+    weighted -= spend * w.spend;
+    totalW -= w.spend;
+  }
   const overall01 = clamp(weighted / totalW, 0, 1);
   const overallScore = Math.round(overall01 * 100) / 10;
   const tier: NightStats['tier'] =
@@ -359,6 +414,9 @@ export function computeNightStats(input: NightInput): NightStats {
 
   return {
     ticketsSold: Math.round(ticketsSold / n),
+    paidTickets: Math.round(paidTickets / n),
+    guestListEntries: Math.round(guestListEntries / n),
+    guestListScanned: Math.round(guestListScanned / n),
     attendance: Math.round(attendance / n),
     capacity,
     sellThroughPct,
