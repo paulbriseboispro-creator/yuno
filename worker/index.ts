@@ -62,6 +62,12 @@ const G = globalThis as unknown as {
 // consolidating all ranking signals onto yunoapp.eu.
 const ORIGIN = 'https://yunoapp.eu';
 
+// Yuno encaisse la vente : c'est le VENDEUR de chaque Offer, pas l'organisateur de la
+// soirée. L'organisateur est le club (ou l'orga pour une soirée organizer-led) — les
+// confondre attribuait toutes les soirées à une seule entité, et rendait le balisage
+// incapable de distinguer deux clubs.
+const YUNO_SELLER: Row = { '@type': 'Organization', name: 'Yuno', url: `${ORIGIN}/` };
+
 // Asset prefixes belonging to OTHER frameworks — never a Yuno route. The SPA fallback
 // (`not_found_handling: single-page-application`) answers 200 + index.html for ANY unknown
 // URL, so a ghost file path becomes a soft-404: the crawler gets HTML on a `.woff2`, reads
@@ -825,13 +831,31 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     // Billetterie + line-up : alimentent offers[] (price / priceCurrency / validFrom) et
     // performer[] du schema Event. Les deux tables sont lisibles par l'anon (policies
     // "Everyone can view active ticket rounds" / "Anyone can view event_djs").
-    const [rounds, lineup] = await Promise.all([
+    // Périmètre des formules de table, miroir de fetchStudioLiveData : celles de la
+    // soirée, plus celles du club (venue-scopées, elles servent toutes ses dates).
+    const venueId = (ev.venue_id as string) || '';
+    const packScope = venueId
+      ? `or=(event_id.eq.${encodeURIComponent(id)},venue_id.eq.${encodeURIComponent(venueId)})`
+      : `event_id=eq.${encodeURIComponent(id)}`;
+    const [rounds, lineup, packs, guestLists] = await Promise.all([
       fetchRows(
         env,
         `ticket_rounds?event_id=eq.${encodeURIComponent(id)}&is_active=eq.true&select=name,price,created_at,` +
           `max_tickets,tickets_sold,manually_sold_out,entry_deadline,position&order=position.asc`,
       ),
       fetchRows(env, `event_djs?event_id=eq.${encodeURIComponent(id)}&select=dj_id`),
+      fetchRows(
+        env,
+        `table_packs?is_active=eq.true&${packScope}&select=id,name,base_price,minimum_spend,event_id,venue_id,position&order=position.asc`,
+      ),
+      // Même filtre que la page publique et que l'email : seules les parts « visibles
+      // sur la page club » sont proposées en libre-service. Les parts déléguées ne
+      // vivent que derrière leur propre lien, on ne les révèle pas au crawler.
+      fetchRows(
+        env,
+        `guest_lists?event_id=eq.${encodeURIComponent(id)}&is_active=eq.true&visible_on_club_page=eq.true` +
+          `&select=id,holder_type,free_before_time,manually_sold_out,created_at&order=created_at.asc`,
+      ),
     ]);
     const djIds = lineup.map((l) => l.dj_id as string).filter(Boolean);
     // La vue djs_public, jamais la table djs (la table expose des colonnes privées).
@@ -843,16 +867,18 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       : [];
     const title = (ev.title as string) || 'Event';
     // Canonical propre : /events/:host/:slug (host = orga si organizer-led, sinon venue_id).
+    // L'hôte porte DEUX choses : le slug du canonical, et l'identité de l'organisateur
+    // (le club, ou l'orga pour une soirée organizer-led). On le résout donc même quand
+    // l'URL donnait déjà le slug.
+    const orgRow = ev.organizer_user_id
+      ? await fetchRow(
+          env,
+          `organizer_profiles?user_id=eq.${encodeURIComponent(ev.organizer_user_id as string)}&select=slug,display_name`,
+        )
+      : null;
     let host = cleanHost;
     const evSlug = cleanSlug ?? (ev.slug as string | undefined);
-    if (!host) {
-      if (ev.organizer_user_id) {
-        const org = await fetchRow(env, `organizer_profiles?user_id=eq.${encodeURIComponent(ev.organizer_user_id as string)}&select=slug`);
-        host = (org?.slug as string) || undefined;
-      } else {
-        host = (ev.venue_id as string) || undefined;
-      }
-    }
+    if (!host) host = ((orgRow?.slug as string) || (ev.venue_id as string) || undefined);
     const canonical = host && evSlug
       ? `${ORIGIN}/events/${encodeURIComponent(host)}/${encodeURIComponent(evSlug)}`
       : `${ORIGIN}/event/${encodeURIComponent(id)}`;
@@ -903,7 +929,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     // Billetterie ÉTEINTE (`ticketing_enabled = false`) : l'offre n'existe pas sur la
     // page, donc aucun Offer — pas même en SoldOut. Fermée à la main
     // (`tickets_sold_out`) : les tranches restent visibles, toutes en SoldOut.
-    const offers = (flags.ticketingOn ? rounds : [])
+    const ticketOffers = (flags.ticketingOn ? rounds : [])
       .filter((r) => typeof r.price === 'number')
       .map((r) => {
         const o: Row = {
@@ -923,8 +949,71 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         // Un palier créé après le début de l'event (vente de dernière minute, event passé)
         // donnerait validThrough <= validFrom, soit un Offer invalide. On l'omet alors.
         if (until && (!from || Date.parse(until) > Date.parse(from))) o.validThrough = until;
+        o.seller = YUNO_SELLER;
         return o;
       });
+
+    // ── Les deux autres piliers ────────────────────────────────────────────────
+    //
+    // Yuno vend trois choses, `offers` n'en portait qu'une. Une soirée sans billetterie
+    // — guest list seule, ou tables seules — sortait donc en Event SANS AUCUN moyen
+    // d'entrer, alors que sa page en propose un. Formules de table et entrée guest list
+    // sont de vrais produits réservables sur /billets : elles ont leur Offer.
+    //
+    // Pas d'AggregateOffer : il ne rendrait qu'un lowPrice/highPrice/offerCount et
+    // effacerait le nom de chaque offre (« Early Bird », « VIP table — Gold »), qui est
+    // ce qui porte l'information dans un résultat enrichi. Une fourchette 0-650 € en dit
+    // moins que cinq offres nommées. La règle de Google — price + priceCurrency sur
+    // CHAQUE Offer, un Offer invalide invalidant tout le bloc — est tenue en écartant
+    // toute formule sans montant connu : la page écrit « Sur demande » dans ce cas, on
+    // n'invente pas un « 0 € ».
+    const tableOffers = (flags.tablesOn ? packs : [])
+      // Une formule nommée complète pour CETTE soirée sort de l'inventaire : les
+      // formules d'un club sont venue-scopées, c'est l'événement qui porte la fermeture
+      // (miroir de _event_tables_left / openTablePacks).
+      .filter((pk) => !pk.id || !flags.packIds.includes(String(pk.id)))
+      .map((pk) => {
+        const base = typeof pk.base_price === 'number' ? pk.base_price : 0;
+        const min = typeof pk.minimum_spend === 'number' ? pk.minimum_spend : 0;
+        const amount = base > 0 ? base : min > 0 ? min : null;
+        if (amount === null) return null;
+        return {
+          '@type': 'Offer',
+          name: `VIP table — ${clean(pk.name, 60) || 'Table'}`,
+          url: canonical,
+          price: amount,
+          priceCurrency: 'EUR',
+          availability: flags.tables ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+          seller: YUNO_SELLER,
+        } as Row;
+      })
+      .filter((o): o is Row => !!o);
+
+    // Part de guest list publique — la part maison d'abord, sinon la première (miroir
+    // exact de pickPublicGuestList). L'entrée est gratuite : price 0, un Offer
+    // parfaitement valide. L'heure limite part dans le NOM de l'offre et non en
+    // validThrough : `free_before_time` est une heure nue sur la nuit du lieu, en tirer
+    // un instant exact demanderait le fuseau du club, qu'on n'a pas ici.
+    const publicList = guestLists.find((g) => g.holder_type === 'club') || guestLists[0] || null;
+    const freeBefore = String((publicList?.free_before_time as string) || '').slice(0, 5);
+    const guestOffers: Row[] = publicList
+      ? [
+          {
+            '@type': 'Offer',
+            name: freeBefore ? `Guest list — free before ${freeBefore}` : 'Guest list — free entry',
+            url: canonical,
+            price: 0,
+            priceCurrency: 'EUR',
+            availability:
+              flags.guestList || publicList.manually_sold_out === true
+                ? 'https://schema.org/SoldOut'
+                : 'https://schema.org/InStock',
+            seller: YUNO_SELLER,
+          },
+        ]
+      : [];
+
+    const offers = [...ticketOffers, ...tableOffers, ...guestOffers];
 
     // performer — les DJs du line-up. MusicGroup (sous-type de PerformingGroup), cohérent
     // avec le schema émis par la page /dj/:slug.
@@ -949,16 +1038,33 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
       location: place,
       url: canonical,
-      organizer: { '@type': 'Organization', name: 'Yuno', url: `${ORIGIN}/` },
     };
+    // L'ORGANISATEUR est l'orga qui mène la soirée, sinon le club qui la reçoit.
+    // Faute de nom lisible (la table `venues` n'est aujourd'hui pas exposée à la clé
+    // anon, l'embed revient donc à null), on n'émet RIEN plutôt qu'une entité inventée :
+    // `organizer` n'est pas requis par Google, un organisateur faux l'est encore moins.
+    const organizerName = orgRow?.display_name
+      ? clean(orgRow.display_name as string, 120)
+      : clean((venue?.name as string) || (ev.location_name as string) || '', 120);
+    if (organizerName) {
+      const o: Row = { '@type': orgRow ? 'Organization' : 'NightClub', name: organizerName };
+      if (orgRow?.slug) o.url = `${ORIGIN}/o/${encodeURIComponent(orgRow.slug as string)}`;
+      else if (venueId && venue) o.url = `${ORIGIN}/club/${encodeURIComponent(venueId)}`;
+      jsonLd.organizer = o;
+    }
     if (offers.length) jsonLd.offers = offers;
     if (performers.length) jsonLd.performer = performers;
     if (img) jsonLd.image = [img];
 
     // Prix d'appel : jamais annoncé sur une billetterie fermée à la main — le bloc
     // crawlable doit raconter la même soirée que le JSON-LD et que la page.
+    // Prix d'appel des BILLETS — jamais les tables ni l'entrée gratuite : la ligne dit
+    // « Tickets from », et 0 € de guest list y ferait passer une soirée payante pour
+    // gratuite (même arbitrage que priceFromLabel côté email).
     const fromPrice =
-      offers.length && !flags.tickets ? Math.min(...offers.map((o) => o.price as number)) : null;
+      ticketOffers.length && !flags.tickets
+        ? Math.min(...ticketOffers.map((o) => o.price as number))
+        : null;
     const facts = [
       ev.start_at ? `<li>When: ${esc(fmtDate(ev.start_at))}</li>` : '',
       placeName ? `<li>Where: ${esc(placeName)}${city ? `, ${esc(city)}` : ''}</li>` : '',
@@ -966,6 +1072,14 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       genres.length ? `<li>Music: ${esc(genres.join(', '))}</li>` : '',
       fromPrice !== null ? `<li>Tickets from €${esc(fromPrice.toFixed(2))}</li>` : '',
       flags.tickets && flags.ticketingOn ? `<li>Tickets: sold out</li>` : '',
+      tableOffers.length
+        ? `<li>VIP tables from €${esc(Math.min(...tableOffers.map((o) => o.price as number)).toFixed(2))}${flags.tables ? ' — sold out' : ''}</li>`
+        : '',
+      publicList
+        ? `<li>Guest list${freeBefore ? `: free before ${esc(freeBefore)}` : ': free entry'}${
+            flags.guestList || publicList.manually_sold_out === true ? ' — sold out' : ''
+          }</li>`
+        : '',
     ].filter(Boolean).join('');
     return {
       title: `${title} · Yuno`,
