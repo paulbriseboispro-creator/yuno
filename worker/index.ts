@@ -862,7 +862,17 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const placeName = (venue?.name as string) || (ev.location_name as string) || (ev.location_city as string) || 'Yuno';
     const city = (venue?.city as string) || (ev.location_city as string) || '';
     const street = (venue?.address as string) || (secret ? '' : (ev.location_address as string) || '');
-    const cancelled = !!ev.cancelled_at || ev.status === 'cancelled';
+    // `events.status` vaut active | cancelled | postponed (CHECK posé par
+    // 20260616100000_admin_ops_p0.sql). Google traite EventPostponed différemment
+    // d'EventCancelled : une soirée reportée n'est pas annulée, elle cherche une date.
+    // `previousStartDate` n'est PAS émis : aucune colonne ne garde la date d'origine,
+    // et l'inventer serait une donnée fausse. Le jour où le report en stockera une,
+    // c'est le champ à remplir.
+    const eventStatus = !!ev.cancelled_at || ev.status === 'cancelled'
+      ? 'https://schema.org/EventCancelled'
+      : ev.status === 'postponed'
+      ? 'https://schema.org/EventPostponed'
+      : 'https://schema.org/EventScheduled';
     const flags = soldOutFlags(ev);
     const genres = Array.isArray(ev.music_genres)
       ? (ev.music_genres as string[])
@@ -935,7 +945,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       description,
       startDate: ev.start_at,
       endDate: ev.end_at,
-      eventStatus: cancelled ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
+      eventStatus,
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
       location: place,
       url: canonical,
