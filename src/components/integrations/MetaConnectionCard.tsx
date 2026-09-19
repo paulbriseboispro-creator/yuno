@@ -52,6 +52,11 @@ const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 const META_BLUE = '#0866FF';
+// Le dialogue Meta s'ouvre dans un AUTRE onglet : c'est donc lui qui reçoit le
+// retour `?meta=…`. Il le repasse à l'onglet d'origine par cette clé —
+// l'événement `storage` ne se déclenche que dans les AUTRES onglets de
+// l'origine, ce qui est exactement le besoin.
+const OAUTH_RESULT_KEY = 'yuno:meta:oauth';
 // Permissions sans lesquelles la connexion en un clic ne peut ni lister les
 // actifs ni lire la santé : si la fenêtre Meta les a décochées, on le dit.
 const REQUIRED_SCOPES = ['ads_read', 'business_management', 'pages_read_engagement'];
@@ -157,6 +162,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<null | 'oauth' | 'select' | 'health' | 'save' | 'test' | 'update' | 'disconnect'>(null);
   const [oauthAvailable, setOauthAvailable] = useState(true);
+  const [waitingOauth, setWaitingOauth] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [pixelId, setPixelId] = useState('');
   const [token, setToken] = useState('');
@@ -196,19 +202,56 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
 
   useEffect(() => { load(); }, [load]);
 
+  const showOauthResult = (m: string, reason: string | null) => {
+    if (m === 'connected') toast.success(t('integ.meta.oauthConnected'));
+    else if (m === 'choose') toast.info(t('integ.meta.oauthChoose'));
+    else if (m === 'error') toast.error(`${t('integ.meta.oauthFailed')} ${reason ?? ''}`.trim());
+  };
+
   // Retour du dialogue Meta : ?meta=connected|choose|error&reason=…
+  // Ce code tourne dans l'onglet OUVERT pour Meta, pas dans celui que le pro
+  // regardait. Il repasse donc le résultat à l'onglet d'origine puis se ferme.
+  // `window.close()` n'est permis qu'à un onglet ouvert par script qui a gardé
+  // son `opener` : sans opener on reste ici et on affiche le résultat
+  // normalement, l'écran est complet de toute façon.
   useEffect(() => {
     const m = searchParams.get('meta');
     if (!m) return;
-    if (m === 'connected') toast.success(t('integ.meta.oauthConnected'));
-    else if (m === 'choose') toast.info(t('integ.meta.oauthChoose'));
-    else if (m === 'error') toast.error(`${t('integ.meta.oauthFailed')} ${searchParams.get('reason') ?? ''}`.trim());
+    const reason = searchParams.get('reason');
+    let opener: Window | null = null;
+    try { opener = window.opener as Window | null; } catch { opener = null; }
+    if (opener && !opener.closed) {
+      try { localStorage.setItem(OAUTH_RESULT_KEY, JSON.stringify({ m, reason, ts: Date.now() })); } catch { /* navigation privée : le focus rechargera */ }
+      window.close();
+    }
+    showOauthResult(m, reason);
     const next = new URLSearchParams(searchParams);
     next.delete('meta'); next.delete('reason');
     setSearchParams(next, { replace: true });
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Onglet d'origine : il n'a pas bougé, donc rien ne le rafraîchit tout seul.
+  // `storage` porte le résultat ; le retour du focus recharge de toute façon
+  // (onglet Meta fermé à la main, popup bloquée, localStorage indisponible).
+  useEffect(() => {
+    if (!waitingOauth) return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== OAUTH_RESULT_KEY || !e.newValue) return;
+      try {
+        const r = JSON.parse(e.newValue) as { m?: string; reason?: string | null };
+        if (typeof r.m === 'string') showOauthResult(r.m, r.reason ?? null);
+      } catch { /* valeur illisible : le rechargement suffit */ }
+      setWaitingOauth(false);
+      load();
+    };
+    const onFocus = () => { load(); };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('focus', onFocus); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingOauth, load]);
 
   const call = async (action: string, body: Record<string, unknown>) => {
     const { data: res, error } = await supabase.functions.invoke('meta-connect', { body: { action, scope: scopeBody, ...body } });
@@ -230,12 +273,29 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   };
 
   const handleOauth = async () => {
+    // L'onglet s'ouvre DANS le geste du clic, vide, puis on l'envoie sur Meta
+    // quand l'URL signée arrive : un `window.open` posé après l'`await` est
+    // bloqué par Safari (même piège que la fenêtre WhatsApp de /links).
+    // L'écran Yuno reste ainsi sous les yeux du pro pendant qu'il autorise.
+    let tab: Window | null = null;
+    try { tab = window.open('', '_blank'); } catch { tab = null; }
+    if (tab) {
+      try { tab.document.write(`<!doctype html><meta charset="utf-8"><title>Meta</title><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0c;color:rgba(255,255,255,.58);font:500 14px/1.5 -apple-system,system-ui,sans-serif">${t('integ.meta.oauthTabLoading')}</body>`); } catch { /* le blanc est acceptable */ }
+    }
     setBusy('oauth');
     try {
       const res = await call('oauth_start', { returnTo: returnTo ?? window.location.pathname });
-      if (typeof res.url === 'string') { window.location.assign(res.url); return; }
-      throw new Error('generic');
+      if (typeof res.url !== 'string') throw new Error('generic');
+      if (tab && !tab.closed) {
+        tab.location.href = res.url;
+        tab.focus?.();
+        setWaitingOauth(true);
+        setBusy(null);
+        return;
+      }
+      window.location.assign(res.url); // popup bloquée : on n'abandonne personne
     } catch (e) {
+      try { tab?.close(); } catch { /* déjà fermé par le pro */ }
       const code = e instanceof Error ? e.message : 'generic';
       if (code === 'oauth_not_configured') { setOauthAvailable(false); setAdvanced(true); toast.info(t('integ.meta.err.oauth_not_configured')); }
       else toast.error(errorLabel(code));
@@ -361,6 +421,17 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   // pas de connexion possible tant que le navigateur n'a pas de session Meta.
   // Toujours visible (pas replié) : celui que ça bloque ne saura pas qu'il
   // doit déplier quelque chose.
+  const oauthWaitingNote = waitingOauth && (
+    <div className="flex items-center gap-3 flex-wrap rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+      <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5, flex: 1, minWidth: 220 }}>{t('integ.meta.oauthTabOpen')}</p>
+      <button type="button" onClick={() => { setWaitingOauth(false); load(); }}
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold"
+        style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+        <RefreshCw className="w-3.5 h-3.5" /> {t('integ.meta.oauthTabRefresh')}
+      </button>
+    </div>
+  );
+
   const instagramLoginNote = (
     <div className="rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
       <div className="flex items-start gap-2">
@@ -555,6 +626,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                 <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
                 <p style={{ color: T3, fontSize: 12, maxWidth: 420, lineHeight: 1.45 }}>{t('integ.meta.oauthHint')}</p>
               </div>
+              {oauthWaitingNote}
               {instagramLoginNote}
             </div>
           )}
@@ -608,6 +680,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                 {conn.mode === 'oauth' && oauthAvailable && (
                   <div className="mt-3 space-y-3">
                     <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} />
+                    {oauthWaitingNote}
                     {instagramLoginNote}
                   </div>
                 )}
