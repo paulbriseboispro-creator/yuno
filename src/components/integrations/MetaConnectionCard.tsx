@@ -461,6 +461,12 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
   const connectChooser = (
     <div className="space-y-3">
       <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('integ.meta.choose.h')}</p>
+      {/* Se connecter à Meta dans un autre onglet ne connecte pas Yuno : il n'y
+          a de connexion qu'au moment où Meta rend l'autorisation. Dit ici
+          parce que c'est l'erreur qui a coûté le plus de temps sur Amoris —
+          Events Manager ouvert, session Meta active, et la carte qui ne bouge
+          pas, ce qui ressemble à une panne alors que rien n'a été demandé. */}
+      <p style={{ color: WARN, fontSize: 12, lineHeight: 1.5, marginTop: -4 }}>{t('integ.meta.choose.only')}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl px-3.5 py-3.5 flex flex-col" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
           <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{t('integ.meta.choose.fb.h')}</p>

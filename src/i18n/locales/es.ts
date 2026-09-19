@@ -14107,6 +14107,7 @@ const es: Record<string, string> = {
   "integ.meta.reconnect": "Reconectar con Facebook",
   "integ.meta.oauthHint": "Se abre una ventana de Meta, eliges tu empresa y Yuno encuentra solo tu píxel, tu cuenta publicitaria y tu Página. Nada que copiar.",
   "integ.meta.choose.h": "¿Cómo quieres conectar Meta?",
+  "integ.meta.choose.only": "Solo el botón azul conecta Yuno. Abrir Meta en otra pestaña, incluso con la sesión iniciada, no cambia nada aquí: la conexión se produce cuando concedes la autorización en la ventana de Meta.",
   "integ.meta.choose.fb.h": "Tengo un perfil de Facebook",
   "integ.meta.choose.fb.who": "Tu perfil de Facebook es administrador de tu empresa en Meta.",
   "integ.meta.choose.fb.plus": "Es también el único camino que abre los anuncios gestionados desde Yuno.",

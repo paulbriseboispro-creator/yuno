@@ -13765,6 +13765,7 @@ const en: Record<string, string> = {
   "integ.meta.reconnect": "Reconnect with Facebook",
   "integ.meta.oauthHint": "A Meta window opens, you pick your business, and Yuno finds your pixel, ad account and Page by itself. Nothing to copy.",
   "integ.meta.choose.h": "How do you want to connect Meta?",
+  "integ.meta.choose.only": "Only the blue button connects Yuno. Opening Meta in another tab, even while logged in, changes nothing here: the connection happens the moment you grant the authorisation in the Meta window.",
   "integ.meta.choose.fb.h": "I have a Facebook profile",
   "integ.meta.choose.fb.who": "Your Facebook profile is an admin of your Meta business.",
   "integ.meta.choose.fb.plus": "It's also the only path that opens ads run from Yuno.",
