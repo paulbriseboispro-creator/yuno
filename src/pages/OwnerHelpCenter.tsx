@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLanguage, useLocaleSection } from '@/contexts/LanguageContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { ownerHelpCategories, OwnerHelpArticle, OwnerHelpCategory, OwnerHelpSection, glossaryTerms } from '@/data/ownerHelpContent';
 import {
@@ -146,6 +146,10 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<OwnerHelpArticle | null>(null);
+  // `?article=<id>` : un écran qui envoie ici doit pouvoir ouvrir SON article,
+  // pas l'index. Sans ça, un « mode d'emploi » posé à côté d'un réglage lâche
+  // le pro devant 30 articles au moment précis où il est bloqué.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [zoomedImg, setZoomedImg] = useState<string | null>(null);
 
   const quickStartArticles = useMemo(() => {
@@ -199,11 +203,38 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
   const selectArticle = (article: OwnerHelpArticle, categoryId?: string) => {
     setSelectedArticle(article);
     if (categoryId) setSelectedCategoryId(categoryId);
+    const next = new URLSearchParams(searchParams);
+    next.set('article', article.id);
+    setSearchParams(next, { replace: true });
   };
+
+  const clearArticle = () => {
+    setSelectedArticle(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete('article');
+    setSearchParams(next, { replace: true });
+  };
+
+  // L'URL fait foi à l'arrivée (lien profond, retour arrière, lien partagé).
+  useEffect(() => {
+    const id = searchParams.get('article');
+    if (!id) { if (selectedArticle) setSelectedArticle(null); return; }
+    if (selectedArticle?.id === id) return;
+    for (const c of categories) {
+      const found = c.articles.find((a) => a.id === id);
+      if (found) { setSelectedArticle(found); setSelectedCategoryId(c.id); return; }
+    }
+    // Article inconnu (renommé, autre dashboard) : on n'affiche pas une page
+    // vide, on laisse l'index et on nettoie l'adresse.
+    const next = new URLSearchParams(searchParams);
+    next.delete('article');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, categories]);
 
   const goBack = () => {
     if (selectedArticle) {
-      setSelectedArticle(null);
+      clearArticle();
     } else if (selectedCategoryId) {
       setSelectedCategoryId(null);
     } else {
@@ -318,7 +349,7 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
                   {related.map(article => (
                     <button
                       key={article.id}
-                      onClick={() => setSelectedArticle(article)}
+                      onClick={() => selectArticle(article)}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border hover:bg-muted/50 transition-all text-left"
                     >
                       <div className="w-8 h-8 rounded-md bg-muted/50 flex items-center justify-center flex-shrink-0">

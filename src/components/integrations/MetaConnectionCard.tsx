@@ -434,8 +434,11 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
       {t('integ.meta.openEventsManager')} <ExternalLink className="w-3.5 h-3.5" />
     </a>
   );
+  // Vers l'ARTICLE Meta, pas l'index du mode d'emploi : le pro est bloqué ici,
+  // pas curieux. `?article=` est lu par OwnerHelpCenter (moteur partagé owner /
+  // organisateur / agence).
   const helpLink = helpPath && (
-    <a href={helpPath} className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
+    <a href={`${helpPath}?article=meta-ads`} className="inline-flex items-center gap-1.5 text-[12.5px] underline underline-offset-2" style={{ color: T2 }}>
       <Info className="w-3.5 h-3.5" /> {t('integ.meta.howTo')}
     </a>
   );
