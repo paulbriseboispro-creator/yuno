@@ -1065,9 +1065,16 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       url: canonical,
     };
     // L'ORGANISATEUR est l'orga qui mène la soirée, sinon le club qui la reçoit.
-    // Faute de nom lisible (la table `venues` n'est aujourd'hui pas exposée à la clé
-    // anon, l'embed revient donc à null), on n'émet RIEN plutôt qu'une entité inventée :
-    // `organizer` n'est pas requis par Google, un organisateur faux l'est encore moins.
+    // Faute de nom lisible, on n'émet RIEN plutôt qu'une entité inventée : `organizer`
+    // n'est pas requis par Google, un organisateur faux l'est encore moins.
+    //
+    // C'est le cas de toutes les soirées de club aujourd'hui, et ce n'est PAS un défaut
+    // de policy : « Everyone can view visible venues » (20260126182348) ouvre bien
+    // `venues` à l'anon sur `is_hidden = false`. Il n'existe simplement aucun club
+    // visible — le seul en base est le club démo `womber`, `is_hidden = true`, dont les
+    // soirées restent publiques. L'embed `venues!events_venue_id_fkey` revient donc à
+    // null, et avec lui le nom, l'adresse et les coordonnées du lieu. Le jour où un vrai
+    // club passe visible, tout se remplit sans toucher à ce code.
     const organizerName = orgRow?.display_name
       ? clean(orgRow.display_name as string, 120)
       : clean((venue?.name as string) || (ev.location_name as string) || '', 120);
