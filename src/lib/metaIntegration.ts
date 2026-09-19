@@ -24,25 +24,28 @@ import { isDemoEmail } from '@/lib/demoPlan';
 export const META_INTEGRATION_LIVE = false;
 
 /**
- * Porte de secours des portefeuilles Meta créés DEPUIS Instagram.
+ * Meta Business Suite — le seul écran de connexion Meta qui accepte un
+ * identifiant Instagram.
  *
- * Meta laisse ouvrir un compte professionnel depuis Instagram seul : ces
- * pros n'ont alors AUCUN mot de passe Facebook. Or le dialogue
- * `facebook.com/dialog/oauth` (Facebook Login for Business) ne montre qu'un
- * formulaire e-mail + mot de passe quand le navigateur n'a pas de session
- * Meta — la connexion en un clic devient un mur, et le mode avancé aussi
- * (le jeton Conversions API se génère dans Events Manager, derrière la même
- * connexion).
+ * Meta laisse ouvrir un compte professionnel depuis Instagram seul. Ces pros
+ * n'ont alors AUCUN profil Facebook, et Facebook Login for Business
+ * authentifie un profil Facebook : le dialogue `facebook.com/dialog/oauth`
+ * leur sert sa page de connexion Facebook (e-mail + mot de passe, « Créer un
+ * compte »), sans aucune option Instagram. Vérifié en vrai le 2026-09-19.
  *
- * Meta Business Suite est le seul écran de connexion Meta qui propose
- * « Continuer avec Instagram ». La session qu'il ouvre vaut pour tout le
- * domaine `.facebook.com` : en revenant cliquer sur « Connecter avec
- * Facebook », le pro tombe directement sur l'écran d'autorisation.
+ * Ouvrir une session Business Suite avec Instagram NE débloque PAS le
+ * dialogue : ce n'est pas un profil Facebook. Cette URL sert donc à deux
+ * choses, et pas à contourner l'autorisation :
+ *   1. ajouter un profil Facebook comme administrateur du portefeuille —
+ *      après quoi « Connecter avec Facebook » marche et tout s'ouvre
+ *      (pixel, API Conversions, publicités pilotées depuis Yuno) ;
+ *   2. atteindre Events Manager pour relever l'identifiant du pixel et
+ *      générer un jeton Conversions API, et brancher Yuno en mode avancé —
+ *      le suivi des ventes marche, les publicités depuis Yuno non.
  *
- * Il n'y a pas d'autre chemin : « Business Login for Instagram »
- * (`instagram.com/oauth/authorize`) ne donne que `instagram_business_*`
- * (messages, contenus), jamais `ads_management` ni le pixel. Ne pas le
- * proposer comme alternative, il ne branche rien.
+ * « Business Login for Instagram » (`instagram.com/oauth/authorize`) n'est
+ * pas une troisième voie : ses scopes `instagram_business_*` couvrent
+ * messages et contenus, jamais `ads_management` ni le pixel.
  */
 export const META_BUSINESS_LOGIN_URL = 'https://business.facebook.com/';
 

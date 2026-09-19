@@ -372,20 +372,36 @@ l'assistant IA owner connaissent déjà la feature.
 | `meta=choose` sans pixel dans la liste | l'entreprise n'a pas de jeu de données | Events Manager → Connecter des sources de données → Web |
 | « Jeton refusé » après quelques semaines | jeton utilisateur 60 j (pro sans Business Manager) | « Reconnecter avec Facebook » ; la notif part 7 j avant |
 | « Domaine non vérifié » dans Events Manager | les ventes sont sur yunoapp.eu | normal ; le pro peut ajouter yunoapp.eu à ses domaines |
-| Fenêtre Meta : formulaire e-mail + mot de passe, le pro n'en a pas | compte professionnel Meta créé DEPUIS Instagram (pas de compte Facebook) | ouvrir `business.facebook.com` → « Continuer avec Instagram », puis revenir cliquer sur « Connecter avec Facebook » : la session vaut pour tout `.facebook.com`, le dialogue passe directement à l'autorisation. Le rappel est affiché sous le bouton dans la carte Meta (`integ.meta.igLogin.*`). |
+| Fenêtre Meta : page de connexion Facebook, le pro n'a pas de profil Facebook | compte professionnel ouvert DEPUIS Instagram ; Facebook Login for Business authentifie un profil Facebook | pas de contournement : soit ajouter un profil Facebook comme admin du portefeuille depuis `business.facebook.com` (la connexion Instagram y marche) et le un-clic s'ouvre, soit passer par le mode avancé (pixel + jeton d'Events Manager, sans les pubs depuis Yuno). Les deux sont affichés sous le bouton (`integ.meta.igLogin.*`). |
 | 402 au déploiement | cap de fonctions | étape 5 |
 
-### Pourquoi pas « Business Login for Instagram » ?
+### Le pro qui n'a pas de profil Facebook
 
-`instagram.com/oauth/authorize` existe, mais ses seules permissions sont
-`instagram_business_basic`, `instagram_business_content_publish`,
-`instagram_business_manage_messages` et `instagram_business_manage_comments` :
-messages et contenus, jamais `ads_management`, jamais le pixel ni l'API
-Conversions. Ce n'est donc pas une alternative à Facebook Login for Business
-pour Yuno, et il ne faut pas le proposer comme porte d'entrée : il ne
-brancherait rien. Le seul chemin pour un pro sans compte Facebook est
-d'ouvrir sa session Meta avec Instagram (Business Suite), puis de passer par
-le dialogue habituel.
+Mesuré le 2026-09-19 sur le portefeuille Meta d'Amoris, ouvert depuis
+Instagram : le dialogue `facebook.com/dialog/oauth` sert sa page de connexion
+Facebook (e-mail + mot de passe, « Créer un compte »), sans aucune option
+Instagram. Facebook Login for Business authentifie un PROFIL Facebook, et une
+session Meta Business Suite ouverte avec Instagram n'en est pas un : elle ne
+débloque pas le dialogue. Il n'y a pas de contournement côté Yuno.
+
+Les deux chemins, affichés en clair sous le bouton dans la carte Meta :
+
+1. **Ajouter un profil Facebook** (le sien, ou un nouveau, gratuit) comme
+   administrateur du portefeuille, depuis `business.facebook.com` où la
+   connexion Instagram fonctionne. Ensuite « Connecter avec Facebook »
+   marche et tout s'ouvre : pixel, API Conversions, publicités depuis Yuno.
+2. **Mode avancé**, sans profil Facebook : Events Manager → identifiant du
+   pixel + « Générer un jeton d'accès », collés dans Yuno. Le suivi des
+   ventes marche ; les publicités pilotées depuis Yuno, non — elles passent
+   par l'autorisation Facebook. Attention, le lien « Générer un jeton
+   d'accès » n'apparaît qu'aux membres ayant les droits développeur sur le
+   portefeuille.
+
+`instagram.com/oauth/authorize` (« Business Login for Instagram ») n'est pas
+une troisième voie : ses seules permissions sont `instagram_business_basic`,
+`instagram_business_content_publish`, `instagram_business_manage_messages` et
+`instagram_business_manage_comments` — messages et contenus, jamais
+`ads_management`, jamais le pixel ni l'API Conversions.
 
 Toutes les règles de code sont dans `CLAUDE.md` (section « Meta ») et le
 détail d'architecture dans `docs/designs/META_ADS_INTEGRATION_PLAN.md`.

@@ -1603,22 +1603,30 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   `META_LOGIN_CONFIG_ID` (sans eux → `oauth_not_configured`, mode avancé
   seul). Tout appel Graph porte `appsecret_proof` (`_shared/meta-oauth.ts`).
   Mise en service pas à pas : `docs/META_GO_LIVE_GUIDE.md`.
-- **Un pro sans compte Facebook n'est jamais un cul-de-sac.** Meta laisse
-  ouvrir un compte professionnel DEPUIS Instagram : ces pros n'ont aucun mot
-  de passe Facebook, et `facebook.com/dialog/oauth` ne leur montre qu'un
-  formulaire e-mail + mot de passe quand le navigateur n'a pas de session
-  Meta (le mode avancé est muré pareil : le jeton Conversions API se génère
-  dans Events Manager, derrière la même connexion). Le seul chemin est
-  `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`) : Meta Business
-  Suite est le seul écran de connexion Meta qui propose « Continuer avec
-  Instagram », et la session qu'il ouvre vaut pour tout `.facebook.com` —
-  le dialogue passe ensuite directement à l'autorisation. Le rappel
-  (`integ.meta.igLogin.*`) est affiché EN CLAIR sous le bouton, jamais
-  replié : celui que ça bloque ne sait pas qu'il doit déplier quelque chose.
-  Ne JAMAIS proposer « Business Login for Instagram »
-  (`instagram.com/oauth/authorize`) comme alternative : ses scopes
-  `instagram_business_*` couvrent messages et contenus, jamais
-  `ads_management` ni le pixel.
+- **Un pro sans profil Facebook ne peut PAS faire la connexion en un clic, et
+  l'écran doit le dire.** Meta laisse ouvrir un compte professionnel depuis
+  Instagram seul ; Facebook Login for Business authentifie un PROFIL
+  Facebook, donc `facebook.com/dialog/oauth` sert à ces pros sa page de
+  connexion Facebook (e-mail + mot de passe, « Créer un compte »), sans
+  option Instagram. Vérifié en vrai le 2026-09-19 : ouvrir une session Meta
+  Business Suite avec Instagram ne débloque rien, ce n'est pas un profil
+  Facebook. Les deux seuls chemins, tous deux affichés EN CLAIR sous le
+  bouton (`integ.meta.igLogin.*`, jamais repliés) : (1) ajouter un profil
+  Facebook comme administrateur du portefeuille depuis
+  `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`), où la connexion
+  Instagram fonctionne — tout s'ouvre ensuite, publicités comprises ;
+  (2) mode avancé, pixel + jeton relevés dans Events Manager — le suivi des
+  ventes marche, les publicités pilotées depuis Yuno non. Ne JAMAIS proposer
+  « Business Login for Instagram » (`instagram.com/oauth/authorize`) comme
+  troisième voie : ses scopes `instagram_business_*` couvrent messages et
+  contenus, jamais `ads_management` ni le pixel.
+- **Le dialogue Meta s'ouvre dans un AUTRE onglet**, ouvert vide dans le geste
+  du clic puis envoyé sur l'URL signée (un `window.open` posé après l'`await`
+  est bloqué par Safari). Le retour `?meta=…` atterrit donc dans cet
+  onglet-là : il repasse le résultat par `localStorage` (`yuno:meta:oauth` —
+  l'événement `storage` ne se déclenche que dans les AUTRES onglets) puis se
+  ferme si son `opener` a survécu. Sans opener il reste ouvert et affiche le
+  résultat lui-même ; l'onglet d'origine recharge au retour du focus.
 - **`META_INTEGRATION_LIVE` (`src/lib/metaIntegration.ts`) = interrupteur
   pros.** À `false`, la carte Meta des clubs/orgas affiche « En construction »
   et le badge « Bientôt » ; la carte plateforme (`/admin/system`) reste active
