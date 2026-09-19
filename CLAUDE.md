@@ -1614,7 +1614,10 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   lecture par `get_my_meta_ads`, écriture par les actions `campaign_*`,
   `audience_*`, `ads_*`, `leads_subscribe` de `meta-connect` (même fonction :
   le cap des fonctions interdit d'en créer une). Règles : tout est créé en
-  PAUSED chez Meta, l'activation est un clic du pro ; `special_ad_categories`
+  PAUSED chez Meta, **`campaign_create` n'active JAMAIS** (le paramètre
+  `launch` a été retiré le 19/09 : c'est la promesse faite à l'App Review), et
+  l'activation est un clic du pro **confirmé** par une boîte de dialogue
+  (`AdsPage`) ; `special_ad_categories`
   toujours envoyé, `dsa_beneficiary`/`dsa_payor` obligatoires (UE),
   `promoted_object.pixel_id` + `custom_event_type`, `advantage_audience`
   explicite ; **les ventes attribuées viennent du lien suivi `meta_ads`**
@@ -1630,6 +1633,20 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   → `meta_lead_to_contact` (registre de consentement, jamais un désabonné,
   `consent_source = 'social'`). `bulk-notify-waitlist` a été supprimée le
   14/09 pour libérer le slot de `meta-connect` : ne pas la redéployer.
+  **Identité de la pub (19/09)** : `discoverAssets` relève l'Instagram
+  professionnel relié à chaque Page (`assets.instagram[{page_id,id,username}]`,
+  exige `instagram_basic`, best-effort) ; `ig_user_id` suit TOUJOURS la Page
+  retenue (callback et `select_assets`), jamais une valeur figée. Le choix
+  des actifs s'affiche dès qu'une liste (pixels, comptes pub, Pages) a plus
+  d'une entrée, une reconnexion conserve un choix encore valide, et
+  `select_assets` reste ouvert sur une connexion active (« Changer les
+  actifs ») : ne jamais réintroduire un état sans issue où la Page ou le
+  compte pub se changent seulement par Disconnect. L'aperçu du wizard et
+  la ligne « Identity » du récapitulatif montrent la Page (photo publique
+  `graph.facebook.com/{page}/picture`, autorisée dans la CSP `img-src`) et
+  `@instagram` : c'est la preuve filmée de `pages_read_engagement` et
+  `instagram_basic`. La pastille « Bientôt » des barres latérales suit
+  `useMetaIntegrationLive()`, pas la constante.
 
 ## Claude Design — design system public synchronisé
 
