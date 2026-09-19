@@ -1354,6 +1354,36 @@ const HERO_ROUTE_RE =
 // Sitemap
 // ---------------------------------------------------------------------------
 
+// Clubs réellement visibles du public. La policy « Everyone can view visible venues »
+// (20260126182348) ouvre `venues` à l'anon sur `is_hidden = false` : ce que cette
+// requête rend EST l'inventaire public, sans rien coder en dur.
+async function visibleVenueIds(env: Env): Promise<Set<string>> {
+  const rows = await fetchRows(env, 'venues?is_hidden=eq.false&select=id&limit=5000');
+  return new Set(rows.map((v) => v.id as string).filter(Boolean));
+}
+
+// Une soirée rattachée à un club QUE LE PUBLIC NE VOIT PAS ne se soumet pas.
+//
+// Le seul club en base est aujourd'hui le club démo `womber` (`is_hidden = true`), et
+// ses 72 soirées restent `public` + `is_discoverable` : le sitemap les déclarait donc
+// importantes et le cron IndexNow les poussait chaque heure vers Bing & co. Google
+// recevait 72 MusicEvent dont le `location` se réduit à « Yuno » — l'embed `venues`
+// revient à null pour un club masqué. Du budget de crawl brûlé sur de l'inventaire que
+// personne ne peut venir voir, et un clic depuis la SERP qui tombe sur une soirée
+// fictive.
+//
+// Même règle que la découverte (get_links_public_stats, get_taste_events_for_user) :
+// on ne pousse que de l'inventaire réel. Une soirée SANS club (menée par un
+// organisateur seul) n'est pas concernée — son canonical ne dépend d'aucun lieu.
+//
+// Ce filtre ne retire RIEN de ce qu'un humain voit : la page de la soirée reste en
+// ligne et enrichie, et /events continue de la lister (c'est ce que montre
+// AllEventsPage). Il arrête seulement de l'annoncer aux moteurs.
+function hostedAtVisibleVenue(e: Row, visible: Set<string>): boolean {
+  const vid = (e.venue_id as string) || '';
+  return !vid || visible.has(vid);
+}
+
 interface SitemapUrl {
   loc: string;
   lastmod?: string;
@@ -1402,8 +1432,10 @@ async function buildSitemap(env: Env): Promise<string> {
   ]);
 
   const sitemapOrgMap = await orgSlugMap(env, events);
+  const visibleVenues = new Set(venues.map((v) => v.id as string).filter(Boolean));
   for (const e of events) {
-    if (e.id) urls.push({ loc: eventCleanUrl(e, sitemapOrgMap), lastmod: e.updated_at as string, changefreq: 'daily', priority: '0.8' });
+    if (!e.id || !hostedAtVisibleVenue(e, visibleVenues)) continue;
+    urls.push({ loc: eventCleanUrl(e, sitemapOrgMap), lastmod: e.updated_at as string, changefreq: 'daily', priority: '0.8' });
   }
   for (const v of venues) {
     if (v.id) urls.push({ loc: `${ORIGIN}/club/${v.id}`, changefreq: 'weekly', priority: '0.7' });
@@ -1499,7 +1531,12 @@ async function submitRecentToIndexNow(env: Env): Promise<void> {
   ]);
   const urls: string[] = [];
   const idxOrgMap = await orgSlugMap(env, events);
-  for (const e of events) if (e.id) urls.push(eventCleanUrl(e, idxOrgMap));
+  // `venues` ci-dessus ne rend que les clubs CRÉÉS dans la fenêtre : pour juger la
+  // visibilité de l'hôte d'une soirée il faut l'inventaire public complet.
+  const idxVisibleVenues = await visibleVenueIds(env);
+  for (const e of events) {
+    if (e.id && hostedAtVisibleVenue(e, idxVisibleVenues)) urls.push(eventCleanUrl(e, idxOrgMap));
+  }
   for (const v of venues) if (v.id) urls.push(`${ORIGIN}/club/${v.id}`);
   for (const d of djs) {
     const k = (d.handle as string) || (d.slug as string);
