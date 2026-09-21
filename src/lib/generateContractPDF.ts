@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { getCollabTerms, pickL, clauseBody, type Lang, type L } from './collabContractTerms';
+import type { CollabRemuneration } from '@/hooks/useOrganizerPartnerships';
 
 /**
  * Digital club ↔ organizer collaboration contract. Self-contained multi-page A4 PDF
@@ -47,6 +48,12 @@ export interface CollabContractPDFData {
   eventDate?: Date | null;
   splitRules: { tickets: SplitPct; tables: SplitPct; drinks: SplitPct };
   /**
+   * Barème sur le CA total de la soirée (remuneration.mode = 'tiered_total').
+   * Présent → l'article 3 rend les paliers au lieu des % par pilier et l'article
+   * « Décompte de soirée et barème » est inclus. Null/absent = partage par pilier.
+   */
+  remuneration?: CollabRemuneration | null;
+  /**
    * Répartition des responsabilités telle que signée (contrat.responsibilities).
    * Absente sur les contrats antérieurs à la version 2026-07-20 : l'article
    * correspondant n'existe alors pas non plus, donc rien à rendre.
@@ -86,7 +93,7 @@ const fmtDateTime = (d?: Date | null) =>
 
 export function generateContractPDF(data: CollabContractPDFData): Blob {
   const lang: Lang = data.language ?? 'fr';
-  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring });
+  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration });
   const labels = terms.labels;
   const pick = (l: L) => pickL(lang, l);
 
@@ -250,11 +257,27 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
       if (data.eventTitle) infoRow(labels.event, data.eventTitle);
       infoRow(labels.date, fmtDate(data.eventDate));
     } else if (article.kind === 'split') {
-      splitRow(labels.ticketsRow, data.splitRules.tickets);
-      splitRow(labels.tablesRow, data.splitRules.tables);
-      splitRow(labels.drinksRow, data.splitRules.drinks);
-      y += 1.5;
-      para(article.note);
+      if (data.remuneration) {
+        // Barème : on signe les paliers, pas des % par pilier morts.
+        const tiers = [...data.remuneration.tiers].sort((a, b) => a.from - b.from);
+        const fmtEur = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+        if (labels.tieredTitle) infoRow(labels.tieredTitle, '');
+        tiers.forEach((tier, i) => {
+          const next = tiers[i + 1];
+          const range = next ? `${fmtEur(tier.from)} – ${fmtEur(next.from)}` : `≥ ${fmtEur(tier.from)}`;
+          infoRow({ fr: range, en: range, es: range }, `${pick(labels.orgShort)} ${tier.pct}%`);
+        });
+        const modeLabel = data.remuneration.tiers_mode === 'marginal' ? labels.tieredModeMarginal : labels.tieredModeFlat;
+        if (modeLabel) { y += 1; para(modeLabel); }
+        y += 1.5;
+        para(article.noteTiered ?? article.note);
+      } else {
+        splitRow(labels.ticketsRow, data.splitRules.tickets);
+        splitRow(labels.tablesRow, data.splitRules.tables);
+        splitRow(labels.drinksRow, data.splitRules.drinks);
+        y += 1.5;
+        para(article.note);
+      }
     } else if (article.kind === 'responsibilities') {
       respRow(labels.respDesignRow, 'design');
       respRow(labels.respOperationsRow, 'operations');

@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-07-20';
+export const COLLAB_TERMS_VERSION = '2026-09-21';
 
 export interface TermsClause {
   term: L;
@@ -32,8 +32,15 @@ export interface TermsClause {
 
 export type TermsArticle =
   | { num: number; kind: 'parties'; title: L }
-  | { num: number; kind: 'split'; title: L; note: L }
+  /** `noteTiered` remplace `note` quand le contrat rémunère par barème (v2026-09-21+). */
+  | { num: number; kind: 'split'; title: L; note: L; noteTiered?: L }
   | { num: number; kind: 'static'; title: L; intro?: L; clauses?: TermsClause[] }
+  /**
+   * Décompte de soirée et barème : rendu UNIQUEMENT quand le contrat porte
+   * `remuneration.mode = 'tiered_total'` (getCollabTerms(..., { tiered: true })).
+   * Un contrat par pilier ne le voit pas et garde sa numérotation.
+   */
+  | { num: number; kind: 'night_closing'; title: L; intro?: L; clauses?: TermsClause[] }
   /**
    * Répartition des responsabilités : rendu en tableau (domaine → partie qui en a
    * la charge), alimenté par le champ `responsibilities` du contrat. Les clauses
@@ -64,6 +71,12 @@ export interface CollabTermsLabels {
   respHolderVenue?: L;
   respHolderOrganizer?: L;
   respHolderBoth?: L;
+  /** Barème sur le CA de la soirée (v2026-09-21+). */
+  tieredTitle?: L;
+  tiersRangeCol?: L;
+  tiersPctCol?: L;
+  tieredModeFlat?: L;
+  tieredModeMarginal?: L;
   signaturesTitle: L;
   forClub: L;
   forOrg: L;
@@ -510,6 +523,108 @@ const TERMS_2026_07_20: CollabTerms = {
   recurringArticle: RECURRING_ARTICLE_2026_06_27,
 };
 
+// ── v2026-09-21 — rémunération par BARÈME sur le CA de la soirée ──────────────
+// Jusqu'ici le contrat ne savait dire qu'un % par pilier, appliqué à chaque vente.
+// Un club peut rémunérer l'organisateur autrement : une fois, après la soirée, à
+// un taux qui dépend du TOTAL de la nuit — bar en caisse et billets à la porte
+// compris, que Yuno ne voit pas. L'article ci-dessous pose ce mode : assiette,
+// barème, retenue des ventes Yuno jusqu'au décompte, déclaration du club,
+// acceptation de l'organisateur, règlement (fonds retenus d'abord, virement pour
+// le reste). Il n'est rendu QUE sur un contrat à barème ; la base par pilier
+// reste identique à 2026-07-20, à la note de l'article 3 près (variante barème).
+const TIERED_LABELS_2026_09_21: CollabTermsLabels = {
+  ...RESP_LABELS_2026_07_20,
+  tieredTitle: { fr: 'Barème sur le chiffre d\'affaires total de la soirée', en: "Tiers on the night's total revenue", es: 'Escala sobre la facturación total de la noche' },
+  tiersRangeCol: { fr: 'Chiffre d\'affaires total (TTC)', en: 'Total revenue (incl. VAT)', es: 'Facturación total (IVA incl.)' },
+  tiersPctCol: { fr: 'Part de l\'Organisateur', en: 'Organizer\'s share', es: 'Parte del Organizador' },
+  tieredModeFlat: { fr: 'Le taux du palier atteint s\'applique à la totalité du chiffre d\'affaires.', en: 'The rate of the tier reached applies to the whole revenue.', es: 'La tasa del tramo alcanzado se aplica a toda la facturación.' },
+  tieredModeMarginal: { fr: 'Chaque tranche est rémunérée à son propre taux (barème progressif).', en: 'Each bracket is paid at its own rate (progressive scale).', es: 'Cada tramo se remunera a su propia tasa (escala progresiva).' },
+};
+
+const SPLIT_NOTE_TIERED_2026_09_21: L = {
+  fr: "Les paiements sont encaissés au nom du Club (vendeur de record, alcool inclus). La rémunération de l'Organisateur n'est pas un pourcentage par vente : elle est calculée UNE fois, après la soirée, en appliquant le barème ci-dessus au chiffre d'affaires total de la soirée, selon l'article « Décompte de soirée et barème ». Pendant la vente, la totalité des billets, tables / VIP et boissons revient au Club ; les boissons lui reviennent en toute hypothèse.",
+  en: "Payments are collected under the Club (seller of record, alcohol included). The Organizer's remuneration is not a percentage per sale: it is computed ONCE, after the event, by applying the tiers above to the night's total revenue, per the article \"Night closing and tiers\". During sales, all tickets, tables / VIP and drinks belong to the Club; drinks belong to the Club in every case.",
+  es: "Los pagos se cobran a nombre del Club (vendedor de registro, alcohol incluido). La remuneración del Organizador no es un porcentaje por venta: se calcula UNA vez, tras el evento, aplicando la escala anterior a la facturación total de la noche, según el artículo «Cierre de noche y escala». Durante la venta, todas las entradas, mesas / VIP y bebidas corresponden al Club; las bebidas le corresponden en todo caso.",
+};
+
+const NIGHT_CLOSING_ARTICLE_2026_09_21: TermsArticle = {
+  num: 0, // renuméroté à l'insertion
+  kind: 'night_closing',
+  title: { fr: 'Décompte de soirée et barème', en: 'Night closing and tiers', es: 'Cierre de noche y escala' },
+  intro: {
+    fr: "Le présent article s'applique lorsque la rémunération de l'Organisateur est fixée par un barème sur le chiffre d'affaires total de la soirée (article 3). Il prévaut, pour les billets et les tables / VIP, sur les délais de versement de l'article 4.",
+    en: "This article applies when the Organizer's remuneration is set by tiers on the night's total revenue (Article 3). For tickets and tables / VIP, it prevails over the payout timing of Article 4.",
+    es: "Este artículo se aplica cuando la remuneración del Organizador se fija mediante una escala sobre la facturación total de la noche (artículo 3). Para entradas y mesas / VIP, prevalece sobre los plazos de abono del artículo 4.",
+  },
+  clauses: [
+    {
+      term: { fr: 'Assiette', en: 'Base', es: 'Base' },
+      body: {
+        fr: "Le chiffre d'affaires total de la soirée est la somme, TTC et hors frais de service Yuno, (a) des billets, tables / VIP et boissons vendus via Yuno pour la soirée, remboursements déduits, et (b) du chiffre déclaré par le Club pour ce qui n'a pas transité par Yuno : recettes du bar encaissées en caisse, billets vendus à la porte, consommations des tables au-delà des formules réservées, et tout autre poste expressément libellé dans la déclaration.",
+        en: "The night's total revenue is the sum, incl. VAT and excl. Yuno service fees, of (a) tickets, tables / VIP and drinks sold through Yuno for the event, refunds deducted, and (b) the revenue declared by the Club for what did not go through Yuno: bar takings collected at the till, tickets sold at the door, table spend beyond the booked packages, and any other item expressly labelled in the declaration.",
+        es: "La facturación total de la noche es la suma, IVA incluido y sin comisiones de servicio Yuno, de (a) entradas, mesas / VIP y bebidas vendidas a través de Yuno para el evento, reembolsos deducidos, y (b) la facturación declarada por el Club por lo que no pasó por Yuno: ingresos de barra cobrados en caja, entradas vendidas en puerta, consumo de mesas más allá de los paquetes reservados y cualquier otro concepto expresamente etiquetado en la declaración.",
+      },
+    },
+    {
+      term: { fr: 'Barème', en: 'Tiers', es: 'Escala' },
+      body: {
+        fr: "Le taux applicable est celui du palier dont le seuil est atteint ou dépassé par le chiffre d'affaires total. Selon le mode indiqué à l'article 3, ce taux s'applique à la totalité du chiffre d'affaires, ou chaque tranche est rémunérée à son propre taux. Le montant qui en résulte est la rémunération due par le Club à l'Organisateur pour la soirée ; elle est arrondie au centime.",
+        en: "The applicable rate is that of the tier whose threshold is reached or exceeded by the total revenue. Depending on the mode stated in Article 3, that rate applies to the whole revenue, or each bracket is paid at its own rate. The resulting amount is the remuneration owed by the Club to the Organizer for the event, rounded to the cent.",
+        es: "La tasa aplicable es la del tramo cuyo umbral es alcanzado o superado por la facturación total. Según el modo indicado en el artículo 3, esa tasa se aplica a toda la facturación, o cada tramo se remunera a su propia tasa. El importe resultante es la remuneración debida por el Club al Organizador por la noche, redondeada al céntimo.",
+      },
+    },
+    {
+      term: { fr: 'Retenue des ventes Yuno', en: 'Hold on Yuno sales', es: 'Retención de las ventas Yuno' },
+      body: {
+        fr: "Les billets et tables / VIP vendus via Yuno sont encaissés au nom du Club et conservés sur le solde Stripe de la plateforme jusqu'à l'acceptation du décompte. Aucune des parties n'en dispose avant. Les boissons commandées via Yuno sont créditées au Club à chaque vente.",
+        en: "Tickets and tables / VIP sold through Yuno are collected under the Club and kept on the platform's Stripe balance until the closing is accepted. Neither party has access to them before. Drinks ordered through Yuno are credited to the Club on each sale.",
+        es: "Las entradas y mesas / VIP vendidas a través de Yuno se cobran a nombre del Club y se conservan en el saldo de Stripe de la plataforma hasta la aceptación del cierre. Ninguna de las partes dispone de ellas antes. Las bebidas pedidas a través de Yuno se abonan al Club en cada venta.",
+      },
+    },
+    {
+      term: { fr: 'Déclaration et acceptation', en: 'Declaration and acceptance', es: 'Declaración y aceptación' },
+      body: {
+        fr: "Après la fin de la soirée, le Club déclare dans Yuno le chiffre non transité par Yuno, avec la référence de sa clôture de caisse. L'Organisateur dispose des mêmes chiffres et les accepte ou les conteste. En cas de contestation, le Club corrige et renvoie sa déclaration ; rien n'est réparti tant que l'Organisateur n'a pas accepté. Les chiffres acceptés sont figés, horodatés, et font foi entre les parties.",
+        en: "After the event ends, the Club declares in Yuno the revenue that did not go through Yuno, with the reference of its till closing. The Organizer sees the same figures and accepts or disputes them. If disputed, the Club corrects and resends its declaration; nothing is split until the Organizer has accepted. Accepted figures are frozen, timestamped, and binding between the parties.",
+        es: "Tras el final de la noche, el Club declara en Yuno la facturación que no pasó por Yuno, con la referencia de su cierre de caja. El Organizador dispone de las mismas cifras y las acepta o impugna. En caso de impugnación, el Club corrige y reenvía su declaración; nada se reparte hasta que el Organizador acepte. Las cifras aceptadas quedan fijadas, con marca de tiempo, y son vinculantes entre las partes.",
+      },
+    },
+    {
+      term: { fr: 'Règlement', en: 'Settlement', es: 'Liquidación' },
+      body: {
+        fr: "À l'acceptation, la rémunération de l'Organisateur est prélevée en priorité sur les fonds retenus et virée sur son compte Stripe ; le solde des fonds retenus est viré au Club. Si la rémunération excède les fonds retenus, le Club vire le reste à l'Organisateur par virement bancaire, en reportant la référence fournie par Yuno, et l'Organisateur en confirme la réception dans Yuno ; sans confirmation dans le délai indiqué, le règlement est signalé en litige. Si l'Organisateur n'a pas de compte Stripe actif, la totalité de sa rémunération est réglée par virement et les fonds retenus sont libérés au Club.",
+        en: "Upon acceptance, the Organizer's remuneration is taken first from the held funds and transferred to their Stripe account; the balance of the held funds is transferred to the Club. If the remuneration exceeds the held funds, the Club wires the remainder to the Organizer by bank transfer, quoting the reference provided by Yuno, and the Organizer confirms receipt in Yuno; without confirmation within the stated period, the settlement is flagged as disputed. If the Organizer has no active Stripe account, their whole remuneration is settled by bank transfer and the held funds are released to the Club.",
+        es: "En la aceptación, la remuneración del Organizador se toma primero de los fondos retenidos y se transfiere a su cuenta de Stripe; el saldo de los fondos retenidos se transfiere al Club. Si la remuneración supera los fondos retenidos, el Club transfiere el resto al Organizador por transferencia bancaria, indicando la referencia facilitada por Yuno, y el Organizador confirma la recepción en Yuno; sin confirmación en el plazo indicado, la liquidación se marca como litigio. Si el Organizador no tiene una cuenta de Stripe activa, toda su remuneración se liquida por transferencia y los fondos retenidos se liberan al Club.",
+      },
+    },
+    {
+      term: { fr: 'Remboursements', en: 'Refunds', es: 'Reembolsos' },
+      body: {
+        fr: "Un remboursement intervenu avant l'acceptation réduit d'autant les fonds retenus et le chiffre Yuno pris en compte. Après l'acceptation, les remboursements et rétrofacturations suivent l'article 5, au prorata des montants effectivement perçus par chaque partie sur la vente concernée.",
+        en: "A refund made before acceptance reduces the held funds and the Yuno revenue taken into account accordingly. After acceptance, refunds and chargebacks follow Article 5, pro-rata to the amounts actually received by each party on the sale concerned.",
+        es: "Un reembolso realizado antes de la aceptación reduce en la misma medida los fondos retenidos y la facturación Yuno considerada. Tras la aceptación, los reembolsos y contracargos siguen el artículo 5, a prorrata de los importes efectivamente percibidos por cada parte en la venta afectada.",
+      },
+    },
+  ],
+};
+
+// L'article « Décompte » se lit juste après la répartition des responsabilités.
+const ARTICLES_2026_09_21: TermsArticle[] = (() => {
+  const out: TermsArticle[] = [];
+  for (const a of ARTICLES_2026_07_20) {
+    out.push(a.kind === 'split' ? { ...a, noteTiered: SPLIT_NOTE_TIERED_2026_09_21 } : a);
+    if (a.kind === 'responsibilities') out.push(NIGHT_CLOSING_ARTICLE_2026_09_21);
+  }
+  return out.map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle);
+})();
+
+const TERMS_2026_09_21: CollabTerms = {
+  version: '2026-09-21',
+  articles: ARTICLES_2026_09_21,
+  labels: TIERED_LABELS_2026_09_21,
+  recurringArticle: RECURRING_ARTICLE_2026_06_27,
+};
+
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-24': TERMS_2026_06_24,
@@ -517,19 +632,25 @@ const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-27': TERMS_2026_06_27,
   '2026-06-29': TERMS_2026_06_29,
   '2026-07-20': TERMS_2026_07_20,
+  '2026-09-21': TERMS_2026_09_21,
 };
 
 /**
  * Resolve the terms for a frozen version; unknown / legacy-null falls back to latest.
  * `opts.recurring` inserts the version's recurring-framework article right after "Parties"
  * and renumbers — used for a contrat-cadre and for occurrence contracts derived from one.
+ * `opts.tiered` keeps the « Décompte de soirée » article ; without it (contrat par
+ * pilier) l'article est retiré et la numérotation resserrée — un contrat par pilier
+ * signé sous une version récente rend le même texte qu'avant, sans trou.
  */
-export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean }): CollabTerms {
-  const base = (version && REGISTRY[version]) || TERMS_2026_07_20;
-  if (!opts?.recurring || !base.recurringArticle) return base;
-  const merged = [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
-    .map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle);
-  return { ...base, articles: merged };
+export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean; tiered?: boolean }): CollabTerms {
+  const base = (version && REGISTRY[version]) || TERMS_2026_09_21;
+  const withRecurring = opts?.recurring && base.recurringArticle
+    ? [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
+    : base.articles;
+  const filtered = opts?.tiered ? withRecurring : withRecurring.filter((a) => a.kind !== 'night_closing');
+  if (filtered === base.articles) return base;
+  return { ...base, articles: filtered.map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle) };
 }
 
 /** Pick the clause body, honoring the policy- and BDE-dependent alternates when they apply. */

@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { normalizeSplitRules } from './splitRules';
+import { normalizeSplitRules, readRemuneration } from './splitRules';
 import type { CollabContractPDFData } from './generateContractPDF';
 import type { Lang } from './collabContractTerms';
 import type { EventCollabContractRow } from '@/hooks/useEventCollabContract';
@@ -41,6 +41,8 @@ export async function loadCollabContractPdfData(
       drinks: { organizer_pct: 0, venue_pct: 100 },
     },
     cancellationPolicy: contract.cancellation_policy,
+    // Barème sur le CA de la soirée (contrat à décompte). Null = partage par pilier.
+    remuneration: readRemuneration(contract.split_rules),
     // Répartition des responsabilités telle que portée par le contrat. Sur un
     // contrat signé AVANT la version 2026-07-20, termsVersion gèle la version
     // d'origine, qui n'a pas l'article : rien ne s'affiche, et c'est voulu.
@@ -100,6 +102,8 @@ export async function loadCollabSeriesContractPdfData(
       drinks: { organizer_pct: 0, venue_pct: 100 },
     },
     cancellationPolicy: contract.cancellation_policy,
+    // Barème sur le CA de la soirée (contrat à décompte). Null = partage par pilier.
+    remuneration: readRemuneration(contract.split_rules),
     // Répartition des responsabilités telle que portée par le contrat. Sur un
     // contrat signé AVANT la version 2026-07-20, termsVersion gèle la version
     // d'origine, qui n'a pas l'article : rien ne s'affiche, et c'est voulu.

@@ -98,8 +98,9 @@ export function CollabContractTermsDialog({ open, onOpenChange, contract, pdfDat
 
 /** Readable HTML mirror of the PDF — same versioned terms, same order. */
 function ContractTermsView({ data, language }: { data: CollabContractPDFData; language: Lang }) {
-  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring });
+  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration });
   const { labels } = terms;
+  const fmtEur = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
   const t = (l: L) => pickL(language, l);
   const fmtDate = (d?: Date | null) =>
     d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
@@ -143,7 +144,29 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
             </div>
           )}
 
-          {article.kind === 'split' && (
+          {article.kind === 'split' && data.remuneration && (
+            <div className="space-y-1.5">
+              {/* Barème : même rendu que le PDF — on signe les paliers. */}
+              {labels.tieredTitle && <p className="text-xs font-medium text-foreground">{t(labels.tieredTitle)}</p>}
+              <ul className="text-xs text-muted-foreground space-y-0.5">
+                {[...data.remuneration.tiers].sort((a, b) => a.from - b.from).map((tier, i, arr) => {
+                  const next = arr[i + 1];
+                  return (
+                    <li key={i} className="flex justify-between gap-3 tabular-nums">
+                      <span>{next ? `${fmtEur(tier.from)} – ${fmtEur(next.from)}` : `≥ ${fmtEur(tier.from)}`}</span>
+                      <span className="text-foreground">{t(labels.orgShort)} {tier.pct}%</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {(data.remuneration.tiers_mode === 'marginal' ? labels.tieredModeMarginal : labels.tieredModeFlat) && (
+                <p className="text-xs text-muted-foreground">{t((data.remuneration.tiers_mode === 'marginal' ? labels.tieredModeMarginal : labels.tieredModeFlat)!)}</p>
+              )}
+              <p className="text-xs text-muted-foreground">{t(article.noteTiered ?? article.note)}</p>
+            </div>
+          )}
+
+          {article.kind === 'split' && !data.remuneration && (
             <div className="space-y-1.5">
               <ul className="text-xs text-muted-foreground space-y-0.5">
                 {/* Même rendu que le PDF : un pilier hors périmètre est dit tel
@@ -211,7 +234,7 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
             </div>
           )}
 
-          {article.kind === 'static' && (
+          {(article.kind === 'static' || article.kind === 'night_closing') && (
             <div className="space-y-2">
               {article.intro && <p className="text-xs text-muted-foreground">{t(article.intro)}</p>}
               {(article.clauses ?? []).map((c, i) => (
