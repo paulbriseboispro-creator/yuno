@@ -893,3 +893,9 @@
 @media print {
   .no-print { display: none !important; }
 }
+
+/* Vue en direct (Analytics → En direct) : le logo Mapbox reste (conditions
+   d'utilisation) mais s'efface devant les points. */
+.lv-globe .mapboxgl-ctrl-logo { opacity: 0.28; }
+.lv-globe .mapboxgl-ctrl-bottom-right { z-index: 5; }
+.lv-globe .mapboxgl-canvas { outline: none; }

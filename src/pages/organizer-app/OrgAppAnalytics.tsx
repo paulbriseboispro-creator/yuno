@@ -7,6 +7,7 @@ import {
   Loader2, ArrowLeft, ChevronDown, Sofa, Clock,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
   ClipboardList, MousePointerClick,
+  Radio,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -39,6 +40,7 @@ import { AudienceInsights } from '@/components/analytics/AudienceInsights';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { useTabParam } from '@/hooks/useTabParam';
+import { LiveView } from '@/components/live-view/LiveView';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -412,7 +414,12 @@ export default function OrgAppAnalytics() {
 
   const [searchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState<DateRange>('7days');
-  const [mode, setMode] = useTabParam<AnalyticsMode>('global', ['global', 'event']);
+  // `live` = la vue en direct (globe + flux) : un onglet de la page, pas un mode
+  // de données — les hooks d'analytics restent sur « global » pendant qu'elle tourne.
+  const [tab, setTab] = useTabParam<AnalyticsMode | 'live'>('global', ['global', 'event', 'live']);
+  const mode: AnalyticsMode = tab === 'live' ? 'global' : tab;
+  const setMode = setTab as (m: AnalyticsMode | 'live') => void; // identité stable (setter useState)
+  const isLive = tab === 'live';
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // Deep-link: /organizer-app/analytics?event=<id> jumps straight to that night's
@@ -766,14 +773,16 @@ export default function OrgAppAnalytics() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Seg
-              value={mode}
+              value={tab}
               options={[
                 { key: 'global', label: t('owner.an.global'), icon: <Globe className="w-3.5 h-3.5" /> },
                 { key: 'event', label: t('owner.an.event'), icon: <Calendar className="w-3.5 h-3.5" /> },
+                { key: 'live', label: t('owner.an.liveTab'), icon: <Radio className="w-3.5 h-3.5" /> },
               ]}
-              onChange={(k) => { setMode(k as AnalyticsMode); if (k === 'global') setSelectedEventId(null); }}
+              onChange={(k) => { setMode(k as AnalyticsMode | 'live'); if (k === 'global') setSelectedEventId(null); }}
             />
           </div>
+          {!isLive && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
               <div className="flex gap-1 flex-wrap p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
@@ -792,9 +801,12 @@ export default function OrgAppAnalytics() {
               <Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">CSV</span>
             </button>
           </div>
+          )}
         </motion.div>
 
-        {showEventPicker ? (
+        {isLive ? (
+          <LiveView organizerUserId={organizerId} />
+        ) : showEventPicker ? (
           <EventAnalyticsPicker
             organizerUserId={organizerId}
             onSelect={(id) => {
