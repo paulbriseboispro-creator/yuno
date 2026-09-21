@@ -2838,7 +2838,6 @@ const es: Record<string, string> = {
   'auth.noAccount': '¿No tienes cuenta?',
   'auth.back': 'Volver',
   'auth.placeholders.email': 'Correo electrónico',
-  'auth.placeholders.fullName': 'Nombre completo (nombre y apellido)',
   'auth.placeholders.firstName': 'Nombre',
   'auth.placeholders.lastName': 'Apellido',
   'auth.placeholders.password': 'Contraseña',

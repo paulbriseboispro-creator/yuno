@@ -56,7 +56,12 @@ export default function Auth() {
   const { t, language } = useLanguage();
   const [email, setEmail] = useState(inviteEmailParam ?? '');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [fullName, setFullName] = useState(inviteNameParam ?? '');
+  // Prénom et nom sont DEUX champs, côte à côte : un unique « nom complet »
+  // laissait des gens taper leur pseudo, leur prénom seul, ou l'email.
+  // Le préremplissage `?name=` (récap walk-in club) est découpé au premier
+  // espace — le reste part dans le nom, un nom composé reste entier.
+  const [firstName, setFirstName] = useState(() => (inviteNameParam ?? '').trim().split(/\s+/)[0] ?? '');
+  const [lastName, setLastName] = useState(() => (inviteNameParam ?? '').trim().split(/\s+/).slice(1).join(' '));
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(!!inviteToken || !!platformInviteToken || !!affiliateInviteToken || !!affiliateMemberInviteToken || searchParams.get('signup') === 'true');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -347,12 +352,11 @@ export default function Auth() {
         getAuthSchema(t).parse({ email, password });
 
         if (isSignUp) {
-          // We collect the buyer's full name at signup (first token = first name,
-          // the rest = last name). The handle_new_user trigger reads these from
-          // raw_user_meta_data into the profile. City still resolves from GPS in Explore.
-          const trimmedName = fullName.trim();
-          const [firstNamePart, ...lastNameParts] = trimmedName.split(/\s+/);
-          const lastNamePart = lastNameParts.join(' ');
+          // Prénom et nom sont saisis séparément. Le trigger handle_new_user les
+          // relit depuis raw_user_meta_data pour remplir le profil. La ville, elle,
+          // continue de se résoudre au GPS depuis Explore.
+          const firstNamePart = firstName.trim();
+          const lastNamePart = lastName.trim();
 
           const { error } = await supabase.auth.signUp({
             email,
@@ -608,7 +612,10 @@ export default function Auth() {
           {/* Form */}
           <form onSubmit={handleAuth} className="space-y-3">
             {isSignUp && !isReset && !isForgotPassword && (
-              <input type="text" autoComplete="name" placeholder={t('auth.placeholders.fullName')} value={fullName} onChange={(e) => setFullName(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: fullName ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+              <div className="flex gap-2.5">
+                <input type="text" autoComplete="given-name" aria-label={t('auth.placeholders.firstName')} placeholder={t('auth.placeholders.firstName')} value={firstName} onChange={(e) => setFirstName(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, minWidth: 0, flex: 1, borderColor: firstName ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+                <input type="text" autoComplete="family-name" aria-label={t('auth.placeholders.lastName')} placeholder={t('auth.placeholders.lastName')} value={lastName} onChange={(e) => setLastName(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, minWidth: 0, flex: 1, borderColor: lastName ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+              </div>
             )}
 
             {!isReset && (
@@ -738,7 +745,7 @@ export default function Auth() {
                     type="button"
                     disabled={soon || isLoading}
                     onClick={soon ? undefined : () => handleOAuth(provider)}
-                    className={`w-full flex items-center justify-between px-4 transition-colors ${soon ? 'cursor-not-allowed' : 'hover:bg-white/[0.06] active:scale-[0.99]'}`}
+                    className={`w-full flex items-center justify-center px-4 transition-colors ${soon ? 'cursor-not-allowed' : 'hover:bg-white/[0.06] active:scale-[0.99]'}`}
                     style={{
                       height: '44px',
                       borderRadius: '8px',
