@@ -282,6 +282,25 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   sur un événement démo, avec `set_config('request.jwt.claims', …, true)` pour
   jouer chaque rôle. C'est ce test qui a révélé la fonction manquante : plpgsql
   ne résout les appels qu'à l'exécution, `db push` et `db lint` ne les voient pas.
+- **Joué de bout en bout sur la démo le 2026-09-21** (club `womber` × `organizer@womber.fr`,
+  soirée « Goya Thursday », termes Goya en `flat`) : proposition club → avenant
+  barème → double signature → billets, table (acompte) et guest list achetés
+  par des clients démo → porte du videur (liste, doublon) → décompte déclaré,
+  accepté, SEPA déclaré puis confirmé. Le smoke SQL rejouable vit dans
+  `scripts/demo/smoke-night-closing.sql` (DO annulé : 96,68 € retenus → tout à
+  l'orga, reste 549,68 € en SEPA, IBAN exigé). Ce que la démo NE prouve PAS :
+  les checkouts `@womber.fr` sont SIMULÉS (aucune ligne `revenue_distributions`),
+  donc « Sécurisé par Yuno » reste à 0 € et la libération Stripe réelle
+  (`release_held_transfers`) n'a jamais tourné en vrai sur un contrat à barème.
+  Pièges trouvés et corrigés : un club `is_hidden` (démo, ou club pas encore
+  « en ligne ») rendait « Event not found » à TOUT client et « Un club » à
+  l'organisateur (policy `venues` élargie aux comptes démo, `20260921160000`) ;
+  le dialogue « Proposer une soirée » ne savait pas proposer un barème (il
+  porte désormais les conditions financières) ; `useEventNetGain` lisait les
+  jambes Stripe, qui valent 0 pour l'orga en barème — le gain se lit dans
+  `compute_collab_night_closing` (`displayGain` dans `CollabEventDetail`).
+  Une soirée « Tables VIP » d'un collab mené par le club montre les formules du
+  club, pas « 0 zones · 0 packs ».
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
@@ -469,6 +488,43 @@ interprété (JS/HTML/CSS) est livré, jamais du natif.
   bakée dans `dist/assets` (sinon le build échoue). Pour tester le vrai flux
   reviewer : extraire `public/` de l'IPA (artefact Xcode Cloud), le swap dans
   une App.app simulateur, install NEUVE (`simctl uninstall` d'abord).
+
+## Comptes démo — l'agent a la main (2026-09-21)
+
+Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
+`bde@`, et les neuf rôles staff) sont pilotés par l'agent. Outillage et charte :
+`scripts/demo/README.md`. Règles intouchables :
+
+- **Le périmètre démo est la seule chose que cet outillage écrit** : club
+  `womber` + comptes `@womber.fr` + les soirées de l'un ou de l'autre. La prod
+  héberge des clubs réels dans la MÊME base. `scripts/demo/lib.mjs` applique la
+  garde : `rest.post/patch/del` refusent toute requête qui n'est pas épinglée au
+  périmètre par un prédicat explicite. La lecture est libre ; en cas de doute la
+  garde refuse.
+- **`mintSession(email)` ouvre une session sans mot de passe** (lien magique
+  signé en service_role, consommé aussitôt). Elle ne dépend donc ni du secret
+  `DEMO_LOGIN_PASSWORD` ni de l'edge publique `demo-login`. Le `verify` veut
+  `token_hash`, PAS `token` — avec `token`, GoTrue attend l'OTP à 6 chiffres et
+  répond `otp_expired` sur un jeton haché.
+- **`scripts/demo/drive.mjs` pilote le VRAI front connecté** (Chrome par CDP,
+  `WebSocket` natif de Node 22 : ni Playwright ni Puppeteer ici). Il sème la
+  session et les bypass via `Page.addScriptToEvaluateOnNewDocument`, donc le
+  semis survit aux rechargements de la SPA. `ROLES` y est le miroir de
+  `DEMO_ACCOUNTS` (`src/lib/demoSession.ts`) : les faire diverger fait atterrir
+  le pilote sur un écran de garde.
+- **`OnboardingGate` teste la chaîne exacte `'true'`** : poser `'1'` laisse le
+  quiz de goûts recouvrir n'importe quel dashboard pro. Et `#root` reçoit un
+  enfant dès la première frame — une capture prise là est noire. `waitForBoot`
+  attend du texte PUIS la disparition des `.animate-pulse`.
+- **Aucun rôle `admin` sur un compte `@womber.fr`**, aucune donnée réelle
+  importée dessus, **aucun envoi réel** (email, SMS, push) depuis un compte démo.
+  Les 12 315 contacts de `organizer@womber.fr` servent au RENDU des écrans, à
+  rien d'autre (décision du 2026-09-21). Ne pas exécuter
+  `scripts/rotate-demo-password.mjs` : les bundles publiés portent le mot de
+  passe en dur.
+- **`node scripts/demo/audit.mjs` avant de montrer la démo.** Une démo se
+  dégrade seule : les soirées passent, les nouveautés ne sont mises en scène
+  nulle part. Le rapport rend un verdict, pas des compteurs.
 
 ## Git / GitHub (départ propre 2026-06-14)
 
