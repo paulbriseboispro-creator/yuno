@@ -799,3 +799,21 @@ Avant de soumettre un composant redesigné :
 | `src/components/analytics/BehaviorAnalytics.tsx` | Zone Engagement web — StatTile, Heatmap, DeviceBar |
 | `src/components/analytics/AudienceInsights.tsx` | Zone Audience — TierTile, segments RFM, new vs returning |
 | `src/components/OwnerHeader.tsx` | Header pattern avec slot droit |
+
+---
+
+## 13. Page « travail partagé » (co-soirée club ↔ organisateur)
+
+Référence : `src/components/collab/CollabEventDetail.tsx` + `CollabJourney.tsx` (2026-09-21).
+Une page que DEUX entreprises lisent, souvent pour la première fois, sans formation.
+
+| Règle | Pourquoi |
+|---|---|
+| **Feuille de route en tête** : six étapes (proposition → contrat → ventes → soirée → décompte → réglé), l'étape courante en rouge, UNE action dessous | La question numéro un d'un club est « et maintenant, je fais quoi ? ». Quand c'est à l'autre partie d'agir, on l'écrit (« Goya doit signer »), on n'invente pas de bouton |
+| **Trois chiffres, pas cinq** : vendus / CA de la soirée / ma part | Deux montants « à moi » qui diffèrent (brut, net) se lisent comme une erreur |
+| **Deux colonnes sur desktop** (`lg:grid-cols-[minmax(0,1fr)_340px]`) : le travail de la phase à gauche, ce qui accompagne à droite (contrat signé replié, fil partenaire, objectif) | Modèle Polaris « resource details » : le principal occupe les deux tiers ; sur mobile la colonne latérale passe DEVANT (`order-first`) |
+| **L'ordre suit la phase** : après la soirée, le décompte passe devant l'argent et les outils | La page ne se lit pas dans le même ordre le jour de la signature et le lendemain de la soirée |
+| **Une grille (barème, %) se montre UNE fois**, derrière « Voir le détail » une fois signée | Répétée trois fois (bannière, panneau, carte), elle faisait passer la page pour un contrat |
+| **Analyses, bilan, carte du bar : repliés** (`Foldable`) | Vides avant la soirée, longs après (le bilan empile ses onglets sur mobile). Progressive disclosure : résumé → contexte → détail |
+| **Pas de panneau argent tant que le contrat n'est pas signé** | Il retombait sur un défaut 50/50 pendant qu'une proposition 40/60 attendait juste au-dessus |
+| **Couleur = statut seulement** : rouge = à faire, vert = fait, gris = en attente de l'autre | Le reste en typographie et opacité (T1/T2/T3) |

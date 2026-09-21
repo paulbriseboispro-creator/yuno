@@ -301,6 +301,14 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   `compute_collab_night_closing` (`displayGain` dans `CollabEventDetail`).
   Une soirée « Tables VIP » d'un collab mené par le club montre les formules du
   club, pas « 0 zones · 0 packs ».
+- **La page de la co-soirée est une page « travail partagé »** (2026-09-21,
+  `docs/DESIGN_SYSTEM.md` §13) : `CollabJourney` en tête (étape courante + UNE
+  action, ou « X doit … » quand c'est à l'autre partie), trois chiffres, deux
+  colonnes sur desktop (le travail de la phase / le contrat replié + le fil
+  partenaire), analyses et bilan repliés, pas de panneau argent avant la
+  signature. Ajouter une carte = la ranger dans une phase et une colonne, jamais
+  l'empiler en bas ; ajouter une action = la faire porter par la feuille de
+  route, jamais un troisième bouton « signer ».
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
