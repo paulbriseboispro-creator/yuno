@@ -100,6 +100,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   const [responsibilities, setResponsibilities] = useState<unknown>(null);
   // Club de la soirée (hôte ou partenaire). NULL = organisateur seul.
   const [clubId, setClubId] = useState<string | null>(null);
+  // Co-soirée MENÉE PAR LE CLUB : les zones, formules et plan sont ceux du
+  // club (venue-scopés), pas de la soirée. Compter les lignes event-scopées
+  // affichait « 0 zones · 0 packs » à l'organisateur alors que quatre formules
+  // se vendaient — il croyait les tables non configurées.
+  const [clubHosted, setClubHosted] = useState(false);
+  const [clubPacksCount, setClubPacksCount] = useState<number | null>(null);
   // When true, the plan + zones come from the club and are read-only here —
   // the organizer only configures packs/prices on top of the club's layout.
   const [lockedToVenue, setLockedToVenue] = useState(false);
@@ -192,6 +198,18 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       setEventMode(ev?.event_mode ?? null);
       setResponsibilities(ev?.collab_responsibilities ?? null);
       setClubId(ev?.venue_id ?? ev?.partner_venue_id ?? null);
+      setClubHosted(!!ev?.venue_id);
+      if (ev?.venue_id) {
+        const { count } = await supabase
+          .from('table_packs')
+          .select('id', { count: 'exact', head: true })
+          .eq('venue_id', ev.venue_id)
+          .is('event_id', null)
+          .eq('is_active', true);
+        setClubPacksCount(count ?? 0);
+      } else {
+        setClubPacksCount(null);
+      }
       setLockedToVenue(!!ev?.tables_locked_to_venue);
       setZones((zs ?? []) as BasicZone[]);
       setPacks((ps ?? []) as BasicPack[]);
@@ -561,7 +579,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               </h2>
               <p style={{ color: T3, fontSize: 12 }}>
                 {tablesEnabled
-                  ? `${zones.length} ${tt('zones', 'zones', 'zonas')} · ${packs.length} packs · ${planTableCount} ${tt('tables sur le plan', 'tables on the plan', 'mesas en el plano')}`
+                  ? (clubHosted && zones.length === 0 && packs.length === 0
+                    ? `${clubPacksCount ?? '…'} ${tt('formules du club', 'club packages', 'paquetes del club')} · ${tt('zones et plan de salle gérés par le club', 'zones and floor plan managed by the club', 'zonas y plano gestionados por el club')}`
+                    : `${zones.length} ${tt('zones', 'zones', 'zonas')} · ${packs.length} packs · ${planTableCount} ${tt('tables sur le plan', 'tables on the plan', 'mesas en el plano')}`)
                   : tt('Activez la vente pour configurer zones, packs et plan de salle.', 'Enable sales to configure zones, packs and floor plan.', 'Activa la venta para configurar zonas, packs y plano.')}
               </p>
             </div>

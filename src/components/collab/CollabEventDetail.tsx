@@ -3,7 +3,7 @@ import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabPreviewDialog } from './CollabPreviewDialog';
 import { GuestListRequestAlert } from '@/components/owner/guest-list/GuestListRequestAlert';
 import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialog';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
@@ -22,6 +22,7 @@ import { useEventCollabContract } from '@/hooks/useEventCollabContract';
 import { useEventNetGain } from '@/hooks/useEventNetGain';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
+import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { CollabSignFooter } from '@/components/collab/CollabSignFooter';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
@@ -45,7 +46,8 @@ import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
-import { normalizeSplitRules } from '@/lib/splitRules';
+import { isTieredRules, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
+import { computeNightClosing, type ClosingComputeResult } from '@/lib/collabNightClosing';
 import {
   OrgPage, OrgCard, OrgPill, OrgButton,
   RED, T1, T2, T3, BORDER, INNER_BG,
@@ -144,12 +146,52 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // Verrouiller n'est pas aveugler : on ouvre l'outil, mais en preview.
   const [previewDomain, setPreviewDomain] = useState<CollabDomain | null>(null);
   const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, viewerRole);
+  // La double signature réécrit events.revenue_split_rules côté serveur : sans
+  // recharger la soirée, le panneau Argent continue d'afficher le partage par
+  // défaut (50/50 billets) jusqu'au prochain rechargement de page.
+  const prevContractStatus = useRef(contractStatus);
+  useEffect(() => {
+    if (prevContractStatus.current !== contractStatus && contractStatus === 'active') setRefreshKey((k) => k + 1);
+    prevContractStatus.current = contractStatus;
+  }, [contractStatus]);
 
   const scopeId = isVenue ? myVenue?.id : user?.id;
   const gainScope = isVenue
     ? { kind: 'venue' as const, venueId: myVenue?.id || '' }
     : { kind: 'organizer' as const, organizerUserId: user?.id || '' };
   const netGain = useEventNetGain(scopeId ? eventId ?? null : null, gainScope);
+
+  // Contrat à BARÈME : pendant la vente, tout est retenu au nom du club et la
+  // jambe organisateur vaut 0 dans revenue_distributions — lire le gain là
+  // affichait au club son net entier « déjà versé » et à l'organisateur le
+  // net du CLUB comme « mon gain ». Le gain se lit dans la projection du
+  // décompte : dû = barème(total) côté organisateur, net Yuno − dû côté club,
+  // et rien n'est « versé » avant l'acceptation.
+  const tieredContract = isTieredRules(event?.revenue_split_rules);
+  const [closingProjection, setClosingProjection] = useState<ClosingComputeResult | null>(null);
+  useEffect(() => {
+    if (!eventId || !tieredContract || !scopeId) { setClosingProjection(null); return; }
+    let active = true;
+    computeNightClosing(eventId)
+      .then((r) => { if (active) setClosingProjection(r?.eligible ? r : null); })
+      .catch(() => { if (active) setClosingProjection(null); });
+    return () => { active = false; };
+  }, [eventId, tieredContract, scopeId, refreshKey]);
+  const displayGain = useMemo(() => {
+    const p = closingProjection?.projection;
+    if (!tieredContract || !p) return netGain;
+    const accepted = closingProjection?.closing?.status === 'accepted';
+    if (isVenue) {
+      if (accepted) return netGain;
+      const net = Math.max(0, netGain.netEuros - p.due);
+      // Sans lignes de distribution (fallback), le hook suppose « déjà sur votre
+      // Stripe » : faux en barème, les fonds sont retenus jusqu'au décompte.
+      const paid = netGain.fallbackUsed ? 0 : Math.min(netGain.paidEuros, net);
+      return { ...netGain, netEuros: net, paidEuros: paid, pendingEuros: Math.max(0, net - paid - netGain.failedEuros), releaseAt: null };
+    }
+    const paid = accepted ? netGain.paidEuros : 0;
+    return { ...netGain, netEuros: p.due, paidEuros: paid, pendingEuros: Math.max(0, p.due - paid), failedEuros: accepted ? netGain.failedEuros : 0, releaseAt: null };
+  }, [tieredContract, closingProjection, netGain, isVenue]);
 
   useEffect(() => {
     if (!user || !eventId) return;
@@ -473,7 +515,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
               <StatCard icon={TrendingUp} label={t('Ma part du CA', 'My revenue share', 'Mi parte de ingresos')} value={`${stats.myShare.toFixed(2)} €`}
                 sub={t('Avant frais Stripe', 'Before Stripe fees', 'Antes de comisiones Stripe')} />
               <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins', 'Check-ins')} value={stats.checkins} />
-              <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share', 'Mi ganancia neta')} value={netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
+              <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share', 'Mi ganancia neta')} value={displayGain.loading ? '…' : `${displayGain.netEuros.toFixed(2)} €`}
                 sub={isCollab
                   ? t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share', 'Tras comisiones Stripe y Yuno + parte del socio')
                   : t('Après frais Stripe & Yuno', 'After Stripe & Yuno fees', 'Tras comisiones Stripe y Yuno')} accent />
@@ -490,11 +532,11 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 tables={stats.tablePillar}
                 tableGuests={stats.tableGuests}
                 drinks={stats.drinkPillar}
-                gain={netGain}
+                gain={displayGain}
                 isVenue={isVenue}
               />
             ) : (
-              <PayoutStatusNote gain={netGain} className="-mt-1" />
+              <PayoutStatusNote gain={displayGain} className="-mt-1" />
             )}
 
             {/* Quick access to every tool for this night */}
@@ -988,10 +1030,19 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
 function SplitContractView({ rules, t }: { rules: unknown; t: (fr: string, en: string, es?: string) => string }) {
   const normalized = normalizeSplitRules(rules);
   if (!normalized) return <p style={{ color: T3, fontSize: 13 }}>{t('Aucun contrat.', 'No contract.', 'Sin contrato.')}</p>;
-  const entries = Object.entries(normalized).filter(([, v]) => typeof v === 'object' && v !== null);
+  // Le barème (clé `remuneration`) n'est pas un pilier : il se lit comme une
+  // grille, jamais comme une ligne « Club 0 % · Orga 0 % ».
+  const entries = Object.entries(normalized).filter(([k, v]) => k !== 'remuneration' && typeof v === 'object' && v !== null);
+  const rem = readRemuneration(normalized);
   const catLabel = (k: string) => k === 'tickets' ? t('Billets', 'Tickets', 'Entradas') : k === 'tables' ? t('Tables', 'Tables', 'Mesas') : k === 'drinks' ? t('Boissons', 'Drinks', 'Bebidas') : k.replace(/_/g, ' ');
   return (
     <div className="space-y-2" style={{ fontSize: 13 }}>
+      {rem && (
+        <div className="rounded-lg p-2.5" style={{ background: INNER_BG }}>
+          <p style={{ color: T2 }}>{t('Barème sur le CA total de la soirée', "Tiers on the night's total revenue", 'Escala sobre la facturación total de la noche')}</p>
+          <TiersRecap rem={rem} className="mt-1" />
+        </div>
+      )}
       {entries.map(([key, val]: [string, { venue_pct?: number; organizer_pct?: number; venue?: number; organizer?: number; enabled?: boolean; basis?: string }]) => (
         <div key={key} className="flex items-center justify-between rounded-lg p-2.5" style={{ background: INNER_BG }}>
           <span style={{ color: T2 }}>

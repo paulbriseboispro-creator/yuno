@@ -1041,7 +1041,21 @@ export default function OrderConfirmation() {
                   <span className="font-sans font-medium text-white" style={{ fontSize: '14px' }}>{data.guestCount}</span>
                 </div>
               )}
-              {data.totalPrice != null && (
+              {/* Table réservée avec acompte : le client n'a payé que l'acompte
+                  (+ frais), le reste se règle au club. Afficher « Total payé
+                  300 € » quand 78 € ont été débités fait douter du reçu. */}
+              {data.type === 'table' && !data.onSitePayment && data.unitPrice != null && data.totalPrice != null && data.unitPrice < data.totalPrice ? (
+                <>
+                  <div className="flex justify-between items-center" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.depositPaid')}</span>
+                    <span className="font-display font-bold" style={{ fontSize: '17px', color: '#E8192C', letterSpacing: '-0.01em' }}>{(data.unitPrice + (data.managementFee || 0)).toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between items-center" style={{ padding: '11px 0' }}>
+                    <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.remainingOnSite')}</span>
+                    <span className="font-sans font-medium text-white" style={{ fontSize: '14px' }}>{(data.totalPrice - data.unitPrice).toFixed(2)} €</span>
+                  </div>
+                </>
+              ) : data.totalPrice != null && (
                 <div className="flex justify-between items-center" style={{ padding: '11px 0' }}>
                   <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{data.onSitePayment ? t('confirmation.totalOnSite') : (t('confirmation.total') || 'Total payé')}</span>
                   <span className="font-display font-bold" style={{ fontSize: '17px', color: '#E8192C', letterSpacing: '-0.01em' }}>{data.totalPrice.toFixed(2)} €</span>

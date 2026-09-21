@@ -552,9 +552,9 @@ const NIGHT_CLOSING_ARTICLE_2026_09_21: TermsArticle = {
   kind: 'night_closing',
   title: { fr: 'Décompte de soirée et barème', en: 'Night closing and tiers', es: 'Cierre de noche y escala' },
   intro: {
-    fr: "Le présent article s'applique lorsque la rémunération de l'Organisateur est fixée par un barème sur le chiffre d'affaires total de la soirée (article 3). Il prévaut, pour les billets et les tables / VIP, sur les délais de versement de l'article 4.",
-    en: "This article applies when the Organizer's remuneration is set by tiers on the night's total revenue (Article 3). For tickets and tables / VIP, it prevails over the payout timing of Article 4.",
-    es: "Este artículo se aplica cuando la remuneración del Organizador se fija mediante una escala sobre la facturación total de la noche (artículo 3). Para entradas y mesas / VIP, prevalece sobre los plazos de abono del artículo 4.",
+    fr: "Le présent article s'applique lorsque la rémunération de l'Organisateur est fixée par un barème sur le chiffre d'affaires total de la soirée (article 3). Il prévaut, pour les billets et les tables / VIP, sur les délais de versement de l'article 6.",
+    en: "This article applies when the Organizer's remuneration is set by tiers on the night's total revenue (Article 3). For tickets and tables / VIP, it prevails over the payout timing of Article 6.",
+    es: "Este artículo se aplica cuando la remuneración del Organizador se fija mediante una escala sobre la facturación total de la noche (artículo 3). Para entradas y mesas / VIP, prevalece sobre los plazos de abono del artículo 6.",
   },
   clauses: [
     {
@@ -600,9 +600,9 @@ const NIGHT_CLOSING_ARTICLE_2026_09_21: TermsArticle = {
     {
       term: { fr: 'Remboursements', en: 'Refunds', es: 'Reembolsos' },
       body: {
-        fr: "Un remboursement intervenu avant l'acceptation réduit d'autant les fonds retenus et le chiffre Yuno pris en compte. Après l'acceptation, les remboursements et rétrofacturations suivent l'article 5, au prorata des montants effectivement perçus par chaque partie sur la vente concernée.",
-        en: "A refund made before acceptance reduces the held funds and the Yuno revenue taken into account accordingly. After acceptance, refunds and chargebacks follow Article 5, pro-rata to the amounts actually received by each party on the sale concerned.",
-        es: "Un reembolso realizado antes de la aceptación reduce en la misma medida los fondos retenidos y la facturación Yuno considerada. Tras la aceptación, los reembolsos y contracargos siguen el artículo 5, a prorrata de los importes efectivamente percibidos por cada parte en la venta afectada.",
+        fr: "Un remboursement intervenu avant l'acceptation réduit d'autant les fonds retenus et le chiffre Yuno pris en compte. Après l'acceptation, les remboursements et rétrofacturations suivent l'article 7, au prorata des montants effectivement perçus par chaque partie sur la vente concernée.",
+        en: "A refund made before acceptance reduces the held funds and the Yuno revenue taken into account accordingly. After acceptance, refunds and chargebacks follow Article 7, pro-rata to the amounts actually received by each party on the sale concerned.",
+        es: "Un reembolso realizado antes de la aceptación reduce en la misma medida los fondos retenidos y la facturación Yuno considerada. Tras la aceptación, los reembolsos y contracargos siguen el artículo 7, a prorrata de los importes efectivamente percibidos por cada parte en la venta afectada.",
       },
     },
   ],

@@ -164,9 +164,9 @@ function CollabIbanCard({ userId }: { userId?: string }) {
       </div>
       <p className="mb-3" style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>
         {t(
-          "Utilisé uniquement quand un contrat de collaboration partage les tables sur le total dépensé : le club vous règle le complément de fin de soirée par virement direct. Le club ne voit cet IBAN qu'au moment de régler.",
-          'Used only when a collaboration contract splits tables on total spend: the club settles the end-of-night top-up by direct bank transfer. The club only sees this IBAN when settling.',
-          'Se usa solo cuando un contrato de colaboración reparte las mesas sobre el gasto total: el club le liquida el complemento de fin de noche por transferencia directa. El club solo ve este IBAN al liquidar.',
+          "Utilisé quand un contrat de collaboration vous doit un virement de fin de soirée : barème sur le CA de la soirée (la part qui dépasse les ventes Yuno retenues) ou tables partagées sur le total dépensé. Le club ne voit cet IBAN qu'au moment de régler.",
+          'Used when a collaboration contract owes you an end-of-night bank transfer: tiers on the night\'s revenue (the share beyond the held Yuno sales) or tables split on total spend. The club only sees this IBAN when settling.',
+          'Se usa cuando un contrato de colaboración le debe una transferencia de fin de noche: escala sobre la facturación de la noche (la parte que supera las ventas Yuno retenidas) o mesas repartidas sobre el gasto total. El club solo ve este IBAN al liquidar.',
         )}
       </p>
       <div className="space-y-2">
