@@ -309,6 +309,13 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   signature. Ajouter une carte = la ranger dans une phase et une colonne, jamais
   l'empiler en bas ; ajouter une action = la faire porter par la feuille de
   route, jamais un troisième bouton « signer ».
+- **Un club invité par un organisateur arrive SANS session pro** : après
+  `accept-club-collab-invitation`, recharger la page (`window.location.assign`)
+  vers `/owner/collaborations`, jamais `navigate('/owner')` — la session en
+  mémoire n'a ni le rôle owner ni le club, `OwnerRoute` le renvoyait sur
+  l'accueil public. Tout ce que le club lit sur l'autre partie passe par
+  `organizer_profiles` (public), jamais `profiles` (RLS) ; le dialogue de
+  contrat reçoit `language`, l'email d'invitation la langue choisie par l'orga.
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 

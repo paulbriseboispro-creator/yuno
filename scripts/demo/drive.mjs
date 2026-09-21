@@ -119,7 +119,7 @@ function seedScript({ authKey, session, bypass, lang, hideDemoButton }) {
   const payload = JSON.stringify({ authKey, session, bypass, lang, hideDemoButton });
   return `(() => { try {
     const S = ${payload};
-    localStorage.setItem(S.authKey, JSON.stringify(S.session));
+    if (S.session) localStorage.setItem(S.authKey, JSON.stringify(S.session));
     for (const [k, v] of Object.entries(S.bypass)) localStorage.setItem(k, JSON.stringify(v));
     // Bannière cookies : refus explicite, pour qu'elle ne couvre aucune capture
     // et qu'aucun traceur ne parte depuis une session de test.
@@ -154,15 +154,18 @@ export async function open({
   as = 'owner', email, go, device = 'desktop', lang = 'fr',
   headed = false, showDemoButton = false, port = 9333 + Math.floor(Math.random() * 400),
 } = {}) {
-  const role = ROLES[as];
-  const target = email || role?.email;
-  if (!target) throw new Error(`Rôle inconnu : ${as}. Connus : ${Object.keys(ROLES).join(', ')}`);
-  if (!target.toLowerCase().endsWith(DEMO_EMAIL_DOMAIN)) {
+  // `as: 'anon'` = navigateur VIERGE, sans session : c'est ce que voit un club
+  // qui clique le lien d'invitation reçu par email, ou un visiteur.
+  const anon = as === 'anon';
+  const role = anon ? null : ROLES[as];
+  const target = anon ? null : (email || role?.email);
+  if (!anon && !target) throw new Error(`Rôle inconnu : ${as}. Connus : anon, ${Object.keys(ROLES).join(', ')}`);
+  if (target && !target.toLowerCase().endsWith(DEMO_EMAIL_DOMAIN)) {
     throw new Error(`REFUS : ${target} n'est pas un compte démo.`);
   }
 
-  const session = await mintSession(target);
-  const bypass = await buildBypass(role || {}, session.user.id);
+  const session = anon ? null : await mintSession(target);
+  const bypass = anon ? {} : await buildBypass(role || {}, session.user.id);
   const metrics = DEVICES[device] || DEVICES.desktop;
 
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yuno-demo-chrome-'));
@@ -201,7 +204,7 @@ export async function open({
   });
 
   const page = {
-    cdp, chrome, logs, session, email: target, userDataDir,
+    cdp, chrome, logs, session, email: target ?? 'anon', userDataDir,
 
     async goto(routeOrUrl, { wait = true } = {}) {
       const url = /^https?:/.test(routeOrUrl) ? routeOrUrl : APP_ORIGIN + routeOrUrl;
