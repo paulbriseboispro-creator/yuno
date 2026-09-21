@@ -16,6 +16,12 @@ import { fr } from 'date-fns/locale';
 import { Send, Building2, Users, Sparkles, Clock, Image as ImageIcon, User } from 'lucide-react';
 import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
+  DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
+} from '@/components/collab/TieredRemunerationEditor';
+import { normalizeSplitRules, readRemuneration, tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
+import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { translate } from '@/i18n/orgTranslate';
+import {
   defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
   type CollabResponsibilities,
 } from '@/utils/collabResponsibilities';
@@ -54,12 +60,23 @@ interface Props {
 export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselectedOrganizerId, onCreated }: Props) {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { language } = useLanguage();
+  const tr = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const navigate = useNavigate();
   const { partnerships } = useVenuePartnerships(venueId);
   const activePartners = partnerships.filter((p) => p.status === 'active');
 
   const [organizerId, setOrganizerId] = useState<string>(preselectedOrganizerId || '');
   const [mode, setMode] = useState<CollabMode>('co_event');
+  // Conditions financières. Par défaut : la répartition par pilier convenue
+  // avec ce partenaire (venue_organizer_partnerships.default_split_rules).
+  // Un deal « barème sur le CA de la soirée » (Goya : 0 % sous 3 500 €, 7 %
+  // jusqu'à 5 500 €…) se propose ICI, d'un coup — avant, le club devait
+  // envoyer la proposition au partage par défaut puis la modifier après coup,
+  // et l'organisateur recevait deux contrats successifs.
+  const [remMode, setRemMode] = useState<RemunerationMode>('per_pillar');
+  const [tiered, setTiered] = useState<CollabRemuneration>({ mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
+  const tiersInvalid = remMode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
   // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
   const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
     () => defaultResponsibilities('co_event'));
@@ -71,6 +88,9 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
     const p = activePartners.find(x => x.organizer_user_id === organizerId);
     const raw = (p as { default_responsibilities?: unknown } | undefined)?.default_responsibilities;
     if (raw) setResponsibilities(normalizeResponsibilities(raw, mode));
+    // Un partenariat déjà convenu au barème rouvre l'éditeur sur ce barème.
+    const rem = readRemuneration(p?.default_split_rules);
+    if (rem) { setRemMode('tiered_total'); setTiered(rem); }
   }, [organizerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
@@ -154,6 +174,11 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
         'create_event_collab_contract' as never,
         {
           p_event_id: eventId,
+          // NULL = répartition par défaut du partenariat ; un barème s'envoie
+          // explicitement (blocs pilier à 0/100 club + remuneration).
+          p_split_rules: remMode === 'tiered_total'
+            ? ({ ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } } as PartnershipSplitRules)
+            : null,
           p_cancellation_policy: 'pro_rata_refund',
           p_responsibilities: responsibilities,
         } as never,
@@ -170,11 +195,11 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
       // 3. Tell the organizer a proposal awaits review (email + web push).
       // Best-effort: the contract is the source of truth, so a failed notice
       // never blocks the proposal.
-      try {
-        await supabase.functions.invoke('notify-split-proposal', {
-          body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'venue' },
-        });
-      } catch (e) { console.warn('Propose notify failed:', e); }
+      // Sans attendre : l'edge (email + push) prenait 3 à 4 s pendant lesquelles
+      // le bouton restait sur « Envoi… » alors que la proposition était déjà là.
+      void supabase.functions.invoke('notify-split-proposal', {
+        body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'venue' },
+      }).catch((e) => console.warn('Propose notify failed:', e));
 
       toast.success(t('proposeEvent.sentSuccess'), {
         description: t('proposeEvent.sentSuccessDesc'),
@@ -370,6 +395,35 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
             </RadioGroup>
           </div>
 
+          {/* Conditions financières — le partage par défaut du partenariat, ou
+              un barème sur le CA de la soirée proposé d'un coup. */}
+          <div className="space-y-2">
+            <Label>{tr('Conditions financières', 'Financial terms', 'Condiciones financieras')}</Label>
+            <RemunerationModeSwitch value={remMode} onChange={setRemMode} />
+            {remMode === 'tiered_total' ? (
+              <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
+                <TieredRemunerationEditor value={tiered} onChange={setTiered} />
+                <p className="text-xs text-muted-foreground">
+                  {tr(
+                    'Pendant la vente, tout revient au club et les billets et tables vendus via Yuno sont retenus sur la plateforme. Après la soirée, tu déclares le chiffre hors Yuno (bar, porte, extras), l\'organisateur valide, et Yuno applique le barème.',
+                    'During sales everything goes to the club and tickets and tables sold through Yuno are held on the platform. After the night, you declare the revenue outside Yuno (bar, door, extras), the organizer validates, and Yuno applies the tiers.',
+                    'Durante la venta todo va al club y las entradas y mesas vendidas vía Yuno quedan retenidas en la plataforma. Tras la noche, declaras la facturación fuera de Yuno (barra, puerta, extras), el organizador valida y Yuno aplica la escala.',
+                  )}
+                </p>
+              </div>
+            ) : (() => {
+              const p = activePartners.find((x) => x.organizer_user_id === organizerId);
+              const rules = normalizeSplitRules(p?.default_split_rules);
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {rules
+                    ? `${tr('Répartition convenue avec ce partenaire', 'Split agreed with this partner', 'Reparto acordado con este socio')} : ${tr('billets', 'tickets', 'entradas')} ${rules.tickets.organizer_pct}% ${tr('orga', 'organizer', 'orga')} · tables ${rules.tables.organizer_pct}% ${tr('orga', 'organizer', 'orga')} · ${tr('boissons', 'drinks', 'bebidas')} ${rules.drinks.organizer_pct}% ${tr('orga', 'organizer', 'orga')}. ${tr('Modifiable depuis la page de la soirée avant signature.', 'Editable from the event page before signature.', 'Modificable desde la página del evento antes de firmar.')}`
+                    : tr('Répartition par défaut du partenariat, modifiable depuis la page de la soirée avant signature.', 'Partnership default split, editable from the event page before signature.', 'Reparto por defecto de la colaboración, modificable desde la página del evento antes de firmar.')}
+                </p>
+              );
+            })()}
+          </div>
+
           {/* Qui fait quoi — axe distinct du mode et du partage des revenus.
               C'est ici qu'on dit « le club tient l'operationnel, l'orga tient le
               design », ce que le mode seul ne savait pas exprimer. */}
@@ -389,7 +443,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>{t('common.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={saving || !organizerId || !eventId}>
+          <Button onClick={handleSubmit} disabled={saving || !organizerId || !eventId || tiersInvalid}>
             <Send className="h-4 w-4 mr-2" />
             {saving ? t('proposeEvent.sending') : t('proposeEvent.sendProposal')}
           </Button>
