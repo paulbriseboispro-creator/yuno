@@ -24,11 +24,11 @@ import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
-import { CollabSignFooter } from '@/components/collab/CollabSignFooter';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
 import { CollabMoneyPanel, type PillarStat } from '@/components/collab/CollabMoneyPanel';
 import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
 import { CollabNightClosingCard } from '@/components/collab/CollabNightClosingCard';
+import { CollabJourney } from '@/components/collab/CollabJourney';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMenu';
@@ -145,7 +145,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // Aperçu lecture seule d'un volet qu'on ne tient pas (design / operations).
   // Verrouiller n'est pas aveugler : on ouvre l'outil, mais en preview.
   const [previewDomain, setPreviewDomain] = useState<CollabDomain | null>(null);
-  const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, viewerRole);
+  const { status: contractStatus, isLoading: contractLoading, iSigned, partnerSigned } = useEventCollabContract(eventId, viewerRole);
   // La double signature réécrit events.revenue_split_rules côté serveur : sans
   // recharger la soirée, le panneau Argent continue d'afficher le partage par
   // défaut (50/50 billets) jusqu'au prochain rechargement de page.
@@ -309,6 +309,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const eventLink = event ? publicUrl(`/event/${event.id}`) : '';
   const copyLink = () => { navigator.clipboard.writeText(eventLink); toast.success(t('Lien copié', 'Link copied', 'Enlace copiado')); };
+  const scrollToId = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const fmtWhen = (iso: string) => new Date(iso).toLocaleString(
     language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US',
     { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' },
@@ -423,7 +424,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {canManage && (
+          {canManage && phase !== 'after' && (
             <OrgButton size="sm" variant="secondary" onClick={() => navigate(navTo.live)}>
               <Radio className="h-4 w-4" /> {t('Live', 'Live', 'Live')}
             </OrgButton>
@@ -459,11 +460,37 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           </OrgCard>
         )}
 
-        {/* Contract — kept high for trust + sign action. Co-soirées SEULEMENT :
-            une soirée solo (organisateur seul, lieu hors Yuno) n'a personne
-            avec qui partager — la bannière « Proposer le contrat » y envoyait
-            l'organisateur vers un contrat collab qu'il ne voulait pas. */}
-        {isCollab && <SplitContractBanner eventId={event.id} side={viewerRole} />}
+        {/* La feuille de route : où en est la collab, et quoi faire maintenant.
+            C'est la première chose qu'on lit — un club qui découvre Yuno ne
+            doit pas avoir à deviner l'étape suivante dans quinze cartes. */}
+        {isCollab && (
+          <CollabJourney
+            side={viewerSide}
+            partnerName={isVenue ? (orgName || t("l'organisateur", 'the organizer', 'el organizador')) : (clubName || t('le club', 'the club', 'el club'))}
+            contractStatus={contractStatus}
+            iSigned={iSigned}
+            partnerSigned={partnerSigned}
+            phase={phase}
+            participants={goalParticipants}
+            tiered={tieredContract}
+            closing={closingProjection}
+            gain={displayGain}
+            venueStripeReady={isVenue ? venueStripeReady : null}
+            ticketingLive={ticketingLive}
+            onGoContract={() => scrollToId('collab-contract')}
+            onShare={copyLink}
+            onOpenDoor={() => navigate(navTo.checkin)}
+            onGoClosing={() => scrollToId('collab-closing')}
+            onActivateStripe={() => navigate(isVenue ? '/owner/billing' : '/organizer-app/payments')}
+            onOpenTicketing={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))}
+          />
+        )}
+
+        {/* Contrat pas encore signé : c'est L'action, il reste en pleine largeur.
+            Une fois signé, il descend dans la colonne latérale, replié. */}
+        {isCollab && !contractAccepted && (
+          <div id="collab-contract"><SplitContractBanner eventId={event.id} side={viewerRole} /></div>
+        )}
 
         {/* Une allocation de guest list attend une réponse : on le dit ici, sur la
             page de la soirée, pas seulement dans l'onglet Guest list. */}
@@ -475,7 +502,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         {/* Club sans Stripe : sa part de chaque vente resterait bloquée chez Yuno
             (versement en échec). Avertir AVANT la première vente, avec le lien
             direct vers l'activation — miroir du prompt organisateur plus bas. */}
-        {isVenue && venueStripeReady === false && (
+        {/* Avant la soirée, contrat signé : la feuille de route porte déjà
+            l'action « Activer Stripe » — ne pas la doubler d'une alerte. */}
+        {isVenue && venueStripeReady === false && !(isCollab && contractAccepted && phase === 'before') && (
           <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
             <div className="flex items-start gap-2">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
@@ -498,248 +527,281 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           </div>
         )}
 
-        {/* Communication — synced both sides */}
-        {isCollab && (
-          <CollabMessageThread eventId={event.id} authorRole={viewerRole} venueLabel={clubName} organizerLabel={orgName} />
-        )}
-
         {canManage ? (
           <>
-            {/* Money — shared night revenue, your own share */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              <StatCard icon={Ticket} label={t('Vendus', 'Sold', 'Vendidos')} value={stats.sold} />
+            {/* Trois chiffres, pas cinq : ce qui est vendu, ce que la soirée
+                rapporte, ce qui me revient. « Ma part du CA » (brut) et « Mon
+                gain net » disaient deux montants différents pour la même chose. */}
+            <div className={`grid grid-cols-2 gap-4 ${phase === 'before' ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
+              <StatCard icon={Users} label={phase === 'before' ? t('Attendus', 'Expected', 'Previstos') : t('Participants', 'Guests', 'Asistentes')} value={goalParticipants}
+                sub={`${stats.ticketsSold} ${t('billets', 'tickets', 'entradas')} · ${stats.tableGuests} ${t('en table', 'at tables', 'en mesa')} · ${stats.glEntries} ${t('guest list', 'guest list', 'guest list')}`} />
               <StatCard icon={BarChart3} label={t('CA de la soirée', 'Night revenue', 'Ingresos de la noche')} value={`${stats.caSoiree.toFixed(2)} €`}
                 sub={isVenue
                   ? t('Billets + tables + bar, hors frais Yuno', 'Tickets + tables + bar, excl. Yuno fees', 'Entradas + mesas + bar, sin comisión Yuno')
                   : t('Billets + tables, hors frais Yuno', 'Tickets + tables, excl. Yuno fees', 'Entradas + mesas, sin comisión Yuno')} />
-              <StatCard icon={TrendingUp} label={t('Ma part du CA', 'My revenue share', 'Mi parte de ingresos')} value={`${stats.myShare.toFixed(2)} €`}
-                sub={t('Avant frais Stripe', 'Before Stripe fees', 'Antes de comisiones Stripe')} />
-              <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins', 'Check-ins')} value={stats.checkins} />
-              <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share', 'Mi ganancia neta')} value={displayGain.loading ? '…' : `${displayGain.netEuros.toFixed(2)} €`}
-                sub={isCollab
-                  ? t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share', 'Tras comisiones Stripe y Yuno + parte del socio')
+              {phase !== 'before' && <StatCard icon={ScanLine} label={t('Entrées', 'Check-ins', 'Entradas')} value={stats.checkins} />}
+              {/* En barème, le club ne « touche » pas les ventes Yuno : elles sont
+                  retenues et la part de l'orga se calcule sur TOUTE la soirée (bar
+                  compris) au décompte. Le chiffre juste pour lui est le net Yuno. */}
+              <StatCard icon={Sparkles}
+                label={tieredContract && isVenue ? t('Ventes Yuno nettes', 'Net Yuno sales', 'Ventas Yuno netas') : t('Ma part', 'My share', 'Mi parte')}
+                value={displayGain.loading ? '…' : `${displayGain.netEuros.toFixed(2)} €`}
+                sub={tieredContract
+                  ? (isVenue
+                    ? t('Retenues jusqu\'au décompte, barème sur toute la soirée', 'Held until the closing; tiers apply to the whole night', 'Retenidas hasta el cierre; la escala se aplica a toda la noche')
+                    : t('Estimée au barème, après frais', 'Estimated from the tiers, after fees', 'Estimada según la escala, tras comisiones'))
                   : t('Après frais Stripe & Yuno', 'After Stripe & Yuno fees', 'Tras comisiones Stripe y Yuno')} accent />
             </div>
 
-            {/* L'argent de la soirée — ventes par pilier + où est l'argent + cycle
-                de paiement. Le panneau de confiance des co-soirées : le hold 48 h
-                (revenue_distributions) n'existe que sur les splits partagés, donc
-                les soirées solo gardent la note discrète. */}
-            {isCollab ? (
-              <CollabMoneyPanel
-                event={event}
-                tickets={stats.ticketPillar}
-                tables={stats.tablePillar}
-                tableGuests={stats.tableGuests}
-                drinks={stats.drinkPillar}
-                gain={displayGain}
-                isVenue={isVenue}
-              />
-            ) : (
-              <PayoutStatusNote gain={displayGain} className="-mt-1" />
-            )}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+              {/* Colonne principale : le travail de la phase, dans l'ordre où il se fait. */}
+              <div className="min-w-0 space-y-4">
+                {/* Après la soirée, le décompte passe devant tout le reste. */}
+                {isCollab && phase !== 'before' && (
+                  <div id="collab-closing" className="space-y-4">
 
-            {/* Quick access to every tool for this night */}
-            {isCollab && (
-              <OrgCard>
-                <div className="p-5">
-                  <div className="mb-3 flex items-center gap-2">
-                    <LayoutGrid className="h-4 w-4" style={{ color: RED }} />
-                    <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}</h2>
+                {isCollab && (phase === 'live' || phase === 'after') && (
+                  <CollabTableSettlementCard eventId={event.id} viewerRole={viewerSide} />
+                )}
+                {isCollab && (
+                  <CollabNightClosingCard eventId={event.id} viewerRole={viewerSide} />
+                )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                    {/* Infos & affiche = le domaine `design`. Détenteur → édition ;
-                        non-détenteur → aperçu lecture seule. Verrouiller n'est pas
-                        aveugler : l'outil s'ouvre quand même, juste sans modif. */}
-                    {canEditDesign ? (
-                      isOrganizer
-                        ? <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => setEditOpen(true)} />
-                        : <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => navigate(`/owner/events?edit=${eventId}`)} />
-                    ) : (
-                      <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')}
-                        badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('design')} />
-                    )}
-                    <ToolTile icon={Radio} label={t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
-                    {/* Billetterie = le domaine `operations`. Même logique d'aperçu. */}
-                    {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) ? (
-                      <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
-                        onClick={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
-                    ) : (
-                      <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
-                        badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('operations')} />
-                    )}
-                    <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} onClick={() => navigate(navTo.analytics)} />
-                    <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} onClick={() => navigate(navTo.promoters)} />
-                    <ToolTile icon={Users} label={t('Guest list', 'Guest list', 'Guest list')} onClick={() => navigate(navTo.guestList)} />
-                    <ToolTile icon={ScanLine} label={t('Check-in', 'Check-in', 'Check-in')} onClick={() => navigate(navTo.checkin)} />
-                    <ToolTile icon={Music} label={t('Booking DJ', 'Book DJ', 'Reservar DJ')} onClick={() => navigate(navTo.bookDj)} />
-                    <ToolTile icon={ExternalLink} label={t('Page publique', 'Public page', 'Página pública')} href={eventLink} />
-                  </div>
-                </div>
-              </OrgCard>
-            )}
+                )}
 
-            {/* Organizer-only inline management (ticketing activation + tables + drinks) */}
-            {isOrganizer && (
-              <>
-                <OrgCard>
-                  <div className="p-6">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                      <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing', 'Entradas')}</h2>
-                      {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') && (stripeLoading || canSell) && (
-                        ticketingLive ? (
-                          <OrgButton size="sm" variant="primary" onClick={openTicketing}>
-                            <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing', 'Gestionar entradas')}
-                          </OrgButton>
+                {isCollab && phase === 'live' && (
+                  <Section icon={Radio} title={t('En direct', 'Live now', 'En directo')}
+                    sub={t('Ventes, scans et affluence en temps réel.', 'Sales, scans and crowd in real time.', 'Ventas, escaneos y aforo en tiempo real.')}>
+                    <EventLiveModule eventId={event.id} venueId={clubVenueIdForLive} />
+                  </Section>
+                )}
+                {/* Le bilan complet (score, présence, public, notes) est lourd — sur
+                    mobile il empile ses quatre onglets sur 20 000 px. Replié : le
+                    décompte est le travail, le bilan est la lecture d'après. */}
+                {isCollab && phase === 'after' && (
+                  <Foldable icon={Trophy} title={t('Le verdict', 'The verdict', 'El veredicto')}
+                    sub={t('Score de la soirée, présence, revenu, public — avant répartition.', 'Night score, attendance, revenue, crowd — before the split.', 'Puntuación de la noche, asistencia, ingresos, público, antes del reparto.')}>
+                    <EventPostAnalysisView key={event.id} eventId={event.id}
+                      venueId={isVenue ? (myVenue?.id ?? null) : null}
+                      organizerUserId={isOrganizer ? user?.id : null} />
+                  </Foldable>
+                )}
+
+
+                {/* L'argent de la soirée — ventes par pilier + où est l'argent + cycle
+                    de paiement. Le panneau de confiance des co-soirées : le hold 48 h
+                    (revenue_distributions) n'existe que sur les splits partagés, donc
+                    les soirées solo gardent la note discrète. */}
+                {/* Pas de contrat signé = pas de partage à montrer : le panneau
+                    retombait sur le défaut 50/50 alors qu'une proposition 40/60
+                    attendait une signature juste au-dessus. */}
+                {isCollab && !contractAccepted ? null : isCollab ? (
+                  <CollabMoneyPanel
+                    event={event}
+                    tickets={stats.ticketPillar}
+                    tables={stats.tablePillar}
+                    tableGuests={stats.tableGuests}
+                    drinks={stats.drinkPillar}
+                    gain={displayGain}
+                    isVenue={isVenue}
+                  />
+                ) : (
+                  <PayoutStatusNote gain={displayGain} className="-mt-1" />
+                )}
+
+                {/* Quick access to every tool for this night */}
+                {isCollab && (
+                  <OrgCard>
+                    <div className="p-5">
+                      <div className="mb-3 flex items-center gap-2">
+                        <LayoutGrid className="h-4 w-4" style={{ color: RED }} />
+                        <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}</h2>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                        {/* Infos & affiche = le domaine `design`. Détenteur → édition ;
+                            non-détenteur → aperçu lecture seule. Verrouiller n'est pas
+                            aveugler : l'outil s'ouvre quand même, juste sans modif. */}
+                        {canEditDesign ? (
+                          isOrganizer
+                            ? <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => setEditOpen(true)} />
+                            : <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => navigate(`/owner/events?edit=${eventId}`)} />
                         ) : (
-                          <OrgButton size="sm" variant="primary" onClick={() => setBilletterieOpen(true)}>
-                            <Ticket className="h-4 w-4" />{t('Activer la billetterie', 'Activate ticketing', 'Activar entradas')}
-                          </OrgButton>
-                        )
-                      )}
+                          <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')}
+                            badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('design')} />
+                        )}
+                        <ToolTile icon={Radio} label={t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
+                        {/* Billetterie = le domaine `operations`. Même logique d'aperçu. */}
+                        {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) ? (
+                          <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
+                            onClick={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
+                        ) : (
+                          <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
+                            badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('operations')} />
+                        )}
+                        <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} onClick={() => navigate(navTo.analytics)} />
+                        <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} onClick={() => navigate(navTo.promoters)} />
+                        <ToolTile icon={Users} label={t('Guest list', 'Guest list', 'Guest list')} onClick={() => navigate(navTo.guestList)} />
+                        <ToolTile icon={ScanLine} label={t('Check-in', 'Check-in', 'Check-in')} onClick={() => navigate(navTo.checkin)} />
+                        <ToolTile icon={Music} label={t('Booking DJ', 'Book DJ', 'Reservar DJ')} onClick={() => navigate(navTo.bookDj)} />
+                        <ToolTile icon={ExternalLink} label={t('Page publique', 'Public page', 'Página pública')} href={eventLink} />
+                      </div>
                     </div>
-                    {!canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') ? (
-                      <div className="space-y-3">
-                        <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
-                          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-                          {t(
-                            'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
-                            'For this event the club alone manages ticketing. You focus on marketing and sharing.',
-                            'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
+                  </OrgCard>
+                )}
+
+                {/* Organizer-only inline management (ticketing activation + tables + drinks) */}
+                {isOrganizer && (
+                  <>
+                    <OrgCard>
+                      <div className="p-6">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                          <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing', 'Entradas')}</h2>
+                          {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') && (stripeLoading || canSell) && (
+                            ticketingLive ? (
+                              <OrgButton size="sm" variant="primary" onClick={openTicketing}>
+                                <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing', 'Gestionar entradas')}
+                              </OrgButton>
+                            ) : (
+                              <OrgButton size="sm" variant="primary" onClick={() => setBilletterieOpen(true)}>
+                                <Ticket className="h-4 w-4" />{t('Activer la billetterie', 'Activate ticketing', 'Activar entradas')}
+                              </OrgButton>
+                            )
                           )}
-                        </p>
-                        {/* Verrouiller n'est pas aveugler : celui qui porte le design
-                            doit savoir a quel prix la soiree se vend pour en parler. */}
-                        <CollabOperationsPreview eventId={eventId} kind="ticketing" />
-                      </div>
-                    ) : !stripeLoading && !canSell ? (
-                      <div className="space-y-3 rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
-                          <div className="flex-1">
-                            <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Activez Stripe pour vendre des billets', 'Activate Stripe to sell tickets', 'Activa Stripe para vender entradas')}</p>
-                            <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
-                              {stripeStatus === 'pending'
-                                ? t('Onboarding incomplet — terminez la configuration dans Réglages.', 'Onboarding incomplete — finish configuration in Settings.', 'Onboarding incompleto: termina la configuración en Ajustes.')
-                                : t('Vous devez configurer vos paiements avant de créer des billets.', 'You must configure payments before creating tickets.', 'Debes configurar tus pagos antes de crear entradas.')}
-                            </p>
-                          </div>
                         </div>
-                        <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/payments')}>
-                          <CreditCard className="h-4 w-4" />{t('Configurer les paiements', 'Configure payments', 'Configurar pagos')}
-                        </OrgButton>
+                        {!canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') ? (
+                          <div className="space-y-3">
+                            <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
+                              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                              {t(
+                                'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
+                                'For this event the club alone manages ticketing. You focus on marketing and sharing.',
+                                'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
+                              )}
+                            </p>
+                            {/* Verrouiller n'est pas aveugler : celui qui porte le design
+                                doit savoir a quel prix la soiree se vend pour en parler. */}
+                            <CollabOperationsPreview eventId={eventId} kind="ticketing" />
+                          </div>
+                        ) : !stripeLoading && !canSell ? (
+                          <div className="space-y-3 rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
+                              <div className="flex-1">
+                                <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Activez Stripe pour vendre des billets', 'Activate Stripe to sell tickets', 'Activa Stripe para vender entradas')}</p>
+                                <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
+                                  {stripeStatus === 'pending'
+                                    ? t('Onboarding incomplet — terminez la configuration dans Réglages.', 'Onboarding incomplete — finish configuration in Settings.', 'Onboarding incompleto: termina la configuración en Ajustes.')
+                                    : t('Vous devez configurer vos paiements avant de créer des billets.', 'You must configure payments before creating tickets.', 'Debes configurar tus pagos antes de crear entradas.')}
+                                </p>
+                              </div>
+                            </div>
+                            <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/payments')}>
+                              <CreditCard className="h-4 w-4" />{t('Configurer les paiements', 'Configure payments', 'Configurar pagos')}
+                            </OrgButton>
+                          </div>
+                        ) : (
+                          <p style={{ color: T3, fontSize: 13 }}>
+                            {t('Configurez vos tarifs, palliers de prix, présale et liste privée depuis la page Billetterie unifiée.',
+                               'Configure your tiers, price rounds, presale and private list from the unified Ticketing page.',
+                               'Configura tus tarifas, tramos de precio, preventa y lista privada desde la página de Entradas unificada.')}
+                          </p>
+                        )}
                       </div>
-                    ) : (
-                      <p style={{ color: T3, fontSize: 13 }}>
-                        {t('Configurez vos tarifs, palliers de prix, présale et liste privée depuis la page Billetterie unifiée.',
-                           'Configure your tiers, price rounds, presale and private list from the unified Ticketing page.',
-                           'Configura tus tarifas, tramos de precio, preventa y lista privada desde la página de Entradas unificada.')}
-                      </p>
+                    </OrgCard>
+
+                    {/* Résumé seulement : l'atelier (zones, packs, plan) vit sur
+                        /organizer-app/tables, le service du soir sur /organizer-app/vip-service. */}
+                    {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
+                    {/* La carte du bar est celle du club, 100 % club : elle se
+                        consulte, elle ne se gère pas d'ici. Repliée, sinon dix-sept
+                        boissons occupaient la moitié de la page de l'organisateur. */}
+                    <Foldable icon={Wine} title={t('Carte du bar', 'Drinks menu', 'Carta del bar')}
+                      sub={t('Servie par le club — la totalité des ventes boissons lui revient.', 'Served by the club — all drinks revenue goes to the club.', 'Servida por el club: todas las ventas de bebidas van al club.')}>
+                      <OrgEventDrinksMenu eventId={event.id} />
+                    </Foldable>
+                  </>
+                )}
+
+
+                {/* Les analyses se lisent après la soirée ; avant, elles sont vides
+                    ou prématurées. Repliées jusque-là, ouvertes ensuite. */}
+                {isCollab && (
+                  <Foldable icon={TrendingUp} title={t('Analyse de la soirée', 'Night analysis', 'Análisis de la noche')}
+                    sub={t('Qui est venu, audience partagée, sources des ventes.', 'Who came, shared audience, sales sources.', 'Quién vino, audiencia compartida, fuentes de ventas.')}
+                    defaultOpen={false}>
+                    <div className="space-y-6">
+
+                    {isCollab && scopeId && (
+                      <Section icon={UsersRound} title={t('Qui est venu', 'Who showed up', 'Quién vino')}
+                        sub={t('Âge, sexe et villes du public — agrégé et anonyme.', "The crowd's age, gender and cities — aggregated and anonymous.", 'Edad, sexo y ciudades del público, agregado y anónimo.')}>
+                        <EventAudienceDemographics scope={{ kind: viewerRole === 'venue' ? 'venue' : 'organizer', id: scopeId }} eventId={event.id} />
+                      </Section>
                     )}
-                  </div>
-                </OrgCard>
 
-                {/* Résumé seulement : l'atelier (zones, packs, plan) vit sur
-                    /organizer-app/tables, le service du soir sur /organizer-app/vip-service. */}
-                {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
-                <OrgEventDrinksMenu eventId={event.id} />
-              </>
-            )}
+                    {isCollab && (
+                      <Section icon={Users} title={t('Audience partagée', 'Shared audience', 'Audiencia compartida')}
+                        sub={t('Les abonnés communs aux deux parties et l\'audience net-new que la collab débloque.', 'Subscribers shared by both sides and the net-new audience this collab unlocks.', 'Suscriptores comunes y la audiencia nueva que desbloquea la colaboración.')}>
+                        <CollabAudienceOverlap eventId={event.id} />
+                      </Section>
+                    )}
 
-            {/* ── Shared transparency block — identical info both sides ───────── */}
-            {isCollab && (
-              <Section icon={Target} title={t('Objectif commun', 'Shared goal', 'Objetivo común')}
-                sub={t("La cible que vous visez tous les deux.", 'The target you both rally around.', 'El objetivo que ambos perseguís.')}>
-                <CollabGoal
-                  eventId={event.id}
-                  goalType={event.collab_goal_type}
-                  goalValue={event.collab_goal_value}
-                  ticketsSold={stats.ticketsSold}
-                  revenue={stats.caSoiree}
-                  participants={goalParticipants}
-                  canEdit={canEditGoal}
-                  onSaved={(gt, gv) => setEvent((prev) => (prev ? { ...prev, collab_goal_type: gt, collab_goal_value: gv } : prev))}
-                />
-              </Section>
-            )}
+                    {/* Proof — acquisition sources + the revenue split */}
+                    <Section icon={TrendingUp} title={t('La soirée en preuve', 'The night, proven', 'La noche, en pruebas')}
+                      sub={t("D'où viennent les ventes et comment le revenu se partage.", 'Where the sales come from and how revenue splits.', 'De dónde vienen las ventas y cómo se reparte el ingreso.')}>
+                      <OrgCard><div className="p-5"><PurchaseSourceBreakdown eventId={event.id} /></div></OrgCard>
+                    </Section>
 
-            {isCollab && scopeId && (
-              <Section icon={UsersRound} title={t('Qui est venu', 'Who showed up', 'Quién vino')}
-                sub={t('Âge, sexe et villes du public — agrégé et anonyme.', "The crowd's age, gender and cities — aggregated and anonymous.", 'Edad, sexo y ciudades del público, agregado y anónimo.')}>
-                <EventAudienceDemographics scope={{ kind: viewerRole === 'venue' ? 'venue' : 'organizer', id: scopeId }} eventId={event.id} />
-              </Section>
-            )}
-
-            {isCollab && (
-              <Section icon={Users} title={t('Audience partagée', 'Shared audience', 'Audiencia compartida')}
-                sub={t('Les abonnés communs aux deux parties et l\'audience net-new que la collab débloque.', 'Subscribers shared by both sides and the net-new audience this collab unlocks.', 'Suscriptores comunes y la audiencia nueva que desbloquea la colaboración.')}>
-                <CollabAudienceOverlap eventId={event.id} />
-              </Section>
-            )}
-
-            {isCollab && phase === 'live' && (
-              <Section icon={Radio} title={t('En direct', 'Live now', 'En directo')}
-                sub={t('Ventes, scans et affluence en temps réel.', 'Sales, scans and crowd in real time.', 'Ventas, escaneos y aforo en tiempo real.')}>
-                <EventLiveModule eventId={event.id} venueId={clubVenueIdForLive} />
-              </Section>
-            )}
-            {/* Complément tables (base « total dépensé ») : la carte se tait
-                d'elle-même si le contrat partage sur l'acompte seul. */}
-            {isCollab && (phase === 'live' || phase === 'after') && (
-              <CollabTableSettlementCard eventId={event.id} viewerRole={viewerSide} />
-            )}
-            {/* Décompte de soirée (contrat à BARÈME sur le CA) : la carte se tait
-                d'elle-même si le contrat partage par pilier. Montée à toutes les
-                phases : avant, elle explique la retenue ; après, elle porte la
-                déclaration du club et la validation de l'organisateur. */}
-            {isCollab && (
-              <CollabNightClosingCard eventId={event.id} viewerRole={viewerSide} />
-            )}
-
-            {isCollab && phase === 'after' && (
-              <Section icon={Trophy} title={t('Le verdict', 'The verdict', 'El veredicto')}
-                sub={t(
-                  'Cette soirée a-t-elle été un succès ? Chiffres de la soirée entière, avant répartition entre partenaires.',
-                  'Was this night a success? Whole-night figures, before the partner split.',
-                  '¿Fue un éxito esta noche? Cifras de la noche completa, antes del reparto entre socios.',
-                )}>
-                <EventPostAnalysisView key={event.id} eventId={event.id}
-                  venueId={isVenue ? (myVenue?.id ?? null) : null}
-                  organizerUserId={isOrganizer ? user?.id : null} />
-              </Section>
-            )}
-
-            {/* Proof — acquisition sources + the revenue split */}
-            <Section icon={TrendingUp} title={t('La soirée en preuve', 'The night, proven', 'La noche, en pruebas')}
-              sub={t("D'où viennent les ventes et comment le revenu se partage.", 'Where the sales come from and how revenue splits.', 'De dónde vienen las ventas y cómo se reparte el ingreso.')}>
-              <OrgCard><div className="p-5"><PurchaseSourceBreakdown eventId={event.id} /></div></OrgCard>
-              {event.revenue_split_rules && (
-                <OrgCard>
-                  <div className="p-5">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Euro className="h-4 w-4" style={{ color: RED }} />
-                      <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('Contrat de partage', 'Revenue split contract', 'Contrato de reparto')}</h3>
                     </div>
-                    <SplitContractView rules={event.revenue_split_rules} t={t} />
-                  </div>
-                </OrgCard>
-              )}
-            </Section>
+                  </Foldable>
+                )}
 
-            {/* Details — every operational table behind one drawer */}
-            {isCollab && (
-              <DetailsDrawer
-                eventId={event.id}
-                isVenue={isVenue}
-                guestReadOnly={!holdsOperations}
-                focus={focusTab}
-                t={t}
-              />
-            )}
+                {/* Details — every operational table behind one drawer */}
+                {isCollab && (
+                  <DetailsDrawer
+                    eventId={event.id}
+                    isVenue={isVenue}
+                    guestReadOnly={!holdsOperations}
+                    focus={focusTab}
+                    t={t}
+                  />
+                )}
 
-            {/* Conversion close — only clubs on the free collab plan */}
-            {isVenue && isCollab && <CollabConversionClose venueName={myVenue?.name} phase={phase} />}
+                {/* Conversion close — only clubs on the free collab plan */}
+                {isVenue && isCollab && <CollabConversionClose venueName={myVenue?.name} phase={phase} />}
+              </div>
+
+              {/* Colonne latérale : ce qui accompagne sans commander — le contrat
+                  signé (replié), le fil avec le partenaire, l'objectif commun. */}
+              {/* Sur mobile la colonne latérale passe DEVANT : le contrat signé et le fil
+                  partenaire se lisent avant les chiffres, pas après vingt écrans. */}
+              <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-4">
+                {isCollab && contractAccepted && (
+                  <div id="collab-contract"><SplitContractBanner eventId={event.id} side={viewerRole} compact /></div>
+                )}
+                {isCollab && (
+                  <CollabMessageThread eventId={event.id} authorRole={viewerRole} venueLabel={clubName} organizerLabel={orgName} compact />
+                )}
+
+                {isCollab && (
+                  <Section icon={Target} title={t('Objectif commun', 'Shared goal', 'Objetivo común')}
+                    sub={t("La cible que vous visez tous les deux.", 'The target you both rally around.', 'El objetivo que ambos perseguís.')}>
+                    <CollabGoal
+                      eventId={event.id}
+                      goalType={event.collab_goal_type}
+                      goalValue={event.collab_goal_value}
+                      ticketsSold={stats.ticketsSold}
+                      revenue={stats.caSoiree}
+                      participants={goalParticipants}
+                      canEdit={canEditGoal}
+                      onSaved={(gt, gv) => setEvent((prev) => (prev ? { ...prev, collab_goal_type: gt, collab_goal_value: gv } : prev))}
+                    />
+                  </Section>
+                )}
+
+              </aside>
+            </div>
           </>
+
         ) : (
           // Organizer preview (not signed): show poster + details only
           <OrgCard>
@@ -777,15 +839,6 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           </OrgCard>
         )}
 
-        {/* Signer sans remonter : la page est longue, et « Examiner » mène ici. */}
-        {isCollab && (
-          <CollabSignFooter
-            eventId={event.id}
-            side={viewerRole}
-            eventTitle={event.title}
-            onSigned={() => window.location.reload()}
-          />
-        )}
       </div>
 
       {isOrganizer && (
@@ -1026,45 +1079,6 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
   );
 }
 
-/* ── Split contract view — normalized split rules per category ──────────────── */
-function SplitContractView({ rules, t }: { rules: unknown; t: (fr: string, en: string, es?: string) => string }) {
-  const normalized = normalizeSplitRules(rules);
-  if (!normalized) return <p style={{ color: T3, fontSize: 13 }}>{t('Aucun contrat.', 'No contract.', 'Sin contrato.')}</p>;
-  // Le barème (clé `remuneration`) n'est pas un pilier : il se lit comme une
-  // grille, jamais comme une ligne « Club 0 % · Orga 0 % ».
-  const entries = Object.entries(normalized).filter(([k, v]) => k !== 'remuneration' && typeof v === 'object' && v !== null);
-  const rem = readRemuneration(normalized);
-  const catLabel = (k: string) => k === 'tickets' ? t('Billets', 'Tickets', 'Entradas') : k === 'tables' ? t('Tables', 'Tables', 'Mesas') : k === 'drinks' ? t('Boissons', 'Drinks', 'Bebidas') : k.replace(/_/g, ' ');
-  return (
-    <div className="space-y-2" style={{ fontSize: 13 }}>
-      {rem && (
-        <div className="rounded-lg p-2.5" style={{ background: INNER_BG }}>
-          <p style={{ color: T2 }}>{t('Barème sur le CA total de la soirée', "Tiers on the night's total revenue", 'Escala sobre la facturación total de la noche')}</p>
-          <TiersRecap rem={rem} className="mt-1" />
-        </div>
-      )}
-      {entries.map(([key, val]: [string, { venue_pct?: number; organizer_pct?: number; venue?: number; organizer?: number; enabled?: boolean; basis?: string }]) => (
-        <div key={key} className="flex items-center justify-between rounded-lg p-2.5" style={{ background: INNER_BG }}>
-          <span style={{ color: T2 }}>
-            {catLabel(key)}
-            {key === 'tables' && val.enabled !== false && val.basis === 'total_spend' && (
-              <span style={{ color: T3, fontSize: 11 }}> · {t('sur total dépensé', 'on total spend', 'sobre gasto total')}</span>
-            )}
-          </span>
-          {val.enabled === false ? (
-            <span style={{ color: T3, fontSize: 12 }}>{t('Hors du deal — vente bloquée', 'Out of the deal — sales blocked', 'Fuera del acuerdo — venta bloqueada')}</span>
-          ) : (
-            <div className="flex gap-3" style={{ fontSize: 12 }}>
-              <span style={{ color: T3 }}>{t('Club', 'Club', 'Club')} <strong style={{ color: T1 }}>{val.venue_pct ?? val.venue ?? 0}%</strong></span>
-              <span style={{ color: T3 }}>{t('Orga', 'Org', 'Org')} <strong style={{ color: T1 }}>{val.organizer_pct ?? val.organizer ?? 0}%</strong></span>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ── Details drawer — every operational table behind one toggle ─────────────── */
 function DetailsDrawer({ eventId, isVenue, guestReadOnly, focus, t }: { eventId: string; isVenue: boolean; guestReadOnly: boolean; focus?: string | null; t: (fr: string, en: string, es?: string) => string }) {
   const focused = focus && ['guestlist', 'tickets', 'tables', 'invoices'].includes(focus) ? focus : null;
@@ -1115,6 +1129,31 @@ function DetailsDrawer({ eventId, isVenue, guestReadOnly, focus, t }: { eventId:
         </div>
       )}
 
+    </div>
+  );
+}
+
+/* ── Foldable — une section repliée derrière son titre (progressive disclosure) ── */
+function Foldable({ icon: Icon, title, sub, defaultOpen = false, children }: { icon: LucideIcon; title: string; sub?: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => { setOpen(defaultOpen); }, [defaultOpen]);
+  return (
+    <div className="space-y-4">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
+        style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}` }}>
+            <Icon className="h-4 w-4" style={{ color: RED }} />
+          </span>
+          <span className="min-w-0">
+            <span className="block" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{title}</span>
+            {sub && <span className="block truncate" style={{ color: T3, fontSize: 11.5 }}>{sub}</span>}
+          </span>
+        </span>
+        <ChevronDown className={`h-4 w-4 flex-none transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: T3 }} />
+      </button>
+      {open && children}
     </div>
   );
 }

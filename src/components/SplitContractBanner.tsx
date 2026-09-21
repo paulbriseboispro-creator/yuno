@@ -20,6 +20,13 @@ interface Props {
   eventId: string;
   /** Which side the current viewer is. 'organizer' on the org event page, 'venue' on the club page. */
   side?: 'venue' | 'organizer';
+  /**
+   * Contrat signé, dans la colonne latérale : une ligne de résumé, la grille
+   * et la note d'encaissement derrière « Voir le détail ». La page de la
+   * soirée montrait le barème complet trois fois (bannière, panneau Argent,
+   * carte Décompte) ; ici il se lit une fois, à la demande.
+   */
+  compact?: boolean;
 }
 
 /** Reference amounts for the € examples when the event has no priced items yet. */
@@ -36,12 +43,13 @@ const formatEur = (n: number) =>
  * also AMEND the split before a sale locks it — that resets signatures and sends
  * the other party a fresh verification.
  */
-export function SplitContractBanner({ eventId, side }: Props) {
+export function SplitContractBanner({ eventId, side, compact = false }: Props) {
   const { contract, status, iSigned, partnerSigned, isMyTurn, create, sign, cancel, amend } =
     useEventCollabContract(eventId, side);
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [editing, setEditing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [ticketsOrg, setTicketsOrg] = useState(50);
   const [tablesOrg, setTablesOrg] = useState(0);
@@ -346,6 +354,48 @@ export function SplitContractBanner({ eventId, side }: Props) {
   // ── Active / locked ──
   if (status === 'active' || status === 'locked' || status === 'closed') {
     const locked = status === 'locked' || status === 'closed';
+    if (compact && !editing) {
+      const summary = rules.remuneration
+        ? `${t('Barème sur le CA de la soirée', "Tiers on the night's revenue", 'Escala sobre la facturación')} · ${rules.remuneration.tiers.length} ${t('paliers', 'tiers', 'tramos')} · ${rules.remuneration.tiers_mode === 'marginal' ? t('par tranche', 'per bracket', 'por tramo') : t('sur tout le total', 'on the whole total', 'sobre todo el total')}`
+        : `${t('Billets', 'Tickets', 'Entradas')} ${rules.tickets.organizer_pct}% ${t('orga', 'organizer', 'orga')} · Tables ${rules.tables.organizer_pct}% · ${t('Boissons', 'Drinks', 'Bebidas')} ${rules.drinks.organizer_pct}%`;
+      return (
+        <div className={`${card} ${locked ? 'border-border/40 bg-muted/40' : 'border-emerald-500/30 bg-emerald-500/5'} flex flex-col gap-3`}>
+          <div className="flex items-start gap-3">
+            {locked ? <Lock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />}
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground">
+                {locked ? t('Contrat verrouillé', 'Agreement locked', 'Contrato bloqueado') : t('Contrat signé', 'Agreement signed', 'Contrato firmado')}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{summary}</p>
+              {detailsOpen && (
+                <>
+                  {splitRecap(rules)}
+                  {payoutNoteFor(!!rules.remuneration)}
+                  {locked && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {t('Une vente a été enregistrée — la répartition ne peut plus changer.', 'A sale has been recorded — the split can no longer change.', 'Se ha registrado una venta: el reparto ya no puede cambiar.')}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 ml-7">
+            <Button size="sm" variant="outline" onClick={() => setDetailsOpen((v) => !v)}>
+              {detailsOpen ? t('Masquer le détail', 'Hide details', 'Ocultar detalle') : t('Voir le détail', 'See details', 'Ver detalle')}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDownload}>
+              <Download className="h-4 w-4 mr-1.5" /> PDF
+            </Button>
+            {side && !locked && (
+              <Button size="sm" variant="ghost" onClick={() => startEdit(rules)} disabled={amend.isPending}>
+                <Pencil className="h-4 w-4 mr-1.5" /> {t('Modifier', 'Amend', 'Modificar')}
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className={`${card} ${locked ? 'border-border/40 bg-muted/40' : 'border-emerald-500/30 bg-emerald-500/5'} flex flex-col gap-3`}>
         <div className="flex items-start gap-3">

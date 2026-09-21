@@ -25,6 +25,8 @@ interface Props {
   venueLabel?: string;
   /** Display name for messages authored by the organizer side. */
   organizerLabel?: string;
+  /** Colonne latérale : fil plus bas, état vide sur une ligne. */
+  compact?: boolean;
 }
 
 const RED = '#E8192C';
@@ -39,7 +41,7 @@ const BORDER = 'rgba(255,255,255,0.085)';
  * in real time. RLS limits read/write to the co-event's participants — see
  * migration 20260624130000.
  */
-export function CollabMessageThread({ eventId, authorRole, venueLabel, organizerLabel }: Props) {
+export function CollabMessageThread({ eventId, authorRole, venueLabel, organizerLabel, compact = false }: Props) {
   const { user } = useAuth();
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -107,13 +109,13 @@ export function CollabMessageThread({ eventId, authorRole, venueLabel, organizer
         <span className="text-sm font-semibold" style={{ color: T1 }}>{tt('Communication', 'Communication', 'Comunicación')}</span>
       </div>
 
-      <div ref={scrollRef} className="px-4 py-4 space-y-3 overflow-y-auto" style={{ maxHeight: 360, minHeight: 120 }}>
+      <div ref={scrollRef} className={`px-4 space-y-3 overflow-y-auto ${compact ? 'py-3' : 'py-4'}`} style={{ maxHeight: compact ? 240 : 360, minHeight: compact ? 56 : 120 }}>
         {loading ? (
           <p className="text-sm text-center py-6" style={{ color: T3 }}>{tt('Chargement…', 'Loading…', 'Cargando…')}</p>
         ) : messages.length === 0 ? (
-          <div className="text-center py-8">
-            <MessageSquare className="h-8 w-8 mx-auto mb-2" style={{ color: T3 }} />
-            <p className="text-sm" style={{ color: T3 }}>
+          <div className={`text-center ${compact ? 'py-3' : 'py-8'}`}>
+            {!compact && <MessageSquare className="h-8 w-8 mx-auto mb-2" style={{ color: T3 }} />}
+            <p className={compact ? 'text-xs' : 'text-sm'} style={{ color: T3 }}>
               {tt('Démarrez la conversation avec votre partenaire.', 'Start the conversation with your partner.', 'Empieza la conversación con tu socio.')}
             </p>
           </div>
