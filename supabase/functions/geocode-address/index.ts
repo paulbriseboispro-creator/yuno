@@ -35,13 +35,20 @@ serve(async (req) => {
         return new Response(JSON.stringify({ skipped: true, reason: "lookup_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const update: Record<string, unknown> = {};
-      // Seules les colonnes qui EXISTENT sur visitor_sessions (country, region,
-      // city) : country_code / latitude / longitude n'y ont jamais été ajoutées
-      // et faisaient échouer l'UPDATE — 500 « Unknown error » sur chaque
-      // nouvelle session, donc aucun pays jamais enregistré.
+      // country_code / latitude / longitude existent depuis la migration
+      // 20260921150000 (vue en direct) : ce sont les coordonnées qui posent le
+      // visiteur sur le globe. Avant elle, ces colonnes manquaient et faisaient
+      // échouer l'UPDATE entier — ne jamais écrire une colonne absente ici.
       if (geo.country_name) update.country = geo.country_name;
+      if (geo.country_code) update.country_code = String(geo.country_code).toUpperCase().slice(0, 2);
       if (geo.region) update.region = geo.region;
       if (geo.city) update.city = geo.city;
+      const lat = Number(geo.latitude);
+      const lng = Number(geo.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+        update.latitude = lat;
+        update.longitude = lng;
+      }
       if (Object.keys(update).length === 0) {
         return new Response(JSON.stringify({ skipped: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
