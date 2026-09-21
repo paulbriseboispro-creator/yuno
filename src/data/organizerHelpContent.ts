@@ -386,6 +386,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.team.s2h', bodyKey: 'ohelp.org.team.s2b', screenshotUrl: '/help/org-team.webp' },
           { headingKey: 'ohelp.org.team.s3h', bodyKey: 'ohelp.org.team.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.team.s4h', bodyKey: 'ohelp.org.team.s4b', type: 'tip' },
+          { headingKey: 'ohelp.org.team.s5h', bodyKey: 'ohelp.org.team.s5b' },
         ],
       },
       {

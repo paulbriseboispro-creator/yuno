@@ -283,6 +283,52 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   jouer chaque rôle. C'est ce test qui a révélé la fonction manquante : plpgsql
   ne résout les appels qu'à l'exécution, `db push` et `db lint` ne les voient pas.
 
+## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
+
+Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
+(`sync_event_slug` en SECURITY DEFINER). Trois rôles : `admin`, `editor`,
+`scanner` (`org_members`). Règles intouchables :
+
+- **`useActingOrganizer()` est la porte unique du scope.** Toute page de
+  `/organizer-app` lit `organizerId` là, JAMAIS `useAuth().user.id` : le
+  fondateur travaille chez lui, un membre d'équipe travaille chez quelqu'un
+  d'autre, et les deux ouvrent le même écran. Ce qui reste attaché à la
+  PERSONNE garde `user.id` : son profil, `entry_scanned_by`, le préfixe de ses
+  fichiers dans le Storage. `useVenueContext` en mode `organizer` rend ce même
+  `organizerId` — c'est par lui que toutes les pages partagées avec le club
+  (soirées, billetterie, commandes, DJ, guest list) suivent le bon scope.
+- **Les droits affichés MIROITENT ce que la base accorde**, jamais plus :
+  `capabilitiesFor()` est calé sur `is_org_team_member` et
+  `org_member_has_permission`, vérifiés sous RLS rôle par rôle. Un bouton qui
+  mène à un refus serveur est pire que pas de bouton. D'où : l'identité de
+  l'organisation (profil public, réglages, équipe, paiements, Stripe, IBAN,
+  guide de configuration) reste au fondateur — `org_members` n'accepte
+  d'écriture que de `organizer_user_id = auth.uid()`, un admin d'équipe n'y
+  peut rien. Le staff OPÉRATIONNEL, lui, accepte un admin d'équipe
+  (`invite-staff` vérifie `is_org_team_member(…, 'admin')`).
+- **La barre latérale filtre par CHEMIN** (`PATH_CAPABILITY` dans
+  `org-sidebar.tsx`), et les routes portent la même exigence
+  (`<OrgAppRoute requires="…">`). Ajouter une page à l'app organisateur oblige
+  à la classer dans les deux — sans quoi elle est visible pour un scanner.
+- **Le lien d'invitation pointe sur `/accept-org-member`** (page
+  `AcceptOrgMember.tsx`, DA PUBLIQUE : la personne sort de sa boîte mail, elle
+  n'est pas encore dans un dashboard). La règle d'acceptation vit dans la RPC
+  `accept_org_member_invitation` (email qui correspond, invitation en attente,
+  non expirée, jamais en session d'accès assisté) ; l'edge `accept-org-member`
+  ne garde que le cas « pas encore de compte Yuno », où elle crée le compte sur
+  l'email INVITÉ et envoie le lien « choisis ton mot de passe ». Un compte créé
+  sur un autre email ne pourrait jamais accepter.
+- **Après acceptation, invalider le cache** (`invalidateOrgMemberships()`) :
+  les appartenances sont tenues en mémoire pour toute la session, sinon la
+  personne arrive dans l'app et se fait renvoyer par une garde qui la croit
+  encore sans organisation.
+- **`event_slug_aliases` n'a aucune policy, et c'est voulu.** Son trigger
+  d'alimentation DOIT rester SECURITY DEFINER : resté INVITER, il se faisait
+  refuser par sa propre table et tout renommage de soirée levait 42501 — pour
+  l'équipe comme pour le fondateur. Ses quatre frères (`sync_venue_slug`,
+  `sync_organizer_slug`, `sync_affiliate_linktree_slug`,
+  `sync_member_linktree_slug`) sont DEFINER depuis toujours.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
