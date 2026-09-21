@@ -329,6 +329,47 @@ Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
   `sync_organizer_slug`, `sync_affiliate_linktree_slug`,
   `sync_member_linktree_slug`) sont DEFINER depuis toujours.
 
+## Vue en direct (« Live View ») — Analytics → En direct (2026-09-21)
+
+Le Live View de Shopify pour Yuno : `/owner/analytics?tab=live` et
+`/organizer-app/analytics?tab=live` (`src/components/live-view/*`, hook
+`useLiveView`, helpers `src/lib/liveView.ts`). Un globe Mapbox (projection
+`globe`, style JSON maison sans étiquette : fond `#0A0A0A`, continents
+`#1B1B1E` depuis `mapbox.country-boundaries-v1`) avec un point rouge par
+visiteur en ce moment, un anneau blanc sur le club, une onde à chaque fait
+nouveau et un arc vers le club pour une vente localisée ; à droite les chiffres
+de l'instant, le comportement des 10 dernières minutes, les villes, les pages
+regardées et le flux ; en bas du globe la carte de release (billets sur 10 / 60
+min, billets par minute, paliers). Surface ÉDITORIALE (DESIGN_SYSTEM_PUBLIC)
+posée dans un dashboard pro, décision produit assumée. Règles :
+
+- **Une seule RPC, `get_live_view(p_venue_id, p_organizer_user_id)`**
+  (migration `20260921150000`), rappelée toutes les 4 s tant que l'onglet est
+  visible ; les changements Realtime sur `tickets` / `table_reservations` /
+  `guest_list_entries` / `orders` ne font que déclencher un rappel immédiat.
+  Aucun chiffre n'est agrégé côté front ; les montants suivent `fees.ts`
+  (total − frais de service − assurance / gestion), les statuts ceux de la compta.
+- **« Visiteur en ce moment » = un battement `live_visitor_pings` < 75 s** ;
+  la localisation vient de `visitor_sessions` (même `session_id`), enrichie
+  par l'edge `geocode-address` qui écrit désormais `country_code` / `latitude`
+  / `longitude`. Une session sans coordonnées est géocodée par le front depuis
+  son nom de ville (cache localStorage `yuno_geo_<ville>`, partagé avec
+  `CityGlobe`). Le tracking étant gaté par le consentement analytics du CMP,
+  seules les visites consenties apparaissent ; les ventes apparaissent toujours.
+- **Le conteneur Mapbox porte `position:absolute` EN INLINE** : la feuille
+  `mapbox-gl.css` pose `position: relative` sur `.mapboxgl-map` et écrase une
+  classe Tailwind `absolute` — le globe sortait avec 0 px de hauteur, canvas
+  noir, aucune erreur console. Et l'option `padding` de `fitBounds` REMPLACE
+  celui de la carte : on lui passe explicitement le padding des superpositions
+  (grand chiffre en haut à gauche, carte release en bas à gauche sur desktop),
+  sinon le recadrage pose les points sous la carte.
+- `owner.an.live` existait déjà (statut « live » en minuscules) : le libellé de
+  l'onglet est `owner.an.liveTab`. Les clés de l'écran sont `lv.*` (×3).
+- Vérification visuelle : pas de Playwright ici — `scratchpad/shoot.mjs`
+  (CDP natif Node 22, session démo injectée dans `sb-<ref>-auth-token`,
+  Chrome `--headless=new --use-angle=swiftshader`) a servi à voir le globe en
+  vrai ; `--dump-dom` ne dit rien d'un canvas WebGL.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
