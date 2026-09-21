@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { fundDjBookingContract, releaseDjBookingBalance, type DjContract } from "../_shared/dj-payout.ts";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isTieredCollab } from "../_shared/payment-split.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -677,16 +678,26 @@ serve(async (req) => {
         // their own account, no platform-held split to protect).
         const REFUND_WINDOW_DAYS = 2;
         let transfersReleaseAt: string | null = null;
+        let heldForNightClosing = false;
         if (needsPrimaryTransfer || needsSecondary) {
           let endIso: string | null = null;
           if (md.event_id) {
             const { data: evRow } = await supabaseClient
-              .from("events").select("end_at, start_at").eq("id", md.event_id).maybeSingle();
+              .from("events").select("end_at, start_at, revenue_split_rules").eq("id", md.event_id).maybeSingle();
             endIso = (evRow?.end_at as string | null) ?? (evRow?.start_at as string | null) ?? null;
+            // Contrat à BARÈME sur le CA de la soirée : billets et tables sont retenus
+            // SANS date. Rien ne part avant que l'organisateur ait accepté le décompte
+            // de fin de soirée (accept_collab_night_closing pose la date et répartit).
+            // Le contrat est verrouillé dès la première vente : les règles lues ici
+            // sont celles qui s'appliquaient au checkout.
+            heldForNightClosing = (itemType === "ticket" || itemType === "table")
+              && isTieredCollab((evRow?.revenue_split_rules as Record<string, unknown> | null) ?? null);
           }
-          const nowMs = Date.now();
-          const baseMs = endIso ? new Date(endIso).getTime() : nowMs;
-          transfersReleaseAt = new Date(Math.max(baseMs, nowMs) + REFUND_WINDOW_DAYS * 86400000).toISOString();
+          if (!heldForNightClosing) {
+            const nowMs = Date.now();
+            const baseMs = endIso ? new Date(endIso).getTime() : nowMs;
+            transfersReleaseAt = new Date(Math.max(baseMs, nowMs) + REFUND_WINDOW_DAYS * 86400000).toISOString();
+          }
         }
 
         // Insert ledger row (idempotent on payment_intent_id)
@@ -732,7 +743,7 @@ serve(async (req) => {
         // released by the 'release_held_transfers' cron task once the refund window has
         // closed and the sale wasn't refunded. See releaseHeldTransfers() below.
         if (needsPrimaryTransfer || needsSecondary) {
-          logStep("Co-event transfers held until release", {
+          logStep(heldForNightClosing ? "Tiered collab: transfers held until night closing" : "Co-event transfers held until release", {
             releaseAt: transfersReleaseAt,
             primaryCents: needsPrimaryTransfer ? primaryAmountCents : 0,
             secondaryCents: needsSecondary ? secondaryAmountCents : 0,

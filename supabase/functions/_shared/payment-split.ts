@@ -108,6 +108,26 @@ export interface SplitResult {
   } | null;
   /** Computed for ledger / debugging */
   effectiveSplit: { organizer_pct: number; venue_pct: number } | null;
+  /**
+   * Contrat à BARÈME sur le CA de la soirée (remuneration.mode = 'tiered_total') :
+   * la charge reste sur la plateforme et son transfert est retenu SANS date jusqu'au
+   * décompte de fin de soirée (accept_collab_night_closing). Le webhook lit ce cas
+   * depuis les règles de l'événement ; ce drapeau sert au journal et aux tests.
+   */
+  hold?: "night_closing";
+}
+
+/**
+ * Le contrat rémunère-t-il l'organisateur par un barème sur le CA TOTAL de la
+ * soirée (billets + tables + bar, bar en caisse compris) au lieu d'un % par
+ * pilier ? Miroir de public.is_tiered_collab(jsonb) et de isTieredRules() (front).
+ */
+export function isTieredCollab(rules: Record<string, unknown> | null | undefined): boolean {
+  if (!rules || typeof rules !== "object") return false;
+  const rem = (rules as { remuneration?: unknown }).remuneration;
+  if (!rem || typeof rem !== "object") return false;
+  const r = rem as { mode?: unknown; tiers?: unknown };
+  return r.mode === "tiered_total" && Array.isArray(r.tiers) && r.tiers.length > 0;
 }
 
 // Stripe FR card processing fee estimate. Slightly conservative so we never
@@ -267,6 +287,37 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   }
 
   const rules = event.revenue_split_rules ?? partnershipRules ?? null;
+
+  // ── Barème sur le CA de la soirée ───────────────────────────────────────────
+  // Le taux de l'organisateur dépend du TOTAL de la nuit, inconnu au moment de la
+  // vente. Les billets et tables partent donc en charge PLATEFORME au nom du club
+  // (vendeur de record), 100 % club pour l'instant, et le webhook retient le
+  // transfert sans date : le décompte de fin de soirée redistribue ces fonds
+  // (jambe organisateur au prorata) avant toute libération. Les boissons via Yuno
+  // restent en charge directe sur le club (licence alcool), comme partout.
+  if (itemType !== "drink" && isTieredCollab(rules)) {
+    if (!venueId || !venueStripeAccountId) {
+      throw new Error("Venue has no Stripe account");
+    }
+    return {
+      grossAmountCents: grossCents,
+      yunoFeeCents,
+      stripeFeeEstimatedCents,
+      splitMode: "separate",
+      onBehalfOf: venueStripeAccountId,
+      primary: {
+        accountId: venueStripeAccountId,
+        amountCents: Math.max(0, netCents - stripeFeeEstimatedCents),
+        kind: "venue",
+        venueId,
+        organizerId: null,
+      },
+      secondary: null,
+      effectiveSplit: { organizer_pct: 0, venue_pct: 100 },
+      hold: "night_closing",
+    };
+  }
+
   // Drinks default to 100% venue (alcohol licence), but a stored drinks split IS
   // honored when present. A drinks→organizer split can only reach event.revenue_split_rules
   // via a signed contract created through create_event_collab_contract, which forces
