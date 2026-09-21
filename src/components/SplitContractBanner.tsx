@@ -344,6 +344,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
           open={signDialogOpen}
           onOpenChange={setSignDialogOpen}
           contract={contract}
+          language={language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr'}
           onConfirm={() => sign.mutate(undefined, { onSuccess: () => setSignDialogOpen(false) })}
           confirming={sign.isPending}
         />

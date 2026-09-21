@@ -24,6 +24,9 @@ export function InviteClubTab() {
     club_name: '', club_email: '', club_city: '', club_address: '',
     contact_first_name: '', contact_last_name: '', invitation_message: '',
   });
+  // Langue de l'EMAIL reçu par le club — pas celle de l'organisateur. Un club
+  // de Madrid invité depuis Paris recevait une invitation en français.
+  const [mailLang, setMailLang] = useState<'fr' | 'en' | 'es'>(language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr');
   const [inviting, setInviting] = useState(false);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -36,7 +39,7 @@ export function InviteClubTab() {
     setInviting(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-club-collab', {
-        body: { ...form, origin: window.location.origin },
+        body: { ...form, lang: mailLang, origin: window.location.origin },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -77,6 +80,18 @@ export function InviteClubTab() {
             <div className="col-span-2"><FieldLabel>{t('Email du club *', 'Club email *', 'Correo del club *')}</FieldLabel><DarkInput type="email" value={form.club_email} onChange={set('club_email')} placeholder="contact@lebistro.fr" /></div>
             <div><FieldLabel>{t('Prénom contact', 'Contact first name', 'Nombre del contacto')}</FieldLabel><DarkInput value={form.contact_first_name} onChange={set('contact_first_name')} /></div>
             <div><FieldLabel>{t('Nom contact', 'Contact last name', 'Apellido del contacto')}</FieldLabel><DarkInput value={form.contact_last_name} onChange={set('contact_last_name')} /></div>
+            <div className="col-span-2">
+              <FieldLabel>{t("Langue de l'invitation", 'Invitation language', 'Idioma de la invitación')}</FieldLabel>
+              <div className="flex gap-2">
+                {(['fr', 'en', 'es'] as const).map((l) => (
+                  <button key={l} type="button" onClick={() => setMailLang(l)}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium"
+                    style={{ background: mailLang === l ? 'rgba(232,25,44,0.14)' : 'rgba(255,255,255,0.03)', border: `1px solid ${mailLang === l ? 'rgba(232,25,44,0.35)' : 'rgba(255,255,255,0.085)'}`, color: mailLang === l ? '#E8192C' : T3 }}>
+                    {l === 'fr' ? 'Français' : l === 'en' ? 'English' : 'Español'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div><FieldLabel>{t('Ville', 'City', 'Ciudad')}</FieldLabel><DarkInput value={form.club_city} onChange={set('club_city')} placeholder="Paris" /></div>
             <div><FieldLabel>{t('Adresse', 'Address', 'Dirección')}</FieldLabel><DarkInput value={form.club_address} onChange={set('club_address')} placeholder={t('12 rue…', '12 Main St…', 'C/ Mayor 12…')} /></div>
             <div className="col-span-2"><FieldLabel>{t('Message personnalisé (optionnel)', 'Custom message (optional)', 'Mensaje personalizado (opcional)')}</FieldLabel><DarkTextarea value={form.invitation_message} onChange={set('invitation_message')} placeholder={t('Présente ton projet, la soirée envisagée, ta communauté…', 'Introduce your project, the event you have in mind, your community…', 'Presenta tu proyecto, el evento previsto, tu comunidad…')} rows={4} /></div>

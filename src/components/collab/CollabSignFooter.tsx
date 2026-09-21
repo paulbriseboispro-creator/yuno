@@ -197,6 +197,7 @@ export function CollabSignFooter({ eventId, side, eventTitle, onSigned }: Props)
             open={open}
             onOpenChange={(o) => { if (!o) setOpen(false); }}
             contract={contract}
+            language={lang}
             onConfirm={() => sign.mutate(undefined, { onSuccess: () => { setOpen(false); onSigned?.(); } })}
             confirming={sign.isPending}
           />

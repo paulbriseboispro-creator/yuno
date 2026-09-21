@@ -86,8 +86,12 @@ export default function ClubInvitationPage() {
   const handleAccept = async () => {
     if (!token) return;
     if (!user) {
-      // Redirect to auth, then back here
-      navigate(`/auth?redirect=${encodeURIComponent(`/club-invitation?token=${token}`)}`);
+      // Un club invité n'a (presque) jamais de compte : ouvrir directement le
+      // formulaire d'inscription, email de l'invitation pré-rempli. « ¿Ya tienes
+      // cuenta? » reste à un clic pour les autres.
+      const params = new URLSearchParams({ redirect: `/club-invitation?token=${token}`, signup: 'true' });
+      if (invitation?.club_email) params.set('email', invitation.club_email);
+      navigate(`/auth?${params.toString()}`);
       return;
     }
     setSubmitting(true);
@@ -102,7 +106,14 @@ export default function ClubInvitationPage() {
         title: t('clubInv.welcome'),
         description: t('clubInv.welcomeDesc'),
       });
-      navigate('/owner');
+      // Navigation COMPLÈTE, pas un navigate() : la session en mémoire a été
+      // ouverte avant l'acceptation, elle ne porte ni le rôle owner ni le club
+      // que l'edge vient de créer — OwnerRoute renvoyait le nouveau club sur la
+      // page d'accueil publique, sans un mot. Recharger relit rôles et profil
+      // … et atterrir sur Collaborations, pas sur le tableau de bord générique :
+      // c'est là que vivent la proposition à signer, le partenaire, et le guide
+      // de configuration. Un club invité pour UNE soirée ne doit pas chercher.
+      window.location.assign('/owner/collaborations');
     } catch (err: any) {
       toast({ title: t('clubInv.error'), description: err.message, variant: 'destructive' });
       setSubmitting(false);

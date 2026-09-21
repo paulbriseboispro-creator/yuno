@@ -22,6 +22,8 @@ interface Payload {
   invitation_message?: string;
   default_split_rules?: any;
   origin?: string;
+  /** Langue de l'email reçu par le club (fr par défaut). */
+  lang?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -68,6 +70,7 @@ const handler = async (req: Request): Promise<Response> => {
       invitation_message,
       default_split_rules,
       origin,
+      lang,
     } = body;
 
     if (!club_name?.trim() || !club_email?.trim()) {
@@ -149,11 +152,12 @@ const handler = async (req: Request): Promise<Response> => {
     const baseUrl = origin && isAllowedOrigin(origin) ? origin : DEFAULT_APP_ORIGIN;
     const acceptUrl = `${baseUrl}/club-invitation?token=${invitation.token}`;
 
+    const mailLang = (["fr", "en", "es"].includes(lang ?? "") ? lang : "fr") as "fr" | "en" | "es";
     const mail = buildInvitation({
-      lang: "fr",
+      lang: mailLang,
       inviterName: organizerLabel,
       orgName: club_name.trim(),
-      roleLabel: "Collaboration partenaire",
+      roleLabel: mailLang === "es" ? "Colaboración entre socios" : mailLang === "en" ? "Partner collaboration" : "Collaboration partenaire",
       acceptUrl,
     });
 

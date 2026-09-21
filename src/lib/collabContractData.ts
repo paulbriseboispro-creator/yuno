@@ -6,8 +6,12 @@ import type { EventCollabContractRow } from '@/hooks/useEventCollabContract';
 import type { EventCollabSeriesContractRow } from '@/hooks/useEventCollabSeriesContract';
 
 type OrgProfileName = { full_name?: string | null; first_name?: string | null; last_name?: string | null; business_name?: string | null } | null;
-const resolveOrgName = (o: OrgProfileName) =>
-  o?.full_name || [o?.first_name, o?.last_name].filter(Boolean).join(' ') || o?.business_name || 'Organisateur';
+// Le nom PUBLIC de l'organisateur (organizer_profiles.display_name) d'abord :
+// `profiles` n'est pas lisible par le club partenaire (RLS), et le contrat
+// affichait alors « Organisateur » à la place du nom de l'autre partie — un
+// club qui signe doit voir avec qui.
+const resolveOrgName = (o: OrgProfileName, publicName?: string | null) =>
+  publicName || o?.full_name || [o?.first_name, o?.last_name].filter(Boolean).join(' ') || o?.business_name || 'Organisateur';
 
 /**
  * Load everything the contract PDF / pre-signature dialog needs from a contract row:
@@ -23,9 +27,9 @@ export async function loadCollabContractPdfData(
     supabase.from('events').select('title, start_at').eq('id', contract.event_id).maybeSingle(),
     supabase.from('venues').select('name, legal_name, legal_address, siret, vat_number').eq('id', contract.venue_id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    supabase.from('organizer_profiles').select('legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
+    supabase.from('organizer_profiles').select('display_name, legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
   ]);
-  const orgName = resolveOrgName(org as OrgProfileName);
+  const orgName = resolveOrgName(org as OrgProfileName, (orgProfile as { display_name?: string | null } | null)?.display_name);
   const ev2 = ev as { title?: string | null; start_at?: string | null } | null;
   const termsVersion = (contract.terms_snapshot as { terms_version?: string } | null)?.terms_version ?? null;
 
@@ -85,9 +89,9 @@ export async function loadCollabSeriesContractPdfData(
   const [{ data: venue }, { data: org }, { data: orgProfile }] = await Promise.all([
     supabase.from('venues').select('name, legal_name, legal_address, siret, vat_number').eq('id', contract.venue_id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    supabase.from('organizer_profiles').select('legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
+    supabase.from('organizer_profiles').select('display_name, legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
   ]);
-  const orgName = resolveOrgName(org as OrgProfileName);
+  const orgName = resolveOrgName(org as OrgProfileName, (orgProfile as { display_name?: string | null } | null)?.display_name);
   const termsVersion = (contract.terms_snapshot as { terms_version?: string } | null)?.terms_version ?? null;
 
   return {
