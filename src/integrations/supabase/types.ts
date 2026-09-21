@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -2694,6 +2719,139 @@ export type Database = {
           },
         ]
       }
+      collab_night_closings: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          contract_id: string | null
+          created_at: string
+          declared_at: string
+          declared_bar: number
+          declared_by: string | null
+          declared_door_count: number
+          declared_door_tickets: number
+          declared_evidence: string | null
+          declared_note: string | null
+          declared_other: number
+          declared_other_label: string | null
+          declared_tables_extra: number
+          dispute_reason: string | null
+          disputed_at: string | null
+          event_id: string
+          held_amount: number | null
+          id: string
+          online_amount: number | null
+          organizer_due: number | null
+          organizer_user_id: string
+          revision: number
+          sepa_amount: number | null
+          settlement_id: string | null
+          status: string
+          tier_pct: number | null
+          tiers_mode: string | null
+          total_revenue: number | null
+          updated_at: string
+          venue_id: string
+          yuno_drinks: number
+          yuno_tables: number
+          yuno_tickets: number
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          contract_id?: string | null
+          created_at?: string
+          declared_at?: string
+          declared_bar?: number
+          declared_by?: string | null
+          declared_door_count?: number
+          declared_door_tickets?: number
+          declared_evidence?: string | null
+          declared_note?: string | null
+          declared_other?: number
+          declared_other_label?: string | null
+          declared_tables_extra?: number
+          dispute_reason?: string | null
+          disputed_at?: string | null
+          event_id: string
+          held_amount?: number | null
+          id?: string
+          online_amount?: number | null
+          organizer_due?: number | null
+          organizer_user_id: string
+          revision?: number
+          sepa_amount?: number | null
+          settlement_id?: string | null
+          status?: string
+          tier_pct?: number | null
+          tiers_mode?: string | null
+          total_revenue?: number | null
+          updated_at?: string
+          venue_id: string
+          yuno_drinks?: number
+          yuno_tables?: number
+          yuno_tickets?: number
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          contract_id?: string | null
+          created_at?: string
+          declared_at?: string
+          declared_bar?: number
+          declared_by?: string | null
+          declared_door_count?: number
+          declared_door_tickets?: number
+          declared_evidence?: string | null
+          declared_note?: string | null
+          declared_other?: number
+          declared_other_label?: string | null
+          declared_tables_extra?: number
+          dispute_reason?: string | null
+          disputed_at?: string | null
+          event_id?: string
+          held_amount?: number | null
+          id?: string
+          online_amount?: number | null
+          organizer_due?: number | null
+          organizer_user_id?: string
+          revision?: number
+          sepa_amount?: number | null
+          settlement_id?: string | null
+          status?: string
+          tier_pct?: number | null
+          tiers_mode?: string | null
+          total_revenue?: number | null
+          updated_at?: string
+          venue_id?: string
+          yuno_drinks?: number
+          yuno_tables?: number
+          yuno_tickets?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collab_night_closings_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "event_collab_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collab_night_closings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collab_night_closings_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "collab_table_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collab_table_settlement_items: {
         Row: {
           amount: number
@@ -2742,6 +2900,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           breakdown: Json | null
+          closing_id: string | null
           confirm_due_at: string | null
           contract_id: string | null
           created_at: string
@@ -2751,6 +2910,7 @@ export type Database = {
           disputed_at: string | null
           event_id: string
           id: string
+          kind: string
           night_revenue: number | null
           notes: string | null
           organizer_pct_applied: number | null
@@ -2768,6 +2928,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           breakdown?: Json | null
+          closing_id?: string | null
           confirm_due_at?: string | null
           contract_id?: string | null
           created_at?: string
@@ -2777,6 +2938,7 @@ export type Database = {
           disputed_at?: string | null
           event_id: string
           id?: string
+          kind?: string
           night_revenue?: number | null
           notes?: string | null
           organizer_pct_applied?: number | null
@@ -2794,6 +2956,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           breakdown?: Json | null
+          closing_id?: string | null
           confirm_due_at?: string | null
           contract_id?: string | null
           created_at?: string
@@ -2803,6 +2966,7 @@ export type Database = {
           disputed_at?: string | null
           event_id?: string
           id?: string
+          kind?: string
           night_revenue?: number | null
           notes?: string | null
           organizer_pct_applied?: number | null
@@ -2816,6 +2980,13 @@ export type Database = {
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "collab_table_settlements_closing_id_fkey"
+            columns: ["closing_id"]
+            isOneToOne: false
+            referencedRelation: "collab_night_closings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "collab_table_settlements_contract_id_fkey"
             columns: ["contract_id"]
@@ -17875,10 +18046,15 @@ export type Database = {
           visits_per_month: number
         }[]
       }
+      accept_collab_night_closing: {
+        Args: { p_closing_id: string }
+        Returns: Json
+      }
       accept_dj_booking_request: {
         Args: { p_id: string; p_note?: string }
         Returns: string
       }
+      accept_org_member_invitation: { Args: { p_token: string }; Returns: Json }
       accept_organizer_claim_invitation: {
         Args: { p_token: string }
         Returns: Json
@@ -18335,6 +18511,10 @@ export type Database = {
         Args: { p_amendment_id: string }
         Returns: undefined
       }
+      cancel_collab_night_closing: {
+        Args: { p_closing_id: string }
+        Returns: Json
+      }
       cancel_collab_table_settlement: {
         Args: { p_settlement_id: string }
         Returns: Json
@@ -18494,12 +18674,37 @@ export type Database = {
           venue_id: string
         }[]
       }
+      collab_night_held_rows: {
+        Args: { p_event_id: string }
+        Returns: {
+          id: string
+          primary_amount_cents: number
+        }[]
+      }
+      collab_night_yuno_figures: {
+        Args: { p_event_id: string }
+        Returns: {
+          drinks: number
+          drinks_count: number
+          tables: number
+          tables_count: number
+          tickets: number
+          tickets_count: number
+        }[]
+      }
       collab_table_settlement_lines: {
         Args: { p_event_id: string }
         Returns: {
           night_revenue: number
           organizer_prepaid: number
           reservation_id: string
+        }[]
+      }
+      collab_tier_pct: {
+        Args: { p_rules: Json; p_total: number }
+        Returns: {
+          amount: number
+          pct: number
         }[]
       }
       collect_campaign_followups: { Args: never; Returns: Json }
@@ -18515,6 +18720,10 @@ export type Database = {
           is_follower: boolean
           is_subscriber: boolean
         }[]
+      }
+      compute_collab_night_closing: {
+        Args: { p_event_id: string }
+        Returns: Json
       }
       compute_collab_table_settlement: {
         Args: { p_event_id: string }
@@ -18847,6 +19056,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      declare_collab_night_closing: {
+        Args: {
+          p_bar?: number
+          p_door_count?: number
+          p_door_tickets?: number
+          p_event_id: string
+          p_evidence?: string
+          p_note?: string
+          p_other?: number
+          p_other_label?: string
+          p_tables_extra?: number
+        }
+        Returns: Json
+      }
       declare_collab_settlement_sent: {
         Args: { p_confirm_days?: number; p_settlement_id: string }
         Returns: Json
@@ -18897,6 +19120,10 @@ export type Database = {
       }
       demo_set_live: { Args: { p_live: boolean }; Returns: boolean }
       demo_venue_ids: { Args: never; Returns: string[] }
+      dispute_collab_night_closing: {
+        Args: { p_closing_id: string; p_reason?: string }
+        Returns: Json
+      }
       dispute_collab_settlement: {
         Args: { p_reason?: string; p_settlement_id: string }
         Returns: Json
@@ -19840,6 +20067,20 @@ export type Database = {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
       }
+      get_my_org_memberships: {
+        Args: never
+        Returns: {
+          accepted_at: string
+          can_export: boolean
+          can_manage_team: boolean
+          can_refund: boolean
+          can_view_finance: boolean
+          organization_logo_url: string
+          organization_name: string
+          organizer_user_id: string
+          role: string
+        }[]
+      }
       get_my_platform_marketing_consent: { Args: never; Returns: boolean }
       get_my_support_session: {
         Args: never
@@ -20347,6 +20588,7 @@ export type Database = {
         Returns: boolean
       }
       is_demo_email: { Args: { p_email: string }; Returns: boolean }
+      is_direct_client_write: { Args: never; Returns: boolean }
       is_email_banned: {
         Args: { p_email: string; p_venue_id: string }
         Returns: boolean
@@ -20421,6 +20663,7 @@ export type Database = {
       is_showcase_organizer: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_support_session: { Args: never; Returns: boolean }
+      is_tiered_collab: { Args: { p_rules: Json }; Returns: boolean }
       is_venue_owner: {
         Args: { _user_id: string; _venue_id: string }
         Returns: boolean
@@ -21676,6 +21919,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [
