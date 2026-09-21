@@ -236,6 +236,53 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les
   secrets Supabase / `.env.local` — jamais commités.
 
+## Collab à BARÈME sur le CA de la soirée + décompte de fin de soirée (2026-09-21)
+
+Design : `docs/designs/COLLAB_NIGHT_CLOSING_PLAN.md`. Migrations `20260921120000`
+(+ `130000`, qui RESTAURE `is_direct_client_write()` — disparue de la base, elle
+cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouchables :
+
+- **Un deuxième MODE dans le même contrat** : `revenue_split_rules.remuneration =
+  { mode: 'tiered_total', tiers: [{from, pct}], tiers_mode: 'flat'|'marginal' }`,
+  les trois blocs pilier restant à `0/100` club. Porte unique de lecture :
+  `is_tiered_collab()` (SQL) = `isTieredCollab()` (edge) = `isTieredRules()`
+  (front). Barème : `collab_tier_pct()` (SQL) et `tierFor()` (front) sont des
+  MIROIRS EXACTS, testés sur les mêmes cas (`src/lib/__tests__/collabTiers.test.ts`).
+  `flat` = le taux du palier atteint sur TOUT le total (lecture littérale des
+  termes d'un club) ; `marginal` = par tranche. `normalizeSplitRules` PRÉSERVE
+  `remuneration` : la perdre ferait repartir un contrat à barème en partage par
+  pilier sans que personne ne le voie.
+- **Pendant la vente, billets et tables sont RETENUS sans date** :
+  `payment-split.ts` force `splitMode 'separate'` (charge plateforme,
+  `on_behalf_of` club, 100 % club), et `stripe-webhook` pose
+  `transfers_release_at = NULL` quand les règles de l'événement sont à barème. Le
+  cron `release-held-co-event-transfers` ne prend que les lignes datées : rien ne
+  part avant le décompte. Boissons via Yuno : charge directe club, comme partout.
+- **Le décompte est une double vérification** : le club DÉCLARE
+  (`declare_collab_night_closing` : bar en caisse, billets porte, extras tables,
+  autre, ticket Z), l'organisateur seul ACCEPTE ou CONTESTE. Rien n'est réparti
+  sans acceptation ; aucune libération automatique. `accept_collab_night_closing`
+  refige les chiffres Yuno (`collab_night_yuno_figures`, formules de `fees.ts`,
+  remboursements déduits), applique le barème, alloue le dû D'ABORD sur les
+  jambes retenues (prorata par ligne, jambe secondaire → organisateur, restes de
+  centimes aux plus grosses lignes, `transfers_release_at = now()`, cron kické
+  par `net.http_post`), et crée pour le RESTE un lot `collab_table_settlements`
+  `kind = 'night_closing'` (cycle SEPA existant). Sans compte Stripe organisateur
+  → tout en SEPA, retenu libéré au club. Une vente remboursée n'est ni comptée ni
+  répartie (`collab_night_held_rows`).
+- **Contrat** : version `2026-09-21`, article « Décompte de soirée et barème »
+  rendu SEULEMENT si `getCollabTerms(v, { tiered: true })` ; un contrat par
+  pilier garde son texte et sa numérotation. PDF et dialogue lisent
+  `data.remuneration` (`collabContractData.ts`).
+- UI : `CollabNightClosingCard` (les deux côtés, toutes phases, se tait hors
+  barème), `TieredRemunerationEditor` (bannière + avenant), panneau Argent en
+  mode barème. Aide : `ohelp.ev.collab.s14*`, `ohelp.org.collab.s7*` ;
+  assistant : article `collab-night-closing`.
+- **Tester une RPC d'argent = un bloc DO annulé par `RAISE EXCEPTION 'SMOKE_OK'`**
+  sur un événement démo, avec `set_config('request.jwt.claims', …, true)` pour
+  jouer chaque rôle. C'est ce test qui a révélé la fonction manquante : plpgsql
+  ne résout les appels qu'à l'exécution, `db push` et `db lint` ne les voient pas.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous

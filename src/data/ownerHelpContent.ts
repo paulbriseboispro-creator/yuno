@@ -425,7 +425,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Handshake',
         actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations' },
         relatedArticleIds: ['events-setup', 'dj-management', 'invoices-management'],
-        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once', 'qui fait quoi', 'who does what', 'quien hace que', 'responsabilites', 'responsibilities', 'responsabilidades', 'design', 'logistique', 'operations', 'operaciones', 'chacun son metier', 'location de salle', 'venue rental', 'heberge', 'org hosted', 'pilier', 'pillar', 'hors du deal', 'que les tables', 'tables only', 'bloquer billets', 'bloquer boissons', 'périmètre', 'scope', 'total dépensé', 'total spend', 'gasto total', 'acompte', 'deposit', 'complément', 'top-up', 'virement fin de soirée', 'règlement tables', 'double vérification', 'iban organisateur'],
+        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once', 'qui fait quoi', 'who does what', 'quien hace que', 'responsabilites', 'responsibilities', 'responsabilidades', 'design', 'logistique', 'operations', 'operaciones', 'chacun son metier', 'location de salle', 'venue rental', 'heberge', 'org hosted', 'pilier', 'pillar', 'hors du deal', 'que les tables', 'tables only', 'bloquer billets', 'bloquer boissons', 'périmètre', 'scope', 'total dépensé', 'total spend', 'gasto total', 'acompte', 'deposit', 'complément', 'top-up', 'virement fin de soirée', 'règlement tables', 'double vérification', 'iban organisateur', 'barème', 'paliers', 'tiers', 'ca total', 'chiffre d\'affaires de la soirée', 'décompte de soirée', 'night closing', 'cierre de noche', 'fonds retenus', 'held funds', 'bar en caisse', 'billets à la porte', 'door tickets', 'ticket z', 'seuil', 'threshold'],
         sections: [
           { headingKey: 'ohelp.ev.collab.s1h', bodyKey: 'ohelp.ev.collab.s1b' },
           { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.webp' },
@@ -435,6 +435,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           // même contrat que les %, on les documente au même endroit.
           { headingKey: 'ohelp.ev.collab.s12h', bodyKey: 'ohelp.ev.collab.s12b' },
           { headingKey: 'ohelp.ev.collab.s13h', bodyKey: 'ohelp.ev.collab.s13b' },
+          // Barème sur le CA de la soirée + décompte de fin de soirée (fonds retenus).
+          { headingKey: 'ohelp.ev.collab.s14h', bodyKey: 'ohelp.ev.collab.s14b' },
           // L'axe RESPONSABILITES se lit juste apres le partage des recettes : c'est
           // son pendant. Les % disent qui touche l'argent, celui-ci dit qui decide.
           { headingKey: 'ohelp.ev.collab.s10h', bodyKey: 'ohelp.ev.collab.s10b' },
