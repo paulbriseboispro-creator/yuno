@@ -269,6 +269,11 @@ const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/profile", needs: "manageOrganization" },
 	{ prefix: "/organizer-app/integrations", needs: "manageOrganization" },
 	{ prefix: "/organizer-app/support-access", needs: "manageOrganization" },
+	// La page Équipe & Staff s'ouvre à un admin d'équipe, mais l'onglet
+	// « Équipe » lui-même reste au fondateur : `org_members` n'accepte
+	// d'écriture que de l'organisateur, un admin n'y peut rien. C'est le
+	// chemin le plus SPÉCIFIQUE qui décide, donc cette ligne prime.
+	{ prefix: "/organizer-app/team?tab=team", needs: "manageOrganization" },
 	{ prefix: "/organizer-app/team", needs: "manageStaff" },
 	{ prefix: "/organizer-app/events", needs: "editEvents" },
 	{ prefix: "/organizer-app/collaborations", needs: "editEvents" },

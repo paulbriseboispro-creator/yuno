@@ -364,14 +364,23 @@ export default function OrgAppDashboard() {
         <OrgPendingProposals />
 
         {/* ─── KPI tiles (30d) ──────────────────────────────────────────────────── */}
+        {/* Les chiffres d'ARGENT ne s'affichent que pour qui a le droit de les
+            voir. La RLS laisse un scanner lire les billets d'une soirée — c'est
+            ce qui lui permet de scanner — donc rien côté base n'empêcherait ce
+            tableau de bord de lui annoncer le chiffre d'affaires. */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiTile label={tt('CA brut', 'Gross revenue')} value={`${globals.ca30.toFixed(0)} €`} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
+          {can.viewFinance && (
+            <KpiTile label={tt('CA brut', 'Gross revenue')} value={`${globals.ca30.toFixed(0)} €`} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
+          )}
           <KpiTile label={tt('Billets vendus', 'Tickets sold')} value={globals.tickets30} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
-          <KpiTile label={tt('Acheteurs uniques', 'Unique buyers')} value={globals.uniqueBuyers30} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
+          {can.viewInsights && (
+            <KpiTile label={tt('Acheteurs uniques', 'Unique buyers')} value={globals.uniqueBuyers30} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
+          )}
           <KpiTile label={tt('Soirées à venir', 'Upcoming events')} value={globals.upcomingCount} subtitle={tt('Total', 'Total')} loading={loading} />
         </div>
 
         {/* ─── Revenue chart ────────────────────────────────────────────────────── */}
+        {can.viewFinance && (
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
           <div className="flex items-center justify-between px-5 pt-4">
             <div>
@@ -412,6 +421,7 @@ export default function OrgAppDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+        )}
 
         {/* ─── Next event card ──────────────────────────────────────────────────── */}
         {nextEvent ? (
@@ -446,7 +456,9 @@ export default function OrgAppDashboard() {
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <MiniStat icon={Ticket} label={tt('Vendus', 'Sold')} value={nextStats?.ticketsSold ?? 0} sub={fillRate !== null ? tt(`${fillRate}% rempli`, `${fillRate}% full`, `${fillRate}% lleno`) : undefined} />
-                  <MiniStat icon={TrendingUp} label={tt('Revenu', 'Revenue')} value={`${(nextStats?.revenue ?? 0).toFixed(0)} €`} sub={nextStats ? `${tt('net', 'net')} ${nextStats.netRevenue.toFixed(0)} €` : undefined} />
+                  {can.viewFinance && (
+                    <MiniStat icon={TrendingUp} label={tt('Revenu', 'Revenue')} value={`${(nextStats?.revenue ?? 0).toFixed(0)} €`} sub={nextStats ? `${tt('net', 'net')} ${nextStats.netRevenue.toFixed(0)} €` : undefined} />
+                  )}
                   <MiniStat icon={ScanLine} label={tt('Check-ins', 'Check-ins')} value={`${checkinRate}%`} sub={`${nextStats?.checkins ?? 0}/${nextStats?.ticketsSold ?? 0}`} />
                   <MiniStat icon={Wine} label={tt('Tables', 'Tables')} value={nextStats?.tablesBooked ?? 0} />
                 </div>
@@ -479,7 +491,7 @@ export default function OrgAppDashboard() {
         )}
 
         {/* ─── Top events ───────────────────────────────────────────────────────── */}
-        {topEvents.length > 0 && (
+        {can.viewFinance && topEvents.length > 0 && (
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h2 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{tt('Top soirées (30j)', 'Top events (30d)')}</h2>
