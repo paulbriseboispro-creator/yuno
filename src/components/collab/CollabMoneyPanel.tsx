@@ -55,6 +55,10 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
 
   const shareKey = isVenue ? 'venue_pct' : 'organizer_pct';
   const norm = normalizeSplitRules(event.revenue_split_rules);
+  // Contrat à BARÈME : pas de % par pilier ; la part se calcule sur le total de
+  // la nuit après la soirée (carte « Décompte de soirée »). Ici on montre le CA
+  // et on explique la retenue, sans afficher un « 0 % » qui mentirait.
+  const tiered = !!norm?.remuneration;
 
   const pillars = useMemo(() => {
     const build = (
@@ -94,7 +98,45 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
   const hasFailed = gain.failedEuros > 0.005;
 
   type StepStatus = 'done' | 'active' | 'upcoming';
-  const steps: { icon: LucideIcon; title: string; desc: string; when?: string; status: StepStatus }[] = [
+  const steps: { icon: LucideIcon; title: string; desc: string; when?: string; status: StepStatus }[] = tiered ? [
+    {
+      icon: ShieldCheck,
+      title: t('Ventes Yuno retenues', 'Yuno sales held', 'Ventas Yuno retenidas'),
+      desc: t(
+        'Chaque billet et chaque table vendus via Yuno sont encaissés au nom du club et mis de côté sur la plateforme. Personne n\'y touche avant le décompte.',
+        'Every ticket and table sold through Yuno is collected under the club and set aside on the platform. Nobody touches it before the closing.',
+        'Cada entrada y cada mesa vendidas vía Yuno se cobran a nombre del club y quedan apartadas en la plataforma. Nadie las toca antes del cierre.',
+      ),
+      status: now < endMs ? 'active' : 'done',
+    },
+    {
+      icon: CalendarClock,
+      title: t('Fin de la soirée', 'Event ends', 'Fin de la noche'),
+      desc: t('Le club déclare le chiffre hors Yuno : bar en caisse, billets à la porte, extras des tables.', 'The club declares the revenue outside Yuno: bar till, door tickets, table extras.', 'El club declara la facturación fuera de Yuno: caja de barra, entradas en puerta, extras de mesas.'),
+      when: fmtDay(event.end_at),
+      status: now >= endMs ? 'done' : 'upcoming',
+    },
+    {
+      icon: RotateCcw,
+      title: t('Décompte validé par l\'organisateur', 'Closing validated by the organizer', 'Cierre validado por el organizador'),
+      desc: t(
+        'Même grille des deux côtés : ventes Yuno + déclaré = total → palier du barème → dû à l\'organisateur. Rien ne bouge sans sa validation.',
+        'Same grid on both sides: Yuno sales + declared = total → tier reached → owed to the organizer. Nothing moves without their validation.',
+        'La misma tabla en ambos lados: ventas Yuno + declarado = total → tramo alcanzado → debido al organizador. Nada se mueve sin su validación.',
+      ),
+      status: now < endMs ? 'upcoming' : hasPending ? 'active' : 'done',
+    },
+    {
+      icon: Banknote,
+      title: t('Répartition', 'Split', 'Reparto'),
+      desc: t(
+        'La part de l\'organisateur part d\'abord des fonds retenus (virement Stripe automatique), le reste lui est viré par le club avec une référence. Le solde des fonds retenus va au club.',
+        'The organizer\'s share comes out of the held funds first (automatic Stripe transfer), the rest is wired by the club with a reference. The balance of the held funds goes to the club.',
+        'La parte del organizador sale primero de los fondos retenidos (transferencia Stripe automática), el resto lo transfiere el club con una referencia. El saldo de los fondos retenidos va al club.',
+      ),
+      status: now < endMs ? 'upcoming' : hasPending ? 'upcoming' : 'done',
+    },
+  ] : [
     {
       icon: ShieldCheck,
       title: t('Paiements collectés et sécurisés', 'Payments collected & secured', 'Pagos cobrados y asegurados'),
@@ -175,21 +217,27 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
                     <span className="tabular-nums" style={{ color: T2, fontSize: 12.5 }}>
                       {t('CA', 'Revenue', 'Ingresos')} <strong style={{ color: T1 }}>{eur(p.stat.ca)}</strong>
                     </span>
-                    <span className="tabular-nums" style={{ color: p.myPct > 0 ? RED : T3, fontSize: 12.5, fontWeight: 600 }}>
-                      {t('Ma part', 'My share', 'Mi parte')} {eur((p.stat.ca * p.myPct) / 100)}
-                    </span>
+                    {!tiered && (
+                      <span className="tabular-nums" style={{ color: p.myPct > 0 ? RED : T3, fontSize: 12.5, fontWeight: 600 }}>
+                        {t('Ma part', 'My share', 'Mi parte')} {eur((p.stat.ca * p.myPct) / 100)}
+                      </span>
+                    )}
                   </>
                 ) : (
                   // Côté organisateur : le bar n'est lisible que par le club (RLS).
                   <span style={{ color: T3, fontSize: 12 }}>
-                    {p.myPct > 0
-                      ? t('Détail visible côté club', 'Details visible club-side', 'Detalle visible del lado del club')
-                      : t('100 % club', '100% club', '100 % club')}
+                    {tiered
+                      ? t('Compté dans le total de la soirée', "Counted in the night's total", 'Contado en el total de la noche')
+                      : p.myPct > 0
+                        ? t('Détail visible côté club', 'Details visible club-side', 'Detalle visible del lado del club')
+                        : t('100 % club', '100% club', '100 % club')}
                   </span>
                 )}
                 {!p.disabled && (
                   <span className="rounded-full px-2 py-0.5 tabular-nums" style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T3, fontSize: 10.5 }}>
-                    {t('Club', 'Club', 'Club')} {p.clubPct}% · {t('Orga', 'Org', 'Org')} {p.orgPct}%
+                    {tiered
+                      ? t('Barème sur le total', 'Tiers on the total', 'Escala sobre el total')
+                      : <>{t('Club', 'Club', 'Club')} {p.clubPct}% · {t('Orga', 'Org', 'Org')} {p.orgPct}%</>}
                   </span>
                 )}
               </div>
@@ -214,7 +262,9 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
             label={t('Sécurisé par Yuno', 'Secured by Yuno', 'Asegurado por Yuno')}
             value={gain.loading ? '…' : eur(gain.pendingEuros)}
             sub={hasPending
-              ? `${t('Net, frais Stripe déduits', 'Net, Stripe fees deducted', 'Neto, comisiones Stripe deducidas')} · ${t('Virement le', 'Payout on', 'Pago el')} ${fmtDay(releaseIso)}`
+              ? tiered && !gain.releaseAt
+                ? t('Net, frais Stripe déduits · versé au décompte de soirée', 'Net, Stripe fees deducted · paid at the night closing', 'Neto, comisiones Stripe deducidas · pagado en el cierre de noche')
+                : `${t('Net, frais Stripe déduits', 'Net, Stripe fees deducted', 'Neto, comisiones Stripe deducidas')} · ${t('Virement le', 'Payout on', 'Pago el')} ${fmtDay(releaseIso)}`
               : t('Rien en attente', 'Nothing pending', 'Nada pendiente')}
             icon={Clock}
           />

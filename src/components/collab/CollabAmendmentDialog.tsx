@@ -11,8 +11,11 @@ import {
   COLLAB_DOMAINS, normalizeResponsibilities,
   type CollabResponsibilities, type DomainHolder,
 } from '@/utils/collabResponsibilities';
-import { normalizeSplitRules } from '@/lib/splitRules';
-import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { normalizeSplitRules, readRemuneration, tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
+import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import {
+  DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
+} from './TieredRemunerationEditor';
 
 const T1 = 'rgba(255,255,255,0.96)';
 const T3 = 'rgba(255,255,255,0.36)';
@@ -77,6 +80,11 @@ export function CollabAmendmentDialog({
   const [tablesBasis, setTablesBasis] = useState<'deposit' | 'total_spend'>(
     currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit',
   );
+  // Mode de rémunération : % par pilier, ou barème sur le CA total de la soirée
+  // (fonds Yuno retenus jusqu'au décompte de fin de soirée).
+  const currentRem = readRemuneration(target?.splitRules);
+  const [mode, setMode] = useState<RemunerationMode>(currentRem ? 'tiered_total' : 'per_pillar');
+  const [tiered, setTiered] = useState<CollabRemuneration>(currentRem ?? { mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState<string | null>(null);
@@ -93,21 +101,29 @@ export function CollabAmendmentDialog({
     setTablesOn(currentSplit?.tables.enabled !== false);
     setDrinksOn(currentSplit?.drinks.enabled !== false);
     setTablesBasis(currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit');
+    setMode(currentRem ? 'tiered_total' : 'per_pillar');
+    setTiered(currentRem ?? { mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
     setReason('');
   }
 
   if (!target) return null;
 
   const respChanged = COLLAB_DOMAINS.some(d => resp[d] !== current[d]);
+  const modeChanged = mode !== (currentRem ? 'tiered_total' : 'per_pillar');
+  const tiersChanged = mode === 'tiered_total' && JSON.stringify({ ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) }) !== JSON.stringify(currentRem);
+  const tiersInvalid = mode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
   const splitChanged = changeSplit && (
-    ticketsVenuePct !== (currentSplit?.tickets.venue_pct ?? 50)
-    || tablesVenuePct !== (currentSplit?.tables.venue_pct ?? 100)
-    || ticketsOn !== (currentSplit?.tickets.enabled !== false)
-    || tablesOn !== (currentSplit?.tables.enabled !== false)
-    || drinksOn !== (currentSplit?.drinks.enabled !== false)
-    || tablesBasis !== (currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit')
+    modeChanged || tiersChanged
+    || (mode === 'per_pillar' && (
+      ticketsVenuePct !== (currentSplit?.tickets.venue_pct ?? 50)
+      || tablesVenuePct !== (currentSplit?.tables.venue_pct ?? 100)
+      || ticketsOn !== (currentSplit?.tickets.enabled !== false)
+      || tablesOn !== (currentSplit?.tables.enabled !== false)
+      || drinksOn !== (currentSplit?.drinks.enabled !== false)
+      || tablesBasis !== (currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit')
+    ))
   );
-  const nothingToDo = !respChanged && !splitChanged;
+  const nothingToDo = (!respChanged && !splitChanged) || (splitChanged && tiersInvalid);
 
   const holderLabel = (h: DomainHolder) =>
     h === 'venue' ? tt('Club', 'Club', 'Club')
@@ -127,7 +143,16 @@ export function CollabAmendmentDialog({
         // réapplique cette règle de toute façon (enforce_drinks_alcohol_gate,
         // qui PRÉSERVE le flag de périmètre). Le périmètre (enabled) et la base
         // tables (basis), eux, se négocient dans l'avenant.
-        p_split_rules: splitChanged ? {
+        p_split_rules: splitChanged && mode === 'tiered_total' ? {
+          // Barème : tout au club pendant la vente, la part de l'organisateur se
+          // calcule après la soirée. Le périmètre (pilier sorti du deal) est gardé.
+          ...tieredPillarBlocks({
+            tickets: { organizer_pct: 0, venue_pct: 100, ...(ticketsOn ? {} : { enabled: false }) },
+            tables: { organizer_pct: 0, venue_pct: 100, ...(tablesOn ? {} : { enabled: false }) },
+            drinks: { organizer_pct: 0, venue_pct: 100, ...(drinksOn ? {} : { enabled: false }) },
+          }),
+          remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) },
+        } as PartnershipSplitRules : splitChanged ? {
           tickets: { organizer_pct: 100 - ticketsVenuePct, venue_pct: ticketsVenuePct, ...(ticketsOn ? {} : { enabled: false }) },
           tables: {
             organizer_pct: 100 - tablesVenuePct,
@@ -251,7 +276,20 @@ export function CollabAmendmentDialog({
               </label>
               {changeSplit && (
                 <div className="space-y-3 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                  {([
+                  <RemunerationModeSwitch value={mode} onChange={setMode} />
+                  {mode === 'tiered_total' && (
+                    <>
+                      <TieredRemunerationEditor value={tiered} onChange={setTiered} />
+                      <p style={{ color: T3, fontSize: 10.5, lineHeight: 1.4 }}>
+                        {tt(
+                          "Les billets et tables vendus via Yuno sont retenus jusqu'au décompte de fin de soirée : le club déclare le chiffre hors Yuno (bar, porte, extras), l'organisateur valide, Yuno applique le barème et verse la part de l'organisateur d'abord depuis les fonds retenus, le reste par virement du club.",
+                          'Tickets and tables sold through Yuno are held until the end-of-night closing: the club declares the revenue outside Yuno (bar, door, extras), the organizer validates, Yuno applies the tiers and pays the organizer first from the held funds, the rest by bank transfer from the club.',
+                          'Las entradas y mesas vendidas vía Yuno quedan retenidas hasta el cierre de fin de noche: el club declara la facturación fuera de Yuno (barra, puerta, extras), el organizador valida, Yuno aplica la escala y paga al organizador primero desde los fondos retenidos, el resto por transferencia del club.',
+                        )}
+                      </p>
+                    </>
+                  )}
+                  {mode === 'per_pillar' && ([
                     { label: tt('Billets', 'Tickets', 'Entradas'), v: ticketsVenuePct, set: setTicketsVenuePct, on: ticketsOn, setOn: setTicketsOn },
                     { label: tt('Tables VIP', 'VIP tables', 'Mesas VIP'), v: tablesVenuePct, set: setTablesVenuePct, on: tablesOn, setOn: setTablesOn },
                   ]).map(row => (
@@ -281,7 +319,7 @@ export function CollabAmendmentDialog({
                     </div>
                   ))}
                   {/* Base du partage tables : sur quoi porte le % ? */}
-                  {tablesOn && (
+                  {mode === 'per_pillar' && tablesOn && (
                     <div className="space-y-1.5">
                       <p style={{ color: T3, fontSize: 11, fontWeight: 600 }}>
                         {tt('Base du partage des tables', 'Tables split basis', 'Base del reparto de mesas')}
@@ -328,13 +366,13 @@ export function CollabAmendmentDialog({
                         : tt('Hors du deal — commande bloquée', 'Out of the deal — orders blocked', 'Fuera del acuerdo — pedidos bloqueados')}
                     </span>
                   </div>
-                  <p style={{ color: T3, fontSize: 10.5, lineHeight: 1.4 }}>
+                  {mode === 'per_pillar' && <p style={{ color: T3, fontSize: 10.5, lineHeight: 1.4 }}>
                     {tt(
                       "Le % boissons reste 100 % club tant que l'organisateur n'a pas attesté sa licence d'alcool.",
                       'The drinks % stays 100% club until the organizer has attested their alcohol licence.',
                       'El % de bebidas sigue 100 % club hasta que el organizador acredite su licencia de alcohol.',
                     )}
-                  </p>
+                  </p>}
                 </div>
               )}
             </div>

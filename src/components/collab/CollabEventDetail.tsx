@@ -27,6 +27,7 @@ import { CollabSignFooter } from '@/components/collab/CollabSignFooter';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
 import { CollabMoneyPanel, type PillarStat } from '@/components/collab/CollabMoneyPanel';
 import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
+import { CollabNightClosingCard } from '@/components/collab/CollabNightClosingCard';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMenu';
@@ -644,6 +645,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 d'elle-même si le contrat partage sur l'acompte seul. */}
             {isCollab && (phase === 'live' || phase === 'after') && (
               <CollabTableSettlementCard eventId={event.id} viewerRole={viewerSide} />
+            )}
+            {/* Décompte de soirée (contrat à BARÈME sur le CA) : la carte se tait
+                d'elle-même si le contrat partage par pilier. Montée à toutes les
+                phases : avant, elle explique la retenue ; après, elle porte la
+                déclaration du club et la validation de l'organisateur. */}
+            {isCollab && (
+              <CollabNightClosingCard eventId={event.id} viewerRole={viewerSide} />
             )}
 
             {isCollab && phase === 'after' && (
