@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -404,10 +404,11 @@ function rangeStart(dateRange: DateRange): Date | null {
 // drinks pillar and bar-side metrics are the only things missing on purpose.
 export default function OrgAppAnalytics() {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
   const tt = (fr2: string, en: string, es2?: string) => translate(language, fr2, en, es2);
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const organizerId = user?.id ?? null;
+  // Scope organisation, pas scope personne : un membre d'équipe lit
+  // l'analytique de l'organisation pour laquelle il travaille.
+  const { organizerId } = useActingOrganizer();
 
   const [searchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState<DateRange>('7days');
@@ -449,7 +450,7 @@ export default function OrgAppAnalytics() {
   // Net gain (organizer's actual share after Stripe + Yuno fees AND partnership split)
   const [netGain, setNetGain] = useState<number | null>(null);
   useEffect(() => {
-    if (!user) return;
+    if (!organizerId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -457,7 +458,7 @@ export default function OrgAppAnalytics() {
         let eventQuery = supabase
           .from('events')
           .select('id, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
-          .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
+          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
         if (mode === 'event' && selectedEventId) eventQuery = eventQuery.eq('id', selectedEventId);
         const { data: scopedEvents } = await eventQuery;
         const ids = (scopedEvents ?? []).map(e => e.id);
@@ -473,8 +474,8 @@ export default function OrgAppAnalytics() {
         let distroTotal = 0;
         (distros ?? []).forEach((d: any) => {
           let amt = 0;
-          if (d.primary_recipient_organizer_id === user.id) amt += Number(d.primary_amount_cents || 0);
-          if (d.secondary_recipient_organizer_id === user.id) amt += Number(d.secondary_amount_cents || 0);
+          if (d.primary_recipient_organizer_id === organizerId) amt += Number(d.primary_amount_cents || 0);
+          if (d.secondary_recipient_organizer_id === organizerId) amt += Number(d.secondary_amount_cents || 0);
           if (amt > 0) { distroByEvent.set(d.event_id, (distroByEvent.get(d.event_id) ?? 0) + amt); distroTotal += amt; }
         });
 
@@ -522,13 +523,13 @@ export default function OrgAppAnalytics() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, dateRange, mode, selectedEventId]);
+  }, [organizerId, dateRange, mode, selectedEventId]);
 
   // Visitor funnel (organizer scope) + live count
   useEffect(() => {
-    if (!user?.id) return;
+    if (!organizerId) return;
     let cancelled = false;
-    const orFilter = buildOrganizerScopeOr(user.id, eventIds, venueIds);
+    const orFilter = buildOrganizerScopeOr(organizerId, eventIds, venueIds);
 
     const fetchFunnel = async () => {
       const since = rangeStart(dateRange);
@@ -557,7 +558,7 @@ export default function OrgAppAnalytics() {
     fetchLive();
     const interval = setInterval(fetchLive, 10000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [user?.id, eventIds.join(','), venueIds.join(','), dateRange, mode, selectedEventId]);
+  }, [organizerId, eventIds.join(','), venueIds.join(','), dateRange, mode, selectedEventId]);
 
   const handleExportData = async () => {
     if (!ticketAnalytics || !tableAnalytics) return;

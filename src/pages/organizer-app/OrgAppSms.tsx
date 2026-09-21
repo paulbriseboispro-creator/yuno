@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfileType } from '@/hooks/useProfileType';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OrgPage, OrgPageHeader, T3 } from '@/components/org-ui';
 import SmsCampaignsPanel from '@/components/sms/SmsCampaignsPanel';
@@ -10,16 +9,15 @@ import type { SmsScope } from '@/lib/smsMarketing';
 
 /** Campagnes SMS d'un organisateur — même moteur que le club, portée organisateur. */
 export default function OrgAppSms() {
-  const { user } = useAuth();
-  const { profile } = useProfileType();
+  const { organizerId, organizationName } = useActingOrganizer();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
 
   const scope = useMemo<SmsScope | null>(
-    () => (user?.id ? { kind: 'organizer', organizerUserId: user.id, name: profile?.organizationName || t('smsc.orgDefaultSender') } : null),
-    [user?.id, profile?.organizationName, t],
+    () => (organizerId ? { kind: 'organizer', organizerUserId: organizerId, name: organizationName || t('smsc.orgDefaultSender') } : null),
+    [organizerId, organizationName, t],
   );
 
   if (!scope) return null;

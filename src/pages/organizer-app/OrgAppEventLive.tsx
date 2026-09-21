@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { EventLiveModule } from '@/components/owner/co-event/EventLiveModule';
 import { LiveVisitorsPanel } from '@/components/live/LiveVisitorsPanel';
@@ -11,8 +11,8 @@ import { OrgPage, POS, T1, T3 } from '@/components/org-ui';
 
 export default function OrgAppEventLive() {
   const { eventId } = useParams<{ eventId: string }>();
+  const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +58,7 @@ export default function OrgAppEventLive() {
 
       <div className="space-y-6">
         <EventLiveModule eventId={event.id} venueId={venueIdForLive} />
-        <LiveVisitorsPanel organizerUserId={user?.id || event.organizer_user_id} eventId={event.id} hasAccess={true} />
+        <LiveVisitorsPanel organizerUserId={organizerId || event.organizer_user_id} eventId={event.id} hasAccess={true} />
       </div>
     </OrgPage>
   );

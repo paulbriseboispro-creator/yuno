@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Switch } from '@/components/ui/switch';
@@ -32,11 +32,16 @@ interface Staff {
 }
 
 export default function OrgAppTeam() {
-  const { user } = useAuth();
+  // Scope organisation. L'onglet Équipe reste au fondateur : `org_members`
+  // n'accepte d'écriture que de `organizer_user_id = auth.uid()`, un membre
+  // admin n'y peut rien — lui montrer le bouton « Inviter » serait lui
+  // promettre un refus serveur. Le staff opérationnel, lui, accepte un admin
+  // d'équipe (`invite-staff` vérifie `is_org_team_member(…, 'admin')`).
+  const { organizerId, can, isOwner } = useActingOrganizer();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
-  const [tab, setTab] = useTabParam<'team' | 'staff'>('team', ['team', 'staff']);
+  const [tab, setTab] = useTabParam<'team' | 'staff'>(isOwner ? 'team' : 'staff', ['team', 'staff']);
 
   // -------- TEAM (admin/editor/scanner) --------
   const [members, setMembers] = useState<Member[]>([]);
@@ -63,22 +68,22 @@ export default function OrgAppTeam() {
   const [staffRole, setStaffRole] = useState<StaffRole>('barman');
 
   const loadMembers = async () => {
-    if (!user) return;
+    if (!organizerId) return;
     setLoadingMembers(true);
     const { data } = await supabase
       .from('org_members').select('*')
-      .eq('organizer_user_id', user.id)
+      .eq('organizer_user_id', organizerId)
       .order('created_at', { ascending: false });
     setMembers((data ?? []) as Member[]);
     setLoadingMembers(false);
   };
 
   const loadStaff = async () => {
-    if (!user) return;
+    if (!organizerId) return;
     setLoadingStaff(true);
     const { data } = await supabase
       .from('org_staff').select('*')
-      .eq('organizer_user_id', user.id)
+      .eq('organizer_user_id', organizerId)
       .order('created_at', { ascending: false });
     const staffRows = (data ?? []) as Staff[];
     setStaff(staffRows);
@@ -90,7 +95,7 @@ export default function OrgAppTeam() {
     // s'affichait pour tout le monde, y compris un videur qui avait son code
     // depuis des mois.
     const { data: pinRows } = await supabase.rpc('get_org_staff_pin_status', {
-      p_organizer_user_id: user.id,
+      p_organizer_user_id: organizerId,
     });
     setStaffPinSet(new Set((pinRows ?? []).filter((r) => r.has_pin).map((r) => r.user_id)));
 
@@ -98,7 +103,7 @@ export default function OrgAppTeam() {
     const { data: invs } = await supabase
       .from('staff_invitations')
       .select('id, email, role, created_at')
-      .eq('organizer_user_id', user.id)
+      .eq('organizer_user_id', organizerId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
     setPendingStaffInvites((invs ?? []) as { id: string; email: string; role: StaffRole; created_at: string }[]);
@@ -106,7 +111,7 @@ export default function OrgAppTeam() {
     setLoadingStaff(false);
   };
 
-  useEffect(() => { loadMembers(); loadStaff(); }, [user]);
+  useEffect(() => { loadMembers(); loadStaff(); }, [organizerId]);
 
   // -------- TEAM ACTIONS --------
   const inviteMember = async () => {
@@ -160,11 +165,11 @@ export default function OrgAppTeam() {
       toast.error(t('Nom et email requis', 'Name and email required'));
       return;
     }
-    if (!user) return;
+    if (!organizerId) return;
     setSubmittingStaff(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { email: staffEmail, display_name: staffName, role: staffRole, organizer_user_id: user.id },
+        body: { email: staffEmail, display_name: staffName, role: staffRole, organizer_user_id: organizerId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -203,10 +208,10 @@ export default function OrgAppTeam() {
   };
 
   const resendStaffInvite = async (email: string, role: StaffRole) => {
-    if (!user) return;
+    if (!organizerId) return;
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { email, role, organizer_user_id: user.id, resend: true },
+        body: { email, role, organizer_user_id: organizerId, resend: true },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -244,7 +249,7 @@ export default function OrgAppTeam() {
 
       {/* Segmented tabs */}
       <div className="mb-5 inline-flex items-center gap-1 rounded-xl p-0.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-        {(['team', 'staff'] as const).map((key) => (
+        {(isOwner ? (['team', 'staff'] as const) : (['staff'] as const)).map((key) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -257,7 +262,7 @@ export default function OrgAppTeam() {
       </div>
 
       {/* ---------- TEAM TAB ---------- */}
-      {tab === 'team' && (
+      {tab === 'team' && isOwner && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <p style={{ color: T3, fontSize: 12.5 }}>{t('Admins, éditeurs et scanners de billets.', 'Admins, editors and ticket scanners.')}</p>

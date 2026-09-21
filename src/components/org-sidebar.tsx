@@ -16,6 +16,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { translate } from '@/i18n/orgTranslate';
 import { SMS_MARKETING_LIVE } from '@/lib/smsMarketing';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
+import { useActingOrganizer, type OrgCapabilities } from '@/hooks/useActingOrganizer';
 import {
 	LayoutGridIcon,
 	BarChart3Icon,
@@ -239,6 +240,75 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 	];
 }
 
+/**
+ * La barre d'un membre d'équipe ne montre que ce que son rôle peut vraiment
+ * faire. Une entrée qu'il n'a pas le droit d'ouvrir n'est pas une entrée grisée
+ * : c'est une promesse qui finit sur un refus serveur ou un écran vide. Un
+ * scanner ne voit donc que le Check-in, un éditeur les soirées et leurs
+ * piliers, un admin tout sauf l'identité de l'organisation (profil public,
+ * réglages, équipe, paiements — ils n'appartiennent qu'au fondateur).
+ *
+ * La clé est le CHEMIN, pas le libellé : un groupe entièrement filtré
+ * disparaît, il ne reste jamais un titre de section sans rien dessous.
+ */
+const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
+	{ prefix: "/organizer-app/analytics", needs: "viewInsights" },
+	{ prefix: "/organizer-app/audience", needs: "viewInsights" },
+	{ prefix: "/organizer-app/customers", needs: "viewInsights" },
+	{ prefix: "/organizer-app/orders", needs: "viewFinance" },
+	{ prefix: "/organizer-app/refunds", needs: "refund" },
+	{ prefix: "/organizer-app/invoices", needs: "viewFinance" },
+	{ prefix: "/organizer-app/accounting", needs: "viewFinance" },
+	{ prefix: "/organizer-app/payments", needs: "manageOrganization" },
+	{ prefix: "/organizer-app/campaigns", needs: "marketing" },
+	{ prefix: "/organizer-app/sms", needs: "marketing" },
+	{ prefix: "/organizer-app/ads", needs: "marketing" },
+	{ prefix: "/organizer-app/promoters", needs: "marketing" },
+	{ prefix: "/organizer-app/agencies", needs: "marketing" },
+	{ prefix: "/organizer-app/organization", needs: "manageOrganization" },
+	{ prefix: "/organizer-app/profile", needs: "manageOrganization" },
+	{ prefix: "/organizer-app/integrations", needs: "manageOrganization" },
+	{ prefix: "/organizer-app/support-access", needs: "manageOrganization" },
+	{ prefix: "/organizer-app/team", needs: "manageStaff" },
+	{ prefix: "/organizer-app/events", needs: "editEvents" },
+	{ prefix: "/organizer-app/collaborations", needs: "editEvents" },
+	{ prefix: "/organizer-app/scarcity", needs: "editEvents" },
+	{ prefix: "/organizer-app/ticketing", needs: "editEvents" },
+	{ prefix: "/organizer-app/guest-list", needs: "editEvents" },
+	{ prefix: "/organizer-app/tables", needs: "editEvents" },
+	{ prefix: "/organizer-app/vip-service", needs: "editEvents" },
+	{ prefix: "/organizer-app/djs", needs: "editEvents" },
+	{ prefix: "/organizer-app/book-dj", needs: "editEvents" },
+	{ prefix: "/organizer-app/checkin", needs: "scanDoor" },
+];
+
+function pathAllowed(path: string | undefined, can: OrgCapabilities): boolean {
+	if (!path) return true;
+	// Le chemin le plus SPÉCIFIQUE décide : /organizer-app/campaigns/contacts
+	// tombe dans « campaigns », pas dans la racine de l'app.
+	const rule = PATH_CAPABILITY
+		.filter((r) => path === r.prefix || path.startsWith(r.prefix + "/") || path.startsWith(r.prefix + "?"))
+		.sort((a, b) => b.prefix.length - a.prefix.length)[0];
+	return rule ? can[rule.needs] : true;
+}
+
+function filterNavGroups(groups: SidebarNavGroup[], can: OrgCapabilities): SidebarNavGroup[] {
+	return groups
+		.map((group) => ({
+			...group,
+			items: group.items
+				.filter((item) => pathAllowed(item.path, can))
+				.map((item) => ({
+					...item,
+					subItems: item.subItems?.filter((sub) => pathAllowed(sub.path, can)),
+				}))
+				// Une entrée dont TOUTES les sous-entrées sont tombées reste
+				// légitime (sa page existe) ; une entrée sans page ne l'est pas.
+				.filter((item) => !!item.path),
+		}))
+		.filter((group) => group.items.length > 0);
+}
+
 function buildOrgFooterNavLinks(tt: TT): SidebarNavItem[] {
 	return [
 		{ title: tt("Aide & support", "Help & support"), path: "/organizer-app/help", icon: <HelpCircleIcon /> },
@@ -251,7 +321,8 @@ export function OrgAppSidebar() {
 	const { language, t } = useLanguage();
 	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
 	const metaLive = useMetaIntegrationLive();
-	const navGroups = buildOrgNavGroups(tt, t, metaLive);
+	const { can } = useActingOrganizer();
+	const navGroups = filterNavGroups(buildOrgNavGroups(tt, t, metaLive), can);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (

@@ -3,6 +3,7 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { ManagerVenueContext } from '@/contexts/ManagerVenueContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 
 interface VenueData {
   id: string;
@@ -42,17 +43,24 @@ export function useVenueContext(): VenueContextResult {
   const { user } = useAuth();
   const ownerVenue = useOwnerVenue();
   const managerContext = useContext(ManagerVenueContext);
+  // L'appartenance ne se charge QUE dans l'app organisateur : un club n'en a
+  // pas l'usage et n'a pas à payer la requête.
+  const acting = useActingOrganizer({ enabled: mode === 'organizer' });
 
   // Organizer mode: no venue, scope by user id.
   if (mode === 'organizer') {
     return {
       venueId: null,
       venue: null,
-      loading: !user,
+      // Le scope d'un membre d'équipe n'est PAS son propre compte : c'est
+      // l'organisation pour laquelle il travaille. Toutes les pages partagées
+      // avec le club (soirées, billetterie, commandes, DJ, guest list…)
+      // passent par ici — c'est le seul endroit où cette bascule se fait.
+      loading: !user || acting.loading,
       error: null,
       mode,
       scope: 'organizer',
-      organizerUserId: user?.id ?? null,
+      organizerUserId: acting.organizerId,
       refetch: async () => {},
     };
   }

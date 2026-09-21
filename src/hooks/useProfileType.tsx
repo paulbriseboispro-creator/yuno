@@ -16,12 +16,26 @@ export interface OrgProfile {
  * Returns the user's profile_type and organization info.
  * Used to route between Club dashboard and Organizer/BDE dashboard.
  */
-export function useProfileType() {
+/**
+ * `enabled: false` monte le hook sans interroger la base. `useVenueContext` le
+ * traverse désormais sur TOUTES les surfaces, club comprises, pour savoir si
+ * l'appelant travaille pour l'organisation de quelqu'un d'autre — sans ce
+ * garde-fou, chaque écran de club paierait une lecture de profil dont il n'a
+ * aucun usage. Les règles des hooks interdisent l'appel conditionnel, pas le
+ * chargement conditionnel.
+ */
+export function useProfileType(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled !== false;
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<OrgProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!enabled) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
     if (authLoading) return;
     if (!user) {
       setProfile(null);
@@ -58,7 +72,7 @@ export function useProfileType() {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, enabled]);
 
   const isOrganizer = profile?.profileType === 'organizer';
 

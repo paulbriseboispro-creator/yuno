@@ -10,7 +10,7 @@ import { OwnerTableDetailSheet } from '@/components/owner/vip/OwnerTableDetailSh
 import { PlacementFloorPlanSheet } from '@/components/owner/vip/PlacementFloorPlanSheet';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useOrganizerVipData } from '@/hooks/useOrganizerVipData';
 import type { OwnerVipReservation, OwnerVipConsumption } from '@/hooks/useOwnerVipData';
 import type { VenueFloorPlan, VipReservation, VipConsumption } from '@/types';
@@ -36,10 +36,10 @@ type VipTab = 'overview' | 'reservations' | 'placement';
 export default function OrgAppVipService() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { loading, events, reservations, consumptions, orders, refresh } = useOrganizerVipData(user?.id);
+  const { loading, events, reservations, consumptions, orders, refresh } = useOrganizerVipData(organizerId);
 
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string>(searchParams.get('event') || 'all');

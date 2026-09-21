@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye, Pencil } from 'lucide-react';
@@ -59,7 +59,7 @@ type Tab = 'events' | 'rooms';
  * /organizer-app/vip-service.
  */
 export default function OrgAppTables() {
-  const { user } = useAuth();
+  const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -137,12 +137,12 @@ export default function OrgAppTables() {
   };
 
   const load = async () => {
-    if (!user) return;
+    if (!organizerId) return;
     const [{ data: evs }, { data: rms }] = await Promise.all([
       supabase
         .from('events')
         .select('id, title, start_at, end_at, location_name, tables_enabled, tables_mode, event_mode, venue_id, partner_venue_id')
-        .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
+        .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
         .gte('end_at', new Date().toISOString())
         .order('start_at', { ascending: true }),
       supabase
@@ -155,7 +155,7 @@ export default function OrgAppTables() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [organizerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedEvent = useMemo(() => events.find(e => e.id === selectedEventId) ?? null, [events, selectedEventId]);
   // Soirées sans club à venir : les seules où une salle VIP se rejoue.
@@ -307,7 +307,7 @@ export default function OrgAppTables() {
               )
             )}
 
-            {tab === 'events' && selectedEvent && user && (
+            {tab === 'events' && selectedEvent && organizerId && (
               <div className="space-y-3">
                 <button onClick={() => selectEvent(null)} className="inline-flex items-center gap-1 text-[13px]" style={{ color: T3, background: 'transparent', border: 'none' }}>
                   <ArrowLeft className="h-4 w-4" /> {tt('Toutes les soirées', 'All events', 'Todas las noches')}
@@ -326,7 +326,7 @@ export default function OrgAppTables() {
                 <OrgEventTablesPanel
                   key={selectedEvent.id}
                   eventId={selectedEvent.id}
-                  organizerUserId={user.id}
+                  organizerUserId={organizerId}
                   onChanged={load}
                 />
               </div>

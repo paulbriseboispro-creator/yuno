@@ -1,18 +1,18 @@
 import { Link } from 'react-router-dom';
 import { Send } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
 
 export default function OrgAppAudience() {
-  const { user } = useAuth();
+  const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es: string) => (language === 'fr' ? fr : language === 'es' ? es : en);
-  if (!user?.id) return null;
+  if (!organizerId) return null;
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <AudienceDashboard
-        subject={{ type: 'organizer', id: user.id }}
+        subject={{ type: 'organizer', id: organizerId }}
         actions={
           <Link
             to="/organizer-app/campaigns"

@@ -240,6 +240,7 @@ const GuestFinalizeAccount = lazyWithRetry(() => import("./pages/GuestFinalizeAc
 const GuestDrinkCheckout = lazyWithRetry(() => import("./pages/GuestDrinkCheckout"));
 const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"));
 const AcceptStaffInvitation = lazyWithRetry(() => import("./pages/AcceptStaffInvitation"));
+const AcceptOrgMember = lazyWithRetry(() => import("./pages/AcceptOrgMember"));
 const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
@@ -673,6 +674,10 @@ const App = () => (
                 <Route path="/accept-dj-invitation" element={<AcceptInvitation />} />
                 <Route path="/accept-promoter-invitation" element={<AcceptInvitation />} />
                 <Route path="/accept-staff-invitation" element={<AcceptStaffInvitation />} />
+                {/* Équipe d'un organisateur (admin / éditeur / scanner). C'est
+                    l'adresse que porte le lien de `invite-org-member` : sans cette
+                    route, l'email menait droit sur la page 404. */}
+                <Route path="/accept-org-member" element={<AcceptOrgMember />} />
                 <Route path="/join" element={<JoinViaLink />} />
                 {/* Aperçu démo verrouillé par mot de passe (lien de preview) */}
                 <Route path="/preview" element={<PreviewGate />} />
@@ -694,8 +699,10 @@ const App = () => (
                 <Route path="/event/:eventId" element={<EventDetails />} />
 
                 {/* Standalone Organizer / BDE app */}
+                {/* Le guide de configuration appartient au fondateur : il pose l'identité,
+                    la billetterie et le compte Stripe de l'organisation. */}
                 <Route path="/organizer-app/onboarding" element={
-                  <OrgAppRoute><OrgAppOnboarding /></OrgAppRoute>
+                  <OrgAppRoute requires="manageOrganization"><OrgAppOnboarding /></OrgAppRoute>
                 } />
                 <Route path="/organizer-app" element={
                   <OrgAppRoute>
@@ -705,57 +712,57 @@ const App = () => (
                   </OrgAppRoute>
                 }>
                   <Route index element={<OrgAppDashboard />} />
-                  <Route path="events" element={<OwnerEvents />} />
+                  <Route path="events" element={<OrgAppRoute requires="editEvents"><OwnerEvents /></OrgAppRoute>} />
                   <Route path="events/new" element={<Navigate to="/organizer-app/events" replace />} />
-                  <Route path="events/:eventId" element={<OrgAppEventDetail />} />
-                  <Route path="events/:eventId/live" element={<OrgAppEventLive />} />
-                  <Route path="ticketing" element={<OwnerTicketing />} />
-                  <Route path="tables" element={<OrgAppTables />} />
-                  <Route path="vip-service" element={<OrgAppVipService />} />
+                  <Route path="events/:eventId" element={<OrgAppRoute requires="editEvents"><OrgAppEventDetail /></OrgAppRoute>} />
+                  <Route path="events/:eventId/live" element={<OrgAppRoute requires="editEvents"><OrgAppEventLive /></OrgAppRoute>} />
+                  <Route path="ticketing" element={<OrgAppRoute requires="editEvents"><OwnerTicketing /></OrgAppRoute>} />
+                  <Route path="tables" element={<OrgAppRoute requires="editEvents"><OrgAppTables /></OrgAppRoute>} />
+                  <Route path="vip-service" element={<OrgAppRoute requires="editEvents"><OrgAppVipService /></OrgAppRoute>} />
                   {/* Rareté / FOMO — même page que le club, scope organisateur via useVenueContext */}
-                  <Route path="scarcity" element={<OwnerScarcity />} />
-                  <Route path="orders" element={<OwnerOrders />} />
-                  <Route path="djs" element={<OwnerDJs />} />
-                  <Route path="djs/:djId" element={<OwnerDJDetail />} />
-                  <Route path="book-dj" element={<BookDJPage />} />
-                  <Route path="checkin" element={<OrgAppCheckin />} />
-                  <Route path="analytics" element={<OrgAppAnalytics />} />
+                  <Route path="scarcity" element={<OrgAppRoute requires="editEvents"><OwnerScarcity /></OrgAppRoute>} />
+                  <Route path="orders" element={<OrgAppRoute requires="viewFinance"><OwnerOrders /></OrgAppRoute>} />
+                  <Route path="djs" element={<OrgAppRoute requires="editEvents"><OwnerDJs /></OrgAppRoute>} />
+                  <Route path="djs/:djId" element={<OrgAppRoute requires="editEvents"><OwnerDJDetail /></OrgAppRoute>} />
+                  <Route path="book-dj" element={<OrgAppRoute requires="editEvents"><BookDJPage /></OrgAppRoute>} />
+                  <Route path="checkin" element={<OrgAppRoute requires="scanDoor"><OrgAppCheckin /></OrgAppRoute>} />
+                  <Route path="analytics" element={<OrgAppRoute requires="viewInsights"><OrgAppAnalytics /></OrgAppRoute>} />
                   {/* Legacy split partner-clubs page → unified Collaborations hub (Partner clubs tab) */}
                   <Route path="partners" element={<Navigate to="/organizer-app/collaborations?tab=partners" replace />} />
-                  <Route path="collaborations" element={<OrgAppCollabHub />} />
-                  <Route path="profile" element={<OrgAppProfile />} />
-                  <Route path="team" element={<OrgAppTeam />} />
-                  <Route path="customers" element={<OrgAppCustomers />} />
-                  <Route path="audience" element={<OrgAppAudience />} />
-                  <Route path="invoices" element={<OwnerInvoices />} />
-                  <Route path="accounting" element={<OwnerAccounting />} />
-                  <Route path="refunds" element={<OwnerRefunds />} />
-                  <Route path="guest-list" element={<OwnerGuestList />} />
-                  <Route path="promoters" element={<OwnerPromoters />} />
-                  <Route path="promoters/templates" element={<OwnerPromoterTemplates />} />
-                  <Route path="promoters/teams" element={<OwnerPromoterTeams />} />
-                  <Route path="promoters/finance" element={<OwnerPromoterFinance />} />
-                  <Route path="promoters/announcements" element={<OwnerPromoterAnnouncements />} />
-                  <Route path="promoters/event/:eventId" element={<OwnerPromoterEventView />} />
-                  <Route path="promoters/:id" element={<OwnerPromoterDetail />} />
-                  <Route path="agencies" element={<OwnerAgencies />} />
-                  <Route path="campaigns" element={<OrgAppCampaigns />} />
-                  <Route path="campaigns/new" element={<OrgAppCampaignEditor />} />
-                  <Route path="campaigns/:id/edit" element={<OrgAppCampaignEditor />} />
-                  <Route path="campaigns/templates/:id" element={<OrgAppCampaignTemplateEditor />} />
-                  <Route path="campaigns/automations" element={<OrgAppEmailAutomations />} />
-                  <Route path="campaigns/contacts" element={<OrgAppContactBase />} />
-                  <Route path="campaigns/:id/report" element={<OrgAppCampaignReport />} />
+                  <Route path="collaborations" element={<OrgAppRoute requires="editEvents"><OrgAppCollabHub /></OrgAppRoute>} />
+                  <Route path="profile" element={<OrgAppRoute requires="manageOrganization"><OrgAppProfile /></OrgAppRoute>} />
+                  <Route path="team" element={<OrgAppRoute requires="manageStaff"><OrgAppTeam /></OrgAppRoute>} />
+                  <Route path="customers" element={<OrgAppRoute requires="viewInsights"><OrgAppCustomers /></OrgAppRoute>} />
+                  <Route path="audience" element={<OrgAppRoute requires="viewInsights"><OrgAppAudience /></OrgAppRoute>} />
+                  <Route path="invoices" element={<OrgAppRoute requires="viewFinance"><OwnerInvoices /></OrgAppRoute>} />
+                  <Route path="accounting" element={<OrgAppRoute requires="viewFinance"><OwnerAccounting /></OrgAppRoute>} />
+                  <Route path="refunds" element={<OrgAppRoute requires="refund"><OwnerRefunds /></OrgAppRoute>} />
+                  <Route path="guest-list" element={<OrgAppRoute requires="editEvents"><OwnerGuestList /></OrgAppRoute>} />
+                  <Route path="promoters" element={<OrgAppRoute requires="marketing"><OwnerPromoters /></OrgAppRoute>} />
+                  <Route path="promoters/templates" element={<OrgAppRoute requires="marketing"><OwnerPromoterTemplates /></OrgAppRoute>} />
+                  <Route path="promoters/teams" element={<OrgAppRoute requires="marketing"><OwnerPromoterTeams /></OrgAppRoute>} />
+                  <Route path="promoters/finance" element={<OrgAppRoute requires="marketing"><OwnerPromoterFinance /></OrgAppRoute>} />
+                  <Route path="promoters/announcements" element={<OrgAppRoute requires="marketing"><OwnerPromoterAnnouncements /></OrgAppRoute>} />
+                  <Route path="promoters/event/:eventId" element={<OrgAppRoute requires="marketing"><OwnerPromoterEventView /></OrgAppRoute>} />
+                  <Route path="promoters/:id" element={<OrgAppRoute requires="marketing"><OwnerPromoterDetail /></OrgAppRoute>} />
+                  <Route path="agencies" element={<OrgAppRoute requires="marketing"><OwnerAgencies /></OrgAppRoute>} />
+                  <Route path="campaigns" element={<OrgAppRoute requires="marketing"><OrgAppCampaigns /></OrgAppRoute>} />
+                  <Route path="campaigns/new" element={<OrgAppRoute requires="marketing"><OrgAppCampaignEditor /></OrgAppRoute>} />
+                  <Route path="campaigns/:id/edit" element={<OrgAppRoute requires="marketing"><OrgAppCampaignEditor /></OrgAppRoute>} />
+                  <Route path="campaigns/templates/:id" element={<OrgAppRoute requires="marketing"><OrgAppCampaignTemplateEditor /></OrgAppRoute>} />
+                  <Route path="campaigns/automations" element={<OrgAppRoute requires="marketing"><OrgAppEmailAutomations /></OrgAppRoute>} />
+                  <Route path="campaigns/contacts" element={<OrgAppRoute requires="marketing"><OrgAppContactBase /></OrgAppRoute>} />
+                  <Route path="campaigns/:id/report" element={<OrgAppRoute requires="marketing"><OrgAppCampaignReport /></OrgAppRoute>} />
                   {/* Campagnes SMS — même moteur que le club, portée organisateur */}
-                  <Route path="sms" element={<OrgAppSms />} />
-                  <Route path="sms/:id" element={<OrgAppSms />} />
-                  <Route path="organization" element={<OrgAppOrganization />} />
-                  <Route path="integrations" element={<IntegrationsSettings />} />
-                  <Route path="ads" element={<AdsPage />} />
-                  <Route path="support-access" element={<SupportAccessSettings />} />
-                  <Route path="payments" element={<OrgAppPayments />} />
+                  <Route path="sms" element={<OrgAppRoute requires="marketing"><OrgAppSms /></OrgAppRoute>} />
+                  <Route path="sms/:id" element={<OrgAppRoute requires="marketing"><OrgAppSms /></OrgAppRoute>} />
+                  <Route path="organization" element={<OrgAppRoute requires="manageOrganization"><OrgAppOrganization /></OrgAppRoute>} />
+                  <Route path="integrations" element={<OrgAppRoute requires="manageOrganization"><IntegrationsSettings /></OrgAppRoute>} />
+                  <Route path="ads" element={<OrgAppRoute requires="marketing"><AdsPage /></OrgAppRoute>} />
+                  <Route path="support-access" element={<OrgAppRoute requires="manageOrganization"><SupportAccessSettings /></OrgAppRoute>} />
+                  <Route path="payments" element={<OrgAppRoute requires="manageOrganization"><OrgAppPayments /></OrgAppRoute>} />
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
-                  <Route path="settings" element={<OrgAppPayments />} />
+                  <Route path="settings" element={<OrgAppRoute requires="manageOrganization"><OrgAppPayments /></OrgAppRoute>} />
                   <Route path="help" element={<OrganizerHelpCenter />} />
                   {/* Organizer inbox — same scope-aware page as /owner/notifications */}
                   <Route path="notifications" element={<OwnerNotifications />} />

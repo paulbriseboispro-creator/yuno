@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfileType } from '@/hooks/useProfileType';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { motion } from 'framer-motion';
@@ -62,10 +61,9 @@ interface Globals {
 type PeriodDays = 7 | 14 | 30;
 
 export default function OrgAppDashboard() {
-  const { user } = useAuth();
-  const { profile } = useProfileType();
+  const { organizerId, organizationName, organizationLogoUrl, can } = useActingOrganizer();
   const { language } = useLanguage();
-  const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
+  const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(organizerId);
 
   const [loading, setLoading] = useState(true);
   const [orgCover, setOrgCover] = useState<string | null>(null);
@@ -82,13 +80,13 @@ export default function OrgAppDashboard() {
   const locale = language === 'fr' ? fr : enUS;
 
   useEffect(() => {
-    if (!user) return;
+    if (!organizerId) return;
     (async () => {
       try {
         // 0. Org identity extras (cover + city) for the hero
         const [{ data: prof }, { data: orgProf }] = await Promise.all([
-          supabase.from('profiles').select('city').eq('id', user.id).maybeSingle(),
-          supabase.from('organizer_profiles').select('cover_url').eq('user_id', user.id).maybeSingle(),
+          supabase.from('profiles').select('city').eq('id', organizerId).maybeSingle(),
+          supabase.from('organizer_profiles').select('cover_url').eq('user_id', organizerId).maybeSingle(),
         ]);
         setOrgCity(prof?.city ?? null);
         setOrgCover((orgProf as any)?.cover_url ?? null);
@@ -97,7 +95,7 @@ export default function OrgAppDashboard() {
         const { data: upcoming } = await supabase
           .from('events')
           .select('id, title, start_at, end_at, poster_url, location_name, location_city, max_tickets, partner_venue_id, venue_id')
-          .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
+          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
           .gte('end_at', new Date().toISOString())
           .order('start_at', { ascending: true })
           .limit(1);
@@ -127,8 +125,8 @@ export default function OrgAppDashboard() {
             .eq('event_id', next.id);
           let netCents = 0;
           (distros || []).forEach((d: any) => {
-            if (d.primary_recipient_organizer_id === user.id) netCents += Number(d.primary_amount_cents || 0);
-            else if (d.secondary_recipient_organizer_id === user.id) netCents += Number(d.secondary_amount_cents || 0);
+            if (d.primary_recipient_organizer_id === organizerId) netCents += Number(d.primary_amount_cents || 0);
+            else if (d.secondary_recipient_organizer_id === organizerId) netCents += Number(d.secondary_amount_cents || 0);
           });
           // Fallback estimate: gross - Yuno fee (4% min 0.99 per ticket) - Stripe fee (1.5% + 0.25)
           const estimatedNet = (nextTickets || []).reduce((s: number, t: any) => {
@@ -147,12 +145,12 @@ export default function OrgAppDashboard() {
         const { data: allEvents } = await supabase
           .from('events')
           .select('id, title')
-          .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
+          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
         const eventIds = (allEvents ?? []).map(e => e.id);
         const upcomingCount = upcoming?.length ? (await supabase
           .from('events')
           .select('id', { count: 'exact', head: true })
-          .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
+          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
           .gte('end_at', new Date().toISOString())).count ?? 0 : 0;
 
         let ca30 = 0, tickets30 = 0, uniqueBuyers30 = 0;
@@ -206,7 +204,7 @@ export default function OrgAppDashboard() {
         setLoading(false);
       }
     })();
-  }, [user]);
+  }, [organizerId]);
 
   const fillRate = nextStats?.capacity && nextStats.capacity > 0
     ? Math.min(100, Math.round((nextStats.ticketsSold / nextStats.capacity) * 100))
@@ -216,8 +214,8 @@ export default function OrgAppDashboard() {
     : 0;
 
   const chartData = useMemo(() => globals.daily.slice(-period), [globals.daily, period]);
-  const orgName = profile?.organizationName || 'Yuno';
-  const orgLogo = profile?.organizationLogoUrl || null;
+  const orgName = organizationName || 'Yuno';
+  const orgLogo = organizationLogoUrl;
 
   return (
     <div className="px-4 pb-12">
@@ -340,7 +338,7 @@ export default function OrgAppDashboard() {
         </div>
 
         {/* Stripe alert */}
-        {!stripeLoading && !canSell && (
+        {can.manageOrganization && !stripeLoading && !canSell && (
           <div className="flex items-start gap-3 rounded-xl px-4 py-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: RED }} />
             <div className="flex-1 min-w-0">

@@ -7,8 +7,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfileType } from '@/hooks/useProfileType';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import StudioShell from '@/components/email-studio/StudioShell';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
@@ -46,8 +45,7 @@ const STATUS_META: Record<string, { fr: string; en: string; es: string; tone: Pi
 
 export default function OrgAppCampaigns() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { profile } = useProfileType();
+  const { organizerId, organizationName, organizationLogoUrl } = useActingOrganizer();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -63,12 +61,12 @@ export default function OrgAppCampaigns() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!organizerId) return;
     supabase.from('email_campaigns').select('id,name,type,subject,status,recipients_count,opens_count,clicks_count')
       // Les enfants des recettes automatiques vivent sur la page Automatisations.
-      .eq('organizer_user_id', user.id).is('automation_id' as never, null).order('created_at', { ascending: false })
+      .eq('organizer_user_id', organizerId).is('automation_id' as never, null).order('created_at', { ascending: false })
       .then(({ data }) => { setCampaigns((data || []) as Campaign[]); setLoading(false); });
-  }, [user?.id]);
+  }, [organizerId]);
 
   // Suppression d'un brouillon. Le trigger guard_email_campaign_delete a le
   // dernier mot : la ligne ne quitte l'écran qu'après un aller-retour réussi.
@@ -86,7 +84,7 @@ export default function OrgAppCampaigns() {
     toast.success(t('Brouillon supprimé', 'Draft deleted', 'Borrador eliminado'));
   };
 
-  const orgName = profile?.organizationName || 'Mon organisation';
+  const orgName = organizationName || 'Mon organisation';
   const fromAddr = `${slugifyVenueName(orgName)}@yunoapp.eu`;
 
   return (
@@ -125,18 +123,18 @@ export default function OrgAppCampaigns() {
       <div className="space-y-4">
         {/* Quota d'envoi du mois : le plafond décide de ce qui peut partir,
             il se lit avant d'écrire — pas au dernier écran du Studio. */}
-        {user?.id && (
+        {organizerId && (
           <EmailQuotaCard
-            scope={{ kind: 'organizer', organizerId: user.id, name: orgName }}
+            scope={{ kind: 'organizer', organizerId: organizerId, name: orgName }}
             onBuy={() => setCreditsOpen(true)}
             refreshKey={quotaSeq}
           />
         )}
 
         {/* Yuno te propose d'allumer… (recettes éteintes que les faits justifient) */}
-        {user?.id && (
+        {organizerId && (
           <AutomationSuggestions
-            scope={{ kind: 'organizer', organizerId: user.id, name: orgName }}
+            scope={{ kind: 'organizer', organizerId: organizerId, name: orgName }}
             basePath="/organizer-app/campaigns"
             variant="card"
           />
@@ -218,34 +216,34 @@ export default function OrgAppCampaigns() {
         )}
 
         {/* Mes modèles : voir, modifier, supprimer — sous les campagnes. */}
-        {user?.id && (
+        {organizerId && (
           <TemplatesSection
             basePath="/organizer-app/campaigns"
-            scope={{ kind: 'organizer', organizerId: user.id, name: profile?.organizationName || 'Mon organisation', logoUrl: null, city: null }}
+            scope={{ kind: 'organizer', organizerId: organizerId, name: organizationName || 'Mon organisation', logoUrl: null, city: null }}
           />
         )}
       </div>
 
-      {user?.id && (
+      {organizerId && (
         <EmailCreditsDialog
           open={creditsOpen}
           onClose={() => setCreditsOpen(false)}
-          scope={{ kind: 'organizer', organizerId: user.id }}
+          scope={{ kind: 'organizer', organizerId: organizerId }}
           onCredited={bumpQuota}
         />
       )}
-      {user?.id && (
+      {organizerId && (
         <>
           <ContactImportDialog
             open={importOpen}
             onClose={() => setImportOpen(false)}
-            scope={{ kind: 'organizer', organizerId: user.id }}
+            scope={{ kind: 'organizer', organizerId: organizerId }}
           />
           <ContactImportDialog
             open={segmentsOpen}
             mode="analyze"
             onClose={() => setSegmentsOpen(false)}
-            scope={{ kind: 'organizer', organizerId: user.id }}
+            scope={{ kind: 'organizer', organizerId: organizerId }}
             basePath="/organizer-app/campaigns"
           />
         </>
@@ -299,16 +297,15 @@ function useOrganizerLogo(userId: string | undefined, fromProfile: string | null
 }
 
 export function OrgAppCampaignEditor({ templateMode = false }: { templateMode?: boolean } = {}) {
-  const { user } = useAuth();
-  const { profile, loading } = useProfileType();
+  const { organizerId, organizationName, organizationLogoUrl, loading } = useActingOrganizer();
   const logoUrl = useOrganizerLogo(
-    user?.id,
-    (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+    organizerId,
+    organizationLogoUrl,
   );
   // On attend le profil AVANT de monter le Studio : sinon le brouillon est créé
   // avec « Mon organisation » et sans logo, et ces valeurs restent figées dans
   // les blocs de la campagne.
-  if (!user?.id || loading) {
+  if (!organizerId || loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
   return (
@@ -317,8 +314,8 @@ export function OrgAppCampaignEditor({ templateMode = false }: { templateMode?: 
       templateMode={templateMode}
       scope={{
         kind: 'organizer',
-        organizerId: user.id,
-        name: profile?.organizationName || 'Mon organisation',
+        organizerId: organizerId,
+        name: organizationName || 'Mon organisation',
         logoUrl,
         city: null,
       }}
@@ -332,9 +329,8 @@ export function OrgAppCampaignTemplateEditor() {
 }
 
 export function OrgAppCampaignReport() {
-  const { user } = useAuth();
-  const { profile } = useProfileType();
-  if (!user?.id) {
+  const { organizerId, organizationName, organizationLogoUrl } = useActingOrganizer();
+  if (!organizerId) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
   return (
@@ -342,9 +338,9 @@ export function OrgAppCampaignReport() {
       basePath="/organizer-app/campaigns"
       scope={{
         kind: 'organizer',
-        organizerId: user.id,
-        name: profile?.organizationName || 'Mon organisation',
-        logoUrl: (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+        organizerId: organizerId,
+        name: organizationName || 'Mon organisation',
+        logoUrl: organizationLogoUrl,
         city: null,
       }}
     />
@@ -353,28 +349,26 @@ export function OrgAppCampaignReport() {
 
 /** Ma base de contacts (route campaigns/contacts). */
 export function OrgAppContactBase() {
-  const { user } = useAuth();
-  const { profile, loading } = useProfileType();
-  if (!user?.id || loading) {
+  const { organizerId, organizationName, organizationLogoUrl, loading } = useActingOrganizer();
+  if (!organizerId || loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
   return (
     <ContactBasePanel
       basePath="/organizer-app/campaigns"
-      scope={{ kind: 'organizer', organizerId: user.id, name: profile?.organizationName || 'Mon organisation' }}
+      scope={{ kind: 'organizer', organizerId: organizerId, name: organizationName || 'Mon organisation' }}
     />
   );
 }
 
 /** Page Automatisations email (route campaigns/automations). */
 export function OrgAppEmailAutomations() {
-  const { user } = useAuth();
-  const { profile, loading } = useProfileType();
+  const { organizerId, organizationName, organizationLogoUrl, loading } = useActingOrganizer();
   const logoUrl = useOrganizerLogo(
-    user?.id,
-    (profile as { organizationLogoUrl?: string | null } | null)?.organizationLogoUrl || null,
+    organizerId,
+    organizationLogoUrl,
   );
-  if (!user?.id || loading) {
+  if (!organizerId || loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
   return (
@@ -382,8 +376,8 @@ export function OrgAppEmailAutomations() {
       basePath="/organizer-app/campaigns"
       scope={{
         kind: 'organizer',
-        organizerId: user.id,
-        name: profile?.organizationName || 'Mon organisation',
+        organizerId: organizerId,
+        name: organizationName || 'Mon organisation',
         logoUrl,
         city: null,
       }}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import {
@@ -71,6 +72,7 @@ function ScanResult({ ok, title, sub }: { ok: boolean; title: string; sub?: stri
 
 export default function OrgAppCheckin() {
   const { user } = useAuth();
+  const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
@@ -145,18 +147,18 @@ export default function OrgAppCheckin() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!organizerId) return;
     (async () => {
       const { data } = await supabase
         .from('events')
         .select('id, title, start_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
-        .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
+        .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
         .gte('end_at', new Date(Date.now() - 86_400_000).toISOString())
         .order('start_at', { ascending: true });
       setEvents(data ?? []);
       if (data?.[0]) setEventId(data[0].id);
     })();
-  }, [user]);
+  }, [organizerId]);
 
   /**
    * Entrée manuelle depuis la recherche par nom : on rejoue le scan d'entrée

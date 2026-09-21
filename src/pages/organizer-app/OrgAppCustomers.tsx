@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -96,7 +96,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 export default function OrgAppCustomers() {
-  const { user } = useAuth();
+  const { organizerId } = useActingOrganizer();
   const { toast } = useToast();
   const { t, language } = useLanguage();
 
@@ -141,22 +141,22 @@ export default function OrgAppCustomers() {
 
   const num = (v: any) => Number(v || 0);
 
-  useEffect(() => { if (user?.id) { fetchAllCustomers(); fetchFlags(); fetchMinorEmails(); } }, [user?.id]);
+  useEffect(() => { if (organizerId) { fetchAllCustomers(); fetchFlags(); fetchMinorEmails(); } }, [organizerId]);
 
   const fetchMinorEmails = async () => {
-    if (!user?.id) return;
+    if (!organizerId) return;
     const { data: events } = await supabase
       .from('events').select('id')
-      .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
+      .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
     const eventIds = (events ?? []).map((e: any) => e.id);
     setMinorByEmail(await fetchMinorDocsByEmail(eventIds));
   };
 
   const fetchAllCustomers = async () => {
-    if (!user?.id) return;
+    if (!organizerId) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_organizer_customer_segments', { p_organizer_user_id: user.id });
+      const { data, error } = await supabase.rpc('get_organizer_customer_segments', { p_organizer_user_id: organizerId });
       if (error) throw error;
       const mapped: OrgCustomer[] = (data || []).map((r: any) => ({
         id: r.id, user_id: r.user_id, email: r.email, first_name: r.first_name, last_name: r.last_name,
@@ -182,13 +182,13 @@ export default function OrgAppCustomers() {
 
   // Incident emails (warning/ban) + email-only bans → drives the "warned" tab.
   const fetchFlags = async () => {
-    if (!user?.id) return;
+    if (!organizerId) return;
     try {
       const [{ data: incs }, { data: bans }] = await Promise.all([
         supabase.from('organizer_customer_incidents').select('email')
-          .eq('organizer_user_id', user.id).in('incident_type', ['warning', 'ban']),
+          .eq('organizer_user_id', organizerId).in('incident_type', ['warning', 'ban']),
         supabase.from('organizer_banned_emails').select('email, ban_reason, banned_at')
-          .eq('organizer_user_id', user.id),
+          .eq('organizer_user_id', organizerId),
       ]);
       setIncidentEmails(new Set((incs || []).map((i: any) => (i.email || '').toLowerCase())));
       setEmailBans((bans || []) as any);
@@ -215,11 +215,11 @@ export default function OrgAppCustomers() {
   }, [allCustomers, incidentEmails, emailBans]);
 
   const fetchCustomerIncidents = async (email: string) => {
-    if (!user?.id) { setIncidents([]); return; }
+    if (!organizerId) { setIncidents([]); return; }
     try {
       const { data, error } = await supabase.from('organizer_customer_incidents')
         .select('id, incident_type, reason, details, created_at')
-        .eq('organizer_user_id', user.id).eq('email', email.toLowerCase())
+        .eq('organizer_user_id', organizerId).eq('email', email.toLowerCase())
         .order('created_at', { ascending: false }).limit(20);
       if (error) throw error;
       setIncidents((data || []) as CustomerIncident[]);
@@ -227,11 +227,11 @@ export default function OrgAppCustomers() {
   };
 
   const handleBanCustomer = async () => {
-    if (!selectedCustomer || !banReason || !user?.id) return;
+    if (!selectedCustomer || !banReason || !organizerId) return;
     setProcessing(true);
     try {
       const { error } = await supabase.rpc('organizer_ban_customer', {
-        p_organizer_user_id: user.id, p_email: selectedCustomer.email, p_reason: banReason,
+        p_organizer_user_id: organizerId, p_email: selectedCustomer.email, p_reason: banReason,
       });
       if (error) throw error;
       toast({ title: t('customers.banned'), description: selectedCustomer.email });
@@ -242,11 +242,11 @@ export default function OrgAppCustomers() {
   };
 
   const handleUnbanCustomer = async () => {
-    if (!selectedCustomer || !user?.id) return;
+    if (!selectedCustomer || !organizerId) return;
     setProcessing(true);
     try {
       const { error } = await supabase.rpc('organizer_unban_customer', {
-        p_organizer_user_id: user.id, p_email: selectedCustomer.email, p_reason: t('customers.manualUnban'),
+        p_organizer_user_id: organizerId, p_email: selectedCustomer.email, p_reason: t('customers.manualUnban'),
       });
       if (error) throw error;
       toast({ title: t('customers.unbanned'), description: selectedCustomer.email });
@@ -257,11 +257,11 @@ export default function OrgAppCustomers() {
   };
 
   const saveNotes = async () => {
-    if (!selectedCustomer || selectedCustomer.emailOnly || !user?.id) return;
+    if (!selectedCustomer || selectedCustomer.emailOnly || !organizerId) return;
     setSavingNotes(true);
     try {
       const { error } = await supabase.rpc('organizer_save_customer_note', {
-        p_organizer_user_id: user.id, p_email: selectedCustomer.email, p_notes: notesDraft,
+        p_organizer_user_id: organizerId, p_email: selectedCustomer.email, p_notes: notesDraft,
       });
       if (error) throw error;
       setAllCustomers(list => list.map(c => c.id === selectedCustomer.id ? { ...c, notes: notesDraft } : c));
@@ -369,8 +369,8 @@ export default function OrgAppCustomers() {
   // Yuno + engagement + segments), pas la vue filtrée de cet écran. Le CSV
   // local de la vue ne sert plus que de repli si la RPC échoue.
   const exportCustomersCsv = async () => {
-    if (user?.id) {
-      const res = await exportContactBase({ scopeArgs: { p_venue_id: null, p_organizer_user_id: user.id }, scopeName: 'Yuno', t, language });
+    if (organizerId) {
+      const res = await exportContactBase({ scopeArgs: { p_venue_id: null, p_organizer_user_id: organizerId }, scopeName: 'Yuno', t, language });
       if (res.outcome === 'downloaded' || res.outcome === 'shared') { toast({ title: t('cbase.exportDone').replace('{n}', String(res.rows)) }); return; }
       if (res.outcome === 'cancelled') return;
     }
@@ -397,7 +397,7 @@ export default function OrgAppCustomers() {
     setSelectedCustomer(customer); setNotesDraft(customer.notes || '');
     fetchCustomerIncidents(customer.email); setSheetOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [organizerId]);
 
   const TABS = [
     { key: 'all' as TabKey, label: t('customers.allClients'), Icon: Users },
@@ -583,7 +583,7 @@ export default function OrgAppCustomers() {
           {activeTab === 'origins' ? (
             <OwnerCustomerOrigins
               customers={allCustomers}
-              scope={user?.id ? { kind: 'organizer', id: user.id } : undefined}
+              scope={organizerId ? { kind: 'organizer', id: organizerId } : undefined}
               onSelectCountry={(code) => { setActiveTab('all'); setSegmentFilters({ ...emptyFilters, origin: code }); }}
             />
           ) : (
@@ -976,7 +976,7 @@ export default function OrgAppCustomers() {
           onClose={() => setTimelineOpen(false)}
           email={selectedCustomer.email}
           name={[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(' ') || undefined}
-          organizerUserId={user?.id}
+          organizerUserId={organizerId}
         />
       )}
 
