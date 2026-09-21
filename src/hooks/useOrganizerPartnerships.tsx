@@ -25,10 +25,30 @@ export interface SplitPillarBlock {
 
 export type TableSplitBasis = 'deposit' | 'total_spend';
 
+/** Un palier du barème : « à partir de `from` € de CA total, `pct` % pour l'organisateur ». */
+export interface CollabTier {
+  from: number;
+  pct: number;
+}
+
+/**
+ * Rémunération par BARÈME sur le CA total de la soirée (billets + tables + bar,
+ * bar en caisse compris), calculée UNE fois après la soirée au lieu d'un % par
+ * pilier à chaque vente. `flat` : le taux du palier atteint s'applique à tout le
+ * total. `marginal` : chaque tranche à son taux. Les blocs pilier restent à
+ * 0/100 club pendant la vente ; les fonds sont retenus jusqu'au décompte.
+ */
+export interface CollabRemuneration {
+  mode: 'tiered_total';
+  tiers: CollabTier[];
+  tiers_mode?: 'flat' | 'marginal';
+}
+
 export interface PartnershipSplitRules {
   tickets: SplitPillarBlock;
   tables: SplitPillarBlock & { basis?: TableSplitBasis };
   drinks: SplitPillarBlock;
+  remuneration?: CollabRemuneration;
 }
 
 export interface VenueOrganizerPartnership {

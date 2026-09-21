@@ -1,4 +1,4 @@
-import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import type { CollabRemuneration, CollabTier, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 
 /**
  * Canonical co-event revenue-split shape:
@@ -70,12 +70,110 @@ export function normalizeSplitRules(raw: unknown): PartnershipSplitRules | null 
   const tickets = readBlock(r.tickets) ?? flat;
   const tables = readBlock(r.tables) ?? flat;
   const drinks = readBlock(r.drinks) ?? DRINKS_VENUE_DEFAULT;
+  // Le barème vit À CÔTÉ des blocs pilier : le perdre ici le ferait disparaître
+  // du contrat re-soumis depuis un état normalisé, et une proposition à barème
+  // repartirait en partage par pilier sans que personne ne le voie.
+  const remuneration = readRemuneration(r);
 
-  if (!tickets && !tables) return null;
+  if (!tickets && !tables && !remuneration) return null;
 
   return {
     tickets: tickets ?? { organizer_pct: 0, venue_pct: 100 },
     tables: tables ?? { organizer_pct: 0, venue_pct: 100 },
     drinks,
+    ...(remuneration ? { remuneration } : {}),
   };
+}
+
+// ─── Barème sur le CA de la soirée ───────────────────────────────────────────
+
+/**
+ * Lit `rules.remuneration` si c'est un barème valide (mode tiered_total, au moins
+ * un palier). Paliers triés par seuil croissant, seuils et taux bornés ≥ 0 ;
+ * un palier sans seuil lisible vaut « à partir de 0 ».
+ */
+export function readRemuneration(raw: unknown): CollabRemuneration | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const rem = (raw as { remuneration?: unknown }).remuneration;
+  if (!rem || typeof rem !== 'object') return null;
+  const r = rem as { mode?: unknown; tiers?: unknown; tiers_mode?: unknown };
+  if (r.mode !== 'tiered_total' || !Array.isArray(r.tiers) || r.tiers.length === 0) return null;
+  const tiers: CollabTier[] = r.tiers
+    .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+    .map((t) => ({
+      from: Math.max(0, Number(t.from ?? 0) || 0),
+      pct: Math.max(0, Number(t.pct ?? 0) || 0),
+    }))
+    .sort((a, b) => a.from - b.from);
+  if (tiers.length === 0) return null;
+  return {
+    mode: 'tiered_total',
+    tiers,
+    tiers_mode: r.tiers_mode === 'marginal' ? 'marginal' : 'flat',
+  };
+}
+
+/** Le contrat rémunère-t-il par barème sur le CA total (au lieu d'un % par pilier) ? */
+export function isTieredRules(raw: unknown): boolean {
+  return readRemuneration(raw) !== null;
+}
+
+/**
+ * Taux et montant dus à l'organisateur pour un CA total donné. Miroir EXACT de
+ * public.collab_tier_pct(jsonb, numeric) : toute évolution se fait des deux côtés.
+ *  - flat     : le taux du palier atteint (seuil ≤ total, le plus haut) s'applique à
+ *               TOUT le total. C'est la lecture littérale d'un barème « 3,5k–5,5k = 7 % ».
+ *  - marginal : chaque tranche à son taux ; `pct` rendu = taux effectif (2 déc.).
+ */
+export function tierFor(rem: CollabRemuneration | null, total: number): { pct: number; amount: number } {
+  if (!rem || rem.tiers.length === 0) return { pct: 0, amount: 0 };
+  const t = Math.max(0, Number(total) || 0);
+  const tiers = [...rem.tiers].sort((a, b) => a.from - b.from);
+  if (rem.tiers_mode === 'marginal') {
+    let amount = 0;
+    for (let i = 0; i < tiers.length; i++) {
+      const from = tiers[i].from;
+      if (t <= from) continue;
+      const next = i + 1 < tiers.length ? tiers[i + 1].from : t;
+      amount += (Math.min(t, next) - from) * tiers[i].pct / 100;
+    }
+    const rounded = Math.round(amount * 100) / 100;
+    return { pct: t > 0 ? Math.round((amount / t) * 10000) / 100 : 0, amount: rounded };
+  }
+  let pct = 0;
+  for (const tier of tiers) if (tier.from <= t) pct = tier.pct;
+  return { pct, amount: Math.round(t * pct) / 100 };
+}
+
+/**
+ * Les blocs pilier d'un contrat à barème : tout au club pendant la vente, la
+ * part de l'organisateur se calcule après. Le bloc boissons garde le périmètre
+ * qu'il avait (un pilier sorti du deal reste sorti).
+ */
+export function tieredPillarBlocks(prev?: PartnershipSplitRules | null): Pick<PartnershipSplitRules, 'tickets' | 'tables' | 'drinks'> {
+  const keep = (b?: { enabled?: boolean }) => (b?.enabled === false ? { enabled: false as const } : {});
+  return {
+    tickets: { organizer_pct: 0, venue_pct: 100, ...keep(prev?.tickets) },
+    tables: { organizer_pct: 0, venue_pct: 100, ...keep(prev?.tables) },
+    drinks: { organizer_pct: 0, venue_pct: 100, ...keep(prev?.drinks) },
+  };
+}
+
+/**
+ * Un barème saisi est-il cohérent ? Au moins un palier, seuils strictement
+ * croissants, taux entre 0 et 100, premier seuil à 0 (en dessous du premier
+ * seuil, le taux vaut 0 : on l'écrit explicitement plutôt que de le deviner).
+ */
+export function validateTiers(tiers: CollabTier[]): string | null {
+  if (!tiers.length) return 'empty';
+  const sorted = [...tiers].sort((a, b) => a.from - b.from);
+  if (sorted[0].from !== 0) return 'first_from_not_zero';
+  for (let i = 0; i < sorted.length; i++) {
+    const t = sorted[i];
+    if (!Number.isFinite(t.from) || t.from < 0) return 'bad_from';
+    if (!Number.isFinite(t.pct) || t.pct < 0 || t.pct > 100) return 'bad_pct';
+    if (i > 0 && t.from <= sorted[i - 1].from) return 'from_not_increasing';
+  }
+  if (!sorted.some((t) => t.pct > 0)) return 'all_zero';
+  return null;
 }
