@@ -21,13 +21,14 @@ import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { CampaignWizard } from '@/components/ads/CampaignWizard';
 import {
-  BUILTIN_AUDIENCES, attributedRevenueCents, attributedSales, costPerSaleCents, creativeCover,
-  type AdsAudience, type AdsCampaign, type AdsPayload,
+  BUILTIN_AUDIENCES, RULE_AUDIENCES, RULE_AUDIENCE_WINDOWS, LOOKALIKE_RATIOS, isRuleAudience, attributedRevenueCents, attributedSales, costPerSaleCents, creativeCover,
+  type AdsAudience, type AdsCampaign, type AdsPayload, type AudienceKind,
 } from '@/lib/metaAds';
+import type { WizardMode } from '@/components/ads/wizard/types';
 import { toast } from 'sonner';
 import {
   Rocket, Hammer, Loader2, Play, Pause, RefreshCw, Trash2, Users, Copy, AlertTriangle, ExternalLink,
-  CheckCircle2, Sparkles, Inbox, Plug, ChevronDown, ChevronUp, Info,
+  CheckCircle2, Sparkles, Inbox, Plug, ChevronDown, ChevronUp, Info, Pencil, CopyPlus, PlayCircle, PauseCircle,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -94,11 +95,13 @@ export default function AdsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardInitial, setWizardInitial] = useState<{ campaign: AdsCampaign; mode: WizardMode } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdsCampaign | null>(null);
   const [confirmActivate, setConfirmActivate] = useState<AdsCampaign | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [showAudienceForm, setShowAudienceForm] = useState(false);
-  const [audKind, setAudKind] = useState<'builtin' | 'venue_segment' | 'contact_segment'>('builtin');
+  const [audKind, setAudKind] = useState<Exclude<AudienceKind, 'lookalike'>>('builtin');
+  const [lookalikeRatio, setLookalikeRatio] = useState<number>(0.03);
   const [audRef, setAudRef] = useState<string>('buyers_12m');
   const [audCount, setAudCount] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -146,6 +149,7 @@ export default function AdsPage() {
     if (!showAudienceForm || !data?.connection) return;
     let cancelled = false;
     setAudCount(null);
+    if (isRuleAudience(audKind)) { setAudCount(-1); return; }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     supabase.rpc('count_meta_audience' as any, { p_connection_id: data.connection.id, p_kind: audKind, p_ref: audRef }).then(({ data: n }) => { if (!cancelled) setAudCount(typeof n === 'number' ? n : 0); });
     return () => { cancelled = true; };
@@ -169,6 +173,7 @@ export default function AdsPage() {
 
   const audienceName = (kind: string, ref: string) => {
     if (kind === 'builtin') return t(`ads.audience.builtin.${ref}`);
+    if (isRuleAudience(kind)) return `${t(`ads.audience.rule.${kind}`)} · ${t('ads.audience.rule.days').replace('{n}', ref)}`;
     if (kind === 'venue_segment') return data?.segments.venue.find((s) => s.id === ref)?.name ?? ref;
     if (kind === 'contact_segment') return data?.segments.contact.find((s) => s.id === ref)?.name ?? ref;
     return ref;
@@ -349,6 +354,10 @@ export default function AdsPage() {
                         {c.tracked_code && (
                           <Btn onClick={() => { navigator.clipboard?.writeText(`https://yunoapp.eu/l/${c.tracked_code}`); toast.success(t('ads.toast.linkCopied')); }}><Copy className="w-3.5 h-3.5" /> {t('ads.action.copyLink')}</Btn>
                         )}
+                        {(c.status === 'paused' || c.status === 'active') && (
+                          <Btn onClick={() => { setWizardInitial({ campaign: c, mode: 'edit' }); setWizardOpen(true); }}><Pencil className="w-3.5 h-3.5" /> {t('ads.action.edit')}</Btn>
+                        )}
+                        <Btn onClick={() => { setWizardInitial({ campaign: c, mode: 'duplicate' }); setWizardOpen(true); }}><CopyPlus className="w-3.5 h-3.5" /> {t('ads.action.duplicate')}</Btn>
                       </div>
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setExpanded(isOpen ? null : c.id)} className="p-1.5 rounded-lg" style={{ color: T3 }} aria-label={t('ads.action.details')}>{isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>
@@ -407,6 +416,11 @@ export default function AdsPage() {
                                           <div key={k} className="text-right"><p style={{ color: T3, fontSize: 10 }}>{k}</p><p style={{ color: T1, fontSize: 12.5, fontWeight: 700 }}>{v}</p></div>
                                         ))}
                                       </div>
+                                      {r.ref && c.status === 'active' && c.creatives.length > 1 && (
+                                        (r.ref.effective_status ?? '').toUpperCase().startsWith('PAUSED')
+                                          ? <button type="button" onClick={() => run(`ad:${r.ref!.ad_id}`, async () => { await call('ad_set_status', { campaignId: c.id, adId: r.ref!.ad_id, status: 'active' }); })} className="h-8 w-8 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/[0.06]" style={{ color: POS }} aria-label={t('ads.action.activate')} disabled={busy === `ad:${r.ref.ad_id}`}><PlayCircle className="w-4 h-4" /></button>
+                                          : <button type="button" onClick={() => run(`ad:${r.ref!.ad_id}`, async () => { await call('ad_set_status', { campaignId: c.id, adId: r.ref!.ad_id, status: 'paused' }); })} className="h-8 w-8 rounded-lg flex items-center justify-center cursor-pointer hover:bg-white/[0.06]" style={{ color: WARN }} aria-label={t('ads.action.pause')} disabled={busy === `ad:${r.ref.ad_id}`}><PauseCircle className="w-4 h-4" /></button>
+                                      )}
                                     </div>
                                   ))}
                                   {!hasAny && <p className="px-3 py-2" style={{ color: T3, fontSize: 11.5 }}>{t('ads.row.noAdInsights')}</p>}
@@ -416,6 +430,35 @@ export default function AdsPage() {
                             <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{t('ads.row.byCreativeNote')}</p>
                           </div>
                         )}
+                        {(() => {
+                          const bd = c.insight_breakdowns;
+                          const ag = (bd?.age_gender ?? []).filter((r) => r.impressions > 0).sort((a, b) => b.spend_cents - a.spend_cents).slice(0, 8);
+                          const pl = (bd?.placements ?? []).filter((r) => r.impressions > 0).sort((a, b) => b.spend_cents - a.spend_cents).slice(0, 8);
+                          if (!ag.length && !pl.length) return null;
+                          const Tbl = ({ title, rows }: { title: string; rows: Array<{ key: string; label: string; spend_cents: number; impressions: number; link_clicks: number; purchases: number }> }) => (
+                            <div className="space-y-1.5">
+                              <p style={{ color: T3, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>{title}</p>
+                              <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+                                {rows.map((r) => (
+                                  <div key={r.key} className="flex items-center gap-3 px-3 py-1.5 tabular-nums" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                                    <span className="flex-1 truncate" style={{ color: T1, fontSize: 12.5 }}>{r.label}</span>
+                                    <span style={{ color: T2, fontSize: 12 }}>{fmtMoney(r.spend_cents)}</span>
+                                    <span className="w-16 text-right" style={{ color: T2, fontSize: 12 }}>{r.impressions}</span>
+                                    <span className="w-10 text-right" style={{ color: T2, fontSize: 12 }}>{r.link_clicks}</span>
+                                    <span className="w-8 text-right" style={{ color: r.purchases ? POS : T3, fontSize: 12, fontWeight: 700 }}>{r.purchases}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                          return (
+                            <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+                              {ag.length > 0 && <Tbl title={t('ads.row.byAgeGender')} rows={ag.map((r) => ({ ...r, label: `${r.age} · ${r.gender === 'female' ? t('ads.wizard.genderWomen') : r.gender === 'male' ? t('ads.wizard.genderMen') : r.gender}` }))} />}
+                              {pl.length > 0 && <Tbl title={t('ads.row.byPlacement')} rows={pl.map((r) => ({ ...r, label: `${r.platform} · ${r.position.replace(/_/g, ' ')}` }))} />}
+                              <p className="sm:col-span-2" style={{ color: T3, fontSize: 11.5 }}>{t('ads.row.breakdownNote')}</p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -437,8 +480,8 @@ export default function AdsPage() {
           {showAudienceForm && (
             <div className="rounded-xl p-3 mb-3 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <div className="flex gap-2 flex-wrap">
-                {(['builtin', 'venue_segment', 'contact_segment'] as const).filter((k) => k !== 'venue_segment' || !isOrganizer).map((k) => (
-                  <button key={k} type="button" onClick={() => { setAudKind(k); setAudRef(k === 'builtin' ? 'buyers_12m' : (k === 'venue_segment' ? data!.segments.venue[0]?.id : data!.segments.contact[0]?.id) ?? ''); }}
+                {([...(['builtin', 'venue_segment', 'contact_segment'] as const), ...RULE_AUDIENCES] as Array<Exclude<AudienceKind, 'lookalike'>>).filter((k) => k !== 'venue_segment' || !isOrganizer).filter((k) => !(k === 'ig_engagers' || k === 'ig_visitors') || !!conn.ig_user_id).map((k) => (
+                  <button key={k} type="button" onClick={() => { setAudKind(k); setAudRef(k === 'builtin' ? 'buyers_12m' : isRuleAudience(k) ? '90' : (k === 'venue_segment' ? data!.segments.venue[0]?.id : data!.segments.contact[0]?.id) ?? ''); }}
                     className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold"
                     style={audKind === k ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.45)', color: '#FF7A82' } : { background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                     {t(`ads.audiences.kind.${k}`)}
@@ -449,20 +492,30 @@ export default function AdsPage() {
                 {audKind === 'builtin' && BUILTIN_AUDIENCES.map((b) => <option key={b} value={b}>{t(`ads.audience.builtin.${b}`)}</option>)}
                 {audKind === 'venue_segment' && data!.segments.venue.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 {audKind === 'contact_segment' && data!.segments.contact.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {isRuleAudience(audKind) && RULE_AUDIENCE_WINDOWS.map((d) => <option key={d} value={String(d)}>{t('ads.audience.rule.days').replace('{n}', String(d))}</option>)}
               </select>
+              {isRuleAudience(audKind) && <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t(`ads.audience.rule.${audKind}Desc`)}</p>}
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p style={{ color: audCount != null && audCount < 100 ? WARN : T2, fontSize: 12.5 }}>
-                  {audCount == null ? t('ads.audiences.counting') : t('ads.audiences.count').replace('{n}', String(audCount))}
-                  {audCount != null && audCount < 100 && ` · ${t('ads.audiences.tooSmall')}`}
+                <p style={{ color: audCount != null && audCount >= 0 && audCount < 100 ? WARN : T2, fontSize: 12.5 }}>
+                  {audCount == null ? t('ads.audiences.counting') : audCount < 0 ? t('ads.audience.rule.metaFills') : t('ads.audiences.count').replace('{n}', String(audCount))}
+                  {audCount != null && audCount >= 0 && audCount < 100 && ` · ${t('ads.audiences.tooSmall')}`}
                 </p>
                 <Btn tone="primary" disabled={!audRef || audCount == null || audCount === 0} busy={busy === 'aud:create'}
                   onClick={() => run('aud:create', async () => { await call('audience_create', { kind: audKind, ref: audRef, name: audienceName(audKind, audRef) }); setShowAudienceForm(false); }, t('ads.toast.audienceCreated'))}>
                   {t('ads.audiences.push')}
                 </Btn>
               </div>
-              <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{t('ads.audiences.consentNote')}</p>
+              <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{isRuleAudience(audKind) ? t('ads.audience.rule.note') : t('ads.audiences.consentNote')}</p>
             </div>
           )}
+          <div className="flex items-center gap-2 flex-wrap mb-3" style={{ color: T3, fontSize: 12 }}>
+            <span>{t('ads.audiences.lookalikeRatio')}</span>
+            {LOOKALIKE_RATIOS.map((r) => (
+              <button key={r} type="button" onClick={() => setLookalikeRatio(r)} className="px-2.5 py-1 rounded-full text-[12px] font-semibold cursor-pointer"
+                style={lookalikeRatio === r ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.45)', color: '#FF7A82' } : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>{Math.round(r * 100)} %</button>
+            ))}
+            <span>{t('ads.audiences.lookalikeRatioHint')}</span>
+          </div>
           {audiences.length === 0 ? (
             <p style={{ color: T3, fontSize: 12.5 }}>{t('ads.audiences.empty')}</p>
           ) : (
@@ -473,15 +526,15 @@ export default function AdsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{a.name}</p>
                     <p style={{ color: T3, fontSize: 11.5 }}>
-                      {a.kind === 'lookalike' ? t('ads.audiences.lookalikeOf').replace('{p}', String(Math.round((a.lookalike_ratio ?? 0) * 100))).replace('{c}', a.lookalike_country ?? '') : t(`ads.audiences.kind.${a.kind}`)}
+                      {a.kind === 'lookalike' ? t('ads.audiences.lookalikeOf').replace('{p}', String(Math.round((a.lookalike_ratio ?? 0) * 100))).replace('{c}', a.lookalike_country ?? '') : isRuleAudience(a.kind) ? `${t(`ads.audience.rule.${a.kind}`)} · ${t('ads.audience.rule.days').replace('{n}', a.ref)}` : t(`ads.audiences.kind.${a.kind}`)}
                       {a.size_uploaded != null && a.kind !== 'lookalike' ? ` · ${t('ads.audiences.people').replace('{n}', String(a.size_uploaded))}` : ''}
                       {a.last_sync_at ? ` · ${fmtDate(a.last_sync_at)}` : ''}
                       {a.last_error ? ` · ${a.last_error === 'custom_audience_tos' ? t('ads.account.tosMissing') : a.last_error}` : ''}
                     </p>
                   </div>
                   <Pill tone={a.status === 'ready' ? 'pos' : a.status === 'error' ? 'neg' : 'warn'}>{t(`ads.audiences.status.${a.status}`)}</Pill>
-                  {a.kind !== 'lookalike' && a.status === 'ready' && (a.size_uploaded ?? 0) >= 100 && (
-                    <Btn onClick={() => run(`lk:${a.id}`, async () => { await call('audience_lookalike', { audienceId: a.id, ratio: 0.03, country: language === 'es' ? 'ES' : 'FR' }); }, t('ads.toast.lookalikeCreated'))} busy={busy === `lk:${a.id}`}><Sparkles className="w-3.5 h-3.5" /> {t('ads.audiences.lookalike')}</Btn>
+                  {a.kind !== 'lookalike' && a.status === 'ready' && (a.size_uploaded ?? 0) >= 100 && !isRuleAudience(a.kind) && (
+                    <Btn onClick={() => run(`lk:${a.id}`, async () => { await call('audience_lookalike', { audienceId: a.id, ratio: lookalikeRatio, country: language === 'es' ? 'ES' : 'FR' }); }, t('ads.toast.lookalikeCreated'))} busy={busy === `lk:${a.id}`}><Sparkles className="w-3.5 h-3.5" /> {t('ads.audiences.lookalike')}</Btn>
                   )}
                   <Btn onClick={() => run(`sy:${a.id}`, async () => { await call('audience_sync', { audienceId: a.id }); })} busy={busy === `sy:${a.id}`}><RefreshCw className="w-3.5 h-3.5" /></Btn>
                   <Btn tone="danger" onClick={() => run(`del:${a.id}`, async () => { await call('audience_delete', { audienceId: a.id }); })} busy={busy === `del:${a.id}`}><Trash2 className="w-3.5 h-3.5" /></Btn>
@@ -551,7 +604,9 @@ export default function AdsPage() {
           pageId={data.connection?.page_id ?? null}
           pageName={pageName}
           igUsername={igUsername}
-          onClose={() => setWizardOpen(false)}
+          mode={wizardInitial?.mode}
+          initial={wizardInitial?.campaign ?? null}
+          onClose={() => { setWizardOpen(false); setWizardInitial(null); }}
           onCreated={load}
         />
       )}

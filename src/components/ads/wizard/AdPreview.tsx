@@ -16,7 +16,7 @@ export function AdPreview({ creative, pageId, pageName, igUsername, instagramOn,
   t: (k: string) => string;
 }) {
   const [card, setCard] = useState(0);
-  const media = creative.format === 'video' ? creative.media.filter((m) => m.kind === 'video') : creative.media.filter((m) => m.kind === 'image');
+  const media = creative.format === 'video' ? creative.media.filter((m) => m.kind === 'video') : creative.format === 'instagram_post' ? creative.media.filter((m) => m.kind === 'ig_post') : creative.media.filter((m) => m.kind === 'image');
   useEffect(() => { if (card >= media.length) setCard(0); }, [media.length, card]);
   const shown: DraftMedia | undefined = media[Math.min(card, Math.max(0, media.length - 1))];
   const src = (m?: DraftMedia) => m?.preview || m?.url || '';
@@ -34,7 +34,8 @@ export function AdPreview({ creative, pageId, pageName, igUsername, instagramOn,
           <p className="truncate" style={{ color: T3, fontSize: 11 }}>{t('ads.wizard.previewSponsored')}{instagramOn && igUsername ? ` · @${igUsername}` : ''}</p>
         </div>
       </div>
-      {creative.body && <p className="px-3.5 pb-2.5 whitespace-pre-line" style={{ color: T1, fontSize: 13, lineHeight: 1.45 }}>{creative.body}</p>}
+      {creative.format === 'instagram_post' && shown?.description ? <p className="px-3.5 pb-2.5 whitespace-pre-line" style={{ color: T1, fontSize: 13, lineHeight: 1.45 }}>{shown.description}</p>
+        : creative.body && <p className="px-3.5 pb-2.5 whitespace-pre-line" style={{ color: T1, fontSize: 13, lineHeight: 1.45 }}>{creative.body}</p>}
       <div className="relative" style={{ background: 'rgba(255,255,255,0.05)' }}>
         <div className={creative.format === 'video' && shown ? '' : 'aspect-square'}>
           {!shown ? (
@@ -62,6 +63,9 @@ export function AdPreview({ creative, pageId, pageName, igUsername, instagramOn,
         )}
       </div>
       <div className="px-3.5 py-3">
+        {creative.format === 'instagram_post' ? (
+          <div className="flex items-center justify-end"><span className="px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.14)', color: T1, fontSize: 12, fontWeight: 700 }}>{t(`ads.cta.${creative.cta}`)}</span></div>
+        ) : (
         <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div className="min-w-0">
             <p style={{ color: T3, fontSize: 10.5, letterSpacing: '0.04em' }}>YUNOAPP.EU</p>
@@ -70,6 +74,7 @@ export function AdPreview({ creative, pageId, pageName, igUsername, instagramOn,
           </div>
           <span className="px-3 py-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(255,255,255,0.14)', color: T1, fontSize: 12, fontWeight: 700 }}>{t(`ads.cta.${creative.cta}`)}</span>
         </div>
+        )}
       </div>
     </div>
   );

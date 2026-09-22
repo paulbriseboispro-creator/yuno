@@ -2,17 +2,17 @@
 // l'éditeur de la création ouverte, et l'aperçu feed collé à droite.
 
 import type { MutableRefObject } from 'react';
-import { Plus, Copy, Trash2, Check, AlertCircle, Image as ImageIcon, Images, Clapperboard } from 'lucide-react';
+import { Plus, Copy, Trash2, Check, AlertCircle, Image as ImageIcon, Images, Clapperboard, AtSign as Instagram } from 'lucide-react';
 import type { DeferredUpload } from '@/lib/deferredUpload';
 import { MAX_CREATIVES, creativeIssues, newCreative, type AdCreative } from '@/lib/metaAds';
-import type { DraftCreative } from './types';
+import type { DraftCreative, WizardCall } from './types';
 import { CreativeEditor } from './CreativeEditor';
 import { AdPreview } from './AdPreview';
 import { StepHeader, Tip, GhostButton, T1, T2, T3, BORDER, INNER_BG, RED, POS, WARN } from './ui';
 
-const FormatIcon = ({ f }: { f: DraftCreative['format'] }) => f === 'video' ? <Clapperboard className="w-4 h-4" /> : f === 'carousel' ? <Images className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />;
+const FormatIcon = ({ f }: { f: DraftCreative['format'] }) => f === 'video' ? <Clapperboard className="w-4 h-4" /> : f === 'carousel' ? <Images className="w-4 h-4" /> : f === 'instagram_post' ? <Instagram className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />;
 
-export function StepCreatives({ creatives, selected, onSelect, onChange, posterUrl, uploadsRef, pageId, pageName, igUsername, instagramOn, t }: {
+export function StepCreatives({ creatives, selected, onSelect, onChange, posterUrl, uploadsRef, pageId, pageName, igUsername, instagramOn, call, t }: {
   creatives: DraftCreative[];
   selected: string;
   onSelect: (id: string) => void;
@@ -20,10 +20,11 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
   posterUrl: string | null;
   uploadsRef: MutableRefObject<Map<string, DeferredUpload>>;
   pageId?: string | null; pageName?: string | null; igUsername?: string | null; instagramOn: boolean;
+  call: WizardCall;
   t: (k: string) => string;
 }) {
   const current = creatives.find((c) => c.id === selected) ?? creatives[0];
-  const cover = (c: DraftCreative) => { const m = c.media.find((x) => x.kind === 'image'); return m?.preview || m?.url || c.media.find((x) => x.kind === 'video')?.thumbnail_url || null; };
+  const cover = (c: DraftCreative) => { const m = c.media.find((x) => x.kind === 'image' || x.kind === 'ig_post'); return m?.preview || m?.url || c.media.find((x) => x.kind === 'video')?.thumbnail_url || null; };
   const add = () => { if (creatives.length >= MAX_CREATIVES) return; const c = newCreative({ cta: current?.cta ?? 'BUY_TICKETS', headline: current?.headline ?? '', body: current?.body ?? '' }) as DraftCreative; onChange([...creatives, { ...c, media: [] }]); onSelect(c.id); };
   const duplicate = (c: DraftCreative) => { if (creatives.length >= MAX_CREATIVES) return; const d = newCreative({}) as DraftCreative; const copy: DraftCreative = { ...c, id: d.id, media: c.media.filter((m) => m.url).map((m) => ({ ...m, localId: `${m.localId}_${d.id}` })) }; onChange([...creatives, copy]); onSelect(copy.id); };
   const remove = (id: string) => { if (creatives.length <= 1) return; const next = creatives.filter((c) => c.id !== id); onChange(next); if (selected === id) onSelect(next[0].id); };
@@ -70,7 +71,7 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
                   <GhostButton small onClick={() => remove(current.id)} disabled={creatives.length <= 1}><Trash2 className="w-3.5 h-3.5" style={{ color: RED }} /> {t('ads.wizard.remove')}</GhostButton>
                 </div>
               </div>
-              <CreativeEditor creative={current} posterUrl={posterUrl} uploadsRef={uploadsRef} t={t}
+              <CreativeEditor creative={current} posterUrl={posterUrl} uploadsRef={uploadsRef} call={call} igAvailable={instagramOn && !!igUsername} t={t}
                 onChange={(next) => onChange(creatives.map((c) => (c.id === next.id ? next : c)))} />
             </div>
           )}

@@ -22,9 +22,10 @@ import { fr, es, enUS } from 'date-fns/locale';
 import type { DeferredUpload } from '@/lib/deferredUpload';
 import {
   DEFAULT_RADIUS_KM, FULL_MODE_AGE_MIN_CAP, MIN_BUDGET_CENTS, WIZARD_STEPS, creativeIssues, newCreative,
-  type AdCreative, type AdsAudience, type AdsEvent,
+  type AdCreative, type AdsAudience, type AdsCampaign, type AdsEvent, type Delivery, type WizardStep,
 } from '@/lib/metaAds';
-import type { CampaignDraft, DraftCreative, WizardCall } from './wizard/types';
+import type { CampaignDraft, DraftCreative, WizardCall, WizardMode } from './wizard/types';
+import { Sliders } from 'lucide-react';
 import { Stepper } from './wizard/Stepper';
 import { StepEvent } from './wizard/StepEvent';
 import { StepBudget } from './wizard/StepBudget';
@@ -40,13 +41,55 @@ function toLocalInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const EXPERT_DEFAULTS = {
+  excludedCities: [], zips: [], customLocations: [], locationTypes: [], detailed: [],
+  igPositions: [], fbPositions: [], devices: [],
+  conversionEvent: 'PURCHASE' as const, optimizationGoal: '', bidStrategy: 'lowest' as const, bidAmountEuros: 5, roasFloor: 2,
+  schedule: [], frequencyMax: 2, frequencyDays: 7, urlTags: '',
+};
+
+/** Brouillon depuis une campagne existante (modifier ou dupliquer). */
+function draftFromCampaign(c: AdsCampaign, mode: WizardMode, language: string, event: AdsEvent | null): CampaignDraft {
+  const tg = c.targeting ?? {}; const d: Delivery = c.delivery ?? {};
+  const toLocal = (iso: string | null | undefined, fallback: Date) => toLocalInput(iso ? new Date(iso) : fallback);
+  const start = mode === 'edit' ? new Date(c.start_at) : new Date(Date.now() + 15 * 60 * 1000);
+  const end = c.end_at ? new Date(c.end_at) : (event ? new Date(event.start_at) : new Date(Date.now() + 7 * 24 * 3600 * 1000));
+  const creatives: DraftCreative[] = (c.creatives ?? []).map((cr) => {
+    const n = newCreative({ format: cr.format, headline: cr.headline, body: cr.body, description: cr.description ?? '', cta: cr.cta }) as DraftCreative;
+    return { ...n, media: cr.media.map((m, i) => ({ ...m, localId: `${n.id}_${i}` })) };
+  });
+  return {
+    eventId: c.event_id ?? event?.id ?? '',
+    name: mode === 'edit' ? c.name : `${c.name} (${language === 'en' ? 'copy' : language === 'es' ? 'copia' : 'copie'})`.slice(0, 100),
+    objective: c.objective,
+    budgetType: c.budget_type,
+    budgetEuros: Math.round(c.budget_cents / 100),
+    startAt: toLocal(mode === 'edit' ? c.start_at : null, start),
+    endAt: toLocalInput(end > start ? end : new Date(start.getTime() + 3 * 24 * 3600 * 1000)),
+    cities: tg.cities ?? [],
+    country: tg.countries?.[0] ?? (language === 'es' ? 'ES' : 'FR'),
+    ageMin: tg.age_min ?? 18, ageMax: tg.age_max ?? 35, genders: tg.genders ?? [],
+    audienceIds: tg.audience_ids ?? [], excludeAudienceIds: tg.exclude_audience_ids ?? [],
+    interests: tg.interests ?? [], locales: [],
+    audienceMode: tg.audience_mode ?? (tg.advantage === false ? 'strict' : 'full'),
+    facebook: c.placements?.facebook !== false, instagram: c.placements?.instagram !== false,
+    creatives: creatives.length ? creatives : [posterCreative(event)],
+    ...EXPERT_DEFAULTS,
+    excludedCities: tg.excluded_cities ?? [], zips: tg.zips ?? [], customLocations: tg.custom_locations ?? [], locationTypes: tg.location_types ?? [], detailed: tg.detailed ?? [],
+    igPositions: c.placements?.positions?.instagram ?? [], fbPositions: c.placements?.positions?.facebook ?? [], devices: c.placements?.devices ?? [],
+    conversionEvent: d.conversion_event ?? 'PURCHASE', optimizationGoal: d.optimization_goal ?? '',
+    bidStrategy: d.bid?.strategy ?? 'lowest', bidAmountEuros: d.bid?.amount_cents ? d.bid.amount_cents / 100 : 5, roasFloor: d.bid?.roas_floor ?? 2,
+    schedule: d.schedule ?? [], frequencyMax: d.frequency?.max ?? 2, frequencyDays: d.frequency?.days ?? 7, urlTags: d.url_tags ?? '',
+  };
+}
+
 function posterCreative(e: AdsEvent | null): DraftCreative {
   const c = newCreative({ headline: e ? e.title.slice(0, 40) : '', cta: 'BUY_TICKETS' }) as DraftCreative;
   return { ...c, media: e?.poster_url ? [{ localId: `poster_${c.id}`, kind: 'image', url: e.poster_url }] : [] };
 }
 
 export function CampaignWizard({
-  scope, events, audiences, homeCity, defaultEventId, currency, pageId, pageName, igUsername, onClose, onCreated,
+  scope, events, audiences, homeCity, defaultEventId, currency, pageId, pageName, igUsername, mode: modeProp, initial, onClose, onCreated,
 }: {
   scope: WizardScope;
   events: AdsEvent[];
@@ -58,21 +101,31 @@ export function CampaignWizard({
   pageId?: string | null;
   pageName?: string | null;
   igUsername?: string | null;
+  /** `edit` : campagne vivante (soirée, objectif et créations figés) ; `duplicate` : nouvelle campagne pré-remplie. */
+  mode?: WizardMode;
+  initial?: AdsCampaign | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const { t, language } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+  const mode: WizardMode = initial ? (modeProp ?? 'duplicate') : 'create';
+  const editing = mode === 'edit';
+  const activeSteps: WizardStep[] = editing ? WIZARD_STEPS.filter((k) => k !== 'creative') : [...WIZARD_STEPS];
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
+  // Mode expert : tout ce qu'Ads Manager laisse régler. Mémorisé sur l'appareil.
+  const [expert, setExpert] = useState<boolean>(() => { try { return localStorage.getItem('yuno:ads:expert') === '1'; } catch { return false; } });
+  const toggleExpert = () => setExpert((v) => { try { localStorage.setItem('yuno:ads:expert', v ? '0' : '1'); } catch { /* no-op */ } return !v; });
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<{ lower: number; upper: number } | null | 'loading' | 'unknown'>(null);
   const uploadsRef = useRef<Map<string, DeferredUpload>>(new Map());
   const createdRef = useRef(false);
 
-  const firstEvent = events.find((e) => e.id === defaultEventId) ?? events[0] ?? null;
+  const firstEvent = events.find((e) => e.id === (initial?.event_id ?? defaultEventId)) ?? events[0] ?? null;
   const [draft, setDraft] = useState<CampaignDraft>(() => {
+    if (initial) return draftFromCampaign(initial, mode, language, firstEvent);
     const start = new Date(Date.now() + 15 * 60 * 1000);
     const end = firstEvent ? new Date(firstEvent.start_at) : new Date(Date.now() + 7 * 24 * 3600 * 1000);
     return {
@@ -96,6 +149,7 @@ export function CampaignWizard({
       facebook: true,
       instagram: true,
       creatives: [posterCreative(firstEvent)],
+      ...EXPERT_DEFAULTS,
     };
   });
   const [selectedCreative, setSelectedCreative] = useState(() => draft.creatives[0].id);
@@ -136,13 +190,30 @@ export function CampaignWizard({
   const targetingPayload = useMemo(() => ({
     countries: [draft.country], cities: draft.cities, age_min: draft.ageMin, age_max: draft.ageMax,
     genders: draft.genders, audience_ids: draft.audienceIds, exclude_audience_ids: draft.excludeAudienceIds,
-    interests: draft.interests.map((i) => ({ id: i.id, name: i.name })), locales: draft.locales.map((l) => l.key), audience_mode: draft.audienceMode, advantage: draft.audienceMode !== 'strict',
-  }), [draft.country, draft.cities, draft.ageMin, draft.ageMax, draft.genders, draft.audienceIds, draft.excludeAudienceIds, draft.interests, draft.locales, draft.audienceMode]);
-  const placementsPayload = useMemo(() => ({ facebook: draft.facebook, instagram: draft.instagram }), [draft.facebook, draft.instagram]);
+    interests: expert ? [] : draft.interests.map((i) => ({ id: i.id, name: i.name })),
+    detailed: expert ? draft.detailed.filter((g) => g.items.length) : [],
+    locales: draft.locales.map((l) => l.key), audience_mode: draft.audienceMode, advantage: draft.audienceMode !== 'strict',
+    excluded_cities: expert ? draft.excludedCities : [], zips: expert ? draft.zips : [], custom_locations: expert ? draft.customLocations : [], location_types: expert ? draft.locationTypes : [],
+  }), [expert, draft.country, draft.cities, draft.ageMin, draft.ageMax, draft.genders, draft.audienceIds, draft.excludeAudienceIds, draft.interests, draft.detailed, draft.locales, draft.audienceMode, draft.excludedCities, draft.zips, draft.customLocations, draft.locationTypes]);
+  const placementsPayload = useMemo(() => ({
+    facebook: draft.facebook, instagram: draft.instagram,
+    ...(expert ? { positions: { instagram: draft.igPositions, facebook: draft.fbPositions }, devices: draft.devices } : {}),
+  }), [expert, draft.facebook, draft.instagram, draft.igPositions, draft.fbPositions, draft.devices]);
+  const deliveryPayload = useMemo((): Delivery => {
+    const d: Delivery = {};
+    if (draft.objective === 'OUTCOME_SALES') d.conversion_event = expert ? draft.conversionEvent : 'PURCHASE';
+    if (draft.objective !== 'OUTCOME_SALES' && draft.optimizationGoal) d.optimization_goal = draft.optimizationGoal;
+    if (!expert) return d;
+    if (draft.bidStrategy !== 'lowest') d.bid = { strategy: draft.bidStrategy, amount_cents: Math.round(draft.bidAmountEuros * 100), roas_floor: draft.roasFloor };
+    if (draft.budgetType === 'lifetime' && draft.schedule.length) d.schedule = draft.schedule.filter((sl) => sl.days.length && sl.end_hour > sl.start_hour);
+    if (draft.objective === 'OUTCOME_AWARENESS') d.frequency = { max: draft.frequencyMax, days: draft.frequencyDays };
+    if (draft.urlTags.trim()) d.url_tags = draft.urlTags.trim();
+    return d;
+  }, [expert, draft.objective, draft.conversionEvent, draft.optimizationGoal, draft.bidStrategy, draft.bidAmountEuros, draft.roasFloor, draft.budgetType, draft.schedule, draft.frequencyMax, draft.frequencyDays, draft.urlTags]);
 
   // Estimation Meta de l'audience, recalculée 700 ms après le dernier réglage.
   useEffect(() => {
-    if (step !== 2) return;
+    if (activeSteps[step] !== 'targeting') return;
     setEstimate('loading');
     const timer = window.setTimeout(async () => {
       try {
@@ -163,19 +234,21 @@ export function CampaignWizard({
   const startDate = new Date(draft.startAt);
   const endDate = new Date(draft.endAt);
   const creativesOk = draft.creatives.every((c) => creativeIssues(c as unknown as AdCreative).length === 0 && !c.media.some((m) => m.uploading || m.error || !m.url));
-  const stepValid = [
-    !!draft.eventId && draft.name.trim().length >= 3,
-    budgetCents >= MIN_BUDGET_CENTS && !Number.isNaN(startDate.getTime()) && (draft.budgetType === 'daily' || (!Number.isNaN(endDate.getTime()) && endDate > startDate)),
-    !!draft.country && draft.ageMin >= 18 && draft.ageMax >= draft.ageMin && (draft.facebook || draft.instagram),
-    creativesOk,
-    true,
-  ];
+  const validByKey: Record<WizardStep, boolean> = {
+    event: !!draft.eventId && draft.name.trim().length >= 3,
+    budget: budgetCents >= MIN_BUDGET_CENTS && !Number.isNaN(startDate.getTime()) && (draft.budgetType === 'daily' || (!Number.isNaN(endDate.getTime()) && endDate > startDate))
+      && (!expert || draft.bidStrategy === 'lowest' || (draft.bidStrategy === 'min_roas' ? draft.roasFloor > 0 : draft.bidAmountEuros > 0)),
+    targeting: !!draft.country && draft.ageMin >= 18 && draft.ageMax >= draft.ageMin && (draft.facebook || draft.instagram),
+    creative: creativesOk,
+    review: true,
+  };
+  const stepValid = activeSteps.map((k) => validByKey[k]);
   const days = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000));
   const totalEstimate = draft.budgetType === 'daily' ? draft.budgetEuros * days : draft.budgetEuros;
   const fmtMoney = (eur: number) => new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: currency || 'EUR', maximumFractionDigits: 0 }).format(eur);
 
   const go = (i: number) => { setStep(i); setFurthest((f) => Math.max(f, i)); setSubmitError(null); };
-  const next = () => go(Math.min(WIZARD_STEPS.length - 1, step + 1));
+  const next = () => go(Math.min(activeSteps.length - 1, step + 1));
 
   // Toujours créée en pause : aucun argent ne part d'ici.
   const submit = async () => {
@@ -189,7 +262,17 @@ export function CampaignWizard({
         media: c.media.map((m) => ({ url: m.url, kind: m.kind, thumbnail_url: m.thumbnail_url ?? null, headline: m.headline ?? null, description: m.description ?? null })),
         headline: c.headline.trim(), body: c.body.trim(), description: c.description.trim() || null, cta: c.cta,
       }));
-      if (creatives.some((c) => c.media.some((m) => !m.url))) throw new Error(t('ads.w.media.uploadFailed'));
+      if (creatives.some((c) => c.media.some((m) => !m.url && m.kind !== 'ig_post'))) throw new Error(t('ads.w.media.uploadFailed'));
+      if (editing && initial) {
+        const res = await call('campaign_update', {
+          campaignId: initial.id, name: draft.name.trim(), budgetCents,
+          startAt: startDate.toISOString(), endAt: draft.budgetType === 'lifetime' || draft.endAt ? endDate.toISOString() : null,
+          targeting: targetingPayload, placements: placementsPayload, delivery: deliveryPayload,
+        });
+        if (res.ok) { createdRef.current = true; toast.success(t('ads.x.edit.saved')); onCreated(); onClose(); }
+        else setSubmitError(String(res.error ?? t('ads.err.generic')));
+        return;
+      }
       const res = await call('campaign_create', {
         eventId: draft.eventId, name: draft.name.trim(), objective: draft.objective,
         budgetType: draft.budgetType, budgetCents,
@@ -197,6 +280,7 @@ export function CampaignWizard({
         targeting: targetingPayload,
         creatives,
         placements: placementsPayload,
+        delivery: deliveryPayload,
       });
       if (res.ok) {
         createdRef.current = true;
@@ -216,23 +300,49 @@ export function CampaignWizard({
     }
   };
 
-  const steps = WIZARD_STEPS.map((k) => ({ key: k, label: t(`ads.wizard.step.${k}`), short: t(`ads.w.step.${k}.short`) }));
+  const steps = activeSteps.map((k) => ({ key: k, label: t(`ads.wizard.step.${k}`), short: t(`ads.w.step.${k}.short`) }));
+  const stepIndex = (k: WizardStep) => Math.max(0, activeSteps.indexOf(k));
+  const current = activeSteps[step];
   const genderLabel = draft.genders.length === 0 ? t('ads.wizard.genderAll') : draft.genders[0] === 2 ? t('ads.wizard.genderWomen') : t('ads.wizard.genderMen');
+  const objectiveLabel = draft.objective === 'OUTCOME_SALES' ? t('ads.wizard.objectiveSales') : draft.objective === 'OUTCOME_TRAFFIC' ? t('ads.wizard.objectiveTraffic') : t('ads.x.obj.awareness');
+  const zoneParts = [
+    draft.cities.length ? draft.cities.map((c) => `${c.name}${c.type !== 'region' ? ` (${c.radius_km ?? DEFAULT_RADIUS_KM} km)` : ''}`).join(', ') : null,
+    expert && draft.zips.length ? draft.zips.map((z) => z.name).join(', ') : null,
+    expert && draft.customLocations.length ? draft.customLocations.map((c) => `${c.name ?? '📍'} (${c.radius_km} km)`).join(', ') : null,
+  ].filter(Boolean);
+  const detailedLabel = expert
+    ? draft.detailed.filter((g) => g.items.length).map((g) => g.items.map((i) => i.name).join(' / ')).join('  ET  ')
+    : draft.interests.map((i) => i.name).join(', ');
+  const deliveryLabel = [
+    draft.objective === 'OUTCOME_SALES' && expert ? t(`ads.x.conv.${draft.conversionEvent}`) : null,
+    draft.objective !== 'OUTCOME_SALES' && draft.optimizationGoal ? t(`ads.x.opt.${draft.optimizationGoal}`) : null,
+    expert && draft.bidStrategy !== 'lowest' ? `${t(`ads.x.bid.${draft.bidStrategy}`)} ${draft.bidStrategy === 'min_roas' ? `${draft.roasFloor}×` : fmtMoney(draft.bidAmountEuros)}` : null,
+    expert && draft.budgetType === 'lifetime' && draft.schedule.length ? t('ads.x.sched.summary').replace('{n}', String(draft.schedule.length)) : null,
+    expert && draft.objective === 'OUTCOME_AWARENESS' ? `${draft.frequencyMax} / ${draft.frequencyDays} j` : null,
+    expert && draft.urlTags.trim() ? 'UTM' : null,
+  ].filter(Boolean).join(' · ');
   const reviewRows = [
-    { label: t('ads.wizard.step.event'), value: `${event?.title ?? '—'} · ${draft.name}`, step: 0 },
-    { label: t('ads.wizard.objective'), value: draft.objective === 'OUTCOME_SALES' ? t('ads.wizard.objectiveSales') : t('ads.wizard.objectiveTraffic'), step: 0 },
-    { label: t('ads.wizard.step.budget'), value: `${fmtMoney(draft.budgetEuros)} ${draft.budgetType === 'daily' ? t('ads.wizard.perDay') : t('ads.wizard.inTotal')} · ${format(startDate, 'd MMM HH:mm', { locale })} → ${Number.isNaN(endDate.getTime()) ? '—' : format(endDate, 'd MMM HH:mm', { locale })}`, step: 1 },
-    { label: t('ads.wizard.zone'), value: draft.cities.length ? draft.cities.map((c) => `${c.name}${c.type !== 'region' ? ` (${c.radius_km ?? DEFAULT_RADIUS_KM} km)` : ''}`).join(', ') : t('ads.wizard.wholeCountry').replace('{country}', t(`ads.w.country.${draft.country}`)), step: 2 },
-    { label: t('ads.wizard.age'), value: `${draft.audienceMode === 'full' ? `${Math.min(FULL_MODE_AGE_MIN_CAP, draft.ageMin)}+` : `${draft.ageMin}–${draft.ageMax}`} · ${genderLabel}`, step: 2 },
+    { label: t('ads.wizard.step.event'), value: `${event?.title ?? '—'} · ${draft.name}`, step: stepIndex('event') },
+    { label: t('ads.wizard.objective'), value: objectiveLabel, step: stepIndex('event') },
+    { label: t('ads.wizard.step.budget'), value: `${fmtMoney(draft.budgetEuros)} ${draft.budgetType === 'daily' ? t('ads.wizard.perDay') : t('ads.wizard.inTotal')} · ${format(startDate, 'd MMM HH:mm', { locale })} → ${Number.isNaN(endDate.getTime()) ? '—' : format(endDate, 'd MMM HH:mm', { locale })}`, step: stepIndex('budget') },
+    ...(deliveryLabel ? [{ label: t('ads.x.review.delivery'), value: deliveryLabel, step: stepIndex('budget') }] : []),
+    { label: t('ads.wizard.zone'), value: [zoneParts.length ? zoneParts.join(' · ') : t('ads.wizard.wholeCountry').replace('{country}', t(`ads.w.country.${draft.country}`)),
+      expert && draft.locationTypes.length ? draft.locationTypes.map((x) => t(`ads.x.geo.type.${x}`)).join(' / ') : null,
+      expert && draft.excludedCities.length ? `${t('ads.wizard.exclude')} : ${draft.excludedCities.map((c) => c.name).join(', ')}` : null].filter(Boolean).join(' · '), step: stepIndex('targeting') },
+    { label: t('ads.wizard.age'), value: `${draft.audienceMode === 'full' ? `${Math.min(FULL_MODE_AGE_MIN_CAP, draft.ageMin)}+` : `${draft.ageMin}–${draft.ageMax}`} · ${genderLabel}`, step: stepIndex('targeting') },
     { label: t('ads.wizard.audiences'), value: [
       draft.audienceIds.length ? readyAudiences.filter((a) => draft.audienceIds.includes(a.id)).map((a) => a.name).join(', ') : t('ads.wizard.noAudienceSelected'),
       draft.excludeAudienceIds.length ? `${t('ads.wizard.exclude')} : ${readyAudiences.filter((a) => draft.excludeAudienceIds.includes(a.id)).map((a) => a.name).join(', ')}` : null,
       t(`ads.w.target.mode.${draft.audienceMode}`),
-    ].filter(Boolean).join(' · '), step: 2 },
-    ...(draft.interests.length || draft.locales.length ? [{ label: t('ads.w.target.advanced'), value: [draft.interests.map((i) => i.name).join(', '), draft.locales.map((l) => l.name).join(', ')].filter(Boolean).join(' · '), step: 2 }] : []),
-    { label: t('ads.wizard.placements'), value: [draft.instagram ? 'Instagram' : null, draft.facebook ? 'Facebook' : null].filter(Boolean).join(' + '), step: 2 },
-    { label: t('ads.wizard.identity'), value: [pageName ? `Page · ${pageName}` : null, draft.instagram && igUsername ? `Instagram · @${igUsername}` : null].filter(Boolean).join('   ·   ') || '—', step: 2 },
-    { label: t('ads.w.creative.title'), value: t('ads.w.review.creativesValue').replace('{n}', String(draft.creatives.length)), step: 3 },
+    ].filter(Boolean).join(' · '), step: stepIndex('targeting') },
+    ...(detailedLabel || draft.locales.length ? [{ label: t('ads.w.target.advanced'), value: [detailedLabel, draft.locales.map((l) => l.name).join(', ')].filter(Boolean).join(' · '), step: stepIndex('targeting') }] : []),
+    { label: t('ads.wizard.placements'), value: [
+      [draft.instagram ? 'Instagram' : null, draft.facebook ? 'Facebook' : null].filter(Boolean).join(' + '),
+      expert && (draft.igPositions.length || draft.fbPositions.length) ? [...draft.igPositions.map((p) => t(`ads.x.place.ig.${p}`)), ...draft.fbPositions.map((p) => t(`ads.x.place.fb.${p}`))].join(', ') : null,
+      expert && draft.devices.length === 1 ? t(`ads.x.place.${draft.devices[0]}`) : null,
+    ].filter(Boolean).join(' · '), step: stepIndex('targeting') },
+    { label: t('ads.wizard.identity'), value: [pageName ? `Page · ${pageName}` : null, draft.instagram && igUsername ? `Instagram · @${igUsername}` : null].filter(Boolean).join('   ·   ') || '—', step: stepIndex('targeting') },
+    ...(editing ? [] : [{ label: t('ads.w.creative.title'), value: t('ads.w.review.creativesValue').replace('{n}', String(draft.creatives.length)), step: stepIndex('creative') }]),
   ];
 
   return (
@@ -246,27 +356,38 @@ export function CampaignWizard({
                 <Rocket className="w-5 h-5" style={{ color: RED }} />
               </div>
               <div className="min-w-0">
-                <p style={{ color: T1, fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>{t('ads.wizard.title')}</p>
+                <p style={{ color: T1, fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>{editing ? t('ads.x.edit.title') : mode === 'duplicate' ? t('ads.x.dup.title') : t('ads.wizard.title')}</p>
                 <p className="truncate" style={{ color: T3, fontSize: 12.5 }}>{event?.title ?? t('ads.w.subtitle')}</p>
               </div>
             </div>
-            <button type="button" onClick={onClose} className="h-10 w-10 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/[0.06] transition-colors duration-150" style={{ color: T3 }} aria-label={t('ads.wizard.close')}><X className="w-5 h-5" /></button>
+            <div className="flex items-center gap-2">
+              <button type="button" role="switch" aria-checked={expert} onClick={toggleExpert}
+                className="inline-flex items-center gap-2 pl-3 pr-1.5 rounded-xl cursor-pointer transition-colors duration-150"
+                style={{ minHeight: 40, background: expert ? 'rgba(232,25,44,0.12)' : FIELD_BG, border: `1px solid ${expert ? 'rgba(232,25,44,0.45)' : BORDER}`, color: expert ? '#FF8A91' : T2, fontSize: 13, fontWeight: 600 }}
+                title={t('ads.x.expert.hint')}>
+                <Sliders className="w-4 h-4" /> {t('ads.x.expert.toggle')}
+                <span className="relative rounded-full transition-colors duration-200" style={{ width: 34, height: 20, background: expert ? RED : 'rgba(255,255,255,0.14)' }}>
+                  <span className="absolute top-[2px] rounded-full bg-white transition-transform duration-200" style={{ width: 16, height: 16, transform: `translateX(${expert ? 16 : 2}px)` }} />
+                </span>
+              </button>
+              <button type="button" onClick={onClose} className="h-10 w-10 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/[0.06] transition-colors duration-150" style={{ color: T3 }} aria-label={t('ads.wizard.close')}><X className="w-5 h-5" /></button>
+            </div>
           </div>
           <Stepper steps={steps} current={step} furthest={furthest} onGo={go} />
         </div>
 
         {/* Corps */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
-          {step === 0 && <StepEvent draft={draft} events={events} onPickEvent={pickEvent} set={set} locale={locale} t={t} />}
-          {step === 1 && <StepBudget draft={draft} set={set} currency={currency} days={days} totalEstimate={totalEstimate} fmtMoney={fmtMoney} t={t} />}
-          {step === 2 && <StepTargeting draft={draft} set={set} audiences={audiences} homeCity={homeCity} call={call} language={language} estimate={estimate} t={t} />}
-          {step === 3 && (
+          {current === 'event' && <StepEvent draft={draft} events={events} onPickEvent={pickEvent} set={set} locale={locale} expert={expert} locked={editing} t={t} />}
+          {current === 'budget' && <StepBudget draft={draft} set={set} currency={currency} days={days} totalEstimate={totalEstimate} fmtMoney={fmtMoney} expert={expert} locked={editing} t={t} />}
+          {current === 'targeting' && <StepTargeting draft={draft} set={set} audiences={audiences} homeCity={homeCity} call={call} language={language} estimate={estimate} expert={expert} t={t} />}
+          {current === 'creative' && (
             <StepCreatives creatives={draft.creatives} selected={selectedCreative} onSelect={setSelectedCreative} onChange={(c) => set('creatives', c)}
-              posterUrl={event?.poster_url ?? null} uploadsRef={uploadsRef} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} t={t} />
+              posterUrl={event?.poster_url ?? null} uploadsRef={uploadsRef} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} call={call} t={t} />
           )}
-          {step === 4 && (
+          {current === 'review' && (
             <>
-              <StepReview rows={reviewRows} creatives={draft.creatives} onEdit={go} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} t={t} />
+              <StepReview rows={reviewRows} creatives={editing ? [] : draft.creatives} onEdit={go} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} t={t} />
               {submitError && (
                 <div className="mt-4 flex items-start gap-2.5 rounded-xl px-4 py-3" style={{ border: '1px solid rgba(232,25,44,0.4)', background: 'rgba(232,25,44,0.08)' }}>
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF8A91' }} />
@@ -285,8 +406,8 @@ export function CampaignWizard({
             <ChevronLeft className="w-4 h-4" /> {t('ads.wizard.back')}
           </button>
           <div className="flex items-center gap-3">
-            {!stepValid[step] && step < 4 && <span className="hidden sm:block" style={{ color: T3, fontSize: 12.5 }}>{t(`ads.w.step.${WIZARD_STEPS[step]}.missing`)}</span>}
-            {step < WIZARD_STEPS.length - 1 ? (
+            {!stepValid[step] && current !== 'review' && <span className="hidden sm:block" style={{ color: T3, fontSize: 12.5 }}>{t(`ads.w.step.${current}.missing`)}</span>}
+            {step < activeSteps.length - 1 ? (
               <button type="button" onClick={next} disabled={!stepValid[step] || busy}
                 className="inline-flex items-center gap-1.5 px-5 rounded-xl text-[14px] font-semibold cursor-pointer transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: RED, color: '#fff', minHeight: 46 }}>
@@ -296,7 +417,7 @@ export function CampaignWizard({
               <button type="button" onClick={submit} disabled={busy}
                 className="inline-flex items-center gap-2 px-5 rounded-xl text-[14px] font-semibold cursor-pointer transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: META_BLUE, color: '#fff', minHeight: 46 }}>
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} {busy ? t('ads.w.creating') : t('ads.wizard.createPaused')}
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />} {busy ? (editing ? t('ads.x.edit.saving') : t('ads.w.creating')) : (editing ? t('ads.x.edit.save') : t('ads.wizard.createPaused'))}
               </button>
             )}
           </div>

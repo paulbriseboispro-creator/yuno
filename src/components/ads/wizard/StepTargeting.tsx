@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, X, Loader2, Users, Sparkles, Target, Wand2, Globe2, Languages, Heart } from 'lucide-react';
 import { DEFAULT_RADIUS_KM, FULL_MODE_AGE_MIN_CAP, type AdsAudience, type AudienceMode, type GeoChoice, type InterestChoice, type LocaleChoice } from '@/lib/metaAds';
 import type { CampaignDraft, WizardCall } from './types';
+import { ExpertGeo, ExpertDetailed, ExpertPlacements } from './ExpertTargeting';
 import { StepHeader, Section, Field, Chip, ChoiceCards, ToggleRow, Tip, GhostButton, inputStyle, focusRing, T1, T2, T3, BORDER, INNER_BG, RED, WARN } from './ui';
 
 function useDebouncedSearch<T>(query: string, deps: unknown[], fetcher: (q: string) => Promise<T[]>) {
@@ -42,7 +43,7 @@ function Dropdown({ children }: { children: React.ReactNode }) {
   return <div className="mt-1.5 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: '#121214' }}>{children}</div>;
 }
 
-export function StepTargeting({ draft, set, audiences, homeCity, call, language, estimate, t }: {
+export function StepTargeting({ draft, set, audiences, homeCity, call, language, estimate, expert, t }: {
   draft: CampaignDraft;
   set: <K extends keyof CampaignDraft>(k: K, v: CampaignDraft[K]) => void;
   audiences: AdsAudience[];
@@ -50,12 +51,13 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
   call: WizardCall;
   language: string;
   estimate: { lower: number; upper: number } | null | 'loading' | 'unknown';
+  expert: boolean;
   t: (k: string) => string;
 }) {
   const [geoQuery, setGeoQuery] = useState('');
   const [interestQuery, setInterestQuery] = useState('');
   const [localeQuery, setLocaleQuery] = useState('');
-  const [advanced, setAdvanced] = useState(draft.interests.length > 0 || draft.locales.length > 0 || !draft.facebook || !draft.instagram);
+  const [advanced, setAdvanced] = useState(expert || draft.interests.length > 0 || draft.detailed.length > 0 || draft.locales.length > 0 || !draft.facebook || !draft.instagram);
   const fullMode = draft.audienceMode === 'full';
   const geo = useDebouncedSearch<GeoChoice>(geoQuery, [draft.country], async (q) => (((await call('ads_search_geo', { q, country: draft.country })).results as GeoChoice[] | undefined) ?? []).slice(0, 8));
   const interests = useDebouncedSearch<InterestChoice>(interestQuery, [language], async (q) => (((await call('ads_search', { type: 'interest', q, locale: language })).results as InterestChoice[] | undefined) ?? []).slice(0, 10));
@@ -106,6 +108,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
         ) : (
           <Tip tone="warn">{t('ads.w.target.noCity').replace('{country}', t(`ads.w.country.${draft.country}`))}</Tip>
         )}
+        {expert && <ExpertGeo draft={draft} set={set} call={call} t={t} />}
       </Section>
 
       <Section title={t('ads.w.target.profile')} desc={t('ads.w.target.profileDesc')}>
@@ -164,6 +167,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
       </div>
       {advanced && (
         <Section title={t('ads.w.target.advanced')} desc={t('ads.w.target.advancedDesc')}>
+          {expert ? <ExpertDetailed draft={draft} set={set} call={call} t={t} /> : (
           <Field label={<span className="inline-flex items-center gap-2"><Heart className="w-4 h-4" style={{ color: T3 }} />{t('ads.w.target.interests')}</span>} optional={t('ads.w.optional')} hint={t('ads.w.target.interestsHint')}>
             <SearchBox value={interestQuery} onChange={setInterestQuery} placeholder={t('ads.w.target.interestsPh')} busy={interests.busy}>
               {interests.results.length > 0 && (
@@ -184,6 +188,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
               </div>
             )}
           </Field>
+          )}
           <Field label={<span className="inline-flex items-center gap-2"><Languages className="w-4 h-4" style={{ color: T3 }} />{t('ads.w.target.languages')}</span>} optional={t('ads.w.optional')} hint={t('ads.w.target.languagesHint')}>
             <SearchBox value={localeQuery} onChange={setLocaleQuery} placeholder={t('ads.w.target.languagesPh')} busy={locales.busy}>
               {locales.results.length > 0 && (
@@ -207,6 +212,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
               <ToggleRow label="Facebook" desc={t('ads.w.target.facebookDesc')} checked={draft.facebook} onChange={(v) => set('facebook', v)} />
             </div>
           </Field>
+          {expert && <ExpertPlacements draft={draft} set={set} t={t} />}
         </Section>
       )}
 

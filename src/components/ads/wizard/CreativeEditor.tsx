@@ -3,27 +3,38 @@
 // (`deferredUpload`) ; une vidéo reçoit sa couverture capturée à 1 s, que le
 // pro peut remplacer par une image à lui.
 
-import { useRef, type MutableRefObject, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Images, Clapperboard, Plus, X, ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
+import { Image as ImageIcon, Images, Clapperboard, Plus, X, ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Sparkles, AtSign as Instagram, Check } from 'lucide-react';
 import type { DeferredUpload } from '@/lib/deferredUpload';
 import {
   AD_IMAGE_ACCEPT, AD_VIDEO_ACCEPT, AD_VIDEO_MAX_BYTES, AD_VIDEO_MAX_SECONDS,
   inspectAdVideo, captureVideoFrame, startAdImageUpload, startAdVideoUpload, startAdThumbnailUpload,
 } from '@/lib/adCreativeMedia';
-import { CTA_OPTIONS, CAROUSEL_MAX, CAROUSEL_MIN, HEADLINE_MAX, BODY_MAX, DESCRIPTION_MAX, type CreativeFormat, type CtaType } from '@/lib/metaAds';
-import type { DraftCreative, DraftMedia } from './types';
+import { CTA_OPTIONS, CAROUSEL_MAX, CAROUSEL_MIN, HEADLINE_MAX, BODY_MAX, DESCRIPTION_MAX, type CreativeFormat, type CtaType, type IgMedia } from '@/lib/metaAds';
+import type { DraftCreative, DraftMedia, WizardCall } from './types';
 import { Field, Chip, ChoiceCards, GhostButton, Tip, inputStyle, focusRing, T1, T2, T3, BORDER, RED, POS, INNER_BG } from './ui';
 
 const localId = () => `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
-export function CreativeEditor({ creative, onChange, posterUrl, uploadsRef, t }: {
+export function CreativeEditor({ creative, onChange, posterUrl, uploadsRef, call, igAvailable, t }: {
   creative: DraftCreative;
   onChange: (next: DraftCreative) => void;
   posterUrl: string | null;
   uploadsRef: MutableRefObject<Map<string, DeferredUpload>>;
+  call: WizardCall;
+  /** Un compte Instagram est relié : « booster une publication » est possible. */
+  igAvailable: boolean;
   t: (k: string) => string;
 }) {
+  const [igMedia, setIgMedia] = useState<IgMedia[] | null>(null);
+  const [igBusy, setIgBusy] = useState(false);
+  useEffect(() => {
+    if (creative.format !== 'instagram_post' || igMedia !== null || igBusy) return;
+    setIgBusy(true);
+    call('ads_ig_media', {}).then((r) => setIgMedia((r.results as IgMedia[] | undefined) ?? [])).catch(() => setIgMedia([])).finally(() => setIgBusy(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creative.format]);
   const imageInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
   const coverInput = useRef<HTMLInputElement>(null);
@@ -42,9 +53,14 @@ export function CreativeEditor({ creative, onChange, posterUrl, uploadsRef, t }:
     // « carrousel », la vidéo pour « vidéo ».
     const imgs = c.media.filter((m) => m.kind === 'image');
     const vid = c.media.filter((m) => m.kind === 'video');
-    const media = format === 'image' ? imgs.slice(0, 1) : format === 'carousel' ? imgs : vid;
+    const post = c.media.filter((m) => m.kind === 'ig_post');
+    const media = format === 'image' ? imgs.slice(0, 1) : format === 'carousel' ? imgs : format === 'video' ? vid : post;
     return { ...c, format, media };
   });
+  const pickPost = (m: IgMedia) => patch((c) => ({
+    ...c, media: [{ localId: `ig_${m.id}`, kind: 'ig_post', url: m.image ?? '', ig_media_id: m.id, description: m.caption }],
+    headline: c.headline || 'Instagram', body: c.body || m.caption || '—',
+  }));
 
   const addImages = async (files: File[]) => {
     const room = creative.format === 'carousel' ? CAROUSEL_MAX - images.length : 1;
@@ -147,14 +163,35 @@ export function CreativeEditor({ creative, onChange, posterUrl, uploadsRef, t }:
       <input ref={coverInput} type="file" accept={AD_IMAGE_ACCEPT} className="hidden" onChange={(e) => onPick(e, (f) => replaceCover(f[0]))} />
 
       <Field label={t('ads.w.creative.format')} hint={t('ads.w.creative.formatHint')}>
-        <ChoiceCards<CreativeFormat> value={creative.format} onChange={setFormat} columns={3} options={[
+        <ChoiceCards<CreativeFormat> value={creative.format} onChange={setFormat} columns={igAvailable ? 2 : 3} options={[
           { value: 'image', label: t('ads.w.format.image'), desc: t('ads.w.format.imageDesc'), icon: <ImageIcon className="w-5 h-5" /> },
           { value: 'carousel', label: t('ads.w.format.carousel'), desc: t('ads.w.format.carouselDesc'), icon: <Images className="w-5 h-5" /> },
           { value: 'video', label: t('ads.w.format.video'), desc: t('ads.w.format.videoDesc'), icon: <Clapperboard className="w-5 h-5" /> },
+          ...(igAvailable ? [{ value: 'instagram_post' as CreativeFormat, label: t('ads.w.format.instagram_post'), desc: t('ads.w.format.instagram_postDesc'), icon: <Instagram className="w-5 h-5" /> }] : []),
         ]} />
       </Field>
 
-      {creative.format !== 'video' ? (
+      {creative.format === 'instagram_post' ? (
+        <Field label={t('ads.x.post.pick')} hint={t('ads.x.post.pickHint')}>
+          {igBusy || igMedia === null ? <p className="inline-flex items-center gap-2" style={{ color: T2, fontSize: 13.5 }}><Loader2 className="w-4 h-4 animate-spin" />{t('ads.x.post.loading')}</p>
+            : igMedia.length === 0 ? <p style={{ color: T3, fontSize: 13.5 }}>{t('ads.x.post.none')}</p> : (
+            <div className="grid gap-2.5 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
+              {igMedia.map((m) => {
+                const active = creative.media.some((x) => x.ig_media_id === m.id);
+                return (
+                  <button key={m.id} type="button" onClick={() => pickPost(m)} className="relative rounded-xl overflow-hidden aspect-square cursor-pointer transition-colors duration-150" style={{ background: 'rgba(255,255,255,0.06)', border: `2px solid ${active ? RED : 'transparent'}` }} title={m.caption}>
+                    {m.image && <img src={m.image} alt="" className="h-full w-full object-cover" />}
+                    {m.type === 'VIDEO' && <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>REEL</span>}
+                    {m.type === 'CAROUSEL_ALBUM' && <Images className="absolute top-1.5 right-1.5 w-4 h-4 text-white drop-shadow" />}
+                    {active && <span className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(232,25,44,0.35)' }}><Check className="w-6 h-6 text-white" /></span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <Tip>{t('ads.x.post.note')}</Tip>
+        </Field>
+      ) : creative.format !== 'video' ? (
         <Field label={creative.format === 'carousel' ? t('ads.w.media.carouselLabel') : t('ads.w.media.imageLabel')}
           hint={creative.format === 'carousel' ? t('ads.w.media.carouselHint').replace('{min}', String(CAROUSEL_MIN)).replace('{max}', String(CAROUSEL_MAX)) : t('ads.w.media.imageHint')}
           counter={creative.format === 'carousel' ? `${images.length}/${CAROUSEL_MAX}` : undefined}>
@@ -204,6 +241,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, uploadsRef, t }:
         <Tip>{t('ads.w.media.carouselTexts')}</Tip>
       )}
 
+      {creative.format !== 'instagram_post' && (
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('ads.wizard.headline')} hint={t('ads.wizard.headlineHint')} counter={`${creative.headline.length}/${HEADLINE_MAX}`}>
           <input value={creative.headline} onChange={(e) => patch((c) => ({ ...c, headline: e.target.value.slice(0, HEADLINE_MAX) }))} style={inputStyle} className={focusRing} placeholder={t('ads.w.creative.headlinePh')} />
@@ -212,9 +250,12 @@ export function CreativeEditor({ creative, onChange, posterUrl, uploadsRef, t }:
           <input value={creative.description} onChange={(e) => patch((c) => ({ ...c, description: e.target.value.slice(0, DESCRIPTION_MAX) }))} style={inputStyle} className={focusRing} placeholder={t('ads.w.creative.descriptionPh')} />
         </Field>
       </div>
+      )}
+      {creative.format !== 'instagram_post' && (
       <Field label={t('ads.wizard.body')} hint={t('ads.wizard.bodyHint')} counter={`${creative.body.length}/${BODY_MAX}`}>
         <textarea value={creative.body} onChange={(e) => patch((c) => ({ ...c, body: e.target.value.slice(0, BODY_MAX) }))} rows={4} style={{ ...inputStyle, resize: 'vertical' }} className={focusRing} placeholder={t('ads.w.creative.bodyPh')} />
       </Field>
+      )}
       <Field label={t('ads.wizard.cta')} hint={t('ads.w.creative.ctaHint')}>
         <div className="flex gap-2 flex-wrap">
           {CTA_OPTIONS.map((c) => <Chip key={c} active={creative.cta === c} onClick={() => patch((x) => ({ ...x, cta: c as CtaType }))}>{t(`ads.cta.${c}`)}</Chip>)}

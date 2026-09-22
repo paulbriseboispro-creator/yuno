@@ -8,7 +8,7 @@
  * `get_my_meta_ads`. Le front ne parle jamais à graph.facebook.com.
  */
 
-export type CampaignObjective = 'OUTCOME_SALES' | 'OUTCOME_TRAFFIC';
+export type CampaignObjective = 'OUTCOME_SALES' | 'OUTCOME_TRAFFIC' | 'OUTCOME_AWARENESS';
 export type CampaignStatus = 'draft' | 'creating' | 'paused' | 'active' | 'ended' | 'error' | 'archived';
 export type BudgetType = 'daily' | 'lifetime';
 
@@ -17,11 +17,40 @@ export type CtaType = (typeof CTA_OPTIONS)[number];
 
 export const BUILTIN_AUDIENCES = ['all_consenting', 'buyers_12m', 'vip_tables', 'guest_list', 'regulars_3'] as const;
 export type BuiltinAudience = (typeof BUILTIN_AUDIENCES)[number];
+/** Audiences à RÈGLE : Meta les remplit seul (pixel, Instagram, Page). `ref` = fenêtre en jours. */
+export const RULE_AUDIENCES = ['pixel_visitors', 'pixel_checkout', 'ig_engagers', 'ig_visitors', 'page_engagers'] as const;
+export type RuleAudience = (typeof RULE_AUDIENCES)[number];
+export const RULE_AUDIENCE_WINDOWS = [30, 90, 180, 365] as const;
+export const LOOKALIKE_RATIOS = [0.01, 0.03, 0.05, 0.1] as const;
+export type AudienceKind = 'builtin' | 'venue_segment' | 'contact_segment' | 'lookalike' | RuleAudience;
+export function isRuleAudience(k: string): k is RuleAudience { return (RULE_AUDIENCES as readonly string[]).includes(k); }
 
 export const MIN_BUDGET_CENTS = 500;
 export const DEFAULT_RADIUS_KM = 25;
 
 export interface GeoChoice { key: string; name: string; type?: string; country_code?: string; region?: string; radius_km?: number }
+export interface ZipChoice { key: string; name: string; primary_city?: string }
+export interface CustomLocation { latitude: number; longitude: number; radius_km: number; name?: string }
+export type LocationType = 'home' | 'recent' | 'travel_in';
+/** Un critère de ciblage détaillé ; `type` = clé Meta du groupe (interests, behaviors, family_statuses, life_events…). */
+export interface DetailedCriterion { id: string; name: string; type: string; size?: number | null; path?: string | null }
+export interface DetailedGroup { items: DetailedCriterion[] }
+export const INSTAGRAM_POSITIONS = ['stream', 'story', 'reels', 'profile_feed', 'ig_search'] as const;
+export const FACEBOOK_POSITIONS = ['feed', 'story', 'facebook_reels', 'marketplace', 'video_feeds', 'search', 'instream_video'] as const;
+export type ConversionEvent = 'PURCHASE' | 'INITIATED_CHECKOUT' | 'CONTENT_VIEW';
+export type BidStrategy = 'lowest' | 'cost_cap' | 'bid_cap' | 'min_roas';
+export interface ScheduleSlot { days: number[]; start_hour: number; end_hour: number }
+/** Réglages de diffusion (mode expert). Miroir de `Delivery` dans `_shared/meta-ads.ts`. */
+export interface Delivery {
+  conversion_event?: ConversionEvent;
+  optimization_goal?: string;
+  bid?: { strategy: BidStrategy; amount_cents?: number; roas_floor?: number };
+  schedule?: ScheduleSlot[];
+  frequency?: { max: number; days: number };
+  url_tags?: string;
+}
+export interface CampaignPlacements { facebook?: boolean; instagram?: boolean; positions?: { facebook?: string[]; instagram?: string[] }; devices?: Array<'mobile' | 'desktop'> }
+export interface IgMedia { id: string; type: string; image: string | null; permalink: string | null; caption: string; at: string | null }
 
 export interface InterestChoice { id: string; name: string; size?: number | null; path?: string | null }
 export interface LocaleChoice { key: number; name: string }
@@ -29,6 +58,12 @@ export interface LocaleChoice { key: number; name: string }
 export interface CampaignTargeting {
   countries?: string[];
   cities?: GeoChoice[];
+  excluded_cities?: GeoChoice[];
+  zips?: ZipChoice[];
+  custom_locations?: CustomLocation[];
+  location_types?: LocationType[];
+  /** Groupes de critères : OU dans un groupe, ET entre groupes. Prime sur `interests`. */
+  detailed?: DetailedGroup[];
   age_min?: number;
   age_max?: number;
   genders?: number[];
@@ -64,11 +99,13 @@ export interface CampaignCreative {
   link?: string;
 }
 
-export type CreativeFormat = 'image' | 'carousel' | 'video';
+export type CreativeFormat = 'image' | 'carousel' | 'video' | 'instagram_post';
 
 export interface CreativeMedia {
   url: string;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'ig_post';
+  /** Publication Instagram existante : identifiant média Graph. */
+  ig_media_id?: string | null;
   /** Vidéo : image de couverture (Meta l'exige). */
   thumbnail_url?: string | null;
   /** Carrousel : titre / description propres à la carte. */
@@ -118,6 +155,11 @@ export function creativeIssues(c: AdCreative): Array<'media' | 'carousel' | 'thu
     if (!video) issues.push('media');
     else if (!video.thumbnail_url) issues.push('thumbnail');
   }
+  if (c.format === 'instagram_post') {
+    // La publication porte déjà son texte et son visuel.
+    if (!c.media.some((m) => m.kind === 'ig_post' && m.ig_media_id)) issues.push('media');
+    return issues;
+  }
   if (c.headline.trim().length < 3) issues.push('headline');
   if (c.body.trim().length < 10) issues.push('body');
   return issues;
@@ -128,8 +170,12 @@ export function creativeCover(c: Pick<AdCreative, 'media'>): string | null {
   const img = c.media.find((m) => m.kind === 'image');
   if (img) return img.url;
   const video = c.media.find((m) => m.kind === 'video');
-  return video?.thumbnail_url ?? null;
+  if (video?.thumbnail_url) return video.thumbnail_url;
+  return c.media.find((m) => m.kind === 'ig_post')?.url ?? null;
 }
+
+export interface BreakdownRow { key: string; spend_cents: number; impressions: number; link_clicks: number; purchases: number }
+export interface InsightBreakdowns { age_gender?: Array<BreakdownRow & { age: string; gender: string }>; placements?: Array<BreakdownRow & { platform: string; position: string }> }
 
 export interface MetaAdRef { index: number; format: CreativeFormat; ad_id: string; creative_id: string; video_id?: string | null; effective_status?: string | null; review?: string | null }
 export interface AdInsight { ad_id: string; spend_cents: number; impressions: number; reach: number; link_clicks: number; purchases: number; purchase_value_cents: number }
@@ -138,7 +184,7 @@ export const WIZARD_STEPS = ['event', 'budget', 'targeting', 'creative', 'review
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 export interface AdsAudience {
-  id: string; kind: 'builtin' | 'venue_segment' | 'contact_segment' | 'lookalike'; ref: string; name: string;
+  id: string; kind: AudienceKind; ref: string; name: string;
   meta_audience_id: string | null; lookalike_ratio: number | null; lookalike_country: string | null;
   size_uploaded: number | null; status: 'pending' | 'syncing' | 'ready' | 'error'; last_sync_at: string | null; last_error: string | null; created_at: string;
 }
@@ -158,8 +204,9 @@ export interface AdsCampaign {
   id: string; name: string; status: CampaignStatus; effective_status: string | null; objective: CampaignObjective;
   event_id: string | null; event_title: string | null; event_start_at: string | null; event_poster_url: string | null;
   budget_type: BudgetType; budget_cents: number; currency: string; start_at: string; end_at: string | null;
-  targeting: CampaignTargeting; creative: CampaignCreative; placements: { facebook?: boolean; instagram?: boolean };
+  targeting: CampaignTargeting; creative: CampaignCreative; placements: CampaignPlacements;
   creatives: Array<Omit<AdCreative, 'id'>>; meta_ads: MetaAdRef[]; ad_insights: AdInsight[];
+  delivery: Delivery | null; insight_breakdowns: InsightBreakdowns | null;
   meta_campaign_id: string | null; meta_ad_id: string | null; review_feedback: string | null; last_error: string | null;
   last_synced_at: string | null; created_at: string; tracked_code: string | null;
   insights: AdsInsights | null; attributed: AdsAttributed;
