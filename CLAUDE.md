@@ -1939,6 +1939,31 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   (age,gender / publisher_platform,platform_position). Interrupteur front
   `localStorage yuno:ads:expert` ; la recherche « Techno » en `fr_FR` rend
   d'abord « Technologie » : l'intérêt musical s'appelle « Techno (musique) ».
+  **Créations v3 (22/09 nuit, migration `20260922170000` = faits de la soirée
+  dans `get_my_meta_ads.events[]` : `venue_name`, `price_from`, `lineup`)** :
+  une création porte un visuel feed ET, en option, une version verticale
+  (`vertical_media`, même nature) — la créa part alors en `asset_feed_spec`
+  avec `optimization_type PLACEMENT` et deux `asset_customization_rules`
+  (stories + reels → vertical, le reste → feed), calculées sur les placements
+  RÉELS de l'ensemble (une règle sur un placement absent est refusée) ;
+  `enhancements` = `degrees_of_freedom_spec.creative_features_spec`
+  (image_brightness_and_contrast, enhance_cta, text_improvements,
+  image_templates, video_auto_crop) ; aperçus réels par `act/generatepreviews`
+  (`ads_preview`, formats INSTAGRAM_STANDARD / INSTAGRAM_STORY /
+  INSTAGRAM_REELS, iframe `www.facebook.com` — ajouté au `frame-src` de
+  `public/_headers` ET de `vite.config.ts`). Le compositeur
+  (`src/lib/adComposer.ts`, `StoryComposer.tsx`) dessine 1080×1920 ou
+  1080×1350 sur canvas depuis l'affiche (CORS Storage OK) avec la typo de la
+  DA publique, et garde son `design` sur la création pour le rejouer.
+  **Un placement ne se choisit pas par création** : Meta n'a pas de
+  placements par pub, c'est l'ensemble ; l'étape Créations le rappelle.
+  ⚠️ `asset_feed_spec`, `degrees_of_freedom_spec` et `generatepreviews` sont
+  écrits d'après la doc et NON sondés : le compte Amoris a reçu « API access
+  blocked » (OAuthException 200, jusqu'à `me` et `debug_token`, jeton d'app
+  compris) après la rafale de sondes du 22/09 — blocage Meta au niveau app /
+  Business Manager, pas un bug Yuno. Les recherches remontent désormais
+  l'erreur Meta sous le champ (`GraphSearchError`) au lieu d'une liste vide.
+  À sonder dès le déblocage : `scratchpad` `creative-probe.ts` du 22/09.
   **Identité de la pub (19/09)** : `discoverAssets` relève l'Instagram
   professionnel relié à chaque Page (`assets.instagram[{page_id,id,username}]`,
   exige `instagram_basic`, best-effort) ; `ig_user_id` suit TOUJOURS la Page
