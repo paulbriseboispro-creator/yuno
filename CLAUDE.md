@@ -1820,18 +1820,17 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   connexion Facebook (e-mail + mot de passe, « Créer un compte »), sans
   option Instagram. Vérifié en vrai le 2026-09-19 : ouvrir une session Meta
   Business Suite avec Instagram ne débloque rien, ce n'est pas un profil
-  Facebook. Les deux seuls chemins, tous deux affichés EN CLAIR sous le
-  bouton (`integ.meta.igLogin.*`, jamais repliés) : (1) ajouter un compte
-  Facebook PERSONNEL comme administrateur de l'entreprise depuis
-  `META_BUSINESS_LOGIN_URL` (`src/lib/metaIntegration.ts`) → Paramètres →
-  Personnes, où la connexion Instagram fonctionne — tout s'ouvre ensuite,
+  Facebook. Les deux seuls chemins, qui vivent dans le MODE D'EMPLOI
+  (`ohelp.meta.s2b`, 3 langues) et dans `docs/META_GO_LIVE_GUIDE.md`, plus
+  sur l'écran de connexion : (1) ajouter un compte Facebook PERSONNEL comme
+  administrateur de l'entreprise depuis `business.facebook.com` → Paramètres
+  → Personnes, où la connexion Instagram fonctionne — tout s'ouvre ensuite,
   publicités comprises. **Un compte Facebook est une PERSONNE (e-mail + mot
   de passe) ; une PAGE Facebook n'en est pas un** : elle n'a pas
   d'identifiants et ne peut rien autoriser. Business Suite propose de créer
   une Page dans le même écran de réglages, et c'est exactement le piège où
-  le compte Amoris s'est arrêté le 19/09 — l'avertissement
-  `integ.meta.choose.ig.warn` est là pour ça, ne pas l'enlever ;
-  (2) mode avancé, pixel + jeton collés. **Le jeton décide de ce qui s'ouvre,
+  le compte Amoris s'est arrêté le 19/09 ; (2) mode avancé, pixel + jeton
+  collés. **Le jeton décide de ce qui s'ouvre,
   plus le mode de connexion** : `save` appelle `discoverAssets` et remplit
   `ad_account_id` / `page_id` / `ig_user_id` comme le ferait le retour OAuth,
   donc un jeton d'UTILISATEUR SYSTÈME (Business Manager → Paramètres →
@@ -1842,12 +1841,17 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   secret de Yuno : un jeton émis pour une AUTRE app est reconnu (découverte
   retentée sans proof) mais ne débloque pas les pubs — les crons signeraient
   leurs appels avec un proof faux — et le pro est invité à le régénérer en
-  choisissant l'app Yuno (`integ.meta.tokenOtherApp`). **Les deux chemins
-  sont DEUX CARTES de même poids, chacune nommant d'abord POUR QUI elle est**,
-  et la carte Instagram annonce qu'elle ne connecte pas Yuno, elle ouvre Meta :
-  avec un seul bouton bleu en vedette, le pro Instagram cliquait dessus en
-  croyant qu'il menait à l'option Instagram (constaté sur le compte Amoris le
-  19/09). Ne pas réduire la seconde carte à une note sous le bouton. Ne JAMAIS proposer
+  choisissant l'app Yuno (`integ.meta.tokenOtherApp`). **L'écran de
+  connexion ne porte QUE l'autorisation elle-même** (2026-09-22, avant le
+  dépôt d'App Review) : titre, ce que la fenêtre Meta va faire
+  (`integ.meta.oauthHint`), le bouton bleu, la ligne qui dit ce que Yuno
+  demande et ce qu'il ne demandera jamais — publication, messagerie —
+  (`integ.meta.oauthAsks`), puis le mode avancé replié. Un raccourci vers
+  Meta Business Suite y a vécu trois jours, en carte jumelle du bouton
+  bleu : il ne connecte RIEN (il ouvre Meta ailleurs) et occupait la moitié
+  d'un écran que l'App Review juge bouton par bouton. Ne pas le remettre ;
+  le pro sans profil Facebook se renseigne par le mode d'emploi ou le
+  support. Ne JAMAIS proposer
   « Business Login for Instagram » (`instagram.com/oauth/authorize`) comme
   troisième voie : ses scopes `instagram_business_*` couvrent messages et
   contenus, jamais `ads_management` ni le pixel.
