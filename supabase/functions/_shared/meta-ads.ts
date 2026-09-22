@@ -243,6 +243,7 @@ export interface Delivery {
 }
 
 export type CreativeFormat = "image" | "carousel" | "video" | "instagram_post";
+export type CreativeDestination = "all" | "feed" | "story" | "reel";
 
 export interface CreativeMedia {
   url: string;
@@ -273,6 +274,14 @@ export interface CampaignCreative {
   vertical_media?: CreativeMedia | null;
   /** Améliorations Advantage+ (luminosité, bouton, textes, gabarits…). */
   enhancements?: boolean;
+  /**
+   * Où CETTE création diffuse. Meta ne connaît pas de placement par pub :
+   * dès qu'une création vise un placement précis, la campagne passe en
+   * budget de campagne (Advantage+ campaign budget) et chaque destination
+   * devient son propre ensemble de pubs — la structure « un ensemble par
+   * placement » des agences. `all` = l'ensemble général.
+   */
+  destination?: CreativeDestination;
   headline: string;
   body: string;
   cta: string;
@@ -285,6 +294,22 @@ const VERTICAL_IG = ["story", "reels"] as const;
 const VERTICAL_FB = ["story", "facebook_reels"] as const;
 const FEED_IG = ["stream", "profile_feed", "ig_search"] as const;
 const FEED_FB = ["feed", "marketplace", "video_feeds", "search", "instream_video"] as const;
+
+/**
+ * Les placements d'un ensemble dédié à une destination, coupés aux
+ * placements choisis pour la campagne (plateformes, positions manuelles).
+ * `null` = la destination n'a aucun placement disponible dans cette campagne.
+ */
+export function placementsForDestination(base: CampaignPlacements, dest: CreativeDestination): CampaignPlacements | null {
+  if (dest === "all") return base;
+  const want = dest === "feed" ? { ig: [...FEED_IG], fb: [...FEED_FB] } : dest === "story" ? { ig: ["story"], fb: ["story"] } : { ig: ["reels"], fb: ["facebook_reels"] };
+  const igBase = base.positions?.instagram?.length ? base.positions.instagram : null;
+  const fbBase = base.positions?.facebook?.length ? base.positions.facebook : null;
+  const ig = base.instagram === false ? [] : want.ig.filter((p) => !igBase || igBase.includes(p));
+  const fb = base.facebook === false ? [] : want.fb.filter((p) => !fbBase || fbBase.includes(p));
+  if (!ig.length && !fb.length) return null;
+  return { instagram: ig.length > 0, facebook: fb.length > 0, positions: { instagram: ig, facebook: fb }, devices: base.devices };
+}
 
 /** Advantage+ créa : les améliorations que Meta applique tout seul. Toutes ou aucune. */
 export function enhancementsSpec(on: boolean, video: boolean): Record<string, unknown> {
@@ -316,6 +341,8 @@ export interface CreateCampaignInput {
 export interface CreatedAd {
   index: number;
   format: CreativeFormat;
+  destination?: CreativeDestination;
+  adset_id?: string;
   ad_id: string;
   creative_id: string;
   video_id?: string | null;
@@ -327,6 +354,10 @@ export interface CreateCampaignResult {
   ok: boolean;
   campaignId?: string;
   adsetId?: string;
+  /** Tous les ensembles créés : un seul (`all`) ou un par destination. */
+  adsets?: Array<{ destination: CreativeDestination; adset_id: string }>;
+  /** `campaign` = budget de campagne réparti par Meta entre les ensembles. */
+  budgetLevel?: "adset" | "campaign";
   ads: CreatedAd[];
   error?: string;
   step?: string;
@@ -666,78 +697,105 @@ export async function createFullCampaign(input: CreateCampaignInput, token: stri
   if (input.creatives.length === 0) return { ok: false, error: "no_creative", step: "creative", ads };
   const lib = new ImageLibrary(adAccountId, token, appSecret);
 
-  // Le budget vit sur l'ENSEMBLE de pubs (une campagne Yuno = un ensemble) :
-  // depuis la v24 Meta exige alors `is_adset_budget_sharing_enabled` en clair
-  // (erreur 4834011 sinon). `false` : le budget reste celui que le pro a posé,
-  // rien n'est partagé avec d'autres ensembles (il n'y en a pas).
-  const camp = await graphPost<{ id: string }>(`${adAccountId}/campaigns`, {
+  // Destinations : `all` seul = un ensemble qui porte le budget ; dès qu'une
+  // création vise feed / story / reel, un ensemble par destination et le
+  // budget monte sur la CAMPAGNE (Advantage+ campaign budget) — Meta le
+  // répartit entre les ensembles selon leurs résultats.
+  const destinations = [...new Set(input.creatives.map((c) => c.destination ?? "all"))] as CreativeDestination[];
+  const cbo = !(destinations.length === 1 && destinations[0] === "all");
+  const delivery = deliveryParams(input.objective, input.pixelId, input.delivery);
+  const bidStrategy = String(delivery.bid_strategy ?? "LOWEST_COST_WITHOUT_CAP");
+
+  const campaignParams: Record<string, unknown> = {
     name: input.name,
     objective: input.objective,
     status: "PAUSED",
     special_ad_categories: [],
     buying_type: "AUCTION",
-    is_adset_budget_sharing_enabled: false,
-  }, token, appSecret);
+  };
+  if (cbo) {
+    // Budget de campagne : l'enchère se déclare ici, les ensembles n'ont pas de budget.
+    campaignParams.bid_strategy = bidStrategy;
+    if (input.budgetType === "daily") campaignParams.daily_budget = input.budgetCents;
+    else campaignParams.lifetime_budget = input.budgetCents;
+  } else {
+    // Budget sur l'ensemble : depuis la v24 Meta exige `is_adset_budget_sharing_enabled`
+    // en clair (4834011) ; `false` = le budget posé reste celui de l'ensemble.
+    campaignParams.is_adset_budget_sharing_enabled = false;
+  }
+  const camp = await graphPost<{ id: string }>(`${adAccountId}/campaigns`, campaignParams, token, appSecret);
   if (!camp.ok) return { ok: false, error: graphErrorText(camp.error), step: "campaign", ads };
 
-  const adset: Record<string, unknown> = {
-    name: `${input.name} — audience`,
-    campaign_id: camp.data.id,
-    status: "PAUSED",
-    billing_event: "IMPRESSIONS",
-    bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-    start_time: input.startAt,
-    targeting: buildTargeting(input.targeting, input.placements),
-    attribution_spec: [{ event_type: "CLICK_THROUGH", window_days: 7 }, { event_type: "VIEW_THROUGH", window_days: 1 }],
-    dsa_beneficiary: input.dsaBeneficiary,
-    dsa_payor: input.dsaPayor,
-  };
-  Object.assign(adset, deliveryParams(input.objective, input.pixelId, input.delivery));
-  if (input.budgetType === "daily") adset.daily_budget = input.budgetCents;
-  else {
-    adset.lifetime_budget = input.budgetCents;
-    adset.end_time = input.endAt ?? new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+  const adsets: Array<{ destination: CreativeDestination; adset_id: string }> = [];
+  const endTime = input.endAt ?? new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+  for (const dest of destinations) {
+    const placements = placementsForDestination(input.placements, dest);
+    if (!placements) return { ok: false, error: `no_placement_for_${dest}`, step: "adset", campaignId: camp.data.id, adsets, ads };
+    const adset: Record<string, unknown> = {
+      name: dest === "all" ? `${input.name} — audience` : `${input.name} — ${dest}`,
+      campaign_id: camp.data.id,
+      status: "PAUSED",
+      billing_event: "IMPRESSIONS",
+      start_time: input.startAt,
+      targeting: buildTargeting(input.targeting, placements),
+      attribution_spec: [{ event_type: "CLICK_THROUGH", window_days: 7 }, { event_type: "VIEW_THROUGH", window_days: 1 }],
+      dsa_beneficiary: input.dsaBeneficiary,
+      dsa_payor: input.dsaPayor,
+      ...delivery,
+    };
+    if (cbo) {
+      // L'enchère vit sur la campagne ; l'ensemble garde seulement un éventuel plafond.
+      delete adset.bid_strategy;
+      if (bidStrategy === "LOWEST_COST_WITHOUT_CAP") delete adset.bid_amount;
+      if (input.budgetType === "lifetime" || input.endAt) adset.end_time = endTime;
+    } else {
+      if (input.budgetType === "daily") adset.daily_budget = input.budgetCents;
+      else { adset.lifetime_budget = input.budgetCents; adset.end_time = endTime; }
+      if (input.endAt && input.budgetType === "daily") adset.end_time = input.endAt;
+    }
+    // Plages horaires : seulement avec un budget total (règle Meta), heures rondes.
+    const schedule = scheduleParams(input.delivery);
+    if (schedule && input.budgetType === "lifetime") Object.assign(adset, schedule);
+    const set = await graphPost<{ id: string }>(`${adAccountId}/adsets`, adset, token, appSecret);
+    if (!set.ok) return { ok: false, error: graphErrorText(set.error), step: `adset_${dest}`, campaignId: camp.data.id, adsets, ads };
+    adsets.push({ destination: dest, adset_id: set.data.id });
   }
-  if (input.endAt && input.budgetType === "daily") adset.end_time = input.endAt;
-  // Plages horaires : seulement avec un budget total (règle Meta), heures rondes.
-  const schedule = scheduleParams(input.delivery);
-  if (schedule && input.budgetType === "lifetime") Object.assign(adset, schedule);
-  const set = await graphPost<{ id: string }>(`${adAccountId}/adsets`, adset, token, appSecret);
-  if (!set.ok) return { ok: false, error: graphErrorText(set.error), step: "adset", campaignId: camp.data.id, ads };
 
-  // Une pub par création, toutes dans le même ensemble : Meta répartit le
-  // budget entre elles selon leurs résultats.
+  // Une pub par création, dans l'ensemble de sa destination.
   for (let i = 0; i < input.creatives.length; i++) {
     const c = input.creatives[i];
+    const dest = c.destination ?? "all";
+    const set = adsets.find((a) => a.destination === dest)!;
+    const placements = placementsForDestination(input.placements, dest) ?? input.placements;
     const label = input.creatives.length > 1 ? `${input.name} — créa ${i + 1}` : `${input.name} — créa`;
-    const built = await buildCreativeSpec(c, input.pageId, input.instagramActorId, lib, adAccountId, label, token, appSecret, input.placements);
-    if ("error" in built) return { ok: false, error: built.error, step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
-    if (input.delivery?.url_tags) built.spec.url_tags = input.delivery.url_tags.slice(0, 500);
+    const built = await buildCreativeSpec(c, input.pageId, input.instagramActorId, lib, adAccountId, label, token, appSecret, placements);
+    if ("error" in built) return { ok: false, error: built.error, step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: adsets[0]?.adset_id, adsets, ads };
     const creative = await graphPost<{ id: string }>(`${adAccountId}/adcreatives`, built.spec, token, appSecret);
-    if (!creative.ok) return { ok: false, error: graphErrorText(creative.error), step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
+    if (!creative.ok) return { ok: false, error: graphErrorText(creative.error), step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: adsets[0]?.adset_id, adsets, ads };
     const ad = await graphPost<{ id: string }>(`${adAccountId}/ads`, {
       name: input.creatives.length > 1 ? `${input.name} — pub ${i + 1}` : `${input.name} — pub`,
-      adset_id: set.data.id,
+      adset_id: set.adset_id,
       creative: { creative_id: creative.data.id },
       status: "PAUSED",
     }, token, appSecret);
-    if (!ad.ok) return { ok: false, error: graphErrorText(ad.error), step: `ad_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
-    ads.push({ index: i, format: c.format, ad_id: ad.data.id, creative_id: creative.data.id, video_id: built.videoId ?? null });
+    if (!ad.ok) return { ok: false, error: graphErrorText(ad.error), step: `ad_${i + 1}`, campaignId: camp.data.id, adsetId: adsets[0]?.adset_id, adsets, ads };
+    ads.push({ index: i, format: c.format, destination: dest, adset_id: set.adset_id, ad_id: ad.data.id, creative_id: creative.data.id, video_id: built.videoId ?? null });
   }
 
-  return { ok: true, campaignId: camp.data.id, adsetId: set.data.id, ads };
+  return { ok: true, campaignId: camp.data.id, adsetId: adsets[0]?.adset_id, adsets, budgetLevel: cbo ? "campaign" : "adset", ads };
 }
 
 export async function setCampaignStatus(
-  ids: { campaignId: string; adsetId?: string | null; adIds?: string[] },
+  ids: { campaignId: string; adsetId?: string | null; adsetIds?: string[]; adIds?: string[] },
   status: "ACTIVE" | "PAUSED" | "ARCHIVED",
   token: string,
   appSecret: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  // Activer : la campagne, puis l'ensemble, puis chaque pub (tous doivent l'être).
+  // Activer : la campagne, puis chaque ensemble, puis chaque pub (tous doivent l'être).
   // Mettre en pause / archiver : la campagne suffit (hérité).
+  const sets = ids.adsetIds?.length ? ids.adsetIds : (ids.adsetId ? [ids.adsetId] : []);
   const targets = status === "ACTIVE"
-    ? [ids.campaignId, ids.adsetId, ...(ids.adIds ?? [])].filter((x): x is string => !!x)
+    ? [ids.campaignId, ...sets, ...(ids.adIds ?? [])].filter((x): x is string => !!x)
     : [ids.campaignId];
   for (const id of targets) {
     const r = await graphPost(id, { status }, token, appSecret);

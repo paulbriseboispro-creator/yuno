@@ -41,10 +41,10 @@ import {
   PUBLIC_BASE as ADS_PUBLIC_BASE, searchGeo, createFullCampaign, setCampaignStatus, syncMetaInsights, syncMetaAudiences,
   processMetaLeads, pageAccessToken, pageInstagramAccount, subscribePageToLeads, adAccountInfo,
   webhookVerifyToken, verifyHubSignature, graphPost, ensureAppWebhookSubscription,
-  searchInterests, searchLocales, searchDetailed, GraphSearchError, reachEstimate, listInstagramMedia, updateAdSet, setAdStatus,
+  searchInterests, searchLocales, searchDetailed, GraphSearchError, reachEstimate, listInstagramMedia, updateAdSet, setAdStatus, placementsForDestination,
   generatePreviews, previewCreativeSpec, PREVIEW_FORMATS, type PreviewSlot,
   buildTargeting, deliveryParams, scheduleParams, isRuleAudienceKind,
-  type CampaignTargeting, type CampaignCreative, type CampaignPlacements, type CreativeFormat, type Delivery, type CampaignObjective, type GeoPlace, type DetailedCriterion,
+  type CampaignTargeting, type CampaignCreative, type CampaignPlacements, type CreativeFormat, type CreativeDestination, type Delivery, type CampaignObjective, type GeoPlace, type DetailedCriterion,
 } from "../_shared/meta-ads.ts";
 import {
   readMetaAppConfig, signState, verifyState, safeReturnTo, buildDialogUrl,
@@ -757,7 +757,9 @@ Deno.serve(async (req) => {
         description: typeof cr.description === "string" && cr.description.trim() ? cr.description.trim().slice(0, 120) : null,
         link: typeof body.link === "string" && isHttps(body.link) ? body.link : `${ADS_PUBLIC_BASE}/event/${typeof body.eventId === "string" ? body.eventId : ""}`,
       };
-      const placements = parsePlacements(body.placements);
+      const basePlacements = parsePlacements(body.placements);
+      const dest: CreativeDestination = cr.destination === "feed" || cr.destination === "story" || cr.destination === "reel" ? cr.destination : "all";
+      const placements = placementsForDestination(basePlacements, dest) ?? basePlacements;
       const slots = (Array.isArray(body.slots) ? body.slots : ["feed", "story", "reel"]).filter((x): x is PreviewSlot => typeof x === "string" && x in PREVIEW_FORMATS).slice(0, 5);
       const spec = await previewCreativeSpec(creative, conn.page_id, placements.instagram === false ? null : conn.ig_user_id, conn.ad_account_id, placements, token, cfg.appSecret);
       if ("error" in spec) return json({ error: "invalid_creative", detail: String(spec.error) }, 400, cors);
@@ -858,13 +860,15 @@ Deno.serve(async (req) => {
           ? { url: vmIn.url as string, kind: vmIn.kind === "video" ? "video" as const : "image" as const, thumbnail_url: isHttps(vmIn.thumbnail_url) ? vmIn.thumbnail_url : null }
           : null;
         const enhancements = cr.enhancements === true;
+        const destination: CreativeDestination = cr.destination === "feed" || cr.destination === "story" || cr.destination === "reel" ? cr.destination : "all";
+        if (destination !== "all" && !placementsForDestination(placements, destination)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_no_placement_${destination}` }, 400, cors);
         const images = media.filter((m) => m.kind === "image");
         const videos = media.filter((m) => m.kind === "video");
         const posts = media.filter((m) => m.kind === "ig_post");
         if (format === "instagram_post") {
           // Une publication existante porte déjà son visuel et son texte.
           if (posts.length < 1) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_post` }, 400, cors);
-          creatives.push({ format, media: [posts[0]], headline: headline || "Instagram", body: bodyText || "—", cta, description });
+          creatives.push({ format, media: [posts[0]], headline: headline || "Instagram", body: bodyText || "—", cta, description, destination: destination === "story" || destination === "reel" ? "all" : destination });
           continue;
         }
         if (!headline || !bodyText) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_text` }, 400, cors);
@@ -877,6 +881,8 @@ Deno.serve(async (req) => {
           media: format === "image" ? [images[0]] : format === "carousel" ? images.slice(0, 10) : [videos[0]],
           vertical_media: (format === "image" || format === "video") && vertical_media && vertical_media.kind === (format === "image" ? "image" : "video") ? vertical_media : null,
           enhancements,
+          // Un carrousel vit dans le feed ; une story / un reel n'a pas de version verticale à part (le visuel EST vertical).
+          destination: format === "carousel" && (destination === "story" || destination === "reel") ? "feed" : destination,
           headline, body: bodyText, cta, description,
         });
       }
@@ -940,6 +946,7 @@ Deno.serve(async (req) => {
         meta_ads: result.ads,
         creative: { ...legacyCreative, link },
         creatives: creatives.map((cr) => ({ ...cr, link })),
+        delivery: { ...delivery, budget_level: result.budgetLevel ?? "adset", adsets: result.adsets ?? [] },
       };
       // Toujours en pause à la création : l'activation est un clic séparé et
       // confirmé du pro (`campaign_set_status`). Aucun chemin ne dépense sans lui.
@@ -960,19 +967,22 @@ Deno.serve(async (req) => {
       if (!conn?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
       const id = typeof body.campaignId === "string" ? body.campaignId : "";
       const { data: row } = await admin.from("meta_campaigns").select("id, name, objective, status, budget_type, budget_cents, start_at, end_at, targeting, placements, delivery, meta_campaign_id, meta_adset_id").eq("id", id).eq("connection_id", conn.id).maybeSingle();
-      const camp = row as { id: string; name: string; objective: CampaignObjective; status: string; budget_type: string; budget_cents: number; start_at: string; end_at: string | null; targeting: CampaignTargeting; placements: CampaignPlacements; delivery: Delivery; meta_campaign_id: string | null; meta_adset_id: string | null } | null;
+      const camp = row as { id: string; name: string; objective: CampaignObjective; status: string; budget_type: string; budget_cents: number; start_at: string; end_at: string | null; targeting: CampaignTargeting; placements: CampaignPlacements; delivery: Delivery & { budget_level?: string; adsets?: Array<{ destination: CreativeDestination; adset_id: string }> }; meta_campaign_id: string | null; meta_adset_id: string | null } | null;
       if (!camp) return json({ error: "not_found" }, 404, cors);
       if (!camp.meta_campaign_id || !camp.meta_adset_id || !["paused", "active"].includes(camp.status)) return json({ error: "not_editable" }, 400, cors);
       const token = await tokenOf(admin, conn.id);
       if (!token) return json({ error: "token_missing" }, 500, cors);
       const patch: Record<string, unknown> = {};
       const adsetPatch: Record<string, unknown> = {};
+      const campaignPatch: Record<string, unknown> = {};
+      const cbo = camp.delivery?.budget_level === "campaign";
+      const adsetsOf = (camp.delivery?.adsets && camp.delivery.adsets.length ? camp.delivery.adsets : [{ destination: "all" as CreativeDestination, adset_id: camp.meta_adset_id! }]);
       if (typeof body.name === "string" && body.name.trim().length >= 3) { patch.name = body.name.trim().slice(0, 120); }
       if (body.budgetCents != null) {
         const cents = Math.round(Number(body.budgetCents));
         if (!Number.isFinite(cents) || cents < 500) return json({ error: "invalid_campaign" }, 400, cors);
         patch.budget_cents = cents;
-        adsetPatch[camp.budget_type === "daily" ? "daily_budget" : "lifetime_budget"] = cents;
+        (cbo ? campaignPatch : adsetPatch)[camp.budget_type === "daily" ? "daily_budget" : "lifetime_budget"] = cents;
       }
       const startAt = typeof body.startAt === "string" ? new Date(body.startAt) : null;
       const endAt = typeof body.endAt === "string" ? new Date(body.endAt) : (body.endAt === null ? null : undefined);
@@ -987,26 +997,38 @@ Deno.serve(async (req) => {
         targeting = parsed; patch.targeting = parsed;
       }
       if (body.placements && typeof body.placements === "object") { placements = parsePlacements(body.placements); patch.placements = placements; }
+      let metaTargetingBase: CampaignTargeting | null = null;
       if (body.targeting || body.placements) {
         const mapAud = async (ids: string[]): Promise<string[]> => {
           if (!ids.length) return [];
           const { data: rows } = await admin.from("meta_audiences").select("meta_audience_id, status").in("id", ids).eq("connection_id", conn.id);
           return ((rows ?? []) as Array<{ meta_audience_id: string | null; status: string }>).filter((r) => r.meta_audience_id && r.status === "ready").map((r) => r.meta_audience_id!);
         };
-        adsetPatch.targeting = buildTargeting({ ...targeting, audience_ids: await mapAud(targeting.audience_ids ?? []), exclude_audience_ids: await mapAud(targeting.exclude_audience_ids ?? []) }, placements);
+        metaTargetingBase = { ...targeting, audience_ids: await mapAud(targeting.audience_ids ?? []), exclude_audience_ids: await mapAud(targeting.exclude_audience_ids ?? []) };
+        for (const a of adsetsOf) if (a.destination !== "all" && !placementsForDestination(placements, a.destination)) return json({ error: "invalid_placements", detail: `no_placement_for_${a.destination}` }, 400, cors);
       }
       if (body.delivery && typeof body.delivery === "object") {
         const delivery = parseDelivery(body.delivery, camp.objective);
-        patch.delivery = delivery;
-        Object.assign(adsetPatch, deliveryParams(camp.objective, conn.pixel_id, delivery));
+        patch.delivery = { ...delivery, budget_level: camp.delivery?.budget_level ?? "adset", adsets: camp.delivery?.adsets ?? [] };
+        const dp = deliveryParams(camp.objective, conn.pixel_id, delivery);
+        if (cbo) { campaignPatch.bid_strategy = dp.bid_strategy; delete dp.bid_strategy; if (String(campaignPatch.bid_strategy) === "LOWEST_COST_WITHOUT_CAP") delete dp.bid_amount; }
+        Object.assign(adsetPatch, dp);
         const sched = scheduleParams(delivery);
         if (camp.budget_type === "lifetime") Object.assign(adsetPatch, sched ?? { pacing_type: ["standard"], adset_schedule: [] });
       }
-      if (Object.keys(adsetPatch).length) {
-        const r = await updateAdSet(camp.meta_adset_id, adsetPatch, token, cfg.appSecret);
-        if (!r.ok) return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
+      if (Object.keys(adsetPatch).length || metaTargetingBase) {
+        for (const a of adsetsOf) {
+          const one: Record<string, unknown> = { ...adsetPatch };
+          if (metaTargetingBase) one.targeting = buildTargeting(metaTargetingBase, placementsForDestination(placements, a.destination) ?? placements);
+          const r = await updateAdSet(a.adset_id, one, token, cfg.appSecret);
+          if (!r.ok) return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
+        }
       }
-      if (patch.name) await graphPost(camp.meta_campaign_id, { name: patch.name }, token, cfg.appSecret);
+      if (patch.name) campaignPatch.name = patch.name;
+      if (Object.keys(campaignPatch).length) {
+        const r = await graphPost(camp.meta_campaign_id, campaignPatch, token, cfg.appSecret);
+        if (!r.ok) return json({ error: "meta_error", detail: r.error.message ?? null }, 502, cors);
+      }
       if (Object.keys(patch).length) await admin.from("meta_campaigns").update({ ...patch, last_error: null }).eq("id", camp.id);
       return json({ ok: true }, 200, cors);
     }
@@ -1035,8 +1057,8 @@ Deno.serve(async (req) => {
       const existing = await findConnection(admin, scope);
       if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
       const id = typeof body.campaignId === "string" ? body.campaignId : "";
-      const { data: row } = await admin.from("meta_campaigns").select("id, meta_campaign_id, meta_adset_id, meta_ad_id, meta_ads, status").eq("id", id).eq("connection_id", existing.id).maybeSingle();
-      const camp = row as { id: string; meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; meta_ads: Array<{ ad_id: string }> | null; status: string } | null;
+      const { data: row } = await admin.from("meta_campaigns").select("id, meta_campaign_id, meta_adset_id, meta_ad_id, meta_ads, delivery, status").eq("id", id).eq("connection_id", existing.id).maybeSingle();
+      const camp = row as { id: string; meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; meta_ads: Array<{ ad_id: string; adset_id?: string }> | null; delivery: { adsets?: Array<{ adset_id: string }> } | null; status: string } | null;
       if (!camp) return json({ error: "not_found" }, 404, cors);
       const token = await tokenOf(admin, existing.id);
       if (!token) return json({ error: "token_missing" }, 500, cors);
@@ -1052,7 +1074,8 @@ Deno.serve(async (req) => {
       const wanted = body.status === "active" ? "ACTIVE" : body.status === "archived" ? "ARCHIVED" : "PAUSED";
       if (!camp.meta_campaign_id) return json({ error: "not_on_meta" }, 400, cors);
       const adIds = Array.isArray(camp.meta_ads) && camp.meta_ads.length ? camp.meta_ads.map((a) => a.ad_id) : (camp.meta_ad_id ? [camp.meta_ad_id] : []);
-      const r = await setCampaignStatus({ campaignId: camp.meta_campaign_id, adsetId: camp.meta_adset_id, adIds }, wanted, token, cfg.appSecret);
+      const adsetIds = [...new Set([...(camp.delivery?.adsets ?? []).map((a) => a.adset_id), ...(camp.meta_ads ?? []).map((a) => a.adset_id).filter((x): x is string => !!x), ...(camp.meta_adset_id ? [camp.meta_adset_id] : [])])];
+      const r = await setCampaignStatus({ campaignId: camp.meta_campaign_id, adsetIds, adIds }, wanted, token, cfg.appSecret);
       if (!r.ok) {
         await admin.from("meta_campaigns").update({ last_error: r.error ?? null }).eq("id", camp.id);
         return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
