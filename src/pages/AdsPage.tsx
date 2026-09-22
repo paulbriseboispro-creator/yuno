@@ -21,7 +21,7 @@ import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { CampaignWizard } from '@/components/ads/CampaignWizard';
 import {
-  BUILTIN_AUDIENCES, attributedRevenueCents, attributedSales, costPerSaleCents,
+  BUILTIN_AUDIENCES, attributedRevenueCents, attributedSales, costPerSaleCents, creativeCover,
   type AdsAudience, type AdsCampaign, type AdsPayload,
 } from '@/lib/metaAds';
 import { toast } from 'sonner';
@@ -313,13 +313,14 @@ export default function AdsPage() {
                   <div key={c.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
                     <div className="flex items-start gap-3 p-3" style={{ background: INNER_BG }}>
                       <div className="h-16 w-12 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                        {(c.creative?.image_url || c.event_poster_url) && <img src={c.creative?.image_url || c.event_poster_url || ''} alt="" className="h-full w-full object-cover" />}
+                        {(() => { const src = (c.creatives?.[0] ? creativeCover(c.creatives[0]) : null) || c.creative?.image_url || c.event_poster_url; return src ? <img src={src} alt="" className="h-full w-full object-cover" /> : null; })()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 700 }}>{c.name}</p>
                           <Pill tone={tone}>{t(`ads.status.${c.status}`)}</Pill>
                           {c.effective_status && c.effective_status.includes('REVIEW') && <Pill tone="warn">{t('ads.status.inReview')}</Pill>}
+                          {(c.creatives?.length ?? 0) > 1 && <Pill tone="muted">{t('ads.row.creatives').replace('{n}', String(c.creatives.length))}</Pill>}
                         </div>
                         <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>
                           {c.event_title ?? '—'} · {fmtMoney(c.budget_cents)} {c.budget_type === 'daily' ? t('ads.wizard.perDay') : t('ads.wizard.inTotal')} · {fmtDate(c.start_at, 'd MMM')} → {c.end_at ? fmtDate(c.end_at, 'd MMM') : '∞'}
@@ -377,6 +378,44 @@ export default function AdsPage() {
                           <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('ads.wizard.cta')}</span><span style={{ color: T1, fontSize: 12.5 }}>{t(`ads.cta.${c.creative?.cta ?? 'LEARN_MORE'}`)}</span></div>
                           <div className="flex justify-between gap-3"><span style={{ color: T2, fontSize: 12.5 }}>{t('ads.row.lastSync')}</span><span style={{ color: T1, fontSize: 12.5 }}>{fmtDate(c.last_synced_at)}</span></div>
                         </div>
+                        {/* Résultats par création : une ligne par pub Meta, la meilleure
+                            (achats, sinon clics) mise en avant. C'est la réponse à « lequel
+                            de mes visuels vend ? ». */}
+                        {(c.creatives?.length ?? 0) > 0 && (
+                          <div className="sm:col-span-2 space-y-1.5">
+                            <p style={{ color: T3, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>{t('ads.row.byCreative')}</p>
+                            {(() => {
+                              const rows = c.creatives.map((cr, i) => {
+                                const ref = (c.meta_ads ?? []).find((a) => a.index === i) ?? null;
+                                const ins = ref ? (c.ad_insights ?? []).find((a) => a.ad_id === ref.ad_id) ?? null : null;
+                                return { i, cr, ref, ins };
+                              });
+                              const score = (r: typeof rows[number]) => r.ins ? r.ins.purchases * 1000 + r.ins.link_clicks : -1;
+                              const best = rows.reduce((b, r) => (score(r) > score(b) ? r : b), rows[0]);
+                              const hasAny = rows.some((r) => r.ins);
+                              return (
+                                <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+                                  {rows.map((r) => (
+                                    <div key={r.i} className="flex items-center gap-3 px-3 py-2 flex-wrap" style={{ borderBottom: `1px solid ${BORDER}`, background: hasAny && r === best && score(r) > 0 ? 'rgba(52,211,153,0.05)' : undefined }}>
+                                      <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>{creativeCover(r.cr) && <img src={creativeCover(r.cr)!} alt="" className="h-full w-full object-cover" />}</div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('ads.w.creative.n').replace('{n}', String(r.i + 1))} · {t(`ads.w.format.${r.cr.format}`)}{hasAny && r === best && score(r) > 0 ? ` · ${t('ads.row.best')}` : ''}</p>
+                                        <p className="truncate" style={{ color: T3, fontSize: 11.5 }}>{r.cr.headline}{r.ref?.review ? ` · ${r.ref.review}` : ''}</p>
+                                      </div>
+                                      <div className="flex gap-4 tabular-nums">
+                                        {[[t('ads.stat.spend'), fmtMoney(r.ins?.spend_cents ?? 0)], [t('ads.row.impressions'), String(r.ins?.impressions ?? 0)], [t('ads.row.clicks'), String(r.ins?.link_clicks ?? 0)], [t('ads.row.metaPurchases'), String(r.ins?.purchases ?? 0)]].map(([k, v]) => (
+                                          <div key={k} className="text-right"><p style={{ color: T3, fontSize: 10 }}>{k}</p><p style={{ color: T1, fontSize: 12.5, fontWeight: 700 }}>{v}</p></div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {!hasAny && <p className="px-3 py-2" style={{ color: T3, fontSize: 11.5 }}>{t('ads.row.noAdInsights')}</p>}
+                                </div>
+                              );
+                            })()}
+                            <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{t('ads.row.byCreativeNote')}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

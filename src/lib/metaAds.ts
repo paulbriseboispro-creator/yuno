@@ -23,6 +23,9 @@ export const DEFAULT_RADIUS_KM = 25;
 
 export interface GeoChoice { key: string; name: string; type?: string; country_code?: string; region?: string; radius_km?: number }
 
+export interface InterestChoice { id: string; name: string; size?: number | null; path?: string | null }
+export interface LocaleChoice { key: number; name: string }
+
 export interface CampaignTargeting {
   countries?: string[];
   cities?: GeoChoice[];
@@ -31,9 +34,27 @@ export interface CampaignTargeting {
   genders?: number[];
   audience_ids?: string[];
   exclude_audience_ids?: string[];
+  /** Centres d'intérêt Meta — facultatif, affine le ciblage. */
+  interests?: InterestChoice[];
+  /** Langues Meta (clés numériques) — facultatif. */
+  locales?: number[];
+  /**
+   * Jusqu'où Meta peut sortir du ciblage (miroir de `_shared/meta-ads.ts`) :
+   * `relaxed` (défaut) = tranche d'âge et zone strictes, audiences / jumeaux /
+   * intérêts / genre relâchés ; `full` = Advantage+ audience, tout est
+   * suggestion et Meta n'accepte aucun âge maximum ; `strict` = rien de relâché.
+   */
+  audience_mode?: AudienceMode;
+  /** Historique (avant `audience_mode`) : true = full, false = strict. */
   advantage?: boolean;
 }
 
+export type AudienceMode = 'relaxed' | 'full' | 'strict';
+export const AUDIENCE_MODES: AudienceMode[] = ['relaxed', 'full', 'strict'];
+/** En Advantage+ complet, Meta refuse un âge minimum au-dessus de 25. */
+export const FULL_MODE_AGE_MIN_CAP = 25;
+
+/** Ancienne forme (une image) — gardée pour les campagnes déjà créées. */
 export interface CampaignCreative {
   image_url: string;
   headline: string;
@@ -42,6 +63,79 @@ export interface CampaignCreative {
   description?: string | null;
   link?: string;
 }
+
+export type CreativeFormat = 'image' | 'carousel' | 'video';
+
+export interface CreativeMedia {
+  url: string;
+  kind: 'image' | 'video';
+  /** Vidéo : image de couverture (Meta l'exige). */
+  thumbnail_url?: string | null;
+  /** Carrousel : titre / description propres à la carte. */
+  headline?: string | null;
+  description?: string | null;
+}
+
+/**
+ * Une création = une pub. Plusieurs créations dans une campagne partagent le
+ * budget : Meta le déplace vers celle qui obtient les meilleurs résultats.
+ */
+export interface AdCreative {
+  /** Identifiant local (clé React), jamais envoyé à Meta. */
+  id: string;
+  format: CreativeFormat;
+  media: CreativeMedia[];
+  headline: string;
+  body: string;
+  description: string;
+  cta: CtaType;
+  link?: string;
+}
+
+export const MAX_CREATIVES = 6;
+export const CAROUSEL_MIN = 2;
+export const CAROUSEL_MAX = 10;
+export const HEADLINE_MAX = 40;
+export const BODY_MAX = 500;
+export const DESCRIPTION_MAX = 120;
+
+export function newCreative(partial: Partial<AdCreative> = {}): AdCreative {
+  return {
+    id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    format: 'image', media: [], headline: '', body: '', description: '', cta: 'BUY_TICKETS',
+    ...partial,
+  };
+}
+
+/** Ce qui manque à une création pour partir chez Meta (vide = prête). */
+export function creativeIssues(c: AdCreative): Array<'media' | 'carousel' | 'thumbnail' | 'headline' | 'body'> {
+  const issues: Array<'media' | 'carousel' | 'thumbnail' | 'headline' | 'body'> = [];
+  const images = c.media.filter((m) => m.kind === 'image');
+  const video = c.media.find((m) => m.kind === 'video');
+  if (c.format === 'image' && images.length < 1) issues.push('media');
+  if (c.format === 'carousel' && images.length < CAROUSEL_MIN) issues.push('carousel');
+  if (c.format === 'video') {
+    if (!video) issues.push('media');
+    else if (!video.thumbnail_url) issues.push('thumbnail');
+  }
+  if (c.headline.trim().length < 3) issues.push('headline');
+  if (c.body.trim().length < 10) issues.push('body');
+  return issues;
+}
+
+/** Image qui représente la création dans une liste (couverture pour une vidéo). */
+export function creativeCover(c: Pick<AdCreative, 'media'>): string | null {
+  const img = c.media.find((m) => m.kind === 'image');
+  if (img) return img.url;
+  const video = c.media.find((m) => m.kind === 'video');
+  return video?.thumbnail_url ?? null;
+}
+
+export interface MetaAdRef { index: number; format: CreativeFormat; ad_id: string; creative_id: string; video_id?: string | null; effective_status?: string | null; review?: string | null }
+export interface AdInsight { ad_id: string; spend_cents: number; impressions: number; reach: number; link_clicks: number; purchases: number; purchase_value_cents: number }
+
+export const WIZARD_STEPS = ['event', 'budget', 'targeting', 'creative', 'review'] as const;
+export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 export interface AdsAudience {
   id: string; kind: 'builtin' | 'venue_segment' | 'contact_segment' | 'lookalike'; ref: string; name: string;
@@ -65,6 +159,7 @@ export interface AdsCampaign {
   event_id: string | null; event_title: string | null; event_start_at: string | null; event_poster_url: string | null;
   budget_type: BudgetType; budget_cents: number; currency: string; start_at: string; end_at: string | null;
   targeting: CampaignTargeting; creative: CampaignCreative; placements: { facebook?: boolean; instagram?: boolean };
+  creatives: Array<Omit<AdCreative, 'id'>>; meta_ads: MetaAdRef[]; ad_insights: AdInsight[];
   meta_campaign_id: string | null; meta_ad_id: string | null; review_feedback: string | null; last_error: string | null;
   last_synced_at: string | null; created_at: string; tracked_code: string | null;
   insights: AdsInsights | null; attributed: AdsAttributed;
