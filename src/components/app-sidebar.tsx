@@ -8,6 +8,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Link } from "react-router-dom";
 import { NavGroup } from "@/components/nav-group";
 import { SidebarIdentity } from "@/components/sidebar-identity";
 import { buildFooterNavLinks, buildNavGroups } from "@/components/app-shared";
