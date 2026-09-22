@@ -1254,7 +1254,7 @@ export default function OwnerEvents() {
         <DialogContent className="border-0 p-0 max-h-[90vh]"
           data-publishing={publishOpen && publishStage < 5 ? '1' : undefined}
           style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
-                   display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+                   display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="flex-1 min-h-0 overflow-y-auto" style={{
           transition: 'filter .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1), opacity .5s ease',
           filter: publishOpen ? 'blur(10px)' : 'none',
