@@ -4,7 +4,7 @@
 import { useState, type MutableRefObject } from 'react';
 import { Plus, Copy, Trash2, Check, AlertCircle, Image as ImageIcon, Images, Clapperboard, AtSign as Instagram } from 'lucide-react';
 import type { DeferredUpload } from '@/lib/deferredUpload';
-import { MAX_CREATIVES, creativeIssues, newCreative, type AdCreative, type AdsEvent, type PreviewSlot } from '@/lib/metaAds';
+import { MAX_CREATIVES, creativeIssues, newCreative, type AdCreative, type AdsEvent, type CreativeDestination, type PreviewSlot } from '@/lib/metaAds';
 import type { DraftCreative, WizardCall } from './types';
 import { CreativeEditor } from './CreativeEditor';
 import { AdPreview, type PreviewTab } from './AdPreview';
@@ -12,7 +12,7 @@ import { StepHeader, Tip, GhostButton, T1, T2, T3, BORDER, INNER_BG, RED, POS, W
 
 const FormatIcon = ({ f }: { f: DraftCreative['format'] }) => f === 'video' ? <Clapperboard className="w-4 h-4" /> : f === 'carousel' ? <Images className="w-4 h-4" /> : f === 'instagram_post' ? <Instagram className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />;
 
-export function StepCreatives({ creatives, selected, onSelect, onChange, posterUrl, event, uploadsRef, pageId, pageName, igUsername, instagramOn, facebookOn, placementsLabel, verticalOn, call, previewPayload, onEditPlacements, t }: {
+export function StepCreatives({ creatives, selected, onSelect, onChange, posterUrl, event, uploadsRef, pageId, pageName, igUsername, instagramOn, facebookOn, placementsLabel, verticalOn, call, previewPayload, destinationsAvailable, onEditPlacements, t }: {
   creatives: DraftCreative[];
   selected: string;
   onSelect: (id: string) => void;
@@ -27,11 +27,15 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
   call: WizardCall;
   /** Placements + lien envoyés à `ads_preview`. */
   previewPayload: { placements: Record<string, unknown>; eventId: string };
+  destinationsAvailable: Record<CreativeDestination, boolean>;
   onEditPlacements: () => void;
   t: (k: string) => string;
 }) {
   const current = creatives.find((c) => c.id === selected) ?? creatives[0];
-  const [tab, setTab] = useState<PreviewTab>('feed');
+  const [tabOverride, setTabOverride] = useState<{ id: string; tab: PreviewTab } | null>(null);
+  const defaultTab: PreviewTab = current?.destination === 'story' ? 'story' : current?.destination === 'reel' ? 'reel' : 'feed';
+  const tab: PreviewTab = tabOverride && tabOverride.id === current?.id ? tabOverride.tab : defaultTab;
+  const setTab = (x: PreviewTab) => setTabOverride(current ? { id: current.id, tab: x } : null);
   const [meta, setMeta] = useState<{ busy: boolean; html: Partial<Record<PreviewSlot, string | null>>; error: string | null; forId: string | null }>({ busy: false, html: {}, error: null, forId: null });
   const requestMeta = async (slot: PreviewSlot) => {
     if (!current) return;
@@ -40,7 +44,7 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
       const r = await call('ads_preview', {
         creative: { format: current.format, media: current.media.filter((m) => m.url || m.kind === 'ig_post').map((m) => ({ url: m.url, kind: m.kind, ig_media_id: m.ig_media_id ?? null, thumbnail_url: m.thumbnail_url ?? null, headline: m.headline ?? null, description: m.description ?? null })),
           vertical_media: current.vertical_media?.url ? { url: current.vertical_media.url, kind: current.vertical_media.kind } : null,
-          enhancements: current.enhancements === true, headline: current.headline, body: current.body, description: current.description, cta: current.cta },
+          enhancements: current.enhancements === true, destination: current.destination ?? 'all', headline: current.headline, body: current.body, description: current.description, cta: current.cta },
         slots: [slot], placements: previewPayload.placements, eventId: previewPayload.eventId,
       });
       const p = ((r.previews as Array<{ slot: PreviewSlot; html: string | null; error: string | null }> | undefined) ?? [])[0];
@@ -68,7 +72,7 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
         <div className="space-y-4 min-w-0">
           <div className="flex gap-2 flex-wrap items-center">
             {creatives.map((c, i) => {
-              const issues = creativeIssues(c as unknown as AdCreative);
+              const issues = [...creativeIssues(c as unknown as AdCreative), ...(destinationsAvailable[c.destination ?? 'all'] ? [] : ['media' as const])];
               const uploading = c.media.some((m) => m.uploading) || !!c.vertical_media?.uploading;
               const active = c.id === current?.id;
               const img = cover(c);
@@ -80,7 +84,7 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
                     {img ? <img src={img} alt="" className="h-full w-full object-cover" /> : <FormatIcon f={c.format} />}
                   </span>
                   <span className="text-left">
-                    <span className="block" style={{ color: T1, fontSize: 13, fontWeight: 650 }}>{t('ads.w.creative.n').replace('{n}', String(i + 1))}</span>
+                    <span className="block" style={{ color: T1, fontSize: 13, fontWeight: 650 }}>{t('ads.w.creative.n').replace('{n}', String(i + 1))} <span style={{ color: T3, fontWeight: 500 }}>· {t(`ads.w.dest.${c.destination ?? 'all'}`)}</span></span>
                     <span className="inline-flex items-center gap-1" style={{ color: issues.length === 0 && !uploading ? POS : WARN, fontSize: 11.5 }}>
                       {issues.length === 0 && !uploading ? <Check className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                       {uploading ? t('ads.w.media.uploading') : issues.length === 0 ? t('ads.w.creative.ready') : t('ads.w.creative.incomplete')}
@@ -103,7 +107,7 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
                   <GhostButton small onClick={() => remove(current.id)} disabled={creatives.length <= 1}><Trash2 className="w-3.5 h-3.5" style={{ color: RED }} /> {t('ads.wizard.remove')}</GhostButton>
                 </div>
               </div>
-              <CreativeEditor creative={current} posterUrl={posterUrl} event={event} uploadsRef={uploadsRef} call={call} igAvailable={instagramOn && !!igUsername} verticalOn={verticalOn} t={t}
+              <CreativeEditor creative={current} posterUrl={posterUrl} event={event} uploadsRef={uploadsRef} call={call} igAvailable={instagramOn && !!igUsername} verticalOn={verticalOn} destinationsAvailable={destinationsAvailable} t={t}
                 onChange={(next) => onChange(creatives.map((c) => (c.id === next.id ? next : c)))} />
             </div>
           )}

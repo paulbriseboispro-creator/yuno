@@ -408,7 +408,7 @@ export default function AdsPage() {
                                     <div key={r.i} className="flex items-center gap-3 px-3 py-2 flex-wrap" style={{ borderBottom: `1px solid ${BORDER}`, background: hasAny && r === best && score(r) > 0 ? 'rgba(52,211,153,0.05)' : undefined }}>
                                       <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>{creativeCover(r.cr) && <img src={creativeCover(r.cr)!} alt="" className="h-full w-full object-cover" />}</div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('ads.w.creative.n').replace('{n}', String(r.i + 1))} · {t(`ads.w.format.${r.cr.format}`)}{hasAny && r === best && score(r) > 0 ? ` · ${t('ads.row.best')}` : ''}</p>
+                                        <p className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('ads.w.creative.n').replace('{n}', String(r.i + 1))} · {t(`ads.w.format.${r.cr.format}`)}{r.cr.destination && r.cr.destination !== 'all' ? ` · ${t(`ads.w.dest.${r.cr.destination}`)}` : ''}{hasAny && r === best && score(r) > 0 ? ` · ${t('ads.row.best')}` : ''}</p>
                                         <p className="truncate" style={{ color: T3, fontSize: 11.5 }}>{r.cr.headline}{r.ref?.review ? ` · ${r.ref.review}` : ''}</p>
                                       </div>
                                       <div className="flex gap-4 tabular-nums">

@@ -101,6 +101,18 @@ export interface CampaignCreative {
 }
 
 export type CreativeFormat = 'image' | 'carousel' | 'video' | 'instagram_post';
+/** Où une création diffuse : l'ensemble général, ou un ensemble dédié feed / story / reel (budget de campagne réparti par Meta). */
+export type CreativeDestination = 'all' | 'feed' | 'story' | 'reel';
+export const CREATIVE_DESTINATIONS: CreativeDestination[] = ['all', 'feed', 'story', 'reel'];
+const FEED_IG = ['stream', 'profile_feed', 'ig_search'], FEED_FB = ['feed', 'marketplace', 'video_feeds', 'search', 'instream_video'];
+/** Miroir de `placementsForDestination` (edge) : la destination a-t-elle au moins un placement dans la campagne ? */
+export function destinationAvailable(p: { facebook: boolean; instagram: boolean; igPositions: string[]; fbPositions: string[] }, dest: CreativeDestination): boolean {
+  if (dest === 'all') return p.facebook || p.instagram;
+  const want = dest === 'feed' ? { ig: FEED_IG, fb: FEED_FB } : dest === 'story' ? { ig: ['story'], fb: ['story'] } : { ig: ['reels'], fb: ['facebook_reels'] };
+  const ig = p.instagram ? want.ig.filter((x) => !p.igPositions.length || p.igPositions.includes(x)) : [];
+  const fb = p.facebook ? want.fb.filter((x) => !p.fbPositions.length || p.fbPositions.includes(x)) : [];
+  return ig.length > 0 || fb.length > 0;
+}
 
 export interface CreativeMedia {
   url: string;
@@ -140,6 +152,8 @@ export interface AdCreative {
   enhancements?: boolean;
   /** Réglages du compositeur, si le visuel a été composé dans Yuno. */
   design?: ComposedDesign | null;
+  /** Feed, story, reel, ou l'ensemble général. */
+  destination?: CreativeDestination;
   headline: string;
   body: string;
   description: string;
@@ -157,7 +171,7 @@ export const DESCRIPTION_MAX = 120;
 export function newCreative(partial: Partial<AdCreative> = {}): AdCreative {
   return {
     id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-    format: 'image', media: [], headline: '', body: '', description: '', cta: 'BUY_TICKETS',
+    format: 'image', media: [], headline: '', body: '', description: '', cta: 'BUY_TICKETS', destination: 'all',
     ...partial,
   };
 }
@@ -195,7 +209,7 @@ export function creativeCover(c: Pick<AdCreative, 'media'>): string | null {
 export interface BreakdownRow { key: string; spend_cents: number; impressions: number; link_clicks: number; purchases: number }
 export interface InsightBreakdowns { age_gender?: Array<BreakdownRow & { age: string; gender: string }>; placements?: Array<BreakdownRow & { platform: string; position: string }> }
 
-export interface MetaAdRef { index: number; format: CreativeFormat; ad_id: string; creative_id: string; video_id?: string | null; effective_status?: string | null; review?: string | null }
+export interface MetaAdRef { index: number; format: CreativeFormat; destination?: CreativeDestination; adset_id?: string; ad_id: string; creative_id: string; video_id?: string | null; effective_status?: string | null; review?: string | null }
 export interface AdInsight { ad_id: string; spend_cents: number; impressions: number; reach: number; link_clicks: number; purchases: number; purchase_value_cents: number }
 
 export const WIZARD_STEPS = ['event', 'budget', 'targeting', 'creative', 'review'] as const;

@@ -5,13 +5,13 @@
 
 import { useEffect, useRef, useState, type MutableRefObject, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Images, Clapperboard, Plus, X, ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Sparkles, AtSign as Instagram, Check, Wand2, Smartphone, CalendarDays, MapPin, Tag, Music } from 'lucide-react';
+import { Image as ImageIcon, Images, Clapperboard, Plus, X, ArrowLeft, ArrowRight, Loader2, AlertTriangle, RefreshCw, Sparkles, AtSign as Instagram, Check, Wand2, Smartphone, CalendarDays, MapPin, Tag, Music, LayoutGrid, GalleryVertical, Film } from 'lucide-react';
 import type { DeferredUpload } from '@/lib/deferredUpload';
 import {
   AD_IMAGE_ACCEPT, AD_VIDEO_ACCEPT, AD_VIDEO_MAX_BYTES, AD_VIDEO_MAX_SECONDS,
   inspectAdVideo, captureVideoFrame, startAdImageUpload, startAdVideoUpload, startAdThumbnailUpload,
 } from '@/lib/adCreativeMedia';
-import { CTA_OPTIONS, CAROUSEL_MAX, CAROUSEL_MIN, HEADLINE_MAX, BODY_MAX, DESCRIPTION_MAX, type AdsEvent, type ComposedDesign, type CreativeFormat, type CtaType, type IgMedia } from '@/lib/metaAds';
+import { CTA_OPTIONS, CAROUSEL_MAX, CAROUSEL_MIN, HEADLINE_MAX, BODY_MAX, DESCRIPTION_MAX, type AdsEvent, type ComposedDesign, type CreativeDestination, type CreativeFormat, type CtaType, type IgMedia } from '@/lib/metaAds';
 import { format as fmtDate } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -21,7 +21,7 @@ import { Field, Chip, ChoiceCards, GhostButton, Tip, ToggleRow, inputStyle, focu
 
 const localId = () => `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
-export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRef, call, igAvailable, verticalOn, t }: {
+export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRef, call, igAvailable, verticalOn, destinationsAvailable, t }: {
   creative: DraftCreative;
   onChange: (next: DraftCreative) => void;
   posterUrl: string | null;
@@ -32,8 +32,12 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
   igAvailable: boolean;
   /** L'ensemble diffuse en stories / reels : la version verticale a un sens. */
   verticalOn: boolean;
+  /** Destinations possibles dans cette campagne (selon les placements choisis). */
+  destinationsAvailable: Record<CreativeDestination, boolean>;
   t: (k: string) => string;
 }) {
+  const destination: CreativeDestination = creative.destination ?? 'all';
+  const verticalMain = destination === 'story' || destination === 'reel';
   const { language } = useLanguage();
   const [igMedia, setIgMedia] = useState<IgMedia[] | null>(null);
   const [igBusy, setIgBusy] = useState(false);
@@ -148,11 +152,12 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
   const useComposed = async (blob: Blob, design: ComposedDesign) => {
     const id = localId();
     const preview = URL.createObjectURL(blob);
-    if (design.ratio === '9:16') patch((c) => ({ ...c, vertical_media: { localId: id, kind: 'image', url: '', preview, uploading: true }, design }));
+    const asMain = design.ratio !== '9:16' || verticalMain;
+    if (!asMain) patch((c) => ({ ...c, vertical_media: { localId: id, kind: 'image', url: '', preview, uploading: true }, design }));
     else patch((c) => ({ ...c, format: 'image', media: [{ localId: id, kind: 'image', url: '', preview, uploading: true }], design }));
     const up = startAdThumbnailUpload(blob); uploadsRef.current.set(id, up);
     const r = await up.result;
-    if (design.ratio === '9:16') patch((c) => ({ ...c, vertical_media: c.vertical_media?.localId === id ? ('url' in r ? { ...c.vertical_media, url: r.url, uploading: false } : { ...c.vertical_media, uploading: false, error: r.error }) : c.vertical_media }));
+    if (!asMain) patch((c) => ({ ...c, vertical_media: c.vertical_media?.localId === id ? ('url' in r ? { ...c.vertical_media, url: r.url, uploading: false } : { ...c.vertical_media, uploading: false, error: r.error }) : c.vertical_media }));
     else patchMedia(id, (x) => ('url' in r ? { ...x, url: r.url, uploading: false } : { ...x, uploading: false, error: r.error }));
     if (!('url' in r)) toast.error(t('ads.w.media.uploadFailed'));
   };
@@ -199,7 +204,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
 
   const Thumb = ({ m, index }: { m: DraftMedia; index: number }) => (
     <div className="relative rounded-xl overflow-hidden group" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${m.error ? RED : BORDER}` }}>
-      <div className="aspect-square">
+      <div className={verticalMain ? 'aspect-[9/16]' : 'aspect-square'}>
         {(m.preview || m.url) && <img src={m.preview || m.url} alt="" className="h-full w-full object-cover" />}
       </div>
       {m.uploading && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}
@@ -234,12 +239,28 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
       <input ref={verticalInput} type="file" accept={creative.format === 'video' ? AD_VIDEO_ACCEPT : AD_IMAGE_ACCEPT} className="hidden" onChange={(e) => onPick(e, (f) => addVertical(f[0]))} />
       {composer && <StoryComposer event={event} posterUrl={posterUrl} ratio={composer} initial={creative.design?.ratio === composer ? creative.design : null} onUse={useComposed} onClose={() => setComposer(null)} t={t} />}
 
-      <Field label={t('ads.w.creative.format')} hint={t('ads.w.creative.formatHint')}>
-        <ChoiceCards<CreativeFormat> value={creative.format} onChange={setFormat} columns={igAvailable ? 2 : 3} options={[
-          { value: 'image', label: t('ads.w.format.image'), desc: t('ads.w.format.imageDesc'), icon: <ImageIcon className="w-5 h-5" /> },
-          { value: 'carousel', label: t('ads.w.format.carousel'), desc: t('ads.w.format.carouselDesc'), icon: <Images className="w-5 h-5" /> },
-          { value: 'video', label: t('ads.w.format.video'), desc: t('ads.w.format.videoDesc'), icon: <Clapperboard className="w-5 h-5" /> },
-          ...(igAvailable ? [{ value: 'instagram_post' as CreativeFormat, label: t('ads.w.format.instagram_post'), desc: t('ads.w.format.instagram_postDesc'), icon: <Instagram className="w-5 h-5" /> }] : []),
+      <Field label={t('ads.w.dest.title')} hint={t('ads.w.dest.hint')}>
+        <ChoiceCards<CreativeDestination> value={destination} columns={2} onChange={(d) => patch((c) => ({
+          ...c, destination: d,
+          // Une story / un reel n'existe pas en carrousel ni en post existant ; l'inverse non plus.
+          format: (d === 'story' || d === 'reel') && (c.format === 'carousel' || c.format === 'instagram_post') ? 'image' : c.format,
+          media: (d === 'story' || d === 'reel') && (c.format === 'carousel' || c.format === 'instagram_post') ? [] : c.media,
+          vertical_media: d === 'story' || d === 'reel' ? null : c.vertical_media,
+        }))} options={([
+          { value: 'all' as CreativeDestination, label: t('ads.w.dest.all'), desc: t('ads.w.dest.allDesc'), icon: <Sparkles className="w-5 h-5" />, badge: t('ads.w.recommended') },
+          { value: 'feed' as CreativeDestination, label: t('ads.w.dest.feed'), desc: t('ads.w.dest.feedDesc'), icon: <LayoutGrid className="w-5 h-5" /> },
+          { value: 'story' as CreativeDestination, label: t('ads.w.dest.story'), desc: t('ads.w.dest.storyDesc'), icon: <GalleryVertical className="w-5 h-5" /> },
+          { value: 'reel' as CreativeDestination, label: t('ads.w.dest.reel'), desc: t('ads.w.dest.reelDesc'), icon: <Film className="w-5 h-5" /> },
+        ] as Array<{ value: CreativeDestination; label: string; desc: string; icon: React.ReactNode; badge?: string }>).filter((o) => destinationsAvailable[o.value])} />
+        {destination !== 'all' && <div className="mt-2"><Tip>{t('ads.w.dest.splitNote')}</Tip></div>}
+      </Field>
+
+      <Field label={t('ads.w.creative.format')} hint={verticalMain ? t('ads.w.dest.formatVerticalHint') : t('ads.w.creative.formatHint')}>
+        <ChoiceCards<CreativeFormat> value={creative.format} onChange={setFormat} columns={igAvailable && !verticalMain ? 2 : 3} options={[
+          { value: 'image', label: t('ads.w.format.image'), desc: verticalMain ? t('ads.w.format.imageVerticalDesc') : t('ads.w.format.imageDesc'), icon: <ImageIcon className="w-5 h-5" /> },
+          ...(!verticalMain ? [{ value: 'carousel' as CreativeFormat, label: t('ads.w.format.carousel'), desc: t('ads.w.format.carouselDesc'), icon: <Images className="w-5 h-5" /> }] : []),
+          { value: 'video', label: t('ads.w.format.video'), desc: verticalMain ? t('ads.w.format.videoVerticalDesc') : t('ads.w.format.videoDesc'), icon: <Clapperboard className="w-5 h-5" /> },
+          ...(igAvailable && !verticalMain ? [{ value: 'instagram_post' as CreativeFormat, label: t('ads.w.format.instagram_post'), desc: t('ads.w.format.instagram_postDesc'), icon: <Instagram className="w-5 h-5" /> }] : []),
         ]} />
       </Field>
 
@@ -265,7 +286,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
         </Field>
       ) : creative.format !== 'video' ? (
         <Field label={creative.format === 'carousel' ? t('ads.w.media.carouselLabel') : t('ads.w.media.imageLabel')}
-          hint={creative.format === 'carousel' ? t('ads.w.media.carouselHint').replace('{min}', String(CAROUSEL_MIN)).replace('{max}', String(CAROUSEL_MAX)) : t('ads.w.media.imageHint')}
+          hint={creative.format === 'carousel' ? t('ads.w.media.carouselHint').replace('{min}', String(CAROUSEL_MIN)).replace('{max}', String(CAROUSEL_MAX)) : verticalMain ? t('ads.w.media.imageVerticalHint') : t('ads.w.media.imageHint')}
           counter={creative.format === 'carousel' ? `${images.length}/${CAROUSEL_MAX}` : undefined}>
           <div className={`grid gap-2.5 ${creative.format === 'carousel' ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4'}`}>
             {images.map((m, i) => <Thumb key={m.localId} m={m} index={i} />)}
@@ -276,7 +297,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
               <GhostButton small onClick={usePoster}><Sparkles className="w-3.5 h-3.5" /> {t('ads.wizard.usePoster')}</GhostButton>
             )}
             {creative.format === 'image' && posterUrl && (
-              <GhostButton small onClick={() => setComposer('4:5')}><Wand2 className="w-3.5 h-3.5" /> {t('ads.w.compose.feed')}</GhostButton>
+              <GhostButton small onClick={() => setComposer(verticalMain ? '9:16' : '4:5')}><Wand2 className="w-3.5 h-3.5" /> {verticalMain ? t('ads.w.compose.story') : t('ads.w.compose.feed')}</GhostButton>
             )}
             {creative.format === 'image' && images.length === 1 && (
               <GhostButton small onClick={() => imageInput.current?.click()}><RefreshCw className="w-3.5 h-3.5" /> {t('ads.w.media.replace')}</GhostButton>
@@ -316,7 +337,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
         <Tip>{t('ads.w.media.carouselTexts')}</Tip>
       )}
 
-      {(creative.format === 'image' || creative.format === 'video') && (
+      {(creative.format === 'image' || creative.format === 'video') && destination === 'all' && (
         <Field label={<span className="inline-flex items-center gap-2"><Smartphone className="w-4 h-4" style={{ color: T3 }} />{t('ads.w.vertical.title')}</span>} optional={t('ads.w.optional')}
           hint={verticalOn ? t('ads.w.vertical.hint') : t('ads.w.vertical.hintOff')}>
           {creative.vertical_media ? (

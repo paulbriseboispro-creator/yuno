@@ -21,7 +21,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import type { DeferredUpload } from '@/lib/deferredUpload';
 import {
-  DEFAULT_RADIUS_KM, FULL_MODE_AGE_MIN_CAP, MIN_BUDGET_CENTS, WIZARD_STEPS, creativeIssues, newCreative,
+  DEFAULT_RADIUS_KM, FULL_MODE_AGE_MIN_CAP, MIN_BUDGET_CENTS, WIZARD_STEPS, CREATIVE_DESTINATIONS, creativeIssues, destinationAvailable, newCreative,
   type AdCreative, type AdsAudience, type AdsCampaign, type AdsEvent, type Delivery, type WizardStep,
 } from '@/lib/metaAds';
 import type { CampaignDraft, DraftCreative, WizardCall, WizardMode } from './wizard/types';
@@ -55,7 +55,7 @@ function draftFromCampaign(c: AdsCampaign, mode: WizardMode, language: string, e
   const start = mode === 'edit' ? new Date(c.start_at) : new Date(Date.now() + 15 * 60 * 1000);
   const end = c.end_at ? new Date(c.end_at) : (event ? new Date(event.start_at) : new Date(Date.now() + 7 * 24 * 3600 * 1000));
   const creatives: DraftCreative[] = (c.creatives ?? []).map((cr) => {
-    const n = newCreative({ format: cr.format, headline: cr.headline, body: cr.body, description: cr.description ?? '', cta: cr.cta, enhancements: cr.enhancements === true, design: cr.design ?? null }) as DraftCreative;
+    const n = newCreative({ format: cr.format, headline: cr.headline, body: cr.body, description: cr.description ?? '', cta: cr.cta, enhancements: cr.enhancements === true, design: cr.design ?? null, destination: cr.destination ?? 'all' }) as DraftCreative;
     return { ...n, media: cr.media.map((m, i) => ({ ...m, localId: `${n.id}_${i}` })), vertical_media: cr.vertical_media?.url ? { ...cr.vertical_media, localId: `${n.id}_v` } : null };
   });
   return {
@@ -239,7 +239,7 @@ export function CampaignWizard({
     budget: budgetCents >= MIN_BUDGET_CENTS && !Number.isNaN(startDate.getTime()) && (draft.budgetType === 'daily' || (!Number.isNaN(endDate.getTime()) && endDate > startDate))
       && (!expert || draft.bidStrategy === 'lowest' || (draft.bidStrategy === 'min_roas' ? draft.roasFloor > 0 : draft.bidAmountEuros > 0)),
     targeting: !!draft.country && draft.ageMin >= 18 && draft.ageMax >= draft.ageMin && (draft.facebook || draft.instagram),
-    creative: creativesOk,
+    creative: creativesOk && draft.creatives.every((c) => destinationAvailable({ facebook: draft.facebook, instagram: draft.instagram, igPositions: expert ? draft.igPositions : [], fbPositions: expert ? draft.fbPositions : [] }, c.destination ?? 'all')),
     review: true,
   };
   const stepValid = activeSteps.map((k) => validByKey[k]);
@@ -263,6 +263,7 @@ export function CampaignWizard({
         vertical_media: c.vertical_media?.url ? { url: c.vertical_media.url, kind: c.vertical_media.kind, thumbnail_url: c.vertical_media.thumbnail_url ?? null } : null,
         enhancements: c.enhancements === true,
         design: c.design ?? null,
+        destination: c.destination ?? 'all',
         headline: c.headline.trim(), body: c.body.trim(), description: c.description.trim() || null, cta: c.cta,
       }));
       if (creatives.some((c) => c.media.some((m) => !m.url && m.kind !== 'ig_post'))) throw new Error(t('ads.w.media.uploadFailed'));
@@ -311,6 +312,7 @@ export function CampaignWizard({
     draft.instagram ? `Instagram (${(expert && draft.igPositions.length ? draft.igPositions : ['stream', 'story', 'reels']).map((p) => t(`ads.x.place.ig.${p}`)).join(', ')})` : null,
     draft.facebook ? `Facebook (${(expert && draft.fbPositions.length ? draft.fbPositions : ['feed', 'story', 'facebook_reels']).map((p) => t(`ads.x.place.fb.${p}`)).join(', ')})` : null,
   ].filter(Boolean).join(' · ') + (!expert || (!draft.igPositions.length && !draft.fbPositions.length) ? ` · ${t('ads.w.where.auto')}` : '');
+  const destinationsAvailable = Object.fromEntries(CREATIVE_DESTINATIONS.map((d) => [d, destinationAvailable({ facebook: draft.facebook, instagram: draft.instagram, igPositions: expert ? draft.igPositions : [], fbPositions: expert ? draft.fbPositions : [] }, d)])) as Record<'all' | 'feed' | 'story' | 'reel', boolean>;
   const steps = activeSteps.map((k) => ({ key: k, label: t(`ads.wizard.step.${k}`), short: t(`ads.w.step.${k}.short`) }));
   const stepIndex = (k: WizardStep) => Math.max(0, activeSteps.indexOf(k));
   const current = activeSteps[step];
@@ -353,7 +355,12 @@ export function CampaignWizard({
       expert && draft.devices.length === 1 ? t(`ads.x.place.${draft.devices[0]}`) : null,
     ].filter(Boolean).join(' · '), step: stepIndex('targeting') },
     { label: t('ads.wizard.identity'), value: [pageName ? `Page · ${pageName}` : null, draft.instagram && igUsername ? `Instagram · @${igUsername}` : null].filter(Boolean).join('   ·   ') || '—', step: stepIndex('targeting') },
-    ...(editing ? [] : [{ label: t('ads.w.creative.title'), value: t('ads.w.review.creativesValue').replace('{n}', String(draft.creatives.length)), step: stepIndex('creative') }]),
+    ...(editing ? [] : [{ label: t('ads.w.creative.title'), value: (() => {
+      const dests = [...new Set(draft.creatives.map((c) => c.destination ?? 'all'))];
+      const split = !(dests.length === 1 && dests[0] === 'all');
+      const counts = dests.map((d) => `${draft.creatives.filter((c) => (c.destination ?? 'all') === d).length} × ${t(`ads.w.dest.${d}`)}`).join(', ');
+      return split ? t('ads.w.review.creativesSplit').replace('{n}', String(draft.creatives.length)).replace('{list}', counts) : t('ads.w.review.creativesValue').replace('{n}', String(draft.creatives.length));
+    })(), step: stepIndex('creative') }]),
   ];
 
   return (
@@ -395,7 +402,7 @@ export function CampaignWizard({
           {current === 'creative' && (
             <StepCreatives creatives={draft.creatives} selected={selectedCreative} onSelect={setSelectedCreative} onChange={(c) => set('creatives', c)}
               posterUrl={event?.poster_url ?? null} event={event} uploadsRef={uploadsRef} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} facebookOn={draft.facebook}
-              placementsLabel={placementsLabel} verticalOn={verticalOn} call={call} previewPayload={{ placements: placementsPayload, eventId: draft.eventId }} onEditPlacements={() => go(stepIndex('targeting'))} t={t} />
+              placementsLabel={placementsLabel} verticalOn={verticalOn} call={call} previewPayload={{ placements: placementsPayload, eventId: draft.eventId }} destinationsAvailable={destinationsAvailable} onEditPlacements={() => go(stepIndex('targeting'))} t={t} />
           )}
           {current === 'review' && (
             <>
