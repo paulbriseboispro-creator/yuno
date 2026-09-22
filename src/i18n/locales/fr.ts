@@ -13928,7 +13928,7 @@ const fr: Record<string, string> = {
   "ads.connect.cta": "Ouvrir Intégrations",
   "ads.account.connected": "Compte pub connecté",
   "ads.account.fundingOk": "Moyen de paiement OK",
-  "ads.account.noFunding": "Aucun moyen de paiement chez Meta",
+  "ads.account.billingIssue": "Facturation à régler chez Meta",
   "ads.account.tosOk": "CGU audiences acceptées",
   "ads.account.tosMissing": "Accepter les CGU audiences chez Meta",
   "ads.account.checked": "Vérifié {date}",

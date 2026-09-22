@@ -13954,7 +13954,7 @@ const en: Record<string, string> = {
   "ads.connect.cta": "Open Integrations",
   "ads.account.connected": "Ad account connected",
   "ads.account.fundingOk": "Payment method OK",
-  "ads.account.noFunding": "No payment method at Meta",
+  "ads.account.billingIssue": "Billing needs attention at Meta",
   "ads.account.tosOk": "Audience terms accepted",
   "ads.account.tosMissing": "Accept the audience terms at Meta",
   "ads.account.checked": "Checked {date}",

@@ -247,7 +247,20 @@ export default function AdsPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
               <Pill tone="pos"><CheckCircle2 className="w-3 h-3" /> {t('ads.account.connected')}</Pill>
-              {acct && (acct.has_funding ? <Pill tone="muted">{t('ads.account.fundingOk')}</Pill> : <Pill tone="warn"><AlertTriangle className="w-3 h-3" /> {t('ads.account.noFunding')}</Pill>)}
+              {/* Meta n'expose `funding_source` que pour les comptes au moyen de
+                  paiement hérité : un compte facturé au niveau du portefeuille
+                  d'entreprise rend le champ ABSENT alors que la carte est bien
+                  enregistrée (vérifié le 22/09 sur « Amoris Ads » : carte
+                  Mastercard présente, account_status 1, champ omis malgré
+                  ads_management, business_management et la tâche MANAGE). On ne
+                  prétend donc jamais qu'il n'y a pas de moyen de paiement : on
+                  le confirme quand Meta le dit, et on n'alerte que sur un état
+                  de compte qui empêche vraiment la diffusion (impayé, suspendu,
+                  fermé). */}
+              {acct?.has_funding && <Pill tone="muted">{t('ads.account.fundingOk')}</Pill>}
+              {acct && acct.account_status != null && acct.account_status !== 1 && (
+                <Pill tone="warn"><AlertTriangle className="w-3 h-3" /> {t('ads.account.billingIssue')}</Pill>
+              )}
               {acct && (acct.custom_audience_tos ? <Pill tone="muted">{t('ads.account.tosOk')}</Pill> : (
                 <a href={acct.tos_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] underline underline-offset-2" style={{ color: WARN }}>
                   <AlertTriangle className="w-3 h-3" /> {t('ads.account.tosMissing')} <ExternalLink className="w-3 h-3" />
