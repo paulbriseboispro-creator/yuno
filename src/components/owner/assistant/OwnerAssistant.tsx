@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/
 import { AnimatedOrb } from '@/components/ui/AnimatedOrb';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerAssistantChat } from '@/hooks/useOwnerAssistantChat';
+import { registerHelpAssistant } from '@/lib/helpAssistant';
 import { transitions, useReducedMotion, reducedTap } from '@/lib/motion';
 
 // ─── Tokens DA pro (miroir vip-ui.tsx / docs/DESIGN_SYSTEM.md) ────────────────
@@ -85,6 +86,14 @@ export function OwnerAssistant() {
     window.addEventListener('yuno:owner-assistant-prompt', onExternalPrompt);
     return () => window.removeEventListener('yuno:owner-assistant-prompt', onExternalPrompt);
   }, [isLoading, sendMessage]);
+
+  // Centre d'aide : « Demander à l'assistant » ouvre le panneau avec la
+  // question (ou vide). Tant que ce composant est monté, le mode d'emploi
+  // propose l'IA ; sinon il se rabat sur le support humain.
+  useEffect(() => registerHelpAssistant((prompt) => {
+    setOpen(true);
+    if (prompt && !isLoading) sendMessage(prompt);
+  }), [isLoading, sendMessage]);
 
   const handleSend = (text: string) => {
     if (!text.trim() || isLoading) return;

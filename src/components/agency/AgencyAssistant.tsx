@@ -9,6 +9,7 @@ import { AnimatedOrb } from '@/components/ui/AnimatedOrb';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useAgencyAssistantChat } from '@/hooks/useAgencyAssistantChat';
+import { registerHelpAssistant } from '@/lib/helpAssistant';
 import { transitions, useReducedMotion, reducedTap } from '@/lib/motion';
 
 // ─── Tokens DA pro (miroir promoter-ui.tsx / docs/DESIGN_SYSTEM.md) ───────────
@@ -110,6 +111,13 @@ export function AgencyAssistant() {
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 250);
   }, [open]);
+
+  // Centre d'aide agence : « Demander à l'assistant » ouvre le panneau avec
+  // la question pré-envoyée (voir src/lib/helpAssistant.ts).
+  useEffect(() => registerHelpAssistant((prompt) => {
+    setOpen(true);
+    if (prompt && !isLoading) sendMessage(prompt);
+  }), [isLoading, sendMessage]);
 
   const handleSend = (text: string) => {
     if (!text.trim() || isLoading) return;
