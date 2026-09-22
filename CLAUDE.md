@@ -1892,6 +1892,29 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   → `meta_lead_to_contact` (registre de consentement, jamais un désabonné,
   `consent_source = 'social'`). `bulk-notify-waitlist` a été supprimée le
   14/09 pour libérer le slot de `meta-connect` : ne pas la redéployer.
+  **Créations multiples et modes d'audience (22/09, migration
+  `20260922150000`)** : une campagne Yuno reste UN ensemble de pubs, mais
+  porte de une à six créations (`meta_campaigns.creatives`, format `image`
+  / `carousel` 2-10 images / `video` + couverture obligatoire) = autant de
+  pubs dans le même ensemble (`meta_ads`) ; Meta répartit le budget entre
+  elles, et la synchro horaire copie les résultats PAR PUB (`ad_insights`,
+  insights `level=ad`). Médias dans le bucket public `ad-creatives`
+  (`<auth.uid()>/…`, 50 Mo, H.264 vérifié côté client comme la vidéo de page
+  soirée ; Meta va chercher image et vidéo par URL : `adimages` bytes,
+  `advideos` `file_url` puis attente de `status.video_status = ready`).
+  Sondé en vrai sur le compte Amoris : (1) depuis la v24, créer une
+  campagne avec le budget sur l'ensemble EXIGE
+  `is_adset_budget_sharing_enabled` (erreur 4834011 sinon) — c'est l'erreur
+  qui bloquait « Create paused » ; (2) `advantage_audience: 1` REFUSE un âge
+  max < 65 (1870189) et un âge min > 25 (1870188), et
+  `individual_setting.age` est refusé pareil ; `advantage_audience: 0` +
+  `individual_setting {custom_audience, lookalike, detailed_targeting,
+  gender}` garde la tranche d'âge stricte en relâchant le reste. D'où les
+  trois `audience_mode` (`relaxed` par défaut, `full`, `strict`) de
+  `buildTargeting`, à ne pas réduire à un booléen. Ciblage étendu :
+  `interests` (`search?type=adinterest`, `flexible_spec`), `locales`
+  (`adlocale`), estimation `act/reachestimate` (-1 = Meta ne sait pas, pas
+  une audience vide). L'assistant vit dans `src/components/ads/wizard/`.
   **Identité de la pub (19/09)** : `discoverAssets` relève l'Instagram
   professionnel relié à chaque Page (`assets.instagram[{page_id,id,username}]`,
   exige `instagram_basic`, best-effort) ; `ig_user_id` suit TOUJOURS la Page

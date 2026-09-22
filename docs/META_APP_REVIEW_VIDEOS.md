@@ -456,7 +456,7 @@ n'apparaît pas dans la fenêtre Meta.
 4. Marketing & CRM → Ads → **Check account** → pastilles vertes.
 5. Audiences → **Create an audience** → Buyers, last 12 months → **Send to
    Meta** → statut « ready ».
-6. **Boost an event** → 5 étapes → **Create paused**.
+6. **Boost an event** → 5 étapes nommées → **Create paused**.
 7. Ads Manager : la campagne est en PAUSED, son identité montre la Page **et**
    l'Instagram.
 8. **Leads → Enable collection**.
@@ -556,14 +556,17 @@ campagnes.
    **arrêt 3 s** sur « {n} consenting people » et sur « Only contacts who
    accepted your emails or SMS are sent, hashed. »
 2. **Send to Meta** → la ligne passe **pending** puis **ready**.
-3. **Boost an event**, une seconde d'arrêt par étape :
-   - **Event** : la soirée
+3. **Boost an event**, une seconde d'arrêt par étape (la barre du haut nomme
+   les cinq étapes — laisse-la dans le cadre) :
+   - **Event** : la soirée, objectif **Sales**
    - **Budget** : Per day, **5 €**, dates
-   - **Targeting** : ville, âge, et **l'audience de l'étape 2** dans « Yuno
-     audiences »
-   - **Creative** : affiche, titre, texte, bouton
-   - **Review** : **arrêt 4 s**, on lit « The campaign is created paused at
-     Meta. »
+   - **Targeting** : ville, âge, **l'audience de l'étape 2** dans « Yuno
+     audiences », et le mode « My criteria, expanded by Meta » ; **arrêt 3 s**
+     sur « Reachable people » (l'estimation Meta)
+   - **Creative** : la création 1 (affiche), puis **Add a creative** → un
+     carrousel ou une vidéo ; l'aperçu à droite change. **Arrêt 3 s.**
+   - **Review** : **arrêt 4 s**, on lit « The campaign lands paused in your
+     Meta account: nothing is spent until you activate it. »
 4. **Create paused** → pastille **paused**.
 5. Ads Manager, recharge : campagne en **PAUSED** avec l'affiche. **Arrêt 4 s.**
 6. Retour Yuno → **Activate** → pastille **active** (souvent « in Meta
