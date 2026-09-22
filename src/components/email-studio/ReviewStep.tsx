@@ -7,6 +7,8 @@ import {
   checklistBlocksSend, footerSocialEnabled, renderEmailHtml, runChecklist, slugifyName,
   type LiveData,
 } from '@/lib/email';
+import { ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
+import { actionFmt } from '@/components/action/tokens';
 import { useStudio } from './store';
 import { useAudienceCount, type StudioEvent, type StudioScope } from './hooks';
 import {
@@ -33,6 +35,11 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
   const { count } = useAudienceCount(campaign.id, saveSeq, campaign.audiences.length > 0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  // Écran d'envoi : `runStage` compte les étapes RÉELLEMENT franchies côté
+  // serveur (campagne enregistrée → file constituée → premiers envois partis).
+  const [runOpen, setRunOpen] = useState(false);
+  const [runStage, setRunStage] = useState(0);
+  const [runResult, setRunResult] = useState<{ recipients: number; skipped: number } | null>(null);
   const [replyTo, setReplyTo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,23 +86,89 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
     ? new Date(campaign.scheduledAt).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })
     : t('studio.sched.nowHelp');
 
+  const runSteps = useMemo<ActionStep[]>(() => [
+    { key: 's1', label: t('owner.sendrun.s1'), seconds: 1.1 },
+    { key: 's2', label: t('owner.sendrun.s2'), seconds: 1.3 },
+    { key: 's3', label: t('owner.sendrun.s3'), seconds: 1.5 },
+  ], [t]);
+
+  /**
+   * Envoyer une campagne.
+   *
+   * `send-campaign` constitue la file PUIS draine jusqu'à 45 s avant de
+   * répondre : l'attendre, c'était laisser le pro sur un bouton qui tourne
+   * pendant trois quarts de minute. On ne l'attend donc plus — on LIT la file
+   * (`get_campaign_send_progress`), ce qui donne trois jalons vrais et rend la
+   * main dès que les premiers messages sont partis. Le fetch survit au
+   * changement d'écran, la fonction s'auto-chaîne, et le cron
+   * `process-scheduled-campaigns` rattrape de toute façon.
+   *
+   * L'écran ne dit JAMAIS « envoyé » : l'envoi continue en arrière-plan
+   * pendant des minutes, parfois des heures.
+   */
   const sendNow = async () => {
     setSending(true);
+    setConfirmOpen(false);
+    setRunStage(0);
+    setRunResult(null);
+    setRunOpen(true);
+
+    let id: string | null = null;
     try {
-      const id = await onSave('sending');
+      id = await onSave('sending');
       if (!id) throw new Error(t('em.toast.saveError'));
-      const { error } = await supabase.functions.invoke('send-campaign', { body: { campaign_id: id } });
-      if (error) throw error;
-      onSent();
     } catch (e) {
-      // Le serveur reste seul maître du statut : on n'écrase rien ici, on
-      // envoie le pro sur l'écran de progression qui dit la vérité.
+      setRunOpen(false);
+      setSending(false);
       toast.error(e instanceof Error ? e.message : t('em.toast.sendError'));
       onSent();
-    } finally {
-      setSending(false);
-      setConfirmOpen(false);
+      return;
     }
+    setRunStage(1); // la campagne est enregistrée, son audience est résolue
+    const campaignId = id;
+
+    let invokeFailed = false;
+    void supabase.functions
+      .invoke('send-campaign', { body: { campaign_id: campaignId } })
+      .then(({ error }) => { if (error) invokeFailed = true; })
+      .catch(() => { invokeFailed = true; });
+
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    // Deux échéances distinctes : la file se constitue tout de suite, les
+    // premiers envois peuvent attendre (heures calmes, plafond du jour).
+    const queueBy = Date.now() + 15_000;
+    let sendBy = Infinity;
+    let stage = 1;
+    while (Date.now() < Math.min(queueBy, sendBy) || (stage >= 2 && Date.now() < sendBy)) {
+      await sleep(1200);
+      if (invokeFailed) break;
+      const { data } = await supabase.rpc('get_campaign_send_progress', { p_campaign_id: campaignId });
+      const p = data as unknown as { total?: number; sent?: number; status?: string } | null;
+      if (!p) continue;
+      if (stage < 2 && Number(p.total) > 0) {
+        stage = 2;
+        setRunStage(2);
+        sendBy = Date.now() + 18_000;
+      }
+      if (stage >= 2 && Number(p.sent) > 0) {
+        setRunStage(3);
+        const { data: row } = await supabase
+          .from('email_campaigns').select('policy_skipped_count').eq('id', campaignId).maybeSingle();
+        setRunResult({
+          recipients: Number(p.total) || 0,
+          skipped: Number(row?.policy_skipped_count) || 0,
+        });
+        setSending(false);
+        return; // l'écran reste : sa carte de fin rend la main
+      }
+      if (p.status && p.status !== 'sending') break; // failed / paused : le rapport explique
+    }
+    // Rien n'est parti dans le temps imparti : l'écran de progression dit la
+    // vérité (heures calmes, quota, disjoncteur) mieux qu'une animation.
+    setRunOpen(false);
+    setSending(false);
+    if (invokeFailed) toast.error(t('em.toast.sendError'));
+    onSent();
   };
 
   const alreadyScheduled = campaign.status === 'scheduled';
@@ -277,6 +350,47 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
           </div>
         </div>
       )}
+
+      {/* ── Écran d'envoi ── */}
+      <ActionOverlay
+        fixed
+        open={runOpen}
+        stage={runStage}
+        steps={runSteps}
+        kicker={[t('owner.sendrun.kicker'), t('owner.sendrun.kickerDone')]}
+        title={[t('owner.sendrun.title'), t('owner.sendrun.titleDone')]}
+        finalWord={t('owner.sendrun.final')}
+        primaryLabel={t('owner.sendrun.follow')}
+        onPrimary={() => { setRunOpen(false); onSent(); }}
+        onClose={() => { setRunOpen(false); onSent(); }}
+        done={runResult ? (
+          <ActionResultCard kicker={t('owner.sendrun.cardKicker')}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 32, lineHeight: .9, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>
+                  {actionFmt(runResult.recipients)}
+                </div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9A9A9A' }}>
+                  {t('owner.sendrun.recipients')}
+                </div>
+              </div>
+              {runResult.skipped > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 2 }}>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 19, lineHeight: .9, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>
+                    {actionFmt(runResult.skipped)}
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 500, letterSpacing: '.12em', textTransform: 'uppercase', color: '#5A5A5E' }}>
+                    {t('owner.sendrun.protected')}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: '#9A9A9A' }}>
+              {t('owner.sendrun.keepsGoing')}
+            </div>
+          </ActionResultCard>
+        ) : null}
+      />
     </div>
   );
 }
