@@ -1915,6 +1915,30 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   `interests` (`search?type=adinterest`, `flexible_spec`), `locales`
   (`adlocale`), estimation `act/reachestimate` (-1 = Meta ne sait pas, pas
   une audience vide). L'assistant vit dans `src/components/ads/wizard/`.
+  **Mode expert (22/09 soir, migration `20260922160000`)** = tout Ads
+  Manager depuis Yuno, chaque forme sondée en vrai sur Amoris avant d'être
+  écrite : `meta_campaigns.delivery` (événement de conversion PURCHASE /
+  INITIATED_CHECKOUT / CONTENT_VIEW — LEAD exige OUTCOME_LEADS ; enchère
+  COST_CAP / BID_CAP avec `bid_amount`, MIN_ROAS = `optimization_goal VALUE`
+  + `bid_constraints` refusé aux entreprises non vérifiées 2446146 ; plages
+  horaires = budget total + `pacing_type day_parting` + minutes à l'heure
+  ronde ; Notoriété = REACH/IMPRESSIONS + `frequency_control_specs` ;
+  `url_tags` sur la créa), ciblage (`location_types`, `excluded_geo_locations`,
+  `zips` clé « FR:31000 », `custom_locations` — un point DANS une ville déjà
+  choisie = 1487756 « conflicting location », pays + région du pays aussi ;
+  `flexible_spec` par groupes avec la clé = `type` rendu par la recherche
+  (`adTargetingCategory` class behaviors/demographics) ; les EXCLUSIONS de
+  critères n'existent plus, 3858492 ; placements manuels sans `explore`,
+  2490589), créa `instagram_post` (`object_id` Page + `source_instagram_media_id`),
+  audiences à RÈGLE (`meta_audiences.kind` pixel_visitors / pixel_checkout /
+  ig_engagers / ig_visitors / page_engagers, créées SANS `subtype` — la v26
+  le refuse 1870053 —, pixel = CGU audiences #2663, Meta les remplit seul,
+  `size_uploaded` = `approximate_count_upper_bound`), `campaign_update`
+  (POST sur l'ensemble : budget, dates, ciblage, diffusion ; soirée, objectif
+  et créations figés), `ad_set_status` (une pub), `insight_breakdowns`
+  (age,gender / publisher_platform,platform_position). Interrupteur front
+  `localStorage yuno:ads:expert` ; la recherche « Techno » en `fr_FR` rend
+  d'abord « Technologie » : l'intérêt musical s'appelle « Techno (musique) ».
   **Identité de la pub (19/09)** : `discoverAssets` relève l'Instagram
   professionnel relié à chaque Page (`assets.instagram[{page_id,id,username}]`,
   exige `instagram_basic`, best-effort) ; `ig_user_id` suit TOUJOURS la Page
