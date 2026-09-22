@@ -41,7 +41,8 @@ import {
   PUBLIC_BASE as ADS_PUBLIC_BASE, searchGeo, createFullCampaign, setCampaignStatus, syncMetaInsights, syncMetaAudiences,
   processMetaLeads, pageAccessToken, pageInstagramAccount, subscribePageToLeads, adAccountInfo,
   webhookVerifyToken, verifyHubSignature, graphPost, ensureAppWebhookSubscription,
-  searchInterests, searchLocales, searchDetailed, reachEstimate, listInstagramMedia, updateAdSet, setAdStatus,
+  searchInterests, searchLocales, searchDetailed, GraphSearchError, reachEstimate, listInstagramMedia, updateAdSet, setAdStatus,
+  generatePreviews, previewCreativeSpec, PREVIEW_FORMATS, type PreviewSlot,
   buildTargeting, deliveryParams, scheduleParams, isRuleAudienceKind,
   type CampaignTargeting, type CampaignCreative, type CampaignPlacements, type CreativeFormat, type Delivery, type CampaignObjective, type GeoPlace, type DetailedCriterion,
 } from "../_shared/meta-ads.ts";
@@ -602,8 +603,13 @@ Deno.serve(async (req) => {
       const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
       if (q.length < 2) return json({ ok: true, results: [] }, 200, cors);
       const country = typeof body.country === "string" && /^[A-Z]{2}$/.test(body.country) ? body.country : null;
-      const results = await searchGeo(q, country, token, cfg.appSecret, body.kind === "zip" ? ["zip"] : ["city", "region"]);
-      return json({ ok: true, results }, 200, cors);
+      try {
+        const results = await searchGeo(q, country, token, cfg.appSecret, body.kind === "zip" ? ["zip"] : ["city", "region"]);
+        return json({ ok: true, results }, 200, cors);
+      } catch (e) {
+        if (e instanceof GraphSearchError) return json({ error: "meta_error", detail: e.message }, 502, cors);
+        throw e;
+      }
     }
 
     // ── Publicité : état du compte pub (CGU audiences, devise, paiement) ────
@@ -713,12 +719,50 @@ Deno.serve(async (req) => {
       const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
       if (q.length < 2) return json({ ok: true, results: [] }, 200, cors);
       const locale = body.locale === "en" ? "en_GB" : body.locale === "es" ? "es_ES" : "fr_FR";
-      const results = body.type === "locale"
-        ? await searchLocales(q, token, cfg.appSecret)
-        : body.type === "detailed"
-          ? await searchDetailed(q, locale, token, cfg.appSecret)
-          : await searchInterests(q, locale, token, cfg.appSecret);
-      return json({ ok: true, results }, 200, cors);
+      try {
+        const results = body.type === "locale"
+          ? await searchLocales(q, token, cfg.appSecret)
+          : body.type === "detailed"
+            ? await searchDetailed(q, locale, token, cfg.appSecret)
+            : await searchInterests(q, locale, token, cfg.appSecret);
+        return json({ ok: true, results }, 200, cors);
+      } catch (e) {
+        if (e instanceof GraphSearchError) return json({ error: "meta_error", detail: e.message }, 502, cors);
+        throw e;
+      }
+    }
+
+    // ── Publicité : aperçus réels Meta d'une création (feed, story, reel) ──
+    if (action === "ads_preview") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, ad_account_id, page_id, ig_user_id, vault_secret_id").eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; ad_account_id: string | null; page_id: string | null; ig_user_id: string | null; vault_secret_id: string | null } | null;
+      if (!conn?.vault_secret_id || !conn.ad_account_id || !conn.page_id) return json({ error: "ads_not_ready" }, 400, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const cr = (body.creative && typeof body.creative === "object" ? body.creative : {}) as Record<string, unknown>;
+      const isHttps = (u: unknown): u is string => typeof u === "string" && /^https:\/\/[^\s]+$/.test(u) && u.length <= 2000;
+      const media = (Array.isArray(cr.media) ? cr.media : []).map((m) => (m && typeof m === "object" ? m : {}) as Record<string, unknown>)
+        .filter((m) => isHttps(m.url) || (m.kind === "ig_post" && /^[0-9]{5,40}$/.test(String(m.ig_media_id))))
+        .map((m) => ({ url: isHttps(m.url) ? m.url : "", kind: m.kind === "video" ? "video" as const : m.kind === "ig_post" ? "ig_post" as const : "image" as const, ig_media_id: m.kind === "ig_post" ? String(m.ig_media_id) : null, thumbnail_url: isHttps(m.thumbnail_url) ? m.thumbnail_url : null, headline: typeof m.headline === "string" ? m.headline.slice(0, 40) : null, description: typeof m.description === "string" ? m.description.slice(0, 120) : null }));
+      const vmIn = (cr.vertical_media && typeof cr.vertical_media === "object" ? cr.vertical_media : null) as Record<string, unknown> | null;
+      const creative: CampaignCreative = {
+        format: cr.format === "carousel" ? "carousel" : cr.format === "instagram_post" ? "instagram_post" : cr.format === "video" ? "video" : "image",
+        media,
+        vertical_media: vmIn && isHttps(vmIn.url) && vmIn.kind !== "video" ? { url: vmIn.url as string, kind: "image" } : null,
+        enhancements: cr.enhancements === true,
+        headline: String(cr.headline ?? "Titre").trim().slice(0, 40) || "Titre",
+        body: String(cr.body ?? "…").trim().slice(0, 500) || "…",
+        cta: ["BUY_TICKETS", "LEARN_MORE", "BOOK_NOW", "SIGN_UP", "GET_OFFER"].includes(String(cr.cta)) ? String(cr.cta) : "LEARN_MORE",
+        description: typeof cr.description === "string" && cr.description.trim() ? cr.description.trim().slice(0, 120) : null,
+        link: typeof body.link === "string" && isHttps(body.link) ? body.link : `${ADS_PUBLIC_BASE}/event/${typeof body.eventId === "string" ? body.eventId : ""}`,
+      };
+      const placements = parsePlacements(body.placements);
+      const slots = (Array.isArray(body.slots) ? body.slots : ["feed", "story", "reel"]).filter((x): x is PreviewSlot => typeof x === "string" && x in PREVIEW_FORMATS).slice(0, 5);
+      const spec = await previewCreativeSpec(creative, conn.page_id, placements.instagram === false ? null : conn.ig_user_id, conn.ad_account_id, placements, token, cfg.appSecret);
+      if ("error" in spec) return json({ error: "invalid_creative", detail: String(spec.error) }, 400, cors);
+      const previews = await generatePreviews(conn.ad_account_id, spec, slots, token, cfg.appSecret);
+      return json({ ok: true, previews }, 200, cors);
     }
 
     // ── Publicité : publications Instagram du compte relié (booster un post) ─
@@ -809,6 +853,11 @@ Deno.serve(async (req) => {
         const bodyText = String(cr.body ?? "").trim().slice(0, 500);
         const description = typeof cr.description === "string" && cr.description.trim() ? cr.description.trim().slice(0, 120) : null;
         const cta = CTAS.includes(String(cr.cta)) ? String(cr.cta) : "LEARN_MORE";
+        const vmIn = (cr.vertical_media && typeof cr.vertical_media === "object" ? cr.vertical_media : null) as Record<string, unknown> | null;
+        const vertical_media = vmIn && isHttps(vmIn.url)
+          ? { url: vmIn.url as string, kind: vmIn.kind === "video" ? "video" as const : "image" as const, thumbnail_url: isHttps(vmIn.thumbnail_url) ? vmIn.thumbnail_url : null }
+          : null;
+        const enhancements = cr.enhancements === true;
         const images = media.filter((m) => m.kind === "image");
         const videos = media.filter((m) => m.kind === "video");
         const posts = media.filter((m) => m.kind === "ig_post");
@@ -822,9 +871,12 @@ Deno.serve(async (req) => {
         if (format === "image" && images.length < 1) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_image` }, 400, cors);
         if (format === "carousel" && (images.length < 2 || images.length > 10)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_carousel` }, 400, cors);
         if (format === "video" && (videos.length < 1 || !videos[0].thumbnail_url)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_video` }, 400, cors);
+        if (vertical_media && format === "video" && vertical_media.kind === "video" && !vertical_media.thumbnail_url) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_vertical_thumbnail` }, 400, cors);
         creatives.push({
           format,
           media: format === "image" ? [images[0]] : format === "carousel" ? images.slice(0, 10) : [videos[0]],
+          vertical_media: (format === "image" || format === "video") && vertical_media && vertical_media.kind === (format === "image" ? "image" : "video") ? vertical_media : null,
+          enhancements,
           headline, body: bodyText, cta, description,
         });
       }

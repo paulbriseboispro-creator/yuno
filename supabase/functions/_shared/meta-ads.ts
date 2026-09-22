@@ -94,8 +94,12 @@ export async function searchGeo(q: string, countryCode: string | null, token: st
   const params: Record<string, string> = { type: "adgeolocation", q, location_types: JSON.stringify(types), limit: "12" };
   if (countryCode) params.country_code = countryCode;
   const r = await graphGet<{ data?: Array<{ key: string; name: string; type: string; country_code: string; region?: string; country_name?: string; primary_city?: string }> }>("search", params, { token, appSecret });
-  return r.ok ? (r.data.data ?? []) : [];
+  if (!r.ok) throw new GraphSearchError(graphErrorText(r.error));
+  return r.data.data ?? [];
 }
+
+/** Une recherche qui échoue chez Meta (accès bloqué, jeton mort) doit se VOIR : une liste vide serait un mensonge. */
+export class GraphSearchError extends Error { constructor(message: string) { super(message); this.name = "GraphSearchError"; } }
 
 /**
  * Centres d'intérêt (`adinterest`) et langues (`adlocale`) pour le ciblage
@@ -108,7 +112,8 @@ export async function searchInterests(q: string, locale: string, token: string, 
   const r = await graphGet<{ data?: Array<{ id: string; name: string; audience_size_lower_bound?: number; audience_size_upper_bound?: number; path?: string[]; topic?: string }> }>(
     "search", { type: "adinterest", q, limit: "15", locale }, { token, appSecret },
   );
-  return r.ok ? (r.data.data ?? []).map((i) => ({ id: String(i.id), name: i.name, size: i.audience_size_upper_bound ?? i.audience_size_lower_bound ?? null, path: (i.path ?? []).slice(0, -1).join(" › ") || i.topic || null })) : [];
+  if (!r.ok) throw new GraphSearchError(graphErrorText(r.error));
+  return (r.data.data ?? []).map((i) => ({ id: String(i.id), name: i.name, size: i.audience_size_upper_bound ?? i.audience_size_lower_bound ?? null, path: (i.path ?? []).slice(0, -1).join(" › ") || i.topic || null }));
 }
 
 /**
@@ -129,6 +134,7 @@ export async function searchDetailed(q: string, locale: string, token: string, a
     size: c.audience_size_upper_bound ?? c.audience_size_lower_bound ?? null,
     path: (c.path ?? []).slice(0, -1).join(" › ") || c.description || null,
   }));
+  if (!ints.ok) throw new GraphSearchError(graphErrorText(ints.error));
   const ql = q.toLowerCase();
   // Les catégories n'acceptent pas toujours `q` : on filtre par nom côté serveur.
   const cats = [...norm(behs.ok ? behs.data.data : [], "behaviors"), ...norm(dems.ok ? dems.data.data : [], "demographics")].filter((c) => c.name.toLowerCase().includes(ql));
@@ -137,7 +143,8 @@ export async function searchDetailed(q: string, locale: string, token: string, a
 
 export async function searchLocales(q: string, token: string, appSecret: string | null) {
   const r = await graphGet<{ data?: Array<{ key: number; name: string }> }>("search", { type: "adlocale", q, limit: "15" }, { token, appSecret });
-  return r.ok ? (r.data.data ?? []).map((l) => ({ key: Number(l.key), name: l.name })) : [];
+  if (!r.ok) throw new GraphSearchError(graphErrorText(r.error));
+  return (r.data.data ?? []).map((l) => ({ key: Number(l.key), name: l.name }));
 }
 
 /**
@@ -257,11 +264,34 @@ export interface CreativeMedia {
 export interface CampaignCreative {
   format: CreativeFormat;
   media: CreativeMedia[];
+  /**
+   * Version VERTICALE (9:16) du visuel, pour les stories et les reels. Quand
+   * elle existe, la créa part en `asset_feed_spec` avec des règles par
+   * placement : le feed reçoit `media`, stories et reels reçoivent celle-ci.
+   * Même nature que `media` (image ↔ image, vidéo ↔ vidéo).
+   */
+  vertical_media?: CreativeMedia | null;
+  /** Améliorations Advantage+ (luminosité, bouton, textes, gabarits…). */
+  enhancements?: boolean;
   headline: string;
   body: string;
   cta: string;
   link: string;
   description?: string | null;
+}
+
+/** Placements « verticaux » (9:16) et placements « feed » : la clé de partage d'une créa à deux visuels. */
+const VERTICAL_IG = ["story", "reels"] as const;
+const VERTICAL_FB = ["story", "facebook_reels"] as const;
+const FEED_IG = ["stream", "profile_feed", "ig_search"] as const;
+const FEED_FB = ["feed", "marketplace", "video_feeds", "search", "instream_video"] as const;
+
+/** Advantage+ créa : les améliorations que Meta applique tout seul. Toutes ou aucune. */
+export function enhancementsSpec(on: boolean, video: boolean): Record<string, unknown> {
+  const st = { enroll_status: on ? "OPT_IN" : "OPT_OUT" };
+  const spec: Record<string, unknown> = { image_brightness_and_contrast: st, enhance_cta: st, text_improvements: st, image_templates: st };
+  if (video) spec.video_auto_crop = st;
+  return { creative_features_spec: spec };
 }
 
 export interface CreateCampaignInput {
@@ -449,9 +479,84 @@ function callToAction(cta: string, link: string) {
 async function buildCreativeSpec(
   c: CampaignCreative, pageId: string, instagramActorId: string | null | undefined,
   lib: ImageLibrary, adAccountId: string, name: string, token: string, appSecret: string | null,
+  placements: CampaignPlacements = {},
+): Promise<{ spec: Record<string, unknown>; videoId?: string } | { error: string }> {
+  const built = await buildCreativeSpecInner(c, pageId, instagramActorId, lib, adAccountId, name, token, appSecret, placements);
+  if ("error" in built) return built;
+  if (c.enhancements != null && c.format !== "instagram_post") built.spec.degrees_of_freedom_spec = enhancementsSpec(c.enhancements === true, c.format === "video");
+  return built;
+}
+
+/**
+ * Deux visuels dans une pub (feed + vertical) = `asset_feed_spec` avec des
+ * règles par placement. Les règles ne nomment que les placements que
+ * l'ensemble diffuse (positions manuelles), sinon toutes les positions
+ * connues : Meta refuse une règle sur un placement absent de l'ensemble.
+ */
+function placementRules(placements: CampaignPlacements, kind: "image" | "video"): Array<Record<string, unknown>> {
+  const igOn = placements.instagram !== false, fbOn = placements.facebook !== false;
+  const igPos = placements.positions?.instagram?.length ? placements.positions.instagram : [...VERTICAL_IG, ...FEED_IG];
+  const fbPos = placements.positions?.facebook?.length ? placements.positions.facebook : [...VERTICAL_FB, ...FEED_FB];
+  const pick = (list: string[], allowed: readonly string[]) => list.filter((p) => allowed.includes(p));
+  const spec = (ig: string[], fb: string[]) => {
+    const out: Record<string, unknown> = { publisher_platforms: [igOn && ig.length ? "instagram" : null, fbOn && fb.length ? "facebook" : null].filter(Boolean) };
+    if (igOn && ig.length) out.instagram_positions = ig;
+    if (fbOn && fb.length) out.facebook_positions = fb;
+    return out;
+  };
+  const label = kind === "image" ? "image_label" : "video_label";
+  const vertical = spec(igOn ? pick(igPos, VERTICAL_IG) : [], fbOn ? pick(fbPos, VERTICAL_FB) : []);
+  const feed = spec(igOn ? pick(igPos, FEED_IG) : [], fbOn ? pick(fbPos, FEED_FB) : []);
+  const rules: Array<Record<string, unknown>> = [];
+  if ((vertical.publisher_platforms as string[]).length) rules.push({ customization_spec: vertical, [label]: { name: "vertical" } });
+  if ((feed.publisher_platforms as string[]).length) rules.push({ customization_spec: feed, [label]: { name: "feed" } });
+  return rules;
+}
+
+async function buildCreativeSpecInner(
+  c: CampaignCreative, pageId: string, instagramActorId: string | null | undefined,
+  lib: ImageLibrary, adAccountId: string, name: string, token: string, appSecret: string | null,
+  placements: CampaignPlacements,
 ): Promise<{ spec: Record<string, unknown>; videoId?: string } | { error: string }> {
   const story: Record<string, unknown> = { page_id: pageId };
   if (instagramActorId) story.instagram_user_id = instagramActorId;
+  const vertical = c.vertical_media && c.vertical_media.url ? c.vertical_media : null;
+  if (vertical && (c.format === "image" || c.format === "video") && vertical.kind === (c.format === "image" ? "image" : "video")) {
+    const rules = placementRules(placements, vertical.kind);
+    if (rules.length >= 2) {
+      const feedSpec: Record<string, unknown> = {
+        bodies: [{ text: c.body }], titles: [{ text: c.headline }],
+        ...(c.description ? { descriptions: [{ text: c.description }] } : {}),
+        link_urls: [{ website_url: c.link }], call_to_action_types: [c.cta || "LEARN_MORE"],
+        optimization_type: "PLACEMENT", asset_customization_rules: rules,
+      };
+      if (vertical.kind === "image") {
+        const feedImg = c.media.find((m) => m.kind === "image");
+        if (!feedImg) return { error: "image_missing" };
+        const [fh, vh] = await Promise.all([lib.hashFor(feedImg.url), lib.hashFor(vertical.url)]);
+        if ("error" in fh) return { error: fh.error };
+        if ("error" in vh) return { error: vh.error };
+        feedSpec.images = [{ hash: fh.hash, adlabels: [{ name: "feed" }] }, { hash: vh.hash, adlabels: [{ name: "vertical" }] }];
+        feedSpec.ad_formats = ["SINGLE_IMAGE"];
+        return { spec: { name, object_story_spec: story, asset_feed_spec: feedSpec } };
+      }
+      const feedVid = c.media.find((m) => m.kind === "video");
+      if (!feedVid) return { error: "video_missing" };
+      const thumbs = [feedVid.thumbnail_url, vertical.thumbnail_url].map((u) => u || c.media.find((m) => m.kind === "image")?.url || null);
+      if (!thumbs[0] || !thumbs[1]) return { error: "video_thumbnail_missing" };
+      const [ft, vt] = await Promise.all([lib.hashFor(thumbs[0]), lib.hashFor(thumbs[1])]);
+      if ("error" in ft) return { error: ft.error };
+      if ("error" in vt) return { error: vt.error };
+      const [fu, vu] = await Promise.all([uploadVideo(adAccountId, feedVid.url, name, token, appSecret), uploadVideo(adAccountId, vertical.url, `${name} (vertical)`, token, appSecret)]);
+      if ("error" in fu) return { error: fu.error };
+      if ("error" in vu) return { error: vu.error };
+      const [fs, vs] = await Promise.all([waitVideoReady(fu.id, token, appSecret), waitVideoReady(vu.id, token, appSecret)]);
+      if (fs === "error" || vs === "error") return { error: "video_processing_failed" };
+      feedSpec.videos = [{ video_id: fu.id, thumbnail_hash: ft.hash, adlabels: [{ name: "feed" }] }, { video_id: vu.id, thumbnail_hash: vt.hash, adlabels: [{ name: "vertical" }] }];
+      feedSpec.ad_formats = ["SINGLE_VIDEO"];
+      return { spec: { name, object_story_spec: story, asset_feed_spec: feedSpec }, videoId: fu.id };
+    }
+  }
   if (c.format === "instagram_post") {
     // Booster une publication Instagram existante : la créa pointe le média,
     // le bouton porte le lien suivi. Ni texte ni visuel à envoyer.
@@ -605,7 +710,7 @@ export async function createFullCampaign(input: CreateCampaignInput, token: stri
   for (let i = 0; i < input.creatives.length; i++) {
     const c = input.creatives[i];
     const label = input.creatives.length > 1 ? `${input.name} — créa ${i + 1}` : `${input.name} — créa`;
-    const built = await buildCreativeSpec(c, input.pageId, input.instagramActorId, lib, adAccountId, label, token, appSecret);
+    const built = await buildCreativeSpec(c, input.pageId, input.instagramActorId, lib, adAccountId, label, token, appSecret, input.placements);
     if ("error" in built) return { ok: false, error: built.error, step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
     if (input.delivery?.url_tags) built.spec.url_tags = input.delivery.url_tags.slice(0, 500);
     const creative = await graphPost<{ id: string }>(`${adAccountId}/adcreatives`, built.spec, token, appSecret);
@@ -639,6 +744,43 @@ export async function setCampaignStatus(
     if (!r.ok) return { ok: false, error: graphErrorText(r.error) };
   }
   return { ok: true };
+}
+
+/**
+ * Aperçus RÉELS de Meta, rendus depuis la spec d'une créa avant que la pub
+ * existe (`generatepreviews`). Un iframe par placement : c'est l'écran
+ * qu'Ads Manager montre, aux données près.
+ */
+export const PREVIEW_FORMATS = {
+  feed: "INSTAGRAM_STANDARD",
+  story: "INSTAGRAM_STORY",
+  reel: "INSTAGRAM_REELS",
+  fb_feed: "MOBILE_FEED_STANDARD",
+  fb_story: "FACEBOOK_STORY_MOBILE",
+} as const;
+export type PreviewSlot = keyof typeof PREVIEW_FORMATS;
+
+export async function generatePreviews(
+  adAccountId: string, creativeSpec: Record<string, unknown>, slots: PreviewSlot[], token: string, appSecret: string | null,
+): Promise<Array<{ slot: PreviewSlot; html: string | null; error: string | null }>> {
+  const out: Array<{ slot: PreviewSlot; html: string | null; error: string | null }> = [];
+  for (const slot of slots) {
+    const r = await graphGet<{ data?: Array<{ body?: string }> }>(`${adAccountId}/generatepreviews`, { creative: JSON.stringify(creativeSpec), ad_format: PREVIEW_FORMATS[slot] }, { token, appSecret });
+    out.push({ slot, html: r.ok ? (r.data.data?.[0]?.body ?? null) : null, error: r.ok ? null : graphErrorText(r.error) });
+  }
+  return out;
+}
+
+/** La spec d'une créa image / carrousel / post, sans la créer (pour les aperçus). */
+export async function previewCreativeSpec(
+  c: CampaignCreative, pageId: string, instagramActorId: string | null, adAccountId: string, placements: CampaignPlacements, token: string, appSecret: string | null,
+): Promise<Record<string, unknown> | { error: string }> {
+  if (c.format === "video") return { error: "video_preview_unsupported" };
+  const lib = new ImageLibrary(adAccountId, token, appSecret);
+  const built = await buildCreativeSpec(c, pageId, instagramActorId, lib, adAccountId, "preview", token, appSecret, placements);
+  if ("error" in built) return built;
+  const { name: _n, ...spec } = built.spec;
+  return spec;
 }
 
 /** Modifie un ensemble existant (budget, dates, ciblage, diffusion) — la campagne reste ce qu'elle est. */
