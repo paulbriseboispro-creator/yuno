@@ -386,7 +386,7 @@ l'assistant IA owner connaissent déjà la feature.
 | `meta=choose` sans pixel dans la liste | l'entreprise n'a pas de jeu de données | Events Manager → Connecter des sources de données → Web |
 | « Jeton refusé » après quelques semaines | jeton utilisateur 60 j (pro sans Business Manager) | « Reconnecter avec Facebook » ; la notif part 7 j avant |
 | « Domaine non vérifié » dans Events Manager | les ventes sont sur yunoapp.eu | normal ; le pro peut ajouter yunoapp.eu à ses domaines |
-| Fenêtre Meta : page de connexion Facebook, le pro n'a pas de profil Facebook | compte professionnel ouvert DEPUIS Instagram ; Facebook Login for Business authentifie un profil Facebook | pas de contournement : soit ajouter un profil Facebook comme admin du portefeuille depuis `business.facebook.com` (la connexion Instagram y marche) et le un-clic s'ouvre, soit passer par le mode avancé (pixel + jeton d'Events Manager, sans les pubs depuis Yuno). Les deux sont affichés sous le bouton (`integ.meta.igLogin.*`). |
+| Fenêtre Meta : page de connexion Facebook, le pro n'a pas de profil Facebook | compte professionnel ouvert DEPUIS Instagram ; Facebook Login for Business authentifie un profil Facebook | pas de contournement : soit ajouter un profil Facebook comme admin du portefeuille depuis `business.facebook.com` (la connexion Instagram y marche) et le un-clic s'ouvre, soit passer par le mode avancé (pixel + jeton d'Events Manager, sans les pubs depuis Yuno). Ces deux chemins vivent dans le mode d'emploi et ici, plus sur l'écran de connexion : la carte Meta ne montre que le parcours soumis à l'App Review (« Connecter avec Facebook » + mode avancé replié). |
 | 402 au déploiement | cap de fonctions | étape 5 |
 
 ### Le pro qui n'a pas de profil Facebook
@@ -398,7 +398,11 @@ Instagram. Facebook Login for Business authentifie un PROFIL Facebook, et une
 session Meta Business Suite ouverte avec Instagram n'en est pas un : elle ne
 débloque pas le dialogue. Il n'y a pas de contournement côté Yuno.
 
-Les deux chemins, affichés en clair sous le bouton dans la carte Meta :
+Les deux chemins, à donner au pro par le support ou le mode d'emploi.
+Ils ne sont PAS sur l'écran de connexion : un raccourci vers Meta
+Business Suite y ressemblait à une seconde façon de connecter Yuno
+alors qu'il n'en connecte aucune, et l'App Review juge un écran où
+chaque bouton mène à ce qu'il annonce.
 
 1. **Ajouter un profil Facebook** (le sien, ou un nouveau, gratuit) comme
    administrateur du portefeuille, depuis `business.facebook.com` où la

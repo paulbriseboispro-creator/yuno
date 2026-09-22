@@ -2,18 +2,17 @@
 // Design : docs/designs/META_ADS_INTEGRATION_PLAN.md ; mise en service de la
 // connexion en un clic : docs/META_GO_LIVE_GUIDE.md.
 //
-// Deux chemins vers la même connexion :
-//   - « Connecter avec Facebook » (phase 2) : une fenêtre Meta, le pro choisit
-//     son entreprise, Yuno découvre ses pixels / comptes pub / Pages ; s'il n'a
-//     qu'un pixel c'est fini, sinon il le choisit ici. Aucun jeton à coller.
-//   - « Mode avancé » (phase 1) : Pixel ID + jeton Conversions API collés.
-//     Reste disponible, replié, pour les pros qui gèrent ça eux-mêmes.
-// Un pro dont le compte professionnel Meta a été créé DEPUIS Instagram n'a
-// pas de mot de passe Facebook : la fenêtre Meta ne lui propose alors qu'un
-// formulaire e-mail + mot de passe, et les deux chemins ci-dessus sont des
-// murs. D'où le rappel « Vous n'avez qu'un compte Instagram ? » sous le
-// bouton — il ouvre Meta Business Suite, seul écran de connexion Meta qui
-// offre « Continuer avec Instagram » (cf. META_BUSINESS_LOGIN_URL).
+// Un seul chemin de connexion : « Connecter avec Facebook » (Facebook Login
+// for Business). Une fenêtre Meta, le pro autorise Yuno, Yuno découvre ses
+// pixels / comptes pub / Pages ; s'il n'a qu'un pixel c'est fini, sinon il le
+// choisit ici. Aucun jeton à coller, et c'est ce parcours-là que Meta vérifie
+// en App Review. Le « mode avancé » (Pixel ID + jeton Conversions API collés)
+// reste replié dessous pour les pros qui gèrent eux-mêmes leur Events Manager.
+// Tout ce qui ne mène PAS à cette autorisation a été retiré de l'écran : un
+// raccourci vers Meta Business Suite ressemblait à une seconde façon de
+// connecter Yuno alors qu'il n'en connecte aucune. Le chemin « je n'ai pas de
+// profil Facebook » (ajouter un admin Facebook au portefeuille) vit désormais
+// dans le mode d'emploi, pas sur l'écran de connexion.
 // Le jeton part vers l'edge `meta-connect`, entre dans le Vault et n'en
 // ressort JAMAIS : on n'affiche que « ••••1234 ». Tout le reste vient de la
 // RPC `get_my_meta_connection`. Un manager ne voit pas cette carte.
@@ -36,7 +35,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
-import { META_BUSINESS_LOGIN_URL } from '@/lib/metaIntegration';
+import { useMetaDevModeNotice } from '@/lib/metaIntegration';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 
@@ -154,25 +153,9 @@ function FacebookButton({ onClick, busy, label }: { onClick: () => void; busy: b
   );
 }
 
-// Jumeau du bouton Facebook, même gabarit : les deux chemins pèsent pareil à
-// l'écran. Un pro qui gère tout depuis Instagram doit reconnaître le sien du
-// premier coup d'œil, sinon il clique sur le bleu et tombe sur une page de
-// connexion à un compte qu'il n'a pas.
-function InstagramButton({ href, label }: { href: string; label: string }) {
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer"
-      className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-[13.5px] font-semibold"
-      style={{ background: 'linear-gradient(120deg,#F58529 0%,#DD2A7B 50%,#8134AF 100%)', color: '#fff' }}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07zm0 6a3.84 3.84 0 1 0 0 7.68 3.84 3.84 0 0 0 0-7.68zm0 6.34a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm4.89-6.49a.9.9 0 1 1-1.8 0 .9.9 0 0 1 1.8 0z" />
-      </svg>
-      {label} <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-    </a>
-  );
-}
-
 export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: { scope: MetaScope; helpPath?: string; live?: boolean; returnTo?: string }) {
   const { t, language } = useLanguage();
+  const devModeNotice = useMetaDevModeNotice();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<Payload | null>(null);
@@ -458,76 +441,27 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     </div>
   );
 
-  // Deux chemins, deux cartes de même poids. Ce n'est pas de la mise en page :
-  // Facebook Login for Business authentifie un PROFIL Facebook, et un compte
-  // professionnel ouvert depuis Instagram n'en a pas — le dialogue Meta lui
-  // sert sa page de connexion Facebook, sans option Instagram. Un seul bouton
-  // bleu laissait croire qu'il menait aussi à Instagram (constaté sur le
-  // compte Amoris le 19/09) : le pro cliquait et se retrouvait devant un
-  // compte qu'il n'a pas. Chaque carte dit donc POUR QUI elle est avant de
-  // dire ce qu'elle fait, et la carte Instagram annonce qu'elle ne connecte
-  // pas Yuno — elle ouvre Meta.
+  // Un seul bouton, parce qu'il n'y a qu'une façon de connecter Yuno : rendre
+  // l'autorisation dans la fenêtre Meta. Ce qui ne mène pas à cette fenêtre
+  // (ouvrir Meta ailleurs, se connecter à Business Suite) ne connecte rien et
+  // n'a donc rien à faire ici. La phrase sous le bouton dit ce que Yuno
+  // demandera et ce qu'il ne demandera jamais : c'est la même promesse que
+  // celle faite à l'App Review.
   const connectChooser = (
     <div className="space-y-3">
       <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('integ.meta.choose.h')}</p>
-      {/* Se connecter à Meta dans un autre onglet ne connecte pas Yuno : il n'y
-          a de connexion qu'au moment où Meta rend l'autorisation. Dit ici
-          parce que c'est l'erreur qui a coûté le plus de temps sur Amoris —
-          Events Manager ouvert, session Meta active, et la carte qui ne bouge
-          pas, ce qui ressemble à une panne alors que rien n'a été demandé. */}
-      <p style={{ color: WARN, fontSize: 12, lineHeight: 1.5, marginTop: -4 }}>{t('integ.meta.choose.only')}</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl px-3.5 py-3.5 flex flex-col" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-          <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{t('integ.meta.choose.fb.h')}</p>
-          <p style={{ color: META_BLUE, fontSize: 11.5, fontWeight: 600, marginTop: 5, lineHeight: 1.4 }}>{t('integ.meta.choose.fb.who')}</p>
-          <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5, flex: 1 }}>
-            {t('integ.meta.oauthHint')} {t('integ.meta.choose.fb.plus')}
-          </p>
-          <div className="mt-3.5">
-            <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
-          </div>
-        </div>
-
-        <div className="rounded-xl px-3.5 py-3.5 flex flex-col" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-          <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{t('integ.meta.choose.ig.h')}</p>
-          <p style={{ color: '#DD2A7B', fontSize: 11.5, fontWeight: 600, marginTop: 5, lineHeight: 1.4 }}>{t('integ.meta.choose.ig.who')}</p>
-          <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>{t('integ.meta.choose.ig.b')}</p>
-          {/* « Compte » et « Page » se confondent dans le vocabulaire de Meta,
-              et Business Suite propose de créer une Page dans le même écran de
-              réglages. Une Page n'a ni email ni mot de passe : elle ne peut
-              rien autoriser. Dit en avertissement parce que c'est le piège où
-              le compte Amoris s'est arrêté le 19/09. */}
-          <p style={{ color: WARN, fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>{t('integ.meta.choose.ig.warn')}</p>
-          {/* L'adresse de la connexion Instagram est DÉJÀ une personne active
-              du portefeuille : réutilisée pour le compte Facebook, Meta refuse
-              l'invitation (« This person was already invited ») et le pro
-              tourne en rond. Constaté sur Amoris Society le 19/09. */}
-          <p style={{ color: WARN, fontSize: 12, marginTop: 6, lineHeight: 1.5, flex: 1 }}>{t('integ.meta.choose.ig.mail')}</p>
-          <div className="mt-3.5">
-            <InstagramButton href={META_BUSINESS_LOGIN_URL} label={t('integ.meta.choose.igButton')} />
-          </div>
-        </div>
-      </div>
-      <p style={{ color: T3, fontSize: 12, lineHeight: 1.5 }}>
-        {t('integ.meta.choose.third')}{' '}
-        <button type="button" onClick={() => setAdvanced(true)}
-          className="font-semibold underline underline-offset-2" style={{ color: T2 }}>
-          {t('integ.meta.igLogin.cta2')}
-        </button>
-      </p>
-    </div>
-  );
-
-  // Reconnexion : le pro est déjà connecté une fois, il n'a pas besoin du
-  // sélecteur complet — juste du rappel de ce qui le bloquerait à nouveau.
-  const instagramLoginNote = (
-    <div className="rounded-xl px-3 py-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-      <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('integ.meta.igLogin.h')}</p>
-      <p style={{ color: T2, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('integ.meta.igLogin.b')}</p>
-      <p style={{ color: T2, fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>{t('integ.meta.igLogin.o1')}</p>
-      <div className="mt-2.5">
-        <InstagramButton href={META_BUSINESS_LOGIN_URL} label={t('integ.meta.choose.igButton')} />
-      </div>
+      <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.oauthHint')}</p>
+      {/* Avant l'ouverture, l'app Yuno est en mode Développement chez Meta :
+          un profil Facebook sans rôle sur l'app ne voit pas la fenêtre
+          d'autorisation mais une page « Feature unavailable », qui ressemble
+          à une panne de Yuno. Dit ici parce que c'est ce qui a bloqué le
+          2026-09-20, et que chaque nouveau compte de test le revivra.
+          Masqué aux comptes démo : c'est avec eux que le reviewer teste. */}
+      {devModeNotice && (
+        <p style={{ color: WARN, fontSize: 12, lineHeight: 1.5 }}>{t('integ.meta.devMode')}</p>
+      )}
+      <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.oauthButton')} />
+      <p style={{ color: T3, fontSize: 12, lineHeight: 1.5 }}>{t('integ.meta.oauthAsks')}</p>
     </div>
   );
 
@@ -754,7 +688,6 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                   <div className="mt-3 space-y-3">
                     <FacebookButton onClick={handleOauth} busy={busy === 'oauth'} label={t('integ.meta.reconnect')} />
                     {oauthWaitingNote}
-                    {instagramLoginNote}
                   </div>
                 )}
               </div>
