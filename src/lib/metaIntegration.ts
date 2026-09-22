@@ -55,7 +55,10 @@ export const META_BUSINESS_LOGIN_URL = 'https://business.facebook.com/';
  * minuscules. Aucun secret ici : ça n'ouvre que l'interface, l'autorisation
  * reste côté serveur (propriétaire du club / organisateur lui-même).
  */
-export const META_BETA_EMAILS: string[] = ['paul.brisebois.pro@gmail.com'];
+export const META_BETA_EMAILS: string[] = [
+	'paul.brisebois.pro@gmail.com',
+	'amoris.society@gmail.com',
+];
 
 let superAdminCache: boolean | null = null;
 
@@ -78,4 +81,28 @@ export function useMetaIntegrationLive(): boolean {
   if (!user) return false;
   const email = (user.email ?? '').toLowerCase();
   return superAdmin || isDemoEmail(user.email) || META_BETA_EMAILS.includes(email);
+}
+
+/**
+ * Avertissement d'avant-ouverture : l'app Yuno est en mode Développement chez
+ * Meta tant que l'App Review n'est pas accordée, et Meta ne laisse alors
+ * passer le dialogue qu'aux profils Facebook qui ont un RÔLE sur l'app
+ * (administrateur, développeur, testeur). Un profil sans rôle ne reçoit pas
+ * une erreur d'autorisation : il tombe sur une page « Feature unavailable —
+ * … we are updating additional details for this app », qui ressemble à une
+ * panne de Yuno alors que c'est l'état de l'app Meta. Constaté le 2026-09-20,
+ * et ce sera vrai pour chaque nouveau compte de test jusqu'à l'ouverture.
+ *
+ * Volontairement CACHÉ aux comptes démo : c'est avec eux que le reviewer Meta
+ * teste, et lui annoncer que l'app est en Développement n'a aucun sens. Ne
+ * reste donc que le super admin et les comptes bêta, qui eux administrent
+ * l'app Meta.
+ *
+ * Disparaît tout seul quand `META_INTEGRATION_LIVE` passe à `true`.
+ */
+export function useMetaDevModeNotice(): boolean {
+  const { user } = useAuth();
+  const live = useMetaIntegrationLive();
+  if (META_INTEGRATION_LIVE || !live || !user) return false;
+  return !isDemoEmail(user.email);
 }
