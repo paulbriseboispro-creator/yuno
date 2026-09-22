@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
+import { supabase } from '@/integrations/supabase/client';
 import { shouldAutoOpenGuide, snoozeGuide, markGuideOpened } from '@/lib/onboardingGuide';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { SupportHelpOptIn } from '@/components/onboarding/SupportHelpOptIn';
@@ -170,14 +171,32 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
   const reduce = useReducedMotion();
   const autoRef = useRef(false);
 
+  // Un club INVITÉ par un organisateur (plan Collaboration) n'a pas à « choisir
+  // ses piliers » ni à « lancer son établissement » : sa première tâche est le
+  // contrat de la soirée, qui vit dans Collaborations. Le guide reste
+  // disponible en pastille, mais ne recouvre jamais l'écran tout seul.
+  const [collabPlan, setCollabPlan] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!venueId) return;
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase.from('venue_subscriptions').select('subscription_plan').eq('venue_id', venueId).maybeSingle();
+        if (active) setCollabPlan((data as { subscription_plan?: string | null } | null)?.subscription_plan === 'collab');
+      } catch { if (active) setCollabPlan(false); }
+    })();
+    return () => { active = false; };
+  }, [venueId]);
+
   // Ouverture automatique : au plus une fois par session, et jamais ailleurs
   // que sur le tableau de bord. Voir src/lib/onboardingGuide.ts.
   useEffect(() => {
-    if (loading || isComplete || autoRef.current) return;
+    if (loading || isComplete || autoRef.current || collabPlan === null) return;
     autoRef.current = true;
+    if (collabPlan) return;
     const isHome = pathname === '/owner' || pathname === '/owner/dashboard';
     if (shouldAutoOpenGuide('owner', venueId, isHome)) setIsOpen(true);
-  }, [loading, isComplete, pathname, venueId]);
+  }, [loading, isComplete, pathname, venueId, collabPlan]);
 
   const openGuide = () => { markGuideOpened('owner', venueId); setIsOpen(true); };
   const closeGuide = () => { snoozeGuide('owner', venueId); setIsOpen(false); };
