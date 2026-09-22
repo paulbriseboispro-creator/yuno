@@ -60,7 +60,7 @@ type OrdersSnapshot = {
   drinkImages: Record<string, string>;
   venueBarCounts: Record<string, number>;
 };
-type WaitlistEntryRow = { id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string };
+type WaitlistEntryRow = { id: string; eventId: string; eventTitle: string; eventStartAt: string; eventEndAt?: string; eventPosterUrl?: string; venueName: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string };
 const ordersSnapshot = new Map<string, OrdersSnapshot>();
 
 export default function MyOrders() {
@@ -678,7 +678,7 @@ export default function MyOrders() {
 
       const { data: entries, error } = await supabase
         .from('event_waitlist')
-        .select('id, event_id, created_at, show_in_orders, events!inner(title, start_at, venue_id, poster_url, presale_start_at, public_sale_start_at, waitlist_enabled)')
+        .select('id, event_id, created_at, show_in_orders, events!inner(title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, poster_url, presale_start_at, public_sale_start_at, is_active, status, cancelled_at)')
         .or(filters.join(','))
         .eq('show_in_orders', true)
         .order('created_at', { ascending: false });
@@ -696,40 +696,52 @@ export default function MyOrders() {
         .in('event_id', eventIds);
       const ticketedEventIds = new Set(userTickets?.map(t => t.event_id) || []);
 
-      const now = Date.now();
-      const entriesToHide: string[] = [];
-
+      // Ce filtre se CALCULE, il ne s'écrit pas. `show_in_orders` est le choix
+      // de la personne au moment de l'inscription (« montre-moi cette soirée
+      // dans mes commandes ») : la page qui le remettait à false pour cacher
+      // une ligne effaçait ce choix DÉFINITIVEMENT, et la soirée ne revenait
+      // plus jamais, même une fois la vente ouverte.
+      const nowMs = Date.now();
+      const NIGHT_GRACE = 2 * 60 * 60 * 1000;
       const filtered = entries.filter((e: any) => {
-        // Hide if user already bought a ticket
-        if (ticketedEventIds.has(e.event_id)) { entriesToHide.push(e.id); return false; }
-        // Hide if event is now in public sale
-        const publicStart = e.events.public_sale_start_at ? new Date(e.events.public_sale_start_at).getTime() : null;
-        if (publicStart && now >= publicStart) { entriesToHide.push(e.id); return false; }
-        // Hide if waitlist was disabled by owner
-        if (e.events.waitlist_enabled === false && !e.events.presale_start_at && !e.events.public_sale_start_at) { entriesToHide.push(e.id); return false; }
+        // Billet déjà acheté : la ligne d'attente n'a plus d'objet.
+        if (ticketedEventIds.has(e.event_id)) return false;
+        const ev = e.events;
+        // Soirée annulée ou dépubliée.
+        if (ev.is_active === false || ev.cancelled_at || ev.status === 'cancelled') return false;
+        // Soirée finie (même repère que bucketFor : fin + 2 h de grâce).
+        const endMs = new Date(ev.end_at || ev.start_at).getTime();
+        if (Number.isFinite(endMs) && nowMs > endMs + NIGHT_GRACE) return false;
+        // Une soirée à venir dont la billetterie n'est pas encore réglée
+        // (aucune date de vente, interrupteur liste d'attente éteint) RESTE :
+        // c'est exactement le cas où l'on s'inscrit pour être prévenu.
         return true;
       });
 
-      // Clean up hidden entries in DB so they don't return next time.
-      // Best-effort: swallow failures so a transient error never surfaces an
-      // unhandled promise rejection (the entries simply re-filter next load).
-      if (entriesToHide.length > 0) {
-        supabase.from('event_waitlist').update({ show_in_orders: false }).in('id', entriesToHide)
-          .then(undefined, () => { /* best-effort cleanup */ });
-      }
-
-      const venueIds = [...new Set(filtered.map((e: any) => e.events.venue_id))];
-      const { data: venuesData } = await supabase.from('venues').select('id, name').in('id', venueIds.length > 0 ? venueIds : ['_']);
-      const venueMap = new Map(venuesData?.map(v => [v.id, v.name]) || []);
+      // Nom de la salle : une soirée d'organisateur n'a pas de venue_id (elle
+      // peut porter une salle partenaire, ou aucune). Sans ce repli, la ligne
+      // sortait sans nom de lieu.
+      const venueIds = [...new Set(filtered.map((e: any) => e.events.venue_id || e.events.partner_venue_id).filter(Boolean))];
+      const orgIds = [...new Set(filtered.filter((e: any) => !e.events.venue_id && !e.events.partner_venue_id).map((e: any) => e.events.organizer_user_id).filter(Boolean))];
+      const [venuesRes, orgsRes] = await Promise.all([
+        venueIds.length > 0
+          ? supabase.from('venues').select('id, name').in('id', venueIds)
+          : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        orgIds.length > 0
+          ? supabase.from('organizer_profiles').select('user_id, display_name').in('user_id', orgIds)
+          : Promise.resolve({ data: [] as { user_id: string; display_name: string }[] }),
+      ]);
+      const venueMap = new Map((venuesRes.data ?? []).map(v => [v.id, v.name]));
+      const orgMap = new Map((orgsRes.data ?? []).map(o => [o.user_id, o.display_name]));
 
       setWaitlistEntries(filtered.map((e: any) => ({
         id: e.id,
         eventId: e.event_id,
         eventTitle: e.events.title,
         eventStartAt: e.events.start_at,
+        eventEndAt: e.events.end_at || undefined,
         eventPosterUrl: e.events.poster_url || undefined,
-        venueName: venueMap.get(e.events.venue_id) || '',
-        venueSlug: e.events.venue_id || '',
+        venueName: venueMap.get(e.events.venue_id || e.events.partner_venue_id) || orgMap.get(e.events.organizer_user_id) || '',
         createdAt: e.created_at,
         presaleStartAt: e.events.presale_start_at || undefined,
         publicSaleStartAt: e.events.public_sale_start_at || undefined,
@@ -1589,13 +1601,20 @@ export default function MyOrders() {
   });
   // Waitlist — future notifications
   waitlistEntries.forEach(w => {
+    // La vente publique est ouverte : la ligne cesse d'annoncer une attente et
+    // dit ce qu'on peut faire maintenant. C'est la raison même de l'inscription.
+    const saleOpen = !!w.publicSaleStartAt && now.getTime() >= new Date(w.publicSaleStartAt).getTime();
     entries.push({
-      id: `wl-${w.id}`, kind: 'waitlist', bucket: 'upcoming',
+      id: `wl-${w.id}`, kind: 'waitlist', bucket: bucketFor(w.eventStartAt, w.eventEndAt),
       title: w.eventTitle, venueName: w.venueName, sortAt: new Date(w.eventStartAt).getTime(),
       dateLabel: fmtDate(w.eventStartAt), time: fmtTime(w.eventStartAt),
-      subtitle: t('waitlist.myWaitlists'),
+      subtitle: saleOpen ? t('waitlist.ticketsAvailable') : t('waitlist.pendingOpening'),
       price: 0, free: false,
-      onAction: () => navigate(`/club/${w.venueSlug}/event/${w.eventId}`),
+      ctaLabel: saleOpen ? t('waitlist.buyTickets') : t('waitlist.viewEvent'), ctaIcon: 'arrow',
+      // `/event/<uuid>` est TOUJOURS résolu ; `/club/<venue_id>/event/<id>`
+      // tombait sur une page vide dès que la soirée était portée par un
+      // organisateur (venue_id NULL).
+      onAction: () => navigate(`/event/${w.eventId}`),
     });
   });
 

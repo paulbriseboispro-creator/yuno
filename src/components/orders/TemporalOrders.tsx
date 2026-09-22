@@ -191,7 +191,9 @@ function KindChip({ kind, label }: { kind: OrderKind; label?: string }) {
    CARD — EN ATTENTE (ce soir, urgent)
    ================================================================ */
 export function PendingCard({ o, tonightLabel, index = 0, kindLabels }: { o: UnifiedOrderEntry; tonightLabel: string; index?: number; kindLabels?: KindLabels }) {
-  const CtaIcon = o.ctaIcon === 'pay' ? CreditCard : QrCode;
+  // Une ligne « liste d'attente » n'a pas de QR : son action est d'ouvrir la
+  // soirée. L'icône doit dire ça, sinon la carte promet un billet à scanner.
+  const CtaIcon = o.ctaIcon === 'pay' ? CreditCard : o.ctaIcon === 'arrow' ? ArrowRight : QrCode;
   const kindLabel = kindLabels?.[o.kind];
   return (
     <motion.div
