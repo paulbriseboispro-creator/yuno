@@ -1976,6 +1976,28 @@ Doc complète : `docs/designs/META_ADS_INTEGRATION_PLAN.md`. Règles intouchable
   Business Manager, pas un bug Yuno. Les recherches remontent désormais
   l'erreur Meta sous le champ (`GraphSearchError`) au lieu d'une liste vide.
   À sonder dès le déblocage : `scratchpad` `creative-probe.ts` du 22/09.
+  **Destination par création (22/09 nuit)** : `CampaignCreative.destination`
+  = `all` | `feed` | `story` | `reel`. `all` seul → un ensemble qui porte
+  le budget (comme avant). Dès qu'une création vise un placement, la campagne
+  passe en BUDGET DE CAMPAGNE (`daily_budget` / `lifetime_budget` +
+  `bid_strategy` sur la campagne, sondé OK le 22/09 après-midi) et
+  `createFullCampaign` crée UN ensemble par destination
+  (`placementsForDestination` : story = ig `story` + fb `story`, reel = ig
+  `reels` + fb `facebook_reels`, feed = le reste, coupés aux positions
+  manuelles ; `null` = destination indisponible, refusée avant l'envoi), les
+  pubs rejoignent l'ensemble de leur destination, `delivery.budget_level` +
+  `delivery.adsets[]` sont stockés et `campaign_update` / `campaign_set_status`
+  s'appliquent à TOUS les ensembles (budget sur la campagne en CBO). Miroir
+  front `destinationAvailable()` (`metaAds.ts`). Meta ne connaît pas de
+  placement par pub : ne jamais « filtrer » une créa par placement autrement
+  que par un ensemble dédié.
+  **RÈGLE ABSOLUE (Paul, 22/09 soir) : plus AUCUNE sonde d'écriture sur
+  l'API Meta avec un compte réel** — la rafale de sondes a fait bloquer
+  l'accès API et imposer une vérification d'identité. Vérifier par banc DOM
+  (`scratchpad/step-harness.tsx` : esbuild + Chrome headless servi en HTTP,
+  `--define:import.meta.env=…`), `deno check`, tests unitaires. Une
+  vérification en vrai = une seule campagne, à la demande de Paul, cliquée
+  par lui.
   **Identité de la pub (19/09)** : `discoverAssets` relève l'Instagram
   professionnel relié à chaque Page (`assets.instagram[{page_id,id,username}]`,
   exige `instagram_basic`, best-effort) ; `ig_user_id` suit TOUJOURS la Page
