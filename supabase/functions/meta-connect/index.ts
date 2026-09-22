@@ -41,8 +41,9 @@ import {
   PUBLIC_BASE as ADS_PUBLIC_BASE, searchGeo, createFullCampaign, setCampaignStatus, syncMetaInsights, syncMetaAudiences,
   processMetaLeads, pageAccessToken, pageInstagramAccount, subscribePageToLeads, adAccountInfo,
   webhookVerifyToken, verifyHubSignature, graphPost, ensureAppWebhookSubscription,
-  searchInterests, searchLocales, reachEstimate,
-  type CampaignTargeting, type CampaignCreative, type CampaignPlacements, type CreativeFormat,
+  searchInterests, searchLocales, searchDetailed, reachEstimate, listInstagramMedia, updateAdSet, setAdStatus,
+  buildTargeting, deliveryParams, scheduleParams, isRuleAudienceKind,
+  type CampaignTargeting, type CampaignCreative, type CampaignPlacements, type CreativeFormat, type Delivery, type CampaignObjective, type GeoPlace, type DetailedCriterion,
 } from "../_shared/meta-ads.ts";
 import {
   readMetaAppConfig, signState, verifyState, safeReturnTo, buildDialogUrl,
@@ -97,6 +98,83 @@ async function findConnection(admin: SupabaseClient, scope: Scope): Promise<Conn
   q = scope.organizerUserId ? q.eq("organizer_user_id", scope.organizerUserId) : q.is("organizer_user_id", null);
   const { data } = await q.maybeSingle();
   return (data ?? null) as ConnRow | null;
+}
+
+const GEO_RE = /^[A-Za-z0-9:_-]{1,40}$/;
+function parseGeo(list: unknown, max = 25): GeoPlace[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter((x) => x && typeof x.key === "string" && GEO_RE.test(x.key) && typeof x.name === "string").slice(0, max)
+    .map((x) => ({ key: x.key as string, name: String(x.name).slice(0, 80), radius_km: Number(x.radius_km) || 25, type: x.type === "region" ? "region" : "city" }));
+}
+
+/** Ciblage : on ne garde que ce qu'on sait envoyer à Meta, borné. `null` = incohérent. */
+function parseTargeting(t: CampaignTargeting): CampaignTargeting | null {
+  const validId = (id: unknown) => /^[0-9]{3,30}$/.test(String(id));
+  const detailed = Array.isArray(t.detailed) ? t.detailed.slice(0, 5).map((g) => ({
+    items: (Array.isArray(g?.items) ? g.items : []).filter((i) => i && validId(i.id)).slice(0, 50)
+      .map((i): DetailedCriterion => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80), type: /^[a-z_]{2,40}$/.test(String(i.type)) ? String(i.type) : "interests" })),
+  })).filter((g) => g.items.length) : [];
+  const out: CampaignTargeting = {
+    countries: Array.isArray(t.countries) ? t.countries.filter((x) => typeof x === "string" && /^[A-Z]{2}$/.test(x)).slice(0, 10) : [],
+    cities: parseGeo(t.cities),
+    excluded_cities: parseGeo(t.excluded_cities),
+    zips: Array.isArray(t.zips) ? t.zips.filter((z) => z && typeof z.key === "string" && GEO_RE.test(z.key)).slice(0, 100).map((z) => ({ key: z.key, name: String(z.name ?? z.key).slice(0, 40) })) : [],
+    custom_locations: Array.isArray(t.custom_locations) ? t.custom_locations.filter((c) => c && Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude))).slice(0, 25)
+      .map((c) => ({ latitude: Number(c.latitude), longitude: Number(c.longitude), radius_km: Math.min(80, Math.max(1, Number(c.radius_km) || 10)), name: typeof c.name === "string" ? c.name.slice(0, 120) : undefined })) : [],
+    location_types: Array.isArray(t.location_types) ? t.location_types.filter((x): x is "home" | "recent" | "travel_in" => x === "home" || x === "recent" || x === "travel_in").slice(0, 3) : [],
+    age_min: Math.max(18, Math.min(65, Math.round(Number(t.age_min) || 18))),
+    age_max: Math.max(18, Math.min(65, Math.round(Number(t.age_max) || 40))),
+    genders: Array.isArray(t.genders) ? t.genders.filter((g) => g === 1 || g === 2).slice(0, 1) : [],
+    audience_ids: Array.isArray(t.audience_ids) ? t.audience_ids.filter((x) => typeof x === "string") : [],
+    exclude_audience_ids: Array.isArray(t.exclude_audience_ids) ? t.exclude_audience_ids.filter((x) => typeof x === "string") : [],
+    interests: Array.isArray(t.interests) ? t.interests.filter((i) => i && validId(i.id)).slice(0, 25).map((i) => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80) })) : [],
+    detailed,
+    locales: Array.isArray(t.locales) ? t.locales.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 50) : [],
+    audience_mode: t.audience_mode === "full" || t.audience_mode === "strict" ? t.audience_mode : "relaxed",
+    advantage: t.audience_mode !== "strict",
+  };
+  if (out.age_max! < out.age_min!) return null;
+  return out;
+}
+
+function parsePlacements(raw: unknown): CampaignPlacements {
+  const p = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const strs = (v: unknown, max = 10) => Array.isArray(v) ? v.filter((x) => typeof x === "string" && /^[a-z_]{2,30}$/.test(x)).slice(0, max) as string[] : [];
+  const pos = (p.positions && typeof p.positions === "object" ? p.positions : {}) as Record<string, unknown>;
+  const out: CampaignPlacements = { facebook: p.facebook !== false, instagram: p.instagram !== false };
+  const fb = strs(pos.facebook); const ig = strs(pos.instagram);
+  if (fb.length || ig.length) out.positions = { facebook: fb, instagram: ig };
+  const devices = strs(p.devices, 2).filter((d): d is "mobile" | "desktop" => d === "mobile" || d === "desktop");
+  if (devices.length) out.devices = devices;
+  return out;
+}
+
+function parseDelivery(raw: unknown, objective: CampaignObjective): Delivery {
+  const d = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out: Delivery = {};
+  if (objective === "OUTCOME_SALES" && (d.conversion_event === "INITIATED_CHECKOUT" || d.conversion_event === "CONTENT_VIEW" || d.conversion_event === "PURCHASE")) out.conversion_event = d.conversion_event;
+  if (typeof d.optimization_goal === "string" && ["LINK_CLICKS", "LANDING_PAGE_VIEWS", "REACH", "IMPRESSIONS", "OFFSITE_CONVERSIONS"].includes(d.optimization_goal)) out.optimization_goal = d.optimization_goal;
+  const bid = (d.bid && typeof d.bid === "object" ? d.bid : null) as Record<string, unknown> | null;
+  if (bid && ["cost_cap", "bid_cap", "min_roas"].includes(String(bid.strategy))) {
+    out.bid = { strategy: bid.strategy as Delivery["bid"] extends infer B ? B extends { strategy: infer S } ? S : never : never };
+    const amount = Math.round(Number(bid.amount_cents)); if (Number.isFinite(amount) && amount >= 10) out.bid.amount_cents = amount;
+    const floor = Number(bid.roas_floor); if (Number.isFinite(floor) && floor > 0 && floor < 100) out.bid.roas_floor = floor;
+  }
+  if (Array.isArray(d.schedule)) {
+    out.schedule = d.schedule.slice(0, 14).map((sl) => (sl && typeof sl === "object" ? sl : {}) as Record<string, unknown>).map((sl) => ({
+      days: Array.isArray(sl.days) ? sl.days.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6) : [],
+      start_hour: Math.max(0, Math.min(23, Math.round(Number(sl.start_hour) || 0))),
+      end_hour: Math.max(1, Math.min(24, Math.round(Number(sl.end_hour) || 24))),
+    })).filter((sl) => sl.days.length && sl.end_hour > sl.start_hour);
+    if (!out.schedule.length) delete out.schedule;
+  }
+  const fq = (d.frequency && typeof d.frequency === "object" ? d.frequency : null) as Record<string, unknown> | null;
+  if (objective === "OUTCOME_AWARENESS" && fq && Number(fq.max) >= 1 && Number(fq.days) >= 1) out.frequency = { max: Math.min(90, Math.round(Number(fq.max))), days: Math.min(90, Math.round(Number(fq.days))) };
+  if (typeof d.url_tags === "string" && d.url_tags.trim()) {
+    const tags = d.url_tags.trim().replace(/^[?&]+/, "").slice(0, 500);
+    if (/^[A-Za-z0-9_\-=&%.{}]+$/.test(tags)) out.url_tags = tags;
+  }
+  return out;
 }
 
 async function tokenOf(admin: SupabaseClient, connectionId: string): Promise<string | null> {
@@ -524,7 +602,7 @@ Deno.serve(async (req) => {
       const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
       if (q.length < 2) return json({ ok: true, results: [] }, 200, cors);
       const country = typeof body.country === "string" && /^[A-Z]{2}$/.test(body.country) ? body.country : null;
-      const results = await searchGeo(q, country, token, cfg.appSecret);
+      const results = await searchGeo(q, country, token, cfg.appSecret, body.kind === "zip" ? ["zip"] : ["city", "region"]);
       return json({ ok: true, results }, 200, cors);
     }
 
@@ -556,8 +634,11 @@ Deno.serve(async (req) => {
       const existing = await findConnection(admin, scope);
       if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
       if (action === "audience_create") {
-        const kind = typeof body.kind === "string" && ["builtin", "venue_segment", "contact_segment"].includes(body.kind) ? body.kind : null;
-        const ref = typeof body.ref === "string" ? body.ref.trim().slice(0, 80) : "";
+        const kind = typeof body.kind === "string" && (["builtin", "venue_segment", "contact_segment"].includes(body.kind) || isRuleAudienceKind(body.kind)) ? body.kind : null;
+        // Audience à règle : la référence est la fenêtre en jours (30 / 90 / 180 / 365).
+        const ref = kind && isRuleAudienceKind(kind)
+          ? String([30, 90, 180, 365].includes(Number(body.ref)) ? Number(body.ref) : 30)
+          : (typeof body.ref === "string" ? body.ref.trim().slice(0, 80) : "");
         const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
         if (!kind || !ref || !name) return json({ error: "invalid_audience" }, 400, cors);
         // L'unicité (connection_id, kind, ref) est portée par un index PARTIEL
@@ -634,8 +715,22 @@ Deno.serve(async (req) => {
       const locale = body.locale === "en" ? "en_GB" : body.locale === "es" ? "es_ES" : "fr_FR";
       const results = body.type === "locale"
         ? await searchLocales(q, token, cfg.appSecret)
-        : await searchInterests(q, locale, token, cfg.appSecret);
+        : body.type === "detailed"
+          ? await searchDetailed(q, locale, token, cfg.appSecret)
+          : await searchInterests(q, locale, token, cfg.appSecret);
       return json({ ok: true, results }, 200, cors);
+    }
+
+    // ── Publicité : publications Instagram du compte relié (booster un post) ─
+    if (action === "ads_ig_media") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, ig_user_id, vault_secret_id").eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; ig_user_id: string | null; vault_secret_id: string | null } | null;
+      if (!conn?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      if (!conn.ig_user_id) return json({ ok: true, results: [] }, 200, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      return json({ ok: true, results: await listInstagramMedia(conn.ig_user_id, token, cfg.appSecret) }, 200, cors);
     }
 
     if (action === "ads_reach_estimate") {
@@ -672,34 +767,23 @@ Deno.serve(async (req) => {
 
       const eventId = typeof body.eventId === "string" && /^[0-9a-f-]{36}$/i.test(body.eventId) ? body.eventId : null;
       const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
-      const objective = body.objective === "OUTCOME_TRAFFIC" ? "OUTCOME_TRAFFIC" : "OUTCOME_SALES";
+      const objective: CampaignObjective = body.objective === "OUTCOME_TRAFFIC" ? "OUTCOME_TRAFFIC" : body.objective === "OUTCOME_AWARENESS" ? "OUTCOME_AWARENESS" : "OUTCOME_SALES";
       const budgetType = body.budgetType === "daily" ? "daily" : "lifetime";
       const budgetCents = Math.round(Number(body.budgetCents));
       const startAt = typeof body.startAt === "string" ? new Date(body.startAt) : new Date();
       const endAt = typeof body.endAt === "string" ? new Date(body.endAt) : null;
       const targetingIn = (body.targeting && typeof body.targeting === "object" ? body.targeting : {}) as CampaignTargeting;
-      const placements = (body.placements && typeof body.placements === "object" ? body.placements : { facebook: true, instagram: true }) as CampaignPlacements;
+      const placements = parsePlacements(body.placements);
+      const delivery = parseDelivery(body.delivery, objective);
       if (!eventId || !name || !Number.isFinite(budgetCents) || budgetCents < 500) return json({ error: "invalid_campaign" }, 400, cors);
       if (Number.isNaN(startAt.getTime()) || (endAt && (Number.isNaN(endAt.getTime()) || endAt <= startAt))) return json({ error: "invalid_dates" }, 400, cors);
       if (budgetType === "lifetime" && !endAt) return json({ error: "invalid_dates" }, 400, cors);
       if (placements.facebook === false && placements.instagram === false) return json({ error: "invalid_placements" }, 400, cors);
+      if (delivery.schedule && delivery.schedule.length && budgetType !== "lifetime") return json({ error: "schedule_needs_lifetime" }, 400, cors);
 
-      // Ciblage : on ne garde que ce qu'on sait envoyer à Meta, borné.
       const isHttps = (u: unknown): u is string => typeof u === "string" && /^https:\/\/[^\s]+$/.test(u) && u.length <= 2000;
-      const targeting: CampaignTargeting = {
-        countries: Array.isArray(targetingIn.countries) ? targetingIn.countries.filter((x) => typeof x === "string" && /^[A-Z]{2}$/.test(x)).slice(0, 10) : [],
-        cities: Array.isArray(targetingIn.cities) ? targetingIn.cities.filter((x) => x && typeof x.key === "string" && typeof x.name === "string").slice(0, 25).map((x) => ({ key: x.key, name: String(x.name).slice(0, 80), radius_km: Number(x.radius_km) || 25, type: x.type === "region" ? "region" : "city" })) : [],
-        age_min: Math.max(18, Math.min(65, Math.round(Number(targetingIn.age_min) || 18))),
-        age_max: Math.max(18, Math.min(65, Math.round(Number(targetingIn.age_max) || 40))),
-        genders: Array.isArray(targetingIn.genders) ? targetingIn.genders.filter((g) => g === 1 || g === 2).slice(0, 1) : [],
-        audience_ids: Array.isArray(targetingIn.audience_ids) ? targetingIn.audience_ids.filter((x) => typeof x === "string") : [],
-        exclude_audience_ids: Array.isArray(targetingIn.exclude_audience_ids) ? targetingIn.exclude_audience_ids.filter((x) => typeof x === "string") : [],
-        interests: Array.isArray(targetingIn.interests) ? targetingIn.interests.filter((i) => i && /^[0-9]{3,30}$/.test(String(i.id))).slice(0, 25).map((i) => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80) })) : [],
-        locales: Array.isArray(targetingIn.locales) ? targetingIn.locales.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 50) : [],
-        audience_mode: targetingIn.audience_mode === "full" || targetingIn.audience_mode === "strict" ? targetingIn.audience_mode : "relaxed",
-        advantage: targetingIn.audience_mode !== "strict",
-      };
-      if (targeting.age_max! < targeting.age_min!) return json({ error: "invalid_targeting" }, 400, cors);
+      const targeting = parseTargeting(targetingIn);
+      if (!targeting) return json({ error: "invalid_targeting" }, 400, cors);
 
       // Créations : de une à six. `creatives[]` est la forme actuelle ; `creative`
       // (une image) reste acceptée pour les anciens appelants.
@@ -709,13 +793,14 @@ Deno.serve(async (req) => {
       const creatives: Array<Omit<CampaignCreative, "link">> = [];
       for (const raw of rawCreatives.slice(0, 6)) {
         const cr = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-        const format: CreativeFormat = cr.format === "carousel" ? "carousel" : cr.format === "video" ? "video" : "image";
+        const format: CreativeFormat = cr.format === "carousel" ? "carousel" : cr.format === "video" ? "video" : cr.format === "instagram_post" ? "instagram_post" : "image";
         const mediaIn = Array.isArray(cr.media) ? cr.media : [];
         const media = mediaIn.map((m) => (m && typeof m === "object" ? m : {}) as Record<string, unknown>)
-          .filter((m) => isHttps(m.url))
+          .filter((m) => isHttps(m.url) || (m.kind === "ig_post" && /^[0-9]{5,40}$/.test(String(m.ig_media_id))))
           .map((m) => ({
-            url: m.url as string,
-            kind: m.kind === "video" ? "video" as const : "image" as const,
+            url: isHttps(m.url) ? m.url : "",
+            kind: m.kind === "video" ? "video" as const : m.kind === "ig_post" ? "ig_post" as const : "image" as const,
+            ig_media_id: m.kind === "ig_post" ? String(m.ig_media_id) : null,
             thumbnail_url: isHttps(m.thumbnail_url) ? m.thumbnail_url : null,
             headline: typeof m.headline === "string" && m.headline.trim() ? m.headline.trim().slice(0, 40) : null,
             description: typeof m.description === "string" && m.description.trim() ? m.description.trim().slice(0, 120) : null,
@@ -724,9 +809,16 @@ Deno.serve(async (req) => {
         const bodyText = String(cr.body ?? "").trim().slice(0, 500);
         const description = typeof cr.description === "string" && cr.description.trim() ? cr.description.trim().slice(0, 120) : null;
         const cta = CTAS.includes(String(cr.cta)) ? String(cr.cta) : "LEARN_MORE";
-        if (!headline || !bodyText) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_text` }, 400, cors);
         const images = media.filter((m) => m.kind === "image");
         const videos = media.filter((m) => m.kind === "video");
+        const posts = media.filter((m) => m.kind === "ig_post");
+        if (format === "instagram_post") {
+          // Une publication existante porte déjà son visuel et son texte.
+          if (posts.length < 1) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_post` }, 400, cors);
+          creatives.push({ format, media: [posts[0]], headline: headline || "Instagram", body: bodyText || "—", cta, description });
+          continue;
+        }
+        if (!headline || !bodyText) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_text` }, 400, cors);
         if (format === "image" && images.length < 1) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_image` }, 400, cors);
         if (format === "carousel" && (images.length < 2 || images.length > 10)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_carousel` }, 400, cors);
         if (format === "video" && (videos.length < 1 || !videos[0].thumbnail_url)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_video` }, 400, cors);
@@ -762,7 +854,7 @@ Deno.serve(async (req) => {
         connection_id: conn.id, venue_id: conn.venue_id, organizer_user_id: conn.organizer_user_id, event_id: eventId,
         name, objective, status: "creating", budget_type: budgetType, budget_cents: budgetCents,
         start_at: startAt.toISOString(), end_at: endAt ? endAt.toISOString() : null,
-        targeting, creative: legacyCreative, creatives, placements, created_by: user.id,
+        targeting, creative: legacyCreative, creatives, placements, delivery, created_by: user.id,
       }).select("id").single();
       if (insErr || !inserted) return json({ error: "insert_failed", detail: insErr?.message ?? null }, 500, cors);
       const campaignRowId = inserted.id as string;
@@ -787,7 +879,7 @@ Deno.serve(async (req) => {
         name, objective, budgetType, budgetCents, startAt: startAt.toISOString(), endAt: endAt ? endAt.toISOString() : null,
         targeting: metaTargeting,
         creatives: creatives.map((cr) => ({ ...cr, link })),
-        placements, dsaBeneficiary: dsa, dsaPayor: dsa,
+        placements, delivery, dsaBeneficiary: dsa, dsaPayor: dsa,
       }, token, cfg.appSecret);
 
       const patch: Record<string, unknown> = {
@@ -806,6 +898,84 @@ Deno.serve(async (req) => {
       }
       await admin.from("meta_campaigns").update(patch).eq("id", campaignRowId);
       return json({ ok: result.ok, campaignId: campaignRowId, status: patch.status, error: result.ok ? null : patch.last_error, step: result.ok ? null : (result.step ?? null) }, 200, cors);
+    }
+
+    // ── Publicité : modifier une campagne vivante (nom, budget, dates, ciblage, diffusion) ─
+    if (action === "campaign_update") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, pixel_id, vault_secret_id").eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; pixel_id: string; vault_secret_id: string | null } | null;
+      if (!conn?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      const id = typeof body.campaignId === "string" ? body.campaignId : "";
+      const { data: row } = await admin.from("meta_campaigns").select("id, name, objective, status, budget_type, budget_cents, start_at, end_at, targeting, placements, delivery, meta_campaign_id, meta_adset_id").eq("id", id).eq("connection_id", conn.id).maybeSingle();
+      const camp = row as { id: string; name: string; objective: CampaignObjective; status: string; budget_type: string; budget_cents: number; start_at: string; end_at: string | null; targeting: CampaignTargeting; placements: CampaignPlacements; delivery: Delivery; meta_campaign_id: string | null; meta_adset_id: string | null } | null;
+      if (!camp) return json({ error: "not_found" }, 404, cors);
+      if (!camp.meta_campaign_id || !camp.meta_adset_id || !["paused", "active"].includes(camp.status)) return json({ error: "not_editable" }, 400, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const patch: Record<string, unknown> = {};
+      const adsetPatch: Record<string, unknown> = {};
+      if (typeof body.name === "string" && body.name.trim().length >= 3) { patch.name = body.name.trim().slice(0, 120); }
+      if (body.budgetCents != null) {
+        const cents = Math.round(Number(body.budgetCents));
+        if (!Number.isFinite(cents) || cents < 500) return json({ error: "invalid_campaign" }, 400, cors);
+        patch.budget_cents = cents;
+        adsetPatch[camp.budget_type === "daily" ? "daily_budget" : "lifetime_budget"] = cents;
+      }
+      const startAt = typeof body.startAt === "string" ? new Date(body.startAt) : null;
+      const endAt = typeof body.endAt === "string" ? new Date(body.endAt) : (body.endAt === null ? null : undefined);
+      if (startAt && !Number.isNaN(startAt.getTime())) { patch.start_at = startAt.toISOString(); adsetPatch.start_time = startAt.toISOString(); }
+      if (endAt instanceof Date && !Number.isNaN(endAt.getTime())) { patch.end_at = endAt.toISOString(); adsetPatch.end_time = endAt.toISOString(); }
+      const effStart = new Date((patch.start_at as string) ?? camp.start_at); const effEnd = patch.end_at ? new Date(patch.end_at as string) : (camp.end_at ? new Date(camp.end_at) : null);
+      if (effEnd && effEnd <= effStart) return json({ error: "invalid_dates" }, 400, cors);
+      let targeting = camp.targeting; let placements = camp.placements;
+      if (body.targeting && typeof body.targeting === "object") {
+        const parsed = parseTargeting(body.targeting as CampaignTargeting);
+        if (!parsed) return json({ error: "invalid_targeting" }, 400, cors);
+        targeting = parsed; patch.targeting = parsed;
+      }
+      if (body.placements && typeof body.placements === "object") { placements = parsePlacements(body.placements); patch.placements = placements; }
+      if (body.targeting || body.placements) {
+        const mapAud = async (ids: string[]): Promise<string[]> => {
+          if (!ids.length) return [];
+          const { data: rows } = await admin.from("meta_audiences").select("meta_audience_id, status").in("id", ids).eq("connection_id", conn.id);
+          return ((rows ?? []) as Array<{ meta_audience_id: string | null; status: string }>).filter((r) => r.meta_audience_id && r.status === "ready").map((r) => r.meta_audience_id!);
+        };
+        adsetPatch.targeting = buildTargeting({ ...targeting, audience_ids: await mapAud(targeting.audience_ids ?? []), exclude_audience_ids: await mapAud(targeting.exclude_audience_ids ?? []) }, placements);
+      }
+      if (body.delivery && typeof body.delivery === "object") {
+        const delivery = parseDelivery(body.delivery, camp.objective);
+        patch.delivery = delivery;
+        Object.assign(adsetPatch, deliveryParams(camp.objective, conn.pixel_id, delivery));
+        const sched = scheduleParams(delivery);
+        if (camp.budget_type === "lifetime") Object.assign(adsetPatch, sched ?? { pacing_type: ["standard"], adset_schedule: [] });
+      }
+      if (Object.keys(adsetPatch).length) {
+        const r = await updateAdSet(camp.meta_adset_id, adsetPatch, token, cfg.appSecret);
+        if (!r.ok) return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
+      }
+      if (patch.name) await graphPost(camp.meta_campaign_id, { name: patch.name }, token, cfg.appSecret);
+      if (Object.keys(patch).length) await admin.from("meta_campaigns").update({ ...patch, last_error: null }).eq("id", camp.id);
+      return json({ ok: true }, 200, cors);
+    }
+
+    // ── Publicité : mettre en pause / relancer UNE pub de la campagne ────────
+    if (action === "ad_set_status") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const existing = await findConnection(admin, scope);
+      if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      const id = typeof body.campaignId === "string" ? body.campaignId : "";
+      const adId = typeof body.adId === "string" ? body.adId : "";
+      const { data: row } = await admin.from("meta_campaigns").select("id, meta_ads").eq("id", id).eq("connection_id", existing.id).maybeSingle();
+      const camp = row as { id: string; meta_ads: Array<{ ad_id: string; effective_status?: string | null }> } | null;
+      if (!camp || !Array.isArray(camp.meta_ads) || !camp.meta_ads.some((a) => a.ad_id === adId)) return json({ error: "not_found" }, 404, cors);
+      const token = await tokenOf(admin, existing.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const wanted = body.status === "active" ? "ACTIVE" : "PAUSED";
+      const r = await setAdStatus(adId, wanted, token, cfg.appSecret);
+      if (!r.ok) return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
+      await admin.from("meta_campaigns").update({ meta_ads: camp.meta_ads.map((a) => (a.ad_id === adId ? { ...a, effective_status: wanted } : a)) }).eq("id", camp.id);
+      return json({ ok: true }, 200, cors);
     }
 
     if (action === "campaign_set_status" || action === "campaign_refresh" || action === "campaign_delete") {

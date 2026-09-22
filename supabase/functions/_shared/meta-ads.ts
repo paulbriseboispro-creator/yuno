@@ -90,10 +90,10 @@ export async function pageInstagramAccount(pageId: string, token: string, appSec
 }
 
 /** Recherche de villes pour le ciblage (clé Meta + nom + pays). */
-export async function searchGeo(q: string, countryCode: string | null, token: string, appSecret: string | null) {
-  const params: Record<string, string> = { type: "adgeolocation", q, location_types: JSON.stringify(["city", "region"]), limit: "12" };
+export async function searchGeo(q: string, countryCode: string | null, token: string, appSecret: string | null, types: string[] = ["city", "region"]) {
+  const params: Record<string, string> = { type: "adgeolocation", q, location_types: JSON.stringify(types), limit: "12" };
   if (countryCode) params.country_code = countryCode;
-  const r = await graphGet<{ data?: Array<{ key: string; name: string; type: string; country_code: string; region?: string; country_name?: string }> }>("search", params, { token, appSecret });
+  const r = await graphGet<{ data?: Array<{ key: string; name: string; type: string; country_code: string; region?: string; country_name?: string; primary_city?: string }> }>("search", params, { token, appSecret });
   return r.ok ? (r.data.data ?? []) : [];
 }
 
@@ -109,6 +109,30 @@ export async function searchInterests(q: string, locale: string, token: string, 
     "search", { type: "adinterest", q, limit: "15", locale }, { token, appSecret },
   );
   return r.ok ? (r.data.data ?? []).map((i) => ({ id: String(i.id), name: i.name, size: i.audience_size_upper_bound ?? i.audience_size_lower_bound ?? null, path: (i.path ?? []).slice(0, -1).join(" › ") || i.topic || null })) : [];
+}
+
+/**
+ * Ciblage détaillé : intérêts (`adinterest`) + comportements et démographie
+ * (`adTargetingCategory`), fusionnés. Chaque résultat porte le `type` Meta
+ * (interests, behaviors, family_statuses, life_events…), clé du groupe dans
+ * `flexible_spec`.
+ */
+export async function searchDetailed(q: string, locale: string, token: string, appSecret: string | null): Promise<Array<{ id: string; name: string; type: string; size: number | null; path: string | null }>> {
+  type Cat = { id: string; name: string; type?: string; audience_size_lower_bound?: number; audience_size_upper_bound?: number; path?: string[]; description?: string };
+  const [ints, behs, dems] = await Promise.all([
+    graphGet<{ data?: Cat[] }>("search", { type: "adinterest", q, limit: "12", locale }, { token, appSecret }),
+    graphGet<{ data?: Cat[] }>("search", { type: "adTargetingCategory", class: "behaviors", q, limit: "8", locale }, { token, appSecret }),
+    graphGet<{ data?: Cat[] }>("search", { type: "adTargetingCategory", class: "demographics", q, limit: "8", locale }, { token, appSecret }),
+  ]);
+  const norm = (rows: Cat[] | undefined, fallbackType: string) => (rows ?? []).map((c) => ({
+    id: String(c.id), name: c.name, type: c.type || fallbackType,
+    size: c.audience_size_upper_bound ?? c.audience_size_lower_bound ?? null,
+    path: (c.path ?? []).slice(0, -1).join(" › ") || c.description || null,
+  }));
+  const ql = q.toLowerCase();
+  // Les catégories n'acceptent pas toujours `q` : on filtre par nom côté serveur.
+  const cats = [...norm(behs.ok ? behs.data.data : [], "behaviors"), ...norm(dems.ok ? dems.data.data : [], "demographics")].filter((c) => c.name.toLowerCase().includes(ql));
+  return [...norm(ints.ok ? ints.data.data : [], "interests"), ...cats].slice(0, 20);
 }
 
 export async function searchLocales(q: string, token: string, appSecret: string | null) {
@@ -133,16 +157,34 @@ export async function reachEstimate(adAccountId: string, targeting: CampaignTarg
 
 // ── Création d'une campagne complète ─────────────────────────────────────────
 
+export interface GeoPlace { key: string; name: string; radius_km?: number; type?: string }
+/** Un critère de ciblage détaillé : `type` est la clé Meta du groupe (interests, behaviors, family_statuses, life_events, …). */
+export interface DetailedCriterion { id: string; name: string; type: string }
+
 export interface CampaignTargeting {
   countries?: string[];
-  cities?: Array<{ key: string; name: string; radius_km?: number; type?: string }>;
+  cities?: GeoPlace[];
+  /** Lieux exclus (villes / régions). */
+  excluded_cities?: GeoPlace[];
+  /** Codes postaux (`adgeolocation` type zip, clé « FR:31000 »). */
+  zips?: Array<{ key: string; name: string }>;
+  /** Points précis (adresse + rayon), 1-80 km. */
+  custom_locations?: Array<{ latitude: number; longitude: number; radius_km: number; name?: string }>;
+  /** Présence dans la zone : habitent / récemment / de passage. Vide = habitent ou récemment. */
+  location_types?: Array<"home" | "recent" | "travel_in">;
   age_min?: number;
   age_max?: number;
   genders?: number[];
   audience_ids?: string[];          // meta_audience_id (Meta)
   exclude_audience_ids?: string[];
-  /** Centres d'intérêt Meta (`adinterest`) — ciblage détaillé, facultatif. */
+  /** Centres d'intérêt Meta (`adinterest`) — forme simple, un seul groupe. */
   interests?: Array<{ id: string; name: string }>;
+  /**
+   * Ciblage détaillé par GROUPES : OU à l'intérieur d'un groupe, ET entre les
+   * groupes (le « affiner l'audience » d'Ads Manager). Remplace `interests`
+   * quand il est présent. Les exclusions de critères n'existent plus chez Meta.
+   */
+  detailed?: Array<{ items: DetailedCriterion[] }>;
   /** Langues (`adlocale`, clés numériques) — facultatif. */
   locales?: number[];
   /**
@@ -164,13 +206,42 @@ export interface CampaignTargeting {
   advantage?: boolean;
 }
 
-export interface CampaignPlacements { facebook?: boolean; instagram?: boolean }
+export interface CampaignPlacements {
+  facebook?: boolean;
+  instagram?: boolean;
+  /** Placements manuels (vide = Advantage+ placements, Meta choisit). */
+  positions?: { facebook?: string[]; instagram?: string[] };
+  devices?: Array<"mobile" | "desktop">;
+}
 
-export type CreativeFormat = "image" | "carousel" | "video";
+export const INSTAGRAM_POSITIONS = ["stream", "story", "reels", "profile_feed", "ig_search"] as const;
+export const FACEBOOK_POSITIONS = ["feed", "story", "facebook_reels", "marketplace", "video_feeds", "search", "instream_video"] as const;
+
+export type CampaignObjective = "OUTCOME_SALES" | "OUTCOME_TRAFFIC" | "OUTCOME_AWARENESS";
+export type ConversionEvent = "PURCHASE" | "INITIATED_CHECKOUT" | "CONTENT_VIEW";
+export type BidStrategy = "lowest" | "cost_cap" | "bid_cap" | "min_roas";
+
+/** Réglages de diffusion de l'ensemble (mode expert ; tout est facultatif). */
+export interface Delivery {
+  conversion_event?: ConversionEvent;
+  /** Ventes : OFFSITE_CONVERSIONS ; Visites : LINK_CLICKS | LANDING_PAGE_VIEWS ; Notoriété : REACH | IMPRESSIONS. */
+  optimization_goal?: string;
+  bid?: { strategy: BidStrategy; amount_cents?: number; roas_floor?: number };
+  /** Plages horaires (budget total obligatoire) : jours 0 = dimanche … 6 = samedi, heures rondes 0-24. */
+  schedule?: Array<{ days: number[]; start_hour: number; end_hour: number }>;
+  /** Notoriété : au plus `max` impressions par personne tous les `days` jours. */
+  frequency?: { max: number; days: number };
+  /** Paramètres ajoutés à l'URL de destination (utm_…). */
+  url_tags?: string;
+}
+
+export type CreativeFormat = "image" | "carousel" | "video" | "instagram_post";
 
 export interface CreativeMedia {
   url: string;
-  kind: "image" | "video";
+  kind: "image" | "video" | "ig_post";
+  /** Publication Instagram existante : son identifiant média Graph. */
+  ig_media_id?: string | null;
   /** Vidéo : image de couverture (obligatoire chez Meta pour une pub vidéo). */
   thumbnail_url?: string | null;
   /** Carrousel : titre et description propres à la carte (sinon ceux de la création). */
@@ -199,7 +270,7 @@ export interface CreateCampaignInput {
   instagramActorId?: string | null;
   pixelId: string;
   name: string;
-  objective: "OUTCOME_SALES" | "OUTCOME_TRAFFIC";
+  objective: CampaignObjective;
   budgetType: "daily" | "lifetime";
   budgetCents: number;
   startAt: string;
@@ -207,6 +278,7 @@ export interface CreateCampaignInput {
   targeting: CampaignTargeting;
   creatives: CampaignCreative[];
   placements: CampaignPlacements;
+  delivery?: Delivery;
   dsaBeneficiary: string;
   dsaPayor: string;
 }
@@ -290,15 +362,30 @@ async function waitVideoReady(videoId: string, token: string, appSecret: string 
   return "processing";
 }
 
-export function buildTargeting(t: CampaignTargeting, placements: CampaignPlacements): Record<string, unknown> {
+const DETAILED_KEYS = new Set(["interests", "behaviors", "family_statuses", "life_events", "education_statuses", "relationship_statuses", "industries", "income", "work_positions", "work_employers", "education_schools", "education_majors", "politics", "user_device", "user_os", "home_type", "home_ownership", "generation", "household_composition", "moms", "office_type", "friends_of", "college_years"]);
+
+function geoPlaces(list: GeoPlace[] | undefined): Record<string, unknown> {
   const geo: Record<string, unknown> = {};
-  if (t.cities && t.cities.length > 0) {
-    geo.cities = t.cities.filter((c) => c.type !== "region").map((c) => ({ key: c.key, radius: Math.min(80, Math.max(10, c.radius_km ?? 25)), distance_unit: "kilometer" }));
-    const regions = t.cities.filter((c) => c.type === "region").map((c) => ({ key: c.key }));
-    if (regions.length) geo.regions = regions;
-    if (Array.isArray(geo.cities) && (geo.cities as unknown[]).length === 0) delete geo.cities;
-  }
-  if (!geo.cities && !geo.regions) geo.countries = t.countries && t.countries.length > 0 ? t.countries : ["FR"];
+  if (!list || list.length === 0) return geo;
+  const cities = list.filter((c) => c.type !== "region").map((c) => ({ key: c.key, radius: Math.min(80, Math.max(10, c.radius_km ?? 25)), distance_unit: "kilometer" }));
+  const regions = list.filter((c) => c.type === "region").map((c) => ({ key: c.key }));
+  if (cities.length) geo.cities = cities;
+  if (regions.length) geo.regions = regions;
+  return geo;
+}
+
+export function buildTargeting(t: CampaignTargeting, placements: CampaignPlacements): Record<string, unknown> {
+  const geo: Record<string, unknown> = geoPlaces(t.cities);
+  const zips = (t.zips ?? []).filter((z) => z && typeof z.key === "string").map((z) => ({ key: z.key }));
+  if (zips.length) geo.zips = zips;
+  const pins = (t.custom_locations ?? []).filter((c) => Number.isFinite(c.latitude) && Number.isFinite(c.longitude))
+    .map((c) => ({ latitude: c.latitude, longitude: c.longitude, radius: Math.min(80, Math.max(1, c.radius_km ?? 10)), distance_unit: "kilometer" }));
+  if (pins.length) geo.custom_locations = pins;
+  // Un pays ENTIER et une de ses régions ne se cumulent pas (1487756) : le pays
+  // ne sert que quand aucun lieu plus précis n'est posé.
+  if (!geo.cities && !geo.regions && !geo.zips && !geo.custom_locations) geo.countries = t.countries && t.countries.length > 0 ? t.countries : ["FR"];
+  const types = (t.location_types ?? []).filter((x) => x === "home" || x === "recent" || x === "travel_in");
+  if (types.length) geo.location_types = types;
   const platforms: string[] = [];
   if (placements.facebook !== false) platforms.push("facebook");
   if (placements.instagram !== false) platforms.push("instagram");
@@ -319,10 +406,35 @@ export function buildTargeting(t: CampaignTargeting, placements: CampaignPlaceme
   if (t.genders && t.genders.length === 1) out.genders = t.genders;
   if (t.audience_ids && t.audience_ids.length) out.custom_audiences = t.audience_ids.map((id) => ({ id }));
   if (t.exclude_audience_ids && t.exclude_audience_ids.length) out.excluded_custom_audiences = t.exclude_audience_ids.map((id) => ({ id }));
-  const interests = (t.interests ?? []).filter((i) => i && /^[0-9]{3,30}$/.test(String(i.id))).slice(0, 25).map((i) => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80) }));
-  if (interests.length) out.flexible_spec = [{ interests }];
+  const excluded = geoPlaces(t.excluded_cities);
+  if (excluded.cities || excluded.regions) out.excluded_geo_locations = excluded;
+  // Ciblage détaillé : `detailed` (groupes) prime sur `interests` (forme simple).
+  const groups: Array<Record<string, Array<{ id: string; name: string }>>> = [];
+  const validId = (id: unknown) => /^[0-9]{3,30}$/.test(String(id));
+  if (t.detailed && t.detailed.length) {
+    for (const g of t.detailed.slice(0, 5)) {
+      const spec: Record<string, Array<{ id: string; name: string }>> = {};
+      for (const it of (g.items ?? []).slice(0, 50)) {
+        const key = DETAILED_KEYS.has(String(it.type)) ? String(it.type) : "interests";
+        if (!validId(it.id)) continue;
+        (spec[key] ??= []).push({ id: String(it.id), name: String(it.name ?? "").slice(0, 80) });
+      }
+      if (Object.keys(spec).length) groups.push(spec);
+    }
+  } else {
+    const interests = (t.interests ?? []).filter((i) => i && validId(i.id)).slice(0, 25).map((i) => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80) }));
+    if (interests.length) groups.push({ interests });
+  }
+  if (groups.length) out.flexible_spec = groups;
   const locales = (t.locales ?? []).map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 50);
   if (locales.length) out.locales = locales;
+  // Placements manuels : Explore Instagram n'existe plus dans l'API (2490589).
+  const igPos = (placements.positions?.instagram ?? []).filter((p) => (INSTAGRAM_POSITIONS as readonly string[]).includes(p));
+  const fbPos = (placements.positions?.facebook ?? []).filter((p) => (FACEBOOK_POSITIONS as readonly string[]).includes(p));
+  if (placements.instagram !== false && igPos.length) out.instagram_positions = igPos;
+  if (placements.facebook !== false && fbPos.length) out.facebook_positions = fbPos;
+  const devices = (placements.devices ?? []).filter((d) => d === "mobile" || d === "desktop");
+  if (devices.length === 1) out.device_platforms = devices;
   return out;
 }
 
@@ -340,6 +452,13 @@ async function buildCreativeSpec(
 ): Promise<{ spec: Record<string, unknown>; videoId?: string } | { error: string }> {
   const story: Record<string, unknown> = { page_id: pageId };
   if (instagramActorId) story.instagram_user_id = instagramActorId;
+  if (c.format === "instagram_post") {
+    // Booster une publication Instagram existante : la créa pointe le média,
+    // le bouton porte le lien suivi. Ni texte ni visuel à envoyer.
+    const post = c.media.find((m) => m.kind === "ig_post" && m.ig_media_id);
+    if (!post || !instagramActorId) return { error: "instagram_post_missing" };
+    return { spec: { name, object_id: pageId, instagram_user_id: instagramActorId, source_instagram_media_id: post.ig_media_id, call_to_action: callToAction(c.cta, c.link) } };
+  }
   if (c.format === "video") {
     const video = c.media.find((m) => m.kind === "video");
     if (!video) return { error: "video_missing" };
@@ -395,6 +514,47 @@ async function buildCreativeSpec(
   return { spec: { name, object_story_spec: story } };
 }
 
+/**
+ * Optimisation, événement de conversion, enchère et fréquence de l'ensemble.
+ * Sondé le 22/09 : PURCHASE / INITIATED_CHECKOUT / CONTENT_VIEW passent avec
+ * OUTCOME_SALES (LEAD exige OUTCOME_LEADS) ; COST_CAP et BID_CAP veulent
+ * `bid_amount` ; MIN_ROAS veut `optimization_goal: VALUE` + `bid_constraints`
+ * et Meta le refuse aux entreprises non vérifiées (2446146) — l'erreur remonte
+ * telle quelle au pro.
+ */
+export function deliveryParams(objective: CampaignObjective, pixelId: string, d: Delivery | undefined): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (objective === "OUTCOME_SALES") {
+    const ev: ConversionEvent = d?.conversion_event === "INITIATED_CHECKOUT" || d?.conversion_event === "CONTENT_VIEW" ? d.conversion_event : "PURCHASE";
+    out.optimization_goal = d?.bid?.strategy === "min_roas" ? "VALUE" : "OFFSITE_CONVERSIONS";
+    out.promoted_object = { pixel_id: pixelId, custom_event_type: ev };
+  } else if (objective === "OUTCOME_AWARENESS") {
+    out.optimization_goal = d?.optimization_goal === "IMPRESSIONS" ? "IMPRESSIONS" : "REACH";
+    if (d?.frequency && Number.isFinite(d.frequency.max) && Number.isFinite(d.frequency.days)) {
+      out.frequency_control_specs = [{ event: "IMPRESSIONS", interval_days: Math.min(90, Math.max(1, Math.round(d.frequency.days))), max_frequency: Math.min(90, Math.max(1, Math.round(d.frequency.max))) }];
+    }
+  } else {
+    out.optimization_goal = d?.optimization_goal === "LANDING_PAGE_VIEWS" ? "LANDING_PAGE_VIEWS" : "LINK_CLICKS";
+    out.destination_type = "WEBSITE";
+  }
+  const bid = d?.bid;
+  if (bid?.strategy === "cost_cap" && bid.amount_cents && bid.amount_cents > 0) { out.bid_strategy = "COST_CAP"; out.bid_amount = Math.round(bid.amount_cents); }
+  else if (bid?.strategy === "bid_cap" && bid.amount_cents && bid.amount_cents > 0) { out.bid_strategy = "LOWEST_COST_WITH_BID_CAP"; out.bid_amount = Math.round(bid.amount_cents); }
+  else if (bid?.strategy === "min_roas" && bid.roas_floor && bid.roas_floor > 0 && objective === "OUTCOME_SALES") { out.bid_strategy = "LOWEST_COST_WITH_MIN_ROAS"; out.bid_constraints = { roas_average_floor: Math.round(bid.roas_floor * 10000) }; }
+  else out.bid_strategy = "LOWEST_COST_WITHOUT_CAP";
+  return out;
+}
+
+export function scheduleParams(d: Delivery | undefined): Record<string, unknown> | null {
+  const slots = (d?.schedule ?? []).map((sl) => ({
+    days: (sl.days ?? []).map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6),
+    start_minute: Math.max(0, Math.min(23, Math.round(Number(sl.start_hour)))) * 60,
+    end_minute: Math.max(1, Math.min(24, Math.round(Number(sl.end_hour)))) * 60,
+  })).filter((sl) => sl.days.length && sl.end_minute - sl.start_minute >= 60);
+  if (!slots.length) return null;
+  return { pacing_type: ["day_parting"], adset_schedule: slots };
+}
+
 export async function createFullCampaign(input: CreateCampaignInput, token: string, appSecret: string | null): Promise<CreateCampaignResult> {
   const { adAccountId } = input;
   const ads: CreatedAd[] = [];
@@ -427,19 +587,16 @@ export async function createFullCampaign(input: CreateCampaignInput, token: stri
     dsa_beneficiary: input.dsaBeneficiary,
     dsa_payor: input.dsaPayor,
   };
-  if (input.objective === "OUTCOME_SALES") {
-    adset.optimization_goal = "OFFSITE_CONVERSIONS";
-    adset.promoted_object = { pixel_id: input.pixelId, custom_event_type: "PURCHASE" };
-  } else {
-    adset.optimization_goal = "LINK_CLICKS";
-    adset.destination_type = "WEBSITE";
-  }
+  Object.assign(adset, deliveryParams(input.objective, input.pixelId, input.delivery));
   if (input.budgetType === "daily") adset.daily_budget = input.budgetCents;
   else {
     adset.lifetime_budget = input.budgetCents;
     adset.end_time = input.endAt ?? new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
   }
   if (input.endAt && input.budgetType === "daily") adset.end_time = input.endAt;
+  // Plages horaires : seulement avec un budget total (règle Meta), heures rondes.
+  const schedule = scheduleParams(input.delivery);
+  if (schedule && input.budgetType === "lifetime") Object.assign(adset, schedule);
   const set = await graphPost<{ id: string }>(`${adAccountId}/adsets`, adset, token, appSecret);
   if (!set.ok) return { ok: false, error: graphErrorText(set.error), step: "adset", campaignId: camp.data.id, ads };
 
@@ -450,6 +607,7 @@ export async function createFullCampaign(input: CreateCampaignInput, token: stri
     const label = input.creatives.length > 1 ? `${input.name} — créa ${i + 1}` : `${input.name} — créa`;
     const built = await buildCreativeSpec(c, input.pageId, input.instagramActorId, lib, adAccountId, label, token, appSecret);
     if ("error" in built) return { ok: false, error: built.error, step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
+    if (input.delivery?.url_tags) built.spec.url_tags = input.delivery.url_tags.slice(0, 500);
     const creative = await graphPost<{ id: string }>(`${adAccountId}/adcreatives`, built.spec, token, appSecret);
     if (!creative.ok) return { ok: false, error: graphErrorText(creative.error), step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
     const ad = await graphPost<{ id: string }>(`${adAccountId}/ads`, {
@@ -481,6 +639,25 @@ export async function setCampaignStatus(
     if (!r.ok) return { ok: false, error: graphErrorText(r.error) };
   }
   return { ok: true };
+}
+
+/** Modifie un ensemble existant (budget, dates, ciblage, diffusion) — la campagne reste ce qu'elle est. */
+export async function updateAdSet(adsetId: string, patch: Record<string, unknown>, token: string, appSecret: string | null): Promise<{ ok: boolean; error?: string }> {
+  const r = await graphPost(adsetId, patch, token, appSecret);
+  return r.ok ? { ok: true } : { ok: false, error: graphErrorText(r.error) };
+}
+
+export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED", token: string, appSecret: string | null): Promise<{ ok: boolean; error?: string }> {
+  const r = await graphPost(adId, { status }, token, appSecret);
+  return r.ok ? { ok: true } : { ok: false, error: graphErrorText(r.error) };
+}
+
+/** Dernières publications du compte Instagram relié (pour « booster une publication »). */
+export async function listInstagramMedia(igUserId: string, token: string, appSecret: string | null) {
+  const r = await graphGet<{ data?: Array<{ id: string; media_type?: string; media_url?: string; thumbnail_url?: string; permalink?: string; caption?: string; timestamp?: string }> }>(
+    `${igUserId}/media`, { fields: "id,media_type,media_url,thumbnail_url,permalink,caption,timestamp", limit: "24" }, { token, appSecret },
+  );
+  return r.ok ? (r.data.data ?? []).map((m) => ({ id: m.id, type: m.media_type ?? "IMAGE", image: m.thumbnail_url ?? m.media_url ?? null, permalink: m.permalink ?? null, caption: (m.caption ?? "").slice(0, 140), at: m.timestamp ?? null })) : [];
 }
 
 /** État Meta de la campagne et de chacune de ses pubs (validation, refus). */
@@ -576,6 +753,20 @@ export async function campaignAdInsights(campaignId: string, token: string, appS
   }));
 }
 
+/** Ventilations Meta par âge × genre et par placement, sur toute la vie de la campagne. */
+export interface BreakdownRow { key: string; spend_cents: number; impressions: number; link_clicks: number; purchases: number }
+export async function campaignBreakdowns(campaignId: string, token: string, appSecret: string | null): Promise<{ age_gender: Array<BreakdownRow & { age: string; gender: string }>; placements: Array<BreakdownRow & { platform: string; position: string }> }> {
+  const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const purchases = (arr: unknown) => Array.isArray(arr) ? num((arr as Array<{ action_type?: string; value?: string }>).find((a) => a.action_type === "omni_purchase" || a.action_type === "purchase")?.value) : 0;
+  const pull = async (breakdowns: string) => {
+    const r = await graphGet<{ data?: Array<Record<string, unknown>> }>(`${campaignId}/insights`, { fields: "spend,impressions,inline_link_clicks,actions", breakdowns, date_preset: "maximum", limit: "200" }, { token, appSecret });
+    return r.ok && Array.isArray(r.data.data) ? r.data.data : [];
+  };
+  const ag = (await pull("age,gender")).map((row) => ({ key: `${row.age}·${row.gender}`, age: String(row.age ?? ""), gender: String(row.gender ?? ""), spend_cents: Math.round(num(row.spend) * 100), impressions: num(row.impressions), link_clicks: num(row.inline_link_clicks), purchases: purchases(row.actions) }));
+  const pl = (await pull("publisher_platform,platform_position")).map((row) => ({ key: `${row.publisher_platform}·${row.platform_position}`, platform: String(row.publisher_platform ?? ""), position: String(row.platform_position ?? ""), spend_cents: Math.round(num(row.spend) * 100), impressions: num(row.impressions), link_clicks: num(row.inline_link_clicks), purchases: purchases(row.actions) }));
+  return { age_gender: ag, placements: pl };
+}
+
 // ── Audiences ────────────────────────────────────────────────────────────────
 
 export async function createCustomAudience(adAccountId: string, name: string, description: string, token: string, appSecret: string | null) {
@@ -591,6 +782,41 @@ export async function createLookalike(adAccountId: string, name: string, originA
     lookalike_spec: { ratio: Math.min(0.2, Math.max(0.01, ratio)), country },
   }, token, appSecret);
   return r.ok ? { ok: true as const, id: r.data.id } : { ok: false as const, error: graphErrorText(r.error) };
+}
+
+/**
+ * Audiences à RÈGLE : Meta les remplit seul depuis le pixel, le compte
+ * Instagram ou la Page. Créées SANS `subtype` (la v26 le refuse, 1870053) ;
+ * le pixel exige les CGU audiences acceptées (#2663, lien dans la page).
+ * `ref` = fenêtre en jours.
+ */
+export const RULE_AUDIENCE_KINDS = ["pixel_visitors", "pixel_checkout", "ig_engagers", "ig_visitors", "page_engagers"] as const;
+export type RuleAudienceKind = (typeof RULE_AUDIENCE_KINDS)[number];
+export function isRuleAudienceKind(k: string): k is RuleAudienceKind { return (RULE_AUDIENCE_KINDS as readonly string[]).includes(k); }
+
+export function ruleForAudience(kind: RuleAudienceKind, days: number, ids: { pixelId: string; igUserId: string | null; pageId: string | null }): { rule: Record<string, unknown> } | { error: string } {
+  const retention = Math.min(365, Math.max(1, Math.round(days))) * 86400;
+  const one = (src: { id: string; type: string }, filters: Array<Record<string, unknown>>) => ({ operator: "or", rules: [{ event_sources: [src], retention_seconds: retention, filter: { operator: "and", filters } }] });
+  const ev = (value: string) => ({ field: "event", operator: "eq", value });
+  switch (kind) {
+    case "pixel_visitors": return { rule: { inclusions: one({ id: ids.pixelId, type: "pixel" }, [ev("PageView")]) } };
+    case "pixel_checkout": return { rule: { inclusions: one({ id: ids.pixelId, type: "pixel" }, [ev("InitiateCheckout")]), exclusions: one({ id: ids.pixelId, type: "pixel" }, [ev("Purchase")]) } };
+    case "ig_engagers": return ids.igUserId ? { rule: { inclusions: one({ id: ids.igUserId, type: "ig_business" }, [ev("ig_business_profile_all")]) } } : { error: "no_instagram" };
+    case "ig_visitors": return ids.igUserId ? { rule: { inclusions: one({ id: ids.igUserId, type: "ig_business" }, [ev("ig_business_profile_visit")]) } } : { error: "no_instagram" };
+    case "page_engagers": return ids.pageId ? { rule: { inclusions: one({ id: ids.pageId, type: "page" }, [ev("page_engaged")]) } } : { error: "no_page" };
+  }
+}
+
+export async function createRuleAudience(adAccountId: string, name: string, rule: Record<string, unknown>, token: string, appSecret: string | null) {
+  const r = await graphPost<{ id: string }>(`${adAccountId}/customaudiences`, { name, rule, prefill: true }, token, appSecret);
+  return r.ok ? { ok: true as const, id: r.data.id } : { ok: false as const, error: graphErrorText(r.error), code: r.error.code, subcode: r.error.error_subcode };
+}
+
+export async function audienceApproxSize(audienceId: string, token: string, appSecret: string | null): Promise<number | null> {
+  const r = await graphGet<{ approximate_count_lower_bound?: number; approximate_count_upper_bound?: number }>(audienceId, { fields: "approximate_count_lower_bound,approximate_count_upper_bound" }, { token, appSecret });
+  if (!r.ok) return null;
+  const n = Number(r.data.approximate_count_upper_bound ?? r.data.approximate_count_lower_bound);
+  return Number.isFinite(n) ? n : null;
 }
 
 export interface AudienceMember { email: string | null; phone: string | null; first_name: string | null; last_name: string | null; country: string | null }
@@ -700,6 +926,23 @@ export async function syncMetaAudiences(admin: SupabaseClient, appSecret: string
           out.synced++;
           continue;
         }
+        if (isRuleAudienceKind(a.kind)) {
+          let ruleId = a.meta_audience_id;
+          if (!ruleId) {
+            const { data: cx } = await admin.from("meta_connections").select("pixel_id, ig_user_id, page_id").eq("id", conn.id).maybeSingle();
+            const ids = cx as { pixel_id: string; ig_user_id: string | null; page_id: string | null } | null;
+            const rule = ruleForAudience(a.kind, Number(a.ref) || 30, { pixelId: ids?.pixel_id ?? "", igUserId: ids?.ig_user_id ?? null, pageId: ids?.page_id ?? null });
+            if ("error" in rule) throw new Error(rule.error);
+            const r = await createRuleAudience(conn.ad_account_id!, a.name, rule.rule, token, appSecret);
+            if (!r.ok) throw new Error(r.code === 2663 || r.subcode === 1870090 ? "custom_audience_tos" : r.error);
+            ruleId = r.id;
+            await admin.from("meta_audiences").update({ meta_audience_id: ruleId }).eq("id", a.id);
+          }
+          const size = await audienceApproxSize(ruleId, token, appSecret);
+          await admin.from("meta_audiences").update({ status: "ready", size_uploaded: size, last_sync_at: new Date().toISOString(), last_error: null }).eq("id", a.id);
+          out.synced++;
+          continue;
+        }
         let metaId = a.meta_audience_id;
         if (!metaId) {
           const r = await createCustomAudience(conn.ad_account_id!, a.name, "Audience Yuno — contacts consentants", token, appSecret);
@@ -749,10 +992,12 @@ export async function syncMetaInsights(admin: SupabaseClient, appSecret: string 
         const knownAds = Array.isArray(c.meta_ads) && c.meta_ads.length ? c.meta_ads : (c.meta_ad_id ? [{ index: 0, format: "image" as const, ad_id: c.meta_ad_id, creative_id: "" }] : []);
         const st = await campaignStatusInfo(c.meta_campaign_id, knownAds.map((a) => a.ad_id), token, appSecret);
         const adInsights = knownAds.length ? await campaignAdInsights(c.meta_campaign_id, token, appSecret) : [];
+        const breakdowns = days.length ? await campaignBreakdowns(c.meta_campaign_id, token, appSecret) : { age_gender: [], placements: [] };
         const patch: Record<string, unknown> = {
           last_synced_at: new Date().toISOString(), effective_status: st.effective, review_feedback: st.review,
           meta_ads: knownAds.map((a) => { const p = st.perAd.find((x) => x.ad_id === a.ad_id); return { ...a, effective_status: p?.effective_status ?? a.effective_status ?? null, review: p?.review ?? null }; }),
           ad_insights: adInsights,
+          insight_breakdowns: breakdowns,
         };
         if (st.effective?.startsWith("ACTIVE") && c.status === "paused") patch.status = "active";
         if (st.effective?.startsWith("PAUSED") && c.status === "active") patch.status = "paused";
