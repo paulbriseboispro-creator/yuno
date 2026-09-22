@@ -817,3 +817,23 @@ Une page que DEUX entreprises lisent, souvent pour la première fois, sans forma
 | **Analyses, bilan, carte du bar : repliés** (`Foldable`) | Vides avant la soirée, longs après (le bilan empile ses onglets sur mobile). Progressive disclosure : résumé → contexte → détail |
 | **Pas de panneau argent tant que le contrat n'est pas signé** | Il retombait sur un défaut 50/50 pendant qu'une proposition 40/60 attendait juste au-dessus |
 | **Couleur = statut seulement** : rouge = à faire, vert = fait, gris = en attente de l'autre | Le reste en typographie et opacité (T1/T2/T3) |
+
+---
+
+## 15. Centre d'aide pro (mode d'emploi club / organisateur / agence / manager)
+
+Référence : `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/components/help/*`
+(2026-09-22). Un seul moteur pour les quatre dashboards, le contenu vient de
+`src/data/*HelpContent.ts`, les textes des clés `ohelp.*`.
+
+| Règle | Pourquoi |
+|---|---|
+| **Trois écrans adressés par l'URL** : `/help`, `/help?category=<id>`, `/help?article=<id>[&s=<n>]` | Un article se partage, le bouton « retour » du navigateur marche, un écran peut envoyer sur SON article (`?article=`) et même sur la section qui répond (`&s=`) |
+| **Accueil = héros + recherche, thèmes, populaires, aide** (`HelpHome`) : titre centré, halo rouge (§3.5) et trame de points derrière, barre de recherche 50 px avec raccourci `/`, tuiles de thème (2 col. mobile / 3 desktop, la première en accent rouge), articles populaires (`quickStart`), « Encore besoin d'aide ? » | Modèle « FAQ / documentation landing » : la recherche d'abord, l'escalade humaine en bas, jamais 30 articles à plat |
+| **Article = deux colonnes sur desktop** (`minmax(0,1fr) 236px`) : fil d'Ariane, titre, pastilles (thème, temps de lecture, sections), capture héros plafonnée à 420 px, sommaire « Sur cette page » collant à droite avec suivi du défilement (barre rouge), sommaire replié « Dans cet article » sur mobile | Une page de 18 sections se lit avec un plan ; l'étape courante se voit |
+| **Les pâtés de texte sont dessinés, pas réécrits** (`src/lib/helpText.ts`) : « 1. » → étapes numérotées en pastilles rouges reliées, « • » → puces (✅ / ❌ → coche verte / croix rouge), « A → B → C » → pastilles enchaînées, `"libellé"` → T1 semi-gras, `**gras**` | Les 2 000 clés restent intactes ; une convention absente rend un paragraphe |
+| **Encadrés** (`type` de section) : conseil = POS, attention = AMBER `#F2B23C`, exemple = blanc 70 %, étapes = RED — liseré gauche 3 px + dégradé 7 % | La couleur dit la nature du bloc, pas la marque |
+| **L'IA n'apparaît que si un assistant est monté** (`src/lib/helpAssistant.ts` : `registerHelpAssistant` dans OwnerAssistant / AgencyAssistant, `useHelpAssistant` côté centre d'aide). Trois entrées : ligne « Demander à l'assistant : « requête » » sous les résultats, carte avec champ + suggestions dans « Encore besoin d'aide ? », carte « Une question sur cet article ? » qui préfixe la question du titre de l'article | Un bouton IA sur l'app organisateur (sans assistant) mènerait nulle part ; le repli est le support humain |
+| **Recherche** (`src/lib/helpSearch.ts`) : pliée sans accents, scorée titre > mots-clés > description > sections, résultat = article + section qui a fait mouche + extrait surligné | Ouvrir l'article au bon paragraphe, pas en haut |
+| **Avis « utile ? » et « reprendre »** vivent en `localStorage` | Aucune table, aucune migration : ce sont des conforts, pas des données |
+

@@ -863,6 +863,37 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   17,5 Mo du zip (une seule faisait 1440 × 67 221 px). Après conversion :
   1,9 Mo, zip à 8,3 Mo. Le SW web, lui, ignore déjà `help/**` (`globIgnores`).
 
+## Centre d'aide pro — un moteur, quatre dashboards (2026-09-22)
+
+`/owner/help`, `/organizer-app/help`, `/agency-app/help`, `/manager/help` rendent
+tous `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/components/help/*`
+(`HelpHome`, `HelpCategoryView`, `HelpArticleView`, `HelpAskAi`,
+`HelpSupportCards`, `helpUi` = tokens DA + primitives). Design :
+`docs/DESIGN_SYSTEM.md` §15. Règles :
+
+- **Trois écrans, adressés par l'URL** : `?category=<id>`, `?article=<id>` et
+  `&s=<n>` (section visée). Un écran qui envoie vers le mode d'emploi pointe sur
+  SON article, jamais sur l'index.
+- **Le texte des articles n'est pas du markdown, mais il est DESSINÉ** par
+  `src/lib/helpText.ts` : lignes « 1. » = étapes numérotées, « • » = puces
+  (✅ / ❌ = coche / croix), « A → B → C » = chemin en pastilles, `"libellé"` =
+  bouton ou menu mis en avant, `**gras**`. Écrire les clés `ohelp.*` avec ces
+  conventions ; testé dans `src/lib/__tests__/helpText.test.ts`.
+- **L'IA se branche par registre, jamais par import** (`src/lib/helpAssistant.ts`) :
+  chaque assistant monté appelle `registerHelpAssistant(open)` (fait dans
+  `OwnerAssistant` et `AgencyAssistant`) ; le centre d'aide lit
+  `useHelpAssistant()` et n'affiche les entrées IA (ligne sous la recherche,
+  carte « Demander à l'assistant », « Une question sur cet article ? ») que
+  quand c'est vrai. L'app organisateur et le mode manager n'ont pas
+  d'assistant : ils voient le support humain seul. Un nouvel assistant = un
+  `registerHelpAssistant` dans son composant, rien d'autre à câbler.
+- **Recherche en mémoire** (`src/lib/helpSearch.ts`) : accents pliés, score
+  titre > mots-clés > description > sections, résultat = article + section +
+  extrait. Pas de backend, pas de tracking.
+- **`/organizer-app/support` existe depuis le 22/09** (même `OwnerSupportRequest`,
+  `venue_id` NULL) ; avant, le bouton « Contacter le support » de l'organisateur
+  tombait sur une 404.
+
 ## Dashboard super admin — refonte complète (2026-09-11)
 
 `/admin` a été reconstruit de zéro. Quatre groupes dans la sidebar, 34 pages
