@@ -1252,7 +1252,7 @@ export default function OwnerEvents() {
             recouvre exactement la carte visible et non toute la hauteur du
             formulaire déroulé. */}
         <DialogContent className="border-0 p-0 max-h-[90vh]"
-          data-publishing={publishOpen && publishStage < 5 ? '1' : undefined}
+          data-action-busy={publishOpen && publishStage < 5 ? '1' : undefined}
           style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
                    display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="flex-1 min-h-0 overflow-y-auto" style={{
