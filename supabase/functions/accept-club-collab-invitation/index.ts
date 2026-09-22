@@ -244,7 +244,7 @@ const handler = async (req: Request): Promise<Response> => {
         .maybeSingle();
 
       // Create active partnership
-      const { error: partErr } = await admin
+      const { data: partnership, error: partErr } = await admin
         .from("venue_organizer_partnerships")
         .insert({
           venue_id: slug,
@@ -254,19 +254,68 @@ const handler = async (req: Request): Promise<Response> => {
           invitation_message: inv.invitation_message,
           default_split_rules: inv.default_split_rules,
           accepted_at: new Date().toISOString(),
-        });
+        })
+        .select("id")
+        .maybeSingle();
       if (partErr) {
         console.error("partnership insert error:", partErr);
         // Non-fatal — the trigger activate_collab_plan_on_partnership will still set up subscription if active
       }
 
-      // If invitation referenced an event, link partner_venue_id
+      // If invitation referenced an event, link partner_venue_id AND open the
+      // contract the organizer proposed with the invitation, pre-signed by him.
+      // Sans ça le club arrivait sur une co-soirée « sans contrat » et devait
+      // attendre que l'organisateur revienne proposer le même deal une 2e fois.
       if (inv.event_id) {
-        await admin
+        const { data: ev } = await admin
           .from("events")
           .update({ partner_venue_id: slug, event_mode: "co_event" })
           .eq("id", inv.event_id)
-          .eq("organizer_user_id", inv.organizer_user_id);
+          .eq("organizer_user_id", inv.organizer_user_id)
+          .select("id, title, start_at, end_at")
+          .maybeSingle();
+        if (ev && inv.default_split_rules) {
+          // Boissons : 100 % club sauf attestation alcool de l'organisateur
+          // (même règle que enforce_drinks_alcohol_gate côté SQL).
+          const { data: orgProf } = await admin
+            .from("organizer_profiles").select("can_sell_alcohol, display_name").eq("user_id", inv.organizer_user_id).maybeSingle();
+          const rules = { ...(inv.default_split_rules as Record<string, unknown>) };
+          if (!orgProf?.can_sell_alcohol) rules.drinks = { ...((rules.drinks as Record<string, unknown>) ?? {}), organizer_pct: 0, venue_pct: 100 };
+          const now = new Date().toISOString();
+          const endAt = new Date(ev.end_at ?? ev.start_at);
+          const { data: contract, error: cErr } = await admin
+            .from("event_collab_contracts")
+            .insert({
+              event_id: ev.id,
+              partnership_id: partnership?.id ?? null,
+              venue_id: slug,
+              organizer_user_id: inv.organizer_user_id,
+              created_by: inv.organizer_user_id,
+              status: "pending_signatures",
+              split_rules: rules,
+              cancellation_policy: "pro_rata_refund",
+              auto_release_at: new Date(endAt.getTime() + 2 * 24 * 3600 * 1000).toISOString(),
+              org_signed_at: now,
+              org_signed_by: inv.organizer_user_id,
+            })
+            .select("id")
+            .maybeSingle();
+          if (cErr) console.error("contract insert error:", cErr);
+          else {
+            await admin
+              .from("events")
+              .update({
+                revenue_split_proposal: rules,
+                split_proposed_by: inv.organizer_user_id,
+                split_proposed_at: now,
+                split_approved_by_organizer: true,
+                split_approved_by_venue: false,
+              })
+              .eq("id", ev.id);
+            // La notification « Nouvelle proposition de soirée » part du trigger
+            // sur event_collab_contracts : ne pas la doubler ici.
+          }
+        }
       }
 
       // Record the venue created by this acceptance

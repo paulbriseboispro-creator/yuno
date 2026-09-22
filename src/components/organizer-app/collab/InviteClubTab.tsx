@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { Mail, Loader2, Info } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Mail, Loader2, Info, CalendarClock, Euro } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
+} from '@/components/collab/TieredRemunerationEditor';
+import { tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
+import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -29,6 +35,37 @@ export function InviteClubTab() {
   const [mailLang, setMailLang] = useState<'fr' | 'en' | 'es'>(language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr');
   const [inviting, setInviting] = useState(false);
 
+  // La soirée visée et les conditions financières partent AVEC l'invitation :
+  // le club lit dans l'email et sur la page d'atterrissage ce qu'on lui
+  // propose, et le contrat s'ouvre pré-signé par l'organisateur dès qu'il
+  // accepte. Avant, l'invitation posait un partage par défaut que personne
+  // n'avait choisi, et l'organisateur devait revenir proposer le vrai deal.
+  const { user } = useAuth();
+  const [events, setEvents] = useState<{ id: string; title: string; start_at: string }[]>([]);
+  const [eventId, setEventId] = useState('');
+  const [remMode, setRemMode] = useState<RemunerationMode>('per_pillar');
+  const [ticketsOrg, setTicketsOrg] = useState(100);
+  const [tablesOrg, setTablesOrg] = useState(0);
+  const [tiered, setTiered] = useState<CollabRemuneration>({ mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
+  const tiersInvalid = remMode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    supabase.from('events').select('id, title, start_at')
+      .eq('organizer_user_id', user.id).is('venue_id', null).is('partner_venue_id', null)
+      .gte('start_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(50)
+      .then(({ data }) => { if (active) setEvents((data ?? []) as { id: string; title: string; start_at: string }[]); });
+    return () => { active = false; };
+  }, [user?.id]);
+  const buildRules = (): PartnershipSplitRules => remMode === 'tiered_total'
+    ? { ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } }
+    : {
+      tickets: { organizer_pct: ticketsOrg, venue_pct: 100 - ticketsOrg },
+      tables: { organizer_pct: tablesOrg, venue_pct: 100 - tablesOrg },
+      drinks: { organizer_pct: 0, venue_pct: 100 },
+    };
+  const fmtWhen = (iso: string) => new Date(iso).toLocaleDateString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleInvite = async () => {
@@ -39,7 +76,7 @@ export function InviteClubTab() {
     setInviting(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-club-collab', {
-        body: { ...form, lang: mailLang, origin: window.location.origin },
+        body: { ...form, lang: mailLang, event_id: eventId || null, default_split_rules: buildRules(), origin: window.location.origin },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -94,11 +131,48 @@ export function InviteClubTab() {
             </div>
             <div><FieldLabel>{t('Ville', 'City', 'Ciudad')}</FieldLabel><DarkInput value={form.club_city} onChange={set('club_city')} placeholder="Paris" /></div>
             <div><FieldLabel>{t('Adresse', 'Address', 'Dirección')}</FieldLabel><DarkInput value={form.club_address} onChange={set('club_address')} placeholder={t('12 rue…', '12 Main St…', 'C/ Mayor 12…')} /></div>
+            <div className="col-span-2">
+              <FieldLabel>{t('Soirée proposée', 'Proposed night', 'Noche propuesta')}</FieldLabel>
+              <select value={eventId} onChange={(e) => setEventId(e.target.value)}
+                className="h-10 w-full rounded-xl px-3 text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.085)', color: eventId ? T1 : T3 }}>
+                <option value="">{t('Aucune pour l\'instant (partenariat seul)', 'None yet (partnership only)', 'Ninguna por ahora (solo la colaboración)')}</option>
+                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title} · {fmtWhen(ev.start_at)}</option>)}
+              </select>
+              <p className="mt-1 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
+                <CalendarClock className="h-3.5 w-3.5" />
+                {t('Avec une soirée, le club reçoit le contrat pré-signé et n\'a plus qu\'à signer.', 'With a night attached, the club receives the pre-signed contract and only has to sign.', 'Con una noche, el club recibe el contrato prefirmado y solo tiene que firmar.')}
+              </p>
+            </div>
+            <div className="col-span-2 space-y-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.085)' }}>
+              <div className="flex items-center gap-2">
+                <Euro className="h-4 w-4" style={{ color: '#E8192C' }} />
+                <span style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('Conditions financières proposées', 'Proposed financial terms', 'Condiciones financieras propuestas')}</span>
+              </div>
+              <RemunerationModeSwitch value={remMode} onChange={setRemMode} />
+              {remMode === 'tiered_total' ? (
+                <TieredRemunerationEditor value={tiered} onChange={setTiered} />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>{t('Billets — part organisateur (%)', 'Tickets — organizer share (%)', 'Entradas — parte organizador (%)')}</FieldLabel>
+                    <DarkInput type="number" value={String(ticketsOrg)} onChange={(v) => setTicketsOrg(Math.max(0, Math.min(100, Number(v) || 0)))} />
+                  </div>
+                  <div>
+                    <FieldLabel>{t('Tables VIP — part organisateur (%)', 'VIP tables — organizer share (%)', 'Mesas VIP — parte organizador (%)')}</FieldLabel>
+                    <DarkInput type="number" value={String(tablesOrg)} onChange={(v) => setTablesOrg(Math.max(0, Math.min(100, Number(v) || 0)))} />
+                  </div>
+                  <p className="col-span-2" style={{ color: T3, fontSize: 11.5 }}>
+                    {t('Boissons : 100 % club (licence alcool). Le club garde le reste de chaque pilier.', 'Drinks: 100% club (alcohol licence). The club keeps the rest of each pillar.', 'Bebidas: 100 % club (licencia de alcohol). El club se queda con el resto de cada pilar.')}
+                  </p>
+                </div>
+              )}
+            </div>
             <div className="col-span-2"><FieldLabel>{t('Message personnalisé (optionnel)', 'Custom message (optional)', 'Mensaje personalizado (opcional)')}</FieldLabel><DarkTextarea value={form.invitation_message} onChange={set('invitation_message')} placeholder={t('Présente ton projet, la soirée envisagée, ta communauté…', 'Introduce your project, the event you have in mind, your community…', 'Presenta tu proyecto, el evento previsto, tu comunidad…')} rows={4} /></div>
           </div>
 
           <div className="mt-5 flex justify-end">
-            <OrgButton variant="primary" onClick={handleInvite} disabled={inviting}>
+            <OrgButton variant="primary" onClick={handleInvite} disabled={inviting || tiersInvalid}>
               {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               {inviting ? t('Envoi…', 'Sending…', 'Enviando…') : t("Envoyer l'invitation", 'Send invitation', 'Enviar la invitación')}
             </OrgButton>

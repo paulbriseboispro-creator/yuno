@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { buildInvitation } from "../_shared/email-templates.ts";
+import { buildClubCollabInvitation } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -24,6 +24,28 @@ interface Payload {
   origin?: string;
   /** Langue de l'email reçu par le club (fr par défaut). */
   lang?: string;
+}
+
+/** « Billets 100 % orga · tables 100 % club » ou « barème sur le CA : 0 % < 3 500 €, 7 % … ». */
+function summarizeTerms(rules: any, lang: "fr" | "en" | "es"): string | null {
+  if (!rules || typeof rules !== "object") return null;
+  const orga = lang === "en" ? "organizer" : lang === "es" ? "orga" : "orga";
+  const rem = rules.remuneration;
+  if (rem && rem.mode === "tiered_total" && Array.isArray(rem.tiers) && rem.tiers.length) {
+    const tiers = [...rem.tiers].sort((a: any, b: any) => Number(a.from) - Number(b.from));
+    const parts = tiers.map((t: any, i: number) => {
+      const next = tiers[i + 1];
+      const range = next ? `${Number(t.from).toLocaleString("fr-FR")}–${Number(next.from).toLocaleString("fr-FR")} €` : `≥ ${Number(t.from).toLocaleString("fr-FR")} €`;
+      return `${range} : ${t.pct} %`;
+    });
+    const head = lang === "en" ? "Tiers on the night's total revenue" : lang === "es" ? "Escala sobre la facturación de la noche" : "Barème sur le CA de la soirée";
+    return `${head} (${orga}) — ${parts.join(" · ")}`;
+  }
+  const pct = (b: any) => Number(b?.organizer_pct ?? 0);
+  const tk = lang === "en" ? "Tickets" : lang === "es" ? "Entradas" : "Billets";
+  const tb = lang === "en" ? "tables" : lang === "es" ? "mesas" : "tables";
+  const dr = lang === "en" ? "drinks" : lang === "es" ? "bebidas" : "boissons";
+  return `${tk} ${pct(rules.tickets)} % ${orga} · ${tb} ${pct(rules.tables)} % ${orga} · ${dr} ${pct(rules.drinks)} % ${orga}`;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -153,12 +175,42 @@ const handler = async (req: Request): Promise<Response> => {
     const acceptUrl = `${baseUrl}/club-invitation?token=${invitation.token}`;
 
     const mailLang = (["fr", "en", "es"].includes(lang ?? "") ? lang : "fr") as "fr" | "en" | "es";
-    const mail = buildInvitation({
+
+    // Nom PUBLIC de l'organisateur (le club ne connaît pas Yuno : il doit
+    // reconnaître qui l'invite), la soirée visée, et les conditions en clair.
+    const { data: orgPublic } = await supabaseAdmin
+      .from("organizer_profiles").select("display_name").eq("user_id", user.id).maybeSingle();
+    const inviterPublic = orgPublic?.display_name || organizerLabel;
+    let eventTitle: string | null = null;
+    let eventDateLabel: string | null = null;
+    if (event_id) {
+      const { data: ev } = await supabaseAdmin
+        .from("events").select("title, start_at, timezone").eq("id", event_id).eq("organizer_user_id", user.id).maybeSingle();
+      if (ev) {
+        eventTitle = ev.title;
+        const locale = mailLang === "es" ? "es-ES" : mailLang === "en" ? "en-GB" : "fr-FR";
+        eventDateLabel = new Date(ev.start_at).toLocaleString(locale, {
+          weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+          timeZone: ev.timezone || "Europe/Paris",
+        });
+      }
+    }
+    const termsSummary = summarizeTerms(default_split_rules, mailLang);
+    const expiresLabel = invitation.expires_at
+      ? new Date(invitation.expires_at).toLocaleDateString(mailLang === "es" ? "es-ES" : mailLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+
+    const mail = buildClubCollabInvitation({
       lang: mailLang,
-      inviterName: organizerLabel,
-      orgName: club_name.trim(),
-      roleLabel: mailLang === "es" ? "Colaboración entre socios" : mailLang === "en" ? "Partner collaboration" : "Collaboration partenaire",
+      organizerName: inviterPublic,
+      clubName: club_name.trim(),
+      contactFirstName: contact_first_name?.trim() || null,
+      eventTitle,
+      eventDateLabel,
+      termsSummary,
+      message: invitation_message?.trim() || null,
       acceptUrl,
+      expiresLabel,
     });
 
     const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");

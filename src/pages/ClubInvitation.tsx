@@ -5,7 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Calendar, Check, Loader2, X, Sparkles, MapPin } from 'lucide-react';
+import { Building2, Calendar, Check, Loader2, X, Sparkles, MapPin, Euro, UserPlus, PenLine, CreditCard } from 'lucide-react';
+import { translate } from '@/i18n/orgTranslate';
+import { normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
+import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
@@ -25,6 +28,7 @@ interface InvitationData {
     expires_at: string;
     event_id: string | null;
     organizer_user_id: string;
+    default_split_rules?: unknown;
   };
   organizer: {
     first_name: string | null;
@@ -48,6 +52,7 @@ export default function ClubInvitationPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const tr = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const [data, setData] = useState<InvitationData | null>(null);
@@ -242,6 +247,34 @@ export default function ClubInvitationPage() {
                   </div>
                 )}
 
+                {/* Conditions proposées — le club doit savoir ce qu'il signe
+                    AVANT de créer un compte. */}
+                {(() => {
+                  const rules = normalizeSplitRules(invitation.default_split_rules);
+                  const rem = readRemuneration(invitation.default_split_rules);
+                  if (!rules) return null;
+                  return (
+                    <div className="rounded-lg border border-border/50 p-4 bg-card/40 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <Euro className="h-3.5 w-3.5 text-primary" />
+                        {tr('Conditions proposées', 'Proposed terms', 'Condiciones propuestas')}
+                      </div>
+                      {rem ? (
+                        <TiersRecap rem={rem} />
+                      ) : (
+                        <ul className="text-sm space-y-1">
+                          <li className="flex justify-between"><span className="text-muted-foreground">{tr('Billets', 'Tickets', 'Entradas')}</span><span>{tr('Club', 'Club', 'Club')} {rules.tickets.venue_pct} % · {tr('Organisateur', 'Organizer', 'Organizador')} {rules.tickets.organizer_pct} %</span></li>
+                          <li className="flex justify-between"><span className="text-muted-foreground">{tr('Tables VIP', 'VIP tables', 'Mesas VIP')}</span><span>{tr('Club', 'Club', 'Club')} {rules.tables.venue_pct} % · {tr('Organisateur', 'Organizer', 'Organizador')} {rules.tables.organizer_pct} %</span></li>
+                          <li className="flex justify-between"><span className="text-muted-foreground">{tr('Boissons', 'Drinks', 'Bebidas')}</span><span>{tr('Club', 'Club', 'Club')} {rules.drinks.venue_pct} %</span></li>
+                        </ul>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {tr('Rien ne se vend avant votre signature. Vous pourrez proposer une modification avant de signer.', 'Nothing sells before you sign. You can propose changes before signing.', 'Nada se vende antes de vuestra firma. Podéis proponer cambios antes de firmar.')}
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 {/* Personal message */}
                 {invitation.invitation_message && (
                   <div className="rounded-lg border-l-4 border-primary pl-4 py-2">
@@ -251,28 +284,29 @@ export default function ClubInvitationPage() {
                   </div>
                 )}
 
-                {/* What you get */}
+                {/* Ce qui vous attend — trois étapes, pour qu'un club qui découvre
+                    Yuno sache que c'est court et où ça mène. */}
                 <div className="space-y-3">
-                  <h3 className="font-semibold text-sm">{t('clubInv.benefitsTitle')}</h3>
-                  <ul className="space-y-2">
+                  <h3 className="font-semibold text-sm">{tr('Ce qui vous attend', "What's next", 'Qué viene ahora')}</h3>
+                  <ol className="space-y-2">
                     {[
-                      t('clubInv.benefit1'),
-                      t('clubInv.benefit2'),
-                      t('clubInv.benefit3'),
-                      t('clubInv.benefit4'),
-                    ].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span>{item}</span>
+                      { icon: UserPlus, text: tr('Créez le compte de votre club (2 minutes, gratuit).', 'Create your club account (2 minutes, free).', 'Cread la cuenta de vuestro club (2 minutos, gratis).') },
+                      { icon: PenLine, text: tr('Lisez et signez le contrat de la soirée : répartition, remboursements, tout est écrit.', 'Read and sign the night\'s contract: split, refunds, everything in writing.', 'Leed y firmad el contrato de la noche: reparto, reembolsos, todo por escrito.') },
+                      { icon: CreditCard, text: tr('Connectez Stripe pour recevoir votre part directement sur votre compte.', 'Connect Stripe to receive your share straight to your account.', 'Conectad Stripe para recibir vuestra parte directamente en vuestra cuenta.') },
+                    ].map((st, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">{i + 1}</span>
+                        <span className="flex items-start gap-2"><st.icon className="h-4 w-4 text-primary shrink-0 mt-0.5" />{st.text}</span>
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </div>
 
                 {!user && (
                   <div className="rounded-md bg-muted/40 border border-border/40 p-3 text-xs text-muted-foreground">
-                    {t('clubInv.loginToAccept')}{' '}
+                    {tr('Le compte se crée avec l\'adresse qui a reçu cette invitation :', 'The account is created with the address that received this invitation:', 'La cuenta se crea con la dirección que recibió esta invitación:')}{' '}
                     <span className="font-mono font-semibold">{invitation.club_email}</span>.
+                    {' '}{tr('Déjà un compte Yuno ? Connectez-vous avec la même adresse.', 'Already on Yuno? Sign in with the same address.', '¿Ya tenéis cuenta en Yuno? Iniciad sesión con la misma dirección.')}
                   </div>
                 )}
 
@@ -295,7 +329,7 @@ export default function ClubInvitationPage() {
                     ) : (
                       <Check className="h-4 w-4 mr-2" />
                     )}
-                    {user ? t('clubInv.acceptCreate') : t('clubInv.loginAccept')}
+                    {user ? t('clubInv.acceptCreate') : tr('Créer mon compte et accepter', 'Create my account and accept', 'Crear mi cuenta y aceptar')}
                   </Button>
                 </div>
 
