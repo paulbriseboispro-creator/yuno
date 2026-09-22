@@ -109,7 +109,13 @@ Ce que chaque permission fait dans Yuno (à réutiliser tel quel dans les
 textes de l'App Review) :
 
 - `public_profile` et la fonctionnalité **Marketing API Access Tier** sont
-  ajoutés d'office : on les laisse, ils ne demandent rien.
+  ajoutés d'office. `public_profile` n'est PAS « rien à demander » : Meta
+  exige son **accès AVANCÉ** pour toute app Facebook Login for Business
+  avant l'ouverture, précisément pour autoriser les personnes qui n'ont pas
+  de rôle sur l'app. Sans lui, tout profil Facebook sans rôle voit
+  « Feature unavailable — … we are updating additional details for this
+  app » à la place de la fenêtre d'autorisation. À demander dans le même
+  dossier que les huit autres (étape 7.2).
 
 - `ads_read` : lire la qualité du dataset et, plus tard, la dépense et les
   résultats des campagnes pour les afficher au pro.
@@ -180,7 +186,13 @@ verra selon les retours.
 administre le Business Manager de Yuno) et, si tu veux tester avec un vrai
 club avant l'App Review, le compte Facebook de ce club. En mode
 Développement, seuls les comptes ayant un rôle peuvent passer la fenêtre
-Meta ; les autres voient « L'app n'est pas disponible ».
+Meta ; les autres tombent sur une page **« Feature unavailable — Facebook
+Login is currently unavailable for this app as we are updating additional
+details for this app »**. Elle ne nomme ni l'app ni le compte et ressemble à
+une panne de Yuno : c'est simplement un profil sans rôle. Le rôle se prend
+en deux temps — inviter le profil ici, PUIS accepter l'invitation depuis ce
+profil (Meta l'envoie par notification et par e-mail) ; tant qu'elle n'est
+pas acceptée, le rôle n'existe pas et la page reste la même.
 
 ### 2.5 Vérifier depuis Yuno
 
@@ -322,7 +334,9 @@ se connecter. Pour les clubs, il faut :
    envoyer leurs conversions à leur pixel. ~5 jours.
 2. **App Review** : Dashboard → Révision de l'app → Permissions et
    fonctionnalités → demander **l'accès avancé** pour chacune des huit
-   permissions de l'étape 2.1. **Plan de tournage détaillé, une vidéo par
+   permissions de l'étape 2.1, **plus `public_profile`** (exigé par Meta
+   pour toute app Facebook Login for Business avant l'ouverture : c'est lui
+   qui autorise les personnes sans rôle sur l'app). **Plan de tournage détaillé, une vidéo par
    permission, textes d'usage et instructions pour le reviewer :
    `docs/META_APP_REVIEW_VIDEOS.md`.** Les comptes démo (`@womber.fr`) et le
    super admin voient les vraies pages Meta même en « En construction » :
@@ -367,7 +381,7 @@ l'assistant IA owner connaissent déjà la feature.
 |---|---|---|
 | Bouton renvoie « pas encore activée » | secrets absents | étape 4 |
 | Fenêtre Meta : « URI de redirection invalide » | l'URI de l'étape 2 diffère d'un caractère | recopier exactement, `https`, sans `/` final |
-| Fenêtre Meta : « L'app n'est pas disponible » | app en Développement et compte pas testeur | étape 2.4 ou étape 7.4 |
+| Fenêtre Meta : « **Feature unavailable** — … *updating additional details for this app* » | app en Développement (ou sans accès avancé sur `public_profile`) et le profil Facebook utilisé n'a AUCUN rôle sur l'app | pour tester tout de suite : étape 2.4 (inviter le profil comme testeur **et accepter l'invitation depuis lui**). Pour les vrais clubs : étape 7.2 + 7.4. Le profil admin de l'app, lui, passe toujours |
 | Retour `meta=error&reason=discover_failed` | jeton sans `business_management` / actifs non partagés | vérifier les actifs cochés dans la fenêtre Meta |
 | `meta=choose` sans pixel dans la liste | l'entreprise n'a pas de jeu de données | Events Manager → Connecter des sources de données → Web |
 | « Jeton refusé » après quelques semaines | jeton utilisateur 60 j (pro sans Business Manager) | « Reconnecter avec Facebook » ; la notif part 7 j avant |
