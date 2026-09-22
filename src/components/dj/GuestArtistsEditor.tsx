@@ -5,6 +5,7 @@ import { Instagram } from '@/components/icons/Instagram';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
@@ -49,12 +50,16 @@ export function GuestArtistsEditor({ artists, onChange }: Props) {
 
   // Le carnet ne se charge qu'à l'ouverture du dialogue : c'est une commodité,
   // elle n'a rien à faire dans le chemin de rendu du formulaire de soirée.
+  // `editing` est un objet recréé à chaque frappe : le mettre en dépendance
+  // relançait la RPC du carnet à chaque lettre du nom. C'est l'OUVERTURE du
+  // dialogue qui compte, rien d'autre.
+  const dialogOpen = editing !== null;
   useEffect(() => {
-    if (!editing) return;
+    if (!dialogOpen) return;
     let alive = true;
     void loadGuestArtistBook().then((rows) => { if (alive) setBook(rows); });
     return () => { alive = false; };
-  }, [editing]);
+  }, [dialogOpen]);
 
   const openNew = () => { setBookQuery(''); setEditing({ index: null, draft: { ...EMPTY } }); };
   const openEdit = (i: number) => { setBookQuery(''); setEditing({ index: i, draft: { ...artists[i] } }); };
@@ -81,24 +86,68 @@ export function GuestArtistsEditor({ artists, onChange }: Props) {
   };
 
   const pickPhoto = async (file: File) => {
-    if (!file.type.startsWith('image/')) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error(tt('Ce fichier n’est pas une image.', 'That file is not an image.', 'Ese archivo no es una imagen.'));
+      return;
+    }
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        toast.error(tt('Session expirée — reconnecte-toi.', 'Session expired — sign in again.', 'Sesión caducada — vuelve a iniciar sesión.'));
+        return;
+      }
       // 400 px suffisent : la vignette du line-up fait 108 pt sur la page
       // publique, et l'affiche d'une soirée ne doit pas peser une photo de plus.
       const compressed = await compressImage(file, 400, 0.85);
-      // Le préfixe `<uid>/` n'est pas décoratif : la policy « Organizers upload
-      // own event images » exige que le premier dossier soit l'identifiant du
-      // compte. Sans lui, un organisateur se fait refuser l'upload.
-      const path = `${user.id}/guest-artists/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      // `compressImage` REND LE FICHIER D'ORIGINE quand la compression ne gagne
+      // rien, et quand le navigateur ne sait pas décoder l'image (un HEIC
+      // d'iPhone dans Chrome, par exemple). L'annoncer en `image/jpeg` avec une
+      // extension `.jpg` posait alors des octets HEIC sous un nom de JPEG :
+      // l'upload passait, et la photo ne s'affichait nulle part. On envoie le
+      // type RÉEL du blob, et on laisse le HEIC dehors plutôt que de le
+      // stocker pour rien.
+      const type = compressed.type || file.type;
+      if (!/^image\/(jpeg|png|webp|gif|avif)$/.test(type)) {
+        toast.error(tt(
+          'Ce format d’image n’est pas lisible par les navigateurs (HEIC ?). Exporte-la en JPEG ou PNG.',
+          'Browsers cannot read this image format (HEIC?). Export it as JPEG or PNG.',
+          'Los navegadores no pueden leer este formato (¿HEIC?). Expórtala en JPEG o PNG.',
+        ));
+        return;
+      }
+      const ext = type === 'image/png' ? 'png'
+        : type === 'image/webp' ? 'webp'
+        : type === 'image/gif' ? 'gif'
+        : type === 'image/avif' ? 'avif'
+        : 'jpg';
+      // Le préfixe `<uid>/` n'est pas décoratif : la policy « Own folder
+      // upload event images » exige que le premier dossier soit l'identifiant
+      // du compte. C'est la SEULE porte d'écriture qui ne demande pas de rôle,
+      // donc la seule qu'un organisateur (ou son équipe) franchit.
+      const path = `${user.id}/guest-artists/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error } = await supabase.storage
         .from('event-images')
-        .upload(path, compressed, { contentType: 'image/jpeg', upsert: false });
-      if (error) return;
+        .upload(path, compressed, { contentType: type, upsert: false });
+      // Un refus muet, c'est un pro qui recommence trois fois et croit que Yuno
+      // est cassé. Il n'y a rien à cacher : on dit ce que le serveur a dit.
+      if (error) {
+        toast.error(tt(
+          `La photo n’a pas pu être envoyée : ${error.message}`,
+          `The photo could not be uploaded: ${error.message}`,
+          `No se pudo enviar la foto: ${error.message}`,
+        ));
+        return;
+      }
       const url = supabase.storage.from('event-images').getPublicUrl(path).data.publicUrl;
       setEditing((e) => (e ? { ...e, draft: { ...e.draft, photoUrl: url } } : e));
+    } catch (err) {
+      toast.error(tt(
+        'La photo n’a pas pu être envoyée.',
+        'The photo could not be uploaded.',
+        'No se pudo enviar la foto.',
+      ));
+      console.error('[guest-artist] upload', err);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
