@@ -557,12 +557,34 @@ Deno.serve(async (req) => {
         const ref = typeof body.ref === "string" ? body.ref.trim().slice(0, 80) : "";
         const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
         if (!kind || !ref || !name) return json({ error: "invalid_audience" }, 400, cors);
-        const { data: row, error } = await admin.from("meta_audiences")
-          .upsert({ connection_id: existing.id, kind, ref, name, created_by: user.id, status: "pending" }, { onConflict: "connection_id,kind,ref" })
-          .select("id").single();
-        if (error || !row) return json({ error: "insert_failed", detail: error?.message ?? null }, 500, cors);
-        const r = await syncMetaAudiences(admin, cfg.appSecret, { onlyAudienceId: row.id as string, force: true });
-        return json({ ok: r.failed === 0, audienceId: row.id }, 200, cors);
+        // L'unicité (connection_id, kind, ref) est portée par un index PARTIEL
+        // (WHERE kind <> 'lookalike') : PostgREST ne sait pas lui passer le
+        // prédicat, donc un upsert on_conflict échouerait en 42P10. On relit
+        // puis on écrit à la main, et on retombe sur la relecture si deux
+        // clics partent en même temps.
+        const findAudience = async () => {
+          const { data } = await admin.from("meta_audiences").select("id")
+            .eq("connection_id", existing.id).eq("kind", kind).eq("ref", ref).maybeSingle();
+          return (data as { id: string } | null)?.id ?? null;
+        };
+        let audienceId = await findAudience();
+        if (audienceId) {
+          const { error } = await admin.from("meta_audiences")
+            .update({ name, status: "pending", last_error: null }).eq("id", audienceId);
+          if (error) return json({ error: "insert_failed", detail: error.message }, 500, cors);
+        } else {
+          const { data: ins, error } = await admin.from("meta_audiences")
+            .insert({ connection_id: existing.id, kind, ref, name, created_by: user.id, status: "pending" })
+            .select("id").single();
+          if (error || !ins) {
+            audienceId = error?.code === "23505" ? await findAudience() : null;
+            if (!audienceId) return json({ error: "insert_failed", detail: error?.message ?? null }, 500, cors);
+          } else {
+            audienceId = (ins as { id: string }).id;
+          }
+        }
+        const r = await syncMetaAudiences(admin, cfg.appSecret, { onlyAudienceId: audienceId, force: true });
+        return json({ ok: r.failed === 0, audienceId }, 200, cors);
       }
       if (action === "audience_lookalike") {
         const originId = typeof body.audienceId === "string" ? body.audienceId : "";
