@@ -18,15 +18,20 @@ function useSearch<T>(fetcher: (q: string) => Promise<T[]>) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<T[]>([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [timer, setTimer] = useState<number | null>(null);
   const onChange = (v: string) => {
     setQ(v);
     if (timer) window.clearTimeout(timer);
-    if (v.trim().length < 2) { setResults([]); return; }
-    setTimer(window.setTimeout(async () => { setBusy(true); try { setResults(await fetcher(v.trim())); } catch { setResults([]); } finally { setBusy(false); } }, 350));
+    if (v.trim().length < 2) { setResults([]); setError(null); return; }
+    setTimer(window.setTimeout(async () => {
+      setBusy(true); setError(null);
+      try { setResults(await fetcher(v.trim())); } catch (e) { setResults([]); setError(e instanceof Error ? e.message : 'error'); } finally { setBusy(false); }
+    }, 350));
   };
-  return { q, onChange, results, busy, clear: () => { setQ(''); setResults([]); } };
+  return { q, onChange, results, busy, error, clear: () => { setQ(''); setResults([]); setError(null); } };
 }
+const SearchError = ({ error, t }: { error: string | null; t: (k: string) => string }) => error ? <p className="mt-1.5" style={{ color: '#FF8A91', fontSize: 12.5, lineHeight: 1.45 }}>{t('ads.w.search.metaError')} {error}</p> : null;
 
 function Box({ value, onChange, placeholder, busy, children }: { value: string; onChange: (v: string) => void; placeholder: string; busy: boolean; children?: React.ReactNode }) {
   return (
@@ -64,6 +69,7 @@ export function ExpertGeo({ draft, set, call, t }: { draft: CampaignDraft; set: 
             <Row key={g.key} onClick={() => { if (!draft.excludedCities.some((c) => c.key === g.key)) set('excludedCities', [...draft.excludedCities, { ...g, radius_km: 17 }]); excl.clear(); }}>
               <MapPin className="w-4 h-4" style={{ color: T3 }} /><span style={{ color: T1, fontSize: 14 }}>{g.name}</span><span style={{ color: T3, fontSize: 12.5 }}>{g.region ? `${g.region} · ` : ''}{g.country_code}</span>
             </Row>))}</Drop>}
+          <SearchError error={excl.error} t={t} />
         </Box>
         {draft.excludedCities.length > 0 && <div className="mt-2 flex gap-2 flex-wrap">{draft.excludedCities.map((c) => <Chip key={c.key} active onClick={() => set('excludedCities', draft.excludedCities.filter((x) => x.key !== c.key))}>{c.name} <X className="w-3.5 h-3.5" /></Chip>)}</div>}
       </Field>
@@ -73,6 +79,7 @@ export function ExpertGeo({ draft, set, call, t }: { draft: CampaignDraft; set: 
             <Row key={z.key} onClick={() => { if (!draft.zips.some((c) => c.key === z.key)) set('zips', [...draft.zips, { key: z.key, name: z.name, primary_city: z.primary_city }]); zips.clear(); }}>
               <span style={{ color: T1, fontSize: 14 }}>{z.name}</span><span style={{ color: T3, fontSize: 12.5 }}>{z.primary_city ?? ''}</span>
             </Row>))}</Drop>}
+          <SearchError error={zips.error} t={t} />
         </Box>
         {draft.zips.length > 0 && <div className="mt-2 flex gap-2 flex-wrap">{draft.zips.map((z) => <Chip key={z.key} active onClick={() => set('zips', draft.zips.filter((x) => x.key !== z.key))}>{z.name}{z.primary_city ? ` · ${z.primary_city}` : ''} <X className="w-3.5 h-3.5" /></Chip>)}</div>}
       </Field>
@@ -143,6 +150,7 @@ export function ExpertDetailed({ draft, set, call, t }: { draft: CampaignDraft; 
               <span className="flex-1 min-w-0"><span className="block truncate" style={{ color: T1, fontSize: 14 }}>{c.name}</span>{c.path && <span className="block truncate" style={{ color: T3, fontSize: 12 }}>{c.path}</span>}</span>
               {c.size != null && <span className="tabular-nums" style={{ color: T3, fontSize: 12 }}>{fmtN(c.size)}</span>}
             </Row>))}</Drop>}
+          <SearchError error={search.error} t={t} />
         </Box>
         {groups[groups.length - 1].items.length > 0 && groups.length < 5 && (
           <GhostButton small onClick={() => { set('detailed', [...groups, { items: [] }]); setActiveGroup(groups.length); }}><Plus className="w-3.5 h-3.5" /> {t('ads.x.detailed.narrow')}</GhostButton>

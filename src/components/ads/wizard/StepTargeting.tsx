@@ -12,18 +12,29 @@ import { StepHeader, Section, Field, Chip, ChoiceCards, ToggleRow, Tip, GhostBut
 function useDebouncedSearch<T>(query: string, deps: unknown[], fetcher: (q: string) => Promise<T[]>) {
   const [results, setResults] = useState<T[]>([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [empty, setEmpty] = useState(false);
   const timer = useRef<number | null>(null);
   useEffect(() => {
     if (timer.current) window.clearTimeout(timer.current);
-    if (query.trim().length < 2) { setResults([]); return; }
+    if (query.trim().length < 2) { setResults([]); setError(null); setEmpty(false); return; }
     timer.current = window.setTimeout(async () => {
-      setBusy(true);
-      try { setResults(await fetcher(query.trim())); } catch { setResults([]); } finally { setBusy(false); }
+      setBusy(true); setError(null);
+      try { const r = await fetcher(query.trim()); setResults(r); setEmpty(r.length === 0); }
+      catch (e) { setResults([]); setEmpty(false); setError(e instanceof Error ? e.message : 'error'); }
+      finally { setBusy(false); }
     }, 350);
     return () => { if (timer.current) window.clearTimeout(timer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, ...deps]);
-  return { results, busy, clear: () => setResults([]) };
+  return { results, busy, error, empty, clear: () => { setResults([]); setEmpty(false); } };
+}
+
+/** Sous un champ de recherche : « Meta refuse » ou « aucun résultat », jamais un silence. */
+function SearchStatus({ error, empty, t }: { error: string | null; empty: boolean; t: (k: string) => string }) {
+  if (error) return <p className="mt-1.5" style={{ color: '#FF8A91', fontSize: 12.5, lineHeight: 1.45 }}>{t('ads.w.search.metaError')} {error}</p>;
+  if (empty) return <p className="mt-1.5" style={{ color: T3, fontSize: 12.5 }}>{t('ads.w.search.noResult')}</p>;
+  return null;
 }
 
 function SearchBox({ value, onChange, placeholder, busy, children }: { value: string; onChange: (v: string) => void; placeholder: string; busy: boolean; children?: React.ReactNode }) {
@@ -86,6 +97,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
               ))}
             </Dropdown>
           )}
+          <SearchStatus error={geo.error} empty={geo.empty} t={t} />
         </SearchBox>
         {draft.cities.length > 0 ? (
           <div className="space-y-2">
@@ -181,6 +193,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
                   ))}
                 </Dropdown>
               )}
+              <SearchStatus error={interests.error} empty={interests.empty} t={t} />
             </SearchBox>
             {draft.interests.length > 0 && (
               <div className="mt-2.5 flex gap-2 flex-wrap">
@@ -199,6 +212,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
                   ))}
                 </Dropdown>
               )}
+              <SearchStatus error={locales.error} empty={locales.empty} t={t} />
             </SearchBox>
             {draft.locales.length > 0 && (
               <div className="mt-2.5 flex gap-2 flex-wrap">

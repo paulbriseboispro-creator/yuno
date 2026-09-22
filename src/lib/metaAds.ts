@@ -50,6 +50,7 @@ export interface Delivery {
   url_tags?: string;
 }
 export interface CampaignPlacements { facebook?: boolean; instagram?: boolean; positions?: { facebook?: string[]; instagram?: string[] }; devices?: Array<'mobile' | 'desktop'> }
+export type PreviewSlot = 'feed' | 'story' | 'reel' | 'fb_feed' | 'fb_story';
 export interface IgMedia { id: string; type: string; image: string | null; permalink: string | null; caption: string; at: string | null }
 
 export interface InterestChoice { id: string; name: string; size?: number | null; path?: string | null }
@@ -117,11 +118,28 @@ export interface CreativeMedia {
  * Une création = une pub. Plusieurs créations dans une campagne partagent le
  * budget : Meta le déplace vers celle qui obtient les meilleurs résultats.
  */
+/** Paramètres du compositeur story / feed : gardés pour rejouer ou dupliquer. */
+export interface ComposedDesign {
+  template: 'cover' | 'frame' | 'band';
+  ratio: '9:16' | '4:5';
+  title: string;
+  subtitle: string;
+  kicker: string;
+  cta: string;
+  accent: string;
+}
+
 export interface AdCreative {
   /** Identifiant local (clé React), jamais envoyé à Meta. */
   id: string;
   format: CreativeFormat;
   media: CreativeMedia[];
+  /** Version verticale (9:16) pour stories et reels ; même nature que `media`. */
+  vertical_media?: CreativeMedia | null;
+  /** Améliorations Advantage+ créa (Meta retouche luminosité, bouton, textes, gabarits). */
+  enhancements?: boolean;
+  /** Réglages du compositeur, si le visuel a été composé dans Yuno. */
+  design?: ComposedDesign | null;
   headline: string;
   body: string;
   description: string;
@@ -214,7 +232,7 @@ export interface AdsCampaign {
 
 export interface AdsLead { id: string; name: string | null; email: string | null; received_at: string; processed: boolean; error: string | null }
 
-export interface AdsEvent { id: string; title: string; start_at: string; poster_url: string | null; city: string | null }
+export interface AdsEvent { id: string; title: string; start_at: string; end_at?: string | null; poster_url: string | null; city: string | null; venue_name?: string | null; price_from?: number | null; lineup?: string[] }
 
 export interface AdsPayload {
   connection: {

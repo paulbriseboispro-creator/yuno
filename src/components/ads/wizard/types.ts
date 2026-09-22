@@ -14,8 +14,9 @@ export interface DraftMedia extends CreativeMedia {
   duration?: number;
 }
 
-export interface DraftCreative extends Omit<AdCreative, 'media' | 'cta'> {
+export interface DraftCreative extends Omit<AdCreative, 'media' | 'cta' | 'vertical_media'> {
   media: DraftMedia[];
+  vertical_media?: DraftMedia | null;
   cta: CtaType;
 }
 

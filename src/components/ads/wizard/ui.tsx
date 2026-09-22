@@ -99,8 +99,8 @@ export function ToggleRow({ label, desc, checked, onChange, icon }: { label: Rea
         <span className="block" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{label}</span>
         {desc && <span className="block mt-0.5" style={{ color: T3, fontSize: 12.5, lineHeight: 1.45 }}>{desc}</span>}
       </span>
-      <span className="relative flex-shrink-0 rounded-full transition-colors duration-200" style={{ width: 44, height: 26, background: checked ? RED : 'rgba(255,255,255,0.14)' }}>
-        <span className="absolute top-[3px] rounded-full bg-white transition-transform duration-200" style={{ width: 20, height: 20, transform: `translateX(${checked ? 21 : 3}px)` }} />
+      <span className="rounded-full transition-colors duration-200" style={{ display: 'inline-block', position: 'relative', flexShrink: 0, width: 44, height: 26, background: checked ? RED : 'rgba(255,255,255,0.14)' }}>
+        <span className="rounded-full bg-white transition-transform duration-200" style={{ position: 'absolute', top: 3, left: 3, width: 20, height: 20, transform: `translateX(${checked ? 18 : 0}px)` }} />
       </span>
     </button>
   );

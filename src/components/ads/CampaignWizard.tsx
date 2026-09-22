@@ -55,8 +55,8 @@ function draftFromCampaign(c: AdsCampaign, mode: WizardMode, language: string, e
   const start = mode === 'edit' ? new Date(c.start_at) : new Date(Date.now() + 15 * 60 * 1000);
   const end = c.end_at ? new Date(c.end_at) : (event ? new Date(event.start_at) : new Date(Date.now() + 7 * 24 * 3600 * 1000));
   const creatives: DraftCreative[] = (c.creatives ?? []).map((cr) => {
-    const n = newCreative({ format: cr.format, headline: cr.headline, body: cr.body, description: cr.description ?? '', cta: cr.cta }) as DraftCreative;
-    return { ...n, media: cr.media.map((m, i) => ({ ...m, localId: `${n.id}_${i}` })) };
+    const n = newCreative({ format: cr.format, headline: cr.headline, body: cr.body, description: cr.description ?? '', cta: cr.cta, enhancements: cr.enhancements === true, design: cr.design ?? null }) as DraftCreative;
+    return { ...n, media: cr.media.map((m, i) => ({ ...m, localId: `${n.id}_${i}` })), vertical_media: cr.vertical_media?.url ? { ...cr.vertical_media, localId: `${n.id}_v` } : null };
   });
   return {
     eventId: c.event_id ?? event?.id ?? '',
@@ -233,7 +233,7 @@ export function CampaignWizard({
   const budgetCents = Math.round(draft.budgetEuros * 100);
   const startDate = new Date(draft.startAt);
   const endDate = new Date(draft.endAt);
-  const creativesOk = draft.creatives.every((c) => creativeIssues(c as unknown as AdCreative).length === 0 && !c.media.some((m) => m.uploading || m.error || !m.url));
+  const creativesOk = draft.creatives.every((c) => creativeIssues(c as unknown as AdCreative).length === 0 && !c.media.some((m) => m.uploading || m.error || (!m.url && m.kind !== 'ig_post')) && !(c.vertical_media && (c.vertical_media.uploading || c.vertical_media.error || !c.vertical_media.url)));
   const validByKey: Record<WizardStep, boolean> = {
     event: !!draft.eventId && draft.name.trim().length >= 3,
     budget: budgetCents >= MIN_BUDGET_CENTS && !Number.isNaN(startDate.getTime()) && (draft.budgetType === 'daily' || (!Number.isNaN(endDate.getTime()) && endDate > startDate))
@@ -259,7 +259,10 @@ export function CampaignWizard({
       await Promise.all([...uploadsRef.current.values()].map((u) => u.result));
       const creatives = draft.creatives.map((c) => ({
         format: c.format,
-        media: c.media.map((m) => ({ url: m.url, kind: m.kind, thumbnail_url: m.thumbnail_url ?? null, headline: m.headline ?? null, description: m.description ?? null })),
+        media: c.media.map((m) => ({ url: m.url, kind: m.kind, ig_media_id: m.ig_media_id ?? null, thumbnail_url: m.thumbnail_url ?? null, headline: m.headline ?? null, description: m.description ?? null })),
+        vertical_media: c.vertical_media?.url ? { url: c.vertical_media.url, kind: c.vertical_media.kind, thumbnail_url: c.vertical_media.thumbnail_url ?? null } : null,
+        enhancements: c.enhancements === true,
+        design: c.design ?? null,
         headline: c.headline.trim(), body: c.body.trim(), description: c.description.trim() || null, cta: c.cta,
       }));
       if (creatives.some((c) => c.media.some((m) => !m.url && m.kind !== 'ig_post'))) throw new Error(t('ads.w.media.uploadFailed'));
@@ -300,6 +303,14 @@ export function CampaignWizard({
     }
   };
 
+  // Où l'ensemble diffuse, en clair, et si stories / reels en font partie (la version verticale n'a de sens que là).
+  const igPos = expert && draft.igPositions.length ? draft.igPositions : ['stream', 'story', 'reels'];
+  const fbPos = expert && draft.fbPositions.length ? draft.fbPositions : ['feed', 'story', 'facebook_reels'];
+  const verticalOn = (draft.instagram && igPos.some((p) => p === 'story' || p === 'reels')) || (draft.facebook && fbPos.some((p) => p === 'story' || p === 'facebook_reels'));
+  const placementsLabel = [
+    draft.instagram ? `Instagram (${(expert && draft.igPositions.length ? draft.igPositions : ['stream', 'story', 'reels']).map((p) => t(`ads.x.place.ig.${p}`)).join(', ')})` : null,
+    draft.facebook ? `Facebook (${(expert && draft.fbPositions.length ? draft.fbPositions : ['feed', 'story', 'facebook_reels']).map((p) => t(`ads.x.place.fb.${p}`)).join(', ')})` : null,
+  ].filter(Boolean).join(' · ') + (!expert || (!draft.igPositions.length && !draft.fbPositions.length) ? ` · ${t('ads.w.where.auto')}` : '');
   const steps = activeSteps.map((k) => ({ key: k, label: t(`ads.wizard.step.${k}`), short: t(`ads.w.step.${k}.short`) }));
   const stepIndex = (k: WizardStep) => Math.max(0, activeSteps.indexOf(k));
   const current = activeSteps[step];
@@ -366,8 +377,8 @@ export function CampaignWizard({
                 style={{ minHeight: 40, background: expert ? 'rgba(232,25,44,0.12)' : FIELD_BG, border: `1px solid ${expert ? 'rgba(232,25,44,0.45)' : BORDER}`, color: expert ? '#FF8A91' : T2, fontSize: 13, fontWeight: 600 }}
                 title={t('ads.x.expert.hint')}>
                 <Sliders className="w-4 h-4" /> {t('ads.x.expert.toggle')}
-                <span className="relative rounded-full transition-colors duration-200" style={{ width: 34, height: 20, background: expert ? RED : 'rgba(255,255,255,0.14)' }}>
-                  <span className="absolute top-[2px] rounded-full bg-white transition-transform duration-200" style={{ width: 16, height: 16, transform: `translateX(${expert ? 16 : 2}px)` }} />
+                <span className="rounded-full transition-colors duration-200" style={{ display: 'inline-block', position: 'relative', width: 34, height: 20, flexShrink: 0, background: expert ? RED : 'rgba(255,255,255,0.14)' }}>
+                  <span className="rounded-full bg-white transition-transform duration-200" style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, transform: `translateX(${expert ? 14 : 0}px)` }} />
                 </span>
               </button>
               <button type="button" onClick={onClose} className="h-10 w-10 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/[0.06] transition-colors duration-150" style={{ color: T3 }} aria-label={t('ads.wizard.close')}><X className="w-5 h-5" /></button>
@@ -383,7 +394,8 @@ export function CampaignWizard({
           {current === 'targeting' && <StepTargeting draft={draft} set={set} audiences={audiences} homeCity={homeCity} call={call} language={language} estimate={estimate} expert={expert} t={t} />}
           {current === 'creative' && (
             <StepCreatives creatives={draft.creatives} selected={selectedCreative} onSelect={setSelectedCreative} onChange={(c) => set('creatives', c)}
-              posterUrl={event?.poster_url ?? null} uploadsRef={uploadsRef} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} call={call} t={t} />
+              posterUrl={event?.poster_url ?? null} event={event} uploadsRef={uploadsRef} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} facebookOn={draft.facebook}
+              placementsLabel={placementsLabel} verticalOn={verticalOn} call={call} previewPayload={{ placements: placementsPayload, eventId: draft.eventId }} onEditPlacements={() => go(stepIndex('targeting'))} t={t} />
           )}
           {current === 'review' && (
             <>
