@@ -97,6 +97,40 @@ export async function searchGeo(q: string, countryCode: string | null, token: st
   return r.ok ? (r.data.data ?? []) : [];
 }
 
+/**
+ * Centres d'intérêt (`adinterest`) et langues (`adlocale`) pour le ciblage
+ * détaillé. Meta rend pour un intérêt son id, son nom, sa taille d'audience et
+ * son chemin de catégorie ; pour une langue sa clé numérique (`locales`) et son
+ * nom. La recherche est faite dans la langue du pro (`locale`), sinon Meta rend
+ * des libellés anglais.
+ */
+export async function searchInterests(q: string, locale: string, token: string, appSecret: string | null) {
+  const r = await graphGet<{ data?: Array<{ id: string; name: string; audience_size_lower_bound?: number; audience_size_upper_bound?: number; path?: string[]; topic?: string }> }>(
+    "search", { type: "adinterest", q, limit: "15", locale }, { token, appSecret },
+  );
+  return r.ok ? (r.data.data ?? []).map((i) => ({ id: String(i.id), name: i.name, size: i.audience_size_upper_bound ?? i.audience_size_lower_bound ?? null, path: (i.path ?? []).slice(0, -1).join(" › ") || i.topic || null })) : [];
+}
+
+export async function searchLocales(q: string, token: string, appSecret: string | null) {
+  const r = await graphGet<{ data?: Array<{ key: number; name: string }> }>("search", { type: "adlocale", q, limit: "15" }, { token, appSecret });
+  return r.ok ? (r.data.data ?? []).map((l) => ({ key: Number(l.key), name: l.name })) : [];
+}
+
+/**
+ * Estimation de la taille de l'audience, telle que Meta la donne à Ads Manager.
+ * `-1` = Meta ne sait pas dire (fréquent avec une audience personnalisée) :
+ * ce n'est pas une audience vide.
+ */
+export async function reachEstimate(adAccountId: string, targeting: CampaignTargeting, placements: CampaignPlacements, token: string, appSecret: string | null): Promise<{ lower: number; upper: number } | null> {
+  const r = await graphGet<{ data?: { users_lower_bound?: number; users_upper_bound?: number; estimate_ready?: boolean } }>(
+    `${adAccountId}/reachestimate`, { targeting_spec: JSON.stringify(buildTargeting(targeting, placements)) }, { token, appSecret },
+  );
+  if (!r.ok || !r.data.data) return null;
+  const lower = Number(r.data.data.users_lower_bound ?? -1); const upper = Number(r.data.data.users_upper_bound ?? -1);
+  if (!Number.isFinite(lower) || lower < 0) return null;
+  return { lower, upper: Number.isFinite(upper) && upper >= lower ? upper : lower };
+}
+
 // ── Création d'une campagne complète ─────────────────────────────────────────
 
 export interface CampaignTargeting {
@@ -107,16 +141,56 @@ export interface CampaignTargeting {
   genders?: number[];
   audience_ids?: string[];          // meta_audience_id (Meta)
   exclude_audience_ids?: string[];
+  /** Centres d'intérêt Meta (`adinterest`) — ciblage détaillé, facultatif. */
+  interests?: Array<{ id: string; name: string }>;
+  /** Langues (`adlocale`, clés numériques) — facultatif. */
+  locales?: number[];
+  /**
+   * Jusqu'où Meta peut sortir du ciblage. Sondé en vrai le 2026-09-22 sur le
+   * compte Amoris (sous-codes 1870188 / 1870189) :
+   *   - `full`    = Advantage+ audience (`advantage_audience: 1`) : tout est
+   *     suggestion ; Meta REFUSE un âge maximum sous 65 et un âge minimum
+   *     au-dessus de 25 — on n'envoie donc pas d'âge max et on plafonne le min.
+   *   - `relaxed` = `advantage_audience: 0` + `individual_setting` : la tranche
+   *     d'âge et la zone sont des limites dures, les audiences, jumeaux,
+   *     intérêts et genre sont relâchés. Le bon défaut pour une boîte de nuit
+   *     qui sait l'âge de sa clientèle. (`individual_setting.age` est refusé :
+   *     relâcher l'âge, c'est Advantage+.)
+   *   - `strict`  = rien n'est relâché.
+   * `advantage` (booléen historique) est lu quand `audience_mode` manque :
+   * true → full, false → strict.
+   */
+  audience_mode?: "full" | "relaxed" | "strict";
   advantage?: boolean;
 }
 
+export interface CampaignPlacements { facebook?: boolean; instagram?: boolean }
+
+export type CreativeFormat = "image" | "carousel" | "video";
+
+export interface CreativeMedia {
+  url: string;
+  kind: "image" | "video";
+  /** Vidéo : image de couverture (obligatoire chez Meta pour une pub vidéo). */
+  thumbnail_url?: string | null;
+  /** Carrousel : titre et description propres à la carte (sinon ceux de la création). */
+  headline?: string | null;
+  description?: string | null;
+}
+
+/**
+ * Une CRÉATION = une pub dans l'ensemble. Plusieurs créations dans la même
+ * campagne partagent le même budget : Meta le déplace vers celle qui obtient
+ * les meilleurs résultats (c'est le test A/B naturel d'un ensemble de pubs).
+ */
 export interface CampaignCreative {
-  image_url: string;
+  format: CreativeFormat;
+  media: CreativeMedia[];
   headline: string;
   body: string;
   cta: string;
   link: string;
-  description?: string;
+  description?: string | null;
 }
 
 export interface CreateCampaignInput {
@@ -131,21 +205,45 @@ export interface CreateCampaignInput {
   startAt: string;
   endAt: string | null;
   targeting: CampaignTargeting;
-  creative: CampaignCreative;
-  placements: { facebook?: boolean; instagram?: boolean };
+  creatives: CampaignCreative[];
+  placements: CampaignPlacements;
   dsaBeneficiary: string;
   dsaPayor: string;
+}
+
+export interface CreatedAd {
+  index: number;
+  format: CreativeFormat;
+  ad_id: string;
+  creative_id: string;
+  video_id?: string | null;
+  effective_status?: string | null;
+  review?: string | null;
 }
 
 export interface CreateCampaignResult {
   ok: boolean;
   campaignId?: string;
   adsetId?: string;
-  creativeId?: string;
-  adId?: string;
-  imageHash?: string;
+  ads: CreatedAd[];
   error?: string;
   step?: string;
+}
+
+/**
+ * Bibliothèque d'images du compte : une même URL n'est envoyée qu'une fois
+ * (l'affiche sert souvent à plusieurs créations).
+ */
+class ImageLibrary {
+  private cache = new Map<string, string>();
+  constructor(private adAccountId: string, private token: string, private appSecret: string | null) {}
+  async hashFor(imageUrl: string): Promise<{ hash: string } | { error: string }> {
+    const hit = this.cache.get(imageUrl);
+    if (hit) return { hash: hit };
+    const r = await uploadImage(this.adAccountId, imageUrl, this.token, this.appSecret);
+    if ("hash" in r) this.cache.set(imageUrl, r.hash);
+    return r;
+  }
 }
 
 async function uploadImage(adAccountId: string, imageUrl: string, token: string, appSecret: string | null): Promise<{ hash: string } | { error: string }> {
@@ -167,7 +265,32 @@ async function uploadImage(adAccountId: string, imageUrl: string, token: string,
   }
 }
 
-function buildTargeting(t: CampaignTargeting, placements: { facebook?: boolean; instagram?: boolean }): Record<string, unknown> {
+/**
+ * Vidéo : Meta va la chercher lui-même (`file_url`), puis la transcode. Une pub
+ * créée sur une vidéo encore en traitement est refusée : on attend `ready`
+ * (jusqu'à ~50 s, le gros d'une vidéo de 30 Mo), sinon on tente quand même —
+ * Meta accepte souvent la créa et finit le traitement de son côté.
+ */
+async function uploadVideo(adAccountId: string, videoUrl: string, name: string, token: string, appSecret: string | null): Promise<{ id: string } | { error: string }> {
+  const r = await graphPost<{ id?: string; video_id?: string }>(`${adAccountId}/advideos`, { file_url: videoUrl, name: name.slice(0, 100) }, token, appSecret);
+  if (!r.ok) return { error: graphErrorText(r.error) };
+  const id = r.data.id ?? r.data.video_id;
+  return id ? { id: String(id) } : { error: "video_id_missing" };
+}
+
+async function waitVideoReady(videoId: string, token: string, appSecret: string | null, maxMs = 50_000): Promise<"ready" | "processing" | "error"> {
+  const started = Date.now();
+  while (Date.now() - started < maxMs) {
+    const r = await graphGet<{ status?: { video_status?: string } }>(videoId, { fields: "status" }, { token, appSecret });
+    const st = r.ok ? r.data.status?.video_status : undefined;
+    if (st === "ready") return "ready";
+    if (st === "error") return "error";
+    await new Promise((res) => setTimeout(res, 3_000));
+  }
+  return "processing";
+}
+
+export function buildTargeting(t: CampaignTargeting, placements: CampaignPlacements): Record<string, unknown> {
   const geo: Record<string, unknown> = {};
   if (t.cities && t.cities.length > 0) {
     geo.cities = t.cities.filter((c) => c.type !== "region").map((c) => ({ key: c.key, radius: Math.min(80, Math.max(10, c.radius_km ?? 25)), distance_unit: "kilometer" }));
@@ -179,32 +302,118 @@ function buildTargeting(t: CampaignTargeting, placements: { facebook?: boolean; 
   const platforms: string[] = [];
   if (placements.facebook !== false) platforms.push("facebook");
   if (placements.instagram !== false) platforms.push("instagram");
+  const mode = t.audience_mode ?? (t.advantage === false ? "strict" : "full");
+  const ageMin = Math.max(18, Math.min(65, t.age_min ?? 18));
+  const ageMax = Math.max(ageMin, Math.min(65, t.age_max ?? 40));
   const out: Record<string, unknown> = {
     geo_locations: geo,
-    age_min: Math.max(18, t.age_min ?? 18),
-    age_max: Math.min(65, t.age_max ?? 40),
+    age_min: mode === "full" ? Math.min(25, ageMin) : ageMin,
     publisher_platforms: platforms.length ? platforms : ["facebook", "instagram"],
-    targeting_automation: { advantage_audience: t.advantage === false ? 0 : 1 },
+    targeting_automation: mode === "full"
+      ? { advantage_audience: 1 }
+      : mode === "relaxed"
+        ? { advantage_audience: 0, individual_setting: { custom_audience: 1, lookalike: 1, detailed_targeting: 1, gender: 1 } }
+        : { advantage_audience: 0 },
   };
+  if (mode !== "full") out.age_max = ageMax;
   if (t.genders && t.genders.length === 1) out.genders = t.genders;
   if (t.audience_ids && t.audience_ids.length) out.custom_audiences = t.audience_ids.map((id) => ({ id }));
   if (t.exclude_audience_ids && t.exclude_audience_ids.length) out.excluded_custom_audiences = t.exclude_audience_ids.map((id) => ({ id }));
+  const interests = (t.interests ?? []).filter((i) => i && /^[0-9]{3,30}$/.test(String(i.id))).slice(0, 25).map((i) => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80) }));
+  if (interests.length) out.flexible_spec = [{ interests }];
+  const locales = (t.locales ?? []).map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 50);
+  if (locales.length) out.locales = locales;
   return out;
+}
+
+function callToAction(cta: string, link: string) {
+  return { type: cta || "LEARN_MORE", value: { link } };
+}
+
+/**
+ * Une créa Meta par création Yuno. Le lien est le même pour toutes (le lien
+ * suivi de la campagne) : c'est lui qui attribue les ventes, pas la créa.
+ */
+async function buildCreativeSpec(
+  c: CampaignCreative, pageId: string, instagramActorId: string | null | undefined,
+  lib: ImageLibrary, adAccountId: string, name: string, token: string, appSecret: string | null,
+): Promise<{ spec: Record<string, unknown>; videoId?: string } | { error: string }> {
+  const story: Record<string, unknown> = { page_id: pageId };
+  if (instagramActorId) story.instagram_user_id = instagramActorId;
+  if (c.format === "video") {
+    const video = c.media.find((m) => m.kind === "video");
+    if (!video) return { error: "video_missing" };
+    const thumbUrl = video.thumbnail_url || c.media.find((m) => m.kind === "image")?.url || null;
+    if (!thumbUrl) return { error: "video_thumbnail_missing" };
+    const thumb = await lib.hashFor(thumbUrl);
+    if ("error" in thumb) return { error: thumb.error };
+    const up = await uploadVideo(adAccountId, video.url, name, token, appSecret);
+    if ("error" in up) return { error: up.error };
+    const st = await waitVideoReady(up.id, token, appSecret);
+    if (st === "error") return { error: "video_processing_failed" };
+    story.video_data = {
+      video_id: up.id,
+      image_hash: thumb.hash,
+      message: c.body,
+      title: c.headline,
+      ...(c.description ? { link_description: c.description } : {}),
+      call_to_action: callToAction(c.cta, c.link),
+    };
+    return { spec: { name, object_story_spec: story }, videoId: up.id };
+  }
+  if (c.format === "carousel") {
+    const cards = c.media.filter((m) => m.kind === "image").slice(0, 10);
+    if (cards.length < 2) return { error: "carousel_needs_two_images" };
+    const children: Array<Record<string, unknown>> = [];
+    for (const card of cards) {
+      const h = await lib.hashFor(card.url);
+      if ("error" in h) return { error: h.error };
+      children.push({
+        link: c.link, image_hash: h.hash,
+        name: (card.headline || c.headline).slice(0, 40),
+        ...(card.description || c.description ? { description: String(card.description || c.description).slice(0, 120) } : {}),
+        call_to_action: callToAction(c.cta, c.link),
+      });
+    }
+    story.link_data = {
+      link: c.link, message: c.body, child_attachments: children,
+      multi_share_optimized: false, multi_share_end_card: false,
+      call_to_action: callToAction(c.cta, c.link),
+    };
+    return { spec: { name, object_story_spec: story } };
+  }
+  const image = c.media.find((m) => m.kind === "image");
+  if (!image) return { error: "image_missing" };
+  const h = await lib.hashFor(image.url);
+  if ("error" in h) return { error: h.error };
+  story.link_data = {
+    link: c.link, message: c.body, name: c.headline,
+    ...(c.description ? { description: c.description } : {}),
+    image_hash: h.hash,
+    call_to_action: callToAction(c.cta, c.link),
+  };
+  return { spec: { name, object_story_spec: story } };
 }
 
 export async function createFullCampaign(input: CreateCampaignInput, token: string, appSecret: string | null): Promise<CreateCampaignResult> {
   const { adAccountId } = input;
-  const img = await uploadImage(adAccountId, input.creative.image_url, token, appSecret);
-  if ("error" in img) return { ok: false, error: img.error, step: "image" };
+  const ads: CreatedAd[] = [];
+  if (input.creatives.length === 0) return { ok: false, error: "no_creative", step: "creative", ads };
+  const lib = new ImageLibrary(adAccountId, token, appSecret);
 
+  // Le budget vit sur l'ENSEMBLE de pubs (une campagne Yuno = un ensemble) :
+  // depuis la v24 Meta exige alors `is_adset_budget_sharing_enabled` en clair
+  // (erreur 4834011 sinon). `false` : le budget reste celui que le pro a posé,
+  // rien n'est partagé avec d'autres ensembles (il n'y en a pas).
   const camp = await graphPost<{ id: string }>(`${adAccountId}/campaigns`, {
     name: input.name,
     objective: input.objective,
     status: "PAUSED",
     special_ad_categories: [],
     buying_type: "AUCTION",
+    is_adset_budget_sharing_enabled: false,
   }, token, appSecret);
-  if (!camp.ok) return { ok: false, error: graphErrorText(camp.error), step: "campaign", imageHash: img.hash };
+  if (!camp.ok) return { ok: false, error: graphErrorText(camp.error), step: "campaign", ads };
 
   const adset: Record<string, unknown> = {
     name: `${input.name} — audience`,
@@ -232,47 +441,40 @@ export async function createFullCampaign(input: CreateCampaignInput, token: stri
   }
   if (input.endAt && input.budgetType === "daily") adset.end_time = input.endAt;
   const set = await graphPost<{ id: string }>(`${adAccountId}/adsets`, adset, token, appSecret);
-  if (!set.ok) return { ok: false, error: graphErrorText(set.error), step: "adset", campaignId: camp.data.id, imageHash: img.hash };
+  if (!set.ok) return { ok: false, error: graphErrorText(set.error), step: "adset", campaignId: camp.data.id, ads };
 
-  const story: Record<string, unknown> = {
-    page_id: input.pageId,
-    link_data: {
-      link: input.creative.link,
-      message: input.creative.body,
-      name: input.creative.headline,
-      ...(input.creative.description ? { description: input.creative.description } : {}),
-      image_hash: img.hash,
-      call_to_action: { type: input.creative.cta || "LEARN_MORE", value: { link: input.creative.link } },
-    },
-  };
-  if (input.instagramActorId) story.instagram_user_id = input.instagramActorId;
-  const creative = await graphPost<{ id: string }>(`${adAccountId}/adcreatives`, {
-    name: `${input.name} — créa`,
-    object_story_spec: story,
-  }, token, appSecret);
-  if (!creative.ok) return { ok: false, error: graphErrorText(creative.error), step: "creative", campaignId: camp.data.id, adsetId: set.data.id, imageHash: img.hash };
+  // Une pub par création, toutes dans le même ensemble : Meta répartit le
+  // budget entre elles selon leurs résultats.
+  for (let i = 0; i < input.creatives.length; i++) {
+    const c = input.creatives[i];
+    const label = input.creatives.length > 1 ? `${input.name} — créa ${i + 1}` : `${input.name} — créa`;
+    const built = await buildCreativeSpec(c, input.pageId, input.instagramActorId, lib, adAccountId, label, token, appSecret);
+    if ("error" in built) return { ok: false, error: built.error, step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
+    const creative = await graphPost<{ id: string }>(`${adAccountId}/adcreatives`, built.spec, token, appSecret);
+    if (!creative.ok) return { ok: false, error: graphErrorText(creative.error), step: `creative_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
+    const ad = await graphPost<{ id: string }>(`${adAccountId}/ads`, {
+      name: input.creatives.length > 1 ? `${input.name} — pub ${i + 1}` : `${input.name} — pub`,
+      adset_id: set.data.id,
+      creative: { creative_id: creative.data.id },
+      status: "PAUSED",
+    }, token, appSecret);
+    if (!ad.ok) return { ok: false, error: graphErrorText(ad.error), step: `ad_${i + 1}`, campaignId: camp.data.id, adsetId: set.data.id, ads };
+    ads.push({ index: i, format: c.format, ad_id: ad.data.id, creative_id: creative.data.id, video_id: built.videoId ?? null });
+  }
 
-  const ad = await graphPost<{ id: string }>(`${adAccountId}/ads`, {
-    name: `${input.name} — pub`,
-    adset_id: set.data.id,
-    creative: { creative_id: creative.data.id },
-    status: "PAUSED",
-  }, token, appSecret);
-  if (!ad.ok) return { ok: false, error: graphErrorText(ad.error), step: "ad", campaignId: camp.data.id, adsetId: set.data.id, creativeId: creative.data.id, imageHash: img.hash };
-
-  return { ok: true, campaignId: camp.data.id, adsetId: set.data.id, creativeId: creative.data.id, adId: ad.data.id, imageHash: img.hash };
+  return { ok: true, campaignId: camp.data.id, adsetId: set.data.id, ads };
 }
 
 export async function setCampaignStatus(
-  ids: { campaignId: string; adsetId?: string | null; adId?: string | null },
+  ids: { campaignId: string; adsetId?: string | null; adIds?: string[] },
   status: "ACTIVE" | "PAUSED" | "ARCHIVED",
   token: string,
   appSecret: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  // Activer : la campagne, puis l'ensemble, puis la pub (tous doivent l'être).
+  // Activer : la campagne, puis l'ensemble, puis chaque pub (tous doivent l'être).
   // Mettre en pause / archiver : la campagne suffit (hérité).
   const targets = status === "ACTIVE"
-    ? [ids.campaignId, ids.adsetId, ids.adId].filter((x): x is string => !!x)
+    ? [ids.campaignId, ids.adsetId, ...(ids.adIds ?? [])].filter((x): x is string => !!x)
     : [ids.campaignId];
   for (const id of targets) {
     const r = await graphPost(id, { status }, token, appSecret);
@@ -281,15 +483,22 @@ export async function setCampaignStatus(
   return { ok: true };
 }
 
-export async function campaignStatusInfo(campaignId: string, adId: string | null, token: string, appSecret: string | null) {
+/** État Meta de la campagne et de chacune de ses pubs (validation, refus). */
+export async function campaignStatusInfo(campaignId: string, adIds: string[], token: string, appSecret: string | null) {
   const c = await graphGet<{ effective_status?: string; status?: string }>(campaignId, { fields: "effective_status,status" }, { token, appSecret });
-  let review: string | null = null;
-  if (adId) {
+  const perAd: Array<{ ad_id: string; effective_status: string | null; review: string | null }> = [];
+  for (const adId of adIds) {
     const a = await graphGet<{ effective_status?: string; ad_review_feedback?: { global?: Record<string, string> } }>(adId, { fields: "effective_status,ad_review_feedback" }, { token, appSecret });
-    if (a.ok && a.data.ad_review_feedback?.global) review = Object.values(a.data.ad_review_feedback.global).join(" · ").slice(0, 500);
-    if (a.ok && a.data.effective_status && c.ok) return { effective: `${c.data.effective_status ?? ""}/${a.data.effective_status}`, review };
+    perAd.push({
+      ad_id: adId,
+      effective_status: a.ok ? (a.data.effective_status ?? null) : null,
+      review: a.ok && a.data.ad_review_feedback?.global ? Object.values(a.data.ad_review_feedback.global).join(" · ").slice(0, 500) : null,
+    });
   }
-  return { effective: c.ok ? (c.data.effective_status ?? null) : null, review };
+  const review = perAd.map((p) => p.review).filter((x): x is string => !!x).join(" · ").slice(0, 500) || null;
+  const first = perAd[0];
+  const effective = c.ok ? (first?.effective_status ? `${c.data.effective_status ?? ""}/${first.effective_status}` : (c.data.effective_status ?? null)) : null;
+  return { effective, review, perAd };
 }
 
 // ── Insights ─────────────────────────────────────────────────────────────────
@@ -329,6 +538,42 @@ export async function campaignInsights(campaignId: string, token: string, appSec
     leads: pick(row.actions, ["lead", "onsite_conversion.lead_grouped", "leadgen_grouped"]),
     raw: row,
   })).filter((d) => d.day);
+}
+
+/**
+ * Résultats PAR PUB (donc par création) sur toute la vie de la campagne :
+ * c'est ce qui dit au pro laquelle de ses créations vend, et vers laquelle
+ * Meta a déplacé le budget.
+ */
+export interface AdInsight { ad_id: string; spend_cents: number; impressions: number; reach: number; link_clicks: number; purchases: number; purchase_value_cents: number }
+
+export async function campaignAdInsights(campaignId: string, token: string, appSecret: string | null): Promise<AdInsight[]> {
+  const r = await graphGet<{ data?: Array<Record<string, unknown>> }>(`${campaignId}/insights`, {
+    level: "ad",
+    fields: "ad_id,spend,impressions,reach,inline_link_clicks,actions,action_values",
+    date_preset: "maximum",
+    use_unified_attribution_setting: "true",
+    limit: "50",
+  }, { token, appSecret });
+  if (!r.ok || !Array.isArray(r.data.data)) return [];
+  const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const pick = (arr: unknown, types: string[]) => {
+    if (!Array.isArray(arr)) return 0;
+    for (const t of types) {
+      const hit = (arr as Array<{ action_type?: string; value?: string }>).find((a) => a.action_type === t);
+      if (hit) return num(hit.value);
+    }
+    return 0;
+  };
+  return r.data.data.filter((row) => row.ad_id).map((row) => ({
+    ad_id: String(row.ad_id),
+    spend_cents: Math.round(num(row.spend) * 100),
+    impressions: num(row.impressions),
+    reach: num(row.reach),
+    link_clicks: num(row.inline_link_clicks),
+    purchases: pick(row.actions, ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"]),
+    purchase_value_cents: Math.round(pick(row.action_values, ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"]) * 100),
+  }));
 }
 
 // ── Audiences ────────────────────────────────────────────────────────────────
@@ -483,14 +728,14 @@ export async function syncMetaAudiences(admin: SupabaseClient, appSecret: string
 export async function syncMetaInsights(admin: SupabaseClient, appSecret: string | null, opts: { onlyCampaignId?: string; force?: boolean } = {}): Promise<{ synced: number; failed: number }> {
   const out = { synced: 0, failed: 0 };
   try {
-    let q = admin.from("meta_campaigns").select("id, connection_id, meta_campaign_id, meta_ad_id, status, end_at, last_synced_at")
+    let q = admin.from("meta_campaigns").select("id, connection_id, meta_campaign_id, meta_ad_id, meta_ads, status, end_at, last_synced_at")
       .not("meta_campaign_id", "is", null)
       .in("status", ["paused", "active", "ended", "error"]);
     if (opts.onlyCampaignId) q = q.eq("id", opts.onlyCampaignId);
     else if (!opts.force) q = q.or("last_synced_at.is.null,last_synced_at.lt." + new Date(Date.now() - 55 * 60 * 1000).toISOString());
     const { data: rows } = await q.limit(100);
     const tokens = new Map<string, string | null>();
-    for (const c of (rows ?? []) as Array<{ id: string; connection_id: string; meta_campaign_id: string; meta_ad_id: string | null; status: string; end_at: string | null }>) {
+    for (const c of (rows ?? []) as Array<{ id: string; connection_id: string; meta_campaign_id: string; meta_ad_id: string | null; meta_ads: CreatedAd[] | null; status: string; end_at: string | null }>) {
       // Campagne terminée depuis plus de 3 jours : plus rien à lire.
       if (c.end_at && new Date(c.end_at).getTime() < Date.now() - 3 * 24 * 3600 * 1000 && c.status === "ended" && !opts.force) continue;
       if (!tokens.has(c.connection_id)) tokens.set(c.connection_id, await connToken(admin, c.connection_id));
@@ -501,8 +746,14 @@ export async function syncMetaInsights(admin: SupabaseClient, appSecret: string 
         if (days.length) {
           await admin.from("meta_insights_daily").upsert(days.map((d) => ({ campaign_id: c.id, ...d, synced_at: new Date().toISOString() })), { onConflict: "campaign_id,day" });
         }
-        const st = await campaignStatusInfo(c.meta_campaign_id, c.meta_ad_id, token, appSecret);
-        const patch: Record<string, unknown> = { last_synced_at: new Date().toISOString(), effective_status: st.effective, review_feedback: st.review };
+        const knownAds = Array.isArray(c.meta_ads) && c.meta_ads.length ? c.meta_ads : (c.meta_ad_id ? [{ index: 0, format: "image" as const, ad_id: c.meta_ad_id, creative_id: "" }] : []);
+        const st = await campaignStatusInfo(c.meta_campaign_id, knownAds.map((a) => a.ad_id), token, appSecret);
+        const adInsights = knownAds.length ? await campaignAdInsights(c.meta_campaign_id, token, appSecret) : [];
+        const patch: Record<string, unknown> = {
+          last_synced_at: new Date().toISOString(), effective_status: st.effective, review_feedback: st.review,
+          meta_ads: knownAds.map((a) => { const p = st.perAd.find((x) => x.ad_id === a.ad_id); return { ...a, effective_status: p?.effective_status ?? a.effective_status ?? null, review: p?.review ?? null }; }),
+          ad_insights: adInsights,
+        };
         if (st.effective?.startsWith("ACTIVE") && c.status === "paused") patch.status = "active";
         if (st.effective?.startsWith("PAUSED") && c.status === "active") patch.status = "paused";
         if (st.effective?.startsWith("ARCHIVED") || st.effective?.startsWith("DELETED")) patch.status = "archived";

@@ -19,9 +19,11 @@
 //   test          { scope, testEventCode }
 //   update        { scope, eventsEnabled?, clearTestCode? }
 //   disconnect    { scope }
-//   Publicité (phases 3-4) : ads_search_geo, ads_account_status, audience_create /
-//   audience_lookalike / audience_sync / audience_delete, campaign_create (toujours
-//   PAUSED), campaign_set_status / campaign_refresh / campaign_delete, leads_subscribe.
+//   Publicité (phases 3-4) : ads_search_geo, ads_search (intérêts / langues),
+//   ads_reach_estimate, ads_account_status, audience_create / audience_lookalike /
+//   audience_sync / audience_delete, campaign_create (toujours PAUSED ; une à six
+//   créations image / carrousel / vidéo = autant de pubs dans le même ensemble),
+//   campaign_set_status / campaign_refresh / campaign_delete, leads_subscribe.
 // Sans JWT (appelées par Meta) :
 //   GET  /oauth/callback?code&state
 //   POST /data-deletion   (signed_request)  → efface les connexions de ce compte Meta
@@ -39,7 +41,8 @@ import {
   PUBLIC_BASE as ADS_PUBLIC_BASE, searchGeo, createFullCampaign, setCampaignStatus, syncMetaInsights, syncMetaAudiences,
   processMetaLeads, pageAccessToken, pageInstagramAccount, subscribePageToLeads, adAccountInfo,
   webhookVerifyToken, verifyHubSignature, graphPost, ensureAppWebhookSubscription,
-  type CampaignTargeting, type CampaignCreative,
+  searchInterests, searchLocales, reachEstimate,
+  type CampaignTargeting, type CampaignCreative, type CampaignPlacements, type CreativeFormat,
 } from "../_shared/meta-ads.ts";
 import {
   readMetaAppConfig, signState, verifyState, safeReturnTo, buildDialogUrl,
@@ -619,6 +622,43 @@ Deno.serve(async (req) => {
       return json({ ok: true }, 200, cors);
     }
 
+    // ── Publicité : centres d'intérêt, langues, estimation d'audience ──────
+    if (action === "ads_search") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const existing = await findConnection(admin, scope);
+      if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
+      const token = await tokenOf(admin, existing.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const q = typeof body.q === "string" ? body.q.trim().slice(0, 60) : "";
+      if (q.length < 2) return json({ ok: true, results: [] }, 200, cors);
+      const locale = body.locale === "en" ? "en_GB" : body.locale === "es" ? "es_ES" : "fr_FR";
+      const results = body.type === "locale"
+        ? await searchLocales(q, token, cfg.appSecret)
+        : await searchInterests(q, locale, token, cfg.appSecret);
+      return json({ ok: true, results }, 200, cors);
+    }
+
+    if (action === "ads_reach_estimate") {
+      if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
+      const { data: c } = await admin.from("meta_connections").select("id, ad_account_id, vault_secret_id").eq("id", (await findConnection(admin, scope))?.id ?? "").maybeSingle();
+      const conn = c as { id: string; ad_account_id: string | null; vault_secret_id: string | null } | null;
+      if (!conn?.vault_secret_id || !conn.ad_account_id) return json({ error: "no_ad_account" }, 404, cors);
+      const token = await tokenOf(admin, conn.id);
+      if (!token) return json({ error: "token_missing" }, 500, cors);
+      const targeting = (body.targeting && typeof body.targeting === "object" ? body.targeting : {}) as CampaignTargeting;
+      const placements = (body.placements && typeof body.placements === "object" ? body.placements : {}) as CampaignPlacements;
+      // Les audiences Yuno sont converties en audiences Meta, comme à la création.
+      const mapAud = async (ids: unknown): Promise<string[]> => {
+        if (!Array.isArray(ids) || ids.length === 0) return [];
+        const { data: rows } = await admin.from("meta_audiences").select("meta_audience_id, status").in("id", ids.filter((x) => typeof x === "string")).eq("connection_id", conn.id);
+        return ((rows ?? []) as Array<{ meta_audience_id: string | null; status: string }>).filter((r) => r.meta_audience_id && r.status === "ready").map((r) => r.meta_audience_id!);
+      };
+      const est = await reachEstimate(conn.ad_account_id, {
+        ...targeting, audience_ids: await mapAud(targeting.audience_ids), exclude_audience_ids: await mapAud(targeting.exclude_audience_ids),
+      }, placements, token, cfg.appSecret);
+      return json({ ok: true, estimate: est }, 200, cors);
+    }
+
     // ── Publicité : campagnes ───────────────────────────────────────────────
     if (action === "campaign_create") {
       if (!cfg) return json({ error: "oauth_not_configured" }, 503, cors);
@@ -637,17 +677,66 @@ Deno.serve(async (req) => {
       const budgetCents = Math.round(Number(body.budgetCents));
       const startAt = typeof body.startAt === "string" ? new Date(body.startAt) : new Date();
       const endAt = typeof body.endAt === "string" ? new Date(body.endAt) : null;
-      const targeting = (body.targeting && typeof body.targeting === "object" ? body.targeting : {}) as CampaignTargeting;
-      const creativeIn = (body.creative && typeof body.creative === "object" ? body.creative : {}) as Partial<CampaignCreative>;
-      const placements = (body.placements && typeof body.placements === "object" ? body.placements : { facebook: true, instagram: true }) as { facebook?: boolean; instagram?: boolean };
+      const targetingIn = (body.targeting && typeof body.targeting === "object" ? body.targeting : {}) as CampaignTargeting;
+      const placements = (body.placements && typeof body.placements === "object" ? body.placements : { facebook: true, instagram: true }) as CampaignPlacements;
       if (!eventId || !name || !Number.isFinite(budgetCents) || budgetCents < 500) return json({ error: "invalid_campaign" }, 400, cors);
       if (Number.isNaN(startAt.getTime()) || (endAt && (Number.isNaN(endAt.getTime()) || endAt <= startAt))) return json({ error: "invalid_dates" }, 400, cors);
       if (budgetType === "lifetime" && !endAt) return json({ error: "invalid_dates" }, 400, cors);
-      if (!creativeIn.image_url || !/^https:\/\//.test(creativeIn.image_url)) return json({ error: "invalid_creative" }, 400, cors);
-      const headline = (creativeIn.headline ?? "").toString().trim().slice(0, 40);
-      const bodyText = (creativeIn.body ?? "").toString().trim().slice(0, 400);
-      if (!headline || !bodyText) return json({ error: "invalid_creative" }, 400, cors);
-      const cta = ["BUY_TICKETS", "LEARN_MORE", "BOOK_NOW", "SIGN_UP", "GET_OFFER"].includes(String(creativeIn.cta)) ? String(creativeIn.cta) : "LEARN_MORE";
+      if (placements.facebook === false && placements.instagram === false) return json({ error: "invalid_placements" }, 400, cors);
+
+      // Ciblage : on ne garde que ce qu'on sait envoyer à Meta, borné.
+      const isHttps = (u: unknown): u is string => typeof u === "string" && /^https:\/\/[^\s]+$/.test(u) && u.length <= 2000;
+      const targeting: CampaignTargeting = {
+        countries: Array.isArray(targetingIn.countries) ? targetingIn.countries.filter((x) => typeof x === "string" && /^[A-Z]{2}$/.test(x)).slice(0, 10) : [],
+        cities: Array.isArray(targetingIn.cities) ? targetingIn.cities.filter((x) => x && typeof x.key === "string" && typeof x.name === "string").slice(0, 25).map((x) => ({ key: x.key, name: String(x.name).slice(0, 80), radius_km: Number(x.radius_km) || 25, type: x.type === "region" ? "region" : "city" })) : [],
+        age_min: Math.max(18, Math.min(65, Math.round(Number(targetingIn.age_min) || 18))),
+        age_max: Math.max(18, Math.min(65, Math.round(Number(targetingIn.age_max) || 40))),
+        genders: Array.isArray(targetingIn.genders) ? targetingIn.genders.filter((g) => g === 1 || g === 2).slice(0, 1) : [],
+        audience_ids: Array.isArray(targetingIn.audience_ids) ? targetingIn.audience_ids.filter((x) => typeof x === "string") : [],
+        exclude_audience_ids: Array.isArray(targetingIn.exclude_audience_ids) ? targetingIn.exclude_audience_ids.filter((x) => typeof x === "string") : [],
+        interests: Array.isArray(targetingIn.interests) ? targetingIn.interests.filter((i) => i && /^[0-9]{3,30}$/.test(String(i.id))).slice(0, 25).map((i) => ({ id: String(i.id), name: String(i.name ?? "").slice(0, 80) })) : [],
+        locales: Array.isArray(targetingIn.locales) ? targetingIn.locales.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 50) : [],
+        audience_mode: targetingIn.audience_mode === "full" || targetingIn.audience_mode === "strict" ? targetingIn.audience_mode : "relaxed",
+        advantage: targetingIn.audience_mode !== "strict",
+      };
+      if (targeting.age_max! < targeting.age_min!) return json({ error: "invalid_targeting" }, 400, cors);
+
+      // Créations : de une à six. `creatives[]` est la forme actuelle ; `creative`
+      // (une image) reste acceptée pour les anciens appelants.
+      const CTAS = ["BUY_TICKETS", "LEARN_MORE", "BOOK_NOW", "SIGN_UP", "GET_OFFER"];
+      const rawCreatives: unknown[] = Array.isArray(body.creatives) ? body.creatives
+        : (body.creative && typeof body.creative === "object" ? [{ format: "image", media: [{ kind: "image", url: (body.creative as { image_url?: string }).image_url }], ...(body.creative as object) }] : []);
+      const creatives: Array<Omit<CampaignCreative, "link">> = [];
+      for (const raw of rawCreatives.slice(0, 6)) {
+        const cr = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+        const format: CreativeFormat = cr.format === "carousel" ? "carousel" : cr.format === "video" ? "video" : "image";
+        const mediaIn = Array.isArray(cr.media) ? cr.media : [];
+        const media = mediaIn.map((m) => (m && typeof m === "object" ? m : {}) as Record<string, unknown>)
+          .filter((m) => isHttps(m.url))
+          .map((m) => ({
+            url: m.url as string,
+            kind: m.kind === "video" ? "video" as const : "image" as const,
+            thumbnail_url: isHttps(m.thumbnail_url) ? m.thumbnail_url : null,
+            headline: typeof m.headline === "string" && m.headline.trim() ? m.headline.trim().slice(0, 40) : null,
+            description: typeof m.description === "string" && m.description.trim() ? m.description.trim().slice(0, 120) : null,
+          }));
+        const headline = String(cr.headline ?? "").trim().slice(0, 40);
+        const bodyText = String(cr.body ?? "").trim().slice(0, 500);
+        const description = typeof cr.description === "string" && cr.description.trim() ? cr.description.trim().slice(0, 120) : null;
+        const cta = CTAS.includes(String(cr.cta)) ? String(cr.cta) : "LEARN_MORE";
+        if (!headline || !bodyText) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_text` }, 400, cors);
+        const images = media.filter((m) => m.kind === "image");
+        const videos = media.filter((m) => m.kind === "video");
+        if (format === "image" && images.length < 1) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_image` }, 400, cors);
+        if (format === "carousel" && (images.length < 2 || images.length > 10)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_carousel` }, 400, cors);
+        if (format === "video" && (videos.length < 1 || !videos[0].thumbnail_url)) return json({ error: "invalid_creative", detail: `creative_${creatives.length + 1}_video` }, 400, cors);
+        creatives.push({
+          format,
+          media: format === "image" ? [images[0]] : format === "carousel" ? images.slice(0, 10) : [videos[0]],
+          headline, body: bodyText, cta, description,
+        });
+      }
+      if (creatives.length === 0) return json({ error: "invalid_creative" }, 400, cors);
 
       // La soirée doit appartenir à la portée.
       const { data: ev } = await admin.from("events").select("id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id").eq("id", eventId).maybeSingle();
@@ -656,26 +745,24 @@ Deno.serve(async (req) => {
       if (!inScope) return json({ error: "event_out_of_scope" }, 400, cors);
 
       // Audiences : ids Yuno → ids Meta, restreints à cette connexion.
-      const mapAud = async (ids: unknown): Promise<string[]> => {
-        if (!Array.isArray(ids) || ids.length === 0) return [];
-        const { data: rows } = await admin.from("meta_audiences").select("id, meta_audience_id, status").in("id", ids.filter((x) => typeof x === "string")).eq("connection_id", conn.id);
+      const mapAud = async (ids: string[]): Promise<string[]> => {
+        if (ids.length === 0) return [];
+        const { data: rows } = await admin.from("meta_audiences").select("id, meta_audience_id, status").in("id", ids).eq("connection_id", conn.id);
         return ((rows ?? []) as Array<{ meta_audience_id: string | null; status: string }>).filter((r) => r.meta_audience_id && r.status === "ready").map((r) => r.meta_audience_id!);
       };
-      const yunoAudienceIds = Array.isArray(targeting.audience_ids) ? targeting.audience_ids : [];
-      const yunoExcludeIds = Array.isArray(targeting.exclude_audience_ids) ? targeting.exclude_audience_ids : [];
       const metaTargeting: CampaignTargeting = {
         ...targeting,
-        audience_ids: await mapAud(yunoAudienceIds),
-        exclude_audience_ids: await mapAud(yunoExcludeIds),
+        audience_ids: await mapAud(targeting.audience_ids ?? []),
+        exclude_audience_ids: await mapAud(targeting.exclude_audience_ids ?? []),
       };
 
+      const firstImage = (cr: Omit<CampaignCreative, "link">) => cr.media.find((m) => m.kind === "image")?.url ?? cr.media[0]?.thumbnail_url ?? cr.media[0]?.url ?? "";
+      const legacyCreative = { image_url: firstImage(creatives[0]), headline: creatives[0].headline, body: creatives[0].body, cta: creatives[0].cta, description: creatives[0].description ?? null };
       const { data: inserted, error: insErr } = await admin.from("meta_campaigns").insert({
         connection_id: conn.id, venue_id: conn.venue_id, organizer_user_id: conn.organizer_user_id, event_id: eventId,
         name, objective, status: "creating", budget_type: budgetType, budget_cents: budgetCents,
         start_at: startAt.toISOString(), end_at: endAt ? endAt.toISOString() : null,
-        targeting: { ...targeting, audience_ids: yunoAudienceIds, exclude_audience_ids: yunoExcludeIds },
-        creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, description: creativeIn.description ?? null },
-        placements, created_by: user.id,
+        targeting, creative: legacyCreative, creatives, placements, created_by: user.id,
       }).select("id").single();
       if (insErr || !inserted) return json({ error: "insert_failed", detail: insErr?.message ?? null }, 500, cors);
       const campaignRowId = inserted.id as string;
@@ -699,14 +786,16 @@ Deno.serve(async (req) => {
         adAccountId: conn.ad_account_id, pageId: conn.page_id, instagramActorId: igActor, pixelId: conn.pixel_id,
         name, objective, budgetType, budgetCents, startAt: startAt.toISOString(), endAt: endAt ? endAt.toISOString() : null,
         targeting: metaTargeting,
-        creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, link, description: creativeIn.description ? String(creativeIn.description).slice(0, 120) : undefined },
+        creatives: creatives.map((cr) => ({ ...cr, link })),
         placements, dsaBeneficiary: dsa, dsaPayor: dsa,
       }, token, cfg.appSecret);
 
       const patch: Record<string, unknown> = {
         meta_campaign_id: result.campaignId ?? null, meta_adset_id: result.adsetId ?? null,
-        meta_creative_id: result.creativeId ?? null, meta_ad_id: result.adId ?? null, meta_image_hash: result.imageHash ?? null,
-        creative: { image_url: creativeIn.image_url, headline, body: bodyText, cta, link, description: creativeIn.description ?? null },
+        meta_creative_id: result.ads[0]?.creative_id ?? null, meta_ad_id: result.ads[0]?.ad_id ?? null,
+        meta_ads: result.ads,
+        creative: { ...legacyCreative, link },
+        creatives: creatives.map((cr) => ({ ...cr, link })),
       };
       // Toujours en pause à la création : l'activation est un clic séparé et
       // confirmé du pro (`campaign_set_status`). Aucun chemin ne dépense sans lui.
@@ -716,7 +805,7 @@ Deno.serve(async (req) => {
         patch.status = "error"; patch.last_error = `${result.step ?? "?"}: ${result.error ?? "unknown"}`.slice(0, 500);
       }
       await admin.from("meta_campaigns").update(patch).eq("id", campaignRowId);
-      return json({ ok: result.ok, campaignId: campaignRowId, status: patch.status, error: result.ok ? null : patch.last_error }, 200, cors);
+      return json({ ok: result.ok, campaignId: campaignRowId, status: patch.status, error: result.ok ? null : patch.last_error, step: result.ok ? null : (result.step ?? null) }, 200, cors);
     }
 
     if (action === "campaign_set_status" || action === "campaign_refresh" || action === "campaign_delete") {
@@ -724,8 +813,8 @@ Deno.serve(async (req) => {
       const existing = await findConnection(admin, scope);
       if (!existing?.vault_secret_id) return json({ error: "not_connected" }, 404, cors);
       const id = typeof body.campaignId === "string" ? body.campaignId : "";
-      const { data: row } = await admin.from("meta_campaigns").select("id, meta_campaign_id, meta_adset_id, meta_ad_id, status").eq("id", id).eq("connection_id", existing.id).maybeSingle();
-      const camp = row as { id: string; meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; status: string } | null;
+      const { data: row } = await admin.from("meta_campaigns").select("id, meta_campaign_id, meta_adset_id, meta_ad_id, meta_ads, status").eq("id", id).eq("connection_id", existing.id).maybeSingle();
+      const camp = row as { id: string; meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; meta_ads: Array<{ ad_id: string }> | null; status: string } | null;
       if (!camp) return json({ error: "not_found" }, 404, cors);
       const token = await tokenOf(admin, existing.id);
       if (!token) return json({ error: "token_missing" }, 500, cors);
@@ -740,7 +829,8 @@ Deno.serve(async (req) => {
       }
       const wanted = body.status === "active" ? "ACTIVE" : body.status === "archived" ? "ARCHIVED" : "PAUSED";
       if (!camp.meta_campaign_id) return json({ error: "not_on_meta" }, 400, cors);
-      const r = await setCampaignStatus({ campaignId: camp.meta_campaign_id, adsetId: camp.meta_adset_id, adId: camp.meta_ad_id }, wanted, token, cfg.appSecret);
+      const adIds = Array.isArray(camp.meta_ads) && camp.meta_ads.length ? camp.meta_ads.map((a) => a.ad_id) : (camp.meta_ad_id ? [camp.meta_ad_id] : []);
+      const r = await setCampaignStatus({ campaignId: camp.meta_campaign_id, adsetId: camp.meta_adset_id, adIds }, wanted, token, cfg.appSecret);
       if (!r.ok) {
         await admin.from("meta_campaigns").update({ last_error: r.error ?? null }).eq("id", camp.id);
         return json({ error: "meta_error", detail: r.error ?? null }, 502, cors);
