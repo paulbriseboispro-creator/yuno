@@ -345,7 +345,28 @@ Deno.serve(async (req) => {
       } else {
         health.note = "oauth_not_configured";
       }
-      await admin.from("meta_connections").update({ last_health: health, last_health_at: new Date().toISOString() }).eq("id", existing.id);
+      // « Check now » relit aussi les ACTIFS, et c'est la moitié utile du
+      // bouton : la liste écrite à la connexion ne bougeait plus jamais. Un
+      // Instagram relié à la Page le lendemain, une Page ou un pixel créés
+      // depuis, n'existaient nulle part pour Yuno — le pro voyait « aucun
+      // compte Instagram » devant une Page qui en affichait un chez Meta.
+      // Le choix du pro est conservé tant qu'il figure encore dans les actifs
+      // autorisés ; le pixel n'est jamais changé ici, il porte la vérification.
+      const assetPatch: Record<string, unknown> = {};
+      if (cfg) {
+        const disc = await discoverAssets(token, cfg.appSecret);
+        if (disc.ok) {
+          const a = disc.assets;
+          const pageId = keep(existing.page_id, a.pages) ?? (a.pages.length === 1 ? a.pages[0].id : null);
+          assetPatch.assets = a;
+          assetPatch.token_kind = disc.kind;
+          assetPatch.page_id = pageId;
+          assetPatch.ad_account_id = keep(existing.ad_account_id, a.ad_accounts) ?? (a.ad_accounts.length === 1 ? a.ad_accounts[0].id : null);
+          assetPatch.ig_user_id = pageId ? (a.instagram?.find((i) => i.page_id === pageId)?.id ?? null) : null;
+          health.assets_refreshed_at = new Date().toISOString();
+        }
+      }
+      await admin.from("meta_connections").update({ ...assetPatch, last_health: health, last_health_at: new Date().toISOString() }).eq("id", existing.id);
       return json({ ok: true, health }, 200, cors);
     }
 
