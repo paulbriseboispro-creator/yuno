@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { ArrowLeft, Bell, User, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,15 @@ export default function EventWaitlistPage() {
   const { eventId, basePath, resolving } = useEventRoute();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
+
+  // La fiche soirée garde son bundle 5 minutes en cache (staleTime global).
+  // Sans cette invalidation, quelqu'un qui vient de s'inscrire repartait sur
+  // une page qui lui reproposait « Être notifié à la mise en vente » — et il
+  // recliquait, sans jamais savoir qu'il était déjà inscrit.
+  const markEventStale = () => {
+    if (eventId) queryClient.invalidateQueries({ queryKey: ['event-details', eventId] });
+  };
 
   const [eventTitle, setEventTitle] = useState('');
   const [loading, setLoading] = useState(true);
@@ -91,6 +101,7 @@ export default function EventWaitlistPage() {
               .eq('id', existing.id);
           }
           setRegistered(true);
+          markEventStale();
           const { count } = await supabase
             .from('event_waitlist')
             .select('*', { count: 'exact', head: true })
@@ -127,6 +138,7 @@ export default function EventWaitlistPage() {
         if (error.code === '23505') {
           toast.info(t('waitlist.alreadyRegistered'));
           setRegistered(true);
+          markEventStale();
           return;
         }
         throw error;
@@ -138,6 +150,7 @@ export default function EventWaitlistPage() {
         .eq('event_id', eventId!);
       setPosition(count || 1);
       setRegistered(true);
+      markEventStale();
       toast.success(t('waitlist.registered'));
 
       // Send confirmation email (fire-and-forget)
@@ -175,12 +188,14 @@ export default function EventWaitlistPage() {
         if (error.code === '23505') {
           toast.info(t('waitlist.alreadyRegistered'));
           setRegistered(true);
+          markEventStale();
           return;
         }
         throw error;
       }
 
       setRegistered(true);
+      markEventStale();
       toast.success(t('waitlist.registered'));
 
       // Confirmation email (fire-and-forget)

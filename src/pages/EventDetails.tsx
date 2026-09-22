@@ -93,6 +93,11 @@ export default function EventDetails() {
   }, [loading]);
 
   const [hasPresaleAccess, setHasPresaleAccess] = useState(false);
+  // Déjà inscrit à la liste d'attente de CETTE soirée. À distinguer de
+  // `hasPresaleAccess`, qu'un simple `?ref=` promoteur suffit à ouvrir : sans
+  // cette distinction, un lien promoteur annonçait « tu es sur la liste » à
+  // quelqu'un qui n'y est pas, et une inscription réelle restait invisible.
+  const [isOnWaitlist, setIsOnWaitlist] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [djs, setDjs] = useState<EventDJ[]>([]);
   const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
@@ -363,10 +368,16 @@ export default function EventDetails() {
         eventSettingsData?.preset_id
           ? supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).maybeSingle()
           : Promise.resolve({ data: null }),
-        // Accès prévente : ref promo dans l'URL OU inscription waitlist (compte/email).
-        !searchParams.get('ref') && user
+        // Inscription waitlist (compte ou email). Elle est lue MÊME avec un
+        // `?ref=` dans l'URL : le ref ouvre la prévente, il ne dit pas si la
+        // personne est déjà inscrite — et c'est cette réponse-là que la barre
+        // du bas doit donner. `limit(1)` parce qu'une même personne peut
+        // porter deux lignes (inscription invitée par email, puis compte) :
+        // `maybeSingle()` seul renvoyait alors une erreur, donc « pas inscrit ».
+        user
           ? supabase.from('event_waitlist').select('id').eq('event_id', eventId!)
               .or([`user_id.eq.${user.id}`, ...(user.email ? [`email.eq.${user.email.toLowerCase().trim()}`] : [])].join(','))
+              .limit(1)
               .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
@@ -482,6 +493,7 @@ export default function EventDetails() {
         });
       }
 
+      setIsOnWaitlist(!!waitlistRes.data);
       setHasPresaleAccess(!!searchParams.get('ref') || !!waitlistRes.data);
 
       // ── Billets ──
@@ -1367,17 +1379,27 @@ export default function EventDetails() {
                     </p>
                   )}
                 </div>
+                {/* Déjà inscrit : la carte le dit à la place de reproposer
+                    l'inscription. Le bouton reste un lien vers la page liste
+                    d'attente, il ne promet plus une action déjà faite. */}
                 <button
                   onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
                   className="shrink-0 font-mono font-semibold uppercase inline-flex items-center gap-2"
-                  style={{ height: 40, padding: '0 16px', background: 'transparent', color: '#9A9A9A', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 3, fontSize: '10px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                  style={{ height: 40, padding: '0 16px', background: 'transparent', color: isOnWaitlist ? '#FFFFFF' : '#9A9A9A', border: `1px solid ${isOnWaitlist ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 3, fontSize: '10px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                   onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onMouseUp={(e) => (e.currentTarget.style.transform = '')}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
                   onTouchStart={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onTouchEnd={(e) => (e.currentTarget.style.transform = '')}
                 >
-                  S'inscrire
+                  {isOnWaitlist ? (
+                    <>
+                      <UserCheck className="h-3 w-3 shrink-0" />
+                      {t('waitlist.youAreOnWaitlist')}
+                    </>
+                  ) : (
+                    t('waitlist.joinButton')
+                  )}
                 </button>
               </div>
             </div>
@@ -1730,15 +1752,19 @@ export default function EventDetails() {
       {/* ── STICKY CHECKOUT FOOTER (système actuel conservé) ── */}
       {(() => {
         if (eventSalesStatus === 'coming_soon' || (eventSalesStatus === 'presale' && !hasPresaleAccess)) {
-          if (hasPresaleAccess) {
+          if (isOnWaitlist) {
             return (
               <StickyCheckoutFooter
                 amount={0}
                 label=""
                 buttonText={t('waitlist.youAreOnWaitlist')}
                 icon={<UserCheck className="h-4 w-4" />}
-                disabled
-                onClick={() => {}}
+                // Barre d'état, pas d'appel à l'action : surface neutre, jamais
+                // le rouge d'un achat. Elle reste tapable et mène à la page
+                // liste d'attente (rang, désinscription) — une barre morte
+                // laisse croire que l'écran a gelé.
+                accentColor="#1F1F22"
+                onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
               />
             );
           }
