@@ -22,6 +22,8 @@ export interface PromoterProfile {
   organizer_user_id?: string | null;
   agency_id?: string | null;
   promo_code: string;
+  first_name?: string | null;
+  last_name?: string | null;
   is_active: boolean;
   iban: string | null;
   bic: string | null;

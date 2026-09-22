@@ -1,35 +1,35 @@
 "use client";
 
-import { Link } from "react-router-dom";
 import {
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
-	SidebarHeader,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { NavGroup } from "@/components/nav-group";
+import { SidebarIdentity } from "@/components/sidebar-identity";
 import { buildFooterNavLinks, buildNavGroups } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useOwnerVenueContext } from "@/contexts/OwnerVenueContext";
 import { useMetaIntegrationLive } from "@/lib/metaIntegration";
 
 export function AppSidebar() {
 	const { t } = useLanguage();
+	const { venue } = useOwnerVenueContext();
 	const metaLive = useMetaIntegrationLive();
 	const navGroups = buildNavGroups(t, metaLive);
 	const footerNavLinks = buildFooterNavLinks(t);
 
 	return (
 		<Sidebar collapsible="icon" variant="floating">
-			<SidebarHeader className="h-14 justify-center">
-				<SidebarMenuButton asChild>
-					<Link to="/owner/dashboard">
-						<img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
-					</Link>
-				</SidebarMenuButton>
-			</SidebarHeader>
+			<SidebarIdentity
+				to="/owner/dashboard"
+				name={venue?.name}
+				logoUrl={venue?.logoUrl}
+				subtitle={`${t('sidebar.space.club')}${venue?.city ? ` · ${venue.city}` : ''}`}
+			/>
 			<SidebarContent>
 				{navGroups.map((group, index) => (
 					<NavGroup key={`sidebar-group-${index}`} {...group} />

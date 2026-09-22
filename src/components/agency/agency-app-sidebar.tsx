@@ -3,7 +3,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -19,7 +18,7 @@ import {
   Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send, Store,
   Radio, BellRing,
 } from 'lucide-react';
-import { Wordmark } from '@/components/brand/Wordmark';
+import { SidebarIdentity } from '@/components/sidebar-identity';
 
 export interface AgencyIdentity {
   name: string;
@@ -112,29 +111,12 @@ export function AgencyAppSidebar({ agency }: { agency: AgencyIdentity | null }) 
 
   return (
     <Sidebar collapsible="icon" variant="floating">
-      <SidebarHeader className="h-14 justify-center">
-        <SidebarMenuButton asChild>
-          <Link to="/agency-app" className="gap-2.5">
-            {agency?.logo_url ? (
-              <img src={agency.logo_url} alt={agency.name} className="size-8 rounded-lg shrink-0 object-cover" />
-            ) : (
-              <img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
-            )}
-            <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              {agency?.name ? (
-                <span className="truncate text-sm font-black tracking-wide" style={{ color: '#E8192C' }}>
-                  {agency.name}
-                </span>
-              ) : (
-                <Wordmark height={14} tone="red" />
-              )}
-              <span className="text-[10px] text-muted-foreground -mt-0.5">
-                {t('agc.role.label')}{agency?.city ? ` · ${agency.city}` : ''}
-              </span>
-            </div>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarHeader>
+      <SidebarIdentity
+        to="/agency-app"
+        name={agency?.name}
+        logoUrl={agency?.logo_url}
+        subtitle={`${t('agc.role.label')}${agency?.city ? ` · ${agency.city}` : ''}`}
+      />
 
       <SidebarContent>
         {groups.map((group, i) => (

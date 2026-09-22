@@ -5,12 +5,12 @@ import {
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
-	SidebarHeader,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { NavGroup } from "@/components/nav-group";
+import { SidebarIdentity } from "@/components/sidebar-identity";
 import type { SidebarNavGroup, SidebarNavItem } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translate } from '@/i18n/orgTranslate';
@@ -328,19 +328,18 @@ export function OrgAppSidebar() {
 	const { language, t } = useLanguage();
 	const tt: TT = (fr, en, es) => translate(language, fr, en, es);
 	const metaLive = useMetaIntegrationLive();
-	const { can } = useActingOrganizer();
+	const { can, organizationName, organizationLogoUrl } = useActingOrganizer();
 	const navGroups = filterNavGroups(buildOrgNavGroups(tt, t, metaLive), can);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (
 		<Sidebar collapsible="icon" variant="floating">
-			<SidebarHeader className="h-14 justify-center">
-				<SidebarMenuButton asChild>
-					<Link to="/organizer-app">
-						<img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
-					</Link>
-				</SidebarMenuButton>
-			</SidebarHeader>
+			<SidebarIdentity
+				to="/organizer-app"
+				name={organizationName}
+				logoUrl={organizationLogoUrl}
+				subtitle={t('sidebar.space.organizer')}
+			/>
 			<SidebarContent>
 				{navGroups.map((group, index) => (
 					<NavGroup key={`org-sidebar-group-${index}`} {...group} />

@@ -3,7 +3,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -19,7 +18,7 @@ import {
   LayoutDashboard, CalendarDays, Link2, ListTree, ClipboardList, ScanLine,
   Wallet, Users, User, LogOut, Activity,
 } from 'lucide-react';
-import { Wordmark } from '@/components/brand/Wordmark';
+import { SidebarIdentity } from '@/components/sidebar-identity';
 
 /**
  * Sidebar de l'espace promoteur — même architecture que dj-app-sidebar. Les
@@ -30,7 +29,12 @@ export function PromoterAppSidebar() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { canScan, hasGuestListAccess, teamInfo } = usePromoterData();
+  const { canScan, hasGuestListAccess, teamInfo, promoter, scopeName } = usePromoterData();
+  // Le promoteur se présente par son nom quand il l'a renseigné, sinon par
+  // son code — c'est ainsi que ses clients le connaissent.
+  const promoterName = promoter
+    ? ([promoter.first_name, promoter.last_name].filter(Boolean).join(' ').trim() || `@${promoter.promo_code}`)
+    : null;
 
   const activityItems: SidebarNavItem[] = [
     { title: t('promoter.linktreeTab'), path: '/promoter/linktree', icon: <ListTree /> },
@@ -76,17 +80,12 @@ export function PromoterAppSidebar() {
     // Même tiroir mobile que l'app DJ : 15rem de large, panneau flottant détaché
     // des bords (mobileInset) pour ne pas recouvrir la barre de statut.
     <Sidebar collapsible="icon" variant="floating" mobileWidth="min(15rem, 78vw)" mobileInset>
-      <SidebarHeader className="h-14 justify-center">
-        <SidebarMenuButton asChild>
-          <Link to="/promoter" className="gap-2.5">
-            <img src="/yuno-icon-192.png" alt="Yuno" className="size-8 rounded-lg shrink-0" />
-            <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <Wordmark height={14} tone="red" />
-              <span className="text-[10px] text-muted-foreground -mt-0.5">{tt('Espace Promoteur', 'Promoter Space', 'Espacio Promotor')}</span>
-            </div>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarHeader>
+      <SidebarIdentity
+        to="/promoter"
+        name={promoterName}
+        logoUrl={promoter?.profile_image_url}
+        subtitle={`${t('sidebar.space.promoter')} · ${scopeName}`}
+      />
 
       <SidebarContent>
         {groups.map((group, i) => (
