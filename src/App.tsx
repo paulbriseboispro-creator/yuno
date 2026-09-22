@@ -764,6 +764,8 @@ const App = () => (
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
                   <Route path="settings" element={<OrgAppRoute requires="manageOrganization"><OrgAppPayments /></OrgAppRoute>} />
                   <Route path="help" element={<OrganizerHelpCenter />} />
+                  {/* Formulaire de support — même page que le club, sans club (venue_id NULL) */}
+                  <Route path="support" element={<OwnerSupportRequest />} />
                   {/* Organizer inbox — same scope-aware page as /owner/notifications */}
                   <Route path="notifications" element={<OwnerNotifications />} />
                   {/* Help center "back" target — org dashboard is the index route */}
