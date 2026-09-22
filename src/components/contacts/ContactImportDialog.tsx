@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
+import { actionFmt } from '@/components/action/tokens';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -154,6 +156,7 @@ function errMsg(e: unknown): string {
 
 export default function ContactImportDialog({ open, onClose, scope, mode = 'import', onChanged, basePath }: Props) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [raw, setRaw] = useState('');
@@ -172,6 +175,13 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
   const [listImportId, setListImportId] = useState<string | null>(null);
   const [check, setCheck] = useState<ImportCheck | null>(null);
   const [phase, setPhase] = useState<'form' | 'verdict' | 'report' | 'segments'>('form');
+  // Écran d'import : `runStage` compte les étapes RÉELLEMENT franchies
+  // (fichier lu → doublons vérifiés → contacts envoyés → listes fusionnées) et
+  // `runSent` suit le nombre de lignes réellement acceptées par le serveur.
+  const [runOpen, setRunOpen] = useState(false);
+  const [runStage, setRunStage] = useState(0);
+  const [runSent, setRunSent] = useState(0);
+  const [runTotals, setRunTotals] = useState<ImportTotals | null>(null);
 
   const country = IMPORT_COUNTRIES.find((c) => c.code === countryCode) ?? IMPORT_COUNTRIES[0];
   const parsed: ContactParseResult | null = useMemo(() => (raw.trim() ? parseContactFile(raw, country) : null), [raw, country]);
@@ -180,6 +190,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
     setRaw(''); setFilename(null); setListName(''); setWantEmail(true); setWantSms(true);
     setConsentSource(''); setConsentDetails(''); setCollectedSince(''); setAttested(false);
     setBusy(false); setProgress(0); setTotals(null); setListImportId(null); setCheck(null); setPhase('form');
+    setRunOpen(false); setRunStage(0); setRunSent(0); setRunTotals(null);
   }, []);
   const close = useCallback(() => { if (!busy) { reset(); onClose(); } }, [busy, reset, onClose]);
 
@@ -227,6 +238,9 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
   const doImport = useCallback(async (importMode: 'append' | 'merge') => {
     if (!parsed) return;
     setBusy(true); setProgress(0);
+    // Le fichier est lu et les doublons vérifiés avant d'arriver ici : l'écran
+    // s'ouvre donc sur sa troisième étape, les deux premières déjà cochées.
+    setRunSent(0); setRunTotals(null); setRunStage(2); setRunOpen(true);
     const chunks = chunkRows(parsed.rows, CHUNK);
     const tot: ImportTotals = {
       submitted: 0, rows: 0, invalid: parsed.invalid.length, duplicates: parsed.duplicates,
@@ -279,14 +293,24 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
           tot.merged += (absorbed.retired_email_lists?.length ?? 0) + (absorbed.retired_sms_lists?.length ?? 0);
         }
         setProgress(Math.round(((i + 1) / chunks.length) * 100));
+        // Le compteur de l'écran suit les lignes ACCEPTÉES par le serveur,
+        // jamais l'horloge : c'est lui qui dit au pro où en est son fichier.
+        setRunSent(Math.min(parsed.rows.length, (i + 1) * CHUNK));
       }
+      setRunStage(3); // tous les lots sont partis
       setTotals(tot);
       setListImportId(importId);
       setPhase('report');
       onChanged?.();
+      // Le dernier lot porte l'empreinte et la fusion : elle est acquise.
+      setRunTotals(tot);
+      setRunStage(4);
       toast.success(t('cimp.done').replace('{n}', String(tot.rows)));
     } catch (e) {
       const msg = errMsg(e);
+      // L'écran se retire : un compteur figé par-dessus un message d'erreur ne
+      // dirait rien à personne.
+      setRunOpen(false);
       toast.error(msg.includes('support') ? t('em.import.errSupport') : msg);
     } finally {
       setBusy(false);
@@ -304,15 +328,43 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
     setBusy(true);
     const verdict = await runCheck();
     setBusy(false);
+    // Un vrai doublon ou une liste recouverte : on rend la main au pro avant
+    // d'écrire quoi que ce soit — l'écran d'import n'a pas encore à s'ouvrir.
     if (verdict && needsDecision(verdict)) { setCheck(verdict); setPhase('verdict'); return; }
     await doImport('append');
   }, [parsed, canImport, runCheck, doImport, t]);
 
   const isAnalyze = phase === 'segments';
 
+  const runSteps = useMemo<ActionStep[]>(() => [
+    { key: 's1', label: t('owner.importrun.s1'), seconds: 0.9 },
+    { key: 's2', label: t('owner.importrun.s2'), seconds: 1.2 },
+    { key: 's3', label: t('owner.importrun.s3'), seconds: 2.6, total: parsed?.rows.length, value: runSent },
+    { key: 's4', label: t('owner.importrun.s4'), seconds: 1.0 },
+  ], [t, parsed, runSent]);
+
+  const emailsKept = runTotals ? runTotals.emailsAdded + runTotals.emailsUnchanged : 0;
+  const phonesKept = runTotals ? runTotals.phonesAdded + runTotals.phonesUnchanged : 0;
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      {/* Le dialogue ne défile plus lui-même : c'est son contenu qui défile,
+          pour que l'écran d'import (`absolute; inset: 0`) recouvre la carte
+          visible et non toute la hauteur du formulaire déroulé. Ne JAMAIS y
+          ajouter `position: relative` en inline : la classe de base est
+          `fixed left-[50%] top-[50%]`, un style inline gagne contre une classe
+          et le dialogue retomberait dans le flux de la page. */}
+      <DialogContent
+        className="max-h-[90vh] max-w-2xl"
+        data-action-busy={runOpen && runStage < 4 ? '1' : undefined}
+        style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
+      <div className="flex-1 min-h-0 overflow-y-auto" style={{
+        transition: 'filter .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1), opacity .5s ease',
+        filter: runOpen ? 'blur(10px)' : 'none',
+        transform: runOpen ? 'scale(.98)' : 'none',
+        opacity: runOpen ? 0.4 : 1,
+      }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isAnalyze ? <Sparkles className="h-4 w-4" style={{ color: '#E8192C' }} /> : <Upload className="h-4 w-4" />}
@@ -519,6 +571,35 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
             </div>
           </div>
         )}
+      </div>
+      <ActionOverlay
+        open={runOpen}
+        stage={runStage}
+        steps={runSteps}
+        kicker={[t('owner.importrun.kicker'), t('owner.importrun.kickerDone')]}
+        title={[t('owner.importrun.title'), t('owner.importrun.titleDone')]}
+        finalWord={t('owner.importrun.final')}
+        primaryLabel={basePath ? t('owner.importrun.seeBase') : undefined}
+        onPrimary={basePath ? () => { setRunOpen(false); onClose(); navigate(`${basePath}/contacts`); } : undefined}
+        onClose={() => setRunOpen(false)}
+        done={runTotals ? (
+          <ActionResultCard kicker={t('owner.importrun.cardKicker')}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 9 }}>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 36, lineHeight: .86, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums' }}>
+                {actionFmt(runTotals.rows)}
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: '#9A9A9A', paddingBottom: 4 }}>
+                {t('owner.importrun.contacts')}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: '#9A9A9A', fontVariantNumeric: 'tabular-nums', marginTop: -5 }}>
+              {emailsKept > 0 && <div>{actionFmt(emailsKept)} {t('owner.importrun.emails')}</div>}
+              {phonesKept > 0 && <div>{actionFmt(phonesKept)} {t('owner.importrun.phones')}</div>}
+              {runTotals.merged > 0 && <div>{actionFmt(runTotals.merged)} {t('owner.importrun.merged')}</div>}
+            </div>
+          </ActionResultCard>
+        ) : null}
+      />
       </DialogContent>
     </Dialog>
   );
