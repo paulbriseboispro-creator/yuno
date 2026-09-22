@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { invalidateOrgMemberships } from '@/hooks/useActingOrganizer';
+import { invalidateOrgMemberships, rememberActingOrganizer } from '@/hooks/useActingOrganizer';
 import { CheckCircle2, XCircle, Loader2, LogIn, Mail, UserCog, ArrowRight } from 'lucide-react';
 
 /**
@@ -216,6 +216,7 @@ export default function AcceptOrgMember() {
       const { data, error } = await invokeEdgeFunction<{
         success?: boolean; error?: string; code?: string;
         account_created?: boolean; password_reset_sent?: boolean;
+        organizer_user_id?: string;
       }>('accept-org-member', {
         body: { action: 'accept', token, first_name: firstName || undefined, last_name: lastName || undefined },
         headers: Object.keys(headers).length > 0 ? headers : undefined,
@@ -230,6 +231,9 @@ export default function AcceptOrgMember() {
       // cette invalidation, la personne arrive dans l'app et se fait renvoyer
       // sur l'accueil par une garde qui la croit encore sans organisation.
       invalidateOrgMemberships();
+      // C'est CETTE organisation que la personne vient d'accepter : l'app doit
+      // s'ouvrir dessus, pas sur la première d'une liste.
+      if (data?.organizer_user_id) rememberActingOrganizer(data.organizer_user_id);
       setResult({
         success: true,
         accountCreated: !!data?.account_created,
@@ -313,18 +317,42 @@ export default function AcceptOrgMember() {
   }
 
   // ── Invitation close ou périmée ────────────────────────────────────────────
+  // Une invitation ACCEPTÉE reste un lien qui circule : le titulaire le rouvre
+  // depuis un autre appareil, ou quelqu'un d'autre l'ouvre. La page ne dit
+  // « tu fais déjà partie de l'équipe » qu'à la personne connectée avec le
+  // compte invité ; déconnecté, elle demande de se connecter, et sur un autre
+  // compte, de changer de compte. L'accès lui-même n'a jamais dépendu de cet
+  // écran (la garde de l'app exige une session ET une appartenance), mais un
+  // « Ouvrir le dashboard » servi à un inconnu laissait croire le contraire.
   if (invitation && invitation.status !== 'pending' && !result) {
     const expired = invitation.status === 'expired';
     const revoked = invitation.status === 'revoked';
+    const accepted = !expired && !revoked;
     return (
       <Shell>
         <OrgHeader kicker={t('acceptOrg.kicker')} name={invitation.organizationName} />
         <Outcome
-          tone={expired || revoked ? 'ko' : 'ok'}
+          tone={accepted ? 'ok' : 'ko'}
           title={expired ? t('acceptInv.expiredTitle') : revoked ? t('acceptOrg.revokedTitle') : t('acceptOrg.alreadyTitle')}
-          body={expired ? t('acceptOrg.expiredDesc') : revoked ? t('acceptOrg.revokedDesc') : t('acceptOrg.alreadyDesc')}
+          body={
+            expired ? t('acceptOrg.expiredDesc')
+            : revoked ? t('acceptOrg.revokedDesc')
+            : !user ? t('acceptOrg.alreadySignIn')
+            : emailMismatch
+              ? t('acceptInv.wrongAccountDesc').replace('{signedIn}', user.email ?? '').replace('{invited}', invitation.email)
+              : t('acceptOrg.alreadyDesc')
+          }
         >
-          {!expired && !revoked ? (
+          {accepted && !user ? (
+            <button className="btn btn--primary w-full mt-6" onClick={() => navigate(authRedirect)}>
+              <LogIn className="h-4 w-4 mr-2" aria-hidden="true" />{t('acceptInv.login')}
+            </button>
+          ) : accepted && emailMismatch ? (
+            <button className="btn btn--primary w-full mt-6" onClick={signOutAndStay} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none mr-2" aria-hidden="true" />}
+              {t('acceptInv.switchAccount')}
+            </button>
+          ) : accepted ? (
             <button className="btn btn--primary w-full mt-6" onClick={() => navigate('/organizer-app')}>
               {t('acceptOrg.goToApp')} <ArrowRight className="h-4 w-4 ml-1.5" aria-hidden="true" />
             </button>

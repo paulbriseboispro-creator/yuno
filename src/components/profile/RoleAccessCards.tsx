@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Crown, Briefcase, Megaphone, Music, Wine, UserCheck, Loader2, Shirt, Building2, ChevronRight, Link2 } from 'lucide-react';
+import { Shield, Crown, Briefcase, Megaphone, Music, Wine, UserCheck, Loader2, Shirt, Building2, ChevronRight, Link2, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -8,6 +8,32 @@ import { StaffPinDialog } from '@/components/StaffPinDialog';
 import { hasValidStaffSession, storeStaffSession } from '@/components/RequireStaffSession';
 import { clearPinSession } from '@/components/RequirePinSession';
 import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Une organisation servie comme membre d'équipe (admin / éditeur / scanner).
+ * La personne n'est pas organisatrice : son profil reste celui d'un client,
+ * c'est `org_members` qui lui ouvre l'app de l'organisation.
+ */
+export interface OrgTeamCard {
+  organizerUserId: string;
+  organizationName: string | null;
+  role: 'admin' | 'editor' | 'scanner';
+}
+
+interface RoleCard {
+  show: boolean;
+  icon: typeof Shield;
+  label: string;
+  path: string;
+  role: string;
+  color: string;
+  bg: string;
+  security?: 'mfa' | 'pin';
+  /** Remplace la ligne de sécurité : le rôle tenu dans l'organisation. */
+  sublabel?: string;
+  /** Carte d'équipe : l'organisation à ouvrir. */
+  organizerUserId?: string;
+}
 
 interface RoleAccessCardsProps {
   isAdmin: boolean;
@@ -23,6 +49,10 @@ interface RoleAccessCardsProps {
   isAgency: boolean;
   isAffiliate: boolean;
   isAffiliatePromoter: boolean;
+  /** Organisations dont la personne est membre d'équipe accepté. */
+  orgMemberships?: OrgTeamCard[];
+  /** Appelé avant d'ouvrir l'app d'une organisation : c'est elle qu'on veut voir. */
+  onPickOrganization?: (organizerUserId: string) => void;
 }
 
 type StaffRole = 'barman' | 'bouncer' | 'manager' | 'vip_host' | 'cloakroom';
@@ -42,6 +72,8 @@ export function RoleAccessCards({
   isAgency,
   isAffiliate,
   isAffiliatePromoter,
+  orgMemberships = [],
+  onPickOrganization,
 }: RoleAccessCardsProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -54,7 +86,15 @@ export function RoleAccessCards({
   const staffRoles: StaffRole[] = ['barman', 'bouncer', 'manager', 'vip_host', 'cloakroom'];
   const pinRoles: PinRole[] = ['dj', 'promoter', 'organizer'];
 
-  const handleRoleClick = async (path: string, role: string) => {
+  const handleRoleClick = async (path: string, role: string, organizerUserId?: string) => {
+    // Membre d'équipe : on retient l'organisation visée AVANT d'entrer, sinon
+    // une personne qui en sert deux atterrit sur la première de la liste.
+    if (role === 'org_member') {
+      if (organizerUserId) onPickOrganization?.(organizerUserId);
+      navigate(path);
+      return;
+    }
+
     if (role === 'owner') {
       setCheckingMFA(true);
       try {
@@ -155,7 +195,7 @@ export function RoleAccessCards({
 
   // security : hint du niveau d'accès affiché sur la carte — 'mfa' (owner)
   // ou 'pin' (rôles staff / PIN). L'utilisateur sait à quoi s'attendre au tap.
-  const roles = [
+  const roles: RoleCard[] = [
     { show: isAdmin, icon: Shield, label: t('profile.adminDashboard'), path: '/admin', role: 'admin', color: ACCENT, bg: ACCENT_BG, security: 'mfa' as const },
     { show: isOwner, icon: Crown, label: t('profile.ownerDashboard'), path: '/owner', role: 'owner', color: RARE, bg: RARE_BG, security: 'mfa' as const },
     { show: isManager, icon: Briefcase, label: t('profile.managerDashboard'), path: '/manager', role: 'manager', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
@@ -166,6 +206,23 @@ export function RoleAccessCards({
     { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG, security: 'pin' as const },
     { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isOrganizer, icon: Building2, label: t('profile.organizerDashboard'), path: '/organizer-app', role: 'organizer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    // Équipe d'un organisateur : une carte PAR organisation servie, nommée, avec
+    // le rôle tenu. C'est ce qui manquait au profil d'une personne invitée —
+    // l'invitation acceptée n'était visible nulle part, alors que l'app
+    // l'attendait déjà.
+    ...orgMemberships.map((m): RoleCard => ({
+      show: true,
+      icon: Users,
+      label: t('profile.orgTeamDashboard').replace('{org}', m.organizationName || t('profile.organizerDashboard')),
+      // Le scanner n'a que la porte : on l'y mène directement, le tableau de
+      // bord n'a rien pour lui.
+      path: m.role === 'scanner' ? '/organizer-app/checkin' : '/organizer-app',
+      role: 'org_member',
+      color: NEUTRAL,
+      bg: NEUTRAL_BG,
+      sublabel: t(`acceptOrg.role.${m.role}`),
+      organizerUserId: m.organizerUserId,
+    })),
     // Fusion agence↔affilié : le chef d'agence a UN cockpit unifié (/agency-app,
     // sa sidebar couvre déjà les clubs externes/soirées). On expose l'entrée
     // « Agence » et on masque l'ancienne carte « Affilié » redondante — /affiliate
@@ -188,16 +245,16 @@ export function RoleAccessCards({
               key={index}
               className="w-full flex items-center gap-3 p-3.5 transition-all active:scale-[0.98] cursor-pointer hover:brightness-110"
               style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4 }}
-              onClick={() => handleRoleClick(role.path, role.role)}
+              onClick={() => handleRoleClick(role.path, role.role, role.organizerUserId)}
             >
               <div className="flex items-center justify-center h-9 w-9 shrink-0" style={{ background: role.bg, borderRadius: 3 }}>
                 <Icon className="h-[18px] w-[18px]" style={{ color: role.color }} />
               </div>
               <span className="flex-1 text-left">
                 <span className="block font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.06em', color: '#E5E5E5' }}>{role.label}</span>
-                {role.security && (
+                {(role.sublabel || role.security) && (
                   <span className="block font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: '#5A5A5E', marginTop: 2 }}>
-                    {role.security === 'mfa' ? t('profile.securityMfa') : t('profile.securityPin')}
+                    {role.sublabel ?? (role.security === 'mfa' ? t('profile.securityMfa') : t('profile.securityPin'))}
                   </span>
                 )}
               </span>

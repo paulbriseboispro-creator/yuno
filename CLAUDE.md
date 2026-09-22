@@ -361,6 +361,18 @@ Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
   les appartenances sont tenues en mémoire pour toute la session, sinon la
   personne arrive dans l'app et se fait renvoyer par une garde qui la croit
   encore sans organisation.
+- **L'accès d'un membre d'équipe se voit sur SON profil client et sur l'accueil
+  de l'app Pro** (2026-09-22) : `RoleAccessCards` et `ProHome` lisent
+  `useActingOrganizer().memberships` et dessinent une carte PAR organisation
+  servie (« Équipe · Amoris », rôle en sous-titre). Le scanner est mené droit
+  sur `/organizer-app/checkin`, les autres sur le tableau de bord ; la carte
+  appelle `switchTo` avant d'entrer, et la page d'acceptation pose
+  `rememberActingOrganizer` — sans quoi quelqu'un qui sert deux organisations
+  ouvre la première de la liste. Le lien d'invitation ne donne JAMAIS l'accès
+  par lui-même (vérifié le 22/09 dans un Chrome vierge : `/organizer-app`
+  renvoie sur `/auth`, l'appartenance est lue par `member_user_id`) ; une
+  invitation déjà acceptée demande donc de se connecter, jamais « Ouvrir le
+  dashboard » à un inconnu.
 - **`event_slug_aliases` n'a aucune policy, et c'est voulu.** Son trigger
   d'alimentation DOIT rester SECURITY DEFINER : resté INVITER, il se faisait
   refuser par sa propre table et tout renommage de soirée levait 42501 — pour

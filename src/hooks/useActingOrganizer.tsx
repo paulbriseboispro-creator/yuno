@@ -131,6 +131,16 @@ function writePick(id: string) {
 }
 
 /**
+ * Retient l'organisation à ouvrir en priorité, hors du hook : la page qui
+ * vient d'accepter une invitation, ou la carte « Équipe · X » du profil, sait
+ * QUELLE organisation la personne veut ouvrir. Sans ça, quelqu'un qui sert deux
+ * organisations arrivait sur la première de la liste, pas sur celle du lien.
+ */
+export function rememberActingOrganizer(organizerUserId: string) {
+  writePick(organizerUserId);
+}
+
+/**
  * Cache partagé entre tous les appelants. Une quinzaine de composants montent
  * ce hook sur un même écran ; sans ce cache, chacun rejouerait la RPC et
  * l'app organisateur démarrerait sur une rafale de requêtes identiques.

@@ -23,6 +23,7 @@ import { PartyStreak } from '@/components/profile/PartyStreak';
 import { ProfileShareCard } from '@/components/profile/ProfileShareCard';
 import { ProfileQuickStats } from '@/components/profile/ProfileQuickStats';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { toast } from 'sonner';
 
 export default function Profile() {
@@ -50,6 +51,10 @@ export default function Profile() {
     updateProfile,
     refetch
   } = useNightlifeProfile();
+  // Les organisations servies comme membre d'équipe (admin / éditeur /
+  // scanner). Elles ne sont ni dans `user_roles` ni dans `profile_type` — la
+  // carte d'accès manquait donc au profil de toute personne invitée.
+  const { memberships: orgMemberships, switchTo: pickOrganization } = useActingOrganizer();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -195,6 +200,8 @@ export default function Profile() {
           isAgency={userRoles.includes('agency')}
           isAffiliate={isAffiliate}
           isAffiliatePromoter={isAffiliatePromoter}
+          orgMemberships={orgMemberships}
+          onPickOrganization={pickOrganization}
         />
 
         {/* Yuno AI Assistant - moved above stats */}

@@ -5,6 +5,7 @@ import { Martini, ShieldCheck, Shirt, Crown, Megaphone, Disc3, LogOut, Bell, Loa
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useStaffNightPulse } from '@/hooks/useStaffNightPulse';
 import { useDoorManifestPreload } from '@/hooks/useDoorManifestPreload';
 import { greetingKey, staffInitials } from '@/lib/staffIdentity';
@@ -76,6 +77,10 @@ export default function ProHome() {
   const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const { identity, loading: identityLoading } = useStaffIdentity();
+  // Équipe d'un organisateur (admin / éditeur / scanner) : l'accès vit dans
+  // `org_members`, pas dans `user_roles` — sans cette lecture l'accueil disait
+  // « aucun poste » à la personne invitée à tenir la porte.
+  const { memberships: orgTeams, switchTo: pickOrganization } = useActingOrganizer();
   const { pulse, loading: pulseLoading } = useStaffNightPulse(identity?.venueId ?? null);
   const online = useNetworkStatus();
   const reduced = useReducedMotion();
@@ -130,6 +135,9 @@ export default function ProHome() {
     [roles],
   );
   const webOnlyRoles = useMemo(() => (roles || []).filter((r) => WEB_ONLY_ROLES.has(r)), [roles]);
+  // Un admin ou un éditeur d'équipe a aussi un dashboard sur le web ; le
+  // scanner, lui, n'a que la porte, et elle se tient ici.
+  const hasWebDashboard = webOnlyRoles.length > 0 || orgTeams.some((m) => m.role !== 'scanner');
 
   const name = identity?.name ?? '';
   // Salutation figée au montage : l'écran peut rester ouvert, on ne veut pas
@@ -387,15 +395,39 @@ export default function ProHome() {
             </>
           )}
 
+          {/* Équipe d'un organisateur : la porte se tient depuis le téléphone,
+              pour les trois rôles. On retient l'organisation visée avant
+              d'entrer — une personne peut en servir deux. */}
+          {orgTeams.map((m, i) => (
+            <motion.button
+              key={m.organizerUserId}
+              {...rise(0.36 + i * 0.05)}
+              onClick={() => { haptics.selection(); pickOrganization(m.organizerUserId); navigate('/organizer-app/checkin'); }}
+              className="w-full flex items-center gap-3.5 rounded-2xl p-4 text-left active:scale-[0.99] transition-transform"
+              style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl flex-none" style={{ background: RED_SOFT, border: `1px solid ${RED_RING}` }}>
+                <Users className="h-5 w-5" style={{ color: RED }} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block truncate" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{m.organizationName || t('profile.organizerDashboard')}</span>
+                <span className="block truncate" style={{ color: T3, fontSize: 12, marginTop: 1 }}>
+                  {t(`acceptOrg.role.${m.role}`)} · {t('proapp.orgTeamDesc')}
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
+            </motion.button>
+          ))}
+
           {/* Aucun poste rattaché — et rien à ouvrir sur le web non plus */}
-          {staffRoles.length === 0 && webOnlyRoles.length === 0 && (
+          {staffRoles.length === 0 && !hasWebDashboard && orgTeams.length === 0 && (
             <motion.div {...rise(0.32)} className="rounded-2xl p-5 text-center" style={{ background: TILE_BG, border: `1px solid ${BORDER}` }}>
               <p style={{ color: T2, fontSize: 13, lineHeight: 1.5 }}>{t('proapp.noRole')}</p>
             </motion.div>
           )}
 
           {/* Rôles gérés sur le web */}
-          {webOnlyRoles.length > 0 && (
+          {hasWebDashboard && (
             <motion.button
               {...rise(0.38)}
               onClick={() => openExternal(WEB_BASE_URL)}
