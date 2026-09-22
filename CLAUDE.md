@@ -316,6 +316,11 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   l'accueil public. Tout ce que le club lit sur l'autre partie passe par
   `organizer_profiles` (public), jamais `profiles` (RLS) ; le dialogue de
   contrat reçoit `language`, l'email d'invitation la langue choisie par l'orga.
+  L'invitation PORTE le deal : soirée + conditions (par pilier ou barème)
+  choisies par l'orga, contrat ouvert pré-signé à l'acceptation, email dédié
+  (`buildClubCollabInvitation`). Un club au plan Collaboration sans Stripe peut
+  REPORTER la 2FA 7 jours, une fois (`20260922080000`) — jamais sur les pages
+  d'argent ; le guide de configuration ne s'ouvre pas tout seul chez lui.
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 

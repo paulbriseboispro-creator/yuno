@@ -153,6 +153,10 @@ async function buildBypass(role, userId) {
 export async function open({
   as = 'owner', email, go, device = 'desktop', lang = 'fr',
   headed = false, showDemoButton = false, port = 9333 + Math.floor(Math.random() * 400),
+  // bypass:false = aucun contournement MFA/PIN : on voit les gardes comme un vrai compte neuf.
+  bypass: withBypass = true,
+  // Dossier où Chrome dépose les téléchargements (PDF de contrat, exports).
+  downloadDir = null,
 } = {}) {
   // `as: 'anon'` = navigateur VIERGE, sans session : c'est ce que voit un club
   // qui clique le lien d'invitation reçu par email, ou un visiteur.
@@ -165,7 +169,7 @@ export async function open({
   }
 
   const session = anon ? null : await mintSession(target);
-  const bypass = anon ? {} : await buildBypass(role || {}, session.user.id);
+  const bypass = anon || !withBypass ? {} : await buildBypass(role || {}, session.user.id);
   const metrics = DEVICES[device] || DEVICES.desktop;
 
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yuno-demo-chrome-'));
@@ -182,6 +186,10 @@ export async function open({
   const cdp = await CDP.attach(port);
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  if (downloadDir) {
+    fs.mkdirSync(downloadDir, { recursive: true });
+    await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
+  }
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width: metrics.width, height: metrics.height,
     deviceScaleFactor: metrics.deviceScaleFactor, mobile: metrics.mobile,
@@ -207,7 +215,7 @@ export async function open({
     cdp, chrome, logs, session, email: target ?? 'anon', userDataDir,
 
     async goto(routeOrUrl, { wait = true } = {}) {
-      const url = /^https?:/.test(routeOrUrl) ? routeOrUrl : APP_ORIGIN + routeOrUrl;
+      const url = /^(https?|file):/.test(routeOrUrl) ? routeOrUrl : APP_ORIGIN + routeOrUrl;
       await cdp.send('Page.navigate', { url });
       if (wait) await page.waitForBoot();
       return url;
@@ -418,7 +426,8 @@ export async function open({
     },
   };
 
-  await page.goto(go || role?.route || '/');
+  // Une page hors de l'app (email rendu en file://) n'a pas de #root à attendre.
+  await page.goto(go || role?.route || '/', { wait: !/^file:/.test(go || '') });
   return page;
 }
 
