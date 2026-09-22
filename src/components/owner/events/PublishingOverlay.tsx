@@ -35,8 +35,18 @@ export type PublishStage = 0 | 1 | 2 | 3 | 4 | 5;
 const ACCENT = '#E8192C';
 const STEP_KEYS = ['s1', 's2', 's3', 's4', 's5'] as const;
 
-/** Durée minimale d'affichage d'une étape : en dessous, elle est illisible. */
-const MIN_MS = [320, 420, 400, 360, 460];
+/**
+ * Durée minimale d'affichage d'une étape.
+ *
+ * Elle ne sert pas à faire joli : le travail réel tient désormais en moins
+ * d'une seconde, et à cette vitesse les cinq lignes défilaient trop vite pour
+ * être lues — on voyait un clignotement, pas une publication. Le plancher suit
+ * les proportions du prototype (1 / 1,5 / 1,4 / 1,2 / 1,6) ramenées à ~3,6 s,
+ * soit un peu plus d'une demi-seconde par ligne : le temps de la lire.
+ *
+ * C'est un PLANCHER, jamais un plafond : une étape lente dure ce qu'elle dure.
+ */
+const MIN_MS = [540, 800, 750, 640, 860];
 /** Rythme du prototype, qui sert d'échelle de ralentissement quand ça traîne. */
 const SCRIPT_MS = [1000, 1500, 1400, 1200, 1600];
 /** Poids de chaque étape dans la barre (les durées du prototype). */
@@ -251,9 +261,13 @@ export function PublishingOverlay({
 
         {/* Barre de progression */}
         <div style={{ position: 'relative', height: 2, background: 'rgba(255,255,255,.08)', overflow: 'hidden' }}>
+          {/* Pas de `transition` sur la largeur : la progression est déjà
+              recalculée et adoucie à chaque image. Une transition CSS par
+              dessus est relancée 60 fois par seconde, si bien que la barre
+              court après sa cible sans jamais la rattraper — elle affichait
+              un quart quand le compteur disait 65 %. */}
           <div style={{
             height: '100%', background: ACCENT,
-            transition: 'width .55s cubic-bezier(.16,1,.3,1)',
             width: `${Math.max(2, view.progress * 100)}%`,
           }} />
           {!calm && !done && (
