@@ -13,6 +13,7 @@ import {
   getSettlementBankDetails, settlementErrorCode,
 } from '@/lib/collabSettlement';
 import { tierFor } from '@/lib/splitRules';
+import { ActionOverlay, ActionResultCard } from '@/components/action/ActionOverlay';
 import { formatIban, daysUntil } from '@/lib/promoterPayout';
 
 const eur = (n: number | null | undefined) =>
@@ -30,7 +31,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
   eventId: string;
   viewerRole: 'venue' | 'organizer';
 }) {
-  const { language } = useLanguage();
+  const { language, t: tk } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const isVenue = viewerRole === 'venue';
 
@@ -40,6 +41,18 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
   const [form, setForm] = useState<ClosingDeclaration>({ bar: 0, doorCount: 0, doorTickets: 0, tablesExtra: 0, other: 0, otherLabel: '', note: '', evidence: '' });
   const [disputeReason, setDisputeReason] = useState('');
   const [bank, setBank] = useState<{ iban: string | null; bic: string | null } | null>(null);
+  // Écran de répartition. Une seule étape : tout se joue dans UN appel serveur
+  // (`accept_collab_night_closing` refige les chiffres, applique le barème,
+  // alloue sur les jambes retenues et crée le lot SEPA). Afficher une liste
+  // d'étapes serait inventer des jalons que le code ne sait pas observer.
+  const [runOpen, setRunOpen] = useState(false);
+  const [runStage, setRunStage] = useState(0);
+  const [runResult, setRunResult] = useState<{ due: number; online: number; sepa: number } | null>(null);
+  // Une seule bande : elle ne sert qu'au rythme de la barre, la liste d'étapes
+  // reste masquée (`showSteps={false}`). Déclarée ICI, au-dessus du
+  // `return null` de la ligne « carte non éligible » : l'ordre des hooks de
+  // React doit être le même à chaque rendu.
+  const runSteps = useMemo(() => [{ key: 'settle', label: tk('owner.closingrun.s1'), seconds: 2.4 }], [tk]);
 
   const refresh = useCallback(async () => {
     try {
@@ -119,6 +132,37 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
       toast.success(success);
       await refresh();
     } catch (e) { errToast(e); } finally { setBusy(false); }
+  };
+
+  /**
+   * Accepter le décompte — de l'argent, et irréversible. L'écran de
+   * répartition remplace le toast : il nomme les deux montants que le pro veut
+   * voir, ce que `accept_collab_night_closing` rend déjà (`due`, `online`,
+   * `sepa`) et que personne ne lui montrait.
+   */
+  const acceptClosing = async (closingId: string) => {
+    if (busy) return;
+    setBusy(true);
+    setRunStage(0);
+    setRunResult(null);
+    setRunOpen(true);
+    try {
+      const res = await acceptNightClosing(closingId);
+      await refresh();
+      setRunResult({
+        due: Number(res.due) || 0,
+        online: Number(res.online) || 0,
+        sepa: Number(res.sepa) || 0,
+      });
+      setRunStage(1); // la répartition est écrite et l'écran est à jour
+    } catch (e) {
+      // L'écran se retire : un compteur figé par-dessus un refus d'argent ne
+      // dirait rien à personne.
+      setRunOpen(false);
+      errToast(e);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const copy = (v: string) => { void navigator.clipboard.writeText(v); toast.success(t('Copié', 'Copied', 'Copiado')); };
@@ -321,7 +365,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
                     )}
                     <div className="flex flex-wrap gap-2">
                       <OrgButton variant="primary" size="sm" disabled={busy}
-                        onClick={() => run(() => acceptNightClosing(closing.id), t('Décompte accepté — paiement déclenché', 'Closing accepted — payment triggered', 'Cierre aceptado — pago activado'))}>
+                        onClick={() => { void acceptClosing(closing.id); }}>
                         <Check className="h-4 w-4" /> {t('Oui, j\'accepte le décompte', 'Yes, I accept the closing', 'Sí, acepto el cierre')}
                       </OrgButton>
                       <OrgButton variant="ghost" size="sm" disabled={busy}
@@ -371,6 +415,29 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
           </div>
         )}
       </div>
+      <ActionOverlay
+        fixed
+        open={runOpen}
+        stage={runStage}
+        showSteps={false}
+        steps={runSteps}
+        kicker={[tk('owner.closingrun.kicker'), tk('owner.closingrun.kickerDone')]}
+        title={[tk('owner.closingrun.title'), tk('owner.closingrun.titleDone')]}
+        finalWord={tk('owner.closingrun.final')}
+        onClose={() => setRunOpen(false)}
+        done={runResult ? (
+          <ActionResultCard kicker={tk('owner.closingrun.cardKicker')}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'baseline', columnGap: 14, rowGap: 9 }}>
+              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 34, lineHeight: .9, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums', color: '#E8192C' }}>{eur(runResult.due)}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.total')}</div>
+              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>{eur(runResult.online)}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.stripe')}</div>
+              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>{eur(runResult.sepa)}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.sepa')}</div>
+            </div>
+          </ActionResultCard>
+        ) : null}
+      />
     </OrgCard>
   );
 }
