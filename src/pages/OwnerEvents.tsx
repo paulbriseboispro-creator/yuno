@@ -43,6 +43,7 @@ import {
 } from '@/components/owner/events/events-ui';
 import { cropToSquare } from '@/components/owner/events/events-utils';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
+import { AddressAutocomplete } from '@/components/location/AddressAutocomplete';
 import { uploadEventVideo } from '@/lib/eventVideo';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 import { publicUrl } from '@/lib/native';
@@ -1469,8 +1470,20 @@ export default function OwnerEvents() {
                   </div>
                   <div className="sm:col-span-2">
                     <FieldLabel>{t('owner.ev.address')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
-                    <input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.addressPlaceholder')}
-                      className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
+                    <AddressAutocomplete
+                      value={locationAddress}
+                      onChange={setLocationAddress}
+                      onPick={(pick) => {
+                        setLocationAddress(pick.address);
+                        // L'adresse choisie fait foi : elle recale la ville.
+                        if (pick.city) setLocationCity(pick.city);
+                      }}
+                      city={displayCity}
+                      placeholder={t('owner.ev.addressPlaceholder')}
+                      disabled={lockedToPartner}
+                      inputClassName="w-full pl-3 pr-9 py-2.5 rounded-xl text-[13px] disabled:opacity-50"
+                      inputStyle={inputStyle}
+                    />
                   </div>
                   {/* Logo du lieu — seulement pour un lieu en texte libre : quand la
                       soirée se tient chez un club partenaire, c'est SON logo qui fait foi. */}

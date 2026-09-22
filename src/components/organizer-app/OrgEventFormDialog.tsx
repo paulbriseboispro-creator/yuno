@@ -33,6 +33,7 @@ import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
 import { uploadEventVideo } from '@/lib/eventVideo';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
+import { AddressAutocomplete } from '@/components/location/AddressAutocomplete';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
 // Libellés RÉELS du filtre public — une seule liste pour toute l'app.
@@ -1028,12 +1029,21 @@ export function OrgEventFormDialog({
                   </div>
                   <div className="sm:col-span-2">
                     <FieldLabel>{t('Adresse', 'Address')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
-                    <DarkInput
+                    <AddressAutocomplete
                       id="loc-addr"
                       value={displayAddress}
                       onChange={setLocationAddress}
-                      placeholder="12 rue de Rivoli"
+                      onPick={(pick) => {
+                        setLocationAddress(pick.address);
+                        // L'adresse choisie fait foi : elle recale la ville (et
+                        // donc le fuseau horaire, qui en dépend plus bas).
+                        if (pick.city) setLocationCity(pick.city);
+                      }}
+                      city={displayCity}
+                      placeholder={t('Commence à taper : 12 rue de Rivoli', 'Start typing: 12 rue de Rivoli', 'Empieza a escribir: 12 rue de Rivoli')}
                       disabled={lockedToPartner}
+                      inputClassName="w-full pl-3 pr-9 py-2.5 rounded-xl text-[13px] transition-all duration-150 disabled:opacity-50"
+                      inputStyle={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
                     />
                   </div>
                   {/* Logo du lieu — seulement pour un lieu en texte libre : quand la
