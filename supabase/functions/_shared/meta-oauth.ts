@@ -190,16 +190,38 @@ export async function exchangeLongLived(cfg: MetaAppConfig, shortToken: string) 
 }
 
 export interface MetaAsset { id: string; name: string }
+interface PageInstagramFields {
+  instagram_business_account?: { id: string; username?: string };
+  connected_instagram_account?: { id: string; username?: string };
+}
+
 /** Compte Instagram professionnel relié à une Page (découvert avec `instagram_basic`). */
 export interface MetaInstagramAsset { page_id: string; id: string; username: string | null }
 export interface MetaAssets { pixels: MetaAsset[]; ad_accounts: MetaAsset[]; pages: MetaAsset[]; instagram?: MetaInstagramAsset[] }
 
-/** Identité Instagram reliée à une Page ; null si aucune ou si la permission manque. */
+/**
+ * Identité Instagram reliée à une Page ; null si aucune ou si la permission manque.
+ *
+ * Meta range ce lien sous DEUX champs selon l'endroit où le pro l'a fait :
+ * `instagram_business_account` depuis les paramètres de la Page,
+ * `connected_instagram_account` depuis les « actifs connectés » du
+ * portefeuille (Business settings → Pages → Connect assets). Les deux rendent
+ * le même nœud IGUser et servent d'identité de pub : on lit les deux, sinon un
+ * compte relié côté portefeuille reste invisible alors qu'il est bien là.
+ *
+ * Le repli sur une requête à un seul champ n'est pas décoratif : Graph refuse
+ * la requête ENTIÈRE quand un des champs demandés n'est pas couvert par les
+ * permissions du jeton.
+ */
 export async function pageInstagramIdentity(pageId: string, token: string, appSecret: string | null): Promise<{ id: string; username: string | null } | null> {
-  const r = await graphGet<{ instagram_business_account?: { id: string; username?: string } }>(
-    pageId, { fields: "instagram_business_account{id,username}" }, { token, appSecret },
+  const pick = (d: PageInstagramFields) => d.instagram_business_account ?? d.connected_instagram_account;
+  const both = await graphGet<PageInstagramFields>(
+    pageId, { fields: "instagram_business_account{id,username},connected_instagram_account{id,username}" }, { token, appSecret },
   );
-  const ig = r.ok ? r.data.instagram_business_account : undefined;
+  const ig = both.ok
+    ? pick(both.data)
+    : (await graphGet<PageInstagramFields>(pageId, { fields: "instagram_business_account{id,username}" }, { token, appSecret })
+      .then((r) => (r.ok ? pick(r.data) : undefined)));
   return ig?.id ? { id: ig.id, username: ig.username ?? null } : null;
 }
 

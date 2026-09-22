@@ -72,9 +72,21 @@ export async function pageAccessToken(pageId: string, token: string, appSecret: 
   return r.ok && r.data.access_token ? r.data.access_token : null;
 }
 
+/**
+ * Identité Instagram de la Page. Miroir de `pageInstagramIdentity`
+ * (`meta-oauth.ts`) : le lien vit sous `instagram_business_account` quand il
+ * est fait depuis la Page, sous `connected_instagram_account` quand il vient
+ * des « actifs connectés » du portefeuille. Sans les deux, une pub part sous
+ * l'identité de la Page alors que le compte Instagram est bien relié.
+ */
 export async function pageInstagramAccount(pageId: string, token: string, appSecret: string | null): Promise<string | null> {
-  const r = await graphGet<{ instagram_business_account?: { id: string } }>(pageId, { fields: "instagram_business_account" }, { token, appSecret });
-  return r.ok && r.data.instagram_business_account?.id ? r.data.instagram_business_account.id : null;
+  type Fields = { instagram_business_account?: { id: string }; connected_instagram_account?: { id: string } };
+  const pick = (d: Fields) => d.instagram_business_account?.id ?? d.connected_instagram_account?.id ?? null;
+  const both = await graphGet<Fields>(pageId, { fields: "instagram_business_account,connected_instagram_account" }, { token, appSecret });
+  if (both.ok) return pick(both.data);
+  // Graph refuse la requête entière si un champ n'est pas couvert : on retente seul.
+  const one = await graphGet<Fields>(pageId, { fields: "instagram_business_account" }, { token, appSecret });
+  return one.ok ? pick(one.data) : null;
 }
 
 /** Recherche de villes pour le ciblage (clé Meta + nom + pays). */
