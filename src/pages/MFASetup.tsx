@@ -9,10 +9,11 @@ import { toast } from 'sonner';
 import { Shield, Download, CheckCircle, Loader2, Copy } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 
 export default function MFASetup() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'generate' | 'verify' | 'complete'>('generate');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -50,6 +51,13 @@ export default function MFASetup() {
     const detectedRole = isOwner ? 'owner' : 'affiliate';
     setUserRole(detectedRole);
 
+    // Club invité au plan Collaboration, sans Stripe : la 2FA peut attendre 7 jours.
+    if (isOwner) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: st } = await (supabase as any).rpc('mfa_deferral_status');
+      setCanDefer(!!(st as { eligible?: boolean } | null)?.eligible);
+    }
+
     // Si la 2FA est déjà configurée, ne pas redemander l'activation
     const { data: profile } = await supabase
       .from('profiles')
@@ -68,6 +76,23 @@ export default function MFASetup() {
     if (profile?.mfa_enabled) {
       toast.success(t('mfa.alreadyEnabled'));
       navigate(detectedRole === 'affiliate' ? '/affiliate' : '/owner');
+    }
+  };
+
+  const [canDefer, setCanDefer] = useState(false);
+  const [deferring, setDeferring] = useState(false);
+  const tr = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
+  const deferSetup = async () => {
+    setDeferring(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).rpc('defer_mfa_setup');
+      if (error) throw error;
+      toast.success(tr('Vous pourrez activer la double authentification depuis Réglages. Elle sera demandée avant de connecter Stripe.', 'You can enable two-factor authentication from Settings. It will be required before connecting Stripe.', 'Podréis activar la doble autenticación desde Ajustes. Se pedirá antes de conectar Stripe.'));
+      window.location.assign('/owner/collaborations');
+    } catch (e) {
+      toast.error((e as Error).message);
+      setDeferring(false);
     }
   };
 
@@ -162,6 +187,15 @@ export default function MFASetup() {
                 {t('mfa.description')}
                 {userRole === 'owner' && t('mfa.ownerRequired')}
               </p>
+              {canDefer && (
+                <p className="text-sm text-muted-foreground">
+                  {tr(
+                    'Pourquoi ? Elle protège vos paiements. Votre club n\'a pas encore de compte Stripe : vous pouvez remettre cette étape à plus tard et découvrir d\'abord la soirée et le contrat.',
+                    'Why? It protects your payouts. Your club has no Stripe account yet: you can postpone this step and discover the night and the contract first.',
+                    'Por qué: protege vuestros cobros. Vuestro club aún no tiene cuenta Stripe: podéis dejar este paso para más tarde y descubrir primero la noche y el contrato.',
+                  )}
+                </p>
+              )}
               <Button
                 onClick={generateSecret}
                 disabled={loading}
@@ -177,6 +211,12 @@ export default function MFASetup() {
                   t('mfa.activate')
                 )}
               </Button>
+              {canDefer && (
+                <Button variant="ghost" className="w-full" size="lg" onClick={deferSetup} disabled={deferring || loading}>
+                  {deferring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {tr('Plus tard — découvrir la soirée d\'abord (7 jours)', 'Later — see the night first (7 days)', 'Más tarde — ver la noche primero (7 días)')}
+                </Button>
+              )}
             </div>
           )}
 

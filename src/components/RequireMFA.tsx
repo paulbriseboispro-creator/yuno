@@ -85,11 +85,12 @@ export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
       }
 
       // Vérifier le profil
-      const { data: profile } = await supabase
+      // mfa_deferred_until (20260922080000) n'est pas encore dans les types générés.
+      const { data: profile } = await (supabase
         .from('profiles')
-        .select('mfa_enabled, mfa_enforced, mfa_verified_at, mfa_exempt')
+        .select('mfa_enabled, mfa_enforced, mfa_verified_at, mfa_exempt, mfa_deferred_until')
         .eq('id', user.id)
-        .single();
+        .single() as unknown as Promise<{ data: { mfa_enabled: boolean | null; mfa_enforced: boolean | null; mfa_verified_at: string | null; mfa_exempt: boolean | null; mfa_deferred_until: string | null } | null }>);
 
       if (!profile) {
         navigate('/auth');
@@ -100,7 +101,13 @@ export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
       // mfa_exempt est une exception par compte posée par le super admin (comptes
       // partagés du lancement) : pas d'enrôlement forcé, mais si la 2FA est activée
       // volontairement, la vérification du code reste demandée plus bas.
-      if ((requiredRole === 'owner' || requiredRole === 'affiliate') && !profile.mfa_enabled && !profile.mfa_exempt) {
+      // Report ponctuel (club invité au plan Collaboration, sans Stripe — voir
+      // migration 20260922080000) : valable 7 jours, JAMAIS sur la page des
+      // paiements, la seule qui touche à l'argent.
+      const deferredUntil = profile.mfa_deferred_until;
+      const deferralActive = !!deferredUntil && new Date(deferredUntil).getTime() > Date.now();
+      const moneyPath = /^\/(owner|affiliate)\/(billing|payments|payouts)/.test(window.location.pathname);
+      if ((requiredRole === 'owner' || requiredRole === 'affiliate') && !profile.mfa_enabled && !profile.mfa_exempt && !(deferralActive && !moneyPath)) {
         navigate('/mfa-setup');
         return;
       }
