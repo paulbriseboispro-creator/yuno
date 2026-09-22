@@ -48,7 +48,7 @@ import { AddressAutocomplete } from '@/components/location/AddressAutocomplete';
 import { startEventVideoUpload, startOrganizerImageUpload } from '@/lib/eventMedia';
 import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
-import { publicUrl } from '@/lib/native';
+import { openExternal, publicUrl } from '@/lib/native';
 import { useTabParam } from '@/hooks/useTabParam';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
@@ -1714,12 +1714,20 @@ export default function OwnerEvents() {
           event={publishedEvent}
           onViewEvent={() => {
             const id = publishedIdRef.current;
+            // Nouvel onglet, pas une navigation : le pro vient de publier et
+            // enchaîne presque toujours sur la billetterie ou les tables —
+            // l'envoyer sur la page publique dans le même onglet lui ferait
+            // perdre son tableau de bord. `openExternal` donne le navigateur
+            // in-app en natif au lieu d'éjecter vers Safari, et l'ouverture
+            // se fait AVANT les changements d'état, dans le geste du clic,
+            // sinon Safari la bloque.
+            //
+            // `/event/<uuid>` est la seule forme toujours résolue — la forme
+            // `/events/<venue_id>/<slug>` échoue pour une soirée d'organisateur.
+            if (id) openExternal(publicUrl(`/event/${id}`));
             setPublishOpen(false);
             setIsDialogOpen(false);
             resetForm();
-            // `/event/<uuid>` est la seule forme toujours résolue — la forme
-            // `/events/<venue_id>/<slug>` échoue pour une soirée d'organisateur.
-            if (id) navigate(`/event/${id}`);
           }}
           onClose={() => { setPublishOpen(false); setIsDialogOpen(false); resetForm(); }}
         />
