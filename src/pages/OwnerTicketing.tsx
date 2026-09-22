@@ -512,13 +512,10 @@ export default function OwnerTicketing() {
           toast.success(t('tickets.salesOpenNotificationSent'));
         }).catch((err) => console.error('Waitlist notification failed:', err));
 
-        // Hide waitlist entries from orders when going to normal
-        if (newMode === 'normal') {
-          await supabase
-            .from('event_waitlist')
-            .update({ show_in_orders: false })
-            .eq('event_id', eventId);
-        }
+        // Rien à cacher ici : `show_in_orders` est le choix du CLIENT à son
+        // inscription, pas un réglage du pro. L'ouverture de la vente ne
+        // l'efface plus — la ligne reste dans ses commandes et bascule d'elle
+        // même sur « Billets disponibles ».
       }
 
       toast.success(t('tickets.salesModeSaved'));
