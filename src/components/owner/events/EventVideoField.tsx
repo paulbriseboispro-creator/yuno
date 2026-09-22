@@ -9,19 +9,25 @@ import { EVENT_VIDEO_ACCEPT, inspectEventVideo, type EventVideoRejection } from 
  * Champ « Vidéo de la soirée » des formulaires club et organisateur.
  *
  * Le champ ne connaît que trois états : une vidéo déjà en ligne (`existingUrl`),
- * un fichier choisi mais pas encore envoyé (`file`), ou rien. L'upload lui-même
- * se fait à l'enregistrement du formulaire (voir `uploadEventVideo`), jamais au
- * choix du fichier : un pro qui ferme le panneau sans enregistrer ne doit pas
- * laisser 30 Mo orphelins dans le bucket.
+ * un fichier choisi (`file`), ou rien.
+ *
+ * L'envoi part dès que le fichier est choisi (voir `deferredUpload.ts`) et
+ * voyage pendant que le reste du formulaire se remplit : `uploading` dit où il
+ * en est, et « prête » annonce que la publication ne fera plus attendre. Un pro
+ * qui ferme le panneau sans enregistrer ne laisse pas pour autant 30 Mo
+ * orphelins : le formulaire retire du bucket tout envoi abandonné.
  */
 export function EventVideoField({
   existingUrl,
   file,
+  uploading = false,
   onFileChange,
   onRemoveExisting,
 }: {
   existingUrl: string;
   file: File | null;
+  /** L'envoi du fichier choisi est-il encore en vol ? */
+  uploading?: boolean;
   onFileChange: (file: File | null) => void;
   onRemoveExisting: () => void;
 }) {
@@ -86,7 +92,9 @@ export function EventVideoField({
                 {file ? file.name : t('owner.eventVideo.online')}
               </p>
               <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
-                {file ? `${sizeLabel} · ${t('owner.eventVideo.pendingSave')}` : t('owner.eventVideo.playsOnPage')}
+                {file
+                  ? `${sizeLabel} · ${t(uploading ? 'owner.eventVideo.uploading' : 'owner.eventVideo.ready')}`
+                  : t('owner.eventVideo.playsOnPage')}
               </p>
             </div>
             <div className="flex items-center gap-2">

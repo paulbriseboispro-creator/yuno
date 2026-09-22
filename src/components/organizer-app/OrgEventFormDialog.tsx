@@ -31,10 +31,13 @@ import {
 } from 'lucide-react';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
-import { uploadEventVideo } from '@/lib/eventVideo';
+import { startEventVideoUpload, startOrganizerImageUpload } from '@/lib/eventMedia';
+import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
+import { PublishingOverlay, type PublishStage, type PublishedEvent } from '@/components/owner/events/PublishingOverlay';
 import { AddressAutocomplete } from '@/components/location/AddressAutocomplete';
 import { formatInTimeZone } from 'date-fns-tz';
+import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
 // Libellés RÉELS du filtre public — une seule liste pour toute l'app.
 import { MUSIC_GENRES } from '@/lib/musicGenres';
@@ -170,7 +173,6 @@ export function OrgEventFormDialog({
   const [locationAddress, setLocationAddress] = useState('');
   // Logo du LIEU en texte libre : un endroit qui n'est pas un club Yuno n'a
   // aucune ligne `venues` où poser son identité visuelle.
-  const [locationLogoFile, setLocationLogoFile] = useState<File | null>(null);
   const [locationLogoPreview, setLocationLogoPreview] = useState('');
   /** Hide the exact venue name + address on the public page (revealed to confirmed
    *  attendees). The city stays visible so the event still appears in the right city. */
@@ -202,14 +204,32 @@ export function OrgEventFormDialog({
    *  is a request validated by a super admin before it appears in Explore. */
   const [isBde, setIsBde] = useState(false);
 
-  // Visuals — events use a single 1:1 square photo (poster)
-  const [posterFile, setPosterFile] = useState<File | null>(null);
+  // Visuals — events use a single 1:1 square photo (poster).
+  //
+  // Les trois médias (affiche, logo du lieu, vidéo) partent vers le Storage dès
+  // qu'ils sont CHOISIS, pas au clic sur « Publier » : ils voyagent pendant que
+  // le reste du formulaire se remplit. Voir `deferredUpload.ts`, y compris pour
+  // la règle de nettoyage quand le panneau se referme sans enregistrer.
+  const poster = useDeferredMedia((f) => startOrganizerImageUpload(f, organizerUserId, 'poster'));
+  const locationLogo = useDeferredMedia((f) => startOrganizerImageUpload(f, organizerUserId, 'venue-logo'));
+  // Extraits pour l'effet d'ouverture : ces trois fonctions sont stables, les
+  // objets qui les portent changent à chaque rendu. Les lister telles quelles
+  // dans les dépendances relancerait l'effet en boucle.
+  const { reset: resetPoster } = poster;
+  const { reset: resetLocationLogo } = locationLogo;
   const [posterPreview, setPosterPreview] = useState<string>('');
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
-  // Vidéo verticale de la page soirée : URL déjà en ligne, fichier choisi, demande de retrait.
+  // Vidéo 16:9 de la page soirée : URL déjà en ligne, fichier choisi, demande de retrait.
   const [videoUrl, setVideoUrl] = useState<string>('');
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const video = useDeferredMedia(startEventVideoUpload);
+  const { reset: resetVideo } = video;
   const [videoRemoved, setVideoRemoved] = useState(false);
+  // Écran de mise en ligne — création seulement : une modification garde son
+  // enregistrement discret. `publishStage` compte les étapes RÉELLEMENT
+  // terminées côté serveur (voir `PublishingOverlay`).
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishStage, setPublishStage] = useState<PublishStage>(0);
+  const [publishedEvent, setPublishedEvent] = useState<PublishedEvent | null>(null);
 
   const isEdit = !!eventId;
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo';
@@ -273,7 +293,7 @@ export function OrgEventFormDialog({
       setLocationName('');
       setLocationCity('');
       setLocationAddress('');
-      setLocationLogoFile(null);
+      resetLocationLogo();
       setLocationLogoPreview('');
       setLocationIsSecret(false);
       setRevealAddressInEmail(true);
@@ -289,13 +309,13 @@ export function OrgEventFormDialog({
       setPartnerVenueId('');
       setSavedPartnerVenueId('');
       setContractStatus(null);
-      setPosterFile(null);
+      resetPoster();
       setPosterPreview('');
       setPosterPosition(null);
       setVideoUrl('');
-      setVideoFile(null);
+      resetVideo();
       setVideoRemoved(false);
-      setLocationLogoFile(null);
+      resetLocationLogo();
       setLocationLogoPreview('');
       return;
     }
@@ -355,7 +375,9 @@ export function OrgEventFormDialog({
         setPosterPreview(ev.poster_url || '');
         setPosterPosition((ev.poster_position as any) || null);
         setVideoUrl((ev as { video_url?: string | null }).video_url || '');
-        setVideoFile(null);
+        resetVideo();
+        resetPoster();
+        resetLocationLogo();
         setVideoRemoved(false);
 
         // DJ lineup — confirmés (event_djs) + demandes de booking en attente
@@ -366,32 +388,27 @@ export function OrgEventFormDialog({
       }
       setLoading(false);
     })();
-  }, [open, eventId]);
+  }, [open, eventId, resetPoster, resetLocationLogo, resetVideo]);
 
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPosterFile(file);
+    poster.pick(file);
     setPosterPreview(URL.createObjectURL(file));
     setPosterPosition(null);
   };
 
-  const uploadImage = async (file: File, kind: 'poster' | 'venue-logo' = 'poster'): Promise<string | null> => {
-    // Events use a single 1:1 square photo, stored in the 'event-posters' bucket.
-    // Path is scoped to the organizer's user id so RLS allows the upload.
-    const bucket = 'event-posters';
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${organizerUserId}/${Date.now()}-${kind}.${ext}`;
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, { upsert: false, contentType: file.type });
-    if (error) {
-      console.error('Upload error:', error);
-      toast.error(error.message || t('Erreur upload image', 'Image upload error'));
-      return null;
-    }
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-    return data.publicUrl;
+
+  /** « Toulouse · sam. 26 sept. · 23:00 » — la ligne de la carte de fin. */
+  const publishedMeta = (startAtUTC: string) => {
+    const tz = timezone || PARIS_TIMEZONE;
+    const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+    const start = new Date(startAtUTC);
+    return [
+      locationCity.trim(),
+      formatInTimeZone(start, tz, 'EEE d MMM', { locale }),
+      formatInTimeZone(start, tz, 'HH:mm'),
+    ].filter(Boolean).join(' · ');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -431,44 +448,42 @@ export function OrgEventFormDialog({
     }
 
     setSaving(true);
+    const isCreate = !isEdit;
+    const bump = (stage: PublishStage) => { if (isCreate) setPublishStage(stage); };
+    if (isCreate) {
+      setPublishedEvent(null);
+      setPublishStage(0);
+      setPublishOpen(true);
+    }
+    bump(1); // la soirée est valide : on peut l'écrire
     try {
       // Sanitize previews: never persist blob: or data: URLs (they're local-only and break on reload)
       const sanitize = (url: string) => (url && (url.startsWith('blob:') || url.startsWith('data:')) ? '' : url);
-      let posterUrl = sanitize(posterPreview);
-
-      if (posterFile) {
-        const url = await uploadImage(posterFile);
-        if (url) posterUrl = url;
-        else {
-          setSaving(false);
-          return; // upload failed, abort save to avoid persisting blob URL
-        }
-      }
-
       const startAtUTC = fromWallClockInTz(startAt, timezone);
-      let locationLogoUrl = sanitize(locationLogoPreview);
-      if (locationLogoFile) {
-        const url = await uploadImage(locationLogoFile, 'venue-logo');
-        if (url) locationLogoUrl = url;
-        else {
-          setSaving(false);
-          return;
-        }
-      }
-
       const endAtUTC = fromWallClockInTz(endAt, timezone);
 
-      // Vidéo 16:9 : envoyée à l'enregistrement seulement ; un échec annule la sauvegarde.
+      // Les trois médias sont partis au choix du fichier : ici on n'attend plus
+      // que des promesses presque toujours déjà tenues. Un échec annule
+      // l'enregistrement — persister une soirée qui annonce une affiche ou une
+      // vidéo qu'elle n'a pas serait un mensonge silencieux.
+      let posterUrl = sanitize(posterPreview);
+      let locationLogoUrl = sanitize(locationLogoPreview);
       let finalVideoUrl: string | null = videoRemoved ? null : (videoUrl || null);
-      if (videoFile) {
-        try { finalVideoUrl = await uploadEventVideo(videoFile); }
-        catch (err) {
-          console.error('Event video upload failed:', err);
-          toast.error(t("L'envoi de la vidéo a échoué. Réessaie ou retire-la.", 'The video upload failed. Try again or remove it.', 'La subida del vídeo falló. Inténtalo de nuevo o quítalo.'));
-          setSaving(false);
-          return;
-        }
+      try {
+        const [posterUp, logoUp, videoUp] = await Promise.all([
+          poster.settle(), locationLogo.settle(), video.settle(),
+        ]);
+        if (posterUp) posterUrl = posterUp;
+        if (logoUp) locationLogoUrl = logoUp;
+        if (videoUp) finalVideoUrl = videoUp;
+      } catch (err) {
+        console.error('Event media upload failed:', err);
+        toast.error(t("L'envoi du média a échoué. Réessaie ou retire-le.", 'The media upload failed. Try again or remove it.', 'La subida del archivo falló. Inténtalo de nuevo o quítalo.'));
+        setPublishOpen(false);
+        setSaving(false);
+        return;
       }
+      bump(2); // les visuels sont en ligne
 
       const visibility = eventKind === 'private_event' ? 'private' : 'public';
       // The DB trigger evaluate_event_discoverability() recomputes is_discoverable / discovery_status
@@ -534,21 +549,29 @@ export function OrgEventFormDialog({
         if (error) throw error;
         savedId = data.id;
       }
+      // La soirée pointe maintenant sur ces fichiers : la remise à zéro du
+      // formulaire ne doit plus les retirer du bucket comme un envoi abandonné.
+      poster.commit(); locationLogo.commit(); video.commit();
+      bump(3); // la ligne `events` existe
 
       // Sync DJ lineup — handshake booking : ajouts directs écrits dans
       // event_djs, DJs avec compte notifiés par une demande qu'ils valident.
       if (savedId) {
-        const res = await saveLineup({
-          eventId: savedId,
-          eventLocalDate: startAt.slice(0, 10),
-          scope: { organizerUserId },
-          entries: lineupEntries,
-          initialEntries: initialLineupEntries,
-          eventGenres: musicGenres,
-        });
+        // Les deux moitiés du line-up écrivent dans des tables différentes :
+        // les enchaîner n'ajoutait qu'un aller-retour au temps d'attente.
         // Line-up invité : diff, jamais delete+insert — chaque ligne porte son
         // compteur de clics Instagram.
-        const guestRes = await saveGuestArtists(savedId, guestArtists);
+        const [res, guestRes] = await Promise.all([
+          saveLineup({
+            eventId: savedId,
+            eventLocalDate: startAt.slice(0, 10),
+            scope: { organizerUserId },
+            entries: lineupEntries,
+            initialEntries: initialLineupEntries,
+            eventGenres: musicGenres,
+          }),
+          saveGuestArtists(savedId, guestArtists),
+        ]);
         for (const err of guestRes.errors) {
           toast.error(t(`Artiste non enregistré : ${err.name}`, `Artist not saved: ${err.name}`), {
             description: err.message,
@@ -570,6 +593,7 @@ export function OrgEventFormDialog({
         }
       }
 
+      bump(4); // line-up et artistes invités réglés
       toast.success(isEdit ? t('Événement mis à jour', 'Event updated') : t('Événement créé', 'Event created'));
 
       // Club rattaché SANS contrat de partage : pousser clairement vers le bloc
@@ -590,9 +614,19 @@ export function OrgEventFormDialog({
         );
       }
 
+      // Cinquième étape : la liste appelante doit avoir repris la soirée avant
+      // que l'écran annonce « en ligne ».
+      await onSaved?.();
+      if (isCreate) {
+        setPublishedEvent({ title: title.trim(), meta: publishedMeta(startAtUTC) });
+        bump(5);
+        return; // l'écran reste : sa carte de fin rend la main
+      }
       onOpenChange(false);
-      onSaved?.();
     } catch (err: any) {
+      // L'écran se retire : un compteur figé par-dessus un message d'erreur
+      // ne dirait rien à personne.
+      setPublishOpen(false);
       console.error('Save event error:', err, { code: err?.code, details: err?.details, hint: err?.hint });
       // Trigger DB « partner_locked_by_contract » : détachement refusé car un
       // contrat signé lie le club — message métier, pas l'erreur SQL brute.
@@ -611,11 +645,31 @@ export function OrgEventFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Tant que l'écriture est en cours, Échap et le clic extérieur ne
+        // ferment rien ; une fois la cinquième étape passée, on rend la main.
+        if (publishOpen && publishStage < 5) return;
+        setPublishOpen(false);
+        onOpenChange(next);
+      }}
+    >
+      {/* Le dialogue ne défile plus lui-même : c'est son contenu qui défile,
+          pour que l'écran de publication (`position: absolute; inset: 0`)
+          recouvre la carte visible et non toute la hauteur du formulaire. */}
       <DialogContent
-        className="border-0 p-0 overflow-hidden max-h-[90vh] overflow-y-auto"
-        style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600 }}
+        className="border-0 p-0 max-h-[90vh]"
+        data-publishing={publishOpen && publishStage < 5 ? '1' : undefined}
+        style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
+                 display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}
       >
+      <div className="flex-1 min-h-0 overflow-y-auto" style={{
+        transition: 'filter .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1), opacity .5s ease',
+        filter: publishOpen ? 'blur(10px)' : 'none',
+        transform: publishOpen ? 'scale(.98)' : 'none',
+        opacity: publishOpen ? 0.4 : 1,
+      }}>
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
             {isEdit ? t("Modifier l'événement", 'Edit event') : t('Créer un événement', 'Create event')}
@@ -643,7 +697,7 @@ export function OrgEventFormDialog({
                   initialPosition={posterPosition || undefined}
                   onPositionChange={setPosterPosition}
                   onRemove={() => {
-                    setPosterFile(null);
+                    poster.pick(null);
                     setPosterPreview('');
                     setPosterPosition(null);
                   }}
@@ -667,8 +721,9 @@ export function OrgEventFormDialog({
             {/* Vidéo 16:9 — page de la soirée uniquement, l'affiche reste partout ailleurs */}
             <EventVideoField
               existingUrl={videoRemoved ? '' : videoUrl}
-              file={videoFile}
-              onFileChange={(f) => { setVideoFile(f); if (f) setVideoRemoved(false); }}
+              file={video.file}
+              uploading={video.uploading}
+              onFileChange={(f) => { video.pick(f); if (f) setVideoRemoved(false); }}
               onRemoveExisting={() => setVideoRemoved(true)}
             />
 
@@ -1068,7 +1123,7 @@ export function OrgEventFormDialog({
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            setLocationLogoFile(file);
+                            locationLogo.pick(file);
                             setLocationLogoPreview(URL.createObjectURL(file));
                           }}
                         />
@@ -1086,7 +1141,7 @@ export function OrgEventFormDialog({
                         {locationLogoPreview && (
                           <button
                             type="button"
-                            onClick={() => { setLocationLogoFile(null); setLocationLogoPreview(''); }}
+                            onClick={() => { locationLogo.pick(null); setLocationLogoPreview(''); }}
                             style={{ color: T3, fontSize: 12 }}
                           >
                             {t('Retirer', 'Remove', 'Quitar')}
@@ -1197,6 +1252,17 @@ export function OrgEventFormDialog({
             </div>
           </form>
         )}
+      </div>
+      <PublishingOverlay
+        open={publishOpen}
+        stage={publishStage}
+        event={publishedEvent}
+        // Pas de « Voir la page » ici : ce dialogue ne crée une soirée que
+        // pendant l'onboarding, et y envoyer quelqu'un sur la page publique le
+        // sortirait de son parcours. « Fermer » rend la main à l'étape, qui
+        // affiche son propre « Événement créé ✓ ».
+        onClose={() => { setPublishOpen(false); onOpenChange(false); }}
+      />
       </DialogContent>
     </Dialog>
   );

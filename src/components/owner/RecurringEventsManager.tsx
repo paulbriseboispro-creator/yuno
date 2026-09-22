@@ -7,7 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
-import { uploadEventVideo } from '@/lib/eventVideo';
+import { startEventVideoUpload } from '@/lib/eventMedia';
+import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
@@ -272,7 +273,9 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState('');
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  // La vidéo par défaut de la série part dès qu'elle est choisie (voir
+  // `deferredUpload.ts`) : enregistrer un modèle n'attend plus 30 Mo.
+  const video = useDeferredMedia(startEventVideoUpload);
   const [videoRemoved, setVideoRemoved] = useState(false);
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
   const [saving, setSaving] = useState(false);
@@ -418,7 +421,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     setEditing(null);
     setForm(EMPTY_FORM);
     setPosterFile(null); setPosterPreview(''); setPosterPosition(null);
-    setVideoFile(null); setVideoRemoved(false);
+    video.reset(); setVideoRemoved(false);
     setDialogOpen(true);
   };
 
@@ -455,7 +458,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     setPosterFile(null);
     setPosterPreview(tpl.poster_url || '');
     setPosterPosition(tpl.poster_position || null);
-    setVideoFile(null); setVideoRemoved(false);
+    video.reset(); setVideoRemoved(false);
     setDialogOpen(true);
   };
 
@@ -557,11 +560,17 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         } catch (err) { console.error('Poster upload exception:', err); }
       }
 
-      // Vidéo 16:9 par défaut de la série : envoyée à l'enregistrement, un échec annule.
+      // Vidéo 16:9 par défaut de la série : déjà en vol depuis le choix du
+      // fichier, on n'attend plus qu'une promesse. Un échec annule.
       let videoUrl: string | null = videoRemoved ? null : (form.videoUrl || null);
-      if (videoFile) {
-        try { videoUrl = await uploadEventVideo(videoFile); }
-        catch (err) { console.error('Event video upload failed:', err); toast.error(t('owner.eventVideo.uploadError')); setSaving(false); return; }
+      try {
+        const uploaded = await video.settle();
+        if (uploaded) videoUrl = uploaded;
+      } catch (err) {
+        console.error('Event video upload failed:', err);
+        toast.error(t('owner.eventVideo.uploadError'));
+        setSaving(false);
+        return;
       }
 
       const payload = {
@@ -606,10 +615,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       if (editing) {
         const { error } = await supabase.from('owner_recurring_templates').update(payload as any).eq('id', editing.id);
         if (error) throw error;
+        video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
       } else {
         const { data, error } = await supabase.from('owner_recurring_templates').insert(payload as any).select('id').single();
         if (error) throw error;
         templateId = data.id;
+        video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
       }
 
       // Generate occurrences immediately so the owner/organizer sees the events right away.
@@ -953,8 +964,9 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
             {/* Vidéo 16:9 par défaut — recopiée sur chaque occurrence, page soirée seulement */}
             <EventVideoField
               existingUrl={videoRemoved ? '' : form.videoUrl}
-              file={videoFile}
-              onFileChange={(f) => { setVideoFile(f); if (f) setVideoRemoved(false); }}
+              file={video.file}
+              uploading={video.uploading}
+              onFileChange={(f) => { video.pick(f); if (f) setVideoRemoved(false); }}
               onRemoveExisting={() => setVideoRemoved(true)}
             />
 
