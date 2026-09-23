@@ -42,6 +42,14 @@ describe('parseHelpBody', () => {
     expect(path && path.kind === 'path' ? path.steps : null).toEqual(['Événements', 'Billetterie']);
   });
 
+  it('never swallows a bold marker into a path chip', () => {
+    const [p] = parseHelpBody('• **Santé de la connexion** → "Vérifier maintenant" : relit le jeton.');
+    if (p.kind !== 'ul') throw new Error('expected ul');
+    const kinds = p.items[0].inlines.map((i) => i.kind);
+    expect(kinds).not.toContain('path');
+    expect(kinds).toContain('strong');
+  });
+
   it('keeps bold and quoted labels', () => {
     const [p] = parseHelpBody('Cliquez sur "Créer un événement" puis **enregistrez**.');
     if (p.kind !== 'p') throw new Error('expected p');

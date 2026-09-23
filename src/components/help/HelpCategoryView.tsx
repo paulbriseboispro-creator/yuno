@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import type { OwnerHelpArticle, OwnerHelpCategory } from '@/data/ownerHelpContent';
 import { transitions, useReducedMotion } from '@/lib/motion';
-import { ArticleRow, BORDER, HCard, IconTile, INNER_BG, Kicker, Pill, T1, T2, T3, articleCountLabel, articleReadMinutes, fmt } from './helpUi';
+import { ArticleRow, BORDER, HCard, IconTile, INNER_BG, Kicker, Pill, T1, T2, T3, articleCountLabel, articleReadMinutes, categoryColor, fmt } from './helpUi';
 
 type T = (k: string) => string;
 
@@ -17,6 +17,7 @@ export function HelpCategoryView({
 }) {
   const reduced = useReducedMotion();
   const others = categories.filter((c) => c.id !== category.id);
+  const color = categoryColor(category.id);
   return (
     <motion.div
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 10 }}
@@ -26,7 +27,7 @@ export function HelpCategoryView({
     >
       {/* En-tête du thème */}
       <div className="flex items-center gap-4">
-        <IconTile name={category.icon} size={52} accent />
+        <IconTile name={category.icon} size={52} accent color={color} />
         <div className="min-w-0">
           <Kicker>{t('ohelp.ui.guidesKicker')}</Kicker>
           <h1 className="truncate" style={{ color: T1, fontSize: 'clamp(22px,3vw,30px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.15, margin: '2px 0 0' }}>
@@ -52,6 +53,7 @@ export function HelpCategoryView({
               <div className="flex-1 min-w-0">
                 <ArticleRow
                   icon={article.icon}
+                  color={color}
                   title={t(article.titleKey)}
                   desc={t(article.descKey)}
                   meta={
@@ -85,7 +87,7 @@ export function HelpCategoryView({
                 className="inline-flex items-center gap-2 cursor-pointer transition-all duration-150 hover:bg-white/[0.06] hover:border-white/20"
                 style={{ padding: '7px 12px 7px 9px', borderRadius: 999, border: `1px solid ${BORDER}`, background: INNER_BG, color: T2, fontSize: 12.5, fontWeight: 500 }}
               >
-                <IconTile name={c.icon} size={22} />
+                <IconTile name={c.icon} size={22} color={categoryColor(c.id)} />
                 {t(c.labelKey)}
                 <span style={{ color: T3, fontSize: 11 }}>{c.articles.length}</span>
               </button>

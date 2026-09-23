@@ -89,6 +89,9 @@ function splitPaths(text: string): HelpInline[] {
     for (let k = beforeWords.length - 1; k >= 0 && head.length < MAX_PATH_WORDS; k--) {
       const w = beforeWords[k];
       if (/^\s+$/.test(w) || w === '') continue;
+      // Un marqueur de gras (**…**) n'est jamais un segment de chemin :
+      // « **Santé** → "Vérifier" » reste du texte gras suivi d'une flèche.
+      if (w.includes('**')) break;
       if (/[.,;:!?(]$/.test(w) && head.length > 0) break;
       if (isStop(w)) break;
       // Un mot en minuscules avant un segment déjà commencé est du récit
@@ -111,7 +114,7 @@ function splitPaths(text: string): HelpInline[] {
       const w = afterWords[k];
       if (w === '') continue;
       if (/^\s+$/.test(w)) { if (tail.length > 0) consumed += w.length; continue; }
-      if (isStop(w)) break;
+      if (isStop(w) || w.includes('**')) break;
       const clean = w.replace(/[.,;:!?)»"]+$/, '');
       tail.push(clean);
       consumed += clean.length;

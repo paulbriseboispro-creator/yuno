@@ -28,6 +28,41 @@ export const INNER_BG = 'rgba(255,255,255,0.032)';
 export const TILE_BG = 'rgba(255,255,255,0.025)';
 export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+/** `#RRGGBB` → `rgba(r,g,b,a)` (accepte aussi une chaîne rgba déjà formée). */
+export function rgba(color: string, a: number): string {
+  if (color.startsWith('rgba')) return color.replace(/[\d.]+\)$/, `${a})`);
+  const n = parseInt(color.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/**
+ * Une couleur par thème, la même dans tout le centre d'aide (tuile du thème,
+ * icône de l'article, pastille du fil d'Ariane). Le rouge reste au premier
+ * thème et à l'IA ; les autres reçoivent une teinte franche mais posée sur le
+ * même noir, comme les pastilles d'icônes des centres d'aide de référence.
+ */
+export const CATEGORY_COLORS: Record<string, string> = {
+  'getting-started': RED,
+  overview: '#5B9CFF',
+  events: '#A78BFA',
+  'marketing-crm': '#F472B6',
+  operations: '#F2B23C',
+  settings: '#22D3EE',
+  ecosystem: '#34D399',
+  finance: '#2DD4BF',
+  showcase: '#F472B6',
+  team: '#F2B23C',
+  'yuno-clubs': '#5B9CFF',
+  external: '#A78BFA',
+};
+export const AI_COLOR = RED;
+export const CONTACT_COLOR = '#5B9CFF';
+export const EMAIL_COLOR = '#A78BFA';
+
+export function categoryColor(id: string | null | undefined): string {
+  return (id && CATEGORY_COLORS[id]) || 'rgba(255,255,255,0.62)';
+}
+
 export const HELP_ICONS: Record<string, LucideIcon> = {
   Rocket, Settings, Moon, KeyRound, Users, Smartphone, Shield, Lightbulb, BookOpen, Map,
   LayoutDashboard, FileText, CheckCircle, Building2, CreditCard, UserPlus, Wine, CalendarDays,
@@ -103,7 +138,11 @@ export function SectionHead({ title, sub, right }: { title: ReactNode; sub?: Rea
 }
 
 /** Tuile d'icône : blanche par défaut, rouge en accent (§5). */
-export function IconTile({ name, size = 36, accent = false, className }: { name: string; size?: number; accent?: boolean; className?: string }) {
+export function IconTile({ name, size = 36, accent = false, color, className }: { name: string; size?: number; accent?: boolean; color?: string; className?: string }) {
+  // `color` = teinte du thème (toujours affichée) ; `accent` = état fort
+  // (survol, page courante) qui pousse la teinte en plein et ajoute le halo.
+  const tint = color ?? (accent ? RED : null);
+  const strong = accent || Boolean(color);
   return (
     <div
       className={`flex items-center justify-center flex-none transition-all duration-150 ${className ?? ''}`}
@@ -111,10 +150,10 @@ export function IconTile({ name, size = 36, accent = false, className }: { name:
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.3),
-        background: accent ? 'rgba(232,25,44,0.12)' : C_FAINT,
-        border: `1px solid ${accent ? 'rgba(232,25,44,0.28)' : BORDER}`,
-        color: accent ? RED : T2,
-        boxShadow: accent ? '0 0 18px -6px rgba(232,25,44,0.6)' : undefined,
+        background: tint ? rgba(tint, accent ? 0.18 : 0.12) : C_FAINT,
+        border: `1px solid ${tint ? rgba(tint, accent ? 0.42 : 0.26) : BORDER}`,
+        color: tint ? (strong ? tint : T2) : T2,
+        boxShadow: accent && tint ? `0 0 18px -6px ${rgba(tint, 0.65)}` : undefined,
       }}
     >
       <HelpIcon name={name} style={{ width: Math.round(size * 0.46), height: Math.round(size * 0.46) }} />
@@ -123,7 +162,8 @@ export function IconTile({ name, size = 36, accent = false, className }: { name:
 }
 
 /** Pastille de statut (§7.3) — `hot` = rouge, sinon blanc faible. */
-export function Pill({ children, hot, style }: { children: ReactNode; hot?: boolean; style?: CSSProperties }) {
+export function Pill({ children, hot, color, style }: { children: ReactNode; hot?: boolean; color?: string; style?: CSSProperties }) {
+  const tint = color ?? (hot ? RED : null);
   return (
     <span
       className="inline-flex items-center gap-1.5 whitespace-nowrap"
@@ -133,9 +173,9 @@ export function Pill({ children, hot, style }: { children: ReactNode; hot?: bool
         fontSize: 11.5,
         fontWeight: 600,
         letterSpacing: '0.01em',
-        border: `1px solid ${hot ? 'rgba(232,25,44,0.35)' : BORDER}`,
-        background: hot ? 'rgba(232,25,44,0.10)' : C_FAINT,
-        color: hot ? RED : T2,
+        border: `1px solid ${tint ? rgba(tint, 0.35) : BORDER}`,
+        background: tint ? rgba(tint, 0.10) : C_FAINT,
+        color: tint ?? T2,
         ...style,
       }}
     >
@@ -191,9 +231,9 @@ export function Highlight({ text, tokens }: { text: string; tokens: string[] }) 
 
 /** Ligne d'article (accueil, catégorie, résultats, articles liés). */
 export function ArticleRow({
-  icon, title, desc, meta, onClick, accent, compact,
+  icon, title, desc, meta, onClick, accent, compact, color,
 }: {
-  icon: string; title: ReactNode; desc?: ReactNode; meta?: ReactNode; onClick: () => void; accent?: boolean; compact?: boolean;
+  icon: string; title: ReactNode; desc?: ReactNode; meta?: ReactNode; onClick: () => void; accent?: boolean; compact?: boolean; color?: string;
 }) {
   const [hover, setHover] = useState(false);
   return (
@@ -207,10 +247,10 @@ export function ArticleRow({
         padding: compact ? '11px 12px' : '14px 16px',
         borderRadius: 14,
         background: hover ? 'rgba(255,255,255,0.05)' : INNER_BG,
-        border: `1px solid ${hover ? 'rgba(255,255,255,0.14)' : BORDER}`,
+        border: `1px solid ${hover ? (color ? rgba(color, 0.35) : 'rgba(255,255,255,0.14)') : BORDER}`,
       }}
     >
-      <IconTile name={icon} size={compact ? 32 : 36} accent={accent || hover} />
+      <IconTile name={icon} size={compact ? 32 : 36} accent={accent || hover} color={color} />
       <div className="flex-1 min-w-0">
         <div className="truncate" style={{ color: T1, fontSize: compact ? 13.5 : 14, fontWeight: 600, letterSpacing: '-0.005em' }}>{title}</div>
         {desc && <div className="truncate" style={{ color: T3, fontSize: 12, marginTop: 2 }}>{desc}</div>}

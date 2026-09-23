@@ -10,10 +10,11 @@ import { parseHelpBody, type HelpBlock, type HelpInline, type HelpListItem } fro
 import { transitions, useReducedMotion } from '@/lib/motion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AskAiButton } from './HelpAskAi';
+import { HelpAiChat, type HelpAiChatHandle } from './HelpAiChat';
 import { HelpSupportCards } from './HelpSupportCards';
 import {
   AMBER, ArticleRow, BORDER, C_FAINT, F_BORDER, HCard, IconTile, INNER_BG, Kicker, NEG, Pill, POS, RED, SectionHead,
-  T1, T2, T3, TILE_BG, articleReadMinutes, fmt,
+  T1, T2, T3, TILE_BG, articleReadMinutes, categoryColor, fmt,
 } from './helpUi';
 
 type T = (k: string) => string;
@@ -239,12 +240,15 @@ function Toc({ t, headings, active, onGo }: { t: T; headings: string[]; active: 
 
 // ─── Article ──────────────────────────────────────────────────────────────────
 export function HelpArticleView({
-  t, article, category, categories, initialSection, onOpenArticle, onOpenCategory, onHome, onContact, onOpenPath,
+  t, article, category, categories, initialSection, onOpenArticle, onOpenCategory, onHome, onContact, onOpenPath, scope, language, basePath,
 }: {
   t: T;
   article: OwnerHelpArticle;
   category: OwnerHelpCategory | null;
   categories: OwnerHelpCategory[];
+  scope: string;
+  language: string;
+  basePath: string;
   initialSection?: number;
   onOpenArticle: (article: OwnerHelpArticle) => void;
   onOpenCategory: (id: string) => void;
@@ -256,7 +260,9 @@ export function HelpArticleView({
   const [zoom, setZoom] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const sectionRefs = useRef<Array<HTMLElement | null>>([]);
+  const chatRef = useRef<HelpAiChatHandle>(null);
   const [vote, setVote] = useState<'yes' | 'no' | null>(null);
+  const color = categoryColor(category?.id);
 
   const headings = useMemo(() => article.sections.map((s) => t(s.headingKey)), [article, t]);
   const parsed = useMemo(() => article.sections.map((s) => parseHelpBody(t(s.bodyKey))), [article, t]);
@@ -327,7 +333,8 @@ export function HelpArticleView({
     return () => window.removeEventListener('keydown', onKey);
   }, [zoom]);
 
-  const aiPrompt = (q: string) => fmt(t('ohelp.ui.aiArticlePrompt'), { title: t(article.titleKey), q });
+  const relatedColor = (a: OwnerHelpArticle) => categoryColor(categories.find((c) => c.articles.some((x) => x.id === a.id))?.id);
+  const chips = [1, 2, 3].map((n) => ({ label: t(`ohelp.ui.aiSuggestArticle${n}`), prompt: t(`ohelp.ui.aiSuggestArticle${n}`) }));
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -382,13 +389,13 @@ export function HelpArticleView({
           {/* Titre */}
           <header className="mt-4">
             <div className="flex items-start gap-4">
-              <IconTile name={article.icon} size={48} accent className="hidden sm:flex" />
+              <IconTile name={article.icon} size={48} accent color={color} className="hidden sm:flex" />
               <div className="min-w-0 flex-1">
                 <h1 style={{ color: T1, fontSize: 'clamp(24px,3.4vw,34px)', fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.12, margin: 0 }}>
                   {t(article.titleKey)}
                 </h1>
                 <div className="flex items-center gap-2 flex-wrap mt-3">
-                  {category && <Pill hot>{t(category.labelKey)}</Pill>}
+                  {category && <Pill color={color}>{t(category.labelKey)}</Pill>}
                   <Pill>{fmt(t('ohelp.ui.readTime'), { n: minutes })}</Pill>
                   <Pill>{fmt(t('ohelp.ui.sectionsCount'), { n: article.sections.length })}</Pill>
                 </div>
@@ -465,7 +472,7 @@ export function HelpArticleView({
             </span>
             {vote === 'no' ? (
               <div className="flex items-center gap-2 flex-wrap">
-                <AskAiButton label={t('ohelp.ui.feedbackAskAi')} prompt={aiPrompt(t('ohelp.ui.aiChip1'))} />
+                <AskAiButton label={t('ohelp.ui.feedbackAskAi')} onClick={() => chatRef.current?.focus()} />
                 <button
                   type="button"
                   onClick={onContact}
@@ -499,7 +506,7 @@ export function HelpArticleView({
               <SectionHead title={t('ohelp.relatedArticles')} />
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {related.map((a) => (
-                  <ArticleRow key={a.id} compact icon={a.icon} title={t(a.titleKey)} desc={t(a.descKey)} onClick={() => onOpenArticle(a)} />
+                  <ArticleRow key={a.id} compact icon={a.icon} color={relatedColor(a)} title={t(a.titleKey)} desc={t(a.descKey)} onClick={() => onOpenArticle(a)} />
                 ))}
               </div>
             </div>
@@ -532,14 +539,20 @@ export function HelpArticleView({
           {/* Une question sur cet article ? */}
           <div className="mt-8">
             <HCard glow style={{ padding: 20 }}>
-              <SectionHead title={t('ohelp.ui.stillNeedHelp')} />
-              <HelpSupportCards
-                t={t}
-                onContact={onContact}
-                aiTitle={t('ohelp.ui.aiArticleTitle')}
-                aiDesc={t('ohelp.ui.aiArticleDesc')}
-                aiPrompt={aiPrompt}
-              />
+              <SectionHead title={t('ohelp.ui.stillNeedHelp')} sub={t('ohelp.ui.stillNeedHelpSub')} />
+              <div className="space-y-3">
+                <HelpAiChat
+                  ref={chatRef}
+                  t={t}
+                  scope={scope}
+                  language={language}
+                  categories={categories}
+                  basePath={basePath}
+                  currentArticle={article}
+                  chips={chips}
+                />
+                <HelpSupportCards t={t} onContact={onContact} />
+              </div>
             </HCard>
           </div>
         </article>

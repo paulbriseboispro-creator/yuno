@@ -4,27 +4,29 @@ import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { useLanguage, useLocaleSection } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { ownerHelpCategories, type OwnerHelpArticle, type OwnerHelpCategory } from '@/data/ownerHelpContent';
+import { OwnerHeader } from '@/components/OwnerHeader';
+import { OrgPageHeader } from '@/components/org-ui';
 import { HelpHome } from '@/components/help/HelpHome';
 import { HelpCategoryView } from '@/components/help/HelpCategoryView';
 import { HelpArticleView } from '@/components/help/HelpArticleView';
-import { BORDER, C_FAINT, RED, T1, T2, T3, useRecentArticles } from '@/components/help/helpUi';
+import { BORDER, C_FAINT, CONTACT_COLOR, RED, T1, T2, useRecentArticles } from '@/components/help/helpUi';
 
 /**
  * Centre d'aide des dashboards pro (club, organisateur, agence, manager).
  *
  * Trois vues, adressées par l'URL pour que chaque écran soit partageable et
  * que le bouton « retour » du navigateur fonctionne :
- * - accueil      : /help                       (recherche, thèmes, populaires, support)
+ * - accueil      : /help                       (recherche, thèmes, populaires, assistant, support)
  * - thème        : /help?category=<id>
  * - article      : /help?article=<id>[&s=<n>]  (`s` = section visée par la recherche)
  *
- * Le contenu vient de `categories` (club par défaut ; organisateur et agence
- * passent le leur), les textes des clés `ohelp.*` chargées à la demande
- * (useLocaleSection). L'assistant IA apparaît partout où un assistant est
- * monté sur la page (src/lib/helpAssistant.ts) ; sinon, support humain.
+ * L'en-tête suit l'app hôte : le club et le manager ont l'`OwnerHeader`
+ * collant de toutes leurs pages ; l'organisateur et l'agence ont déjà la
+ * barre de leur layout, la page ne pose qu'un `OrgPageHeader` en ligne —
+ * jamais deux barres empilées.
  */
 export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { categories?: OwnerHelpCategory[] } = {}) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const helpReady = useLocaleSection('help');
   const navigate = useNavigate();
   const { basePath, mode } = useDashboardMode();
@@ -93,26 +95,70 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
   // absolu avec le préfixe « ~ » (ex. le guide agence vers /affiliate/…).
   const openPath = useCallback((p: string) => navigate(p.startsWith('~') ? p.slice(1) : `${basePath}${p}`), [navigate, basePath]);
 
-  const goBack = () => {
-    if (located) {
-      if (located.category) openCategory(located.category.id);
-      else goHome();
-    } else if (category) {
-      goHome();
-    } else {
-      navigate(`${basePath}/dashboard`);
-    }
-  };
-
   const view: 'article' | 'category' | 'home' = located ? 'article' : category ? 'category' : 'home';
-  const barTitle = view === 'article' ? t(located!.article.titleKey) : view === 'category' ? t(category!.labelKey) : t('ohelp.title');
+  const backTo = view === 'article'
+    ? `${basePath}/help?category=${located!.category.id}`
+    : view === 'category'
+      ? `${basePath}/help`
+      : `${basePath}/dashboard`;
+  const ownerLike = mode === 'owner' || mode === 'manager';
+
+  const contactButton = (
+    <button
+      type="button"
+      onClick={goContact}
+      className="inline-flex items-center gap-2 flex-none cursor-pointer transition-all duration-150 hover:bg-white/[0.07]"
+      style={{ height: 36, padding: '0 12px', borderRadius: 10, border: `1px solid ${BORDER}`, background: C_FAINT, color: T1, fontSize: 13, fontWeight: 600 }}
+    >
+      <MessageSquare className="w-4 h-4" style={{ color: CONTACT_COLOR }} aria-hidden="true" />
+      <span className="hidden sm:inline">{t('ohelp.tabSupport')}</span>
+    </button>
+  );
+
+  const content = !helpReady ? (
+    <div className="flex min-h-[60vh] items-center justify-center" aria-busy="true">
+      <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+    </div>
+  ) : view === 'article' ? (
+    <HelpArticleView
+      t={t}
+      article={located!.article}
+      category={located!.category}
+      categories={categories}
+      scope={mode}
+      language={language}
+      basePath={basePath}
+      initialSection={initialSection}
+      onOpenArticle={openArticle}
+      onOpenCategory={openCategory}
+      onHome={goHome}
+      onContact={goContact}
+      onOpenPath={openPath}
+    />
+  ) : view === 'category' ? (
+    <HelpCategoryView t={t} category={category!} categories={categories} onOpenArticle={openArticle} onOpenCategory={openCategory} />
+  ) : (
+    <HelpHome
+      t={t}
+      categories={categories}
+      query={query}
+      onQueryChange={setQuery}
+      onOpenArticle={openArticle}
+      onOpenCategory={openCategory}
+      onContact={goContact}
+      recentIds={recentIds}
+      scope={mode}
+      language={language}
+      basePath={basePath}
+    />
+  );
 
   return (
     <div
-      className="min-h-[100dvh] pb-24"
-      style={{ background: '#000', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
+      className="min-h-[100dvh]"
+      style={{ background: ownerLike ? '#000' : undefined, paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* Ambiance : vignette blanche + halo rouge en tête d'accueil + trame de points */}
+      {/* Ambiance : vignette + halo rouge en tête d'accueil + trame de points */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={{
@@ -132,72 +178,35 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
         }}
       />
 
-      {/* Barre haute */}
-      <div
-        className="sticky top-0 z-30 backdrop-blur"
-        style={{ background: 'rgba(0,0,0,0.78)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 flex items-center gap-3" style={{ height: 56 }}>
-          <button
-            type="button"
-            onClick={goBack}
-            aria-label={view === 'home' ? t('ohelp.ui.backToDashboard') : t('ohelp.ui.breadcrumbRoot')}
-            className="flex items-center justify-center flex-none cursor-pointer transition-colors hover:bg-white/[0.07]"
-            style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${BORDER}`, background: C_FAINT, color: T2 }}
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="truncate" style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              {t('sidebar.helpSupport')}
-            </div>
-            <div className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.005em' }}>{barTitle}</div>
-          </div>
-          <button
-            type="button"
-            onClick={goContact}
-            className="inline-flex items-center gap-2 flex-none cursor-pointer transition-all duration-150 hover:bg-white/[0.07] hover:border-white/20"
-            style={{ height: 36, padding: '0 12px', borderRadius: 10, border: `1px solid ${BORDER}`, background: C_FAINT, color: T1, fontSize: 13, fontWeight: 600 }}
-          >
-            <MessageSquare className="w-4 h-4" style={{ color: RED }} aria-hidden="true" />
-            <span className="hidden sm:inline">{t('ohelp.tabSupport')}</span>
-          </button>
+      {/* En-tête : celui de l'app hôte, jamais une seconde barre */}
+      {ownerLike ? (
+        <OwnerHeader title={t('ohelp.title')} backTo={backTo} rightContent={contactButton} />
+      ) : (
+        <div className="relative z-10 mx-auto max-w-[1180px] px-4 sm:px-6 pt-1">
+          <OrgPageHeader
+            title={t('ohelp.title')}
+            subtitle={view === 'home' ? undefined : (view === 'article' ? t(located!.category.labelKey) : t('ohelp.ui.breadcrumbRoot'))}
+            actions={
+              <div className="flex items-center gap-2">
+                {view !== 'home' && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(backTo)}
+                    aria-label={t('ohelp.ui.breadcrumbRoot')}
+                    className="flex items-center justify-center cursor-pointer transition-colors hover:bg-white/[0.07]"
+                    style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${BORDER}`, background: C_FAINT, color: T2 }}
+                  >
+                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )}
+                {contactButton}
+              </div>
+            }
+          />
         </div>
-      </div>
+      )}
 
-      <div className="relative z-10 mx-auto max-w-[1180px] px-4 sm:px-6">
-        {!helpReady ? (
-          <div className="flex min-h-[60vh] items-center justify-center" aria-busy="true">
-            <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
-          </div>
-        ) : view === 'article' ? (
-          <HelpArticleView
-            t={t}
-            article={located!.article}
-            category={located!.category}
-            categories={categories}
-            initialSection={initialSection}
-            onOpenArticle={openArticle}
-            onOpenCategory={openCategory}
-            onHome={goHome}
-            onContact={goContact}
-            onOpenPath={openPath}
-          />
-        ) : view === 'category' ? (
-          <HelpCategoryView t={t} category={category!} categories={categories} onOpenArticle={openArticle} onOpenCategory={openCategory} />
-        ) : (
-          <HelpHome
-            t={t}
-            categories={categories}
-            query={query}
-            onQueryChange={setQuery}
-            onOpenArticle={openArticle}
-            onOpenCategory={openCategory}
-            onContact={goContact}
-            recentIds={recentIds}
-          />
-        )}
-      </div>
+      <div className="relative z-10 mx-auto max-w-[1180px] px-4 sm:px-6">{content}</div>
     </div>
   );
 }
