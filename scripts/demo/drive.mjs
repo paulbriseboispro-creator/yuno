@@ -34,7 +34,7 @@ export const ROLES = {
   organizer: { email: 'organizer@womber.fr', route: '/organizer-app' },
   bde:       { email: 'bde@womber.fr',       route: '/organizer-app' },
   promoter:  { email: 'promoter@womber.fr',  route: '/promoter',   session: 'pin',   role: 'promoter' },
-  agency:    { email: 'agency@womber.fr',    route: '/agency-app' },
+  agency:    { email: 'agency@womber.fr',    route: '/agency-app', mfa: true },
   dj:        { email: 'dj@womber.fr',        route: '/dj',         session: 'pin',   role: 'dj' },
   affiliate: { email: 'affiliate@womber.fr', route: '/affiliate',  mfa: true },
   bouncer:   { email: 'bouncer@womber.fr',   route: '/bouncer',    session: 'staff', role: 'bouncer' },

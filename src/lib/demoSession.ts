@@ -76,8 +76,11 @@ export async function signInToDemoAccount(
 }
 
 // Comptes dont la route exige RequireMFA (owner, affilié). On pose une session MFA
-// locale valide 24 h pour ne pas tomber sur /mfa-setup en démo.
-export const MFA_GATED = new Set(['owner@womber.fr', 'affiliate@womber.fr']);
+// locale valide 24 h pour ne pas tomber sur /mfa-setup en démo. Le chef d'agence en
+// fait partie : la fusion agence↔affilié lui donne les DEUX rôles, donc ses pages
+// de clubs externes (/affiliate/*) passent par le même mur que l'affilié, même si
+// sa Console (/agency-app/*) n'en a pas.
+export const MFA_GATED = new Set(['owner@womber.fr', 'affiliate@womber.fr', 'agency@womber.fr']);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
