@@ -18,7 +18,7 @@ import { toast } from 'sonner';
  * chemins divergent et l'un des deux finit par mentir.
  *
  * `variant` habille le déclencheur selon la surface d'accueil ('sidebar' pour
- * les cockpits promoteur / DJ / agence, 'row' pour la fiche compte du staff,
+ * les Consoles promoteur / DJ / agence, 'row' pour la fiche compte du staff,
  * 'button' pour la page Réglages client) ; la logique, elle, reste unique.
  */
 type Variant = 'sidebar' | 'row' | 'button';

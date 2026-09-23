@@ -160,7 +160,7 @@ export default function OwnerGuestList() {
   const selectedEvent = events.find(e => e.id === selectedEventId) ?? null;
   const slug = partSlug({ isOrganizerScope, organizerUserId, venueName: venue?.name ?? null });
   const clubPart = parts.find(p => p.holder_type === 'club') ?? null;
-  // L'ENVELOPPE agence ('agency') est pilotée dans le cockpit de l'agence
+  // L'ENVELOPPE agence ('agency') est pilotée dans la Console de l'agence
   // (répartition partition/pool) et accordée depuis la page Agences côté club —
   // on ne l'affiche pas ici pour éviter tout double-comptage avec ses sous-parts.
   const otherParts = parts.filter(p => p.holder_type !== 'club' && p.holder_type !== 'agency');
@@ -219,7 +219,7 @@ export default function OwnerGuestList() {
   // "Save as preset" from a part's config opens the full editor, pre-filled.
   const openPresetFromConfig = (config: Record<string, unknown>, holderType: HolderType) => {
     // Les presets ne connaissent que club/dj/promoter : custom, organizer
-    // (part d'allocation) et agency (enveloppe, gérée en cockpit agence) retombent sur 'club'.
+    // (part d'allocation) et agency (enveloppe, gérée en Console agence) retombent sur 'club'.
     const ht: TemplateHolderType = (holderType === 'custom' || holderType === 'organizer' || holderType === 'agency') ? 'club' : holderType;
     setPresetDialog({ editing: null, initial: { ...(config as Partial<TemplateInput>), holder_type: ht } });
   };

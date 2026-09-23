@@ -825,7 +825,7 @@ const App = () => (
                 <Route path="/my-orders" element={<MyOrders />} />
                 {/* Redirect /my-tickets to /my-orders?tab=tickets */}
                 <Route path="/my-tickets" element={<Navigate to="/my-orders?tab=tickets" replace />} />
-                {/* agency/affiliate : le « Retour profil » du cockpit agence
+                {/* agency/affiliate : le « Retour profil » de la Console agence
                     pointe ici — un chef d'agence sans rôle client était
                     renvoyé à l'accueil. */}
                 <Route path="/profile" element={

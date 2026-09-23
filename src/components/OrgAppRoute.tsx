@@ -13,7 +13,7 @@ interface OrgAppRouteProps {
 }
 
 /**
- * Garde de l'app organisateur.
+ * Garde de la Console organisateur.
  *
  * Y entrent : le fondateur de l'organisation (`profile_type = 'organizer'`) ET
  * les membres de son équipe qui ont accepté leur invitation (admin, editor,

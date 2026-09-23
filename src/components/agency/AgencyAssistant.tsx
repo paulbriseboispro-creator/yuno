@@ -22,7 +22,7 @@ const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,2
 
 type Tri = { fr: string; en: string; es: string };
 
-// Chips de suggestions contextuelles selon la page courante du cockpit.
+// Chips de suggestions contextuelles selon la page courante de la Console.
 const SUGGESTIONS_BY_PATH: Array<{ match: RegExp; prompts: Tri[] }> = [
   {
     match: /^\/agency-app\/finance/,
@@ -78,7 +78,7 @@ function suggestionsFor(pathname: string): Tri[] {
 
 /**
  * Assistant IA « Yuno Agency » — bras droit du chef d'agence, accessible
- * partout dans le cockpit via un bouton flottant. Le fil de conversation
+ * partout dans la Console via un bouton flottant. Le fil de conversation
  * persiste entre les pages (sessionStorage, voir useAgencyAssistantChat).
  *
  * Les actions d'écriture (annonce équipe, bio, tri du linktree) n'ont pas

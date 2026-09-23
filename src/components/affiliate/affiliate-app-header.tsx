@@ -18,7 +18,7 @@ import { useAffiliateShell } from '@/contexts/AffiliateShellContext';
 export function AffiliateAppHeader() {
   const { t } = useLanguage();
   const shell = useAffiliateShell();
-  // Le chef d'agence a son miroir d'aide sans mur MFA dans le cockpit ;
+  // Le chef d'agence a son miroir d'aide sans mur MFA dans la Console ;
   // membres et managers gardent l'aide de l'espace affilié.
   const helpPath = shell?.role === 'admin' ? '/agency-app/help' : '/affiliate/help';
 

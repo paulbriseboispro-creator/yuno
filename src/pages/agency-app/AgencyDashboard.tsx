@@ -108,14 +108,14 @@ export default function AgencyDashboard() {
       name: e.name,
       // start_time arrive en "HH:MM:SS" (colonne Postgres `time`) : normaliser
       // en "HH:MM" avant de rebâtir l'ISO, sinon "…T23:59:00:00" = Invalid Date
-      // et le format() de date-fns throw → tout le cockpit tombe en erreur.
+      // et le format() de date-fns throw → toute la Console tombe en erreur.
       when: new Date(`${e.event_date}T${(e.start_time ?? '23:00').slice(0, 5)}:00`),
       venue: e.venue_name,
       mode: 'external' as const,
       extra: null as number | null,
     }));
     // Garde-fou : aucune Invalid Date ne doit atteindre format() (un seul throw
-    // ferait tomber tout le cockpit agence).
+    // ferait tomber toute la Console agence).
     return [...yuno, ...external]
       .filter(x => !Number.isNaN(x.when.getTime()))
       .sort((a, b) => a.when.getTime() - b.when.getTime())

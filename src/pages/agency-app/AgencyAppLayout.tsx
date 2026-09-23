@@ -14,7 +14,7 @@ import { getAffiliateFeedConfig } from '@/lib/notifications';
 import { T1, T3, RED, PromoButton } from '@/components/promoter/promoter-ui';
 
 /**
- * Layout de l'espace agence fusionné : le cockpit unique du chef d'agence.
+ * Layout de l'espace agence fusionné : la Console unique du chef d'agence.
  * Sidebar groupée couvrant les clubs Yuno (/agency-app/*) ET les clubs
  * externes (/affiliate/*), header partagé (cloche du flux affilié, langue,
  * aide, retour profil). Le bras externe (ligne `affiliates` liée par

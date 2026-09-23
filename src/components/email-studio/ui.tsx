@@ -43,7 +43,7 @@ export const PAGE_HALO = 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,
  * Hauteur réellement disponible pour un écran plein du Studio.
  *
  * Le Studio occupe tout l'écran — mais il ne commence pas toujours en haut de
- * la fenêtre : l'app organisateur pose son en-tête au-dessus de lui. Un
+ * la fenêtre : la Console organisateur pose son en-tête au-dessus de lui. Un
  * `height: 100vh` nu poussait donc son BAS sous le pli, et la barre de
  * création d'une campagne (nom, soirée, bouton) n'apparaissait qu'après avoir
  * fait défiler la page du shell. On retranche l'écart de mise en page : on

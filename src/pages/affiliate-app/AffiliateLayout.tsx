@@ -86,7 +86,7 @@ export default function AffiliateLayout() {
     );
   }
 
-  // L'index /affiliate n'est une destination pour personne : le cockpit du
+  // L'index /affiliate n'est une destination pour personne : la Console du
   // chef d'agence est /agency-app (fusion), le manager vit sur /affiliate/manager
   // et le promoteur sur /affiliate/promoteur. Sans cet aiguillage, un membre
   // atterrissant ici (post-invitation, post-PIN, retour arrière) tombait sur

@@ -101,7 +101,7 @@ function txnId(inv: InvoiceRow): string | null {
 }
 
 /**
- * Shared accounting page for the Owner club dashboard AND the Organizer app.
+ * Shared accounting page for the Club Console AND the Organizer Console.
  * Aggregates the issued invoices across every event the viewer is party to,
  * one card per event, applying the co-production split so all figures reflect
  * "your share". Mounted at /owner/accounting and /organizer-app/accounting.

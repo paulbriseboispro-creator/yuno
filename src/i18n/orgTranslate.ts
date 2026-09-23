@@ -1,7 +1,7 @@
 import { getLoadedLocale, type Language } from './data';
 
 /**
- * Translation helper for the organizer app, where call sites pass the French
+ * Translation helper for the organizer Console, where call sites pass the French
  * source text inline as the lookup key plus an English (and optionally Spanish)
  * fallback: `t('Bonjour', 'Hello', 'Hola')`.
  *

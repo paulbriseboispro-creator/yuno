@@ -223,7 +223,7 @@ export function RoleAccessCards({
       sublabel: t(`acceptOrg.role.${m.role}`),
       organizerUserId: m.organizerUserId,
     })),
-    // Fusion agence↔affilié : le chef d'agence a UN cockpit unifié (/agency-app,
+    // Fusion agence↔affilié : le chef d'agence a UNE Console unifiée (/agency-app,
     // sa sidebar couvre déjà les clubs externes/soirées). On expose l'entrée
     // « Agence » et on masque l'ancienne carte « Affilié » redondante — /affiliate
     // redirige de toute façon un admin vers /agency-app.

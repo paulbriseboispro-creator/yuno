@@ -32,7 +32,7 @@ type T = (key: string) => string;
  * Sidebar UNIQUE de l'espace agence fusionné. Elle couvre les deux familles
  * de routes — /agency-app/* (clubs Yuno : contrats, ventes in-app, finance)
  * et /affiliate/* (clubs externes : catalogue, linktree, trafic) — pour que
- * le chef d'agence vive dans un seul cockpit, quel que soit le mode de
+ * le chef d'agence vive dans une seule Console, quel que soit le mode de
  * distribution d'un club.
  */
 function buildGroups(t: T): SidebarNavGroup[] {

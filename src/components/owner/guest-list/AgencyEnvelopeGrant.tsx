@@ -8,7 +8,7 @@ import { RED, T1, T2, T3, BORDER, INNER_BG } from './ui';
 
 // Octroi PAR SOIRÉE d'une enveloppe guest list à une agence partenaire (côté
 // club/organisateur qui tient la porte). Écrase l'enveloppe standing du contrat
-// pour CETTE soirée. L'agence la répartit ensuite dans son cockpit.
+// pour CETTE soirée. L'agence la répartit ensuite dans sa Console.
 // N'apparaît que s'il existe au moins un contrat agence actif sur le périmètre.
 
 type Row = {

@@ -253,7 +253,7 @@ export function getAffiliateFeedConfig(feedKey: string, pagePath = '/affiliate/i
     filterColumn: 'feed_key',
     filterValue: feedKey,
     basePath: '/affiliate',
-    // Le cockpit agence passe '/agency-app/inbox' (miroir sans mur MFA) ; les
+    // La Console agence passe '/agency-app/inbox' (miroir sans mur MFA) ; les
     // membres/managers gardent l'inbox affiliée par défaut.
     pagePath,
     realtimeFilter: `feed_key=eq.${feedKey}`,

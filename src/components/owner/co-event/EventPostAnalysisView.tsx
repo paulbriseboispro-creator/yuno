@@ -23,7 +23,7 @@ interface Props {
   eventId: string;
   /** Venue scope (club dashboard). */
   venueId: string | null;
-  /** Organizer scope (organizer app). When set with a null venueId, the engine
+  /** Organizer scope (organizer Console). When set with a null venueId, the engine
    *  runs org-scoped: tickets + tables across the organizer's events, no drinks. */
   organizerUserId?: string | null;
 }

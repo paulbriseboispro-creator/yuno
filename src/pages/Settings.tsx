@@ -649,7 +649,7 @@ export default function Settings() {
           {t('profile.signOut')}
         </Button>
 
-        {/* Delete account (App Store 5.1.1(v)) — même composant que les cockpits pro. */}
+        {/* Delete account (App Store 5.1.1(v)) — même composant que les Consoles pro. */}
         <DeleteAccountAction variant="button" />
       </div>
 

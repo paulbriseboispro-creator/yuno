@@ -12,7 +12,7 @@ import { MUSIC_GENRES } from '@/lib/musicGenres';
  * compte n'a personne pour valider : il reste ajouté directement.
  *
  * Ce module est partagé par OwnerEvents (scope venue + organizer) et
- * OrgEventFormDialog (app organisateur) pour que les deux formulaires parlent
+ * OrgEventFormDialog (Console organisateur) pour que les deux formulaires parlent
  * exactement le même langage.
  */
 

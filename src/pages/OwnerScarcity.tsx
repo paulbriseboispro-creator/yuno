@@ -143,7 +143,7 @@ type ItemType = 'ticket' | 'table' | 'guestlist';
 /**
  * Rareté / FOMO — badge d'urgence ou compteur plafonné sur les paliers de
  * billets et les zones de tables d'une soirée. Une seule page pour les trois
- * cockpits : club (/owner), manager (/manager) et organisateur
+ * Consoles : club (/owner), manager (/manager) et organisateur
  * (/organizer-app). Le scope vient de `useVenueContext` : un club lit ses
  * soirées par `venue_id`, un organisateur par `organizer_user_id` /
  * `partner_organizer_id` (mêmes soirées que sa page Tables VIP). Côté base, la

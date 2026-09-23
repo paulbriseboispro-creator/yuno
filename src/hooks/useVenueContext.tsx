@@ -43,7 +43,7 @@ export function useVenueContext(): VenueContextResult {
   const { user } = useAuth();
   const ownerVenue = useOwnerVenue();
   const managerContext = useContext(ManagerVenueContext);
-  // L'appartenance ne se charge QUE dans l'app organisateur : un club n'en a
+  // L'appartenance ne se charge QUE dans la Console organisateur : un club n'en a
   // pas l'usage et n'a pas à payer la requête.
   const acting = useActingOrganizer({ enabled: mode === 'organizer' });
 
@@ -78,7 +78,7 @@ export function useVenueContext(): VenueContextResult {
     };
   }
 
-  // Default to owner. Le mode 'agency' n'a pas de venue-context (le cockpit
+  // Default to owner. Le mode 'agency' n'a pas de venue-context (la Console
   // agence ne monte pas ce hook) — s'il arrivait ici, il se rabat sur owner.
   return {
     venueId: ownerVenue.venueId,

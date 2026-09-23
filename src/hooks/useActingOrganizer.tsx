@@ -6,7 +6,7 @@ import { useProfileType } from '@/hooks/useProfileType';
 /**
  * « Pour quelle organisation est-ce que je travaille ? »
  *
- * L'app organisateur supposait que la réponse était toujours « la mienne » :
+ * La Console organisateur supposait que la réponse était toujours « la mienne » :
  * chaque page filtrait sur `organizer_user_id = user.id`. Ça marche pour le
  * fondateur de l'organisation, et seulement pour lui. Un membre d'équipe
  * accepté (admin / editor / scanner) a pourtant déjà ses droits EN BASE —
@@ -143,7 +143,7 @@ export function rememberActingOrganizer(organizerUserId: string) {
 /**
  * Cache partagé entre tous les appelants. Une quinzaine de composants montent
  * ce hook sur un même écran ; sans ce cache, chacun rejouerait la RPC et
- * l'app organisateur démarrerait sur une rafale de requêtes identiques.
+ * la Console organisateur démarrerait sur une rafale de requêtes identiques.
  */
 let cacheUserId: string | null = null;
 let cacheRows: OrgMembership[] | null = null;
