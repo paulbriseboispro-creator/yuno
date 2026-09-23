@@ -2,7 +2,7 @@
 // Même moteur que le centre d'aide owner (OwnerHelpCenter), types partagés.
 // Texte réel dans src/i18n/locales/{en,fr,es}.ts, namespace `ohelp.agc.*`.
 //
-// STRUCTURE : le guide miroir la sidebar du cockpit agence
+// STRUCTURE : le guide miroir la sidebar de la Console agence
 // (agency-app-sidebar.tsx) : Démarrer, Vitrine publique, Équipe, Clubs Yuno,
 // Clubs externes, Finance. Les chemins d'action relatifs pointent sous
 // /agency-app ; le préfixe '~' cible les routes /affiliate/* du bras externe.
@@ -23,7 +23,7 @@ export const agencyHelpCategories: OwnerHelpCategory[] = [
         icon: 'Map',
         quickStart: true,
         relatedArticleIds: ['first-steps', 'showcase-hub'],
-        keywords: ['modèle', 'model', 'modelo', 'agence', 'agency', 'agencia', 'bras', 'externe', 'cockpit', 'yuno', 'contrat', 'commencer', 'start', 'overview', 'dual model', 'two arms', 'yuno arm', 'external arm', 'sidebar', 'barre latérale', 'groupes', 'grupos'],
+        keywords: ['modèle', 'model', 'modelo', 'agence', 'agency', 'agencia', 'bras', 'externe', 'console', 'consola', 'cockpit', 'yuno', 'contrat', 'commencer', 'start', 'overview', 'dual model', 'two arms', 'yuno arm', 'external arm', 'sidebar', 'barre latérale', 'groupes', 'grupos'],
         sections: [
           { headingKey: 'ohelp.agc.model.s1h', bodyKey: 'ohelp.agc.model.s1b', screenshotUrl: '/help/agency-model.svg' },
           { headingKey: 'ohelp.agc.model.s2h', bodyKey: 'ohelp.agc.model.s2b' },

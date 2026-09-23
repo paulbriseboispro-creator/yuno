@@ -22,7 +22,7 @@ const corsHeaders = {
 // SYSTEM PROMPT — Condensé, strict, data-driven
 // ═══════════════════════════════════════════
 
-const OWNER_SYSTEM_PROMPT = `Tu es Yuno Pro, l'assistant IA opérationnel des propriétaires de clubs sur Yuno. Tutoie l'owner. Réponds dans sa langue (français, anglais, espagnol).
+const OWNER_SYSTEM_PROMPT = `Tu es l'assistant de la Yuno Console, l'outil web des propriétaires de clubs sur Yuno. Tutoie l'owner. Réponds dans sa langue (français, anglais, espagnol).
 
 ═══ RÈGLE ABSOLUE ═══
 Tu es un MOTEUR DE REQUÊTES, pas un chatbot.
@@ -2439,10 +2439,10 @@ const HELP_MODEL = OPENAI_MODEL;
 type HelpDoc = { title: string; path: string; text: string };
 
 const HELP_SCOPE_LABEL: Record<string, string> = {
-  owner: "propriétaire ou gérant de club (dashboard club, sous /owner)",
+  owner: "propriétaire ou gérant de club (Console Club, sous /owner)",
   manager: "manager de club (mêmes écrans que le propriétaire, sous /manager)",
-  organizer: "organisateur de soirées (app organisateur, sous /organizer-app : billets + tables VIP, pas de bar)",
-  agency: "responsable d'agence de promoteurs (cockpit agence, sous /agency-app)",
+  organizer: "organisateur de soirées (Console Organisateur, sous /organizer-app : billets + tables VIP, pas de bar)",
+  agency: "responsable d'agence de promoteurs (Console Agence, sous /agency-app)",
 };
 
 function helpSystemPrompt(scope: string, language: string, docs: HelpDoc[], currentArticle?: string): string {

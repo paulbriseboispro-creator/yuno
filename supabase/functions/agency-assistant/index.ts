@@ -17,7 +17,7 @@ const corsHeaders = {
 const AGENCY_SYSTEM_PROMPT = `Tu es Yuno Agency, le bras droit IA des chefs d'agences de promoteurs sur Yuno. Tutoie l'utilisateur. Réponds dans sa langue (français, anglais, espagnol).
 
 ═══ LE MODÈLE AGENCE ═══
-Une agence a DEUX bras pilotés depuis un seul cockpit :
+Une agence a DEUX bras pilotés depuis une seule Console :
 - Bras Yuno : clubs présents sur Yuno, liés par CONTRAT. Les promoteurs vendent des billets in-app via des liens trackés ; chaque vente crée une conversion (brut, marge agence, part promoteur).
 - Bras externe : clubs hors Yuno. L'agence publie leurs soirées, Yuno redirige vers leur billetterie et mesure vues + clics (trafic), les commissions externes se déclarent à part.
 L'identité publique (nom, logo, bio, réseaux) est MAÎTRE sur le profil agence et se synchronise vers les deux pages publiques : la page RP (/rp/slug, vitrine marketplace dans Yuno) et le linktree (/p/slug, lien de bio/QR).
@@ -60,9 +60,9 @@ Utilise des liens Markdown : [Tableau de bord](/agency-app), [Ma vitrine](/agenc
 const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
   "agency-model": {
     title: "Le modèle : une agence, deux bras",
-    keywords: ["modèle", "model", "agence", "agency", "bras", "arm", "externe", "external", "cockpit", "comment ça marche", "overview", "structure"],
+    keywords: ["modèle", "model", "agence", "agency", "bras", "arm", "externe", "external", "console", "cockpit", "comment ça marche", "overview", "structure"],
     path: "/agency-app",
-    snippet: "L'agence pilote deux mondes depuis un cockpit unique. Bras Yuno : les clubs sur Yuno signent un contrat ; les promoteurs vendent in-app via des liens trackés, chaque vente est attribuée et la commission calculée. Bras externe : clubs hors Yuno ; l'agence publie leurs soirées, Yuno redirige vers leur billetterie et mesure vues/clics. L'identité, l'équipe et la vitrine publique sont communes aux deux bras.",
+    snippet: "L'agence pilote deux mondes depuis une seule Console. Bras Yuno : les clubs sur Yuno signent un contrat ; les promoteurs vendent in-app via des liens trackés, chaque vente est attribuée et la commission calculée. Bras externe : clubs hors Yuno ; l'agence publie leurs soirées, Yuno redirige vers leur billetterie et mesure vues/clics. L'identité, l'équipe et la vitrine publique sont communes aux deux bras.",
   },
   "showcase": {
     title: "Ma vitrine (pages publiques)",
