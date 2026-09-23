@@ -2427,6 +2427,113 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
 // MAIN HANDLER
 // ═══════════════════════════════════════════
 
+// ═══════════════════════════════════════════
+// ASSISTANT DU MODE D'EMPLOI — action help_chat
+// ═══════════════════════════════════════════
+// Ouvert à tout compte pro authentifié (club, manager, organisateur, agence).
+// Il ne voit ni outil ni donnée du compte : il répond d'après les extraits du
+// mode d'emploi que le centre d'aide lui envoie (recherche côté client, dans
+// la langue de l'utilisateur), et renvoie toujours vers l'article utile.
+// Le club garde en plus son assistant à outils (chat principal ci-dessous).
+const HELP_MODEL = OPENAI_MODEL;
+type HelpDoc = { title: string; path: string; text: string };
+
+const HELP_SCOPE_LABEL: Record<string, string> = {
+  owner: "propriétaire ou gérant de club (dashboard club, sous /owner)",
+  manager: "manager de club (mêmes écrans que le propriétaire, sous /manager)",
+  organizer: "organisateur de soirées (app organisateur, sous /organizer-app : billets + tables VIP, pas de bar)",
+  agency: "responsable d'agence de promoteurs (cockpit agence, sous /agency-app)",
+};
+
+function helpSystemPrompt(scope: string, language: string, docs: HelpDoc[], currentArticle?: string): string {
+  const langName = language === "en" ? "anglais" : language === "es" ? "espagnol" : "français";
+  const register = scope === "owner" || scope === "manager" ? "en vouvoyant" : "en tutoyant";
+  const excerpts = docs.length
+    ? docs.map((d) => `### [${d.title}](${d.path})\n${d.text}`).join("\n\n")
+    : "(aucun extrait ne correspond à la question)";
+  return `Tu es l'assistant du mode d'emploi de Yuno, la plateforme nightlife : billets, tables VIP (bottle service), commandes de boissons, guest list, marketing, promoteurs. Tu parles à un ${HELP_SCOPE_LABEL[scope] ?? HELP_SCOPE_LABEL.owner}.
+Tu réponds en ${langName}, ${register}.${currentArticle ? `\nLa personne lit en ce moment l'article « ${currentArticle} ».` : ""}
+
+RÈGLES
+1. Tu réponds UNIQUEMENT d'après les EXTRAITS DU MODE D'EMPLOI ci-dessous. Si la réponse n'y est pas, dis-le en une phrase, propose le bouton « Contacter le support » du centre d'aide, et n'invente JAMAIS un menu, un bouton, un réglage ou un chiffre.
+2. Réponse courte : 60 à 180 mots. Une procédure = étapes numérotées (1. 2. 3.), une action par étape, les libellés exacts de l'interface entre guillemets, les chemins sous la forme A → B → C.
+3. Pas de préambule, pas de rappel de la question, pas d'emoji, pas de titre markdown. Le gras (**…**) seulement pour un libellé clé.
+4. Termine TOUJOURS par une ligne vide puis une seule ligne « Pour aller plus loin : [Titre de l'article](chemin) » avec l'article le plus utile parmi les extraits. Le chemin est recopié EXACTEMENT tel qu'il est écrit entre parenthèses dans le titre de l'extrait : il commence par « / », sans domaine, sans « https:// ». Un seul lien, jamais inventé.
+5. Tu ne vois pas les données du compte (ventes, soirées, clients). Si on te demande un chiffre du compte, explique où le lire dans le dashboard.
+6. Yuno ne prend jamais de commission : les frais de service sont payés par le client final en plus du prix affiché.
+
+EXTRAITS DU MODE D'EMPLOI (${docs.length})
+${excerpts}`;
+}
+
+async function handleHelpChat(
+  body: any,
+  ctx: { supabase: any; userId: string; userEmail: string | null; startedAt: number },
+): Promise<Response> {
+  const language = ["fr", "en", "es"].includes(body?.language) ? body.language : "fr";
+  const scope = ["owner", "manager", "organizer", "agency"].includes(body?.scope) ? body.scope : "owner";
+  const messages = (Array.isArray(body?.messages) ? body.messages : [])
+    .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .slice(-12)
+    .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+  if (messages.length === 0 || messages[messages.length - 1].role !== "user") {
+    return new Response(JSON.stringify({ error: "A user message is required" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const docs: HelpDoc[] = (Array.isArray(body?.docs) ? body.docs : [])
+    .slice(0, 6)
+    .map((d: any) => ({
+      title: String(d?.title ?? "").slice(0, 200),
+      path: String(d?.path ?? "").slice(0, 300),
+      text: String(d?.text ?? "").slice(0, 7000),
+    }))
+    .filter((d: HelpDoc) => d.title && d.text);
+  const currentArticle = typeof body?.currentArticle === "string" ? body.currentArticle.slice(0, 200) : undefined;
+  const systemPrompt = helpSystemPrompt(scope, language, docs, currentArticle);
+
+  const usage: AiUsageEvent = {
+    assistant: "help",
+    model: HELP_MODEL,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    venueId: null,
+    language,
+    turnCount: messages.length,
+    promptChars: systemPrompt.length + messagesChars(messages),
+    promptPreview: lastUserPrompt(messages),
+  };
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+  log("help_chat", { scope, language, docs: docs.length, msg_count: messages.length });
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: HELP_MODEL,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      temperature: 0.3,
+      max_tokens: 700,
+      stream: true,
+      stream_options: { include_usage: true },
+    }),
+  });
+  if (!resp.ok) {
+    const status = resp.status;
+    logAiUsage(ctx.supabase, { ...usage, status: status === 429 ? "rate_limited" : "error", error: `openai ${status}`, latencyMs: Date.now() - ctx.startedAt });
+    if (status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limited" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    throw new Error("AI gateway error");
+  }
+  const tracked = trackOpenAiStream(resp.body, ctx.supabase, usage, { startedAt: ctx.startedAt });
+  return new Response(tracked, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -2456,6 +2563,29 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    const body = await req.json();
+
+    // Assistant du mode d'emploi : tout pro authentifié, avant la porte « owner ».
+    if (body?.action === "help_chat") {
+      // « Pro » = un rôle autre que client, OU un profil organisateur (un
+      // organisateur n'a PAS de rôle user_roles — voir CLAUDE.md), OU un
+      // membre d'équipe d'organisateur.
+      const [{ data: proRoles }, { data: proProfile }, { data: membership }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", user.id),
+        supabase.from("profiles").select("profile_type").eq("id", user.id).maybeSingle(),
+        supabase.from("org_members").select("id").eq("member_user_id", user.id).limit(1).maybeSingle(),
+      ]);
+      const isPro = (proRoles ?? []).some((r: any) => r.role && r.role !== "client")
+        || proProfile?.profile_type === "organizer"
+        || Boolean(membership);
+      if (!isPro) {
+        return new Response(JSON.stringify({ error: "Pro role required" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return await handleHelpChat(body, { supabase, userId: user.id, userEmail: user.email ?? null, startedAt: Date.now() });
+    }
+
     // Verify owner role
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
     const isOwner = roles?.some((r: any) => r.role === "owner");
@@ -2474,7 +2604,6 @@ serve(async (req) => {
     }
 
     const venueId = venueData.id;
-    const body = await req.json();
 
     // Suivi de consommation IA (super admin) : identité de l'appel, complétée
     // à la fin par les tokens, les tools appelés et la latence.

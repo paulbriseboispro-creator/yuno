@@ -17,6 +17,7 @@ export type AiAssistant =
   | 'owner_report'  // owner-assistant generate_night_report
   | 'owner_actions' // owner-assistant generate_next_best_actions
   | 'agency'        // agency-assistant
+  | 'help'          // owner-assistant action help_chat (mode d'emploi, tous les pros)
   | 'translate'     // translate-text
   | 'embeddings';   // event / dj / taste embeddings (batch)
 
