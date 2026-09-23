@@ -879,14 +879,36 @@ tous `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/components/help/*`
   (✅ / ❌ = coche / croix), « A → B → C » = chemin en pastilles, `"libellé"` =
   bouton ou menu mis en avant, `**gras**`. Écrire les clés `ohelp.*` avec ces
   conventions ; testé dans `src/lib/__tests__/helpText.test.ts`.
-- **L'IA se branche par registre, jamais par import** (`src/lib/helpAssistant.ts`) :
-  chaque assistant monté appelle `registerHelpAssistant(open)` (fait dans
-  `OwnerAssistant` et `AgencyAssistant`) ; le centre d'aide lit
-  `useHelpAssistant()` et n'affiche les entrées IA (ligne sous la recherche,
-  carte « Demander à l'assistant », « Une question sur cet article ? ») que
-  quand c'est vrai. L'app organisateur et le mode manager n'ont pas
-  d'assistant : ils voient le support humain seul. Un nouvel assistant = un
-  `registerHelpAssistant` dans son composant, rien d'autre à câbler.
+- **L'IA du centre d'aide est UNIVERSELLE** (2026-09-23) : `HelpAiChat`
+  (conversation dans la page, accueil + bas d'article) parle à l'action
+  `help_chat` de l'edge `owner-assistant`, ouverte à tout pro authentifié
+  (rôle ≠ client, OU `profiles.profile_type = 'organizer'`, OU membre
+  `org_members` — un organisateur n'a PAS de rôle `user_roles`). Elle ne lit
+  aucune donnée du compte : le front fait la recherche (`helpSearch`, 4
+  articles + l'article courant, dans la langue) et envoie les extraits ;
+  l'edge répond en flux (≤ 180 mots, étapes, libellés entre guillemets) et
+  termine par « Pour aller plus loin : [article](chemin) ». Consommation
+  tracée sous `assistant = 'help'`. Le registre `src/lib/helpAssistant.ts`
+  (`registerHelpAssistant` dans OwnerAssistant / AgencyAssistant) ne sert plus
+  qu'au lien « Chiffres en direct : ouvrir l'assistant Yuno Pro ».
+- **En-tête = celui de l'app hôte, jamais deux barres** : club et manager
+  rendent `OwnerHeader` (collant, comme leurs autres pages) ; organisateur et
+  agence, dont le layout a déjà une barre, ne posent qu'un `OrgPageHeader`.
+- **Une couleur par thème** (`CATEGORY_COLORS`, `helpUi.tsx`) sur la tuile du
+  thème, l'icône de l'article, la pastille de recherche ; l'IA reste rouge, le
+  formulaire de support bleu, l'email violet.
+- **Réécriture des articles = pipeline, jamais à la main dans les locales** :
+  `scripts/help/dump-articles.py <dir>` exporte chaque article en JSON (3
+  langues), un rédacteur réécrit selon le contrat (structure « À quoi ça
+  sert / Avant de commencer / Pas à pas / Comprendre l'écran / Conseil /
+  Attention / Problèmes fréquents », ≤ 700 mots par langue, libellés exacts
+  lus dans le composant), `scripts/help/merge-rewrites.py <dir>` remplace
+  sections + clés (les 93 articles ont été refaits ainsi le 23/09), puis
+  `scripts/help/capture-articles.mjs pending-captures.json` prend les captures
+  manquantes avec le compte démo (WebP ≤ 1280 px). Un article partagé entre
+  deux dashboards (Meta) garde un seul ns ; deux articles distincts ne
+  partagent JAMAIS un ns (org-ads = `ohelp.orgads`), sinon le dernier fusionné
+  écrase l'autre.
 - **Recherche en mémoire** (`src/lib/helpSearch.ts`) : accents pliés, score
   titre > mots-clés > description > sections, résultat = article + section +
   extrait. Pas de backend, pas de tracking.
