@@ -29,7 +29,7 @@ const dict: AdminDict = {
   'adm.ag.deactivate': ['Deactivate', 'Désactiver', 'Desactivar'],
   'adm.ag.activate': ['Activate', 'Activer', 'Activar'],
   'adm.ag.toggled': ['Agency updated', 'Agence mise à jour', 'Agencia actualizada'],
-  'adm.ag.confirmDeactivate': ['Deactivate this agency? Its cockpit and link tree go offline until you reactivate it.', 'Désactiver cette agence ? Son cockpit et son linktree passent hors ligne jusqu’à réactivation.', '¿Desactivar esta agencia? Su cockpit y su linktree quedan fuera de línea hasta reactivarla.'],
+  'adm.ag.confirmDeactivate': ['Deactivate this agency? Its Console and link tree go offline until you reactivate it.', 'Désactiver cette agence ? Sa Console et son linktree passent hors ligne jusqu’à réactivation.', '¿Desactivar esta agencia? Su Consola y su linktree quedan fuera de línea hasta reactivarla.'],
   'adm.ag.inviteTitle': ['Invite an agency', 'Inviter une agence', 'Invitar una agencia'],
   'adm.ag.inviteHint': ['The invitation creates the agency and its affiliate arm on activation. If the email already has an account, it is activated right away.', 'L’invitation crée l’agence et son bras affilié à l’activation. Si l’email a déjà un compte, il est activé tout de suite.', 'La invitación crea la agencia y su brazo afiliado al activar. Si el email ya tiene cuenta, se activa de inmediato.'],
   'adm.ag.name': ['Agency name', 'Nom de l’agence', 'Nombre de la agencia'],

@@ -125,7 +125,7 @@ const fr: Record<string, string> = {
   'affiliate.statCity': 'Ville',
   'affiliate.statAge': 'Âge',
   'orgPublic.share': 'Partager',
-  // --- Organizer app i18n batch 2 (auto-added) ---
+  // --- Organizer Console i18n batch 2 (auto-added) ---
   "30 derniers jours": "30 derniers jours",
   "5 minutes pour démarrer": "5 minutes pour démarrer",
   "Acheteurs uniques": "Acheteurs uniques",
@@ -379,7 +379,7 @@ const fr: Record<string, string> = {
   "Étape": "Étape",
   "Événement créé 🎉": "Événement créé 🎉",
   "Événements": "Événements",
-  // --- Organizer app i18n (auto-added) ---
+  // --- Organizer Console i18n (auto-added) ---
   "Accepter": "Accepter",
   "Accessible uniquement par lien direct, non listé dans Yuno Explore.": "Accessible uniquement par lien direct, non listé dans Yuno Explore.",
   "Actif": "Actif",
@@ -2419,17 +2419,17 @@ const fr: Record<string, string> = {
   'profile.confirmNewEmail': 'Confirmer',
   'profile.newEmailSent': 'Email de vérification envoyé à ta nouvelle adresse',
   'profile.adminDashboard': 'Panel Admin',
-  'profile.ownerDashboard': 'Panel Owner',
-  'profile.managerDashboard': 'Panel Manager',
+  'profile.ownerDashboard': 'Console Club',
+  'profile.managerDashboard': 'Console Manager',
   'profile.promoterDashboard': 'Panel Promoteur',
   'profile.djDashboard': 'Panel DJ',
   'profile.barmanDashboard': 'Mode Barman',
   'profile.bouncerDashboard': 'Mode Videur',
   'profile.vipHostDashboard': 'Mode Serveur VIP',
   'profile.cloakroomDashboard': 'Mode Vestiaire',
-  'profile.organizerDashboard': 'Panel Organisateur',
+  'profile.organizerDashboard': 'Console Organisateur',
   'profile.orgTeamDashboard': 'Équipe · {org}',
-  'profile.agencyDashboard': 'Espace Agence',
+  'profile.agencyDashboard': 'Console Agence',
   'profile.affiliateDashboard': 'Panel Affilié',
   'profile.affiliatePromoterDashboard': 'Espace Promoteur',
   'profile.title': 'Profil',
@@ -3027,7 +3027,7 @@ const fr: Record<string, string> = {
   'owner.errorSaving': 'Erreur lors de l\'enregistrement',
   
   // Owner Dashboard
-  'owner.dashboard': 'Tableau de bord Propriétaire',
+  'owner.dashboard': 'Console Club',
   'owner.gmvToday': 'GMV du jour',
   'owner.orders': 'Commandes',
   'owner.avgBasket': 'Panier moyen',
@@ -6064,7 +6064,7 @@ const fr: Record<string, string> = {
   'assistant.think3': 'Je te prépare ça...',
 
   // Owner AI Assistant
-  'ownerAI.title': 'Yuno Pro Assistant',
+  'ownerAI.title': 'Assistant Console',
   'ownerAI.subtitle': 'Ton copilote expert',
   'ownerAI.placeholder': 'Pose une question sur ton club...',
   'ownerAI.welcomeTitle': 'Comment puis-je t\'aider ?',
@@ -10196,8 +10196,8 @@ const fr: Record<string, string> = {
   'sidebar.upsells': 'Upsells',
   'sidebar.helpSupport': 'Aide & support',
   'sidebar.backToProfile': 'Retour au profil',
-  'sidebar.space.club': 'Espace Club',
-  'sidebar.space.organizer': 'Espace Organisateur',
+  'sidebar.space.club': 'Console Club',
+  'sidebar.space.organizer': 'Console Organisateur',
   'sidebar.space.promoter': 'Espace Promoteur',
   'header.publicPreview': 'Aperçu public',
   'header.notifications': 'Notifications',
@@ -11099,7 +11099,7 @@ const fr: Record<string, string> = {
   'aff.help.title': 'Comment fonctionne votre espace affilié',
   'aff.help.subtitle': 'Le modèle, vos pages, votre équipe et vos chiffres',
   'aff.help.model.title': 'Le modèle',
-  'aff.help.model.body': "Votre agence est UN SEUL profil avec deux modes de distribution. Clubs Yuno : vous signez un contrat, billets et tables se vendent dans l'app, les commissions s'accumulent dans votre grand-livre et vous réglez en un geste. Clubs externes : vous référencez les gros clubs de la ville, Yuno trace chaque vue et chaque clic, et le bouton billets redirige vers la billetterie du club via vos liens. Même équipe, mêmes linktrees, même cockpit. Votre ville est à vous : une agence par ville.",
+  'aff.help.model.body': "Votre agence est UN SEUL profil avec deux modes de distribution. Clubs Yuno : vous signez un contrat, billets et tables se vendent dans l'app, les commissions s'accumulent dans votre grand-livre et vous réglez en un geste. Clubs externes : vous référencez les gros clubs de la ville, Yuno trace chaque vue et chaque clic, et le bouton billets redirige vers la billetterie du club via vos liens. Même équipe, mêmes linktrees, même Console. Votre ville est à vous : une agence par ville.",
   'aff.help.yunoClubs.title': "Clubs Yuno (contrats & ventes)",
   'aff.help.yunoClubs.body': "Trouvez un club dans Contrats & clubs, proposez un contrat avec votre marge, signature électronique des deux côtés. Vos promoteurs vendent ensuite billets et tables dans l'app Yuno avec leurs codes ; chaque vente alimente votre grand-livre (dû par les clubs / à reverser aux promoteurs / votre marge) dans Finance. Les règlements sont de banque à banque — Yuno sécurise l'accord et les chiffres, pas les fonds.",
   'aff.help.clubs.title': 'Clubs & soirées',
@@ -11130,8 +11130,8 @@ const fr: Record<string, string> = {
   'aff.manual.cat.yuno': "Clubs Yuno (contrats, ventes, finance)",
   'aff.manual.cat.external': "Clubs externes & linktree",
   'aff.manual.cat.settings': "Réglages",
-  'aff.manual.model.title': "Le modèle : une agence, deux bras, un cockpit",
-  'aff.manual.model.body': "Votre agence est UNE SEULE entité avec deux modes de distribution.\n\nClubs Yuno : vous signez un contrat électronique avec un club présent sur Yuno. Vos promoteurs vendent billets, tables et guest lists directement dans l'app avec leurs codes. Chaque vente alimente automatiquement votre grand-livre : ce que le club vous doit (net + votre marge), ce que vous reversez au promoteur, et ce que vous gardez.\n\nClubs externes : vous référencez les clubs de votre ville qui ne sont pas encore sur Yuno. Leurs soirées apparaissent sur vos linktrees, chaque vue et chaque clic est tracé, et le bouton billets redirige vers la billetterie du club via vos liens promo.\n\nMême équipe, mêmes linktrees, même cockpit : la sidebar couvre les deux bras. Votre ville est à vous — une agence par ville.",
+  'aff.manual.model.title': "Le modèle : une agence, deux bras, une Console",
+  'aff.manual.model.body': "Votre agence est UNE SEULE entité avec deux modes de distribution.\n\nClubs Yuno : vous signez un contrat électronique avec un club présent sur Yuno. Vos promoteurs vendent billets, tables et guest lists directement dans l'app avec leurs codes. Chaque vente alimente automatiquement votre grand-livre : ce que le club vous doit (net + votre marge), ce que vous reversez au promoteur, et ce que vous gardez.\n\nClubs externes : vous référencez les clubs de votre ville qui ne sont pas encore sur Yuno. Leurs soirées apparaissent sur vos linktrees, chaque vue et chaque clic est tracé, et le bouton billets redirige vers la billetterie du club via vos liens promo.\n\nMême équipe, mêmes linktrees, même Console : la sidebar couvre les deux bras. Votre ville est à vous — une agence par ville.",
   'aff.manual.firstSteps.title': "Vos premiers pas, dans l'ordre",
   'aff.manual.firstSteps.body': "1. Remplissez le Profil de l'agence (Réglages → Profil de l'agence) : nom, ville, bio, Instagram, WhatsApp. Ces infos se reportent automatiquement sur votre linktree public.\n2. Signez votre premier contrat club (Contrats & clubs → Proposer) : cherchez le club, fixez votre marge par vente, envoyez. Le contrat devient actif quand les deux parties ont signé.\n3. Invitez vos promoteurs (Promoteurs → Inviter) : cochez les clubs Yuno où ils vendront et/ou les clubs externes, fixez leurs commissions nettes.\n4. Assignez les soirées (Événements ou Assignations) : un promoteur assigné voit la soirée dans son app, son linktree et son scanner.\n5. Suivez l'argent (Finance) : ce que les clubs vous doivent, ce que vous reversez, votre marge.",
   'aff.manual.invite.title': "Inviter des promoteurs (Yuno + externe, plusieurs clubs)",
@@ -12034,7 +12034,7 @@ const fr: Record<string, string> = {
   'aff.address.searchHint': "Recherche une adresse pour afficher le club sur la map Yuno.",
 
   // ── Espace agence unifié (fusion agence ↔ affilié) ──────────────────────────
-  'agc.role.label': 'Espace Agence',
+  'agc.role.label': 'Console Agence',
   'agc.nav.home': 'Aperçu',
   'agc.nav.teamGroup': 'Équipe',
   'agc.nav.promoters': 'Promoteurs',

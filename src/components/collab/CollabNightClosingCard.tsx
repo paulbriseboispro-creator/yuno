@@ -113,7 +113,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
     const code = closingErrorCode(e);
     const code2 = settlementErrorCode(e);
     const msg: Record<string, string> = {
-      organizer_iban_missing: t("L'organisateur doit d'abord renseigner son IBAN (app organisateur → Paiements) : une partie du dû passe par virement.", 'The organizer must first enter their IBAN (organizer app → Payments): part of what is owed goes by bank transfer.', 'El organizador debe introducir primero su IBAN (app de organizador → Pagos): parte de lo debido va por transferencia.'),
+      organizer_iban_missing: t("L'organisateur doit d'abord renseigner son IBAN (Console organisateur → Paiements) : une partie du dû passe par virement.", 'The organizer must first enter their IBAN (organizer Console → Payments): part of what is owed goes by bank transfer.', 'El organizador debe introducir primero su IBAN (Consola organizador → Pagos): parte de lo debido va por transferencia.'),
       iban_recently_changed: t("L'IBAN a changé il y a moins de 24 h — gel anti-fraude, réessaie demain.", 'The IBAN changed less than 24h ago — anti-fraud freeze, retry tomorrow.', 'El IBAN cambió hace menos de 24 h — bloqueo antifraude, reinténtalo mañana.'),
       settlement_already_open: t('Un règlement est déjà ouvert pour cette soirée.', 'A settlement is already open for this event.', 'Ya hay una liquidación abierta para esta noche.'),
       event_not_ended: t('La soirée doit être terminée pour déclarer le chiffre.', 'The night must be over before declaring the figures.', 'La noche debe haber terminado para declarar las cifras.'),

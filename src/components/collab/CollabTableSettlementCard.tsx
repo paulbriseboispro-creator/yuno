@@ -63,7 +63,7 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
   const errToast = (e: unknown) => {
     const code = settlementErrorCode(e);
     const msg: Record<string, string> = {
-      organizer_iban_missing: t("L'organisateur n'a pas renseigné son IBAN (app organisateur → Paiements).", 'The organizer has not entered their IBAN yet (organizer app → Payments).', 'El organizador aún no ha introducido su IBAN (app de organizador → Pagos).'),
+      organizer_iban_missing: t("L'organisateur n'a pas renseigné son IBAN (Console organisateur → Paiements).", 'The organizer has not entered their IBAN yet (organizer Console → Payments).', 'El organizador aún no ha introducido su IBAN (Consola organizador → Pagos).'),
       iban_recently_changed: t("L'IBAN a changé il y a moins de 24 h — gel anti-fraude, réessaie demain.", 'The IBAN changed less than 24h ago — anti-fraud freeze, retry tomorrow.', 'El IBAN cambió hace menos de 24 h — bloqueo antifraude, reinténtalo mañana.'),
       settlement_already_open: t('Un règlement est déjà ouvert pour cette soirée.', 'A settlement is already open for this event.', 'Ya hay una liquidación abierta para esta noche.'),
       event_not_ended: t('La soirée doit être terminée pour figer le total dépensé.', 'The night must be over before the total spend can be frozen.', 'La noche debe haber terminado para fijar el gasto total.'),
@@ -128,7 +128,7 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
               {!data.organizer_has_iban && (
                 <p className="flex items-start gap-1.5" style={{ color: '#FCD34D', fontSize: 11.5 }}>
                   <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {t("L'organisateur doit d'abord renseigner son IBAN (app organisateur → Paiements).", 'The organizer must first enter their IBAN (organizer app → Payments).', 'El organizador debe introducir primero su IBAN (app de organizador → Pagos).')}
+                  {t("L'organisateur doit d'abord renseigner son IBAN (Console organisateur → Paiements).", 'The organizer must first enter their IBAN (organizer Console → Payments).', 'El organizador debe introducir primero su IBAN (Consola organizador → Pagos).')}
                 </p>
               )}
               <OrgButton variant="primary" size="sm" onClick={() => run(() => prepareSettlement(eventId), t('Règlement préparé', 'Settlement prepared', 'Liquidación preparada'))} disabled={busy}>
