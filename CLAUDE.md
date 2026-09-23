@@ -83,6 +83,23 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   s'estime pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px,
   soit 3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
   c'est l'icône rendue en volume, pas un wordmark à plat.
+- **Les dashboards pro s'appellent la Yuno Console** (2026-09-23). Un seul nom
+  parapluie pour les quatre surfaces de gestion web, décliné par rôle :
+  **Console Club** (`/owner`), **Console Manager** (`/manager`), **Console
+  Organisateur** (`/organizer-app`), **Console Agence** (`/agency-app`) — en
+  anglais l'ordre s'inverse (`Club Console`), en espagnol c'est `Consola Club`.
+  En usage courant : « la Console ». **Ne JAMAIS écrire « app organisateur »,
+  « dashboard organisateur », « panel » ni « cockpit »** pour ces surfaces : ce
+  ne sont pas des apps (aucun binaire, aucun bundle, web seulement), et « app »
+  envoyait le pro chercher sur l'App Store un outil qui n'y est pas.
+  Trois choses gardent leur nom, et ce n'est pas un oubli : **Yuno Pro** reste
+  l'app NATIVE du staff (`eu.yunoapp.pro` — porte, scan offline, DJ, promoteur ;
+  elle existe vraiment sur l'App Store), **Espace Promoteur / Espace DJ**
+  restent des espaces parce qu'ils vivent d'abord dans cette app, et le
+  **Cockpit** du super admin (`/admin`, RPC `admin_cockpit`) est un outil
+  interne à Yuno, pas un dashboard client. L'assistant IA des dashboards
+  s'appelle donc « Assistant Console » (`ownerAI.title`), plus « Yuno Pro
+  Assistant » — il ne tourne que sur le web.
 - **Barres latérales pro = groupe → entrée → sous-entrées** (2026-09-15, modèle
   Shopify). Owner et organisateur portent les MÊMES cinq groupes, dans le même
   ordre : Vue d'ensemble, Événements/Soirées, Ventes & finances, Marketing & CRM,
@@ -168,13 +185,13 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
 - **Rôles / routing** : guards par rôle dans `App.tsx` —
   `OwnerRoute`, `OrgAppRoute`, `PromoterRoute`, `AffiliateRoute`, `VipHostRoute`,
   `BarmanRoute`, `BouncerRoute`, `CloakroomRoute`, `DJRoute`, `ManagerRoute`, `BrowserRoute`.
-- **App organisateur** (`/organizer-app`) : autonome mais réutilise des pages Owner ;
+- **Console Organisateur** (`/organizer-app`) : autonome mais réutilise des pages Owner ;
   conventions `org-ui`, gating Stripe via `canSell`.
 - **Agence de promoteurs = entité FUSIONNÉE** (2026-07-27) : `agencies` est
   l'identité maître, `affiliates.agency_id` relie le bras externe (clubs
   non-Yuno, redirection billetterie). Triggers de provisionnement bidirectionnels
   + synchro d'identité agencies→affiliates (le linktree public suit le profil
-  agence). Un chef d'agence = rôles `agency` + `affiliate`. Cockpit unique
+  agence). Un chef d'agence = rôles `agency` + `affiliate`. Console unique
   `/agency-app` avec sidebar unifiée couvrant `/agency-app/*` (contrats, ventes
   in-app, finance) ET `/affiliate/*` (clubs externes, linktree, trafic).
   Ne JAMAIS recréer un profil affilié autonome ; ne JAMAIS toucher au code
@@ -347,7 +364,7 @@ Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
   (`invite-staff` vérifie `is_org_team_member(…, 'admin')`).
 - **La barre latérale filtre par CHEMIN** (`PATH_CAPABILITY` dans
   `org-sidebar.tsx`), et les routes portent la même exigence
-  (`<OrgAppRoute requires="…">`). Ajouter une page à l'app organisateur oblige
+  (`<OrgAppRoute requires="…">`). Ajouter une page à la Console Organisateur oblige
   à la classer dans les deux — sans quoi elle est visible pour un scanner.
 - **Le lien d'invitation pointe sur `/accept-org-member`** (page
   `AcceptOrgMember.tsx`, DA PUBLIQUE : la personne sort de sa boîte mail, elle
@@ -2101,7 +2118,7 @@ secret `OPENAI_API_KEY` dans Supabase) :
 - **Owner** : bouton flottant du dashboard → `supabase/functions/owner-assistant/index.ts`.
   Sa connaissance vit dans `HELP_ARTICLES` (~32 articles keyword→snippet) et le
   `OWNER_SYSTEM_PROMPT`. Les données opérationnelles passent par ses ~25 tools (live).
-- **Agence** : bouton flottant du cockpit `/agency-app` →
+- **Agence** : bouton flottant de la Console `/agency-app` →
   `supabase/functions/agency-assistant/index.ts` (même architecture qu'owner :
   double client, boucle 3 tours, SSE). Connaissance dans `HELP_ARTICLES` (~17
   articles) + `AGENCY_SYSTEM_PROMPT` ; 12 tools read + 3 tools write

@@ -275,7 +275,7 @@ Amoris → Créer. Nom `Amoris guest list`, questions **Email** + **Nom complet*
 
 ## Partie 2 — Le côté Yuno : le compte organisateur Amoris
 
-Tu filmes l'app organisateur. Toutes les routes commencent par
+Tu filmes la Console Organisateur. Toutes les routes commencent par
 `/organizer-app/`, et la barre de gauche porte cinq groupes qui, en anglais,
 s'appellent **Overview**, **Events**, **Sales & finance**, **Marketing & CRM**,
 **Settings**.
