@@ -189,6 +189,40 @@ async function handleCreateOnboardingLink(req: Request, supabase: SupabaseClient
   });
 }
 
+// ─── Who may issue which link — re-checked at REDEMPTION ──────────────────────
+// Mirror of the create branch (and of SQL onboarding_link_issuer_allowed,
+// migration 20260924130000). Until that migration, any logged-in user could
+// write onboarding_links straight through PostgREST (e.g. an owner link for
+// ANY club, then redeem it = club takeover). Rows written that way may still
+// exist: never grant anything from a link its creator had no right to issue.
+async function linkIssuerAllowed(
+  supabase: SupabaseClient,
+  link: { role: string; venue_id: string | null; organizer_user_id: string | null; created_by: string | null },
+): Promise<boolean> {
+  const issuer = link.created_by;
+  if (!issuer) return false;
+  const { data: adminRole } = await supabase
+    .from('user_roles').select('user_id').eq('user_id', issuer).eq('role', 'admin').limit(1);
+  if (adminRole && adminRole.length > 0) return true;
+  if (SUPERADMIN_ROLES.has(link.role)) return false;
+  if (link.venue_id) {
+    const { data: venue } = await supabase.from('venues').select('owner_id').eq('id', link.venue_id).maybeSingle();
+    if (venue?.owner_id === issuer) return true;
+    const { data: canManage } = await supabase.rpc('manager_has_permission', {
+      _user_id: issuer, _venue_id: link.venue_id, _permission: 'staff',
+    });
+    return !!canManage;
+  }
+  if (link.organizer_user_id) {
+    if (link.organizer_user_id === issuer) return true;
+    const { data: isAdmin } = await supabase.rpc('is_org_team_member', {
+      _user_id: issuer, _organizer_user_id: link.organizer_user_id, _min_role: 'admin',
+    });
+    return !!isAdmin;
+  }
+  return false;
+}
+
 // ─── Branch: redeem an onboarding link (public, account created inline) ───────
 async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient, body: any): Promise<Response> {
   const token = String(body.token ?? '');
@@ -205,6 +239,16 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
   if (linkError || !link) return json({ error: 'Lien introuvable', code: 'not_found' }, 404);
   if (!link.is_active || link.revoked_at) return json({ error: 'Ce lien a été désactivé', code: 'revoked' }, 400);
   if (new Date(link.expires_at) < new Date()) return json({ error: 'Ce lien a expiré', code: 'expired' }, 400);
+
+  // Fail closed: an illegitimate link is revoked on the spot, nothing is granted
+  // and no account is created from it.
+  if (!(await linkIssuerAllowed(supabase, link))) {
+    console.error('onboarding link refused: issuer not allowed', { link_id: link.id, role: link.role, created_by: link.created_by });
+    await supabase.from('onboarding_links')
+      .update({ is_active: false, revoked_at: new Date().toISOString() })
+      .eq('id', link.id);
+    return json({ error: 'Ce lien a été désactivé', code: 'revoked' }, 403);
+  }
 
   const cfg: Record<string, any> = link.config || {};
   const role: string = link.role;

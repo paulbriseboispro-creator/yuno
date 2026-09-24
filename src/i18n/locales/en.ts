@@ -14842,6 +14842,7 @@ const en: Record<string, string> = {
   'gs.error.used': "This signup link has already been used by another account. Log in with the account you created, or start again.",
   'notif.type.admin_pro_signup': "New pro signup",
   'notif.type.admin_pro_signup_lead': "Pro lead (landing)",
+  'notif.type.admin_security_onboarding_link': "Security: illegitimate onboarding link used",
   'auth.proSignupPrompt': "Run a club or events?",
   'auth.proSignupCta': "Create a pro account",
 };

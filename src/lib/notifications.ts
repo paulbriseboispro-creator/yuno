@@ -126,6 +126,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Inscription pro en libre-service depuis la landing (compte créé / lead).
   admin_pro_signup:          { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_pro_signup' },
   admin_pro_signup_lead:     { icon: Handshake,     category: 'growth',    label: 'notif.type.admin_pro_signup_lead' },
+  // Sécurité : lien d'onboarding émis sans droit et déjà utilisé (migration 20260924130000).
+  admin_security_onboarding_link: { icon: ShieldAlert, category: 'system', label: 'notif.type.admin_security_onboarding_link' },
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
   // Accuse de fin d'envoi d'une campagne Yuno (portee plateforme).
   admin_platform_campaign_sent: { icon: Mail,      category: 'growth',    label: 'notif.type.admin_platform_campaign_sent' },
@@ -550,6 +552,11 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
       return '/admin/signups';
+
+    case 'admin_security_onboarding_link': {
+      const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
+      return v ? `/admin/venues/${v}` : '/admin/alerts';
+    }
 
     // Le rapport de la campagne, pas la liste : l'alerte annonce un resultat.
     case 'admin_platform_campaign_sent':

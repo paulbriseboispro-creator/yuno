@@ -838,6 +838,16 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   cascade correctement. Corollaire : ne jamais chercher un utilisateur par
   `profiles.email` avec `.maybeSingle()` — sur un doublon, PostgREST renvoie
   `PGRST116` et l'appel tombe.
+- **`onboarding_links` ne s'écrit QUE côté serveur** (2026-09-24, migration
+  `20260924130000`). Une policy `FOR ALL … WITH CHECK (created_by = auth.uid())`
+  laissait n'importe quel compte s'émettre un lien `owner` de n'importe quel club
+  par PostgREST puis le consommer : prise de contrôle du club. Désormais : lecture
+  seule côté client, droits d'écriture retirés, trigger `guard_onboarding_link_write`
+  (SECURITY INVOKER sur `current_user`), et l'edge `accept-staff-invitation`
+  REVÉRIFIE l'émetteur au moment de l'utilisation (`linkIssuerAllowed`, miroir de
+  `onboarding_link_issuer_allowed()`). Règle générale : **une table dont une ligne
+  ACCORDE un rôle ne porte jamais de policy d'écriture « créateur = moi »** — la
+  personne choisirait elle-même ce qu'on lui accorde.
 - **Push CLIENT non transactionnel = porte unique `client_push_policy()`** (2026-09-06,
   migration `20260906140000`). Toute notif marketing/engagement destinée à l'app Yuno
   (découverte, nouveautés des clubs suivis, relance d'inactivité, panier…) appelle

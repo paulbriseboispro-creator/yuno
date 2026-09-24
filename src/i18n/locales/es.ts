@@ -15184,6 +15184,7 @@ const es: Record<string, string> = {
   'gs.error.used': "Este enlace de registro ya lo ha usado otra cuenta. Inicia sesión con la cuenta creada o vuelve a empezar.",
   'notif.type.admin_pro_signup': "Nuevo registro pro",
   'notif.type.admin_pro_signup_lead': "Lead pro (landing)",
+  'notif.type.admin_security_onboarding_link': "Seguridad: enlace de onboarding ilegítimo usado",
   'auth.proSignupPrompt': "¿Gestionas un club o eventos?",
   'auth.proSignupCta': "Crear una cuenta pro",
 };

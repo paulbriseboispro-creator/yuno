@@ -14816,6 +14816,7 @@ const fr: Record<string, string> = {
   'gs.error.used': "Ce lien d'inscription a déjà servi à un autre compte. Connectez-vous avec le compte créé, ou recommencez.",
   'notif.type.admin_pro_signup': "Nouvelle inscription pro",
   'notif.type.admin_pro_signup_lead': "Lead pro (landing)",
+  'notif.type.admin_security_onboarding_link': "Sécurité : lien d'onboarding illégitime utilisé",
   'auth.proSignupPrompt': "Vous gérez un club ou des soirées ?",
   'auth.proSignupCta': "Créer un compte pro",
 };
