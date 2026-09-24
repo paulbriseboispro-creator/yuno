@@ -6,7 +6,7 @@ import type { LiveBurst, LiveLocation, LivePoint } from '@/lib/liveView';
 
 /**
  * Le globe de la vue en direct. Un vrai globe Mapbox (projection `globe`),
- * mais habillé comme une affiche : fond `#0A0A0A`, continents `#1B1B1E` sans
+ * mais épuré : fond `#0a0a0c` (celui des dashboards pro), continents `#1B1B1E` sans
  * aucune étiquette, ni route, ni ville — seuls comptent les points.
  *
  *   - un point rouge par visiteur en ce moment (halo qui respire),
@@ -43,7 +43,7 @@ const STYLE: mapboxgl.StyleSpecification = {
     countries: { type: 'vector', url: 'mapbox://mapbox.country-boundaries-v1' },
   },
   layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#0A0A0A' } },
+    { id: 'bg', type: 'background', paint: { 'background-color': '#0a0a0c' } },
     {
       id: 'land',
       type: 'fill',
@@ -347,14 +347,14 @@ export default function LiveGlobe({ points, home, bursts, locations, reducedMoti
     map.easeTo({ center: h ? [h.lng, h.lat] : [2.35, 46.6], zoom: 1.65, padding: latest.current.padding, duration: latest.current.reducedMotion ? 0 : 800 });
   };
 
-  const btn = 'flex h-9 w-9 items-center justify-center cursor-pointer transition-colors duration-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E8192C]';
-  const btnStyle: React.CSSProperties = { color: '#E5E5E5', background: 'rgba(10,10,10,0.72)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 2 };
+  const btn = 'flex h-9 w-9 items-center justify-center rounded-lg cursor-pointer transition-colors duration-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E8192C]';
+  const btnStyle: React.CSSProperties = { color: 'rgba(255,255,255,0.58)', background: 'rgba(10,10,12,0.72)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.085)' };
 
   return (
     <div className="absolute inset-0">
       {/* Style inline : mapbox-gl.css pose `position: relative` sur `.mapboxgl-map`,
           ce qui écraserait la classe `absolute` et réduirait le globe à 0 px. */}
-      <div ref={containerRef} className="lv-globe" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: '#0A0A0A' }} />
+      <div ref={containerRef} className="lv-globe" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: '#0a0a0c' }} />
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-1.5">
         <button type="button" aria-label={labels.zoomIn} className={btn} style={btnStyle} onClick={() => { spinRef.current.interacting = true; spinRef.current.resumeAt = performance.now() + 7000; mapRef.current?.zoomIn({ duration: 350 }); }}>
           <Plus className="h-4 w-4" aria-hidden="true" />

@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ClipboardList, Eye, Sofa, Ticket, Wine } from 'lucide-react';
 import type { LiveFeedItem } from '@/lib/liveView';
 import { fmtEuro, fmtInt, placeLabel, timeAgoLabel } from '@/lib/liveView';
-import { LV, Mono } from './liveViewUi';
+import { LV, Muted } from './liveViewUi';
 
 const ICONS = { visit: Eye, ticket: Ticket, table: Sofa, guestlist: ClipboardList, order: Wine } as const;
 
@@ -40,7 +40,7 @@ export function LiveFeed({ items, freshIds, nowMs, t, language, reducedMotion }:
 }) {
   if (items.length === 0) {
     return (
-      <p className="m-0 text-[13px] leading-relaxed" style={{ color: LV.gray2 }}>{t('lv.feed.empty')}</p>
+      <p className="m-0 text-[13px] leading-relaxed" style={{ color: LV.t2 }}>{t('lv.feed.empty')}</p>
     );
   }
   return (
@@ -61,42 +61,41 @@ export function LiveFeed({ items, freshIds, nowMs, t, language, reducedMotion }:
               exit={{ opacity: 0 }}
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               className="relative flex items-start gap-3 py-3"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+              style={{ borderBottom: `1px solid ${LV.fBorder}` }}
             >
-              {/* Filet rouge de fraîcheur : 8 s après l'apparition */}
+              {/* Marqueur de fraîcheur : 8 s après l'apparition */}
               <span
                 aria-hidden="true"
-                className="absolute left-[-20px] top-3 bottom-3 w-[2px]"
+                className="absolute left-[-18px] top-3 bottom-3 w-[3px] rounded-full"
                 style={{ background: LV.red, opacity: fresh ? 1 : 0, transition: `opacity 1.2s ${LV.ease}` }}
               />
               <span
-                className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center"
+                className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-xl"
                 style={{
-                  borderRadius: 2,
-                  background: sale ? 'rgba(232,25,44,0.10)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${sale ? 'rgba(232,25,44,0.32)' : LV.border}`,
-                  color: sale ? LV.red : LV.gray2,
+                  background: sale ? 'rgba(232,25,44,0.1)' : LV.faint,
+                  border: `1px solid ${sale ? 'rgba(232,25,44,0.2)' : LV.border}`,
+                  color: sale ? LV.red : LV.t2,
                 }}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="m-0 truncate text-[13.5px] font-semibold" style={{ color: sale ? LV.white : LV.gray1, letterSpacing: '-0.005em' }}>
+                  <p className="m-0 truncate text-[13.5px] font-[560]" style={{ color: sale ? LV.t1 : LV.t2, letterSpacing: '-0.005em' }}>
                     {headline(item, t, language)}
                   </p>
                   {item.amount != null && item.amount > 0 && (
-                    <span className="flex-none font-display font-bold tabular-nums" style={{ color: LV.red, fontSize: 14, letterSpacing: '-0.02em' }}>
+                    <span className="flex-none text-[13.5px] tabular-nums" style={{ color: LV.pos, fontWeight: 620, letterSpacing: '-0.01em' }}>
                       {fmtEuro(item.amount, language)}
                     </span>
                   )}
                 </div>
                 {item.eventTitle && (
-                  <p className="m-0 mt-0.5 truncate text-[12px]" style={{ color: LV.gray2 }}>{item.eventTitle}</p>
+                  <p className="m-0 mt-0.5 truncate text-[12px]" style={{ color: LV.t2 }}>{item.eventTitle}</p>
                 )}
-                <Mono className="mt-1 block truncate" color={LV.gray3} size={9.5} tracking="0.10em">
+                <Muted className="mt-1 block truncate" size={11}>
                   {meta.join(' · ')} · {timeAgoLabel(item.ts, nowMs, t)}
-                </Mono>
+                </Muted>
               </div>
             </motion.li>
           );

@@ -408,8 +408,12 @@ visiteur en ce moment, un anneau blanc sur le club, une onde à chaque fait
 nouveau et un arc vers le club pour une vente localisée ; à droite les chiffres
 de l'instant, le comportement des 10 dernières minutes, les villes, les pages
 regardées et le flux ; en bas du globe la carte de release (billets sur 10 / 60
-min, billets par minute, paliers). Surface ÉDITORIALE (DESIGN_SYSTEM_PUBLIC)
-posée dans un dashboard pro, décision produit assumée. Règles :
+min, billets par minute, paliers). Surface PRO (`docs/DESIGN_SYSTEM.md`, depuis
+le 2026-09-24 — elle était d'abord éditoriale, ce qui détonnait à côté des
+autres onglets Analytics) : carte 18 px, cartes imbriquées 14 px, tiles KPI
+12 px, hiérarchie T1/T2/T3, badge live vert. Tokens et primitives dans
+`live-view/liveViewUi.tsx` (`LV`, `Section`, `Tile`, `Label`, `LiveBadge`) —
+jamais Space Grotesk, mono ni filet rouge ici. Règles :
 
 - **Une seule RPC, `get_live_view(p_venue_id, p_organizer_user_id)`**
   (migration `20260921150000`), rappelée toutes les 4 s tant que l'onglet est
