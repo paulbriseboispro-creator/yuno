@@ -588,6 +588,59 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   `yuno-bar-buddy.lovable.app` dans du SQL **déjà appliqué** — ne pas réécrire (casse le
   checksum Supabase). Vérifier plutôt la table live `email_templates` pour des liens résiduels.
 
+## Inscription pro en libre-service — la landing crée le compte (2026-09-24)
+
+Un club ou un organisateur ouvre son compte SEUL depuis la landing
+(`landing.yunoapp.eu`, repo `Yuno-landing` : modale de chaque CTA + page directe
+`/start`, `/fr/start`, `/es/start`, `?role=club|organizer`). Migration
+`20260924120000_pro_self_signup.sql`, front `src/lib/proSignup.ts`,
+`src/pages/GetStarted.tsx`, `src/pages/admin/AdminProSignups.tsx`. Règles :
+
+- **Un parcours = une ligne `pro_signups`**, clé aléatoire tenue par le
+  navigateur (`client_key`). La landing l'écrit étape par étape via
+  `track_pro_signup` (anon, SECURITY DEFINER, anti-flood par visiteur haché
+  `links_visitor_context`, ne lève jamais). RLS totale sans policy. Une ligne
+  qui a produit un compte ne s'écrit plus anonymement.
+- **La landing crée le compte sur CE projet** (`auth.signUp`, clé publique),
+  puis appelle `complete_pro_signup(key)` EN TANT QUE le nouvel utilisateur :
+  club (`venues` avec `is_hidden = true` jusqu'au « Go live », `owner_id`, rôle
+  `owner`, `venue_onboarding` étape 1 cochée avec les piliers choisis) ou
+  organisateur (`profile_type = 'organizer'`, `organizer_profiles`, rôle
+  `organizer`). Idempotente, un club par owner, refusée en session support,
+  refusée si le parcours appartient à un autre compte. **Ne JAMAIS toucher
+  `profiles.venue_id`** : `guard_profile_venue_self_move` discrimine sur
+  `auth.uid()`, qui est l'utilisateur lui-même même en SECURITY DEFINER — la
+  propriété vit dans `venues.owner_id`.
+- **2FA** : un owner inscrit ainsi reçoit le report existant
+  (`mfa_deferred_until = now() + 7 j`, une fois) — `RequireMFA` le refuse
+  toujours sur les pages d'argent. Sans ça il tombait sur `/mfa-setup` avant
+  d'avoir vu son dashboard.
+- **Passage de session** : la landing (autre origine) envoie sur
+  `/auth/handoff#yuno_at=…&yuno_rt=…&redirect=/get-started&lang=…` →
+  `setSession`. Noms ≠ `access_token` exprès : `detectSessionInUrl` avalerait le
+  fragment. Le handoff pose aussi la langue et coupe les étapes d'accueil CLIENT
+  (`OnboardingGate` : quiz de goûts, push web) — un pro ne les voit jamais.
+- **`/get-started`** lit `open_my_pro_signup()` (horodate l'ouverture de la
+  Console) et trace un plan ≤ 7 étapes depuis les réponses (piliers,
+  billetterie actuelle → import de contacts, date de la prochaine soirée →
+  urgence + WhatsApp du fondateur, numéro lu dans `links_page_config`). Deux
+  replis y finissent le travail avec `?key=` : email à confirmer
+  (`emailRedirectTo`) et compte existant (connexion `/auth?redirect=`).
+  **`https://yunoapp.eu/get-started` doit figurer dans les Redirect URLs de
+  Supabase Auth** pour le cas « email à confirmer ».
+- **Super admin** : `/admin/signups` (Pilotage) lit `admin_pro_signups(days,
+  include_demo)` — funnel (ouvert → profil → description → email → compte →
+  Console → 1re soirée → Stripe → en ligne, progression LUE dans `events` /
+  `venues` / `profiles`, jamais déclarée), sources, liste avec WhatsApp
+  pré-rempli, « contacté », notes (`admin_update_pro_signup`). Alertes
+  `admin_pro_signup` (compte créé) et `admin_pro_signup_lead` (promoteur /
+  autre : pas de compte en libre-service) ; elles REMPLACENT `admin_new_venue`
+  / `admin_new_organizer` pour ces inscriptions (suppression de la ligne non lue
+  dans la même transaction). Purge des parcours anonymes sans email à 180 j
+  (cron `pro-signups-purge`).
+- **Tout lien « créer un compte pro » de l'app passe par `proSignupUrl()`**
+  (page de connexion, Explore faible densité). `/auth` crée un compte CLIENT.
+
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
 La racine `/` du web montre une **landing vitrine** (`src/pages/Landing.tsx`) au seul

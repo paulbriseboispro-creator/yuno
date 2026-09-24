@@ -24,6 +24,7 @@ const PromoterRoute = lazyWithRetry(() => import("./components/PromoterRoute").t
 const AgencyRoute = lazyWithRetry(() => import("./components/AgencyRoute").then(m => ({ default: m.AgencyRoute })));
 const AgencyAppLayout = lazyWithRetry(() => import("./pages/agency-app/AgencyAppLayout"));
 const AgencyStart = lazyWithRetry(() => import("./pages/agency-app/AgencyStart"));
+const GetStarted = lazyWithRetry(() => import("./pages/GetStarted"));
 const AgencyDashboard = lazyWithRetry(() => import("./pages/agency-app/AgencyDashboard"));
 const AgencyRoster = lazyWithRetry(() => import("./pages/agency-app/AgencyRoster"));
 const AgencyClubs = lazyWithRetry(() => import("./pages/agency-app/AgencyClubs"));
@@ -270,6 +271,7 @@ const YunoAssistantPage = lazyWithRetry(() => import("./pages/YunoAssistantPage"
 const AdminLayout = lazyWithRetry(() => import("./pages/admin/AdminLayout"));
 const AdminCockpit = lazyWithRetry(() => import("./pages/admin/AdminCockpit"));
 const AdminGrowth = lazyWithRetry(() => import("./pages/admin/AdminGrowth"));
+const AdminProSignups = lazyWithRetry(() => import("./pages/admin/AdminProSignups"));
 const AdminRevenue = lazyWithRetry(() => import("./pages/admin/AdminRevenue"));
 const AdminProduct = lazyWithRetry(() => import("./pages/admin/AdminProduct"));
 const AdminAi = lazyWithRetry(() => import("./pages/admin/AdminAi"));
@@ -774,6 +776,10 @@ const App = () => (
 
                 {/* Standalone autonomous Agency app (promoter agency tenant) */}
                 <Route path="/agency/start" element={<AgencyStart />} />
+                {/* Inscription pro en libre-service : la landing crée le compte et le
+                    club / l'espace organisateur, puis atterrit ici (plan personnalisé).
+                    Voir src/lib/proSignup.ts. */}
+                <Route path="/get-started" element={<GetStarted />} />
                 <Route path="/agency-app" element={
                   <AgencyRoute>
                     <AgencyAppLayout />
@@ -1196,6 +1202,7 @@ const App = () => (
                   <Route index element={<AdminCockpit />} />
                   {/* /admin/growth = comptes, installs, audience web+app (ex-trafic). */}
                   <Route path="growth" element={<AdminGrowth />} />
+                  <Route path="signups" element={<AdminProSignups />} />
                   {/* /admin/revenue = ventes, frais Yuno, exports par mois (ex-analytics + compta). */}
                   <Route path="revenue" element={<AdminRevenue />} />
                   {/* /admin/product = ce que les clients regardent, aiment, demandent. */}

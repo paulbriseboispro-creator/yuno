@@ -24,12 +24,13 @@ import automations from './automations';
 import system from './system';
 import marketing from './marketing';
 import drinks from './drinks';
+import signups from './signups';
 
 /** Toutes les clés du super admin, un module par page. */
 export const ADMIN_DICT: AdminDict = {
   ...common, ...layout, ...cockpit, ...growth, ...revenue, ...product, ...ai, ...customers, ...links,
   ...venues, ...organizers, ...agencies, ...events, ...people, ...orders, ...demo, ...support, ...alerts,
-  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks,
+  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
