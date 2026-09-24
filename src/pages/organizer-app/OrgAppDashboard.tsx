@@ -5,13 +5,11 @@ import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { motion } from 'framer-motion';
-import {
-  CalendarDays, Ticket, Plus, TrendingUp, ScanLine, AlertCircle, CreditCard,
-  Activity, Users, ArrowRight, Sparkles, MapPin, Clock, Wine,
-} from 'lucide-react';
+import { Plus, AlertCircle, CreditCard, ArrowRight, Sparkles } from 'lucide-react';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { OrgPendingProposals } from '@/components/organizer-app/OrgPendingProposals';
-import { format, formatDistanceToNow, subDays, startOfDay } from 'date-fns';
+import { UpcomingEventsBoard } from '@/components/events-sales/UpcomingEventsBoard';
+import { format, subDays, startOfDay } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
@@ -40,15 +38,6 @@ interface NextEvent {
   venue_id: string | null;
 }
 
-interface NextEventStats {
-  ticketsSold: number;
-  revenue: number;
-  netRevenue: number;
-  checkins: number;
-  tablesBooked: number;
-  capacity: number | null;
-}
-
 interface Globals {
   ca30: number;
   tickets30: number;
@@ -69,7 +58,6 @@ export default function OrgAppDashboard() {
   const [orgCover, setOrgCover] = useState<string | null>(null);
   const [orgCity, setOrgCity] = useState<string | null>(null);
   const [nextEvent, setNextEvent] = useState<NextEvent | null>(null);
-  const [nextStats, setNextStats] = useState<NextEventStats | null>(null);
   const [period, setPeriod] = useState<PeriodDays>(30);
   const [globals, setGlobals] = useState<Globals>({
     ca30: 0, tickets30: 0, upcomingCount: 0, uniqueBuyers30: 0, conversionRate30: 0, daily: [],
@@ -101,44 +89,6 @@ export default function OrgAppDashboard() {
           .limit(1);
         const next = upcoming?.[0] ?? null;
         setNextEvent(next);
-
-        if (next) {
-          const { data: nextTickets } = await supabase
-            .from('tickets')
-            .select('total_price, service_fee, insurance_fee, entry_scanned, quantity')
-            .eq('event_id', next.id)
-            .eq('status', 'paid');
-          const ticketsSold = nextTickets?.reduce((s, t: any) => s + (t.quantity ?? 1), 0) ?? 0;
-          // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
-          const revenue = nextTickets?.reduce((s, t: any) => s + (Number(t.total_price ?? 0) - Number(t.service_fee ?? 0) - Number(t.insurance_fee ?? 0)), 0) ?? 0;
-          const checkins = nextTickets?.filter((t: any) => t.entry_scanned).length ?? 0;
-          const { count: tablesBooked } = await supabase
-            .from('table_reservations')
-            .select('id', { count: 'exact', head: true })
-            .eq('event_id', next.id)
-            .eq('status', 'paid');
-
-          // Net revenue from revenue_distributions for this organizer
-          const { data: distros } = await supabase
-            .from('revenue_distributions')
-            .select('primary_amount_cents, secondary_amount_cents, primary_recipient_organizer_id, secondary_recipient_organizer_id')
-            .eq('event_id', next.id);
-          let netCents = 0;
-          (distros || []).forEach((d: any) => {
-            if (d.primary_recipient_organizer_id === organizerId) netCents += Number(d.primary_amount_cents || 0);
-            else if (d.secondary_recipient_organizer_id === organizerId) netCents += Number(d.secondary_amount_cents || 0);
-          });
-          // Fallback estimate: gross - Yuno fee (4% min 0.99 per ticket) - Stripe fee (1.5% + 0.25)
-          const estimatedNet = (nextTickets || []).reduce((s: number, t: any) => {
-            const total = Number(t.total_price || 0);
-            const yuno = Math.max(0.99, total * 0.04);
-            const stripe = total * 0.015 + 0.25;
-            return s + Math.max(0, total - yuno - stripe);
-          }, 0);
-          const netRevenue = netCents > 0 ? netCents / 100 : estimatedNet;
-
-          setNextStats({ ticketsSold, revenue, netRevenue, checkins, tablesBooked: tablesBooked ?? 0, capacity: next.max_tickets });
-        }
 
         // 2. Globals 30j
         const since = subDays(new Date(), 30);
@@ -205,13 +155,6 @@ export default function OrgAppDashboard() {
       }
     })();
   }, [organizerId]);
-
-  const fillRate = nextStats?.capacity && nextStats.capacity > 0
-    ? Math.min(100, Math.round((nextStats.ticketsSold / nextStats.capacity) * 100))
-    : null;
-  const checkinRate = nextStats && nextStats.ticketsSold > 0
-    ? Math.round((nextStats.checkins / nextStats.ticketsSold) * 100)
-    : 0;
 
   const chartData = useMemo(() => globals.daily.slice(-period), [globals.daily, period]);
   const orgName = organizationName || 'Yuno';
@@ -425,71 +368,15 @@ export default function OrgAppDashboard() {
         </div>
         )}
 
-        {/* ─── Next event card ──────────────────────────────────────────────────── */}
-        {nextEvent ? (
-          <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
-            <div className="grid md:grid-cols-[240px_1fr]">
-              <div className="relative h-40 md:h-full" style={{ background: INNER_BG }}>
-                {nextEvent.poster_url ? (
-                  <img src={nextEvent.poster_url} alt={nextEvent.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center" style={{ color: T3 }}>
-                    <Sparkles className="h-10 w-10" />
-                  </div>
-                )}
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 60%)' }} />
-                <span className="absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)' }}>
-                  {tt('Prochaine soirée', 'Next event')}
-                </span>
-              </div>
-              <div className="space-y-4 p-5">
-                <div className="min-w-0">
-                  <h2 className="truncate" style={{ color: T1, fontSize: 19, fontWeight: 700 }}>{nextEvent.title}</h2>
-                  <div className="mt-1 flex flex-wrap items-center gap-3" style={{ color: T3, fontSize: 12 }}>
-                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{format(new Date(nextEvent.start_at), 'PPP p', { locale })}</span>
-                    {(nextEvent.location_name || nextEvent.location_city) && (
-                      <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{[nextEvent.location_name, nextEvent.location_city].filter(Boolean).join(' · ')}</span>
-                    )}
-                  </div>
-                  <p style={{ color: RED, fontSize: 11.5, marginTop: 4, fontWeight: 560 }}>
-                    {tt('Dans', 'In')} {formatDistanceToNow(new Date(nextEvent.start_at), { locale })}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <MiniStat icon={Ticket} label={tt('Vendus', 'Sold')} value={nextStats?.ticketsSold ?? 0} sub={fillRate !== null ? tt(`${fillRate}% rempli`, `${fillRate}% full`, `${fillRate}% lleno`) : undefined} />
-                  {can.viewFinance && (
-                    <MiniStat icon={TrendingUp} label={tt('Revenu', 'Revenue')} value={`${(nextStats?.revenue ?? 0).toFixed(0)} €`} sub={nextStats ? `${tt('net', 'net')} ${nextStats.netRevenue.toFixed(0)} €` : undefined} />
-                  )}
-                  <MiniStat icon={ScanLine} label={tt('Check-ins', 'Check-ins')} value={`${checkinRate}%`} sub={`${nextStats?.checkins ?? 0}/${nextStats?.ticketsSold ?? 0}`} />
-                  <MiniStat icon={Wine} label={tt('Tables', 'Tables')} value={nextStats?.tablesBooked ?? 0} />
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Link to={`/organizer-app/events/${nextEvent.id}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: 'var(--acc-ff5c63)' }}>
-                    {tt('Gérer', 'Manage')}
-                  </Link>
-                  <Link to="/organizer-app/checkin" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
-                    <ScanLine className="h-3.5 w-3.5" />Check-in
-                  </Link>
-                  <Link to="/organizer-app/analytics" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
-                    <Activity className="h-3.5 w-3.5" />{tt('Analytique', 'Analytics')}
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          !loading && (
-            <div className="px-4 py-12 text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
-              <CalendarDays className="mx-auto mb-3 h-10 w-10" style={{ color: 'rgb(var(--ink)/0.14)' }} />
-              <p style={{ color: T1, fontSize: 14, fontWeight: 560 }}>{tt('Aucune soirée à venir', 'No upcoming event')}</p>
-              <p style={{ color: T3, fontSize: 12, marginTop: 4, marginBottom: 16 }}>{tt('Créez une soirée pour commencer.', 'Create an event to get started.')}</p>
-              <Link to="/organizer-app/events?create=1" className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold" style={{ background: RED, color: '#fff', boxShadow: `0 0 20px -6px ${RED}88` }}>
-                <Plus className="h-4 w-4" />{tt('Créer un événement', 'Create event')}
-              </Link>
-            </div>
-          )
+        {/* ─── Vos prochaines soirées — J-N, CA du jour, jauges ─────────────── */}
+        {organizerId && (
+          <UpcomingEventsBoard
+            scope={{ organizerUserId: organizerId }}
+            statsHref={(id) => (can.viewInsights ? `/organizer-app/analytics?tab=event&event=${id}` : `/organizer-app/events/${id}`)}
+            allHref="/organizer-app/events"
+            liveHref={(id) => (can.editEvents ? `/organizer-app/events/${id}/live` : null)}
+            emptyCta={can.editEvents ? { label: tt('Créer un événement', 'Create event', 'Crear un evento'), href: '/organizer-app/events?create=1' } : undefined}
+          />
         )}
 
         {/* ─── Top events ───────────────────────────────────────────────────────── */}
@@ -534,19 +421,6 @@ function KpiTile({ label, value, subtitle, loading }: { label: string; value: nu
         {loading ? <span style={{ color: T3 }}>—</span> : value}
       </div>
       <div style={{ color: T3, fontSize: 11, marginTop: 6 }}>{subtitle}</div>
-    </div>
-  );
-}
-
-function MiniStat({ icon: Icon, label, value, sub }: { icon: any; label: string; value: number | string; sub?: string }) {
-  return (
-    <div className="rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-      <div className="mb-1 flex items-center justify-between">
-        <span style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
-        <Icon className="h-3.5 w-3.5" style={{ color: RED }} />
-      </div>
-      <div style={{ color: T1, fontSize: 19, fontWeight: 700 }}>{value}</div>
-      {sub && <div style={{ color: T3, fontSize: 10.5, marginTop: 1 }}>{sub}</div>}
     </div>
   );
 }

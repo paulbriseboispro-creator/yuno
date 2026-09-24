@@ -16,7 +16,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
@@ -40,6 +39,7 @@ import { AudienceInsights } from '@/components/analytics/AudienceInsights';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { useTabParam } from '@/hooks/useTabParam';
+import { useEventParam } from '@/hooks/useEventParam';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 
@@ -413,7 +413,6 @@ export default function OrgAppAnalytics() {
   // l'analytique de l'organisation pour laquelle il travaille.
   const { organizerId } = useActingOrganizer();
 
-  const [searchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState<DateRange>('7days');
   // `live` = la vue en direct (globe + flux) et `purchase` = le comportement
   // d'achat : des onglets de la page, pas des modes de données — les hooks
@@ -423,14 +422,13 @@ export default function OrgAppAnalytics() {
   const setMode = setTab as (m: AnalyticsMode | 'live' | 'purchase') => void; // identité stable (setter useState)
   const isLive = tab === 'live';
   const isPurchase = tab === 'purchase';
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-
-  // Deep-link: /organizer-app/analytics?event=<id> jumps straight to that night's
-  // verdict (e.g. from the event page's "Analyse" tile).
+  // La soirée choisie vit dans l'URL (`?event=`) : /organizer-app/analytics?event=<id>
+  // ouvre directement son analyse (tuile « Analyse » de la page soirée, liste
+  // des soirées, tableau de bord).
+  const [selectedEventId, setSelectedEventId] = useEventParam();
   useEffect(() => {
-    const ev = searchParams.get('event');
-    if (ev) { setMode('event'); setSelectedEventId(ev); }
-  }, [searchParams]);
+    if (selectedEventId) setMode('event');
+  }, [selectedEventId, setMode]);
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });

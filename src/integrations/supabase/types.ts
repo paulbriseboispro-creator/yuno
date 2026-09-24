@@ -19889,6 +19889,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_events_sales_summary: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_for_you_events: {
         Args: { p_limit?: number }
         Returns: {

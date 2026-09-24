@@ -43,6 +43,7 @@ import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 import { useTabParam } from '@/hooks/useTabParam';
+import { useEventParam } from '@/hooks/useEventParam';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 
@@ -432,7 +433,12 @@ export default function OwnerAnalytics() {
   const setMode = setTab as (m: AnalyticsMode | 'live' | 'purchase') => void; // identité stable (setter useState)
   const isLive = tab === 'live';
   const isPurchase = tab === 'purchase';
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  // La soirée choisie vit dans l'URL (`?event=`) : un lien depuis la liste des
+  // soirées ou le tableau de bord ouvre directement son analyse.
+  const [selectedEventId, setSelectedEventId] = useEventParam();
+  useEffect(() => {
+    if (selectedEventId) setMode('event');
+  }, [selectedEventId, setMode]);
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [recentActivity, setRecentActivity] = useState(0);

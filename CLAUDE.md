@@ -490,6 +490,41 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
   onglet `owner.an.purchaseTab`, aide `ohelp.pg.analytics.s11*` et
   `ohelp.org.analytics.s6*`, assistant : article `purchase-behavior`.
 
+## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
+
+Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
+(lots A-B livrés, C-G à faire). Règles déjà posées :
+
+- **Tout écran d'analyse passe par le kit** `src/components/analytics/kit.tsx`
+  (+ `kitFormat.ts` pour `KIT` et `useNumberFormat`) : `TodayDelta` (« ▲ 6
+  aujourd'hui », gris « rien aujourd'hui » à zéro), `UpdatedAt` (« Mis à jour à
+  HH:MM »), `MetricHint` (ⓘ = UNE phrase de définition, clés `gl.*`),
+  `CoverageNote` (« connu pour N sur M »), `FillBar`. Un total sans son « du
+  jour », un chiffre sans définition, une donnée partielle sans couverture : ce
+  sont les défauts que Shotgun n'a pas.
+- **La soirée choisie vit dans l'URL** (`?event=`, `useEventParam`) : Analytics
+  club et orga ; un lien `…/analytics?tab=event&event=<id>` ouvre son analyse.
+- **`get_events_sales_summary(p_venue_id, p_organizer_user_id)`** (migration
+  `20260924160000`) sert la bande de ventes de chaque carte soirée
+  (`EventSalesStrip`, page Événements) et « Vos prochaines soirées »
+  (`UpcomingEventsBoard`, remplace le héros à soirée unique des deux
+  dashboards). Mêmes statuts et formules que `get_live_view` (CA club de
+  `fees.ts`, remboursement déduit) ; « aujourd'hui » = minuit dans le fuseau de
+  la soirée. Le CA ne part qu'à qui voit l'argent (owner, manager
+  analytics/finance, fondateur, membre `view_finance`) ; un éditeur d'équipe
+  voit les jauges, jamais le CA ; un club ne voit pas le CA d'une soirée qu'il
+  ne fait qu'ACCUEILLIR (`partner_venue_id`). Aucune agrégation côté front.
+- **J-N = jours CALENDAIRES de Paris** (`countdownFor`, testé), pas des
+  tranches de 24 h. Une soirée gratuite n'affiche pas « 0 € » (`showsRevenue`).
+- **Les chiffres d'une liste de soirées se lisent en COLONNES FIXES**
+  (`EventMetricsGrid` : CA · Billets · Tables · Guest list · Visites) : un
+  pilier fermé laisse sa case vide sur grand écran pour garder l'alignement.
+- Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
+  qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
+  factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de
+  large : pour le mobile, contraindre le CONTENEUR, pas la fenêtre. Ne jamais
+  committer le banc.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous

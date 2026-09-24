@@ -202,7 +202,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToDashboard', path: '/dashboard' },
         relatedArticleIds: ['understand-analytics', 'live-night'],
-        keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'panel'],
+        keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'panel', 'prochaines soirées', 'upcoming nights', 'próximas noches', 'aujourd\'hui', 'today', 'hoy', 'j-2', 'compte à rebours', 'countdown', 'remplissage', 'fill rate', 'jauge'],
         sections: [
           { headingKey: 'ohelp.pg.dashboard.s1h', bodyKey: 'ohelp.pg.dashboard.s1b' },
           { headingKey: 'ohelp.pg.dashboard.s2h', bodyKey: 'ohelp.pg.dashboard.s2b', screenshotUrl: '/help/owner-dashboard.webp' },
@@ -308,6 +308,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         sections: [
           { headingKey: 'ohelp.ev.events.s1h', bodyKey: 'ohelp.ev.events.s1b' },
           { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.webp' },
+          { headingKey: 'ohelp.ev.events.s9h', bodyKey: 'ohelp.ev.events.s9b' },
           { headingKey: 'ohelp.ev.events.s3h', bodyKey: 'ohelp.ev.events.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.events.s4h', bodyKey: 'ohelp.ev.events.s4b', type: 'steps' },
           { headingKey: 'ohelp.ev.events.s5h', bodyKey: 'ohelp.ev.events.s5b' },
