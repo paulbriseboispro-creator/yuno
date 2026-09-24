@@ -464,7 +464,7 @@ jamais Space Grotesk, mono ni filet rouge ici. Règles :
   Chrome `--headless=new --use-angle=swiftshader`) a servi à voir le globe en
   vrai ; `--dump-dom` ne dit rien d'un canvas WebGL.
 
-## Comportement d'achat — Analytics → Comportement d'achat (2026-09-24)
+## Comportement d'achat — Analytics → Achats (2026-09-24)
 
 `/owner/analytics?tab=purchase` et `/organizer-app/analytics?tab=purchase`
 (`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
