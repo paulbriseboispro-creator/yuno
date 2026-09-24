@@ -885,8 +885,9 @@ par défaut) et en **clair**. Réglage « Apparence » au pied de chaque barre
 latérale (Clair / Sombre) + icône lune/soleil dans les en-têtes. La nouvelle
 couleur s'ouvre en cercle depuis le bouton cliqué : tout bouton qui change le
 thème passe son centre (`setPref(next, originOf(e.currentTarget))`).
-Le cercle est une animation CSS (`pro-theme-reveal`, 620 ms, courbe qui
-ralentit en fin de course) lue dans `--vt-x/--vt-y/--vt-r`, posés avant la
+Le cercle est une animation CSS (`pro-theme-reveal`, 600 ms, courbe presque
+linéaire — un ease-out faisait ramper le bord vers le dernier coin et se
+lisait comme un blocage à mi-course) lue dans `--vt-x/--vt-y/--vt-r`, posés avant la
 capture ; pendant la bascule, `html.pro-theme-vt *` coupe toutes les
 transitions et met en pause les animations de la page — sans ça, chaque
 `transition-colors` se déclenchait sur le changement de couleur et faisait

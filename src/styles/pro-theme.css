@@ -544,8 +544,13 @@ html[data-pro-theme="light"] [data-theme-island="dark"] {
    sur le changement de couleur et repeindraient la page à chaque image, et les
    animations en boucle (pulse, spin, badges live) repeindraient elles aussi :
    c'est ce qui faisait accrocher le cercle en plein milieu. On les coupe le
-   temps de la bascule (~0,6 s, invisible). La courbe ralentit en fin de
-   course au lieu d'accélérer au milieu. */
+   temps de la bascule (~0,6 s, invisible).
+   Courbe : PRESQUE LINÉAIRE, jamais un ease-out marqué. Le cercle part d'un
+   coin de l'écran (le bouton est en bas de la barre latérale) : un ease-out
+   couvrait 90 % de l'écran dans la première moitié, puis le bord rampait
+   vers le dernier coin — mesuré image par image, 650 %/s puis 40 %/s, ce qui
+   se lit comme un blocage à mi-course. Ici le bord garde une vitesse
+   régulière et ne ralentit que de moitié à l'arrivée. */
 @keyframes pro-theme-reveal {
   from { clip-path: circle(0px at var(--vt-x, 100%) var(--vt-y, 0px)); }
   to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 100%) var(--vt-y, 0px)); }
@@ -558,7 +563,7 @@ html.pro-theme-vt::view-transition-new(root) {
 html.pro-theme-vt::view-transition-new(root) {
   z-index: 2;
   will-change: clip-path;
-  animation: pro-theme-reveal 620ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation: pro-theme-reveal 600ms cubic-bezier(0.3, 0.15, 0.7, 0.85) both;
 }
 html.pro-theme-vt *,
 html.pro-theme-vt *::before,
