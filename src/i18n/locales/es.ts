@@ -10420,7 +10420,7 @@ const es: Record<string, string> = {
   'sidebar.group.settings': 'Configuración',
   'sidebar.dashboard': 'Dashboard',
   'sidebar.analytics': 'Analytics',
-  'sidebar.audience': 'Audiencia',
+  'sidebar.audience': 'Suscriptores',
   'sidebar.liveNight': 'Live Night',
   'sidebar.hypeScore': 'Hype Score',
   'sidebar.evenings': 'Noches',
