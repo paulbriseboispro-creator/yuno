@@ -97,7 +97,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[22px] sm:text-[26px] font-[680] tracking-tight" style={{ color: T1 }}>
-            {t('Audience', 'Audience', 'Audiencia')}
+            {t('Abonnés', 'Subscribers', 'Suscriptores')}
           </h1>
           <p className="text-[13px] mt-1" style={{ color: T3 }}>
             {subjectLabel

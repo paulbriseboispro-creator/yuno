@@ -10280,7 +10280,7 @@ const fr: Record<string, string> = {
   'sidebar.group.settings': 'Paramètres',
   'sidebar.dashboard': 'Dashboard',
   'sidebar.analytics': 'Analytics',
-  'sidebar.audience': 'Audience',
+  'sidebar.audience': 'Abonnés',
   'sidebar.liveNight': 'Live Night',
   'sidebar.hypeScore': 'Hype Score',
   'sidebar.evenings': 'Soirées',
