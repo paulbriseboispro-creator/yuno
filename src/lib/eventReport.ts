@@ -179,3 +179,10 @@ export function conversionPct(withOrder: number, visits: number): number | null 
   if (!visits || visits <= 0) return null;
   return Math.round((withOrder / visits) * 1000) / 10;
 }
+
+const KNOWN_VISIT_SOURCES = ['direct', 'social', 'search', 'email', 'qr', 'paid_search', 'paid_social', 'paid', 'affiliate', 'internal', 'referral'];
+
+/** Nom lisible d'une source de visite (`visitor_sessions.referrer_category`). */
+export function visitSourceLabel(source: string, t: (k: string) => string): string {
+  return KNOWN_VISIT_SOURCES.includes(source) ? t(`er.vsrc.${source}`) : source.charAt(0).toUpperCase() + source.slice(1);
+}

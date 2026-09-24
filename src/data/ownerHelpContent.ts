@@ -217,7 +217,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.pg.audience.title',
         descKey: 'ohelp.pg.audience.desc',
         icon: 'Users',
-        actionLink: { labelKey: 'ohelp.action.goToAudience', path: '/audience' },
+        actionLink: { labelKey: 'ohelp.action.goToAudience', path: '/analytics?tab=community&view=subscribers' },
         relatedArticleIds: ['understand-analytics', 'crm-setup'],
         keywords: ['audience', 'abonnés', 'subscribers', 'followers', 'fans', 'démographie', 'portée', 'reachable', 'joignables', 'croissance', 'segmentation', 'notifications', 'revenu abonnés', 'valeur par abonné', 'ltv', 'entonnoir', 'funnel', 'conversion', 'ré-acheteurs', 'attribution', 'push vente', 'combien rapporte un abonné', 'benchmark', 'médiane', 'ville', 'comparaison', 'percentile', 'source', 'acquisition', 'd\'où viennent', 'cohorte', 'rétention', 'récap hebdo', 'audience partagée', 'chevauchement', 'collab', 'net-new'],
         sections: [
@@ -236,7 +236,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'BarChart3',
         actionLink: { labelKey: 'ohelp.action.goToAnalytics', path: '/analytics' },
         relatedArticleIds: ['dashboard-overview', 'crm-setup', 'refund-management'],
-        keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', 'visiteurs en ce moment', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'repeat', 'habitués', 'no-show', 'présence', 'rapport de soirée', 'night report', 'informe', 'comparer', 'compare', 'comparar', 'courbe', 'curve', 'j-n', 'nouveaux contacts', 'new contacts', 'emails de la soirée', 'push de la soirée', 'détail des ventes', 'paliers'],
+        keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', 'visiteurs en ce moment', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'repeat', 'habitués', 'no-show', 'présence', 'rapport de soirée', 'night report', 'informe', 'comparer', 'compare', 'comparar', 'courbe', 'curve', 'j-n', 'nouveaux contacts', 'new contacts', 'emails de la soirée', 'push de la soirée', 'détail des ventes', 'paliers', 'ventes', 'sales', 'ventas', 'trafic', 'traffic', 'tráfico', 'communauté', 'community', 'comunidad', 'ma page', 'my page', 'visites de la page', 'page views', 'contacts', 'participation', 'dernier achat', 'last purchase', 'nouveaux contacts', 'partenaires', 'partners', 'public', 'abonnés', 'followers', 'hype score'],
         sections: [
           { headingKey: 'ohelp.pg.analytics.s1h', bodyKey: 'ohelp.pg.analytics.s1b' },
           { headingKey: 'ohelp.pg.analytics.s2h', bodyKey: 'ohelp.pg.analytics.s2b', screenshotUrl: '/help/owner-analytics.webp' },
@@ -249,6 +249,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.analytics.s9h', bodyKey: 'ohelp.pg.analytics.s9b' },
           { headingKey: 'ohelp.pg.analytics.s11h', bodyKey: 'ohelp.pg.analytics.s11b' },
           { headingKey: 'ohelp.pg.analytics.s12h', bodyKey: 'ohelp.pg.analytics.s12b', type: 'steps' },
+          { headingKey: 'ohelp.pg.analytics.s13h', bodyKey: 'ohelp.pg.analytics.s13b' },
+          { headingKey: 'ohelp.pg.analytics.s14h', bodyKey: 'ohelp.pg.analytics.s14b' },
           { headingKey: 'ohelp.pg.analytics.s10h', bodyKey: 'ohelp.pg.analytics.s10b', type: 'tip' },
         ],
       },
@@ -275,7 +277,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.pg.hype.title',
         descKey: 'ohelp.pg.hype.desc',
         icon: 'TrendingUp',
-        actionLink: { labelKey: 'ohelp.action.goToHype', path: '/hype' },
+        actionLink: { labelKey: 'ohelp.action.goToHype', path: '/analytics?tab=sales&view=event' },
         relatedArticleIds: ['understand-analytics', 'events-setup', 'promoter-system'],
         keywords: ['hype', 'score', 'forecast', 'prévision', 'attendance', 'fréquentation', 'sellout', 'demand', 'demande', 'pace', 'prediction', 'calibrate', 'analytics', 'vue d\'ensemble'],
         sections: [

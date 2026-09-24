@@ -52,7 +52,6 @@ import {
 	LayersIcon,
 	GlobeIcon,
 	RadioIcon,
-	ShoppingBagIcon,
 	UserCheckIcon,
 	CoinsIcon,
 	RepeatIcon,
@@ -79,11 +78,10 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 					path: "/organizer-app/analytics",
 					icon: <BarChart3Icon />,
 					subItems: [
-						{ title: t('owner.an.global'), path: "/organizer-app/analytics?tab=global", icon: <GlobeIcon />, isDefault: true },
-						{ title: t('owner.an.event'), path: "/organizer-app/analytics?tab=event", icon: <CalendarIcon /> },
-						{ title: t('owner.an.purchaseTab'), path: "/organizer-app/analytics?tab=purchase", icon: <ShoppingBagIcon /> },
-						{ title: t('owner.an.liveTab'), path: "/organizer-app/analytics?tab=live", icon: <RadioIcon /> },
-						{ title: tt("Abonnés", "Subscribers", "Suscriptores"), path: "/organizer-app/audience", icon: <UsersIcon /> },
+						{ title: t('anf.family.sales'), path: "/organizer-app/analytics?tab=sales", icon: <BarChart3Icon />, isDefault: true },
+						{ title: t('anf.family.traffic'), path: "/organizer-app/analytics?tab=traffic", icon: <GlobeIcon /> },
+						{ title: t('anf.family.community'), path: "/organizer-app/analytics?tab=community", icon: <UsersIcon /> },
+						{ title: t('anf.family.live'), path: "/organizer-app/analytics?tab=live", icon: <RadioIcon /> },
 					],
 				},
 			],
@@ -260,7 +258,6 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
  */
 const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/analytics", needs: "viewInsights" },
-	{ prefix: "/organizer-app/audience", needs: "viewInsights" },
 	{ prefix: "/organizer-app/customers", needs: "viewInsights" },
 	{ prefix: "/organizer-app/orders", needs: "viewFinance" },
 	{ prefix: "/organizer-app/refunds", needs: "refund" },

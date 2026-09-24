@@ -8,15 +8,11 @@ import type { ReactNode } from 'react';
 import { Bell, Link2, Mail } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { KIT, useNumberFormat } from '@/components/analytics/kitFormat';
-import { conversionPct, share, type EventReport } from '@/lib/eventReport';
+import { conversionPct, share, visitSourceLabel, type EventReport } from '@/lib/eventReport';
 import { CardTitle, EmptyNote, RankRow, ReportCard } from './ui';
 
-const KNOWN_VISIT_SOURCES = ['direct', 'social', 'search', 'email', 'qr', 'paid_search', 'paid_social', 'paid', 'affiliate', 'internal', 'referral'];
 const KNOWN_CHANNELS = ['venue_profile', 'organizer_profile', 'dj_profile', 'explore', 'promoter', 'direct', 'manual', 'other'];
 
-function visitSourceLabel(source: string, t: (k: string) => string): string {
-  return KNOWN_VISIT_SOURCES.includes(source) ? t(`er.vsrc.${source}`) : source.charAt(0).toUpperCase() + source.slice(1);
-}
 
 // ── 3. Est-ce qu'on voit ma soirée ? ───────────────────────────────────────
 

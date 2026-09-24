@@ -19892,6 +19892,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_community_overview: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_event_report: { Args: { p_event_id: string }; Returns: Json }
       get_events_sales_summary: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
@@ -20276,6 +20280,10 @@ export type Database = {
           target_id: string
           total_count: number
         }[]
+      }
+      get_page_traffic: {
+        Args: { p_days?: number; p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
       }
       get_public_meta_pixels: {
         Args: {

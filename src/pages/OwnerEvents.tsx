@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, Rocket, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -106,7 +107,7 @@ export default function OwnerEvents() {
   // Le lien « Voir les stats » ouvre l'analyse de la soirée ; un éditeur
   // d'équipe (pas d'accès à l'analytique) n'en a pas.
   const statsHrefFor = (eventId: string): string | null =>
-    isOrganizerScope && !orgCan.viewInsights ? null : `${basePath}/analytics?tab=event&event=${eventId}`;
+    isOrganizerScope && !orgCan.viewInsights ? null : eventReportHref(`${basePath}/analytics`, eventId);
   const { plan, loading: planLoading } = useSubscriptionPlan();
   // Collab read-only / subscription plans are venue concepts — never gate organizers.
   const collabReadOnly = !isOrganizerScope && !planLoading && isCollabPlan(plan);

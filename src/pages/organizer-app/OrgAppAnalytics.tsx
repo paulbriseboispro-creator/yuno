@@ -3,12 +3,11 @@ import {
   Download, Ticket, Users, RotateCcw,
   Percent, ShoppingCart, CreditCard,
   TrendingUp, Layers, Flame,
-  ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity,
+  ArrowUpRight, ArrowDownRight, Activity,
   Loader2, ChevronDown, Sofa, Clock,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
   ClipboardList, MousePointerClick,
-  Radio, ShoppingBag,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
@@ -16,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
@@ -38,7 +38,13 @@ import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { AudienceInsights } from '@/components/analytics/AudienceInsights';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
-import { useTabParam } from '@/hooks/useTabParam';
+import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
+import { eventReportHref } from '@/lib/analyticsNav';
+import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
+import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
+import { TrafficView } from '@/components/analytics/families/TrafficView';
+import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
+import { EmptyNote, ReportCard } from '@/components/event-report/ui';
 import { useEventParam } from '@/hooks/useEventParam';
 import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
@@ -369,28 +375,6 @@ function DonutChart({ data }: { data: { name: string; val: number; pct: number }
   );
 }
 
-// ─── Segment control ──────────────────────────────────────────────────────────
-function Seg({ value, options, onChange }: {
-  value: string;
-  options: { key: string; label: string; icon?: React.ReactNode }[];
-  onChange: (k: string) => void;
-}) {
-  return (
-    <div className="inline-flex gap-0.5 p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
-      {options.map(o => (
-        <button key={o.key} onClick={() => onChange(o.key)}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150"
-          style={value === o.key
-            ? { color: T1, background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))', boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' }
-            : { color: T3 }}>
-          {o.icon && <span style={{ opacity: 0.7 }}>{o.icon}</span>}
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function rangeStart(dateRange: DateRange): Date | null {
   if (dateRange === '24h') return subHours(new Date(), 24);
   if (dateRange === '48h') return subHours(new Date(), 48);
@@ -418,18 +402,27 @@ export default function OrgAppAnalytics() {
   // `live` = la vue en direct (globe + flux) et `purchase` = le comportement
   // d'achat : des onglets de la page, pas des modes de données — les hooks
   // d'analytics restent sur « global » pendant qu'ils tournent.
-  const [tab, setTab] = useTabParam<AnalyticsMode | 'live' | 'purchase'>('global', ['global', 'event', 'live', 'purchase']);
-  const mode: AnalyticsMode = tab === 'live' || tab === 'purchase' ? 'global' : tab;
-  const setMode = setTab as (m: AnalyticsMode | 'live' | 'purchase') => void; // identité stable (setter useState)
-  const isLive = tab === 'live';
-  const isPurchase = tab === 'purchase';
+  // Analytics en quatre familles (Ventes · Trafic · Communauté · En direct),
+  // chacune rangée en vues ; tout vit dans l'URL (`?tab=&view=&event=`), les
+  // anciens onglets (`global`, `event`, `purchase`) y sont traduits.
+  const { family, view, go } = useAnalyticsRoute();
+  const mode: AnalyticsMode = family === 'sales' && view === 'event' ? 'event' : 'global';
+  const isLive = family === 'live';
+  const isPurchase = family === 'community' && view === 'purchase';
+  const analyticsBase = useLocation().pathname.replace(/\/$/, '');
+  const consolePrefix = analyticsBase.replace(/\/analytics$/, '');
+  const eventHref = (id: string) => eventReportHref(analyticsBase, id);
+  // Adresse publique de l'organisation (Trafic › Ma page → « Voir ma page »).
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
+  useEffect(() => {
+    if (!organizerId) return;
+    supabase.from('organizer_profiles').select('slug').eq('user_id', organizerId).maybeSingle()
+      .then(({ data }) => setOrgSlug(data?.slug ?? null));
+  }, [organizerId]);
   // La soirée choisie vit dans l'URL (`?event=`) : /organizer-app/analytics?event=<id>
   // ouvre directement son analyse (tuile « Analyse » de la page soirée, liste
   // des soirées, tableau de bord).
   const [selectedEventId, setSelectedEventId] = useEventParam();
-  useEffect(() => {
-    if (selectedEventId) setMode('event');
-  }, [selectedEventId, setMode]);
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });
@@ -742,11 +735,139 @@ export default function OrgAppAnalytics() {
     { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
     ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
     { id: 'an-guestlist', label: t('owner.an.guestList'), icon: ClipboardList },
-    ...(hasPromoter ? [{ id: 'an-promoter', label: t('owner.an.promoterRoi'), icon: Megaphone }] : []),
-    ...(hasLoyalty ? [{ id: 'an-loyalty', label: t('owner.an.loyalty'), icon: HeartHandshake }] : []),
-    { id: 'an-audience', label: t('owner.an.audience'), icon: Users },
-    { id: 'an-web', label: t('owner.an.zoneTraffic'), icon: Globe },
   ];
+
+  // ── Zones rangées hors de Ventes › Vue d'ensemble (lot E) ────────────────
+  const promoterZone = (<>
+        {/* ── Promoter ROI ───────────────────────────────────────────────── */}
+        {promoterAnalytics && hasPromoter && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: t('owner.an.attributedRevenue'), val: fmt(promoterAnalytics.totalAttributed), sub: `${promoterAnalytics.totalConversions} ${t('owner.an.conversions')}`, icon: <TrendingUp className="w-4 h-4" />, tone: T1 },
+                { label: t('owner.an.commissions'), val: `−${fmt(promoterAnalytics.totalCommission)}`, sub: t('owner.an.owedToPromoters'), icon: <CreditCard className="w-4 h-4" />, tone: T1 },
+                { label: t('owner.an.clickToSale'), val: `${promoterAnalytics.convRate.toFixed(0)}%`, sub: `${promoterAnalytics.totalClicks} ${t('owner.an.clicks')}`, icon: <MousePointerClick className="w-4 h-4" />, tone: T1 },
+                { label: t('owner.an.promoterRoiShort'), val: promoterAnalytics.totalCommission > 0 ? `${promoterAnalytics.roi.toFixed(1)}x` : '—', sub: t('owner.an.revenuePerEuro'), icon: <Target className="w-4 h-4" />, tone: promoterAnalytics.roi >= 1 ? POS : T1 },
+              ].map((tile, i) => <Tile key={i} {...tile} />)}
+            </div>
+            <PCard icon={<Megaphone className="w-4 h-4" />} title={t('owner.an.topPromoters')} sub={t('owner.an.byAttributedRevenue')}>
+              <div className="divide-y" style={{ borderColor: BORDER }}>
+                {promoterAnalytics.promoters.slice(0, 8).map((p, i) => {
+                  const maxRev = promoterAnalytics.promoters[0]?.revenue || 1;
+                  const barPct = maxRev > 0 ? (p.revenue / maxRev) * 100 : 0;
+                  return (
+                    <div key={p.id} className="grid items-center gap-4 py-3" style={{ gridTemplateColumns: '20px 1fr auto' }}>
+                      <span className="text-[12.5px] tabular-nums" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-[560] truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>{p.name}</div>
+                        <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
+                          {p.conversions} {t('owner.an.conversions')} · {p.clicks} {t('owner.an.clicks')} · {p.convRate.toFixed(0)}%
+                        </div>
+                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+                          <div className="h-full rounded transition-all" style={{ width: `${barPct}%`, background: i === 0 ? `linear-gradient(90deg,${RED}88,${RED})` : `linear-gradient(90deg,${C_MID},${C_HI})` }} />
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1, letterSpacing: '-0.01em' }}>{fmt(p.revenue)}</div>
+                        <div className="text-[11px] mt-1" style={{ color: T3 }}>−{fmt(p.commission)} {t('owner.an.commissionLower')}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </PCard>
+          </motion.div>
+        )}
+
+  </>);
+  const loyaltyZone = (<>
+        {/* ── Customer loyalty / RFM ─────────────────────────────────────── */}
+        {customerAnalytics && hasLoyalty && (() => {
+          const segMeta: Record<string, { label: string; color: string }> = {
+            new: { label: t('owner.an.segNew'), color: 'var(--acc-38bdf8)' },
+            active: { label: t('owner.an.segActive'), color: POS },
+            atRisk: { label: t('owner.an.segAtRisk'), color: 'var(--acc-f59e0b)' },
+            lapsed: { label: t('owner.an.segLapsed'), color: T3 },
+          };
+          const segTotal = customerAnalytics.segments.reduce((s, x) => s + x.count, 0) || 1;
+          const g = customerAnalytics.growth90;
+          const tiles = [
+            { label: t('owner.an.customers'), val: customerAnalytics.totalCustomers.toLocaleString(), sub: t('owner.an.lifetimeBase'), icon: <Users className="w-4 h-4" />, tone: T1 },
+            { label: t('owner.an.repeatRate'), val: `${customerAnalytics.repeatRate.toFixed(0)}%`, sub: t('owner.an.cameMoreThanOnce'), icon: <Repeat className="w-4 h-4" />, tone: T1 },
+            { label: t('owner.an.avgClv'), val: fmt(customerAnalytics.avgClv), sub: t('owner.an.lifetimeSpend'), icon: <Crown className="w-4 h-4" />, tone: T1 },
+            { label: t('owner.an.growth90'), val: g === null ? '—' : `${g >= 0 ? '+' : ''}${g.toFixed(0)}%`, sub: t('owner.an.vsPrev90'), icon: <TrendingUp className="w-4 h-4" />, tone: g === null ? T1 : (g >= 0 ? POS : NEG) },
+          ];
+          return (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }} className="space-y-3">
+              <ZoneHeading id="an-loyalty" icon={<HeartHandshake className="w-4 h-4" />} label={t('owner.an.loyalty')} />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {tiles.map((tile, i) => <Tile key={i} {...tile} />)}
+              </div>
+              <div className="grid lg:grid-cols-2 gap-3">
+                <PCard icon={<HeartHandshake className="w-4 h-4" />} title={t('owner.an.lifecycle')} sub={t('owner.an.byRecency')}>
+                  <div className="flex h-2.5 rounded-full overflow-hidden mt-1" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+                    {customerAnalytics.segments.map(s => s.count > 0 && (
+                      <div key={s.key} style={{ width: `${(s.count / segTotal) * 100}%`, background: segMeta[s.key].color }} />
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    {customerAnalytics.segments.map(s => (
+                      <div key={s.key} className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: segMeta[s.key].color }} />
+                        <span className="text-[12.5px]" style={{ color: T2 }}>{segMeta[s.key].label}</span>
+                        <span className="text-[12.5px] tabular-nums ml-auto" style={{ color: T1 }}>{s.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </PCard>
+                <PCard icon={<Crown className="w-4 h-4" />} title={t('owner.an.topCustomers')} sub={t('owner.an.byLifetimeSpend')}>
+                  <div className="divide-y" style={{ borderColor: BORDER }}>
+                    {customerAnalytics.topCustomers.slice(0, 5).map((c, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2.5">
+                        <span className="text-[12.5px] tabular-nums w-5" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{c.name}</div>
+                          <div className="text-[11.5px]" style={{ color: T3 }}>{c.visitNights} {t('owner.an.nights')}</div>
+                        </div>
+                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1 }}>{fmt(c.totalSpent)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </PCard>
+              </div>
+            </motion.div>
+          );
+        })()}
+
+  </>);
+  const audienceZone = (<>
+        {/* ── Zone · Audience (age & gender + follower insights) ─────────── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
+          {mode === 'global' && (
+            <EventAudienceDemographics scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
+          )}
+          <AudienceInsights scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
+        </motion.div>
+
+  </>);
+  const webZone = (<div className="space-y-4">
+        {/* ── Zone · Web traffic ────────────────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
+          <AcquisitionDashboard scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
+        </motion.div>
+
+        {/* ── Zone · Web engagement ─────────────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
+          <ZoneHeading icon={<Activity className="w-4 h-4" />} label={t('owner.an.zoneEngagement')} />
+          <BehaviorAnalytics scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
+        </motion.div>
+
+  </div>);
+  // Contrôles (période, export) : seulement là où ils changent quelque chose.
+  const showControls = !isLive && mode !== 'event'
+    && !(family === 'traffic' && view !== 'sources')
+    && !(family === 'community' && (view === 'overview' || view === 'subscribers'));
+  const showExport = family === 'sales' && view === 'overview';
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
@@ -773,19 +894,8 @@ export default function OrgAppAnalytics() {
 
         {/* ── Controls row ──────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Seg
-              value={tab}
-              options={[
-                { key: 'global', label: t('owner.an.global'), icon: <Globe className="w-3.5 h-3.5" /> },
-                { key: 'event', label: t('owner.an.event'), icon: <Calendar className="w-3.5 h-3.5" /> },
-                { key: 'purchase', label: t('owner.an.purchaseTab'), icon: <ShoppingBag className="w-3.5 h-3.5" /> },
-                { key: 'live', label: t('owner.an.liveTab'), icon: <Radio className="w-3.5 h-3.5" /> },
-              ]}
-              onChange={(k) => { setMode(k as AnalyticsMode | 'live' | 'purchase'); if (k === 'global') setSelectedEventId(null); }}
-            />
-          </div>
-          {!isLive && (
+          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive || mode === 'event'} />
+          {showControls && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
               <div className="flex gap-1 flex-wrap p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
@@ -798,7 +908,7 @@ export default function OrgAppAnalytics() {
                 ))}
               </div>
             )}
-            {!isPurchase && <button onClick={handleExportData} disabled={exporting}
+            {showExport && <button onClick={handleExportData} disabled={exporting}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40"
               style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}>
               <Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">CSV</span>
@@ -809,6 +919,34 @@ export default function OrgAppAnalytics() {
 
         {isPurchase ? (
           <PurchaseBehaviorView organizerUserId={organizerId} dateRange={dateRange} />
+        ) : family === 'community' && view === 'overview' ? (
+          <CommunityOverviewView scope={{ organizerUserId: organizerId }} contactsHref={`${consolePrefix}/campaigns/contacts`} eventHref={eventHref}>
+            {loyaltyZone}
+          </CommunityOverviewView>
+        ) : family === 'community' && view === 'subscribers' ? (
+          organizerId ? (
+            <AudienceDashboard
+              subject={{ type: 'organizer', id: organizerId }}
+              actions={
+                <Link
+                  to={`${consolePrefix}/push`}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90"
+                  style={{ background: RED, color: '#fff' }}
+                >
+                  <Megaphone className="w-4 h-4" />
+                  {t('anf.notifyFollowers')}
+                </Link>
+              }
+            />
+          ) : null
+        ) : family === 'community' && view === 'demographics' ? (
+          audienceZone
+        ) : family === 'traffic' && view === 'sources' ? (
+          webZone
+        ) : family === 'traffic' ? (
+          <TrafficView scope={{ organizerUserId: organizerId }} mode={view === 'events' ? 'events' : 'page'} publicPath={orgSlug ? `/o/${orgSlug}` : null} eventHref={eventHref} />
+        ) : family === 'sales' && view === 'partners' ? (
+          hasPromoter ? promoterZone : <ReportCard><EmptyNote text={t('anf.pa.empty')} /></ReportCard>
         ) : isLive ? (
           <LiveView organizerUserId={organizerId} />
         ) : showEventPicker ? (
@@ -1056,126 +1194,6 @@ export default function OrgAppAnalytics() {
             from={webWindow.from}
             to={webWindow.to}
           />
-        </motion.div>
-
-        {/* ── Promoter ROI ───────────────────────────────────────────────── */}
-        {promoterAnalytics && hasPromoter && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
-            <ZoneHeading id="an-promoter" icon={<Megaphone className="w-4 h-4" />} label={t('owner.an.promoterRoi')} />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: t('owner.an.attributedRevenue'), val: fmt(promoterAnalytics.totalAttributed), sub: `${promoterAnalytics.totalConversions} ${t('owner.an.conversions')}`, icon: <TrendingUp className="w-4 h-4" />, tone: T1 },
-                { label: t('owner.an.commissions'), val: `−${fmt(promoterAnalytics.totalCommission)}`, sub: t('owner.an.owedToPromoters'), icon: <CreditCard className="w-4 h-4" />, tone: T1 },
-                { label: t('owner.an.clickToSale'), val: `${promoterAnalytics.convRate.toFixed(0)}%`, sub: `${promoterAnalytics.totalClicks} ${t('owner.an.clicks')}`, icon: <MousePointerClick className="w-4 h-4" />, tone: T1 },
-                { label: t('owner.an.promoterRoiShort'), val: promoterAnalytics.totalCommission > 0 ? `${promoterAnalytics.roi.toFixed(1)}x` : '—', sub: t('owner.an.revenuePerEuro'), icon: <Target className="w-4 h-4" />, tone: promoterAnalytics.roi >= 1 ? POS : T1 },
-              ].map((tile, i) => <Tile key={i} {...tile} />)}
-            </div>
-            <PCard icon={<Megaphone className="w-4 h-4" />} title={t('owner.an.topPromoters')} sub={t('owner.an.byAttributedRevenue')}>
-              <div className="divide-y" style={{ borderColor: BORDER }}>
-                {promoterAnalytics.promoters.slice(0, 8).map((p, i) => {
-                  const maxRev = promoterAnalytics.promoters[0]?.revenue || 1;
-                  const barPct = maxRev > 0 ? (p.revenue / maxRev) * 100 : 0;
-                  return (
-                    <div key={p.id} className="grid items-center gap-4 py-3" style={{ gridTemplateColumns: '20px 1fr auto' }}>
-                      <span className="text-[12.5px] tabular-nums" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-[560] truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>{p.name}</div>
-                        <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
-                          {p.conversions} {t('owner.an.conversions')} · {p.clicks} {t('owner.an.clicks')} · {p.convRate.toFixed(0)}%
-                        </div>
-                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
-                          <div className="h-full rounded transition-all" style={{ width: `${barPct}%`, background: i === 0 ? `linear-gradient(90deg,${RED}88,${RED})` : `linear-gradient(90deg,${C_MID},${C_HI})` }} />
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1, letterSpacing: '-0.01em' }}>{fmt(p.revenue)}</div>
-                        <div className="text-[11px] mt-1" style={{ color: T3 }}>−{fmt(p.commission)} {t('owner.an.commissionLower')}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </PCard>
-          </motion.div>
-        )}
-
-        {/* ── Customer loyalty / RFM ─────────────────────────────────────── */}
-        {customerAnalytics && hasLoyalty && (() => {
-          const segMeta: Record<string, { label: string; color: string }> = {
-            new: { label: t('owner.an.segNew'), color: 'var(--acc-38bdf8)' },
-            active: { label: t('owner.an.segActive'), color: POS },
-            atRisk: { label: t('owner.an.segAtRisk'), color: 'var(--acc-f59e0b)' },
-            lapsed: { label: t('owner.an.segLapsed'), color: T3 },
-          };
-          const segTotal = customerAnalytics.segments.reduce((s, x) => s + x.count, 0) || 1;
-          const g = customerAnalytics.growth90;
-          const tiles = [
-            { label: t('owner.an.customers'), val: customerAnalytics.totalCustomers.toLocaleString(), sub: t('owner.an.lifetimeBase'), icon: <Users className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.repeatRate'), val: `${customerAnalytics.repeatRate.toFixed(0)}%`, sub: t('owner.an.cameMoreThanOnce'), icon: <Repeat className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.avgClv'), val: fmt(customerAnalytics.avgClv), sub: t('owner.an.lifetimeSpend'), icon: <Crown className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.growth90'), val: g === null ? '—' : `${g >= 0 ? '+' : ''}${g.toFixed(0)}%`, sub: t('owner.an.vsPrev90'), icon: <TrendingUp className="w-4 h-4" />, tone: g === null ? T1 : (g >= 0 ? POS : NEG) },
-          ];
-          return (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }} className="space-y-3">
-              <ZoneHeading id="an-loyalty" icon={<HeartHandshake className="w-4 h-4" />} label={t('owner.an.loyalty')} />
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {tiles.map((tile, i) => <Tile key={i} {...tile} />)}
-              </div>
-              <div className="grid lg:grid-cols-2 gap-3">
-                <PCard icon={<HeartHandshake className="w-4 h-4" />} title={t('owner.an.lifecycle')} sub={t('owner.an.byRecency')}>
-                  <div className="flex h-2.5 rounded-full overflow-hidden mt-1" style={{ background: 'rgb(var(--ink)/0.06)' }}>
-                    {customerAnalytics.segments.map(s => s.count > 0 && (
-                      <div key={s.key} style={{ width: `${(s.count / segTotal) * 100}%`, background: segMeta[s.key].color }} />
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {customerAnalytics.segments.map(s => (
-                      <div key={s.key} className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: segMeta[s.key].color }} />
-                        <span className="text-[12.5px]" style={{ color: T2 }}>{segMeta[s.key].label}</span>
-                        <span className="text-[12.5px] tabular-nums ml-auto" style={{ color: T1 }}>{s.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </PCard>
-                <PCard icon={<Crown className="w-4 h-4" />} title={t('owner.an.topCustomers')} sub={t('owner.an.byLifetimeSpend')}>
-                  <div className="divide-y" style={{ borderColor: BORDER }}>
-                    {customerAnalytics.topCustomers.slice(0, 5).map((c, i) => (
-                      <div key={i} className="flex items-center gap-3 py-2.5">
-                        <span className="text-[12.5px] tabular-nums w-5" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{c.name}</div>
-                          <div className="text-[11.5px]" style={{ color: T3 }}>{c.visitNights} {t('owner.an.nights')}</div>
-                        </div>
-                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1 }}>{fmt(c.totalSpent)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </PCard>
-              </div>
-            </motion.div>
-          );
-        })()}
-
-        {/* ── Zone · Audience (age & gender + follower insights) ─────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
-          <ZoneHeading id="an-audience" icon={<Users className="w-4 h-4" />} label={t('owner.an.audience')} />
-          {mode === 'global' && (
-            <EventAudienceDemographics scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
-          )}
-          <AudienceInsights scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
-        </motion.div>
-
-        {/* ── Zone · Web traffic ────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
-          <ZoneHeading id="an-web" icon={<Globe className="w-4 h-4" />} label={t('owner.an.zoneTraffic')} />
-          <AcquisitionDashboard scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
-        </motion.div>
-
-        {/* ── Zone · Web engagement ─────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
-          <ZoneHeading icon={<Activity className="w-4 h-4" />} label={t('owner.an.zoneEngagement')} />
-          <BehaviorAnalytics scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
         </motion.div>
 
         {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}

@@ -34,6 +34,8 @@ interface Props {
   verdict?: ReactNode;
   /** L'âge / le sexe / les villes du public (`EventAudienceDemographics`). */
   demographics?: ReactNode;
+  /** La prévision avant la soirée (Hype Score, club), rendue tant que la soirée n'est pas passée. */
+  forecast?: ReactNode;
 }
 
 /** Les soirées de la portée, pour changer de soirée et pour comparer. */
@@ -87,7 +89,7 @@ function asSales(r: EventReport): EventSales {
   };
 }
 
-export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics }: Props) {
+export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast }: Props) {
   const { t, language } = useLanguage();
   const { data: report, loading, error, fetchedAt } = useEventReport(eventId);
   const events = useScopeEvents(scope);
@@ -187,6 +189,13 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
             options={events}
             compareLoading={!!compareId && compareLoading}
           />
+
+          {report.event.phase !== 'after' && forecast && (
+            <>
+              <Question id="er-forecast" title={t('er.q.forecast')} sub={t('er.q.forecastSub')} />
+              {forecast}
+            </>
+          )}
 
           <Question id="er-reach" title={t('er.q.reach')} sub={t('er.q.reachSub')} />
           <ReportTraffic report={report} />

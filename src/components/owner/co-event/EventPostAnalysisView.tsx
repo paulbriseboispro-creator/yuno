@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trophy, BarChart3, Users, Lightbulb, LucideIcon } from 'lucide-react';
+import { PostEventAIInsights } from '@/components/hype/PostEventAIInsights';
 import { usePostEventAnalysis } from '@/hooks/usePostEventAnalysis';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PostEventOverview } from '@/components/hype/PostEventOverview';
@@ -161,6 +162,12 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Pro
         <PostEventWhatWorked items={postEventData.whatWorked} />
         <PostEventSuggestions suggestions={postEventData.suggestions} />
       </div>
+
+      {/* Le Night Report IA (ex-page Hype Score) : club seulement — l'IA de la
+          Console exige le rôle owner, un organisateur recevrait un refus. */}
+      {venueId && !organizerUserId && !postEventData.isAggregate && postEventData.eventId && (
+        <PostEventAIInsights eventId={postEventData.eventId} stats={postEventData.rawStats} />
+      )}
 
       {!postEventData.isAggregate && (
         <PostEventNotes notes={postEventData.notes} onSave={saveNotes} />

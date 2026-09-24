@@ -493,7 +493,7 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
 ## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
 
 Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
-(lots A-C livrés, D-G à faire). Règles déjà posées :
+(lots A-E livrés, F-G à faire). Règles déjà posées :
 
 - **Tout écran d'analyse passe par le kit** `src/components/analytics/kit.tsx`
   (+ `kitFormat.ts` pour `KIT` et `useNumberFormat`) : `TodayDelta` (« ▲ 6
@@ -564,6 +564,30 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   rend `targeted` APRÈS politique + `audience`, `held_back`, `quiet_hours`,
   `policy` ; l'envoi refuse `quiet_hours` (409) et `no_eligible_recipients`
   plutôt que de créer une campagne à zéro. Le super admin garde sa main.
+- **Analytics = quatre familles, une question par page** (lot E, migration
+  `20260924200000`). Adresse `?tab=sales|traffic|community|live&view=…`
+  (`src/lib/analyticsNav.ts`, testé ; `useAnalyticsRoute`) : Ventes (Vue
+  d'ensemble · Par soirée = Rapport de soirée · Partenaires = promoteurs),
+  Trafic (Ma page · Par soirée · Sources), Communauté (Vue d'ensemble · Abonnés
+  · Achats · Public), En direct. Les anciens onglets (`global`, `event`,
+  `purchase`) sont traduits ET l'URL réécrite en place ; un lien de soirée se
+  construit par `eventReportHref(base, id)`, jamais à la main. Navigation
+  commune `AnalyticsFamilyNav` (club + orga) ; les zones de l'ancien Global
+  sont rangées (promoteurs → Partenaires, fidélité → Communauté, âge/sexe →
+  Public, trafic web → Sources). `/owner/audience`, `/organizer-app/audience`,
+  `/owner/hype`, `/manager/hype` REDIRIGENT : les Abonnés sont une vue de
+  Communauté, le Hype Score vit dans le Rapport de soirée (slot `forecast`,
+  club seul, `HypeEventForecast`) et le Night Report IA sous le verdict
+  (`EventPostAnalysisView`, club seul : l'IA exige le rôle owner).
+  `get_community_overview` lit la base vivante `contact_rows` (contacts,
+  joignables, abonnés, participation 0-4+, dernier achat par tranches de mois,
+  croissance 24 mois, nouveaux contacts = PREMIÈRE soirée dans la portée,
+  comme le Rapport) ; `get_page_traffic` lit `visitor_sessions` (page publique
+  `venue_page` / `organizer_profile`, soirées de la portée). Même porte que
+  `get_events_sales_summary`, aucun montant. Lexique : « Mix revenu »,
+  « Settlement », « Funnel », « ROI » sont devenus des mots de pro
+  (`owner.an.*`). Période et export ne s'affichent que là où ils changent
+  quelque chose.
 - Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
   qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de

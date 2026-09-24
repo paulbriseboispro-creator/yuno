@@ -99,7 +99,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'BarChart3',
         actionLink: { labelKey: OPEN, path: '/analytics' },
         relatedArticleIds: ['org-dashboard', 'org-customers', 'org-events'],
-        keywords: ['analytics', 'analytique', 'stats', 'reports', 'rapports', 'funnel', 'conversion', 'analítica', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'no-show', 'rapport de soirée', 'night report', 'informe', 'comparer', 'compare', 'comparar', 'courbe', 'j-n', 'nouveaux contacts', 'new contacts', 'détail des ventes'],
+        keywords: ['analytics', 'analytique', 'stats', 'reports', 'rapports', 'funnel', 'conversion', 'analítica', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'no-show', 'rapport de soirée', 'night report', 'informe', 'comparer', 'compare', 'comparar', 'courbe', 'j-n', 'nouveaux contacts', 'new contacts', 'détail des ventes', 'ventes', 'sales', 'ventas', 'trafic', 'traffic', 'tráfico', 'communauté', 'community', 'comunidad', 'ma page', 'my page', 'visites de la page', 'page views', 'contacts', 'participation', 'dernier achat', 'last purchase', 'nouveaux contacts', 'partenaires', 'partners', 'public', 'abonnés', 'followers', 'hype score'],
         sections: [
           { headingKey: 'ohelp.org.analytics.s1h', bodyKey: 'ohelp.org.analytics.s1b' },
           { headingKey: 'ohelp.org.analytics.s2h', bodyKey: 'ohelp.org.analytics.s2b', screenshotUrl: '/help/org-analytics.webp' },
@@ -108,6 +108,8 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.analytics.s5h', bodyKey: 'ohelp.org.analytics.s5b' },
           { headingKey: 'ohelp.org.analytics.s6h', bodyKey: 'ohelp.org.analytics.s6b' },
           { headingKey: 'ohelp.org.analytics.s7h', bodyKey: 'ohelp.org.analytics.s7b', type: 'steps' },
+          { headingKey: 'ohelp.org.analytics.s8h', bodyKey: 'ohelp.org.analytics.s8b' },
+          { headingKey: 'ohelp.org.analytics.s9h', bodyKey: 'ohelp.org.analytics.s9b' },
         ],
       },
     ],

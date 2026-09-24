@@ -1,4 +1,5 @@
 import { AppHeader } from '@/components/app-header';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { calcStripeFee, ticketRevenue } from '@/utils/fees';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
@@ -609,7 +610,7 @@ export default function OwnerDashboard() {
           <motion.div className="md:col-span-2 lg:col-span-4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
             <UpcomingEventsBoard
               scope={{ venueId }}
-              statsHref={(id) => `/owner/analytics?tab=event&event=${id}`}
+              statsHref={(id) => eventReportHref('/owner/analytics', id)}
               allHref="/owner/events"
               liveHref={() => '/owner/live'}
               emptyCta={{ label: t('owner.dash.createEvent'), href: '/owner/events' }}

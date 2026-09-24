@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
@@ -372,7 +373,7 @@ export default function OrgAppDashboard() {
         {organizerId && (
           <UpcomingEventsBoard
             scope={{ organizerUserId: organizerId }}
-            statsHref={(id) => (can.viewInsights ? `/organizer-app/analytics?tab=event&event=${id}` : `/organizer-app/events/${id}`)}
+            statsHref={(id) => (can.viewInsights ? eventReportHref('/organizer-app/analytics', id) : `/organizer-app/events/${id}`)}
             allHref="/organizer-app/events"
             liveHref={(id) => (can.editEvents ? `/organizer-app/events/${id}/live` : null)}
             emptyCta={can.editEvents ? { label: tt('Créer un événement', 'Create event', 'Crear un evento'), href: '/organizer-app/events?create=1' } : undefined}
