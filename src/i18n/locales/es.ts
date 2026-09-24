@@ -15185,6 +15185,7 @@ const es: Record<string, string> = {
   'notif.type.admin_pro_signup': "Nuevo registro pro",
   'notif.type.admin_pro_signup_lead': "Lead pro (landing)",
   'notif.type.admin_security_onboarding_link': "Seguridad: enlace de onboarding ilegítimo usado",
+  'notif.type.admin_security_self_organizer': "Seguridad: cuentas de organizador por revisar",
   'auth.proSignupPrompt': "¿Gestionas un club o eventos?",
   'auth.proSignupCta': "Crear una cuenta pro",
 };

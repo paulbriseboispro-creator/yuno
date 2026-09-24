@@ -14843,6 +14843,7 @@ const en: Record<string, string> = {
   'notif.type.admin_pro_signup': "New pro signup",
   'notif.type.admin_pro_signup_lead': "Pro lead (landing)",
   'notif.type.admin_security_onboarding_link': "Security: illegitimate onboarding link used",
+  'notif.type.admin_security_self_organizer': "Security: organizer accounts to check",
   'auth.proSignupPrompt': "Run a club or events?",
   'auth.proSignupCta': "Create a pro account",
 };

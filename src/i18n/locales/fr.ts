@@ -14817,6 +14817,7 @@ const fr: Record<string, string> = {
   'notif.type.admin_pro_signup': "Nouvelle inscription pro",
   'notif.type.admin_pro_signup_lead': "Lead pro (landing)",
   'notif.type.admin_security_onboarding_link': "Sécurité : lien d'onboarding illégitime utilisé",
+  'notif.type.admin_security_self_organizer': "Sécurité : comptes organisateur à vérifier",
   'auth.proSignupPrompt': "Vous gérez un club ou des soirées ?",
   'auth.proSignupCta': "Créer un compte pro",
 };

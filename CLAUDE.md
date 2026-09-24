@@ -848,6 +848,13 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   `onboarding_link_issuer_allowed()`). Règle générale : **une table dont une ligne
   ACCORDE un rôle ne porte jamais de policy d'écriture « créateur = moi »** — la
   personne choisirait elle-même ce qu'on lui accorde.
+- **`profiles.profile_type` ne s'écrit que côté serveur** (migration
+  `20260924140000`) : le trigger `guard_profile_type_write` refuse tout
+  changement venant d'un client, car `trg_sync_organizer_role_from_profile`
+  en déduit le rôle `organizer`. Devenir organisateur = `complete_pro_signup`,
+  une invitation ou un lien d'onboarding. Et une ligne `organizer_profiles`
+  ne se crée côté client que si l'on EST organisateur
+  (`guard_organizer_profile_insert`).
 - **Push CLIENT non transactionnel = porte unique `client_push_policy()`** (2026-09-06,
   migration `20260906140000`). Toute notif marketing/engagement destinée à l'app Yuno
   (découverte, nouveautés des clubs suivis, relance d'inactivité, panier…) appelle
