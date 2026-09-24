@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { supabase } from '@/integrations/supabase/client';
 import { loadLocale, getLoadedLocale, loadLocaleSection, hasLocaleSection, type Language, type LocaleSection } from '../i18n/data';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
-import { deviceLanguage, VALID_LANGS } from '@/lib/deviceLanguage';
+import { deviceLanguage, urlLanguage, VALID_LANGS } from '@/lib/deviceLanguage';
 
 export type { Language };
 
@@ -18,6 +18,10 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function persistedLanguage(): Language {
   if (typeof window !== 'undefined') {
+    // `?lang=` dans le lien gagne sur tout : c'est le choix de celui qui a
+    // partagé le lien pour SON public (voir `urlLanguage`).
+    const fromUrl = urlLanguage();
+    if (fromUrl) return fromUrl;
     const saved = localStorage.getItem('language') as Language | null;
     if (saved && VALID_LANGS.includes(saved)) return saved;
   }
@@ -29,6 +33,19 @@ export function persistedLanguage(): Language {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(persistedLanguage);
+
+  // Langue venue du lien : mémorisée comme un choix manuel pour que la suite
+  // de la visite (navigation SPA, rechargement sans `?lang=`) la garde, et que
+  // la popup de langue de l'onboarding ne la redemande pas.
+  useEffect(() => {
+    const fromUrl = urlLanguage();
+    if (!fromUrl) return;
+    try {
+      localStorage.setItem('language', fromUrl);
+      localStorage.setItem('languageSelected', 'true');
+      localStorage.setItem('onboarding_language_answered', 'true');
+    } catch { /* stockage indisponible : la langue tient pour cette page */ }
+  }, []);
 
   // Dictionnaire actif + fallback EN. `strings === null` = premier chargement
   // en cours : on gate le render (le splash natif / fond #050505 couvre ~50 ms,
@@ -96,6 +113,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       // En aperçu preview : la langue vient du lien (localStorage), on n'écrase pas
       // avec la préférence du compte démo.
       if (isPreviewActive()) return;
+      // Lien avec `?lang=` : la langue du lien prime pour cette visite, sans
+      // réécrire la préférence du compte (un lien n'est pas un réglage).
+      if (urlLanguage()) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase

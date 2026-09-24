@@ -32,3 +32,21 @@ export function deviceLanguage(): Language | null {
   }
   return null;
 }
+
+/**
+ * Langue imposée par le lien (`?lang=en|fr|es`), si elle est valide — sinon null.
+ *
+ * Un lien partagé (bio Instagram, pub, message à un club de Madrid) doit ouvrir
+ * Yuno dans la langue de SON public, quelle que soit la langue du téléphone :
+ * `https://yunoapp.eu/explore?city=Madrid&lang=en`. Lu dans la query, jamais dans
+ * le fragment (le handoff de la landing porte déjà sa langue dans le `#`).
+ */
+export function urlLanguage(search?: string): Language | null {
+  try {
+    const raw = search ?? (typeof window !== 'undefined' ? window.location.search : '');
+    const lang = new URLSearchParams(raw).get('lang')?.trim().toLowerCase() as Language | undefined;
+    return lang && VALID_LANGS.includes(lang) ? lang : null;
+  } catch {
+    return null;
+  }
+}
