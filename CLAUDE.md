@@ -553,8 +553,17 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   l'argent), résumé 30 j et abonnés (`followers.total/reachable/new30d`,
   bandeau `FollowersNudge`). L'annonce automatique d'une soirée s'appelle
   « Publication – soirée » (`campaignLabel`). `PushHistoryCard` ne compte rien.
-  Les push MANUELS du club comme de l'orga ne passent pas par
-  `client_push_policy()` (seul le plafond 4 / 24 h les borne) — à trancher.
+  **Push MANUELS = politique client, deux familles** (migration
+  `20260924190000`, `filter_manual_push_recipients(ids, kind, at)`,
+  ensembliste, `service_role` seul) : `marketing` (abonnés, tous les clients,
+  segments, RFM, abonnés d'agence) = opt-out `marketing` + heures calmes
+  22 h → 10 h Paris jugées à l'heure d'ENVOI (planifiée ou non ; le cron juge à
+  `scheduled_at`) + 1 / 24 h et 3 / 7 j tous expéditeurs (`notification_log`) ;
+  `event` (`event_tickets`, `checked_in`) = opt-out seul, journalisé
+  `event_campaign` (hors plafonds) : on parle d'une nuit achetée. Le dry_run
+  rend `targeted` APRÈS politique + `audience`, `held_back`, `quiet_hours`,
+  `policy` ; l'envoi refuse `quiet_hours` (409) et `no_eligible_recipients`
+  plutôt que de créer une campagne à zéro. Le super admin garde sa main.
 - Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
   qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de

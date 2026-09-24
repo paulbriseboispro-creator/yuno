@@ -94,6 +94,10 @@ export default function OwnerPush() {
   const [reach, setReach] = useState<number | null>(null);
   const [reachLoading, setReachLoading] = useState(false);
   const [reachError, setReachError] = useState<string | null>(null);
+  // Règles Yuno des push manuels (send-push-campaign → filter_manual_push_recipients).
+  const [quietHours, setQuietHours] = useState(false);
+  const [heldBack, setHeldBack] = useState(0);
+  const [policyKind, setPolicyKind] = useState<'marketing' | 'event' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<PushFilter>('all');
@@ -314,6 +318,8 @@ export default function OwnerPush() {
             title: '·', body: '·', dry_run: true,
             ...scopeBody, scope,
             ...(needsEvent ? { event_id: eventId } : {}),
+            // Heures calmes jugées à l'heure d'ENVOI, planifiée ou non.
+            ...(scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
           },
         });
         if (error) {
@@ -329,6 +335,9 @@ export default function OwnerPush() {
           return;
         }
         setReach(typeof data?.targeted === 'number' ? data.targeted : null);
+        setQuietHours(!!data?.quiet_hours);
+        setHeldBack(typeof data?.held_back === 'number' ? data.held_back : 0);
+        setPolicyKind(data?.policy === 'event' || data?.policy === 'marketing' ? data.policy : null);
         if (data?.error) setReachError(String(data.error));
       } catch (e) {
         console.error('[Push] dry_run failed:', e);
@@ -339,7 +348,7 @@ export default function OwnerPush() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [ready, isOrg, venueId, organizerUserId, scope, eventId, needsEvent]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, isOrg, venueId, organizerUserId, scope, eventId, needsEvent, scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -351,6 +360,15 @@ export default function OwnerPush() {
     d.setHours(bestSlot.hour);
     d.setDate(d.getDate() + ((bestSlot.dow - d.getDay() + 7) % 7));
     if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 7);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+
+  // Prochain 10 h (fin des heures calmes), au format datetime-local.
+  const nextTenLocal = (): string => {
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    if (d.getHours() >= 10) d.setDate(d.getDate() + 1);
+    d.setHours(10);
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   };
 
@@ -390,6 +408,14 @@ export default function OwnerPush() {
             const bodyJson = await errAny.context.json();
             if (bodyJson?.error === 'campaign_rate_limited') {
               toast.error(t('ownerPush.rateLimited'));
+              return;
+            }
+            if (bodyJson?.error === 'quiet_hours') {
+              toast.error(t('ph.policy.quietToast'));
+              return;
+            }
+            if (bodyJson?.error === 'no_eligible_recipients') {
+              toast.error(t('ph.policy.noEligibleToast'));
               return;
             }
             if (bodyJson?.error) msg = bodyJson.error;
@@ -750,12 +776,12 @@ export default function OwnerPush() {
                 </span>
                 <button
                   onClick={() => setConfirmOpen(true)}
-                  disabled={sending || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0}
+                  disabled={sending || quietHours || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0}
                   className="inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                   style={{
                     background: RED, color: '#fff', padding: '11px 18px',
                     boxShadow: `0 0 18px -6px ${RED}88`,
-                    opacity: (sending || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
+                    opacity: (sending || quietHours || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
                   }}
                 >
                   {scheduledAt ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
@@ -763,8 +789,31 @@ export default function OwnerPush() {
                 </button>
               </div>
 
+              {/* Règles Yuno : heures calmes et personnes protégées */}
+              {!reachLoading && quietHours && (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl p-3" style={{ background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
+                  <p style={{ color: T2, fontSize: 12, lineHeight: 1.5, flex: '1 1 260px' }}>{t('ph.policy.quiet')}</p>
+                  <button
+                    type="button"
+                    onClick={() => setScheduledAt(nextTenLocal())}
+                    className="rounded-lg px-3 py-1.5 text-[12px] font-semibold"
+                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
+                  >
+                    {t('ph.policy.scheduleAt10')}
+                  </button>
+                </div>
+              )}
+              {!reachLoading && !quietHours && heldBack > 0 && (
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                  {(heldBack === 1 ? t('ph.policy.heldBackOne') : t('ph.policy.heldBack')).replace('{n}', String(heldBack))}
+                </p>
+              )}
+              {!reachLoading && policyKind === 'event' && (reach ?? 0) > 0 && (
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('ph.policy.eventNote')}</p>
+              )}
+
               {/* Explication quand la portée est vide ou en erreur — jamais un « … » muet */}
-              {!reachLoading && (reach === 0 || (reach === null && reachError)) && (
+              {!reachLoading && !quietHours && heldBack === 0 && (reach === 0 || (reach === null && reachError)) && (
                 <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
                   {reach === 0 ? t('ownerPush.reachZeroHint') : reachError}
                 </p>

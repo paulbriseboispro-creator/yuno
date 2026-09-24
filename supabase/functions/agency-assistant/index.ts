@@ -146,7 +146,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Notifications push aux abonnés",
     keywords: ["notifications", "push", "notifier", "prévenir", "envoyer", "campagne", "manuel", "automatique", "nouvelle soirée", "abonnés"],
     path: "/agency-app/push",
-    snippet: "Deux leviers pour toucher tes abonnés. Le push AUTOMATIQUE « Nouvelle soirée » (éteint par défaut, opt-in) : activé, chaque soirée fraîche d'un club sous contrat prévient tes abonnés toute seule, une fois par soirée. Le push MANUEL : un message ponctuel (titre + texte + lien) à tous tes abonnés joignables, avec aperçu iOS et portée estimée avant l'envoi. Maximum 4 envois manuels par 24 h. Seuls les abonnés qui ont l'app et gardent les notifs activées sont joignables.",
+    snippet: "Deux leviers pour toucher tes abonnés. Le push AUTOMATIQUE « Nouvelle soirée » (éteint par défaut, opt-in) : activé, chaque soirée fraîche d'un club sous contrat prévient tes abonnés toute seule, une fois par soirée. Le push MANUEL : un message ponctuel (titre + texte + lien) à tous tes abonnés joignables, avec aperçu iOS et portée estimée avant l'envoi. Maximum 4 envois manuels par 24 h. Seuls les abonnés qui ont l'app et gardent les notifs activées sont joignables. Règles Yuno qui protègent le public, tous expéditeurs confondus : rien ne part entre 22 h et 10 h, et personne ne reçoit plus d'1 notification marketing par jour et 3 par semaine ; la portée estimée ne compte que ceux qui la recevront vraiment.",
   },
   "external-catalog": {
     title: "Clubs externes (catalogue)",

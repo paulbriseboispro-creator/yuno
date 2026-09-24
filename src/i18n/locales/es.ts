@@ -15593,6 +15593,13 @@ const es: Record<string, string> = {
   'ph.orgSubtitle': "Llega a tus clientes en su teléfono: antes de la fiesta, el mismo día o después.",
   'ph.orgAutoTitle': "Automático: cada fiesta publicada se anuncia",
   'ph.orgAutoBody': "Cuando publicas una fiesta, Yuno la anuncia en el teléfono de tus seguidores. Aparece abajo como « Publicación – nombre de la fiesta ». Yuno respeta las horas de descanso y nunca envía más de una notificación de este tipo por persona y por día.",
+  "ph.policy.quiet": "Horas de descanso: para esta audiencia no sale nada entre las 22 h y las 10 h. Los compradores de una fiesta siguen siendo alcanzables durante la noche.",
+  "ph.policy.scheduleAt10": "Programar a las 10 h",
+  "ph.policy.heldBack": "{n} personas protegidas por las reglas de Yuno: ya notificadas hoy o 3 veces esta semana, o con las notificaciones de marketing desactivadas.",
+  "ph.policy.heldBackOne": "1 persona protegida por las reglas de Yuno: ya notificada hoy o 3 veces esta semana, o con las notificaciones de marketing desactivadas.",
+  "ph.policy.eventNote": "Personas con plaza para esta fiesta: la notificación puede salir durante la noche; solo se excluye a quienes desactivaron las notificaciones de marketing.",
+  "ph.policy.quietToast": "Horas de descanso: no sale nada hacia esta audiencia entre las 22 h y las 10 h. Prográmalo.",
+  "ph.policy.noEligibleToast": "Toda esta audiencia ya recibió una notificación hoy.",
 };
 
 export default es;

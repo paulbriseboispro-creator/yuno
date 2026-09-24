@@ -1962,7 +1962,7 @@ const help: Record<string, string> = {
   "ohelp.pg.push.s3h": "Activar una automatización",
   "ohelp.pg.push.s4b": "1. Elige una plantilla (Promoción, Happy hour, Últimas entradas, Mesas VIP, Guest list, Concurso) o empieza de cero con «Libre».\n2. Redacta el título y el mensaje — «Generar con IA» te propone uno en el tono elegido.\n3. Segmenta la audiencia (compradores, clientes que entraron, seguidores, segmento de cliente) y revisa el alcance estimado.\n4. Envía al momento, o programa fecha y hora concretas.\nYuno te sugiere la mejor franja de envío según los hábitos de tu audiencia, un clic la rellena. Un push programado queda en el historial con una insignia y se puede cancelar mientras no haya salido.",
   "ohelp.pg.push.s4h": "Enviar una notificación manual",
-  "ohelp.pg.push.s5b": "Los envíos manuales están limitados a 4 campañas por 24 h — una protección antispam. Las notificaciones automáticas NO cuentan en ese límite. Reserva los push para lo que aporta valor: demasiados y el cliente los desactiva.",
+  "ohelp.pg.push.s5b": "• Puedes enviar como máximo 4 notificaciones cada 24 h; las automáticas no cuentan.\n• Además, Yuno protege a tus clientes sea quien sea el remitente: hacia tus seguidores, todos tus clientes o un segmento, no sale nada entre las 22 h y las 10 h, y nadie recibe más de 1 notificación de marketing al día y 3 a la semana, sumando todos los clubs y organizadores. Quien desactivó las notificaciones de marketing no las recibe nunca.\n• \"Compradores del evento (entradas + mesas)\" y \"Clientes dentro (escaneados)\" son la excepción: el mensaje habla de una noche que compraron, puede salir durante la fiesta.\nEl alcance estimado ya cuenta solo a quienes la recibirán de verdad.",
   "ohelp.pg.push.s5h": "No satures a tus clientes",
   "ohelp.pg.push.title": "Notificaciones push",
   "ohelp.pg.refunds.desc": "Reembolsa una entrada, mesa o pedido, total o parcialmente, evento a evento.",
@@ -2160,7 +2160,7 @@ const help: Record<string, string> = {
   "ohelp.org.push.s4h": "Entender el historial",
   "ohelp.org.push.s4b": "• **Publicación – nombre de la fiesta**: el anuncio automático que Yuno envía a tus seguidores cuando publicas una fiesta.\n• **Enviadas**: aceptadas por Apple. **Abiertas**: personas que tocaron. **Tasa**: abiertas ÷ enviadas.\n• **Compradores** e **Ingresos**: personas que tocaron y compraron en las 72 h siguientes, tus ingresos descontadas las comisiones de Yuno y los reembolsos.\n• « ¿Quién recibirá tus notificaciones? » cuenta tus seguidores y la parte alcanzable por push. « Copiar el enlace de la página » y « Descargar el QR » te ayudan a ganar más.",
   "ohelp.org.push.s5h": "Atención",
-  "ohelp.org.push.s5b": "Puedes enviar como máximo 4 notificaciones cada 24 h; los anuncios automáticos no cuentan. Guárdalas para lo importante: demasiadas notificaciones y la gente las desactiva para siempre.",
+  "ohelp.org.push.s5b": "• Puedes enviar como máximo 4 notificaciones cada 24 h; los anuncios automáticos no cuentan.\n• Hacia tus seguidores o todos tus clientes, no sale nada entre las 22 h y las 10 h, y nadie recibe más de 1 notificación de marketing al día y 3 a la semana, sumando todos los remitentes. La pantalla propone entonces \"Programar a las 10 h\".\n• Hacia \"Compradores del evento (entradas + mesas)\" o \"Clientes dentro (escaneados)\", la notificación puede salir durante la noche.\nGuárdalas para lo importante: demasiadas notificaciones y la gente las desactiva para siempre.",
 };
 
 export default help;

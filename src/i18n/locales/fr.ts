@@ -15225,6 +15225,13 @@ const fr: Record<string, string> = {
   'ph.orgSubtitle': "Touche tes clients sur leur téléphone : avant la soirée, le jour J ou après.",
   'ph.orgAutoTitle': "Automatique : chaque soirée publiée est annoncée",
   'ph.orgAutoBody': "Quand tu publies une soirée, Yuno l'annonce sur le téléphone de tes abonnés. Elle apparaît ci-dessous sous le nom « Publication – nom de la soirée ». Yuno respecte les heures calmes et n'envoie jamais plus d'une notification de ce type par personne et par jour.",
+  "ph.policy.quiet": "Heures calmes : pour cette audience, rien ne part entre 22 h et 10 h. Les acheteurs d'une soirée restent joignables pendant la nuit.",
+  "ph.policy.scheduleAt10": "Programmer à 10 h",
+  "ph.policy.heldBack": "{n} personnes protégées par les règles Yuno : déjà notifiées aujourd'hui ou 3 fois cette semaine, ou notifications marketing coupées.",
+  "ph.policy.heldBackOne": "1 personne protégée par les règles Yuno : déjà notifiée aujourd'hui ou 3 fois cette semaine, ou notifications marketing coupées.",
+  "ph.policy.eventNote": "Personnes qui ont une place pour cette soirée : la notification peut partir pendant la nuit, seuls ceux qui ont coupé les notifications marketing sont exclus.",
+  "ph.policy.quietToast": "Heures calmes : rien ne part vers cette audience entre 22 h et 10 h. Programme l'envoi.",
+  "ph.policy.noEligibleToast": "Toute cette audience a déjà reçu une notification aujourd'hui.",
 };
 
 export default fr;

@@ -15251,6 +15251,13 @@ const en: Record<string, string> = {
   'ph.orgSubtitle': "Reach your customers on their phone: before the night, on the day, or after.",
   'ph.orgAutoTitle': "Automatic: every night you publish is announced",
   'ph.orgAutoBody': "When you publish a night, Yuno announces it on your followers' phones. It appears below as « Publication – night name ». Yuno respects quiet hours and never sends more than one such notification per person per day.",
+  "ph.policy.quiet": "Quiet hours: for this audience, nothing goes out between 10 pm and 10 am. People with a ticket for a night can still be reached during the night.",
+  "ph.policy.scheduleAt10": "Schedule for 10 am",
+  "ph.policy.heldBack": "{n} people protected by Yuno's rules: already notified today or 3 times this week, or marketing notifications turned off.",
+  "ph.policy.heldBackOne": "1 person protected by Yuno's rules: already notified today or 3 times this week, or marketing notifications turned off.",
+  "ph.policy.eventNote": "People with a place for this night: the notification can go out during the night; only those who turned off marketing notifications are left out.",
+  "ph.policy.quietToast": "Quiet hours: nothing goes out to this audience between 10 pm and 10 am. Schedule it instead.",
+  "ph.policy.noEligibleToast": "Everyone in this audience has already had a notification today.",
 };
 
 export default en;

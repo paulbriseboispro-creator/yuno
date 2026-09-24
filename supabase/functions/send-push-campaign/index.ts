@@ -284,6 +284,50 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
   return { userIds: ids };
 }
 
+// ── Politique des push MANUELS (migration 20260924190000) ────────────────
+// Un push composé par un pro passe par la même doctrine que les automatiques :
+//  • 'event' — acheteurs / clients entrés d'UNE soirée : seul l'opt-out
+//    marketing s'applique (la notif parle d'une nuit achetée, elle peut
+//    partir pendant la soirée) ;
+//  • 'marketing' — toute autre audience : opt-out, heures calmes 22 h → 10 h
+//    Paris à l'heure d'ENVOI, 1 / 24 h et 3 / 7 j tous expéditeurs confondus.
+// Le super admin (campagne globale) garde sa propre main.
+const EVENT_SCOPES = new Set(['event_tickets', 'checked_in']);
+
+function manualPolicyKind(req: CampaignRequest): 'marketing' | 'event' | null {
+  if (!req.venue_id && !req.organizer_user_id && !req.agency_id) return null;
+  return EVENT_SCOPES.has(req.scope || '') ? 'event' : 'marketing';
+}
+
+/** Heure de Paris (0-23) — formatToParts, jamais Number(format()) (voir CLAUDE.md). */
+function parisHour(d: Date): number {
+  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' })
+    .formatToParts(d).find((p) => p.type === 'hour')?.value ?? '0');
+  return h === 24 ? 0 : h;
+}
+
+function isQuietHourParis(d: Date): boolean {
+  const h = parisHour(d);
+  return h >= 22 || h < 10;
+}
+
+async function applyManualPolicy(
+  supabase: SupabaseClient, userIds: string[], kind: 'marketing' | 'event', at: Date,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (let i = 0; i < userIds.length; i += 1000) {
+    const { data, error } = await supabase.rpc('filter_manual_push_recipients', {
+      p_user_ids: userIds.slice(i, i + 1000), p_kind: kind, p_at: at.toISOString(),
+    });
+    // Fail-closed : une politique illisible n'envoie à personne.
+    if (error) throw new Error(`push policy failed: ${error.message}`);
+    for (const row of (data || []) as Array<string | { filter_manual_push_recipients: string }>) {
+      out.push(typeof row === 'string' ? row : row.filter_manual_push_recipients);
+    }
+  }
+  return out;
+}
+
 /** Ajoute le paramètre de tracking clic ?pc=<campaign_id> à l'URL de la notif. */
 function withTracking(url: string, campaignId: string): string {
   const base = url || '/';
@@ -327,11 +371,17 @@ Deno.serve(async (req) => {
         scope: stored.scope, platform: stored.platform, city: stored.city,
         title_i18n: sanitizeI18n(campaign.title_i18n), body_i18n: sanitizeI18n(campaign.body_i18n),
       };
-      const { userIds, error } = await resolveAudience(supabase, request);
+      const { userIds: audienceIds, error } = await resolveAudience(supabase, request);
       if (error) {
         await supabase.from('push_campaigns').update({ status: 'failed' }).eq('id', campaign.id);
         return json(400, { error });
       }
+      // Politique évaluée à l'heure PRÉVUE : un cron en retard de quelques
+      // minutes ne fait pas basculer la campagne dans les heures calmes.
+      const cronKind = manualPolicyKind(request);
+      const userIds = cronKind
+        ? await applyManualPolicy(supabase, audienceIds, cronKind, new Date(campaign.scheduled_at || Date.now()))
+        : audienceIds;
       const result = await sendCampaign(supabase, supabaseUrl, serviceKey, campaign.id, request, userIds);
       return json(200, { success: true, ...result });
     }
@@ -398,11 +448,30 @@ Deno.serve(async (req) => {
     }
 
     // ── Résolution d'audience ───────────────────────────────────────────────
-    const { userIds, error: audienceError } = await resolveAudience(supabase, body);
+    const { userIds: audienceIds, error: audienceError } = await resolveAudience(supabase, body);
     if (audienceError) return json(400, { error: audienceError });
 
-    // Portée estimée sans envoi (compteur live des UIs admin/owner).
-    if (body.dry_run) return json(200, { targeted: userIds.length });
+    const isScheduled = !!body.scheduled_at && new Date(body.scheduled_at).getTime() > Date.now();
+    const sendAt = isScheduled ? new Date(body.scheduled_at!) : new Date();
+    const policyKind = manualPolicyKind(body);
+    const quietHours = policyKind === 'marketing' && isQuietHourParis(sendAt);
+    const userIds = policyKind ? await applyManualPolicy(supabase, audienceIds, policyKind, sendAt) : audienceIds;
+
+    // Portée estimée sans envoi (compteur live des UIs admin/owner) : ceux qui
+    // RECEVRONT, plus ce que la politique a retenu et pourquoi l'expliquer.
+    if (body.dry_run) {
+      return json(200, {
+        targeted: userIds.length,
+        audience: audienceIds.length,
+        held_back: audienceIds.length - userIds.length,
+        quiet_hours: quietHours,
+        policy: policyKind,
+      });
+    }
+
+    // Heures calmes : on refuse plutôt que de créer une campagne à zéro.
+    if (quietHours) return json(409, { error: 'quiet_hours' });
+    if (!isScheduled && userIds.length === 0) return json(409, { error: 'no_eligible_recipients' });
 
     // ── Garde-fou club : 4 campagnes / 24 h ────────────────────────────────
     if (body.venue_id) {
@@ -451,7 +520,7 @@ Deno.serve(async (req) => {
     };
 
     // ── Planification : on enregistre, process-scheduled-campaigns enverra ──
-    if (body.scheduled_at && new Date(body.scheduled_at).getTime() > Date.now()) {
+    if (isScheduled) {
       const { data: row, error: insErr } = await supabase.from('push_campaigns').insert({
         title: body.title, body: body.body, url: body.url || '/',
         segment: body.segment || body.scope || 'all',
@@ -577,7 +646,8 @@ async function sendCampaign(
     await supabase.from('notification_log').insert(
       userIds.slice(i, i + 500).map((uid) => ({
         user_id: uid,
-        notification_type: 'campaign',
+        // Un push de soirée achetée n'entre dans aucun plafond (voir la migration).
+        notification_type: manualPolicyKind(request) === 'event' ? 'event_campaign' : 'campaign',
         title: request.title,
       })),
     );

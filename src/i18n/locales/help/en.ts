@@ -1962,7 +1962,7 @@ const help: Record<string, string> = {
   "ohelp.pg.push.s3h": "Turn an automation on",
   "ohelp.pg.push.s4b": "1. Pick a template (Promotion, Happy hour, Last tickets, VIP tables, Guest list, Contest) or start from scratch with \"Custom\".\n2. Write the title and message — \"Generate with AI\" drafts one for you in a chosen tone.\n3. Target the audience (buyers, checked-in, followers, a customer segment) and check the estimated reach.\n4. Send right away, or schedule for a precise date and time.\nYuno suggests the best send slot from your audience's habits, one click pre-fills it. A scheduled push stays in the history with a badge and can be cancelled until it leaves.",
   "ohelp.pg.push.s4h": "Send a manual notification",
-  "ohelp.pg.push.s5b": "Manual sends are capped at 4 campaigns per 24h — an anti-spam guardrail. Automatic notifications do NOT count toward that limit. Keep pushes for what matters: too many, and customers turn them off.",
+  "ohelp.pg.push.s5b": "• You can send at most 4 notifications per 24 hours; automatic ones don't count.\n• Yuno protects your customers on top of that, whoever sends: to your followers, all your customers or a segment, nothing goes out between 10 pm and 10 am, and nobody gets more than 1 marketing notification per day and 3 per week, all clubs and organizers combined. People who turned off marketing notifications never receive them.\n• \"Event buyers (tickets + tables)\" and \"Checked-in clients (scanned)\" are the exception: the message is about a night they bought, so it can go out during the night.\nThe estimated reach already counts only the people who will really receive it.",
   "ohelp.pg.push.s5h": "Don't overload your customers",
   "ohelp.pg.push.title": "Push notifications",
   "ohelp.pg.refunds.desc": "Refund a ticket, table or order, in full or in part, event by event.",
@@ -2160,7 +2160,7 @@ const help: Record<string, string> = {
   "ohelp.org.push.s4h": "Understand the history",
   "ohelp.org.push.s4b": "• **Publication – night name**: the automatic announcement Yuno sends to your followers when you publish a night.\n• **Delivered**: accepted by Apple. **Opened**: people who tapped. **Rate**: opened ÷ delivered.\n• **Buyers** and **Revenue**: people who tapped and then bought within 72 hours, your revenue with Yuno fees and refunds deducted.\n• \"Who will receive your notifications?\" counts your followers and the share reachable by push. \"Copy page link\" and \"Download QR code\" help you gain more.",
   "ohelp.org.push.s5h": "Watch out",
-  "ohelp.org.push.s5b": "You can send at most 4 notifications per 24 hours; the automatic announcements don't count. Keep them for what matters: too many notifications and people turn them off for good.",
+  "ohelp.org.push.s5b": "• You can send at most 4 notifications per 24 hours; automatic announcements don't count.\n• To your followers or all your customers, nothing goes out between 10 pm and 10 am, and nobody gets more than 1 marketing notification per day and 3 per week, all senders combined. The screen then offers \"Schedule for 10 am\".\n• To \"Event buyers (tickets + tables)\" or \"Checked-in clients (scanned)\", the notification can go out during the night.\nKeep them for what matters: too many notifications and people turn them off for good.",
 };
 
 export default help;
