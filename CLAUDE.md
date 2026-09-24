@@ -536,6 +536,25 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   (la « Publication » automatique) sont les siens — le lot D ira plus loin.
   « Nouveau contact » = email jamais vu (billet, table, guest list) à une
   soirée de la portée qui a COMMENCÉ avant celle-ci.
+- **Push = une page pour le club ET l'organisateur** (lot D, migration
+  `20260924180000`). `OwnerPush` sert `/owner/push` et `/organizer-app/push`
+  (`OrgAppRoute requires="marketing"`, `PATH_CAPABILITY`) ; côté orga, tout ce
+  qui est venue-scopé disparaît (automatisations, RFM, segments sauvegardés,
+  assistant IA — `owner-assistant` exige le rôle owner), le modèle « Flash
+  boissons » aussi. `push_campaigns.organizer_user_id` porte la portée orga
+  (backfill des « Publication » d'orga, `push-automations.ts` la pose) ;
+  `send-push-campaign` accepte `organizer_user_id` (fondateur ou admin
+  d'équipe, audiences `followers` / `event_tickets` / `checked_in` /
+  `all_customers`, même plafond 4 / 24 h que le club).
+  L'historique = `get_push_campaigns(p_venue_id, p_organizer_user_id, p_filter,
+  p_event_id, p_limit, p_offset)` : toutes les campagnes paginées, ciblés /
+  envoyés / ouverts (1er tap par personne) / acheteurs / CA (tap → achat < 72 h,
+  CA club de `fees.ts`, remboursement déduit, CA seulement pour qui voit
+  l'argent), résumé 30 j et abonnés (`followers.total/reachable/new30d`,
+  bandeau `FollowersNudge`). L'annonce automatique d'une soirée s'appelle
+  « Publication – soirée » (`campaignLabel`). `PushHistoryCard` ne compte rien.
+  Les push MANUELS du club comme de l'orga ne passent pas par
+  `client_push_policy()` (seul le plafond 4 / 24 h les borne) — à trancher.
 - Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
   qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de

@@ -19,6 +19,7 @@ import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { useActingOrganizer, type OrgCapabilities } from '@/hooks/useActingOrganizer';
 import {
 	LayoutGridIcon,
+	BellIcon,
 	BarChart3Icon,
 	CalendarIcon,
 	TicketIcon,
@@ -207,6 +208,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 					],
 				},
 				{ title: t('sidebar.smsMarketing'), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
+				{ title: t('sidebar.push'), path: "/organizer-app/push", icon: <BellIcon /> },
 				{ title: t('sidebar.ads'), path: "/organizer-app/ads", icon: <RocketIcon />, badge: metaLive ? undefined : t('integ.buildingBadge') },
 				{
 					// Les quatre pages du programme promoteur n'étaient atteignables
@@ -267,6 +269,7 @@ const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/payments", needs: "manageOrganization" },
 	{ prefix: "/organizer-app/campaigns", needs: "marketing" },
 	{ prefix: "/organizer-app/sms", needs: "marketing" },
+	{ prefix: "/organizer-app/push", needs: "marketing" },
 	{ prefix: "/organizer-app/ads", needs: "marketing" },
 	{ prefix: "/organizer-app/promoters", needs: "marketing" },
 	{ prefix: "/organizer-app/agencies", needs: "marketing" },

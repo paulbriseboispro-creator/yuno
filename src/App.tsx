@@ -759,6 +759,7 @@ const App = () => (
                   <Route path="campaigns/:id/report" element={<OrgAppRoute requires="marketing"><OrgAppCampaignReport /></OrgAppRoute>} />
                   {/* Campagnes SMS — même moteur que le club, portée organisateur */}
                   <Route path="sms" element={<OrgAppRoute requires="marketing"><OrgAppSms /></OrgAppRoute>} />
+                  <Route path="push" element={<OrgAppRoute requires="marketing"><OwnerPush /></OrgAppRoute>} />
                   <Route path="sms/:id" element={<OrgAppRoute requires="marketing"><OrgAppSms /></OrgAppRoute>} />
                   <Route path="organization" element={<OrgAppRoute requires="manageOrganization"><OrgAppOrganization /></OrgAppRoute>} />
                   <Route path="integrations" element={<OrgAppRoute requires="manageOrganization"><IntegrationsSettings /></OrgAppRoute>} />

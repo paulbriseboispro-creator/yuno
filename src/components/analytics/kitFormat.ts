@@ -25,3 +25,8 @@ export function useNumberFormat() {
   const time = (d: Date) => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(d);
   return { n, eur, time, locale };
 }
+
+/** Pourcentage entier (0-100) à la typographie de la langue : « 12 % », « 12% ». */
+export function pctFmt(pct: number, locale: string) {
+  return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(pct / 100);
+}

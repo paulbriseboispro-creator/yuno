@@ -2147,6 +2147,20 @@ const help: Record<string, string> = {
   "ohelp.appearance.s3b": "• Dark is the default: as long as you don't pick \"Light\", nothing changes.\n• The choice is kept on this device and applies to all your pro spaces: Club Console, Organizer Console, Agency Console, promoter and DJ spaces.\n• Some areas stay dark on purpose: the photo banner of the dashboard, the globe of the Live view, and previews of what your customers see.\n• Your public pages, your emails and your customers' app do not change: the setting only affects your screen.",
   "ohelp.appearance.s4h": "Tip",
   "ohelp.appearance.s4b": "Night staff screens (bar, door, cloakroom, VIP host) always stay dark: in a club, that's what dazzles the least.",
+  "ohelp.pg.push.s6h": "Read the history",
+  "ohelp.pg.push.s6b": "The \"Push history\" card lists EVERY notification, automatic ones included, with no limit: filter with \"All\", \"Sent by you\", \"Automatic\" or \"Scheduled\" and page with \"Previous\" / \"Next\".\n• **Targeted**: people in the audience with Yuno notifications turned on.\n• **Delivered**: notifications accepted by Apple.\n• **Opened** and **Rate**: people who tapped, each counted once.\n• **Buyers** and **Revenue**: people who tapped and then bought within 72 hours, your revenue with Yuno fees and refunds deducted.\nThe automatic announcement of a published night is named \"Publication – night name\". The four figures at the top cover the last 30 days. Above them, \"Who will receive your notifications?\" shows your followers, the share reachable by push, and two buttons to gain more: \"Copy page link\" and \"Download QR code\" (to show at the door).",
+  "ohelp.org.push.title": "Push notifications",
+  "ohelp.org.push.desc": "See every notification sent to your followers and customers, what it sold, and send your own.",
+  "ohelp.org.push.s1h": "What this page is for",
+  "ohelp.org.push.s1b": "Marketing & CRM → \"Push notifications\" gathers everything that reaches your customers' phones through the Yuno app: the automatic announcement of each night you publish, and the notifications you send yourself. For each one you see how many people opened it and what it sold.",
+  "ohelp.org.push.s2h": "Before you start",
+  "ohelp.org.push.s2b": "• Only the founder of the organization and team members with the Admin role open this page.\n• Only people who follow your page (or bought from you) AND have the Yuno app on iPhone with notifications on can be reached.\n• The revenue columns are shown to those who can see the money (founder, or a member with finance access).",
+  "ohelp.org.push.s3h": "Send a notification",
+  "ohelp.org.push.s3b": "1. Pick a template (Promotion, Last tickets, VIP tables left, Guest list open, Contest) or \"Custom\".\n2. Write the title and message; the night's name fills in by itself.\n3. Choose the night, then the audience: \"Event buyers (tickets + tables)\", \"Checked-in clients (scanned)\", \"Your page followers\" or \"All my customers\". Check the estimated reach.\n4. Send now, or pick a date and time. A scheduled notification can be cancelled from the history until it leaves.",
+  "ohelp.org.push.s4h": "Understand the history",
+  "ohelp.org.push.s4b": "• **Publication – night name**: the automatic announcement Yuno sends to your followers when you publish a night.\n• **Delivered**: accepted by Apple. **Opened**: people who tapped. **Rate**: opened ÷ delivered.\n• **Buyers** and **Revenue**: people who tapped and then bought within 72 hours, your revenue with Yuno fees and refunds deducted.\n• \"Who will receive your notifications?\" counts your followers and the share reachable by push. \"Copy page link\" and \"Download QR code\" help you gain more.",
+  "ohelp.org.push.s5h": "Watch out",
+  "ohelp.org.push.s5b": "You can send at most 4 notifications per 24 hours; the automatic announcements don't count. Keep them for what matters: too many notifications and people turn them off for good.",
 };
 
 export default help;

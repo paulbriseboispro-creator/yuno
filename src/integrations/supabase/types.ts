@@ -12719,6 +12719,7 @@ export type Database = {
           event_id: string | null
           failed_count: number
           id: string
+          organizer_user_id: string | null
           scheduled_at: string | null
           segment: string
           sent_count: number | null
@@ -12741,6 +12742,7 @@ export type Database = {
           event_id?: string | null
           failed_count?: number
           id?: string
+          organizer_user_id?: string | null
           scheduled_at?: string | null
           segment?: string
           sent_count?: number | null
@@ -12763,6 +12765,7 @@ export type Database = {
           event_id?: string | null
           failed_count?: number
           id?: string
+          organizer_user_id?: string | null
           scheduled_at?: string | null
           segment?: string
           sent_count?: number | null
@@ -20284,6 +20287,17 @@ export type Database = {
           pixel_id: string
           scope: string
         }[]
+      }
+      get_push_campaigns: {
+        Args: {
+          p_event_id?: string
+          p_filter?: string
+          p_limit?: number
+          p_offset?: number
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
       }
       get_purchase_behavior: {
         Args: {

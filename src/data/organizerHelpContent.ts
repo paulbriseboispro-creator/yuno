@@ -317,6 +317,22 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'org-push',
+        titleKey: 'ohelp.org.push.title',
+        descKey: 'ohelp.org.push.desc',
+        icon: 'Bell',
+        actionLink: { labelKey: OPEN, path: '/push' },
+        relatedArticleIds: ['org-campaigns', 'org-customers', 'org-analytics'],
+        keywords: ['push', 'notification', 'notif', 'notificación', 'publication', 'publicación', 'abonnés', 'followers', 'seguidores', 'historique', 'history', 'historial', 'ouvertures', 'open rate', 'taux', 'acheteurs', 'buyers', 'programmer', 'schedule', 'qr', 'lien'],
+        sections: [
+          { headingKey: 'ohelp.org.push.s1h', bodyKey: 'ohelp.org.push.s1b' },
+          { headingKey: 'ohelp.org.push.s2h', bodyKey: 'ohelp.org.push.s2b' },
+          { headingKey: 'ohelp.org.push.s3h', bodyKey: 'ohelp.org.push.s3b', type: 'steps' },
+          { headingKey: 'ohelp.org.push.s4h', bodyKey: 'ohelp.org.push.s4b' },
+          { headingKey: 'ohelp.org.push.s5h', bodyKey: 'ohelp.org.push.s5b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-promoters',
         titleKey: 'ohelp.org.promoters.title',
         descKey: 'ohelp.org.promoters.desc',

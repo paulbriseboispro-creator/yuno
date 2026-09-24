@@ -25,6 +25,7 @@ type CampaignRequest = {
   scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | segment:<uuid> (segment sauvegardé) | all_customers
   venue_id?: string;         // présent => campagne club (auth is_venue_owner)
   agency_id?: string;        // présent => campagne RP/agence (auth is_agency_owner) — scope 'followers'
+  organizer_user_id?: string; // présent => campagne organisateur (fondateur ou admin d'équipe) — followers | event_tickets | checked_in | all_customers
   event_id?: string;         // requis pour event_tickets / checked_in
   template_key?: string;
   platform?: string;         // DÉPRÉCIÉ (ignoré) : les campagnes ciblent toujours l'app iOS
@@ -110,6 +111,60 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
   if (req.agency_id) {
     const ids = new Set(await collectUserIds((f, t) => supabase
       .from('agency_followers').select('user_id').eq('agency_id', req.agency_id!).not('user_id', 'is', null).range(f, t)));
+    return { userIds: [...ids].filter((id) => subscribers.has(id)) };
+  }
+
+  // ── Scopes organisateur ──────────────────────────────────────────────────
+  // Même vocabulaire que le club, borné aux soirées DE l'organisation
+  // (organisateur ou co-organisateur) et à ses propres abonnés. Pas de RFM ni
+  // de segment sauvegardé ici : ils sont venue-scopés.
+  if (req.organizer_user_id) {
+    const orgId = req.organizer_user_id;
+    const scope = req.scope || 'followers';
+    let ids = new Set<string>();
+
+    if (scope === 'event_tickets' || scope === 'checked_in') {
+      if (!req.event_id) return { userIds: [], error: 'event_id required for this scope' };
+      const { data: event } = await supabase
+        .from('events').select('id, organizer_user_id, partner_organizer_id').eq('id', req.event_id).maybeSingle();
+      if (!event || (event.organizer_user_id !== orgId && event.partner_organizer_id !== orgId)) {
+        return { userIds: [], error: 'event does not belong to this organizer' };
+      }
+      ids = new Set(await collectUserIds((f, t) => {
+        let q = supabase.from('tickets').select('user_id').eq('event_id', req.event_id!).in('status', ['paid', 'used']).not('user_id', 'is', null);
+        if (scope === 'checked_in') q = q.eq('entry_scanned', true);
+        return q.range(f, t);
+      }));
+      if (scope === 'event_tickets') {
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('table_reservations').select('user_id').eq('event_id', req.event_id!).in('status', ['paid', 'confirmed']).not('user_id', 'is', null).range(f, t))) ids.add(id);
+      }
+    } else if (scope === 'all_customers') {
+      // Toute personne qui a acheté un billet ou réservé une table à une
+      // soirée de l'organisation.
+      const eventIds = (await (async () => {
+        const out: string[] = [];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await supabase.from('events').select('id')
+            .or(`organizer_user_id.eq.${orgId},partner_organizer_id.eq.${orgId}`).range(from, from + 999);
+          if (error) throw new Error(`events read failed: ${error.message}`);
+          (data || []).forEach((e: { id: string }) => out.push(e.id));
+          if (!data || data.length < 1000) break;
+        }
+        return out;
+      })());
+      for (let i = 0; i < eventIds.length; i += 200) {
+        const chunk = eventIds.slice(i, i + 200);
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('tickets').select('user_id').in('event_id', chunk).in('status', ['paid', 'used']).not('user_id', 'is', null).range(f, t))) ids.add(id);
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('table_reservations').select('user_id').in('event_id', chunk).in('status', ['paid', 'confirmed']).not('user_id', 'is', null).range(f, t))) ids.add(id);
+      }
+    } else { // followers
+      ids = new Set(await collectUserIds((f, t) => supabase
+        .from('organizer_profile_followers').select('user_id').eq('organizer_user_id', orgId).not('user_id', 'is', null).range(f, t)));
+    }
+
     return { userIds: [...ids].filter((id) => subscribers.has(id)) };
   }
 
@@ -267,6 +322,7 @@ Deno.serve(async (req) => {
         title: campaign.title, body: campaign.body, url: campaign.url || '/',
         segment: campaign.segment, venue_id: campaign.venue_id || undefined,
         agency_id: campaign.agency_id || undefined,
+        organizer_user_id: campaign.organizer_user_id || undefined,
         event_id: campaign.event_id || undefined, template_key: campaign.template_key || undefined,
         scope: stored.scope, platform: stored.platform, city: stored.city,
         title_i18n: sanitizeI18n(campaign.title_i18n), body_i18n: sanitizeI18n(campaign.body_i18n),
@@ -307,6 +363,20 @@ Deno.serve(async (req) => {
           allowed = !!mgr?.can_manage_crm;
         }
         if (!allowed) return json(403, { error: 'forbidden_not_owner_or_crm_manager' });
+      } else if (body.organizer_user_id) {
+        // Campagne organisateur : le fondateur, ou un admin de son équipe (la
+        // capacité « marketing » de capabilitiesFor). Un éditeur ou un
+        // scanner ne pousse rien vers les abonnés de l'organisation.
+        let allowed = user.id === body.organizer_user_id;
+        if (!allowed) {
+          const { data: member } = await supabase.rpc('is_org_team_member', {
+            _user_id: user.id,
+            _organizer_user_id: body.organizer_user_id,
+            _min_role: 'admin',
+          });
+          allowed = !!member;
+        }
+        if (!allowed) return json(403, { error: 'forbidden_not_organizer_admin' });
       } else if (body.agency_id) {
         // Campagne RP : uniquement le propriétaire de l'agence.
         const { data: ownsAgency } = await supabase.rpc('is_agency_owner', {
@@ -348,6 +418,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Garde-fou organisateur : même plafond 4 campagnes / 24 h ───────────
+    if (body.organizer_user_id) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('push_campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('organizer_user_id', body.organizer_user_id)
+        .eq('source', 'manual')
+        .gte('created_at', dayAgo);
+      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
+        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
+      }
+    }
+
     // ── Garde-fou RP : même plafond 4 campagnes / 24 h par agence ──────────
     if (body.agency_id) {
       const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -372,6 +456,8 @@ Deno.serve(async (req) => {
         title: body.title, body: body.body, url: body.url || '/',
         segment: body.segment || body.scope || 'all',
         venue_id: body.venue_id || null, event_id: body.event_id || null,
+        agency_id: body.agency_id || null,
+        organizer_user_id: body.organizer_user_id || null,
         template_key: body.template_key || null,
         audience: audienceSnapshot,
         status: 'scheduled', scheduled_at: body.scheduled_at,
@@ -390,6 +476,7 @@ Deno.serve(async (req) => {
       segment: body.segment || body.scope || 'all',
       venue_id: body.venue_id || null, event_id: body.event_id || null,
       agency_id: body.agency_id || null,
+      organizer_user_id: body.organizer_user_id || null,
       template_key: body.template_key || null,
       audience: audienceSnapshot,
       status: 'sending',
