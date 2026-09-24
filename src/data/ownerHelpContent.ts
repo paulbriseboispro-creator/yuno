@@ -236,7 +236,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'BarChart3',
         actionLink: { labelKey: 'ohelp.action.goToAnalytics', path: '/analytics' },
         relatedArticleIds: ['dashboard-overview', 'crm-setup', 'refund-management'],
-        keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', 'visiteurs en ce moment'],
+        keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', 'visiteurs en ce moment', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'repeat', 'habitués', 'no-show', 'présence'],
         sections: [
           { headingKey: 'ohelp.pg.analytics.s1h', bodyKey: 'ohelp.pg.analytics.s1b' },
           { headingKey: 'ohelp.pg.analytics.s2h', bodyKey: 'ohelp.pg.analytics.s2b', screenshotUrl: '/help/owner-analytics.webp' },
@@ -247,6 +247,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.analytics.s7h', bodyKey: 'ohelp.pg.analytics.s7b' },
           { headingKey: 'ohelp.pg.analytics.s8h', bodyKey: 'ohelp.pg.analytics.s8b', type: 'steps' },
           { headingKey: 'ohelp.pg.analytics.s9h', bodyKey: 'ohelp.pg.analytics.s9b' },
+          { headingKey: 'ohelp.pg.analytics.s11h', bodyKey: 'ohelp.pg.analytics.s11b' },
           { headingKey: 'ohelp.pg.analytics.s10h', bodyKey: 'ohelp.pg.analytics.s10b', type: 'tip' },
         ],
       },
