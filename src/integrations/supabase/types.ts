@@ -20280,6 +20280,15 @@ export type Database = {
           scope: string
         }[]
       }
+      get_purchase_behavior: {
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       get_recipient_block_conds: {
         Args: { p_campaign_id: string; p_emails: string[] }
         Returns: {

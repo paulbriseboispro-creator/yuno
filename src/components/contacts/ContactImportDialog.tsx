@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
+import { ActionFigure, ActionNote, ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
 import { actionFmt } from '@/components/action/tokens';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -584,19 +584,14 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
         onClose={() => setRunOpen(false)}
         done={runTotals ? (
           <ActionResultCard kicker={t('owner.importrun.cardKicker')}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 9 }}>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 36, lineHeight: .86, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums' }}>
-                {actionFmt(runTotals.rows)}
-              </div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)', paddingBottom: 4 }}>
-                {t('owner.importrun.contacts')}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: 'var(--tx-9a9a9a)', fontVariantNumeric: 'tabular-nums', marginTop: -5 }}>
-              {emailsKept > 0 && <div>{actionFmt(emailsKept)} {t('owner.importrun.emails')}</div>}
-              {phonesKept > 0 && <div>{actionFmt(phonesKept)} {t('owner.importrun.phones')}</div>}
-              {runTotals.merged > 0 && <div>{actionFmt(runTotals.merged)} {t('owner.importrun.merged')}</div>}
-            </div>
+            <ActionFigure value={actionFmt(runTotals.rows)} label={t('owner.importrun.contacts')} />
+            {(emailsKept > 0 || phonesKept > 0 || runTotals.merged > 0) && (
+              <ActionNote>
+                {emailsKept > 0 && <div>{actionFmt(emailsKept)} {t('owner.importrun.emails')}</div>}
+                {phonesKept > 0 && <div>{actionFmt(phonesKept)} {t('owner.importrun.phones')}</div>}
+                {runTotals.merged > 0 && <div>{actionFmt(runTotals.merged)} {t('owner.importrun.merged')}</div>}
+              </ActionNote>
+            )}
           </ActionResultCard>
         ) : null}
       />

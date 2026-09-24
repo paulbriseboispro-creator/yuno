@@ -8,7 +8,7 @@ import {
   ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity, ArrowLeft, ChevronDown,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
   ClipboardList, Sofa,
-  Radio,
+  Radio, ShoppingBag,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,6 +44,7 @@ import { EventAudienceDemographics } from '@/components/analytics/EventAudienceD
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 import { useTabParam } from '@/hooks/useTabParam';
 import { LiveView } from '@/components/live-view/LiveView';
+import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -322,7 +323,7 @@ function FunnelRibbon({ stages }: { stages: { label: string; n: number; pct: str
           <div key={i} className="flex-1 flex justify-center">
             <span
               className="px-3 py-[5px] rounded-full text-[13px] font-bold leading-none tabular-nums"
-              style={{ background: 'rgb(var(--ink)/var(--ink-a94,0.94))', color: '#000' }}
+              style={{ background: 'rgb(var(--ink)/var(--ink-a94,0.94))', color: 'var(--sf-000000)' }}
             >
               {s.pct}
             </span>
@@ -423,12 +424,14 @@ export default function OwnerAnalytics() {
   const hasVipTables = hasFeature('vip_tables');
 
   const [dateRange, setDateRange] = useState<DateRange>('7days');
-  // `live` = la vue en direct (globe + flux) : un onglet de la page, pas un mode
-  // de données — les hooks d'analytics restent sur « global » pendant qu'elle tourne.
-  const [tab, setTab] = useTabParam<AnalyticsMode | 'live'>('global', ['global', 'event', 'live']);
-  const mode: AnalyticsMode = tab === 'live' ? 'global' : tab;
-  const setMode = setTab as (m: AnalyticsMode | 'live') => void; // identité stable (setter useState)
+  // `live` = la vue en direct (globe + flux) et `purchase` = le comportement
+  // d'achat : des onglets de la page, pas des modes de données — les hooks
+  // d'analytics restent sur « global » pendant qu'ils tournent.
+  const [tab, setTab] = useTabParam<AnalyticsMode | 'live' | 'purchase'>('global', ['global', 'event', 'live', 'purchase']);
+  const mode: AnalyticsMode = tab === 'live' || tab === 'purchase' ? 'global' : tab;
+  const setMode = setTab as (m: AnalyticsMode | 'live' | 'purchase') => void; // identité stable (setter useState)
   const isLive = tab === 'live';
+  const isPurchase = tab === 'purchase';
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
@@ -722,9 +725,10 @@ export default function OwnerAnalytics() {
               options={[
                 { key: 'global', label: t('owner.an.global'), icon: <Globe className="w-3.5 h-3.5" /> },
                 { key: 'event', label: t('owner.an.event'), icon: <Calendar className="w-3.5 h-3.5" /> },
+                { key: 'purchase', label: t('owner.an.purchaseTab'), icon: <ShoppingBag className="w-3.5 h-3.5" /> },
                 { key: 'live', label: t('owner.an.liveTab'), icon: <Radio className="w-3.5 h-3.5" /> },
               ]}
-              onChange={(k) => { setMode(k as AnalyticsMode | 'live'); if (k === 'global') setSelectedEventId(null); }}
+              onChange={(k) => { setMode(k as AnalyticsMode | 'live' | 'purchase'); if (k === 'global') setSelectedEventId(null); }}
             />
           </div>
           {!isLive && (
@@ -745,7 +749,7 @@ export default function OwnerAnalytics() {
                 ))}
               </div>
             )}
-            <button
+            {!isPurchase && <button
               onClick={handleExportData}
               disabled={exporting || !hasExport}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40"
@@ -753,12 +757,14 @@ export default function OwnerAnalytics() {
               {hasExport
                 ? <><Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">Export</span></>
                 : <><LockIcon className="w-4 h-4" /><span className="text-xs">Pro</span></>}
-            </button>
+            </button>}
           </div>
           )}
         </motion.div>
 
-        {isLive ? (
+        {isPurchase ? (
+          <PurchaseBehaviorView venueId={venueId} dateRange={dateRange} />
+        ) : isLive ? (
           <LiveView venueId={venueId} />
         ) : showEventPicker ? (
           <EventAnalyticsPicker

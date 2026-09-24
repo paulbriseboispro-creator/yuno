@@ -12,13 +12,13 @@ const severityConfig = {
     icon: Info,
     border: 'rgba(96,165,250,0.28)',
     bg:    'rgba(96,165,250,0.08)',
-    text:  'rgba(147,197,253,1)',
+    text:  'var(--acc-93c5fd)',
   },
   warning: {
     icon: AlertTriangle,
     border: 'rgba(251,191,36,0.28)',
     bg:    'rgba(251,191,36,0.08)',
-    text:  '#FCD34D',
+    text:  'var(--acc-fcd34d)',
   },
   critical: {
     icon: XCircle,

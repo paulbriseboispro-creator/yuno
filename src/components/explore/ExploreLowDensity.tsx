@@ -14,6 +14,7 @@ import { FadeInView } from '@/components/motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { proSignupUrl } from '@/lib/proSignup';
 import type { DensityEvent, DensityVenue, ZoneDensity } from '@/hooks/useZoneDensity';
 
 /* ============================================================
@@ -249,7 +250,7 @@ function ProLeadDialog({
   onOpenChange: (o: boolean) => void;
   city: string;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -309,6 +310,16 @@ function ProLeadDialog({
           <p className="text-sm" style={{ color: '#9A9A9A' }}>
             {t('explore.ld.proBody')}
           </p>
+          {/* Chemin direct : le compte pro se crée seul en deux minutes sur la
+              landing (src/lib/proSignup.ts). Le formulaire reste pour qui
+              préfère être rappelé. */}
+          <a
+            href={proSignupUrl(language, { role: 'club', source: 'explore_low_density' })}
+            className="flex w-full items-center justify-center gap-2 font-semibold"
+            style={{ height: 44, borderRadius: 999, background: '#fff', color: '#0A0A0A', fontSize: 14 }}
+          >
+            {t('auth.proSignupCta')} <ArrowRight className="h-4 w-4" />
+          </a>
           <Input
             placeholder={t('explore.ld.proName')}
             value={name}

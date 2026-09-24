@@ -17,7 +17,7 @@
 
 | Principe | Description |
 |---|---|
-| **Fond pur noir** | `#000` ou `#0a0a0c` — jamais de gris ou bleu foncé (thème sombre ; le clair est décrit au §16) |
+| **Fond pur noir** | `#000` ou `#0a0a0c` — jamais de gris ou bleu foncé (thème sombre ; le clair est décrit au §17) |
 | **Lumière subtractibe** | Les éléments s'éclairent, ils ne s'assombrissent pas |
 | **Accent rouge unique** | `#E8192C` est le seul accent de couleur systémique |
 | **Hiérarchie par opacité** | Blanc à 96% → 58% → 36% — jamais de classes Tailwind `text-foreground` |
@@ -29,7 +29,7 @@
 ## 2. Design Tokens
 
 Copie ce bloc en haut de chaque composant ou fichier de page. Les dashboards
-existent en **thème sombre ET clair** (§16) : un token n'est jamais un blanc ou
+existent en **thème sombre ET clair** (§17) : un token n'est jamais un blanc ou
 un noir en dur, c'est une **encre** (`--ink`) ou une **surface** (`--sf-…`) qui
 bascule. En sombre, chaque valeur vaut EXACTEMENT l'ancienne (`--ink` = blanc,
 `--sf-0a0a0c` = `#0a0a0c`) ; en clair, la même hiérarchie se lit en noir sur
@@ -785,7 +785,7 @@ Avant de soumettre un composant redesigné :
 - [ ] **Aucun `text-foreground` / `text-muted-foreground`** — remplacés par `T1` / `T2` / `T3`
 - [ ] **Aucun `text-primary` / `bg-primary`** — remplacés par `RED` ou token de couleur explicite
 - [ ] **Fond de page `background: 'var(--sf-000000)'`** sur le wrapper principal (jamais `'#000'` : le thème clair ne le verrait pas)
-- [ ] **Vérifié dans les DEUX thèmes** (§16) : aucun `rgba(255,255,255,…)`, `#fff`, `#0a0a0c` en dur ; blanc sur fond coloré = `snow`
+- [ ] **Vérifié dans les DEUX thèmes** (§17) : aucun `rgba(255,255,255,…)`, `#fff`, `#0a0a0c` en dur ; blanc sur fond coloré = `snow`
 - [ ] **Tous les boutons cliquables** ont `cursor-pointer`
 - [ ] **`tabular-nums`** sur tous les chiffres
 - [ ] **`letterSpacing: '-0.02em'`** sur les grandes valeurs numériques
@@ -846,10 +846,38 @@ Référence : `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/component
 | **Avis « utile ? » et « reprendre »** vivent en `localStorage` | Aucune table, aucune migration : ce sont des conforts, pas des données |
 
 
+---
+
+## 16. Écran d'action (publication, envoi, import, décompte)
+
+Les quatre « animations » de la Console — publier une soirée
+(`PublishingOverlay`), envoyer une campagne (`ReviewStep`), importer des
+contacts (`ContactImportDialog`), répartir une co-soirée
+(`CollabNightClosingCard`) — passent toutes par UN moteur :
+`src/components/action/ActionOverlay.tsx`, tokens dans
+`src/components/action/tokens.ts` (`ACT`). Elles sont dans CE design system
+depuis le 2026-09-24 (elles avaient d'abord été dessinées en DA publique :
+Space Grotesk, mono, filet rouge — à ne pas réintroduire).
+
+- Fond flouté `rgba(0,0,0,.72)`, une **carte hero** (§3.5) de 520 px max au
+  centre : icône d'état 40 px (spinner rouge → coche verte), titre 17 px sur
+  UNE ligne (les `\n` des clés i18n sont repliés), étape en cours en T3,
+  pourcentage en KPI à droite, remplacé à la fin par une pill verte (§7.2)
+  portant le mot final.
+- Progress bar §8.3 (6 px, rouge en cours, `POS` terminé). Étapes dans une
+  carte imbriquée (§3.2) : numéro → spinner → coche, statut coloré
+  (T3 / rouge / vert).
+- Carte de résultat = `ActionResultCard` + `ActionFigure` (KPI + label
+  uppercase, `primary` / `secondary`) + `ActionNote` (muted). Un nouvel écran
+  d'action compose ces trois-là, il ne redessine pas de chiffre à la main.
+- Rouge pendant le travail, vert quand c'est fait : c'est la seule
+  sémantique de couleur de l'écran. La mécanique (plancher, plafond, compteur
+  borné à 99 %) est décrite en tête du fichier et ne se touche pas pour un
+  changement visuel.
 
 ---
 
-## 16. Thème clair / sombre (2026-09-24)
+## 17. Thème clair / sombre (2026-09-24)
 
 Toute la Yuno Console (club, manager, organisateur, agence), les espaces
 affilié, promoteur, DJ et le super admin existent en **sombre** (historique,
@@ -886,7 +914,8 @@ fonds pleins 500-700 ne bougent pas). `snow` est le seul blanc fixe.
 ### Îlots sombres
 
 `data-theme-island="dark"` sur un conteneur rétablit le sombre à l'intérieur :
-bannière photo du tableau de bord (club et organisateur), vue En direct (globe),
+bannière photo du tableau de bord (club et organisateur), la carte du globe de
+la vue En direct (les panneaux autour suivent le thème),
 maquettes de téléphone (SMS, pub Meta), aperçu de la page client. Toute surface
 qui montre CE QUE VOIT LE CLIENT, ou une photo sous voile, est un îlot.
 

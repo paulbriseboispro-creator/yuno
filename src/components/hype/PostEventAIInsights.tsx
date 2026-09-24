@@ -14,9 +14,9 @@ const INNER_BG = 'rgb(var(--ink)/0.032)';
 const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 
 const SENTIMENT_COLORS: Record<string, string> = {
-  positive: '#34D399',
+  positive: 'var(--acc-34d399)',
   neutral: 'rgb(var(--ink)/var(--ink-a40,0.4))',
-  negative: '#F87171',
+  negative: 'var(--acc-f87171)',
 };
 
 type Insight = { text: string; metric: string; sentiment: 'positive' | 'neutral' | 'negative' };

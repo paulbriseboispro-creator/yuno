@@ -19,6 +19,7 @@ import { isNativeSocialAvailable } from '@/lib/nativeAuth';
 import { Check } from 'lucide-react';
 import { checkEmailAccount } from '@/hooks/useExistingAccountCheck';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { proSignupUrl } from '@/lib/proSignup';
 
 const getAuthSchema = (t: (key: string) => string) => z.object({
   email: z.string().email({ message: t('auth.errors.invalidEmail') }),
@@ -690,6 +691,17 @@ export default function Auth() {
                   >
                     {isSignUp ? t('auth.alreadyAccount') : t('auth.noAccount')}
                   </button>
+                  {/* Un pro ne crée pas son compte ici (ce formulaire ouvre un compte
+                      CLIENT) : il passe par le funnel de la landing. */}
+                  {!isInviteFlow && (
+                    <a
+                      href={proSignupUrl(language, { source: 'auth' })}
+                      className="font-mono block w-full transition-colors"
+                      style={{ fontSize: '12px', color: '#8A8A8E', letterSpacing: '0.04em' }}
+                    >
+                      {t('auth.proSignupPrompt')} <span style={{ color: '#FFFFFF' }}>{t('auth.proSignupCta')} →</span>
+                    </a>
+                  )}
                   {!isSignUp && (
                     <button
                       onClick={() => setIsForgotPassword(true)}

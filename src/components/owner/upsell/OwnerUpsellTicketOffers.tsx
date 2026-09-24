@@ -48,10 +48,10 @@ const TEMPLATES: TemplateConfig[] = [
 ];
 
 const OFFER_ICON_TONE: Record<string, string> = {
-  drink_pack: '#FBBF24',
-  single_drink_discount: '#34D399',
-  cloakroom: '#60A5FA',
-  drink_combo: '#A78BFA',
+  drink_pack: 'var(--acc-fbbf24)',
+  single_drink_discount: 'var(--acc-34d399)',
+  cloakroom: 'var(--acc-60a5fa)',
+  drink_combo: 'var(--acc-a78bfa)',
 };
 
 export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {

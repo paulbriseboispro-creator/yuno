@@ -179,7 +179,7 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   line-up invité se fait par DIFF, jamais par delete+insert comme `event_djs` :
   chaque ligne porte son compteur.
 - **Dashboards pro = thème sombre ET clair** (2026-09-24, `docs/DESIGN_SYSTEM.md`
-  §16). Réglage « Apparence » (Clair / Sombre — pas de « Système », retiré le
+  §17). Réglage « Apparence » (Clair / Sombre — pas de « Système », retiré le
   24/09 : le sombre est le défaut) au pied de chaque barre latérale pro + icône
   lune/soleil dans les en-têtes ; préférence par appareil (`localStorage`
   `yuno:pro-theme`, toute valeur ≠ `light` = sombre). La bascule s'ouvre en
@@ -195,8 +195,9 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   est en variables (`tailwind.theme.ts`). **Dans du code pro, ne JAMAIS écrire
   `rgba(255,255,255,…)`, `#fff` pour du texte, `#000`/`#0a0a0c` pour un fond** ;
   blanc sur fond coloré = `text-snow` / `'#fff'` ; alpha d'un accent = `tint(X,
-  '1A')`, jamais `` `${X}1A` ``. Photo sous voile, globe Live View, maquette de
-  téléphone, aperçu client = `data-theme-island="dark"`. Toute nouvelle variable
+  '1A')`, jamais `` `${X}1A` ``. Photo sous voile, carte du globe Live View (le
+  globe seul, les panneaux suivent le thème), maquette de téléphone, aperçu
+  client = `data-theme-island="dark"`. Toute nouvelle variable
   se déclare dans les trois blocs de `pro-theme.css` (test `proTheme.test.ts`).
   Jamais ces variables dans un canvas, Mapbox, un PDF ou un email.
 - **Deux design systems séparés** :
@@ -429,8 +430,12 @@ visiteur en ce moment, un anneau blanc sur le club, une onde à chaque fait
 nouveau et un arc vers le club pour une vente localisée ; à droite les chiffres
 de l'instant, le comportement des 10 dernières minutes, les villes, les pages
 regardées et le flux ; en bas du globe la carte de release (billets sur 10 / 60
-min, billets par minute, paliers). Surface ÉDITORIALE (DESIGN_SYSTEM_PUBLIC)
-posée dans un dashboard pro, décision produit assumée. Règles :
+min, billets par minute, paliers). Surface PRO (`docs/DESIGN_SYSTEM.md`, depuis
+le 2026-09-24 — elle était d'abord éditoriale, ce qui détonnait à côté des
+autres onglets Analytics) : carte 18 px, cartes imbriquées 14 px, tiles KPI
+12 px, hiérarchie T1/T2/T3, badge live vert. Tokens et primitives dans
+`live-view/liveViewUi.tsx` (`LV`, `Section`, `Tile`, `Label`, `LiveBadge`) —
+jamais Space Grotesk, mono ni filet rouge ici. Règles :
 
 - **Une seule RPC, `get_live_view(p_venue_id, p_organizer_user_id)`**
   (migration `20260921150000`), rappelée toutes les 4 s tant que l'onglet est
@@ -458,6 +463,30 @@ posée dans un dashboard pro, décision produit assumée. Règles :
   (CDP natif Node 22, session démo injectée dans `sb-<ref>-auth-token`,
   Chrome `--headless=new --use-angle=swiftshader`) a servi à voir le globe en
   vrai ; `--dump-dom` ne dit rien d'un canvas WebGL.
+
+## Comportement d'achat — Analytics → Comportement d'achat (2026-09-24)
+
+`/owner/analytics?tab=purchase` et `/organizer-app/analytics?tab=purchase`
+(`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
+`src/lib/purchaseBehavior.ts`, testés). Le reste de la page dit « combien ai-je
+vendu ? », cet onglet dit « comment mes clients achètent-ils ? » : délai avant
+la soirée, jour × heure, rythme du bar dans la nuit, taille de groupe / panier /
+palier, options prises, nouveaux vs habitués et concentration, achats croisés
+le même soir, canaux, passage visite → achat, présence à la porte. Règles :
+
+- **Une seule RPC, `get_purchase_behavior(p_venue_id, p_organizer_user_id,
+  p_from, p_to)`** (migration `20260924150000`), même porte, mêmes statuts et
+  mêmes formules que `get_live_view` (CA club de `fees.ts`, remboursement
+  déduit, instant d'achat = `coalesce(paid_at, created_at)`). Le front ne fait
+  que mettre en forme ; les phrases « À retenir » se taisent sur une base mince.
+- **Les boissons n'existent qu'en portée club** (`hasDrinks`) : l'organisateur
+  ne tient pas de bar, les commandes du bar d'un club ne lui appartiennent pas.
+- **Présence = soirées TERMINÉES dont la porte a scanné au moins une entrée** :
+  sans scanner, « pas scanné » ne veut pas dire « pas venu ».
+- L'onglet partage le sélecteur de période de la page ; l'export CSV y est
+  masqué (il exporte les ventes, pas ce tableau). Clés i18n `pb.*` (×3),
+  onglet `owner.an.purchaseTab`, aide `ohelp.pg.analytics.s11*` et
+  `ohelp.org.analytics.s6*`, assistant : article `purchase-behavior`.
 
 ## Backend Supabase — gotchas critiques
 
@@ -608,6 +637,59 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
 - **Migrations historiques** : certaines (`20260122…`) contiennent encore des URLs
   `yuno-bar-buddy.lovable.app` dans du SQL **déjà appliqué** — ne pas réécrire (casse le
   checksum Supabase). Vérifier plutôt la table live `email_templates` pour des liens résiduels.
+
+## Inscription pro en libre-service — la landing crée le compte (2026-09-24)
+
+Un club ou un organisateur ouvre son compte SEUL depuis la landing
+(`landing.yunoapp.eu`, repo `Yuno-landing` : modale de chaque CTA + page directe
+`/start`, `/fr/start`, `/es/start`, `?role=club|organizer`). Migration
+`20260924120000_pro_self_signup.sql`, front `src/lib/proSignup.ts`,
+`src/pages/GetStarted.tsx`, `src/pages/admin/AdminProSignups.tsx`. Règles :
+
+- **Un parcours = une ligne `pro_signups`**, clé aléatoire tenue par le
+  navigateur (`client_key`). La landing l'écrit étape par étape via
+  `track_pro_signup` (anon, SECURITY DEFINER, anti-flood par visiteur haché
+  `links_visitor_context`, ne lève jamais). RLS totale sans policy. Une ligne
+  qui a produit un compte ne s'écrit plus anonymement.
+- **La landing crée le compte sur CE projet** (`auth.signUp`, clé publique),
+  puis appelle `complete_pro_signup(key)` EN TANT QUE le nouvel utilisateur :
+  club (`venues` avec `is_hidden = true` jusqu'au « Go live », `owner_id`, rôle
+  `owner`, `venue_onboarding` étape 1 cochée avec les piliers choisis) ou
+  organisateur (`profile_type = 'organizer'`, `organizer_profiles`, rôle
+  `organizer`). Idempotente, un club par owner, refusée en session support,
+  refusée si le parcours appartient à un autre compte. **Ne JAMAIS toucher
+  `profiles.venue_id`** : `guard_profile_venue_self_move` discrimine sur
+  `auth.uid()`, qui est l'utilisateur lui-même même en SECURITY DEFINER — la
+  propriété vit dans `venues.owner_id`.
+- **2FA** : un owner inscrit ainsi reçoit le report existant
+  (`mfa_deferred_until = now() + 7 j`, une fois) — `RequireMFA` le refuse
+  toujours sur les pages d'argent. Sans ça il tombait sur `/mfa-setup` avant
+  d'avoir vu son dashboard.
+- **Passage de session** : la landing (autre origine) envoie sur
+  `/auth/handoff#yuno_at=…&yuno_rt=…&redirect=/get-started&lang=…` →
+  `setSession`. Noms ≠ `access_token` exprès : `detectSessionInUrl` avalerait le
+  fragment. Le handoff pose aussi la langue et coupe les étapes d'accueil CLIENT
+  (`OnboardingGate` : quiz de goûts, push web) — un pro ne les voit jamais.
+- **`/get-started`** lit `open_my_pro_signup()` (horodate l'ouverture de la
+  Console) et trace un plan ≤ 7 étapes depuis les réponses (piliers,
+  billetterie actuelle → import de contacts, date de la prochaine soirée →
+  urgence + WhatsApp du fondateur, numéro lu dans `links_page_config`). Deux
+  replis y finissent le travail avec `?key=` : email à confirmer
+  (`emailRedirectTo`) et compte existant (connexion `/auth?redirect=`).
+  **`https://yunoapp.eu/get-started` doit figurer dans les Redirect URLs de
+  Supabase Auth** pour le cas « email à confirmer ».
+- **Super admin** : `/admin/signups` (Pilotage) lit `admin_pro_signups(days,
+  include_demo)` — funnel (ouvert → profil → description → email → compte →
+  Console → 1re soirée → Stripe → en ligne, progression LUE dans `events` /
+  `venues` / `profiles`, jamais déclarée), sources, liste avec WhatsApp
+  pré-rempli, « contacté », notes (`admin_update_pro_signup`). Alertes
+  `admin_pro_signup` (compte créé) et `admin_pro_signup_lead` (promoteur /
+  autre : pas de compte en libre-service) ; elles REMPLACENT `admin_new_venue`
+  / `admin_new_organizer` pour ces inscriptions (suppression de la ligne non lue
+  dans la même transaction). Purge des parcours anonymes sans email à 180 j
+  (cron `pro-signups-purge`).
+- **Tout lien « créer un compte pro » de l'app passe par `proSignupUrl()`**
+  (page de connexion, Explore faible densité). `/auth` crée un compte CLIENT.
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
@@ -802,6 +884,23 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   cascade correctement. Corollaire : ne jamais chercher un utilisateur par
   `profiles.email` avec `.maybeSingle()` — sur un doublon, PostgREST renvoie
   `PGRST116` et l'appel tombe.
+- **`onboarding_links` ne s'écrit QUE côté serveur** (2026-09-24, migration
+  `20260924130000`). Une policy `FOR ALL … WITH CHECK (created_by = auth.uid())`
+  laissait n'importe quel compte s'émettre un lien `owner` de n'importe quel club
+  par PostgREST puis le consommer : prise de contrôle du club. Désormais : lecture
+  seule côté client, droits d'écriture retirés, trigger `guard_onboarding_link_write`
+  (SECURITY INVOKER sur `current_user`), et l'edge `accept-staff-invitation`
+  REVÉRIFIE l'émetteur au moment de l'utilisation (`linkIssuerAllowed`, miroir de
+  `onboarding_link_issuer_allowed()`). Règle générale : **une table dont une ligne
+  ACCORDE un rôle ne porte jamais de policy d'écriture « créateur = moi »** — la
+  personne choisirait elle-même ce qu'on lui accorde.
+- **`profiles.profile_type` ne s'écrit que côté serveur** (migration
+  `20260924140000`) : le trigger `guard_profile_type_write` refuse tout
+  changement venant d'un client, car `trg_sync_organizer_role_from_profile`
+  en déduit le rôle `organizer`. Devenir organisateur = `complete_pro_signup`,
+  une invitation ou un lien d'onboarding. Et une ligne `organizer_profiles`
+  ne se crée côté client que si l'on EST organisateur
+  (`guard_organizer_profile_insert`).
 - **Push CLIENT non transactionnel = porte unique `client_push_policy()`** (2026-09-06,
   migration `20260906140000`). Toute notif marketing/engagement destinée à l'app Yuno
   (découverte, nouveautés des clubs suivis, relance d'inactivité, panier…) appelle

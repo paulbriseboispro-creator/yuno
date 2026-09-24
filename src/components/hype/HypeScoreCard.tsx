@@ -74,9 +74,9 @@ export function HypeScoreCard({ data }: HypeScoreCardProps) {
       label: t('hype.mediumHype'),
       glowColor: 'rgba(251,191,36,0.07)',
       borderColor: 'rgba(251,191,36,0.20)',
-      gaugeColor: '#FCD34D',
+      gaugeColor: 'var(--acc-fcd34d)',
       blobColor: 'rgba(251,191,36,0.10)',
-      scoreColor: '#FCD34D',
+      scoreColor: 'var(--acc-fcd34d)',
     },
     low: {
       label: t('hype.lowHype'),

@@ -51,6 +51,7 @@ import {
 	LayersIcon,
 	GlobeIcon,
 	RadioIcon,
+	ShoppingBagIcon,
 	UserCheckIcon,
 	CoinsIcon,
 	RepeatIcon,
@@ -79,6 +80,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 					subItems: [
 						{ title: t('owner.an.global'), path: "/organizer-app/analytics?tab=global", icon: <GlobeIcon />, isDefault: true },
 						{ title: t('owner.an.event'), path: "/organizer-app/analytics?tab=event", icon: <CalendarIcon /> },
+						{ title: t('owner.an.purchaseTab'), path: "/organizer-app/analytics?tab=purchase", icon: <ShoppingBagIcon /> },
 						{ title: t('owner.an.liveTab'), path: "/organizer-app/analytics?tab=live", icon: <RadioIcon /> },
 						{ title: tt("Audience", "Audience"), path: "/organizer-app/audience", icon: <UsersIcon /> },
 					],

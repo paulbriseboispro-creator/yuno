@@ -359,7 +359,7 @@ export default function AdminSubscriptions() {
               </button>
               <button onClick={grantEarlyAdopter} disabled={granting}
                 className="px-4 py-2 rounded-xl text-[12.5px] font-semibold cursor-pointer disabled:opacity-50"
-                style={{ background: 'rgb(var(--ink)/var(--ink-a92,0.92))', color: '#0a0a0c' }}>
+                style={{ background: 'rgb(var(--ink)/var(--ink-a92,0.92))', color: 'var(--sf-0a0a0c)' }}>
                 {granting ? '…' : t('admin.subs.grantEaConfirm')}
               </button>
             </div>

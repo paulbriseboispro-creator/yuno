@@ -7,7 +7,7 @@ import {
   checklistBlocksSend, footerSocialEnabled, renderEmailHtml, runChecklist, slugifyName,
   type LiveData,
 } from '@/lib/email';
-import { ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
+import { ActionFigure, ActionNote, ActionOverlay, ActionResultCard, type ActionStep } from '@/components/action/ActionOverlay';
 import { actionFmt } from '@/components/action/tokens';
 import { useStudio } from './store';
 import { useAudienceCount, type StudioEvent, type StudioScope } from './hooks';
@@ -365,29 +365,13 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
         onClose={() => { setRunOpen(false); onSent(); }}
         done={runResult ? (
           <ActionResultCard kicker={t('owner.sendrun.cardKicker')}>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 26, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 32, lineHeight: .9, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>
-                  {actionFmt(runResult.recipients)}
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)' }}>
-                  {t('owner.sendrun.recipients')}
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, flexWrap: 'wrap' }}>
+              <ActionFigure value={actionFmt(runResult.recipients)} label={t('owner.sendrun.recipients')} />
               {runResult.skipped > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 2 }}>
-                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 19, lineHeight: .9, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--tx-e5e5e5)' }}>
-                    {actionFmt(runResult.skipped)}
-                  </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 500, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-5a5a5e)' }}>
-                    {t('owner.sendrun.protected')}
-                  </div>
-                </div>
+                <ActionFigure size="secondary" value={actionFmt(runResult.skipped)} label={t('owner.sendrun.protected')} />
               )}
             </div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: 'var(--tx-9a9a9a)' }}>
-              {t('owner.sendrun.keepsGoing')}
-            </div>
+            <ActionNote>{t('owner.sendrun.keepsGoing')}</ActionNote>
           </ActionResultCard>
         ) : null}
       />

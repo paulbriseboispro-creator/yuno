@@ -1,10 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Pause, Play } from 'lucide-react';
+import { Maximize2, Minimize2, Pause, Play, Radio } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useReducedMotion } from '@/lib/motion';
 import { useLiveView } from '@/hooks/useLiveView';
 import { fmtInt, timeAgoLabel } from '@/lib/liveView';
-import { BigNumber, LV, Mono } from './liveViewUi';
+import { BigNumber, Label, LiveBadge, LV, Muted } from './liveViewUi';
 import { LivePanel } from './LivePanel';
 import { LiveReleaseCard } from './LiveReleaseCard';
 
@@ -15,8 +15,8 @@ const LiveGlobe = lazy(() => import('./LiveGlobe'));
  * organisateur). Globe à gauche, chiffres de l'instant à droite, suivi de la
  * release en bas du globe. Tout vient d'un seul snapshot (`useLiveView`).
  *
- * Surface ÉDITORIALE (DESIGN_SYSTEM_PUBLIC) posée dans un dashboard pro : fond
- * `#0A0A0A`, Space Grotesk uppercase, metadata mono, filet rouge, radius 2–4 px.
+ * Surface pro (docs/DESIGN_SYSTEM.md) : carte principale 18 px, cartes
+ * imbriquées 14 px, tiles 12 px, hiérarchie par opacité, badge live vert.
  */
 export function LiveView({ venueId = null, organizerUserId = null }: { venueId?: string | null; organizerUserId?: string | null }) {
   const { t, language } = useLanguage();
@@ -63,30 +63,41 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
     : { top: 130, right: 70, bottom: 50, left: 40 };
   const visitors = snapshot?.visitorsNow ?? 0;
 
-  const ctlBtn = 'inline-flex h-9 items-center gap-2 px-3 font-mono font-bold uppercase cursor-pointer transition-colors duration-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E8192C] active:scale-[0.97]';
-  const ctlStyle: React.CSSProperties = { fontSize: 10.5, letterSpacing: '0.10em', color: LV.gray1, background: 'rgb(var(--ink)/0.05)', border: `1px solid ${LV.borderStrong}`, borderRadius: 3 };
+  const ctlBtn = 'inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-medium cursor-pointer transition-all duration-150 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E8192C] active:scale-[0.97]';
+  const ctlStyle: React.CSSProperties = { color: LV.t2, background: LV.tileBg, border: `1px solid ${LV.border}` };
 
   return (
     <div
       ref={rootRef}
-      // Surface éditoriale (globe noir, DA publique) : sombre dans les deux thèmes.
-      data-theme-island="dark"
-      className={`lv-root relative overflow-hidden ${fullscreen ? 'flex h-screen flex-col' : ''}`}
-      style={{ background: LV.bg, border: fullscreen ? 'none' : `1px solid rgb(var(--ink)/0.09)`, borderRadius: fullscreen ? 0 : 4 }}
+      className={`lv-root relative overflow-hidden p-4 sm:p-[22px] ${fullscreen ? 'flex h-screen flex-col' : ''}`}
+      style={{
+        background: LV.cardBg,
+        border: fullscreen ? 'none' : `1px solid ${LV.border}`,
+        borderRadius: fullscreen ? 0 : 18,
+        boxShadow: fullscreen ? undefined : LV.shadow,
+      }}
     >
-      {/* ── En-tête ─────────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-end justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
-        <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <span className="badge-live inline-flex items-center gap-2"><span className="dot-live" aria-hidden="true" />{t('lv.kicker')}</span>
-            <Mono color={LV.gray3} size={10} tracking="0.12em">
-              {paused ? t('lv.paused') : lastUpdatedAt ? t('lv.updatedAgo').replace('{ago}', timeAgoLabel(lastUpdatedAt, nowMs, t)) : t('lv.loading')}
-            </Mono>
+      {/* ── En-tête (§5 : icône + titre + sous-titre, élément droit) ─────── */}
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-xl"
+            style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
+          >
+            <Radio className="h-4 w-4" style={{ color: LV.red }} aria-hidden="true" />
           </div>
-          <h2 className="m-0 mt-2 font-display font-bold uppercase" style={{ fontSize: 'clamp(22px, 3vw, 32px)', color: LV.white, letterSpacing: '-0.025em', lineHeight: 0.95 }}>
-            {t('lv.title')}
-          </h2>
-          <p className="m-0 mt-1.5 text-[13px]" style={{ color: LV.gray2 }}>{t('lv.tagline')}</p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="m-0 text-[15.5px] font-semibold leading-tight" style={{ color: LV.t1, letterSpacing: '-0.01em' }}>
+                {t('lv.title')}
+              </h2>
+              <LiveBadge paused={paused}>{paused ? t('lv.paused') : t('lv.kicker')}</LiveBadge>
+            </div>
+            <p className="m-0 mt-0.5 text-xs" style={{ color: LV.t3 }}>
+              {t('lv.tagline')}
+              <span className="tabular-nums"> · {paused ? t('lv.paused') : lastUpdatedAt ? t('lv.updatedAgo').replace('{ago}', timeAgoLabel(lastUpdatedAt, nowMs, t)) : t('lv.loading')}</span>
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className={ctlBtn} style={ctlStyle} onClick={() => setPaused((p) => !p)} aria-pressed={paused}>
@@ -103,11 +114,17 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
       </header>
 
       {error === 'forbidden' ? (
-        <div className="px-5 py-16 text-center"><p className="m-0 text-[14px]" style={{ color: LV.gray2 }}>{t('lv.forbidden')}</p></div>
+        <div className="px-5 py-16 text-center"><p className="m-0 text-[14px]" style={{ color: LV.t2 }}>{t('lv.forbidden')}</p></div>
       ) : (
-        <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] ${fullscreen ? 'min-h-0 flex-1' : ''}`}>
+        <div className={`grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] ${fullscreen ? 'min-h-0 flex-1' : ''}`}>
           {/* ── Globe ───────────────────────────────────────────────────── */}
-          <div className={`relative ${fullscreen ? 'h-full min-h-0' : 'aspect-square lg:aspect-auto lg:min-h-[660px]'}`} style={{ background: LV.bg, borderRight: '1px solid rgb(var(--ink)/0.07)' }}>
+          <div
+            className={`relative overflow-hidden ${fullscreen ? 'h-full min-h-0' : 'aspect-square lg:aspect-auto lg:min-h-[660px]'}`}
+            style={{ background: LV.bg, border: `1px solid ${LV.border}`, borderRadius: 14 }}
+            // Le globe Mapbox est dessiné en noir (style JSON maison) : sa carte
+            // et ce qui flotte dessus restent sombres dans les deux thèmes.
+            data-theme-island="dark"
+          >
             {hasMapbox ? (
               <Suspense fallback={<div className="skeleton absolute inset-0" style={{ borderRadius: 0 }} />}>
                 <LiveGlobe
@@ -124,17 +141,14 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
               <GlobeFallback visitors={visitors} t={t} language={language} />
             )}
 
-            {/* Visiteurs en ce moment — l'élément d'affiche */}
+            {/* Visiteurs en ce moment — le KPI principal */}
             <div className="pointer-events-none absolute left-5 top-5 z-10">
-              <div className="flex items-center gap-2">
-                <span className="dot-live" aria-hidden="true" />
-                <Mono color={LV.gray2} size={10} tracking="0.16em">{t('lv.visitorsNow')}</Mono>
-              </div>
-              <div className="mt-1" style={{ textShadow: '0 2px 24px rgba(0,0,0,0.8)' }}>
-                <BigNumber value={visitors} format={(n) => fmtInt(n, language)} size="clamp(56px, 9vw, 104px)" color={visitors > 0 ? LV.white : LV.gray3} />
+              <Label color={LV.t2} size={11}>{t('lv.visitorsNow')}</Label>
+              <div className="mt-2" style={{ textShadow: '0 2px 24px rgba(0,0,0,0.8)' }}>
+                <BigNumber value={visitors} format={(n) => fmtInt(n, language)} size="clamp(48px, 7vw, 80px)" color={visitors > 0 ? LV.t1 : LV.t3} />
               </div>
               {snapshot && visitors === 0 && (
-                <p className="m-0 mt-2 max-w-[260px] text-[12px] leading-relaxed" style={{ color: LV.gray2, textShadow: '0 1px 12px rgba(0,0,0,0.9)' }}>
+                <p className="m-0 mt-2 max-w-[260px] text-[12px] leading-relaxed" style={{ color: LV.t2, textShadow: '0 1px 12px rgba(0,0,0,0.9)' }}>
                   {t('lv.nobodyHint')}
                 </p>
               )}
@@ -142,7 +156,7 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
 
             {/* Release — superposée sur le globe (desktop) */}
             {snapshot && (
-              <div className="pointer-events-none absolute bottom-5 left-5 z-10 hidden w-[340px] max-w-[calc(100%-40px)] lg:block">
+              <div className="pointer-events-none absolute bottom-4 left-4 z-10 hidden w-[340px] max-w-[calc(100%-32px)] lg:block">
                 <div className="pointer-events-auto">
                   <LiveReleaseCard release={snapshot.release} language={language} t={t} compact />
                 </div>
@@ -150,16 +164,16 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
             )}
 
             {error === 'error' && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-5 py-3" style={{ background: 'linear-gradient(to top, rgb(var(--glass-10-10-10)/0.9), transparent)' }}>
-                <Mono color={LV.red} size={10} tracking="0.12em">{t('lv.error')}</Mono>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-5 py-3" style={{ background: 'linear-gradient(to top, rgb(var(--glass-10-10-12)/0.9), transparent)' }}>
+                <Muted color={LV.red} size={12}>{t('lv.error')}</Muted>
               </div>
             )}
           </div>
 
           {/* ── Colonne droite ──────────────────────────────────────────── */}
-          <aside className={`${fullscreen ? 'min-h-0 overflow-y-auto' : 'lg:max-h-[660px] lg:overflow-y-auto'}`} style={{ background: LV.bg }}>
+          <aside className={`flex flex-col gap-3 ${fullscreen ? 'min-h-0 overflow-y-auto' : 'lg:max-h-[660px] lg:overflow-y-auto'}`}>
             {snapshot && (
-              <div className="p-5 lg:hidden" style={{ borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
+              <div className="lg:hidden">
                 <LiveReleaseCard release={snapshot.release} language={language} t={t} />
               </div>
             )}
@@ -177,30 +191,30 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
 
 function PanelSkeleton({ loading, error, t }: { loading: boolean; error: string | null; t: (k: string) => string }) {
   if (!loading && error) {
-    return <div className="px-5 py-10"><Mono color={LV.red} size={10} tracking="0.12em">{t('lv.error')}</Mono></div>;
+    return <div className="px-1 py-10"><Muted color={LV.red} size={12}>{t('lv.error')}</Muted></div>;
   }
   return (
-    <div className="space-y-5 px-5 py-5" aria-busy="true">
-      <div className="grid grid-cols-2 gap-4">
-        {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 52, borderRadius: 2 }} />)}
+    <div className="space-y-3" aria-busy="true">
+      <div className="grid grid-cols-2 gap-2.5">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 64, borderRadius: 12 }} />)}
       </div>
-      {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 96, borderRadius: 2 }} />)}
+      {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 120, borderRadius: 14 }} />)}
     </div>
   );
 }
 
-/** Sans jeton Mapbox : la même scène, sans carte — le chiffre reste l'affiche. */
+/** Sans jeton Mapbox : la même scène, sans carte — le chiffre reste le KPI. */
 function GlobeFallback({ visitors, t, language }: { visitors: number; t: (k: string) => string; language: string }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ background: 'radial-gradient(60% 60% at 50% 55%, var(--sf-141414) 0%, var(--sf-0a0a0a) 70%)' }}>
-      <div className="absolute rounded-full" style={{ width: '58%', paddingTop: '58%', border: '1px solid rgb(var(--ink)/0.06)' }} />
-      <div className="absolute rounded-full" style={{ width: '38%', paddingTop: '38%', border: '1px solid rgb(var(--ink)/0.08)' }} />
+    <div className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 55%, rgba(232,25,44,0.06) 0%, transparent 70%), var(--sf-0a0a0c)' }}>
+      <div className="absolute rounded-full" style={{ width: '58%', paddingTop: '58%', border: `1px solid ${LV.fBorder}` }} />
+      <div className="absolute rounded-full" style={{ width: '38%', paddingTop: '38%', border: `1px solid ${LV.border}` }} />
       <div className="relative text-center">
-        <span className="font-display font-bold tabular-nums" style={{ fontSize: 'clamp(40px, 8vw, 72px)', color: visitors > 0 ? LV.red : LV.gray3, letterSpacing: '-0.03em', lineHeight: 1 }}>
+        <span className="tabular-nums" style={{ fontSize: 'clamp(40px, 8vw, 72px)', fontWeight: 640, color: visitors > 0 ? LV.t1 : LV.t3, letterSpacing: '-0.025em', lineHeight: 1 }}>
           {fmtInt(visitors, language)}
         </span>
-        <Mono className="mt-2 block" color={LV.gray3} size={10} tracking="0.14em">{visitors === 1 ? t('lv.visitors.one') : t('lv.visitors.many')}</Mono>
-        <p className="m-0 mt-6 max-w-[280px] text-[12px] leading-relaxed" style={{ color: LV.gray3 }}>{t('lv.noMapBody')}</p>
+        <Label className="mt-2 block">{visitors === 1 ? t('lv.visitors.one') : t('lv.visitors.many')}</Label>
+        <p className="m-0 mt-6 max-w-[280px] text-[12px] leading-relaxed" style={{ color: LV.t3 }}>{t('lv.noMapBody')}</p>
       </div>
     </div>
   );
