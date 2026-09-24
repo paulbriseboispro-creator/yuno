@@ -38,6 +38,7 @@ import { useStore } from '@/store/useStore';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { useEventPaymentsReady } from '@/lib/paymentsReady';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
 
 type EventDJ = {
@@ -137,6 +138,12 @@ export default function EventDetails() {
   // Pixel Meta du club / de l'organisateur / de Yuno (après consentement
   // publicité seulement) : ViewContent sur la soirée, une fois par chargement.
   const metaPixel = useMetaPixel({ eventId: eventId || null, enabled: !!eventId });
+  // Lien « …?promo=CODE » (lot F) : le code suit l'acheteur jusqu'au paiement
+  // (sessionStorage par soirée), où il est revérifié puis appliqué.
+  const promoParam = searchParams.get('promo');
+  useEffect(() => {
+    if (promoParam && event?.id) rememberPromoForEvent(event.id, promoParam);
+  }, [promoParam, event?.id]);
   useEffect(() => {
     if (!eventId || !event || !metaPixel.active) return;
     metaPixel.track('ViewContent', {

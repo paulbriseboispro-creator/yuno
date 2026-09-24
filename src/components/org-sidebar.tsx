@@ -59,6 +59,7 @@ import {
 	AlertTriangleIcon,
 	ShirtIcon,
 	Martini,
+	TagIcon,
 } from "lucide-react";
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 
@@ -109,6 +110,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 					subItems: [
 						{ title: t('tickets.events'), path: "/organizer-app/ticketing?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('tickets.presets'), path: "/organizer-app/ticketing?tab=presets", icon: <FolderOpenIcon /> },
+						{ title: t('nav.promoCodes'), path: "/organizer-app/promo-codes", icon: <TagIcon /> },
 					],
 				},
 				{
@@ -267,6 +269,7 @@ const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/campaigns", needs: "marketing" },
 	{ prefix: "/organizer-app/sms", needs: "marketing" },
 	{ prefix: "/organizer-app/push", needs: "marketing" },
+	{ prefix: "/organizer-app/promo-codes", needs: "marketing" },
 	{ prefix: "/organizer-app/ads", needs: "marketing" },
 	{ prefix: "/organizer-app/promoters", needs: "marketing" },
 	{ prefix: "/organizer-app/agencies", needs: "marketing" },

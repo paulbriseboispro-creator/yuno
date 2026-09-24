@@ -127,6 +127,7 @@ const OwnerBilling = lazyWithRetry(() => import("./pages/OwnerBilling"));
 const OwnerSmsCredits = lazyWithRetry(() => import("./pages/OwnerSmsCredits"));
 const OwnerSmsCampaigns = lazyWithRetry(() => import("./pages/OwnerSmsCampaigns"));
 const OwnerPush = lazyWithRetry(() => import("./pages/OwnerPush"));
+const PromoCodes = lazyWithRetry(() => import("./pages/PromoCodes"));
 const OwnerOnboarding = lazyWithRetry(() => import("./pages/OwnerOnboarding"));
 const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
 const OwnerHelpCenter = lazyWithRetry(() => import("./pages/OwnerHelpCenter"));
@@ -718,6 +719,7 @@ const App = () => (
                   <Route path="events/:eventId" element={<OrgAppRoute requires="editEvents"><OrgAppEventDetail /></OrgAppRoute>} />
                   <Route path="events/:eventId/live" element={<OrgAppRoute requires="editEvents"><OrgAppEventLive /></OrgAppRoute>} />
                   <Route path="ticketing" element={<OrgAppRoute requires="editEvents"><OwnerTicketing /></OrgAppRoute>} />
+                  <Route path="promo-codes" element={<OrgAppRoute requires="marketing"><PromoCodes /></OrgAppRoute>} />
                   <Route path="tables" element={<OrgAppRoute requires="editEvents"><OrgAppTables /></OrgAppRoute>} />
                   <Route path="vip-service" element={<OrgAppRoute requires="editEvents"><OrgAppVipService /></OrgAppRoute>} />
                   {/* Rareté / FOMO — même page que le club, scope organisateur via useVenueContext */}
@@ -913,6 +915,7 @@ const App = () => (
                   <Route path="hype" element={<Navigate to="/owner/analytics?tab=sales&view=event" replace />} />
                   <Route path="events" element={<OwnerEvents />} />
                   <Route path="ticketing" element={<OwnerTicketing />} />
+                  <Route path="promo-codes" element={<PromoCodes />} />
                   <Route path="guest-list" element={<OwnerGuestList />} />
                   <Route path="tables" element={<PlanGuard feature="vip_tables_basic"><OwnerTables /></PlanGuard>} />
                   <Route path="djs" element={<PlanGuard feature="djs_orchestrate"><OwnerDJs /></PlanGuard>} />

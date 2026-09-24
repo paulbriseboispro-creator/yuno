@@ -588,6 +588,29 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   « Settlement », « Funnel », « ROI » sont devenus des mots de pro
   (`owner.an.*`). Période et export ne s'affichent que là où ils changent
   quelque chose.
+- **Codes promo par soirée = une porte serveur, jamais de cumul** (lot F,
+  migration `20260924210000`, page `PromoCodes` sur `/owner/promo-codes` et
+  `/organizer-app/promo-codes`, sous Billetterie ; orga : `requires="marketing"`,
+  `PATH_CAPABILITY`). `promo_codes` = portée club OU organisateur, soirée
+  précise ou toutes (le code d'une soirée gagne sur le code « toutes »), %
+  ou € (par billet ; par réservation pour une table), piliers `tickets` /
+  `tables`, paliers, quota, dates. Le client n'envoie qu'un TEXTE
+  (`discountCode`) ; `check_promo_code` (anon) n'est qu'un aperçu,
+  `claim_promo_code` (service_role, `FOR UPDATE`) redécide et RETIENT un
+  usage 30 min dans `promo_code_redemptions` ; la vente y est reliée
+  (`attach_promo_redemption`), le passage à `paid` confirme l'usage par
+  trigger, un échec ou une expiration le rend. Toute panne du contrôle =
+  pas de remise (`unavailable`). **Jamais cumulé avec la remise promoteur :
+  la plus forte gagne** ; le promoteur garde son attribution, et
+  `p_discount` / `promoDiscount` ne portent que SA remise. Table : remise
+  sur l'acompte, jamais sur une formule `on_site`. Un code utilisé se
+  désactive, ne se supprime pas. `?promo=CODE` sur la page soirée pré-remplit
+  (sessionStorage). **Bug corrigé au passage** : la ligne Stripe des billets
+  portait le prix PLEIN quand une remise promoteur existait (le client
+  payait plein pendant que commission et reversements partaient du prix
+  remisé) — elle porte désormais le sous-total remisé ; et le checkout client
+  affiche la remise fixe promoteur × quantité et la remise table sur
+  l'acompte, comme le serveur.
 - Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
   qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de

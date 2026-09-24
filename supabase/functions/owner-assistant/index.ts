@@ -443,6 +443,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/analytics?tab=traffic&view=page",
     snippet: "Analytics → Trafic (RPC get_page_traffic). « Ma page » : visites de la page publique du club jour par jour sur 30 jours, 90 jours ou 1 an, avec aujourd'hui, visiteurs différents, part qui revient, et les sources (réseaux sociaux, recherche, email, QR, pub, promoteurs, direct). « Par soirée » : chaque page de soirée avec ses visites, celles du jour et combien ont commandé, un clic ouvre son rapport. « Sources » : canaux, campagnes, sites référents et navigation, toutes pages confondues. Seules les visites consenties (bandeau cookies) sont comptées : c'est un minimum.",
   },
+  "promo-codes": {
+    title: "Codes promo — une réduction pour une soirée ou pour toutes",
+    keywords: ["code promo", "codes promo", "promo code", "código promocional", "réduction", "remise", "discount", "descuento", "coupon", "early", "code réduction", "code partenaire", "quota", "offre flash"],
+    path: "/owner/promo-codes",
+    snippet: "Événements → Billetterie → « Codes promo ». Un code (3 à 32 lettres/chiffres) donne une remise en % ou en € (par billet, ou par réservation de table) sur les billets et/ou les tables VIP, pour une soirée ou toutes, avec un quota et une date de fin facultatifs. Le client le saisit au paiement (« J'ai un code promo ») ou arrive par le lien copié depuis la liste, qui pré-remplit le code. Jamais cumulé avec la remise d'un promoteur : la plus forte s'applique. Yuno revérifie le code au paiement ; un paiement abandonné rend l'utilisation après 30 minutes. La liste montre utilisations, billets et tables vendus, remise accordée et CA club. Un code déjà utilisé se désactive mais ne se supprime pas. Pas de remise sur les tables réglées sur place.",
+  },
   "purchase-behavior": {
     title: "Achats (comportement d'achat) — comment tes clients achètent",
     keywords: ["comportement d'achat", "comportement", "purchase behavior", "comportamiento de compra", "quand achètent", "délai d'achat", "à l'avance", "dernière minute", "last minute", "lead time", "heure d'achat", "jour d'achat", "panier", "taille du panier", "billets par commande", "taille des tables", "palier", "early bird", "réachat", "habitués", "nouveaux clients", "fidélité", "top clients", "no-show", "présence", "absents", "billet et bar", "canal", "conversion", "abandon de panier"],

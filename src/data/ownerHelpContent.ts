@@ -341,6 +341,22 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'promo-codes',
+        titleKey: 'ohelp.pg.promo.title',
+        descKey: 'ohelp.pg.promo.desc',
+        icon: 'Tag',
+        actionLink: { labelKey: 'ohelp.action.goToPromoCodes', path: '/promo-codes' },
+        relatedArticleIds: ['ticketing-setup', 'promoter-system', 'email-campaigns'],
+        keywords: ['code promo', 'promo code', 'código promocional', 'réduction', 'remise', 'discount', 'descuento', 'coupon', 'cupón', 'early', 'story', 'partenaire', 'partner', 'quota', 'limite', 'lien', 'link'],
+        sections: [
+          { headingKey: 'ohelp.pg.promo.s1h', bodyKey: 'ohelp.pg.promo.s1b' },
+          { headingKey: 'ohelp.pg.promo.s2h', bodyKey: 'ohelp.pg.promo.s2b', type: 'steps' },
+          { headingKey: 'ohelp.pg.promo.s3h', bodyKey: 'ohelp.pg.promo.s3b' },
+          { headingKey: 'ohelp.pg.promo.s4h', bodyKey: 'ohelp.pg.promo.s4b', type: 'tip' },
+          { headingKey: 'ohelp.pg.promo.s5h', bodyKey: 'ohelp.pg.promo.s5b', type: 'warning' },
+        ],
+      },
+      {
         id: 'guest-list-setup',
         titleKey: 'ohelp.ev.guestlist.title',
         descKey: 'ohelp.ev.guestlist.desc',

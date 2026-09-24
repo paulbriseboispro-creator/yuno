@@ -122,6 +122,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					subItems: [
 						{ title: t('tickets.events'), path: "/owner/ticketing?tab=events", icon: <CalendarIcon />, isDefault: true },
 						{ title: t('tickets.presets'), path: "/owner/ticketing?tab=presets", icon: <FolderOpenIcon /> },
+						{ title: t('nav.promoCodes'), path: "/owner/promo-codes", icon: <TagIcon /> },
 						{ title: t('waitlist.title'), path: "/owner/waitlist", icon: <ListChecksIcon /> },
 					],
 				},

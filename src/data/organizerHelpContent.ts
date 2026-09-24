@@ -160,6 +160,21 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'org-promo-codes',
+        titleKey: 'ohelp.org.promo.title',
+        descKey: 'ohelp.org.promo.desc',
+        icon: 'Tag',
+        actionLink: { labelKey: OPEN, path: '/promo-codes' },
+        relatedArticleIds: ['org-ticketing', 'org-campaigns', 'org-analytics'],
+        keywords: ['code promo', 'promo code', 'código promocional', 'réduction', 'remise', 'discount', 'descuento', 'coupon', 'cupón', 'story', 'partenaire', 'partner', 'quota', 'lien', 'link'],
+        sections: [
+          { headingKey: 'ohelp.org.promo.s1h', bodyKey: 'ohelp.org.promo.s1b' },
+          { headingKey: 'ohelp.org.promo.s2h', bodyKey: 'ohelp.org.promo.s2b', type: 'steps' },
+          { headingKey: 'ohelp.org.promo.s3h', bodyKey: 'ohelp.org.promo.s3b' },
+          { headingKey: 'ohelp.org.promo.s4h', bodyKey: 'ohelp.org.promo.s4b', type: 'warning' },
+        ],
+      },
+      {
         id: 'org-tables',
         titleKey: 'ohelp.org.tables.title',
         descKey: 'ohelp.org.tables.desc',

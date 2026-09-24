@@ -46,7 +46,7 @@ mention CGU). Tout le plan est à faire.
 | C | Rapport de soirée : `get_event_report` + `EventReportView` (ventes + détail par ligne, courbe « Comparer avec » alignée sur J-N, trafic, nouveaux contacts, canaux / liens / emails & push de la soirée, verdict en tête après la soirée) | Livré 24/09 |
 | D | Push : historique complet (`get_push_campaigns`, fin de la limite à 20), « Publication – soirée », page push organisateur `/organizer-app/push` (lecture ET envoi), attribution organisateur, bandeau abonnés + lien / QR | Livré 24/09 |
 | E | Analytics en quatre familles (Ventes / Trafic / Communauté / En direct, `analyticsNav.ts`), Global réparti, Audience + Hype absorbés (redirections), Communauté · Vue d'ensemble (`get_community_overview`), Trafic · Ma page + Par soirée (`get_page_traffic`), lexique appliqué ; + politique client des push manuels | Livré 24/09 |
-| F | Codes promo par soirée (`promo_codes`, validation serveur dans les checkouts, `fees.ts`) | À faire |
+| F | Codes promo par soirée (`promo_codes`, `claim_promo_code` sous verrou + usage retenu 30 min, checkouts billets et tables, champ client, page `PromoCodes` club + orga, stats par code) ; ligne Stripe des billets remisée corrigée | Livré 24/09 |
 | G | Accusés de réception push (Notification Service Extension), goûts du réseau, « Ma page », outils de lecture de l'Assistant Console | Plus tard |
 
 ## Ce qu'on NE copie pas

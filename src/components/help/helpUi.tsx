@@ -6,7 +6,7 @@ import {
   TrendingUp, UserCog, Lock, DoorOpen, Shirt, RefreshCw, Megaphone, Headphones, Plug, Search,
   Hash, ShieldCheck, ListOrdered, Undo2, AlertTriangle, QrCode, Zap, Wallet, Package, Globe,
   Bell, Receipt, Settings2, Sparkles, MessageCircle, Calendar, Crown, Gift, Handshake, Heart,
-  LayoutGrid, Mail, Martini, MessageSquare, Music2, Radio, ShoppingCart, Store, UserCheck, Wand,
+  LayoutGrid, Mail, Martini, MessageSquare, Music2, Radio, ShoppingCart, Store, UserCheck, Wand, Tag,
   ChevronRight, type LucideIcon,
 } from 'lucide-react';
 import type { OwnerHelpArticle } from '@/data/ownerHelpContent';
@@ -78,7 +78,7 @@ export const HELP_ICONS: Record<string, LucideIcon> = {
   TrendingUp, UserCog, Lock, DoorOpen, Shirt, RefreshCw, Megaphone, Headphones, Plug, Search,
   Hash, ShieldCheck, ListOrdered, Undo2, AlertTriangle, QrCode, Zap, Wallet, Package, Globe,
   Bell, Receipt, Settings2, Sparkles, MessageCircle, Calendar, Crown, Gift, Handshake, Heart,
-  LayoutGrid, Mail, Martini, MessageSquare, Music2, Radio, ShoppingCart, Store, UserCheck, Wand,
+  LayoutGrid, Mail, Martini, MessageSquare, Music2, Radio, ShoppingCart, Store, UserCheck, Wand, Tag,
 };
 
 export function HelpIcon({ name, className, style }: { name: string; className?: string; style?: CSSProperties }) {

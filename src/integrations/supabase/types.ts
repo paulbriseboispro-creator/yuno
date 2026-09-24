@@ -11850,6 +11850,66 @@ export type Database = {
           },
         ]
       }
+      promo_codes: {
+        Row: {
+          applies_to: string[]
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_type: string
+          discount_value: number
+          ends_at: string | null
+          event_id: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          max_uses: number | null
+          organizer_user_id: string | null
+          starts_at: string | null
+          ticket_round_ids: string[] | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          applies_to?: string[]
+          code: string
+          created_at?: string
+          created_by?: string | null
+          discount_type: string
+          discount_value: number
+          ends_at?: string | null
+          event_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          max_uses?: number | null
+          organizer_user_id?: string | null
+          starts_at?: string | null
+          ticket_round_ids?: string[] | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          applies_to?: string[]
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string | null
+          event_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          max_uses?: number | null
+          organizer_user_id?: string | null
+          starts_at?: string | null
+          ticket_round_ids?: string[] | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: []
+      }
       promoter_clicks: {
         Row: {
           clicked_at: string
@@ -14064,6 +14124,8 @@ export type Database = {
           placement_reviewed_at: string | null
           placement_reviewed_by: string | null
           placement_status: string | null
+          promo_code_id: string | null
+          promo_discount: number | null
           purchase_source: string | null
           qr_code: string | null
           reference_code: string | null
@@ -14123,6 +14185,8 @@ export type Database = {
           placement_reviewed_at?: string | null
           placement_reviewed_by?: string | null
           placement_status?: string | null
+          promo_code_id?: string | null
+          promo_discount?: number | null
           purchase_source?: string | null
           qr_code?: string | null
           reference_code?: string | null
@@ -14182,6 +14246,8 @@ export type Database = {
           placement_reviewed_at?: string | null
           placement_reviewed_by?: string | null
           placement_status?: string | null
+          promo_code_id?: string | null
+          promo_discount?: number | null
           purchase_source?: string | null
           qr_code?: string | null
           reference_code?: string | null
@@ -14960,6 +15026,8 @@ export type Database = {
           newsletter_opt_in: boolean | null
           paid_at: string | null
           phone: string | null
+          promo_code_id: string | null
+          promo_discount: number | null
           purchase_source: string | null
           qr_code: string | null
           quantity: number
@@ -15014,6 +15082,8 @@ export type Database = {
           newsletter_opt_in?: boolean | null
           paid_at?: string | null
           phone?: string | null
+          promo_code_id?: string | null
+          promo_discount?: number | null
           purchase_source?: string | null
           qr_code?: string | null
           quantity?: number
@@ -15068,6 +15138,8 @@ export type Database = {
           newsletter_opt_in?: boolean | null
           paid_at?: string | null
           phone?: string | null
+          promo_code_id?: string | null
+          promo_discount?: number | null
           purchase_source?: string | null
           qr_code?: string | null
           quantity?: number
@@ -18559,6 +18631,15 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      check_promo_code: {
+        Args: {
+          p_code: string
+          p_event_id: string
+          p_pillar: string
+          p_ticket_round_id?: string
+        }
+        Returns: Json
+      }
       claim_campaign_recipients: {
         Args: { p_campaign_id: string; p_limit?: number }
         Returns: {
@@ -20283,6 +20364,10 @@ export type Database = {
       }
       get_page_traffic: {
         Args: { p_days?: number; p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_promo_codes: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
       }
       get_public_meta_pixels: {
