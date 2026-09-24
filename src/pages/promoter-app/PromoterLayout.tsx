@@ -14,7 +14,7 @@ function ProfileErrorScreen({ kind }: { kind: 'no_profile' | 'inactive' }) {
   const { t } = useLanguage();
   const goBack = useProBack();
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#000' }}>
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--sf-000000)' }}>
       <div className="text-center max-w-md space-y-4">
         <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto"
           style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.22)' }}>
@@ -46,7 +46,7 @@ function PromoterLayoutInner() {
   return (
     <SidebarProvider>
       <PromoterAppSidebar />
-      <SidebarInset className="overflow-y-auto" style={{ background: '#000' }}>
+      <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
         <RoleIntroGate role="promoter" />
         <Outlet />
       </SidebarInset>

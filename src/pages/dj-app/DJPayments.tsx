@@ -128,7 +128,7 @@ export default function DJPayments() {
                         onClick={() => handleRemind(set.id)}
                         disabled={remindingId === set.id}
                         className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06] disabled:opacity-50"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}
+                        style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}
                       >
                         <Bell className="h-3.5 w-3.5" />
                         {remindingId === set.id ? '…' : t('dj.pay.remind')}

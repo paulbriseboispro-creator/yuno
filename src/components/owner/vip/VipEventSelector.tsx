@@ -44,18 +44,18 @@ export function VipEventSelector({ events, selectedEventId, onSelect }: Props) {
     <div className="flex items-center gap-2.5">
       <Calendar className="h-4 w-4 shrink-0" style={{ color: T3 }} />
       <VipSelect value={selectedEventId} onChange={onSelect} className="w-full max-w-sm">
-        <option value="all" style={{ background: '#0a0a0c' }}>{t('vipOwner.allEvents')}</option>
+        <option value="all" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipOwner.allEvents')}</option>
         {upcoming.length > 0 && (
-          <optgroup label={t('vipOwner.upcomingGroup')} style={{ background: '#0a0a0c' }}>
+          <optgroup label={t('vipOwner.upcomingGroup')} style={{ background: 'var(--sf-0a0a0c)' }}>
             {upcoming.map(e => (
-              <option key={e.id} value={e.id} style={{ background: '#0a0a0c' }}>{optionLabel(e)}</option>
+              <option key={e.id} value={e.id} style={{ background: 'var(--sf-0a0a0c)' }}>{optionLabel(e)}</option>
             ))}
           </optgroup>
         )}
         {pastVisible && past.length > 0 && (
-          <optgroup label={t('vipOwner.pastGroup')} style={{ background: '#0a0a0c' }}>
+          <optgroup label={t('vipOwner.pastGroup')} style={{ background: 'var(--sf-0a0a0c)' }}>
             {past.map(e => (
-              <option key={e.id} value={e.id} style={{ background: '#0a0a0c' }}>{optionLabel(e)}</option>
+              <option key={e.id} value={e.id} style={{ background: 'var(--sf-0a0a0c)' }}>{optionLabel(e)}</option>
             ))}
           </optgroup>
         )}

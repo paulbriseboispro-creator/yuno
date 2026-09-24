@@ -221,11 +221,11 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
 
 // ─── UI : barre persistante + dialogue de confirmation ────────────────────────
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const BORDER = 'rgba(255,255,255,0.10)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const BORDER = 'rgb(var(--ink)/0.10)';
 const RED = '#E8192C';
-const PANEL = 'linear-gradient(180deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,.01) 100%),#0b0b0d';
+const PANEL = 'linear-gradient(180deg,rgb(var(--sheen)/.05) 0%,rgb(var(--sheen)/.01) 100%),var(--sf-0b0b0d)';
 
 function UnsavedChangesUI({
   dirtyEntries, promptOpen, busy, onStay, onLeaveAnyway, onSaveThenLeave,
@@ -271,7 +271,7 @@ function UnsavedChangesUI({
           style={{
             position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100001,
             padding: '10px max(12px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right))',
-            background: 'linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.75) 45%,rgba(0,0,0,.92) 100%)',
+            background: 'linear-gradient(180deg,rgb(var(--glass-0-0-0)/0) 0%,rgb(var(--glass-0-0-0)/.75) 45%,rgb(var(--glass-0-0-0)/.92) 100%)',
             pointerEvents: 'none',
           }}
         >
@@ -378,7 +378,7 @@ function UnsavedChangesUI({
                 onClick={onStay}
                 style={{
                   height: 42, borderRadius: 11, fontSize: 13.5, fontWeight: 600, color: T1,
-                  background: 'rgba(255,255,255,.06)', border: `1px solid ${BORDER}`, cursor: 'pointer',
+                  background: 'rgb(var(--ink)/.06)', border: `1px solid ${BORDER}`, cursor: 'pointer',
                 }}
               >
                 {t('unsaved.stay')}
@@ -394,7 +394,7 @@ function UnsavedChangesUI({
                 {t('unsaved.leaveAnyway')}
               </button>
             </div>
-            <p style={{ color: 'rgba(255,255,255,0.30)', fontSize: 11, lineHeight: 1.5, margin: '12px 0 0', textAlign: 'center' }}>
+            <p style={{ color: 'rgb(var(--ink)/var(--ink-a30,0.30))', fontSize: 11, lineHeight: 1.5, margin: '12px 0 0', textAlign: 'center' }}>
               {t('unsaved.draftNote')}
             </p>
           </div>

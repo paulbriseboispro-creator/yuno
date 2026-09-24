@@ -486,7 +486,7 @@ export function GroupedDrinksView({
                     }
                     if (order.prep_status === 'preparing') {
                       return (
-                        <Badge className="flex-1 justify-center py-1.5 text-[10px] bg-blue-500 text-white">{getPrepStatusLabel('preparing')}</Badge>
+                        <Badge className="flex-1 justify-center py-1.5 text-[10px] bg-blue-500 text-snow">{getPrepStatusLabel('preparing')}</Badge>
                       );
                     }
                     return null;

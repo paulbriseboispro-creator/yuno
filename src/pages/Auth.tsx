@@ -650,7 +650,7 @@ export default function Auth() {
                     borderColor: acceptedTerms ? '#E8192C' : 'rgba(255,255,255,0.25)',
                   }}
                 >
-                  {acceptedTerms && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                  {acceptedTerms && <Check className="h-3 w-3 text-snow" strokeWidth={3} />}
                 </span>
                 <span className="text-xs leading-snug" style={{ color: '#9A9A9A' }}>
                   {t('legal.signupPre')}{' '}

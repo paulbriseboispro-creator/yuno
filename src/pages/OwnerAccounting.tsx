@@ -424,10 +424,10 @@ export default function OwnerAccounting() {
   const periodVatControls = (
     <div className="flex items-center gap-2">
       <select value={period} onChange={e => setPeriod(e.target.value)} style={selectStyle}>
-        {periodOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c' }}>{o.label}</option>)}
+        {periodOptions.map(o => <option key={o.value} value={o.value} style={{ background: 'var(--sf-0a0a0c)' }}>{o.label}</option>)}
       </select>
       <select value={vatRate} onChange={e => setVatRate(Number(e.target.value))} style={selectStyle}>
-        {[20, 10, 5.5, 0].map(rt => <option key={rt} value={rt} style={{ background: '#0a0a0c' }}>{t('acct.vat')} {rt}%</option>)}
+        {[20, 10, 5.5, 0].map(rt => <option key={rt} value={rt} style={{ background: 'var(--sf-0a0a0c)' }}>{t('acct.vat')} {rt}%</option>)}
       </select>
     </div>
   );

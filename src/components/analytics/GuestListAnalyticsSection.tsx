@@ -9,17 +9,17 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Design tokens (Yuno pro DA — single red accent, mono ramp) ────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const NEG = '#FF5C63';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const FAINT = 'rgba(255,255,255,0.06)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const TILE_BG = 'rgba(255,255,255,0.025)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const NEG = 'var(--acc-ff5c63)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const FAINT = 'rgb(var(--ink)/0.06)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const TILE_BG = 'rgb(var(--ink)/0.025)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const crd: React.CSSProperties = {
   background: CARD_BG,
@@ -237,9 +237,9 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
               : <>{' · '}<span style={{ color: T3 }}>{h.upcoming} {tt('à venir', 'upcoming', 'por venir')}</span></>}
             {' · '}{fmtPrice(h.avg_per_arrived ?? 0)}/{tt('invité', 'guest', 'invitado')}
           </div>
-          <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
             <div className="h-full rounded transition-all"
-              style={{ width: `${pct}%`, background: rank === 1 ? `linear-gradient(90deg,${RED}88,${RED})` : 'rgba(255,255,255,0.42)' }} />
+              style={{ width: `${pct}%`, background: rank === 1 ? `linear-gradient(90deg,${RED}88,${RED})` : 'rgb(var(--ink)/var(--ink-a42,0.42))' }} />
           </div>
         </div>
         <div className="text-right flex-none">
@@ -292,7 +292,7 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
                       <div className="w-full rounded-t"
                         style={{
                           height: `${hourMax ? Math.max(3, Math.round((x.arrivals / hourMax) * 100)) : 0}%`,
-                          background: x.arrivals === hourMax ? RED : 'rgba(255,255,255,0.28)',
+                          background: x.arrivals === hourMax ? RED : 'rgb(var(--ink)/var(--ink-a28,0.28))',
                           minHeight: 3,
                         }} />
                       <span className="text-[9px] tabular-nums" style={{ color: T3 }}>{x.hour}</span>
@@ -313,7 +313,7 @@ function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holder
                       label={entryLabel(e.entry_type)}
                       pct={typeMax ? Math.round((e.signups / typeMax) * 100) : 0}
                       right={`${e.signups} · ${fmtPrice(e.revenue)}`}
-                      color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                      color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
                   ))}
                 </div>
               </div>
@@ -527,7 +527,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                   'Counted once their night closes — neither showed nor no-show for now',
                   'Se cuentan al cerrar su noche — ni asistieron ni no-show por ahora',
                 )}
-                color="rgba(255,255,255,0.16)" />
+                color="rgb(var(--ink)/0.16)" />
             )}
             <BarRow label={tt('Entrés (scannés à la porte)', 'Entered (scanned at door)', 'Entraron (escaneados en puerta)')}
               pct={funnelPct(totals.arrived)}
@@ -539,7 +539,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                     `${totals.show_rate}% de los ${started} inscritos cuya puerta ya abrió`,
                   )
                 : undefined}
-              color="rgba(255,255,255,0.42)" />
+              color="rgb(var(--ink)/var(--ink-a42,0.42))" />
             <BarRow label={tt('Ont consommé', 'Spent money', 'Consumieron')}
               pct={funnelPct(spend.guests_with_spend)}
               right={`${spend.guests_with_spend.toLocaleString()} · ${spend.conversion_rate}%`}
@@ -548,7 +548,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                 `${spend.conversion_rate}% of guests who entered ordered at the bar or booked a table`,
                 `${spend.conversion_rate}% de los invitados que entraron pidieron en barra o reservaron mesa`,
               )}
-              color="rgba(255,255,255,0.24)" />
+              color="rgb(var(--ink)/var(--ink-a24,0.24))" />
           </div>
           <div className="grid grid-cols-2 gap-3 mt-5 pt-4 text-[13px]" style={{ borderTop: `1px solid ${BORDER}` }}>
             <div>
@@ -633,7 +633,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                 <div className="w-full rounded-t transition-all"
                   style={{
                     height: `${hourMax ? Math.max(2, Math.round((h.arrivals / hourMax) * 100)) : 0}%`,
-                    background: h.arrivals === hourMax ? RED : 'rgba(255,255,255,0.28)',
+                    background: h.arrivals === hourMax ? RED : 'rgb(var(--ink)/var(--ink-a28,0.28))',
                     minHeight: 2,
                   }} />
                 <span className="text-[10px] tabular-nums" style={{ color: T3 }}>{h.hour}h</span>
@@ -693,7 +693,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                     pct={leadMax ? Math.round((l.signups / leadMax) * 100) : 0}
                     right={l.signups.toLocaleString()}
                     sub={`${l.arrived} ${tt('venus', 'showed', 'asistieron')} · ${showRate}% ${tt('de présence', 'show rate', 'de asistencia')}`}
-                    color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                    color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
                 );
               })}
             </div>
@@ -716,7 +716,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                   sub={`${e.no_show_rate !== null
                     ? `${tt('no-show', 'no-show', 'no-show')} ${e.no_show_rate}%`
                     : `${e.upcoming} ${tt('à venir', 'upcoming', 'por venir')}`} · ${fmtPrice(e.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
-                  color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                  color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
               ))}
             </div>
           </div>
@@ -738,7 +738,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                   sub={`${g.no_show_rate !== null
                     ? `${tt('no-show', 'no-show', 'no-show')} ${g.no_show_rate}%`
                     : `${g.upcoming} ${tt('à venir', 'upcoming', 'por venir')}`} · ${fmtPrice(g.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
-                  color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                  color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
               ))}
             </div>
           </div>
@@ -769,7 +769,7 @@ export function GuestListAnalyticsSection({ venueId, organizerUserId, eventId, f
                           ? tt('soirée en cours', 'night in progress', 'noche en curso')
                           : tt('soirée à venir', 'upcoming night', 'noche por venir')}</>}
                   </div>
-                  <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                     <div className="h-full rounded transition-all"
                       style={{ width: `${eventMax ? (e.revenue / eventMax) * 100 : 0}%`, background: `linear-gradient(90deg,${RED}88,${RED})` }} />
                   </div>

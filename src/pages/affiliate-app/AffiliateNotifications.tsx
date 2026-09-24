@@ -247,7 +247,7 @@ export default function AffiliateNotifications() {
               <div className="divide-y" style={{ borderColor: BORDER }}>
                 {history.map(n => (
                   <div key={n.id} className="px-5 py-3 transition-colors"
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.02)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">

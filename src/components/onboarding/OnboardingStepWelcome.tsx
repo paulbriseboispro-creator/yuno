@@ -79,7 +79,7 @@ export function OnboardingStepWelcome({ venueId, initialPillars, onComplete }: P
                   style={
                     isOn
                       ? { background: 'rgba(232,25,44,0.14)', color: RED }
-                      : { background: 'rgba(255,255,255,0.05)', color: T2 }
+                      : { background: 'rgb(var(--ink)/0.05)', color: T2 }
                   }
                 >
                   <Icon className="w-5 h-5" />

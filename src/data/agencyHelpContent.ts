@@ -59,6 +59,19 @@ export const agencyHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.agc.assistant.s3h', bodyKey: 'ohelp.agc.assistant.s3b', type: 'warning' },
         ],
       },
+      {
+        id: 'appearance',
+        titleKey: 'ohelp.appearance.title',
+        descKey: 'ohelp.appearance.desc',
+        icon: 'Sun',
+        keywords: ['mode sombre', 'mode clair', 'dark mode', 'light mode', 'thème', 'theme', 'apparence', 'appearance', 'clair', 'sombre', 'light', 'dark', 'système', 'system', 'modo oscuro', 'modo claro', 'apariencia', 'couleurs', 'colors', 'blanc', 'noir'],
+        sections: [
+          { headingKey: 'ohelp.appearance.s1h', bodyKey: 'ohelp.appearance.s1b' },
+          { headingKey: 'ohelp.appearance.s2h', bodyKey: 'ohelp.appearance.s2b', type: 'steps' },
+          { headingKey: 'ohelp.appearance.s3h', bodyKey: 'ohelp.appearance.s3b' },
+          { headingKey: 'ohelp.appearance.s4h', bodyKey: 'ohelp.appearance.s4b', type: 'tip' },
+        ],
+      },
     ],
   },
 

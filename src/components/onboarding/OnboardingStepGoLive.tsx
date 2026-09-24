@@ -97,7 +97,7 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
                 className="flex items-center gap-3 rounded-xl"
                 style={{
                   padding: '11px 14px',
-                  background: done ? 'rgba(52,211,153,0.07)' : 'rgba(255,255,255,0.025)',
+                  background: done ? 'rgba(52,211,153,0.07)' : 'rgb(var(--ink)/0.025)',
                   border: done ? '1px solid rgba(52,211,153,0.2)' : `1px solid ${BORDER}`,
                 }}
               >
@@ -123,7 +123,7 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
           {OPTIONAL_STEPS.map(k => {
             const done = stepStatuses[k]?.status === 'completed';
             return (
-              <div key={k} className="flex items-center gap-3 rounded-xl" style={{ padding: '11px 14px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}` }}>
+              <div key={k} className="flex items-center gap-3 rounded-xl" style={{ padding: '11px 14px', background: 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}` }}>
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-none" style={done ? { background: POS, color: '#04130d' } : { border: `1.5px solid ${BORDER}` }}>
                   {done && <Check className="w-3 h-3" />}
                 </div>
@@ -141,7 +141,7 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
           <ol className="space-y-2">
             {['onboarding.orderFlow1', 'onboarding.orderFlow2', 'onboarding.orderFlow3', 'onboarding.orderFlow4'].map((key, i) => (
               <li key={key} className="flex items-center gap-2.5">
-                <span className="w-5 h-5 rounded-full flex items-center justify-center flex-none tabular-nums" style={{ background: 'rgba(255,255,255,0.05)', color: T2, fontSize: 11, fontWeight: 600 }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center flex-none tabular-nums" style={{ background: 'rgb(var(--ink)/0.05)', color: T2, fontSize: 11, fontWeight: 600 }}>
                   {i + 1}
                 </span>
                 <span style={{ color: T2, fontSize: 12.5 }}>{t(key)}</span>
@@ -158,7 +158,7 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
       </GhostButton>
 
       {!coreReady && (
-        <p style={{ color: '#FCD34D', fontSize: 12.5, lineHeight: 1.45 }}>{t('onboarding.goLiveWarning')}</p>
+        <p style={{ color: 'var(--acc-fcd34d)', fontSize: 12.5, lineHeight: 1.45 }}>{t('onboarding.goLiveWarning')}</p>
       )}
 
       <PrimaryButton fullWidth icon={Rocket} onClick={handlePublish} disabled={!coreReady} loading={publishing}>

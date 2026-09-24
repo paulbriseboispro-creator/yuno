@@ -66,7 +66,7 @@ export default function OrgQRScanner({ onScan }: Props) {
     <div className="space-y-3">
       <div
         className="relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-2xl"
-        style={{ background: '#000', border: `1px solid ${BORDER}` }}
+        style={{ background: 'var(--sf-000000)', border: `1px solid ${BORDER}` }}
       >
         {active ? (
           <Scanner

@@ -18,20 +18,20 @@ type ExportPeriod = 'week' | 'month' | 'quarter' | 'semester' | 'year';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED       = '#E8192C';
-const T1        = 'rgba(255,255,255,0.96)';
-const T2        = 'rgba(255,255,255,0.58)';
-const T3        = 'rgba(255,255,255,0.36)';
-const BORDER    = 'rgba(255,255,255,0.085)';
-const F_BORDER  = 'rgba(255,255,255,0.055)';
-const C_FAINT   = 'rgba(255,255,255,0.06)';
-const INNER_BG  = 'rgba(255,255,255,0.032)';
-const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1        = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2        = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3        = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER    = 'rgb(var(--ink)/0.085)';
+const F_BORDER  = 'rgb(var(--ink)/0.055)';
+const C_FAINT   = 'rgb(var(--ink)/0.06)';
+const INNER_BG  = 'rgb(var(--ink)/0.032)';
+const CARD_BG   = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const TYPE_CFG: Record<InvoiceType, { label_key: string; color: string; bg: string; border: string; Icon: React.FC<any> }> = {
   ticket: { label_key: 'invoices.ticket',   color: RED,       bg: 'rgba(232,25,44,0.10)',    border: 'rgba(232,25,44,0.30)',   Icon: Ticket   },
-  table:  { label_key: 'invoices.vipTable', color: '#FCD34D', bg: 'rgba(251,191,36,0.10)',  border: 'rgba(251,191,36,0.25)',  Icon: Sparkles },
-  order:  { label_key: 'invoices.order',    color: '#818CF8', bg: 'rgba(129,140,248,0.10)', border: 'rgba(129,140,248,0.25)', Icon: Wine     },
+  table:  { label_key: 'invoices.vipTable', color: 'var(--acc-fcd34d)', bg: 'rgba(251,191,36,0.10)',  border: 'rgba(251,191,36,0.25)',  Icon: Sparkles },
+  order:  { label_key: 'invoices.order',    color: 'var(--acc-818cf8)', bg: 'rgba(129,140,248,0.10)', border: 'rgba(129,140,248,0.25)', Icon: Wine     },
 };
 
 function Chip({ label, color, bg, border, icon }: { label: string; color: string; bg: string; border: string; icon?: React.ReactNode }) {
@@ -63,7 +63,7 @@ function ExportDropdown({ label, icon, periods, onSelect, loading, disabled }: {
         onClick={() => !disabled && setOpen(!open)}
         className="flex items-center gap-2 transition-all duration-150"
         style={{
-          background: INNER_BG, border: `1px solid ${open ? 'rgba(255,255,255,0.15)' : BORDER}`,
+          background: INNER_BG, border: `1px solid ${open ? 'rgb(var(--ink)/0.15)' : BORDER}`,
           borderRadius: 10, padding: '8px 12px', color: disabled ? T3 : T1,
           fontSize: 13, fontWeight: 500, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
         }}
@@ -78,7 +78,7 @@ function ExportDropdown({ label, icon, periods, onSelect, loading, disabled }: {
             initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
             style={{
               position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-              background: '#0a0a0c', border: `1px solid ${BORDER}`,
+              background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`,
               borderRadius: 12, overflow: 'hidden', zIndex: 50,
               boxShadow: '0 20px 40px -12px rgba(0,0,0,0.9)', minWidth: 160,
             }}
@@ -487,7 +487,7 @@ export default function OwnerInvoices() {
   ];
 
   return (
-    <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: '#000' }}>
+    <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && <OwnerHeader title={t('invoices.title')} showBackButton />}
 
       <div className="mx-auto max-w-7xl p-4">
@@ -532,7 +532,7 @@ export default function OwnerInvoices() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full outline-none"
               style={{
-                background: INNER_BG, border: `1px solid ${searchQuery ? 'rgba(255,255,255,0.15)' : BORDER}`,
+                background: INNER_BG, border: `1px solid ${searchQuery ? 'rgb(var(--ink)/0.15)' : BORDER}`,
                 borderRadius: 10, padding: '9px 36px 9px 36px', color: T1, fontSize: 13.5, fontFamily: 'inherit',
               }}
             />
@@ -547,8 +547,8 @@ export default function OwnerInvoices() {
             {typeFilters.map(f => (
               <button key={f.value} onClick={() => setTypeFilter(f.value)}
                 style={{
-                  background: typeFilter === f.value ? 'rgba(255,255,255,0.06)' : 'transparent',
-                  border: `1px solid ${typeFilter === f.value ? 'rgba(255,255,255,0.16)' : BORDER}`,
+                  background: typeFilter === f.value ? 'rgb(var(--ink)/0.06)' : 'transparent',
+                  border: `1px solid ${typeFilter === f.value ? 'rgb(var(--ink)/0.16)' : BORDER}`,
                   color: typeFilter === f.value ? T1 : T3,
                   borderRadius: 8, padding: '7px 12px', fontSize: 12.5, fontWeight: 500,
                   cursor: 'pointer', transition: 'all 0.15s',

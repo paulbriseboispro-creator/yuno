@@ -58,6 +58,7 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { NativeBridge } from "@/components/NativeBridge";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { NativeStatusBarScrim } from "@/components/NativeStatusBarScrim";
+import { ProThemeController } from "@/components/ProThemeController";
 import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
@@ -564,6 +565,7 @@ const App = () => (
             <OfflineBanner />
             <NativeBridge />
             <NativeStatusBarScrim />
+            <ProThemeController />
             <PushClickTracker />
             {/* Natif : le token APNs suit le compte connecté (montage, connexion,
                 retour au premier plan, rotation) — voir src/lib/pushToken.ts. */}

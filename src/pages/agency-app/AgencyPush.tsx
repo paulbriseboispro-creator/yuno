@@ -10,17 +10,17 @@ import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens (pro dashboard) — alignés sur OwnerPush ───────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const TILE_BG = 'rgba(255,255,255,0.025)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const TILE_BG = 'rgb(var(--ink)/0.025)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const inputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
@@ -336,19 +336,19 @@ export default function AgencyPush() {
             <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 16 }}>
               {t('Aperçu', 'Preview', 'Vista previa')}
             </h3>
-            <div className="rounded-2xl p-3.5" style={{ background: 'rgba(30,30,32,0.92)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(20px)' }}>
+            <div className="rounded-2xl p-3.5" style={{ background: 'rgb(var(--glass-30-30-32)/0.92)', border: '1px solid rgb(var(--ink)/0.10)', backdropFilter: 'blur(20px)' }}>
               <div className="flex items-start gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-[9px] flex-none" style={{ background: '#050505', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <div className="flex h-9 w-9 items-center justify-center rounded-[9px] flex-none" style={{ background: 'var(--sf-050505)', border: '1px solid rgb(var(--ink)/0.12)' }}>
                   <span style={{ color: RED, fontWeight: 800, fontSize: 13 }}>Y</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate" style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                    <p className="truncate" style={{ color: 'rgb(var(--ink))', fontSize: 13, fontWeight: 600 }}>
                       {title || t('Titre de ta notif', 'Your notification title', 'Título de tu notificación')}
                     </p>
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{t('main.', 'now', 'ahora')}</span>
+                    <span style={{ color: 'rgb(var(--ink)/var(--ink-a40,0.4))', fontSize: 11 }}>{t('main.', 'now', 'ahora')}</span>
                   </div>
-                  <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12.5, lineHeight: 1.45, marginTop: 2 }}>
+                  <p style={{ color: 'rgb(var(--ink)/var(--ink-a75,0.75))', fontSize: 12.5, lineHeight: 1.45, marginTop: 2 }}>
                     {body || t('Ton message apparaîtra ici.', 'Your message will appear here.', 'Tu mensaje aparecerá aquí.')}
                   </p>
                 </div>
@@ -369,7 +369,7 @@ export default function AgencyPush() {
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
           ) : campaigns.length === 0 ? (
             <div className="text-center py-10 px-4">
-              <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+              <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
               <p className="text-xs" style={{ color: T3 }}>{t('Aucune notification envoyée.', 'No notifications sent.', 'Sin notificaciones enviadas.')}</p>
             </div>
           ) : (

@@ -122,7 +122,7 @@ export default function AgencyEvents() {
               style={{
                 padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 background: daysAhead === o.days ? INNER_BG : 'transparent',
-                border: `1px solid ${daysAhead === o.days ? BORDER : 'rgba(255,255,255,0.08)'}`,
+                border: `1px solid ${daysAhead === o.days ? BORDER : 'rgb(var(--ink)/0.08)'}`,
                 color: daysAhead === o.days ? T1 : T3,
               }}
             >
@@ -187,7 +187,7 @@ export default function AgencyEvents() {
         >
           <div
             className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden"
-            style={{ background: '#111', border: `1px solid rgba(255,255,255,0.08)`, maxHeight: '80vh', overflowY: 'auto' }}
+            style={{ background: 'var(--sf-111111)', border: `1px solid rgb(var(--ink)/0.08)`, maxHeight: '80vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between" style={{ padding: '16px 16px 8px' }}>
@@ -221,7 +221,7 @@ export default function AgencyEvents() {
                   const isAssigned = !!it?.assigned;
                   const isTuning = tuning === p.id;
                   return (
-                    <div key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={p.id} style={{ borderBottom: '1px solid rgb(var(--ink)/0.04)' }}>
                       <div className="flex items-center gap-3" style={{ padding: '10px 16px' }}>
                         <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={34} />
                         <div className="min-w-0 flex-1">

@@ -204,7 +204,7 @@ export default function DJNotifications() {
         right={unreadCount > 0 ? (
           <button onClick={markAllRead}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors hover:bg-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
+            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
             <CheckCheck className="h-3.5 w-3.5" />
             {tt('Tout marquer lu', 'Mark all read', 'Marcar todo')}
           </button>
@@ -213,18 +213,18 @@ export default function DJNotifications() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1.5 p-1 rounded-xl w-full sm:w-auto"
-        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+        style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
         {TABS.map(t => {
           const active = tab === t.key;
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors"
               style={active
-                ? { background: 'rgba(255,255,255,0.09)', color: T1 }
+                ? { background: 'rgb(var(--ink)/0.09)', color: T1 }
                 : { color: T3 }}>
               {t.label}
               {!!t.badge && t.badge > 0 && (
-                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-snow"
                   style={{ background: t.key === 'action' ? WARN : RED, color: t.key === 'action' ? '#000' : '#fff' }}>
                   {t.badge > 99 ? '99+' : t.badge}
                 </span>
@@ -261,8 +261,8 @@ export default function DJNotifications() {
                   transition={{ duration: 0.16 }}
                   className="group relative flex gap-3 rounded-xl p-3.5"
                   style={{
-                    background: isUnread ? 'rgba(255,255,255,0.04)' : 'transparent',
-                    border: `1px solid ${isUnread ? BORDER : 'rgba(255,255,255,0.04)'}`,
+                    background: isUnread ? 'rgb(var(--ink)/0.04)' : 'transparent',
+                    border: `1px solid ${isUnread ? BORDER : 'rgb(var(--ink)/0.04)'}`,
                   }}>
                   <div className="flex h-9 w-9 flex-none items-center justify-center rounded-lg mt-0.5"
                     style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: isUnread ? meta.color : T3 }}>
@@ -283,7 +283,7 @@ export default function DJNotifications() {
                       {n.kind === 'unpaid' && n.setId && n.venueId && (
                         <button onClick={() => handleRemind(n.setId!)} disabled={remindingId === n.setId}
                           className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06] disabled:opacity-50"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
+                          style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                           <Bell className="h-3.5 w-3.5" />
                           {remindingId === n.setId ? '…' : tt('Relancer le club', 'Remind club', 'Avisar al club')}
                         </button>
@@ -305,7 +305,7 @@ export default function DJNotifications() {
                       {n.kind === 'upcoming' && (
                         <Link to="/dj/planning"
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
+                          style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                           {tt('Voir le planning', 'View schedule', 'Ver agenda')} <ChevronRight className="h-3.5 w-3.5" />
                         </Link>
                       )}

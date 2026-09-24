@@ -17,15 +17,15 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } f
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED       = '#E8192C';
-const POS       = '#34D399';
-const T1        = 'rgba(255,255,255,0.96)';
-const T2        = 'rgba(255,255,255,0.58)';
-const T3        = 'rgba(255,255,255,0.36)';
-const C_FAINT   = 'rgba(255,255,255,0.06)';
-const BORDER    = 'rgba(255,255,255,0.085)';
-const INNER_BG  = 'rgba(255,255,255,0.032)';
-const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS       = 'var(--acc-34d399)';
+const T1        = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2        = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3        = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT   = 'rgb(var(--ink)/0.06)';
+const BORDER    = 'rgb(var(--ink)/0.085)';
+const INNER_BG  = 'rgb(var(--ink)/0.032)';
+const CARD_BG   = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface NextEvent {
   id: string;
@@ -226,6 +226,8 @@ export default function OrgAppDashboard() {
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="relative -mx-4 overflow-hidden"
         style={{ height: 240, borderRadius: '0 0 22px 22px' }}
+        // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
+        data-theme-island="dark"
       >
         {orgCover ? (
           <img
@@ -241,7 +243,7 @@ export default function OrgAppDashboard() {
               style={{
                 background: `radial-gradient(ellipse 90% 70% at 80% -10%, rgba(232,25,44,0.24) 0%, transparent 58%),
                              radial-gradient(ellipse 70% 55% at 5% 110%, rgba(232,25,44,0.14) 0%, transparent 52%),
-                             linear-gradient(155deg, #130508 0%, #0a0a0c 50%, #0c0a12 100%)`,
+                             linear-gradient(155deg, #130508 0%, var(--sf-0a0a0c) 50%, #0c0a12 100%)`,
               }}
             />
             <div className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full" style={{ background: 'rgba(232,25,44,0.16)', filter: 'blur(80px)' }} />
@@ -267,7 +269,7 @@ export default function OrgAppDashboard() {
                   src={orgLogo}
                   alt=""
                   className="h-[58px] w-[58px] flex-shrink-0 rounded-2xl object-cover"
-                  style={{ border: '1.5px solid rgba(255,255,255,0.18)', boxShadow: '0 0 0 1px rgba(0,0,0,0.55), 0 10px 32px -6px rgba(0,0,0,0.95)' }}
+                  style={{ border: '1.5px solid rgb(var(--ink)/0.18)', boxShadow: '0 0 0 1px rgba(0,0,0,0.55), 0 10px 32px -6px rgba(0,0,0,0.95)' }}
                 />
               ) : (
                 <div
@@ -295,7 +297,7 @@ export default function OrgAppDashboard() {
                 <div
                   className="flex-shrink-0 rounded-2xl px-3.5 py-3"
                   style={{
-                    background: isToday ? 'rgba(232,25,44,0.13)' : 'rgba(255,255,255,0.04)',
+                    background: isToday ? 'rgba(232,25,44,0.13)' : 'rgb(var(--ink)/0.04)',
                     border: isToday ? '1px solid rgba(232,25,44,0.3)' : `1px solid ${BORDER}`,
                     backdropFilter: 'blur(20px)',
                     minWidth: 110,
@@ -393,7 +395,7 @@ export default function OrgAppDashboard() {
                   key={p}
                   onClick={() => setPeriod(p)}
                   className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all duration-150"
-                  style={period === p ? { background: 'rgba(255,255,255,0.1)', color: T1 } : { background: 'transparent', color: T3 }}
+                  style={period === p ? { background: 'rgb(var(--ink)/0.1)', color: T1 } : { background: 'transparent', color: T3 }}
                 >
                   {p}{tt('j', 'd')}
                 </button>
@@ -409,10 +411,10 @@ export default function OrgAppDashboard() {
                     <stop offset="100%" stopColor={RED} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--ink)/0.05)" vertical={false} />
                 <XAxis dataKey="date" hide />
                 <Tooltip
-                  contentStyle={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 12, color: T1 }}
+                  contentStyle={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 12, color: T1 }}
                   labelStyle={{ color: T3 }}
                   formatter={(v: any) => [`${Number(v).toFixed(2)} €`, tt('Revenu', 'Revenue')]}
                 />
@@ -436,7 +438,7 @@ export default function OrgAppDashboard() {
                   </div>
                 )}
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 60%)' }} />
-                <span className="absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(0,0,0,0.6)', color: T1, backdropFilter: 'blur(8px)' }}>
+                <span className="absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)' }}>
                   {tt('Prochaine soirée', 'Next event')}
                 </span>
               </div>
@@ -464,7 +466,7 @@ export default function OrgAppDashboard() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Link to={`/organizer-app/events/${nextEvent.id}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: '#FF5C63' }}>
+                  <Link to={`/organizer-app/events/${nextEvent.id}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: 'var(--acc-ff5c63)' }}>
                     {tt('Gérer', 'Manage')}
                   </Link>
                   <Link to="/organizer-app/checkin" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
@@ -480,7 +482,7 @@ export default function OrgAppDashboard() {
         ) : (
           !loading && (
             <div className="px-4 py-12 text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
-              <CalendarDays className="mx-auto mb-3 h-10 w-10" style={{ color: 'rgba(255,255,255,0.14)' }} />
+              <CalendarDays className="mx-auto mb-3 h-10 w-10" style={{ color: 'rgb(var(--ink)/0.14)' }} />
               <p style={{ color: T1, fontSize: 14, fontWeight: 560 }}>{tt('Aucune soirée à venir', 'No upcoming event')}</p>
               <p style={{ color: T3, fontSize: 12, marginTop: 4, marginBottom: 16 }}>{tt('Créez une soirée pour commencer.', 'Create an event to get started.')}</p>
               <Link to="/organizer-app/events?create=1" className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold" style={{ background: RED, color: '#fff', boxShadow: `0 0 20px -6px ${RED}88` }}>

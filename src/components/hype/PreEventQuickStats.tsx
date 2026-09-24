@@ -4,14 +4,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { PreEventQuickStatsData } from '@/hooks/useHypeScore';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const POS     = '#34D399';
-const NEG     = '#FF5C63';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const TILE_BG = 'rgba(255,255,255,0.025)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
+const POS     = 'var(--acc-34d399)';
+const NEG     = 'var(--acc-ff5c63)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const TILE_BG = 'rgb(var(--ink)/0.025)';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
 
 interface PreEventQuickStatsProps {
   stats: PreEventQuickStatsData;
@@ -83,7 +83,7 @@ export function PreEventQuickStats({ stats }: PreEventQuickStatsProps) {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.3 + index * 0.05 }}
               className="flex flex-col items-center"
-              style={{ padding: '8px 6px', borderRadius: 10, background: 'rgba(255,255,255,0.018)', border: 'rgba(255,255,255,0.04) 1px solid' }}
+              style={{ padding: '8px 6px', borderRadius: 10, background: 'rgb(var(--ink)/0.018)', border: 'rgb(var(--ink)/0.04) 1px solid' }}
             >
               <Icon className="h-3.5 w-3.5 mb-1" style={{ color: T3 }} />
               <span className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{stat.value}</span>

@@ -9,12 +9,12 @@ import { Shimmer, SkeletonLine } from './Shimmer';
    Mêmes conteneurs (max-w-lg / max-w-md). */
 export function TableCheckoutSkeleton() {
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#0A0A0A' }} aria-hidden>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-0a0a0a)' }} aria-hidden>
       {/* Header collant — `sticky top-0` comme la page réelle, pour hériter du
           padding d'encoche posé par la règle @supports d'index.css. */}
       <div
         className="sticky top-0 z-40 w-full"
-        style={{ background: 'rgba(10,10,10,0.90)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ background: 'rgb(var(--glass-10-10-10)/0.90)', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
       >
         <div className="mx-auto flex h-12 max-w-lg items-center px-4">
           <Shimmer width={84} height={32} className="-ml-2 rounded" />
@@ -33,7 +33,7 @@ export function TableCheckoutSkeleton() {
                 </div>
                 {i < 2 && (
                   <div className="flex-1 mx-2.5 mb-[1.1rem]">
-                    <div className="h-px w-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                    <div className="h-px w-full" style={{ background: 'rgb(var(--ink)/0.08)' }} />
                   </div>
                 )}
               </div>
@@ -50,7 +50,7 @@ export function TableCheckoutSkeleton() {
           </div>
 
           {/* Compteur de convives */}
-          <div className="rounded-[10px] border border-white/[0.08] bg-[#141414] p-6">
+          <div className="rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)] p-6">
             <SkeletonLine width={120} height={10} className="mx-auto mb-6" />
             <div className="flex items-center justify-center gap-8">
               <Shimmer width={56} height={56} className="rounded-full" />
@@ -77,7 +77,7 @@ export function TableCheckoutSkeleton() {
           </div>
 
           {/* Carte de prix */}
-          <div className="mt-5 border border-white/[0.08] bg-[#141414] p-4 space-y-2.5" style={{ borderRadius: 10 }}>
+          <div className="mt-5 border border-white/[0.08] bg-[var(--sf-141414)] p-4 space-y-2.5" style={{ borderRadius: 10 }}>
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex justify-between items-center gap-3 h-5">
                 <SkeletonLine width={i === 0 ? 96 : 120} height={12} />

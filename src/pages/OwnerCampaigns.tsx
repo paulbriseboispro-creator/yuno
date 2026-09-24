@@ -24,19 +24,19 @@ import ContactBasePanel from '@/components/contacts/ContactBasePanel';
 
 // ─── Yuno Design Tokens (prototype Email Studio) ─────────────────────────────
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const SUBTLE = 'rgba(255,255,255,0.025)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const RED_CARD_BG = 'radial-gradient(ellipse 70% 60% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c';
-const POS = '#34D399';
-const WARN = '#FCD34D';
-const NEG = '#FF5C63';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const SUBTLE = 'rgb(var(--ink)/0.025)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+const RED_CARD_BG = 'radial-gradient(ellipse 70% 60% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)';
+const POS = 'var(--acc-34d399)';
+const WARN = 'var(--acc-fcd34d)';
+const NEG = 'var(--acc-ff5c63)';
 
 type Campaign = {
   id: string; name: string; type: 'promotional' | 'informational';
@@ -45,13 +45,13 @@ type Campaign = {
 };
 
 const STATUS_PILL: Record<string, { labelKey: string; color: string; bg: string; border: string }> = {
-  draft:     { labelKey: 'em.status.draft',     color: T2, bg: 'rgba(255,255,255,0.05)', border: BORDER },
+  draft:     { labelKey: 'em.status.draft',     color: T2, bg: 'rgb(var(--ink)/0.05)', border: BORDER },
   scheduled: { labelKey: 'em.status.scheduled', color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
   sending:   { labelKey: 'em.status.sending',   color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
   paused:    { labelKey: 'em.status.paused',    color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
   sent:      { labelKey: 'em.status.sent',      color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' },
   failed:    { labelKey: 'em.status.failed',    color: NEG, bg: 'rgba(255,92,99,0.08)', border: 'rgba(255,92,99,0.20)' },
-  cancelled: { labelKey: 'em.status.cancelled', color: T3, bg: 'rgba(255,255,255,0.05)', border: BORDER },
+  cancelled: { labelKey: 'em.status.cancelled', color: T3, bg: 'rgb(var(--ink)/0.05)', border: BORDER },
 };
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
@@ -142,8 +142,8 @@ export default function OwnerCampaigns() {
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       <div className="max-w-[1340px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
@@ -273,7 +273,7 @@ export default function OwnerCampaigns() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', background: 'rgba(255,255,255,0.06)',
+              justifyContent: 'center', background: 'rgb(var(--ink)/0.06)',
               border: `1px solid ${BORDER}`, color: T2,
             }}><Mail className="w-4 h-4" /></div>
             <div style={{ flex: 1 }}>
@@ -328,7 +328,7 @@ export default function OwnerCampaigns() {
                         gap: 14, alignItems: 'center', padding: '14px 12px',
                         borderBottom: `1px solid ${F_BORDER}`, borderRadius: 10,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.03)')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       <div className="min-w-0 col-span-2 md:col-span-1">
@@ -342,7 +342,7 @@ export default function OwnerCampaigns() {
                         <div style={{ color: T1, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
                           {c.recipients_count ? `${openPct.toFixed(0)} %` : '—'}
                         </div>
-                        <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', marginTop: 6, overflow: 'hidden' }}>
+                        <div style={{ height: 4, borderRadius: 999, background: 'rgb(var(--ink)/0.06)', marginTop: 6, overflow: 'hidden' }}>
                           <div style={{
                             height: '100%', width: `${Math.min(100, (openPct / maxOpen) * 100)}%`,
                             borderRadius: 999, background: 'linear-gradient(90deg,rgba(232,25,44,0.75),rgba(232,25,44,0.35))',
@@ -353,10 +353,10 @@ export default function OwnerCampaigns() {
                         <div style={{ color: T1, fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
                           {c.recipients_count ? `${clickPct.toFixed(1).replace('.', ',')} %` : '—'}
                         </div>
-                        <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', marginTop: 6, overflow: 'hidden' }}>
+                        <div style={{ height: 4, borderRadius: 999, background: 'rgb(var(--ink)/0.06)', marginTop: 6, overflow: 'hidden' }}>
                           <div style={{
                             height: '100%', width: `${Math.min(100, clickPct * 4)}%`,
-                            borderRadius: 999, background: 'rgba(255,255,255,0.4)',
+                            borderRadius: 999, background: 'rgb(var(--ink)/var(--ink-a40,0.4))',
                           }} />
                         </div>
                       </div>

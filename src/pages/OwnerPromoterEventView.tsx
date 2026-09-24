@@ -247,7 +247,7 @@ export default function OwnerPromoterEventView() {
     name: p.name.split(' ')[0] || p.promoCode, clicks: p.clicks, conversions: p.tickets + p.tables,
   }));
 
-  const chartTooltip = { background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12 };
+  const chartTooltip = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12 };
 
   if (loading) return <OwnerPageSkeleton />;
 
@@ -310,7 +310,7 @@ export default function OwnerPromoterEventView() {
               <BarChart data={revenueChartData}>
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: T3 }} axisLine={{ stroke: F_BORDER }} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: T3 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => `${v}€`} contentStyle={chartTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                <Tooltip formatter={(v: number) => `${v}€`} contentStyle={chartTooltip} cursor={{ fill: 'rgb(var(--ink)/0.04)' }} />
                 <Bar dataKey="revenue" name={tt('CA', 'Revenue')} radius={[5, 5, 0, 0]}>
                   {revenueChartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
@@ -330,8 +330,8 @@ export default function OwnerPromoterEventView() {
               <BarChart data={clicksConvData}>
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: T3 }} axisLine={{ stroke: F_BORDER }} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: T3 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={chartTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                <Bar dataKey="clicks" name={tt('Clics', 'Clicks')} fill="rgba(255,255,255,0.22)" radius={[5, 5, 0, 0]} />
+                <Tooltip contentStyle={chartTooltip} cursor={{ fill: 'rgb(var(--ink)/0.04)' }} />
+                <Bar dataKey="clicks" name={tt('Clics', 'Clicks')} fill="rgb(var(--ink)/var(--ink-a22,0.22))" radius={[5, 5, 0, 0]} />
                 <Bar dataKey="conversions" name="Conversions" fill={RED} radius={[5, 5, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -370,7 +370,7 @@ export default function OwnerPromoterEventView() {
                   </button>
                   {p.assignmentId && (
                     <button onClick={e => { e.stopPropagation(); removeFromEvent(p.assignmentId!); }} aria-label={tt('Retirer', 'Remove')}
-                      style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: '#FF5C63', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: 'var(--acc-ff5c63)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
@@ -401,7 +401,7 @@ export default function OwnerPromoterEventView() {
                   <div style={{ marginTop: 10 }}>
                     <div className="flex items-center justify-between" style={{ fontSize: 11, marginBottom: 5 }}>
                       <span className="flex items-center gap-1" style={{ color: T2 }}><Ticket className="h-3 w-3" />{t('promoterQuotas.maxTickets')}</span>
-                      <span style={{ color: p.tickets >= p.maxTickets ? '#FF5C63' : T2, fontWeight: 600 }}>{p.tickets}/{p.maxTickets}</span>
+                      <span style={{ color: p.tickets >= p.maxTickets ? 'var(--acc-ff5c63)' : T2, fontWeight: 600 }}>{p.tickets}/{p.maxTickets}</span>
                     </div>
                     <PromoProgress value={(p.tickets / p.maxTickets) * 100} tone={p.tickets >= p.maxTickets ? 'pos' : 'red'} height={6} />
                   </div>

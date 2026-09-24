@@ -266,7 +266,7 @@ export default function OwnerPromoterTeams() {
                         { icon: Pencil, onClick: () => openEdit(team), danger: false },
                         { icon: Trash2, onClick: () => setDeleteId(team.id), danger: true },
                       ].map(({ icon: Icon, onClick, danger }, i) => (
-                        <button key={i} onClick={onClick} style={{ width: 30, height: 30, borderRadius: 8, background: danger ? 'rgba(255,92,99,0.08)' : INNER_BG, border: `1px solid ${danger ? 'rgba(255,92,99,0.2)' : BORDER}`, color: danger ? '#FF5C63' : T2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <button key={i} onClick={onClick} style={{ width: 30, height: 30, borderRadius: 8, background: danger ? 'rgba(255,92,99,0.08)' : INNER_BG, border: `1px solid ${danger ? 'rgba(255,92,99,0.2)' : BORDER}`, color: danger ? 'var(--acc-ff5c63)' : T2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                           <Icon className="h-3.5 w-3.5" />
                         </button>
                       ))}

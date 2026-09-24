@@ -8,18 +8,18 @@ import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
-const POS        = '#34D399';
-const NEG        = '#FF5C63';
-const T1         = 'rgba(255,255,255,0.96)';
-const T2         = 'rgba(255,255,255,0.58)';
-const T3         = 'rgba(255,255,255,0.36)';
-const C_FAINT    = 'rgba(255,255,255,0.06)';
-const BORDER     = 'rgba(255,255,255,0.085)';
-const F_BORDER   = 'rgba(255,255,255,0.055)';
-const INNER_BG   = 'rgba(255,255,255,0.032)';
-const TILE_BG    = 'rgba(255,255,255,0.025)';
-const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS        = 'var(--acc-34d399)';
+const NEG        = 'var(--acc-ff5c63)';
+const T1         = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2         = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3         = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT    = 'rgb(var(--ink)/0.06)';
+const BORDER     = 'rgb(var(--ink)/0.085)';
+const F_BORDER   = 'rgb(var(--ink)/0.055)';
+const INNER_BG   = 'rgb(var(--ink)/0.032)';
+const TILE_BG    = 'rgb(var(--ink)/0.025)';
+const CARD_BG    = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const inputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
@@ -73,7 +73,7 @@ const DrinkCard = ({ drink, index, onEdit, onDelete, t }: { drink: CatalogDrink;
 // ─── Status pill (request state) ──────────────────────────────────────────────
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { color: string; bg: string; border: string; Icon: LucideIcon }> = {
-    pending: { color: '#FCD34D', bg: 'rgba(234,179,8,0.06)', border: 'rgba(234,179,8,0.3)', Icon: Clock },
+    pending: { color: 'var(--acc-fcd34d)', bg: 'rgba(234,179,8,0.06)', border: 'rgba(234,179,8,0.3)', Icon: Clock },
     approved: { color: POS, bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)', Icon: Check },
     rejected: { color: NEG, bg: 'rgba(255,92,99,0.1)', border: 'rgba(255,92,99,0.25)', Icon: XCircle },
   };
@@ -165,7 +165,7 @@ export default function AdminDrinkCatalog() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
         <div className="h-12 w-12 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
       </div>
     );
@@ -177,7 +177,7 @@ export default function AdminDrinkCatalog() {
   ];
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       {/* Ambient vignette */}
       <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
@@ -224,7 +224,7 @@ export default function AdminDrinkCatalog() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
                 <input placeholder={t('adminDrinks.searchPlaceholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...inputStyle, paddingLeft: 38 }} />
               </div>
-              <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+              <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1 p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
                 <button
                   onClick={() => setSelectedCategory('all')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg shrink-0 cursor-pointer transition-all duration-150"
@@ -280,7 +280,7 @@ export default function AdminDrinkCatalog() {
             )}
             {filteredCatalog.length === 0 && (
               <div className="text-center py-12">
-                <Wine className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                <Wine className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                 <p className="text-xs" style={{ color: T3 }}>{t('adminDrinks.noDrinkFound')}</p>
               </div>
             )}
@@ -292,7 +292,7 @@ export default function AdminDrinkCatalog() {
           <div className="space-y-4">
             {requests.length === 0 ? (
               <div className="text-center py-12">
-                <Clock className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                <Clock className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                 <p className="text-xs" style={{ color: T3 }}>{t('adminDrinks.noRequests')}</p>
               </div>
             ) : (
@@ -330,7 +330,7 @@ export default function AdminDrinkCatalog() {
 
       {/* Create / edit dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+        <DialogContent className="max-w-md" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, color: T1 }}>
           <DialogHeader><DialogTitle style={{ color: T1 }}>{editingDrink ? t('adminDrinks.editDrink') : t('adminDrinks.addToCatalog')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

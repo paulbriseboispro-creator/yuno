@@ -162,7 +162,7 @@ export default function AgencyClubs() {
                           cursor: 'pointer',
                           background: 'none',
                           outline: 'none',
-                          borderTop: i > 0 ? `1px solid rgba(255,255,255,0.04)` : undefined,
+                          borderTop: i > 0 ? `1px solid rgb(var(--ink)/0.04)` : undefined,
                         }}
                       >
                         <span style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{v.name}</span>
@@ -195,8 +195,8 @@ export default function AgencyClubs() {
                     fontSize: 13,
                   }}
                 >
-                  <option value="fixed" style={{ background: '#111' }}>€</option>
-                  <option value="percentage" style={{ background: '#111' }}>%</option>
+                  <option value="fixed" style={{ background: 'var(--sf-111111)' }}>€</option>
+                  <option value="percentage" style={{ background: 'var(--sf-111111)' }}>%</option>
                 </select>
               </div>
             </div>
@@ -289,7 +289,7 @@ export default function AgencyClubs() {
 
                 {/* Aperçu inline : QUI travaille ce club, sans quitter la page. */}
                 {previewOpen && (
-                  <div className="mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
+                  <div className="mt-3" style={{ borderTop: '1px solid rgb(var(--ink)/0.06)', paddingTop: 8 }}>
                     {clubPromoters.map((p, i) => (
                       <button
                         key={p.id}
@@ -297,7 +297,7 @@ export default function AgencyClubs() {
                         className="w-full flex items-center gap-3 text-left"
                         style={{
                           padding: '8px 4px', cursor: 'pointer', background: 'none', border: 'none', outline: 'none',
-                          borderBottom: i < clubPromoters.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined,
+                          borderBottom: i < clubPromoters.length - 1 ? '1px solid rgb(var(--ink)/0.04)' : undefined,
                         }}
                       >
                         <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={32} />

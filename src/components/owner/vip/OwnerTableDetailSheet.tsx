@@ -237,11 +237,11 @@ export function OwnerTableDetailSheet({
           {orders.filter(o => isPreorderNote(o.notes)).length > 0 && (
             <Card className="p-4 border-0" style={{ background: 'rgba(231,193,90,0.08)', border: '1px solid rgba(231,193,90,0.25)' }}>
               <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold text-sm flex items-center gap-1.5" style={{ color: '#E7C15A' }}>
+                <h4 className="font-semibold text-sm flex items-center gap-1.5" style={{ color: 'var(--acc-e7c15a)' }}>
                   <Wine className="w-4 h-4" />
                   {tt('Pré-commandes', 'Pre-orders', 'Pre-pedidos')}
                 </h4>
-                <span className="text-sm font-bold" style={{ color: '#E7C15A' }}>
+                <span className="text-sm font-bold" style={{ color: 'var(--acc-e7c15a)' }}>
                   {orders.filter(o => isPreorderNote(o.notes)).reduce((s, o) => s + o.items.reduce((a, it) => a + it.quantity, 0), 0)} {tt('bouteille(s)', 'bottle(s)', 'botella(s)')}
                 </span>
               </div>

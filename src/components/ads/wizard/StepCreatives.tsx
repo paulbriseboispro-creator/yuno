@@ -80,7 +80,7 @@ export function StepCreatives({ creatives, selected, onSelect, onChange, posterU
                 <button key={c.id} type="button" onClick={() => onSelect(c.id)}
                   className="flex items-center gap-2.5 rounded-xl pl-1.5 pr-3 py-1.5 cursor-pointer transition-colors duration-150"
                   style={{ background: active ? 'rgba(232,25,44,0.10)' : INNER_BG, border: `1px solid ${active ? 'rgba(232,25,44,0.5)' : BORDER}`, minHeight: 48 }}>
-                  <span className="h-9 w-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)', color: T3 }}>
+                  <span className="h-9 w-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: 'rgb(var(--ink)/0.06)', color: T3 }}>
                     {img ? <img src={img} alt="" className="h-full w-full object-cover" /> : <FormatIcon f={c.format} />}
                   </span>
                   <span className="text-left">

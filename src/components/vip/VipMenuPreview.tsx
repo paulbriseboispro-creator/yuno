@@ -183,7 +183,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
       </button>
       <span className="w-4 text-center text-[13px] font-bold tabular-nums text-white">{qty[it.id]}</span>
       <button type="button" onClick={() => bump(it.id, 1)} className="h-6 w-6 rounded-full flex items-center justify-center bg-primary hover:brightness-110">
-        <Plus className="h-3 w-3 text-white" />
+        <Plus className="h-3 w-3 text-snow" />
       </button>
     </span>
   ) : (
@@ -216,16 +216,16 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
         <span className="text-white/60">{tt('Consommation pré-commandée', 'Pre-ordered consumption', 'Consumo pre-pedido')}</span>
         <span className="tabular-nums text-white/80">{fmt(preorderTotal)} / {fmt(minimumSpend!)}</span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (preorderTotal / minimumSpend!) * 100)}%`, background: preorderTotal >= minimumSpend! ? '#34d399' : '#E8192C' }} />
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.08)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (preorderTotal / minimumSpend!) * 100)}%`, background: preorderTotal >= minimumSpend! ? 'var(--acc-34d399)' : '#E8192C' }} />
       </div>
       {preorderTotal >= minimumSpend! && preorderTotal > 0 && (
-        <p className="text-[11px] mt-1" style={{ color: '#34d399' }}>{tt('Minimum atteint', 'Minimum reached', 'Mínimo alcanzado')}</p>
+        <p className="text-[11px] mt-1" style={{ color: 'var(--acc-34d399)' }}>{tt('Minimum atteint', 'Minimum reached', 'Mínimo alcanzado')}</p>
       )}
     </div>
   ) : null;
   const preorderNote = (
-    <p className="text-[11px] leading-relaxed" style={{ color: '#6A6A6E' }}>
+    <p className="text-[11px] leading-relaxed" style={{ color: 'var(--tx-6a6a6e)' }}>
       {tt(
         'Pré-commandez vos bouteilles : le club les prépare pour votre arrivée. Réglées à la table le soir même.',
         'Pre-order your bottles: the club prepares them for your arrival. Settled at the table on the night.',
@@ -251,7 +251,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
       <div className="h-11 w-11 flex-none rounded-lg overflow-hidden bg-black/40 flex items-center justify-center border border-white/[0.06]">
         {it.image_url
           ? <img src={it.image_url} alt={it.name} className="w-full h-full object-contain" loading="lazy" />
-          : <Wine className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.18)' }} />}
+          : <Wine className="h-4 w-4" style={{ color: 'rgb(var(--ink)/0.18)' }} />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[13px] text-white/90 font-medium truncate">{it.name}</div>
@@ -272,7 +272,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   );
 
   const readonlyNote = (
-    <p className="text-[11px] leading-relaxed pt-1" style={{ color: '#6A6A6E' }}>
+    <p className="text-[11px] leading-relaxed pt-1" style={{ color: 'var(--tx-6a6a6e)' }}>
       {tt(
         'Aperçu de la carte. Vous commanderez vos bouteilles à table, le soir même.',
         'Menu preview. You\'ll order your bottles at the table on the night.',
@@ -288,7 +288,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-5 w-full flex items-center justify-between px-4 py-3.5 border border-white/[0.08] bg-[#141414] text-left"
+          className="mt-5 w-full flex items-center justify-between px-4 py-3.5 border border-white/[0.08] bg-[var(--sf-141414)] text-left"
           style={{ borderRadius: 10 }}
         >
           <span className="flex items-center gap-2.5">
@@ -296,17 +296,17 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
             <span className="font-display font-bold uppercase text-white" style={{ fontSize: 13, letterSpacing: '0.01em' }}>
               {tt('Voir la carte', 'View the menu', 'Ver la carta')}
             </span>
-            <span className="font-mono text-[10px] tracking-[0.08em]" style={{ color: '#7A7A7E' }}>
+            <span className="font-mono text-[10px] tracking-[0.08em]" style={{ color: 'var(--tx-7a7a7e)' }}>
               {visible.length} {tt('réf.', 'items', 'ref.')}
             </span>
           </span>
           {preorderMode && preorderCount > 0
             ? <span className="font-display font-bold tabular-nums text-primary text-[14px]">{fmt(preorderTotal)}</span>
-            : <ChevronRight className="h-4 w-4" style={{ color: '#9A9A9A' }} />}
+            : <ChevronRight className="h-4 w-4" style={{ color: 'var(--tx-9a9a9a)' }} />}
         </button>
 
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="bottom" className="h-[92vh] rounded-t-3xl bg-[#0A0A0A] border-white/[0.08] p-0 flex flex-col">
+          <SheetContent side="bottom" className="h-[92vh] rounded-t-3xl bg-[var(--sf-0a0a0a)] border-white/[0.08] p-0 flex flex-col">
             <SheetHeader className="px-4 pt-4 pb-3 border-b border-white/[0.08]">
               <SheetTitle className="text-white flex items-center gap-2">
                 <Wine className="h-5 w-5 text-primary" />
@@ -316,13 +316,13 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
             {/* Recherche + filtres par type d'alcool */}
             <div className="px-4 pt-3 pb-2.5 space-y-2.5 border-b border-white/[0.06]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#7A7A7E' }} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--tx-7a7a7e)' }} />
                 <input
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder={tt('Rechercher une bouteille…', 'Search a bottle…', 'Buscar una botella…')}
-                  className="w-full h-10 pl-9 pr-3 rounded-lg text-[14px] text-white placeholder:text-[#5A5A5E] bg-[#1F1F22] border border-white/[0.08] focus:outline-none focus:border-primary/50"
+                  className="w-full h-10 pl-9 pr-3 rounded-lg text-[14px] text-white placeholder:text-[var(--tx-5a5a5e)] bg-[var(--sf-1f1f22)] border border-white/[0.08] focus:outline-none focus:border-primary/50"
                 />
               </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -334,7 +334,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                     className="flex-none h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors"
                     style={catFilter === c
                       ? { background: 'hsl(var(--primary))', color: 'white' }
-                      : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}
+                      : { background: 'rgb(var(--ink)/0.06)', color: 'rgb(var(--ink)/var(--ink-a70,0.7))' }}
                   >
                     {c === 'all' ? tt('Tout', 'All', 'Todo') : catLabel(c)}
                   </button>
@@ -348,14 +348,14 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                 if (catItems.length === 0) return null;
                 return (
                 <div key={cat}>
-                  <div className="font-mono uppercase text-[10px] font-bold tracking-[0.14em] mb-2.5" style={{ color: '#7A7A7E' }}>{catLabel(cat)}</div>
+                  <div className="font-mono uppercase text-[10px] font-bold tracking-[0.14em] mb-2.5" style={{ color: 'var(--tx-7a7a7e)' }}>{catLabel(cat)}</div>
                   <div className="grid grid-cols-2 gap-2.5">
                     {catItems.map(it => (
                       <div key={it.id} className="rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.02]">
                         <div className="aspect-[3/4] bg-black/40 flex items-center justify-center">
                           {it.image_url
                             ? <img src={it.image_url} alt={it.name} className="w-full h-full object-contain" loading="lazy" />
-                            : <Wine className="h-8 w-8" style={{ color: 'rgba(255,255,255,0.18)' }} />}
+                            : <Wine className="h-8 w-8" style={{ color: 'rgb(var(--ink)/0.18)' }} />}
                         </div>
                         <div className="p-2.5">
                           <div className="text-[13px] text-white/90 font-medium truncate">{it.name}</div>
@@ -375,14 +375,14 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
               })}
               {(catFilter === 'all' ? cats : cats.filter(c => c === catFilter))
                 .every(cat => byCat.get(cat)!.every(it => { const q = search.trim().toLowerCase(); return q && !`${it.name} ${it.brand || ''}`.toLowerCase().includes(q); })) && (
-                <p className="text-center text-[13px] py-8" style={{ color: '#6A6A6E' }}>
+                <p className="text-center text-[13px] py-8" style={{ color: 'var(--tx-6a6a6e)' }}>
                   {tt('Aucune bouteille trouvée', 'No bottle found', 'Ninguna botella encontrada')}
                 </p>
               )}
             </div>
             {preorderMode && (
               <div
-                className="px-4 py-3 border-t border-white/[0.08] bg-[#0A0A0A] space-y-3"
+                className="px-4 py-3 border-t border-white/[0.08] bg-[var(--sf-0a0a0a)] space-y-3"
                 style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
               >
                 {minSpendBar}
@@ -400,7 +400,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                         {preorderCount} {tt('bouteille(s)', 'bottle(s)', 'botella(s)')}
                         <span className="text-primary font-bold tabular-nums"> · {fmt(preorderTotal)}</span>
                       </span>
-                      <span className="flex items-center gap-1 font-mono uppercase text-[10px] tracking-[0.08em]" style={{ color: '#9A9A9A' }}>
+                      <span className="flex items-center gap-1 font-mono uppercase text-[10px] tracking-[0.08em]" style={{ color: 'var(--tx-9a9a9a)' }}>
                         {tt('Détails', 'Details', 'Detalles')}
                         <ChevronUp className="h-4 w-4 transition-transform" style={{ transform: cartOpen ? 'none' : 'rotate(180deg)' }} />
                       </span>
@@ -419,10 +419,10 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                 <button
                   type="button"
                   onClick={confirmPreorder}
-                  className="w-full h-12 rounded-full flex items-center justify-center gap-1.5 font-semibold text-[14px] text-white transition-all active:scale-[0.98]"
+                  className="w-full h-12 rounded-full flex items-center justify-center gap-1.5 font-semibold text-[14px] text-snow transition-all active:scale-[0.98]"
                   style={preorderCount > 0
                     ? { background: '#E8192C', boxShadow: '0 8px 24px rgba(232,25,44,0.30)' }
-                    : { background: 'rgba(255,255,255,0.08)' }}
+                    : { background: 'rgb(var(--ink)/0.08)' }}
                 >
                   {preorderCount > 0
                     ? <>{tt('Précommander', 'Pre-order', 'Pre-pedir')}<span className="tabular-nums"> · {fmt(preorderTotal)}</span></>
@@ -438,7 +438,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
 
   // === MODE TEXTE : accordéon liste ===
   return (
-    <div className="mt-5 border border-white/[0.08] bg-[#141414]" style={{ borderRadius: 10 }}>
+    <div className="mt-5 border border-white/[0.08] bg-[var(--sf-141414)]" style={{ borderRadius: 10 }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -449,18 +449,18 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
           <span className="font-display font-bold uppercase text-white" style={{ fontSize: 13, letterSpacing: '0.01em' }}>
             {tt('La carte bouteilles', 'The bottle menu', 'La carta de botellas')}
           </span>
-          <span className="font-mono text-[10px] tracking-[0.08em]" style={{ color: '#7A7A7E' }}>
+          <span className="font-mono text-[10px] tracking-[0.08em]" style={{ color: 'var(--tx-7a7a7e)' }}>
             {visible.length} {tt('réf.', 'items', 'ref.')}
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 transition-transform" style={{ color: '#9A9A9A', transform: open ? 'rotate(180deg)' : 'none' }} />
+        <ChevronDown className="h-4 w-4 transition-transform" style={{ color: 'var(--tx-9a9a9a)', transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {open && (
         <div className="px-4 pb-4 space-y-4">
           {cats.map(cat => (
             <div key={cat}>
-              <div className="font-mono uppercase text-[9px] font-bold tracking-[0.14em] mb-2" style={{ color: '#7A7A7E' }}>
+              <div className="font-mono uppercase text-[9px] font-bold tracking-[0.14em] mb-2" style={{ color: 'var(--tx-7a7a7e)' }}>
                 {catLabel(cat)}
               </div>
               <div className="space-y-1.5">
@@ -478,7 +478,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
             </div>
           ))}
           {preorderMode ? (
-            <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>{preorderSummary}</div>
+            <div className="pt-2" style={{ borderTop: '1px solid rgb(var(--ink)/0.06)' }}>{preorderSummary}</div>
           ) : readonlyNote}
         </div>
       )}

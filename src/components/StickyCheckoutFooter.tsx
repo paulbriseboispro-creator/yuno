@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { tint } from '@/lib/proTheme';
 
 interface StickyCheckoutFooterProps {
   amount: number;
@@ -51,10 +52,10 @@ export function StickyCheckoutFooter({
               isCtaOnly ? 'justify-center' : 'justify-between'
             )}
             style={{
-              background: 'rgba(14, 14, 16, 0.92)',
+              background: 'rgb(var(--glass-14-14-16)/0.92)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
+              border: '1px solid rgb(var(--ink)/0.10)',
               boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,25,44,0.08)',
             }}
           >
@@ -71,7 +72,7 @@ export function StickyCheckoutFooter({
                       fontSize: '9px',
                       letterSpacing: '0.10em',
                       textTransform: 'uppercase',
-                      color: '#9A9A9A',
+                      color: 'var(--tx-9a9a9a)',
                       lineHeight: 1.2,
                     }}
                   >
@@ -85,7 +86,7 @@ export function StickyCheckoutFooter({
                     fontSize: '20px',
                     fontWeight: 700,
                     letterSpacing: '-0.02em',
-                    color: '#FFFFFF',
+                    color: 'rgb(var(--ink))',
                     lineHeight: 1.1,
                     marginTop: label ? 1 : 0,
                   }}
@@ -100,7 +101,7 @@ export function StickyCheckoutFooter({
                       fontSize: '9px',
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase',
-                      color: '#9A9A9A',
+                      color: 'var(--tx-9a9a9a)',
                       lineHeight: 1.2,
                       marginTop: 2,
                     }}
@@ -111,7 +112,7 @@ export function StickyCheckoutFooter({
               </div>
             ) : label ? (
               <div className="flex flex-col min-w-0 flex-1">
-                <span className="truncate" style={{ fontSize: '13px', fontWeight: 500, color: '#9A9A9A' }}>
+                <span className="truncate" style={{ fontSize: '13px', fontWeight: 500, color: 'var(--tx-9a9a9a)' }}>
                   {label}
                 </span>
               </div>
@@ -130,10 +131,10 @@ export function StickyCheckoutFooter({
                   : 'hover:brightness-110 active:scale-[0.97]'
               )}
               style={{
-                background: disabled ? 'rgba(255,255,255,0.08)' : btnBg,
-                color: '#fff',
+                background: disabled ? 'rgb(var(--ink)/0.08)' : btnBg,
+                color: 'rgb(var(--ink))',
                 border: 'none',
-                boxShadow: disabled ? 'none' : `0 6px 24px ${btnBg}55, 0 2px 8px rgba(0,0,0,0.3)`,
+                boxShadow: disabled ? 'none' : `0 6px 24px ${tint(btnBg, '55')}, 0 2px 8px rgba(0,0,0,0.3)`,
                 fontFamily: "'Inter', sans-serif",
                 letterSpacing: '0.01em',
               }}

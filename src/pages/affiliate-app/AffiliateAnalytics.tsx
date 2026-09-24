@@ -15,6 +15,7 @@ import {
   AffPage, AffHeading, AffCard, AffCardHeader, KpiCard, TabBar, AffSpinner, AffEmpty,
   RED, POS, NEG, WARN, T1, T2, T3, BORDER, F_BORDER, C_HI, C_MID, TILE_BG,
 } from '@/components/affiliate/affiliate-ui';
+import { tint } from '@/lib/proTheme';
 
 const NEG_C = NEG;
 
@@ -135,7 +136,7 @@ function DualChart({ data }: { data: DailyPoint[] }) {
             <div key={date} className="flex-1 flex items-end group relative">
               <div className="w-full rounded-sm" style={{ height: `${(views / maxViews) * 100}%`, minHeight: views > 0 ? '3px' : '1px', background: RED, opacity: 0.85 }} />
               <div className="absolute bottom-full mb-1.5 hidden group-hover:block text-xs px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none"
-                style={{ background: '#1a1a1d', border: `1px solid ${BORDER}`, color: T1 }}>
+                style={{ background: 'var(--sf-1a1a1d)', border: `1px solid ${BORDER}`, color: T1 }}>
                 {format(new Date(date), 'd MMM', { locale: dateLocale })}
                 <br /><span style={{ color: RED }}>{t('aff.ana.tooltipViews')} {views}</span>
                 <br /><span style={{ color: C_HI }}>{t('aff.ana.tooltipClicks')} {clicks}</span>
@@ -189,7 +190,7 @@ function HeatmapChart({ matrix }: { matrix: number[][] }) {
             const intensity = maxVal > 0 ? val / maxVal : 0;
             return (
               <div key={hour} className="flex-1 rounded-[2px]"
-                style={{ height: '14px', background: intensity > 0 ? `rgba(232,25,44,${0.10 + intensity * 0.68})` : 'rgba(255,255,255,0.03)' }}
+                style={{ height: '14px', background: intensity > 0 ? `rgba(232,25,44,${0.10 + intensity * 0.68})` : 'rgb(var(--ink)/0.03)' }}
                 title={`${t(DAY_KEYS[dayIdx])} ${hour}h : ${val} ${t('aff.ana.visits')}`} />
             );
           })}
@@ -219,7 +220,7 @@ function DurationHistogram({ sessions }: { sessions: RawSession[] }) {
       {buckets.map((b, i) => (
         <div key={b.label} className="flex items-center gap-2">
           <span className="flex-none text-right" style={{ color: T3, fontSize: 11, width: 56 }}>{b.label}</span>
-          <div className="flex-1 h-5 rounded overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex-1 h-5 rounded overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
             <div className="h-full rounded transition-all" style={{ width: `${(counts[i] / maxCount) * 100}%`, background: `linear-gradient(90deg,${RED}88,${RED})` }} />
           </div>
           <span className="flex-none text-right tabular-nums" style={{ color: T2, fontSize: 11, fontWeight: 500, width: 32 }}>{counts[i]}</span>
@@ -235,8 +236,8 @@ function ScrollDepthGauge({ avg }: { avg: number }) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: `linear-gradient(90deg,${color},${color}88)` }} />
+      <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: `linear-gradient(90deg,${color},${tint(color, '88')})` }} />
       </div>
       <span className="flex-none tabular-nums" style={{ color, fontSize: 14, fontWeight: 700 }}>{pct.toFixed(0)}%</span>
     </div>
@@ -258,7 +259,7 @@ function LinktreeScore({ kpis }: { kpis: KPIs }) {
   const bar = (label2: string, val: number) => (
     <div className="flex items-center gap-2">
       <span style={{ width: 64 }}>{label2}</span>
-      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)', width: 80 }}>
+      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.07)', width: 80 }}>
         <div className="h-full rounded-full" style={{ width: `${val * 100}%`, background: C_MID }} />
       </div>
     </div>
@@ -268,7 +269,7 @@ function LinktreeScore({ kpis }: { kpis: KPIs }) {
     <div className="flex items-center gap-4">
       <div className="relative w-16 h-16 shrink-0">
         <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
-          <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+          <circle cx="32" cy="32" r="28" fill="none" stroke="rgb(var(--ink)/0.08)" strokeWidth="6" />
           <circle cx="32" cy="32" r="28" fill="none" stroke={color} strokeWidth="6" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
@@ -585,7 +586,7 @@ export default function AffiliateAnalytics() {
       )}
 
       {/* Period filter */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
         {PERIODS.map(p => (
           <button key={p} onClick={() => setPeriod(p)}
             className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
@@ -642,7 +643,7 @@ export default function AffiliateAnalytics() {
                 <div className="group relative">
                   <Info className="h-3.5 w-3.5 cursor-help" style={{ color: T3 }} />
                   <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block text-xs px-2 py-1.5 rounded z-10"
-                    style={{ background: '#1a1a1d', border: `1px solid ${BORDER}`, color: T2, width: 208 }}>
+                    style={{ background: 'var(--sf-1a1a1d)', border: `1px solid ${BORDER}`, color: T2, width: 208 }}>
                     {t('aff.ana.scoreTooltip')}
                   </div>
                 </div>
@@ -713,7 +714,7 @@ export default function AffiliateAnalytics() {
                             <span className="truncate" style={{ color: T2, fontSize: 11.5 }}>{label}</span>
                           </div>
                           <div className="flex-1">
-                            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                               <div className="h-full rounded-full transition-all" style={{ width: `${(row.views / maxSourceViews) * 100}%`, background: RED, opacity: 0.85 }} />
                             </div>
                           </div>
@@ -749,7 +750,7 @@ export default function AffiliateAnalytics() {
                               <span style={{ color: T1, fontSize: 13 }}>{label}</span>
                               <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{views.toLocaleString()}</span>
                             </div>
-                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                               <div className="h-full rounded-full" style={{ width: `${pct}%`, background: C_HI }} />
                             </div>
                           </div>
@@ -828,7 +829,7 @@ export default function AffiliateAnalytics() {
                             <span style={{ color: T2, fontSize: 13 }}>{t(labels[type])}</span>
                             <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{count.toLocaleString()}</span>
                           </div>
-                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                             <div className="h-full rounded-full" style={{ width: `${pct}%`, background: RED, opacity: 0.7 }} />
                           </div>
                         </div>
@@ -859,7 +860,7 @@ export default function AffiliateAnalytics() {
                         <div className="flex-1 min-w-0">
                           <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{e.name}</p>
                           <p style={{ color: T3, fontSize: 11 }}>{e.venue_name ?? '—'} · {e.event_date}</p>
-                          <div className="mt-1.5 h-1 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          <div className="mt-1.5 h-1 w-full rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                             <div className="h-full rounded-full" style={{ width: `${Math.min(e.ctr, 50) / 50 * 100}%`, background: `linear-gradient(90deg,${C_MID},${POS})` }} />
                           </div>
                         </div>
@@ -912,7 +913,7 @@ export default function AffiliateAnalytics() {
                 </div>
                 {campaigns.length === 0 ? (
                   <div className="px-5 py-8 text-center">
-                    <Zap className="h-8 w-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.14)' }} />
+                    <Zap className="h-8 w-8 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.14)' }} />
                     <p style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noUtm')}</p>
                   </div>
                 ) : (

@@ -35,17 +35,17 @@ import {
 
 // ─── Yuno Design Tokens (dashboards pro) ─────────────────────────────────────
 const RED         = '#E8192C';
-const POS         = '#34D399';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const C_FAINT     = 'rgba(255,255,255,0.06)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const AXIS_TICK   = { fill: 'rgba(255,255,255,0.36)', fontSize: 10.5 } as const;
+const POS         = 'var(--acc-34d399)';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT     = 'rgb(var(--ink)/0.06)';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const F_BORDER    = 'rgb(var(--ink)/0.055)';
+const INNER_BG    = 'rgb(var(--ink)/0.032)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+const AXIS_TICK   = { fill: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10.5 } as const;
 
 type Tab = 'audience' | 'settings' | 'leads' | 'waitlist';
 
@@ -74,7 +74,7 @@ function CardTitle({ icon: Icon, children, sub }: { icon: LucideIcon; children: 
 
 function StatCard({ label, value, sub, icon: Icon, highlight }: { label: string; value: string | number; sub?: string; icon: LucideIcon; highlight?: boolean }) {
   return (
-    <div style={{ background: highlight ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),#0a0a0c' : CARD_BG, border: `1px solid ${highlight ? 'rgba(232,25,44,0.24)' : BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '16px 18px', height: '100%' }}>
+    <div style={{ background: highlight ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),var(--sf-0a0a0c)' : CARD_BG, border: `1px solid ${highlight ? 'rgba(232,25,44,0.24)' : BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '16px 18px', height: '100%' }}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</p>
         <div className="flex h-7 w-7 items-center justify-center rounded-lg flex-none" style={{ background: highlight ? 'rgba(232,25,44,0.12)' : C_FAINT, border: `1px solid ${highlight ? 'rgba(232,25,44,0.2)' : F_BORDER}` }}>
@@ -98,8 +98,8 @@ function BarRow({ label, value, max, sub, accent }: { label: string; value: numb
           {sub !== undefined && <span style={{ color: T3 }}> · {sub}</span>}
         </span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: accent ? 'linear-gradient(90deg, rgba(232,25,44,0.8), rgba(232,25,44,0.4))' : 'rgba(255,255,255,0.28)' }} />
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: accent ? 'linear-gradient(90deg, rgba(232,25,44,0.8), rgba(232,25,44,0.4))' : 'rgb(var(--ink)/var(--ink-a28,0.28))' }} />
       </div>
     </div>
   );
@@ -109,7 +109,7 @@ interface TooltipEntry { name?: string | number; value?: string | number; color?
 function CountTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipEntry[]; label?: string | number }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       {label !== undefined && <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{String(label)}</p>}
       {payload.map((p, i) => (
         <p key={i} className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -303,7 +303,7 @@ export default function AdminLinks() {
   });
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
@@ -329,7 +329,7 @@ export default function AdminLinks() {
                 key={key}
                 type="button"
                 onClick={() => setTab(key)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 38, padding: '0 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: on ? 'rgba(232,25,44,0.12)' : INNER_BG, border: `1px solid ${on ? 'rgba(232,25,44,0.35)' : BORDER}`, color: on ? '#fff' : T2 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 38, padding: '0 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: on ? 'rgba(232,25,44,0.12)' : INNER_BG, border: `1px solid ${on ? 'rgba(232,25,44,0.35)' : BORDER}`, color: on ? 'rgb(var(--ink))' : T2 }}
               >
                 <Icon className="h-4 w-4" style={{ color: on ? RED : T3 }} />
                 {label}
@@ -359,7 +359,7 @@ export default function AdminLinks() {
             ) : !hasData ? (
               <Card>
                 <div className="text-center py-12 max-w-md mx-auto">
-                  <Link2 className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.16)' }} />
+                  <Link2 className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.16)' }} />
                   <h3 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('adminLinks.emptyTitle')}</h3>
                   <p className="mt-2" style={{ color: T3, fontSize: 13, lineHeight: 1.6 }}>{t('adminLinks.emptyBody')}</p>
                 </div>
@@ -395,7 +395,7 @@ export default function AdminLinks() {
                         <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} allowDecimals={false} />
                         <Tooltip content={<CountTooltip />} cursor={{ stroke: BORDER }} />
                         <Area type="monotone" dataKey="views" name={t('adminLinks.kViews')} stroke={RED} strokeWidth={2} fill="url(#ynl-views)" isAnimationActive={false} />
-                        <Area type="monotone" dataKey="clicks" name={t('adminLinks.kClicks')} stroke="rgba(255,255,255,0.7)" strokeWidth={1.5} fill="url(#ynl-clicks)" isAnimationActive={false} />
+                        <Area type="monotone" dataKey="clicks" name={t('adminLinks.kClicks')} stroke="rgb(var(--ink)/var(--ink-a70,0.7))" strokeWidth={1.5} fill="url(#ynl-clicks)" isAnimationActive={false} />
                         <Area type="monotone" dataKey="signups" name={t('adminLinks.kSignups')} stroke={POS} strokeWidth={1.5} fill="none" isAnimationActive={false} />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -584,7 +584,7 @@ export default function AdminLinks() {
                           <button type="button" onClick={() => toggleContacted(lead)} style={btn(!done)}>
                             <Check className="h-4 w-4" />{done ? t('adminLinks.leadUnmark') : t('adminLinks.leadMarkContacted')}
                           </button>
-                          <button type="button" onClick={() => deleteLead(lead)} style={{ ...btn(), color: '#FF5C63' }} aria-label={t('adminLinks.leadDelete')}>
+                          <button type="button" onClick={() => deleteLead(lead)} style={{ ...btn(), color: 'var(--acc-ff5c63)' }} aria-label={t('adminLinks.leadDelete')}>
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>

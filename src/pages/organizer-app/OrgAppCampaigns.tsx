@@ -141,7 +141,7 @@ export default function OrgAppCampaigns() {
         )}
 
         <div className="flex items-start gap-3 rounded-xl p-4" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.22)' }}>
-          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: '#FCD34D' }} />
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
           <p style={{ color: T3, fontSize: 12.5 }}>
             {t('Les emails partent depuis', 'Emails are sent from', 'Los emails se envían desde')} <span className="font-mono font-semibold" style={{ color: T2 }}>{fromAddr}</span>.
             {' '}{t(

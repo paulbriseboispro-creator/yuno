@@ -8,14 +8,14 @@ import { motion } from 'framer-motion';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Définition v1 d'un segment sauvegardé — liste plate de conditions en AND.
 // Résolue à l'envoi par resolve_venue_segment ; jamais de snapshot.

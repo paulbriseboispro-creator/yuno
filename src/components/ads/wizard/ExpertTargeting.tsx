@@ -31,7 +31,7 @@ function useSearch<T>(fetcher: (q: string) => Promise<T[]>) {
   };
   return { q, onChange, results, busy, error, clear: () => { setQ(''); setResults([]); setError(null); } };
 }
-const SearchError = ({ error, t }: { error: string | null; t: (k: string) => string }) => error ? <p className="mt-1.5" style={{ color: '#FF8A91', fontSize: 12.5, lineHeight: 1.45 }}>{t('ads.w.search.metaError')} {error}</p> : null;
+const SearchError = ({ error, t }: { error: string | null; t: (k: string) => string }) => error ? <p className="mt-1.5" style={{ color: 'var(--acc-ff8a91)', fontSize: 12.5, lineHeight: 1.45 }}>{t('ads.w.search.metaError')} {error}</p> : null;
 
 function Box({ value, onChange, placeholder, busy, children }: { value: string; onChange: (v: string) => void; placeholder: string; busy: boolean; children?: React.ReactNode }) {
   return (
@@ -45,7 +45,7 @@ function Box({ value, onChange, placeholder, busy, children }: { value: string; 
     </div>
   );
 }
-const Drop = ({ children }: { children: React.ReactNode }) => <div className="mt-1.5 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: '#121214' }}>{children}</div>;
+const Drop = ({ children }: { children: React.ReactNode }) => <div className="mt-1.5 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: 'var(--sf-121214)' }}>{children}</div>;
 const Row = ({ onClick, children }: { onClick: () => void; children: React.ReactNode }) => (
   <button type="button" onClick={onClick} className="w-full flex items-center gap-2.5 px-4 py-3 text-left cursor-pointer hover:bg-white/[0.05] transition-colors duration-150">{children}</button>
 );
@@ -100,7 +100,7 @@ export function ExpertGeo({ draft, set, call, t }: { draft: CampaignDraft; set: 
         {draft.customLocations.length > 0 && (
           <div className="mt-2 space-y-2">
             {draft.customLocations.map((c, i) => (
-              <div key={`${c.latitude},${c.longitude},${i}`} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+              <div key={`${c.latitude},${c.longitude},${i}`} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}` }}>
                 <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: RED }} />
                 <span className="flex-1 truncate" style={{ color: T1, fontSize: 13.5 }}>{c.name ?? `${c.latitude.toFixed(3)}, ${c.longitude.toFixed(3)}`}</span>
                 <span className="tabular-nums" style={{ color: T3, fontSize: 12.5 }}>{c.radius_km} km</span>
@@ -131,7 +131,7 @@ export function ExpertDetailed({ draft, set, call, t }: { draft: CampaignDraft; 
     <Field label={<span className="inline-flex items-center gap-2"><Layers className="w-4 h-4" style={{ color: T3 }} />{t('ads.x.detailed.title')}</span>} optional={t('ads.w.optional')} hint={t('ads.x.detailed.hint')}>
       <div className="space-y-3">
         {groups.map((g, gi) => (
-          <div key={gi} className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${gi === activeGroup ? 'rgba(232,25,44,0.45)' : BORDER}` }}>
+          <div key={gi} className="rounded-xl p-3 space-y-2" style={{ background: 'rgb(var(--ink)/0.03)', border: `1px solid ${gi === activeGroup ? 'rgba(232,25,44,0.45)' : BORDER}` }}>
             <div className="flex items-center justify-between gap-2">
               <button type="button" onClick={() => setActiveGroup(gi)} className="text-left cursor-pointer" style={{ color: T2, fontSize: 12.5, fontWeight: 600 }}>
                 {gi === 0 ? t('ads.x.detailed.group1') : t('ads.x.detailed.groupN').replace('{n}', String(gi + 1))}

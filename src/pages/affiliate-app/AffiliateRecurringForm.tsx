@@ -32,7 +32,7 @@ function slugify(text: string) {
 
 const timeInputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
-  padding: '9px 12px', color: 'rgba(255,255,255,0.96)', fontSize: 13.5, fontFamily: 'inherit', width: '100%',
+  padding: '9px 12px', color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 13.5, fontFamily: 'inherit', width: '100%',
   colorScheme: 'dark',
 };
 
@@ -868,7 +868,7 @@ export default function AffiliateRecurringForm() {
           enregistrement qui a vraiment changé quelque chose de recopiable, et
           seulement s'il existe au moins une soirée à venir issue du modèle. */}
       <Dialog open={Boolean(propagate)} onOpenChange={(open) => { if (!open && !propagating) setPropagate(null); }}>
-        <DialogContent className="max-w-md border-0 text-white" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}` }}>
+        <DialogContent className="max-w-md border-0 text-white" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}` }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ color: T1 }}>
               <CopyCheck className="h-5 w-5" style={{ color: RED }} />

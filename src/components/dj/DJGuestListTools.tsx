@@ -67,7 +67,7 @@ export function DJGuestListTools({ guestListId, slug, eventId }: DJGuestListTool
           type="button"
           onClick={() => setAddOpen(true)}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.96)' }}
+          style={{ background: 'rgb(var(--ink)/0.05)', border: '1px solid rgb(var(--ink)/0.085)', color: 'rgb(var(--ink)/var(--ink-a96,0.96))' }}
         >
           <UserPlus className="h-3.5 w-3.5" style={{ color: '#E8192C' }} />
           {t('glTools.addGuest')}

@@ -13,28 +13,30 @@ import { ArrowDownRight, ArrowUpRight, Inbox, RefreshCw, TriangleAlert, type Luc
 
 // ─── Tokens (DS §2) ──────────────────────────────────────────────────────────
 export const RED = '#E8192C';
-export const POS = '#34D399';
-export const NEG = '#FF5C63';
+export const POS = 'var(--acc-34d399)';
+export const NEG = 'var(--acc-ff5c63)';
 /** Ambre du DS (pill « accent », §7.3). Seul jaune autorisé. */
-export const WARN = '#FCD34D';
-export const T1 = 'rgba(255,255,255,0.96)';
-export const T2 = 'rgba(255,255,255,0.58)';
-export const T3 = 'rgba(255,255,255,0.36)';
-export const C_HI = 'rgba(255,255,255,0.92)';
-export const C_MID = 'rgba(255,255,255,0.40)';
-export const C_LO = 'rgba(255,255,255,0.14)';
-export const C_FAINT = 'rgba(255,255,255,0.06)';
-export const BORDER = 'rgba(255,255,255,0.085)';
-export const F_BORDER = 'rgba(255,255,255,0.055)';
-export const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const INNER_BG = 'rgba(255,255,255,0.032)';
-export const TILE_BG = 'rgba(255,255,255,0.025)';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const WARN = 'var(--acc-fcd34d)';
+/** Valeur brute, pour les concaténations d'alpha (`${WARN_HEX}88`). */
+export const WARN_HEX = '#FCD34D';
+export const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_HI = 'rgb(var(--ink)/var(--ink-a92,0.92))';
+export const C_MID = 'rgb(var(--ink)/var(--ink-a40,0.40))';
+export const C_LO = 'rgb(var(--ink)/0.14)';
+export const C_FAINT = 'rgb(var(--ink)/0.06)';
+export const BORDER = 'rgb(var(--ink)/0.085)';
+export const F_BORDER = 'rgb(var(--ink)/0.055)';
+export const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const INNER_BG = 'rgb(var(--ink)/0.032)';
+export const TILE_BG = 'rgb(var(--ink)/0.025)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 export const RED_SOFT_BG = 'rgba(232,25,44,0.10)';
 export const RED_SOFT_BORDER = 'rgba(232,25,44,0.22)';
 
 /** Palette de séries pour les graphiques : rouge d'abord, puis des blancs. */
-export const CHART = [RED, C_HI, 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0.30)', WARN, POS] as const;
+export const CHART = [RED, C_HI, 'rgb(var(--ink)/var(--ink-a55,0.55))', 'rgb(var(--ink)/var(--ink-a30,0.30))', WARN, POS] as const;
 
 export const CARD_STYLE: CSSProperties = {
   background: CARD_BG,
@@ -61,7 +63,7 @@ export const TILE_STYLE: CSSProperties = {
 
 /** Style d'un champ de saisie sombre (input, select, textarea). */
 export const INPUT_STYLE: CSSProperties = {
-  background: 'rgba(255,255,255,0.04)',
+  background: 'rgb(var(--ink)/0.04)',
   border: `1px solid ${BORDER}`,
   borderRadius: 10,
   color: T1,
@@ -76,7 +78,7 @@ export const LABEL_STYLE: CSSProperties = {
 };
 
 export const RECHARTS_TOOLTIP: CSSProperties = {
-  background: '#0f0f12', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12, boxShadow: CARD_SHADOW,
+  background: 'var(--sf-0f0f12)', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12, boxShadow: CARD_SHADOW,
 };
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -84,7 +86,7 @@ export function AdminPage({ eyebrow, title, subtitle, actions, children, wide }:
   eyebrow?: ReactNode; title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; wide?: boolean;
 }) {
   return (
-    <div className="min-h-screen pb-20" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-20" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.045),transparent 55%)' }} />
       <div className={`relative z-10 mx-auto px-4 sm:px-6 pt-6 space-y-6 ${wide ? 'max-w-[1560px]' : 'max-w-[1340px]'}`}>
@@ -175,7 +177,7 @@ export function Stat({ label, value, sub, delta, deltaVs, deltaInvert, icon: Ico
   const valueColor = tone === 'neg' ? NEG : tone === 'pos' ? POS : tone === 'warn' ? WARN : highlight ? RED : T1;
   const body = (
     <div style={{
-      background: highlight ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),#0a0a0c' : CARD_BG,
+      background: highlight ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),var(--sf-0a0a0c)' : CARD_BG,
       border: `1px solid ${highlight ? 'rgba(232,25,44,0.24)' : BORDER}`,
       borderRadius: 16, boxShadow: CARD_SHADOW, padding: compact ? '12px 14px' : '16px 18px', height: '100%', overflow: 'hidden', position: 'relative',
     }} className={to ? 'transition-all duration-150 hover:border-white/20' : undefined}>
@@ -263,12 +265,12 @@ export function MiniBars({ pts, h = 36, accentIndex }: { pts: number[]; h?: numb
 // ─── Contrôles (DS §6) ───────────────────────────────────────────────────────
 export function Seg<K extends string>({ value, onChange, options, size = 'md' }: { value: K; onChange: (k: K) => void; options: { key: K; label: ReactNode; icon?: ReactNode }[]; size?: 'sm' | 'md' }) {
   return (
-    <div className="inline-flex gap-0.5 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+    <div className="inline-flex gap-0.5 p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
       {options.map((o) => (
         <button key={o.key} type="button" onClick={() => onChange(o.key)}
           className={`inline-flex items-center gap-1.5 rounded-lg font-medium cursor-pointer transition-all duration-150 ${size === 'sm' ? 'px-2.5 py-1 text-[12px]' : 'px-4 py-1.5 text-[13px]'}`}
           style={value === o.key
-            ? { color: T1, background: 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))', boxShadow: '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000' }
+            ? { color: T1, background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))', boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' }
             : { color: T3 }}>
           {o.icon && <span style={{ opacity: 0.7 }}>{o.icon}</span>}
           {o.label}
@@ -280,7 +282,7 @@ export function Seg<K extends string>({ value, onChange, options, size = 'md' }:
 
 export function PeriodFilter<K extends string>({ value, onChange, options }: { value: K; onChange: (k: K) => void; options: { key: K; label: ReactNode }[] }) {
   return (
-    <div className="flex gap-1 flex-wrap p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+    <div className="flex gap-1 flex-wrap p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
       {options.map((o) => (
         <button key={o.key} type="button" onClick={() => onChange(o.key)}
           className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
@@ -317,7 +319,7 @@ export function Toggle({ checked, onChange, disabled, label }: { checked: boolea
     <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => !disabled && onChange(!checked)}
       className="inline-flex items-center gap-2.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50">
       <span className="relative inline-flex h-[22px] w-[40px] flex-none rounded-full transition-colors duration-150"
-        style={{ background: checked ? RED : 'rgba(255,255,255,0.12)', boxShadow: checked ? `0 0 14px -4px ${RED}` : 'none', border: `1px solid ${checked ? RED : BORDER}` }}>
+        style={{ background: checked ? RED : 'rgb(var(--ink)/0.12)', boxShadow: checked ? `0 0 14px -4px ${RED}` : 'none', border: `1px solid ${checked ? RED : BORDER}` }}>
         <span className="absolute top-[2px] h-[16px] w-[16px] rounded-full transition-all duration-150" style={{ left: checked ? 20 : 2, background: '#fff' }} />
       </span>
       {label && <span style={{ color: checked ? T1 : T2, fontSize: 13 }}>{label}</span>}
@@ -379,7 +381,7 @@ export function LiveBadge({ count, label }: { count: number; label: ReactNode })
 // ─── Données (DS §8, §9) ─────────────────────────────────────────────────────
 export function ProgressBar({ pct, color, height = 6 }: { pct: number; color?: string; height?: number }) {
   return (
-    <div className="rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', height }}>
+    <div className="rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)', height }}>
       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color ?? `linear-gradient(90deg,${RED}88,${RED})` }} />
     </div>
   );
@@ -393,7 +395,7 @@ export function RankRow({ index, label, sub, value, pct, leader, to, right }: { 
       <div className="min-w-0">
         <div className="text-[13.5px] font-[560] truncate" style={{ color: T1 }}>{label}</div>
         {sub && <div className="text-[11.5px] mt-0.5 truncate" style={{ color: T3 }}>{sub}</div>}
-        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
           <div className="h-full rounded transition-all" style={{ width: `${Math.max(3, Math.min(100, pct))}%`, background: leader ? `linear-gradient(90deg,${RED}88,${RED})` : `linear-gradient(90deg,${C_MID},${C_HI})` }} />
         </div>
       </div>
@@ -449,7 +451,7 @@ export function Td({ children, right, muted, strong, style, className, title, co
 // ─── États (DS §10) ──────────────────────────────────────────────────────────
 export function Spinner({ label, full }: { label?: ReactNode; full?: boolean }) {
   return (
-    <div className={`flex items-center justify-center ${full ? 'min-h-screen' : 'py-16'}`} style={{ background: full ? '#000' : undefined }}>
+    <div className={`flex items-center justify-center ${full ? 'min-h-screen' : 'py-16'}`} style={{ background: full ? 'var(--sf-000000)' : undefined }}>
       <div className="text-center">
         <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 mx-auto" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
         {label && <p className="text-sm" style={{ color: T3 }}>{label}</p>}
@@ -461,7 +463,7 @@ export function Spinner({ label, full }: { label?: ReactNode; full?: boolean }) 
 export function EmptyState({ icon: Icon = Inbox, text, action }: { icon?: LucideIcon; text: ReactNode; action?: ReactNode }) {
   return (
     <div className="text-center py-10 px-4">
-      <Icon className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+      <Icon className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
       <p className="text-xs max-w-sm mx-auto" style={{ color: T3 }}>{text}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -498,9 +500,9 @@ export function PageSkeleton({ tiles = 4, blocks = 2 }: { tiles?: number; blocks
   return (
     <div className="space-y-4 animate-pulse">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Array.from({ length: tiles }).map((_, i) => <div key={i} style={{ ...CARD_STYLE, height: 96, background: 'rgba(255,255,255,0.03)' }} />)}
+        {Array.from({ length: tiles }).map((_, i) => <div key={i} style={{ ...CARD_STYLE, height: 96, background: 'rgb(var(--ink)/0.03)' }} />)}
       </div>
-      {Array.from({ length: blocks }).map((_, i) => <div key={i} style={{ ...CARD_STYLE, height: 220, background: 'rgba(255,255,255,0.03)' }} />)}
+      {Array.from({ length: blocks }).map((_, i) => <div key={i} style={{ ...CARD_STYLE, height: 220, background: 'rgb(var(--ink)/0.03)' }} />)}
     </div>
   );
 }

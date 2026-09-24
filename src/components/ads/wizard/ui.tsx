@@ -7,15 +7,15 @@ import type { ReactNode, CSSProperties } from 'react';
 import { Check, Info, Lightbulb } from 'lucide-react';
 
 export const RED = '#E8192C';
-export const POS = '#34D399';
-export const WARN = '#FBBF24';
-export const T1 = 'rgba(255,255,255,0.96)';
-export const T2 = 'rgba(255,255,255,0.62)';
-export const T3 = 'rgba(255,255,255,0.40)';
-export const BORDER = 'rgba(255,255,255,0.09)';
-export const BORDER_STRONG = 'rgba(255,255,255,0.16)';
-export const INNER_BG = 'rgba(255,255,255,0.034)';
-export const FIELD_BG = 'rgba(255,255,255,0.05)';
+export const POS = 'var(--acc-34d399)';
+export const WARN = 'var(--acc-fbbf24)';
+export const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2 = 'rgb(var(--ink)/var(--ink-a62,0.62))';
+export const T3 = 'rgb(var(--ink)/var(--ink-a40,0.40))';
+export const BORDER = 'rgb(var(--ink)/0.09)';
+export const BORDER_STRONG = 'rgb(var(--ink)/0.16)';
+export const INNER_BG = 'rgb(var(--ink)/0.034)';
+export const FIELD_BG = 'rgb(var(--ink)/0.05)';
 export const META_BLUE = '#0866FF';
 
 export const inputStyle: CSSProperties = {
@@ -47,7 +47,7 @@ export function Chip({ active, onClick, children, disabled }: { active: boolean;
     <button type="button" onClick={onClick} disabled={disabled}
       className="inline-flex items-center gap-1.5 px-3.5 rounded-full text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
       style={{ minHeight: 40, ...(active
-        ? { background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.5)', color: '#FF8A91' }
+        ? { background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.5)', color: 'var(--acc-ff8a91)' }
         : { background: FIELD_BG, border: `1px solid ${BORDER}`, color: T2 }) }}>
       {active && <Check className="w-3.5 h-3.5" />}{children}
     </button>
@@ -70,7 +70,7 @@ export function ChoiceCards<T extends string>({ value, options, onChange, column
             className="text-left rounded-2xl p-4 cursor-pointer transition-colors duration-150"
             style={{ background: active ? 'rgba(232,25,44,0.10)' : INNER_BG, border: `1px solid ${active ? 'rgba(232,25,44,0.5)' : BORDER}`, minHeight: 64 }}>
             <div className="flex items-start gap-3">
-              {o.icon && <span className="mt-0.5 flex-shrink-0" style={{ color: active ? '#FF8A91' : T3 }}>{o.icon}</span>}
+              {o.icon && <span className="mt-0.5 flex-shrink-0" style={{ color: active ? 'var(--acc-ff8a91)' : T3 }}>{o.icon}</span>}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p style={{ color: T1, fontSize: 14.5, fontWeight: 650 }}>{o.label}</p>
@@ -79,7 +79,7 @@ export function ChoiceCards<T extends string>({ value, options, onChange, column
                 {o.desc && <p className="mt-1" style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{o.desc}</p>}
               </div>
               <span className="mt-1 h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: `1.5px solid ${active ? RED : BORDER_STRONG}`, background: active ? RED : 'transparent' }}>
-                {active && <Check className="w-3 h-3 text-white" />}
+                {active && <Check className="w-3 h-3 text-snow" />}
               </span>
             </div>
           </button>
@@ -99,7 +99,7 @@ export function ToggleRow({ label, desc, checked, onChange, icon }: { label: Rea
         <span className="block" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{label}</span>
         {desc && <span className="block mt-0.5" style={{ color: T3, fontSize: 12.5, lineHeight: 1.45 }}>{desc}</span>}
       </span>
-      <span className="rounded-full transition-colors duration-200" style={{ display: 'inline-block', position: 'relative', flexShrink: 0, width: 44, height: 26, background: checked ? RED : 'rgba(255,255,255,0.14)' }}>
+      <span className="rounded-full transition-colors duration-200" style={{ display: 'inline-block', position: 'relative', flexShrink: 0, width: 44, height: 26, background: checked ? RED : 'rgb(var(--ink)/0.14)' }}>
         <span className="rounded-full bg-white transition-transform duration-200" style={{ position: 'absolute', top: 3, left: 3, width: 20, height: 20, transform: `translateX(${checked ? 18 : 0}px)` }} />
       </span>
     </button>
@@ -132,7 +132,7 @@ export function Section({ title, desc, children, right }: { title: ReactNode; de
 
 export function Tip({ children, tone = 'info' }: { children: ReactNode; tone?: 'info' | 'tip' | 'warn' | 'pos' }) {
   const s = tone === 'tip' ? { border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.06)', color: WARN }
-    : tone === 'warn' ? { border: '1px solid rgba(232,25,44,0.3)', background: 'rgba(232,25,44,0.07)', color: '#FF8A91' }
+    : tone === 'warn' ? { border: '1px solid rgba(232,25,44,0.3)', background: 'rgba(232,25,44,0.07)', color: 'var(--acc-ff8a91)' }
     : tone === 'pos' ? { border: '1px solid rgba(52,211,153,0.25)', background: 'rgba(52,211,153,0.06)', color: POS }
     : { border: `1px solid ${BORDER}`, background: INNER_BG, color: T3 };
   const Icon = tone === 'tip' ? Lightbulb : Info;

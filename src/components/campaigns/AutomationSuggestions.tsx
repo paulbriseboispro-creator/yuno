@@ -19,12 +19,12 @@ import { useEmailTemplates, type StudioScope } from '@/components/email-studio/h
 import { turnOnAutomation } from './automationSwitch';
 
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'radial-gradient(ellipse 70% 60% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'radial-gradient(ellipse 70% 60% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 
@@ -97,7 +97,7 @@ export default function AutomationSuggestions({ scope, basePath, variant, onEnab
           <div
             key={s.kind}
             className="flex flex-wrap items-center gap-3"
-            style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,0.032)', border: `1px solid ${BORDER}` }}
+            style={{ padding: '10px 12px', borderRadius: 12, background: 'rgb(var(--ink)/0.032)', border: `1px solid ${BORDER}` }}
           >
             <div style={{ flex: '1 1 260px', minWidth: 0 }}>
               <div style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t(`em.auto.kind.${s.kind}.title`)}</div>

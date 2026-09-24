@@ -41,6 +41,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { tint } from '@/lib/proTheme';
 
 interface VipMenuItem {
   id: string;
@@ -570,7 +571,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                           const pack = packs.find(p => p.id === elig.pack_id);
                           return (
                             <Badge key={elig.id} variant="secondary" className="text-[10px]"
-                              style={zone ? { backgroundColor: zone.color + '20', color: zone.color } : {}}>
+                              style={zone ? { backgroundColor: tint(zone.color, '20'), color: zone.color } : {}}>
                               {zone?.name || pack?.name}
                               {elig.is_included && ` (${elig.included_quantity} incl.)`}
                             </Badge>
@@ -873,7 +874,7 @@ function EligibilityEditor({ item, eligibilities, zones, packs, onSave, onRemove
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {zone && (
-                          <Badge className="text-xs" style={{ backgroundColor: zone.color + '20', color: zone.color, border: `1px solid ${zone.color}40` }}>
+                          <Badge className="text-xs" style={{ backgroundColor: tint(zone.color, '20'), color: zone.color, border: `1px solid ${tint(zone.color, '40')}` }}>
                             {t('vipMenu.zone')}: {zone.name}
                           </Badge>
                         )}

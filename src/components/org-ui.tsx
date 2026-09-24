@@ -9,18 +9,18 @@ import { Link } from 'react-router-dom';
 
 // ─── Tokens ─────────────────────────────────────────────────────────────────
 export const RED        = '#E8192C';
-export const RED_SOFT   = '#FF5C63';
-export const POS        = '#34D399';
-export const NEG        = '#FF5C63';
-export const T1         = 'rgba(255,255,255,0.96)';
-export const T2         = 'rgba(255,255,255,0.58)';
-export const T3         = 'rgba(255,255,255,0.36)';
-export const C_FAINT    = 'rgba(255,255,255,0.06)';
-export const BORDER     = 'rgba(255,255,255,0.085)';
-export const F_BORDER   = 'rgba(255,255,255,0.055)';
-export const INNER_BG   = 'rgba(255,255,255,0.032)';
-export const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const RED_SOFT   = 'var(--acc-ff5c63)';
+export const POS        = 'var(--acc-34d399)';
+export const NEG        = 'var(--acc-ff5c63)';
+export const T1         = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2         = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3         = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_FAINT    = 'rgb(var(--ink)/0.06)';
+export const BORDER     = 'rgb(var(--ink)/0.085)';
+export const F_BORDER   = 'rgb(var(--ink)/0.055)';
+export const INNER_BG   = 'rgb(var(--ink)/0.032)';
+export const CARD_BG    = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page scaffolding ─────────────────────────────────────────────────────────
 export function OrgPage({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -93,7 +93,7 @@ export function OrgEmptyState({
   return (
     <OrgCard>
       <div className="px-4 py-16 text-center">
-        <Icon className="mx-auto mb-3 h-9 w-9" style={{ color: 'rgba(255,255,255,0.14)' }} />
+        <Icon className="mx-auto mb-3 h-9 w-9" style={{ color: 'rgb(var(--ink)/0.14)' }} />
         <p style={{ color: T1, fontSize: 14, fontWeight: 560 }}>{title}</p>
         {description && <p style={{ color: T3, fontSize: 12.5, marginTop: 4 }}>{description}</p>}
         {action && <div className="mt-4 flex justify-center">{action}</div>}
@@ -109,8 +109,8 @@ const PILL_STYLES: Record<PillTone, CSSProperties> = {
   default: { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED },
   success: { background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: POS },
   danger:  { background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.25)', color: RED_SOFT },
-  warn:    { background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#FCD34D' },
-  info:    { background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)', color: '#93C5FD' },
+  warn:    { background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: 'var(--acc-fcd34d)' },
+  info:    { background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--acc-93c5fd)' },
   muted:   { background: C_FAINT, border: `1px solid ${BORDER}`, color: T3 },
 };
 
@@ -151,7 +151,7 @@ export function OrgTabs<T extends string>({
           key={tabItem.value}
           onClick={() => onChange(tabItem.value)}
           className={`inline-flex items-center gap-1.5 rounded-lg font-semibold transition-all duration-150 ${pad}`}
-          style={value === tabItem.value ? { background: 'rgba(255,255,255,0.1)', color: T1 } : { background: 'transparent', color: T3 }}
+          style={value === tabItem.value ? { background: 'rgb(var(--ink)/0.1)', color: T1 } : { background: 'transparent', color: T3 }}
         >
           {tabItem.icon}
           {tabItem.label}
@@ -244,7 +244,7 @@ export function DarkInput({
       maxLength={maxLength}
       className={`w-full rounded-xl px-3 py-2.5 text-[13px] transition-all duration-150 disabled:opacity-50 ${className}`}
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={(e) => { if (!disabled) e.target.style.borderColor = 'rgba(255,255,255,0.18)'; }}
+      onFocus={(e) => { if (!disabled) e.target.style.borderColor = 'rgb(var(--ink)/0.18)'; }}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -264,7 +264,7 @@ export function DarkSelect({
         className="w-full cursor-pointer appearance-none rounded-xl px-3 py-2.5 pr-9 text-[13px]"
         style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: value ? T1 : T3, outline: 'none' }}
       >
-        {placeholder && <option value="" disabled style={{ background: '#0a0a0c' }}>{placeholder}</option>}
+        {placeholder && <option value="" disabled style={{ background: 'var(--sf-0a0a0c)' }}>{placeholder}</option>}
         {children}
       </select>
       <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: T3 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
@@ -286,7 +286,7 @@ export function DarkTextarea({
       rows={rows}
       className="w-full resize-none rounded-xl px-3 py-2.5 text-[13px] transition-all duration-150"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     />
   );

@@ -16,11 +16,11 @@ import { BrandedLoader } from '@/components/BrandedLoader';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 interface UpcomingEvent {
   id: string;
@@ -74,7 +74,7 @@ export default function OwnerHypeAnalysis() {
 
   if (!venueId) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
         <p style={{ color: T3, fontSize: 14 }}>{t('owner.noVenueAssigned')}</p>
       </div>
     );
@@ -88,11 +88,11 @@ export default function OwnerHypeAnalysis() {
   const selectedEvent = upcomingEvents.find(e => e.id === selectedEventId);
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       {/* Ambient vignette */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
 
       <OwnerHeader
@@ -191,7 +191,7 @@ export default function OwnerHypeAnalysis() {
                           exit={{ opacity: 0, y: -8 }}
                           transition={{ duration: 0.15 }}
                           className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-20"
-                          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.9)' }}
+                          style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.9)' }}
                         >
                           {upcomingEvents.map(event => (
                             <button
@@ -199,7 +199,7 @@ export default function OwnerHypeAnalysis() {
                               onClick={() => { setSelectedEventId(event.id); setShowEventPicker(false); }}
                               className="w-full flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-150 text-left"
                               style={{
-                                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                borderBottom: '1px solid rgb(var(--ink)/0.04)',
                                 background: selectedEventId === event.id ? 'rgba(232,25,44,0.06)' : 'transparent',
                               }}
                             >

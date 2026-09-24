@@ -59,6 +59,7 @@ import {
 	ShirtIcon,
 	Martini,
 } from "lucide-react";
+import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 
 type TT = (fr: string, en: string, es?: string) => string;
 
@@ -346,6 +347,7 @@ export function OrgAppSidebar() {
 				))}
 			</SidebarContent>
 			<SidebarFooter>
+				<SidebarProThemeSwitch />
 				<SidebarMenu>
 					{footerNavLinks.map((item) => (
 						<SidebarMenuItem key={item.title}>

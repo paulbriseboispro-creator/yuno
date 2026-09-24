@@ -136,7 +136,7 @@ export function DistributeSheet({ tpl, holderType, mode, ctx, eventId, existingI
           )}
 
           <button onClick={confirm} disabled={!canConfirm || saving} className="mt-4"
-            style={{ width: '100%', background: (!canConfirm || saving) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (!canConfirm || saving) ? 'not-allowed' : 'pointer', opacity: (!canConfirm || saving) ? 0.6 : 1 }}>
+            style={{ width: '100%', background: (!canConfirm || saving) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: (!canConfirm || saving) ? T1 : '#fff', fontSize: 14, fontWeight: 600, cursor: (!canConfirm || saving) ? 'not-allowed' : 'pointer', opacity: (!canConfirm || saving) ? 0.6 : 1 }}>
             {saving ? '…' : mode === 'select' ? t('guestList.promoDist.confirmSelect').replace('{n}', String(selectedItems.length)) : mode === 'agency' ? t('guestList.promoDist.confirmAgency') : t('guestList.promoDist.confirmAll')}
           </button>
         </motion.div>

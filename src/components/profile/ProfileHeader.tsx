@@ -200,7 +200,7 @@ export function ProfileHeader({
             <button
               type="button"
               onClick={onShareClick}
-              className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-95"
+              className="flex h-9 w-9 items-center justify-center text-snow transition-transform active:scale-95"
               style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.10)' }}
             >
               <Share2 className="h-4 w-4" />
@@ -211,7 +211,7 @@ export function ProfileHeader({
           <button
             type="button"
             onClick={() => navigate('/settings')}
-            className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-95"
+            className="flex h-9 w-9 items-center justify-center text-snow transition-transform active:scale-95"
             style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.10)' }}
           >
             <Settings className="h-4 w-4" />

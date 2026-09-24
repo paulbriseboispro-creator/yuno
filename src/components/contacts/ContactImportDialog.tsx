@@ -431,7 +431,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
 
             {/* ── Rapport de lecture ────────────────────────────────────── */}
             {parsed && (
-              <div className="space-y-2.5 rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="space-y-2.5 rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgb(var(--ink)/0.1)' }}>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span className="font-semibold">{t('cimp.readTitle').replace('{n}', String(parsed.rows.length))}</span>
                   <span className="opacity-70">{t('cimp.readEmails').replace('{n}', String(parsed.stats.emails))}</span>
@@ -439,7 +439,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
                   {parsed.stats.both > 0 && <span className="opacity-50">{t('cimp.readBoth').replace('{n}', String(parsed.stats.both))}</span>}
                   {parsed.duplicates > 0 && <span className="opacity-50">{parsed.duplicates} {t('em.import.dupes')}</span>}
                   {parsed.invalid.length > 0 && (
-                    <span className="inline-flex items-center gap-1" style={{ color: '#FCD34D' }}>
+                    <span className="inline-flex items-center gap-1" style={{ color: 'var(--acc-fcd34d)' }}>
                       <AlertTriangle className="h-3.5 w-3.5" />{parsed.invalid.length} {t('em.import.unreadable')}
                     </span>
                   )}
@@ -449,7 +449,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
                     <span className="opacity-55">{t('cimp.detected')}</span>
                     {(Object.keys(parsed.detected) as ContactField[]).map((f) => (
                       <span key={f} className="rounded-full px-2 py-0.5 text-[11px]"
-                        style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)', color: '#A7F3D0' }}>
+                        style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)', color: 'var(--acc-a7f3d0)' }}>
                         {t(FIELD_LABEL_KEYS[f])}
                       </span>
                     ))}
@@ -497,7 +497,7 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
 
             {/* ── Canaux ─────────────────────────────────────────────────── */}
             {parsed && parsed.rows.length > 0 && (
-              <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: 'rgb(var(--ink)/0.1)' }}>
                 <Label className="text-[12px]">{t('cimp.channels')}</Label>
                 <label className="flex cursor-pointer items-center justify-between gap-3 text-[12.5px]">
                   <span className="opacity-85">{t('cimp.chEmail')} <span className="opacity-50">· {parsed.stats.emails}</span></span>
@@ -508,16 +508,16 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
                   <Switch checked={wantSms} onCheckedChange={setWantSms} disabled={busy || parsed.stats.phones === 0} />
                 </label>
                 {effectiveEmails === 0 && effectivePhones === 0 && (
-                  <p className="text-[11px]" style={{ color: '#FCD34D' }}>{t('cimp.chNone')}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--acc-fcd34d)' }}>{t('cimp.chNone')}</p>
                 )}
               </div>
             )}
 
             {/* ── 2. L'attestation ──────────────────────────────────────── */}
             {parsed && parsed.rows.length > 0 && (
-              <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
+              <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: 'rgb(var(--ink)/0.1)', background: 'rgb(var(--ink)/0.02)' }}>
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4" style={{ color: '#34D399' }} />
+                  <ShieldCheck className="h-4 w-4" style={{ color: 'var(--acc-34d399)' }} />
                   <span className="text-[13px] font-semibold">{t('em.import.step2')}</span>
                 </div>
                 <div>
@@ -551,13 +551,13 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
 
             {parsed && parsed.rows.length > 0 && (
               <p className="rounded-lg p-2.5 text-[11.5px] leading-relaxed"
-                 style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)', color: 'rgba(255,255,255,0.7)' }}>
+                 style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)', color: 'rgb(var(--ink)/var(--ink-a70,0.7))' }}>
                 {t('cimp.afterNotice')}
               </p>
             )}
 
             {busy && (
-              <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgb(var(--ink)/0.08)' }}>
                 <div className="h-full transition-all" style={{ width: `${progress}%`, background: '#E8192C' }} />
               </div>
             )}
@@ -588,11 +588,11 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 36, lineHeight: .86, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums' }}>
                 {actionFmt(runTotals.rows)}
               </div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: '#9A9A9A', paddingBottom: 4 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)', paddingBottom: 4 }}>
                 {t('owner.importrun.contacts')}
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: '#9A9A9A', fontVariantNumeric: 'tabular-nums', marginTop: -5 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: 'var(--tx-9a9a9a)', fontVariantNumeric: 'tabular-nums', marginTop: -5 }}>
               {emailsKept > 0 && <div>{actionFmt(emailsKept)} {t('owner.importrun.emails')}</div>}
               {phonesKept > 0 && <div>{actionFmt(phonesKept)} {t('owner.importrun.phones')}</div>}
               {runTotals.merged > 0 && <div>{actionFmt(runTotals.merged)} {t('owner.importrun.merged')}</div>}
@@ -635,7 +635,7 @@ function ImportVerdict({ check, busy, progress, language, onChoose, onBack, t }:
       <div className="rounded-lg border p-3.5"
            style={{ background: 'rgba(252,211,77,0.07)', borderColor: 'rgba(252,211,77,0.28)' }}>
         <div className="flex items-start gap-2.5">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#FCD34D' }} />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
           <div className="space-y-1.5">
             <p className="text-[13.5px] font-semibold">{t(dup ? 'cimp.dup.title' : 'cimp.ov.title')}</p>
             <p className="text-[12.5px] leading-relaxed opacity-80">
@@ -654,7 +654,7 @@ function ImportVerdict({ check, busy, progress, language, onChoose, onBack, t }:
         <ul className="space-y-1.5">
           {check.overlaps.map((o) => (
             <li key={`${o.channel}:${o.import_id}`} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-[12.5px]"
-                style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                style={{ borderColor: 'rgb(var(--ink)/0.1)' }}>
               <span className="inline-flex items-center gap-1.5 truncate">
                 {o.channel === 'sms' ? <Smartphone className="h-3.5 w-3.5 opacity-60" /> : <MailOpen className="h-3.5 w-3.5 opacity-60" />}
                 <span className="truncate">{overlapName(o, t('cimp.ov.unnamed'))}</span>
@@ -668,7 +668,7 @@ function ImportVerdict({ check, busy, progress, language, onChoose, onBack, t }:
       )}
 
       {busy && (
-        <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgb(var(--ink)/0.08)' }}>
           <div className="h-full transition-all" style={{ width: `${progress}%`, background: '#E8192C' }} />
         </div>
       )}
@@ -689,7 +689,7 @@ function ImportVerdict({ check, busy, progress, language, onChoose, onBack, t }:
         {!dup && (
           <button type="button" disabled={busy} onClick={() => onChoose('append')}
                   className="w-full rounded-lg border p-3 text-left transition-colors disabled:opacity-50"
-                  style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+                  style={{ borderColor: 'rgb(var(--ink)/0.12)' }}>
             <span className="flex items-center gap-2 text-[13px] font-semibold">
               <Database className="h-4 w-4" />{t('cimp.ov.keep')}
             </span>
@@ -722,10 +722,10 @@ function ImportReport({ totals, wantEmail, wantSms, onSegments, onDone, t }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2.5">
-        <CheckCircle2 className="h-5 w-5" style={{ color: '#34D399' }} />
+        <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--acc-34d399)' }} />
         <span className="text-[15px] font-semibold">{t('cimp.rep.title')}</span>
       </div>
-      <div className="space-y-1.5 rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+      <div className="space-y-1.5 rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgb(var(--ink)/0.1)' }}>
         {rows.map(([label, n]) => (
           <div key={label} className="flex items-baseline justify-between gap-3">
             <span className="opacity-65">{label}</span>
@@ -1019,7 +1019,7 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
       )}
 
       {/* Ce que Yuno a lu */}
-      <div className="rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+      <div className="rounded-lg border p-3 text-[12.5px]" style={{ borderColor: 'rgb(var(--ink)/0.1)' }}>
         <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-55">{t('cseg.facts.title')}</div>
         <div className="space-y-1 opacity-85">
           <div>{t('cseg.facts.base').replace('{n}', nf(contactsTotal)).replace('{lists}', String(listsCount))}</div>
@@ -1057,9 +1057,9 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
         <div>
           <div className="mb-1.5 text-[13px] font-semibold">{t('cseg.existingTitle')} <span className="opacity-50">· {segments.length}</span></div>
           <p className="mb-2 text-[11.5px] leading-relaxed opacity-60">{t('cseg.existingLive')}</p>
-          <ul className="divide-y rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+          <ul className="divide-y rounded-lg border" style={{ borderColor: 'rgb(var(--ink)/0.1)' }}>
             {segments.map((seg) => (
-              <li key={seg.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+              <li key={seg.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]" style={{ borderColor: 'rgb(var(--ink)/0.06)' }}>
                 <div className="min-w-0">
                   <div className="truncate font-medium">{seg.name}</div>
                   <div className="text-[11px] opacity-55">{t('cseg.reach').replace('{e}', nf(seg.counts.emails)).replace('{p}', nf(seg.counts.phones))}</div>
@@ -1124,7 +1124,7 @@ export function SegmentProposals({ scope, listImportId, onChanged, onDone, baseP
             <Sparkles className="h-4 w-4" style={{ color: '#E8192C' }} />{t('cseg.look.title')}
           </div>
           <p className="mt-1 text-[12px] leading-relaxed opacity-75">{t('cseg.look.body')}</p>
-          {analysisError && <div className="mt-1.5 font-mono text-[11px]" style={{ color: '#FCA5A5' }}>{analysisError}</div>}
+          {analysisError && <div className="mt-1.5 font-mono text-[11px]" style={{ color: 'var(--acc-fca5a5)' }}>{analysisError}</div>}
           <Button className="mt-2.5" size="sm" onClick={() => void runAnalysis()} disabled={analyzing}>
             {analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {analyzing ? t('cimp.analyzing') : t('cseg.look.cta')}
@@ -1166,14 +1166,14 @@ function SuggestionRow({ s, on, onToggle, t, language }: {
       className="flex items-start gap-3 rounded-lg border p-2.5 text-left"
       style={{
         cursor: already ? 'default' : 'pointer',
-        borderColor: on ? 'rgba(232,25,44,0.35)' : 'rgba(255,255,255,0.1)',
+        borderColor: on ? 'rgba(232,25,44,0.35)' : 'rgb(var(--ink)/0.1)',
         background: on ? 'rgba(232,25,44,0.06)' : 'transparent',
         opacity: already ? 0.6 : 1,
       }}
     >
       <div className="mt-0.5">
         {already
-          ? <CheckCircle2 className="h-4 w-4" style={{ color: '#34D399' }} />
+          ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--acc-34d399)' }} />
           : <Checkbox checked={on} onCheckedChange={onToggle} onClick={(e) => e.stopPropagation()} />}
       </div>
       <div className="min-w-0 flex-1">

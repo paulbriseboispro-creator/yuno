@@ -29,16 +29,16 @@ import { exportContactBase } from '@/lib/contactBaseExport';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const C_FAINT  = 'rgba(255,255,255,0.06)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT  = 'rgb(var(--ink)/0.06)';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SegmentKey = 'champions' | 'loyal' | 'promising' | 'new' | 'at_risk' | 'dormant' | 'lost';
@@ -108,7 +108,7 @@ function DarkInput({ value, onChange, placeholder, type = 'text' }: {
     <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={e => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -158,7 +158,7 @@ export default function OwnerCustomers() {
     promising: { label: t('seg.promising'), accent: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
     new:       { label: t('seg.new'),       accent: POS,       bg: 'rgba(52,211,153,0.12)' },
     at_risk:   { label: t('seg.atRisk'),    accent: '#FB923C', bg: 'rgba(251,146,60,0.12)' },
-    dormant:   { label: t('seg.dormant'),   accent: T2,        bg: 'rgba(255,255,255,0.06)' },
+    dormant:   { label: t('seg.dormant'),   accent: T2,        bg: 'rgb(var(--ink)/0.06)' },
     lost:      { label: t('seg.lost'),      accent: '#EF4444', bg: 'rgba(239,68,68,0.10)' },
   };
 
@@ -418,11 +418,11 @@ export default function OwnerCustomers() {
   };
 
   const INCIDENT_COLORS: Record<string, { color: string; bg: string }> = {
-    refund:  { color: '#FB923C', bg: 'rgba(251,146,60,0.1)' },
-    warning: { color: '#FCD34D', bg: 'rgba(252,211,77,0.1)' },
+    refund:  { color: 'var(--acc-fb923c)', bg: 'rgba(251,146,60,0.1)' },
+    warning: { color: 'var(--acc-fcd34d)', bg: 'rgba(252,211,77,0.1)' },
     ban:     { color: RED,       bg: 'rgba(232,25,44,0.1)'  },
     unban:   { color: POS,       bg: 'rgba(52,211,153,0.1)' },
-    note:    { color: '#60A5FA', bg: 'rgba(96,165,250,0.1)' },
+    note:    { color: 'var(--acc-60a5fa)', bg: 'rgba(96,165,250,0.1)' },
   };
 
   const translateIncidentReason = (reason: string) => {
@@ -533,11 +533,11 @@ export default function OwnerCustomers() {
         onClick={() => openCustomer(customer)}
         className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-150"
         style={{ borderBottom: `1px solid ${F_BORDER}` }}
-        whileHover={{ background: 'rgba(255,255,255,0.024)' }}>
+        whileHover={{ background: 'rgb(var(--ink)/0.024)' }}>
         {rank && (
           <div className="w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 text-[11px] font-bold"
             style={rank <= 3
-              ? { background: rank === 1 ? '#FCD34D' : rank === 2 ? 'rgba(255,255,255,0.35)' : '#CD7F32', color: '#000' }
+              ? { background: rank === 1 ? 'var(--acc-fcd34d)' : rank === 2 ? 'rgb(var(--ink)/var(--ink-a35,0.35))' : 'var(--acc-cd7f32)', color: '#000' }
               : { background: INNER_BG, color: T3 }}>
             {rank <= 3 ? <Crown className="w-3 h-3" /> : rank}
           </div>
@@ -552,7 +552,7 @@ export default function OwnerCustomers() {
             </span>
             {customer.is_guest && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                style={{ background: 'rgba(255,255,255,0.06)', color: T3 }}>{t('customers.guestBadge')}</span>
+                style={{ background: 'rgb(var(--ink)/0.06)', color: T3 }}>{t('customers.guestBadge')}</span>
             )}
             {seg && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
@@ -560,7 +560,7 @@ export default function OwnerCustomers() {
             )}
             {s?.churnRisk && !customer.is_banned && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-0.5"
-                style={{ background: 'rgba(251,146,60,0.1)', color: '#FB923C' }}>
+                style={{ background: 'rgba(251,146,60,0.1)', color: 'var(--acc-fb923c)' }}>
                 <ArrowDownRight className="w-2.5 h-2.5" />{t('customers.churnTag')}
               </span>
             )}
@@ -572,7 +572,7 @@ export default function OwnerCustomers() {
             )}
             {minorByEmail.has(customer.email.toLowerCase()) && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-0.5"
-                style={{ background: 'rgba(232,25,44,0.12)', color: '#FF7A80' }}>
+                style={{ background: 'rgba(232,25,44,0.12)', color: 'var(--acc-ff7a80)' }}>
                 <ShieldAlert className="w-2.5 h-2.5" />{t('minorClients.badge')}
               </span>
             )}
@@ -597,9 +597,9 @@ export default function OwnerCustomers() {
   const selScore = selectedCustomer ? scoredById.get(selectedCustomer.id)?._s : null;
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader
         title={t('customers.title')}
@@ -628,7 +628,7 @@ export default function OwnerCustomers() {
           {[
             { icon: Users, label: t('customers.totalClients'), value: analytics.totalCustomers, color: T2 },
             { icon: TrendingUp, label: t('customers.activeClients'), value: analytics.activeCustomers, color: POS },
-            { icon: ArrowDownRight, label: t('customers.churnRiskStat'), value: analytics.churn, color: '#FB923C' },
+            { icon: ArrowDownRight, label: t('customers.churnRiskStat'), value: analytics.churn, color: 'var(--acc-fb923c)' },
             { icon: Euro, label: t('customers.totalRevenue'), value: `${analytics.totalSpent.toFixed(0)}€`, color: T2 },
             { icon: Activity, label: t('customers.revenue30'), value: `${analytics.revenue30.toFixed(0)}€`, color: T2 },
             { icon: Target, label: t('customers.avgSpent'), value: `${analytics.avgSpentPerCustomer.toFixed(0)}€`, color: T2 },
@@ -670,7 +670,7 @@ export default function OwnerCustomers() {
                   {segmentChartData.map(item => (
                     <button key={item.key} onClick={() => { setActiveTab('all'); setSegmentFilters(f => ({ ...f, segment: f.segment === item.key ? '' : item.key as SegmentKey })); }}
                       className="flex items-center gap-1.5 text-left cursor-pointer rounded-md px-1 py-0.5"
-                      style={{ background: segmentFilters.segment === item.key ? 'rgba(255,255,255,0.06)' : 'transparent' }}>
+                      style={{ background: segmentFilters.segment === item.key ? 'rgb(var(--ink)/0.06)' : 'transparent' }}>
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: item.color }} />
                       <span style={{ color: T3, fontSize: 11 }}>{item.name}: <span style={{ color: T1 }}>{item.value}</span></span>
                     </button>
@@ -687,7 +687,7 @@ export default function OwnerCustomers() {
                 <BarChart data={categoryChartData} layout="vertical">
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" width={60} tick={{ fontSize: 10, fill: T3 }} />
-                  <Tooltip contentStyle={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                  <Tooltip contentStyle={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12 }} cursor={{ fill: 'rgb(var(--ink)/0.03)' }} />
                   <Bar dataKey="value" fill={RED} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -745,7 +745,7 @@ export default function OwnerCustomers() {
                 placeholder={t('customers.searchPlaceholder')}
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
                 style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-                onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+                onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
                 onBlur={e => (e.target.style.borderColor = BORDER)}
               />
             </div>
@@ -838,7 +838,7 @@ export default function OwnerCustomers() {
                   <button type="button"
                     onClick={() => setSegmentFilters(f => ({ ...f, churn: !f.churn }))}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium cursor-pointer"
-                    style={{ background: segmentFilters.churn ? 'rgba(251,146,60,0.12)' : INNER_BG, border: `1px solid ${segmentFilters.churn ? '#FB923C' : BORDER}`, color: segmentFilters.churn ? '#FB923C' : T2 }}>
+                    style={{ background: segmentFilters.churn ? 'rgba(251,146,60,0.12)' : INNER_BG, border: `1px solid ${segmentFilters.churn ? '#FB923C' : BORDER}`, color: segmentFilters.churn ? 'var(--acc-fb923c)' : T2 }}>
                     <ArrowDownRight className="w-3 h-3" />{t('customers.churnFilter')} <span style={{ opacity: 0.6 }}>{analytics.churn}</span>
                   </button>
 
@@ -867,7 +867,7 @@ export default function OwnerCustomers() {
               </div>
             ) : filteredCustomers.length === 0 ? (
               <div className="text-center py-14 px-4">
-                <Users className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                <Users className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                 <p style={{ color: T3, fontSize: 13 }}>{searchQuery ? t('customers.noResults') : activeTab === 'warned' ? t('customers.noWarned') : t('customers.noCustomers')}</p>
               </div>
             ) : (
@@ -884,7 +884,7 @@ export default function OwnerCustomers() {
       {/* Customer Detail Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="border-0 overflow-y-auto"
-          style={{ background: '#0a0a0c', borderLeft: `1px solid ${BORDER}` }}>
+          style={{ background: 'var(--sf-0a0a0c)', borderLeft: `1px solid ${BORDER}` }}>
           {selectedCustomer && (() => {
             const s = selScore;
             const seg = s ? SEGMENT_META[s.segment] : null;
@@ -895,13 +895,13 @@ export default function OwnerCustomers() {
                     {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(' ') || t('customers.client')}
                     {selectedCustomer.emailOnly && (
                       <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1"
-                        style={{ background: 'rgba(96,165,250,0.12)', color: '#60A5FA' }}>
+                        style={{ background: 'rgba(96,165,250,0.12)', color: 'var(--acc-60a5fa)' }}>
                         <Mail className="w-3 h-3" />{t('customers.emailOnly')}
                       </span>
                     )}
                     {selectedCustomer.is_guest && (
                       <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                        style={{ background: 'rgba(255,255,255,0.07)', color: T2 }}
+                        style={{ background: 'rgb(var(--ink)/0.07)', color: T2 }}
                         title={t('customers.guestNoAccount')}>
                         {t('customers.guestBadge')}
                       </span>
@@ -924,7 +924,7 @@ export default function OwnerCustomers() {
                   const age = ageFromBirthDate(md.birthDate);
                   return (
                     <div className="rounded-xl p-3.5 space-y-2.5" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.25)' }}>
-                      <p className="flex items-center gap-1.5" style={{ color: '#FF7A80', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                      <p className="flex items-center gap-1.5" style={{ color: 'var(--acc-ff7a80)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
                         <ShieldAlert className="w-3.5 h-3.5" />{t('minorClients.badge')}
                       </p>
                       {md.birthDate && (
@@ -968,7 +968,7 @@ export default function OwnerCustomers() {
                       })()}
                       {s?.churnRisk && (
                         <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1"
-                          style={{ background: 'rgba(251,146,60,0.1)', color: '#FB923C' }}>
+                          style={{ background: 'rgba(251,146,60,0.1)', color: 'var(--acc-fb923c)' }}>
                           <ArrowDownRight className="w-3 h-3" />{t('customers.churnTag')}
                         </span>
                       )}
@@ -987,7 +987,7 @@ export default function OwnerCustomers() {
                               <span style={{ color: T3, fontSize: 10.5, fontWeight: 700 }}>{l}</span>
                               <span style={{ color: T1, fontSize: 13, fontWeight: 700 }}>{v}/5</span>
                             </div>
-                            <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                            <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.08)' }}>
                               <div style={{ width: `${v * 20}%`, height: '100%', background: seg?.accent || RED }} />
                             </div>
                             <p style={{ color: T3, fontSize: 9.5, marginTop: 3 }}>{hint}</p>
@@ -1141,7 +1141,7 @@ export default function OwnerCustomers() {
 
       {/* Ban Dialog */}
       <Dialog open={showBanDialog} onOpenChange={setShowBanDialog}>
-        <DialogContent className="border-0 p-0" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 420 }}>
+        <DialogContent className="border-0 p-0" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 420 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2" style={{ color: T1, fontSize: 15 }}>
               <Ban className="w-4 h-4" style={{ color: RED }} />{t('customers.banCustomer')}
@@ -1155,7 +1155,7 @@ export default function OwnerCustomers() {
                 placeholder={t('customers.banPlaceholder')} rows={3}
                 className="w-full px-3 py-2.5 rounded-xl text-[13px] resize-none transition-all duration-150"
                 style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-                onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+                onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
                 onBlur={e => (e.target.style.borderColor = BORDER)}
               />
             </div>
@@ -1178,7 +1178,7 @@ export default function OwnerCustomers() {
 
       {/* Unban Dialog */}
       <Dialog open={showUnbanDialog} onOpenChange={setShowUnbanDialog}>
-        <DialogContent className="border-0 p-0" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 380 }}>
+        <DialogContent className="border-0 p-0" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 380 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2" style={{ color: T1, fontSize: 15 }}>
               <CheckCircle className="w-4 h-4" style={{ color: POS }} />{t('customers.unbanCustomer')}

@@ -8,13 +8,13 @@ import { fr, es, enUS } from 'date-fns/locale';
 
 // ─── Yuno pro-dashboard design tokens ─────────────────────────────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface EventRow {
   id: string;
@@ -93,7 +93,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ height: 122, background: 'rgba(255,255,255,0.04)', borderRadius: 16 }} className="animate-pulse" />
+          <div key={i} style={{ height: 122, background: 'rgb(var(--ink)/0.04)', borderRadius: 16 }} className="animate-pulse" />
         ))}
       </div>
     );
@@ -123,7 +123,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
   }
 
   const statusChip: Record<Status, { label: string; color: string; bg: string }> = {
-    past: { label: t('owner.an.statusPast'), color: T2, bg: 'rgba(255,255,255,0.07)' },
+    past: { label: t('owner.an.statusPast'), color: T2, bg: 'rgb(var(--ink)/0.07)' },
     tonight: { label: t('owner.an.statusTonight'), color: POS, bg: 'rgba(52,211,153,0.12)' },
     upcoming: { label: t('owner.an.statusUpcoming'), color: RED, bg: 'rgba(232,25,44,0.12)' },
   };
@@ -170,7 +170,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
                       cropped banner: a 1:1 or portrait flyer would zoom into its middle) */}
                   <div
                     className="relative flex-none overflow-hidden"
-                    style={{ width: 96, height: 96, borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)' }}
+                    style={{ width: 96, height: 96, borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgb(var(--ink)/0.03)' }}
                   >
                     {e.poster_url ? (
                       <img src={e.poster_url} alt="" className="w-full h-full object-cover" loading="lazy" />
@@ -217,7 +217,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
                         )}
                       </div>
                       {fillPct !== null && (
-                        <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                           <div
                             className="h-full rounded-full"
                             style={{ width: `${fillPct}%`, background: fillPct >= 90 ? POS : `linear-gradient(90deg,${RED}99,${RED})` }}

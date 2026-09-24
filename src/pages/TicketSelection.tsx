@@ -30,6 +30,7 @@ import { guestListScarcity, scarcityBadgeText } from '@/lib/guestListScarcity';
 import { isPackSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
+import { tint } from '@/lib/proTheme';
 
 type SelectionType = 'ticket' | 'table' | 'guestlist';
 type Selection = {
@@ -573,7 +574,7 @@ export default function TicketSelection() {
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/50 to-background" />
         <button
           onClick={goBackToEvent}
-          className="absolute left-4 z-10 flex items-center justify-center h-9 w-9 text-white hover:opacity-80 transition-opacity"
+          className="absolute left-4 z-10 flex items-center justify-center h-9 w-9 text-snow hover:opacity-80 transition-opacity"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)', borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -607,7 +608,7 @@ export default function TicketSelection() {
         )}
         {salesIsOpen && !saleLocked && eventData?.maxTicketsPerPerson && (
           <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            style={{ background: 'rgb(var(--ink)/0.04)', border: '1px solid rgb(var(--ink)/0.08)' }}>
             <Users className="h-3.5 w-3.5 text-white/60 shrink-0" />
             <span className="text-xs text-white/55">
               {t('tickets.maxPerPersonNotice').replace('{count}', String(eventData.maxTicketsPerPerson))}
@@ -619,7 +620,7 @@ export default function TicketSelection() {
       {/* Password gate */}
       {salesIsOpen && saleLocked && (
         <div className="px-4 mt-4">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#141414] p-5 text-center">
+          <div className="rounded-2xl border border-white/[0.08] bg-[var(--sf-141414)] p-5 text-center">
             <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full" style={{ background: 'rgba(232,25,44,0.10)' }}>
               <Lock className="h-5 w-5 text-primary" />
             </div>
@@ -650,7 +651,7 @@ export default function TicketSelection() {
       {showSectionTabs && (
         <div
           className="sticky top-0 z-30 px-4 pt-2.5 pb-2 mt-3"
-          style={{ background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+          style={{ background: 'rgb(var(--glass-10-10-10)/0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
         >
           <div className="flex gap-1.5 p-1 rounded-lg border border-white/[0.07] bg-white/[0.03] max-w-md mx-auto">
             <button
@@ -781,7 +782,7 @@ export default function TicketSelection() {
                         ? 'opacity-45 cursor-default border-white/[0.06]'
                         : cn('active:scale-[0.99]', isSel ? 'border-orange-500/50' : 'border-orange-500/20 hover:border-orange-500/35')
                     )}
-                    style={{ backgroundColor: isFull ? '#141414' : isSel ? 'rgba(249,115,22,0.10)' : 'rgba(249,115,22,0.04)' }}
+                    style={{ backgroundColor: isFull ? 'var(--sf-141414)' : isSel ? 'rgba(249,115,22,0.10)' : 'rgba(249,115,22,0.04)' }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-1.5">
@@ -896,8 +897,8 @@ export default function TicketSelection() {
                             !isActive && !isSoldOut && 'bg-white/[0.04] border-white/[0.07] text-white/55 hover:text-white/60',
                           )}
                           style={isActive && !isSoldOut ? {
-                            backgroundColor: `${zone.color}18`,
-                            borderColor: `${zone.color}55`,
+                            backgroundColor: `${tint(zone.color, '18')}`,
+                            borderColor: `${tint(zone.color, '55')}`,
                             color: zone.color,
                           } : undefined}
                         >
@@ -947,7 +948,7 @@ export default function TicketSelection() {
               {/* Floor plan (read-only) — les tables vendues / en cours d'achat
                   apparaissent indisponibles, comme au checkout. */}
               {floorPlan && (
-                <div className="rounded border border-white/[0.07] bg-[#141414] overflow-hidden p-2 mt-1">
+                <div className="rounded border border-white/[0.07] bg-[var(--sf-141414)] overflow-hidden p-2 mt-1">
                   <ClientFloorPlanPicker
                     floorPlan={floorPlan}
                     unavailableTableIds={unavailableTableIds}
@@ -1049,12 +1050,12 @@ function TicketCard({
       className={cn(
         'relative rounded border overflow-hidden transition-all duration-150',
         communityLocked
-          ? 'border-primary/20 bg-[#141414] cursor-default'
+          ? 'border-primary/20 bg-[var(--sf-141414)] cursor-default'
           : isDisabled
-          ? 'opacity-45 border-white/[0.06] bg-[#141414] cursor-default'
+          ? 'opacity-45 border-white/[0.06] bg-[var(--sf-141414)] cursor-default'
           : isSelected
             ? 'border-primary/30 cursor-pointer'
-            : 'border-white/[0.08] bg-[#141414] cursor-pointer active:scale-[0.99] hover:border-white/[0.14]'
+            : 'border-white/[0.08] bg-[var(--sf-141414)] cursor-pointer active:scale-[0.99] hover:border-white/[0.14]'
       )}
       style={isSelected ? { backgroundColor: 'rgba(232,25,44,0.05)' } : undefined}
       onClick={() => { if (!isDisabled && !isSelected) onSelect(); }}
@@ -1230,10 +1231,10 @@ function PackCard({
       className={cn(
         'rounded border overflow-hidden transition-all duration-150',
         isSoldOut
-          ? 'opacity-40 border-white/[0.06] bg-[#141414] cursor-default'
+          ? 'opacity-40 border-white/[0.06] bg-[var(--sf-141414)] cursor-default'
           : isSelected
             ? 'border-primary/30'
-            : 'border-white/[0.08] bg-[#141414] cursor-pointer active:scale-[0.99] hover:border-white/[0.14]'
+            : 'border-white/[0.08] bg-[var(--sf-141414)] cursor-pointer active:scale-[0.99] hover:border-white/[0.14]'
       )}
       style={isSelected ? { backgroundColor: 'rgba(232,25,44,0.05)' } : undefined}
       onClick={() => { if (!isSoldOut && !isSelected) onSelectPack(); }}
@@ -1365,10 +1366,10 @@ function QuantitySelector({
         className={cn(
           'h-8 w-8 rounded-sm flex items-center justify-center transition-all duration-150',
           quantity < max
-            ? 'text-white active:scale-90'
+            ? 'text-snow active:scale-90'
             : 'text-white/15 cursor-default'
         )}
-        style={quantity < max ? { backgroundColor: 'rgba(232,25,44,0.80)' } : { backgroundColor: 'rgba(255,255,255,0.04)' }}
+        style={quantity < max ? { backgroundColor: 'rgba(232,25,44,0.80)' } : { backgroundColor: 'rgb(var(--ink)/0.04)' }}
         onClick={() => quantity < max && onQuantityChange(1)}
         disabled={quantity >= max}
         aria-label="Increase quantity"

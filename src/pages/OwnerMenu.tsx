@@ -15,16 +15,16 @@ import { DrinkCatalogSearch } from '@/components/DrinkCatalogSearch';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const F_BORDER= 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const F_BORDER= 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 type SortMode = 'recent' | 'price_asc' | 'price_desc' | 'custom';
 
@@ -47,7 +47,7 @@ function DarkInput({ id, value, onChange, placeholder, type = 'text', step }: {
     <input id={id} type={type} value={value} step={step} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={e => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -112,14 +112,14 @@ function DrinkGridCard({ drink, onEdit, onDelete, t }: {
             )}
             {drink.presalePrice && (
               <div className="flex items-center gap-1 mt-0.5">
-                <span style={{ color: '#818CF8', fontSize: 11 }} className="tabular-nums">Presale: €{drink.presalePrice.toFixed(2)}</span>
-                {drink.presaleActive && <span style={{ color: '#818CF8', fontSize: 10 }}>✓</span>}
+                <span style={{ color: 'var(--acc-818cf8)', fontSize: 11 }} className="tabular-nums">Presale: €{drink.presalePrice.toFixed(2)}</span>
+                {drink.presaleActive && <span style={{ color: 'var(--acc-818cf8)', fontSize: 10 }}>✓</span>}
               </div>
             )}
           </div>
           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
             style={drink.active
-              ? { background: 'rgba(52,211,153,0.12)', color: '#34D399' }
+              ? { background: 'rgba(52,211,153,0.12)', color: 'var(--acc-34d399)' }
               : { background: C_FAINT, color: T3 }
             }>
             {drink.active ? t('owner.active') : t('owner.inactive')}
@@ -132,7 +132,7 @@ function DrinkGridCard({ drink, onEdit, onDelete, t }: {
             </button>
             <button onClick={() => onDelete(drink.id)}
               className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150"
-              style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.18)', color: '#FF5C63' }}>
+              style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.18)', color: 'var(--acc-ff5c63)' }}>
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -413,9 +413,9 @@ export default function OwnerMenu() {
   if (venueLoading) return <OwnerPageSkeleton />;
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader title={t('owner.menuManagement')} />
 
@@ -443,7 +443,7 @@ export default function OwnerMenu() {
                   background: menuEnabled ? 'rgba(52,211,153,0.08)' : INNER_BG,
                   border: `1px solid ${menuEnabled ? 'rgba(52,211,153,0.22)' : BORDER}`,
                 }}>
-                <Wine className="w-4 h-4" style={{ color: menuEnabled ? '#34D399' : T3 }} />
+                <Wine className="w-4 h-4" style={{ color: menuEnabled ? 'var(--acc-34d399)' : T3 }} />
                 <div className="leading-tight">
                   <div style={{ color: T2, fontSize: 12.5 }}>{t('owner.menuEnabledTitle')}</div>
                   <div style={{ color: T3, fontSize: 11 }}>
@@ -522,10 +522,10 @@ export default function OwnerMenu() {
               className="appearance-none pr-8 pl-3 py-2 rounded-xl text-[13px] cursor-pointer"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
             >
-              <option value="custom" style={{ background: '#0a0a0c' }}>{t('owner.sortCustom')}</option>
-              <option value="recent" style={{ background: '#0a0a0c' }}>{t('owner.sortRecent')}</option>
-              <option value="price_asc" style={{ background: '#0a0a0c' }}>{t('owner.sortPriceAsc')}</option>
-              <option value="price_desc" style={{ background: '#0a0a0c' }}>{t('owner.sortPriceDesc')}</option>
+              <option value="custom" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.sortCustom')}</option>
+              <option value="recent" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.sortRecent')}</option>
+              <option value="price_asc" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.sortPriceAsc')}</option>
+              <option value="price_desc" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.sortPriceDesc')}</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T3 }} />
           </div>
@@ -533,7 +533,7 @@ export default function OwnerMenu() {
             <button
               onClick={handleSaveCustomOrder}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150"
-              style={{ background: `rgba(52,211,153,0.12)`, border: `1px solid rgba(52,211,153,0.25)`, color: '#34D399' }}
+              style={{ background: `rgba(52,211,153,0.12)`, border: `1px solid rgba(52,211,153,0.25)`, color: 'var(--acc-34d399)' }}
             >
               <Save className="w-3.5 h-3.5" />
               {t('owner.save')}
@@ -557,7 +557,7 @@ export default function OwnerMenu() {
                 >
                   {Icon && <Icon className="w-3.5 h-3.5" />}
                   {t(labelKey)}
-                  <span style={{ color: isActive ? T2 : 'rgba(255,255,255,0.2)', fontSize: 11 }}>({count})</span>
+                  <span style={{ color: isActive ? T2 : 'rgb(var(--ink)/var(--ink-a20,0.2))', fontSize: 11 }}>({count})</span>
                   {isActive && (
                     <span className="absolute left-3 right-3 rounded-full" style={{ bottom: -1, height: 2, background: RED, boxShadow: `0 0 10px rgba(232,25,44,0.6)` }} />
                   )}
@@ -574,7 +574,7 @@ export default function OwnerMenu() {
               </div>
             ) : filteredDrinks.length === 0 ? (
               <div className="text-center py-16">
-                <Wine className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                <Wine className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                 <p style={{ color: T3, fontSize: 13 }}>{t('owner.noDrinksDesc')}</p>
               </div>
             ) : (
@@ -601,7 +601,7 @@ export default function OwnerMenu() {
       {/* Edit / Create dialog */}
       <Dialog open={!!editingDrink || isCreating} onOpenChange={closeDialog}>
         <DialogContent className="border-0 p-0 overflow-hidden max-h-[90vh] overflow-y-auto"
-          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
+          style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
               {editingDrink ? t('owner.editDrink') : t('owner.createDrink')}
@@ -624,7 +624,7 @@ export default function OwnerMenu() {
                   <button
                     onClick={() => { setImageFile(null); setImagePreview(''); setFormData({ ...formData, imgUrl: '' }); }}
                     className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
-                    style={{ background: 'rgba(0,0,0,0.6)', border: `1px solid ${BORDER}`, color: '#FF5C63' }}
+                    style={{ background: 'rgba(0,0,0,0.6)', border: `1px solid ${BORDER}`, color: 'var(--acc-ff5c63)' }}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -666,7 +666,7 @@ export default function OwnerMenu() {
             {formData.presalePrice && (
               <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.2)' }}>
                 <div>
-                  <p style={{ color: '#A5B4FC', fontSize: 13, fontWeight: 560 }}>{t('owner.presaleActiveToggle')}</p>
+                  <p style={{ color: 'var(--acc-a5b4fc)', fontSize: 13, fontWeight: 560 }}>{t('owner.presaleActiveToggle')}</p>
                   <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.presaleActiveDesc')}</p>
                 </div>
                 <Switch checked={formData.presaleActive} onCheckedChange={v => setFormData({ ...formData, presaleActive: v })} />
@@ -695,9 +695,9 @@ export default function OwnerMenu() {
                   className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
                 >
-                  <option value="drink" style={{ background: '#0a0a0c' }}>{t('owner.drinkNormal')}</option>
-                  <option value="shot" style={{ background: '#0a0a0c' }}>{t('owner.shot')}</option>
-                  <option value="soft" style={{ background: '#0a0a0c' }}>{t('owner.soft')}</option>
+                  <option value="drink" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.drinkNormal')}</option>
+                  <option value="shot" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.shot')}</option>
+                  <option value="soft" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.soft')}</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
               </div>

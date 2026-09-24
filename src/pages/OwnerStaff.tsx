@@ -21,16 +21,16 @@ import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
-const POS     = '#34D399';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const F_BORDER= 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS     = 'var(--acc-34d399)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const F_BORDER= 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 type EmployeeRole = 'barman' | 'bouncer' | 'manager' | 'vip_host' | 'cloakroom';
 
@@ -71,11 +71,11 @@ const defaultManagerPermissions: ManagerPermissions = {
 };
 
 const ROLE_CONFIG: Record<EmployeeRole, { labelKey: string; color: string; bg: string; icon: any }> = {
-  bouncer:   { labelKey: 'owner.stf.roleBouncer',  color: '#FB923C', bg: 'rgba(251,146,60,0.12)',   icon: Shield  },
-  barman:    { labelKey: 'owner.stf.roleBarman',   color: '#60A5FA', bg: 'rgba(96,165,250,0.12)',    icon: Wine    },
-  manager:   { labelKey: 'owner.stf.roleManager',  color: '#A78BFA', bg: 'rgba(167,139,250,0.12)',   icon: UserCog },
-  vip_host:  { labelKey: 'owner.stf.roleVipHost',  color: '#FCD34D', bg: 'rgba(252,211,77,0.12)',    icon: Crown   },
-  cloakroom: { labelKey: 'owner.stf.roleCloakroom',color: '#34D399', bg: 'rgba(52,211,153,0.12)',    icon: Shirt   },
+  bouncer:   { labelKey: 'owner.stf.roleBouncer',  color: 'var(--acc-fb923c)', bg: 'rgba(251,146,60,0.12)',   icon: Shield  },
+  barman:    { labelKey: 'owner.stf.roleBarman',   color: 'var(--acc-60a5fa)', bg: 'rgba(96,165,250,0.12)',    icon: Wine    },
+  manager:   { labelKey: 'owner.stf.roleManager',  color: 'var(--acc-a78bfa)', bg: 'rgba(167,139,250,0.12)',   icon: UserCog },
+  vip_host:  { labelKey: 'owner.stf.roleVipHost',  color: 'var(--acc-fcd34d)', bg: 'rgba(252,211,77,0.12)',    icon: Crown   },
+  cloakroom: { labelKey: 'owner.stf.roleCloakroom',color: 'var(--acc-34d399)', bg: 'rgba(52,211,153,0.12)',    icon: Shirt   },
 };
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -89,7 +89,7 @@ function DarkInput({ id, value, onChange, placeholder, type = 'text', maxLength 
     <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} maxLength={maxLength}
       className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={e => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -376,7 +376,7 @@ export default function OwnerStaff() {
           const isVipHostLocked = role === 'vip_host' && !canAddVipHost;
           return (
             <label key={role} className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-150"
-              style={{ background: roles.includes(role) ? cfg.bg : 'transparent', border: `1px solid ${roles.includes(role) ? 'rgba(255,255,255,0.1)' : 'transparent'}` }}>
+              style={{ background: roles.includes(role) ? cfg.bg : 'transparent', border: `1px solid ${roles.includes(role) ? 'rgb(var(--ink)/0.1)' : 'transparent'}` }}>
               <Checkbox id={`${prefix}-${id}`} checked={roles.includes(role)} onCheckedChange={() => !isVipHostLocked && onToggle(role)} disabled={isVipHostLocked} />
               <Icon className="w-4 h-4 flex-shrink-0" style={{ color: isVipHostLocked ? T3 : cfg.color }} />
               <span style={{ color: isVipHostLocked ? T3 : T1, fontSize: 13 }}>{t(cfg.labelKey)}</span>
@@ -408,9 +408,9 @@ export default function OwnerStaff() {
   }
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader title={t('owner.staffManagement')} />
 
@@ -495,7 +495,7 @@ export default function OwnerStaff() {
         ) : employees.length === 0 ? (
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
             <div className="text-center py-16 px-4">
-              <UserPlus className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+              <UserPlus className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
               <p style={{ color: T3, fontSize: 13 }}>{t('owner.noEmployees')}</p>
             </div>
           </div>
@@ -548,7 +548,7 @@ export default function OwnerStaff() {
                       </button>
                       <button onClick={() => handleDeleteEmployee(employee.id)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150"
-                        style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.18)', color: '#FF5C63' }}>
+                        style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.18)', color: 'var(--acc-ff5c63)' }}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -605,8 +605,8 @@ export default function OwnerStaff() {
                       </>
                     ) : (
                       <>
-                        <Key className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FCD34D' }} />
-                        <span className="text-[12px]" style={{ color: '#FCD34D' }}>{t('owner.pinPending')}</span>
+                        <Key className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
+                        <span className="text-[12px]" style={{ color: 'var(--acc-fcd34d)' }}>{t('owner.pinPending')}</span>
                       </>
                     )}
                   </div>
@@ -617,7 +617,7 @@ export default function OwnerStaff() {
                       onClick={() => handleToggleClickCollectManager(employee.id, employee.is_click_collect_manager || false)}
                       className="w-full py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
                       style={employee.is_click_collect_manager
-                        ? { background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: '#FF5C63' }
+                        ? { background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: 'var(--acc-ff5c63)' }
                         : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }
                       }
                     >
@@ -645,7 +645,7 @@ export default function OwnerStaff() {
                       style={{ background: cfg.bg, color: cfg.color }}>{t(cfg.labelKey)}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'rgba(252,211,77,0.1)', color: '#FCD34D' }}>{t('owner.inviteWaiting')}</span>
+                    <span className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'rgba(252,211,77,0.1)', color: 'var(--acc-fcd34d)' }}>{t('owner.inviteWaiting')}</span>
                     <button onClick={() => handleResendInvite(inv.email, inv.role)}
                       className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
                       style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }} title={t('owner.resendInvite')}>
@@ -653,7 +653,7 @@ export default function OwnerStaff() {
                     </button>
                     <button onClick={() => handleCancelInvite(inv.id)}
                       className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
-                      style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.18)', color: '#FF5C63' }} title={t('owner.cancelInvite')}>
+                      style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.18)', color: 'var(--acc-ff5c63)' }} title={t('owner.cancelInvite')}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -669,7 +669,7 @@ export default function OwnerStaff() {
       {/* Add Employee Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="border-0 p-0 max-h-[90vh] overflow-y-auto"
-          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 520 }}>
+          style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 520 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{t('owner.addEmployeeTitle')}</DialogTitle>
             <DialogDescription className="sr-only">{t('owner.addEmployeeTitle')}</DialogDescription>
@@ -721,7 +721,7 @@ export default function OwnerStaff() {
       {/* Edit Employee Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="border-0 p-0 max-h-[90vh] overflow-y-auto"
-          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 520 }}>
+          style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 520 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{t('owner.editEmployee')}</DialogTitle>
             <DialogDescription style={{ color: T3, fontSize: 12, paddingLeft: 0, marginTop: 4 }}>

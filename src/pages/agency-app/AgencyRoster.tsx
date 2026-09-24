@@ -12,6 +12,7 @@ import {
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
 import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
+import { tint } from '@/lib/proTheme';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -38,10 +39,10 @@ function CheckRow({ checked, onClick, icon: Icon, label, bold }: {
         style={{
           width: 16, height: 16, borderRadius: 4,
           background: checked ? RED : 'transparent',
-          border: `1px solid ${checked ? RED : 'rgba(255,255,255,0.25)'}`,
+          border: `1px solid ${checked ? RED : 'rgb(var(--ink)/var(--ink-a25,0.25))'}`,
         }}
       >
-        {checked && <Check className="h-3 w-3" style={{ color: '#fff' }} />}
+        {checked && <Check className="h-3 w-3" style={{ color: 'rgb(var(--ink))' }} />}
       </span>
       <Icon className="h-3.5 w-3.5 flex-none" style={{ color: checked ? T1 : T3 }} />
       <span style={{ color: checked ? T1 : T2, fontSize: 13, fontWeight: bold ? 640 : 400 }}>{label}</span>
@@ -366,7 +367,7 @@ export default function AgencyRoster() {
             style={{
               padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               background: selectedGroup === null ? INNER_BG : 'transparent',
-              border: `1px solid ${selectedGroup === null ? BORDER : 'rgba(255,255,255,0.08)'}`,
+              border: `1px solid ${selectedGroup === null ? BORDER : 'rgb(var(--ink)/0.08)'}`,
               color: selectedGroup === null ? T1 : T3,
             }}
           >
@@ -381,7 +382,7 @@ export default function AgencyRoster() {
                 style={{
                   padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   background: selectedGroup === g.id ? INNER_BG : 'transparent',
-                  border: `1px solid ${selectedGroup === g.id ? BORDER : 'rgba(255,255,255,0.08)'}`,
+                  border: `1px solid ${selectedGroup === g.id ? BORDER : 'rgb(var(--ink)/0.08)'}`,
                   color: selectedGroup === g.id ? T1 : T3,
                   display: 'flex', alignItems: 'center', gap: 6,
                 }}
@@ -396,7 +397,7 @@ export default function AgencyRoster() {
             style={{
               padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               background: selectedGroup === 'none' ? INNER_BG : 'transparent',
-              border: `1px solid ${selectedGroup === 'none' ? BORDER : 'rgba(255,255,255,0.08)'}`,
+              border: `1px solid ${selectedGroup === 'none' ? BORDER : 'rgb(var(--ink)/0.08)'}`,
               color: selectedGroup === 'none' ? T1 : T3,
             }}
           >
@@ -501,8 +502,8 @@ export default function AgencyRoster() {
                     borderRadius: 10, padding: '0 12px', color: T1, fontSize: 13,
                   }}
                 >
-                  <option value="fixed" style={{ background: '#111' }}>€</option>
-                  <option value="percentage" style={{ background: '#111' }}>%</option>
+                  <option value="fixed" style={{ background: 'var(--sf-111111)' }}>€</option>
+                  <option value="percentage" style={{ background: 'var(--sf-111111)' }}>%</option>
                 </select>
               </div>
             </div>
@@ -518,8 +519,8 @@ export default function AgencyRoster() {
                     borderRadius: 10, padding: '0 12px', color: T1, fontSize: 13,
                   }}
                 >
-                  <option value="fixed" style={{ background: '#111' }}>€</option>
-                  <option value="percentage" style={{ background: '#111' }}>%</option>
+                  <option value="fixed" style={{ background: 'var(--sf-111111)' }}>€</option>
+                  <option value="percentage" style={{ background: 'var(--sf-111111)' }}>%</option>
                 </select>
               </div>
             </div>
@@ -629,8 +630,8 @@ export default function AgencyRoster() {
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,
                           padding: '2px 8px', borderRadius: 20, fontSize: 10.5, fontWeight: 600,
-                          background: `${group.color}22`, color: group.color,
-                          border: `1px solid ${group.color}44`,
+                          background: `${tint(group.color, '22')}`, color: group.color,
+                          border: `1px solid ${tint(group.color, '44')}`,
                         }}>
                           <span style={{ width: 6, height: 6, borderRadius: '50%', background: group.color }} />
                           {group.name}

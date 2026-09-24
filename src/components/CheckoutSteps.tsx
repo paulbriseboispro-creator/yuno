@@ -35,7 +35,7 @@ export function CheckoutSteps({ currentStep }: CheckoutStepsProps) {
                     ? { background: '#E8192C', borderColor: '#E8192C', color: '#fff' }
                     : isCurrent
                       ? { background: 'rgba(232,25,44,0.10)', borderColor: 'rgba(232,25,44,0.55)', color: '#E8192C' }
-                      : { background: 'transparent', borderColor: 'rgba(255,255,255,0.10)', color: '#3A3A3E' }),
+                      : { background: 'transparent', borderColor: 'rgb(var(--ink)/0.10)', color: '#3A3A3E' }),
                 }}
               >
                 {isCompleted ? <Check className="h-3 w-3" strokeWidth={3} /> : stepNum}
@@ -46,7 +46,7 @@ export function CheckoutSteps({ currentStep }: CheckoutStepsProps) {
                   fontSize: '9px',
                   fontWeight: 600,
                   letterSpacing: '0.12em',
-                  color: isCurrent ? '#E5E5E5' : isCompleted ? '#E8192C' : '#3A3A3E',
+                  color: isCurrent ? 'var(--tx-e5e5e5)' : isCompleted ? '#E8192C' : '#3A3A3E',
                 }}
               >
                 {step.label}
@@ -57,7 +57,7 @@ export function CheckoutSteps({ currentStep }: CheckoutStepsProps) {
               <div className="flex-1 mx-2.5 mb-[1.1rem]">
                 <div
                   className="h-px w-full transition-colors duration-300"
-                  style={{ background: stepNum < currentStep ? 'rgba(232,25,44,0.50)' : 'rgba(255,255,255,0.08)' }}
+                  style={{ background: stepNum < currentStep ? 'rgba(232,25,44,0.50)' : 'rgb(var(--ink)/0.08)' }}
                 />
               </div>
             )}

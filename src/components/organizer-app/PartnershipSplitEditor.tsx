@@ -82,7 +82,7 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 448 }}>
+      <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 448 }}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
             <Sparkles className="h-5 w-5" style={{ color: RED }} />
@@ -98,7 +98,7 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
         </DialogHeader>
 
         {hasPendingProposal && (
-          <div className="flex items-start gap-2 rounded-xl p-3" style={{ border: '1px solid rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.08)', color: '#FCD34D', fontSize: 13 }}>
+          <div className="flex items-start gap-2 rounded-xl p-3" style={{ border: '1px solid rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.08)', color: 'var(--acc-fcd34d)', fontSize: 13 }}>
             <Lock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               {t(

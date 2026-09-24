@@ -7,6 +7,7 @@ import { persistedLanguage } from "@/contexts/LanguageContext";
 import App from "./App.tsx";
 import { BootErrorBoundary } from "@/components/BootErrorBoundary";
 import "./index.css";
+import "./styles/pro-theme.css";
 
 // Le chunk de langue est sur le chemin critique du premier paint :
 // LanguageProvider rend `null` tant que le dictionnaire n'est pas là. Sans ce

@@ -238,7 +238,7 @@ export default function OrgAppTeam() {
   const staffRoleTone = (r: StaffRole): 'warn' | 'danger' | 'info' =>
     r === 'barman' ? 'warn' : r === 'bouncer' ? 'danger' : 'info';
 
-  const dialogStyle = { background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
+  const dialogStyle = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
 
   return (
     <OrgPage>
@@ -254,7 +254,7 @@ export default function OrgAppTeam() {
             key={key}
             onClick={() => setTab(key)}
             className="rounded-lg px-4 py-1.5 text-[12.5px] font-semibold transition-all duration-150"
-            style={tab === key ? { background: 'rgba(255,255,255,0.1)', color: T1 } : { background: 'transparent', color: T3 }}
+            style={tab === key ? { background: 'rgb(var(--ink)/0.1)', color: T1 } : { background: 'transparent', color: T3 }}
           >
             {key === 'team' ? t('Équipe', 'Team') : t('Staff Opérationnel', 'Operational Staff')}
           </button>
@@ -285,7 +285,7 @@ export default function OrgAppTeam() {
                       <div className="mt-0.5 flex items-center gap-2" style={{ color: T3, fontSize: 11.5 }}>
                         <span>{m.invitation_status === 'accepted' ? t('Actif', 'Active') : t('Invitation en attente', 'Pending')}</span>
                         {m.role === 'scanner' && m.scanner_pin_hash && (
-                          <span className="inline-flex items-center gap-1" style={{ color: '#34D399' }}>
+                          <span className="inline-flex items-center gap-1" style={{ color: 'var(--acc-34d399)' }}>
                             <KeyRound className="h-3 w-3" /> PIN ✓
                           </span>
                         )}
@@ -339,11 +339,11 @@ export default function OrgAppTeam() {
                         <div className="mt-0.5 flex items-center gap-2" style={{ color: T3, fontSize: 11.5 }}>
                           <span className="truncate">{s.email}</span>
                           {hasPin ? (
-                            <span className="inline-flex items-center gap-1 flex-shrink-0" style={{ color: '#34D399' }}>
+                            <span className="inline-flex items-center gap-1 flex-shrink-0" style={{ color: 'var(--acc-34d399)' }}>
                               <KeyRound className="h-3 w-3" /> {t('PIN configuré', 'PIN set')}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 flex-shrink-0" style={{ color: '#FCD34D' }}>
+                            <span className="inline-flex items-center gap-1 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }}>
                               <KeyRound className="h-3 w-3" /> {t('PIN à configurer', 'PIN pending')}
                             </span>
                           )}
@@ -379,7 +379,7 @@ export default function OrgAppTeam() {
                   <div className="flex flex-wrap items-center justify-between gap-3 p-4">
                     <div className="min-w-0 flex-1">
                       <div className="truncate" style={{ color: T1, fontSize: 13.5 }}>{inv.email}</div>
-                      <div className="mt-0.5" style={{ color: '#FCD34D', fontSize: 11.5 }}>{t('En attente d\'acceptation', 'Awaiting acceptance')}</div>
+                      <div className="mt-0.5" style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>{t('En attente d\'acceptation', 'Awaiting acceptance')}</div>
                     </div>
                     <OrgPill tone={staffRoleTone(inv.role)}>{staffRoleIcon(inv.role)} {staffRoleLabel(inv.role)}</OrgPill>
                     <OrgButton size="sm" variant="secondary" onClick={() => resendStaffInvite(inv.email, inv.role)}>
@@ -413,9 +413,9 @@ export default function OrgAppTeam() {
               <div>
                 <FieldLabel>{t('Rôle', 'Role')}</FieldLabel>
                 <DarkSelect value={memberRole} onChange={(v) => setMemberRole(v as TeamRole)}>
-                  <option value="admin" style={{ background: '#0a0a0c' }}>Admin · {t("tout sauf supprimer l'orga", 'everything except delete org')}</option>
-                  <option value="editor" style={{ background: '#0a0a0c' }}>{t('Éditeur', 'Editor')} · {t('créer & modifier événements', 'create & edit events')}</option>
-                  <option value="scanner" style={{ background: '#0a0a0c' }}>{t('Scanner Billets', 'Ticket Scanner')} · {t('check-in entrée', 'entry check-in')}</option>
+                  <option value="admin" style={{ background: 'var(--sf-0a0a0c)' }}>Admin · {t("tout sauf supprimer l'orga", 'everything except delete org')}</option>
+                  <option value="editor" style={{ background: 'var(--sf-0a0a0c)' }}>{t('Éditeur', 'Editor')} · {t('créer & modifier événements', 'create & edit events')}</option>
+                  <option value="scanner" style={{ background: 'var(--sf-0a0a0c)' }}>{t('Scanner Billets', 'Ticket Scanner')} · {t('check-in entrée', 'entry check-in')}</option>
                 </DarkSelect>
               </div>
               <OrgButton variant="primary" className="w-full" onClick={inviteMember} disabled={submittingTeam || !memberEmail}>
@@ -447,9 +447,9 @@ export default function OrgAppTeam() {
               <div>
                 <FieldLabel>{t('Poste', 'Role')}</FieldLabel>
                 <DarkSelect value={staffRole} onChange={(v) => setStaffRole(v as StaffRole)}>
-                  <option value="barman" style={{ background: '#0a0a0c' }}>🍺 {t('Barman · gère les boissons offertes', 'Barman · manages free drinks')}</option>
-                  <option value="bouncer" style={{ background: '#0a0a0c' }}>🛡️ {t('Videur · check-in entrée', 'Bouncer · entry check-in')}</option>
-                  <option value="cloakroom" style={{ background: '#0a0a0c' }}>🧥 {t('Vestiaire · gestion des dépôts', 'Cloakroom · deposit management')}</option>
+                  <option value="barman" style={{ background: 'var(--sf-0a0a0c)' }}>🍺 {t('Barman · gère les boissons offertes', 'Barman · manages free drinks')}</option>
+                  <option value="bouncer" style={{ background: 'var(--sf-0a0a0c)' }}>🛡️ {t('Videur · check-in entrée', 'Bouncer · entry check-in')}</option>
+                  <option value="cloakroom" style={{ background: 'var(--sf-0a0a0c)' }}>🧥 {t('Vestiaire · gestion des dépôts', 'Cloakroom · deposit management')}</option>
                 </DarkSelect>
               </div>
               <p style={{ color: T3, fontSize: 11.5 }}>

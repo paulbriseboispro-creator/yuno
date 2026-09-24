@@ -329,8 +329,8 @@ export function VipFloorPlan({
                       cx={table.x + table.width - 3}
                       cy={table.y + 3}
                       r={4.5}
-                      fill="#E7C15A"
-                      stroke="#0a0a0c"
+                      fill="var(--acc-e7c15a)"
+                      stroke="var(--sf-0a0a0c)"
                       strokeWidth={1}
                     />
                   )}

@@ -1039,7 +1039,7 @@ export function FloorPlanEditor({
                       x: table.x, y: table.y, width: table.width, height: table.height,
                       fill: accentColor,
                       fillOpacity: isSelected ? Math.min((table.fillOpacity ?? 0.55) + 0.15, 1) : (table.fillOpacity ?? 0.55),
-                      stroke: isSelected ? 'white' : accentColor,
+                      stroke: isSelected ? 'rgb(var(--ink))' : accentColor,
                       strokeWidth: isSelected ? 2 : 1,
                       borderRadius: table.borderRadius ?? 6,
                       className: 'cursor-move touch-none',

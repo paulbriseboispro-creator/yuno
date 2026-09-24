@@ -73,7 +73,7 @@ export function EventVideoField({
       {shownUrl ? (
         <div className="flex items-stretch gap-3 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
           {/* Vignette 16:9 — le cadrage exact du bandeau de la page publique */}
-          <div className="shrink-0 self-start overflow-hidden rounded-lg" style={{ width: 132, aspectRatio: '16 / 9', background: '#000' }}>
+          <div className="shrink-0 self-start overflow-hidden rounded-lg" style={{ width: 132, aspectRatio: '16 / 9', background: 'var(--sf-000000)' }}>
             <video
               key={shownUrl}
               src={shownUrl}
@@ -103,7 +103,7 @@ export function EventVideoField({
                 onClick={() => inputRef.current?.click()}
                 disabled={checking}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150"
-                style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T2 }}
+                style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, color: T2 }}
               >
                 {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                 {t('owner.eventVideo.replace')}

@@ -13,7 +13,7 @@ export function DoorStation({ door, incidents, attendanceRate }: Props) {
   const { t } = useLanguage();
   const total = door.ticketScans + door.glScans + door.vipScans;
   const mix = [
-    { key: 'tickets', label: t('liveops.door.tickets'), value: door.ticketScans, color: 'rgba(255,255,255,0.55)' },
+    { key: 'tickets', label: t('liveops.door.tickets'), value: door.ticketScans, color: 'rgb(var(--ink)/var(--ink-a55,0.55))' },
     { key: 'gl', label: t('liveops.door.guestList'), value: door.glScans, color: POS },
     { key: 'vip', label: t('liveops.door.vip'), value: door.vipScans, color: '#E8192C' },
   ];
@@ -30,7 +30,7 @@ export function DoorStation({ door, incidents, attendanceRate }: Props) {
     >
       {/* Entry mix bar */}
       {total > 0 && (
-        <div className="flex h-1.5 rounded-full overflow-hidden mb-2.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div className="flex h-1.5 rounded-full overflow-hidden mb-2.5" style={{ background: 'rgb(var(--ink)/0.06)' }}>
           {mix.filter(m => m.value > 0).map(m => (
             <div key={m.key} style={{ width: `${(m.value / total) * 100}%`, background: m.color }} />
           ))}

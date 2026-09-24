@@ -12,28 +12,28 @@ import type { LucideIcon } from 'lucide-react';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 export const RED      = '#E8192C';
-export const RED_SOFT = '#FF5C63';
-export const POS      = '#34D399';
-export const NEG      = '#FF5C63';
-export const WARN     = '#FBBF24';
-export const T1       = 'rgba(255,255,255,0.96)';
-export const T2       = 'rgba(255,255,255,0.58)';
-export const T3       = 'rgba(255,255,255,0.36)';
-export const C_FAINT  = 'rgba(255,255,255,0.06)';
-export const BORDER   = 'rgba(255,255,255,0.085)';
-export const F_BORDER = 'rgba(255,255,255,0.055)';
-export const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const INNER_BG = 'rgba(255,255,255,0.032)';
-export const TILE_BG  = 'rgba(255,255,255,0.025)';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const RED_SOFT = 'var(--acc-ff5c63)';
+export const POS      = 'var(--acc-34d399)';
+export const NEG      = 'var(--acc-ff5c63)';
+export const WARN     = 'var(--acc-fbbf24)';
+export const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_FAINT  = 'rgb(var(--ink)/0.06)';
+export const BORDER   = 'rgb(var(--ink)/0.085)';
+export const F_BORDER = 'rgb(var(--ink)/0.055)';
+export const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const INNER_BG = 'rgb(var(--ink)/0.032)';
+export const TILE_BG  = 'rgb(var(--ink)/0.025)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
 export function UPage({ children, maxWidth = 960 }: { children: ReactNode; maxWidth?: number }) {
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div
         className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
       <div className="relative z-10 mx-auto px-4 sm:px-6 pt-3 space-y-4" style={{ maxWidth }}>
         {children}
@@ -72,7 +72,7 @@ export function UCard({
         transition: 'border-color 150ms ease',
         ...style,
       }}
-      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)') : undefined}
+      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.14)') : undefined}
       onMouseLeave={clickable ? (e) => (e.currentTarget.style.borderColor = BORDER) : undefined}
     >
       {(title || icon) && (
@@ -150,7 +150,7 @@ export function UInput({
       placeholder={placeholder}
       className={`w-full rounded-xl px-3 py-2.5 text-[13px] outline-none transition-all duration-150 tabular-nums ${className}`}
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
-      onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -166,7 +166,7 @@ export function USelect({
       onChange={(e) => onChange(e.target.value)}
       className={`w-full h-[42px] px-3 rounded-xl text-[13px] cursor-pointer outline-none transition-all duration-150 ${className}`}
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
-      onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     >
       {children}
@@ -191,7 +191,7 @@ export function UButton({
   };
   const variants: Record<BtnVariant, CSSProperties> = {
     primary:   { background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` },
-    secondary: { background: 'rgba(255,255,255,0.05)', color: T1, border: `1px solid ${BORDER}` },
+    secondary: { background: 'rgb(var(--ink)/0.05)', color: T1, border: `1px solid ${BORDER}` },
     ghost:     { background: 'transparent', color: T2, border: `1px solid ${F_BORDER}` },
     danger:    { background: 'rgba(255,92,99,0.10)', color: RED_SOFT, border: '1px solid rgba(255,92,99,0.3)' },
     success:   { background: 'rgba(52,211,153,0.10)', color: POS, border: '1px solid rgba(52,211,153,0.3)' },
@@ -215,12 +215,12 @@ export function UIconButton({
       className="inline-flex items-center justify-center rounded-lg transition-all duration-150 cursor-pointer"
       style={{
         width: 32, height: 32,
-        background: 'rgba(255,255,255,0.035)',
+        background: 'rgb(var(--ink)/0.035)',
         border: `1px solid ${BORDER}`,
         color: tone === 'danger' ? RED_SOFT : T2,
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = tone === 'danger' ? 'rgba(255,92,99,0.10)' : 'rgba(255,255,255,0.07)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.035)'; }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = tone === 'danger' ? 'rgba(255,92,99,0.10)' : 'rgb(var(--ink)/0.07)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.035)'; }}
     >
       {children}
     </button>
@@ -256,7 +256,7 @@ export function UEmpty({
 }: { icon?: LucideIcon; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '44px 20px' }}>
-      {Icon && <Icon className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />}
+      {Icon && <Icon className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />}
       <p style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{title}</p>
       {description && <p style={{ color: T3, fontSize: 12.5, margin: 0, marginTop: 5 }} className="max-w-sm mx-auto">{description}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}

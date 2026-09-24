@@ -388,7 +388,7 @@ export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {
                 className="overflow-hidden"
                 style={{
                   background: CARD_BG,
-                  border: `1px solid ${offer.is_active ? BORDER : 'rgba(255,255,255,0.05)'}`,
+                  border: `1px solid ${offer.is_active ? BORDER : 'rgb(var(--ink)/0.05)'}`,
                   borderRadius: 14,
                   padding: 16,
                   opacity: offer.is_active ? 1 : 0.55,

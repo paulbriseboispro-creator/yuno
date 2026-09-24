@@ -194,7 +194,7 @@ export default function CityPage() {
   const otherCities = Object.values(CITY_PAGES).filter((c) => c.slug !== def.slug);
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#0A0A0A', color: '#fff' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--sf-0a0a0a)', color: 'rgb(var(--ink))' }}>
       <Seo
         title={def.metaTitle}
         description={def.metaDescription}
@@ -232,7 +232,7 @@ export default function CityPage() {
             >
               {cityT('city.h1')}
             </h1>
-            <p className="font-sans" style={{ fontSize: '15px', lineHeight: 1.6, color: '#E5E5E5', maxWidth: 560 }}>
+            <p className="font-sans" style={{ fontSize: '15px', lineHeight: 1.6, color: 'var(--tx-e5e5e5)', maxWidth: 560 }}>
               {cityT('city.lead')}
             </p>
           </section>
@@ -245,7 +245,7 @@ export default function CityPage() {
                 to="/events"
                 onClick={markWebEngaged}
                 className="flex items-center gap-1 font-mono uppercase"
-                style={{ fontSize: '10.5px', letterSpacing: '0.08em', color: '#9A9A9A' }}
+                style={{ fontSize: '10.5px', letterSpacing: '0.08em', color: 'var(--tx-9a9a9a)' }}
               >
                 {t('landing.seeAllEvents')}
                 <ArrowRight className="h-3 w-3" />
@@ -267,9 +267,9 @@ export default function CityPage() {
                         <div className="w-full h-full" style={{ background: 'linear-gradient(160deg, #1a0a0d, #7a1428)' }} />
                       )}
                     </div>
-                    <div className="flex flex-col flex-1 px-3 py-2.5 gap-1" style={{ background: '#141414' }}>
+                    <div className="flex flex-col flex-1 px-3 py-2.5 gap-1" style={{ background: 'var(--sf-141414)' }}>
                       {e.venueName && (
-                        <p className="font-mono uppercase truncate" style={{ fontSize: '9.5px', color: '#9A9A9A', letterSpacing: '0.06em' }}>
+                        <p className="font-mono uppercase truncate" style={{ fontSize: '9.5px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.06em' }}>
                           {e.venueName}
                         </p>
                       )}
@@ -288,7 +288,7 @@ export default function CityPage() {
                         {e.title}
                       </p>
                       <div className="flex items-center justify-between mt-auto pt-0.5">
-                        <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                        <p className="font-mono uppercase" style={{ fontSize: '10px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
                           {fmtDate(e.dateIso)}
                         </p>
                         {e.isFree ? (
@@ -310,7 +310,7 @@ export default function CityPage() {
             ) : loading ? (
               <CityEventsSkeleton />
             ) : (
-              <p className="font-mono" style={{ fontSize: '12px', color: '#9A9A9A' }}>
+              <p className="font-mono" style={{ fontSize: '12px', color: 'var(--tx-9a9a9a)' }}>
                 {cityT('city.empty')}
               </p>
             )}
@@ -335,10 +335,10 @@ export default function CityPage() {
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                         />
                       ) : (
-                        <div className="w-full h-full" style={{ background: 'linear-gradient(160deg, #131316, #26262b)' }} />
+                        <div className="w-full h-full" style={{ background: 'linear-gradient(160deg, var(--sf-131316), var(--sf-26262b))' }} />
                       )}
                     </div>
-                    <div className="px-3 py-2.5" style={{ background: '#141414' }}>
+                    <div className="px-3 py-2.5" style={{ background: 'var(--sf-141414)' }}>
                       <p
                         className="font-display font-bold text-white uppercase truncate"
                         style={{ fontSize: '12.5px', letterSpacing: '-0.005em' }}
@@ -355,7 +355,7 @@ export default function CityPage() {
           {/* ── Piliers + autres villes ── */}
           <section
             className="flex flex-col gap-5"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 30 }}
+            style={{ borderTop: '1px solid rgb(var(--ink)/0.07)', paddingTop: 30 }}
           >
             <div className="flex flex-wrap gap-x-6 gap-y-3">
               {[
@@ -368,7 +368,7 @@ export default function CityPage() {
                   to={p.to}
                   onClick={markWebEngaged}
                   className="flex items-center gap-1 font-mono uppercase"
-                  style={{ fontSize: '10.5px', letterSpacing: '0.10em', color: '#9A9A9A' }}
+                  style={{ fontSize: '10.5px', letterSpacing: '0.10em', color: 'var(--tx-9a9a9a)' }}
                 >
                   {p.label}
                   <ArrowUpRight className="h-3 w-3" style={{ color: ACCENT }} />
@@ -380,7 +380,7 @@ export default function CityPage() {
                   to={`/${c.slug}`}
                   onClick={markWebEngaged}
                   className="flex items-center gap-1 font-mono uppercase"
-                  style={{ fontSize: '10.5px', letterSpacing: '0.10em', color: '#9A9A9A' }}
+                  style={{ fontSize: '10.5px', letterSpacing: '0.10em', color: 'var(--tx-9a9a9a)' }}
                 >
                   {t('city.other').replace('{city}', c.name)}
                   <ArrowUpRight className="h-3 w-3" style={{ color: ACCENT }} />

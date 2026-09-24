@@ -85,7 +85,7 @@ export function AffiliateImageUploader({
               <img src={value} alt="Logo" className="object-cover w-full h-full" />
               <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
                 className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center z-10" style={{ background: RED }}>
-                <X className="w-3 h-3 text-white" />
+                <X className="w-3 h-3 text-snow" />
               </button>
             </>
           ) : uploading ? (

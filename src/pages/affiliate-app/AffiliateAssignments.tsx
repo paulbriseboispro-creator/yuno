@@ -336,7 +336,7 @@ export default function AffiliateAssignments() {
                       style={{ background: checked ? 'rgba(232,25,44,0.08)' : TILE_BG, border: `1px solid ${checked ? 'rgba(232,25,44,0.25)' : F_BORDER}` }}>
                       <span className="flex-none flex items-center justify-center rounded"
                         style={{ width: 16, height: 16, background: checked ? RED : 'transparent', border: `1px solid ${checked ? RED : BORDER}` }}>
-                        {checked && <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>✓</span>}
+                        {checked && <span style={{ color: 'rgb(var(--ink))', fontSize: 11, lineHeight: 1 }}>✓</span>}
                       </span>
                       <span style={{ color: checked ? T1 : T2, fontSize: 13 }}>{m.display_name}</span>
                     </button>
@@ -382,7 +382,7 @@ export default function AffiliateAssignments() {
               <div className="divide-y" style={{ borderColor: BORDER }}>
                 {filteredAssignments.map(a => (
                   <div key={a.id} className="flex items-center gap-4 px-4 py-3 transition-colors"
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.02)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                     <div className="flex-1 min-w-0">
                       <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{a.event_name}</p>

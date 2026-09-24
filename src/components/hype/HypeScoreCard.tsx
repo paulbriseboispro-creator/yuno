@@ -7,13 +7,13 @@ import { fr, es, enUS } from 'date-fns/locale';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface HypeScoreCardProps {
   data: HypeScoreData;
@@ -30,7 +30,7 @@ function CircularGauge({ percentage, color, size = 72, strokeWidth = 5 }: {
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgb(var(--ink)/0.06)" strokeWidth={strokeWidth} />
         <motion.circle
           cx={size / 2} cy={size / 2} r={radius}
           fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
@@ -80,10 +80,10 @@ export function HypeScoreCard({ data }: HypeScoreCardProps) {
     },
     low: {
       label: t('hype.lowHype'),
-      glowColor: 'rgba(255,255,255,0.02)',
+      glowColor: 'rgb(var(--ink)/0.02)',
       borderColor: BORDER,
       gaugeColor: T3,
-      blobColor: 'rgba(255,255,255,0.04)',
+      blobColor: 'rgb(var(--ink)/0.04)',
       scoreColor: T2,
     },
   };
@@ -96,7 +96,7 @@ export function HypeScoreCard({ data }: HypeScoreCardProps) {
         className="relative overflow-hidden"
         style={{
           background: `radial-gradient(ellipse 70% 50% at 90% -20%, ${cfg.glowColor} 0%, transparent 65%),
-            linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c`,
+            linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)`,
           border: `1px solid ${cfg.borderColor}`,
           borderRadius: 18,
           boxShadow: CARD_SHADOW,
@@ -142,7 +142,7 @@ export function HypeScoreCard({ data }: HypeScoreCardProps) {
               animate={data.level === 'fire' ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}}
               transition={{ duration: 0.6, repeat: data.level === 'fire' ? Infinity : 0, repeatDelay: 1.5 }}
               className="w-10 h-10 flex items-center justify-center rounded-xl flex-none"
-              style={{ background: data.level === 'fire' ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${cfg.borderColor}` }}
+              style={{ background: data.level === 'fire' ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.04)', border: `1px solid ${cfg.borderColor}` }}
             >
               <Flame className="h-5 w-5" style={{ color: data.level === 'fire' ? RED : T2 }} />
             </motion.div>

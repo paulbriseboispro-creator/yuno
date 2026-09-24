@@ -115,7 +115,7 @@ export function GuestListAllocation({ eventId, hasAllocation, onChanged }: {
     <div style={card}>
       {pending ? (
         <div className="flex items-start gap-2.5">
-          <Clock className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#E8A019' }} />
+          <Clock className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-e8a019)' }} />
           <div className="min-w-0 flex-1">
             <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
               {tt('Demande en attente', 'Request pending', 'Solicitud pendiente')}
@@ -148,7 +148,7 @@ export function GuestListAllocation({ eventId, hasAllocation, onChanged }: {
         <>
           {denied && (
             <div className="mb-3 flex items-start gap-2.5">
-              <XCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#FF5C63' }} />
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-ff5c63)' }} />
               <div className="min-w-0">
                 <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
                   {tt('Demande refusée', 'Request declined', 'Solicitud rechazada')}
@@ -174,7 +174,7 @@ export function GuestListAllocation({ eventId, hasAllocation, onChanged }: {
             </div>
             <button type="button" onClick={() => setOpen(true)}
               className="flex shrink-0 items-center gap-1.5 cursor-pointer"
-              style={{ padding: '9px 13px', borderRadius: 10, background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.35)', color: '#ff5d68', fontSize: 12.5, fontWeight: 600 }}>
+              style={{ padding: '9px 13px', borderRadius: 10, background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.35)', color: 'var(--acc-ff5d68)', fontSize: 12.5, fontWeight: 600 }}>
               <Plus className="h-3.5 w-3.5" />
               {hasAllocation
                 ? tt('Demander plus', 'Request more', 'Pedir más')

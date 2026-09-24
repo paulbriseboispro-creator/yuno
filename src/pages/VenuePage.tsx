@@ -671,7 +671,7 @@ export default function VenuePage() {
               className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
               style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
-              <ArrowLeft className="h-4 w-4 text-white" />
+              <ArrowLeft className="h-4 w-4 text-snow" />
             </button>
           </div>
           {/* Floating share + fav */}
@@ -682,7 +682,7 @@ export default function VenuePage() {
               className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
               style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
-              <Share2 className="h-4 w-4 text-white" />
+              <Share2 className="h-4 w-4 text-snow" />
             </button>
             <div
               className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
@@ -693,7 +693,7 @@ export default function VenuePage() {
                 id={venue.id}
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 border-none text-white shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="h-9 w-9 border-none text-snow shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 style={{ borderRadius: '2px' } as React.CSSProperties}
               />
             </div>

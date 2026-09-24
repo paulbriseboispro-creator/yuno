@@ -21,7 +21,7 @@ interface RequireRoleProps {
    vit désormais hors du <Routes> et reste visible par-dessus (PersistentBottomNav). */
 function RoleGateSkeleton() {
   return (
-    <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
+    <div className="min-h-screen" style={{ background: 'var(--sf-0a0a0a)' }}>
       <div className="px-5 pt-14 pb-5">
         <SkeletonLine width="45%" height={26} />
       </div>
@@ -30,7 +30,7 @@ function RoleGateSkeleton() {
           <div
             key={i}
             className="flex items-center gap-4 p-3.5 rounded-2xl"
-            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ background: 'var(--sf-141414)', border: '1px solid rgb(var(--ink)/0.08)' }}
           >
             <Shimmer width={56} height={56} style={{ flex: 'none', borderRadius: 14 }} />
             <div className="flex-1 min-w-0 flex flex-col gap-2.5">

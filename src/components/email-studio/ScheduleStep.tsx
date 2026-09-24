@@ -161,7 +161,7 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
           const pctFree = Math.min(1, quota.used / Math.max(1, quota.free));
           const exhausted = quota.remaining <= 0;
           const warn = !exhausted && pctFree >= 0.8;
-          const barColor = exhausted ? RED : warn ? '#FCD34D' : 'rgba(255,255,255,0.35)';
+          const barColor = exhausted ? RED : warn ? 'var(--acc-fcd34d)' : 'rgb(var(--ink)/var(--ink-a35,0.35))';
           const resetDate = new Date(quota.resetsOn).toLocaleDateString();
           const nf = (n: number) => n.toLocaleString('fr-FR');
           return (
@@ -172,7 +172,7 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
                 {quota.credits > 0 && (
                   <span style={{
                     color: T2, fontSize: 10.5, fontWeight: 600, fontFamily: FONT_UI, padding: '2px 7px',
-                    borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`,
+                    borderRadius: 999, background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`,
                     fontVariantNumeric: 'tabular-nums',
                   }}>{t('studio.sched.quotaCredits').replace('{n}', nf(quota.credits))}</span>
                 )}
@@ -180,7 +180,7 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
                   {nf(quota.used)} / {nf(quota.free)}
                 </span>
               </div>
-              <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <div style={{ height: 4, borderRadius: 999, background: 'rgb(var(--ink)/0.06)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', width: `${Math.round(pctFree * 100)}%`, borderRadius: 999,
                   background: barColor, transition: 'width .3s, background .3s',
@@ -204,7 +204,7 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
               {exhausted && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, padding: '10px 12px',
-                  borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}`,
+                  borderRadius: 12, background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}`,
                 }}>
                   <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.45, fontFamily: FONT_UI, flex: 1 }}>
                     {t('studio.sched.quotaFull').replace('{date}', resetDate)}
@@ -253,7 +253,7 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
           display: 'flex', alignItems: 'flex-start', gap: 9, padding: '11px 13px', borderRadius: 12,
           background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)',
         }}>
-          <ShieldCheck size={14} strokeWidth={1.75} style={{ color: '#34D399', marginTop: 1, flex: 'none' }} />
+          <ShieldCheck size={14} strokeWidth={1.75} style={{ color: 'var(--acc-34d399)', marginTop: 1, flex: 'none' }} />
           <span style={{ color: T2, fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>
             {t('studio.sched.domainOkPre')} <span style={{ color: T1 }}>yunoapp.eu</span> {t('studio.sched.domainOkPost')}
           </span>
@@ -783,7 +783,7 @@ function ModeCard({ on, onClick, icon, title, desc, badge, disabled }: {
       <div style={{
         width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
         justifyContent: 'center', flex: 'none',
-        background: on ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.05)',
+        background: on ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.05)',
         border: `1px solid ${on ? 'rgba(232,25,44,0.25)' : BORDER}`,
         color: on ? RED : T3,
       }}>{icon}</div>
@@ -796,7 +796,7 @@ function ModeCard({ on, onClick, icon, title, desc, badge, disabled }: {
       </div>
       <span style={{
         width: 16, height: 16, borderRadius: '50%', flex: 'none', marginTop: 2,
-        border: `1px solid ${on ? RED : 'rgba(255,255,255,0.2)'}`,
+        border: `1px solid ${on ? RED : 'rgb(var(--ink)/var(--ink-a20,0.2))'}`,
         background: on ? RED : 'transparent',
         boxShadow: on ? 'inset 0 0 0 3px #0a0a0c' : 'none',
       }} />
@@ -928,7 +928,7 @@ function SendTimeCard({ scope }: { scope: StudioScope }) {
             return (
               <div key={h} title={`${h}h · ${n}`} style={{
                 flex: 1, height: `${Math.max(6, Math.round((n / max) * 100))}%`, borderRadius: 3,
-                background: best ? RED : 'rgba(255,255,255,0.14)',
+                background: best ? RED : 'rgb(var(--ink)/0.14)',
               }} />
             );
           })}

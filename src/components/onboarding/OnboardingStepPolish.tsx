@@ -210,7 +210,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
             <div key={i} className="relative aspect-square rounded-lg overflow-hidden group" style={{ border: `1px solid ${BORDER}` }}>
               <img src={url} alt="" className="w-full h-full object-cover" />
               <button onClick={() => removeGalleryImage(i)} className="absolute top-1 right-1 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                <X className="w-3 h-3 text-white" />
+                <X className="w-3 h-3 text-snow" />
               </button>
             </div>
           ))}
@@ -229,14 +229,14 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
         <div className="space-y-2.5">
           {socials.map((s, i) => (
             <div key={i} className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
                 {s.icon}
               </div>
               <Input value={s.value} onChange={e => s.set(e.target.value)} placeholder={s.placeholder} />
             </div>
           ))}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
               <MessageCircle className="w-4 h-4" style={{ color: T2 }} />
             </div>
             <Input value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} placeholder="+33 6 12 34 56 78" />

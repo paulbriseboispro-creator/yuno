@@ -57,7 +57,7 @@ const EMPTY: FormData = {
 // Native date/time inputs styled to DA tokens.
 const dateInputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
-  padding: '9px 12px', color: 'rgba(255,255,255,0.96)', fontSize: 13.5, fontFamily: 'inherit', width: '100%',
+  padding: '9px 12px', color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 13.5, fontFamily: 'inherit', width: '100%',
   colorScheme: 'dark',
 };
 

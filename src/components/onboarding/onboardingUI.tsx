@@ -3,21 +3,21 @@ import { Loader2, type LucideIcon } from 'lucide-react';
 
 // ─── Yuno Design Tokens (DESIGN_SYSTEM.md) ────────────────────────────────────
 export const RED = '#E8192C';
-export const POS = '#34D399';
-export const NEG = '#FF5C63';
-export const T1 = 'rgba(255,255,255,0.96)';
-export const T2 = 'rgba(255,255,255,0.58)';
-export const T3 = 'rgba(255,255,255,0.36)';
-export const C_FAINT = 'rgba(255,255,255,0.06)';
-export const BORDER = 'rgba(255,255,255,0.085)';
-export const F_BORDER = 'rgba(255,255,255,0.055)';
+export const POS = 'var(--acc-34d399)';
+export const NEG = 'var(--acc-ff5c63)';
+export const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_FAINT = 'rgb(var(--ink)/0.06)';
+export const BORDER = 'rgb(var(--ink)/0.085)';
+export const F_BORDER = 'rgb(var(--ink)/0.055)';
 
 export const CARD_BG =
-  'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const INNER_BG = 'rgba(255,255,255,0.032)';
-export const TILE_BG = 'rgba(255,255,255,0.025)';
+  'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const INNER_BG = 'rgb(var(--ink)/0.032)';
+export const TILE_BG = 'rgb(var(--ink)/0.025)';
 export const CARD_SHADOW =
-  '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+  '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Card surfaces ────────────────────────────────────────────────────────────
 interface OnbCardProps {

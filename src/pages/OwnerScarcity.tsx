@@ -13,17 +13,17 @@ import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
-const AMBER   = '#F59E0B';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const F_BORDER= 'rgba(255,255,255,0.055)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const INNER_BG= 'rgba(255,255,255,0.032)';
-const TILE_BG = 'rgba(255,255,255,0.025)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const AMBER   = 'var(--acc-f59e0b)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const F_BORDER= 'rgb(var(--ink)/0.055)';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const INNER_BG= 'rgb(var(--ink)/0.032)';
+const TILE_BG = 'rgb(var(--ink)/0.025)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 type Mode = 'off' | 'badge' | 'counter';
 
@@ -94,7 +94,7 @@ function YunoInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
         padding: '7px 10px', color: T1, fontSize: 13, fontFamily: 'inherit', outline: 'none',
         ...props.style,
       }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; props.onFocus?.(e); }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.18)'; props.onFocus?.(e); }}
       onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; props.onBlur?.(e); }}
     />
   );
@@ -107,7 +107,7 @@ function RadioDot({ active }: { active: boolean }) {
       className="flex-none flex items-center justify-center"
       style={{
         width: 18, height: 18, borderRadius: '50%',
-        border: `1.5px solid ${active ? RED : 'rgba(255,255,255,0.22)'}`,
+        border: `1.5px solid ${active ? RED : 'rgb(var(--ink)/var(--ink-a22,0.22))'}`,
         background: active ? 'rgba(232,25,44,0.12)' : 'transparent',
         transition: 'all 0.15s',
       }}
@@ -329,7 +329,7 @@ export default function OwnerScarcity() {
   const badgeChip = (
     <span
       className="inline-flex items-center animate-pulse"
-      style={{ background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.30)', color: '#F87171', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}
+      style={{ background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.30)', color: 'var(--acc-f87171)', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}
     >
       {settings ? getLabelText(settings.low_stock_label, settings.emoji_enabled) : '🔥'}
     </span>
@@ -395,7 +395,7 @@ export default function OwnerScarcity() {
                   <button
                     onClick={() => setShowEventPicker(!showEventPicker)}
                     className="w-full flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all duration-150"
-                    style={{ background: INNER_BG, border: `1px solid ${showEventPicker ? 'rgba(255,255,255,0.18)' : BORDER}` }}
+                    style={{ background: INNER_BG, border: `1px solid ${showEventPicker ? 'rgb(var(--ink)/0.18)' : BORDER}` }}
                   >
                     <span className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{selectedEventTitle}</span>
                     <motion.div animate={{ rotate: showEventPicker ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -409,7 +409,7 @@ export default function OwnerScarcity() {
                         initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.15 }}
                         className="absolute top-full left-0 right-0 mt-1 z-20 rounded-xl overflow-hidden"
-                        style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.95)', maxHeight: 280, overflowY: 'auto' }}
+                        style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.95)', maxHeight: 280, overflowY: 'auto' }}
                       >
                         {events.map(ev => (
                           <button
@@ -657,7 +657,7 @@ export default function OwnerScarcity() {
 
                             <div className="flex items-start gap-2 rounded-xl p-3 mt-3" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
                               <AlertTriangle className="h-4 w-4 flex-none mt-0.5" style={{ color: AMBER }} />
-                              <p style={{ color: '#FCD34D', fontSize: 11.5, lineHeight: 1.45 }}>{t('scarcity.displayCapWarningGeneral')}</p>
+                              <p style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5, lineHeight: 1.45 }}>{t('scarcity.displayCapWarningGeneral')}</p>
                             </div>
                           </motion.div>
                         )}
@@ -705,7 +705,7 @@ export default function OwnerScarcity() {
 
   return (
     <PlanGuard feature="scarcity_tools">
-      <div style={{ minHeight: '100vh', background: '#000', paddingBottom: 96 }}>
+      <div style={{ minHeight: '100vh', background: 'var(--sf-000000)', paddingBottom: 96 }}>
         <OwnerHeader title={t('scarcity.title')} showBackButton backTo="/owner/dashboard" />
         {content}
       </div>

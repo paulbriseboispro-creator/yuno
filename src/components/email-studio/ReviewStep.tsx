@@ -299,7 +299,7 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
       {/* ── Aperçu final ── */}
       <FlowCard style={{ padding: 18, position: 'sticky', top: 0 }}>
         <MicroLabel style={{ fontSize: 11, marginBottom: 12 }}>{t('studio.review.finalPreview')}</MicroLabel>
-        <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid rgb(var(--ink)/0.06)' }}>
           <iframe
             title={t('studio.review.finalPreview')}
             srcDoc={previewHtml}
@@ -323,7 +323,7 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
             style={{
               width: 420, background: PANEL_BG, border: `1px solid ${BORDER}`, borderRadius: 18,
               padding: 22, display: 'flex', flexDirection: 'column', gap: 12, fontFamily: FONT_UI,
-              boxShadow: '0 40px 80px -40px #000',
+              boxShadow: '0 40px 80px -40px rgb(0 0 0/var(--pro-shadow-a))',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -370,22 +370,22 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
                 <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 32, lineHeight: .9, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>
                   {actionFmt(runResult.recipients)}
                 </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9A9A9A' }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)' }}>
                   {t('owner.sendrun.recipients')}
                 </div>
               </div>
               {runResult.skipped > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 2 }}>
-                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 19, lineHeight: .9, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 19, lineHeight: .9, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--tx-e5e5e5)' }}>
                     {actionFmt(runResult.skipped)}
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 500, letterSpacing: '.12em', textTransform: 'uppercase', color: '#5A5A5E' }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 500, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-5a5a5e)' }}>
                     {t('owner.sendrun.protected')}
                   </div>
                 </div>
               )}
             </div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: '#9A9A9A' }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.04em', color: 'var(--tx-9a9a9a)' }}>
               {t('owner.sendrun.keepsGoing')}
             </div>
           </ActionResultCard>

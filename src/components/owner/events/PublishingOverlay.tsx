@@ -74,7 +74,7 @@ export function PublishingOverlay({
           {event.meta && (
             <div style={{
               fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: '.06em',
-              textTransform: 'uppercase', color: '#9A9A9A', marginTop: -5,
+              textTransform: 'uppercase', color: 'var(--tx-9a9a9a)', marginTop: -5,
             }}>{event.meta}</div>
           )}
         </ActionResultCard>

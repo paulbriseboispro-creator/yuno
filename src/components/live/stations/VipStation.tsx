@@ -51,7 +51,7 @@ export function VipStation({ vip, eventEndAt }: Props) {
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{table.name}</span>
                     {!table.checkedInAt && (
-                      <span className="flex-none px-1.5 py-px rounded-full" style={{ color: T3, fontSize: 9.5, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <span className="flex-none px-1.5 py-px rounded-full" style={{ color: T3, fontSize: 9.5, background: 'rgb(var(--ink)/0.05)', border: '1px solid rgb(var(--ink)/0.08)' }}>
                         {t('liveops.vip.notArrived')}
                       </span>
                     )}
@@ -66,8 +66,8 @@ export function VipStation({ vip, eventEndAt }: Props) {
                   </span>
                 </div>
                 {pct !== null && (
-                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: atRisk ? AMBER : pct >= 100 ? POS : 'rgba(255,255,255,0.35)' }} />
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: atRisk ? AMBER : pct >= 100 ? POS : 'rgb(var(--ink)/var(--ink-a35,0.35))' }} />
                   </div>
                 )}
               </div>

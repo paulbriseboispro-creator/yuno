@@ -33,7 +33,7 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
         <Benefit icon={CreditCard} title={tt('Apple Pay & cartes', 'Apple Pay & cards', 'Apple Pay y tarjetas')} desc={tt('Tous les moyens de paiement.', 'All payment methods.', 'Todos los métodos de pago.')} />
       </div>
 
-      <div className="rounded-xl" style={{ padding: 14, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+      <div className="rounded-xl" style={{ padding: 14, background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}` }}>
         <p style={{ color: T3, fontSize: 12, lineHeight: 1.5 }}>
           {tt(
             'Frais Yuno : max(0,99 € ; 4 %) par billet vendu. Frais Stripe : 1,5 % + 0,25 €. Tout est transparent et déduit avant versement.',
@@ -61,7 +61,7 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
         </DoneRow>
       ) : status === 'pending' ? (
         <div className="rounded-xl" style={{ padding: '12px 14px', background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
-          <p style={{ color: '#FCD34D', fontSize: 13.5, fontWeight: 600 }}>{tt('Onboarding incomplet', 'Onboarding incomplete', 'Configuración incompleta')}</p>
+          <p style={{ color: 'var(--acc-fcd34d)', fontSize: 13.5, fontWeight: 600 }}>{tt('Onboarding incomplet', 'Onboarding incomplete', 'Configuración incompleta')}</p>
           <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{tt('Reprenez votre configuration Stripe pour pouvoir vendre.', 'Resume your Stripe setup to start selling.', 'Reanuda tu configuración de Stripe para poder vender.')}</p>
         </div>
       ) : null}

@@ -117,7 +117,7 @@ export default function DJTeam() {
     <div className="flex items-center gap-3 rounded-xl px-3.5 py-3"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
       <div className="flex h-9 w-9 flex-none items-center justify-center rounded-lg"
-        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
+        style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
         <Mail className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -130,13 +130,13 @@ export default function DJTeam() {
         {inv.status === 'pending' && (
           <button onClick={() => copyLink(inv)} title={tt('Copier le lien', 'Copy link', 'Copiar enlace')}
             className="inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors hover:bg-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: copiedId === inv.id ? POS : T2 }}>
+            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: copiedId === inv.id ? POS : T2 }}>
             {copiedId === inv.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
           </button>
         )}
         <button onClick={() => handleRevoke(inv.id)} title={tt('Révoquer', 'Revoke', 'Revocar')}
           className="inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors hover:bg-[rgba(232,25,44,0.12)]"
-          style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T3 }}>
+          style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T3 }}>
           <Trash2 className="h-4 w-4" />
         </button>
       </div>

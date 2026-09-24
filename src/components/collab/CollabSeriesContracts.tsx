@@ -11,15 +11,15 @@ import { CollabAmendmentDialog, type AmendmentTarget } from './CollabAmendmentDi
 import type { EventCollabSeriesContractRow } from '@/hooks/useEventCollabSeriesContract';
 
 // ─── Yuno DA tokens (aligned with the collab inbox) ────────────────────────────
-const AMBER = '#F5A623';
-const GREEN = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const AMBER = 'var(--acc-f5a623)';
+const GREEN = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // 0 = Sunday — matches Postgres EXTRACT(DOW) / JS getDay().
 const WEEKDAYS = {
@@ -210,7 +210,7 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
                 onClick={() => terminate(s)}
                 disabled={busyId === s.row.id}
                 className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
-                style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: '#FF5C63', opacity: busyId === s.row.id ? 0.5 : 1 }}
+                style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: 'var(--acc-ff5c63)', opacity: busyId === s.row.id ? 0.5 : 1 }}
               >
                 {busyId === s.row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
                 {tt('Résilier', 'Terminate', 'Resolver')}

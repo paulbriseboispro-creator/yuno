@@ -69,7 +69,7 @@ export function BottleImageEditor({ src, transform, onChange, onClear }: BottleI
         height: base.h,
         transformOrigin: 'center',
         transform: `translate(-50%, -50%) translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-        filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))',
+        filter: 'drop-shadow(0 6px 14px rgb(0 0 0/calc(0.5*var(--pro-shadow-a))))',
       }
     : { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' };
 
@@ -105,7 +105,7 @@ export function BottleImageEditor({ src, transform, onChange, onClear }: BottleI
           <div className={`absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t border-dashed border-red-500 transition-opacity ${dragging ? (isCentered ? 'opacity-100' : 'opacity-70') : 'opacity-25'}`} />
         </div>
 
-        <div className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white/80 backdrop-blur-sm">
+        <div className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-snow/80 backdrop-blur-sm">
           <Move className="h-3 w-3" />
           {t('vipMenu.dragToPlace')}
         </div>

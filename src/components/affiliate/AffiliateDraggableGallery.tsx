@@ -46,10 +46,10 @@ function SortableItem({ url, index, onRemove }: SortableItemProps) {
         className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg cursor-grab active:cursor-grabbing"
         style={{ background: 'rgba(0,0,0,0.5)' }}
       >
-        <GripVertical className="w-5 h-5 text-white" />
+        <GripVertical className="w-5 h-5 text-snow" />
       </div>
       {/* Position */}
-      <span className="absolute bottom-1 left-1 text-[9px] font-mono pointer-events-none" style={{ color: 'rgba(255,255,255,0.6)' }}>
+      <span className="absolute bottom-1 left-1 text-[9px] font-mono pointer-events-none" style={{ color: 'rgb(var(--ink)/var(--ink-a60,0.6))' }}>
         {index + 1}
       </span>
       {/* Remove */}
@@ -59,7 +59,7 @@ function SortableItem({ url, index, onRemove }: SortableItemProps) {
         className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
         style={{ background: RED }}
       >
-        <X className="w-3 h-3 text-white" />
+        <X className="w-3 h-3 text-snow" />
       </button>
     </div>
   );

@@ -112,7 +112,7 @@ export function MixerSuggestionDialog({
                     border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.22)',
                   }}
                 >
-                  {isSelected && <Check className="h-3 w-3 text-white" />}
+                  {isSelected && <Check className="h-3 w-3 text-snow" />}
                 </span>
               </button>
             );

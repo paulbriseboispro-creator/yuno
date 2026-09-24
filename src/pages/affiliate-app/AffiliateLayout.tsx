@@ -79,9 +79,9 @@ export default function AffiliateLayout() {
   // Avoid a flash of the wrong sidebar before the role resolves.
   if (!shell) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
         <div className="h-10 w-10 animate-spin rounded-full border-2"
-          style={{ borderColor: 'rgba(255,255,255,0.085) rgba(255,255,255,0.085) rgba(255,255,255,0.085) #E8192C' }} />
+          style={{ borderColor: 'rgb(var(--ink)/0.085) rgb(var(--ink)/0.085) rgb(var(--ink)/0.085) #E8192C' }} />
       </div>
     );
   }
@@ -103,7 +103,7 @@ export default function AffiliateLayout() {
         {shell.role === 'admin'
           ? <AgencyAppSidebar agency={agency} />
           : <AffiliateAppSidebar role={shell.role} />}
-        <SidebarInset className="overflow-y-auto" style={{ background: '#000' }}>
+        <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
           <AffiliateAppHeader />
           <Outlet />
         </SidebarInset>

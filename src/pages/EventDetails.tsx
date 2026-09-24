@@ -749,7 +749,7 @@ export default function EventDetails() {
     ? guestListScarcity(eventScarcity, { capKey: publicGuestList.id, quota: publicGuestList.quota, count: publicGuestList.count, showRemaining: publicGuestList.show_remaining ?? true })
     : null;
   const glScarcityLine = glSignal && !glSignal.isFull && (glSignal.badge || glSignal.counter !== null) ? (
-    <p className={glSignal.badge ? 'font-mono uppercase animate-pulse' : 'font-mono uppercase'} style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: glSignal.badge ? '#F87171' : '#F59E0B', marginTop: 6 }}>
+    <p className={glSignal.badge ? 'font-mono uppercase animate-pulse' : 'font-mono uppercase'} style={{ fontSize: '9.5px', letterSpacing: '0.12em', color: glSignal.badge ? 'var(--acc-f87171)' : 'var(--acc-f59e0b)', marginTop: 6 }}>
       {glSignal.badge ? scarcityBadgeText(glSignal.badge, t) : `${glSignal.counter} ${t('guestList.spotsLeft')}`}
     </p>
   ) : null;
@@ -915,7 +915,7 @@ export default function EventDetails() {
   const heroChip = (onImage: boolean): React.CSSProperties =>
     onImage
       ? { width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }
-      : { width: 36, height: 36, borderRadius: '2px', background: 'rgba(255,255,255,0.045)', color: '#E5E5E5', border: '1px solid rgba(255,255,255,0.10)', cursor: 'pointer' };
+      : { width: 36, height: 36, borderRadius: '2px', background: 'rgb(var(--ink)/0.045)', color: 'var(--tx-e5e5e5)', border: '1px solid rgb(var(--ink)/0.10)', cursor: 'pointer' };
 
   const heroControls = (onImage: boolean) => (
     <>
@@ -957,12 +957,12 @@ export default function EventDetails() {
   const heroBadges = (
     <div className="flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
       {showSoldOutBadge && (
-        <span className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
+        <span className="font-mono font-bold tracking-[0.18em] text-snow px-3 py-1" style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}>
           SOLD OUT
         </span>
       )}
       {event.eventType && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)', color: '#E5E5E5', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgb(var(--ink)/0.07)', border: '1px solid rgb(var(--ink)/0.10)', color: 'var(--tx-e5e5e5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
           {event.eventType}
         </span>
       )}
@@ -990,7 +990,7 @@ export default function EventDetails() {
         {primaryOrganizer && (
           <div className="flex items-center gap-2 mb-1">
             {primaryOrganizer.avatar_url && (
-              <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64, height: 64, resize: 'contain' })} alt={primaryOrganizer.display_name} className="rounded-full object-contain shrink-0" style={{ width: 18, height: 18, background: '#191919' }} />
+              <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64, height: 64, resize: 'contain' })} alt={primaryOrganizer.display_name} className="rounded-full object-contain shrink-0" style={{ width: 18, height: 18, background: 'var(--sf-191919)' }} />
             )}
             <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
               {primaryOrganizer.display_name.toUpperCase()}
@@ -998,12 +998,12 @@ export default function EventDetails() {
             {venue && venue.id !== primaryOrganizer.user_id && (
               <>
                 <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
-                <span className="font-mono text-[#9A9A9A] tracking-[0.08em]" style={{ fontSize: '11px' }}>{venue.name.toUpperCase()}</span>
+                <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>{venue.name.toUpperCase()}</span>
               </>
             )}
           </div>
         )}
-        <p className="font-mono text-[#9A9A9A] tracking-[0.06em]" style={{ fontSize: '12px' }}>
+        <p className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.06em]" style={{ fontSize: '12px' }}>
           {[
             !primaryOrganizer && venue ? venue.name.toUpperCase() : null,
             formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
@@ -1028,13 +1028,13 @@ export default function EventDetails() {
   );
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-0a0a0a)' }}>
       <PublicPage variant="immersive">
 
       {/* ── CINEMATIC HERO ─────────────────────────────────────── */}
       {heroVideo ? (
         /* Variante FILM : contrôles au-dessus, plan intact, titre en dessous. */
-        <header className="relative" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <header className="relative" style={{ borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
           {/* Contrôles alignés sur les bords du cadre, jamais posés dessus. */}
           <div
             className="flex items-start justify-between mx-auto"
@@ -1046,7 +1046,7 @@ export default function EventDetails() {
           {/* Le film — plein cadre sur mobile, encadré de noir sur grand écran. */}
           <div
             className="relative overflow-hidden mx-auto"
-            style={{ width: '100%', maxWidth: HERO_FILM_MAX_WIDTH, aspectRatio: '16 / 9', background: '#000' }}
+            style={{ width: '100%', maxWidth: HERO_FILM_MAX_WIDTH, aspectRatio: '16 / 9', background: 'var(--sf-000000)' }}
           >
             {/* L'affiche reste sous la vidéo : premier rendu, et repli si le fichier
                 ne se lit pas. Elle est carrée, le cadre est large : elle tient
@@ -1087,8 +1087,8 @@ export default function EventDetails() {
           className="relative overflow-hidden"
           style={{
             aspectRatio: '1 / 1',
-            background: 'rgba(255,255,255,0.05)',
-            borderBottom: '1px solid rgba(255,255,255,0.07)',
+            background: 'rgb(var(--ink)/0.05)',
+            borderBottom: '1px solid rgb(var(--ink)/0.07)',
           }}
         >
           {heroPoster}
@@ -1096,7 +1096,7 @@ export default function EventDetails() {
           {/* Gradient overlay */}
           <div
             className="absolute inset-0"
-            style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.2) 50%, rgba(10,10,10,0.55) 100%)' }}
+            style={{ background: 'linear-gradient(to top, rgb(var(--glass-10-10-10)/0.97) 0%, rgb(var(--glass-10-10-10)/0.2) 50%, rgb(var(--glass-10-10-10)/0.55) 100%)' }}
           />
 
           {/* Top: back (left) + share/fav (right) */}
@@ -1125,7 +1125,7 @@ export default function EventDetails() {
         {/* ── Actions row ── */}
         <div
           className="flex flex-wrap items-center gap-2.5 animate-hero-cta"
-          style={{ padding: 'clamp(20px, 4vw, 28px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ padding: 'clamp(20px, 4vw, 28px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
         >
           <FavoriteButton
             type="event"
@@ -1134,19 +1134,19 @@ export default function EventDetails() {
             size="sm"
             showLabel
             label={t('event.interestedLabel')}
-            className="font-mono font-semibold tracking-[0.08em] uppercase ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-[#2A2A2A] text-[#9A9A9A] hover:border-[#3A3A3A] hover:text-white"
+            className="font-mono font-semibold tracking-[0.08em] uppercase ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 border-[var(--sf-2a2a2a)] text-[var(--tx-9a9a9a)] hover:border-[var(--sf-3a3a3a)] hover:text-white"
             style={{ fontSize: '11px', height: '32px', padding: '0 14px', borderRadius: '2px', background: 'transparent' } as React.CSSProperties}
           />
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-2 font-mono font-semibold tracking-[0.08em] uppercase transition-colors hover:border-[#3A3A3A] hover:text-white"
-            style={{ fontSize: '11px', height: '32px', padding: '0 14px', background: 'transparent', border: '1px solid #2A2A2A', color: '#9A9A9A', borderRadius: '2px', cursor: 'pointer' }}
+            className="inline-flex items-center gap-2 font-mono font-semibold tracking-[0.08em] uppercase transition-colors hover:border-[var(--sf-3a3a3a)] hover:text-white"
+            style={{ fontSize: '11px', height: '32px', padding: '0 14px', background: 'transparent', border: '1px solid var(--sf-2a2a2a)', color: 'var(--tx-9a9a9a)', borderRadius: '2px', cursor: 'pointer' }}
           >
             <Share2 className="h-3 w-3" />
             {t('share.shareEvent')}
           </button>
           {interestedCount > 0 && (
-            <span className="font-mono text-[#5A5A5E]" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
+            <span className="font-mono text-[var(--tx-5a5a5e)]" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
               {interestedCount >= 1000 ? `${(interestedCount / 1000).toFixed(1)}k` : interestedCount} {t('event.areInterested')}
             </span>
           )}
@@ -1194,13 +1194,13 @@ export default function EventDetails() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#F97316', letterSpacing: '0.14em' }}>
+                    <p className="font-mono uppercase" style={{ fontSize: '9px', color: 'var(--acc-f97316)', letterSpacing: '0.14em' }}>
                       {t('guestList.title')}
                     </p>
                     {/* Jamais `truncate` ici : « Gratis antes de las … » coupe
                         precisement l'heure, qui est la seule information de la
                         ligne. On laisse replier sur deux lignes. */}
-                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em', lineHeight: 1.35 }}>
+                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em', lineHeight: 1.35 }}>
                       {freeBeforeLabel ?? t('guestList.listOpen')}
                     </p>
                     {glScarcityLine}
@@ -1209,7 +1209,7 @@ export default function EventDetails() {
                     <span className="font-display font-bold text-white" style={{ fontSize: '19px', letterSpacing: '-0.02em' }}>
                       {t('guestList.free')}
                     </span>
-                    <ChevronRight className="h-4 w-4" style={{ color: '#F97316' }} />
+                    <ChevronRight className="h-4 w-4" style={{ color: 'var(--acc-f97316)' }} />
                   </span>
                 </div>
               </button>
@@ -1231,7 +1231,7 @@ export default function EventDetails() {
                     {t('event.startingFrom')} {fmtPrice(minPrice)} €
                   </p>
                   {tablesOnlyOffer && (
-                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
                       {t('event.perTableMin').replace('{n}', String(minTableCapacity))}
                     </p>
                   )}
@@ -1241,7 +1241,7 @@ export default function EventDetails() {
                       heure, et qu'elle a un quota. On le dit, sinon le payant
                       passe pour une arnaque a cote du gratuit. */}
                   {guestListWithPaid && (
-                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
                       {publicGuestList?.free_before_time
                         ? `${t('event.paidGuaranteedAfter')} ${publicGuestList.free_before_time.substring(0, 5)}`
                         : t('event.paidGuaranteed')}
@@ -1269,20 +1269,20 @@ export default function EventDetails() {
               </div>
               {/* Active rounds breakdown when multiple rounds are visible */}
               {breakdownRounds.length > 1 && (
-                <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: '1px solid rgb(var(--ink)/0.06)' }}>
                   {breakdownRounds.map((r) => {
                     const pctSold = Math.min((r.ticketsSold / r.maxTickets) * 100, 100);
                     return (
                       <div key={r.id}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-mono" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                          <span className="font-mono" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
                             {r.name}
                             {isCommunityAudience(r.audience) && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider text-primary">{t('community.badge')}</span>}
                           </span>
-                          <span className="font-mono font-bold" style={{ fontSize: '12px', color: '#fff' }}>{r.price.toFixed(2)}€</span>
+                          <span className="font-mono font-bold" style={{ fontSize: '12px', color: 'rgb(var(--ink))' }}>{r.price.toFixed(2)}€</span>
                         </div>
-                        <div className="w-full overflow-hidden" style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 1 }}>
-                          <div style={{ height: '100%', width: `${pctSold}%`, background: pctSold > 80 ? '#E8192C' : '#3A3A3E', transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: 1 }} />
+                        <div className="w-full overflow-hidden" style={{ height: 2, background: 'rgb(var(--ink)/0.06)', borderRadius: 1 }}>
+                          <div style={{ height: '100%', width: `${pctSold}%`, background: pctSold > 80 ? '#E8192C' : 'var(--sf-3a3a3e)', transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)', borderRadius: 1 }} />
                         </div>
                       </div>
                     );
@@ -1316,7 +1316,7 @@ export default function EventDetails() {
                   {t('guestList.free')}
                 </p>
                 {publicGuestList?.includes_drink && (
-                  <span className="font-mono font-bold uppercase shrink-0" style={{ fontSize: '9.5px', color: '#F97316', letterSpacing: '0.10em', border: '1px solid rgba(249,115,22,0.45)', borderRadius: 999, padding: '4px 10px', marginTop: 3, whiteSpace: 'nowrap' }}>
+                  <span className="font-mono font-bold uppercase shrink-0" style={{ fontSize: '9.5px', color: 'var(--acc-f97316)', letterSpacing: '0.10em', border: '1px solid rgba(249,115,22,0.45)', borderRadius: 999, padding: '4px 10px', marginTop: 3, whiteSpace: 'nowrap' }}>
                     {t('guestList.drinkIncluded')}
                   </span>
                 )}
@@ -1328,7 +1328,7 @@ export default function EventDetails() {
                   se cassait n'importe où dans une colonne étranglée. */}
               {publicGuestList?.free_before_time && (
                 <div className="flex items-baseline justify-between gap-4 mt-4 pt-3.5" style={{ borderTop: '1px solid rgba(249,115,22,0.16)' }}>
-                  <span className="font-mono uppercase" style={{ fontSize: '10px', color: '#9A9A9A', letterSpacing: '0.12em', lineHeight: 1.5 }}>
+                  <span className="font-mono uppercase" style={{ fontSize: '10px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.12em', lineHeight: 1.5 }}>
                     {t('guestList.freeBefore')}
                   </span>
                   <span className="font-mono font-bold text-white shrink-0" style={{ fontSize: '16px', letterSpacing: '0.01em' }}>
@@ -1347,7 +1347,7 @@ export default function EventDetails() {
               <button
                 onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
                 className="w-full mt-5 flex items-center justify-center gap-2 font-mono font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                style={{ minHeight: 46, padding: '0 14px', background: '#F97316', color: '#140A03', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.08em', lineHeight: 1.3, transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                style={{ minHeight: 46, padding: '0 14px', background: 'var(--acc-f97316)', color: '#140A03', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.08em', lineHeight: 1.3, transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                 onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
                 onMouseUp={(e) => (e.currentTarget.style.transform = '')}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
@@ -1364,17 +1364,17 @@ export default function EventDetails() {
         {/* Waitlist / coming-soon inline callout */}
         {(eventSalesStatus === 'coming_soon' || (eventSalesStatus === 'presale' && !hasPresaleAccess)) && event.waitlistEnabled && (
           <section style={{ padding: '20px 20px 0' }}>
-            <div style={{ border: '1px solid rgba(255,255,255,0.10)', borderRadius: 4, padding: '16px 20px', background: 'rgba(255,255,255,0.02)' }}>
+            <div style={{ border: '1px solid rgb(var(--ink)/0.10)', borderRadius: 4, padding: '16px 20px', background: 'rgb(var(--ink)/0.02)' }}>
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="font-mono uppercase mb-1" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
+                  <p className="font-mono uppercase mb-1" style={{ fontSize: '9px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.14em' }}>
                     {eventSalesStatus === 'presale' ? t('event.presale') : t('event.ticketing')}
                   </p>
                   <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(17px, 4vw, 22px)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                     {eventSalesStatus === 'presale' ? t('event.privateSaleOpen') : t('event.comingSoon')}
                   </p>
                   {event.publicSaleStartAt && (
-                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
+                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.04em' }}>
                       {t('event.opensAt')} {formatInTimeZone(new Date(event.publicSaleStartAt), PARIS_TIMEZONE, 'dd MMM · HH:mm', { locale: getLocale() })}
                     </p>
                   )}
@@ -1385,7 +1385,7 @@ export default function EventDetails() {
                 <button
                   onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
                   className="shrink-0 font-mono font-semibold uppercase inline-flex items-center gap-2"
-                  style={{ height: 40, padding: '0 16px', background: 'transparent', color: isOnWaitlist ? '#FFFFFF' : '#9A9A9A', border: `1px solid ${isOnWaitlist ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 3, fontSize: '10px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                  style={{ height: 40, padding: '0 16px', background: 'transparent', color: isOnWaitlist ? 'rgb(var(--ink))' : 'var(--tx-9a9a9a)', border: `1px solid ${isOnWaitlist ? 'rgb(var(--ink)/var(--ink-a28,0.28))' : 'rgb(var(--ink)/0.12)'}`, borderRadius: 3, fontSize: '10px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                   onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onMouseUp={(e) => (e.currentTarget.style.transform = '')}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
@@ -1407,40 +1407,40 @@ export default function EventDetails() {
         )}
 
         {/* ── INFO TABLE ── */}
-        <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
           <p className="section-label-ruled mb-6">{t('event.date') || 'Infos'}</p>
 
           {/* Large typographic date + time */}
-          <div className="flex items-stretch mb-6 pb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-stretch mb-6 pb-6" style={{ borderBottom: '1px solid rgb(var(--ink)/0.06)' }}>
             <div className="flex-1">
-              <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>DATE</p>
+              <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.14em' }}>DATE</p>
               <p
                 className="font-display font-bold text-white"
                 style={{ fontSize: 'clamp(48px, 12vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}
               >
                 {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'dd', { locale: getLocale() })}
               </p>
-              <p className="font-display font-bold uppercase" style={{ fontSize: 'clamp(14px, 3.5vw, 20px)', color: '#9A9A9A', letterSpacing: '-0.01em', lineHeight: 1.1, marginTop: 4 }}>
+              <p className="font-display font-bold uppercase" style={{ fontSize: 'clamp(14px, 3.5vw, 20px)', color: 'var(--tx-9a9a9a)', letterSpacing: '-0.01em', lineHeight: 1.1, marginTop: 4 }}>
                 {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'MMMM yyyy', { locale: getLocale() })}
               </p>
             </div>
-            <div className="shrink-0" style={{ width: 1, background: 'rgba(255,255,255,0.07)', margin: '0 24px' }} />
+            <div className="shrink-0" style={{ width: 1, background: 'rgb(var(--ink)/0.07)', margin: '0 24px' }} />
             <div className="flex-1">
-              <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>{t('event.doorsOpen')}</p>
+              <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.14em' }}>{t('event.doorsOpen')}</p>
               <p
                 className="font-display font-bold text-white"
                 style={{ fontSize: 'clamp(48px, 12vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}
               >
                 {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}
               </p>
-              <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.08em', marginTop: 8 }}>
+              <p className="font-mono uppercase" style={{ fontSize: '10px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.08em', marginTop: 8 }}>
                 {t('event.doorsClose')} {formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}
               </p>
             </div>
           </div>
 
           {/* Compact details */}
-          <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '0 16px' }}>
+          <div style={{ border: '1px solid rgb(var(--ink)/0.08)', borderRadius: '4px', padding: '0 16px' }}>
             {([
               // Secret events show a sober "Secret location" value instead of the exact
               // address; the city always shows so the attendee knows where to travel and
@@ -1453,21 +1453,21 @@ export default function EventDetails() {
               <div
                 key={k}
                 className="flex items-start justify-between gap-3"
-                style={{ padding: '11px 0', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}
+                style={{ padding: '11px 0', borderBottom: i < arr.length - 1 ? '1px solid rgb(var(--ink)/0.07)' : 'none' }}
               >
-                <span className="font-mono flex-shrink-0" style={{ fontSize: '12px', color: '#5A5A5E' }}>{k}</span>
+                <span className="font-mono flex-shrink-0" style={{ fontSize: '12px', color: 'var(--tx-5a5a5e)' }}>{k}</span>
                 {k === t('event.address') && !event.locationIsSecret ? (
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono text-right transition-colors hover:text-[#E8192C]"
-                    style={{ fontSize: '12px', color: '#FFFFFF', letterSpacing: '0.02em', maxWidth: '60%' }}
+                    style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em', maxWidth: '60%' }}
                   >
                     {v}
                   </a>
                 ) : (
-                  <span className="font-mono text-right" style={{ fontSize: '12px', color: '#FFFFFF', letterSpacing: '0.02em' }}>{v}</span>
+                  <span className="font-mono text-right" style={{ fontSize: '12px', color: 'rgb(var(--ink))', letterSpacing: '0.02em' }}>{v}</span>
                 )}
               </div>
             ))}
@@ -1476,8 +1476,8 @@ export default function EventDetails() {
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1 w-full my-4 font-mono text-[#5A5A5E] hover:text-white transition-colors"
-                style={{ height: '38px', borderRadius: '4px', fontSize: '11px', letterSpacing: '0.08em', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent' }}
+                className="flex items-center justify-center gap-1 w-full my-4 font-mono text-[var(--tx-5a5a5e)] hover:text-white transition-colors"
+                style={{ height: '38px', borderRadius: '4px', fontSize: '11px', letterSpacing: '0.08em', border: '1px solid rgb(var(--ink)/0.08)', background: 'transparent' }}
               >
                 Open in Maps →
               </a>
@@ -1487,7 +1487,7 @@ export default function EventDetails() {
 
         {/* ── DJ LINE-UP ── (right below the event info — the line-up is the headline of a night) */}
         {(djs.length > 0 || guestArtists.length > 0) && (
-          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
             <p className="section-label-ruled mb-6">Line-up</p>
             <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide" style={{ margin: '0 -20px', padding: '0 20px' }}>
               {djs.map((dj) => {
@@ -1507,17 +1507,17 @@ export default function EventDetails() {
                     className="flex flex-col items-center gap-2 flex-shrink-0 active:opacity-70 transition-opacity"
                     style={{ width: 116 }}
                   >
-                    <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
+                    <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgb(var(--ink)/0.12)', background: 'var(--sf-191919)' }}>
                       {dj.profile_image_url
                         ? <img src={getOptimizedImageUrl(dj.profile_image_url, { width: 240 })} alt={djName} loading="lazy" className="w-full h-full object-cover object-top" />
-                        : <div className="w-full h-full flex items-center justify-center"><Music className="h-9 w-9" style={{ color: '#5A5A5E' }} /></div>
+                        : <div className="w-full h-full flex items-center justify-center"><Music className="h-9 w-9" style={{ color: 'var(--tx-5a5a5e)' }} /></div>
                       }
                     </div>
-                    <p className="font-mono text-center leading-tight mt-1" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
+                    <p className="font-mono text-center leading-tight mt-1" style={{ fontSize: '13px', color: 'var(--tx-e5e5e5)', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
                       {djName}
                     </p>
                     {meta && (
-                      <p className="font-mono text-center leading-tight" style={{ fontSize: '10px', color: '#7A7A7E', letterSpacing: '0.04em', maxWidth: 116 }}>
+                      <p className="font-mono text-center leading-tight" style={{ fontSize: '10px', color: 'var(--tx-7a7a7e)', letterSpacing: '0.04em', maxWidth: 116 }}>
                         {meta}
                       </p>
                     )}
@@ -1538,8 +1538,8 @@ export default function EventDetails() {
                         alternatif en travers de la vignette — et une photo
                         d'invité, saisie à la main, casse plus facilement que
                         celle d'un DJ qui tient son propre profil. */}
-                    <div className="overflow-hidden relative flex items-center justify-center" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
-                      <Music className="h-9 w-9" style={{ color: '#5A5A5E' }} />
+                    <div className="overflow-hidden relative flex items-center justify-center" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgb(var(--ink)/0.12)', background: 'var(--sf-191919)' }}>
+                      <Music className="h-9 w-9" style={{ color: 'var(--tx-5a5a5e)' }} />
                       {artist.photoUrl && (
                         <img
                           src={getOptimizedImageUrl(artist.photoUrl, { width: 240 })}
@@ -1550,11 +1550,11 @@ export default function EventDetails() {
                         />
                       )}
                     </div>
-                    <p className="font-mono text-center leading-tight mt-1" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
+                    <p className="font-mono text-center leading-tight mt-1" style={{ fontSize: '13px', color: 'var(--tx-e5e5e5)', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
                       {artist.name}
                     </p>
                     {artist.instagramHandle && (
-                      <p className="font-mono text-center leading-tight" style={{ fontSize: '10px', color: '#7A7A7E', letterSpacing: '0.04em', maxWidth: 116 }}>
+                      <p className="font-mono text-center leading-tight" style={{ fontSize: '10px', color: 'var(--tx-7a7a7e)', letterSpacing: '0.04em', maxWidth: 116 }}>
                         @{artist.instagramHandle}
                       </p>
                     )}
@@ -1587,7 +1587,7 @@ export default function EventDetails() {
 
         {/* ── ORGANIZER + VENUE ── */}
         {(eventOrganizers.length > 0 || venue) && (
-          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
             <p className="section-label-ruled mb-6">
               {primaryEntity === 'organizer' ? t('event.organizedBy') : 'Venue'}
             </p>
@@ -1610,27 +1610,27 @@ export default function EventDetails() {
                   <div
                     key={org.id}
                     className="flex items-center justify-between"
-                    style={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', padding: '18px 20px', background: 'rgba(255,255,255,0.02)' }}
+                    style={{ border: '1px solid rgb(var(--ink)/0.12)', borderRadius: '4px', padding: '18px 20px', background: 'rgb(var(--ink)/0.02)' }}
                   >
                     <button onClick={() => org.slug && navigate(`/o/${org.slug}`)} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity">
-                      <div className="shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
+                      <div className="shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: '12px', border: '1px solid rgb(var(--ink)/0.08)', background: 'var(--sf-191919)' }}>
                         {org.logo_url
                           ? <img src={getOptimizedImageUrl(org.logo_url, { width: 128, height: 128, resize: 'contain' })} alt={org.name} loading="lazy" className="w-full h-full object-contain" />
-                          : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '11px', color: '#5A5A5E' }}>{org.name.slice(0, 2).toUpperCase()}</div>
+                          : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '11px', color: 'var(--tx-5a5a5e)' }}>{org.name.slice(0, 2).toUpperCase()}</div>
                         }
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-display font-bold uppercase truncate" style={{ fontSize: 'clamp(14px, 2vw, 18px)', color: '#FFFFFF', letterSpacing: '-0.005em' }}>{org.name}</p>
-                        <p className="font-mono mt-0.5" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.06em' }}>
+                        <p className="font-display font-bold uppercase truncate" style={{ fontSize: 'clamp(14px, 2vw, 18px)', color: 'rgb(var(--ink))', letterSpacing: '-0.005em' }}>{org.name}</p>
+                        <p className="font-mono mt-0.5" style={{ fontSize: '10px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.06em' }}>
                           {orgFollowers[org.id] || 0} {t('event.followers')} · {orgEventsCount[org.id] || 0} {t('event.events')}
                         </p>
                       </div>
-                      <span className="text-[#5A5A5E] text-sm shrink-0 ml-2">→</span>
+                      <span className="text-[var(--tx-5a5a5e)] text-sm shrink-0 ml-2">→</span>
                     </button>
                     <button
                       onClick={toggleOrgFollow}
                       className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
-                      style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFollowingOrg ? 'rgba(232,25,44,0.4)' : '#2A2A2A', background: isFollowingOrg ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFollowingOrg ? '#E8192C' : '#9A9A9A', cursor: 'pointer' }}
+                      style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFollowingOrg ? 'rgba(232,25,44,0.4)' : 'var(--sf-2a2a2a)', background: isFollowingOrg ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFollowingOrg ? '#E8192C' : 'var(--tx-9a9a9a)', cursor: 'pointer' }}
                     >
                       <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: isFollowingOrg ? '#E8192C' : 'transparent' }} />
                       {isFollowingOrg ? t('subscribe.active') : t('subscribe.action')}
@@ -1645,26 +1645,26 @@ export default function EventDetails() {
               {venue.id !== primaryOrganizer?.user_id && (
               <div
                 className="flex items-center"
-                style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 16px' }}
+                style={{ border: '1px solid rgb(var(--ink)/0.06)', borderRadius: '4px', padding: '12px 16px' }}
               >
                 <button onClick={() => navigate(`/club/${venue.id}`)} className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left">
-                  <div className="shrink-0 overflow-hidden" style={{ width: 48, height: 48, borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
+                  <div className="shrink-0 overflow-hidden" style={{ width: 48, height: 48, borderRadius: '4px', border: '1px solid rgb(var(--ink)/0.08)', background: 'var(--sf-191919)' }}>
                     {venue.logoUrl
                       ? <img src={getOptimizedImageUrl(venue.logoUrl, { width: 128, height: 128, resize: 'contain' })} alt={venue.name} loading="lazy" className="w-full h-full object-contain" />
-                      : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: '#5A5A5E' }}>{venue.name.slice(0, 2).toUpperCase()}</div>
+                      : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: 'var(--tx-5a5a5e)' }}>{venue.name.slice(0, 2).toUpperCase()}</div>
                     }
                   </div>
                   <div className="min-w-0 flex flex-col items-start">
-                    <p className="font-mono truncate" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>{venue.name}</p>
-                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em' }}>{venueFollowers} {t('event.followers')}</p>
-                    <p className="font-mono" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em' }}>{venueEventsCount} {t('event.events')}</p>
+                    <p className="font-mono truncate" style={{ fontSize: '13px', color: 'var(--tx-e5e5e5)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>{venue.name}</p>
+                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.04em' }}>{venueFollowers} {t('event.followers')}</p>
+                    <p className="font-mono" style={{ fontSize: '11px', color: 'var(--tx-5a5a5e)', letterSpacing: '0.04em' }}>{venueEventsCount} {t('event.events')}</p>
                   </div>
                   <span className="text-[#3A3A3E] text-xs shrink-0 ml-2">→</span>
                 </button>
                 <button
                   onClick={() => toggleFavorite('club', venue.id, 'event_page')}
                   className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
-                  style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.4)' : '#2A2A2A', background: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFavorite('club', venue.id) ? '#E8192C' : '#9A9A9A', cursor: 'pointer' }}
+                  style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.4)' : 'var(--sf-2a2a2a)', background: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFavorite('club', venue.id) ? '#E8192C' : 'var(--tx-9a9a9a)', cursor: 'pointer' }}
                 >
                   <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: isFavorite('club', venue.id) ? '#E8192C' : 'transparent' }} />
                   {isFavorite('club', venue.id) ? t('subscribe.active') : t('subscribe.action')}
@@ -1688,7 +1688,7 @@ export default function EventDetails() {
 
         {/* ── DESCRIPTION ── */}
         {event.description && (
-          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
             <p className="section-label-ruled mb-5">{t('event.about') || 'À propos'}</p>
             <div className="relative">
               {translatingDesc && (
@@ -1696,12 +1696,12 @@ export default function EventDetails() {
               )}
               <p
                 className={`whitespace-pre-line ${!showFullDescription ? 'line-clamp-6' : ''}`}
-                style={{ fontSize: '14px', color: '#9A9A9A', lineHeight: 1.65 }}
+                style={{ fontSize: '14px', color: 'var(--tx-9a9a9a)', lineHeight: 1.65 }}
               >
                 {translatedDescription || event.description}
               </p>
               {!showFullDescription && event.description.length > 200 && (
-                <div className="absolute bottom-0 inset-x-0 h-14 pointer-events-none" style={{ background: 'linear-gradient(to top, #0A0A0A, transparent)' }} />
+                <div className="absolute bottom-0 inset-x-0 h-14 pointer-events-none" style={{ background: 'linear-gradient(to top, var(--sf-0a0a0a), transparent)' }} />
               )}
             </div>
             {event.description.length > 200 && (
@@ -1709,7 +1709,7 @@ export default function EventDetails() {
                 <button
                   onClick={() => setShowFullDescription(!showFullDescription)}
                   className="flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors hover:text-white"
-                  style={{ fontSize: '10px', color: '#5A5A5E', background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px 12px' }}
+                  style={{ fontSize: '10px', color: 'var(--tx-5a5a5e)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '6px 12px' }}
                 >
                   {showFullDescription
                     ? <><ChevronUp className="h-3.5 w-3.5" />{t('event.showLess')}</>
@@ -1730,15 +1730,15 @@ export default function EventDetails() {
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full overflow-hidden"
-              style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px' }}
+              style={{ border: '1px solid rgb(var(--ink)/0.08)', borderRadius: '4px' }}
             >
               {(() => {
                 const staticUrl = getStaticMapUrl();
                 return staticUrl ? (
                   <img src={staticUrl} alt={venue.address} className="w-full aspect-video object-cover" loading="lazy" />
                 ) : (
-                  <div className="w-full aspect-video flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                    <MapPin className="h-8 w-8" style={{ color: '#5A5A5E' }} />
+                  <div className="w-full aspect-video flex items-center justify-center" style={{ background: 'rgb(var(--ink)/0.03)' }}>
+                    <MapPin className="h-8 w-8" style={{ color: 'var(--tx-5a5a5e)' }} />
                   </div>
                 );
               })()}
@@ -1835,8 +1835,8 @@ export default function EventDetails() {
             style={{
               width: '100%',
               maxWidth: 380,
-              background: '#141414',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: 'var(--sf-141414)',
+              border: '1px solid rgb(var(--ink)/0.10)',
               borderRadius: '4px',
               padding: '28px 24px 24px',
               boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
@@ -1855,7 +1855,7 @@ export default function EventDetails() {
             >
               {t('event.leavePrivate.title')}
             </h2>
-            <p style={{ fontSize: '14px', lineHeight: 1.5, color: 'rgba(255,255,255,0.65)', marginBottom: '22px' }}>
+            <p style={{ fontSize: '14px', lineHeight: 1.5, color: 'rgb(var(--ink)/var(--ink-a65,0.65))', marginBottom: '22px' }}>
               {t('event.leavePrivate.body')}
             </p>
             <div className="flex flex-col gap-2">
@@ -1869,7 +1869,7 @@ export default function EventDetails() {
               <button
                 onClick={() => setShowLeavePrivate(false)}
                 className="hover:opacity-80 transition-opacity"
-                style={{ width: '100%', height: 46, borderRadius: '2px', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
+                style={{ width: '100%', height: 46, borderRadius: '2px', background: 'transparent', color: 'rgb(var(--ink))', border: '1px solid rgb(var(--ink)/0.15)', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
               >
                 {t('event.leavePrivate.cancel')}
               </button>

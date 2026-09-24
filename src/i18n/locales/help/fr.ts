@@ -2221,6 +2221,16 @@ const help: Record<string, string> = {
   "ohelp.whatIsYuno.s6b": "Prenez le temps de bien compléter votre configuration : logo, image de couverture, une vraie description et une carte bien fournie. Un profil complet convertit bien mieux les visiteurs en clients qu'un profil bâclé.",
   "ohelp.whatIsYuno.s6h": "Conseil",
   "ohelp.whatIsYuno.title": "Qu'est-ce que Yuno ?",
+  "ohelp.appearance.title": "Mode clair ou mode sombre",
+  "ohelp.appearance.desc": "Choisissez l'apparence de votre Console : sombre, clair, ou calée sur votre appareil.",
+  "ohelp.appearance.s1h": "À quoi ça sert",
+  "ohelp.appearance.s1b": "La Console Yuno existe en deux apparences. Le mode **sombre**, celui d'origine, est confortable le soir et en salle. Le mode **clair** se lit mieux en plein jour, au bureau ou sur un écran très lumineux. Les pages, les chiffres et les boutons sont exactement les mêmes : seules les couleurs changent.",
+  "ohelp.appearance.s2h": "Pas à pas",
+  "ohelp.appearance.s2b": "1. Ouvrez la barre latérale de votre Console.\n2. En bas, repérez le bloc \"Apparence\".\n3. Touchez le soleil pour \"Clair\", la lune pour \"Sombre\" ou l'écran pour \"Système\".\n4. Le changement est immédiat, sans recharger la page.\n\nRaccourci : l'icône lune ou soleil, en haut de chaque page à côté de la cloche, bascule directement entre clair et sombre.",
+  "ohelp.appearance.s3h": "Comprendre le réglage",
+  "ohelp.appearance.s3b": "• \"Système\" suit le réglage de votre ordinateur ou de votre téléphone, et passe tout seul en sombre le soir si votre appareil le fait.\n• Le choix est gardé sur cet appareil et s'applique à tous vos espaces pro : Console Club, Console Organisateur, Console Agence, espaces promoteur et DJ.\n• Certaines zones restent sombres exprès : la bannière photo du tableau de bord, la vue En direct et son globe, et les aperçus de ce que voient vos clients.\n• Vos pages publiques, vos emails et l'app de vos clients ne changent pas : le réglage ne concerne que votre écran.",
+  "ohelp.appearance.s4h": "Conseil",
+  "ohelp.appearance.s4b": "Les écrans du staff de nuit (bar, porte, vestiaire, hôte VIP) restent toujours en sombre : dans un club, c'est ce qui éblouit le moins.",
 };
 
 export default help;

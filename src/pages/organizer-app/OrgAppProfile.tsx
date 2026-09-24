@@ -323,7 +323,7 @@ export default function OrgAppProfile() {
               {profile.cover_url ? (
                 <img src={profile.cover_url} alt="cover" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center" style={{ color: 'rgba(255,255,255,0.18)' }}><ImageIcon className="h-10 w-10" /></div>
+                <div className="flex h-full w-full items-center justify-center" style={{ color: 'rgb(var(--ink)/0.18)' }}><ImageIcon className="h-10 w-10" /></div>
               )}
               {uploadingCover && (
                 <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}><Loader2 className="h-6 w-6 animate-spin" style={{ color: T1 }} /></div>
@@ -352,7 +352,7 @@ export default function OrgAppProfile() {
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center" style={{ color: 'rgba(255,255,255,0.18)' }}><User className="h-8 w-8" /></div>
+                  <div className="flex h-full w-full items-center justify-center" style={{ color: 'rgb(var(--ink)/0.18)' }}><User className="h-8 w-8" /></div>
                 )}
               </div>
               {uploadingAvatar && (
@@ -466,7 +466,7 @@ export default function OrgAppProfile() {
                   {t("Optionnel : un PDF à faire signer aux mineurs (autorisation parentale, décharge...). Joint au récap de commande des soirées sans alcool.", 'Optional: a PDF for minors to sign (parental consent, waiver...). Shared on the order summary for alcohol-free events.')}
                 </p>
                 {profile.minor_auth_doc_url ? (
-                  <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#0d0d0f', border: `1px solid ${BORDER}` }}>
+                  <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'var(--sf-0d0d0f)', border: `1px solid ${BORDER}` }}>
                     <FileText className="h-5 w-5 flex-none" style={{ color: RED }} />
                     <a href={profile.minor_auth_doc_url} target="_blank" rel="noopener noreferrer" className="flex-1 truncate" style={{ color: T1, fontSize: 13 }}>{profile.minor_auth_doc_name || 'Document'}</a>
                     <button type="button" onClick={() => {
@@ -482,7 +482,7 @@ export default function OrgAppProfile() {
                   </div>
                 ) : (
                   <label className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 cursor-pointer"
-                    style={{ background: '#0d0d0f', border: `1px dashed ${BORDER}`, color: uploadingMinorDoc ? T3 : T1, fontSize: 13, fontWeight: 540 }}>
+                    style={{ background: 'var(--sf-0d0d0f)', border: `1px dashed ${BORDER}`, color: uploadingMinorDoc ? T3 : T1, fontSize: 13, fontWeight: 540 }}>
                     {uploadingMinorDoc
                       ? <><Loader2 className="h-4 w-4 animate-spin" />{t('Envoi...', 'Uploading...')}</>
                       : <><Upload className="h-4 w-4" />{t('Uploader un PDF ou TXT', 'Upload a PDF or TXT')}</>}

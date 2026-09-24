@@ -529,7 +529,7 @@ export default function OrgAppCheckin() {
           <div className="p-4">
             <FieldLabel>{t('Événement', 'Event')}</FieldLabel>
             <DarkSelect value={eventId} onChange={(v) => { setEventId(v); resetTicketScan(); setDrinkResult(null); setCloakResult(null); }} placeholder={t('Choisir un événement', 'Select event')}>
-              {events.map(e => <option key={e.id} value={e.id} style={{ background: '#0a0a0c' }}>{e.title}</option>)}
+              {events.map(e => <option key={e.id} value={e.id} style={{ background: 'var(--sf-0a0a0c)' }}>{e.title}</option>)}
             </DarkSelect>
           </div>
         </OrgCard>
@@ -635,7 +635,7 @@ export default function OrgAppCheckin() {
                           <FieldLabel>{t('Motif du refus', 'Refusal reason')} *</FieldLabel>
                           <DarkSelect value={refundReason} onChange={setRefundReason} placeholder={t('Choisir un motif', 'Select a reason')}>
                             {Object.keys(REFUND_REASONS).map(key => (
-                              <option key={key} value={key} style={{ background: '#0a0a0c' }}>{REFUND_REASONS[key][language]}</option>
+                              <option key={key} value={key} style={{ background: 'var(--sf-0a0a0c)' }}>{REFUND_REASONS[key][language]}</option>
                             ))}
                           </DarkSelect>
                           {refundReason === 'other' && (
@@ -722,8 +722,8 @@ export default function OrgAppCheckin() {
 function WaitingPanel({ text }: { text: string }) {
   return (
     <div className="flex h-full min-h-[180px] flex-col items-center justify-center rounded-2xl px-4 py-10 text-center"
-      style={{ border: `1px dashed ${BORDER}`, background: 'rgba(255,255,255,0.012)' }}>
-      <ScanLine className="mb-3 h-9 w-9" style={{ color: 'rgba(255,255,255,0.14)' }} />
+      style={{ border: `1px dashed ${BORDER}`, background: 'rgb(var(--ink)/0.012)' }}>
+      <ScanLine className="mb-3 h-9 w-9" style={{ color: 'rgb(var(--ink)/0.14)' }} />
       <p style={{ color: T3, fontSize: 12.5 }}>{text}</p>
     </div>
   );

@@ -10202,6 +10202,12 @@ const fr: Record<string, string> = {
   'header.publicPreview': 'Aperçu public',
   'header.notifications': 'Notifications',
   'header.help': 'Aide',
+  'proTheme.title': 'Apparence',
+  'proTheme.dark': 'Sombre',
+  'proTheme.light': 'Clair',
+  'proTheme.system': 'Système',
+  'proTheme.hint': 'S\'applique à tous vos espaces pro sur cet appareil.',
+  'proTheme.switchTo': 'Passer en mode {theme}',
 
   // Page Collaborations
   'collab.loading': 'Chargement…',

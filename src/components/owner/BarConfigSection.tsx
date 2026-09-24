@@ -5,12 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 export function BarConfigSection({ venueId }: { venueId: string }) {
   const { t } = useLanguage();
@@ -68,7 +68,7 @@ export function BarConfigSection({ venueId }: { venueId: string }) {
                 placeholder={t('owner.barPlaceholder').replace('{n}', String(i + 1))}
                 className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
                 style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-                onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+                onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
                 onBlur={e => (e.target.style.borderColor = BORDER)}
               />
             </div>

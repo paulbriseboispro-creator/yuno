@@ -64,16 +64,18 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
   const visitors = snapshot?.visitorsNow ?? 0;
 
   const ctlBtn = 'inline-flex h-9 items-center gap-2 px-3 font-mono font-bold uppercase cursor-pointer transition-colors duration-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E8192C] active:scale-[0.97]';
-  const ctlStyle: React.CSSProperties = { fontSize: 10.5, letterSpacing: '0.10em', color: LV.gray1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${LV.borderStrong}`, borderRadius: 3 };
+  const ctlStyle: React.CSSProperties = { fontSize: 10.5, letterSpacing: '0.10em', color: LV.gray1, background: 'rgb(var(--ink)/0.05)', border: `1px solid ${LV.borderStrong}`, borderRadius: 3 };
 
   return (
     <div
       ref={rootRef}
+      // Surface éditoriale (globe noir, DA publique) : sombre dans les deux thèmes.
+      data-theme-island="dark"
       className={`lv-root relative overflow-hidden ${fullscreen ? 'flex h-screen flex-col' : ''}`}
-      style={{ background: LV.bg, border: fullscreen ? 'none' : `1px solid rgba(255,255,255,0.09)`, borderRadius: fullscreen ? 0 : 4 }}
+      style={{ background: LV.bg, border: fullscreen ? 'none' : `1px solid rgb(var(--ink)/0.09)`, borderRadius: fullscreen ? 0 : 4 }}
     >
       {/* ── En-tête ─────────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-end justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+      <header className="flex flex-wrap items-end justify-between gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <span className="badge-live inline-flex items-center gap-2"><span className="dot-live" aria-hidden="true" />{t('lv.kicker')}</span>
@@ -105,7 +107,7 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
       ) : (
         <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] ${fullscreen ? 'min-h-0 flex-1' : ''}`}>
           {/* ── Globe ───────────────────────────────────────────────────── */}
-          <div className={`relative ${fullscreen ? 'h-full min-h-0' : 'aspect-square lg:aspect-auto lg:min-h-[660px]'}`} style={{ background: LV.bg, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className={`relative ${fullscreen ? 'h-full min-h-0' : 'aspect-square lg:aspect-auto lg:min-h-[660px]'}`} style={{ background: LV.bg, borderRight: '1px solid rgb(var(--ink)/0.07)' }}>
             {hasMapbox ? (
               <Suspense fallback={<div className="skeleton absolute inset-0" style={{ borderRadius: 0 }} />}>
                 <LiveGlobe
@@ -148,7 +150,7 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
             )}
 
             {error === 'error' && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-5 py-3" style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.9), transparent)' }}>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-5 py-3" style={{ background: 'linear-gradient(to top, rgb(var(--glass-10-10-10)/0.9), transparent)' }}>
                 <Mono color={LV.red} size={10} tracking="0.12em">{t('lv.error')}</Mono>
               </div>
             )}
@@ -157,7 +159,7 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
           {/* ── Colonne droite ──────────────────────────────────────────── */}
           <aside className={`${fullscreen ? 'min-h-0 overflow-y-auto' : 'lg:max-h-[660px] lg:overflow-y-auto'}`} style={{ background: LV.bg }}>
             {snapshot && (
-              <div className="p-5 lg:hidden" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="p-5 lg:hidden" style={{ borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
                 <LiveReleaseCard release={snapshot.release} language={language} t={t} />
               </div>
             )}
@@ -190,9 +192,9 @@ function PanelSkeleton({ loading, error, t }: { loading: boolean; error: string 
 /** Sans jeton Mapbox : la même scène, sans carte — le chiffre reste l'affiche. */
 function GlobeFallback({ visitors, t, language }: { visitors: number; t: (k: string) => string; language: string }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ background: 'radial-gradient(60% 60% at 50% 55%, #141414 0%, #0A0A0A 70%)' }}>
-      <div className="absolute rounded-full" style={{ width: '58%', paddingTop: '58%', border: '1px solid rgba(255,255,255,0.06)' }} />
-      <div className="absolute rounded-full" style={{ width: '38%', paddingTop: '38%', border: '1px solid rgba(255,255,255,0.08)' }} />
+    <div className="absolute inset-0 flex items-center justify-center overflow-hidden" style={{ background: 'radial-gradient(60% 60% at 50% 55%, var(--sf-141414) 0%, var(--sf-0a0a0a) 70%)' }}>
+      <div className="absolute rounded-full" style={{ width: '58%', paddingTop: '58%', border: '1px solid rgb(var(--ink)/0.06)' }} />
+      <div className="absolute rounded-full" style={{ width: '38%', paddingTop: '38%', border: '1px solid rgb(var(--ink)/0.08)' }} />
       <div className="relative text-center">
         <span className="font-display font-bold tabular-nums" style={{ fontSize: 'clamp(40px, 8vw, 72px)', color: visitors > 0 ? LV.red : LV.gray3, letterSpacing: '-0.03em', lineHeight: 1 }}>
           {fmtInt(visitors, language)}

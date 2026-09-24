@@ -158,7 +158,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
             >
               <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
               {unread > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8192C] px-1 text-[9px] font-bold text-white leading-none">
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8192C] px-1 text-[9px] font-bold text-snow leading-none">
                   {unread > 99 ? '99+' : unread}
                 </span>
               )}
@@ -171,7 +171,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[340px] max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden border-white/[0.08] bg-[#0a0a0c]/95 backdrop-blur-xl"
+        className="w-[340px] max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden border-white/[0.08] bg-[var(--sf-0a0a0c)]/95 backdrop-blur-xl"
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3.5 py-2.5">

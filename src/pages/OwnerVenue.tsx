@@ -45,14 +45,14 @@ import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Lien public partagé (bio) — toujours le domaine de prod, jamais localhost.
 const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
@@ -66,7 +66,7 @@ function DarkInput({ id, value, onChange, placeholder, type = 'text', maxLength 
       placeholder={placeholder} maxLength={maxLength}
       className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={e => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -588,9 +588,9 @@ export default function OwnerVenue() {
   if (loading) return <OwnerPageSkeleton />;
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader title={t('owner.venueCustomization')} />
 
@@ -606,12 +606,12 @@ export default function OwnerVenue() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5"
-                style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12.5, textDecoration: 'underline' }}
+                style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12.5, textDecoration: 'underline' }}
               >
                 <ExternalLink className="h-3.5 w-3.5" />{t('owner.publishPreviewLink')}
               </a>
               {!paymentsReady && (
-                <p style={{ color: 'rgba(255,255,255,0.36)', fontSize: 12, lineHeight: 1.5 }}>
+                <p style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 12, lineHeight: 1.5 }}>
                   {t('owner.publishStripeHint')}
                 </p>
               )}
@@ -636,20 +636,20 @@ export default function OwnerVenue() {
 
         {/* Aperçu de la page client */}
         <SectionCard title={t('owner.clientPagePreview')}>
-          <div className="relative h-52 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+          <div className="relative h-52 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }} data-theme-island="dark">
             <div className="absolute inset-0 bg-cover bg-center"
               style={{ backgroundImage: `url(${coverPreview || 'https://images.unsplash.com/photo-1514933651103-005eec06c04b'})`, backgroundPosition: `${coverPosition.x}% ${coverPosition.y}%` }} />
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.7) 100%)' }} />
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
               {logoPreview ? (
-                <img src={logoPreview} alt={venueName} className="h-16 w-16 rounded-full object-cover" style={{ border: '2px solid rgba(255,255,255,0.2)' }} />
+                <img src={logoPreview} alt={venueName} className="h-16 w-16 rounded-full object-cover" style={{ border: '2px solid rgb(var(--ink)/var(--ink-a20,0.2))' }} />
               ) : (
                 <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ background: RED }}>
-                  <span style={{ color: '#fff', fontSize: 24, fontWeight: 800 }}>{venueName.charAt(0) || 'C'}</span>
+                  <span style={{ color: 'rgb(var(--ink))', fontSize: 24, fontWeight: 800 }}>{venueName.charAt(0) || 'C'}</span>
                 </div>
               )}
-              <h2 style={{ color: 'rgba(255,255,255,0.96)', fontSize: 20, fontWeight: 700 }}>{venueName}</h2>
-              <p className="flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12 }}>
+              <h2 style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 20, fontWeight: 700 }}>{venueName}</h2>
+              <p className="flex items-center gap-1" style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12 }}>
                 <MapPin className="h-3.5 w-3.5" />{city || 'Paris'}
               </p>
             </div>
@@ -753,7 +753,7 @@ export default function OwnerVenue() {
                   <button onClick={() => handleRemoveGalleryImage(imageUrl)}
                     className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ background: 'rgba(232,25,44,0.9)' }}>
-                    <Trash2 className="w-3 h-3" style={{ color: '#fff' }} />
+                    <Trash2 className="w-3 h-3" style={{ color: 'rgb(var(--ink))' }} />
                   </button>
                 </div>
               ))}
@@ -806,7 +806,7 @@ export default function OwnerVenue() {
               placeholder={t('owner.shortBioPlaceholder')} rows={2} maxLength={160}
               className="w-full px-3 py-2.5 rounded-xl text-[13px] resize-none transition-all duration-150"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-              onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+              onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
               onBlur={e => (e.target.style.borderColor = BORDER)} />
             <p style={{ color: T3, fontSize: 11, textAlign: 'right', marginTop: 2 }}>{shortDescription.length}/160</p>
           </div>
@@ -820,7 +820,7 @@ export default function OwnerVenue() {
               placeholder={t('owner.venueDescPlaceholder')} rows={4} maxLength={500}
               className="w-full px-3 py-2.5 rounded-xl text-[13px] resize-none transition-all duration-150"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-              onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+              onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
               onBlur={e => (e.target.style.borderColor = BORDER)} />
             <p style={{ color: T3, fontSize: 11, textAlign: 'right', marginTop: 2 }}>{venueDescription.length}/500</p>
           </div>
@@ -929,7 +929,7 @@ export default function OwnerVenue() {
           </div>
           <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 16 }}>
             <FieldLabel>
-              <MessageCircle className="w-3 h-3 inline mr-1" style={{ color: '#25D366' }} />
+              <MessageCircle className="w-3 h-3 inline mr-1" style={{ color: 'var(--acc-25d366)' }} />
               WhatsApp ({t('owner.optional')})
             </FieldLabel>
             <DarkInput value={whatsappNumber} onChange={setWhatsappNumber} placeholder="+33 6 12 34 56 78" />

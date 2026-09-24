@@ -7,21 +7,21 @@ import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const FAINT_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const FAINT_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Ordinal ramp — best tier/segment is RED, the rest fade through white opacity.
 // Single-accent, no rainbow (Yuno DA: #E8192C is the only systemic color accent).
 const RAMP = [
   RED,
-  'rgba(255,255,255,0.82)', 'rgba(255,255,255,0.58)', 'rgba(255,255,255,0.42)',
-  'rgba(255,255,255,0.30)', 'rgba(255,255,255,0.22)', 'rgba(255,255,255,0.15)',
+  'rgb(var(--ink)/var(--ink-a82,0.82))', 'rgb(var(--ink)/var(--ink-a58,0.58))', 'rgb(var(--ink)/var(--ink-a42,0.42))',
+  'rgb(var(--ink)/var(--ink-a30,0.30))', 'rgb(var(--ink)/var(--ink-a22,0.22))', 'rgb(var(--ink)/0.15)',
 ];
 const ramp = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
 
@@ -159,7 +159,7 @@ export function AudienceInsights({ scope, from, to }: Props) {
       {/* Customer tiers */}
       <div style={{ ...crd, padding: '20px 22px' }}>
         <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
-          <Crown className="h-4 w-4 flex-none" style={{ color: '#FBBF24' }} />
+          <Crown className="h-4 w-4 flex-none" style={{ color: 'var(--acc-fbbf24)' }} />
           {tt('Tiers de clients', 'Customer tiers')}
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -191,7 +191,7 @@ export function AudienceInsights({ scope, from, to }: Props) {
                 style={{
                   padding: '12px 14px',
                   border: `1px solid ${FAINT_BORDER}`,
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgb(var(--ink)/0.02)',
                 }}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -202,7 +202,7 @@ export function AudienceInsights({ scope, from, to }: Props) {
                   <span className="text-sm font-bold tabular-nums" style={{ color: T1 }}>{s.count}</span>
                 </div>
                 <div className="text-xs" style={{ color: T3 }}>{s.description}</div>
-                <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: s.color }} />
                 </div>
                 <div className="text-[10px] mt-1 tabular-nums" style={{ color: T3 }}>{pct}%</div>
@@ -262,7 +262,7 @@ function TierTile({
       style={{
         padding: '14px 12px',
         border: `1px solid ${BORDER}`,
-        background: 'rgba(255,255,255,0.025)',
+        background: 'rgb(var(--ink)/0.025)',
       }}
     >
       <Icon className="h-5 w-5 mx-auto mb-2" style={{ color }} />

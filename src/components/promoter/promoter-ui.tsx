@@ -12,19 +12,19 @@ import { ChevronLeft, Copy } from 'lucide-react';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 export const RED         = '#E8192C';
-export const RED_SOFT    = '#FF5C63';
-export const POS         = '#34D399';
-export const WARN        = '#FBBF24';
-export const T1          = 'rgba(255,255,255,0.96)';
-export const T2          = 'rgba(255,255,255,0.58)';
-export const T3          = 'rgba(255,255,255,0.36)';
-export const BORDER      = 'rgba(255,255,255,0.085)';
-export const F_BORDER    = 'rgba(255,255,255,0.055)';
-export const C_FAINT     = 'rgba(255,255,255,0.06)';
-export const INNER_BG    = 'rgba(255,255,255,0.032)';
-export const TILE_BG     = 'rgba(255,255,255,0.025)';
-export const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const RED_SOFT    = 'var(--acc-ff5c63)';
+export const POS         = 'var(--acc-34d399)';
+export const WARN        = 'var(--acc-fbbf24)';
+export const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const BORDER      = 'rgb(var(--ink)/0.085)';
+export const F_BORDER    = 'rgb(var(--ink)/0.055)';
+export const C_FAINT     = 'rgb(var(--ink)/0.06)';
+export const INNER_BG    = 'rgb(var(--ink)/0.032)';
+export const TILE_BG     = 'rgb(var(--ink)/0.025)';
+export const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
 // Self-contained header + container so every promoter page shares one frame.
@@ -36,7 +36,7 @@ export function PromoHeader({
     <header
       className="sticky top-0 z-40"
       style={{
-        background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(14px)',
+        background: 'rgb(var(--glass-0-0-0)/0.72)', backdropFilter: 'blur(14px)',
         borderBottom: `1px solid ${F_BORDER}`,
         paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0.25rem))',
       }}
@@ -64,7 +64,7 @@ export function PromoHeader({
 
 export function PromoPage({ children, maxWidth = 960 }: { children: ReactNode; maxWidth?: number }) {
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       <div className="p-4 space-y-4 mx-auto" style={{ maxWidth }}>{children}</div>
     </div>
   );
@@ -86,7 +86,7 @@ export function PromoCard({
         transition: 'border-color 150ms ease',
         ...style,
       }}
-      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)') : undefined}
+      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.14)') : undefined}
       onMouseLeave={clickable ? (e) => (e.currentTarget.style.borderColor = BORDER) : undefined}
     >
       {children}
@@ -141,7 +141,7 @@ export function PromoPCard({
 // ─── Loading spinner (pleine surface) ────────────────────────────────────────
 export function PromoSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+    <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
       <div className="h-10 w-10 animate-spin rounded-full border-2"
         style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
     </div>
@@ -218,7 +218,7 @@ export function PromoButton({
 export function PromoProgress({ value, tone = 'red', height = 7 }: { value: number; tone?: 'red' | 'pos' | 'warn'; height?: number }) {
   const color = tone === 'pos' ? POS : tone === 'warn' ? WARN : RED;
   return (
-    <div style={{ height, background: 'rgba(255,255,255,0.07)', borderRadius: 999, overflow: 'hidden' }}>
+    <div style={{ height, background: 'rgb(var(--ink)/0.07)', borderRadius: 999, overflow: 'hidden' }}>
       <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, value))}%`, background: color, borderRadius: 999, transition: 'width 300ms ease' }} />
     </div>
   );
@@ -254,7 +254,7 @@ export function DarkInput({
           background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
           padding: Icon ? '9px 12px 9px 36px' : '9px 12px', color: T1, fontSize: 13.5, fontFamily: 'inherit',
         }}
-        onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+        onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/var(--ink-a20,0.2))')}
         onBlur={(e) => (e.target.style.borderColor = BORDER)}
       />
     </div>

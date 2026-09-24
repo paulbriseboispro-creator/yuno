@@ -27,16 +27,16 @@ import {
 
 // ─── Yuno Design Tokens (match OwnerCampaigns) ───────────────────────────────
 const RED         = '#E8192C';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const POS         = '#34D399';
-const WARN        = '#FCD34D';
-const NEG         = '#FF5C63';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const INNER_BG    = 'rgb(var(--ink)/0.032)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+const POS         = 'var(--acc-34d399)';
+const WARN        = 'var(--acc-fcd34d)';
+const NEG         = 'var(--acc-ff5c63)';
 
 interface Props {
   scope: SenderScope;
@@ -457,7 +457,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
     : null;
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       <div className="max-w-4xl mx-auto px-4 py-6">
 
         {/* Header */}
@@ -672,8 +672,8 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   style={{
                     padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600,
                     color: tab === tid ? T1 : T2,
-                    background: tab === tid ? 'rgba(255,255,255,0.06)' : INNER_BG,
-                    border: `1px solid ${tab === tid ? 'rgba(255,255,255,0.18)' : BORDER}`,
+                    background: tab === tid ? 'rgb(var(--ink)/0.06)' : INNER_BG,
+                    border: `1px solid ${tab === tid ? 'rgb(var(--ink)/0.18)' : BORDER}`,
                   }}
                 >
                   <Icon className="w-4 h-4" /> {label}
@@ -763,10 +763,10 @@ export default function CampaignReport({ scope, basePath }: Props) {
                 <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>
                   <h3 style={{ color: T1, fontSize: 14, fontWeight: 600, margin: '0 0 14px' }}>{t('em.report.funnel')}</h3>
                   <div className="space-y-3.5">
-                    <FunnelBar label={t('em.report.recipients')} value={rc} total={rc} color="rgba(255,255,255,0.28)" />
+                    <FunnelBar label={t('em.report.recipients')} value={rc} total={rc} color="rgb(var(--ink)/var(--ink-a28,0.28))" />
                     <FunnelBar label={t('em.report.delivered')} value={delivered} total={rc} color={POS} />
                     <FunnelBar label={t('em.report.opens')} value={opens} total={rc} color={RED} />
-                    <FunnelBar label={t('em.report.clickers')} value={clickers} total={rc} color="#A78BFA" />
+                    <FunnelBar label={t('em.report.clickers')} value={clickers} total={rc} color="var(--acc-a78bfa)" />
                   </div>
                   {(extra.complained > 0 || extra.failed > 0 || extra.policySkipped > 0) && (
                     <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
@@ -807,7 +807,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                               </span>
                             </div>
                             <div style={{ height: 6, borderRadius: 6, background: INNER_BG, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${(l.n / max) * 100}%`, background: '#A78BFA', borderRadius: 6 }} />
+                              <div style={{ height: '100%', width: `${(l.n / max) * 100}%`, background: 'var(--acc-a78bfa)', borderRadius: 6 }} />
                             </div>
                           </div>
                         );

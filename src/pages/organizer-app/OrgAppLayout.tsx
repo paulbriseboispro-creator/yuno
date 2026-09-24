@@ -12,7 +12,7 @@ export default function OrgAppLayout() {
   return (
     <SidebarProvider>
       <OrgAppSidebar />
-      <SidebarInset className="overflow-y-auto" style={{ background: '#000' }}>
+      <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
         <OrgAppHeader />
         <Outlet />
       </SidebarInset>

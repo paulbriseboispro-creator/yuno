@@ -18,6 +18,7 @@ import {
   Users, Link2, Activity, CalendarRange, UserPlus, Megaphone, LifeBuoy, Inbox, UserRound,
 } from 'lucide-react';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { SidebarProThemeSwitch } from '@/components/ProThemeSwitch';
 
 export type AffiliateRole = 'admin' | 'manager' | 'member';
 
@@ -132,6 +133,8 @@ export function AffiliateAppSidebar({ role }: { role: AffiliateRole }) {
       </SidebarContent>
 
       <SidebarFooter>
+
+        <SidebarProThemeSwitch />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground" size="sm">

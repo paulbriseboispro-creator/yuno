@@ -203,11 +203,11 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
   const onPick = (e: ChangeEvent<HTMLInputElement>, fn: (files: File[]) => void) => { const files = Array.from(e.target.files ?? []); e.target.value = ''; if (files.length) fn(files); };
 
   const Thumb = ({ m, index }: { m: DraftMedia; index: number }) => (
-    <div className="relative rounded-xl overflow-hidden group" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${m.error ? RED : BORDER}` }}>
+    <div className="relative rounded-xl overflow-hidden group" style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${m.error ? RED : BORDER}` }}>
       <div className={verticalMain ? 'aspect-[9/16]' : 'aspect-square'}>
         {(m.preview || m.url) && <img src={m.preview || m.url} alt="" className="h-full w-full object-cover" />}
       </div>
-      {m.uploading && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}
+      {m.uploading && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}><Loader2 className="w-5 h-5 animate-spin text-snow" /></div>}
       {m.error && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}><AlertTriangle className="w-5 h-5" style={{ color: RED }} /></div>}
       <div className="absolute top-1.5 right-1.5 flex gap-1">
         <button type="button" aria-label={t('ads.wizard.remove')} onClick={() => remove(m.localId)} className="h-7 w-7 rounded-full flex items-center justify-center cursor-pointer" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}><X className="w-3.5 h-3.5" /></button>
@@ -272,11 +272,11 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
               {igMedia.map((m) => {
                 const active = creative.media.some((x) => x.ig_media_id === m.id);
                 return (
-                  <button key={m.id} type="button" onClick={() => pickPost(m)} className="relative rounded-xl overflow-hidden aspect-square cursor-pointer transition-colors duration-150" style={{ background: 'rgba(255,255,255,0.06)', border: `2px solid ${active ? RED : 'transparent'}` }} title={m.caption}>
+                  <button key={m.id} type="button" onClick={() => pickPost(m)} className="relative rounded-xl overflow-hidden aspect-square cursor-pointer transition-colors duration-150" style={{ background: 'rgb(var(--ink)/0.06)', border: `2px solid ${active ? RED : 'transparent'}` }} title={m.caption}>
                     {m.image && <img src={m.image} alt="" className="h-full w-full object-cover" />}
                     {m.type === 'VIDEO' && <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>REEL</span>}
                     {m.type === 'CAROUSEL_ALBUM' && <Images className="absolute top-1.5 right-1.5 w-4 h-4 text-white drop-shadow" />}
-                    {active && <span className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(232,25,44,0.35)' }}><Check className="w-6 h-6 text-white" /></span>}
+                    {active && <span className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(232,25,44,0.35)' }}><Check className="w-6 h-6 text-snow" /></span>}
                   </button>
                 );
               })}
@@ -314,15 +314,15 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
             </button>
           ) : (
             <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
-              <div className="rounded-xl overflow-hidden relative" style={{ background: '#000', border: `1px solid ${video.error ? RED : BORDER}` }}>
+              <div className="rounded-xl overflow-hidden relative" style={{ background: 'var(--sf-000000)', border: `1px solid ${video.error ? RED : BORDER}` }}>
                 <video src={video.preview || video.url} poster={video.thumbnail_url ?? undefined} controls muted playsInline className="w-full max-h-[280px] object-contain" />
                 {video.uploading && <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1" style={{ background: 'rgba(0,0,0,0.65)', color: '#fff' }}><Loader2 className="w-3 h-3 animate-spin" />{t('ads.w.media.uploading')}</span>}
                 {!video.uploading && video.url && <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-[11px] font-semibold" style={{ background: 'rgba(52,211,153,0.2)', color: POS }}>{t('ads.w.media.ready')}{video.duration ? ` · ${Math.round(video.duration)} s` : ''}</span>}
-                {video.error && <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-[11px] font-semibold" style={{ background: 'rgba(232,25,44,0.25)', color: '#FF8A91' }}>{t('ads.w.media.uploadFailed')}</span>}
+                {video.error && <span className="absolute top-2 left-2 px-2 py-1 rounded-md text-[11px] font-semibold" style={{ background: 'rgba(232,25,44,0.25)', color: 'var(--acc-ff8a91)' }}>{t('ads.w.media.uploadFailed')}</span>}
               </div>
               <div className="space-y-2">
                 <p style={{ color: T2, fontSize: 12.5, fontWeight: 600 }}>{t('ads.w.media.cover')}</p>
-                <div className="rounded-xl overflow-hidden aspect-[4/5]" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}` }}>
+                <div className="rounded-xl overflow-hidden aspect-[4/5]" style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}` }}>
                   {video.thumbnail_url ? <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin" style={{ color: T3 }} /></div>}
                 </div>
                 <GhostButton small onClick={() => coverInput.current?.click()}><RefreshCw className="w-3.5 h-3.5" /> {t('ads.w.media.changeCover')}</GhostButton>
@@ -342,11 +342,11 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
           hint={verticalOn ? t('ads.w.vertical.hint') : t('ads.w.vertical.hintOff')}>
           {creative.vertical_media ? (
             <div className="flex items-start gap-3">
-              <div className="rounded-xl overflow-hidden relative flex-shrink-0" style={{ width: 96, aspectRatio: '9 / 16', background: 'rgba(255,255,255,0.06)', border: `1px solid ${creative.vertical_media.error ? RED : BORDER}` }}>
+              <div className="rounded-xl overflow-hidden relative flex-shrink-0" style={{ width: 96, aspectRatio: '9 / 16', background: 'rgb(var(--ink)/0.06)', border: `1px solid ${creative.vertical_media.error ? RED : BORDER}` }}>
                 {creative.vertical_media.kind === 'video'
                   ? <video src={creative.vertical_media.preview || creative.vertical_media.url} poster={creative.vertical_media.thumbnail_url ?? undefined} muted playsInline className="h-full w-full object-cover" />
                   : (creative.vertical_media.preview || creative.vertical_media.url) && <img src={creative.vertical_media.preview || creative.vertical_media.url} alt="" className="h-full w-full object-cover" />}
-                {creative.vertical_media.uploading && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}><Loader2 className="w-5 h-5 animate-spin text-white" /></div>}
+                {creative.vertical_media.uploading && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}><Loader2 className="w-5 h-5 animate-spin text-snow" /></div>}
                 {creative.vertical_media.error && <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)' }}><AlertTriangle className="w-5 h-5" style={{ color: RED }} /></div>}
               </div>
               <div className="space-y-2 pt-1">
@@ -359,7 +359,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
           ) : (
             <div className="flex gap-2 flex-wrap">
               {creative.format === 'image' && posterUrl && (
-                <button type="button" onClick={() => setComposer('9:16')} className="inline-flex items-center gap-2 px-4 rounded-xl text-[13.5px] font-semibold cursor-pointer transition-colors duration-150" style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.4)', color: '#FF8A91', minHeight: 44 }}>
+                <button type="button" onClick={() => setComposer('9:16')} className="inline-flex items-center gap-2 px-4 rounded-xl text-[13.5px] font-semibold cursor-pointer transition-colors duration-150" style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.4)', color: 'var(--acc-ff8a91)', minHeight: 44 }}>
                   <Wand2 className="w-4 h-4" /> {t('ads.w.compose.story')}
                 </button>
               )}
@@ -406,7 +406,7 @@ export function CreativeEditor({ creative, onChange, posterUrl, event, uploadsRe
           <div className="px-4 pb-4 space-y-3">
             {images.map((m, i) => (
               <div key={m.localId} className="grid gap-2 sm:grid-cols-[56px_1fr_1fr] items-center">
-                <div className="h-14 w-14 rounded-lg overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>{(m.preview || m.url) && <img src={m.preview || m.url} alt="" className="h-full w-full object-cover" />}</div>
+                <div className="h-14 w-14 rounded-lg overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>{(m.preview || m.url) && <img src={m.preview || m.url} alt="" className="h-full w-full object-cover" />}</div>
                 <input value={m.headline ?? ''} onChange={(e) => patchMedia(m.localId, (x) => ({ ...x, headline: e.target.value.slice(0, HEADLINE_MAX) }))} style={{ ...inputStyle, minHeight: 42, fontSize: 14 }} className={focusRing} placeholder={`${t('ads.wizard.headline')} ${i + 1}`} />
                 <input value={m.description ?? ''} onChange={(e) => patchMedia(m.localId, (x) => ({ ...x, description: e.target.value.slice(0, DESCRIPTION_MAX) }))} style={{ ...inputStyle, minHeight: 42, fontSize: 14 }} className={focusRing} placeholder={t('ads.w.creative.description')} />
               </div>

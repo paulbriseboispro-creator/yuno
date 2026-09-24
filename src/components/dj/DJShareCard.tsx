@@ -9,14 +9,14 @@ const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'h
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface DJShareCardProps {
   slug?: string | null;
@@ -122,7 +122,7 @@ export function DJShareCard({ slug, stageName, shareUrl, title, subtitle, classN
             <button
               onClick={handleCopy}
               className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
             >
               {copied ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? t('dj.share.copied') : t('dj.share.copy')}
@@ -130,7 +130,7 @@ export function DJShareCard({ slug, stageName, shareUrl, title, subtitle, classN
             <button
               onClick={() => setShowQr((v) => !v)}
               className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
             >
               <QrCode className="h-3.5 w-3.5" />
               {t('dj.share.qr')}
@@ -146,7 +146,7 @@ export function DJShareCard({ slug, stageName, shareUrl, title, subtitle, classN
               <button
                 onClick={handleDownloadQr}
                 className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+                style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
               >
                 <Download className="h-3.5 w-3.5" />
                 {t('dj.share.downloadQr')}

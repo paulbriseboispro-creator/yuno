@@ -1,13 +1,13 @@
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight, LucideIcon } from 'lucide-react';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const POS = '#34D399';
-const NEG = '#FF5C63';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+const POS = 'var(--acc-34d399)';
+const NEG = 'var(--acc-ff5c63)';
 
 interface AnalyticsMetricCardProps {
   label: string;
@@ -67,7 +67,7 @@ export function AnalyticsMetricCard({ label, value, icon: Icon, trend, note, del
           </div>
           <div
             className="flex-none flex items-center justify-center w-10 h-10 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T3 }}
+            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T3 }}
           >
             <Icon className="h-5 w-5" />
           </div>

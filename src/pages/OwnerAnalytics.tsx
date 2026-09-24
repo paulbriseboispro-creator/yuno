@@ -47,18 +47,18 @@ import { LiveView } from '@/components/live-view/LiveView';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const NEG = '#FF5C63';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const C_HI = 'rgba(255,255,255,0.92)';
-const C_MID = 'rgba(255,255,255,0.40)';
-const C_LO = 'rgba(255,255,255,0.14)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const NEG = 'var(--acc-ff5c63)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_HI = 'rgb(var(--ink)/var(--ink-a92,0.92))';
+const C_MID = 'rgb(var(--ink)/var(--ink-a40,0.40))';
+const C_LO = 'rgb(var(--ink)/0.14)';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Premium card wrapper ─────────────────────────────────────────────────────
 function PCard({
@@ -322,7 +322,7 @@ function FunnelRibbon({ stages }: { stages: { label: string; n: number; pct: str
           <div key={i} className="flex-1 flex justify-center">
             <span
               className="px-3 py-[5px] rounded-full text-[13px] font-bold leading-none tabular-nums"
-              style={{ background: 'rgba(255,255,255,0.94)', color: '#000' }}
+              style={{ background: 'rgb(var(--ink)/var(--ink-a94,0.94))', color: '#000' }}
             >
               {s.pct}
             </span>
@@ -393,7 +393,7 @@ function Seg({ value, options, onChange }: {
   return (
     <div
       className="inline-flex gap-0.5 p-1 rounded-xl"
-      style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}
+      style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
     >
       {options.map(o => (
         <button
@@ -401,7 +401,7 @@ function Seg({ value, options, onChange }: {
           onClick={() => onChange(o.key)}
           className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150"
           style={value === o.key
-            ? { color: T1, background: 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))', boxShadow: '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000' }
+            ? { color: T1, background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))', boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' }
             : { color: T3 }
           }
         >
@@ -529,7 +529,7 @@ export default function OwnerAnalytics() {
   // ── Essential plan ───────────────────────────────────────────────────────────
   if (!hasAdvancedAnalytics) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
         <OwnerHeader
           title={t('owner.analytics')}
           rightContent={
@@ -543,7 +543,7 @@ export default function OwnerAnalytics() {
           }
         />
         <div className="mx-auto max-w-7xl p-4 sm:p-6 space-y-6">
-          <div className="flex gap-2 flex-wrap p-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+          <div className="flex gap-2 flex-wrap p-1.5 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
             {(['24h', '48h', '72h', '7days', '30days', 'alltime'] as DateRange[]).map(range => (
               <Button key={range} variant="ghost" onClick={() => setDateRange(range)} size="sm"
                 className="text-xs h-8 rounded-lg transition-all duration-150 cursor-pointer"
@@ -691,10 +691,10 @@ export default function OwnerAnalytics() {
   ];
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       {/* Top ambient vignette */}
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader
         title={t('owner.analytics')}
@@ -731,7 +731,7 @@ export default function OwnerAnalytics() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
               <div className="flex gap-1 flex-wrap p-1 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+                style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
                 {periodOptions.map(opt => (
                   <button
                     key={opt.key}
@@ -749,7 +749,7 @@ export default function OwnerAnalytics() {
               onClick={handleExportData}
               disabled={exporting || !hasExport}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}>
+              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}>
               {hasExport
                 ? <><Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">Export</span></>
                 : <><LockIcon className="w-4 h-4" /><span className="text-xs">Pro</span></>}
@@ -802,7 +802,7 @@ export default function OwnerAnalytics() {
             type="button"
             onClick={() => setShowAdvancedZones((v) => !v)}
             className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
-            style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}
+            style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
           >
             <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
               <Layers className="w-4 h-4" style={{ color: T3 }} />
@@ -827,7 +827,7 @@ export default function OwnerAnalytics() {
                 onClick={() => { setPrimaryView(pt.id); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 className="text-left rounded-2xl px-4 py-3 cursor-pointer transition-all duration-150"
                 style={active
-                  ? { background: 'linear-gradient(180deg,rgba(232,25,44,.16),rgba(232,25,44,.05)),#0a0a0c', border: `1px solid rgba(232,25,44,0.5)`, boxShadow: `0 0 22px -8px ${RED}` }
+                  ? { background: 'linear-gradient(180deg,rgba(232,25,44,.16),rgba(232,25,44,.05)),var(--sf-0a0a0c)', border: `1px solid rgba(232,25,44,0.5)`, boxShadow: `0 0 22px -8px ${RED}` }
                   : { background: CARD_BG, border: `1px solid ${BORDER}` }}
               >
                 <div className="flex items-center gap-2 mb-1.5">
@@ -994,7 +994,7 @@ export default function OwnerAnalytics() {
                         <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
                           {p.quantity} {t('owner.an.sold')}
                         </div>
-                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                           <div
                             className="h-full rounded transition-all"
                             style={{
@@ -1112,7 +1112,7 @@ export default function OwnerAnalytics() {
                         <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
                           {p.conversions} {t('owner.an.conversions')} · {p.clicks} {t('owner.an.clicks')} · {p.convRate.toFixed(0)}%
                         </div>
-                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                           <div className="h-full rounded transition-all" style={{ width: `${barPct}%`, background: i === 0 ? `linear-gradient(90deg,${RED}88,${RED})` : `linear-gradient(90deg,${C_MID},${C_HI})` }} />
                         </div>
                       </div>
@@ -1131,9 +1131,9 @@ export default function OwnerAnalytics() {
         {/* ── Customer loyalty / RFM ─────────────────────────────────────── */}
         {customerAnalytics && customerAnalytics.totalCustomers > 0 && (() => {
           const segMeta: Record<string, { label: string; color: string }> = {
-            new: { label: t('owner.an.segNew'), color: '#38BDF8' },
+            new: { label: t('owner.an.segNew'), color: 'var(--acc-38bdf8)' },
             active: { label: t('owner.an.segActive'), color: POS },
-            atRisk: { label: t('owner.an.segAtRisk'), color: '#F59E0B' },
+            atRisk: { label: t('owner.an.segAtRisk'), color: 'var(--acc-f59e0b)' },
             lapsed: { label: t('owner.an.segLapsed'), color: T3 },
           };
           const segTotal = customerAnalytics.segments.reduce((s, x) => s + x.count, 0) || 1;
@@ -1163,7 +1163,7 @@ export default function OwnerAnalytics() {
               </div>
               <div className="grid lg:grid-cols-2 gap-3">
                 <PCard icon={<HeartHandshake className="w-4 h-4" />} title={t('owner.an.lifecycle')} sub={t('owner.an.byRecency')}>
-                  <div className="flex h-2.5 rounded-full overflow-hidden mt-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="flex h-2.5 rounded-full overflow-hidden mt-1" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                     {customerAnalytics.segments.map(s => s.count > 0 && (
                       <div key={s.key} style={{ width: `${(s.count / segTotal) * 100}%`, background: segMeta[s.key].color }} />
                     ))}
@@ -1251,7 +1251,7 @@ export default function OwnerAnalytics() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <TicketPillarInsights data={ticketAnalytics} />
             <div className="flex gap-1 p-1 rounded-xl w-fit"
-              style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+              style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
               {(['overview', 'launch', 'types', 'phases'] as const).map(tab => (
                 <button key={tab} onClick={() => setTicketSubTab(tab)}
                   className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"

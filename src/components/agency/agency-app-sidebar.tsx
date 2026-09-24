@@ -19,6 +19,7 @@ import {
   Radio, BellRing,
 } from 'lucide-react';
 import { SidebarIdentity } from '@/components/sidebar-identity';
+import { SidebarProThemeSwitch } from '@/components/ProThemeSwitch';
 
 export interface AgencyIdentity {
   name: string;
@@ -125,6 +126,8 @@ export function AgencyAppSidebar({ agency }: { agency: AgencyIdentity | null }) 
       </SidebarContent>
 
       <SidebarFooter>
+
+        <SidebarProThemeSwitch />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground" size="sm">

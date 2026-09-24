@@ -257,7 +257,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
               </div>
               )}
               <button onClick={confirm} disabled={!canConfirm || saving}
-                style={{ width: '100%', background: (!canConfirm || saving) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (!canConfirm || saving) ? 'not-allowed' : 'pointer', opacity: (!canConfirm || saving) ? 0.6 : 1 }}>
+                style={{ width: '100%', background: (!canConfirm || saving) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: (!canConfirm || saving) ? T1 : '#fff', fontSize: 14, fontWeight: 600, cursor: (!canConfirm || saving) ? 'not-allowed' : 'pointer', opacity: (!canConfirm || saving) ? 0.6 : 1 }}>
                 {saving ? '…' : t('guestList.parts.addPart')}
               </button>
             </div>

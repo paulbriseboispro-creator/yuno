@@ -94,22 +94,22 @@ export function DJMatchRail() {
     <FadeInView>
       <div
         style={{
-          background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c',
-          border: '1px solid rgba(255,255,255,0.085)',
+          background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)',
+          border: '1px solid rgb(var(--ink)/0.085)',
           borderRadius: 16,
           padding: 18,
         }}
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.58)' }} />
-            <h3 style={{ color: 'rgba(255,255,255,0.96)', fontSize: 14.5, fontWeight: 600 }}>
+            <Sparkles className="h-4 w-4" style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))' }} />
+            <h3 style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 14.5, fontWeight: 600 }}>
               {tt('Les DJs qui collent à ta soirée', 'DJs who fit your night', 'DJs que encajan con tu fiesta')}
             </h3>
             <span
               style={{
-                color: 'rgba(255,255,255,0.36)', fontSize: 10, fontWeight: 700,
-                border: '1px solid rgba(255,255,255,0.085)', borderRadius: 5,
+                color: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10, fontWeight: 700,
+                border: '1px solid rgb(var(--ink)/0.085)', borderRadius: 5,
                 padding: '1px 5px', letterSpacing: '0.08em',
               }}
             >
@@ -138,7 +138,7 @@ export function DJMatchRail() {
               <div
                 key={i}
                 className="h-[132px] w-[128px] flex-none animate-pulse rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.04)' }}
+                style={{ background: 'rgb(var(--ink)/0.04)' }}
               />
             ))}
           </div>
@@ -152,15 +152,15 @@ export function DJMatchRail() {
                 className="flex-none text-left transition-opacity hover:opacity-85"
                 style={{
                   width: 128,
-                  background: 'rgba(255,255,255,0.032)',
-                  border: '1px solid rgba(255,255,255,0.055)',
+                  background: 'rgb(var(--ink)/0.032)',
+                  border: '1px solid rgb(var(--ink)/0.055)',
                   borderRadius: 12,
                   padding: 10,
                 }}
               >
                 <div
                   className="mb-2 overflow-hidden rounded-lg"
-                  style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.05)' }}
+                  style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgb(var(--ink)/0.05)' }}
                 >
                   {dj.profile_image_url && (
                     <img
@@ -173,12 +173,12 @@ export function DJMatchRail() {
                 </div>
                 <p
                   className="truncate"
-                  style={{ color: 'rgba(255,255,255,0.96)', fontSize: 12.5, fontWeight: 600 }}
+                  style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 12.5, fontWeight: 600 }}
                 >
                   {dj.stage_name || '—'}
                 </p>
                 {dj.city && (
-                  <p className="mt-0.5 flex items-center gap-1 truncate" style={{ color: 'rgba(255,255,255,0.36)', fontSize: 10.5 }}>
+                  <p className="mt-0.5 flex items-center gap-1 truncate" style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10.5 }}>
                     <MapPin className="h-2.5 w-2.5 flex-none" />
                     {dj.city}
                   </p>
@@ -191,7 +191,7 @@ export function DJMatchRail() {
           </div>
         )}
 
-        <p style={{ color: 'rgba(255,255,255,0.36)', fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>
+        <p style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>
           {tt(
             'Affinité calculée entre l’univers de ta soirée (genres, ambiance, lieu) et celui du DJ. À toi de juger le reste.',
             'Affinity computed between your night’s universe (genres, vibe, venue) and the DJ’s. You judge the rest.',

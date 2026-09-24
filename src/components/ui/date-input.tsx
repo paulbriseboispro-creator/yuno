@@ -183,7 +183,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       <div className="w-full">
         <div
           className={cn(
-            'relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-lg border border-white/[0.08] bg-[#1F1F22] px-3 transition-colors focus-within:border-primary/50',
+            'relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-lg border border-white/[0.08] bg-[var(--sf-1f1f22)] px-3 transition-colors focus-within:border-primary/50',
             className,
             (unparseable || beyondMax) && 'border-primary/60',
           )}
@@ -198,7 +198,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
             onChange={handleChange}
             placeholder={hint}
             aria-invalid={unparseable || beyondMax}
-            className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-[#6B6B70] md:text-sm"
+            className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-[var(--tx-6b6b70)] md:text-sm"
             {...props}
           />
           <Calendar aria-hidden="true" className="pointer-events-none h-4 w-4 shrink-0 text-primary/80" />

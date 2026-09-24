@@ -210,7 +210,7 @@ export default function AgencyDashboard() {
                 className="flex w-full items-center gap-3 text-left cursor-pointer"
                 style={{
                   padding: '9px 8px', background: 'none', border: 'none',
-                  borderBottom: i < weekAhead.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                  borderBottom: i < weekAhead.length - 1 ? '1px solid rgb(var(--ink)/0.05)' : undefined,
                 }}
               >
                 <div className="flex-none text-center" style={{ width: 44 }}>
@@ -273,7 +273,7 @@ export default function AgencyDashboard() {
             <div
               key={p.id}
               className="flex items-center gap-3"
-              style={{ padding: '10px 8px', borderBottom: i < leaderboard.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined }}
+              style={{ padding: '10px 8px', borderBottom: i < leaderboard.length - 1 ? '1px solid rgb(var(--ink)/0.05)' : undefined }}
             >
               <span style={{ color: i === 0 ? RED : T3, fontSize: 13, fontWeight: 700, width: 18, textAlign: 'center' }}>
                 {i + 1}

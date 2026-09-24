@@ -112,14 +112,14 @@ export function OnboardingStepStripe({
         <InnerCard style={{ border: '1px solid rgba(168,85,247,0.28)', background: 'rgba(168,85,247,0.05)' }}>
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(168,85,247,0.15)' }}>
-              <Handshake className="w-5 h-5" style={{ color: '#c084fc' }} />
+              <Handshake className="w-5 h-5" style={{ color: 'var(--acc-c084fc)' }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('onboarding.collabAccountTitle')}</h3>
                 <span
                   className="inline-flex items-center gap-1 rounded-full text-[10px] font-bold uppercase"
-                  style={{ letterSpacing: '0.06em', padding: '2px 8px', background: 'rgba(168,85,247,0.18)', color: '#d8b4fe' }}
+                  style={{ letterSpacing: '0.06em', padding: '2px 8px', background: 'rgba(168,85,247,0.18)', color: 'var(--acc-d8b4fe)' }}
                 >
                   <Sparkles className="w-3 h-3" />
                   {t('onboarding.collabAccountActive')}
@@ -136,7 +136,7 @@ export function OnboardingStepStripe({
         <div className="flex items-center gap-2.5 mb-2">
           <div
             className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-none"
-            style={isConnected ? { background: POS, color: '#04130d' } : { background: 'rgba(255,255,255,0.06)', color: T3, border: `1px solid ${BORDER}` }}
+            style={isConnected ? { background: POS, color: '#04130d' } : { background: 'rgb(var(--ink)/0.06)', color: T3, border: `1px solid ${BORDER}` }}
           >
             {isConnected ? <Check className="w-3.5 h-3.5" /> : '1'}
           </div>
@@ -154,7 +154,7 @@ export function OnboardingStepStripe({
             </div>
           ) : isConnected ? (
             <div className="space-y-2.5">
-              <div className="flex items-center gap-2" style={{ color: '#FCD34D' }}>
+              <div className="flex items-center gap-2" style={{ color: 'var(--acc-fcd34d)' }}>
                 <Clock className="w-4 h-4" />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{t('onboarding.stripePending')}</span>
               </div>
@@ -165,7 +165,7 @@ export function OnboardingStepStripe({
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="rounded-lg" style={{ padding: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+              <div className="rounded-lg" style={{ padding: 12, background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}` }}>
                 <p style={{ color: T2, fontSize: 12, fontWeight: 600 }}>{t('onboarding.stripeWhatIs')}</p>
                 <p style={{ color: T3, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>{t('onboarding.stripeExplain')}</p>
               </div>

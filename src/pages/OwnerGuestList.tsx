@@ -57,7 +57,7 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between cursor-pointer"
-        style={{ background: INNER_BG, border: `1px solid ${open ? 'rgba(255,255,255,0.2)' : BORDER}`, borderRadius: 10, padding: '10px 14px', color: T1, fontSize: 13.5, fontFamily: 'inherit' }}>
+        style={{ background: INNER_BG, border: `1px solid ${open ? 'rgb(var(--ink)/var(--ink-a20,0.2))' : BORDER}`, borderRadius: 10, padding: '10px 14px', color: T1, fontSize: 13.5, fontFamily: 'inherit' }}>
         <span style={{ color: selected ? T1 : T3 }}>
           {selected ? `${selected.title} — ${formatInTimeZone(new Date(selected.startAt), PARIS_TIMEZONE, 'dd/MM/yyyy HH:mm')}` : t('guestList.selectEventPlaceholder')}
         </span>
@@ -66,7 +66,7 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.12 }}
-            style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', maxHeight: 240, overflowY: 'auto', marginTop: 4 }}>
+            style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--sf-111111)', border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', maxHeight: 240, overflowY: 'auto', marginTop: 4 }}>
             {events.map(evt => (
               <button key={evt.id} type="button" onClick={() => { onChange(evt.id); setOpen(false); }} className="w-full text-left cursor-pointer"
                 style={{ padding: '10px 14px', background: evt.id === value ? C_FAINT : 'none', border: 'none', color: T1, fontSize: 13, fontFamily: 'inherit' }}
@@ -232,7 +232,7 @@ export default function OwnerGuestList() {
   if (venueLoading || loadingEvents) return <OwnerPageSkeleton />;
 
   return (
-    <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: '#000' }}>
+    <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && <OwnerHeader title={t('guestList.title')} />}
 
       <div className="mx-auto max-w-4xl p-4 space-y-5">
@@ -389,7 +389,7 @@ export default function OwnerGuestList() {
 
             {/* Add a part */}
             <button onClick={() => setAddOpen(true)} className="w-full flex items-center justify-center gap-2"
-              style={{ padding: '14px', borderRadius: 14, background: 'rgba(232,25,44,0.08)', border: `1px dashed rgba(232,25,44,0.35)`, color: '#ff5d68', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ padding: '14px', borderRadius: 14, background: 'rgba(232,25,44,0.08)', border: `1px dashed rgba(232,25,44,0.35)`, color: 'var(--acc-ff5d68)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               <Plus className="h-4 w-4" />{t('guestList.parts.addPart')}
             </button>
 

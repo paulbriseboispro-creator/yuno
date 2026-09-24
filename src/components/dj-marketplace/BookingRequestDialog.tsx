@@ -193,9 +193,9 @@ export function BookingRequestDialog({
   const labelCls = 'flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2';
   const chip = (active: boolean) => ({
     padding: '7px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-    border: `1px solid ${active ? '#E8192C' : 'rgba(255,255,255,0.12)'}`,
-    background: active ? 'rgba(232,25,44,0.16)' : 'rgba(255,255,255,0.03)',
-    color: active ? '#fff' : 'rgba(255,255,255,0.72)',
+    border: `1px solid ${active ? '#E8192C' : 'rgb(var(--ink)/0.12)'}`,
+    background: active ? 'rgba(232,25,44,0.16)' : 'rgb(var(--ink)/0.03)',
+    color: active ? 'rgb(var(--ink))' : 'rgb(var(--ink)/var(--ink-a72,0.72))',
   } as const);
 
   return (
@@ -239,7 +239,7 @@ export function BookingRequestDialog({
             <>
               {selectedEvent && (
                 <div className="rounded-xl border border-[#E8192C]/30 bg-[#E8192C]/10 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-snow">
                     <Sparkles size={13} />{tt('Lié à ta soirée', 'Linked to your event', 'Vinculado a tu evento')}
                   </div>
                   <p className="mt-1 text-[12.5px] text-muted-foreground">

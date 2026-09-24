@@ -1367,7 +1367,7 @@ export default function MyOrders() {
                   <button
                     onClick={() => setGuestQR(g)}
                     disabled={!g.qrCode}
-                    className="mt-3 w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-white text-sm font-semibold disabled:opacity-50"
+                    className="mt-3 w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-snow text-sm font-semibold disabled:opacity-50"
                   >
                     <QrCode className="h-4 w-4" />{t('orders.openMyQR')}
                   </button>

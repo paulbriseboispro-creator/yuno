@@ -162,7 +162,7 @@ export default function AffiliateMembers() {
           <div className="py-12"><AffSpinner /></div>
         ) : members.length === 0 ? (
           <div className="text-center py-12">
-            <Users className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />
+            <Users className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />
             <p style={{ color: T2, fontSize: 13 }}>{t('aff.members.emptyTitle')}</p>
             <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.members.emptyHint')}</p>
           </div>
@@ -199,7 +199,7 @@ export default function AffiliateMembers() {
 
       {/* Invite dialog */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="max-w-md border-0 text-white" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}` }}>
+        <DialogContent className="max-w-md border-0 text-white" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}` }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ color: T1 }}>
               <Mail className="h-5 w-5" style={{ color: RED }} />

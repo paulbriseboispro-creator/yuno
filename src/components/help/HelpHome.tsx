@@ -25,8 +25,8 @@ function SearchBox({ t, value, onChange, onEnter, inputRef }: {
       style={{
         height: 52,
         borderRadius: 14,
-        background: focus ? 'rgba(255,255,255,0.05)' : INNER_BG,
-        border: `1px solid ${focus ? 'rgba(232,25,44,0.5)' : 'rgba(255,255,255,0.12)'}`,
+        background: focus ? 'rgb(var(--ink)/0.05)' : INNER_BG,
+        border: `1px solid ${focus ? 'rgba(232,25,44,0.5)' : 'rgb(var(--ink)/0.12)'}`,
         boxShadow: focus ? '0 0 0 4px rgba(232,25,44,0.10), 0 18px 40px -28px rgba(0,0,0,.9)' : '0 18px 40px -28px rgba(0,0,0,.9)',
       }}
     >
@@ -88,7 +88,7 @@ function CategoryTile({ t, category, onClick, index, reduced }: {
       style={{
         padding: '18px 18px 16px',
         borderRadius: 16,
-        background: `radial-gradient(ellipse 80% 60% at 0% 0%, ${rgba(color, hover ? 0.18 : 0.09)} 0%, transparent 60%), ${hover ? 'rgba(255,255,255,0.045)' : INNER_BG}`,
+        background: `radial-gradient(ellipse 80% 60% at 0% 0%, ${rgba(color, hover ? 0.18 : 0.09)} 0%, transparent 60%), ${hover ? 'rgb(var(--ink)/0.045)' : INNER_BG}`,
         border: `1px solid ${hover ? rgba(color, 0.42) : rgba(color, 0.18)}`,
         minHeight: 118,
       }}
@@ -216,7 +216,7 @@ export function HelpHome({
               </div>
             ) : (
               <div className="text-center py-8 px-4">
-                <SearchX className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} aria-hidden="true" />
+                <SearchX className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} aria-hidden="true" />
                 <p style={{ color: T1, fontSize: 14.5, fontWeight: 600 }}>{t('ohelp.ui.noResultsTitle')}</p>
                 <p className="mx-auto" style={{ color: T3, fontSize: 13, marginTop: 4, maxWidth: 380 }}>{t('ohelp.ui.noResultsDesc')}</p>
               </div>
@@ -273,7 +273,7 @@ export function HelpHome({
                     meta={
                       <>
                         <span style={{ color: categoryColor(category.id), fontSize: 11.5, fontWeight: 600 }}>{t(category.labelKey)}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.18)', fontSize: 11 }}>·</span>
+                        <span style={{ color: 'rgb(var(--ink)/0.18)', fontSize: 11 }}>·</span>
                         <span style={{ color: T3, fontSize: 11.5 }}>{fmt(t('ohelp.ui.readTime'), { n: articleReadMinutes(article, t) })}</span>
                       </>
                     }

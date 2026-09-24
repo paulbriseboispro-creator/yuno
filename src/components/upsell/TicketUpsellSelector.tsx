@@ -225,7 +225,7 @@ export function TicketUpsellSelector({ venueId, selectedUpsells, onToggle }: Tic
                       animate={{ scale: 1 }}
                       className="w-5 h-5 rounded-full bg-primary flex items-center justify-center"
                     >
-                      <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                      <Check className="h-3 w-3 text-snow" strokeWidth={3} />
                     </motion.div>
                   )}
                 </div>

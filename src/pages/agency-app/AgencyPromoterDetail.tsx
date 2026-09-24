@@ -98,7 +98,7 @@ function ClubRecord({
       </div>
 
       {/* Permission toggles */}
-      <div className="space-y-2 mb-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 10 }}>
+      <div className="space-y-2 mb-3" style={{ borderTop: '1px solid rgb(var(--ink)/0.05)', paddingTop: 10 }}>
         <div className="flex items-center justify-between">
           <p style={{ color: T2, fontSize: 13 }}>{tt('Peut vendre des billets', 'Can sell tickets')}</p>
           <Toggle
@@ -142,7 +142,7 @@ function ClubRecord({
 
       {/* Pending + settle */}
       {Number(record.pending_amount) > 0 && (
-        <div className="flex items-center justify-between mt-3" style={{ paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="flex items-center justify-between mt-3" style={{ paddingTop: 10, borderTop: '1px solid rgb(var(--ink)/0.05)' }}>
           <div>
             <p style={{ color: T3, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               {tt('À reverser', 'To pay')}
@@ -441,9 +441,9 @@ export default function AgencyPromoterDetail() {
                 borderRadius: 10, padding: '9px 12px', color: T1, fontSize: 13.5, cursor: 'pointer',
               }}
             >
-              <option value="" style={{ background: '#111' }}>{tt('Aucun groupe', 'No group')}</option>
+              <option value="" style={{ background: 'var(--sf-111111)' }}>{tt('Aucun groupe', 'No group')}</option>
               {groups.map(g => (
-                <option key={g.id} value={g.id} style={{ background: '#111' }}>
+                <option key={g.id} value={g.id} style={{ background: 'var(--sf-111111)' }}>
                   {g.name}
                 </option>
               ))}
@@ -461,7 +461,7 @@ export default function AgencyPromoterDetail() {
               <div
                 key={c.id}
                 className="flex justify-between items-center"
-                style={{ padding: '8px 8px', borderBottom: i < recentConversions.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
+                style={{ padding: '8px 8px', borderBottom: i < recentConversions.length - 1 ? '1px solid rgb(var(--ink)/0.04)' : undefined }}
               >
                 <div>
                   <p style={{ color: T2, fontSize: 12 }}>

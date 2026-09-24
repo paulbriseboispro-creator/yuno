@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import tailwindAnimate from "tailwindcss-animate";
+import { themeColors, themePalettePlugin } from "./tailwind.theme";
 
 export default {
   darkMode: ["class"],
@@ -36,6 +37,7 @@ export default {
   			]
   		},
   		colors: {
+  			...themeColors(),
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
@@ -76,16 +78,9 @@ export default {
   				foreground: 'hsl(var(--card-foreground))'
   			},
   			yuno: {
-  				black: '#0A0A0A',
-  				card: '#141414',
-  				card2: '#1B1B1E',
-  				input: '#1F1F22',
+  				...(themeColors().yuno as Record<string, string>),
   				red: '#E8192C',
-  				'red-hover': '#FF2438',
-  				gray1: '#E5E5E5',
-  				gray2: '#9A9A9A',
-  				gray3: '#5A5A5E',
-  				gray4: '#3A3A3E'
+  				'red-hover': '#FF2438'
   			},
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
@@ -230,5 +225,5 @@ export default {
   		}
   	}
   },
-  plugins: [tailwindAnimate],
+  plugins: [tailwindAnimate, themePalettePlugin],
 } satisfies Config;

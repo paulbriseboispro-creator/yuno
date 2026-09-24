@@ -58,7 +58,7 @@ export default function AgencyAppLayout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#000' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent"
           style={{ borderColor: RED, borderTopColor: 'transparent' }} />
       </div>
@@ -68,7 +68,7 @@ export default function AgencyAppLayout() {
   if (!agency) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center gap-4 px-6"
-        style={{ background: '#000' }}>
+        style={{ background: 'var(--sf-000000)' }}>
         <AgencyIcon className="h-10 w-10" style={{ color: T3 }} />
         <p style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
           {tt('Aucune agence configurée', 'No agency configured')}
@@ -84,7 +84,7 @@ export default function AgencyAppLayout() {
   if (agency.is_active === false) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center gap-4 px-6"
-        style={{ background: '#000' }}>
+        style={{ background: 'var(--sf-000000)' }}>
         <AgencyIcon className="h-10 w-10" style={{ color: T3 }} />
         <p style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
           {tt('Agence désactivée', 'Agency deactivated')}
@@ -107,7 +107,7 @@ export default function AgencyAppLayout() {
     <AffiliateShellProvider value={shell}>
       <SidebarProvider>
         <AgencyAppSidebar agency={{ name: agency.name, logo_url: agency.logo_url, city: agency.city }} />
-        <SidebarInset className="overflow-y-auto" style={{ background: '#000' }}>
+        <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
           <AffiliateAppHeader />
           <main className="mx-auto w-full px-4 pb-8" style={{ maxWidth: 1040 }}>
             <Outlet />

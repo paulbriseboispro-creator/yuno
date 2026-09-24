@@ -27,15 +27,15 @@ import FollowupPreviewDialog from './FollowupPreviewDialog';
 import AutomationSuggestions from './AutomationSuggestions';
 
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const POS = '#34D399';
-const WARN = '#FCD34D';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+const POS = 'var(--acc-34d399)';
+const WARN = 'var(--acc-fcd34d)';
 
 const ICONS: Record<AutomationKind, typeof Zap> = {
   abandoned_checkout: ShoppingCart,
@@ -227,8 +227,8 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
   const enabledCount = useMemo(() => Object.values(rows).filter((r) => r.enabled).length, [rows]);
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       <div className="max-w-[1100px] mx-auto px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
@@ -423,7 +423,7 @@ function RecipeCard({
         <button
           type="button" role="switch" aria-checked={enabled} aria-label={t(`em.auto.kind.${kind}.title`)} disabled={busy}
           onClick={() => onToggle(!enabled)}
-          style={{ width: 34, height: 20, borderRadius: 999, border: 'none', padding: 0, position: 'relative', flex: 'none', background: enabled ? RED : 'rgba(255,255,255,0.12)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
+          style={{ width: 34, height: 20, borderRadius: 999, border: 'none', padding: 0, position: 'relative', flex: 'none', background: enabled ? RED : 'rgb(var(--ink)/0.12)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
         >
           <span style={{ position: 'absolute', top: 2, left: enabled ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
         </button>
@@ -436,12 +436,12 @@ function RecipeCard({
             {meta.noDelay ? (
               <div>
                 <Micro>{t('em.auto.delay.threshold')}</Micro>
-                <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)' }}>
+                <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgb(var(--ink)/0.02)' }}>
                   {TIER_THRESHOLDS.map((p) => (
                     <button
                       key={p} type="button" aria-pressed={threshold === p} disabled={busy}
                       onClick={() => onThreshold(p)}
-                      style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: threshold === p ? T1 : T3, background: threshold === p ? 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))' : 'transparent' }}
+                      style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: threshold === p ? T1 : T3, background: threshold === p ? 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))' : 'transparent' }}
                     >{pctLabel(p)}</button>
                   ))}
                 </div>
@@ -450,12 +450,12 @@ function RecipeCard({
             ) : (
               <div>
                 <Micro>{t(`em.auto.delay.${meta.direction}`)}</Micro>
-                <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)' }}>
+                <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgb(var(--ink)/0.02)' }}>
                   {meta.delays.map((d) => (
                     <button
                       key={d} type="button" aria-pressed={delay === d} disabled={busy}
                       onClick={() => onDelay(delayToHours(meta, d))}
-                      style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: delay === d ? T1 : T3, background: delay === d ? 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))' : 'transparent' }}
+                      style={{ flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560, color: delay === d ? T1 : T3, background: delay === d ? 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))' : 'transparent' }}
                     >{unitLabel(d)}</button>
                   ))}
                 </div>
@@ -469,7 +469,7 @@ function RecipeCard({
                   value={row?.template_id || ''} disabled={busy}
                   onChange={(e) => onTemplate(e.target.value || null)}
                   aria-label={t('em.auto.template')}
-                  style={{ flex: 1, minWidth: 200, height: 36, borderRadius: 10, padding: '0 10px', colorScheme: 'dark', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }}
+                  style={{ flex: 1, minWidth: 200, height: 36, borderRadius: 10, padding: '0 10px', colorScheme: 'dark', background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }}
                 >
                   <option value="">{t('studio.sched.fu.templateNone')}</option>
                   {templates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
@@ -506,7 +506,7 @@ function RecipeCard({
                 placeholder={chosen?.subject ? `${t('em.auto.subjectPh')} ${chosen.subject}` : t('em.auto.subjectPh')}
                 aria-label={t('em.auto.subject')}
                 maxLength={200}
-                style={{ width: '100%', height: 36, borderRadius: 10, padding: '0 10px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }}
+                style={{ width: '100%', height: 36, borderRadius: 10, padding: '0 10px', background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5 }}
               />
               <div style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{t('em.auto.subjectHint')}</div>
             </div>
@@ -650,7 +650,7 @@ function SmallBtn({ children, onClick, disabled }: { children: React.ReactNode; 
     <button
       type="button" onClick={onClick} disabled={disabled}
       className="inline-flex items-center gap-1.5 cursor-pointer"
-      style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 11.5, fontWeight: 600, opacity: disabled ? 0.6 : 1 }}
+      style={{ padding: '8px 12px', borderRadius: 10, background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 11.5, fontWeight: 600, opacity: disabled ? 0.6 : 1 }}
     >{children}</button>
   );
 }

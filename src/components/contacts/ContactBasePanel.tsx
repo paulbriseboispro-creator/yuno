@@ -33,16 +33,16 @@ import {
 } from '@/lib/contactBase';
 
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const SUBTLE = 'rgba(255,255,255,0.025)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-const POS = '#34D399';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const SUBTLE = 'rgb(var(--ink)/0.025)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+const POS = 'var(--acc-34d399)';
 const PAGE = 50;
 
 const SORTS: ContactSort[] = ['recent', 'engaged', 'spent', 'events', 'name'];
@@ -196,8 +196,8 @@ export default function ContactBasePanel({ scope, basePath }: {
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000', position: 'relative' }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)', position: 'relative' }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       <div className="max-w-[1340px] mx-auto px-4 sm:px-6 py-8" style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {/* ── En-tête ── */}
@@ -259,7 +259,7 @@ export default function ContactBasePanel({ scope, basePath }: {
               const on = origin === o;
               return (
                 <button key={o} type="button" onClick={() => setOrigin(on ? null : o)} className="inline-flex items-center gap-1.5 cursor-pointer"
-                  style={{ padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: on ? 'rgba(255,255,255,0.08)' : INNER_BG, border: `1px solid ${on ? 'rgba(255,255,255,0.22)' : BORDER}`, color: on ? T1 : T2 }}>
+                  style={{ padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: on ? 'rgb(var(--ink)/0.08)' : INNER_BG, border: `1px solid ${on ? 'rgb(var(--ink)/var(--ink-a22,0.22))' : BORDER}`, color: on ? T1 : T2 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: ORIGIN_COLOR[o] }} />
                   <span style={{ fontWeight: 600, color: T1, fontVariantNumeric: 'tabular-nums' }}>{fmtN(n, language)}</span>
                   {t(`cbase.origin.${o}`)}
@@ -311,7 +311,7 @@ export default function ContactBasePanel({ scope, basePath }: {
                     <div style={{ color: T3, fontSize: 11, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
                       {fmtN(s.counts.contacts, language)} · {fill(t('cbase.segments.reach'), { e: fmtN(s.counts.emails, language) })}
                       {typeof delta === 'number' && delta !== 0 && (
-                        <span style={{ color: delta > 0 ? POS : '#FF5C63', fontWeight: 700, marginLeft: 6 }}>{delta > 0 ? '+' : '−'}{fmtN(Math.abs(delta), language)}</span>
+                        <span style={{ color: delta > 0 ? POS : 'var(--acc-ff5c63)', fontWeight: 700, marginLeft: 6 }}>{delta > 0 ? '+' : '−'}{fmtN(Math.abs(delta), language)}</span>
                       )}
                     </div>
                   </button>
@@ -449,7 +449,7 @@ function OriginPill({ origin, t }: { origin: ContactOrigin; t: (k: string) => st
 
 function FilterChip({ label, color, onClear }: { label: string; color: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5" style={{ padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: 'rgba(255,255,255,0.06)', border: `1px solid rgba(255,255,255,0.18)`, color: T1 }}>
+    <span className="inline-flex items-center gap-1.5" style={{ padding: '4px 9px', borderRadius: 999, fontSize: 11.5, background: 'rgb(var(--ink)/0.06)', border: `1px solid rgb(var(--ink)/0.18)`, color: T1 }}>
       <span style={{ width: 7, height: 7, borderRadius: 999, background: color }} />{label}
       <button type="button" onClick={onClear} aria-label="×" className="cursor-pointer" style={{ background: 'none', border: 'none', padding: 0, color: T3, display: 'inline-flex' }}><X className="w-3 h-3" /></button>
     </span>

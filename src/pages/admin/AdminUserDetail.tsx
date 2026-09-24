@@ -11,17 +11,17 @@ import { SupportAccessPanel } from '@/components/admin/SupportAccessPanel';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
-const POS        = '#34D399';
-const NEG        = '#FF5C63';
-const T1         = 'rgba(255,255,255,0.96)';
-const T2         = 'rgba(255,255,255,0.58)';
-const T3         = 'rgba(255,255,255,0.36)';
-const C_FAINT    = 'rgba(255,255,255,0.06)';
-const BORDER     = 'rgba(255,255,255,0.085)';
-const F_BORDER   = 'rgba(255,255,255,0.055)';
-const INNER_BG   = 'rgba(255,255,255,0.032)';
-const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS        = 'var(--acc-34d399)';
+const NEG        = 'var(--acc-ff5c63)';
+const T1         = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2         = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3         = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT    = 'rgb(var(--ink)/0.06)';
+const BORDER     = 'rgb(var(--ink)/0.085)';
+const F_BORDER   = 'rgb(var(--ink)/0.055)';
+const INNER_BG   = 'rgb(var(--ink)/0.032)';
+const CARD_BG    = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const cardStyle: React.CSSProperties = {
   background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18,
@@ -398,7 +398,7 @@ export default function AdminUserDetail() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
         <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
       </div>
     );
@@ -406,12 +406,12 @@ export default function AdminUserDetail() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen" style={{ background: '#000' }}>
+      <div className="min-h-screen" style={{ background: 'var(--sf-000000)' }}>
         <div className="mx-auto max-w-[1340px] px-4 sm:px-6 py-6">
           <button
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 13 }}
+            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 13 }}
           >
             <ArrowLeft className="h-4 w-4" />{t('adm.common.back')}</button>
           <p className="mt-4" style={{ color: T3, fontSize: 13 }}>{t('adm.user.notFound')}</p>
@@ -421,14 +421,14 @@ export default function AdminUserDetail() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#000' }}>
+    <div className="min-h-screen" style={{ background: 'var(--sf-000000)' }}>
       <div className="mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
             className="flex h-9 w-9 items-center justify-center rounded-lg flex-none cursor-pointer transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3 }}
+            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${F_BORDER}`, color: T3 }}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>

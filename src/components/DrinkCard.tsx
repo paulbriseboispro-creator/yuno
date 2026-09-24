@@ -33,7 +33,7 @@ export function DrinkCard(props: DrinkCardProps) {
         <span
           style={{
             background: 'rgba(0,0,0,0.75)',
-            border: '1px solid rgba(255,255,255,0.2)',
+            border: '1px solid rgb(var(--ink)/var(--ink-a20,0.2))',
             color: '#FFFFFF',
             fontSize: 10,
             fontWeight: 700,
@@ -108,15 +108,15 @@ function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: D
       >
         <div
           style={{
-            border: '1px solid rgba(255,255,255,0.07)',
+            border: '1px solid rgb(var(--ink)/0.07)',
             borderRadius: 3,
-            background: '#111111',
+            background: 'var(--sf-111111)',
             overflow: 'hidden',
             position: 'relative',
           }}
         >
           {/* Image */}
-          <div style={{ position: 'relative', aspectRatio: '1/1', background: '#0A0A0A' }}>
+          <div style={{ position: 'relative', aspectRatio: '1/1', background: 'var(--sf-0a0a0a)' }}>
             <img
               src={getOptimizedImageUrl(drink.imgUrl, { width: 160, height: 160, quality: 70, resize: 'contain' })}
               alt={translatedName}
@@ -151,7 +151,7 @@ function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: D
           </div>
 
           {/* Divider */}
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+          <div style={{ height: '1px', background: 'rgb(var(--ink)/0.05)' }} />
 
           {/* Content */}
           <div style={{ padding: '7px 8px 9px' }}>
@@ -159,7 +159,7 @@ function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: D
               className="font-display font-bold truncate"
               style={{
                 fontSize: '10px',
-                color: '#FFFFFF',
+                color: 'rgb(var(--ink))',
                 textTransform: 'uppercase',
                 letterSpacing: '0.01em',
                 lineHeight: 1.2,
@@ -172,11 +172,11 @@ function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: D
               {/* Price */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {hasDiscount && (
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '9px', color: '#5A5A5E', textDecoration: 'line-through', lineHeight: 1.2 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '9px', color: 'var(--tx-5a5a5e)', textDecoration: 'line-through', lineHeight: 1.2 }}>
                     {drink.price.toFixed(2)}€
                   </span>
                 )}
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', fontWeight: 700, color: hasDiscount ? '#E8192C' : '#FFFFFF', lineHeight: 1 }}>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px', fontWeight: 700, color: hasDiscount ? '#E8192C' : 'rgb(var(--ink))', lineHeight: 1 }}>
                   {effectivePrice.toFixed(2)}€
                 </span>
               </div>
@@ -188,7 +188,7 @@ function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: D
                   width: 22,
                   height: 22,
                   borderRadius: '50%',
-                  border: '1px solid rgba(255,255,255,0.16)',
+                  border: '1px solid rgb(var(--ink)/0.16)',
                   background: 'transparent',
                   display: 'flex',
                   alignItems: 'center',
@@ -197,7 +197,7 @@ function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: D
                   cursor: 'pointer',
                 }}
               >
-                <Plus style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.7)' }} />
+                <Plus style={{ width: 10, height: 10, color: 'rgb(var(--ink)/var(--ink-a70,0.7))' }} />
               </button>
             </div>
           </div>

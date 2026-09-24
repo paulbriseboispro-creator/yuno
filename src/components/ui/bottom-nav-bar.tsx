@@ -34,8 +34,8 @@ export function BottomNavBar({
       aria-label="Bottom Navigation"
       className={cn("flex items-center gap-1 rounded-full p-1.5", className)}
       style={{
-        background: "#141414", // --yuno-card, plein (aucun backdrop-blur)
-        border: "1px solid rgba(255,255,255,0.08)", // --border-subtle
+        background: "var(--sf-141414)", // --yuno-card, plein (aucun backdrop-blur)
+        border: "1px solid rgb(var(--ink)/0.08)", // --border-subtle
         boxShadow: "0 -4px 24px rgba(0,0,0,0.55)",
       }}
     >

@@ -103,18 +103,18 @@ export function PhoneInputWithCountry({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-1.5 h-11 px-3 rounded-lg bg-[#1F1F22] border border-white/[0.08] hover:border-white/[0.16] transition-colors min-w-[100px]"
+          className="flex items-center gap-1.5 h-11 px-3 rounded-lg bg-[var(--sf-1f1f22)] border border-white/[0.08] hover:border-white/[0.16] transition-colors min-w-[100px]"
         >
           <span className="text-lg">{selectedCountry.flag}</span>
           <span className="text-sm text-white">{selectedCountry.dialCode}</span>
           <ChevronDown className={cn(
-            "h-3.5 w-3.5 text-[#5A5A5E] transition-transform",
+            "h-3.5 w-3.5 text-[var(--tx-5a5a5e)] transition-transform",
             isOpen && "rotate-180"
           )} />
         </button>
         
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-64 max-h-60 overflow-y-auto rounded-lg border border-white/[0.10] bg-[#141414] shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-50">
+          <div className="absolute top-full left-0 mt-1 w-64 max-h-60 overflow-y-auto rounded-lg border border-white/[0.10] bg-[var(--sf-141414)] shadow-[0_16px_40px_rgba(0,0,0,0.5)] z-50">
             {countries.map((country) => (
               <button
                 key={country.code}
@@ -126,8 +126,8 @@ export function PhoneInputWithCountry({
                 )}
               >
                 <span className="text-lg">{country.flag}</span>
-                <span className="text-sm flex-1 truncate text-[#E5E5E5]">{getCountryName(country)}</span>
-                <span className="text-xs text-[#5A5A5E]">{country.dialCode}</span>
+                <span className="text-sm flex-1 truncate text-[var(--tx-e5e5e5)]">{getCountryName(country)}</span>
+                <span className="text-xs text-[var(--tx-5a5a5e)]">{country.dialCode}</span>
               </button>
             ))}
           </div>
@@ -141,7 +141,7 @@ export function PhoneInputWithCountry({
         placeholder={selectedCountry.format}
         value={phoneNumber}
         onChange={(e) => handleNumberChange(e.target.value)}
-        className="flex-1 h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50"
+        className="flex-1 h-11 rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white placeholder:text-[var(--tx-5a5a5e)] focus-visible:ring-0 focus-visible:border-primary/50"
       />
     </div>
   );

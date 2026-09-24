@@ -247,7 +247,7 @@ export default function AdminSupportAccess() {
             <input value={picked ? displayName(picked) : query} onChange={(e) => { setPicked(null); setQuery(e.target.value); }} placeholder={t('adm.sup.searchPh')} style={{ ...INPUT_STYLE, paddingLeft: 36 }} />
           </div>
           {!picked && (searching || results.length > 0) && (
-            <div className="mt-1.5 overflow-hidden rounded-xl" style={{ background: '#0a0a0c', border: `1px solid ${F_BORDER}` }}>
+            <div className="mt-1.5 overflow-hidden rounded-xl" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${F_BORDER}` }}>
               {searching ? <Spinner /> : results.map((r) => (
                 <button key={r.id} onClick={() => { setPicked(r); setResults([]); }} className="flex w-full flex-col items-start px-3 py-2 text-left transition hover:bg-white/[0.05] cursor-pointer" style={{ background: 'none', border: 'none' }}>
                   <span style={{ color: T1, fontSize: 13 }}>{displayName(r)}</span>

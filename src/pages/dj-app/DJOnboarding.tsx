@@ -144,13 +144,13 @@ export default function DJOnboarding() {
   const Icon = STEP_META[step - 1].icon;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ background: '#000', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div className="min-h-[100dvh] flex flex-col" style={{ background: 'var(--sf-000000)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.82)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
+        style={{ background: 'rgb(var(--glass-10-10-12)/0.82)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
         <button onClick={() => (step > 1 ? setStep(step - 1) : navigate('/dj'))}
           className="flex items-center justify-center w-8 h-8 rounded-lg transition-colors hover:bg-white/[0.05]" style={{ color: T2 }}>
           <ArrowLeft className="w-[18px] h-[18px]" />
@@ -289,7 +289,7 @@ export default function DJOnboarding() {
 
       {/* Footer nav */}
       <div className="sticky bottom-0 z-30 px-4 py-3 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.82)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
+        style={{ background: 'rgb(var(--glass-10-10-12)/0.82)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="max-w-xl mx-auto flex items-center gap-3">
           {step < TOTAL ? (
             <button

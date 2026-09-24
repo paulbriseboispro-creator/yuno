@@ -224,7 +224,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
               )}
             </p>
             {!data.organizer_stripe_ready && (
-              <p className="mt-1 flex items-start gap-1.5" style={{ color: '#FCD34D', fontSize: 11 }}>
+              <p className="mt-1 flex items-start gap-1.5" style={{ color: 'var(--acc-fcd34d)', fontSize: 11 }}>
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {isVenue
                   ? t("L'organisateur n'a pas de compte Stripe actif : tout son dû passera par virement de ta part.", 'The organizer has no active Stripe account: everything owed will go by bank transfer from you.', 'El organizador no tiene cuenta Stripe activa: todo lo debido irá por transferencia tuya.')
@@ -321,7 +321,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
                   </p>
                 )}
                 {closing.status === 'disputed' && (
-                  <p className="flex items-start gap-1.5" style={{ color: '#FCD34D', fontSize: 11.5 }}>
+                  <p className="flex items-start gap-1.5" style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>
                     <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     {t('Contesté par l\'organisateur', 'Disputed by the organizer', 'Impugnado por el organizador')}{closing.dispute_reason ? ` : ${closing.dispute_reason}` : '.'}
                     {isVenue && <> {t('Corrige et renvoie la déclaration.', 'Correct and resend the declaration.', 'Corrige y reenvía la declaración.')}</>}
@@ -358,7 +358,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
                       {t('Ces chiffres correspondent à ta soirée ?', 'Do these figures match your night?', '¿Estas cifras coinciden con tu noche?')}
                     </p>
                     {proj.sepa > 0 && !data.organizer_has_iban && (
-                      <p className="flex items-start gap-1.5" style={{ color: '#FCD34D', fontSize: 11.5 }}>
+                      <p className="flex items-start gap-1.5" style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>
                         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                         {t('Une partie du dû passe par virement : renseigne ton IBAN dans Paiements avant d\'accepter.', 'Part of what is owed goes by bank transfer: enter your IBAN in Payments before accepting.', 'Parte de lo debido va por transferencia: introduce tu IBAN en Pagos antes de aceptar.')}
                       </p>
@@ -429,11 +429,11 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
           <ActionResultCard kicker={tk('owner.closingrun.cardKicker')}>
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'baseline', columnGap: 14, rowGap: 9 }}>
               <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 34, lineHeight: .9, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums', color: '#E8192C' }}>{eur(runResult.due)}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.total')}</div>
-              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>{eur(runResult.online)}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.stripe')}</div>
-              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>{eur(runResult.sepa)}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.sepa')}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)' }}>{tk('owner.closingrun.total')}</div>
+              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: 'var(--tx-e5e5e5)' }}>{eur(runResult.online)}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)' }}>{tk('owner.closingrun.stripe')}</div>
+              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: 'var(--tx-e5e5e5)' }}>{eur(runResult.sepa)}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)' }}>{tk('owner.closingrun.sepa')}</div>
             </div>
           </ActionResultCard>
         ) : null}
@@ -456,7 +456,7 @@ function SepaSteps({ settlement: open, isVenue, bank, busy, run, copy, t, disput
 }) {
   const dleft = daysUntil(open.confirm_due_at);
   return (
-    <div className="space-y-2 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}` }}>
+    <div className="space-y-2 rounded-xl p-3" style={{ background: 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}` }}>
       <div className="flex items-center justify-between">
         <span style={{ color: T2, fontSize: 12 }}>
           {t('Reste à virer par le club', 'Remainder to wire by the club', 'Resto a transferir por el club')} ·{' '}
@@ -480,14 +480,14 @@ function SepaSteps({ settlement: open, isVenue, bank, busy, run, copy, t, disput
         </button>
       )}
       {open.status === 'approved' && dleft != null && (
-        <p style={{ color: dleft < 0 ? '#FCD34D' : T3, fontSize: 11.5 }}>
+        <p style={{ color: dleft < 0 ? 'var(--acc-fcd34d)' : T3, fontSize: 11.5 }}>
           {dleft >= 0
             ? t(`Accusé de réception attendu sous ${dleft} j.`, `Acknowledgement expected within ${dleft} day(s).`, `Acuse de recibo esperado en ${dleft} día(s).`)
             : t('Délai dépassé — bascule en litige imminente.', 'Deadline passed — switching to dispute soon.', 'Plazo superado — pasará a litigio en breve.')}
         </p>
       )}
       {open.status === 'disputed' && open.dispute_reason && (
-        <p style={{ color: '#FCD34D', fontSize: 11.5 }}>
+        <p style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>
           {open.dispute_reason === 'auto:no_acknowledgement' ? t('Aucune réponse dans les délais.', 'No response within the deadline.', 'Sin respuesta dentro del plazo.') : open.dispute_reason}
         </p>
       )}
@@ -542,7 +542,7 @@ function Cell({ label, value, strong }: { label: string; value: string; strong?:
   return (
     <div className="rounded-lg p-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
       <div style={{ color: T3, fontSize: 10.5 }}>{label}</div>
-      <div className="tabular-nums" style={{ color: strong ? '#fff' : T1, fontSize: strong ? 15 : 13, fontWeight: strong ? 650 : 560 }}>{value}</div>
+      <div className="tabular-nums" style={{ color: strong ? 'rgb(var(--ink))' : T1, fontSize: strong ? 15 : 13, fontWeight: strong ? 650 : 560 }}>{value}</div>
     </div>
   );
 }

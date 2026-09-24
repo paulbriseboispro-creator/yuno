@@ -18,17 +18,17 @@ import { useTabParam } from '@/hooks/useTabParam';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED         = '#E8192C';
-const POS         = '#34D399';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const C_FAINT     = 'rgba(255,255,255,0.06)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const TILE_BG     = 'rgba(255,255,255,0.025)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS         = 'var(--acc-34d399)';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const F_BORDER    = 'rgb(var(--ink)/0.055)';
+const C_FAINT     = 'rgb(var(--ink)/0.06)';
+const INNER_BG    = 'rgb(var(--ink)/0.032)';
+const TILE_BG     = 'rgb(var(--ink)/0.025)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface DJ {
   id: string;
@@ -106,7 +106,7 @@ function DJDropdownMenu({ dj, basePath, onDelete }: { dj: DJ; basePath: string; 
           <motion.div
             initial={{ opacity: 0, y: -4, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            style={{ position: 'absolute', right: 0, top: 32, zIndex: 50, minWidth: 160, background: '#111', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '6px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+            style={{ position: 'absolute', right: 0, top: 32, zIndex: 50, minWidth: 160, background: 'var(--sf-111111)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '6px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
           >
             <button onClick={e => { e.stopPropagation(); navigate(`${basePath}/djs/${dj.id}`); setOpen(false); }}
               className="w-full flex items-center gap-2 cursor-pointer"
@@ -119,7 +119,7 @@ function DJDropdownMenu({ dj, basePath, onDelete }: { dj: DJ; basePath: string; 
             </button>
             <button onClick={e => { e.stopPropagation(); onDelete(dj); setOpen(false); }}
               className="w-full flex items-center gap-2 cursor-pointer"
-              style={{ padding: '8px 12px', borderRadius: 8, background: 'none', border: 'none', color: '#FF5C63', fontSize: 13, fontWeight: 500, textAlign: 'left' }}
+              style={{ padding: '8px 12px', borderRadius: 8, background: 'none', border: 'none', color: 'var(--acc-ff5c63)', fontSize: 13, fontWeight: 500, textAlign: 'left' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,92,99,0.08)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
             >
@@ -295,7 +295,7 @@ export default function OwnerDJs() {
   ];
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && <OwnerHeader title={t('owner.djManagement')} />}
 
       <div className="mx-auto max-w-7xl p-4">
@@ -409,7 +409,7 @@ export default function OwnerDJs() {
                     <button key={dj.id} onClick={() => navigate(`${basePath}/djs/${dj.id}`)}
                       className="text-left cursor-pointer transition-all duration-150"
                       style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px', display: 'block' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)')}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.14)')}
                       onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
                     >
                       <div className="flex items-start gap-3">
@@ -424,7 +424,7 @@ export default function OwnerDJs() {
                           <div className="flex items-start justify-between gap-1">
                             <div className="min-w-0">
                               {!dj.first_name && !dj.last_name ? (
-                                <p style={{ color: '#FCD34D', fontSize: 13, fontWeight: 600, margin: 0 }}>{t('owner.djPendingProfile')}</p>
+                                <p style={{ color: 'var(--acc-fcd34d)', fontSize: 13, fontWeight: 600, margin: 0 }}>{t('owner.djPendingProfile')}</p>
                               ) : (
                                 <>
                                   <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, margin: 0 }} className="truncate">
@@ -500,7 +500,7 @@ export default function OwnerDJs() {
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             >
-              <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
+              <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, margin: 0 }}>{t('owner.addDJ')}</h2>
                   <button onClick={resetForm} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T3 }}>
@@ -516,7 +516,7 @@ export default function OwnerDJs() {
                   placeholder="dj@email.com"
                   className="w-full outline-none mb-2"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px', color: T1, fontSize: 14, fontFamily: 'inherit' }}
-                  onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+                  onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/var(--ink-a20,0.2))')}
                   onBlur={(e) => (e.target.style.borderColor = BORDER)}
                 />
                 <p style={{ color: T3, fontSize: 11.5, marginBottom: 20 }}>{t('owner.djNeedsYunoAccount')}</p>
@@ -549,7 +549,7 @@ export default function OwnerDJs() {
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             >
-              <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
+              <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
                 <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, margin: 0, marginBottom: 8 }}>{t('owner.delete')}</h2>
                 <p style={{ color: T3, fontSize: 13, marginBottom: 20 }}>{t('owner.confirmDeleteDJ')}</p>
                 <div className="flex gap-2">
@@ -558,7 +558,7 @@ export default function OwnerDJs() {
                     {t('owner.cancel')}
                   </button>
                   <button onClick={() => deleteDialogDJ && handleDeleteDJ(deleteDialogDJ)}
-                    style={{ flex: 1, background: '#FF5C63', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                    style={{ flex: 1, background: 'var(--acc-ff5c63)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                     {t('owner.delete')}
                   </button>
                 </div>

@@ -23,11 +23,11 @@ import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { bucketHourParis } from '@/lib/liveops/nightWindow';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const POS    = '#34D399';
-const T1     = 'rgba(255,255,255,0.96)';
-const T3     = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const POS    = 'var(--acc-34d399)';
+const T1     = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3     = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 export default function OwnerLiveNight() {
   const { t } = useLanguage();
@@ -67,10 +67,10 @@ export default function OwnerLiveNight() {
   const nightEnded = !activeEvent && (kpis.entriesCount > 0 || kpis.ordersPlaced > 0);
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       {/* Ambient vignette */}
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader
         title={t('live.title')}

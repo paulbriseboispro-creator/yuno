@@ -32,7 +32,7 @@ function useDebouncedSearch<T>(query: string, deps: unknown[], fetcher: (q: stri
 
 /** Sous un champ de recherche : « Meta refuse » ou « aucun résultat », jamais un silence. */
 function SearchStatus({ error, empty, t }: { error: string | null; empty: boolean; t: (k: string) => string }) {
-  if (error) return <p className="mt-1.5" style={{ color: '#FF8A91', fontSize: 12.5, lineHeight: 1.45 }}>{t('ads.w.search.metaError')} {error}</p>;
+  if (error) return <p className="mt-1.5" style={{ color: 'var(--acc-ff8a91)', fontSize: 12.5, lineHeight: 1.45 }}>{t('ads.w.search.metaError')} {error}</p>;
   if (empty) return <p className="mt-1.5" style={{ color: T3, fontSize: 12.5 }}>{t('ads.w.search.noResult')}</p>;
   return null;
 }
@@ -51,7 +51,7 @@ function SearchBox({ value, onChange, placeholder, busy, children }: { value: st
 }
 
 function Dropdown({ children }: { children: React.ReactNode }) {
-  return <div className="mt-1.5 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: '#121214' }}>{children}</div>;
+  return <div className="mt-1.5 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: 'var(--sf-121214)' }}>{children}</div>;
 }
 
 export function StepTargeting({ draft, set, audiences, homeCity, call, language, estimate, expert, t }: {
@@ -102,7 +102,7 @@ export function StepTargeting({ draft, set, audiences, homeCity, call, language,
         {draft.cities.length > 0 ? (
           <div className="space-y-2">
             {draft.cities.map((c) => (
-              <div key={c.key} className="flex items-center gap-3 rounded-xl px-4 py-3 flex-wrap" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+              <div key={c.key} className="flex items-center gap-3 rounded-xl px-4 py-3 flex-wrap" style={{ background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}` }}>
                 <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: RED }} />
                 <span className="flex-1 truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{c.name}</span>
                 {c.type !== 'region' && (

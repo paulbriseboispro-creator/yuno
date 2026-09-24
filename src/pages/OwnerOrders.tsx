@@ -14,9 +14,9 @@ import { OwnerGuestListOrders } from '@/components/owner/OwnerGuestListOrders';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED  = '#E8192C';
-const T1   = 'rgba(255,255,255,0.96)';
-const T3   = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
+const T1   = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3   = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
 
 const ALL_TABS = [
   { key: 'drinks',  labelKey: 'owner.drinks', fallback: 'Drinks',     Icon: Wine   },
@@ -102,11 +102,11 @@ export default function OwnerOrders() {
   );
 
   return (
-    <div className={isOrganizerScope ? '' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: '#000' }}>
+    <div className={isOrganizerScope ? '' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {/* Ambient vignette (venue scope only — org scope inherits the app layout). */}
       {!isOrganizerScope && (
         <div className="fixed inset-0 pointer-events-none z-0"
-          style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+          style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       )}
 
       {!isOrganizerScope && <OwnerHeader title={t('owner.ordersManagement')} />}

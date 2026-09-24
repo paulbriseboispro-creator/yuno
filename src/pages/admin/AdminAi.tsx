@@ -7,7 +7,7 @@ import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, 
 import { Bot, Clock, Coins, Cpu, MessageSquare, RefreshCw, Search, TriangleAlert, Users, Wrench, Zap } from 'lucide-react';
 import {
   AdminPage, Card, Stat, PeriodFilter, Btn, Pill, DistRow, MiniBars, EmptyState, ErrorState, PageSkeleton, Reveal,
-  TableWrap, Th, Td, Dot, INPUT_STYLE, NEG, WARN, T1, T3, F_BORDER, CHART, RECHARTS_TOOLTIP,
+  TableWrap, Th, Td, Dot, INPUT_STYLE, NEG, WARN, WARN_HEX, T1, T3, F_BORDER, CHART, RECHARTS_TOOLTIP,
 } from '@/components/admin/ui';
 import { fmtNum, fmtUsd, fmtTokens, fmtMs, fmtPlural, fmtRelative, fmtDate, fmtAxisDay, deltaPct, periodRange, fmtPct, type AdminPeriod } from '@/lib/adminFormat';
 
@@ -100,7 +100,7 @@ export default function AdminAi() {
                   <XAxis dataKey="label" tick={{ fill: T3, fontSize: 10.5 }} axisLine={false} tickLine={false} interval={chart.length > 40 ? 10 : chart.length > 14 ? 4 : 0} />
                   <YAxis yAxisId="n" tick={{ fill: T3, fontSize: 10.5 }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <YAxis yAxisId="c" orientation="right" tick={{ fill: T3, fontSize: 10 }} axisLine={false} tickLine={false} width={58} tickFormatter={(v) => fmtUsd(Number(v), language)} />
-                  <Tooltip contentStyle={RECHARTS_TOOLTIP} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                  <Tooltip contentStyle={RECHARTS_TOOLTIP} cursor={{ fill: 'rgb(var(--ink)/0.03)' }} />
                   <Bar yAxisId="n" dataKey="client" name={aLabel('client')} stackId="a" fill={CHART[0]} isAnimationActive={false} />
                   <Bar yAxisId="n" dataKey="owner" name={aLabel('owner')} stackId="a" fill={CHART[1]} isAnimationActive={false} />
                   <Bar yAxisId="n" dataKey="agency" name={aLabel('agency')} stackId="a" fill={CHART[2]} isAnimationActive={false} />
@@ -156,7 +156,7 @@ export default function AdminAi() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Reveal delay={0.2}>
           <Card title={t('adm.ai.byModel')} icon={Cpu}>
-            {data.by_model.length === 0 ? <EmptyState text={t('adm.common.noData')} /> : data.by_model.map((m) => <DistRow key={m.model} label={m.model} value={fmtUsd(m.cost_usd, language)} sub={`${fmtNum(m.n, language)} · ${fmtTokens(m.tokens, language)}`} pct={(m.cost_usd / maxModel) * 100} color={`linear-gradient(90deg,${WARN}88,${WARN})`} />)}
+            {data.by_model.length === 0 ? <EmptyState text={t('adm.common.noData')} /> : data.by_model.map((m) => <DistRow key={m.model} label={m.model} value={fmtUsd(m.cost_usd, language)} sub={`${fmtNum(m.n, language)} · ${fmtTokens(m.tokens, language)}`} pct={(m.cost_usd / maxModel) * 100} color={`linear-gradient(90deg,${WARN_HEX}88,${WARN})`} />)}
           </Card>
         </Reveal>
         <Reveal delay={0.25}>

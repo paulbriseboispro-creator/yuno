@@ -14,21 +14,21 @@ import { isProApp } from '@/lib/native';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 export const RED      = '#E8192C';
-export const POS      = '#34D399';
-export const NEG      = '#FF5C63';
-export const WARN     = '#FCD34D';
-export const T1       = 'rgba(255,255,255,0.96)';
-export const T2       = 'rgba(255,255,255,0.58)';
-export const T3       = 'rgba(255,255,255,0.36)';
-export const C_HI     = 'rgba(255,255,255,0.92)';
-export const C_MID    = 'rgba(255,255,255,0.40)';
-export const C_FAINT  = 'rgba(255,255,255,0.06)';
-export const BORDER   = 'rgba(255,255,255,0.085)';
-export const F_BORDER = 'rgba(255,255,255,0.055)';
-export const INNER_BG = 'rgba(255,255,255,0.032)';
-export const TILE_BG  = 'rgba(255,255,255,0.025)';
-export const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const POS      = 'var(--acc-34d399)';
+export const NEG      = 'var(--acc-ff5c63)';
+export const WARN     = 'var(--acc-fcd34d)';
+export const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_HI     = 'rgb(var(--ink)/var(--ink-a92,0.92))';
+export const C_MID    = 'rgb(var(--ink)/var(--ink-a40,0.40))';
+export const C_FAINT  = 'rgb(var(--ink)/0.06)';
+export const BORDER   = 'rgb(var(--ink)/0.085)';
+export const F_BORDER = 'rgb(var(--ink)/0.055)';
+export const INNER_BG = 'rgb(var(--ink)/0.032)';
+export const TILE_BG  = 'rgb(var(--ink)/0.025)';
+export const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
 // Lives inside DJLayout's <SidebarInset>. Top bar = sidebar toggle (left) +
@@ -41,9 +41,9 @@ export function DJPage({ children, maxWidth = 1100 }: { children: ReactNode; max
   // bloc de chaque page finit caché derrière elle.
   const bottomPad = isProApp() ? 'calc(env(safe-area-inset-bottom, 0px) + 92px)' : undefined;
   return (
-    <div className="min-h-screen pb-24 relative" style={{ background: '#000', paddingBottom: bottomPad }}>
+    <div className="min-h-screen pb-24 relative" style={{ background: 'var(--sf-000000)', paddingBottom: bottomPad }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       <div className="relative z-10 flex items-center justify-between gap-2 px-4 sm:px-6 pt-3"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
         <SidebarTrigger className="text-white/60 hover:text-white -ml-1" />
@@ -145,7 +145,7 @@ export function Pill({ children, tone = 'default' }: { children: ReactNode; tone
 // ─── Loading spinner (full surface) ───────────────────────────────────────────
 export function DJSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+    <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
       <div className="h-10 w-10 animate-spin rounded-full border-2"
         style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
     </div>

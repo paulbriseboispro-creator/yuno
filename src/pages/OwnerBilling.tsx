@@ -19,15 +19,15 @@ import { motion } from 'framer-motion';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Display-only feature lists for the pricing page. The functional gate lives in
 // planFeatures.ts — these must mirror that bucketing. `key` is optional so we can
@@ -88,8 +88,8 @@ const PLAN_ICONS: Record<PlanCode, typeof Zap> = {
 
 type PlanAccent = { accent: string; glow: string; bg: string; badge: string };
 const PLAN_ACCENTS: Record<PlanCode, PlanAccent> = {
-  core:      { accent: T3,         glow: 'rgba(255,255,255,0.06)',  bg: 'rgba(255,255,255,0.04)',  badge: T3 },
-  collab:    { accent: T3,         glow: 'rgba(255,255,255,0.06)',  bg: 'rgba(255,255,255,0.04)',  badge: T3 },
+  core:      { accent: T3,         glow: 'rgb(var(--ink)/0.06)',  bg: 'rgb(var(--ink)/0.04)',  badge: T3 },
+  collab:    { accent: T3,         glow: 'rgb(var(--ink)/0.06)',  bg: 'rgb(var(--ink)/0.04)',  badge: T3 },
   essential: { accent: '#60A5FA',  glow: 'rgba(96,165,250,0.15)',   bg: 'rgba(96,165,250,0.08)',   badge: '#60A5FA' },
   pro:       { accent: RED,        glow: `rgba(232,25,44,0.18)`,    bg: `rgba(232,25,44,0.07)`,    badge: RED },
   elite:     { accent: '#A78BFA',  glow: 'rgba(167,139,250,0.18)',  bg: 'rgba(167,139,250,0.07)',  badge: '#A78BFA' },
@@ -178,9 +178,9 @@ export default function OwnerBilling() {
   };
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       {/* Abonnement coupé (lancement) : la page ne montre que Stripe Connect → titre « Paiements ». */}
       <OwnerHeader title={t(SUBSCRIPTIONS_ENABLED ? 'plan.billing' : 'plan.payments')} showBackButton backTo="/owner/dashboard" />
@@ -210,9 +210,9 @@ export default function OwnerBilling() {
               ? { background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.2)' }
               : { background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
             {isEarlyAdopter
-              ? <Gem className="h-4 w-4 flex-shrink-0" style={{ color: '#A78BFA' }} />
+              ? <Gem className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--acc-a78bfa)' }} />
               : <Sparkles className="h-4 w-4 flex-shrink-0" style={{ color: POS }} />}
-            <p style={{ color: isEarlyAdopter ? '#A78BFA' : POS, fontSize: 13, fontWeight: 500 }}>
+            <p style={{ color: isEarlyAdopter ? 'var(--acc-a78bfa)' : POS, fontSize: 13, fontWeight: 500 }}>
               {(isEarlyAdopter ? t('plan.earlyAccessActive') : t('plan.trialActive')).replace('{days}', String(daysRemaining))}
             </p>
           </div>
@@ -232,7 +232,7 @@ export default function OwnerBilling() {
                 </p>
                 {isEarlyAdopter && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider"
-                    style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
+                    style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: 'var(--acc-a78bfa)' }}>
                     <Gem className="w-3 h-3" />{t('plan.earlyAdopterBadge')}
                   </span>
                 )}
@@ -337,7 +337,7 @@ export default function OwnerBilling() {
           <div className="mt-4 p-4 rounded-xl space-y-3" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg flex-shrink-0" style={{ background: 'rgba(99,91,255,0.14)' }}>
-                <Lock className="w-3.5 h-3.5" style={{ color: '#8B85FF' }} />
+                <Lock className="w-3.5 h-3.5" style={{ color: 'var(--acc-8b85ff)' }} />
               </div>
               <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('plan.stripeAboutTitle')}</p>
             </div>
@@ -345,7 +345,7 @@ export default function OwnerBilling() {
             <div className="space-y-2.5 pt-0.5">
               {[
                 { icon: ShieldCheck, color: POS, title: t('plan.stripeSecureTitle'), desc: t('plan.stripeSecureDesc') },
-                { icon: Banknote, color: '#60A5FA', title: t('plan.stripePayoutTitle'), desc: t('plan.stripePayoutDesc') },
+                { icon: Banknote, color: 'var(--acc-60a5fa)', title: t('plan.stripePayoutTitle'), desc: t('plan.stripePayoutDesc') },
                 { icon: Receipt, color: T2, title: t('plan.stripeFeesTitle'), desc: t('plan.stripeFeesDesc') },
               ].map(({ icon: Icon, color, title, desc }, i) => (
                 <div key={i} className="flex items-start gap-2.5">
@@ -374,7 +374,7 @@ export default function OwnerBilling() {
                   <button key={c} onClick={() => setCycle(c)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all duration-150"
                     style={active
-                      ? { background: '#fff', color: '#0a0a0c' }
+                      ? { background: 'rgb(var(--ink))', color: 'var(--sf-0a0a0c)' }
                       : { background: 'transparent', color: T2 }}>
                     {c === 'monthly' ? t('plan.monthly') : t('plan.annual')}
                     {c === 'annual' && (
@@ -408,7 +408,7 @@ export default function OwnerBilling() {
                     borderRadius: 18,
                     border: isCurrent ? `1.5px solid ${acc.accent}` : `1px solid ${BORDER}`,
                     background: isCurrent
-                      ? `linear-gradient(180deg,${acc.bg} 0%,rgba(255,255,255,.005) 100%),#0a0a0c`
+                      ? `linear-gradient(180deg,${acc.bg} 0%,rgb(var(--ink)/.005) 100%),var(--sf-0a0a0c)`
                       : CARD_BG,
                     boxShadow: isCurrent ? `0 0 28px -8px ${acc.glow}, ${CARD_SHADOW}` : CARD_SHADOW,
                     overflow: 'hidden',

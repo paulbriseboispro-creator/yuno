@@ -19,6 +19,7 @@ import {
   Wallet, Users, User, LogOut, Activity,
 } from 'lucide-react';
 import { SidebarIdentity } from '@/components/sidebar-identity';
+import { SidebarProThemeSwitch } from '@/components/ProThemeSwitch';
 
 /**
  * Sidebar de l'espace promoteur — même architecture que dj-app-sidebar. Les
@@ -94,6 +95,8 @@ export function PromoterAppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+
+        <SidebarProThemeSwitch />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground" size="sm">

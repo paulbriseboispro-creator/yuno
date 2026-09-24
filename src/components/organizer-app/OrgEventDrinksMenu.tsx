@@ -152,7 +152,7 @@ export function OrgEventDrinksMenu({ eventId }: Props) {
                 loading="lazy"
               />
             ) : (
-              <div className="flex aspect-square w-full items-center justify-center rounded-md" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex aspect-square w-full items-center justify-center rounded-md" style={{ background: 'rgb(var(--ink)/0.04)' }}>
                 <Wine className="h-6 w-6" style={{ color: T3 }} />
               </div>
             )}

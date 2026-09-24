@@ -527,7 +527,7 @@ export default function AudienceStep({ scope, events, segments }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 11, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', background: 'rgba(255,255,255,0.06)',
+                justifyContent: 'center', background: 'rgb(var(--ink)/0.06)',
                 border: `1px solid ${BORDER}`, color: T2,
               }}><UserMinus size={16} strokeWidth={1.75} /></div>
               <div>
@@ -561,8 +561,8 @@ export default function AudienceStep({ scope, events, segments }: {
                           padding: '3px 8px', borderRadius: 7, fontSize: 10.5, fontWeight: 600,
                           fontFamily: FONT_UI, cursor: 'pointer',
                           color: campaign.exclusions.recentDays === d ? T1 : T3,
-                          background: campaign.exclusions.recentDays === d ? 'rgba(255,255,255,0.08)' : 'transparent',
-                          border: `1px solid ${campaign.exclusions.recentDays === d ? 'rgba(255,255,255,0.16)' : BORDER}`,
+                          background: campaign.exclusions.recentDays === d ? 'rgb(var(--ink)/0.08)' : 'transparent',
+                          border: `1px solid ${campaign.exclusions.recentDays === d ? 'rgb(var(--ink)/0.16)' : BORDER}`,
                         }}
                       >{d} j</button>
                     ))}
@@ -700,7 +700,7 @@ function MatchModeCard({ value, onChange, names, t }: {
               <div style={{ color: on ? T1 : T2, fontSize: 13, fontWeight: 600, fontFamily: FONT_UI, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{
                   width: 14, height: 14, borderRadius: 999, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  background: on ? RED : 'transparent', border: `1px solid ${on ? RED : 'rgba(255,255,255,0.25)'}`, color: '#fff',
+                  background: on ? RED : 'transparent', border: `1px solid ${on ? RED : 'rgb(var(--ink)/var(--ink-a25,0.25))'}`, color: '#fff',
                 }}>{on && <Check size={9} strokeWidth={3} />}</span>
                 {o.label}
               </div>
@@ -730,7 +730,7 @@ function SegmentRow({ on, onClick, name, desc, count, barPct }: {
         width: 18, height: 18, borderRadius: 6, flex: 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: on ? RED : 'transparent',
-        border: `1px solid ${on ? RED : 'rgba(255,255,255,0.2)'}`, color: '#fff',
+        border: `1px solid ${on ? RED : 'rgb(var(--ink)/var(--ink-a20,0.2))'}`, color: '#fff',
       }}>
         {on && <Check size={12} strokeWidth={2.5} />}
       </span>
@@ -738,10 +738,10 @@ function SegmentRow({ on, onClick, name, desc, count, barPct }: {
         <div style={{ color: on ? T1 : T2, fontSize: 13.5, fontWeight: 560, fontFamily: FONT_UI }}>{name}</div>
         {desc && <div style={{ color: T3, fontSize: 11.5, marginTop: 2, fontFamily: FONT_UI }}>{desc}</div>}
         {typeof barPct === 'number' && (
-          <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+          <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgb(var(--ink)/0.06)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', width: `${barPct}%`, borderRadius: 999,
-              background: on ? 'linear-gradient(90deg,rgba(232,25,44,0.8),rgba(232,25,44,0.3))' : 'rgba(255,255,255,0.22)',
+              background: on ? 'linear-gradient(90deg,rgba(232,25,44,0.8),rgba(232,25,44,0.3))' : 'rgb(var(--ink)/var(--ink-a22,0.22))',
             }} />
           </div>
         )}
@@ -865,7 +865,7 @@ function ImportRow({ on, onToggle, name, desc, count, barPct, health, onRename, 
               width: 18, height: 18, borderRadius: 6, flex: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: on ? RED : 'transparent',
-              border: `1px solid ${on ? RED : 'rgba(255,255,255,0.2)'}`, color: '#fff',
+              border: `1px solid ${on ? RED : 'rgb(var(--ink)/var(--ink-a20,0.2))'}`, color: '#fff',
             }}>
               {on && <Check size={12} strokeWidth={2.5} />}
             </span>
@@ -879,10 +879,10 @@ function ImportRow({ on, onToggle, name, desc, count, barPct, health, onRename, 
                   : t('studio.aud.healthClean').replace('{active}', nf(health.active))}
                 {health.purged > 0 && <span style={{ color: T3 }}> · {t('studio.aud.healthPurged').replace('{n}', nf(health.purged))}</span>}
               </div>
-              <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <div style={{ height: 4, borderRadius: 999, marginTop: 8, background: 'rgb(var(--ink)/0.06)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', width: `${barPct}%`, borderRadius: 999,
-                  background: on ? 'linear-gradient(90deg,rgba(232,25,44,0.8),rgba(232,25,44,0.3))' : 'rgba(255,255,255,0.22)',
+                  background: on ? 'linear-gradient(90deg,rgba(232,25,44,0.8),rgba(232,25,44,0.3))' : 'rgb(var(--ink)/var(--ink-a22,0.22))',
                 }} />
               </div>
             </div>
@@ -914,7 +914,7 @@ function IconBtn({ label, onClick, disabled, accent, children }: {
       style={{
         width: 28, height: 28, borderRadius: 9, flex: 'none', cursor: disabled ? 'default' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: accent ? RED : 'rgba(255,255,255,0.06)',
+        background: accent ? RED : 'rgb(var(--ink)/0.06)',
         border: `1px solid ${accent ? RED : BORDER}`,
         color: accent ? '#fff' : T2, opacity: disabled ? 0.5 : 1,
       }}
@@ -941,7 +941,7 @@ function ExclusionRow({ label, note, on, locked, onToggle, count, extra, disable
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ color: T1, fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI }}>{label}</span>
-          {locked && <Lock size={11} strokeWidth={1.75} style={{ color: 'rgba(255,255,255,0.3)' }} />}
+          {locked && <Lock size={11} strokeWidth={1.75} style={{ color: 'rgb(var(--ink)/var(--ink-a30,0.3))' }} />}
         </div>
         <div style={{ color: T3, fontSize: 11, marginTop: 2, fontFamily: FONT_UI }}>{note}</div>
         {extra && <div style={{ marginTop: 7 }}>{extra}</div>}

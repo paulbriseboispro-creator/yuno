@@ -210,9 +210,9 @@ export function ActionOverlay({
         position: fixed ? 'fixed' : 'absolute', inset: 0, zIndex: fixed ? 70 : 20,
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         padding: '28px 24px', boxSizing: 'border-box',
-        background: 'rgba(10,10,10,.94)',
+        background: 'rgb(var(--glass-10-10-10)/.94)',
         backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)',
-        fontFamily: "'Inter', system-ui, sans-serif", color: '#FFFFFF',
+        fontFamily: "'Inter', system-ui, sans-serif", color: 'rgb(var(--ink))',
       }}
     >
       {/* Seule l'étape en cours est annoncée : le compteur change soixante fois
@@ -244,7 +244,7 @@ export function ActionOverlay({
         <div style={{
           display: 'flex', alignItems: 'center', gap: 12,
           fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 600,
-          letterSpacing: '.18em', textTransform: 'uppercase', color: '#9A9A9A',
+          letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--tx-9a9a9a)',
         }}>
           <div style={{ width: 28, height: 1, background: ACTION_ACCENT, flex: 'none' }} />
           <div>{finished ? kicker[1] : kicker[0]}</div>
@@ -263,7 +263,7 @@ export function ActionOverlay({
           }}>{finished ? title[1] : title[0]}</div>
           <div aria-hidden="true" style={{
             display: 'flex', alignItems: 'flex-end', gap: 3,
-            color: finished ? ACTION_ACCENT : '#FFFFFF', transition: 'color .5s ease',
+            color: finished ? ACTION_ACCENT : 'rgb(var(--ink))', transition: 'color .5s ease',
           }}>
             <div style={{
               fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700,
@@ -279,12 +279,12 @@ export function ActionOverlay({
           </div>
         </div>
 
-        <div style={{ position: 'relative', height: 2, background: 'rgba(255,255,255,.08)', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', height: 2, background: 'rgb(var(--ink)/.08)', overflow: 'hidden' }}>
           <div style={{ height: '100%', background: ACTION_ACCENT, width: `${Math.max(2, view.progress * 100)}%` }} />
           {!calm && !finished && (
             <div data-motion="shimmer" style={{
               position: 'absolute', top: 0, left: 0, width: '34%', height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent)',
+              background: 'linear-gradient(90deg, transparent, rgb(var(--ink)/var(--ink-a50,.5)), transparent)',
               animation: 'yuno-act-shimmer 1.7s ease-in-out infinite',
             }} />
           )}
@@ -296,27 +296,27 @@ export function ActionOverlay({
               <div key={step.key} style={{
                 display: 'grid', gridTemplateColumns: '24px 1fr auto', alignItems: 'center', gap: 12,
                 padding: '10px 0',
-                borderBottom: step.last ? 'none' : '1px solid rgba(255,255,255,.07)',
+                borderBottom: step.last ? 'none' : '1px solid rgb(var(--ink)/.07)',
                 fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase',
                 transition: 'opacity .4s ease', opacity: step.isDone || step.isActive ? 1 : .55,
               }}>
                 <div style={{
                   fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', transition: 'color .4s ease',
-                  color: step.isActive ? ACTION_ACCENT : step.isDone ? '#9A9A9A' : '#3A3A3E',
+                  color: step.isActive ? ACTION_ACCENT : step.isDone ? 'var(--tx-9a9a9a)' : '#3A3A3E',
                 }}>{step.index}</div>
                 <div style={{
                   fontSize: 10.5, fontWeight: 500, letterSpacing: '.10em', transition: 'color .4s ease',
-                  color: step.isDone || step.isActive ? '#FFFFFF' : '#5A5A5E',
+                  color: step.isDone || step.isActive ? 'rgb(var(--ink))' : 'var(--tx-5a5a5e)',
                 }}>{step.label}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
-                    fontSize: 9, fontWeight: 400, letterSpacing: '.06em', color: '#9A9A9A',
+                    fontSize: 9, fontWeight: 400, letterSpacing: '.06em', color: 'var(--tx-9a9a9a)',
                     fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                   }}>{step.count}</div>
                   <div style={{ width: 13, height: 13, position: 'relative', flex: 'none' }}>
                     <div data-motion="spin" style={{
                       position: 'absolute', inset: 0, borderRadius: '50%',
-                      border: '1.5px solid rgba(255,255,255,.14)', borderTopColor: ACTION_ACCENT,
+                      border: '1.5px solid rgb(var(--ink)/.14)', borderTopColor: ACTION_ACCENT,
                       animation: calm ? undefined : 'yuno-act-spin .8s linear infinite',
                       transition: 'opacity .3s ease', opacity: step.isActive ? 1 : 0,
                     }} />
@@ -330,7 +330,7 @@ export function ActionOverlay({
                       </svg>
                     </div>
                     <div style={{
-                      position: 'absolute', top: 5, left: 5, width: 3, height: 3, background: '#3A3A3E',
+                      position: 'absolute', top: 5, left: 5, width: 3, height: 3, background: 'var(--sf-3a3a3e)',
                       transition: 'opacity .3s ease', opacity: step.isDone || step.isActive ? 0 : 1,
                     }} />
                   </div>
@@ -338,7 +338,7 @@ export function ActionOverlay({
                   <div style={{
                     width: 74, flex: 'none', whiteSpace: 'nowrap', textAlign: 'right',
                     fontSize: 9, fontWeight: 700, letterSpacing: '.14em', transition: 'color .4s ease',
-                    color: step.isDone ? '#9A9A9A' : step.isActive ? ACTION_ACCENT : '#3A3A3E',
+                    color: step.isDone ? 'var(--tx-9a9a9a)' : step.isActive ? ACTION_ACCENT : '#3A3A3E',
                   }}>{step.status}</div>
                 </div>
               </div>
@@ -365,8 +365,8 @@ export function ActionOverlay({
                 flex: primaryLabel && onPrimary ? undefined : 1,
                 height: 44, padding: '0 20px', borderRadius: 3,
                 background: primaryLabel && onPrimary ? 'transparent' : ACTION_ACCENT,
-                border: primaryLabel && onPrimary ? '1px solid rgba(255,255,255,.14)' : 'none',
-                color: primaryLabel && onPrimary ? '#E5E5E5' : '#fff',
+                border: primaryLabel && onPrimary ? '1px solid rgb(var(--ink)/.14)' : 'none',
+                color: primaryLabel && onPrimary ? 'var(--tx-e5e5e5)' : '#fff',
                 boxShadow: primaryLabel && onPrimary ? undefined : '0 10px 28px rgba(232,25,44,.32)',
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700,
                 letterSpacing: '.10em', textTransform: 'uppercase', cursor: 'pointer',

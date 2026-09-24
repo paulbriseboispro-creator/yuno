@@ -17,7 +17,7 @@ export default function AgencyAudience() {
   const t = (fr: string, en: string, es: string) => (language === 'fr' ? fr : language === 'es' ? es : en);
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'rgba(255,255,255,0.36)' }} /></div>;
+    return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))' }} /></div>;
   }
   if (!agency?.id) return null;
 

@@ -333,7 +333,7 @@ export default function AffiliateEventPage() {
           <div className="flex flex-wrap items-center gap-2 mb-4 animate-hero-label">
             {isSoldOut && (
               <span
-                className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1"
+                className="font-mono font-bold tracking-[0.18em] text-snow px-3 py-1"
                 style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}
               >
                 {t('event.soldOut').toUpperCase()}

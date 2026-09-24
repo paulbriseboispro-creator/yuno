@@ -18,11 +18,11 @@ import FollowupPreviewDialog from './FollowupPreviewDialog';
 
 const DELAYS = [6, 12, 24, 48];
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const WARN = '#FCD34D';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const WARN = 'var(--acc-fcd34d)';
 
 export interface FollowupInitial {
   enabled: boolean;
@@ -81,7 +81,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
   };
 
   return (
-    <div style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}>
+    <div style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}>
       <div className="flex items-center gap-3">
         <Repeat className="w-4 h-4 shrink-0" style={{ color: RED }} />
         <div className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
           onClick={() => void save({ enabled: !enabled })}
           style={{
             width: 34, height: 20, borderRadius: 999, border: 'none', padding: 0, position: 'relative', flex: 'none',
-            background: enabled ? RED : 'rgba(255,255,255,0.12)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+            background: enabled ? RED : 'rgb(var(--ink)/0.12)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
           }}
         >
           <span style={{ position: 'absolute', top: 2, left: enabled ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
@@ -104,7 +104,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
         <div className="mt-3 space-y-3">
           <div>
             <div style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>{t('studio.sched.fu.delay')}</div>
-            <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)' }}>
+            <div className="flex gap-1" style={{ padding: 3, borderRadius: 11, background: 'rgb(var(--ink)/0.02)' }}>
               {DELAYS.map((h) => (
                 <button
                   key={h} type="button" aria-pressed={delay === h} disabled={busy}
@@ -112,7 +112,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
                   style={{
                     flex: 1, padding: '7px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 560,
                     color: delay === h ? T1 : T3,
-                    background: delay === h ? 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))' : 'transparent',
+                    background: delay === h ? 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))' : 'transparent',
                   }}
                 >{fill('studio.sched.fu.hours', { h })}</button>
               ))}
@@ -128,7 +128,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
                 aria-label={t('studio.sched.fu.template')}
                 style={{
                   flex: 1, minWidth: 220, height: 36, borderRadius: 10, padding: '0 10px', colorScheme: 'dark',
-                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5,
+                  background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5,
                 }}
               >
                 <option value="">{t('studio.sched.fu.templateNone')}</option>
@@ -138,7 +138,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
                 type="button" onClick={() => void createStarter()} disabled={busy}
                 className="inline-flex items-center gap-1.5 cursor-pointer"
                 style={{
-                  padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`,
+                  padding: '8px 12px', borderRadius: 10, background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`,
                   color: T1, fontSize: 11.5, fontWeight: 600, opacity: busy ? 0.6 : 1,
                 }}
               >
@@ -151,7 +151,7 @@ export default function FollowupSettings({ campaignId, scope, eventId, initial, 
                 type="button" onClick={() => setPreview(true)}
                 className="inline-flex items-center gap-1.5 cursor-pointer mt-2"
                 style={{
-                  padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.04)',
+                  padding: '8px 12px', borderRadius: 10, background: 'rgb(var(--ink)/0.04)',
                   border: `1px solid ${BORDER}`, color: T1, fontSize: 11.5, fontWeight: 600,
                 }}
               >

@@ -2,9 +2,9 @@ import type { ActiveEventInfo } from '@/hooks/useLiveNightData';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED    = '#E8192C';
-const T3     = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T3     = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 interface Props {
   events: ActiveEventInfo[];

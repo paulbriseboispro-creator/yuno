@@ -17,7 +17,7 @@
 
 | Principe | Description |
 |---|---|
-| **Fond pur noir** | `#000` ou `#0a0a0c` — jamais de gris ou bleu foncé |
+| **Fond pur noir** | `#000` ou `#0a0a0c` — jamais de gris ou bleu foncé (thème sombre ; le clair est décrit au §16) |
 | **Lumière subtractibe** | Les éléments s'éclairent, ils ne s'assombrissent pas |
 | **Accent rouge unique** | `#E8192C` est le seul accent de couleur systémique |
 | **Hiérarchie par opacité** | Blanc à 96% → 58% → 36% — jamais de classes Tailwind `text-foreground` |
@@ -28,30 +28,35 @@
 
 ## 2. Design Tokens
 
-Copie ce bloc en haut de chaque composant ou fichier de page.
+Copie ce bloc en haut de chaque composant ou fichier de page. Les dashboards
+existent en **thème sombre ET clair** (§16) : un token n'est jamais un blanc ou
+un noir en dur, c'est une **encre** (`--ink`) ou une **surface** (`--sf-…`) qui
+bascule. En sombre, chaque valeur vaut EXACTEMENT l'ancienne (`--ink` = blanc,
+`--sf-0a0a0c` = `#0a0a0c`) ; en clair, la même hiérarchie se lit en noir sur
+blanc — c'est la palette zinc de la landing.
 
 ```tsx
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const RED     = '#E8192C';                        // accent principal
-const POS     = '#34D399';                        // positif / live / succès
-const NEG     = '#FF5C63';                        // négatif / erreur / drop-off
-const T1      = 'rgba(255,255,255,0.96)';         // texte primaire
-const T2      = 'rgba(255,255,255,0.58)';         // texte secondaire
-const T3      = 'rgba(255,255,255,0.36)';         // texte tertiaire / labels / muted
-const C_HI    = 'rgba(255,255,255,0.92)';         // fill haute intensité (sparklines)
-const C_MID   = 'rgba(255,255,255,0.40)';         // fill moyen (barres secondaires)
-const C_LO    = 'rgba(255,255,255,0.14)';         // fill bas (funnel outer)
-const C_FAINT = 'rgba(255,255,255,0.06)';         // fond de tile interne
-const BORDER  = 'rgba(255,255,255,0.085)';        // bordure standard
-const F_BORDER= 'rgba(255,255,255,0.055)';        // bordure faible (séparateurs)
+const RED     = '#E8192C';                              // accent principal (identique dans les deux thèmes)
+const POS     = 'var(--acc-34d399)';                    // positif / live / succès (assombri en clair)
+const NEG     = 'var(--acc-ff5c63)';                    // négatif / erreur / drop-off
+const T1      = 'rgb(var(--ink)/0.96)';                 // texte primaire
+const T2      = 'rgb(var(--ink)/0.58)';                 // texte secondaire
+const T3      = 'rgb(var(--ink)/0.36)';                 // texte tertiaire / labels / muted
+const C_HI    = 'rgb(var(--ink)/0.92)';                 // fill haute intensité (sparklines)
+const C_MID   = 'rgb(var(--ink)/0.40)';                 // fill moyen (barres secondaires)
+const C_LO    = 'rgb(var(--ink)/0.14)';                 // fill bas (funnel outer)
+const C_FAINT = 'rgb(var(--ink)/0.06)';                 // fond de tile interne
+const BORDER  = 'rgb(var(--ink)/0.085)';                // bordure standard
+const F_BORDER= 'rgb(var(--ink)/0.055)';                // bordure faible (séparateurs)
 
 // Fonds
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';       // carte imbriquée dans CARD_BG
-const TILE_BG  = 'rgba(255,255,255,0.025)';       // tile imbriqué dans INNER_BG
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';               // carte imbriquée dans CARD_BG
+const TILE_BG  = 'rgb(var(--ink)/0.025)';               // tile imbriqué dans INNER_BG
 
-// Ombres
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+// Ombres (le liseré intérieur reste blanc : --sheen ; l'ombre s'allège en clair)
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 ```
 
 ---
@@ -779,7 +784,8 @@ Avant de soumettre un composant redesigné :
 - [ ] **Aucun `<Card>` shadcn** — tous remplacés par `<div>` inline-styled
 - [ ] **Aucun `text-foreground` / `text-muted-foreground`** — remplacés par `T1` / `T2` / `T3`
 - [ ] **Aucun `text-primary` / `bg-primary`** — remplacés par `RED` ou token de couleur explicite
-- [ ] **Fond de page `background: '#000'`** sur le wrapper principal
+- [ ] **Fond de page `background: 'var(--sf-000000)'`** sur le wrapper principal (jamais `'#000'` : le thème clair ne le verrait pas)
+- [ ] **Vérifié dans les DEUX thèmes** (§16) : aucun `rgba(255,255,255,…)`, `#fff`, `#0a0a0c` en dur ; blanc sur fond coloré = `snow`
 - [ ] **Tous les boutons cliquables** ont `cursor-pointer`
 - [ ] **`tabular-nums`** sur tous les chiffres
 - [ ] **`letterSpacing: '-0.02em'`** sur les grandes valeurs numériques
@@ -839,3 +845,54 @@ Référence : `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/component
 | **Recherche** (`src/lib/helpSearch.ts`) : pliée sans accents, scorée titre > mots-clés > description > sections, résultat = article + section qui a fait mouche + extrait surligné | Ouvrir l'article au bon paragraphe, pas en haut |
 | **Avis « utile ? » et « reprendre »** vivent en `localStorage` | Aucune table, aucune migration : ce sont des conforts, pas des données |
 
+
+
+---
+
+## 16. Thème clair / sombre (2026-09-24)
+
+Toute la Yuno Console (club, manager, organisateur, agence), les espaces
+affilié, promoteur, DJ et le super admin existent en **sombre** (historique,
+par défaut) et en **clair**. Réglage « Apparence » au pied de chaque barre
+latérale (Clair / Sombre / Système) + icône lune/soleil dans les en-têtes.
+Code : `src/lib/proTheme.ts`, `src/components/ProThemeController.tsx`,
+`src/components/ProThemeSwitch.tsx`, `src/styles/pro-theme.css`,
+`tailwind.theme.ts`. Garde-fou : `src/lib/__tests__/proTheme.test.ts`.
+
+### Le principe : on change l'encre, pas le dessin
+
+Le thème clair est posé par `html[data-pro-theme="light"]`, et SEULEMENT sur
+une route pro (`isThemedProPath`). Tout vaut le sombre d'origine à `:root` :
+les pages publiques, l'app client, les emails et le staff de nuit (bar, porte,
+vestiaire, hôte VIP) ne bougent jamais.
+
+| Besoin | Écrire | Jamais |
+|---|---|---|
+| Texte, bordure, fond translucide | `rgb(var(--ink)/0.58)`, les tokens `T1…BORDER` | `rgba(255,255,255,0.58)` |
+| Fond de page / carte / champ | `var(--pro-page)`, `var(--pro-card)`, `var(--pro-elev)` (ou un `var(--sf-<hex>)` existant) | `#000`, `#0a0a0c`, `#1f1f22` |
+| Accent vif (vert, ambre, bleu…) | `var(--acc-<hex>)` — valeur exacte en sombre, assombrie en clair | un hex pastel en dur pour du texte |
+| Gris de texte (`#9A9A9A`…) | `var(--tx-<hex>)` (miroir en clair) | le hex en dur |
+| Blanc SUR un fond coloré (bouton rouge, badge, photo) | `text-snow` / `color: '#fff'` | `text-white` (qui devient noir en clair) |
+| Teinte translucide d'un accent | `tint(POS, '1A')` | `` `${POS}1A` `` (couleur invalide avec une variable) |
+| Bouton blanc inversé | `bg-white text-paper` | `bg-white text-black` |
+
+En Tailwind, **`white`, les gris (`zinc`, `neutral`, `gray`…) et les couleurs
+vives sont des variables** : `text-white/60`, `bg-zinc-900`, `text-emerald-400`
+basculent tout seuls (gris en miroir 400 ↔ 600, couleurs vives 400 → 600, les
+fonds pleins 500-700 ne bougent pas). `snow` est le seul blanc fixe.
+
+### Îlots sombres
+
+`data-theme-island="dark"` sur un conteneur rétablit le sombre à l'intérieur :
+bannière photo du tableau de bord (club et organisateur), vue En direct (globe),
+maquettes de téléphone (SMS, pub Meta), aperçu de la page client. Toute surface
+qui montre CE QUE VOIT LE CLIENT, ou une photo sous voile, est un îlot.
+
+### Ajouter une couleur
+
+Une nouvelle `var(--sf-…)`, `var(--acc-…)`, `var(--tx-…)` ou `var(--glass-…)`
+se déclare dans les TROIS blocs de `pro-theme.css` (`:root`, clair, îlot) — le
+test `proTheme.test.ts` échoue sinon, parce qu'une variable absente rend une
+couleur invalide que le navigateur ignore en silence, dans les deux thèmes.
+Ne jamais passer ces tokens à un canvas, à Mapbox, à un PDF ou à un email :
+ces rendus ne connaissent pas les variables CSS (garder un hex).

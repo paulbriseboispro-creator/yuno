@@ -15,11 +15,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { SmsScope } from '@/lib/smsMarketing';
 
 const RED = '#E8192C';
-const T1  = 'rgba(255,255,255,0.96)';
-const T2  = 'rgba(255,255,255,0.58)';
-const T3  = 'rgba(255,255,255,0.36)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
+const T1  = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2  = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3  = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
 
 export default function AdminMarketingSms() {
   const { t } = useLanguage();
@@ -30,7 +30,7 @@ export default function AdminMarketingSms() {
   const scope = useMemo<SmsScope>(() => ({ kind: 'platform', name: 'Yuno' }), []);
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 

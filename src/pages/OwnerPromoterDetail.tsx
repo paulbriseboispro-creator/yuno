@@ -580,7 +580,7 @@ export default function OwnerPromoterDetail() {
                             const isCompleted = eventConvs >= (tier.max ?? Infinity);
                             return (
                               <div key={i} className="flex items-center gap-2" style={{ fontSize: 11.5, padding: 8, borderRadius: 8, background: isActive ? 'rgba(232,25,44,0.08)' : 'transparent', color: isActive ? T1 : T3 }}>
-                                <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: isActive ? RED : isCompleted ? 'rgba(232,25,44,0.5)' : 'rgba(255,255,255,0.2)' }} />
+                                <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: isActive ? RED : isCompleted ? 'rgba(232,25,44,0.5)' : 'rgb(var(--ink)/var(--ink-a20,0.2))' }} />
                                 <span className="flex-1">{tier.min}{tier.max ? `–${tier.max}` : '+'} {t('owner.promoB.salesWord')}</span>
                                 <span style={{ fontWeight: 600, color: isActive ? RED : undefined }}>
                                   {tier.reward_type === 'money' ? `${tier.ticketValue || 0}€` : tier.reward_type === 'none' ? t('owner.promoB.rewardNone') : getRewardLabel(t, tier.reward_type, tier.reward_config)}
@@ -603,7 +603,7 @@ export default function OwnerPromoterDetail() {
                         return (
                           <div key={i} className="flex items-center justify-between" style={{ padding: 12, borderRadius: 10, background: TILE_BG }}>
                             <div className="flex items-center gap-2">
-                              <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: count > 0 ? RED : 'rgba(255,255,255,0.2)' }} />
+                              <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: count > 0 ? RED : 'rgb(var(--ink)/var(--ink-a20,0.2))' }} />
                               <span style={{ color: T1, fontSize: 13 }}>{label}</span>
                               <span style={{ color: T3, fontSize: 10 }}>{t('owner.promoB.minSalesPerEvent').replace('{n}', String(tier.min))}</span>
                             </div>

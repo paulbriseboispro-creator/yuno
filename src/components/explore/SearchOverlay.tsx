@@ -1013,7 +1013,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                             )}
                             {e.isAffiliate && (
                               <div className="absolute bottom-0 right-0 bg-primary/90 rounded-tl-md px-1 py-0.5">
-                                <Sparkles className="h-2.5 w-2.5 text-white" />
+                                <Sparkles className="h-2.5 w-2.5 text-snow" />
                               </div>
                             )}
                           </div>

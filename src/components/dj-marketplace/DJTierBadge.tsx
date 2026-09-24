@@ -2,6 +2,7 @@ import { BadgeCheck, TrendingUp, MapPin } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import type { MarketplaceDJ, ResidentScope } from './types';
+import { tint } from '@/lib/proTheme';
 
 /**
  * Trust badges for a marketplace DJ: Verified (admin-granted), Rising (auto),
@@ -10,7 +11,7 @@ import type { MarketplaceDJ, ResidentScope } from './types';
  */
 
 const RED = '#E8192C';
-const RISING = '#FCD34D';
+const RISING = 'var(--acc-fcd34d)';
 const RESIDENT = 'rgba(96,165,250,0.95)';
 
 function Badge({ icon, label, color, compact }: { icon: React.ReactNode; label: string; color: string; compact?: boolean }) {
@@ -31,8 +32,8 @@ function Badge({ icon, label, color, compact }: { icon: React.ReactNode; label: 
         padding: '2px 8px', borderRadius: 999,
         fontSize: 10.5, fontWeight: 700, letterSpacing: '0.02em',
         color,
-        background: 'rgba(255,255,255,0.04)',
-        border: `1px solid ${color}40`,
+        background: 'rgb(var(--ink)/0.04)',
+        border: `1px solid ${tint(color, '40')}`,
         whiteSpace: 'nowrap',
       }}
     >

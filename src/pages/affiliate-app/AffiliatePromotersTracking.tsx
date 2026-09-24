@@ -115,7 +115,7 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
             <div key={date} className="flex-1 flex items-end group relative">
               <div className="w-full rounded-sm" style={{ height: `${(views / maxViews) * 100}%`, minHeight: views > 0 ? '2px' : '1px', background: RED, opacity: 0.85 }} />
               <div className="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col text-xs px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none"
-                style={{ background: '#1a1a1d', border: `1px solid ${BORDER}`, color: T1 }}>
+                style={{ background: 'var(--sf-1a1a1d)', border: `1px solid ${BORDER}`, color: T1 }}>
                 <span style={{ color: T3 }}>{format(new Date(date), 'd MMM', { locale: dfLocale })}</span>
                 <span style={{ color: RED }}>{t('aff.suivi.viewsCount').replace('{n}', String(views))}</span>
               </div>
@@ -150,7 +150,7 @@ function DeviceBreakdown({ devices, total }: { devices: { mobile: number; deskto
   const items = [
     { label: t('aff.suivi.device.mobile'), val: devices.mobile, Icon: Smartphone, color: C_HI },
     { label: t('aff.suivi.device.desktop'), val: devices.desktop, Icon: Monitor, color: C_MID },
-    { label: t('aff.suivi.device.tablet'), val: devices.tablet, Icon: Tablet, color: 'rgba(255,255,255,0.22)' },
+    { label: t('aff.suivi.device.tablet'), val: devices.tablet, Icon: Tablet, color: 'rgb(var(--ink)/var(--ink-a22,0.22))' },
   ].filter(d => d.val > 0);
 
   if (items.length === 0) return <p style={{ color: T3, fontSize: 11.5 }}>{t('aff.suivi.noData')}</p>;
@@ -163,7 +163,7 @@ function DeviceBreakdown({ devices, total }: { devices: { mobile: number; deskto
           <div key={label} className="flex items-center gap-2">
             <Icon className="h-3.5 w-3.5 flex-none" style={{ color: T2 }} />
             <span className="flex-none" style={{ color: T3, fontSize: 11, width: 56 }}>{label}</span>
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
               <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
             </div>
             <span className="flex-none text-right tabular-nums" style={{ color: T3, fontSize: 11, width: 36 }}>{Math.round(pct)}%</span>
@@ -340,7 +340,7 @@ export default function AffiliatePromotersTracking() {
           title={t('aff.suivi.title')}
           subtitle={t('aff.suivi.subtitle')}
           right={
-            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
               {(['7d', '30d', '90d', 'all'] as Period[]).map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
@@ -384,7 +384,7 @@ export default function AffiliatePromotersTracking() {
 
         {rankedMembers.length === 0 ? (
           <div className="text-center py-16">
-            <Users className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />
+            <Users className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />
             <p style={{ color: T2, fontSize: 13 }}>{t('aff.suivi.emptyTitle')}</p>
             <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.suivi.emptyHint')}</p>
           </div>
@@ -405,7 +405,7 @@ export default function AffiliatePromotersTracking() {
               return (
                 <div key={member.id}>
                   <button className="w-full text-left transition-colors"
-                    style={{ borderBottom: `1px solid ${F_BORDER}`, background: isExpanded ? 'rgba(255,255,255,0.025)' : 'transparent', opacity: member.is_active ? 1 : 0.45 }}
+                    style={{ borderBottom: `1px solid ${F_BORDER}`, background: isExpanded ? 'rgb(var(--ink)/0.025)' : 'transparent', opacity: member.is_active ? 1 : 0.45 }}
                     onClick={() => setExpandedId(isExpanded ? null : member.id)}>
                     <div className="grid items-center px-5 py-4 gap-2" style={{ gridTemplateColumns: COLS }}>
                       {/* Rank */}
@@ -431,7 +431,7 @@ export default function AffiliatePromotersTracking() {
                       {/* Views + relative bar */}
                       <div>
                         <p className="tabular-nums" style={{ color: T1, fontSize: 13.5, fontWeight: 620 }}>{stats.views.toLocaleString()}</p>
-                        <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', width: 64 }}>
+                        <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)', width: 64 }}>
                           <div className="h-full rounded-full" style={{ width: `${barWidth}%`, background: `linear-gradient(90deg,${RED}88,${RED})` }} />
                         </div>
                       </div>
@@ -460,7 +460,7 @@ export default function AffiliatePromotersTracking() {
 
                   {/* Expanded detail */}
                   {isExpanded && (
-                    <div className="px-5 pb-5 pt-4" style={{ background: 'rgba(0,0,0,0.25)', borderBottom: `1px solid ${F_BORDER}` }}>
+                    <div className="px-5 pb-5 pt-4" style={{ background: 'rgb(var(--well)/0.25)', borderBottom: `1px solid ${F_BORDER}` }}>
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Chart */}
                         <div className="lg:col-span-2 rounded-xl p-4" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>

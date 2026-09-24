@@ -484,11 +484,11 @@ export default function Cart() {
             }}
             aria-label={t('common.back') || 'Retour'}
           >
-            <ArrowLeft className="h-4 w-4 text-white" />
+            <ArrowLeft className="h-4 w-4 text-snow" />
           </button>
 
           <div
-            className="font-mono flex h-7 items-center gap-1.5 rounded-full px-3 text-[11px] font-bold tabular-nums text-white"
+            className="font-mono flex h-7 items-center gap-1.5 rounded-full px-3 text-[11px] font-bold tabular-nums text-snow"
             style={{
               background: 'rgba(232,25,44,0.92)',
               backdropFilter: 'blur(12px)',
@@ -722,7 +722,7 @@ export default function Cart() {
                               style={{ background: 'rgba(232,25,44,0.85)', borderRadius: 'var(--radius-sm)' }}
                               aria-label="+"
                             >
-                              <Plus className="h-3.5 w-3.5 text-white" />
+                              <Plus className="h-3.5 w-3.5 text-snow" />
                             </button>
                           </div>
 
@@ -1194,7 +1194,7 @@ export default function Cart() {
                 <button
                   onClick={handleCheckout}
                   disabled={isProcessing}
-                  className="font-sans flex h-12 items-center rounded-full px-6 text-sm font-bold text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40"
+                  className="font-sans flex h-12 items-center rounded-full px-6 text-sm font-bold text-snow transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40"
                   style={{ background: 'var(--yuno-red)', boxShadow: '0 10px 28px rgba(232,25,44,0.32)' }}
                 >
                   {isProcessing ? (
@@ -1211,7 +1211,7 @@ export default function Cart() {
               <button
                 onClick={handleCheckout}
                 disabled={isProcessing}
-                className="font-sans flex h-12 shrink-0 items-center rounded-full px-6 text-sm font-bold text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40"
+                className="font-sans flex h-12 shrink-0 items-center rounded-full px-6 text-sm font-bold text-snow transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40"
                 style={{ background: 'var(--yuno-red)', boxShadow: '0 10px 28px rgba(232,25,44,0.32)' }}
               >
                 {isProcessing ? (
@@ -1265,7 +1265,7 @@ export default function Cart() {
                 <LogIn className="h-5 w-5" style={{ color: 'var(--yuno-red)' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-display text-sm font-bold text-white">{t('guest.loginOption')}</p>
+                <p className="font-display text-sm font-bold text-snow">{t('guest.loginOption')}</p>
                 <p className="font-sans text-xs mt-0.5" style={{ color: 'var(--yuno-gray-2)' }}>
                   {t('guest.loginOptionDesc')}
                 </p>

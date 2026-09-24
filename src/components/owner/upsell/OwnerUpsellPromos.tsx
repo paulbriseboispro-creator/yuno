@@ -129,7 +129,7 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
                             onBlur={() => savePromoPrice(drink.id)}
                             className="h-7 w-[72px] rounded-lg px-2 text-[12px] tabular-nums outline-none transition-all duration-150"
                             style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
-                            onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+                            onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
                           />
                           <UPill tone="success">-{saving}%</UPill>
                         </div>

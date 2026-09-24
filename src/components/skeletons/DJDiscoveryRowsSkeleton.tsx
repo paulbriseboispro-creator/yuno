@@ -17,15 +17,15 @@ export function DJDiscoveryRowsSkeleton() {
             alignItems: 'center',
             gap: 14,
             padding: '12px 14px',
-            background: 'rgba(255,255,255,0.025)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgb(var(--ink)/0.025)',
+            border: '1px solid rgb(var(--ink)/0.08)',
             borderRadius: 18,
           }}
         >
           <Shimmer
             width={60}
             height={60}
-            style={{ borderRadius: 14, flexShrink: 0, background: '#191919', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ borderRadius: 14, flexShrink: 0, background: 'var(--sf-191919)', border: '1px solid rgb(var(--ink)/0.08)' }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

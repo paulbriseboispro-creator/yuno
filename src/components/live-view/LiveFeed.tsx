@@ -61,7 +61,7 @@ export function LiveFeed({ items, freshIds, nowMs, t, language, reducedMotion }:
               exit={{ opacity: 0 }}
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               className="relative flex items-start gap-3 py-3"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+              style={{ borderBottom: '1px solid rgb(var(--ink)/0.06)' }}
             >
               {/* Filet rouge de fraîcheur : 8 s après l'apparition */}
               <span
@@ -73,7 +73,7 @@ export function LiveFeed({ items, freshIds, nowMs, t, language, reducedMotion }:
                 className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center"
                 style={{
                   borderRadius: 2,
-                  background: sale ? 'rgba(232,25,44,0.10)' : 'rgba(255,255,255,0.05)',
+                  background: sale ? 'rgba(232,25,44,0.10)' : 'rgb(var(--ink)/0.05)',
                   border: `1px solid ${sale ? 'rgba(232,25,44,0.32)' : LV.border}`,
                   color: sale ? LV.red : LV.gray2,
                 }}

@@ -83,6 +83,12 @@ Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu),
 // ═══════════════════════════════════════════
 
 const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
+  "appearance": {
+    title: "Mode clair ou mode sombre de la Console",
+    keywords: ["mode sombre", "mode clair", "dark mode", "light mode", "thème", "theme", "apparence", "appearance", "clair", "sombre", "blanc", "noir", "couleurs", "écran trop sombre", "ecran trop sombre", "modo oscuro", "modo claro"],
+    path: "/owner/help?article=appearance",
+    snippet: "Barre latérale → bloc « Apparence » tout en bas : soleil = Clair, lune = Sombre, écran = Système (suit l'ordinateur ou le téléphone). Raccourci : l'icône lune/soleil en haut de chaque page, à côté de la cloche, bascule entre clair et sombre. Le choix est gardé sur l'appareil et vaut pour tous les espaces pro (Console Club, Organisateur, Agence, espaces promoteur et DJ). Les pages publiques, les emails et l'app client ne changent pas ; la bannière photo du tableau de bord, la vue En direct et les aperçus client restent sombres exprès, comme les écrans du staff de nuit (bar, porte, vestiaire, hôte VIP).",
+  },
   "ads": {
     title: "Publicité : lancer et mesurer ses pubs Instagram / Facebook depuis Yuno",
     keywords: ["publicité", "publicite", "pub", "pubs", "ads", "booster", "boost", "campagne", "campagne instagram", "campagne facebook", "audience", "audiences", "jumeaux", "lookalike", "leads", "formulaire", "coût par vente", "cout par vente", "combien a rapporté ma pub", "ma pub", "sponsoriser", "sponsorisé"],

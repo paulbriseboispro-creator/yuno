@@ -59,7 +59,7 @@ export default function DJTeamAccept() {
   }, [authLoading, user, token]);
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: '#000' }}>
+    <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
       <div className="relative w-full max-w-md text-center"

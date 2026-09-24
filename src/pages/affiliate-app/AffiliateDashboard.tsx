@@ -147,7 +147,7 @@ export default function AffiliateDashboard() {
         className="relative overflow-hidden"
         style={{
           background: `radial-gradient(ellipse 70% 60% at 88% -20%, rgba(232,25,44,0.12) 0%, transparent 62%),
-            linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c`,
+            linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)`,
           border: `1px solid ${BORDER}`, borderRadius: 20, boxShadow: CARD_SHADOW,
         }}
       >
@@ -155,7 +155,7 @@ export default function AffiliateDashboard() {
         <div className="relative flex items-center justify-between gap-4 flex-wrap" style={{ padding: 22 }}>
           <div className="flex items-center gap-4 min-w-0">
             {aff?.avatar_url ? (
-              <img src={aff.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover flex-none" style={{ border: '1.5px solid rgba(255,255,255,0.18)' }} />
+              <img src={aff.avatar_url} alt="" className="h-14 w-14 rounded-2xl object-cover flex-none" style={{ border: '1.5px solid rgb(var(--ink)/0.18)' }} />
             ) : (
               <div className="h-14 w-14 rounded-2xl flex items-center justify-center flex-none" style={{ background: 'rgba(232,25,44,0.16)', border: '1.5px solid rgba(232,25,44,0.3)' }}>
                 <Store className="h-6 w-6" style={{ color: RED }} />
@@ -177,7 +177,7 @@ export default function AffiliateDashboard() {
             const isToday = nextEvent.event_date === new Date().toISOString().split('T')[0];
             return (
               <div className="flex-none rounded-2xl px-4 py-3"
-                style={{ background: isToday ? 'rgba(232,25,44,0.13)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isToday ? 'rgba(232,25,44,0.3)' : BORDER}`, minWidth: 120 }}>
+                style={{ background: isToday ? 'rgba(232,25,44,0.13)' : 'rgb(var(--ink)/0.04)', border: `1px solid ${isToday ? 'rgba(232,25,44,0.3)' : BORDER}`, minWidth: 120 }}>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   {isToday && <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: RED }} />}
                   <span style={{ color: isToday ? RED : T3, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -200,7 +200,7 @@ export default function AffiliateDashboard() {
           <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5"
             style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.22)' }}>
             <div className="flex items-center gap-3 min-w-0">
-              <AlertTriangle className="h-4 w-4 flex-none" style={{ color: '#FBBF24' }} />
+              <AlertTriangle className="h-4 w-4 flex-none" style={{ color: 'var(--acc-fbbf24)' }} />
               <span style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>
                 {missingTicketUrl} {missingTicketUrl > 1 ? t('aff.dash.missingTicketMany') : t('aff.dash.missingTicketOne')}
               </span>
@@ -266,7 +266,7 @@ export default function AffiliateDashboard() {
                     <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{event.affiliate_venues?.name ?? t('aff.dash.noClub')}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-none">
-                    {!event.external_ticket_url && <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#FBBF24' }} aria-label={t('aff.dash.missingTicketLink')} />}
+                    {!event.external_ticket_url && <AlertTriangle className="h-3.5 w-3.5" style={{ color: 'var(--acc-fbbf24)' }} aria-label={t('aff.dash.missingTicketLink')} />}
                     <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL[event.status] ? t(STATUS_LABEL[event.status]) : event.status}</Pill>
                     <Link to={`/affiliate/events/${event.id}/edit`} className="text-[12px] font-medium transition-colors hidden sm:inline" style={{ color: T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>{t('aff.dash.edit')}</Link>
@@ -309,7 +309,7 @@ function TrendTooltip({ active, payload, label }: any) {
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{format(parseISO(String(label)), 'd MMM', { locale: dateLocale })}</p>
       {payload.map((p: any) => (
         <p key={p.dataKey} className="tabular-nums" style={{ color: p.dataKey === 'clicks' ? RED : C_HI, fontSize: 13, fontWeight: 620 }}>
@@ -353,11 +353,11 @@ function TrendChart({ data }: { data: DailyPoint[] }) {
                   <stop offset="100%" stopColor={RED} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid horizontal={false} strokeDasharray="2 2" stroke="rgba(255,255,255,0.055)" />
+              <CartesianGrid horizontal={false} strokeDasharray="2 2" stroke="rgb(var(--ink)/0.055)" />
               <XAxis dataKey="date" axisLine={false} tickLine={false} tickMargin={8} minTickGap={28}
-                tickFormatter={(v) => format(parseISO(String(v)), 'd/MM')} tick={{ fill: 'rgba(255,255,255,0.36)', fontSize: 10.5 }} />
+                tickFormatter={(v) => format(parseISO(String(v)), 'd/MM')} tick={{ fill: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10.5 }} />
               <YAxis hide />
-              <Tooltip content={<TrendTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+              <Tooltip content={<TrendTooltip />} cursor={{ stroke: 'rgb(var(--ink)/0.08)', strokeWidth: 1 }} />
               <Area dataKey="views" type="monotone" stroke={RED} strokeWidth={2} fill={`url(#v-${uid})`} dot={false} />
               <Line dataKey="clicks" type="monotone" stroke={C_HI} strokeWidth={2} dot={false} />
             </AreaChart>
@@ -402,7 +402,7 @@ function NextEventHero({ nextEvent }: { nextEvent: NextEvent | null }) {
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%)' }} />
           <span className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ background: 'rgba(0,0,0,0.75)', border: `1px solid ${BORDER}`, color: T2 }}>{t('aff.dash.nextEvent')}</span>
+            style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.58)' }}>{t('aff.dash.nextEvent')}</span>
         </div>
 
         <div style={{ padding: '18px 20px' }} className="flex flex-col justify-between gap-4">

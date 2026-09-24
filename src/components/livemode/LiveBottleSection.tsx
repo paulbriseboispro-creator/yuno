@@ -192,7 +192,7 @@ export function LiveBottleSection() {
                   whileTap={{ scale: 0.97 }}
                   transition={transitions.pressFeedback}
                   aria-label={t('live.payNow')}
-                  className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded px-3 font-mono font-bold uppercase text-white outline-none disabled:opacity-60"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded px-3 font-mono font-bold uppercase text-snow outline-none disabled:opacity-60"
                   style={{ fontSize: 10.5, letterSpacing: '0.06em', background: '#E8192C', boxShadow: '0 4px 14px rgba(232,25,44,0.3)' }}
                 >
                   {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}

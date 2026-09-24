@@ -10228,6 +10228,12 @@ const en: Record<string, string> = {
   'header.publicPreview': 'Public preview',
   'header.notifications': 'Notifications',
   'header.help': 'Help',
+  'proTheme.title': 'Appearance',
+  'proTheme.dark': 'Dark',
+  'proTheme.light': 'Light',
+  'proTheme.system': 'System',
+  'proTheme.hint': 'Applies to all your pro spaces on this device.',
+  'proTheme.switchTo': 'Switch to {theme} mode',
 
   // Collaborations page
   'collab.loading': 'Loading…',

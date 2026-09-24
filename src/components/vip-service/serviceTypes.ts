@@ -159,11 +159,11 @@ export type TableVisualState =
   | 'seated-extra';  // installée, conso au-delà du crédit prépayé
 
 export const TABLE_STATE_COLORS: Record<TableVisualState, { fill: string; stroke: string; text: string }> = {
-  free: { fill: 'rgba(255,255,255,0.05)', stroke: 'rgba(255,255,255,0.28)', text: 'rgba(255,255,255,0.55)' },
+  free: { fill: 'rgb(var(--ink)/0.05)', stroke: 'rgb(var(--ink)/var(--ink-a28,0.28))', text: 'rgb(var(--ink)/var(--ink-a55,0.55))' },
   requested: { fill: 'rgba(232,25,44,0.16)', stroke: '#E8192C', text: '#FCA5A5' },
   'seated-under': { fill: 'rgba(245,158,11,0.30)', stroke: 'rgb(245,158,11)', text: '#fff' },
   'seated-ok': { fill: 'rgba(16,185,129,0.35)', stroke: 'rgb(16,185,129)', text: '#fff' },
-  'seated-extra': { fill: 'rgba(231,193,90,0.35)', stroke: '#E7C15A', text: '#fff' },
+  'seated-extra': { fill: 'rgba(231,193,90,0.35)', stroke: 'var(--acc-e7c15a)', text: '#fff' },
 };
 
 export function tableVisualState(

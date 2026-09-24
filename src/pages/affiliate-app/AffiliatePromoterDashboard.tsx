@@ -344,7 +344,7 @@ export default function AffiliatePromoterDashboard() {
           <div className="space-y-3">
             {assignments.map(a => (
               <AffCard key={a.id} padding={16}
-                style={{ border: '1px solid rgba(232,25,44,0.22)', background: 'linear-gradient(135deg,rgba(232,25,44,0.06),rgba(232,25,44,0.01)),#0a0a0c' }}>
+                style={{ border: '1px solid rgba(232,25,44,0.22)', background: 'linear-gradient(135deg,rgba(232,25,44,0.06),rgba(232,25,44,0.01)),var(--sf-0a0a0c)' }}>
                 <div className="flex items-center gap-3 mb-3">
                   {a.flyer_url
                     ? <img src={a.flyer_url} alt={a.event_name} className="w-11 h-11 rounded-lg object-cover flex-none" style={{ border: `1px solid ${BORDER}` }} />

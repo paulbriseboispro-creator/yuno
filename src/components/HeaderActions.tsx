@@ -5,6 +5,7 @@ import { HelpCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationsBell } from '@/components/NotificationsBell';
+import { ProThemeIconButton } from '@/components/ProThemeSwitch';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -13,7 +14,7 @@ import { getFeedConfig } from '@/lib/notifications';
 
 /**
  * The shared owner/organizer header action cluster: public preview (eye),
- * notifications (bell + preview popover) and help. Scope-aware via
+ * notifications (bell + preview popover), light/dark switch and help. Scope-aware via
  * useVenueContext, so the same component serves clubs (venue inbox, club
  * public preview) and organizers (organizer inbox, /o/:slug public profile).
  *
@@ -71,6 +72,9 @@ export function HeaderActions({ hideBell = false }: { hideBell?: boolean }) {
         )}
 
         {!hideBell && <NotificationsBell config={feedConfig} />}
+
+        {/* Clair ⇄ sombre en un clic ; le choix complet (dont « Système ») vit au pied de la barre latérale. */}
+        <ProThemeIconButton className="sm:h-10 sm:w-10" />
 
         <Tooltip>
           <TooltipTrigger asChild>

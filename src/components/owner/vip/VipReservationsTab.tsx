@@ -15,6 +15,7 @@ import {
   VipCard, VipStatTile, VipPill, VipProgress, VipEmpty, VipSelect, type PillTone,
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, INNER_BG, CARD_BG, CARD_SHADOW,
 } from './vip-ui';
+import { tint } from '@/lib/proTheme';
 
 interface Props {
   reservations: OwnerVipReservation[];
@@ -31,7 +32,7 @@ const STATUS_TONE: Record<string, PillTone> = {
   finished: 'muted',
 };
 
-const GOLD = '#E7C15A';
+const GOLD = 'var(--acc-e7c15a)';
 
 // Une pré-commande = order dont la note marque la pré-commande (créée au checkout).
 function isPreorderNote(notes?: string | null): boolean {
@@ -102,11 +103,11 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
       {/* Status filter */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <VipSelect value={statusFilter} onChange={setStatusFilter} className="w-44">
-          <option value="all" style={{ background: '#0a0a0c' }}>{t('vipOwner.allStatuses')}</option>
-          <option value="waiting" style={{ background: '#0a0a0c' }}>{t('vipHost.waiting')}</option>
-          <option value="placed" style={{ background: '#0a0a0c' }}>{t('vipHost.placed')}</option>
-          <option value="active" style={{ background: '#0a0a0c' }}>{t('vipHost.active')}</option>
-          <option value="finished" style={{ background: '#0a0a0c' }}>{t('vipHost.finished')}</option>
+          <option value="all" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipOwner.allStatuses')}</option>
+          <option value="waiting" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.waiting')}</option>
+          <option value="placed" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.placed')}</option>
+          <option value="active" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.active')}</option>
+          <option value="finished" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.finished')}</option>
         </VipSelect>
       </div>
 
@@ -154,7 +155,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                     </div>
                     <span
                       className="inline-flex items-center gap-1.5 whitespace-nowrap flex-none"
-                      style={{ padding: '3px 9px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: res.zoneColor, background: `${res.zoneColor}1A`, border: `1px solid ${res.zoneColor}40` }}
+                      style={{ padding: '3px 9px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, color: res.zoneColor, background: `${tint(res.zoneColor, '1A')}`, border: `1px solid ${tint(res.zoneColor, '40')}` }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: res.zoneColor }} />
                       {res.zoneName}
@@ -320,7 +321,7 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
                 {orders.map(o => (
                   <div key={o.id} className="rounded-lg p-2.5" style={{ background: INNER_BG }}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: isPreorder(o.notes) ? '#E7C15A' : T2 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: isPreorder(o.notes) ? 'var(--acc-e7c15a)' : T2 }}>
                         {isPreorder(o.notes)
                           ? tt('Pré-commande', 'Pre-order', 'Pre-pedido')
                           : tt('Commande', 'Order', 'Pedido')}

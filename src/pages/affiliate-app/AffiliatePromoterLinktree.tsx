@@ -261,7 +261,7 @@ export default function AffiliatePromoterLinktree() {
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                     style={active
                       ? { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.35)', color: RED }
-                      : { background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
+                      : { background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
                     {t(SORT_LABEL_KEYS[mode])}
                   </button>
                 );
@@ -289,8 +289,8 @@ export default function AffiliatePromoterLinktree() {
         </div>
 
         {entries.length === 0 ? (
-          <div className="rounded-2xl p-8 text-center" style={{ border: '1px dashed rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.015)' }}>
-            <CalendarDays className="h-8 w-8 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />
+          <div className="rounded-2xl p-8 text-center" style={{ border: '1px dashed rgb(var(--ink)/0.12)', background: 'rgb(var(--ink)/0.015)' }}>
+            <CalendarDays className="h-8 w-8 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />
             <p style={{ color: T2, fontSize: 13 }}>{t('aff.plink.noneSelected')}</p>
             <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.plink.addFromBelow')}</p>
           </div>
@@ -335,7 +335,7 @@ export default function AffiliatePromoterLinktree() {
 
                   {/* Promo link row */}
                   <div className="flex items-center gap-2 pl-7 mt-2.5">
-                    <div className="flex items-center px-2 flex-none" style={{ height: 32, borderRadius: '8px 0 0 8px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}`, borderRight: 'none', color: T3, fontSize: 11.5 }}>
+                    <div className="flex items-center px-2 flex-none" style={{ height: 32, borderRadius: '8px 0 0 8px', background: 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}`, borderRight: 'none', color: T3, fontSize: 11.5 }}>
                       {t('aff.plink.linkAdorn')}
                     </div>
                     <input type="url" value={entry.promo_link ?? ''}

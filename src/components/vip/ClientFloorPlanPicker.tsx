@@ -593,7 +593,7 @@ export function ClientFloorPlanPicker({
               shape: table.shape || 'rectangle',
               x: table.x, y: table.y, width: table.width, height: table.height,
               fill: isUnavailable ? 'url(#unavailable-stripes)' : tooSmall ? 'transparent' : tableColor,
-              stroke: isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : isSelected ? 'white' : tableColor,
+              stroke: isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? 'var(--acc-f59e0b)' : isSelected ? 'rgb(var(--ink))' : tableColor,
               strokeWidth: isSelected ? 2 : tooSmall ? 1.5 : dimmed ? 0.75 : 1,
               fillOpacity: isUnavailable ? 1 : tooSmall ? 0 : isSelected ? Math.min((table.fillOpacity ?? 0.55) + 0.15, 1) : dimmed ? (table.fillOpacity ?? 0.55) * 0.7 : (table.fillOpacity ?? 0.55),
               borderRadius: table.borderRadius ?? 6,
@@ -603,7 +603,7 @@ export function ClientFloorPlanPicker({
             {showTableLabels && (
               <text x={cx} y={tooSmall ? cy - 3 : cy}
                 textAnchor="middle" dominantBaseline="central"
-                fill={isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? '#f59e0b' : 'white'}
+                fill={isUnavailable ? 'hsl(var(--muted-foreground))' : tooSmall ? 'var(--acc-f59e0b)' : 'white'}
                 opacity={isSelected ? 1 : tooSmall ? 0.8 : dimmed ? 0.85 : 0.9}
                 fontSize={Math.min(table.width, table.height) * 0.4} fontWeight={700}
                 className="pointer-events-none select-none">
@@ -614,7 +614,7 @@ export function ClientFloorPlanPicker({
             {tooSmall && (
               <text x={cx} y={cy + Math.min(table.width, table.height) * 0.25}
                 textAnchor="middle" dominantBaseline="central"
-                fill="#f59e0b" opacity={0.7}
+                fill="var(--acc-f59e0b)" opacity={0.7}
                 fontSize={Math.min(table.width, table.height) * 0.22} fontWeight={500}
                 className="pointer-events-none select-none">
                 max {tableMax}
@@ -768,7 +768,7 @@ export function ClientFloorPlanPicker({
             <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: '#9A9A9A', lineHeight: 1.2 }}>
+            <div className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'var(--tx-9a9a9a)', lineHeight: 1.2 }}>
               {t('vipCheckout.tableSelected') || 'Table sélectionnée'}
             </div>
             <div className="font-display font-bold uppercase truncate text-white mt-0.5" style={{ fontSize: '15px', letterSpacing: '-0.01em', lineHeight: 1.1 }}>
@@ -780,20 +780,20 @@ export function ClientFloorPlanPicker({
               const showPack = !!packName && packName.trim().toLowerCase() !== (zoneName || '').trim().toLowerCase();
               if (!selectedTable.capacity && !zoneName && !showPack) return null;
               return (
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0 font-mono uppercase mt-1" style={{ fontSize: '9px', letterSpacing: '0.06em', color: '#E5E5E5', lineHeight: 1.3 }}>
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0 font-mono uppercase mt-1" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--tx-e5e5e5)', lineHeight: 1.3 }}>
                   {selectedTable.capacity && (
                     <span className="flex-shrink-0">
                       {selectedTable.capacity} {t('vip.pers') || 'pers.'}{selectedTable.maxExtraPersons ? ` · +${selectedTable.maxExtraPersons} max` : ''}
                     </span>
                   )}
-                  {selectedTable.capacity && (zoneName || showPack) && <span className="flex-shrink-0 text-[#6A6A6A]">·</span>}
+                  {selectedTable.capacity && (zoneName || showPack) && <span className="flex-shrink-0 text-[var(--tx-6a6a6a)]">·</span>}
                   {zoneName && (
                     <span className="inline-flex items-center gap-1 flex-shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: selectedTable.zoneColor || 'hsl(var(--primary))' }} />
                       <span>{zoneName}</span>
                     </span>
                   )}
-                  {zoneName && showPack && <span className="flex-shrink-0 text-[#6A6A6A]">·</span>}
+                  {zoneName && showPack && <span className="flex-shrink-0 text-[var(--tx-6a6a6a)]">·</span>}
                   {showPack && <span className="truncate max-w-full">{packName}</span>}
                 </div>
               );
@@ -802,7 +802,7 @@ export function ClientFloorPlanPicker({
           <button
             type="button"
             onClick={() => onSelectTable(null)}
-            className="flex-shrink-0 inline-flex items-center h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[9px] font-bold tracking-[0.10em] text-[#E5E5E5] transition-colors active:scale-[0.97]"
+            className="flex-shrink-0 inline-flex items-center h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[9px] font-bold tracking-[0.10em] text-[var(--tx-e5e5e5)] transition-colors active:scale-[0.97]"
           >
             {t('common.change')}
           </button>
@@ -822,12 +822,12 @@ export function ClientFloorPlanPicker({
           }}
         >
           {/* Top bar */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-[#0A0A0A]/95 backdrop-blur">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-[var(--sf-0a0a0a)]/95 backdrop-blur">
             <div className="flex items-center gap-2 min-w-0">
               <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
               <span className="font-display font-bold uppercase truncate text-white" style={{ fontSize: '13px', letterSpacing: '-0.005em' }}>{t('vipCheckout.floorPlan') || 'Plan de salle'}</span>
               {selectedTable && (
-                <span className="font-mono uppercase text-[9px] tracking-[0.08em] ml-2 hidden sm:inline-flex text-[#9A9A9A] border border-white/[0.10] px-1.5 py-0.5 rounded-full">
+                <span className="font-mono uppercase text-[9px] tracking-[0.08em] ml-2 hidden sm:inline-flex text-[var(--tx-9a9a9a)] border border-white/[0.10] px-1.5 py-0.5 rounded-full">
                   {selectedTable.name}
                 </span>
               )}
@@ -843,7 +843,7 @@ export function ClientFloorPlanPicker({
           </div>
 
           {/* Bottom action bar */}
-          <div className="px-4 py-3 border-t border-white/[0.08] bg-[#0A0A0A]/95 backdrop-blur flex items-center justify-between gap-3">
+          <div className="px-4 py-3 border-t border-white/[0.08] bg-[var(--sf-0a0a0a)]/95 backdrop-blur flex items-center justify-between gap-3">
             {selectedTable ? (
               <>
                 <div className="flex items-center gap-2 min-w-0">
@@ -853,7 +853,7 @@ export function ClientFloorPlanPicker({
                   <div className="min-w-0">
                     <div className="font-display font-bold uppercase truncate text-white" style={{ fontSize: '13px' }}>{selectedTable.name}</div>
                     {selectedTable.capacity && (
-                      <div className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
+                      <div className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>
                         {selectedTable.capacity} pers.{selectedTable.maxExtraPersons ? ` · +${selectedTable.maxExtraPersons} max` : ''}
                       </div>
                     )}
@@ -861,14 +861,14 @@ export function ClientFloorPlanPicker({
                 </div>
                 <button
                   onClick={() => setIsFullscreen(false)}
-                  className="flex-shrink-0 h-10 px-5 rounded-full font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-white transition-all active:scale-[0.97]"
+                  className="flex-shrink-0 h-10 px-5 rounded-full font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-snow transition-all active:scale-[0.97]"
                   style={{ background: '#E8192C', boxShadow: '0 6px 24px rgba(232,25,44,0.35)' }}
                 >
                   {t('common.confirm') || 'Confirmer'}
                 </button>
               </>
             ) : (
-              <div className="flex-1 text-center font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.08em', color: '#9A9A9A' }}>
+              <div className="flex-1 text-center font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.08em', color: 'var(--tx-9a9a9a)' }}>
                 {t('vipCheckout.tapTableToSelect') || 'Touchez une table pour la sélectionner'}
               </div>
             )}
@@ -881,26 +881,26 @@ export function ClientFloorPlanPicker({
         <div className="flex flex-wrap gap-x-3 gap-y-2 px-1 font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em' }}>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded border-2" style={{ borderColor: 'hsl(var(--primary))', backgroundColor: 'hsl(var(--primary)/0.12)' }} />
-            <span className="text-[#9A9A9A]">{t('vipCheckout.available')}</span>
+            <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.available')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-white/[0.08] border border-white/[0.14]" />
-            <span className="text-[#9A9A9A]">{t('vipCheckout.unavailable')}</span>
+            <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.unavailable')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded border-2 border-primary bg-primary/35" />
-            <span className="text-[#9A9A9A]">{t('vipCheckout.selected')}</span>
+            <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.selected')}</span>
           </div>
           {primaryZoneId && (
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded border-2 opacity-60" style={{ borderColor: 'hsl(var(--primary))', backgroundColor: 'hsl(var(--primary)/0.12)' }} />
-              <span className="text-[#9A9A9A]">{t('vipCheckout.otherZone')}</span>
+              <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.otherZone')}</span>
             </div>
           )}
           {guestCount && (
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded border-2 border-dashed" style={{ borderColor: '#f59e0b', backgroundColor: 'transparent' }} />
-              <span className="text-[#9A9A9A]">{t('vipCheckout.tooSmall') || 'Capacité insuffisante'}</span>
+              <div className="w-3 h-3 rounded border-2 border-dashed" style={{ borderColor: 'var(--acc-f59e0b)', backgroundColor: 'transparent' }} />
+              <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.tooSmall') || 'Capacité insuffisante'}</span>
             </div>
           )}
         </div>
@@ -910,7 +910,7 @@ export function ClientFloorPlanPicker({
       {!readOnly && (
         <button
           onClick={onSkip}
-          className="w-full h-11 rounded-full flex items-center justify-center font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[#9A9A9A] bg-white/[0.06] hover:bg-white/[0.10] transition-colors active:scale-[0.98]"
+          className="w-full h-11 rounded-full flex items-center justify-center font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[var(--tx-9a9a9a)] bg-white/[0.06] hover:bg-white/[0.10] transition-colors active:scale-[0.98]"
         >
           <SkipForward className="h-4 w-4 mr-2" />
           {t('vipCheckout.skipPlacement')}

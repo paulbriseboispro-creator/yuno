@@ -177,7 +177,7 @@ export default function AdminRevenue() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chart} margin={{ top: 0, right: 0, left: -28, bottom: 0 }}>
                     <XAxis dataKey="label" hide /><YAxis tick={{ fill: T3, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={RECHARTS_TOOLTIP} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                    <Tooltip contentStyle={RECHARTS_TOOLTIP} cursor={{ fill: 'rgb(var(--ink)/0.03)' }} />
                     <Bar dataKey="drink_n" name={t('adminAnalytics.drinks')} stackId="b" fill={CHART[2]} isAnimationActive={false} /><Bar dataKey="ticket_n" name={t('adminAnalytics.tickets')} stackId="b" fill={RED} isAnimationActive={false} /><Bar dataKey="table_n" name={t('adminAnalytics.tables')} stackId="b" fill={CHART[4]} radius={[2, 2, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>

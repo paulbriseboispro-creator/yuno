@@ -205,7 +205,7 @@ export default function AffiliateEvents() {
       )}
 
       {/* Filter bar */}
-      <div className="flex gap-1 flex-wrap p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+      <div className="flex gap-1 flex-wrap p-1 rounded-xl w-fit" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
         {FILTERS.map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
@@ -250,7 +250,7 @@ export default function AffiliateEvents() {
                         <motion.div key={event.id}
                           initial={{ opacity: 0 }} animate={{ opacity: past ? 0.5 : 1 }} transition={{ delay: Math.min(i * 0.025, 0.3) }}
                           className="flex items-center gap-4 px-4 py-3 transition-colors"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.02)')}
                           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
                           {/* Flyer thumbnail */}

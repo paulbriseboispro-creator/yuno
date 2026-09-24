@@ -123,7 +123,7 @@ export function InviteClubTab() {
                 {(['fr', 'en', 'es'] as const).map((l) => (
                   <button key={l} type="button" onClick={() => setMailLang(l)}
                     className="rounded-lg px-3 py-1.5 text-xs font-medium"
-                    style={{ background: mailLang === l ? 'rgba(232,25,44,0.14)' : 'rgba(255,255,255,0.03)', border: `1px solid ${mailLang === l ? 'rgba(232,25,44,0.35)' : 'rgba(255,255,255,0.085)'}`, color: mailLang === l ? '#E8192C' : T3 }}>
+                    style={{ background: mailLang === l ? 'rgba(232,25,44,0.14)' : 'rgb(var(--ink)/0.03)', border: `1px solid ${mailLang === l ? 'rgba(232,25,44,0.35)' : 'rgb(var(--ink)/0.085)'}`, color: mailLang === l ? '#E8192C' : T3 }}>
                     {l === 'fr' ? 'Français' : l === 'en' ? 'English' : 'Español'}
                   </button>
                 ))}
@@ -135,7 +135,7 @@ export function InviteClubTab() {
               <FieldLabel>{t('Soirée proposée', 'Proposed night', 'Noche propuesta')}</FieldLabel>
               <select value={eventId} onChange={(e) => setEventId(e.target.value)}
                 className="h-10 w-full rounded-xl px-3 text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.085)', color: eventId ? T1 : T3 }}>
+                style={{ background: 'rgb(var(--ink)/0.04)', border: '1px solid rgb(var(--ink)/0.085)', color: eventId ? T1 : T3 }}>
                 <option value="">{t('Aucune pour l\'instant (partenariat seul)', 'None yet (partnership only)', 'Ninguna por ahora (solo la colaboración)')}</option>
                 {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title} · {fmtWhen(ev.start_at)}</option>)}
               </select>
@@ -144,7 +144,7 @@ export function InviteClubTab() {
                 {t('Avec une soirée, le club reçoit le contrat pré-signé et n\'a plus qu\'à signer.', 'With a night attached, the club receives the pre-signed contract and only has to sign.', 'Con una noche, el club recibe el contrato prefirmado y solo tiene que firmar.')}
               </p>
             </div>
-            <div className="col-span-2 space-y-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.085)' }}>
+            <div className="col-span-2 space-y-3 rounded-xl p-4" style={{ background: 'rgb(var(--ink)/0.025)', border: '1px solid rgb(var(--ink)/0.085)' }}>
               <div className="flex items-center gap-2">
                 <Euro className="h-4 w-4" style={{ color: '#E8192C' }} />
                 <span style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('Conditions financières proposées', 'Proposed financial terms', 'Condiciones financieras propuestas')}</span>

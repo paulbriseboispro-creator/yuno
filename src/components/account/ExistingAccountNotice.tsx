@@ -68,16 +68,16 @@ export function ExistingAccountNotice({
         <div className="min-w-0">
           <p
             className="font-display font-bold"
-            style={{ fontSize: isPanel ? '16px' : '13.5px', color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.2 }}
+            style={{ fontSize: isPanel ? '16px' : '13.5px', color: 'rgb(var(--ink))', letterSpacing: '-0.01em', lineHeight: 1.2 }}
           >
             {t('guest.accountExists')}
           </p>
-          <p className="font-sans" style={{ fontSize: '12.5px', color: '#B9B9BD', marginTop: 5, lineHeight: 1.45 }}>
+          <p className="font-sans" style={{ fontSize: '12.5px', color: 'var(--tx-b9b9bd)', marginTop: 5, lineHeight: 1.45 }}>
             {body}
           </p>
           <p
             className="font-mono uppercase truncate"
-            style={{ fontSize: '10px', color: '#8A8A8E', letterSpacing: '0.06em', marginTop: 6 }}
+            style={{ fontSize: '10px', color: 'var(--tx-8a8a8e)', letterSpacing: '0.06em', marginTop: 6 }}
           >
             {email}
           </p>

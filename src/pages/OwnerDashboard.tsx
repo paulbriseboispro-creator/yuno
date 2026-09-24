@@ -64,19 +64,19 @@ import { formatChartAxisTick } from '@/components/formater';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
-const POS       = '#34D399';
-const NEG       = '#FF5C63';
-const T1        = 'rgba(255,255,255,0.96)';
-const T2        = 'rgba(255,255,255,0.58)';
-const T3        = 'rgba(255,255,255,0.36)';
-const C_HI      = 'rgba(255,255,255,0.92)';
-const C_FAINT   = 'rgba(255,255,255,0.06)';
-const BORDER    = 'rgba(255,255,255,0.085)';
-const F_BORDER  = 'rgba(255,255,255,0.055)';
-const INNER_BG  = 'rgba(255,255,255,0.032)';
-const TILE_BG   = 'rgba(255,255,255,0.025)';
-const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS       = 'var(--acc-34d399)';
+const NEG       = 'var(--acc-ff5c63)';
+const T1        = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2        = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3        = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_HI      = 'rgb(var(--ink)/var(--ink-a92,0.92))';
+const C_FAINT   = 'rgb(var(--ink)/0.06)';
+const BORDER    = 'rgb(var(--ink)/0.085)';
+const F_BORDER  = 'rgb(var(--ink)/0.055)';
+const INNER_BG  = 'rgb(var(--ink)/0.032)';
+const TILE_BG   = 'rgb(var(--ink)/0.025)';
+const CARD_BG   = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function InlineDelta({ value }: { value: number }) {
@@ -338,7 +338,7 @@ export default function OwnerDashboard() {
 
   if (!venueId) {
     return (
-      <div style={{ padding: '16px 24px', minHeight: '100vh', background: '#000' }}>
+      <div style={{ padding: '16px 24px', minHeight: '100vh', background: 'var(--sf-000000)' }}>
         <AppHeader />
         <div className="flex h-[60vh] items-center justify-center">
           <p style={{ color: T3 }}>{t('owner.noVenueAssigned')}</p>
@@ -348,7 +348,7 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <div style={{ padding: '16px', minHeight: '100vh', background: '#000' }}>
+    <div style={{ padding: '16px', minHeight: '100vh', background: 'var(--sf-000000)' }}>
       <AppHeader />
       <UpgradeModal
         open={upgradeFeature !== null}
@@ -366,6 +366,8 @@ export default function OwnerDashboard() {
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="relative -mx-4 -mt-4 overflow-hidden"
             style={{ height: 256, borderRadius: '0 0 26px 26px' }}
+            // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
+            data-theme-island="dark"
           >
 
             {/* ── Layer 1 : fond ─────────────────────────────────────────── */}
@@ -384,7 +386,7 @@ export default function OwnerDashboard() {
                   style={{
                     background: `radial-gradient(ellipse 90% 70% at 80% -10%, rgba(232,25,44,0.24) 0%, transparent 58%),
                                  radial-gradient(ellipse 70% 55% at 5% 110%, rgba(232,25,44,0.14) 0%, transparent 52%),
-                                 linear-gradient(155deg, #130508 0%, #0a0a0c 50%, #0c0a12 100%)`,
+                                 linear-gradient(155deg, #130508 0%, var(--sf-0a0a0c) 50%, #0c0a12 100%)`,
                   }}
                 />
                 {/* Glow blobs */}
@@ -423,7 +425,7 @@ export default function OwnerDashboard() {
                       alt=""
                       className="h-[58px] w-[58px] rounded-2xl object-cover flex-shrink-0"
                       style={{
-                        border: '1.5px solid rgba(255,255,255,0.18)',
+                        border: '1.5px solid rgb(var(--ink)/0.18)',
                         boxShadow: '0 0 0 1px rgba(0,0,0,0.55), 0 10px 32px -6px rgba(0,0,0,0.95)',
                       }}
                     />
@@ -480,7 +482,7 @@ export default function OwnerDashboard() {
                       style={{
                         background: isToday
                           ? 'rgba(232,25,44,0.13)'
-                          : 'rgba(255,255,255,0.04)',
+                          : 'rgb(var(--ink)/0.04)',
                         border: isToday
                           ? '1px solid rgba(232,25,44,0.3)'
                           : `1px solid ${BORDER}`,
@@ -663,7 +665,7 @@ const xAxisInterval: Record<PeriodDays, number> = { 7: 0, 14: 1, 30: 3 };
 function RevenueTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{String(label)}</p>
       <p className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{Number(payload[0].value).toFixed(0)} €</p>
     </div>
@@ -707,7 +709,7 @@ function YunoRevenueChart({
                 border: 'none',
                 fontSize: 11.5,
                 fontWeight: 600,
-                background: periodDays === d ? 'rgba(255,255,255,0.10)' : 'transparent',
+                background: periodDays === d ? 'rgb(var(--ink)/0.10)' : 'transparent',
                 color: periodDays === d ? T1 : T3,
               }}
             >
@@ -726,7 +728,7 @@ function YunoRevenueChart({
                 <stop offset="100%" stopColor={RED} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid horizontal={false} strokeDasharray="2 2" stroke="rgba(255,255,255,0.055)" />
+            <CartesianGrid horizontal={false} strokeDasharray="2 2" stroke="rgb(var(--ink)/0.055)" />
             <XAxis
               axisLine={false}
               dataKey="date"
@@ -735,10 +737,10 @@ function YunoRevenueChart({
               tickFormatter={(v) => formatChartAxisTick(String(v), periodDays)}
               tickLine={false}
               tickMargin={8}
-              tick={{ fill: 'rgba(255,255,255,0.36)', fontSize: 10.5 }}
+              tick={{ fill: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10.5 }}
             />
             <YAxis hide />
-            <Tooltip content={<RevenueTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+            <Tooltip content={<RevenueTooltip />} cursor={{ stroke: 'rgb(var(--ink)/0.08)', strokeWidth: 1 }} />
             <Area dataKey="revenue" dot={false} fill={`url(#${gradId})`} stroke={RED} strokeWidth={2} type="monotone" />
           </AreaChart>
         </ResponsiveContainer>
@@ -764,7 +766,7 @@ function YunoRevenueChart({
 function ActivityTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{String(label)}</p>
       <p className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{payload[0].value}</p>
     </div>
@@ -795,10 +797,10 @@ function YunoDailyActivity({ data, t }: { data: { day: string; orders: number }[
       <div style={{ width: '100%', height: 196, marginTop: 12 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.055)" />
-            <XAxis axisLine={false} dataKey="day" interval={0} tickLine={false} tickMargin={8} tick={{ fill: 'rgba(255,255,255,0.36)', fontSize: 10.5 }} />
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgb(var(--ink)/0.055)" />
+            <XAxis axisLine={false} dataKey="day" interval={0} tickLine={false} tickMargin={8} tick={{ fill: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 10.5 }} />
             <YAxis hide />
-            <Tooltip content={<ActivityTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+            <Tooltip content={<ActivityTooltip />} cursor={{ stroke: 'rgb(var(--ink)/0.08)', strokeWidth: 1 }} />
             <Line dataKey="orders" dot={false} stroke={C_HI} strokeWidth={2.5} type="monotone" />
           </LineChart>
         </ResponsiveContainer>
@@ -824,7 +826,7 @@ const PIE_PALETTE = [RED, '#F59E0B', '#818CF8'] as const;
 function PieTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       <p style={{ color: T2, fontSize: 12, marginBottom: 2 }}>{payload[0].name}</p>
       <p className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{payload[0].value}%</p>
     </div>
@@ -854,7 +856,7 @@ function YunoRevenueMix({ data, t }: { data: { category: string; share: number }
               outerRadius="82%"
               cornerRadius={3}
               strokeWidth={3}
-              stroke="#000"
+              stroke="var(--sf-000000)"
             >
               {pieData.map((entry, i) => (
                 <Cell key={i} fill={entry.fill} />
@@ -984,7 +986,7 @@ function NextEventHero({
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 60%)' }} />
           <span className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider backdrop-blur"
-            style={{ background: 'rgba(0,0,0,0.75)', border: `1px solid ${BORDER}`, color: T2 }}>
+            style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.58)' }}>
             {t('owner.nextEvent')}
           </span>
           {isCollab && (

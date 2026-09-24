@@ -124,14 +124,14 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
             ) : (
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.04)', border: `1px dashed ${BORDER}`, color: T3 }}
+                style={{ background: 'rgb(var(--ink)/0.04)', border: `1px dashed ${BORDER}`, color: T3 }}
               >
                 <Upload className="w-5 h-5" />
               </div>
             )}
             <label
               className="cursor-pointer inline-flex items-center gap-2 rounded-xl text-[13px] font-medium transition-colors hover:bg-white/[0.06]"
-              style={{ padding: '9px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}
+              style={{ padding: '9px 14px', background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T2 }}
             >
               <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploading} />
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}

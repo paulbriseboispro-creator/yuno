@@ -64,8 +64,9 @@ export function AdPreview({ creative, pageId, pageName, igUsername, instagramOn,
   const goCard = (delta: number) => setCard((c) => (c + delta + media.length) % media.length);
 
   const tabs: PreviewTab[] = ['feed', 'story', 'reel'];
+  // Aperçu d'un écran Instagram : reste sombre dans le thème clair de la Console.
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-theme-island="dark">
       <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}` }}>
         {tabs.map((x) => (
           <button key={x} type="button" onClick={() => setTab(x)} className="flex-1 rounded-lg py-1.5 text-[12.5px] font-semibold cursor-pointer transition-colors duration-150"
@@ -140,10 +141,10 @@ export function AdPreview({ creative, pageId, pageName, igUsername, instagramOn,
       {metaPreview?.enabled && (
         <div className="flex items-center justify-between gap-2">
           <button type="button" onClick={() => metaPreview.request(tab === 'feed' ? 'feed' : tab === 'story' ? 'story' : 'reel')} disabled={metaPreview.busy}
-            className="inline-flex items-center gap-1.5 px-3 rounded-lg text-[12.5px] font-semibold cursor-pointer disabled:opacity-50" style={{ background: 'rgba(8,102,255,0.14)', border: '1px solid rgba(8,102,255,0.4)', color: '#8FB6FF', minHeight: 34 }}>
+            className="inline-flex items-center gap-1.5 px-3 rounded-lg text-[12.5px] font-semibold cursor-pointer disabled:opacity-50" style={{ background: 'rgba(8,102,255,0.14)', border: '1px solid rgba(8,102,255,0.4)', color: 'var(--acc-8fb6ff)', minHeight: 34 }}>
             {metaPreview.busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} {metaSrc ? t('ads.w.preview.metaRefresh') : t('ads.w.preview.metaAsk')}
           </button>
-          {metaPreview.error && <span style={{ color: '#FF8A91', fontSize: 11.5 }}>{metaPreview.error}</span>}
+          {metaPreview.error && <span style={{ color: 'var(--acc-ff8a91)', fontSize: 11.5 }}>{metaPreview.error}</span>}
         </div>
       )}
       <span className="hidden" style={{ color: RED }} />

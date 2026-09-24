@@ -10342,6 +10342,12 @@ const es: Record<string, string> = {
   'header.publicPreview': 'Vista pública',
   'header.notifications': 'Notificaciones',
   'header.help': 'Ayuda',
+  'proTheme.title': 'Apariencia',
+  'proTheme.dark': 'Oscuro',
+  'proTheme.light': 'Claro',
+  'proTheme.system': 'Sistema',
+  'proTheme.hint': 'Se aplica a todos tus espacios pro en este dispositivo.',
+  'proTheme.switchTo': 'Cambiar a modo {theme}',
 
   // Página Colaboraciones
   'collab.loading': 'Cargando…',

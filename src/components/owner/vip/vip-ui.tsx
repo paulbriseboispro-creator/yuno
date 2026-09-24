@@ -12,23 +12,23 @@ import type { LucideIcon } from 'lucide-react';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 export const RED      = '#E8192C';
-export const RED_SOFT = '#FF5C63';
-export const POS      = '#34D399';
-export const NEG      = '#FF5C63';
-export const WARN     = '#FBBF24';
-export const T1       = 'rgba(255,255,255,0.96)';
-export const T2       = 'rgba(255,255,255,0.58)';
-export const T3       = 'rgba(255,255,255,0.36)';
-export const C_HI     = 'rgba(255,255,255,0.92)';
-export const C_MID    = 'rgba(255,255,255,0.40)';
-export const C_LO     = 'rgba(255,255,255,0.14)';
-export const C_FAINT  = 'rgba(255,255,255,0.06)';
-export const BORDER   = 'rgba(255,255,255,0.085)';
-export const F_BORDER = 'rgba(255,255,255,0.055)';
-export const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const INNER_BG = 'rgba(255,255,255,0.032)';
-export const TILE_BG  = 'rgba(255,255,255,0.025)';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const RED_SOFT = 'var(--acc-ff5c63)';
+export const POS      = 'var(--acc-34d399)';
+export const NEG      = 'var(--acc-ff5c63)';
+export const WARN     = 'var(--acc-fbbf24)';
+export const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_HI     = 'rgb(var(--ink)/var(--ink-a92,0.92))';
+export const C_MID    = 'rgb(var(--ink)/var(--ink-a40,0.40))';
+export const C_LO     = 'rgb(var(--ink)/0.14)';
+export const C_FAINT  = 'rgb(var(--ink)/0.06)';
+export const BORDER   = 'rgb(var(--ink)/0.085)';
+export const F_BORDER = 'rgb(var(--ink)/0.055)';
+export const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const INNER_BG = 'rgb(var(--ink)/0.032)';
+export const TILE_BG  = 'rgb(var(--ink)/0.025)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Category accent palette (kept on-brand: RED leads, neutral whites follow).
 export const CAT_COLORS = [RED, '#FBBF24', '#60A5FA', '#A78BFA', POS, '#FB923C'];
@@ -36,11 +36,11 @@ export const CAT_COLORS = [RED, '#FBBF24', '#60A5FA', '#A78BFA', POS, '#FB923C']
 // ─── Page shell ──────────────────────────────────────────────────────────────
 export function VipPage({ children, maxWidth = 1340 }: { children: ReactNode; maxWidth?: number }) {
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       {/* Top ambient vignette */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
       <div className="relative z-10 mx-auto px-4 sm:px-6 pt-2 space-y-4" style={{ maxWidth }}>
         {children}
@@ -78,7 +78,7 @@ export function VipCard({
         transition: 'border-color 150ms ease',
         ...style,
       }}
-      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)') : undefined}
+      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.14)') : undefined}
       onMouseLeave={clickable ? (e) => (e.currentTarget.style.borderColor = BORDER) : undefined}
     >
       {(title || icon) && (
@@ -131,7 +131,7 @@ export function VipKpi({
     <div
       style={{
         background: accent
-          ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.04)),#0a0a0c'
+          ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.04)),var(--sf-0a0a0c)'
           : CARD_BG,
         border: `1px solid ${accent ? 'rgba(232,25,44,0.22)' : BORDER}`,
         borderRadius: 16,
@@ -209,7 +209,7 @@ export function VipProgress({
     ? `linear-gradient(90deg, rgba(232,25,44,0.75), rgba(232,25,44,0.35))`
     : color || RED;
   return (
-    <div style={{ height, background: 'rgba(255,255,255,0.06)', borderRadius: 999, overflow: 'hidden' }}>
+    <div style={{ height, background: 'rgb(var(--ink)/0.06)', borderRadius: 999, overflow: 'hidden' }}>
       <div style={{ height: '100%', width: `${pct}%`, background: fill, borderRadius: 999, transition: 'width 700ms ease' }} />
     </div>
   );
@@ -232,7 +232,7 @@ export function VipButton({
   };
   const variants: Record<BtnVariant, CSSProperties> = {
     primary:   { background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` },
-    secondary: { background: 'rgba(255,255,255,0.05)', color: T1, border: `1px solid ${BORDER}` },
+    secondary: { background: 'rgb(var(--ink)/0.05)', color: T1, border: `1px solid ${BORDER}` },
     ghost:     { background: 'transparent', color: T2, border: `1px solid ${F_BORDER}` },
     danger:    { background: 'rgba(255,92,99,0.10)', color: RED_SOFT, border: '1px solid rgba(255,92,99,0.3)' },
     success:   { background: 'rgba(52,211,153,0.10)', color: POS, border: '1px solid rgba(52,211,153,0.3)' },
@@ -250,7 +250,7 @@ export function VipEmpty({
 }: { icon?: LucideIcon; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '44px 20px' }}>
-      {Icon && <Icon className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />}
+      {Icon && <Icon className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />}
       <p style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{title}</p>
       {description && <p style={{ color: T3, fontSize: 12.5, margin: 0, marginTop: 5 }} className="max-w-sm mx-auto">{description}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
@@ -278,7 +278,7 @@ export function VipInput({
       placeholder={placeholder}
       className={`w-full rounded-xl px-3 py-2.5 text-[13px] outline-none transition-all duration-150 ${className}`}
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
-      onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -293,7 +293,7 @@ export function VipSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`h-9 px-3 rounded-xl text-[13px] cursor-pointer outline-none ${className}`}
-      style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}`, color: T1 }}
+      style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}`, color: T1 }}
     >
       {children}
     </select>

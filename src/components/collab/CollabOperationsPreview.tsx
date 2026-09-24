@@ -4,12 +4,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Eye, Ticket, Crown } from 'lucide-react';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const GREEN = '#34D399';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const GREEN = 'var(--acc-34d399)';
 
 type Round = {
   id: string; name: string; price: number | null; max_tickets: number | null;
@@ -136,10 +136,10 @@ export function CollabOperationsPreview({
               <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{euro(r.price)}</span>
               <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
                 style={soldOut
-                  ? { background: 'rgba(255,255,255,0.06)', color: T3 }
+                  ? { background: 'rgb(var(--ink)/0.06)', color: T3 }
                   : r.is_active
                     ? { background: 'rgba(52,211,153,0.12)', color: GREEN }
-                    : { background: 'rgba(255,255,255,0.06)', color: T3 }}>
+                    : { background: 'rgb(var(--ink)/0.06)', color: T3 }}>
                 {soldOut
                   ? tt('Complet', 'Sold out', 'Agotado')
                   : r.is_active
@@ -167,7 +167,7 @@ export function CollabOperationsPreview({
             <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
               style={p.is_active
                 ? { background: 'rgba(52,211,153,0.12)', color: GREEN }
-                : { background: 'rgba(255,255,255,0.06)', color: T3 }}>
+                : { background: 'rgb(var(--ink)/0.06)', color: T3 }}>
               {p.is_active ? tt('En ligne', 'Online', 'En línea') : tt('Hors ligne', 'Offline', 'Fuera de línea')}
             </span>
           </div>

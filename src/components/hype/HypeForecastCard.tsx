@@ -5,16 +5,16 @@ import type { ForecastResult } from '@/lib/hypeForecast';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const AMBER     = '#FCD34D';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const AMBER     = 'var(--acc-fcd34d)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface Props {
   forecast: ForecastResult;
@@ -88,7 +88,7 @@ export function HypeForecastCard({ forecast, currentSold }: Props) {
         </p>
 
         {/* Progress bar: sold (solid) + projected (ghost) toward capacity */}
-        <div style={{ position: 'relative', height: 10, borderRadius: 6, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 6 }}>
+        <div style={{ position: 'relative', height: 10, borderRadius: 6, background: 'rgb(var(--ink)/0.06)', overflow: 'hidden', marginBottom: 6 }}>
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${projPct}%` }}

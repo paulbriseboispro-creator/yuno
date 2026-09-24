@@ -61,7 +61,7 @@ export function StoryComposer({ event, posterUrl, ratio, initial, onUse, onClose
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.78)' }} role="dialog" aria-modal="true">
-      <div className="w-full sm:max-w-[980px] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden" style={{ background: '#0c0c0e', border: `1px solid ${BORDER}`, height: 'min(94dvh, 860px)' }}>
+      <div className="w-full sm:max-w-[980px] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden" style={{ background: 'var(--sf-0c0c0e)', border: `1px solid ${BORDER}`, height: 'min(94dvh, 860px)' }}>
         <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <div className="flex items-center gap-3">
             <Wand2 className="w-5 h-5" style={{ color: RED }} />
@@ -96,16 +96,16 @@ export function StoryComposer({ event, posterUrl, ratio, initial, onUse, onClose
             <Field label={t('ads.c.accent')}>
               <div className="flex gap-2 flex-wrap items-center">
                 {COMPOSER_ACCENTS.map((c) => (
-                  <button key={c} type="button" onClick={() => set('accent', c)} aria-label={c} className="h-10 w-10 rounded-full cursor-pointer transition-transform duration-150" style={{ background: c, border: `3px solid ${design.accent === c ? '#fff' : 'rgba(255,255,255,0.15)'}` }} />
+                  <button key={c} type="button" onClick={() => set('accent', c)} aria-label={c} className="h-10 w-10 rounded-full cursor-pointer transition-transform duration-150" style={{ background: c, border: `3px solid ${design.accent === c ? 'rgb(var(--ink))' : 'rgb(var(--ink)/0.15)'}` }} />
                 ))}
                 <input type="color" value={design.accent} onChange={(e) => set('accent', e.target.value)} className="h-10 w-12 rounded-lg cursor-pointer" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }} aria-label={t('ads.c.accent')} />
               </div>
             </Field>
             <Tip>{t('ads.c.note')}</Tip>
-            {error && <p style={{ color: '#FF8A91', fontSize: 13 }}>{error}</p>}
+            {error && <p style={{ color: 'var(--acc-ff8a91)', fontSize: 13 }}>{error}</p>}
           </div>
           <div className="lg:sticky lg:top-0 self-start flex flex-col items-center gap-3">
-            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: '#000', width: ratio === '9:16' ? 300 : 320 }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}`, background: 'var(--sf-000000)', width: ratio === '9:16' ? 300 : 320 }}>
               <canvas ref={canvasRef} className="block w-full h-auto" style={{ aspectRatio: ratio === '9:16' ? '9 / 16' : '4 / 5' }} />
             </div>
             <p style={{ color: T3, fontSize: 12 }}>{ratio === '9:16' ? '1080 × 1920' : '1080 × 1350'} · JPEG</p>

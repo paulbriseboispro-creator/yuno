@@ -19,11 +19,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { renderEmailHtml, type EmailTemplate } from '@/lib/email';
 import { useEmailTemplates, type StudioScope } from '@/components/email-studio/hooks';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 const RED = '#E8192C';
 
 function useTemplateHtml(tpl: EmailTemplate | null, scope: StudioScope, omitFooter: boolean): string {
@@ -58,7 +58,7 @@ function FullPreview({ tpl, scope, onClose }: { tpl: EmailTemplate | null; scope
   const html = useTemplateHtml(tpl, scope, false);
   return (
     <Dialog open={!!tpl} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}` }}>
+      <DialogContent className="max-w-3xl p-0 overflow-hidden" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}` }}>
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle style={{ color: T1, fontSize: 15 }}>{tpl?.name}</DialogTitle>
           {tpl?.subject && <div style={{ color: T3, fontSize: 12 }}>{tpl.subject}</div>}
@@ -92,7 +92,7 @@ export default function TemplatesSection({ scope, basePath }: { scope: StudioSco
 
   const btn: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 9, cursor: 'pointer',
-    background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5, fontWeight: 600,
+    background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5, fontWeight: 600,
   };
 
   return (
@@ -136,7 +136,7 @@ export default function TemplatesSection({ scope, basePath }: { scope: StudioSco
                   <button type="button" style={{ ...btn, color: T1, borderColor: 'rgba(232,25,44,0.35)', background: 'rgba(232,25,44,0.10)' }} onClick={() => navigate(`${basePath}/templates/${tpl.id}`)}>
                     <PenLine className="w-3.5 h-3.5" /> {t('studio.tpl.edit')}
                   </button>
-                  <button type="button" style={{ ...btn, marginLeft: 'auto', color: '#FF5C63' }} aria-label={t('studio.tpl.delete')} title={t('studio.tpl.delete')} onClick={() => setPendingDelete(tpl)}>
+                  <button type="button" style={{ ...btn, marginLeft: 'auto', color: 'var(--acc-ff5c63)' }} aria-label={t('studio.tpl.delete')} title={t('studio.tpl.delete')} onClick={() => setPendingDelete(tpl)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

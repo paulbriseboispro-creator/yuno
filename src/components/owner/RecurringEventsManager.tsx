@@ -23,15 +23,15 @@ type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
 
 // ─── Yuno Design Tokens (mirror OwnerEvents) ──────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const C_FAINT  = 'rgba(255,255,255,0.06)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT  = 'rgb(var(--ink)/0.06)';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const CROPPER_CONTAINER_PX = 144;
 
@@ -241,7 +241,7 @@ function TermsRecap({ rules, policy, labels }: {
   const pct = (b: { venue_pct: number; organizer_pct: number }) =>
     `${b.venue_pct}% ${labels.club} · ${b.organizer_pct}% ${labels.partner}`;
   return (
-    <div style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${F_BORDER}`, borderRadius: 10, padding: '8px 12px' }}>
+    <div style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${F_BORDER}`, borderRadius: 10, padding: '8px 12px' }}>
       {row(labels.tickets, pct(rules.tickets))}
       {row(labels.tables, pct(rules.tables))}
       {row(labels.drinks, pct(rules.drinks))}
@@ -757,7 +757,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       ) : templates.length === 0 ? (
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
           <div className="text-center py-16 px-6">
-            <RefreshCw className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.12)' }} />
+            <RefreshCw className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.12)' }} />
             <p style={{ color: T2, fontSize: 13.5, fontWeight: 560, marginBottom: 4 }}>{t('owner.recur.emptyTitle')}</p>
             <p style={{ color: T3, fontSize: 12, maxWidth: 360, margin: '0 auto' }}>
               {t('owner.recur.emptyDesc')}
@@ -778,7 +778,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                       <h3 style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }} className="truncate">{tpl.name}</h3>
                       {tpl.is_active ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
+                          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--acc-34d399)' }}>
                           <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] inline-block" />{t('owner.recur.active')}
                         </span>
                       ) : (
@@ -789,28 +789,28 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                     <div className="flex items-center gap-1.5 flex-wrap" style={{ color: T2, fontSize: 12 }}>
                       <RefreshCw className="w-3.5 h-3.5" style={{ color: T3 }} />
                       <span>{t('owner.recur.everyWord')} <strong style={{ color: T1, fontWeight: 600 }}>{DAYS[tpl.day_of_week]}</strong></span>
-                      <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                      <span style={{ color: 'rgb(var(--ink)/var(--ink-a20,0.2))' }}>·</span>
                       <Clock className="w-3.5 h-3.5" style={{ color: T3 }} />
                       <span>{tpl.start_time?.slice(0, 5)} – {tpl.end_time?.slice(0, 5)}</span>
-                      <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                      <span style={{ color: 'rgb(var(--ink)/var(--ink-a20,0.2))' }}>·</span>
                       <span>{t('owner.recur.publishedBefore').replace('{days}', String(tpl.advance_days))}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-2">
                       {presetLabel(tpl.ticket_preset_id) && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.22)', color: '#FF7A82' }}>
+                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.22)', color: 'var(--acc-ff7a82)' }}>
                           <Ticket className="w-3 h-3" />{presetLabel(tpl.ticket_preset_id)}
                         </span>
                       )}
                       {presetLabel(tpl.vip_preset_id) && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                          style={{ background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.22)', color: '#FCD34D' }}>
+                          style={{ background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.22)', color: 'var(--acc-fcd34d)' }}>
                           <Crown className="w-3 h-3" />{presetLabel(tpl.vip_preset_id)}
                         </span>
                       )}
                       {tpl.table_preset_id && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                          style={{ background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.22)', color: '#FCD34D' }}>
+                          style={{ background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.22)', color: 'var(--acc-fcd34d)' }}>
                           <Crown className="w-3 h-3" />{tablePresets.find(p => p.id === tpl.table_preset_id)?.name || t('owner.recur.vipTablePreset')}
                         </span>
                       )}
@@ -820,7 +820,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                       )}
                       {tpl.guest_list_template_id && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                          style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', color: '#34D399' }}>
+                          style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', color: 'var(--acc-34d399)' }}>
                           <ClipboardList className="w-3 h-3" />{guestListPresets.find(p => p.id === tpl.guest_list_template_id)?.name || t('owner.recur.autoGuestList')}
                         </span>
                       )}
@@ -833,12 +833,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                       {tpl.partner_organizer_id && seriesByTemplate.get(tpl.id) && (
                         seriesByTemplate.get(tpl.id)!.status === 'active' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
+                            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--acc-34d399)' }}>
                             <Repeat className="w-3 h-3" />{tl('Contrat-cadre signé · soirées auto-acceptées', 'Framework signed · events auto-accepted', 'Contrato marco firmado · eventos auto-aceptados')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                            style={{ background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.28)', color: '#F5A623' }}>
+                            style={{ background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.28)', color: 'var(--acc-f5a623)' }}>
                             <Repeat className="w-3 h-3" />{tl("Contrat-cadre en attente de signature", 'Framework awaiting signature', 'Contrato marco pendiente de firma')}
                           </span>
                         )
@@ -849,7 +849,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 px-5 pb-4 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 12 }}>
+                <div className="flex items-center gap-2 px-5 pb-4 flex-wrap" style={{ borderTop: '1px solid rgb(var(--ink)/0.04)', paddingTop: 12 }}>
                   <button onClick={() => openEdit(tpl)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
                     style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
@@ -857,12 +857,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                   </button>
                   <button onClick={() => handleToggleActive(tpl)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
-                    style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: tpl.is_active ? '#34D399' : T2 }}>
+                    style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: tpl.is_active ? 'var(--acc-34d399)' : T2 }}>
                     {tpl.is_active ? t('owner.recur.deactivate') : t('owner.recur.activate')}
                   </button>
                   <button onClick={() => handleDelete(tpl)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
-                    style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: '#FF5C63' }}>
+                    style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: 'var(--acc-ff5c63)' }}>
                     <Trash2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">{t('common.delete')}</span>
                   </button>
                   {tpl.partner_organizer_id && seriesByTemplate.get(tpl.id)?.status === 'active' && (
@@ -882,7 +882,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) setDialogOpen(false); }}>
         <DialogContent className="border-0 p-0 overflow-hidden max-h-[90vh] overflow-y-auto"
-          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600 }}>
+          style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
               {editing ? t('owner.recur.editRecurrence') : t('owner.recur.newRecurringEvent')}
@@ -911,7 +911,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 <div className="relative">
                   <select value={form.dayOfWeek} onChange={e => set('dayOfWeek', parseInt(e.target.value))}
                     className="appearance-none cursor-pointer" style={inputStyle}>
-                    {DAY_ORDER.map(d => <option key={d} value={d} style={{ background: '#0a0a0c' }}>{DAYS[d]}</option>)}
+                    {DAY_ORDER.map(d => <option key={d} value={d} style={{ background: 'var(--sf-0a0a0c)' }}>{DAYS[d]}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                 </div>
@@ -998,10 +998,10 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
               <FieldLabel><Tag className="w-3 h-3 inline mr-1" />{t('owner.recur.eventType')}</FieldLabel>
               <div className="relative">
                 <select value={form.eventType} onChange={e => set('eventType', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
-                  <option value="club" style={{ background: '#0a0a0c' }}>Club</option>
-                  <option value="after_party" style={{ background: '#0a0a0c' }}>After Party</option>
-                  <option value="beach_club" style={{ background: '#0a0a0c' }}>Beach Club</option>
-                  <option value="open_air" style={{ background: '#0a0a0c' }}>Open Air</option>
+                  <option value="club" style={{ background: 'var(--sf-0a0a0c)' }}>Club</option>
+                  <option value="after_party" style={{ background: 'var(--sf-0a0a0c)' }}>After Party</option>
+                  <option value="beach_club" style={{ background: 'var(--sf-0a0a0c)' }}>Beach Club</option>
+                  <option value="open_air" style={{ background: 'var(--sf-0a0a0c)' }}>Open Air</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
               </div>
@@ -1027,8 +1027,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                       className="appearance-none cursor-pointer"
                       style={{ ...inputStyle, opacity: liveSeries ? 0.5 : 1, cursor: liveSeries ? 'not-allowed' : 'pointer' }}
                     >
-                      <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.soloOption')}</option>
-                      {partners.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                      <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.recur.soloOption')}</option>
+                      {partners.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--sf-0a0a0c)' }}>{p.name}</option>)}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                   </div>
@@ -1102,7 +1102,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 {form.partnerOrganizerId && liveSeries && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Lock className="w-3.5 h-3.5" style={{ color: liveSeries.status === 'active' ? '#34D399' : '#F5A623' }} />
+                      <Lock className="w-3.5 h-3.5" style={{ color: liveSeries.status === 'active' ? 'var(--acc-34d399)' : 'var(--acc-f5a623)' }} />
                       <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
                         {liveSeries.status === 'active'
                           ? tl('Contrat-cadre signé', 'Framework contract signed', 'Contrato marco firmado')
@@ -1190,7 +1190,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                               className="appearance-none cursor-pointer" style={inputStyle}
                             >
                               {reusableTerms.map(r => (
-                                <option key={r.key} value={r.key} style={{ background: '#0a0a0c' }}>{r.label}</option>
+                                <option key={r.key} value={r.key} style={{ background: 'var(--sf-0a0a0c)' }}>{r.label}</option>
                               ))}
                             </select>
                             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
@@ -1237,10 +1237,10 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                               onChange={e => set('cancellationPolicy', e.target.value as CancellationPolicy)}
                               className="appearance-none cursor-pointer" style={inputStyle}
                             >
-                              <option value="pro_rata_refund" style={{ background: '#0a0a0c' }}>
+                              <option value="pro_rata_refund" style={{ background: 'var(--sf-0a0a0c)' }}>
                                 {tl('Remboursement au prorata', 'Pro-rata refund', 'Reembolso prorrateado')}
                               </option>
-                              <option value="no_refund_after_event" style={{ background: '#0a0a0c' }}>
+                              <option value="no_refund_after_event" style={{ background: 'var(--sf-0a0a0c)' }}>
                                 {tl('Pas de remboursement après la soirée', 'No refund after the event', 'Sin reembolso tras el evento')}
                               </option>
                             </select>
@@ -1278,8 +1278,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 <FieldLabel><Ticket className="w-3 h-3 inline mr-1" />{t('owner.recur.standardTicketPreset')}</FieldLabel>
                 <div className="relative">
                   <select value={form.ticketPresetId} onChange={e => set('ticketPresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
-                    <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noTicketingOption')}</option>
-                    {standardPresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                    <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.recur.noTicketingOption')}</option>
+                    {standardPresets.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--sf-0a0a0c)' }}>{p.name}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                 </div>
@@ -1288,8 +1288,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 <FieldLabel><Crown className="w-3 h-3 inline mr-1" />{t('owner.recur.vipTicketPreset')}</FieldLabel>
                 <div className="relative">
                   <select value={form.vipPresetId} onChange={e => set('vipPresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
-                    <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noneOption')}</option>
-                    {vipPresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                    <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.recur.noneOption')}</option>
+                    {vipPresets.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--sf-0a0a0c)' }}>{p.name}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                 </div>
@@ -1303,8 +1303,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                   <FieldLabel><Crown className="w-3 h-3 inline mr-1" />{t('owner.recur.vipTablePreset')}</FieldLabel>
                   <div className="relative">
                     <select value={form.tablePresetId} onChange={e => set('tablePresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
-                      <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noneOption')}</option>
-                      {tablePresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                      <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.recur.noneOption')}</option>
+                      {tablePresets.map(p => <option key={p.id} value={p.id} style={{ background: 'var(--sf-0a0a0c)' }}>{p.name}</option>)}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                   </div>
@@ -1315,7 +1315,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
               )}
               {presets.length === 0 && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.18)' }}>
-                  <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#FCD34D' }} />
+                  <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
                   <p style={{ color: T2, fontSize: 11.5 }}>
                     {t('owner.recur.noPresetsHintBefore')}<strong>{t('owner.recur.ticketingTab')}</strong>{t('owner.recur.noPresetsHintAfter')}
                   </p>
@@ -1348,9 +1348,9 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 <FieldLabel><Users className="w-3 h-3 inline mr-1" />{t('owner.recur.guestListTemplate')}</FieldLabel>
                 <div className="relative">
                   <select value={form.guestListTemplateId} onChange={e => set('guestListTemplateId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
-                    <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noGuestListOption')}</option>
+                    <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{t('owner.recur.noGuestListOption')}</option>
                     {guestListPresets.map(p => (
-                      <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name} — {p.quota} {t('owner.recur.spotsWord')}</option>
+                      <option key={p.id} value={p.id} style={{ background: 'var(--sf-0a0a0c)' }}>{p.name} — {p.quota} {t('owner.recur.spotsWord')}</option>
                     ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
@@ -1371,7 +1371,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
             </div>
 
             {/* Next occurrences preview */}
-            <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${F_BORDER}` }}>
+            <div className="rounded-xl p-4" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${F_BORDER}` }}>
               <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>
                 {t('owner.recur.nextOccurrences')}
               </p>

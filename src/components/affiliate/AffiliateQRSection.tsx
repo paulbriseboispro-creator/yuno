@@ -37,8 +37,8 @@ function QRCard({ item }: { item: QRItem }) {
   return (
     <div
       style={{
-        background: '#141414',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--sf-141414)',
+        border: '1px solid rgb(var(--ink)/0.08)',
         borderRadius: '12px',
         padding: '20px',
         display: 'flex',
@@ -52,7 +52,7 @@ function QRCard({ item }: { item: QRItem }) {
           style={{
             fontSize: '13px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: 'rgb(var(--ink))',
           }}
         >
           {item.label}
@@ -60,7 +60,7 @@ function QRCard({ item }: { item: QRItem }) {
         <span
           style={{
             fontSize: '11px',
-            color: '#5A5A5E',
+            color: 'var(--tx-5a5a5e)',
             textAlign: 'center',
           }}
         >
@@ -86,9 +86,9 @@ function QRCard({ item }: { item: QRItem }) {
             width: '100%',
             padding: '10px',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid rgb(var(--ink)/0.12)',
             background: 'transparent',
-            color: '#E5E5E5',
+            color: 'var(--tx-e5e5e5)',
             fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
@@ -111,9 +111,9 @@ function QRCard({ item }: { item: QRItem }) {
             width: '100%',
             padding: '10px',
             borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.07)',
+            border: '1px solid rgb(var(--ink)/0.07)',
             background: 'transparent',
-            color: '#5A5A5E',
+            color: 'var(--tx-5a5a5e)',
             fontSize: '12px',
             cursor: 'pointer',
             display: 'flex',

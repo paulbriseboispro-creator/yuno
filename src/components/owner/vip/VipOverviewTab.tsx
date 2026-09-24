@@ -305,7 +305,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
               const medal = i === 0
                 ? { bg: 'rgba(232,25,44,0.14)', b: 'rgba(232,25,44,0.3)', c: RED }
                 : i === 1
-                ? { bg: 'rgba(255,255,255,0.08)', b: F_BORDER, c: 'rgba(255,255,255,0.7)' }
+                ? { bg: 'rgb(var(--ink)/0.08)', b: F_BORDER, c: 'rgb(var(--ink)/var(--ink-a70,0.7))' }
                 : i === 2
                 ? { bg: 'rgba(251,191,36,0.12)', b: 'rgba(251,191,36,0.25)', c: WARN }
                 : { bg: C_FAINT, b: F_BORDER, c: T3 };

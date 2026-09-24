@@ -1302,7 +1302,7 @@ export default function TicketCheckout() {
                 <button
                   onClick={handleCheckout}
                   disabled={checkoutLoading || perPersonLimitReached || minorGateBlocked || communityBlocked}
-                  className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center"
+                  className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-snow transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center"
                   style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
                 >
                   {checkoutLoading ? (

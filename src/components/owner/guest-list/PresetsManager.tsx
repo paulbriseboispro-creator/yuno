@@ -65,7 +65,7 @@ export function PresetsManager({ templates, onNew, onEdit, onDelete, t }: Preset
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button type="button" onClick={() => onDelete(tpl.id)} aria-label="delete"
-                    style={{ width: 36, height: 36, background: 'rgba(255,92,99,0.10)', border: '1px solid rgba(255,92,99,0.25)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FF5C63' }}>
+                    style={{ width: 36, height: 36, background: 'rgba(255,92,99,0.10)', border: '1px solid rgba(255,92,99,0.25)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--acc-ff5c63)' }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>

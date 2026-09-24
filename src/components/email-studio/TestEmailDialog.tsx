@@ -58,8 +58,8 @@ export default function TestEmailDialog({ open, campaignId, onSave, onClose }: {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: 420, borderRadius: 18, overflow: 'hidden', border: `1px solid ${BORDER}`,
-          background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c',
-          boxShadow: '0 1px 0 rgba(255,255,255,.05) inset,0 40px 80px -40px #000',
+          background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)',
+          boxShadow: '0 1px 0 rgb(var(--sheen)/.05) inset,0 40px 80px -40px rgb(0 0 0/var(--pro-shadow-a))',
           fontFamily: FONT_UI,
         }}
       >
@@ -93,19 +93,19 @@ export default function TestEmailDialog({ open, campaignId, onSave, onClose }: {
           />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <span style={{
-              padding: '4px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.04)',
-              border: `1px solid ${BORDER}`, color: 'rgba(255,255,255,0.58)', fontSize: 11,
+              padding: '4px 9px', borderRadius: 999, background: 'rgb(var(--ink)/0.04)',
+              border: `1px solid ${BORDER}`, color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 11,
             }}>{t('studio.test.ownerChip')}</span>
           </div>
           {error && (
-            <div style={{ color: '#FF5C63', fontSize: 12 }}>{error}</div>
+            <div style={{ color: 'var(--acc-ff5c63)', fontSize: 12 }}>{error}</div>
           )}
           {sent && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 11,
               background: 'rgba(52,211,153,0.09)', border: '1px solid rgba(52,211,153,0.25)',
             }}>
-              <CheckCircle2 size={14} strokeWidth={1.75} style={{ color: '#34D399', flex: 'none' }} />
+              <CheckCircle2 size={14} strokeWidth={1.75} style={{ color: 'var(--acc-34d399)', flex: 'none' }} />
               <span style={{ color: T1, fontSize: 12 }}>{t('studio.test.sentBanner')}</span>
             </div>
           )}

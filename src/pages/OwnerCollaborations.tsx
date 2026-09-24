@@ -31,19 +31,19 @@ import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
-const POS       = '#34D399';
-const AMBER     = '#F5A623';
-const NEG       = '#FF5C63';
-const T1        = 'rgba(255,255,255,0.96)';
-const T2        = 'rgba(255,255,255,0.58)';
-const T3        = 'rgba(255,255,255,0.36)';
-const BORDER    = 'rgba(255,255,255,0.085)';
-const F_BORDER  = 'rgba(255,255,255,0.055)';
-const C_FAINT   = 'rgba(255,255,255,0.06)';
-const INNER_BG  = 'rgba(255,255,255,0.032)';
-const TILE_BG   = 'rgba(255,255,255,0.025)';
-const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS       = 'var(--acc-34d399)';
+const AMBER     = 'var(--acc-f5a623)';
+const NEG       = 'var(--acc-ff5c63)';
+const T1        = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2        = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3        = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER    = 'rgb(var(--ink)/0.085)';
+const F_BORDER  = 'rgb(var(--ink)/0.055)';
+const C_FAINT   = 'rgb(var(--ink)/0.06)';
+const INNER_BG  = 'rgb(var(--ink)/0.032)';
+const TILE_BG   = 'rgb(var(--ink)/0.025)';
+const CARD_BG   = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Inline chip ──────────────────────────────────────────────────────────────
 function Chip({ label, color, bg, border, className }: { label: string; color: string; bg: string; border: string; className?: string }) {
@@ -111,7 +111,7 @@ function YunoInput(props: React.InputHTMLAttributes<HTMLInputElement> & { label?
           padding: '10px 12px', color: T1, fontSize: 13, fontFamily: 'inherit',
           ...rest.style,
         }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; rest.onFocus?.(e); }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.18)'; rest.onFocus?.(e); }}
         onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; rest.onBlur?.(e); }}
       />
     </div>
@@ -131,7 +131,7 @@ function YunoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement> &
           padding: '10px 12px', color: T1, fontSize: 13, fontFamily: 'inherit', lineHeight: 1.5,
           ...rest.style,
         }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; rest.onFocus?.(e); }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.18)'; rest.onFocus?.(e); }}
         onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; rest.onBlur?.(e); }}
       />
     </div>
@@ -192,7 +192,7 @@ export default function OwnerCollaborations() {
 
   if (!venueId) {
     return (
-      <div style={{ minHeight: '100vh', background: '#000' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
         <OwnerHeader title="Collaborations" />
         <div className="container mx-auto p-6">
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, padding: '32px', textAlign: 'center' }}>
@@ -214,7 +214,7 @@ export default function OwnerCollaborations() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#000' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
       <OwnerHeader title="Collaborations" />
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-5xl space-y-5">
 
@@ -683,7 +683,7 @@ function OrganizersTab({ venueId }: { venueId: string }) {
               className="pointer-events-auto w-full sm:max-w-lg"
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.22 }}
-              style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}
+              style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}
             >
               <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{t('collab.inviteModal.title')}</h2>
               <p style={{ color: T3, fontSize: 12.5, marginBottom: 20 }}>{t('collab.inviteModal.subtitle')}</p>
@@ -697,7 +697,7 @@ function OrganizersTab({ venueId }: { venueId: string }) {
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     className="flex-1 outline-none"
                     style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 12px', color: T1, fontSize: 13, fontFamily: 'inherit' }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.18)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = BORDER; }}
                   />
                   <button

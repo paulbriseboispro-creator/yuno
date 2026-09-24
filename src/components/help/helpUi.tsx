@@ -14,24 +14,30 @@ import { readingMinutes } from '@/lib/helpText';
 
 // ─── Yuno Design Tokens (docs/DESIGN_SYSTEM.md) ───────────────────────────────
 export const RED = '#E8192C';
-export const POS = '#34D399';
-export const NEG = '#FF5C63';
-export const AMBER = '#F2B23C';
-export const T1 = 'rgba(255,255,255,0.96)';
-export const T2 = 'rgba(255,255,255,0.58)';
-export const T3 = 'rgba(255,255,255,0.36)';
-export const C_FAINT = 'rgba(255,255,255,0.06)';
-export const BORDER = 'rgba(255,255,255,0.085)';
-export const F_BORDER = 'rgba(255,255,255,0.055)';
-export const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const INNER_BG = 'rgba(255,255,255,0.032)';
-export const TILE_BG = 'rgba(255,255,255,0.025)';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const POS = 'var(--acc-34d399)';
+export const NEG = 'var(--acc-ff5c63)';
+export const AMBER = 'var(--acc-f2b23c)';
+export const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_FAINT = 'rgb(var(--ink)/0.06)';
+export const BORDER = 'rgb(var(--ink)/0.085)';
+export const F_BORDER = 'rgb(var(--ink)/0.055)';
+export const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const INNER_BG = 'rgb(var(--ink)/0.032)';
+export const TILE_BG = 'rgb(var(--ink)/0.025)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
-/** `#RRGGBB` → `rgba(r,g,b,a)` (accepte aussi une chaîne rgba déjà formée). */
+/**
+ * Couleur → même couleur à l'opacité `a`. Accepte `#RRGGBB`, une chaîne rgba
+ * déjà formée, un accent de thème `var(--acc-RRGGBB)` (la teinte d'origine sert
+ * aux fonds translucides) et l'encre `rgb(var(--ink)/…)`.
+ */
 export function rgba(color: string, a: number): string {
   if (color.startsWith('rgba')) return color.replace(/[\d.]+\)$/, `${a})`);
-  const n = parseInt(color.slice(1), 16);
+  if (color.startsWith('rgb(var(--ink)')) return `rgb(var(--ink)/${a})`;
+  const acc = color.match(/^var\(--acc-([0-9a-f]{6})\)$/i);
+  const n = parseInt(acc ? acc[1] : color.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
@@ -40,27 +46,29 @@ export function rgba(color: string, a: number): string {
  * icône de l'article, pastille du fil d'Ariane). Le rouge reste au premier
  * thème et à l'IA ; les autres reçoivent une teinte franche mais posée sur le
  * même noir, comme les pastilles d'icônes des centres d'aide de référence.
+ * Accents de thème (`var(--acc-…)`) : assombris en thème clair, et `rgba()`
+ * sait en tirer un fond translucide.
  */
 export const CATEGORY_COLORS: Record<string, string> = {
   'getting-started': RED,
-  overview: '#5B9CFF',
-  events: '#A78BFA',
-  'marketing-crm': '#F472B6',
-  operations: '#F2B23C',
-  settings: '#22D3EE',
-  ecosystem: '#34D399',
-  finance: '#2DD4BF',
-  showcase: '#F472B6',
-  team: '#F2B23C',
-  'yuno-clubs': '#5B9CFF',
-  external: '#A78BFA',
+  overview: 'var(--acc-5b9cff)',
+  events: 'var(--acc-a78bfa)',
+  'marketing-crm': 'var(--acc-f472b6)',
+  operations: 'var(--acc-f2b23c)',
+  settings: 'var(--acc-22d3ee)',
+  ecosystem: 'var(--acc-34d399)',
+  finance: 'var(--acc-2dd4bf)',
+  showcase: 'var(--acc-f472b6)',
+  team: 'var(--acc-f2b23c)',
+  'yuno-clubs': 'var(--acc-5b9cff)',
+  external: 'var(--acc-a78bfa)',
 };
 export const AI_COLOR = RED;
-export const CONTACT_COLOR = '#5B9CFF';
-export const EMAIL_COLOR = '#A78BFA';
+export const CONTACT_COLOR = 'var(--acc-5b9cff)';
+export const EMAIL_COLOR = 'var(--acc-a78bfa)';
 
 export function categoryColor(id: string | null | undefined): string {
-  return (id && CATEGORY_COLORS[id]) || 'rgba(255,255,255,0.62)';
+  return (id && CATEGORY_COLORS[id]) || 'rgb(var(--ink)/var(--ink-a62,0.62))';
 }
 
 export const HELP_ICONS: Record<string, LucideIcon> = {
@@ -100,7 +108,7 @@ export function HCard({ children, className, style, glow }: { children: ReactNod
       className={className}
       style={{
         background: glow
-          ? `radial-gradient(ellipse 70% 50% at 90% -20%, rgba(232,25,44,0.08) 0%, transparent 65%), linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c`
+          ? `radial-gradient(ellipse 70% 50% at 90% -20%, rgba(232,25,44,0.08) 0%, transparent 65%), linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)`
           : CARD_BG,
         border: `1px solid ${BORDER}`,
         borderRadius: 18,
@@ -246,8 +254,8 @@ export function ArticleRow({
       style={{
         padding: compact ? '11px 12px' : '14px 16px',
         borderRadius: 14,
-        background: hover ? 'rgba(255,255,255,0.05)' : INNER_BG,
-        border: `1px solid ${hover ? (color ? rgba(color, 0.35) : 'rgba(255,255,255,0.14)') : BORDER}`,
+        background: hover ? 'rgb(var(--ink)/0.05)' : INNER_BG,
+        border: `1px solid ${hover ? (color ? rgba(color, 0.35) : 'rgb(var(--ink)/0.14)') : BORDER}`,
       }}
     >
       <IconTile name={icon} size={compact ? 32 : 36} accent={accent || hover} color={color} />

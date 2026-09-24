@@ -4,15 +4,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { LiveAdvancedMetrics } from '@/hooks/useLiveNightData';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const POS      = '#34D399';
-const NEG      = '#FF5C63';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const NEG      = 'var(--acc-ff5c63)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface Props {
   metrics: LiveAdvancedMetrics;
@@ -27,7 +27,7 @@ export function LiveAdvancedMetricsBar({ metrics }: Props) {
       label: t('live.adv.attendance'),
       value: `${metrics.attendanceRate}%`,
       icon: Users,
-      color: metrics.attendanceRate >= 70 ? POS : metrics.attendanceRate >= 40 ? '#FCD34D' : T3,
+      color: metrics.attendanceRate >= 70 ? POS : metrics.attendanceRate >= 40 ? 'var(--acc-fcd34d)' : T3,
       hint: t('live.adv.attendanceHint'),
     },
     {
@@ -35,7 +35,7 @@ export function LiveAdvancedMetricsBar({ metrics }: Props) {
       label: t('live.adv.prep'),
       value: `${metrics.avgPrepMinutes} min`,
       icon: Timer,
-      color: metrics.avgPrepMinutes <= 5 ? POS : metrics.avgPrepMinutes <= 10 ? '#FCD34D' : NEG,
+      color: metrics.avgPrepMinutes <= 5 ? POS : metrics.avgPrepMinutes <= 10 ? 'var(--acc-fcd34d)' : NEG,
       hint: t('live.adv.prepHint'),
     },
     {
@@ -51,7 +51,7 @@ export function LiveAdvancedMetricsBar({ metrics }: Props) {
       label: t('live.adv.refundRate'),
       value: `${metrics.refundRatePct}%`,
       icon: RotateCcw,
-      color: metrics.refundRatePct === 0 ? T3 : metrics.refundRatePct < 3 ? '#FCD34D' : NEG,
+      color: metrics.refundRatePct === 0 ? T3 : metrics.refundRatePct < 3 ? 'var(--acc-fcd34d)' : NEG,
       hint: t('live.adv.refundRateHint'),
     },
     {

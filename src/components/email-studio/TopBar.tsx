@@ -66,11 +66,11 @@ export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onC
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <button
           type="button" onClick={onBack} aria-label={t('studio.top.back')}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; e.currentTarget.style.color = T1; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = T2; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.10)'; e.currentTarget.style.color = T1; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.06)'; e.currentTarget.style.color = T2; }}
           style={{
             width: 30, height: 30, borderRadius: 10, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', background: 'rgba(255,255,255,0.06)',
+            justifyContent: 'center', background: 'rgb(var(--ink)/0.06)',
             border: `1px solid ${BORDER}`, color: T2, cursor: 'pointer', flex: 'none',
           }}
         ><ChevronLeft size={16} strokeWidth={1.75} /></button>
@@ -86,7 +86,7 @@ export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onC
                 padding: '2px 6px', marginLeft: -6, color: T1, fontSize: 14, fontWeight: 600,
                 letterSpacing: '-0.01em', width: 230, fontFamily: FONT_UI, outline: 'none',
               }}
-              onFocus={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              onFocus={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.05)'; }}
               onBlur={(e) => { e.currentTarget.style.background = 'transparent'; }}
             />
             <StatusBadge label={t(`studio.status.${status}` as const)} tone={statusTone} />
@@ -102,22 +102,22 @@ export default function TopBar({ scope, onBack, onTestEmail, onSaveTemplate, onC
       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <button
           type="button" onClick={undo} aria-label={t('studio.top.undo')} title={t('studio.top.undo')}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.06)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           style={{
             width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center',
             justifyContent: 'center', cursor: 'pointer', background: 'transparent', border: 'none',
-            color: canUndo ? T2 : 'rgba(255,255,255,0.18)',
+            color: canUndo ? T2 : 'rgb(var(--ink)/0.18)',
           }}
         ><Undo2 size={16} strokeWidth={1.75} /></button>
         <button
           type="button" onClick={redo} aria-label={t('studio.top.redo')} title={t('studio.top.redo')}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.06)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           style={{
             width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center',
             justifyContent: 'center', cursor: 'pointer', background: 'transparent', border: 'none',
-            color: canRedo ? T2 : 'rgba(255,255,255,0.18)',
+            color: canRedo ? T2 : 'rgb(var(--ink)/0.18)',
           }}
         ><Redo2 size={16} strokeWidth={1.75} /></button>
       </div>

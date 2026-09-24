@@ -23,16 +23,16 @@ import {
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
-const POS         = '#34D399';
-const WARN        = '#FCD34D';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const TILE_BG     = 'rgba(255,255,255,0.025)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS         = 'var(--acc-34d399)';
+const WARN        = 'var(--acc-fcd34d)';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const F_BORDER    = 'rgb(var(--ink)/0.055)';
+const TILE_BG     = 'rgb(var(--ink)/0.025)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -66,7 +66,7 @@ function daysUntil(due: string | null): number | null {
 }
 
 function deadlineTone(days: number | null): { color: string; bg: string } {
-  if (days === null) return { color: T3, bg: 'rgba(255,255,255,0.05)' };
+  if (days === null) return { color: T3, bg: 'rgb(var(--ink)/0.05)' };
   if (days < 0)      return { color: RED, bg: 'rgba(232,25,44,0.12)' };
   if (days <= 7)     return { color: RED, bg: 'rgba(232,25,44,0.10)' };
   if (days <= 30)    return { color: WARN, bg: 'rgba(251,191,36,0.10)' };
@@ -303,7 +303,7 @@ export default function AdminAlerts() {
   ];
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
@@ -382,7 +382,7 @@ export default function AdminAlerts() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-[560]" style={{ color: T1, fontSize: 13 }}>{d.label}</p>
                             <span className="px-1.5 py-0.5 rounded-full"
-                              style={{ background: 'rgba(255,255,255,0.045)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 10 }}>
+                              style={{ background: 'rgb(var(--ink)/0.045)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 10 }}>
                               {d.provider}
                             </span>
                             {d.severity === 'critical' && (
@@ -439,7 +439,7 @@ export default function AdminAlerts() {
                             onChange={(e) => setDue(d.key, e.target.value)}
                             aria-label={t('adminAlerts.dueOn')}
                             className="px-2 py-1.5 rounded-lg cursor-pointer"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T2, fontSize: 11.5, colorScheme: 'dark' }}
+                            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${F_BORDER}`, color: T2, fontSize: 11.5, colorScheme: 'dark' }}
                           />
                           <button
                             onClick={() => markRenewed(d.key)}
@@ -508,7 +508,7 @@ export default function AdminAlerts() {
                   <TabsTrigger value="unread" className="h-7 px-3 text-xs data-[state=active]:bg-white/[0.08] data-[state=active]:text-white text-white/50 cursor-pointer">
                     {t('notif.unread')}
                     {unreadCount > 0 && (
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8192C] px-1 text-[9px] font-bold text-white">
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8192C] px-1 text-[9px] font-bold text-snow">
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
@@ -516,7 +516,7 @@ export default function AdminAlerts() {
                   <TabsTrigger value="urgent" className="h-7 px-3 text-xs data-[state=active]:bg-white/[0.08] data-[state=active]:text-white text-white/50 cursor-pointer">
                     {t('notif.urgent')}
                     {urgentCount > 0 && (
-                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: 'rgba(252,211,77,0.18)', color: '#FCD34D' }}>
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold" style={{ background: 'rgba(252,211,77,0.18)', color: 'var(--acc-fcd34d)' }}>
                         {urgentCount}
                       </span>
                     )}
@@ -560,12 +560,12 @@ export default function AdminAlerts() {
                               }}
                               className="group flex gap-3 rounded-xl p-3.5 transition-colors cursor-pointer"
                               style={{
-                                background: unread ? 'rgba(255,255,255,0.04)' : 'transparent',
+                                background: unread ? 'rgb(var(--ink)/0.04)' : 'transparent',
                                 border: `1px solid ${unread ? BORDER : F_BORDER}`,
                               }}
                             >
                               <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg mt-0.5"
-                                style={{ background: unread ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.02)', border: `1px solid ${F_BORDER}` }}>
+                                style={{ background: unread ? 'rgb(var(--ink)/0.055)' : 'rgb(var(--ink)/0.02)', border: `1px solid ${F_BORDER}` }}>
                                 <Icon className={`h-4 w-4 ${unread ? p.icon : 'text-white/25'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -580,7 +580,7 @@ export default function AdminAlerts() {
                                     {unread && <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />}
                                   </div>
                                 </div>
-                                <p style={{ color: unread ? T2 : 'rgba(255,255,255,0.28)', fontSize: 11.5, marginTop: 3, lineHeight: 1.5 }}>
+                                <p style={{ color: unread ? T2 : 'rgb(var(--ink)/var(--ink-a28,0.28))', fontSize: 11.5, marginTop: 3, lineHeight: 1.5 }}>
                                   {n.message}
                                 </p>
                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -685,7 +685,7 @@ function AddDeadlineDialog({
   };
 
   const field = {
-    background: 'rgba(255,255,255,0.04)',
+    background: 'rgb(var(--ink)/0.04)',
     border: `1px solid ${F_BORDER}`,
     color: T1,
     fontSize: 12.5,
@@ -694,7 +694,7 @@ function AddDeadlineDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] border-white/[0.08] bg-[#0a0a0c]">
+      <DialogContent className="sm:max-w-[520px] border-white/[0.08] bg-[var(--sf-0a0a0c)]">
         <DialogHeader>
           <DialogTitle style={{ color: T1 }}>{t('adminAlerts.addTitle')}</DialogTitle>
           <DialogDescription style={{ color: T3, fontSize: 12 }}>

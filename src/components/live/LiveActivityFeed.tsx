@@ -7,14 +7,14 @@ import type { FeedItem, FeedFilter, FeedItemType } from '@/hooks/useLiveNightDat
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface Props {
   feed: FeedItem[];
@@ -28,9 +28,9 @@ const typeConfig: Record<FeedItemType, { icon: typeof ShoppingCart; color: strin
   order_served:  { icon: CheckCircle,  color: POS,        labelKey: 'live.feedOrderServed' },
   ticket_scanned:{ icon: Ticket,       color: T2,         labelKey: 'live.feedTicketScanned' },
   gl_scanned:    { icon: Users,        color: T2,         labelKey: 'live.feedGlScanned' },
-  vip_scanned:   { icon: Crown,        color: '#FCD34D',  labelKey: 'live.feedVipScanned' },
+  vip_scanned:   { icon: Crown,        color: 'var(--acc-fcd34d)',  labelKey: 'live.feedVipScanned' },
   refund:        { icon: RotateCcw,    color: RED,        labelKey: 'live.feedRefund' },
-  table_booked:  { icon: Crown,        color: '#FCD34D',  labelKey: 'live.feedTableBooked' },
+  table_booked:  { icon: Crown,        color: 'var(--acc-fcd34d)',  labelKey: 'live.feedTableBooked' },
   cloakroom:     { icon: Shirt,        color: T2,         labelKey: 'live.feedCloakroom' },
 };
 
@@ -72,7 +72,7 @@ export function LiveActivityFeed({ feed, isPaused, onTogglePause }: Props) {
           onClick={onTogglePause}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-all duration-150"
           style={isPaused
-            ? { background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)', color: '#FCD34D' }
+            ? { background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)', color: 'var(--acc-fcd34d)' }
             : { background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.22)', color: POS }
           }
         >

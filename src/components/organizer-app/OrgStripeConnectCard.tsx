@@ -57,7 +57,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
       {isNone && (
         <div className="mt-4 space-y-3 rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
           <div className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#FCD34D' }} />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
             <p style={{ color: T2, fontSize: 12.5 }}>
               {t(
                 'Vous devez activer Stripe pour vendre des billets. Onboarding sécurisé en 2 minutes.',
@@ -78,7 +78,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
           style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}
         >
           <div className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#FCD34D' }} />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
             <p style={{ color: T2, fontSize: 12.5 }}>
               {t(
                 'Onboarding incomplet. Terminez les vérifications Stripe pour activer la vente.',
@@ -104,7 +104,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
             >
-              <Check className="h-3.5 w-3.5" style={{ color: '#34D399' }} />
+              <Check className="h-3.5 w-3.5" style={{ color: 'var(--acc-34d399)' }} />
               {t('Encaissement', 'Charges')}
             </div>
             <div
@@ -112,9 +112,9 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
             >
               {payoutsEnabled ? (
-                <Check className="h-3.5 w-3.5" style={{ color: '#34D399' }} />
+                <Check className="h-3.5 w-3.5" style={{ color: 'var(--acc-34d399)' }} />
               ) : (
-                <AlertCircle className="h-3.5 w-3.5" style={{ color: '#FCD34D' }} />
+                <AlertCircle className="h-3.5 w-3.5" style={{ color: 'var(--acc-fcd34d)' }} />
               )}
               {t('Virements', 'Payouts')}
             </div>
@@ -138,7 +138,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
             style={{ background: 'rgba(99,91,255,0.14)' }}
           >
-            <Lock className="h-3.5 w-3.5" style={{ color: '#8B85FF' }} />
+            <Lock className="h-3.5 w-3.5" style={{ color: 'var(--acc-8b85ff)' }} />
           </div>
           <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
             {t('Qu\'est-ce que Stripe ?', 'What is Stripe?')}
@@ -154,7 +154,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
           {[
             {
               icon: ShieldCheck,
-              color: '#34D399',
+              color: 'var(--acc-34d399)',
               title: t('Votre argent est en sécurité', 'Your money is safe'),
               desc: t(
                 'Stripe est un établissement de paiement agréé et réglementé en Europe et aux États-Unis, avec une sécurité de niveau bancaire (certifié PCI-DSS). Les données de carte sont chiffrées et ne passent jamais par Yuno.',
@@ -163,7 +163,7 @@ export function OrgStripeConnectCard({ userId }: { userId: string | null | undef
             },
             {
               icon: Banknote,
-              color: '#60A5FA',
+              color: 'var(--acc-60a5fa)',
               title: t('Virements automatiques vers votre banque', 'Automatic transfers to your bank'),
               desc: t(
                 'Après chaque vente, vos gains sont automatiquement virés sur votre propre compte bancaire, généralement sous quelques jours ouvrés. Aucune demande manuelle, vous n\'attendez pas après nous.',

@@ -25,8 +25,8 @@ function Shell({ title, help, icon, onClose, children }: {
         style={{
           width: 460, maxWidth: 'calc(100vw - 32px)', borderRadius: 18, overflow: 'hidden',
           border: `1px solid ${BORDER}`, fontFamily: FONT_UI,
-          background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c',
-          boxShadow: '0 1px 0 rgba(255,255,255,.05) inset,0 40px 80px -40px #000',
+          background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)',
+          boxShadow: '0 1px 0 rgb(var(--sheen)/.05) inset,0 40px 80px -40px rgb(0 0 0/var(--pro-shadow-a))',
         }}
       >
         <div style={{ padding: '20px 22px 0', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -138,7 +138,7 @@ export default function SaveTemplateDialog({ open, campaign, templates, onClose,
           <select
             value={targetId} onChange={(e) => setTargetId(e.target.value)}
             style={{
-              width: '100%', padding: '9px 11px', borderRadius: 10, background: '#0a0a0c',
+              width: '100%', padding: '9px 11px', borderRadius: 10, background: 'var(--sf-0a0a0c)',
               border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5, fontFamily: FONT_UI, outline: 'none',
             }}
           >

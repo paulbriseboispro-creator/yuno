@@ -200,7 +200,7 @@ export default function OwnerPromoters() {
                     className="w-full flex items-center gap-3 transition-colors"
                     style={{ padding: '12px 16px', borderTop: i > 0 ? `1px solid ${F_BORDER}` : 'none', background: isCurrent ? 'rgba(232,25,44,0.05)' : 'transparent', cursor: 'pointer' }}>
                     <div className="flex items-center justify-center flex-none"
-                      style={{ width: 26, height: 26, borderRadius: 999, background: s.done ? RED : 'transparent', border: `1.5px solid ${s.done ? RED : isCurrent ? RED : 'rgba(255,255,255,0.18)'}`, color: s.done ? '#fff' : isCurrent ? RED : T3, fontSize: 12, fontWeight: 700 }}>
+                      style={{ width: 26, height: 26, borderRadius: 999, background: s.done ? RED : 'transparent', border: `1.5px solid ${s.done ? RED : isCurrent ? RED : 'rgb(var(--ink)/0.18)'}`, color: s.done ? '#fff' : isCurrent ? RED : T3, fontSize: 12, fontWeight: 700 }}>
                       {s.done ? <Check className="h-3.5 w-3.5" /> : s.n}
                     </div>
                     <div className="flex-1 min-w-0 text-left">
@@ -414,7 +414,7 @@ export default function OwnerPromoters() {
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             >
-              <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 20, padding: 24 }}>
+              <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 20, padding: 24 }}>
                 <div className="flex items-center justify-between mb-2">
                   <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, margin: 0 }}>{t('owner.addPromoter')}</h2>
                   <button onClick={() => setInviteOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T3 }}>
@@ -430,7 +430,7 @@ export default function OwnerPromoters() {
                   onChange={e => setNewPromoterEmail(e.target.value)}
                   className="w-full outline-none mb-4"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px', color: T1, fontSize: 14, fontFamily: 'inherit' }}
-                  onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.2)')}
+                  onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/var(--ink-a20,0.2))')}
                   onBlur={(e) => (e.target.style.borderColor = BORDER)}
                 />
                 <div className="flex gap-2">

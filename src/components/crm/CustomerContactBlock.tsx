@@ -8,10 +8,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // savoir si le client n'a pas laissé de numéro ou si l'app ne le montrait pas.
 // Ici tout est visible, copiable, et appelable en un geste — c'est ce dont un
 // club a besoin quand il rappelle un client pour sa table.
-const T1       = 'rgba(255,255,255,0.96)';
-const T3       = 'rgba(255,255,255,0.36)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 interface Props { email: string; phone?: string | null }
 
@@ -33,7 +33,7 @@ export function CustomerContactBlock({ email, phone }: Props) {
       <span className="shrink-0" style={{ color: T3 }}>{icon}</span>
       <a href={href} className="flex-1 truncate" style={{ color: T1, fontSize: 13 }}>{value}</a>
       <button onClick={() => copy(value, k)} title={t('customers.copy')}
-        className="shrink-0 p-1 rounded-lg cursor-pointer" style={{ color: copied === k ? '#34D399' : T3 }}>
+        className="shrink-0 p-1 rounded-lg cursor-pointer" style={{ color: copied === k ? 'var(--acc-34d399)' : T3 }}>
         {copied === k ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
     </div>

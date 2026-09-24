@@ -107,7 +107,7 @@ export function EventCard({ event }: { event: EventCardData }) {
         {event.percentSold >= 100 && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
             <span
-              className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1"
+              className="font-mono font-bold tracking-[0.18em] text-snow px-3 py-1"
               style={{ fontSize: '10px', background: '#E8192C', borderRadius: '2px' }}
             >
               SOLD OUT

@@ -57,7 +57,7 @@ function BarRow({ label, sub, value, max, accent }: {
       </div>
       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: C_FAINT }}>
         <div className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: accent ? RED : 'rgba(255,255,255,0.45)' }} />
+          style={{ width: `${pct}%`, background: accent ? RED : 'rgb(var(--ink)/var(--ink-a45,0.45))' }} />
       </div>
     </div>
   );
@@ -189,7 +189,7 @@ export default function DJAnalytics() {
       const l = (g.label || '').toLowerCase();
       if (['male', 'm', 'homme', 'hombre', 'man', 'h'].includes(l)) add('m', tt('Hommes', 'Men', 'Hombres'), '#60A5FA', g.count);
       else if (['female', 'f', 'femme', 'mujer', 'woman'].includes(l)) add('f', tt('Femmes', 'Women', 'Mujeres'), RED, g.count);
-      else add('o', tt('Autre', 'Other', 'Otro'), 'rgba(255,255,255,0.35)', g.count);
+      else add('o', tt('Autre', 'Other', 'Otro'), 'rgb(var(--ink)/var(--ink-a35,0.35))', g.count);
     }
     return [...buckets.values()].sort((a, b) => b.count - a.count);
   }, [aud, tt]);

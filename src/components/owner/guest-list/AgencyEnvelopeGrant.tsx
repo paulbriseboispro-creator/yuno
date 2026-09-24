@@ -104,7 +104,7 @@ export function AgencyEnvelopeGrant({
           </p>
           <div className="space-y-2">
             {rows.map(r => (
-              <div key={r.agency_id} className="flex items-center gap-2 flex-wrap" style={{ padding: '8px 0', borderTop: `1px solid rgba(255,255,255,0.05)` }}>
+              <div key={r.agency_id} className="flex items-center gap-2 flex-wrap" style={{ padding: '8px 0', borderTop: `1px solid rgb(var(--ink)/0.05)` }}>
                 <span className="flex-1 min-w-0 truncate" style={{ color: T1, fontSize: 13 }}>
                   {r.name}
                   {r.granted != null && <span style={{ color: T3, fontSize: 11 }}> · {tt('accordé', 'granted')} {r.granted === 0 ? '∞' : r.granted}</span>}
@@ -112,12 +112,12 @@ export function AgencyEnvelopeGrant({
                 <input
                   type="number" min={0} value={r.quota} onChange={e => setRow(r.agency_id, { quota: e.target.value })}
                   placeholder={tt('places', 'spots')}
-                  className="outline-none text-center" style={{ width: 74, background: '#111', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 8px', color: T1, fontSize: 13 }}
+                  className="outline-none text-center" style={{ width: 74, background: 'var(--sf-111111)', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 8px', color: T1, fontSize: 13 }}
                 />
                 <select value={r.mode} onChange={e => setRow(r.agency_id, { mode: e.target.value as 'partition' | 'pool' })}
-                  className="outline-none" style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 8px', color: T1, fontSize: 12.5 }}>
-                  <option value="partition" style={{ background: '#111' }}>{tt('Partition', 'Partition')}</option>
-                  <option value="pool" style={{ background: '#111' }}>{tt('Pool', 'Pool')}</option>
+                  className="outline-none" style={{ background: 'var(--sf-111111)', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 8px', color: T1, fontSize: 12.5 }}>
+                  <option value="partition" style={{ background: 'var(--sf-111111)' }}>{tt('Partition', 'Partition')}</option>
+                  <option value="pool" style={{ background: 'var(--sf-111111)' }}>{tt('Pool', 'Pool')}</option>
                 </select>
                 <button onClick={() => grant(r)} disabled={busy === r.agency_id}
                   className="flex items-center gap-1" style={{ padding: '7px 11px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', background: RED, color: '#fff', border: 'none', opacity: busy === r.agency_id ? 0.5 : 1 }}>

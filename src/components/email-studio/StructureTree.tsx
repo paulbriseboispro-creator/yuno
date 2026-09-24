@@ -52,15 +52,15 @@ export default function StructureTree() {
       }}
     >
       <span style={{ width: 13, flex: 'none' }} />
-      <PanelBottom size={14} strokeWidth={1.75} style={{ color: footerSelected ? RED : 'rgba(255,255,255,0.35)', flex: 'none' }} />
+      <PanelBottom size={14} strokeWidth={1.75} style={{ color: footerSelected ? RED : 'rgb(var(--ink)/var(--ink-a35,0.35))', flex: 'none' }} />
       <span style={{
         flex: 1, fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI,
-        color: footerSelected ? T1 : 'rgba(255,255,255,0.55)',
+        color: footerSelected ? T1 : 'rgb(var(--ink)/var(--ink-a55,0.55))',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {t('studio.footer.label')}
       </span>
-      <Lock size={12} strokeWidth={1.75} style={{ color: 'rgba(255,255,255,0.22)', flex: 'none' }} />
+      <Lock size={12} strokeWidth={1.75} style={{ color: 'rgb(var(--ink)/var(--ink-a22,0.22))', flex: 'none' }} />
     </div>
   );
 
@@ -112,11 +112,11 @@ export default function StructureTree() {
                 border: `1px solid ${selected ? 'rgba(232,25,44,0.22)' : 'transparent'}`,
               }}
             >
-              <GripVertical size={13} strokeWidth={1.75} style={{ color: 'rgba(255,255,255,0.18)', flex: 'none', cursor: 'grab' }} />
-              <Icon size={14} strokeWidth={1.75} style={{ color: selected ? RED : 'rgba(255,255,255,0.35)', flex: 'none' }} />
+              <GripVertical size={13} strokeWidth={1.75} style={{ color: 'rgb(var(--ink)/0.18)', flex: 'none', cursor: 'grab' }} />
+              <Icon size={14} strokeWidth={1.75} style={{ color: selected ? RED : 'rgb(var(--ink)/var(--ink-a35,0.35))', flex: 'none' }} />
               <span style={{
                 flex: 1, fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI,
-                color: selected ? T1 : 'rgba(255,255,255,0.55)',
+                color: selected ? T1 : 'rgb(var(--ink)/var(--ink-a55,0.55))',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 {t(meta.labelKey)}{snippet ? ` · ${snippet}` : ''}
@@ -157,10 +157,10 @@ function RowBtn({ children, onClick, label, danger }: {
       type="button" aria-label={label} title={label}
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       onMouseEnter={(e) => { e.currentTarget.style.color = danger ? '#FF5C63' : T1; }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.28)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = 'rgb(var(--ink)/var(--ink-a28,0.28))'; }}
       style={{
         width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 6, color: 'rgba(255,255,255,0.28)', cursor: 'pointer', flex: 'none',
+        borderRadius: 6, color: 'rgb(var(--ink)/var(--ink-a28,0.28))', cursor: 'pointer', flex: 'none',
         background: 'transparent', border: 'none',
       }}
     >{children}</button>

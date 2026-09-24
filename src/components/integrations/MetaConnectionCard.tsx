@@ -41,15 +41,15 @@ import { fr, es, enUS } from 'date-fns/locale';
 
 // ─── Tokens (design system pro) ──────────────────────────────────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const WARN = '#FBBF24';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const WARN = 'var(--acc-fbbf24)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 const META_BLUE = '#0866FF';
 // Le dialogue Meta s'ouvre dans un AUTRE onglet : c'est donc lui qui reçoit le
 // retour `?meta=…`. Il le repasse à l'onglet d'origine par cette clé —
@@ -280,7 +280,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
     let tab: Window | null = null;
     try { tab = window.open('', '_blank'); } catch { tab = null; }
     if (tab) {
-      try { tab.document.write(`<!doctype html><meta charset="utf-8"><title>Meta</title><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0c;color:rgba(255,255,255,.58);font:500 14px/1.5 -apple-system,system-ui,sans-serif">${t('integ.meta.oauthTabLoading')}</body>`); } catch { /* le blanc est acceptable */ }
+      try { tab.document.write(`<!doctype html><meta charset="utf-8"><title>Meta</title><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0c;color:rgb(var(--ink)/var(--ink-a58,.58));font:500 14px/1.5 -apple-system,system-ui,sans-serif">${t('integ.meta.oauthTabLoading')}</body>`); } catch { /* le blanc est acceptable */ }
     }
     setBusy('oauth');
     try {
@@ -435,7 +435,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
       <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5, flex: 1, minWidth: 220 }}>{t('integ.meta.oauthTabOpen')}</p>
       <button type="button" onClick={() => { setWaitingOauth(false); load(); }}
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold"
-        style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+        style={{ background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` }}>
         <RefreshCw className="w-3.5 h-3.5" /> {t('integ.meta.oauthTabRefresh')}
       </button>
     </div>
@@ -609,7 +609,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
             <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>{t('integ.meta.loadError')}</p>
             <button type="button" onClick={() => { setLoading(true); load(); }}
               className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
-              style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+              style={{ background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` }}>
               <RefreshCw className="w-4 h-4" /> {t('integ.meta.retry')}
             </button>
           </div>
@@ -816,7 +816,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                 <input value={testCode} onChange={(e) => setTestCode(e.target.value.trim())} placeholder="TEST12345" style={inputStyle} autoComplete="off" />
                 <button type="button" onClick={handleTest} disabled={busy !== null || !testCode}
                   className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold flex-shrink-0 disabled:opacity-50"
-                  style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                  style={{ background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` }}>
                   {busy === 'test' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
                   {t('integ.meta.test')}
                 </button>
@@ -828,7 +828,7 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                 {!editToken ? (
                   <button type="button" onClick={() => setEditToken(true)}
                     className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                    style={{ background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` }}>
                     <RefreshCw className="w-4 h-4" /> {t('integ.meta.updateTokenBtn')}
                   </button>
                 ) : (
@@ -849,14 +849,14 @@ export function MetaConnectionCard({ scope, helpPath, live = true, returnTo }: {
                 <div className="flex items-center gap-3 flex-wrap">
                   <button type="button" onClick={handleHealth} disabled={busy !== null}
                     className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                    style={{ background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` }}>
                     {busy === 'health' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
                     {t('integ.meta.healthBtn')}
                   </button>
                   {conn.assets && (
                     <button type="button" onClick={() => setChangingAssets((v) => !v)} disabled={busy !== null}
                       className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold"
-                      style={{ background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` }}>
+                      style={{ background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` }}>
                       <RefreshCw className="w-4 h-4" /> {t('integ.meta.changeAssets')}
                     </button>
                   )}

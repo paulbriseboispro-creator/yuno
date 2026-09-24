@@ -149,7 +149,7 @@ export function ZoneUpsellSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[70] max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/[0.08] bg-[#0A0A0A]"
+            className="fixed bottom-0 left-0 right-0 z-[70] max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-white/[0.08] bg-[var(--sf-0a0a0a)]"
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             {/* Handle */}
@@ -163,11 +163,11 @@ export function ZoneUpsellSheet({
                   {/* Header — table ciblée */}
                   <div className="flex items-start justify-between gap-3 mb-5">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: '#9A9A9A' }}>
+                      <div className="flex items-center gap-1.5 font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: 'var(--tx-9a9a9a)' }}>
                         <span>{focusedTable.name}</span>
                         {targetZoneName && (
                           <>
-                            <span className="text-[#6A6A6A]">·</span>
+                            <span className="text-[var(--tx-6a6a6a)]">·</span>
                             <span className="inline-flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full" style={{ background: targetZoneColor }} />
                               {targetZoneName}
@@ -180,7 +180,7 @@ export function ZoneUpsellSheet({
                           ? (t('vipCheckout.switchPackTitle') || 'Changer de formule ?')
                           : (t('vipCheckout.upsellTitle') || 'Changer de zone ?')}
                       </h3>
-                      <p className="text-[12px] text-[#9A9A9A] mt-2 leading-relaxed">
+                      <p className="text-[12px] text-[var(--tx-9a9a9a)] mt-2 leading-relaxed">
                         {boundPack
                           ? (t('vipCheckout.upsellPackDesc') || 'La table {table} se réserve avec la formule {pack}.').replace('{table}', focusedTable.name).replace('{pack}', boundPack.name)
                           : (t('vipCheckout.upsellDesc') || 'La table {table} est dans la zone {zone}.').replace('{table}', focusedTable.name).replace('{zone}', targetZoneName)}
@@ -197,14 +197,14 @@ export function ZoneUpsellSheet({
 
                   {/* Actuel → nouveau */}
                   <div className="flex items-center gap-2 mb-3 font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em' }}>
-                    <span className="text-[#9A9A9A]">{t('vipCheckout.currentPack') || 'Actuellement'}</span>
-                    <span className="text-[#E5E5E5] truncate min-w-0">{currentPackName}</span>
+                    <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.currentPack') || 'Actuellement'}</span>
+                    <span className="text-[var(--tx-e5e5e5)] truncate min-w-0">{currentPackName}</span>
                     <span className="text-white font-bold shrink-0">{Math.round(currentPackPrice)}€</span>
-                    <ArrowRight className="h-3 w-3 text-[#6A6A6A] shrink-0" />
+                    <ArrowRight className="h-3 w-3 text-[var(--tx-6a6a6a)] shrink-0" />
                     {activePack ? (
                       <span
                         className={`inline-flex items-center gap-0.5 font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                          activeIsUpgrade ? 'bg-amber-500/15 text-amber-400' : activeIsDowngrade ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/[0.06] text-[#E5E5E5]'
+                          activeIsUpgrade ? 'bg-amber-500/15 text-amber-400' : activeIsDowngrade ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/[0.06] text-[var(--tx-e5e5e5)]'
                         }`}
                       >
                         {activeIsUpgrade && <Sparkles className="h-3 w-3" />}
@@ -212,7 +212,7 @@ export function ZoneUpsellSheet({
                         {activeDiff === 0 ? (t('vipCheckout.samePrice') || 'Même prix') : fmtDiff(activeDiff)}
                       </span>
                     ) : (
-                      <span className="text-[#9A9A9A]">{t('vipCheckout.upsellPickPack') || 'Choisissez la formule de cette table'}</span>
+                      <span className="text-[var(--tx-9a9a9a)]">{t('vipCheckout.upsellPickPack') || 'Choisissez la formule de cette table'}</span>
                     )}
                   </div>
 
@@ -236,34 +236,34 @@ export function ZoneUpsellSheet({
                           className={`flex items-start gap-3 p-4 border transition-colors ${selectable && fits ? 'cursor-pointer' : ''} ${!fits ? 'opacity-50' : ''}`}
                           style={isActive
                             ? { borderColor: 'rgba(232,25,44,0.55)', background: 'rgba(232,25,44,0.06)', borderRadius: 12 }
-                            : { borderColor: 'rgba(255,255,255,0.08)', background: '#141414', borderRadius: 12 }}
+                            : { borderColor: 'rgb(var(--ink)/0.08)', background: 'var(--sf-141414)', borderRadius: 12 }}
                         >
                           {selectable && (
                             <span
                               className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center"
-                              style={{ borderColor: isActive ? '#E8192C' : 'rgba(255,255,255,0.25)' }}
+                              style={{ borderColor: isActive ? '#E8192C' : 'rgb(var(--ink)/var(--ink-a25,0.25))' }}
                             >
                               {isActive && <span className="h-2 w-2 rounded-full" style={{ background: '#E8192C' }} />}
                             </span>
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="font-display font-bold uppercase text-white truncate" style={{ fontSize: '14px', letterSpacing: '-0.005em' }}>{pack.name}</p>
-                            <p className="font-mono uppercase mt-1" style={{ fontSize: '9px', letterSpacing: '0.04em', color: fits ? '#9A9A9A' : '#f59e0b' }}>
+                            <p className="font-mono uppercase mt-1" style={{ fontSize: '9px', letterSpacing: '0.04em', color: fits ? 'var(--tx-9a9a9a)' : 'var(--acc-f59e0b)' }}>
                               {fits
                                 ? tableCapacityLabel(pack, t)
                                 : (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount))}
                             </p>
                             {pack.description && (
                               <div className="flex items-start gap-1.5 mt-2">
-                                <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
-                                <p className="text-[11px] text-[#9A9A9A] leading-relaxed line-clamp-3">{pack.description}</p>
+                                <Wine className="h-3 w-3 text-[var(--tx-5a5a5e)] mt-0.5 shrink-0" />
+                                <p className="text-[11px] text-[var(--tx-9a9a9a)] leading-relaxed line-clamp-3">{pack.description}</p>
                               </div>
                             )}
                           </div>
                           <div className="flex flex-col items-end gap-1 shrink-0">
                             <span className="font-mono font-bold text-white" style={{ fontSize: '15px' }}>{Math.round(packPrice)}€</span>
                             {guestCount > pack.baseCapacity && (
-                              <span className="font-mono" style={{ fontSize: '9px', letterSpacing: '0.04em', color: '#9A9A9A' }}>
+                              <span className="font-mono" style={{ fontSize: '9px', letterSpacing: '0.04em', color: 'var(--tx-9a9a9a)' }}>
                                 {guestCount} {persWord}
                               </span>
                             )}
@@ -275,7 +275,7 @@ export function ZoneUpsellSheet({
                       );
                     })}
                     {candidatePacks.length === 0 && (
-                      <p className="text-[12px] text-[#9A9A9A] py-4 text-center">{t('vipCheckout.noPackForTable') || 'Aucune formule disponible pour cette table.'}</p>
+                      <p className="text-[12px] text-[var(--tx-9a9a9a)] py-4 text-center">{t('vipCheckout.noPackForTable') || 'Aucune formule disponible pour cette table.'}</p>
                     )}
                   </div>
 
@@ -286,7 +286,7 @@ export function ZoneUpsellSheet({
                       disabled={!canConfirm}
                       className="w-full h-12 rounded-full flex items-center justify-center gap-2 font-mono uppercase text-[11px] font-bold tracking-[0.10em] transition-all active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100"
                       style={activeIsUpgrade
-                        ? { background: '#FBBF24', color: '#0A0A0A', boxShadow: '0 10px 28px rgba(251,191,36,0.28)' }
+                        ? { background: 'var(--acc-fbbf24)', color: '#0A0A0A', boxShadow: '0 10px 28px rgba(251,191,36,0.28)' }
                         : { background: '#E8192C', color: '#FFFFFF', boxShadow: '0 10px 28px rgba(232,25,44,0.32)' }}
                     >
                       {activeIsUpgrade && <Sparkles className="h-4 w-4" />}
@@ -295,14 +295,14 @@ export function ZoneUpsellSheet({
                     </button>
                     <button
                       onClick={handleClose}
-                      className="w-full h-11 rounded-full flex items-center justify-center font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[#E5E5E5] bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
+                      className="w-full h-11 rounded-full flex items-center justify-center font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[var(--tx-e5e5e5)] bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
                     >
                       {t('vipCheckout.keepCurrent') || 'Garder ma sélection'}
                     </button>
                     {zones.length > 1 && (
                       <button
                         onClick={() => setShowAllZones(true)}
-                        className="w-full h-9 flex items-center justify-center font-mono uppercase text-[9px] tracking-[0.10em] text-[#9A9A9A] hover:text-white transition-colors"
+                        className="w-full h-9 flex items-center justify-center font-mono uppercase text-[9px] tracking-[0.10em] text-[var(--tx-9a9a9a)] hover:text-white transition-colors"
                       >
                         {t('vipCheckout.seeAllZones') || 'Voir toutes les zones'}
                       </button>
@@ -315,7 +315,7 @@ export function ZoneUpsellSheet({
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h3 className="font-display font-bold uppercase text-white" style={{ fontSize: '20px', letterSpacing: '-0.01em' }}>{t('vipCheckout.changeZone') || 'Changer de zone'}</h3>
-                  <p className="font-mono uppercase mt-1" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
+                  <p className="font-mono uppercase mt-1" style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>
                     {guestCount} {persWord}
                   </p>
                 </div>
@@ -349,7 +349,7 @@ export function ZoneUpsellSheet({
                       className="p-4 border transition-all"
                       style={isCurrent
                         ? { borderColor: 'rgba(232,25,44,0.55)', background: 'rgba(232,25,44,0.05)', borderRadius: 10 }
-                        : { borderColor: 'rgba(255,255,255,0.08)', background: '#141414', borderRadius: 10 }}
+                        : { borderColor: 'rgb(var(--ink)/0.08)', background: 'var(--sf-141414)', borderRadius: 10 }}
                     >
                       {/* Zone header */}
                       <div className="flex items-start justify-between gap-3">
@@ -369,7 +369,7 @@ export function ZoneUpsellSheet({
                           </div>
 
                           {/* Price summary */}
-                          <p className="font-mono uppercase mt-1" style={{ fontSize: '10px', letterSpacing: '0.04em', color: '#9A9A9A' }}>
+                          <p className="font-mono uppercase mt-1" style={{ fontSize: '10px', letterSpacing: '0.04em', color: 'var(--tx-9a9a9a)' }}>
                             {t('tables.from')} <span className="font-bold text-white">{activePacks[0].basePrice}€</span>
                             {' '}/ {activePacks[0].baseCapacity} pers.
                           </p>
@@ -397,7 +397,7 @@ export function ZoneUpsellSheet({
                               title={!packFits(activePacks[0]) ? (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount)) : undefined}
                               className="font-mono uppercase text-[10px] font-bold tracking-[0.08em] h-8 px-3.5 rounded-full transition-all active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100"
                               style={isUpgrade
-                                ? { background: '#FBBF24', color: '#0A0A0A' }
+                                ? { background: 'var(--acc-fbbf24)', color: '#0A0A0A' }
                                 : { background: 'transparent', color: '#E8192C', border: '1px solid #E8192C' }}
                             >
                               {isUpgrade
@@ -409,7 +409,7 @@ export function ZoneUpsellSheet({
                           {hasMultiplePacks && (
                             <button
                               onClick={() => setExpandedZone(expandedZone === zone.id ? null : zone.id)}
-                              className="font-mono uppercase text-[10px] font-bold tracking-[0.08em] h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] text-[#E5E5E5] inline-flex items-center gap-1 transition-colors"
+                              className="font-mono uppercase text-[10px] font-bold tracking-[0.08em] h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] text-[var(--tx-e5e5e5)] inline-flex items-center gap-1 transition-colors"
                             >
                               {activePacks.length} packs
                               {expandedZone === zone.id
@@ -466,7 +466,7 @@ export function ZoneUpsellSheet({
                                         )}
                                       </div>
                                       <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.04em', color: fits ? (pack.baseCapacity > guestCount ? '#E5E5E5' : '#9A9A9A') : '#f59e0b' }}>
+                                        <span className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.04em', color: fits ? (pack.baseCapacity > guestCount ? 'var(--tx-e5e5e5)' : 'var(--tx-9a9a9a)') : 'var(--acc-f59e0b)' }}>
                                           {!fits
                                             ? (t('vipCheckout.packTooSmallFor') || 'Trop petite pour {n} pers.').replace('{n}', String(guestCount))
                                             : pack.baseCapacity > guestCount
@@ -476,8 +476,8 @@ export function ZoneUpsellSheet({
                                       </div>
                                       {pack.description && (
                                         <div className="flex items-start gap-1 mt-1">
-                                          <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
-                                          <p className="text-[11px] text-[#9A9A9A] leading-relaxed line-clamp-2">
+                                          <Wine className="h-3 w-3 text-[var(--tx-5a5a5e)] mt-0.5 shrink-0" />
+                                          <p className="text-[11px] text-[var(--tx-9a9a9a)] leading-relaxed line-clamp-2">
                                             {pack.description}
                                           </p>
                                         </div>
@@ -502,8 +502,8 @@ export function ZoneUpsellSheet({
                       {/* Single pack menu preview (when not expanded) */}
                       {!hasMultiplePacks && activePacks[0]?.description && (
                         <div className="mt-2 flex items-start gap-1.5">
-                          <Wine className="h-3 w-3 text-[#5A5A5E] mt-0.5 shrink-0" />
-                          <p className="text-[11px] text-[#9A9A9A] leading-relaxed">
+                          <Wine className="h-3 w-3 text-[var(--tx-5a5a5e)] mt-0.5 shrink-0" />
+                          <p className="text-[11px] text-[var(--tx-9a9a9a)] leading-relaxed">
                             {activePacks[0].description}
                           </p>
                         </div>

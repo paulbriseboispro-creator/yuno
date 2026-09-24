@@ -261,7 +261,7 @@ export default function SmsCampaignReport({ campaignId, scope, eventTitle, onBac
           <Card className="border-white/[0.06] bg-surface/40">
             <CardContent className="p-4">
               <p className="mb-2 text-sm font-medium text-foreground">{t('smsc.report.message')}</p>
-              <div className="rounded-2xl rounded-bl-sm bg-[#2c2c2e] px-3 py-2 text-[12px] leading-relaxed text-white whitespace-pre-wrap break-words">{composed}</div>
+              <div className="rounded-2xl rounded-bl-sm bg-[var(--sf-2c2c2e)] px-3 py-2 text-[12px] leading-relaxed text-white whitespace-pre-wrap break-words">{composed}</div>
             </CardContent>
           </Card>
           <Card className="border-white/[0.06] bg-surface/40">

@@ -43,7 +43,7 @@ export function LiveReleaseCard({ release, language, t, compact = false }: {
     <div
       className="relative overflow-hidden"
       style={{
-        background: compact ? 'rgba(10,10,10,0.78)' : LV.card,
+        background: compact ? 'rgb(var(--glass-10-10-10)/0.78)' : LV.card,
         backdropFilter: compact ? 'blur(14px)' : undefined,
         WebkitBackdropFilter: compact ? 'blur(14px)' : undefined,
         border: `1px solid ${hot ? 'rgba(232,25,44,0.32)' : LV.border}`,
@@ -96,7 +96,7 @@ export function LiveReleaseCard({ release, language, t, compact = false }: {
       {/* Courbe : billets par minute, 60 dernières minutes */}
       <div className="mt-4" aria-label={t('lv.release.sparkline')} role="img">
         <svg viewBox="0 0 120 32" preserveAspectRatio="none" width="100%" height={compact ? 28 : 36} style={{ display: 'block' }}>
-          <line x1="0" y1="31.5" x2="120" y2="31.5" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+          <line x1="0" y1="31.5" x2="120" y2="31.5" stroke="rgb(var(--ink)/0.10)" strokeWidth="0.5" />
           {series.map((n, i) => {
             const h = n > 0 ? Math.max(2, (n / max) * 30) : 0.8;
             const isLast = i === series.length - 1;
@@ -107,7 +107,7 @@ export function LiveReleaseCard({ release, language, t, compact = false }: {
                 y={31 - h}
                 width={1.4}
                 height={h}
-                fill={n > 0 ? (isLast ? LV.red : 'rgba(232,25,44,0.62)') : 'rgba(255,255,255,0.10)'}
+                fill={n > 0 ? (isLast ? LV.red : 'rgba(232,25,44,0.62)') : 'rgb(var(--ink)/0.10)'}
                 style={{ transition: `y 0.4s ${LV.ease}, height 0.4s ${LV.ease}` }}
               />
             );

@@ -1022,10 +1022,10 @@ export default function OwnerEvents() {
   if (loading || venueLoading) return <OwnerPageSkeleton />;
 
   return (
-    <div className={isOrganizerScope ? 'pb-28' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: '#000' }}>
+    <div className={isOrganizerScope ? 'pb-28' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && (
         <div className="fixed inset-0 pointer-events-none z-0"
-          style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+          style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       )}
 
       {!isOrganizerScope && <OwnerHeader title={t('owner.eventsTitle')} />}
@@ -1045,7 +1045,7 @@ export default function OwnerEvents() {
             className="flex items-center gap-3 rounded-xl px-4 py-3"
             style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.26)' }}
           >
-            <Lock className="w-4 h-4 shrink-0" style={{ color: '#F59E0B' }} />
+            <Lock className="w-4 h-4 shrink-0" style={{ color: 'var(--acc-f59e0b)' }} />
             <p className="text-[12.5px] flex-1" style={{ color: T1 }}>
               {stripeStatus === 'pending'
                 ? t('owner.ev.stripePendingBanner')
@@ -1054,7 +1054,7 @@ export default function OwnerEvents() {
             <button
               onClick={() => navigate(`${basePath}/payments`)}
               className="text-[12.5px] font-medium px-3 py-1.5 rounded-lg cursor-pointer shrink-0"
-              style={{ background: 'rgba(245,158,11,0.16)', border: '1px solid rgba(245,158,11,0.32)', color: '#fff' }}
+              style={{ background: 'rgba(245,158,11,0.16)', border: '1px solid rgba(245,158,11,0.32)', color: 'rgb(var(--ink))' }}
             >
               {t('owner.ev.configure')}
             </button>
@@ -1071,7 +1071,7 @@ export default function OwnerEvents() {
                 onClick={() => setView(key)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
                 style={active
-                  ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.32)', color: '#fff' }
+                  ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.32)', color: 'rgb(var(--ink))' }
                   : { background: 'transparent', border: '1px solid transparent', color: T3 }}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -1125,7 +1125,7 @@ export default function OwnerEvents() {
         {upcomingEvents.length === 0 && pastEvents.length === 0 && (
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
             <div className="text-center py-16 px-4">
-              <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+              <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
               <p style={{ color: T3, fontSize: 13 }}>{t('owner.noEventsOwner')}</p>
             </div>
           </div>
@@ -1253,7 +1253,7 @@ export default function OwnerEvents() {
             formulaire déroulé. */}
         <DialogContent className="border-0 p-0 max-h-[90vh]"
           data-action-busy={publishOpen && publishStage < 5 ? '1' : undefined}
-          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
+          style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
                    display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="flex-1 min-h-0 overflow-y-auto" style={{
           transition: 'filter .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1), opacity .5s ease',
@@ -1346,10 +1346,10 @@ export default function OwnerEvents() {
                   className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
                 >
-                  <option value="club" style={{ background: '#0a0a0c' }}>Club</option>
-                  <option value="after_party" style={{ background: '#0a0a0c' }}>After Party</option>
-                  <option value="beach_club" style={{ background: '#0a0a0c' }}>Beach Club</option>
-                  <option value="open_air" style={{ background: '#0a0a0c' }}>Open Air</option>
+                  <option value="club" style={{ background: 'var(--sf-0a0a0c)' }}>Club</option>
+                  <option value="after_party" style={{ background: 'var(--sf-0a0a0c)' }}>After Party</option>
+                  <option value="beach_club" style={{ background: 'var(--sf-0a0a0c)' }}>Beach Club</option>
+                  <option value="open_air" style={{ background: 'var(--sf-0a0a0c)' }}>Open Air</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
               </div>
@@ -1397,7 +1397,7 @@ export default function OwnerEvents() {
                     ? SUPPORTED_TIMEZONES
                     : [{ id: formData.timezone, city: formData.timezone }, ...SUPPORTED_TIMEZONES]
                   ).map(z => (
-                    <option key={z.id} value={z.id} style={{ background: '#0a0a0c' }}>
+                    <option key={z.id} value={z.id} style={{ background: 'var(--sf-0a0a0c)' }}>
                       {z.city} · {tzOffsetLabel(z.id)}
                     </option>
                   ))}
@@ -1429,7 +1429,7 @@ export default function OwnerEvents() {
                 <FieldLabel>{t('owner.ev.collabMode')}</FieldLabel>
                 {liveContract ? (
                   <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <Check className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#34D399' }} />
+                    <Check className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--acc-34d399)' }} />
                     <div>
                       <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>
                         {liveContract.status === 'pending_signatures'
@@ -1492,17 +1492,17 @@ export default function OwnerEvents() {
                       <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)}
                         className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
                         style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: partnerId ? T1 : T3, outline: 'none' }}>
-                        <option value="" style={{ background: '#0a0a0c' }}>
+                        <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>
                           {isOrganizerScope ? t('owner.ev.selectClub') : tl('Choisir un organisateur', 'Pick an organizer', 'Elegir un organizador')}
                         </option>
                         {isOrganizerScope
                           ? activePartnerships.map((p) => (
-                              <option key={p.id} value={p.venue_id} style={{ background: '#0a0a0c' }}>
+                              <option key={p.id} value={p.venue_id} style={{ background: 'var(--sf-0a0a0c)' }}>
                                 {p.venue?.name ?? p.venue_id}{p.venue?.city ? ` · ${p.venue.city}` : ''}
                               </option>
                             ))
                           : activeOrgPartners.map((p) => (
-                              <option key={p.id} value={p.organizer_user_id} style={{ background: '#0a0a0c' }}>
+                              <option key={p.id} value={p.organizer_user_id} style={{ background: 'var(--sf-0a0a0c)' }}>
                                 {p.organizer?.organization_name ?? tl('Organisateur', 'Organizer', 'Organizador')}
                               </option>
                             ))}
@@ -1539,7 +1539,7 @@ export default function OwnerEvents() {
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 h-5 w-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
                     style={locationIsSecret ? { background: RED, border: `1px solid ${RED}` } : { background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                    {locationIsSecret && <Check className="h-3.5 w-3.5 text-white" />}
+                    {locationIsSecret && <Check className="h-3.5 w-3.5 text-snow" />}
                   </span>
                   <div className="flex-1">
                     <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.ev.secretVenue')}</p>
@@ -1739,14 +1739,14 @@ export default function OwnerEvents() {
 
 // ─── Event Card ────────────────────────────────────────────────────────────────
 const RED_C = '#E8192C';
-const GUEST_C = '#34D399';
-const T1_C  = 'rgba(255,255,255,0.96)';
-const T2_C  = 'rgba(255,255,255,0.58)';
-const T3_C  = 'rgba(255,255,255,0.36)';
-const C_FAINT_C = 'rgba(255,255,255,0.06)';
-const BORDER_C  = 'rgba(255,255,255,0.085)';
-const CARD_BG_C = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW_C = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const GUEST_C = 'var(--acc-34d399)';
+const T1_C  = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2_C  = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3_C  = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT_C = 'rgb(var(--ink)/0.06)';
+const BORDER_C  = 'rgb(var(--ink)/0.085)';
+const CARD_BG_C = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW_C = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 /** Suffixe « · Bientôt » du bouton Booster, calé sur ce que le compte voit vraiment (pas la constante seule). */
 function BoostSoonSuffix({ t }: { t: (key: string) => string }) {
@@ -1844,14 +1844,14 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             </h3>
             {event.isActive && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
+                style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--acc-34d399)' }}>
                 <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] inline-block" />
                 {t('owner.active')}
               </span>
             )}
             {event.isPartnerHosted && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#FCD34D' }}>
+                style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: 'var(--acc-fcd34d)' }}>
                 {t('owner.ev.coHosted')}
               </span>
             )}
@@ -1862,7 +1862,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
           <div className="flex items-center gap-1" style={{ color: T3_C, fontSize: 12 }}>
             <Clock className="w-3.5 h-3.5" />
             <span>{formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'dd MMM yyyy', { locale: fr })}</span>
-            <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+            <span style={{ color: 'rgb(var(--ink)/var(--ink-a20,0.2))' }}>·</span>
             <span>{formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'HH:mm')} – {formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, 'HH:mm')}</span>
           </div>
         </div>
@@ -1900,7 +1900,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl"
               style={{ background: event.ticketingEnabled ? 'rgba(232,25,44,0.08)' : C_FAINT_C, border: `1px solid ${event.ticketingEnabled ? 'rgba(232,25,44,0.22)' : BORDER_C}` }}>
               <div className="flex items-center gap-2 min-w-0">
-                <Ticket className="w-4 h-4 flex-shrink-0" style={{ color: event.ticketingEnabled ? '#FF7A82' : T3_C }} />
+                <Ticket className="w-4 h-4 flex-shrink-0" style={{ color: event.ticketingEnabled ? 'var(--acc-ff7a82)' : T3_C }} />
                 <div className="min-w-0">
                   <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.ticketing')}</p>
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">
@@ -1914,7 +1914,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl"
               style={{ background: event.tablesEnabled ? 'rgba(252,211,77,0.08)' : C_FAINT_C, border: `1px solid ${event.tablesEnabled ? 'rgba(252,211,77,0.22)' : BORDER_C}` }}>
               <div className="flex items-center gap-2 min-w-0">
-                <Crown className="w-4 h-4 flex-shrink-0" style={{ color: event.tablesEnabled ? '#FCD34D' : T3_C }} />
+                <Crown className="w-4 h-4 flex-shrink-0" style={{ color: event.tablesEnabled ? 'var(--acc-fcd34d)' : T3_C }} />
                 <div className="min-w-0">
                   <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.tablesVip')}</p>
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.tablesEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
@@ -1926,7 +1926,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl"
               style={{ background: event.guestListEnabled ? 'rgba(52,211,153,0.08)' : C_FAINT_C, border: `1px solid ${event.guestListEnabled ? 'rgba(52,211,153,0.22)' : BORDER_C}` }}>
               <div className="flex items-center gap-2 min-w-0">
-                <Users className="w-4 h-4 flex-shrink-0" style={{ color: event.guestListEnabled ? '#34D399' : T3_C }} />
+                <Users className="w-4 h-4 flex-shrink-0" style={{ color: event.guestListEnabled ? 'var(--acc-34d399)' : T3_C }} />
                 <div className="min-w-0">
                   <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.guestList')}</p>
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.guestListEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
@@ -1960,7 +1960,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                   style={{
                     background: p.out ? 'rgba(232,25,44,0.14)' : C_FAINT_C,
                     border: `1px solid ${p.out ? 'rgba(232,25,44,0.45)' : BORDER_C}`,
-                    color: p.out ? '#FF7A82' : T3_C,
+                    color: p.out ? 'var(--acc-ff7a82)' : T3_C,
                     fontSize: 11.5,
                     fontWeight: 600,
                   }}
@@ -2003,7 +2003,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                         <div className="relative flex-1">
                           <select value={selectedPresetId} onChange={e => setSelectedPresetId(e.target.value)}
                             className="w-full appearance-none px-3 py-2 rounded-lg text-[12.5px] cursor-pointer"
-                            style={{ background: '#0a0a0c', border: `1px solid ${BORDER_C}`, color: T1_C, outline: 'none' }}>
+                            style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER_C}`, color: T1_C, outline: 'none' }}>
                             <option value="">{t('owner.ev.selectPresetOption')}</option>
                             {standardPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
@@ -2061,7 +2061,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                         <div className="relative flex-1">
                           <select value={selectedGuestPresetId} onChange={e => setSelectedGuestPresetId(e.target.value)}
                             className="w-full appearance-none px-3 py-2 rounded-lg text-[12.5px] cursor-pointer"
-                            style={{ background: '#0a0a0c', border: `1px solid ${BORDER_C}`, color: T1_C, outline: 'none' }}>
+                            style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER_C}`, color: T1_C, outline: 'none' }}>
                             <option value="">{t('owner.ev.selectGuestPresetOption')}</option>
                             {guestPresets.map(p => <option key={p.id} value={p.id}>{p.is_default ? `★ ${p.name}` : p.name}</option>)}
                           </select>
@@ -2104,7 +2104,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-2 px-5 pb-4 flex-wrap" style={{ borderTop: `1px solid rgba(255,255,255,0.04)`, paddingTop: 12, marginTop: 12 }}>
+      <div className="flex items-center gap-2 px-5 pb-4 flex-wrap" style={{ borderTop: `1px solid rgb(var(--ink)/0.04)`, paddingTop: 12, marginTop: 12 }}>
         {event.isPartnerHosted ? (
           <>
             <a href={`/owner/ticketing?eventId=${event.id}`}
@@ -2136,14 +2136,14 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             <button
               onClick={onToggle}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
-              style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: event.isActive ? '#34D399' : T2_C }}
+              style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: event.isActive ? 'var(--acc-34d399)' : T2_C }}
             >
               {event.isActive ? t('owner.deactivate') : t('owner.activate')}
             </button>
             <button
               onClick={onDelete}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
-              style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: '#FF5C63' }}
+              style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: 'var(--acc-ff5c63)' }}
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t('owner.deleteEvent')}</span>
@@ -2213,10 +2213,10 @@ function EventSelectCard({ selected, onClick, icon: Icon, title, description }: 
       className="w-full text-left flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
       style={selected
         ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.35)' }
-        : { background: 'rgba(255,255,255,0.018)', border: `1px solid ${BORDER_C}` }}
+        : { background: 'rgb(var(--ink)/0.018)', border: `1px solid ${BORDER_C}` }}
     >
       <span className="mt-0.5 h-4 w-4 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-        style={selected ? { border: `1px solid ${RED_C}` } : { border: '1px solid rgba(255,255,255,0.25)' }}>
+        style={selected ? { border: `1px solid ${RED_C}` } : { border: '1px solid rgb(var(--ink)/var(--ink-a25,0.25))' }}>
         {selected && <span className="h-2 w-2 rounded-full" style={{ background: RED_C }} />}
       </span>
       <div className="flex-1">

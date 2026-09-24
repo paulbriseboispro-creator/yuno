@@ -33,7 +33,7 @@ const statusMeta: Record<string, { fr: string; en: string; es: string; tone: Pil
   revoked: { fr: 'Révoqué', en: 'Revoked', es: 'Revocado', tone: 'danger' },
 };
 
-const dialogStyle = { background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
+const dialogStyle = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
 
 /**
  * "Clubs partenaires" tab of the organizer Collaborations hub — parity with the

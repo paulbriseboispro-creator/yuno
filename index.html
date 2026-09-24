@@ -60,6 +60,30 @@
         window.addEventListener('resize', apply);
       })();
     </script>
+    <!--
+      Thème des dashboards pro (yuno-pro-theme) : posé AVANT le premier rendu,
+      sinon un dashboard réglé en clair s'ouvre une frame en noir. Miroir de
+      src/lib/proTheme.ts (clé de stockage, préfixes, exclusion de l'aperçu
+      /owner/preview) — les deux doivent rester alignés.
+    -->
+    <script>
+      (function () {
+        try {
+          var p = location.pathname.replace(/\/+$/, '') || '/';
+          var prefixes = ['/owner', '/manager', '/organizer-app', '/agency-app', '/affiliate', '/promoter', '/admin'];
+          var dj = ['/dj', '/dj/planning', '/dj/analytics', '/dj/audience', '/dj/payments', '/dj/bookings', '/dj/notifications', '/dj/team', '/dj/help', '/dj/profile', '/dj/onboarding'];
+          var themed = dj.indexOf(p) !== -1;
+          for (var i = 0; i < prefixes.length && !themed; i++) {
+            if (p === prefixes[i] || p.indexOf(prefixes[i] + '/') === 0) themed = true;
+          }
+          if (p === '/owner/preview' || p.indexOf('/owner/preview/') === 0) themed = false;
+          if (!themed) return;
+          var pref = localStorage.getItem('yuno:pro-theme');
+          var light = pref === 'light' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+          document.documentElement.setAttribute('data-pro-theme', light ? 'light' : 'dark');
+        } catch (e) { /* stockage bloqué : thème sombre */ }
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />

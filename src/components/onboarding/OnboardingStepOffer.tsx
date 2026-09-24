@@ -82,7 +82,7 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
         <InnerCard>
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.05)', color: T2 }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.05)', color: T2 }}>
                 <Wine className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -112,7 +112,7 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
         <InnerCard>
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.05)', color: T2 }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.05)', color: T2 }}>
                 {pillars.includes('tickets') ? <Ticket className="w-4 h-4" /> : <Sofa className="w-4 h-4" />}
               </div>
               <div className="min-w-0">

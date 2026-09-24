@@ -68,7 +68,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {tr('errBoundary.chunkDesc')}
             </p>
             <button
-              className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
+              className="px-4 py-2 rounded-lg bg-primary text-snow text-sm"
               onClick={() => { void purgeServiceWorkersAndReload(); }}
             >
               {tr('errBoundary.reload')}
@@ -81,7 +81,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-6 text-center">
           <p className="text-lg font-semibold text-white">{tr('errBoundary.title')}</p>
           <button
-            className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
+            className="px-4 py-2 rounded-lg bg-primary text-snow text-sm"
             onClick={() => this.setState({ hasError: false, isChunkError: false })}
           >
             {tr('errBoundary.retry')}

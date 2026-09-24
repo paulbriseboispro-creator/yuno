@@ -15,27 +15,28 @@ import {
   ExternalLink, Ban, Bell, Mail, Flame, Repeat, X, type LucideIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { tint } from '@/lib/proTheme';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
-const POS        = '#34D399';
-const NEG        = '#FF5C63';
-const T1         = 'rgba(255,255,255,0.96)';
-const T2         = 'rgba(255,255,255,0.58)';
-const T3         = 'rgba(255,255,255,0.36)';
-const C_FAINT    = 'rgba(255,255,255,0.06)';
-const BORDER     = 'rgba(255,255,255,0.085)';
-const F_BORDER   = 'rgba(255,255,255,0.055)';
-const INNER_BG   = 'rgba(255,255,255,0.032)';
-const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS        = 'var(--acc-34d399)';
+const NEG        = 'var(--acc-ff5c63)';
+const T1         = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2         = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3         = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT    = 'rgb(var(--ink)/0.06)';
+const BORDER     = 'rgb(var(--ink)/0.085)';
+const F_BORDER   = 'rgb(var(--ink)/0.055)';
+const INNER_BG   = 'rgb(var(--ink)/0.032)';
+const CARD_BG    = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Segment / tier / category metadata ──────────────────────────────────────
 type SegmentKey = 'champions' | 'loyal' | 'promising' | 'new' | 'at_risk' | 'dormant' | 'lost';
 const SEGMENTS: { key: SegmentKey; accent: string; icon: LucideIcon }[] = [
   { key: 'champions', accent: '#FCD34D', icon: Trophy },
-  { key: 'loyal',     accent: 'rgba(255,255,255,0.40)', icon: Heart },
-  { key: 'promising', accent: 'rgba(255,255,255,0.92)', icon: Sparkles },
+  { key: 'loyal',     accent: 'rgb(var(--ink)/var(--ink-a40,0.40))', icon: Heart },
+  { key: 'promising', accent: 'rgb(var(--ink)/var(--ink-a92,0.92))', icon: Sparkles },
   { key: 'new',       accent: POS,       icon: UserPlus },
   { key: 'at_risk',   accent: '#FCD34D', icon: AlertTriangle },
   { key: 'dormant',   accent: T2,        icon: Moon },
@@ -43,16 +44,16 @@ const SEGMENTS: { key: SegmentKey; accent: string; icon: LucideIcon }[] = [
 ];
 const SEG_BY_KEY = Object.fromEntries(SEGMENTS.map(s => [s.key, s])) as Record<SegmentKey, typeof SEGMENTS[number]>;
 
-const TIER_COLORS: Record<string, string> = { bronze: 'rgba(255,255,255,0.40)', silver: 'rgba(255,255,255,0.6)', gold: '#FCD34D', platinum: 'rgba(255,255,255,0.92)' };
+const TIER_COLORS: Record<string, string> = { bronze: 'rgb(var(--ink)/var(--ink-a40,0.40))', silver: 'rgb(var(--ink)/var(--ink-a60,0.6))', gold: '#FCD34D', platinum: 'rgb(var(--ink)/var(--ink-a92,0.92))' };
 const TIER_ORDER = ['platinum', 'gold', 'silver', 'bronze'];
 const CAT_META: Record<string, { color: string; icon: LucideIcon }> = {
-  tickets: { color: 'rgba(255,255,255,0.92)', icon: Ticket },
+  tickets: { color: 'rgb(var(--ink)/var(--ink-a92,0.92))', icon: Ticket },
   drinks:  { color: RED,       icon: Wine },
-  tables:  { color: '#FCD34D', icon: Crown },
-  mixed:   { color: 'rgba(255,255,255,0.5)', icon: Layers },
+  tables:  { color: 'var(--acc-fcd34d)', icon: Crown },
+  mixed:   { color: 'rgb(var(--ink)/var(--ink-a50,0.5))', icon: Layers },
   // Venu sans jamais payer : une entrée en guest list fait un client, pas un
   // acheteur. Le confondre avec 'mixed' effaçait la distinction.
-  guestlist: { color: '#34D399', icon: Users },
+  guestlist: { color: 'var(--acc-34d399)', icon: Users },
 };
 
 // ─── Server payload types ─────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ function IdentityBadges({
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
       style={on
         ? { background: `${tone ?? POS}1f`, border: `1px solid ${tone ?? POS}55`, color: tone ?? POS }
-        : { background: 'rgba(255,255,255,0.03)', border: `1px solid ${F_BORDER}`, color: 'rgba(255,255,255,0.26)' }}
+        : { background: 'rgb(var(--ink)/0.03)', border: `1px solid ${F_BORDER}`, color: 'rgb(var(--ink)/var(--ink-a26,0.26))' }}
     >
       {label}
     </span>
@@ -137,7 +138,7 @@ function IdentityBadges({
   return (
     <div className="flex items-center gap-1 flex-wrap">
       {chip(t('adminSeg.id.account'), hasAccount, t('adminSeg.id.accountHint'))}
-      {chip(isPro ? t('adminSeg.id.appPro') : t('adminSeg.id.app'), hasApp, t('adminSeg.id.appHint'), 'rgba(255,255,255,0.92)')}
+      {chip(isPro ? t('adminSeg.id.appPro') : t('adminSeg.id.app'), hasApp, t('adminSeg.id.appHint'), 'rgb(var(--ink)/var(--ink-a92,0.92))')}
       {chip('@', emailOptIn && !suppressed, suppressed ? t('adminSeg.id.suppressed') : t('adminSeg.id.emailHint'),
         suppressed ? NEG : undefined)}
       {chip('SMS', smsOptIn, t('adminSeg.id.smsHint'), '#FCD34D')}
@@ -152,7 +153,7 @@ function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (tag: string)
       {tags.map(tg => (
         <span key={tg}
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] font-medium"
-          style={{ background: 'rgba(255,255,255,0.055)', border: `1px solid ${BORDER}`, color: T2 }}>
+          style={{ background: 'rgb(var(--ink)/0.055)', border: `1px solid ${BORDER}`, color: T2 }}>
           {tg}
           {onRemove && (
             <button onClick={e => { e.stopPropagation(); onRemove(tg); }}
@@ -203,7 +204,7 @@ function KpiTile({ label, value, sub, icon: Icon, highlight }: { label: string; 
   return (
     <div
       style={{
-        background: highlight ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),#0a0a0c' : CARD_BG,
+        background: highlight ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),var(--sf-0a0a0c)' : CARD_BG,
         border: `1px solid ${highlight ? 'rgba(232,25,44,0.24)' : BORDER}`,
         borderRadius: 16, boxShadow: CARD_SHADOW, padding: '16px 18px', height: '100%',
       }}
@@ -226,7 +227,7 @@ function SegmentBadge({ segment, t }: { segment: SegmentKey; t: (k: string) => s
   const Icon = meta.icon;
   return (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold flex-none"
-      style={{ background: `${meta.accent}14`, border: `1px solid ${meta.accent}3D`, color: meta.accent }}>
+      style={{ background: `${tint(meta.accent, '14')}`, border: `1px solid ${tint(meta.accent, '3D')}`, color: meta.accent }}>
       <Icon className="w-3 h-3" />
       {t(`adminSeg.seg.${segment}`)}
     </span>
@@ -237,7 +238,7 @@ function TierBadge({ tier, t }: { tier: string; t: (k: string) => string }) {
   const color = TIER_COLORS[tier] ?? T2;
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold flex-none uppercase tracking-wide"
-      style={{ background: `${color === T2 ? 'rgba(255,255,255,0.06)' : color + '14'}`, border: `1px solid ${color === T2 ? BORDER : color + '38'}`, color }}>
+      style={{ background: `${color === T2 ? 'rgb(var(--ink)/0.06)' : tint(color, '14')}`, border: `1px solid ${color === T2 ? BORDER : tint(color, '38')}`, color }}>
       {t(`adminSeg.tier.${tier}`)}
     </span>
   );
@@ -264,7 +265,7 @@ function HBar({ label, value, max, color, right }: { label: string; value: numbe
           {value.toLocaleString()}{right && <span style={{ color: T3 }}> · {right}</span>}
         </span>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
         <div className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, background: color ?? 'linear-gradient(90deg, rgba(232,25,44,0.8), rgba(232,25,44,0.4))' }} />
       </div>
@@ -278,7 +279,7 @@ function RfmDots({ label, score, accent }: { label: string; score: number; accen
       <span style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', width: 72 }}>{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map(i => (
-          <span key={i} className="w-2 h-2 rounded-full" style={{ background: i <= score ? accent : 'rgba(255,255,255,0.09)' }} />
+          <span key={i} className="w-2 h-2 rounded-full" style={{ background: i <= score ? accent : 'rgb(var(--ink)/0.09)' }} />
         ))}
       </div>
       <span className="tabular-nums" style={{ color: T1, fontSize: 12.5, fontWeight: 620 }}>{score}/5</span>
@@ -290,7 +291,7 @@ function RfmDots({ label, score, accent }: { label: string; score: number; accen
 function DarkTooltip({ active, payload, label }: { active?: boolean; payload?: { name?: string; value?: number | string; color?: string; fill?: string }[]; label?: string | number }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
       {label !== undefined && <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{String(label)}</p>}
       {payload.map((p, i) => (
         <p key={i} className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -532,7 +533,7 @@ export default function AdminSegmentation() {
     : '';
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
@@ -585,7 +586,7 @@ export default function AdminSegmentation() {
                 <CardHeader icon={Layers} title={t('adminSeg.segments.title')} sub={t('adminSeg.segments.sub')} accent
                   right={segment && (
                     <button onClick={() => setSegment(null)} className="text-[12px] font-medium cursor-pointer px-3 py-1.5 rounded-lg transition-all duration-150"
-                      style={{ color: T2, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}` }}>
+                      style={{ color: T2, background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}` }}>
                       {t('adminSeg.segments.clear')}
                     </button>
                   )}
@@ -601,9 +602,9 @@ export default function AdminSegmentation() {
                         onClick={() => setSegment(active ? null : s.key)}
                         className="text-left rounded-xl p-3 cursor-pointer transition-all duration-150"
                         style={{
-                          background: active ? `${s.accent}14` : 'rgba(255,255,255,0.025)',
-                          border: `1px solid ${active ? `${s.accent}55` : BORDER}`,
-                          boxShadow: active ? `0 0 20px -8px ${s.accent}66` : undefined,
+                          background: active ? `${tint(s.accent, '14')}` : 'rgb(var(--ink)/0.025)',
+                          border: `1px solid ${active ? `${tint(s.accent, '55')}` : BORDER}`,
+                          boxShadow: active ? `0 0 20px -8px ${tint(s.accent, '66')}` : undefined,
                         }}
                       >
                         <div className="flex items-center gap-1.5 mb-2">
@@ -616,7 +617,7 @@ export default function AdminSegmentation() {
                         <div className="tabular-nums mt-1.5" style={{ color: T3, fontSize: 11 }}>
                           {s.pct.toFixed(0)}% · {eur(s.revenue)}
                         </div>
-                        <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                           <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, s.pct)}%`, background: s.accent }} />
                         </div>
                       </motion.button>
@@ -634,10 +635,10 @@ export default function AdminSegmentation() {
                   <div style={{ width: '100%', height: 190 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={cohortData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.055)" vertical={false} />
-                        <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={8} tick={{ fill: 'rgba(255,255,255,0.36)', fontSize: 9.5 }} interval={1} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--ink)/0.055)" vertical={false} />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={8} tick={{ fill: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 9.5 }} interval={1} />
                         <YAxis hide />
-                        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                        <Tooltip content={<DarkTooltip />} cursor={{ fill: 'rgb(var(--ink)/0.04)' }} />
                         <Bar dataKey="n" name={t('adminSeg.cohorts.newCustomers')} fill={RED} radius={[3, 3, 0, 0]} isAnimationActive={false} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -655,7 +656,7 @@ export default function AdminSegmentation() {
                       <div style={{ width: 130, height: 130, flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={tierData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="#000"isAnimationActive={false}>
+                            <Pie data={tierData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="var(--sf-000000)"isAnimationActive={false}>
                               {tierData.map(d => <Cell key={d.key} fill={TIER_COLORS[d.key]} />)}
                             </Pie>
                             <Tooltip content={<DarkTooltip />} />
@@ -666,7 +667,7 @@ export default function AdminSegmentation() {
                         {tierData.map(d => (
                           <button key={d.key} onClick={() => setTier(tier === d.key ? '' : d.key)}
                             className="flex w-full items-center justify-between cursor-pointer rounded-lg px-2 py-1 transition-all duration-150"
-                            style={{ background: tier === d.key ? 'rgba(255,255,255,0.05)' : 'transparent', border: `1px solid ${tier === d.key ? BORDER : 'transparent'}` }}>
+                            style={{ background: tier === d.key ? 'rgb(var(--ink)/0.05)' : 'transparent', border: `1px solid ${tier === d.key ? BORDER : 'transparent'}` }}>
                             <span className="inline-flex items-center gap-2" style={{ color: T2, fontSize: 12.5 }}>
                               <span className="w-2 h-2 rounded-full" style={{ background: TIER_COLORS[d.key] }} />
                               {d.name}
@@ -690,7 +691,7 @@ export default function AdminSegmentation() {
                       <div style={{ width: 130, height: 130, flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={catData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="#000"isAnimationActive={false}>
+                            <Pie data={catData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={4} cornerRadius={3} dataKey="value" strokeWidth={2} stroke="var(--sf-000000)"isAnimationActive={false}>
                               {catData.map(d => <Cell key={d.key} fill={CAT_META[d.key].color} />)}
                             </Pie>
                             <Tooltip content={<DarkTooltip />} />
@@ -703,7 +704,7 @@ export default function AdminSegmentation() {
                           return (
                             <button key={d.key} onClick={() => setCategory(category === d.key ? '' : d.key)}
                               className="flex w-full items-center justify-between cursor-pointer rounded-lg px-2 py-1 transition-all duration-150"
-                              style={{ background: category === d.key ? 'rgba(255,255,255,0.05)' : 'transparent', border: `1px solid ${category === d.key ? BORDER : 'transparent'}` }}>
+                              style={{ background: category === d.key ? 'rgb(var(--ink)/0.05)' : 'transparent', border: `1px solid ${category === d.key ? BORDER : 'transparent'}` }}>
                               <span className="inline-flex items-center gap-2" style={{ color: T2, fontSize: 12.5 }}>
                                 <Icon className="w-3.5 h-3.5" style={{ color: CAT_META[d.key].color }} />
                                 {d.name}
@@ -729,7 +730,7 @@ export default function AdminSegmentation() {
                       <HBar key={g.gender}
                         label={t(`adminSeg.gender.${['male', 'female', 'other', 'unknown'].includes(g.gender) ? g.gender : 'other'}`)}
                         value={g.count} max={genderMax}
-                        color={g.gender === 'unknown' ? 'rgba(255,255,255,0.22)' : undefined} />
+                        color={g.gender === 'unknown' ? 'rgb(var(--ink)/var(--ink-a22,0.22))' : undefined} />
                     ))}
                   </div>
                 </PCard>
@@ -741,7 +742,7 @@ export default function AdminSegmentation() {
                   <div className="space-y-3">
                     {ages.map(a => (
                       <HBar key={a.bucket} label={a.bucket} value={a.count} max={ageMax}
-                        color="linear-gradient(90deg, rgba(255,255,255,0.4), rgba(255,255,255,0.75))" />
+                        color="linear-gradient(90deg, rgb(var(--ink)/var(--ink-a40,0.4)), rgb(var(--ink)/var(--ink-a75,0.75)))" />
                     ))}
                   </div>
                 </PCard>
@@ -844,7 +845,7 @@ export default function AdminSegmentation() {
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]" style={{ minWidth: 940 }}>
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.015)' }}>
+                  <tr style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgb(var(--ink)/0.015)' }}>
                     <th className="px-4 py-2.5 text-left" style={thStyle}>{t('adminSeg.table.customer')}</th>
                     <th className="px-3 py-2.5 text-left" style={thStyle}>{t('adminSeg.table.segment')}</th>
                     <th className="px-3 py-2.5 text-left" style={thStyle}>{t('adminSeg.table.identity')}</th>
@@ -940,7 +941,7 @@ export default function AdminSegmentation() {
       {/* ───── Customer 360 drawer ───── */}
       <Sheet open={!!selected} onOpenChange={open => { if (!open) { setSelected(null); setDetail(null); } }}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col border-0 overflow-y-auto"
-          style={{ background: 'linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c', borderLeft: `1px solid ${BORDER}` }}>
+          style={{ background: 'linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)', borderLeft: `1px solid ${BORDER}` }}>
           {selected && (
             <>
               <SheetHeader className="p-5 pb-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
@@ -994,7 +995,7 @@ export default function AdminSegmentation() {
                         { label: t('adminSeg.drawer.visits'), value: String(selected.visit_nights) },
                         { label: t('adminSeg.drawer.avgBasket'), value: eur2(selected.avg_basket) },
                       ].map(s => (
-                        <div key={s.label} style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px' }}>
+                        <div key={s.label} style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px' }}>
                           <p style={{ color: T3, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{s.label}</p>
                           <p className="tabular-nums mt-1" style={{ color: T1, fontSize: 16, fontWeight: 640, letterSpacing: '-0.01em' }}>{s.value}</p>
                         </div>
@@ -1020,7 +1021,7 @@ export default function AdminSegmentation() {
                             : t('adminSeg.drawer.statusNoAccount')}
                         </p>
                         {(detail?.identity?.profile_count ?? 0) > 1 && (
-                          <p className="mt-1.5" style={{ color: '#FCD34D', fontSize: 11.5, lineHeight: 1.5 }}>
+                          <p className="mt-1.5" style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5, lineHeight: 1.5 }}>
                             {t('adminSeg.drawer.duplicateProfiles').replace('{n}', String(detail?.identity?.profile_count))}
                           </p>
                         )}
@@ -1133,7 +1134,7 @@ export default function AdminSegmentation() {
                             <div className="flex items-center gap-2 py-2.5 flex-wrap">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium"
                                 style={{
-                                  background: detail.newsletter_opt_in ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
+                                  background: detail.newsletter_opt_in ? 'rgba(52,211,153,0.08)' : 'rgb(var(--ink)/0.04)',
                                   border: `1px solid ${detail.newsletter_opt_in ? 'rgba(52,211,153,0.25)' : BORDER}`,
                                   color: detail.newsletter_opt_in ? POS : T3,
                                 }}>
@@ -1141,7 +1142,7 @@ export default function AdminSegmentation() {
                               </span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium"
                                 style={{
-                                  background: detail.identity.sms_opt_in ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
+                                  background: detail.identity.sms_opt_in ? 'rgba(52,211,153,0.08)' : 'rgb(var(--ink)/0.04)',
                                   border: `1px solid ${detail.identity.sms_opt_in ? 'rgba(52,211,153,0.25)' : BORDER}`,
                                   color: detail.identity.sms_opt_in ? POS : T3,
                                 }}>
@@ -1221,7 +1222,7 @@ export default function AdminSegmentation() {
                           {(detail?.incidents ?? []).slice(0, 6).map((inc, i) => (
                             <div key={`i${i}`} className="flex items-start gap-2.5 rounded-xl px-3.5 py-2.5"
                               style={{ background: 'rgba(251,146,60,0.06)', border: '1px solid rgba(251,146,60,0.2)' }}>
-                              <AlertTriangle className="w-3.5 h-3.5 flex-none mt-0.5" style={{ color: '#FCD34D' }} />
+                              <AlertTriangle className="w-3.5 h-3.5 flex-none mt-0.5" style={{ color: 'var(--acc-fcd34d)' }} />
                               <div className="min-w-0">
                                 <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
                                   {inc.type} · {inc.venue_name}

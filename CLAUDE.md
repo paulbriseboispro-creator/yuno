@@ -178,6 +178,23 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `OLD.instagram_clicks` et fige le compteur à zéro. Et la persistance du
   line-up invité se fait par DIFF, jamais par delete+insert comme `event_djs` :
   chaque ligne porte son compteur.
+- **Dashboards pro = thème sombre ET clair** (2026-09-24, `docs/DESIGN_SYSTEM.md`
+  §16). Réglage « Apparence » (Clair / Sombre / Système) au pied de chaque barre
+  latérale pro + icône lune/soleil dans les en-têtes ; préférence par appareil
+  (`localStorage` `yuno:pro-theme`, défaut sombre). `html[data-pro-theme="light"]`
+  n'est posé QUE sur une route pro (`isThemedProPath`, `src/lib/proTheme.ts`,
+  miroir du script anti-flash d'`index.html`) : public, app client, emails et
+  staff de nuit restent sombres. Le clair change l'ENCRE, pas le dessin : les
+  tokens sont `rgb(var(--ink)/a)`, les surfaces `var(--sf-<hex>)`, les accents
+  `var(--acc-<hex>)`, les gris `var(--tx-<hex>)` (`src/styles/pro-theme.css`, valeur
+  sombre EXACTE à `:root`), et la palette Tailwind (`white`, gris, couleurs vives)
+  est en variables (`tailwind.theme.ts`). **Dans du code pro, ne JAMAIS écrire
+  `rgba(255,255,255,…)`, `#fff` pour du texte, `#000`/`#0a0a0c` pour un fond** ;
+  blanc sur fond coloré = `text-snow` / `'#fff'` ; alpha d'un accent = `tint(X,
+  '1A')`, jamais `` `${X}1A` ``. Photo sous voile, globe Live View, maquette de
+  téléphone, aperçu client = `data-theme-island="dark"`. Toute nouvelle variable
+  se déclare dans les trois blocs de `pro-theme.css` (test `proTheme.test.ts`).
+  Jamais ces variables dans un canvas, Mapbox, un PDF ou un email.
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.

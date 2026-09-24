@@ -120,12 +120,12 @@ export function AffiliateAddressSearch({ address, lat, lng, onSelect, onClear }:
         {/* Dropdown */}
         {showResults && results.length > 0 && (
           <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl overflow-hidden"
-            style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, boxShadow: '0 18px 40px -20px rgba(0,0,0,.9)' }}>
+            style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, boxShadow: '0 18px 40px -20px rgba(0,0,0,.9)' }}>
             {results.map((r, i) => (
               <button key={i} type="button" onClick={() => handleSelect(r)}
                 className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
                 style={{ borderBottom: `1px solid ${BORDER}` }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.03)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                 <MapPin className="w-4 h-4 mt-0.5 flex-none" style={{ color: RED }} />
                 <span style={{ color: T1, fontSize: 13, lineHeight: 1.4 }}>{r.place_name}</span>

@@ -7,16 +7,16 @@ import { fr, es, enUS } from 'date-fns/locale';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const NEG      = '#FF5C63';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const NEG      = 'var(--acc-ff5c63)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface PostEventOverviewProps {
   data: PostEventData;
@@ -29,7 +29,7 @@ export function PostEventOverview({ data }: PostEventOverviewProps) {
   const scoreConfig = data.overallScore >= 8
     ? { glow: 'rgba(52,211,153,0.09)', border: 'rgba(52,211,153,0.22)', blob: 'rgba(52,211,153,0.12)', scoreColor: POS }
     : data.overallScore >= 6
-      ? { glow: 'rgba(255,255,255,0.04)', border: BORDER, blob: 'rgba(255,255,255,0.06)', scoreColor: T1 }
+      ? { glow: 'rgb(var(--ink)/0.04)', border: BORDER, blob: 'rgb(var(--ink)/0.06)', scoreColor: T1 }
       : data.overallScore >= 4
         ? { glow: 'rgba(251,191,36,0.07)', border: 'rgba(251,191,36,0.20)', blob: 'rgba(251,191,36,0.10)', scoreColor: '#FCD34D' }
         : { glow: 'rgba(232,25,44,0.08)', border: 'rgba(232,25,44,0.20)', blob: 'rgba(232,25,44,0.10)', scoreColor: RED };
@@ -42,7 +42,7 @@ export function PostEventOverview({ data }: PostEventOverviewProps) {
           className="relative overflow-hidden"
           style={{
             background: `radial-gradient(ellipse 70% 50% at 90% -20%, ${scoreConfig.glow} 0%, transparent 65%),
-              linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c`,
+              linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)`,
             border: `1px solid ${scoreConfig.border}`,
             borderRadius: 18,
             boxShadow: CARD_SHADOW,
@@ -74,7 +74,7 @@ export function PostEventOverview({ data }: PostEventOverviewProps) {
             </div>
 
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-none"
-              style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${scoreConfig.border}` }}>
+              style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${scoreConfig.border}` }}>
               <Trophy className="h-6 w-6" style={{ color: scoreConfig.scoreColor }} />
             </div>
           </div>

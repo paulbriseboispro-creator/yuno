@@ -11,7 +11,7 @@ export function CityEventsSkeleton() {
         <div
           key={i}
           className="flex flex-col overflow-hidden"
-          style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10 }}
+          style={{ background: 'var(--sf-141414)', border: '1px solid rgb(var(--ink)/0.08)', borderRadius: 10 }}
         >
           <Shimmer width="100%" className="rounded-none bg-white/10" style={{ aspectRatio: '1 / 1' }} />
           <div className="flex flex-col flex-1 px-3 py-2.5 gap-1">

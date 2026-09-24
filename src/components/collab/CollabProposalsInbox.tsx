@@ -16,14 +16,14 @@ import type { EventCollabSeriesContractRow } from '@/hooks/useEventCollabSeriesC
 import { normalizeSplitRules } from '@/lib/splitRules';
 
 // ─── Yuno DA tokens (aligned with the Org dashboard) ───────────────────────────
-const AMBER = '#F5A623';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const AMBER = 'var(--acc-f5a623)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface ContractRow {
   id: string;
@@ -355,7 +355,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
 
   return (
     <>
-      <div style={{ background: CARD_BG, border: `1px solid ${AMBER}40`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
+      <div style={{ background: CARD_BG, border: '1px solid #F5A62340', borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
         <div className="flex items-center gap-2 px-5 pb-1 pt-4">
           <Handshake className="h-4 w-4" style={{ color: AMBER }} />
           <h2 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
@@ -383,11 +383,11 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
         <div className="space-y-2 px-3 pb-3">
           {/* Recurring framework proposals — one signature covers the whole series. */}
           {series.map((sp) => (
-            <div key={sp.row.id} className="flex items-start gap-3 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${AMBER}30` }}>
+            <div key={sp.row.id} className="flex items-start gap-3 rounded-xl p-3" style={{ background: INNER_BG, border: '1px solid #F5A62330' }}>
               {sp.posterUrl ? (
                 <img src={sp.posterUrl} alt="" className="h-14 w-11 flex-none rounded-lg object-cover" style={{ border: `1px solid ${BORDER}` }} />
               ) : (
-                <div className="h-14 w-11 flex-none rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                <div className="h-14 w-11 flex-none rounded-lg" style={{ background: 'rgb(var(--ink)/0.04)' }} />
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -411,7 +411,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
 
                 {/* Récap de la série — on ne demande pas de signer un engagement
                     récurrent sur un titre et une heure. */}
-                <div className="mt-1.5 space-y-1 rounded-lg px-2.5 py-2" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+                <div className="mt-1.5 space-y-1 rounded-lg px-2.5 py-2" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
                   {sp.recap.myShare && (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ fontSize: 11 }}>
                       <span style={{ color: T3 }}>{tt('Ta part', 'Your share', 'Tu parte')}</span>
@@ -453,7 +453,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
                 <button
                   onClick={() => reviewSeries(sp)}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold"
-                  style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: '#FF5C63' }}
+                  style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: 'var(--acc-ff5c63)' }}
                 >
                   <Check className="h-3.5 w-3.5" />{tt('Signer', 'Sign', 'Firmar')}
                 </button>
@@ -476,7 +476,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
               {p.posterUrl ? (
                 <img src={p.posterUrl} alt="" className="h-14 w-11 flex-none rounded-lg object-cover" style={{ border: `1px solid ${BORDER}` }} />
               ) : (
-                <div className="h-14 w-11 flex-none rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                <div className="h-14 w-11 flex-none rounded-lg" style={{ background: 'rgb(var(--ink)/0.04)' }} />
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{p.title}</p>
@@ -489,7 +489,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
                 <button
                   onClick={() => navigate(reviewPath(p.eventId))}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold"
-                  style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: '#FF5C63' }}
+                  style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: 'var(--acc-ff5c63)' }}
                 >
                   <Check className="h-3.5 w-3.5" />{tt('Examiner', 'Review', 'Revisar')}<ArrowRight className="h-3 w-3" />
                 </button>

@@ -23,9 +23,9 @@ export function PromoterPage({ children, maxWidth = 1100 }: { children: ReactNod
     logo_url: p.venue?.logo_url || null,
   }));
   return (
-    <div className="min-h-screen pb-24 relative" style={{ background: '#000', paddingBottom: bottomPad }}>
+    <div className="min-h-screen pb-24 relative" style={{ background: 'var(--sf-000000)', paddingBottom: bottomPad }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       <div className="relative z-10 flex items-center justify-between gap-2 px-4 sm:px-6 pt-3"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
         <SidebarTrigger className="text-white/60 hover:text-white -ml-1" />

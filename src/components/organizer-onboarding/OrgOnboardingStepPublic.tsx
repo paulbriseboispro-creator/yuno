@@ -114,7 +114,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
           {logoUrl ? (
             <img src={logoUrl} alt="logo" className="w-20 h-20 rounded-2xl object-cover" style={{ border: `1px solid ${BORDER}` }} />
           ) : (
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px dashed ${BORDER}`, color: T3 }}>
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px dashed ${BORDER}`, color: T3 }}>
               <ImagePlus className="w-6 h-6" />
             </div>
           )}
@@ -127,7 +127,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
           {coverUrl ? (
             <img src={coverUrl} alt="cover" className="w-full h-20 rounded-xl object-cover" style={{ border: `1px solid ${BORDER}` }} />
           ) : (
-            <div className="w-full h-20 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px dashed ${BORDER}`, color: T3 }}>
+            <div className="w-full h-20 rounded-xl flex items-center justify-center" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px dashed ${BORDER}`, color: T3 }}>
               <ImagePlus className="w-6 h-6" />
             </div>
           )}
@@ -154,7 +154,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
         <div>
           <FieldLabel>{tt('Ville', 'City', 'Ciudad')}</FieldLabel>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
               <MapPin className="w-4 h-4" style={{ color: T2 }} />
             </div>
             <Input value={city} onChange={e => setCity(e.target.value)} placeholder={tt('Ex : Paris', 'e.g. Paris', 'Ej: Madrid')} />
@@ -163,7 +163,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
         <div>
           <FieldLabel>Instagram</FieldLabel>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
               <Instagram className="w-4 h-4" style={{ color: T2 }} />
             </div>
             <Input value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="instagram.com/votre_orga" />
@@ -172,7 +172,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
         <div>
           <FieldLabel>{tt('Site web', 'Website', 'Sitio web')}</FieldLabel>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
               <Globe className="w-4 h-4" style={{ color: T2 }} />
             </div>
             <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="votreorga.com" />

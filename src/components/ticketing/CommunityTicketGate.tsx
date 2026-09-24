@@ -203,7 +203,7 @@ export function CommunityCta({ audience, access, eventId, onChanged, compact = f
       </div>
 
       {!user ? (
-        <button type="button" onClick={goLogin} className={cn(btnBase, btnSize, 'w-full text-white')} style={{ background: '#E8192C' }}>
+        <button type="button" onClick={goLogin} className={cn(btnBase, btnSize, 'w-full text-snow')} style={{ background: '#E8192C' }}>
           <LogIn className="h-3.5 w-3.5" />{t('community.loginCta')}
         </button>
       ) : (
@@ -214,7 +214,7 @@ export function CommunityCta({ audience, access, eventId, onChanged, compact = f
                 <Check className="h-3.5 w-3.5" />{t('community.followingLabel').replace('{name}', hostName)}
               </span>
             ) : (
-              <button type="button" onClick={follow} disabled={!!busy} className={cn(btnBase, btnSize, 'flex-1 text-white')} style={{ background: '#E8192C' }}>
+              <button type="button" onClick={follow} disabled={!!busy} className={cn(btnBase, btnSize, 'flex-1 text-snow')} style={{ background: '#E8192C' }}>
                 {busy === 'follow' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bell className="h-3.5 w-3.5" />}
                 {t('community.followCta').replace('{name}', hostName)}
               </button>
@@ -230,7 +230,7 @@ export function CommunityCta({ audience, access, eventId, onChanged, compact = f
                 type="button"
                 onClick={subscribe}
                 disabled={!!busy}
-                className={cn(btnBase, btnSize, 'flex-1 border text-white', wantsFollowers ? 'border-white/15 bg-white/[0.04]' : '')}
+                className={cn(btnBase, btnSize, 'flex-1 border text-snow', wantsFollowers ? 'border-white/15 bg-white/[0.04]' : '')}
                 style={wantsFollowers ? undefined : { background: '#E8192C' }}
               >
                 {busy === 'newsletter' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}

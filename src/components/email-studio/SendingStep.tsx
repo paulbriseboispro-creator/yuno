@@ -63,9 +63,9 @@ export default function SendingStep({ onExit, onStudio }: { onExit: () => void; 
       }} />
       <div className="yn-in" style={{
         position: 'relative', width: 560, maxWidth: '100%',
-        background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c',
+        background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)',
         border: `1px solid ${BORDER}`, borderRadius: 20,
-        boxShadow: '0 1px 0 rgba(255,255,255,.05) inset,0 40px 80px -40px #000',
+        boxShadow: '0 1px 0 rgb(var(--sheen)/.05) inset,0 40px 80px -40px rgb(0 0 0/var(--pro-shadow-a))',
         padding: 28,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -97,10 +97,10 @@ export default function SendingStep({ onExit, onStudio }: { onExit: () => void; 
           </div>
         </div>
 
-        <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.06)', margin: '20px 0 22px', overflow: 'hidden' }}>
+        <div style={{ height: 8, borderRadius: 999, background: 'rgb(var(--ink)/0.06)', margin: '20px 0 22px', overflow: 'hidden' }}>
           <div style={{
             height: '100%', width: `${pct}%`, borderRadius: 999,
-            background: finished ? '#34D399' : 'linear-gradient(90deg,rgba(232,25,44,0.9),rgba(232,25,44,0.45))',
+            background: finished ? 'var(--acc-34d399)' : 'linear-gradient(90deg,rgba(232,25,44,0.9),rgba(232,25,44,0.45))',
             transition: 'width .25s',
           }} />
         </div>

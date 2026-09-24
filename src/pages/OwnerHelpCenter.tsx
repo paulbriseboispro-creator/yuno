@@ -156,21 +156,21 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
   return (
     <div
       className="min-h-[100dvh]"
-      style={{ background: ownerLike ? '#000' : undefined, paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
+      style={{ background: ownerLike ? 'var(--sf-000000)' : undefined, paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
     >
       {/* Ambiance : vignette + halo rouge en tête d'accueil + trame de points */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={{
           background: view === 'home'
-            ? 'radial-gradient(60% 40% at 50% -5%, rgba(232,25,44,0.16) 0%, transparent 70%), radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.03), transparent 55%)'
-            : 'radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.025), transparent 55%)',
+            ? 'radial-gradient(60% 40% at 50% -5%, rgba(232,25,44,0.16) 0%, transparent 70%), radial-gradient(120% 60% at 50% -10%, rgb(var(--ink)/.03), transparent 55%)'
+            : 'radial-gradient(120% 60% at 50% -10%, rgb(var(--ink)/.025), transparent 55%)',
         }}
       />
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={{
-          backgroundImage: 'radial-gradient(rgba(255,255,255,0.045) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(rgb(var(--ink)/0.045) 1px, transparent 1px)',
           backgroundSize: '22px 22px',
           maskImage: 'radial-gradient(70% 50% at 50% 0%, #000 0%, transparent 100%)',
           WebkitMaskImage: 'radial-gradient(70% 50% at 50% 0%, #000 0%, transparent 100%)',

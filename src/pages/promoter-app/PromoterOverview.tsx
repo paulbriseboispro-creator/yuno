@@ -79,7 +79,7 @@ export default function PromoterOverview() {
             className="relative overflow-hidden"
             style={{
               background: `radial-gradient(ellipse 70% 50% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),
-                linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c`,
+                linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)`,
               border: '1px solid rgba(232,25,44,0.25)',
               borderRadius: 18,
               boxShadow: CARD_SHADOW,

@@ -16,16 +16,16 @@ import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED         = '#E8192C';
-const POS         = '#34D399';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const TILE_BG     = 'rgba(255,255,255,0.025)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS         = 'var(--acc-34d399)';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const F_BORDER    = 'rgb(var(--ink)/0.055)';
+const INNER_BG    = 'rgb(var(--ink)/0.032)';
+const TILE_BG     = 'rgb(var(--ink)/0.025)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const TIER_COLORS = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700', platinum: '#E5E4E2' };
 
@@ -45,7 +45,7 @@ function YunoSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boo
       onClick={() => onChange(!checked)}
       style={{
         width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
-        background: checked ? RED : 'rgba(255,255,255,0.14)',
+        background: checked ? RED : 'rgb(var(--ink)/0.14)',
         position: 'relative', transition: 'background 0.2s',
         flexShrink: 0,
       }}
@@ -204,13 +204,13 @@ export default function OwnerLoyalty() {
   if (loading || venueLoading) return <OwnerPageSkeleton />;
 
   if (!venueId) return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+    <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
       <p style={{ color: T3 }}>No venue assigned</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
       <OwnerHeader title={t('loyalty.title')} showBackButton backTo="/owner" />
 
       <div className="mx-auto max-w-4xl p-4">
@@ -219,7 +219,7 @@ export default function OwnerLoyalty() {
           <motion.div key="loyalty" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
 
               {/* Enable Toggle */}
-              <div style={{ background: 'linear-gradient(135deg,rgba(232,25,44,0.10),rgba(232,25,44,0.03)),#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
+              <div style={{ background: 'linear-gradient(135deg,rgba(232,25,44,0.10),rgba(232,25,44,0.03)),var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(232,25,44,0.14)' }}>
@@ -331,7 +331,7 @@ export default function OwnerLoyalty() {
                                   <button onClick={() => handleOpenRewardDialog(reward)} style={{ background: 'none', border: `1px solid ${F_BORDER}`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: T3 }}>
                                     <Edit2 className="h-3.5 w-3.5" />
                                   </button>
-                                  <button onClick={() => setDeleteRewardId(reward.id)} style={{ background: 'none', border: `1px solid rgba(255,92,99,0.2)`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FF5C63' }}>
+                                  <button onClick={() => setDeleteRewardId(reward.id)} style={{ background: 'none', border: `1px solid rgba(255,92,99,0.2)`, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--acc-ff5c63)' }}>
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
@@ -441,7 +441,7 @@ export default function OwnerLoyalty() {
                       {/* Save */}
                       <button onClick={handleSaveSettings} disabled={savingSettings}
                         className="w-full flex items-center justify-center gap-2 cursor-pointer"
-                        style={{ background: savingSettings ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: '#fff', fontSize: 14, fontWeight: 600, opacity: savingSettings ? 0.7 : 1 }}>
+                        style={{ background: savingSettings ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: savingSettings ? T1 : '#fff', fontSize: 14, fontWeight: 600, opacity: savingSettings ? 0.7 : 1 }}>
                         {savingSettings
                           ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                           : <><Check className="h-4 w-4" />{t('loyalty.save')}</>
@@ -469,7 +469,7 @@ export default function OwnerLoyalty() {
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             >
-              <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
+              <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, margin: 0 }}>
                     {editingReward ? t('loyalty.editReward') : t('loyalty.addReward')}
@@ -637,7 +637,7 @@ export default function OwnerLoyalty() {
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             >
-              <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
+              <div style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 20, padding: '24px' }}>
                 <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, margin: 0, marginBottom: 8 }}>{t('delete')}</h2>
                 <p style={{ color: T3, fontSize: 13, marginBottom: 20 }}>{t('deleteConfirm')}</p>
                 <div className="flex gap-2">
@@ -646,7 +646,7 @@ export default function OwnerLoyalty() {
                     {t('cancel')}
                   </button>
                   <button onClick={handleDeleteReward}
-                    style={{ flex: 1, background: '#FF5C63', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                    style={{ flex: 1, background: 'var(--acc-ff5c63)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                     {t('delete')}
                   </button>
                 </div>

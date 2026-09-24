@@ -60,7 +60,7 @@ export default function ThemePanel() {
               >
                 <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                   {sw.map((c, i) => (
-                    <span key={i} style={{ width: 16, height: 16, borderRadius: 5, background: c, border: '1px solid rgba(255,255,255,.15)' }} />
+                    <span key={i} style={{ width: 16, height: 16, borderRadius: 5, background: c, border: '1px solid rgb(var(--ink)/.15)' }} />
                   ))}
                 </div>
                 <span style={{ color: active ? T1 : T2, fontSize: 11.5, fontWeight: 560, fontFamily: FONT_UI }}>
@@ -108,7 +108,7 @@ export default function ThemePanel() {
         onClick={saveClubTheme}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 10,
-          borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
+          borderRadius: 11, border: '1px dashed rgb(var(--ink)/0.16)', background: 'transparent',
           color: T2, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: FONT_UI,
         }}
       >

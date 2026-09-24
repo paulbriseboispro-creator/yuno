@@ -382,8 +382,8 @@ function StepChips({ current, onGo }: { current: StudioStep; onGo: (s: StudioSte
             <span style={{
               width: 17, height: 17, borderRadius: '50%', display: 'inline-flex',
               alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
-              background: on ? RED : done ? 'rgba(52,211,153,0.22)' : 'rgba(255,255,255,0.08)',
-              color: on ? '#fff' : done ? '#34D399' : T3,
+              background: on ? RED : done ? 'rgba(52,211,153,0.22)' : 'rgb(var(--ink)/0.08)',
+              color: on ? '#fff' : done ? 'var(--acc-34d399)' : T3,
             }}>{it.n}</span>
             {t(it.labelKey)}
           </button>
@@ -412,7 +412,7 @@ function ScheduledBanner({ onUnschedule }: { onUnschedule: () => void }) {
   const at = new Date(scheduledAt);
   const minutes = Math.max(0, Math.round((at.getTime() - Date.now()) / 60_000));
   const soon = minutes < 30;
-  const color = soon ? RED : '#FCD34D';
+  const color = soon ? RED : 'var(--acc-fcd34d)';
   const Icon = soon ? AlertTriangle : CalendarClock;
   return (
     <div style={{

@@ -245,8 +245,8 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
       {part && onToggleSoldOut && (
         <div className="mt-2" style={{ padding: '10px 12px', borderRadius: 12, background: soldOut ? 'rgba(232,25,44,0.07)' : INNER_BG, border: `1px solid ${soldOut ? 'rgba(232,25,44,0.28)' : BORDER}` }}>
           <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-2" style={{ color: soldOut ? '#ff5d68' : T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
-              <Ban className="h-4 w-4" style={{ color: soldOut ? '#ff5d68' : T3 }} />{t('soldOut.title')}
+            <p className="flex items-center gap-2" style={{ color: soldOut ? 'var(--acc-ff5d68)' : T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
+              <Ban className="h-4 w-4" style={{ color: soldOut ? 'var(--acc-ff5d68)' : T3 }} />{t('soldOut.title')}
             </p>
             <YunoSwitch checked={soldOut} onChange={toggleSoldOut} disabled={soldOutSaving} />
           </div>
@@ -408,7 +408,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
               const saveDisabled = saving || genderExceedsQuota || (!isClub && !unlimited && perTypeTotal < 1);
               return (
                 <button onClick={handleSave} disabled={saveDisabled}
-                  style={{ flex: 1, background: saveDisabled ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '11px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saveDisabled ? 'not-allowed' : 'pointer', opacity: saveDisabled ? 0.6 : 1 }}>
+                  style={{ flex: 1, background: saveDisabled ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '11px', color: saveDisabled ? T1 : '#fff', fontSize: 14, fontWeight: 600, cursor: saveDisabled ? 'not-allowed' : 'pointer', opacity: saveDisabled ? 0.6 : 1 }}>
                   {saving ? '…' : part ? t('owner.save') : t('guestList.create')}
                 </button>
               );
@@ -512,7 +512,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
                     <p style={{ color: T3, fontSize: 11, margin: 0 }} className="truncate">{entry.email}</p>
                     {entry.gender && <span style={{ color: T3, fontSize: 10 }}>{entry.gender === 'female' ? '♀' : '♂'}</span>}
                     {entry.promoter_id && (
-                      <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: '#ff7a45', background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.2)' }}>{t('guestList.holderType.promoter')}</span>
+                      <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: 'var(--acc-ff7a45)', background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.2)' }}>{t('guestList.holderType.promoter')}</span>
                     )}
                     {entry.entry_type && entry.entry_type !== 'normal' && (
                       <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: T2, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>

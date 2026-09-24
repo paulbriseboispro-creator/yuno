@@ -52,7 +52,7 @@ export function StepBudget({ draft, set, currency, days, totalEstimate, fmtMoney
             <input type="datetime-local" value={draft.endAt} onChange={(e) => set('endAt', e.target.value)} style={inputStyle} className={focusRing} />
           </Field>
         </div>
-        <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)' }}>
+        <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style={{ border: `1px solid ${BORDER}`, background: 'rgb(var(--ink)/0.03)' }}>
           <div>
             <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('ads.w.budget.estimateLabel')}</p>
             <p className="tabular-nums" style={{ color: T1, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>{fmtMoney(totalEstimate)}</p>
@@ -90,12 +90,12 @@ export function StepBudget({ draft, set, currency, days, totalEstimate, fmtMoney
         <Section title={<span className="inline-flex items-center gap-2"><Clock className="w-4 h-4" style={{ color: T3 }} />{t('ads.x.sched.title')}</span>} desc={t('ads.x.sched.desc')}
           right={<GhostButton small onClick={() => set('schedule', [...draft.schedule, { days: [4, 5, 6], start_hour: 18, end_hour: 24 }])} disabled={draft.schedule.length >= 8}><Plus className="w-3.5 h-3.5" /> {t('ads.x.sched.add')}</GhostButton>}>
           {draft.schedule.length === 0 ? <p style={{ color: T3, fontSize: 13 }}>{t('ads.x.sched.empty')}</p> : draft.schedule.map((sl, i) => (
-            <div key={i} className="rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+            <div key={i} className="rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}` }}>
               <div className="flex gap-1.5 flex-wrap">
                 {dayLabels.map((d) => (
                   <button key={d} type="button" onClick={() => setSlot(i, { days: sl.days.includes(d) ? sl.days.filter((x) => x !== d) : [...sl.days, d] })}
                     className="h-9 w-9 rounded-lg text-[12.5px] font-bold cursor-pointer transition-colors duration-150"
-                    style={sl.days.includes(d) ? { background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.5)', color: '#FF8A91' } : { background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
+                    style={sl.days.includes(d) ? { background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.5)', color: 'var(--acc-ff8a91)' } : { background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                     {t(`ads.x.sched.day.${d}`)}
                   </button>
                 ))}

@@ -20,17 +20,18 @@ import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
 import { enUS, es, fr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTabParam } from '@/hooks/useTabParam';
+import { tint } from '@/lib/proTheme';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface PresetPackReference { packId: string; customPrice: number | null; }
 interface TablePackPreset { id: string; venueId: string; name: string; packs: PresetPackReference[]; createdAt: string; updatedAt: string; }
@@ -44,7 +45,7 @@ function DarkInput({ id, value, onChange, placeholder, type = 'text', step, min,
       step={step} min={min} max={max} required={required}
       className={`w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 ${className}`}
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={e => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -345,12 +346,12 @@ export default function OwnerTables() {
     { key: 'presets', label: t('tables.presets'), Icon: Save },
   ];
 
-  const DIALOG_STYLE = { background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 };
+  const DIALOG_STYLE = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 };
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
 
       <OwnerHeader title={t('tables.title')} />
 
@@ -403,7 +404,7 @@ export default function OwnerTables() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <LayoutGrid className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.1)' }} />
+              <LayoutGrid className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.1)' }} />
               <p style={{ color: T3, fontSize: 13, marginBottom: 12 }}>{t('vipHost.noFloorPlan')}</p>
               <button onClick={() => setShowFloorPlanEditor(true)}
                 className="px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer"
@@ -435,7 +436,7 @@ export default function OwnerTables() {
                 <p style={{ color: T3, fontSize: 12.5 }}>{t('tables.eventsDescription')}</p>
                 {events.length === 0 ? (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }} className="text-center py-14">
-                    <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                    <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                     <p style={{ color: T3, fontSize: 13 }}>{t('tables.noEvents')}</p>
                   </div>
                 ) : events.map(ev => (
@@ -445,7 +446,7 @@ export default function OwnerTables() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <p style={{ color: T1, fontSize: 14.5, fontWeight: 600 }}>{ev.title}</p>
-                            {ev.tablesEnabled && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(252,211,77,0.1)', color: '#FCD34D' }}>VIP</span>}
+                            {ev.tablesEnabled && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(252,211,77,0.1)', color: 'var(--acc-fcd34d)' }}>VIP</span>}
                             {ev.tablesEnabled && getEventPreset(ev.id) && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>{getEventPreset(ev.id)?.name}</span>
                             )}
@@ -457,7 +458,7 @@ export default function OwnerTables() {
                             <div className="flex flex-wrap gap-2 mt-2">
                               {zones.map(zone => (
                                 <span key={zone.id} className="px-2 py-0.5 rounded-full text-[11px] font-medium"
-                                  style={{ border: `1px solid ${zone.color}40`, color: zone.color, background: `${zone.color}10` }}>
+                                  style={{ border: `1px solid ${tint(zone.color, '40')}`, color: zone.color, background: `${tint(zone.color, '10')}` }}>
                                   {zone.name}: {packs.filter(p => p.zoneId === zone.id).length} packs
                                 </span>
                               ))}
@@ -487,7 +488,7 @@ export default function OwnerTables() {
                           <button type="button" onClick={() => handleToggleEventTablesSoldOut(ev)}
                             title={ev.tablesSoldOut ? t('soldOut.reopenHint') : t('soldOut.closeHint')}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
-                            style={{ background: ev.tablesSoldOut ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${ev.tablesSoldOut ? 'rgba(232,25,44,0.45)' : BORDER}`, color: ev.tablesSoldOut ? '#FF7A82' : T3, fontSize: 11.5, fontWeight: 600 }}>
+                            style={{ background: ev.tablesSoldOut ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${ev.tablesSoldOut ? 'rgba(232,25,44,0.45)' : BORDER}`, color: ev.tablesSoldOut ? 'var(--acc-ff7a82)' : T3, fontSize: 11.5, fontWeight: 600 }}>
                             {ev.tablesSoldOut && <Check className="w-3 h-3" />}{t('soldOut.allTables')}
                           </button>
                           {!ev.tablesSoldOut && packs.filter(p => p.isActive).map(pk => {
@@ -495,7 +496,7 @@ export default function OwnerTables() {
                             return (
                               <button key={pk.id} type="button" onClick={() => handleTogglePackSoldOut(ev, pk.id)}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
-                                style={{ background: out ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${out ? 'rgba(232,25,44,0.45)' : BORDER}`, color: out ? '#FF7A82' : T3, fontSize: 11.5, fontWeight: 600 }}>
+                                style={{ background: out ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${out ? 'rgba(232,25,44,0.45)' : BORDER}`, color: out ? 'var(--acc-ff7a82)' : T3, fontSize: 11.5, fontWeight: 600 }}>
                                 {out && <Check className="w-3 h-3" />}{pk.name}
                               </button>
                             );
@@ -507,15 +508,15 @@ export default function OwnerTables() {
                 ))}
                 {zones.length === 0 && events.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: 'rgba(252,211,77,0.06)', border: '1px solid rgba(252,211,77,0.2)' }}>
-                    <p style={{ color: '#FCD34D', fontSize: 12.5 }}>
-                      {t('tables.createZoneFirst')} — <button onClick={() => setActiveTab('zones')} className="underline cursor-pointer" style={{ color: '#FCD34D' }}>{t('tables.configureZones')}</button>
+                    <p style={{ color: 'var(--acc-fcd34d)', fontSize: 12.5 }}>
+                      {t('tables.createZoneFirst')} — <button onClick={() => setActiveTab('zones')} className="underline cursor-pointer" style={{ color: 'var(--acc-fcd34d)' }}>{t('tables.configureZones')}</button>
                     </p>
                   </div>
                 )}
                 {presets.length === 0 && zones.length > 0 && packs.length > 0 && events.length > 0 && (
                   <div className="p-4 rounded-xl" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)' }}>
-                    <p style={{ color: '#60A5FA', fontSize: 12.5 }}>
-                      {t('tables.noPresets')} — <button onClick={() => setActiveTab('presets')} className="underline cursor-pointer" style={{ color: '#60A5FA' }}>{t('tables.createPreset')}</button>
+                    <p style={{ color: 'var(--acc-60a5fa)', fontSize: 12.5 }}>
+                      {t('tables.noPresets')} — <button onClick={() => setActiveTab('presets')} className="underline cursor-pointer" style={{ color: 'var(--acc-60a5fa)' }}>{t('tables.createPreset')}</button>
                     </p>
                   </div>
                 )}
@@ -533,7 +534,7 @@ export default function OwnerTables() {
                 </div>
                 {zones.length === 0 ? (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }} className="text-center py-14">
-                    <Layers className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                    <Layers className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                     <p style={{ color: T3, fontSize: 13 }}>{t('tables.noZones')}</p>
                   </div>
                 ) : (
@@ -548,8 +549,8 @@ export default function OwnerTables() {
                               <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{zone.name}</p>
                             </div>
                             <div className="flex gap-1">
-                              <button onClick={() => handleEditZone(zone)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(255,255,255,0.05)', color: T2 }}><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setDeleteTarget({ kind: 'zone', id: zone.id, name: zone.name })} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleEditZone(zone)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgb(var(--ink)/0.05)', color: T2 }}><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setDeleteTarget({ kind: 'zone', id: zone.id, name: zone.name })} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: 'var(--acc-ff5c63)' }}><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
                           <p style={{ color: T3, fontSize: 12, marginBottom: 12 }}>{zone.tablesCount} tables · {zonePacks.length} packs</p>
@@ -577,11 +578,11 @@ export default function OwnerTables() {
                 </div>
                 {zones.length === 0 ? (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18 }} className="text-center py-14">
-                    <Layers className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} /><p style={{ color: T3 }}>{t('tables.createZoneFirst')}</p>
+                    <Layers className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} /><p style={{ color: T3 }}>{t('tables.createZoneFirst')}</p>
                   </div>
                 ) : packs.length === 0 ? (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18 }} className="text-center py-14">
-                    <Package className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} /><p style={{ color: T3 }}>{t('tables.noPacks')}</p>
+                    <Package className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} /><p style={{ color: T3 }}>{t('tables.noPacks')}</p>
                   </div>
                 ) : (
                   <div className="space-y-5">
@@ -604,7 +605,7 @@ export default function OwnerTables() {
                                   </div>
                                   <div className="flex gap-1">
                                     <button onClick={() => handleEditPack(pack)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: INNER_BG, color: T2 }}><Pencil className="w-3 h-3" /></button>
-                                    <button onClick={() => setDeleteTarget({ kind: 'pack', id: pack.id, name: pack.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3 h-3" /></button>
+                                    <button onClick={() => setDeleteTarget({ kind: 'pack', id: pack.id, name: pack.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: 'var(--acc-ff5c63)' }}><Trash2 className="w-3 h-3" /></button>
                                   </div>
                                 </div>
                                 <p style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>{pack.basePrice}€</p>
@@ -638,13 +639,13 @@ export default function OwnerTables() {
                 </div>
                 {packs.length === 0 ? (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18 }} className="text-center py-14">
-                    <Package className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                    <Package className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                     <p style={{ color: T3, marginBottom: 8 }}>{t('tables.noPacks')}</p>
                     <button onClick={() => setActiveTab('packs')} style={{ color: RED, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>{t('tables.addPack')}</button>
                   </div>
                 ) : presets.length === 0 ? (
                   <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18 }} className="text-center py-14">
-                    <FolderOpen className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} /><p style={{ color: T3 }}>{t('tables.noPresets')}</p>
+                    <FolderOpen className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} /><p style={{ color: T3 }}>{t('tables.noPresets')}</p>
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -654,7 +655,7 @@ export default function OwnerTables() {
                           <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{preset.name}</p>
                           <div className="flex gap-1">
                             <button onClick={() => handleEditPreset(preset)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: INNER_BG, color: T2 }}><Pencil className="w-3 h-3" /></button>
-                            <button onClick={() => setDeleteTarget({ kind: 'preset', id: preset.id, name: preset.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3 h-3" /></button>
+                            <button onClick={() => setDeleteTarget({ kind: 'preset', id: preset.id, name: preset.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: 'var(--acc-ff5c63)' }}><Trash2 className="w-3 h-3" /></button>
                           </div>
                         </div>
                         <div className="space-y-1.5">
@@ -724,7 +725,7 @@ export default function OwnerTables() {
               <textarea value={packFormData.description} onChange={e => setPackFormData({ ...packFormData, description: e.target.value })} placeholder={t('tables.packDescriptionPlaceholder')} rows={2}
                 className="w-full px-3 py-2.5 rounded-xl text-[13px] resize-none transition-all duration-150"
                 style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-                onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')} onBlur={e => (e.target.style.borderColor = BORDER)} />
+                onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')} onBlur={e => (e.target.style.borderColor = BORDER)} />
             </div>
             <div className="grid gap-4 grid-cols-2">
               <div><FieldLabel>{t('tables.basePrice')} (€)</FieldLabel><DarkInput type="number" step="0.01" value={packFormData.basePrice} onChange={v => setPackFormData({ ...packFormData, basePrice: v })} placeholder="200" required /></div>
@@ -773,7 +774,7 @@ export default function OwnerTables() {
                     onChange={e => setPackFormData({ ...packFormData, arrivalDeadline: e.target.value })}
                     className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
                     style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', colorScheme: 'dark' }}
-                    onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+                    onFocus={e => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
                     onBlur={e => (e.target.style.borderColor = BORDER)}
                   />
                   <p style={{ color: T3, fontSize: 11, marginTop: 3 }}>{t('tables.arrivalDeadlineHint')}</p>

@@ -86,7 +86,7 @@ export function ManualReservationDialog({ open, events, zones, defaultEventId, o
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" style={{ color: '#E7C15A' }} />
+            <UserPlus className="h-5 w-5" style={{ color: 'var(--acc-e7c15a)' }} />
             {tt('Réservation à la main', 'Manual reservation', 'Reserva manual')}
           </DialogTitle>
         </DialogHeader>

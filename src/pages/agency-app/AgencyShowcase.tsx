@@ -227,7 +227,7 @@ export default function AgencyShowcase() {
             className="flex w-full items-center gap-3 text-left cursor-pointer"
             style={{
               padding: '10px 8px', background: 'none', border: 'none',
-              borderBottom: i < checklist.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+              borderBottom: i < checklist.length - 1 ? '1px solid rgb(var(--ink)/0.05)' : undefined,
             }}
           >
             {item.done

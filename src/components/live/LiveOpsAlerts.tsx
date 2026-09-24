@@ -10,10 +10,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED    = '#E8192C';
-const AMBER  = '#FCD34D';
-const T1     = 'rgba(255,255,255,0.96)';
-const T2     = 'rgba(255,255,255,0.58)';
-const T3     = 'rgba(255,255,255,0.36)';
+const AMBER  = 'var(--acc-fcd34d)';
+const T1     = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2     = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3     = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 
 interface Props {
   venueId: string;
@@ -24,8 +24,8 @@ interface Props {
 const SEVERITY_STYLE: Record<string, { bg: string; border: string; color: string }> = {
   urgent: { bg: 'rgba(232,25,44,0.09)', border: 'rgba(232,25,44,0.3)', color: RED },
   high:   { bg: 'rgba(252,211,77,0.07)', border: 'rgba(252,211,77,0.25)', color: AMBER },
-  normal: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.1)', color: T2 },
-  low:    { bg: 'rgba(255,255,255,0.02)', border: 'rgba(255,255,255,0.08)', color: T3 },
+  normal: { bg: 'rgb(var(--ink)/0.03)', border: 'rgb(var(--ink)/0.1)', color: T2 },
+  low:    { bg: 'rgb(var(--ink)/0.02)', border: 'rgb(var(--ink)/0.08)', color: T3 },
 };
 
 /**
@@ -107,7 +107,7 @@ export function LiveOpsAlerts({ venueId, basePath = '/owner' }: Props) {
                     <button
                       onClick={() => navigate(link)}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-lg cursor-pointer"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: T2, fontSize: 11, fontWeight: 600 }}
+                      style={{ background: 'rgb(var(--ink)/0.05)', border: '1px solid rgb(var(--ink)/0.1)', color: T2, fontSize: 11, fontWeight: 600 }}
                     >
                       {t('liveops.alert.open')}
                       <ChevronRight className="h-3 w-3" />

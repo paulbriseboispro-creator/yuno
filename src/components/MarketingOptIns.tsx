@@ -116,15 +116,15 @@ export function MarketingOptIns({
     : t('consent.subscribedSummaryGeneric');
 
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[#141414] p-4">
+    <div className="rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)] p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-[#5A5A5E]" />
-          <span className="font-mono uppercase text-[11px] font-semibold tracking-[0.10em] text-[#E5E5E5]">
+          <Bell className="h-4 w-4 text-[var(--tx-5a5a5e)]" />
+          <span className="font-mono uppercase text-[11px] font-semibold tracking-[0.10em] text-[var(--tx-e5e5e5)]">
             {t('consent.stayInformed')}
           </span>
         </div>
-        <span className="font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[#5A5A5E]">
+        <span className="font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[var(--tx-5a5a5e)]">
           {pending ? '' : bothGranted ? t('consent.active') : t('consent.optional')}
         </span>
       </div>
@@ -138,10 +138,10 @@ export function MarketingOptIns({
           className="flex items-center gap-3 w-full text-left py-2.5"
         >
           <span className="shrink-0 h-5 w-5 rounded-[4px] bg-primary border border-primary flex items-center justify-center">
-            <Check className="h-3 w-3 text-white" strokeWidth={3} />
+            <Check className="h-3 w-3 text-snow" strokeWidth={3} />
           </span>
-          <span className="text-sm text-[#9A9A9A] leading-snug flex-1 min-w-0">{summaryLabel}</span>
-          <span className="shrink-0 text-[11px] font-medium text-[#5A5A5E] underline underline-offset-2 hover:text-white transition-colors">
+          <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug flex-1 min-w-0">{summaryLabel}</span>
+          <span className="shrink-0 text-[11px] font-medium text-[var(--tx-5a5a5e)] underline underline-offset-2 hover:text-white transition-colors">
             {t('consent.manage')}
           </span>
         </button>
@@ -186,7 +186,7 @@ export function MarketingOptIns({
               couvre personne. */}
           {showYuno && (
             <div className={showEmail ? 'mt-1 border-t border-white/[0.06] pt-1' : ''}>
-              <p className="pt-2 font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[#5A5A5E]">
+              <p className="pt-2 font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[var(--tx-5a5a5e)]">
                 {t('consent.fromYuno')}
               </p>
               {yunoAlreadyGranted ? (
@@ -207,7 +207,7 @@ export function MarketingOptIns({
           )}
 
           {bothGranted && (
-            <p className="mt-2.5 text-[11px] leading-snug text-[#5A5A5E]">
+            <p className="mt-2.5 text-[11px] leading-snug text-[var(--tx-5a5a5e)]">
               {t('consent.alreadySubscribedHint')}
             </p>
           )}
@@ -275,8 +275,8 @@ function ConsentRow({
       >
         {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
       </span>
-      <span className="text-[#5A5A5E] shrink-0">{icon}</span>
-      <span className="text-sm text-[#9A9A9A] leading-snug">{label}</span>
+      <span className="text-[var(--tx-5a5a5e)] shrink-0">{icon}</span>
+      <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug">{label}</span>
     </button>
   );
 }
@@ -311,16 +311,16 @@ function GrantedRow({
   return (
     <div className="flex items-center gap-3 w-full py-2.5">
       <span className="shrink-0 h-5 w-5 rounded-[4px] bg-primary border border-primary flex items-center justify-center">
-        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+        <Check className="h-3 w-3 text-snow" strokeWidth={3} />
       </span>
-      <span className="text-[#5A5A5E] shrink-0">{icon}</span>
-      <span className="text-sm text-[#9A9A9A] leading-snug flex-1 min-w-0">{label}</span>
+      <span className="text-[var(--tx-5a5a5e)] shrink-0">{icon}</span>
+      <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug flex-1 min-w-0">{label}</span>
       {onWithdraw && (
         <button
           type="button"
           onClick={handleWithdraw}
           disabled={busy}
-          className="shrink-0 text-[11px] font-medium text-[#5A5A5E] underline underline-offset-2 hover:text-white transition-colors disabled:opacity-50"
+          className="shrink-0 text-[11px] font-medium text-[var(--tx-5a5a5e)] underline underline-offset-2 hover:text-white transition-colors disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('consent.unsubscribe')}
         </button>

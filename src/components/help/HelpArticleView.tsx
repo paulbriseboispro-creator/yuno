@@ -13,7 +13,7 @@ import { AskAiButton } from './HelpAskAi';
 import { HelpAiChat, type HelpAiChatHandle } from './HelpAiChat';
 import { HelpSupportCards } from './HelpSupportCards';
 import {
-  AMBER, ArticleRow, BORDER, C_FAINT, F_BORDER, HCard, IconTile, INNER_BG, Kicker, NEG, Pill, POS, RED, SectionHead,
+  AMBER, ArticleRow, rgba, BORDER, C_FAINT, F_BORDER, HCard, IconTile, INNER_BG, Kicker, NEG, Pill, POS, RED, SectionHead,
   T1, T2, T3, TILE_BG, articleReadMinutes, categoryColor, fmt,
 } from './helpUi';
 
@@ -117,7 +117,7 @@ function BulletList({ items, t }: { items: HelpListItem[]; t: T }) {
             ) : it.tone === 'no' ? (
               <XCircle style={{ width: 15, height: 15, color: NEG }} />
             ) : (
-              <span style={{ width: 5, height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.4)' }} />
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: 'rgb(var(--ink)/var(--ink-a40,0.4))' }} />
             )}
           </span>
           <span className="flex-1 min-w-0" style={{ color: T2, fontSize: 14.5, lineHeight: 1.65 }}>
@@ -149,22 +149,16 @@ function Blocks({ blocks, t }: { blocks: HelpBlock[]; t: T }) {
 const CALLOUT: Record<NonNullable<OwnerHelpSection['type']>, { color: string; icon: ReactNode; labelKey: string }> = {
   tip: { color: POS, icon: <Lightbulb style={{ width: 14, height: 14 }} />, labelKey: 'owner.help.calloutTip' },
   warning: { color: AMBER, icon: <AlertTriangle style={{ width: 14, height: 14 }} />, labelKey: 'owner.help.calloutWarning' },
-  example: { color: 'rgba(255,255,255,0.7)', icon: <Sparkles style={{ width: 14, height: 14 }} />, labelKey: 'owner.help.calloutExample' },
+  example: { color: 'rgb(var(--ink)/var(--ink-a70,0.7))', icon: <Sparkles style={{ width: 14, height: 14 }} />, labelKey: 'owner.help.calloutExample' },
   steps: { color: RED, icon: <ListOrdered style={{ width: 14, height: 14 }} />, labelKey: 'owner.help.calloutSteps' },
 };
-
-function hexToRgba(color: string, a: number): string {
-  if (color.startsWith('rgba')) return color.replace(/[\d.]+\)$/, `${a})`);
-  const n = parseInt(color.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-}
 
 function Callout({ type, t, children }: { type: NonNullable<OwnerHelpSection['type']>; t: T; children: ReactNode }) {
   const c = CALLOUT[type];
   return (
     <div
       className="relative overflow-hidden"
-      style={{ borderRadius: 14, border: `1px solid ${hexToRgba(c.color, 0.22)}`, background: `linear-gradient(90deg, ${hexToRgba(c.color, 0.07)} 0%, rgba(255,255,255,0.02) 40%)`, padding: '14px 16px 14px 18px' }}
+      style={{ borderRadius: 14, border: `1px solid ${rgba(c.color, 0.22)}`, background: `linear-gradient(90deg, ${rgba(c.color, 0.07)} 0%, rgb(var(--ink)/0.02) 40%)`, padding: '14px 16px 14px 18px' }}
     >
       <span className="absolute left-0 top-0 bottom-0" style={{ width: 3, background: c.color, opacity: 0.85 }} aria-hidden="true" />
       <div className="flex items-center gap-1.5 mb-2" style={{ color: c.color }}>
@@ -185,7 +179,7 @@ function Screenshot({ src, alt, hint, onZoom, hero }: { src: string; alt: string
         onClick={onZoom}
         aria-label={hint}
         className="group relative block w-full overflow-hidden cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-[#E8192C]/60"
-        style={{ borderRadius: hero ? 16 : 12, border: `1px solid ${BORDER}`, background: '#050506', boxShadow: '0 18px 40px -28px rgba(0,0,0,.9)' }}
+        style={{ borderRadius: hero ? 16 : 12, border: `1px solid ${BORDER}`, background: 'var(--sf-050506)', boxShadow: '0 18px 40px -28px rgba(0,0,0,.9)' }}
       >
         <img
           src={src}
@@ -199,7 +193,7 @@ function Screenshot({ src, alt, hint, onZoom, hero }: { src: string; alt: string
           className="absolute inset-0 flex items-end justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
           style={{ background: 'linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.45) 100%)' }}
         >
-          <span className="inline-flex items-center gap-1.5" style={{ padding: '6px 10px', borderRadius: 9, background: 'rgba(10,10,12,0.85)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12 }}>
+          <span className="inline-flex items-center gap-1.5" style={{ padding: '6px 10px', borderRadius: 9, background: 'rgb(var(--glass-10-10-12)/0.85)', border: `1px solid ${BORDER}`, color: T1, fontSize: 12 }}>
             <ZoomIn style={{ width: 13, height: 13 }} aria-hidden="true" />
             {hint}
           </span>
@@ -355,7 +349,7 @@ export function HelpArticleView({
               onClick={() => setZoom(null)}
               aria-label={t('ohelp.ui.lightboxClose')}
               className="absolute top-4 right-4 flex items-center justify-center cursor-pointer transition-colors hover:bg-white/10"
-              style={{ width: 40, height: 40, borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgba(10,10,12,0.8)', color: T1, marginTop: 'env(safe-area-inset-top, 0px)' }}
+              style={{ width: 40, height: 40, borderRadius: 12, border: `1px solid ${BORDER}`, background: 'rgb(var(--glass-10-10-12)/0.8)', color: T1, marginTop: 'env(safe-area-inset-top, 0px)' }}
             >
               <X className="w-5 h-5" aria-hidden="true" />
             </button>

@@ -13,13 +13,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface HypeScoreSectionProps {
   venueId: string | null;
@@ -68,7 +68,7 @@ export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEdit
     return (
       <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 18, padding: 22 }} className="space-y-4">
         {[120, 48, 48, 48].map((h, i) => (
-          <div key={i} style={{ height: h, background: 'rgba(255,255,255,0.04)', borderRadius: 10 }} className="animate-pulse" />
+          <div key={i} style={{ height: h, background: 'rgb(var(--ink)/0.04)', borderRadius: 10 }} className="animate-pulse" />
         ))}
       </div>
     );
@@ -162,7 +162,7 @@ export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEdit
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div style={{ padding: '0 20px 20px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ padding: '0 20px 20px', borderTop: '1px solid rgb(var(--ink)/0.04)' }}>
                   <ul className="space-y-2 mt-4">
                     {explanationContent.map((item, idx) => (
                       <motion.li
@@ -195,7 +195,7 @@ export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEdit
             <button
               onClick={refetch}
               className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
-              style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T3 }}
+              style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, color: T3 }}
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </button>

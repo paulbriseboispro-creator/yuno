@@ -366,7 +366,7 @@ export default function PreviewGate() {
                     borderColor: accepted ? RED : 'rgba(255,255,255,0.25)',
                   }}
                 >
-                  {accepted && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                  {accepted && <Check className="h-3 w-3 text-snow" strokeWidth={3} />}
                 </span>
                 <span className="text-[12px] leading-snug text-white/50">
                   {c.consent}{' '}

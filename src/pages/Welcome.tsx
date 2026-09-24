@@ -483,12 +483,12 @@ const Welcome = () => {
                                 <h3 className="font-semibold text-foreground truncate">{venue.name}</h3>
                                 {/* Inline badges */}
                                 {venue.isNew && (
-                                  <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
+                                  <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-snow text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
                                     {t('badge.new')}
                                   </span>
                                 )}
                                 {venue.isPopular && (
-                                  <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
+                                  <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-snow text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
                                     {t('badge.hot')}
                                   </span>
                                 )}
@@ -574,12 +574,12 @@ const Welcome = () => {
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-foreground truncate">{venue.name}</h3>
                             {venue.isNew && (
-                              <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
+                              <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-snow text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
                                 {t('badge.new')}
                               </span>
                             )}
                             {venue.isPopular && (
-                              <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
+                              <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-snow text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm shrink-0">
                                 {t('badge.hot')}
                               </span>
                             )}

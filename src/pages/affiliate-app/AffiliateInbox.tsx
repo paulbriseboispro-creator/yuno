@@ -153,12 +153,12 @@ export default function AffiliateInbox() {
                       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(n); }
                     }}
                     className="group flex w-full cursor-pointer gap-3 rounded-xl px-3 py-2.5 text-left transition-colors"
-                    style={isUnread ? { background: 'rgba(255,255,255,0.035)' } : undefined}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = isUnread ? 'rgba(255,255,255,0.035)' : 'transparent')}
+                    style={isUnread ? { background: 'rgb(var(--ink)/0.035)' } : undefined}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.06)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = isUnread ? 'rgb(var(--ink)/0.035)' : 'transparent')}
                   >
                     <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
-                      style={{ background: isUnread ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}` }}>
+                      style={{ background: isUnread ? 'rgb(var(--ink)/0.06)' : 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}` }}>
                       <Icon className={`h-4 w-4 ${isUnread ? p.icon : ''}`} style={isUnread ? undefined : { color: T3 }} />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
@@ -183,7 +183,7 @@ export default function AffiliateInbox() {
                         aria-label={t('notif.markRead')}
                         className="flex h-7 w-7 flex-shrink-0 items-center justify-center self-center rounded-md transition-colors cursor-pointer"
                         style={{ color: T3 }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.background = 'rgb(var(--ink)/0.1)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.color = T3; e.currentTarget.style.background = 'transparent'; }}
                       >
                         <Check className="h-4 w-4" />

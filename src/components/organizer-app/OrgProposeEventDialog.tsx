@@ -44,7 +44,7 @@ interface Props {
   onCreated?: () => void;
 }
 
-const dialogStyle = { background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
+const dialogStyle = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
 
 /**
  * Org-side mirror of ClubProposeEventDialog: lets an organizer propose one of its
@@ -239,7 +239,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
   const StatusBadge = ({ live }: { live: boolean }) => (
     <span className="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
       style={live
-        ? { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }
+        ? { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--acc-34d399)' }
         : { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}>
       {live ? t('En ligne', 'Live', 'En vivo') : t('Brouillon', 'Draft', 'Borrador')}
     </span>
@@ -278,7 +278,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
               ) : (
                 <DarkSelect value={venueId} onChange={setVenueId} placeholder={t('Choisir un club…', 'Choose a club…', 'Elegir un club…')}>
                   {activePartners.map((p) => (
-                    <option key={p.venue_id} value={p.venue_id} style={{ background: '#0a0a0c' }}>
+                    <option key={p.venue_id} value={p.venue_id} style={{ background: 'var(--sf-0a0a0c)' }}>
                       {p.venue?.name ?? t('Club', 'Club', 'Club')}
                     </option>
                   ))}
@@ -304,7 +304,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 <>
                   <DarkSelect value={eventId} onChange={setEventId} placeholder={t('Choisir une soirée…', 'Choose an event…', 'Elegir un evento…')}>
                     {options.map((d) => (
-                      <option key={d.id} value={d.id} style={{ background: '#0a0a0c' }}>
+                      <option key={d.id} value={d.id} style={{ background: 'var(--sf-0a0a0c)' }}>
                         {(d.title || t('Sans titre', 'Untitled', 'Sin título'))} · {formatInTimeZone(new Date(d.start_at), PARIS_TIMEZONE, 'dd MMM', { locale: fr })}
                         {d.partner_venue_id ? ` · ${t('déjà rattachée — contrat à proposer', 'already linked — agreement to propose', 'ya vinculada: contrato por proponer')}` : ''}
                       </option>
@@ -323,7 +323,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 {selectedEvent.poster_url ? (
                   <img src={selectedEvent.poster_url} alt="" className="h-20 w-16 flex-none rounded-lg object-cover" style={{ border: `1px solid ${BORDER}` }} />
                 ) : (
-                  <div className="flex h-20 w-16 flex-none items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <div className="flex h-20 w-16 flex-none items-center justify-center rounded-lg" style={{ background: 'rgb(var(--ink)/0.04)' }}>
                     <ImageIcon className="h-5 w-5" style={{ color: T3 }} />
                   </div>
                 )}

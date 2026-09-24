@@ -5,17 +5,17 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { NightStats } from '@/lib/hypePostEvent';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 
 const SENTIMENT_COLORS: Record<string, string> = {
   positive: '#34D399',
-  neutral: 'rgba(255,255,255,0.4)',
+  neutral: 'rgb(var(--ink)/var(--ink-a40,0.4))',
   negative: '#F87171',
 };
 
@@ -90,7 +90,7 @@ export function PostEventAIInsights({ eventId, stats }: Props) {
         </button>
       )}
       {error && (
-        <p style={{ color: '#F87171', fontSize: 12, marginTop: 8 }}>{t('nightai.error')}</p>
+        <p style={{ color: 'var(--acc-f87171)', fontSize: 12, marginTop: 8 }}>{t('nightai.error')}</p>
       )}
 
       {report && (

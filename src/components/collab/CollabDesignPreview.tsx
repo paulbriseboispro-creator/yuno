@@ -5,12 +5,12 @@ import { translate } from '@/i18n/orgTranslate';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { Eye, Music, Tag, Disc3, Globe, Lock, Loader2 } from 'lucide-react';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 const RED = '#E8192C';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 type DesignRow = {
   title: string | null;
@@ -139,7 +139,7 @@ export function CollabDesignPreview({ eventId, showChrome = true }: { eventId: s
               <Tag className="h-3 w-3" /> {tt(typeLabel[0], typeLabel[1], typeLabel[2])}
             </span>
           )}
-          <div className="flex items-center gap-1.5" style={{ color: isPublic ? '#34D399' : T3, fontSize: 11 }}>
+          <div className="flex items-center gap-1.5" style={{ color: isPublic ? 'var(--acc-34d399)' : T3, fontSize: 11 }}>
             {isPublic ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
             {isPublic
               ? discoveryPending
@@ -188,7 +188,7 @@ export function CollabDesignPreview({ eventId, showChrome = true }: { eventId: s
                   {dj.profile_image_url ? (
                     <img src={getOptimizedImageUrl(dj.profile_image_url, { width: 80 })} alt="" className="h-8 w-8 flex-none rounded-full object-cover object-top" />
                   ) : (
-                    <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                       <Disc3 className="h-4 w-4" style={{ color: T3 }} />
                     </div>
                   )}

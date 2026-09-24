@@ -33,7 +33,7 @@ export function OwnerPreviewBanner() {
 
       <Link
         to="/owner/dashboard"
-        className="flex items-center gap-1.5 flex-shrink-0 rounded-md px-3 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-80"
+        className="flex items-center gap-1.5 flex-shrink-0 rounded-md px-3 py-1 text-[11px] font-semibold text-snow transition-opacity hover:opacity-80"
         style={{ background: 'rgba(232,25,44,0.8)' }}
       >
         <LayoutDashboard className="h-3 w-3" />

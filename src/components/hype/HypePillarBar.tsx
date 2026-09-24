@@ -5,12 +5,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
-const POS     = '#34D399';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
+const POS     = 'var(--acc-34d399)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
 
 interface HypePillarBarProps {
   pillar: HypePillar;
@@ -31,7 +31,7 @@ export function HypePillarBar({ pillar, isExpanded, onToggle, index }: HypePilla
   const { t } = useLanguage();
   const Icon = PILLAR_ICONS[pillar.id] || BarChart3;
 
-  const scoreColor = pillar.score >= 7 ? POS : pillar.score >= 5 ? '#FCD34D' : pillar.score >= 3 ? '#FB923C' : RED;
+  const scoreColor = pillar.score >= 7 ? POS : pillar.score >= 5 ? 'var(--acc-fcd34d)' : pillar.score >= 3 ? 'var(--acc-fb923c)' : RED;
 
   return (
     <motion.div
@@ -40,8 +40,8 @@ export function HypePillarBar({ pillar, isExpanded, onToggle, index }: HypePilla
       transition={{ duration: 0.3, delay: index * 0.08 }}
       style={{
         borderRadius: 12,
-        border: `1px solid ${isExpanded ? BORDER : 'rgba(255,255,255,0.05)'}`,
-        background: isExpanded ? 'rgba(255,255,255,0.04)' : 'transparent',
+        border: `1px solid ${isExpanded ? BORDER : 'rgb(var(--ink)/0.05)'}`,
+        background: isExpanded ? 'rgb(var(--ink)/0.04)' : 'transparent',
         overflow: 'hidden',
         transition: 'all 0.15s',
       }}
@@ -65,7 +65,7 @@ export function HypePillarBar({ pillar, isExpanded, onToggle, index }: HypePilla
               {pillar.score}/10
             </span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${pillar.score * 10}%` }}

@@ -365,7 +365,7 @@ export function CampaignWizard({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.76)' }} role="dialog" aria-modal="true" aria-label={t('ads.wizard.title')}>
-      <div className="w-full sm:max-w-[1120px] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden" style={{ background: '#0c0c0e', border: `1px solid ${BORDER}`, height: 'min(96dvh, 960px)' }}>
+      <div className="w-full sm:max-w-[1120px] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden" style={{ background: 'var(--sf-0c0c0e)', border: `1px solid ${BORDER}`, height: 'min(96dvh, 960px)' }}>
         {/* En-tête + étapes */}
         <div className="flex-shrink-0 px-4 sm:px-6 pt-4 pb-3 space-y-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <div className="flex items-center justify-between gap-3">
@@ -381,10 +381,10 @@ export function CampaignWizard({
             <div className="flex items-center gap-2">
               <button type="button" role="switch" aria-checked={expert} onClick={toggleExpert}
                 className="inline-flex items-center gap-2 pl-3 pr-1.5 rounded-xl cursor-pointer transition-colors duration-150"
-                style={{ minHeight: 40, background: expert ? 'rgba(232,25,44,0.12)' : FIELD_BG, border: `1px solid ${expert ? 'rgba(232,25,44,0.45)' : BORDER}`, color: expert ? '#FF8A91' : T2, fontSize: 13, fontWeight: 600 }}
+                style={{ minHeight: 40, background: expert ? 'rgba(232,25,44,0.12)' : FIELD_BG, border: `1px solid ${expert ? 'rgba(232,25,44,0.45)' : BORDER}`, color: expert ? 'var(--acc-ff8a91)' : T2, fontSize: 13, fontWeight: 600 }}
                 title={t('ads.x.expert.hint')}>
                 <Sliders className="w-4 h-4" /> {t('ads.x.expert.toggle')}
-                <span className="rounded-full transition-colors duration-200" style={{ display: 'inline-block', position: 'relative', width: 34, height: 20, flexShrink: 0, background: expert ? RED : 'rgba(255,255,255,0.14)' }}>
+                <span className="rounded-full transition-colors duration-200" style={{ display: 'inline-block', position: 'relative', width: 34, height: 20, flexShrink: 0, background: expert ? RED : 'rgb(var(--ink)/0.14)' }}>
                   <span className="rounded-full bg-white transition-transform duration-200" style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, transform: `translateX(${expert ? 14 : 0}px)` }} />
                 </span>
               </button>
@@ -409,7 +409,7 @@ export function CampaignWizard({
               <StepReview rows={reviewRows} creatives={editing ? [] : draft.creatives} onEdit={go} pageId={pageId} pageName={pageName} igUsername={igUsername} instagramOn={draft.instagram} t={t} />
               {submitError && (
                 <div className="mt-4 flex items-start gap-2.5 rounded-xl px-4 py-3" style={{ border: '1px solid rgba(232,25,44,0.4)', background: 'rgba(232,25,44,0.08)' }}>
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF8A91' }} />
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--acc-ff8a91)' }} />
                   <div><p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('ads.wizard.failed')}</p><p className="mt-0.5" style={{ color: T2, fontSize: 13, lineHeight: 1.5 }}>{submitError}</p></div>
                 </div>
               )}
@@ -418,7 +418,7 @@ export function CampaignWizard({
         </div>
 
         {/* Pied */}
-        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5" style={{ background: '#0c0c0e', borderTop: `1px solid ${BORDER}` }}>
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5" style={{ background: 'var(--sf-0c0c0e)', borderTop: `1px solid ${BORDER}` }}>
           <button type="button" onClick={() => go(Math.max(0, step - 1))} disabled={step === 0 || busy}
             className="inline-flex items-center gap-1.5 px-4 rounded-xl text-[14px] font-semibold cursor-pointer transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: FIELD_BG, border: `1px solid ${BORDER}`, color: T1, minHeight: 46 }}>

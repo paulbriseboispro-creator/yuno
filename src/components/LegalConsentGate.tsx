@@ -69,9 +69,9 @@ export function LegalConsentGate() {
       <div
         className="w-full max-w-[440px] rounded-2xl p-7"
         style={{
-          background: 'linear-gradient(180deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,.012) 100%),#0a0a0c',
-          border: '1px solid rgba(255,255,255,0.09)',
-          boxShadow: '0 1px 0 rgba(255,255,255,.05) inset,0 30px 60px -30px rgba(0,0,0,.9)',
+          background: 'linear-gradient(180deg,rgb(var(--sheen)/.05) 0%,rgb(var(--sheen)/.012) 100%),var(--sf-0a0a0c)',
+          border: '1px solid rgb(var(--ink)/0.09)',
+          boxShadow: '0 1px 0 rgb(var(--sheen)/.05) inset,0 30px 60px -30px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))',
         }}
       >
         <span
@@ -93,10 +93,10 @@ export function LegalConsentGate() {
             className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
             style={{
               background: checked ? RED : 'transparent',
-              borderColor: checked ? RED : 'rgba(255,255,255,0.25)',
+              borderColor: checked ? RED : 'rgb(var(--ink)/var(--ink-a25,0.25))',
             }}
           >
-            {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+            {checked && <Check className="h-3 w-3 text-snow" strokeWidth={3} />}
           </span>
           <span className="text-xs leading-snug text-white/50">
             {t('legal.proPre')}{' '}

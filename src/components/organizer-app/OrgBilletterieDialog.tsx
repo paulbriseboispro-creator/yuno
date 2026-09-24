@@ -116,7 +116,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
+      <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}>
         <DialogHeader>
           <DialogTitle style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
             {tt('Activer la billetterie', 'Activate ticketing')}
@@ -171,7 +171,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
                         {/* Preview the rounds */}
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {(p.rounds ?? []).slice(0, 4).map((r, i) => (
-                            <span key={i} className="rounded px-1.5 py-0.5" style={{ background: 'rgba(255,255,255,0.05)', color: T3, fontSize: 10.5 }}>
+                            <span key={i} className="rounded px-1.5 py-0.5" style={{ background: 'rgb(var(--ink)/0.05)', color: T3, fontSize: 10.5 }}>
                               {r.name} · {Number(r.price)}€
                             </span>
                           ))}

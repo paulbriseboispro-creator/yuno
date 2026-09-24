@@ -364,7 +364,7 @@ export default function OwnerNotifications() {
                 className="h-7 flex-1 text-xs data-[state=active]:bg-white/[0.08] data-[state=active]:text-white text-white/50 cursor-pointer">
                 {t('notif.unread')}
                 {unreadCount > 0 && (
-                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8192C] px-1 text-[9px] font-bold text-white">
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8192C] px-1 text-[9px] font-bold text-snow">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}

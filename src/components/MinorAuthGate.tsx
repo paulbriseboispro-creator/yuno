@@ -211,8 +211,8 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
           {uploadedUrl ? (
             <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/40 bg-emerald-500/[0.06] px-3 py-2.5">
               <FileCheck2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span className="text-sm text-white truncate flex-1">{uploadedName}</span>
-              <label className="font-mono uppercase text-[9px] tracking-[0.12em] text-[#9A9A9A] cursor-pointer hover:text-white">
+              <span className="text-sm text-snow truncate flex-1">{uploadedName}</span>
+              <label className="font-mono uppercase text-[9px] tracking-[0.12em] text-[#9A9A9A] cursor-pointer hover:text-snow">
                 {t('minorAuth.replace')}
                 <input type="file" accept="application/pdf,.pdf,text/plain,.txt" className="hidden" disabled={uploading} onChange={handleUpload} />
               </label>

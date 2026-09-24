@@ -207,7 +207,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
         </SheetHeader>
         {minorDoc && (
           <div className="mt-5 rounded-xl p-3.5 space-y-2.5" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.25)' }}>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: '#FF7A80' }}>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--acc-ff7a80)' }}>
               <ShieldAlert className="w-3.5 h-3.5" />
               {tt('Client mineur', 'Minor customer')}
             </p>

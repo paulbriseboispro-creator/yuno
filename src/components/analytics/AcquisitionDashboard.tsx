@@ -9,25 +9,25 @@ import { buildOrganizerScopeOr } from './scopeFilter';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const FAINT_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const FAINT_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Single-accent ranked ramp — the top source is RED, the rest fade through white
 // opacity. Keeps categorical data legible while honoring the Yuno DA rule that
 // #E8192C is the only systemic color accent (no rainbow of source colors).
 const RAMP = [
   RED,
-  'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.64)', 'rgba(255,255,255,0.46)',
-  'rgba(255,255,255,0.33)', 'rgba(255,255,255,0.24)', 'rgba(255,255,255,0.17)',
-  'rgba(255,255,255,0.12)', 'rgba(255,255,255,0.09)', 'rgba(255,255,255,0.07)',
-  'rgba(255,255,255,0.06)',
+  'rgb(var(--ink)/var(--ink-a90,0.90))', 'rgb(var(--ink)/var(--ink-a64,0.64))', 'rgb(var(--ink)/var(--ink-a46,0.46))',
+  'rgb(var(--ink)/var(--ink-a33,0.33))', 'rgb(var(--ink)/var(--ink-a24,0.24))', 'rgb(var(--ink)/0.17)',
+  'rgb(var(--ink)/0.12)', 'rgb(var(--ink)/0.09)', 'rgb(var(--ink)/0.07)',
+  'rgb(var(--ink)/0.06)',
 ];
 const ramp = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
 
@@ -67,12 +67,12 @@ interface UtmRow {
 const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   direct:      { label: 'Direct',      icon: Link2,         color: '#94a3b8' },
   search:      { label: 'Search',      icon: SearchIcon,    color: '#3b82f6' },
-  paid_search: { label: 'Paid Search', icon: SearchIcon,    color: '#0ea5e9' },
+  paid_search: { label: 'Paid Search', icon: SearchIcon,    color: 'var(--acc-0ea5e9)' },
   social:      { label: 'Social',      icon: Share2,        color: '#f43f5e' },
   paid_social: { label: 'Paid Social', icon: Share2,        color: '#e11d48' },
   email:       { label: 'Email',       icon: Mail,          color: '#a855f7' },
-  qr:          { label: 'QR Code',     icon: QrCode,        color: '#10b981' },
-  affiliate:   { label: 'Affiliate',   icon: MousePointer2, color: '#f59e0b' },
+  qr:          { label: 'QR Code',     icon: QrCode,        color: 'var(--acc-10b981)' },
+  affiliate:   { label: 'Affiliate',   icon: MousePointer2, color: 'var(--acc-f59e0b)' },
   referral:    { label: 'Referral',    icon: ExternalLink,  color: '#64748b' },
   internal:    { label: 'Internal',    icon: Link2,         color: '#475569' },
   other:       { label: 'Other',       icon: Globe,         color: '#6b7280' },
@@ -208,7 +208,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <div className="flex-1 h-1 rounded-full overflow-hidden"
-                            style={{ background: 'rgba(255,255,255,0.06)' }}>
+                            style={{ background: 'rgb(var(--ink)/0.06)' }}>
                             <div className="h-full rounded-full transition-all"
                               style={{ width: `${pct}%`, background: c }} />
                           </div>
@@ -318,7 +318,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="text-center py-8 px-4">
-      <Globe className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+      <Globe className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
       <p className="text-xs max-w-sm mx-auto" style={{ color: T3 }}>{text}</p>
     </div>
   );
@@ -337,7 +337,7 @@ function DonutChart({ data, language }: { data: SourceBucket[]; language: string
     <div className="relative w-48 h-48 mx-auto">
       <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
         <circle cx="100" cy="100" r={radius} fill="none"
-          stroke="rgba(255,255,255,0.04)" strokeWidth={stroke} />
+          stroke="rgb(var(--ink)/0.04)" strokeWidth={stroke} />
         {data.map((s, i) => {
           const fraction = s.visits / total;
           const dash = fraction * circ;

@@ -253,7 +253,7 @@ export default function OwnerVipService() {
   ];
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <OwnerHeader title={t('owner.vipService')} showBackButton={true} />
 
       <VipPage>
@@ -478,9 +478,9 @@ export default function OwnerVipService() {
                     <div>
                       <VipFieldLabel>{t('vipHost.itemType')}</VipFieldLabel>
                       <VipSelect value={newItem.item_type} onChange={v => setNewItem(p => ({ ...p, item_type: v as QuickItem['item_type'] }))} className="w-full h-auto py-2.5">
-                        <option value="bottle" style={{ background: '#0a0a0c' }}>{t('vipHost.typeBottle')}</option>
-                        <option value="extra" style={{ background: '#0a0a0c' }}>{t('vipHost.typeExtra')}</option>
-                        <option value="service" style={{ background: '#0a0a0c' }}>{t('vipHost.typeService')}</option>
+                        <option value="bottle" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.typeBottle')}</option>
+                        <option value="extra" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.typeExtra')}</option>
+                        <option value="service" style={{ background: 'var(--sf-0a0a0c)' }}>{t('vipHost.typeService')}</option>
                       </VipSelect>
                     </div>
                     <div className="flex gap-2">
@@ -536,7 +536,7 @@ export default function OwnerVipService() {
                               </button>
                               <button
                                 className="h-8 w-8 inline-flex items-center justify-center rounded-lg transition-colors"
-                                style={{ color: '#FF5C63' }}
+                                style={{ color: 'var(--acc-ff5c63)' }}
                                 onClick={() => handleDeleteQuickItem(item.id)}
                                 onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,92,99,0.1)')}
                                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -618,7 +618,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       className="relative inline-flex flex-none items-center rounded-full transition-colors duration-150 cursor-pointer"
       style={{
         width: 44, height: 26,
-        background: checked ? RED : 'rgba(255,255,255,0.1)',
+        background: checked ? RED : 'rgb(var(--ink)/0.1)',
         border: `1px solid ${checked ? 'rgba(232,25,44,0.5)' : BORDER}`,
         boxShadow: checked ? `0 0 14px -4px ${RED}` : undefined,
       }}

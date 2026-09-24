@@ -145,7 +145,7 @@ export function ActivationWizardDialog({
                   if (modePresets.length === 0) {
                     return (
                       <div className="text-center py-6">
-                        <FolderOpen className="mx-auto h-10 w-10 mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                        <FolderOpen className="mx-auto h-10 w-10 mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                         <p style={{ color: T2, fontSize: 13 }}>{t('tickets.noPresetsForMode')}</p>
                       </div>
                     );

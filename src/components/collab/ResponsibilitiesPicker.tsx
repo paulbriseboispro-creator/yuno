@@ -6,10 +6,10 @@ import {
 } from '@/utils/collabResponsibilities';
 
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 const DOMAIN_ICON: Record<CollabDomain, typeof Palette> = {
   design: Palette,

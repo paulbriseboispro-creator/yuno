@@ -365,7 +365,7 @@ export function DemoSwitcher() {
             <Globe className={`h-4 w-4 ${live ? 'text-emerald-400' : 'text-white/50'}`} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-white">Live dans l'app</span>
+            <span className="block text-sm font-medium text-snow">Live dans l'app</span>
             <span className="block text-[11px] text-white/45">
               {live === null ? '…' : live ? 'Club démo visible publiquement' : 'Masqué — visible des démos seulement'}
             </span>
@@ -389,7 +389,7 @@ export function DemoSwitcher() {
               onClick={() => pickClientMode('explore')}
               className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[12px] font-medium transition ${
                 clientMode === 'explore'
-                  ? 'border-primary/50 bg-primary/15 text-white'
+                  ? 'border-primary/50 bg-primary/15 text-snow'
                   : 'border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/[0.07]'
               }`}
             >
@@ -401,7 +401,7 @@ export function DemoSwitcher() {
               onClick={() => pickClientMode('live')}
               className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[12px] font-medium transition ${
                 clientMode === 'live'
-                  ? 'border-primary/50 bg-primary/15 text-white'
+                  ? 'border-primary/50 bg-primary/15 text-snow'
                   : 'border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/[0.07]'
               }`}
             >
@@ -433,7 +433,7 @@ export function DemoSwitcher() {
                     onClick={() => pickPlan(code)}
                     className={`flex flex-col items-center gap-0.5 rounded-xl border px-2 py-2 text-center transition ${
                       active
-                        ? 'border-primary/50 bg-primary/15 text-white'
+                        ? 'border-primary/50 bg-primary/15 text-snow'
                         : 'border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/[0.07]'
                     }`}
                   >
@@ -471,7 +471,7 @@ export function DemoSwitcher() {
                   <Icon className="h-4 w-4 text-primary" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-white">{a.label}</span>
+                  <span className="block truncate text-sm font-medium text-snow">{a.label}</span>
                   <span className="block truncate text-[11px] text-white/45">{a.sub}</span>
                 </span>
                 {isBusy ? (
@@ -513,7 +513,7 @@ export function DemoSwitcher() {
           <button
             type="button"
             onClick={() => { launchTasteQuiz(); setOpen(false); }}
-            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-2 py-2.5 text-[12px] font-medium text-white transition hover:bg-primary/15"
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-2 py-2.5 text-[12px] font-medium text-snow transition hover:bg-primary/15"
           >
             <Sparkles className="h-3.5 w-3.5 text-primary" />Quiz de goûts (client)
           </button>

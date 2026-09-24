@@ -278,7 +278,7 @@ export default function TemplateGallery({ scope, basePath }: { scope: StudioScop
             </PrimaryBtn>
           </div>
           <div style={{ maxWidth: 1160, margin: '8px auto 0' }}>
-            <p style={{ color: pendingYunoBlocks > 0 && !eventId ? '#FCD34D' : T3, fontSize: 11.5, margin: 0 }}>
+            <p style={{ color: pendingYunoBlocks > 0 && !eventId ? 'var(--acc-fcd34d)' : T3, fontSize: 11.5, margin: 0 }}>
               {pendingYunoBlocks > 0 && !eventId
                 ? t('studio.tpl.eventNeeded').replace('{n}', String(pendingYunoBlocks))
                 : t('studio.tpl.eventHint')}
@@ -358,7 +358,7 @@ function Card({ selected, onSelect, title, desc, preview, meta, actions }: {
     >
       <div style={{
         height: 138, overflow: 'hidden', position: 'relative',
-        background: '#0d0d10', borderBottom: `1px solid ${BORDER_FAINT}`,
+        background: 'var(--sf-0d0d10)', borderBottom: `1px solid ${BORDER_FAINT}`,
       }}>
         {preview}
         {actions && actions.length > 0 && (
@@ -371,7 +371,7 @@ function Card({ selected, onSelect, title, desc, preview, meta, actions }: {
                   width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center',
                   justifyContent: 'center', cursor: 'pointer',
                   background: 'rgba(0,0,0,0.62)', border: `1px solid ${BORDER}`,
-                  color: a.danger ? '#FF5C63' : T2, backdropFilter: 'blur(4px)',
+                  color: a.danger ? 'var(--acc-ff5c63)' : T2, backdropFilter: 'blur(4px)',
                 }}
               >{a.icon}</button>
             ))}
@@ -387,7 +387,7 @@ function Card({ selected, onSelect, title, desc, preview, meta, actions }: {
           color: T3, fontSize: 11.5, lineHeight: 1.5,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{desc}</div>
-        {meta && <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 10.5, marginTop: 2 }}>{meta}</div>}
+        {meta && <div style={{ color: 'rgb(var(--ink)/var(--ink-a28,0.28))', fontSize: 10.5, marginTop: 2 }}>{meta}</div>}
       </div>
     </div>
   );
@@ -421,7 +421,7 @@ function BlankPreview() {
   return (
     <div style={{
       height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 6px,rgba(255,255,255,.012) 6px 12px)',
+      background: 'repeating-linear-gradient(135deg,rgb(var(--ink)/.035) 0 6px,rgb(var(--ink)/.012) 6px 12px)',
       color: T3,
     }}>
       <FilePlus2 size={26} strokeWidth={1.4} />
@@ -439,7 +439,7 @@ function EventSelect({ events, value, onChange }: {
       onChange={(e) => onChange(e.target.value)}
       aria-label={t('studio.tpl.eventLabel')}
       style={{
-        width: '100%', padding: '9px 11px', borderRadius: 10, background: '#0a0a0c',
+        width: '100%', padding: '9px 11px', borderRadius: 10, background: 'var(--sf-0a0a0c)',
         border: `1px solid ${BORDER}`, color: value ? T1 : T2, fontSize: 12.5,
         fontFamily: FONT_UI, cursor: 'pointer', outline: 'none',
       }}

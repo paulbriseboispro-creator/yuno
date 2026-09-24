@@ -15,13 +15,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEmailQuota, type StudioScope } from '@/components/email-studio/hooks';
 
 const RED = '#E8192C';
-const WARN = '#FCD34D';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const WARN = 'var(--acc-fcd34d)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 
@@ -51,7 +51,7 @@ export default function EmailQuotaCard({ scope, onBuy, refreshKey = 0 }: Props) 
   const pct = Math.min(1, quota.used / total);
   const exhausted = quota.remaining <= 0;
   const warn = !exhausted && quota.remaining <= total * 0.2;
-  const tone = exhausted ? RED : warn ? WARN : 'rgba(255,255,255,0.42)';
+  const tone = exhausted ? RED : warn ? WARN : 'rgb(var(--ink)/var(--ink-a42,0.42))';
   const resetDate = new Date(quota.resetsOn).toLocaleDateString(language, { day: 'numeric', month: 'long' });
 
   return (
@@ -66,7 +66,7 @@ export default function EmailQuotaCard({ scope, onBuy, refreshKey = 0 }: Props) 
       <div style={{
         width: 34, height: 34, borderRadius: 12, flex: 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`,
+        background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`,
         color: exhausted ? RED : warn ? WARN : T2,
       }}>
         <Gauge className="w-4 h-4" />
@@ -80,7 +80,7 @@ export default function EmailQuotaCard({ scope, onBuy, refreshKey = 0 }: Props) 
           {quota.credits > 0 && (
             <span style={{
               color: T2, fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
-              background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, fontVariantNumeric: 'tabular-nums',
+              background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, fontVariantNumeric: 'tabular-nums',
             }}>{t('studio.sched.quotaCredits').replace('{n}', nf(quota.credits))}</span>
           )}
         </div>
@@ -92,7 +92,7 @@ export default function EmailQuotaCard({ scope, onBuy, refreshKey = 0 }: Props) 
           {exhausted ? t('em.quota.exhausted') : t('em.quota.remaining').replace('{n}', nf(quota.remaining))}
         </div>
 
-        <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ height: 4, borderRadius: 999, background: 'rgb(var(--ink)/0.06)', overflow: 'hidden' }}>
           <div style={{
             height: '100%', width: `${Math.round(pct * 100)}%`, borderRadius: 999,
             background: tone, transition: 'width .3s, background .3s',
@@ -111,7 +111,7 @@ export default function EmailQuotaCard({ scope, onBuy, refreshKey = 0 }: Props) 
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 7, flex: 'none',
           padding: '9px 15px', borderRadius: 10, fontSize: 12.5, fontWeight: 600,
-          background: exhausted ? RED : 'rgba(255,255,255,0.025)',
+          background: exhausted ? RED : 'rgb(var(--ink)/0.025)',
           border: `1px solid ${exhausted ? RED : BORDER}`,
           color: exhausted ? '#fff' : T2,
           boxShadow: exhausted ? '0 0 18px -6px #E8192C' : 'none',

@@ -26,8 +26,9 @@ export function SmsPhonePreview({ message, senderName, footer }: { message: stri
   const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
   const sizing = smsSizing(message);
 
+  // Maquette de téléphone : reste sombre dans le thème clair de la Console.
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-3" data-theme-island="dark">
       <div className="relative w-[230px] select-none">
         <div className="absolute left-[-3px] top-[80px] h-5 w-[3px] rounded-l bg-zinc-600" />
         <div className="absolute left-[-3px] top-[114px] h-9 w-[3px] rounded-l bg-zinc-600" />

@@ -30,18 +30,18 @@ import { ALL_TARGET_ACCOUNTS, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/de
 
 // ─── Yuno Design Tokens (miroir AdminPlatformInvitations) ─────────────────────
 const RED        = '#E8192C';
-const POS        = '#34D399';
-const NEG        = '#FF5C63';
-const T1         = 'rgba(255,255,255,0.96)';
-const T2         = 'rgba(255,255,255,0.58)';
-const T3         = 'rgba(255,255,255,0.36)';
-const C_FAINT    = 'rgba(255,255,255,0.06)';
-const BORDER     = 'rgba(255,255,255,0.085)';
-const F_BORDER   = 'rgba(255,255,255,0.055)';
-const INNER_BG   = 'rgba(255,255,255,0.032)';
-const TILE_BG    = 'rgba(255,255,255,0.025)';
-const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS        = 'var(--acc-34d399)';
+const NEG        = 'var(--acc-ff5c63)';
+const T1         = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2         = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3         = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT    = 'rgb(var(--ink)/0.06)';
+const BORDER     = 'rgb(var(--ink)/0.085)';
+const F_BORDER   = 'rgb(var(--ink)/0.055)';
+const INNER_BG   = 'rgb(var(--ink)/0.032)';
+const TILE_BG    = 'rgb(var(--ink)/0.025)';
+const CARD_BG    = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const inputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
@@ -136,7 +136,7 @@ function AccountPicker({ selected, onToggle }: { selected: TargetAccount[]; onTo
               className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
               style={{ background: checked ? RED : 'transparent', border: `1px solid ${checked ? RED : BORDER}` }}
             >
-              {checked && <Check className="h-3 w-3 text-white" />}
+              {checked && <Check className="h-3 w-3 text-snow" />}
             </span>
             {DEMO_ACCOUNTS[a].label}
           </button>
@@ -376,7 +376,7 @@ export default function AdminDemoAccess() {
   };
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
@@ -397,7 +397,7 @@ export default function AdminDemoAccess() {
               >
                 <Plus className="h-4 w-4" />{t('adm.demo.newLink')}</button>
             </DialogTrigger>
-            <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+            <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, color: T1 }}>
               <DialogHeader><DialogTitle style={{ color: T1 }}>{t('adm.demo.newLinkTitle')}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-2">
                 <div>
@@ -419,11 +419,11 @@ export default function AdminDemoAccess() {
                   </p>
                   <select value={showcaseSel} onChange={(e) => setShowcaseSel(e.target.value)}
                     style={inputStyle}>
-                    <option value="" style={{ background: '#0a0a0c' }}>{t('adm.demo.plainLink')}</option>
+                    <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{t('adm.demo.plainLink')}</option>
                     {showcaseVenues.length > 0 && (
                       <optgroup label={t('adm.demo.showcaseVenues')}>
                         {showcaseVenues.map((v) => (
-                          <option key={v.id} value={`v:${v.id}`} style={{ background: '#0a0a0c' }}>
+                          <option key={v.id} value={`v:${v.id}`} style={{ background: 'var(--sf-0a0a0c)' }}>
                             {v.name}
                           </option>
                         ))}
@@ -432,7 +432,7 @@ export default function AdminDemoAccess() {
                     {showcaseOrgs.length > 0 && (
                       <optgroup label={t('adm.demo.showcaseOrganizers')}>
                         {showcaseOrgs.map((o) => (
-                          <option key={o.user_id} value={`o:${o.user_id}`} style={{ background: '#0a0a0c' }}>
+                          <option key={o.user_id} value={`o:${o.user_id}`} style={{ background: 'var(--sf-0a0a0c)' }}>
                             {o.display_name}
                           </option>
                         ))}
@@ -452,7 +452,7 @@ export default function AdminDemoAccess() {
                   <select value={language} onChange={(e) => setLanguage(e.target.value)}
                     style={{ ...inputStyle, marginTop: 6 }}>
                     {LANGUAGES.map((l) => (
-                      <option key={l.code} value={l.code} style={{ background: '#0a0a0c' }}>
+                      <option key={l.code} value={l.code} style={{ background: 'var(--sf-0a0a0c)' }}>
                         {l.label}
                       </option>
                     ))}
@@ -469,7 +469,7 @@ export default function AdminDemoAccess() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                   style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password || (!showcaseSel && accounts.length === 0)) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password || (!showcaseSel && accounts.length === 0)) ? 0.5 : 1 }}
                 >
-                  {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
+                  {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink))` }} />}
                   Créer + copier le lien
                 </button>
               </div>
@@ -518,7 +518,7 @@ export default function AdminDemoAccess() {
             <div className="text-center py-8" style={{ color: T3 }}>…</div>
           ) : links.length === 0 ? (
             <div className="text-center py-8 px-4">
-              <Eye className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+              <Eye className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
               <p className="text-xs" style={{ color: T3 }}>{t('adm.demo.noLinks')}</p>
             </div>
           ) : (
@@ -567,7 +567,7 @@ export default function AdminDemoAccess() {
         </div>
 
         <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-          <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+          <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, color: T1 }}>
             <DialogHeader>
               <DialogTitle style={{ color: T1 }}>
                 Modifier les accès{editTarget ? ` — ${editTarget.label}` : ''}
@@ -588,7 +588,7 @@ export default function AdminDemoAccess() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                 style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (savingEdit || editAccounts.length === 0) ? 'not-allowed' : 'pointer', opacity: (savingEdit || editAccounts.length === 0) ? 0.5 : 1 }}
               >
-                {savingEdit && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
+                {savingEdit && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink))` }} />}
                 Enregistrer
               </button>
             </div>
@@ -596,7 +596,7 @@ export default function AdminDemoAccess() {
         </Dialog>
 
         <Dialog open={!!inviteTarget} onOpenChange={(o) => !o && setInviteTarget(null)}>
-          <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+          <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, color: T1 }}>
             <DialogHeader>
               <DialogTitle style={{ color: T1 }}>
                 {inviteTarget?.venue_id ? 'Inviter le propriétaire' : 'Inviter l\'organisateur'}
@@ -622,9 +622,9 @@ export default function AdminDemoAccess() {
               >
                 <span
                   className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
-                  style={{ background: offerHelp ? RED : 'transparent', borderColor: offerHelp ? RED : 'rgba(255,255,255,0.25)' }}
+                  style={{ background: offerHelp ? RED : 'transparent', borderColor: offerHelp ? RED : 'rgb(var(--ink)/var(--ink-a25,0.25))' }}
                 >
-                  {offerHelp && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                  {offerHelp && <Check className="h-3 w-3 text-snow" strokeWidth={3} />}
                 </span>
                 <span style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
                   Proposer l'assistance Yuno à l'acceptation (le pro consent, un accès support
@@ -637,7 +637,7 @@ export default function AdminDemoAccess() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                 style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (inviting || !inviteEmail) ? 'not-allowed' : 'pointer', opacity: (inviting || !inviteEmail) ? 0.5 : 1 }}
               >
-                {inviting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
+                {inviting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink)/var(--ink-a35,0.35)) rgb(var(--ink))` }} />}
                 Envoyer l'invitation
               </button>
             </div>
@@ -645,7 +645,7 @@ export default function AdminDemoAccess() {
         </Dialog>
 
         <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-          <AlertDialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+          <AlertDialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, color: T1 }}>
             <AlertDialogHeader>
               <AlertDialogTitle style={{ color: T1 }}>{t('adm.demo.deleteTitle')}</AlertDialogTitle>
               <AlertDialogDescription style={{ color: T3 }}>

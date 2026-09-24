@@ -376,7 +376,7 @@ export default function OrgAppTables() {
                               <Play className="h-3.5 w-3.5" /> {tt('Utiliser pour une soirée', 'Use for an event', 'Usar en una noche')}
                             </OrgButton>
                             <OrgButton size="sm" variant="ghost" className="!px-2" onClick={() => setDeleteRoom(r)}>
-                              <Trash2 className="h-4 w-4" style={{ color: '#FF5C63' }} />
+                              <Trash2 className="h-4 w-4" style={{ color: 'var(--acc-ff5c63)' }} />
                             </OrgButton>
                           </div>
                         </div>
@@ -397,7 +397,7 @@ export default function OrgAppTables() {
 
       {/* Rejouer une salle → choisir la soirée cible */}
       <Dialog open={!!applyRoom} onOpenChange={(o) => { if (!o) setApplyRoom(null); }}>
-        <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
+        <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
           <DialogHeader>
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
               {tt('Utiliser', 'Use', 'Usar')} « {applyRoom?.name} »
@@ -423,7 +423,7 @@ export default function OrgAppTables() {
               <select className="w-full" value={applyTarget} onChange={(e) => setApplyTarget(e.target.value)}
                 style={{ width: '100%', background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', borderRadius: 12, padding: '10px 12px', fontSize: 13, height: 42, cursor: 'pointer' }}>
                 {soloUpcoming.map((e) => (
-                  <option key={e.id} value={e.id} style={{ background: '#0a0a0c' }}>
+                  <option key={e.id} value={e.id} style={{ background: 'var(--sf-0a0a0c)' }}>
                     {fmtDate(e.start_at)} — {e.title}{e.location_name ? ` (${e.location_name})` : ''}
                   </option>
                 ))}
@@ -442,7 +442,7 @@ export default function OrgAppTables() {
       {/* Supprimer une salle de l'historique */}
       {/* Fiche d'une salle VIP : plan, zones et formules tels qu'enregistrés. */}
       <Dialog open={!!detailRoom} onOpenChange={(o) => { if (!o) { setDetailRoom(null); setRoomDraft(null); } }}>
-        <DialogContent className="max-w-3xl border-0 bg-[#0a0a0c] p-0 text-white">
+        <DialogContent className="max-w-3xl border-0 bg-[var(--sf-0a0a0c)] p-0 text-white">
           {detailRoom && (() => {
             const r = detailRoom;
             const st = roomStats(r);
@@ -476,7 +476,7 @@ export default function OrgAppTables() {
                   </div>
                 </DialogHeader>
                 <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
-                  <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.38)' }}>
+                  <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: 'rgb(var(--well)/0.38)' }}>
                     {floorPlan ? (
                       <div className="p-3">
                         <ClientFloorPlanPicker floorPlan={floorPlan} unavailableTableIds={new Set()} selectedTableId={null} onSelectTable={() => {}} onSkip={() => {}} readOnly />
@@ -527,8 +527,8 @@ export default function OrgAppTables() {
                                     <FieldLabel>{tt('Règlement', 'Payment', 'Pago')}</FieldLabel>
                                     <select className="w-full" value={pk.payment_mode} onChange={(e) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, payment_mode: e.target.value as 'online' | 'on_site' } : x) })}
                                       style={{ width: '100%', background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', borderRadius: 12, padding: '0 12px', fontSize: 13, height: 40, cursor: 'pointer' }}>
-                                      <option value="online" style={{ background: '#0a0a0c' }}>{tt('En ligne via Yuno', 'Online via Yuno', 'En línea vía Yuno')}</option>
-                                      <option value="on_site" style={{ background: '#0a0a0c' }}>{tt('Sur place — aucun acompte', 'On site — no deposit', 'En el local — sin señal')}</option>
+                                      <option value="online" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('En ligne via Yuno', 'Online via Yuno', 'En línea vía Yuno')}</option>
+                                      <option value="on_site" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Sur place — aucun acompte', 'On site — no deposit', 'En el local — sin señal')}</option>
                                     </select>
                                   </div>
                                   <div><FieldLabel>{tt('Acompte €', 'Deposit €', 'Señal €')}</FieldLabel><DarkInput type="number" value={pk.deposit_s} disabled={pk.payment_mode === 'on_site'} onChange={(v) => setRoomDraft({ ...roomDraft, packs: roomDraft.packs.map((x, i) => i === pi ? { ...x, deposit_s: v } : x) })} /></div>
@@ -607,7 +607,7 @@ export default function OrgAppTables() {
                   ) : (
                     <>
                       <OrgButton variant="ghost" onClick={() => { setDetailRoom(null); setDeleteRoom(r); }}>
-                        <Trash2 className="h-4 w-4" style={{ color: '#FF5C63' }} /> {tt('Supprimer', 'Delete', 'Eliminar')}
+                        <Trash2 className="h-4 w-4" style={{ color: 'var(--acc-ff5c63)' }} /> {tt('Supprimer', 'Delete', 'Eliminar')}
                       </OrgButton>
                       <OrgButton variant="secondary" onClick={() => startRoomEdit(r)}>
                         <Pencil className="h-3.5 w-3.5" /> {tt('Modifier', 'Edit', 'Editar')}

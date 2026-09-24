@@ -141,7 +141,7 @@ export default function BlockPalette({ scope }: { scope: StudioScope }) {
                         onClick={() => addBlock(m.type as BlockType, insertIndex)}
                         onMouseEnter={(e) => {
                           if (accent) e.currentTarget.style.borderColor = 'rgba(232,25,44,0.5)';
-                          else { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = T1; }
+                          else { e.currentTarget.style.background = 'rgb(var(--ink)/0.07)'; e.currentTarget.style.color = T1; }
                         }}
                         onMouseLeave={(e) => {
                           if (accent) e.currentTarget.style.borderColor = 'rgba(232,25,44,0.22)';
@@ -173,7 +173,7 @@ export default function BlockPalette({ scope }: { scope: StudioScope }) {
           )}
 
           {/* Aide */}
-          <div style={{ padding: 12, borderRadius: 12, border: '1px dashed rgba(255,255,255,0.14)', display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+          <div style={{ padding: 12, borderRadius: 12, border: '1px dashed rgb(var(--ink)/0.14)', display: 'flex', gap: 9, alignItems: 'flex-start' }}>
             <Lightbulb size={14} strokeWidth={1.75} style={{ color: T3, marginTop: 1, flex: 'none' }} />
             <span style={{ color: T3, fontSize: 11, lineHeight: 1.55, fontFamily: FONT_UI }}>
               {t('studio.palette.helpPre')} <span style={{ color: RED }}>+</span> {t('studio.palette.helpPost')}
@@ -207,12 +207,12 @@ export default function BlockPalette({ scope }: { scope: StudioScope }) {
           <div className="yn-in" style={{
             position: 'absolute', bottom: '100%', left: 10, right: 10, marginBottom: 8, zIndex: 30,
             background: PANEL_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 6,
-            boxShadow: '0 24px 48px -24px #000', maxHeight: 260, overflowY: 'auto',
+            boxShadow: '0 24px 48px -24px rgb(0 0 0/var(--pro-shadow-a))', maxHeight: 260, overflowY: 'auto',
           }}>
             {templates.map((tpl) => (
               <button
                 key={tpl.id} type="button" onClick={() => applyTemplate(tpl)}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.05)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 style={{
                   display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px',

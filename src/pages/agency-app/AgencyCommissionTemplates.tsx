@@ -155,14 +155,14 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
   const Select = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) => (
     <select value={value} onChange={e => onChange(e.target.value)} className="w-full outline-none"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 10px', color: T1, fontSize: 13, cursor: 'pointer' }}>
-      {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111' }}>{o.label}</option>)}
+      {options.map(o => <option key={o.value} value={o.value} style={{ background: 'var(--sf-111111)' }}>{o.label}</option>)}
     </select>
   );
 
   const Toggle = ({ value, onChange, label, icon: Icon }: { value: boolean; onChange: (v: boolean) => void; label: string; icon: any }) => (
     <div className="flex items-center justify-between" style={{ padding: '6px 0' }}>
       <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13 }}><Icon className="h-3.5 w-3.5" style={{ color: T3 }} /> {label}</p>
-      <button onClick={() => onChange(!value)} style={{ width: 40, height: 22, borderRadius: 11, cursor: 'pointer', background: value ? RED : 'rgba(255,255,255,0.12)', border: 'none', position: 'relative' }}>
+      <button onClick={() => onChange(!value)} style={{ width: 40, height: 22, borderRadius: 11, cursor: 'pointer', background: value ? RED : 'rgb(var(--ink)/0.12)', border: 'none', position: 'relative' }}>
         <span style={{ position: 'absolute', top: 3, left: value ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
       </button>
     </div>
@@ -177,7 +177,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
         </div>
 
         {/* Commission de base */}
-        <div style={{ borderTop: `1px solid rgba(255,255,255,0.07)`, paddingTop: 12 }}>
+        <div style={{ borderTop: `1px solid rgb(var(--ink)/0.07)`, paddingTop: 12 }}>
           <p className="flex items-center gap-1.5" style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             <Coins className="h-3 w-3" /> {tt('Commission de base', 'Base commission')}
           </p>
@@ -202,7 +202,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
         </div>
 
         {/* Paliers */}
-        <div style={{ borderTop: `1px solid rgba(255,255,255,0.07)`, paddingTop: 8 }}>
+        <div style={{ borderTop: `1px solid rgb(var(--ink)/0.07)`, paddingTop: 8 }}>
           <Toggle value={f.useTiers} onChange={v => set('useTiers', v)} label={tt('Paliers progressifs (par nb de ventes)', 'Progressive tiers (by sale count)')} icon={TrendingUp} />
           {f.useTiers && (
             <div className="space-y-2 pt-1">
@@ -220,7 +220,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
         </div>
 
         {/* Bonus */}
-        <div style={{ borderTop: `1px solid rgba(255,255,255,0.07)`, paddingTop: 8 }}>
+        <div style={{ borderTop: `1px solid rgb(var(--ink)/0.07)`, paddingTop: 8 }}>
           <Toggle value={f.useBonus} onChange={v => set('useBonus', v)} label={tt('Bonus au franchissement d\'un seuil', 'One-off bonus at a threshold')} icon={Gift} />
           {f.useBonus && (
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -237,7 +237,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
         </div>
 
         {/* Fenêtres horaires */}
-        <div style={{ borderTop: `1px solid rgba(255,255,255,0.07)`, paddingTop: 8 }}>
+        <div style={{ borderTop: `1px solid rgb(var(--ink)/0.07)`, paddingTop: 8 }}>
           <Toggle value={f.useWindows} onChange={v => set('useWindows', v)} label={tt('Fenêtres horaires à la porte', 'Door time windows')} icon={Clock} />
           {f.useWindows && (
             <div className="space-y-2 pt-1">
@@ -255,7 +255,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
         </div>
 
         {/* Commission guest list par tête */}
-        <div style={{ borderTop: `1px solid rgba(255,255,255,0.07)`, paddingTop: 8 }}>
+        <div style={{ borderTop: `1px solid rgb(var(--ink)/0.07)`, paddingTop: 8 }}>
           <Toggle value={f.useGl} onChange={v => set('useGl', v)} label={tt('Commission guest list par tête (€)', 'Guest list commission per head (€)')} icon={Wine} />
           {f.useGl && (
             <>
@@ -346,7 +346,7 @@ function TemplateCard({ tpl, promoters, groups, agencyId, onEdit, onDelete, onCh
       </div>
 
       {confirmDel && (
-        <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(232,25,44,0.06)' }}>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid rgb(var(--ink)/0.06)', background: 'rgba(232,25,44,0.06)' }}>
           <p style={{ color: T1, fontSize: 13, marginBottom: 8 }}>{tt(`Supprimer « ${tpl.name} » ? Les promoteurs qui le portent repassent sur leur commission plate.`, `Delete "${tpl.name}"? Promoters using it fall back to their flat commission.`)}</p>
           <div className="flex gap-2">
             <PromoButton size="sm" variant="danger" onClick={() => onDelete(tpl.id)}>{tt('Supprimer', 'Delete')}</PromoButton>
@@ -356,19 +356,19 @@ function TemplateCard({ tpl, promoters, groups, agencyId, onEdit, onDelete, onCh
       )}
 
       {expanded && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 14px' }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.06)', padding: '12px 14px' }}>
           <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{tt('Appliquer à…', 'Apply to…')}</p>
           <div className="flex gap-2">
             <select value={assignTarget} onChange={e => setAssignTarget(e.target.value)} className="flex-1 outline-none"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 10px', color: T1, fontSize: 12.5, cursor: 'pointer' }}>
-              <option value="" style={{ background: '#111' }}>{tt('Choisir…', 'Choose…')}</option>
+              <option value="" style={{ background: 'var(--sf-111111)' }}>{tt('Choisir…', 'Choose…')}</option>
               {groups.length > 0 && (
-                <optgroup label={tt('Groupes', 'Groups')} style={{ background: '#111' }}>
-                  {groups.map(g => <option key={g.id} value={`group:${g.id}`} style={{ background: '#111' }}>🔵 {g.name}</option>)}
+                <optgroup label={tt('Groupes', 'Groups')} style={{ background: 'var(--sf-111111)' }}>
+                  {groups.map(g => <option key={g.id} value={`group:${g.id}`} style={{ background: 'var(--sf-111111)' }}>🔵 {g.name}</option>)}
                 </optgroup>
               )}
-              <optgroup label={tt('Promoteurs', 'Promoters')} style={{ background: '#111' }}>
-                {promoters.map(p => <option key={p.id} value={`promoter:${p.id}`} style={{ background: '#111' }}>{promoterName(p)} {p.venues?.name ? `· ${p.venues.name}` : ''}</option>)}
+              <optgroup label={tt('Promoteurs', 'Promoters')} style={{ background: 'var(--sf-111111)' }}>
+                {promoters.map(p => <option key={p.id} value={`promoter:${p.id}`} style={{ background: 'var(--sf-111111)' }}>{promoterName(p)} {p.venues?.name ? `· ${p.venues.name}` : ''}</option>)}
               </optgroup>
             </select>
             <PromoButton size="sm" onClick={assign} disabled={busy || !assignTarget}>{busy ? '…' : <CheckCircle2 className="h-4 w-4" />}</PromoButton>

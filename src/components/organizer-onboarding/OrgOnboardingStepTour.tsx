@@ -117,7 +117,7 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
       <SupportHelpOptIn settingsPath="/organizer-app/support-access" />
 
       <DoneRow>
-        <Check className="w-5 h-5 flex-none" style={{ color: '#34D399' }} />
+        <Check className="w-5 h-5 flex-none" style={{ color: 'var(--acc-34d399)' }} />
         <div>
           <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Vous êtes prêt', "You're ready", "Estás listo")}</p>
           <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Revenez à cet onboarding à tout moment depuis vos réglages.', 'Come back to this onboarding anytime from your settings.', 'Vuelve a este onboarding cuando quieras desde tus ajustes.')}</p>

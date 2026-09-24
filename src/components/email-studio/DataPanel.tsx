@@ -46,7 +46,7 @@ export default function DataPanel({ scope }: { scope: StudioScope }) {
               key={v.key} type="button"
               onClick={() => insertVariable(v.key)}
               style={{
-                padding: '5px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.04)',
+                padding: '5px 10px', borderRadius: 999, background: 'rgb(var(--ink)/0.04)',
                 border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5,
                 fontFamily: MONO, cursor: 'pointer', transition: 'all .12s',
               }}

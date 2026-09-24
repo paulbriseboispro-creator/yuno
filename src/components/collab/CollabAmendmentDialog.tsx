@@ -17,11 +17,11 @@ import {
   DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
 } from './TieredRemunerationEditor';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T3 = 'rgba(255,255,255,0.36)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 const RED = '#E8192C';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 export interface AmendmentTarget {
   /** Exactement l'un des deux, comme la contrainte serveur. */

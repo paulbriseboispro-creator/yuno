@@ -14,7 +14,7 @@ function DJLayoutInner() {
   return (
     <SidebarProvider>
       <DJAppSidebar />
-      <SidebarInset className="overflow-y-auto" style={{ background: '#000' }}>
+      <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
         <Outlet />
       </SidebarInset>
       {/* App Yuno Pro seulement — sur le web la sidebar reste la navigation. */}

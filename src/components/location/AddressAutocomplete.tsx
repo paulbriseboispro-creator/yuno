@@ -283,7 +283,7 @@ export function AddressAutocomplete({
       {loading && (
         <Loader2
           className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin pointer-events-none"
-          style={{ color: 'rgba(255,255,255,0.36)' }}
+          style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))' }}
         />
       )}
 
@@ -291,8 +291,8 @@ export function AddressAutocomplete({
         <div
           className={`absolute left-0 right-0 z-50 overflow-hidden rounded-xl ${drop.up ? 'bottom-full mb-1' : 'top-full mt-1'}`}
           style={{
-            background: '#0a0a0c',
-            border: '1px solid rgba(255,255,255,0.10)',
+            background: 'var(--sf-0a0a0c)',
+            border: '1px solid rgb(var(--ink)/0.10)',
             boxShadow: '0 18px 40px -20px rgba(0,0,0,.9)',
             maxHeight: drop.maxHeight,
             overflowY: 'auto',
@@ -311,17 +311,17 @@ export function AddressAutocomplete({
               onClick={() => choose(row.feature)}
               className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors"
               style={{
-                background: i === active ? 'rgba(255,255,255,0.05)' : 'transparent',
-                borderBottom: i === rows.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                background: i === active ? 'rgb(var(--ink)/0.05)' : 'transparent',
+                borderBottom: i === rows.length - 1 ? 'none' : '1px solid rgb(var(--ink)/0.06)',
               }}
             >
               <MapPin className="mt-0.5 h-3.5 w-3.5 flex-none" style={{ color: '#E8192C' }} />
               <span className="min-w-0">
-                <span className="block truncate" style={{ color: 'rgba(255,255,255,0.96)', fontSize: 13 }}>
+                <span className="block truncate" style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 13 }}>
                   {row.primary}
                 </span>
                 {row.secondary && (
-                  <span className="block truncate" style={{ color: 'rgba(255,255,255,0.40)', fontSize: 11.5 }}>
+                  <span className="block truncate" style={{ color: 'rgb(var(--ink)/var(--ink-a40,0.40))', fontSize: 11.5 }}>
                     {row.secondary}
                   </span>
                 )}

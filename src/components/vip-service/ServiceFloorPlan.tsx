@@ -206,9 +206,9 @@ export function ServiceFloorPlan({
     return (
       <div
         className="flex h-56 items-center justify-center rounded-2xl"
-        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.085)' }}
+        style={{ background: 'rgb(var(--ink)/0.03)', border: '1px solid rgb(var(--ink)/0.085)' }}
       >
-        <p style={{ color: 'rgba(255,255,255,0.36)', fontSize: 13 }}>{t('vipHost.noFloorPlan')}</p>
+        <p style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))', fontSize: 13 }}>{t('vipHost.noFloorPlan')}</p>
       </div>
     );
   }
@@ -217,7 +217,7 @@ export function ServiceFloorPlan({
     <div className="w-full space-y-2">
       <div
         className="relative w-full touch-none overflow-hidden rounded-2xl"
-        style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.085)' }}
+        style={{ background: 'rgb(var(--ink)/0.025)', border: '1px solid rgb(var(--ink)/0.085)' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -371,13 +371,13 @@ export function ServiceFloorPlan({
                   {/* Pastille or : pré-commande à valider */}
                   {hasPreorder && (
                     <circle cx={table.x + table.width - 3} cy={table.y + 3} r={4.5}
-                      fill="#E7C15A" stroke="#0a0a0c" strokeWidth={1} />
+                      fill="var(--acc-e7c15a)" stroke="var(--sf-0a0a0c)" strokeWidth={1} />
                   )}
 
                   {/* Badge rouge : commandes client en attente */}
                   {alertCount > 0 && (
                     <g>
-                      <circle cx={table.x + 2} cy={table.y + 2} r={6.5} fill="#E8192C" stroke="#0a0a0c" strokeWidth={1}>
+                      <circle cx={table.x + 2} cy={table.y + 2} r={6.5} fill="#E8192C" stroke="var(--sf-0a0a0c)" strokeWidth={1}>
                         <animate attributeName="r" values="6.5;7.5;6.5" dur="1.2s" repeatCount="indefinite" />
                       </circle>
                       <text x={table.x + 2} y={table.y + 2.5} textAnchor="middle" dominantBaseline="middle"
@@ -401,7 +401,7 @@ export function ServiceFloorPlan({
               aria-label={t('vipnight.resetView')}
               title={t('vipnight.resetView')}
               className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
-              style={{ background: 'rgba(232,25,44,0.9)', border: '1px solid rgba(255,255,255,0.18)', color: '#fff' }}
+              style={{ background: 'rgba(232,25,44,0.9)', border: '1px solid rgb(var(--ink)/0.18)', color: '#fff' }}
               onClick={() => {
                 setZoom(1);
                 setPanOffset({ x: 0, y: 0 });
@@ -414,7 +414,7 @@ export function ServiceFloorPlan({
             type="button"
             aria-label={t('vipnight.zoomOut')}
             className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
-            style={{ background: 'rgba(20,20,24,0.85)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+            style={{ background: 'rgb(var(--glass-20-20-24)/0.85)', border: '1px solid rgb(var(--ink)/0.12)', color: 'rgb(var(--ink)/var(--ink-a80,0.8))' }}
             onClick={() => setZoom(z => Math.max(z - 0.3, 0.5))}
           >
             <ZoomOut className="h-4 w-4" />
@@ -423,7 +423,7 @@ export function ServiceFloorPlan({
             type="button"
             aria-label={t('vipnight.zoomIn')}
             className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
-            style={{ background: 'rgba(20,20,24,0.85)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+            style={{ background: 'rgb(var(--glass-20-20-24)/0.85)', border: '1px solid rgb(var(--ink)/0.12)', color: 'rgb(var(--ink)/var(--ink-a80,0.8))' }}
             onClick={() => setZoom(z => Math.min(z + 0.3, 3))}
           >
             <ZoomIn className="h-4 w-4" />
@@ -434,9 +434,9 @@ export function ServiceFloorPlan({
       {/* Légende — service complet, ou version simplifiée en aperçu lecture seule
           (pas de consommation à montrer à qui ne fait pas le service). */}
       {readOnly ? (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)' }}>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgb(var(--ink)/var(--ink-a50,0.5))' }}>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.3)' }} />
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgb(var(--ink)/0.08)', border: '1px solid rgb(var(--ink)/var(--ink-a30,0.3))' }} />
             {language === 'fr' ? 'Libre' : language === 'es' ? 'Libre' : 'Free'}
           </span>
           <span className="flex items-center gap-1.5">
@@ -449,9 +449,9 @@ export function ServiceFloorPlan({
           </span>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)' }}>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgb(var(--ink)/var(--ink-a50,0.5))' }}>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.3)' }} />
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgb(var(--ink)/0.08)', border: '1px solid rgb(var(--ink)/var(--ink-a30,0.3))' }} />
             {t('vipHost.legendFree')}
           </span>
           <span className="flex items-center gap-1.5">

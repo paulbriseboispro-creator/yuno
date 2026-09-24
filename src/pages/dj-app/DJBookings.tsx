@@ -16,6 +16,7 @@ import { makeDjT } from '@/i18n/djTranslate';
 import { downloadDJContractPDF } from '@/lib/generateDJContractPDF';
 import { notifyDjLineup } from '@/lib/djNotify';
 import { DJPage, DJHeading, PCard, Pill, ZoneHeading, DJSpinner, RED, POS, NEG, WARN, T1, T2, T3, BORDER, INNER_BG } from '@/components/dj/dj-ui';
+import { tint } from '@/lib/proTheme';
 
 const eur = (cents: number) => (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
 
@@ -179,7 +180,7 @@ export default function DJBookings() {
     };
     const m = map[s] || { label: s, color: T3 };
     return (
-      <span style={{ fontSize: 11, fontWeight: 700, color: m.color, border: `1px solid ${m.color}40`, background: `${m.color}14`, padding: '2px 9px', borderRadius: 999 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: m.color, border: `1px solid ${tint(m.color, '40')}`, background: `${tint(m.color, '14')}`, padding: '2px 9px', borderRadius: 999 }}>
         {m.label}
       </span>
     );
@@ -371,8 +372,8 @@ export default function DJBookings() {
             disabled={(d) => d < today}
             modifiers={{ blocked: manualDays, busy: busyDays }}
             modifiersStyles={{
-              blocked: { background: 'rgba(255,92,99,0.22)', color: '#fff', borderRadius: 8 },
-              busy: { background: 'rgba(96,165,250,0.22)', color: '#fff', borderRadius: 8 },
+              blocked: { background: 'rgba(255,92,99,0.22)', color: 'rgb(var(--ink))', borderRadius: 8 },
+              busy: { background: 'rgba(96,165,250,0.22)', color: 'rgb(var(--ink))', borderRadius: 8 },
             }}
           />
         </div>

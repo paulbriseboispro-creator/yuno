@@ -38,8 +38,8 @@ export function StepEvent({ draft, events, onPickEvent, set, locale, expert, loc
               return (
                 <button key={e.id} type="button" disabled={locked} onClick={() => onPickEvent(e)}
                   className="flex items-center gap-3 rounded-2xl p-3 text-left cursor-pointer transition-colors duration-150"
-                  style={{ background: active ? 'rgba(232,25,44,0.10)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? 'rgba(232,25,44,0.5)' : BORDER}`, minHeight: 72 }}>
-                  <div className="h-14 w-14 rounded-xl overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  style={{ background: active ? 'rgba(232,25,44,0.10)' : 'rgb(var(--ink)/0.03)', border: `1px solid ${active ? 'rgba(232,25,44,0.5)' : BORDER}`, minHeight: 72 }}>
+                  <div className="h-14 w-14 rounded-xl overflow-hidden flex-shrink-0" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                     {e.poster_url && <img src={e.poster_url} alt="" className="h-full w-full object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">

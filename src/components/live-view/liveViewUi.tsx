@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
  */
 
 export const LV = {
-  bg: '#0A0A0A',
+  bg: 'var(--sf-0a0a0a)',
   card: '#141414',
   card2: '#1B1B1E',
   red: '#E8192C',
@@ -16,8 +16,8 @@ export const LV = {
   gray2: '#9A9A9A',
   gray3: '#5A5A5E',
   gray4: '#3A3A3E',
-  border: 'rgba(255,255,255,0.08)',
-  borderStrong: 'rgba(255,255,255,0.14)',
+  border: 'rgb(var(--ink)/0.08)',
+  borderStrong: 'rgb(var(--ink)/0.14)',
   ease: 'cubic-bezier(0.16, 1, 0.3, 1)',
 } as const;
 
@@ -83,7 +83,7 @@ export function BigNumber({ value, format, size = 'clamp(34px, 5vw, 48px)', colo
 export function ThinBar({ pct, accent = false, height = 2 }: { pct: number; accent?: boolean; height?: number }) {
   const w = Math.max(0, Math.min(100, pct));
   return (
-    <div className="w-full overflow-hidden" style={{ height, background: 'rgba(255,255,255,0.06)', borderRadius: 1 }}>
+    <div className="w-full overflow-hidden" style={{ height, background: 'rgb(var(--ink)/0.06)', borderRadius: 1 }}>
       <div style={{ height: '100%', width: `${w}%`, background: accent ? LV.red : LV.gray4, transition: `width 0.6s ${LV.ease}`, borderRadius: 1 }} />
     </div>
   );
@@ -91,7 +91,7 @@ export function ThinBar({ pct, accent = false, height = 2 }: { pct: number; acce
 
 export function Section({ children, className = '', style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
   return (
-    <section className={`px-5 py-5 ${className}`} style={{ borderBottom: `1px solid rgba(255,255,255,0.07)`, ...style }}>
+    <section className={`px-5 py-5 ${className}`} style={{ borderBottom: `1px solid rgb(var(--ink)/0.07)`, ...style }}>
       {children}
     </section>
   );

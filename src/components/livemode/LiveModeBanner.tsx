@@ -58,7 +58,7 @@ export function LiveModeBanner() {
           className="fixed left-3 right-3 z-40 mx-auto flex max-w-lg items-center justify-center gap-2 py-2"
           style={{
             bottom: 'calc(var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom, 0px) + 6px)',
-            background: 'rgba(20,20,20,0.92)',
+            background: 'rgb(var(--glass-20-20-20)/0.92)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid rgba(232,25,44,0.5)',
@@ -76,7 +76,7 @@ export function LiveModeBanner() {
           </span>
           <span
             className="font-mono uppercase"
-            style={{ fontSize: 9.5, letterSpacing: '0.08em', color: '#9A9A9A' }}
+            style={{ fontSize: 9.5, letterSpacing: '0.08em', color: 'var(--tx-9a9a9a)' }}
           >
             {t('live.reenter')}
           </span>

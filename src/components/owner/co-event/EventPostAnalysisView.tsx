@@ -12,10 +12,10 @@ import { PostEventSuggestions } from '@/components/hype/PostEventSuggestions';
 
 // ─── Yuno pro-dashboard design tokens ─────────────────────────────────────────
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
 
 interface Props {
   /** The single event to analyse. The hook seeds its selected event from this once,
@@ -35,7 +35,7 @@ function ChapterHeader({ icon: Icon, title, sub }: { icon: LucideIcon; title: st
   return (
     <div className="flex items-center gap-3">
       <div className="w-8 h-8 flex items-center justify-center rounded-xl flex-none"
-        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
+        style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
         <Icon className="w-4 h-4" />
       </div>
       <div>
@@ -89,7 +89,7 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Pro
     return (
       <div className="space-y-4">
         {[120, 56, 160, 120].map((h, i) => (
-          <div key={i} style={{ height: h, background: 'rgba(255,255,255,0.04)', borderRadius: 14 }} className="animate-pulse" />
+          <div key={i} style={{ height: h, background: 'rgb(var(--ink)/0.04)', borderRadius: 14 }} className="animate-pulse" />
         ))}
       </div>
     );
@@ -111,7 +111,7 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Pro
       {/* Anchor nav — sticky spine, parks just under the page header */}
       <div
         className="sticky top-[60px] sm:top-[68px] z-20 flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-2 rounded-2xl"
-        style={{ background: 'rgba(10,10,12,0.72)', backdropFilter: 'blur(10px)' }}
+        style={{ background: 'rgb(var(--glass-10-10-12)/0.72)', backdropFilter: 'blur(10px)' }}
       >
         {nav.map(({ id, label, icon: Icon }) => {
           const on = active === id;
@@ -122,7 +122,7 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Pro
               onClick={() => goTo(id)}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-full whitespace-nowrap cursor-pointer transition-colors duration-200 flex-none"
               style={{
-                background: on ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.04)',
+                background: on ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.04)',
                 border: `1px solid ${on ? 'rgba(232,25,44,0.30)' : BORDER}`,
                 color: on ? RED : T2,
                 fontSize: 12.5,

@@ -10,17 +10,17 @@ import { PLANS, PlanCode, PAID_PLANS, EARLY_ADOPTER_FREE_DAYS, EARLY_ADOPTER_LIM
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
-const POS         = '#34D399';
-const NEG         = '#FF5C63';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const C_FAINT     = 'rgba(255,255,255,0.06)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS         = 'var(--acc-34d399)';
+const NEG         = 'var(--acc-ff5c63)';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT     = 'rgb(var(--ink)/0.06)';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const F_BORDER    = 'rgb(var(--ink)/0.055)';
+const INNER_BG    = 'rgb(var(--ink)/0.032)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const PAGE_SIZE = 25;
 
@@ -42,7 +42,7 @@ const planLabel = (code: string) => {
 // elite = accent RED, pro = bright white, essential = muted
 const planPillStyle = (code: string): React.CSSProperties => {
   if (code === 'elite') return { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED };
-  if (code === 'pro') return { background: 'rgba(255,255,255,0.08)', border: `1px solid ${BORDER}`, color: T1 };
+  if (code === 'pro') return { background: 'rgb(var(--ink)/0.08)', border: `1px solid ${BORDER}`, color: T1 };
   return { background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 };
 };
 
@@ -56,7 +56,7 @@ function StatusPill({ status }: { status: string }) {
     : neg
     ? { color: NEG, background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.25)' }
     : trial
-    ? { color: T1, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}` }
+    ? { color: T1, background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}` }
     : { color: T3, background: C_FAINT, border: `1px solid ${BORDER}` };
   return (
     <span style={{ ...tone, fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, textTransform: 'capitalize', display: 'inline-block' }}>
@@ -197,7 +197,7 @@ export default function AdminSubscriptions() {
   ];
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
@@ -244,10 +244,10 @@ export default function AdminSubscriptions() {
             <input placeholder={t('admin.subs.searchVenue')} value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
-            {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
+            {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: 'var(--sf-0a0a0c)', color: T1 }}>{o.label}</option>)}
           </select>
           <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)} style={selectStyle}>
-            {planOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
+            {planOptions.map(o => <option key={o.value} value={o.value} style={{ background: 'var(--sf-0a0a0c)', color: T1 }}>{o.label}</option>)}
           </select>
         </div>
 
@@ -270,7 +270,7 @@ export default function AdminSubscriptions() {
                   </td></tr>
                 ) : data.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-12">
-                    <CreditCard className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                    <CreditCard className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                     <span style={{ color: T3, fontSize: 12 }}>{t('admin.subs.noResults')}</span>
                   </td></tr>
                 ) : data.map((s, index) => (
@@ -290,7 +290,7 @@ export default function AdminSubscriptions() {
                       {s.is_early_adopter ? (
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider"
-                            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: 'rgba(255,255,255,0.92)' }}>
+                            style={{ background: 'rgb(var(--ink)/0.08)', border: '1px solid rgb(var(--ink)/0.16)', color: 'rgb(var(--ink)/var(--ink-a92,0.92))' }}>
                             <Gem className="w-3 h-3" />{t('admin.subs.ea')}
                           </span>
                           {s.price_locked && <Lock className="w-3.5 h-3.5" style={{ color: POS }} aria-label={t('plan.priceLockedBadge')} />}
@@ -332,8 +332,8 @@ export default function AdminSubscriptions() {
             style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24, width: '100%', maxWidth: 420 }}>
             <div className="flex items-start justify-between gap-3 mb-1">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                  <Gem className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.92)' }} />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgb(var(--ink)/0.08)' }}>
+                  <Gem className="w-4 h-4" style={{ color: 'rgb(var(--ink)/var(--ink-a92,0.92))' }} />
                 </div>
                 <h2 style={{ color: T1, fontSize: 16, fontWeight: 700 }}>{t('admin.subs.grantEaTitle')}</h2>
               </div>
@@ -347,7 +347,7 @@ export default function AdminSubscriptions() {
             <label style={{ color: T3, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.subs.plan')}</label>
             <select value={grantPlan} onChange={(e) => setGrantPlan(e.target.value as PlanCode)} style={{ ...selectStyle, width: '100%', marginTop: 6, marginBottom: 20 }}>
               {PAID_PLANS.map((code) => (
-                <option key={code} value={code} style={{ background: '#0a0a0c', color: T1 }}>{PLANS[code].name} — {PLANS[code].price}€/mo</option>
+                <option key={code} value={code} style={{ background: 'var(--sf-0a0a0c)', color: T1 }}>{PLANS[code].name} — {PLANS[code].price}€/mo</option>
               ))}
             </select>
 
@@ -359,7 +359,7 @@ export default function AdminSubscriptions() {
               </button>
               <button onClick={grantEarlyAdopter} disabled={granting}
                 className="px-4 py-2 rounded-xl text-[12.5px] font-semibold cursor-pointer disabled:opacity-50"
-                style={{ background: 'rgba(255,255,255,0.92)', color: '#0a0a0c' }}>
+                style={{ background: 'rgb(var(--ink)/var(--ink-a92,0.92))', color: '#0a0a0c' }}>
                 {granting ? '…' : t('admin.subs.grantEaConfirm')}
               </button>
             </div>

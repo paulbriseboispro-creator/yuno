@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { CustomSidebarTrigger } from '@/components/custom-sidebar-trigger';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { NotificationsBell } from '@/components/NotificationsBell';
+import { ProThemeIconButton } from '@/components/ProThemeSwitch';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAffiliateShell } from '@/contexts/AffiliateShellContext';
 
@@ -31,6 +32,8 @@ export function AffiliateAppHeader() {
       <TooltipProvider delayDuration={300}>
         <div className="flex items-center gap-0.5 sm:gap-1">
           <NotificationsBell config={shell?.feedConfig ?? null} />
+
+          <ProThemeIconButton className="sm:h-10 sm:w-10" />
 
           <Tooltip>
             <TooltipTrigger asChild>

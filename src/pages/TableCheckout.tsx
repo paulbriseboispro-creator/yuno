@@ -65,7 +65,7 @@ type PublicVenueRow = Pick<Tables<'venues'>,
   'id' | 'name' | 'address' | 'city' | 'absorb_yuno_fees' | 'vip_menu_visibility' | 'vip_menu_display_mode' | 'vip_preorder_enabled' | 'vip_placement_enabled'>;
 
 const tableInputClass =
-  'h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
+  'h-11 rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
 
 export default function TableCheckout() {
   const { packId } = useParams();
@@ -847,8 +847,8 @@ export default function TableCheckout() {
 
   if (!event || !pack) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: '#0A0A0A' }}>
-        <p className="font-mono uppercase text-[11px] tracking-[0.06em] text-[#9A9A9A]">{t('tickets.eventNotFound')}</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: 'var(--sf-0a0a0a)' }}>
+        <p className="font-mono uppercase text-[11px] tracking-[0.06em] text-[var(--tx-9a9a9a)]">{t('tickets.eventNotFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate(`${basePath}`, { state: { eventId } })}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('common.back')}
@@ -860,19 +860,19 @@ export default function TableCheckout() {
   const showPlacement = placementEnabled && !!floorPlan;
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#0A0A0A' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--sf-0a0a0a)' }}>
       {/* Header — `sticky top-0` et non `fixed` : c'est le sélecteur que la règle
           @supports d'index.css cible pour poser env(safe-area-inset-top).
           En `fixed` la barre passait SOUS l'encoche et la flèche de retour
           devenait intouchable sur iPhone. */}
       <header
         className="sticky top-0 z-40 w-full"
-        style={{ background: 'rgba(10,10,10,0.90)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ background: 'rgb(var(--glass-10-10-10)/0.90)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
       >
         <div className="mx-auto flex h-12 max-w-lg items-center px-4">
           <button
             onClick={currentStep === 1 ? () => navigate(`${basePath}/billets`, { replace: true, state: { eventId } }) : handlePrevStep}
-            className="flex items-center gap-2 h-8 px-3 -ml-2 font-mono uppercase text-[10px] font-semibold tracking-[0.10em] text-[#9A9A9A] hover:text-white transition-colors"
+            className="flex items-center gap-2 h-8 px-3 -ml-2 font-mono uppercase text-[10px] font-semibold tracking-[0.10em] text-[var(--tx-9a9a9a)] hover:text-white transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             {currentStep === 1 ? t('common.back') : t('common.previous')}
@@ -894,12 +894,12 @@ export default function TableCheckout() {
                 <div className="flex items-start justify-between gap-3 mt-4 mb-5">
                   <div className="min-w-0">
                     <h1 className="font-display font-bold uppercase text-white" style={{ fontSize: 'clamp(24px, 6vw, 32px)', letterSpacing: '-0.02em', lineHeight: 0.95 }}>{zone?.name || pack.name}</h1>
-                    <p className="font-mono uppercase mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{pack.name}</p>
+                    <p className="font-mono uppercase mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>{pack.name}</p>
                   </div>
                   {allZones.length > 1 && (
                     <button
                       onClick={() => setZoneSheetOpen(true)}
-                      className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[9px] font-bold tracking-[0.10em] text-[#E5E5E5] transition-colors"
+                      className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/[0.06] hover:bg-white/[0.10] font-mono uppercase text-[9px] font-bold tracking-[0.10em] text-[var(--tx-e5e5e5)] transition-colors"
                     >
                       <Repeat className="h-3 w-3" />
                       {t('vipCheckout.changeZone') || 'Changer de zone'}
@@ -918,18 +918,18 @@ export default function TableCheckout() {
                 />
 
                 {/* Event meta */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-5 font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-5 font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: 'var(--tx-9a9a9a)' }}>
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-[#5A5A5E]" />
+                    <Calendar className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
                     {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM', { locale: getLocale() })}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-[#5A5A5E]" />
+                    <Clock className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
                     {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'HH:mm')}
                   </div>
                   {(venue?.address || event.location_name) && (
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5 text-[#5A5A5E]" />
+                      <MapPin className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
                       {venue?.name ?? event.location_name}
                     </div>
                   )}
@@ -940,16 +940,16 @@ export default function TableCheckout() {
                   <div className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'rgba(232,25,44,0.25)', background: 'rgba(232,25,44,0.06)' }}>
                     <Clock className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
                     <div className="min-w-0">
-                      <p className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em', color: '#F5F5F5' }}>
+                      <p className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em', color: 'var(--tx-f5f5f5)' }}>
                         {(t('tableCheckout.arrivalBefore') || 'Arrivée avant {time}').replace('{time}', pack.arrivalDeadline)}
                       </p>
-                      <p style={{ fontSize: '11px', color: '#9A9A9A', marginTop: 2 }}>{t('tableCheckout.arrivalBeforeNote')}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', marginTop: 2 }}>{t('tableCheckout.arrivalBeforeNote')}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Price breakdown */}
-                <div className="mt-5 border border-white/[0.08] bg-[#141414] p-4 space-y-2.5" style={{ borderRadius: 10 }}>
+                <div className="mt-5 border border-white/[0.08] bg-[var(--sf-141414)] p-4 space-y-2.5" style={{ borderRadius: 10 }}>
                   {promoterDiscount && pricing.discount > 0 && (
                     <div className="flex justify-between items-center gap-3 text-emerald-400 text-sm">
                       <span className="font-mono uppercase flex items-center gap-1.5" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
@@ -961,23 +961,23 @@ export default function TableCheckout() {
                     </div>
                   )}
                   <div className="flex justify-between items-center gap-3 text-sm">
-                    <span className="text-[#9A9A9A]">{t('tableCheckout.totalPrice')}</span>
-                    <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.totalPrice.toFixed(2)} €</span>
+                    <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.totalPrice')}</span>
+                    <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.totalPrice.toFixed(2)} €</span>
                   </div>
                   {pack.paymentMode === 'on_site' ? (
                     <div className="border-t border-white/[0.08] pt-3 mt-1 rounded-lg px-3 py-2.5" style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
                       <p className="font-display font-bold text-emerald-400" style={{ fontSize: '14px' }}>{t('tableCheckout.onSiteTitle')}</p>
-                      <p className="text-[11.5px] text-[#9A9A9A] mt-0.5">{t('tableCheckout.onSiteDesc')}</p>
+                      <p className="text-[11.5px] text-[var(--tx-9a9a9a)] mt-0.5">{t('tableCheckout.onSiteDesc')}</p>
                     </div>
                   ) : (
                     <>
                       <div className="flex justify-between items-center gap-3 text-sm">
-                        <span className="text-[#9A9A9A]">{t('tableCheckout.deposit')}</span>
-                        <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.deposit.toFixed(2)} €</span>
+                        <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.deposit')}</span>
+                        <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.deposit.toFixed(2)} €</span>
                       </div>
                       <div className="flex justify-between items-center gap-3 text-sm">
-                        <span className="text-[#9A9A9A]">{t('tableCheckout.managementFee')}</span>
-                        <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.managementFee.toFixed(2)} €</span>
+                        <span className="text-[var(--tx-9a9a9a)]">{t('tableCheckout.managementFee')}</span>
+                        <span className="font-mono font-medium tabular-nums text-[var(--tx-e5e5e5)]">{pricing.managementFee.toFixed(2)} €</span>
                       </div>
 
                       <div className="border-t border-white/[0.08] pt-3 mt-1 flex justify-between items-center gap-3">
@@ -985,7 +985,7 @@ export default function TableCheckout() {
                         <span className="font-display font-bold tabular-nums text-primary" style={{ fontSize: '20px', letterSpacing: '-0.02em' }}>{pricing.toPay.toFixed(2)} €</span>
                       </div>
 
-                      <p className="text-center pt-1 text-[11px] text-[#5A5A5E]">
+                      <p className="text-center pt-1 text-[11px] text-[var(--tx-5a5a5e)]">
                         {t('tableCheckout.remainingNote').replace('{amount}', pricing.remainingBalance.toFixed(2))}
                       </p>
                     </>
@@ -1025,21 +1025,21 @@ export default function TableCheckout() {
                 {showPlacement && floorPlan && (
                   <div className="mt-7" ref={planSectionRef} style={{ scrollMarginTop: 'calc(env(safe-area-inset-top, 0px) + 5rem)' }}>
                     <p className="section-label-ruled mb-1.5">{t('vipCheckout.selectTable')}</p>
-                    <p className="text-[11px] text-[#9A9A9A] mb-4">{t('vipCheckout.selectTableDescription')}</p>
+                    <p className="text-[11px] text-[var(--tx-9a9a9a)] mb-4">{t('vipCheckout.selectTableDescription')}</p>
                     {placementStatus === 'assign_on_arrival' && !selectedTableId ? (
-                      <div className="text-center py-7 space-y-3 border border-white/[0.08] bg-[#141414]" style={{ borderRadius: 10 }}>
+                      <div className="text-center py-7 space-y-3 border border-white/[0.08] bg-[var(--sf-141414)]" style={{ borderRadius: 10 }}>
                         <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                           <Check className="h-6 w-6 text-primary" />
                         </div>
                         <div className="px-4">
                           <p className="font-display font-bold uppercase text-white" style={{ fontSize: '14px' }}>{t('vipCheckout.clubWillAssign') || 'Le club choisira votre table'}</p>
-                          <p className="text-xs text-[#9A9A9A] mt-1.5 leading-relaxed">
+                          <p className="text-xs text-[var(--tx-9a9a9a)] mt-1.5 leading-relaxed">
                             {t('vipCheckout.clubWillAssignDesc') || 'L\'équipe VIP vous assignera la meilleure table disponible à votre arrivée'}
                           </p>
                         </div>
                         <button
                           onClick={() => setPlacementStatus('none')}
-                          className="inline-flex items-center h-9 px-4 rounded-full font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[#E5E5E5] bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
+                          className="inline-flex items-center h-9 px-4 rounded-full font-mono uppercase text-[10px] font-bold tracking-[0.10em] text-[var(--tx-e5e5e5)] bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
                         >
                           {t('vipCheckout.chooseMyself') || 'Je préfère choisir moi-même'}
                         </button>
@@ -1064,7 +1064,7 @@ export default function TableCheckout() {
 
                 <button
                   onClick={handleNextStep}
-                  className="w-full h-12 mt-7 rounded-full flex items-center justify-center font-semibold text-sm text-white transition-all active:scale-[0.98]"
+                  className="w-full h-12 mt-7 rounded-full flex items-center justify-center font-semibold text-sm text-snow transition-all active:scale-[0.98]"
                   style={{ background: '#E8192C', boxShadow: '0 10px 28px rgba(232,25,44,0.32)', letterSpacing: '0.01em' }}
                 >
                   {t('common.next')}
@@ -1098,11 +1098,11 @@ export default function TableCheckout() {
                     ACCOUNT_EXISTS bounce after they've filled everything). */}
                 {!user && (
                   <div className="mb-4 space-y-2">
-                    <p className="text-[12px] text-[#9A9A9A]">{t('guest.noAccountNeeded')}</p>
+                    <p className="text-[12px] text-[var(--tx-9a9a9a)]">{t('guest.noAccountNeeded')}</p>
                     <button
                       type="button"
                       onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-                      className="flex items-center gap-1.5 text-[12px] text-[#9A9A9A] hover:text-white transition-colors"
+                      className="flex items-center gap-1.5 text-[12px] text-[var(--tx-9a9a9a)] hover:text-white transition-colors"
                     >
                       <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
                       <span>{t('guest.haveAccountQuestion')}{' '}
@@ -1113,25 +1113,25 @@ export default function TableCheckout() {
                 )}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="fullName" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.fullName')} *</Label>
+                    <Label htmlFor="fullName" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.fullName')} *</Label>
                     <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('tableCheckout.fullNamePlaceholder')} required className={tableInputClass} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="email" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.email')} *</Label>
+                    <Label htmlFor="email" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.email')} *</Label>
                     <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('tableCheckout.emailPlaceholder')} required className={tableInputClass} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="confirmEmail" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.confirmEmail')} *</Label>
+                    <Label htmlFor="confirmEmail" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.confirmEmail')} *</Label>
                     <Input id="confirmEmail" type="email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} placeholder={t('tableCheckout.confirmEmailPlaceholder')} required className={tableInputClass} />
                   </div>
                   {!user && guestEmailHasAccount && <ExistingAccountNotice email={email.trim()} />}
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.phone')} *</Label>
+                    <Label htmlFor="phone" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.phone')} *</Label>
                     <PhoneInputWithCountry id="phone" value={phone} onChange={setPhone} defaultCountry={phoneCountry} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="remarks" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.remarks')}</Label>
-                    <Textarea id="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t('tableCheckout.remarksPlaceholder')} rows={3} className="rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50" />
+                    <Label htmlFor="remarks" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('tableCheckout.remarks')}</Label>
+                    <Textarea id="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t('tableCheckout.remarksPlaceholder')} rows={3} className="rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white placeholder:text-[var(--tx-5a5a5e)] focus-visible:ring-0 focus-visible:border-primary/50" />
                   </div>
                   <AgeGate userId={user?.id} onVerified={(v, bd) => { setAgeVerified(v); if (bd) setAgeBirthDate(bd); }} />
                   <MarketingOptIns
@@ -1170,26 +1170,26 @@ export default function TableCheckout() {
           <div
             className="inline-flex items-center w-full max-w-md gap-4 rounded-xl px-5 py-3 justify-between pointer-events-auto"
             style={{
-              background: 'rgba(14, 14, 16, 0.92)',
+              background: 'rgb(var(--glass-14-14-16)/0.92)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
+              border: '1px solid rgb(var(--ink)/0.10)',
               boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,25,44,0.08)',
             }}
           >
             <div className="flex flex-col min-w-0">
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: '#5A5A5E' }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--tx-5a5a5e)' }}>
                 {pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteShort') : t('tableCheckout.deposit')}
               </span>
-              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', color: 'rgb(var(--ink))', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
                 {pack.paymentMode === 'on_site' ? `${pricing.totalPrice.toFixed(0)}\u00a0€` : <>{pricing.toPay.toFixed(2)}&nbsp;€</>}
               </span>
-              <span className="truncate" style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>{pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteDesc') : (t('tickets.feesIncluded') || 'Frais inclus')}</span>
+              <span className="truncate" style={{ fontSize: '10px', color: 'var(--tx-5a5a5e)', marginTop: '1px' }}>{pack.paymentMode === 'on_site' ? t('tableCheckout.onSiteDesc') : (t('tickets.feesIncluded') || 'Frais inclus')}</span>
             </div>
             <button
               onClick={handleSubmit}
               disabled={submitting || zoneFull || packSoldOut}
-              className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 flex items-center"
+              className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-snow transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 flex items-center"
               style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
             >
               {submitting ? (

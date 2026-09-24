@@ -38,8 +38,8 @@ function RangePill({
       style={{
         padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
         background: active ? INNER_BG : 'transparent',
-        border: `1px solid ${active ? BORDER : 'rgba(255,255,255,0.08)'}`,
-        color: active ? '#fff' : T3,
+        border: `1px solid ${active ? BORDER : 'rgb(var(--ink)/0.08)'}`,
+        color: active ? 'rgb(var(--ink))' : T3,
       }}
     >
       {label}
@@ -126,7 +126,7 @@ function PromoterRow({
         </div>
 
         {/* Progress bar */}
-        <div className="mt-2" style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+        <div className="mt-2" style={{ height: 3, background: 'rgb(var(--ink)/0.06)', borderRadius: 2 }}>
           <div style={{ width: `${share}%`, height: '100%', background: RED, borderRadius: 2 }} />
         </div>
 
@@ -151,7 +151,7 @@ function PromoterRow({
       </button>
 
       {expanded && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '10px 14px 14px' }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.05)', padding: '10px 14px 14px' }}>
           {/* Detail financier */}
           <div className="grid grid-cols-3 gap-2 mb-3">
             <div>
@@ -279,7 +279,7 @@ function EventRow({
           }
         </div>
 
-        <div className="mt-2" style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+        <div className="mt-2" style={{ height: 3, background: 'rgb(var(--ink)/0.06)', borderRadius: 2 }}>
           <div style={{ width: `${share}%`, height: '100%', background: '#6366F1', borderRadius: 2 }} />
         </div>
 
@@ -300,7 +300,7 @@ function EventRow({
       </button>
 
       {expanded && promoBreakdown.length > 0 && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '10px 14px 14px' }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.05)', padding: '10px 14px 14px' }}>
           <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             {tt('Promoteurs', 'Promoters')}
           </p>
@@ -314,7 +314,7 @@ function EventRow({
                 <PromoAvatar src={p.img} fallback={p.name.slice(0, 1)} size={28} />
                 <p className="truncate flex-1" style={{ color: T2, fontSize: 12.5 }}>{p.name}</p>
                 <p style={{ color: POS, fontSize: 13, fontWeight: 660 }}>{eur(p.gross)}</p>
-                <div style={{ width: 60, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+                <div style={{ width: 60, height: 4, background: 'rgb(var(--ink)/0.06)', borderRadius: 2 }}>
                   <div style={{
                     width: `${pct(p.gross, stat.total_gross)}%`,
                     height: '100%', background: RED, borderRadius: 2,
@@ -400,7 +400,7 @@ export default function AgencyStats() {
             onClick={() => setTab(t)}
             style={{
               padding: '6px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-              background: tab === t ? 'rgba(255,255,255,0.10)' : 'transparent',
+              background: tab === t ? 'rgb(var(--ink)/0.10)' : 'transparent',
               border: 'none',
               color: tab === t ? T1 : T3,
             }}

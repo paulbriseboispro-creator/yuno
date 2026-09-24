@@ -5,7 +5,7 @@ import type { LiveAlert } from '@/hooks/useLiveNightData';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED = '#E8192C';
-const T3  = 'rgba(255,255,255,0.36)';
+const T3  = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 
 const severityConfig = {
   info: {

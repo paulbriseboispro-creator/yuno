@@ -44,11 +44,11 @@ import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 type EventKind = 'public_event' | 'private_event';
 type CollabMode = 'solo' | 'co_event' | 'venue_rental' | 'hosted_by_venue';
@@ -87,7 +87,7 @@ function DarkInput({
       disabled={disabled}
       className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 disabled:opacity-50"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={(e) => { if (!disabled) e.target.style.borderColor = 'rgba(255,255,255,0.18)'; }}
+      onFocus={(e) => { if (!disabled) e.target.style.borderColor = 'rgb(var(--ink)/0.18)'; }}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -107,7 +107,7 @@ function DarkTextarea({
       rows={rows}
       className="w-full px-3 py-2.5 rounded-xl text-[13px] resize-none transition-all duration-150"
       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+      onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}
     />
   );
@@ -128,7 +128,7 @@ function DarkSelect({
         className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: value ? T1 : T3, outline: 'none' }}
       >
-        {placeholder && <option value="" disabled style={{ background: '#0a0a0c' }}>{placeholder}</option>}
+        {placeholder && <option value="" disabled style={{ background: 'var(--sf-0a0a0c)' }}>{placeholder}</option>}
         {children}
       </select>
       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
@@ -661,7 +661,7 @@ export function OrgEventFormDialog({
       <DialogContent
         className="border-0 p-0 max-h-[90vh]"
         data-action-busy={publishOpen && publishStage < 5 ? '1' : undefined}
-        style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
+        style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600,
                  display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
       <div className="flex-1 min-h-0 overflow-y-auto" style={{
@@ -777,7 +777,7 @@ export function OrgEventFormDialog({
               </FieldLabel>
               <DarkSelect value={eventType} onChange={setEventType}>
                 {EVENT_TYPES.map((opt) => (
-                  <option key={opt.value} value={opt.value} style={{ background: '#0a0a0c' }}>
+                  <option key={opt.value} value={opt.value} style={{ background: 'var(--sf-0a0a0c)' }}>
                     {opt.label}
                   </option>
                 ))}
@@ -817,7 +817,7 @@ export function OrgEventFormDialog({
                   ? SUPPORTED_TIMEZONES
                   : [{ id: timezone, city: timezone }, ...SUPPORTED_TIMEZONES]
                 ).map(z => (
-                  <option key={z.id} value={z.id} style={{ background: '#0a0a0c' }}>
+                  <option key={z.id} value={z.id} style={{ background: 'var(--sf-0a0a0c)' }}>
                     {z.city} · {tzOffsetLabel(z.id)}
                   </option>
                 ))}
@@ -937,7 +937,7 @@ export function OrgEventFormDialog({
                     placeholder={t('Sélectionne un club', 'Select a club')}
                   >
                     {activePartnerships.map((p) => (
-                      <option key={p.id} value={p.venue_id} style={{ background: '#0a0a0c' }}>
+                      <option key={p.id} value={p.venue_id} style={{ background: 'var(--sf-0a0a0c)' }}>
                         {p.venue?.name ?? p.venue_id}
                         {p.venue?.city ? ` · ${p.venue.city}` : ''}
                       </option>
@@ -970,7 +970,7 @@ export function OrgEventFormDialog({
                       : { background: INNER_BG, border: `1px solid ${BORDER}` }
                     }
                   >
-                    {locationIsSecret && <Check className="h-3.5 w-3.5 text-white" />}
+                    {locationIsSecret && <Check className="h-3.5 w-3.5 text-snow" />}
                   </span>
                   <div className="flex-1">
                     <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Lieu secret', 'Secret location')}</p>
@@ -1030,7 +1030,7 @@ export function OrgEventFormDialog({
                       : { background: INNER_BG, border: `1px solid ${BORDER}` }
                     }
                   >
-                    {hideYunoNavigation && <Check className="h-3.5 w-3.5 text-white" />}
+                    {hideYunoNavigation && <Check className="h-3.5 w-3.5 text-snow" />}
                   </span>
                   <div className="flex-1">
                     <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Garder les visiteurs sur la page', 'Keep visitors on the page')}</p>
@@ -1109,7 +1109,7 @@ export function OrgEventFormDialog({
                       <div className="flex items-center gap-3">
                         <div
                           className="flex items-center justify-center shrink-0 overflow-hidden"
-                          style={{ width: 48, height: 48, borderRadius: 10, border: '1px solid rgba(255,255,255,0.10)', background: '#141416' }}
+                          style={{ width: 48, height: 48, borderRadius: 10, border: '1px solid rgb(var(--ink)/0.10)', background: 'var(--sf-141416)' }}
                         >
                           {locationLogoPreview
                             ? <img src={locationLogoPreview} alt="" className="h-full w-full object-cover" />
@@ -1174,7 +1174,7 @@ export function OrgEventFormDialog({
               </div>
               <span
                 className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0"
-                style={{ background: isActive ? RED : 'rgba(255,255,255,0.12)' }}
+                style={{ background: isActive ? RED : 'rgb(var(--ink)/0.12)' }}
               >
                 <span
                   className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
@@ -1193,7 +1193,7 @@ export function OrgEventFormDialog({
             {eventKind === 'public_event' && ((!requiresPartner && description.trim().length < 30) || !posterPreview) && (
               <div style={{ background: 'rgba(232,160,25,0.08)', border: '1px solid rgba(232,160,25,0.28)', borderRadius: 12, padding: '12px 14px' }}>
                 <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: '#E8A019', marginTop: 1 }} />
+                  <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: 'var(--acc-e8a019)', marginTop: 1 }} />
                   <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
                     <p style={{ color: T1, fontWeight: 600, marginBottom: 4 }}>
                       {t(
@@ -1288,14 +1288,14 @@ function SelectCard({
       className="w-full text-left flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all duration-150"
       style={selected
         ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.35)' }
-        : { background: 'rgba(255,255,255,0.018)', border: `1px solid ${BORDER}` }
+        : { background: 'rgb(var(--ink)/0.018)', border: `1px solid ${BORDER}` }
       }
     >
       <span
         className="mt-0.5 h-4 w-4 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
         style={selected
           ? { border: `1px solid ${RED}` }
-          : { border: '1px solid rgba(255,255,255,0.25)' }
+          : { border: '1px solid rgb(var(--ink)/var(--ink-a25,0.25))' }
         }
       >
         {selected && <span className="h-2 w-2 rounded-full" style={{ background: RED }} />}

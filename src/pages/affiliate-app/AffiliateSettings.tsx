@@ -519,7 +519,7 @@ export default function AffiliateSettings() {
                   >
                     {uploadingAvatar
                       ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      : <Camera className="h-3.5 w-3.5 text-white" />
+                      : <Camera className="h-3.5 w-3.5 text-snow" />
                     }
                   </button>
                   <input
@@ -645,7 +645,7 @@ export default function AffiliateSettings() {
                   >
                     <div
                       className="mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                      style={{ borderColor: active ? RED : 'rgba(255,255,255,0.22)' }}
+                      style={{ borderColor: active ? RED : 'rgb(var(--ink)/var(--ink-a22,0.22))' }}
                     >
                       {active && <div className="w-2 h-2 rounded-full" style={{ background: RED }} />}
                     </div>
@@ -771,7 +771,7 @@ export default function AffiliateSettings() {
                           width: i === idx ? '18px' : '6px',
                           height: '6px',
                           borderRadius: '999px',
-                          background: i === idx ? RED : 'rgba(255,255,255,0.15)',
+                          background: i === idx ? RED : 'rgb(var(--ink)/0.15)',
                           border: 'none',
                           padding: 0,
                           cursor: 'pointer',
@@ -953,7 +953,7 @@ export default function AffiliateSettings() {
                 >
                   <div
                     className="mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                    style={{ borderColor: active ? RED : 'rgba(255,255,255,0.22)' }}
+                    style={{ borderColor: active ? RED : 'rgb(var(--ink)/var(--ink-a22,0.22))' }}
                   >
                     {active && <div className="w-2 h-2 rounded-full" style={{ background: RED }} />}
                   </div>
@@ -980,7 +980,7 @@ export default function AffiliateSettings() {
               onClick={handleAllowPromoterSortToggle}
               className="shrink-0 ml-4 w-11 h-6 rounded-full cursor-pointer transition-colors"
               style={{
-                background: form.allow_promoter_sort ? RED : 'rgba(255,255,255,0.10)',
+                background: form.allow_promoter_sort ? RED : 'rgb(var(--ink)/0.10)',
                 boxShadow: form.allow_promoter_sort ? `0 0 14px -4px ${RED}88` : 'none',
               }}
             >

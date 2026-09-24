@@ -74,7 +74,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
       {COLORS.map(c => (
         <button key={c} onClick={() => onChange(c)} style={{
           width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer',
-          border: value === c ? '2px solid #fff' : '2px solid transparent',
+          border: value === c ? '2px solid rgb(var(--ink))' : '2px solid transparent',
           boxShadow: value === c ? `0 0 0 1.5px ${c}` : 'none',
         }} />
       ))}
@@ -92,7 +92,7 @@ function Toggle({
         onClick={() => onChange(!value)}
         style={{
           width: 40, height: 22, borderRadius: 11, cursor: 'pointer',
-          background: value ? RED : 'rgba(255,255,255,0.12)',
+          background: value ? RED : 'rgb(var(--ink)/0.12)',
           border: 'none', position: 'relative', transition: 'background .2s',
         }}
       >
@@ -120,7 +120,7 @@ function TypeSelect({
       }}
     >
       {options.map(o => (
-        <option key={o.value} value={o.value} style={{ background: '#111' }}>{o.label}</option>
+        <option key={o.value} value={o.value} style={{ background: 'var(--sf-111111)' }}>{o.label}</option>
       ))}
     </select>
   );
@@ -182,7 +182,7 @@ function RuleForm({
           <ColorPicker value={f.color} onChange={c => set('color', c)} />
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 12 }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.07)', paddingTop: 12 }}>
           <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             {tt('Permissions', 'Permissions')}
           </p>
@@ -215,7 +215,7 @@ function RuleForm({
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 12 }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.07)', paddingTop: 12 }}>
           <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             {tt('Commission promoteur', 'Promoter commission')}
           </p>
@@ -251,7 +251,7 @@ function RuleForm({
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 12 }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.07)', paddingTop: 12 }}>
           <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             {tt('Remise client (code promo)', 'Client discount (promo code)')}
           </p>
@@ -391,7 +391,7 @@ function TemplateCard({
 
       {/* Confirm delete */}
       {confirmDel && (
-        <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(232,25,44,0.06)' }}>
+        <div style={{ padding: '10px 14px', borderTop: '1px solid rgb(var(--ink)/0.06)', background: 'rgba(232,25,44,0.06)' }}>
           <p style={{ color: T1, fontSize: 13, marginBottom: 8 }}>
             {tt(
               `Supprimer "${tpl.name}" ? Les promoteurs garderont leurs droits actuels.`,
@@ -412,7 +412,7 @@ function TemplateCard({
 
       {/* Expanded: assign + who has it */}
       {expanded && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 14px' }}>
+        <div style={{ borderTop: '1px solid rgb(var(--ink)/0.06)', padding: '12px 14px' }}>
           {/* Assign UI */}
           <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             {tt('Appliquer à…', 'Apply to…')}
@@ -427,19 +427,19 @@ function TemplateCard({
                 borderRadius: 10, padding: '8px 10px', color: T1, fontSize: 12.5, cursor: 'pointer',
               }}
             >
-              <option value="" style={{ background: '#111' }}>{tt('Choisir…', 'Choose…')}</option>
+              <option value="" style={{ background: 'var(--sf-111111)' }}>{tt('Choisir…', 'Choose…')}</option>
               {groups.length > 0 && (
-                <optgroup label={tt('Groupes', 'Groups')} style={{ background: '#111' }}>
+                <optgroup label={tt('Groupes', 'Groups')} style={{ background: 'var(--sf-111111)' }}>
                   {groups.map(g => (
-                    <option key={g.id} value={`group:${g.id}`} style={{ background: '#111' }}>
+                    <option key={g.id} value={`group:${g.id}`} style={{ background: 'var(--sf-111111)' }}>
                       🔵 {g.name}
                     </option>
                   ))}
                 </optgroup>
               )}
-              <optgroup label={tt('Promoteurs', 'Promoters')} style={{ background: '#111' }}>
+              <optgroup label={tt('Promoteurs', 'Promoters')} style={{ background: 'var(--sf-111111)' }}>
                 {promoters.map(p => (
-                  <option key={p.id} value={`promoter:${p.id}`} style={{ background: '#111' }}>
+                  <option key={p.id} value={`promoter:${p.id}`} style={{ background: 'var(--sf-111111)' }}>
                     {promoterName(p)} {p.venues?.name ? `· ${p.venues.name}` : ''}
                   </option>
                 ))}
@@ -681,7 +681,7 @@ export default function AgencyRules() {
                   <div
                     key={p.id}
                     className="flex items-center gap-3"
-                    style={{ padding: '7px 6px', borderBottom: i < noTpl.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
+                    style={{ padding: '7px 6px', borderBottom: i < noTpl.length - 1 ? '1px solid rgb(var(--ink)/0.04)' : undefined }}
                   >
                     <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={28} />
                     <div className="min-w-0 flex-1">

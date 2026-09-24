@@ -173,7 +173,7 @@ export default function OwnerPromoterAnnouncements() {
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
                       <button onClick={() => handleDelete(a.id)} aria-label={t('common.delete')}
-                        style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: '#FF5C63', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: 'var(--acc-ff5c63)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

@@ -207,7 +207,7 @@ export function OnboardingTasteQuiz({ userId, onDone }: { userId: string; onDone
                       </span>
                       {active && (
                         <span style={{ width: 20, height: 20, borderRadius: 999, background: RED, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Check className="h-3 w-3 text-white" />
+                          <Check className="h-3 w-3 text-snow" />
                         </span>
                       )}
                     </button>

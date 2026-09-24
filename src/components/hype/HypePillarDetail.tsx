@@ -6,13 +6,13 @@ import { useNavigate } from 'react-router-dom';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const NEG      = '#FF5C63';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
+const POS      = 'var(--acc-34d399)';
+const NEG      = 'var(--acc-ff5c63)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
 
 interface HypePillarDetailProps {
   pillar: HypePillar;

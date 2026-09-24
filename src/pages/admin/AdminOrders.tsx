@@ -8,17 +8,17 @@ import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
-const POS         = '#34D399';
-const NEG         = '#FF5C63';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const C_FAINT     = 'rgba(255,255,255,0.06)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS         = 'var(--acc-34d399)';
+const NEG         = 'var(--acc-ff5c63)';
+const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT     = 'rgb(var(--ink)/0.06)';
+const BORDER      = 'rgb(var(--ink)/0.085)';
+const F_BORDER    = 'rgb(var(--ink)/0.055)';
+const INNER_BG    = 'rgb(var(--ink)/0.032)';
+const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Une ligne, quel que soit l'onglet : `admin_orders_list` normalise les trois
 // tables (commande, billet, réservation) sous cette forme, libellés résolus
@@ -270,7 +270,7 @@ export default function AdminOrders() {
   }, [tab, isGuest, t, venues]);
 
   return (
-    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
@@ -292,7 +292,7 @@ export default function AdminOrders() {
                 key={kpi.label}
                 style={{
                   background: kpi.highlight
-                    ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),#0a0a0c'
+                    ? 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.035)),var(--sf-0a0a0c)'
                     : CARD_BG,
                   border: `1px solid ${kpi.highlight ? 'rgba(232,25,44,0.24)' : BORDER}`,
                   borderRadius: 16,
@@ -346,7 +346,7 @@ export default function AdminOrders() {
             <input placeholder={isGuest ? t('adm.orders.gl.searchPh') : t('admin.orders.searchEmail')} value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
-            {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
+            {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: 'var(--sf-0a0a0c)', color: T1 }}>{o.label}</option>)}
           </select>
           {/* La démo reste consultable, elle n'est simplement plus comptée. */}
           <button
@@ -398,7 +398,7 @@ export default function AdminOrders() {
                   </td></tr>
                 ) : data.length === 0 ? (
                   <tr><td colSpan={columns.length} className="text-center py-12">
-                    <ShoppingCart className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                    <ShoppingCart className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                     <span style={{ color: T3, fontSize: 12 }}>{t('admin.orders.noResults')}</span>
                   </td></tr>
                 ) : data.map((item, index) => (

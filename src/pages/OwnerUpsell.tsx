@@ -24,7 +24,7 @@ export default function OwnerUpsell() {
 
   if (!venueId) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
         <p style={{ color: T3 }}>{t('owner.noVenueAssigned')}</p>
       </div>
     );
@@ -37,7 +37,7 @@ export default function OwnerUpsell() {
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: '#000' }}>
+    <div className="min-h-screen" style={{ background: 'var(--sf-000000)' }}>
       <OwnerHeader
         title={t('upsell.title')}
         showBackButton={true}

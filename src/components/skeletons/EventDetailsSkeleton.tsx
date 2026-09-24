@@ -6,11 +6,11 @@ import { Shimmer, SkeletonLine } from './Shimmer';
    tableau d'infos. Mêmes ratios/paddings que la page réelle. */
 export function EventDetailsSkeleton() {
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }} aria-hidden>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-0a0a0a)' }} aria-hidden>
       {/* Hero 1:1 plein bleed */}
       <div
         className="relative w-full overflow-hidden yuno-shimmer bg-white/5"
-        style={{ aspectRatio: '1 / 1', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ aspectRatio: '1 / 1', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
       >
         {/* Boutons haut (back / share / fav) */}
         <div
@@ -35,7 +35,7 @@ export function EventDetailsSkeleton() {
         {/* Rangée d'actions */}
         <div
           className="flex items-center gap-2.5"
-          style={{ padding: 'clamp(20px, 4vw, 28px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ padding: 'clamp(20px, 4vw, 28px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}
         >
           <Shimmer width={116} height={32} style={{ borderRadius: 2 }} />
           <Shimmer width={116} height={32} style={{ borderRadius: 2 }} />
@@ -50,13 +50,13 @@ export function EventDetailsSkeleton() {
         {/* Double bloc date / heure */}
         <div style={{ padding: 'clamp(32px, 5vw, 44px) 20px' }}>
           <SkeletonLine width={80} height={12} className="mb-6" />
-          <div className="flex items-stretch mb-6 pb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-stretch mb-6 pb-6" style={{ borderBottom: '1px solid rgb(var(--ink)/0.06)' }}>
             <div className="flex-1 space-y-3">
               <SkeletonLine width={40} height={9} />
               <SkeletonLine width={96} height={54} />
               <SkeletonLine width={120} height={16} />
             </div>
-            <div className="shrink-0" style={{ width: 1, background: 'rgba(255,255,255,0.07)', margin: '0 24px' }} />
+            <div className="shrink-0" style={{ width: 1, background: 'rgb(var(--ink)/0.07)', margin: '0 24px' }} />
             <div className="flex-1 space-y-3">
               <SkeletonLine width={70} height={9} />
               <SkeletonLine width={110} height={54} />

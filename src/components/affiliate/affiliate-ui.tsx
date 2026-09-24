@@ -13,32 +13,32 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 export const RED         = '#E8192C';
-export const RED_SOFT    = '#FF5C63';
-export const NEG         = '#FF5C63';                    // négatif / drop-off
-export const POS         = '#34D399';
-export const WARN        = '#FBBF24';
-export const T1          = 'rgba(255,255,255,0.96)';
-export const T2          = 'rgba(255,255,255,0.58)';
-export const T3          = 'rgba(255,255,255,0.36)';
-export const C_HI        = 'rgba(255,255,255,0.92)';
-export const C_MID       = 'rgba(255,255,255,0.40)';
-export const BORDER      = 'rgba(255,255,255,0.085)';
-export const F_BORDER    = 'rgba(255,255,255,0.055)';
-export const C_FAINT     = 'rgba(255,255,255,0.06)';
-export const INNER_BG    = 'rgba(255,255,255,0.032)';
-export const TILE_BG     = 'rgba(255,255,255,0.025)';
-export const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+export const RED_SOFT    = 'var(--acc-ff5c63)';
+export const NEG         = 'var(--acc-ff5c63)';                    // négatif / drop-off
+export const POS         = 'var(--acc-34d399)';
+export const WARN        = 'var(--acc-fbbf24)';
+export const T1          = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2          = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3          = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const C_HI        = 'rgb(var(--ink)/var(--ink-a92,0.92))';
+export const C_MID       = 'rgb(var(--ink)/var(--ink-a40,0.40))';
+export const BORDER      = 'rgb(var(--ink)/0.085)';
+export const F_BORDER    = 'rgb(var(--ink)/0.055)';
+export const C_FAINT     = 'rgb(var(--ink)/0.06)';
+export const INNER_BG    = 'rgb(var(--ink)/0.032)';
+export const TILE_BG     = 'rgb(var(--ink)/0.025)';
+export const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
 // Lives inside AffiliateLayout's <main>, so no sidebar here — just the ambient
 // vignette + the centred content column.
 export function AffPage({ children, maxWidth = 1100 }: { children: ReactNode; maxWidth?: number }) {
   return (
-    <div className="min-h-screen pb-24 relative" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24 relative" style={{ background: 'var(--sf-000000)' }}>
       <div
         className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
       {/* Sidebar toggle bar */}
       <div className="relative z-10 px-4 sm:px-6 pt-3">
@@ -84,7 +84,7 @@ export function AffCard({
         transition: 'border-color 150ms ease',
         ...style,
       }}
-      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)') : undefined}
+      onMouseEnter={clickable ? (e) => (e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.14)') : undefined}
       onMouseLeave={clickable ? (e) => (e.currentTarget.style.borderColor = BORDER) : undefined}
     >
       {children}
@@ -275,12 +275,12 @@ export function AffLinkButton({
 // ─── Progress bar ─────────────────────────────────────────────────────────────
 export function AffProgress({ value, tone = 'red', height = 6 }: { value: number; tone?: 'red' | 'pos' | 'warn'; height?: number }) {
   const fill = tone === 'pos'
-    ? `linear-gradient(90deg,${POS}aa,${POS})`
+    ? `linear-gradient(90deg,#34D399aa,${POS})`
     : tone === 'warn'
-    ? `linear-gradient(90deg,${WARN}aa,${WARN})`
+    ? `linear-gradient(90deg,#FBBF24aa,${WARN})`
     : `linear-gradient(90deg,${RED}88,${RED})`;
   return (
-    <div style={{ height, background: 'rgba(255,255,255,0.06)', borderRadius: 999, overflow: 'hidden' }}>
+    <div style={{ height, background: 'rgb(var(--ink)/0.06)', borderRadius: 999, overflow: 'hidden' }}>
       <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, value))}%`, background: fill, borderRadius: 999, transition: 'width 700ms ease' }} />
     </div>
   );
@@ -388,7 +388,7 @@ export function CheckBox({ checked, onChange, label }: { checked: boolean; onCha
       className="inline-flex items-center gap-2 cursor-pointer select-none">
       <span className="flex-none flex items-center justify-center rounded"
         style={{ width: 18, height: 18, background: checked ? RED : 'transparent', border: `1px solid ${checked ? RED : BORDER}`, transition: 'all 150ms ease' }}>
-        {checked && <span style={{ color: '#fff', fontSize: 12, lineHeight: 1 }}>✓</span>}
+        {checked && <span style={{ color: 'rgb(var(--ink))', fontSize: 12, lineHeight: 1 }}>✓</span>}
       </span>
       <span style={{ color: checked ? T1 : T2, fontSize: 13 }}>{label}</span>
     </button>
@@ -403,7 +403,7 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: () =
       className="relative flex-none transition-all duration-200"
       style={{
         width: 42, height: 24, borderRadius: 999, cursor: 'pointer',
-        background: checked ? RED : 'rgba(255,255,255,0.1)',
+        background: checked ? RED : 'rgb(var(--ink)/0.1)',
         border: `1px solid ${checked ? 'rgba(232,25,44,0.5)' : BORDER}`,
         boxShadow: checked ? `0 0 14px -4px ${RED}aa` : 'none',
       }}
@@ -419,12 +419,12 @@ export function SegToggle<T extends string>({
   value, onChange, options,
 }: { value: T; onChange: (v: T) => void; options: { key: T; label: string }[] }) {
   return (
-    <div className="inline-flex gap-0.5 p-1 rounded-xl w-full" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+    <div className="inline-flex gap-0.5 p-1 rounded-xl w-full" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
       {options.map((o) => (
         <button key={o.key} onClick={() => onChange(o.key)}
           className="flex-1 px-3 py-1.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150"
           style={value === o.key
-            ? { color: T1, background: 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))', boxShadow: '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000' }
+            ? { color: T1, background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))', boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' }
             : { color: T3, background: 'transparent' }}>
           {o.label}
         </button>
@@ -461,7 +461,7 @@ export function TabBar<T extends string>({
 // ─── Loading spinner (full area) ──────────────────────────────────────────────
 export function AffSpinner({ label = 'Chargement…' }: { label?: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+    <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--sf-000000)' }}>
       <div className="text-center">
         <div
           className="mb-4 h-11 w-11 animate-spin rounded-full border-2 mx-auto"
@@ -477,7 +477,7 @@ export function AffSpinner({ label = 'Chargement…' }: { label?: string }) {
 export function AffEmpty({ icon: Icon, title, description, action }: { icon?: any; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="text-center" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '44px 20px' }}>
-      {Icon && <Icon className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />}
+      {Icon && <Icon className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />}
       <p style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{title}</p>
       {description && <p style={{ color: T3, fontSize: 12.5, margin: 0, marginTop: 4 }}>{description}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}

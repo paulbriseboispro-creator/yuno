@@ -21,12 +21,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDoorRoster, type DoorRosterPerson } from '@/hooks/useDoorRoster';
 
 const RED = '#E8192C';
-const POS = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const POS = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 /** Colonne d'index : le « # » ramasse tout ce qui ne commence pas par une lettre. */
 const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
@@ -229,7 +229,7 @@ export function DoorSearchPanel({ eventId, onPick }: Props) {
                 <div
                   className="sticky top-0 z-10 px-1 py-1.5"
                   style={{
-                    background: 'rgba(10,10,10,0.94)',
+                    background: 'rgb(var(--glass-10-10-10)/0.94)',
                     backdropFilter: 'blur(8px)',
                     color: T2,
                     fontSize: 11,
@@ -265,7 +265,7 @@ export function DoorSearchPanel({ eventId, onPick }: Props) {
                   onClick={() => jumpTo(letter)}
                   className="flex h-full w-full items-center justify-center"
                   style={{
-                    color: present ? T2 : 'rgba(255,255,255,0.14)',
+                    color: present ? T2 : 'rgb(var(--ink)/0.14)',
                     fontSize: 9.5,
                     fontWeight: 700,
                     lineHeight: 1,

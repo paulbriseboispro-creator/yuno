@@ -356,7 +356,7 @@ export default function OwnerRefunds() {
 
       <div className="mx-auto max-w-3xl p-4 space-y-4">
         {isOrganizerScope && (
-          <h1 className="mb-1" style={{ color: 'rgba(255,255,255,0.96)', fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('refund.title')}</h1>
+          <h1 className="mb-1" style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('refund.title')}</h1>
         )}
         <div>
           <label className="text-sm font-medium mb-1.5 block">{t('refund.selectEvent')}</label>
@@ -429,7 +429,7 @@ export default function OwnerRefunds() {
                   {selectedIds.size > 0 && (
                     <div className="sticky bottom-20 z-10">
                       <Button
-                        className="w-full bg-red-600 hover:bg-red-700 text-white"
+                        className="w-full bg-red-600 hover:bg-red-700 text-snow"
                         size="lg"
                         onClick={() => setDialogOpen(true)}
                       >

@@ -16,12 +16,12 @@ import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabTablesPreview } from './CollabTablesPreview';
 import { CollabGuestListPreview } from './CollabGuestListPreview';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 const RED = '#E8192C';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 /**
  * Dialogue d'APERÇU d'un volet (design ou opérationnel) pour la partie qui ne le
@@ -74,7 +74,7 @@ export function CollabPreviewDialog({
     <Dialog open={domain !== null} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent
         className="border-0 p-0 overflow-hidden max-h-[88vh] overflow-y-auto"
-        style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}
+        style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 560 }}
       >
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle className="flex items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>

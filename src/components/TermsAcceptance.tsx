@@ -109,7 +109,7 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
   return (
     // Same card + row design as the marketing opt-ins (MarketingOptIns), so the
     // required terms consent reads as part of the same checkbox family.
-    <div className="rounded-[10px] border border-white/[0.08] bg-[#141414] p-4">
+    <div className="rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)] p-4">
       <button
         type="button"
         onClick={() => handleCheck(!checked)}
@@ -123,8 +123,8 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
         >
           {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
         </span>
-        <span className="text-[#5A5A5E] shrink-0"><ScrollText className="h-4 w-4" /></span>
-        <span className="text-sm text-[#9A9A9A] leading-snug" onClick={(e) => e.stopPropagation()}>
+        <span className="text-[var(--tx-5a5a5e)] shrink-0"><ScrollText className="h-4 w-4" /></span>
+        <span className="text-sm text-[var(--tx-9a9a9a)] leading-snug" onClick={(e) => e.stopPropagation()}>
           {t('cgv.acceptText')}{' '}
           <a
             href={termsUrl}

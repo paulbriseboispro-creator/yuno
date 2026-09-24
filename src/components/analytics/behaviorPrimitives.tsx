@@ -3,9 +3,9 @@
 import type { LucideIcon } from 'lucide-react';
 
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 
 // ─── Device share bar ───────────────────────────────────────────────────────
 export function DeviceBar({
@@ -24,7 +24,7 @@ export function DeviceBar({
           <span style={{ color: T3 }}>({pct.toFixed(0)}%{sub ? ` · ${sub}` : ''})</span>
         </span>
       </div>
-      <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+      <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
@@ -61,7 +61,7 @@ export function Heatmap({ matrix, language }: { matrix: number[][]; language: st
                   style={{
                     background: v > 0
                       ? `rgba(232,25,44,${0.10 + intensity * 0.68})`
-                      : 'rgba(255,255,255,0.03)',
+                      : 'rgb(var(--ink)/0.03)',
                   }}
                   title={`${days[di]} ${hi}h — ${v}`}
                 />

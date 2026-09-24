@@ -321,7 +321,7 @@ export default function OwnerPromoterTemplates() {
                       <button onClick={() => openEdit(tpl)} aria-label={t('owner.edit')} style={{ width: 32, height: 32, borderRadius: 9, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button onClick={() => setDeleteId(tpl.id)} aria-label={t('common.delete')} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: '#FF5C63', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <button onClick={() => setDeleteId(tpl.id)} aria-label={t('common.delete')} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: 'var(--acc-ff5c63)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>

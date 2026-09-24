@@ -125,8 +125,8 @@ export default function AgencyAnalytics() {
               style={{
                 padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 background: range === r.days ? INNER_BG : 'transparent',
-                border: `1px solid ${range === r.days ? BORDER : 'rgba(255,255,255,0.08)'}`,
-                color: range === r.days ? '#fff' : T3,
+                border: `1px solid ${range === r.days ? BORDER : 'rgb(var(--ink)/0.08)'}`,
+                color: range === r.days ? 'rgb(var(--ink))' : T3,
               }}
             >
               {language === 'fr' ? r.fr : language === 'es' ? r.es : r.en}
@@ -155,12 +155,12 @@ export default function AgencyAnalytics() {
                   <stop offset="95%" stopColor={RED} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--ink)/0.05)" />
               <XAxis dataKey="week" tick={{ fill: T3, fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: T3, fontSize: 10 }} axisLine={false} tickLine={false}
                 tickFormatter={v => `${v}€`} />
               <Tooltip
-                contentStyle={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: 8, color: T1, fontSize: 12 }}
+                contentStyle={{ background: 'var(--sf-111111)', border: `1px solid ${BORDER}`, borderRadius: 8, color: T1, fontSize: 12 }}
                 formatter={(v: number) => [eur(v), tt('Volume', 'Volume')]}
               />
               <Area type="monotone" dataKey="amount" stroke={RED} strokeWidth={2} fill="url(#agGrad)" dot={false} />
@@ -203,7 +203,7 @@ export default function AgencyAnalytics() {
                           height: 14, borderRadius: 2,
                           background: intensity > 0
                             ? `rgba(232,25,44,${0.08 + intensity * 0.85})`
-                            : 'rgba(255,255,255,0.04)',
+                            : 'rgb(var(--ink)/0.04)',
                         }}
                       />
                     );
@@ -227,7 +227,7 @@ export default function AgencyAnalytics() {
                 tickFormatter={v => `${v}€`} />
               <YAxis type="category" dataKey="name" tick={{ fill: T2, fontSize: 11 }} axisLine={false} tickLine={false} width={90} />
               <Tooltip
-                contentStyle={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: 8, color: T1, fontSize: 12 }}
+                contentStyle={{ background: 'var(--sf-111111)', border: `1px solid ${BORDER}`, borderRadius: 8, color: T1, fontSize: 12 }}
                 formatter={(v: number) => [eur(v), tt('Volume', 'Volume')]}
               />
               <Bar dataKey="amount" fill={RED} radius={[0, 4, 4, 0]} />
@@ -265,7 +265,7 @@ export default function AgencyAnalytics() {
                            : <ChevronDown className="h-4 w-4" style={{ color: T3, flexShrink: 0 }} />}
                   </button>
                   {isExp && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '8px 14px 12px' }}>
+                    <div style={{ borderTop: '1px solid rgb(var(--ink)/0.05)', padding: '8px 14px 12px' }}>
                       {convs.slice(0, 15).map(c => (
                         <div key={c.id} className="flex justify-between" style={{ fontSize: 12, padding: '3px 0' }}>
                           <span style={{ color: T3 }}>

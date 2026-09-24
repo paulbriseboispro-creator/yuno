@@ -208,7 +208,7 @@ export default function AdminGrowth() {
                   <BarChart data={(signups?.by_month ?? []).map((m) => ({ ...m, label: m.m.slice(0, 7) }))} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
                     <XAxis dataKey="label" tick={{ fill: T3, fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: T3, fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={RECHARTS_TOOLTIP} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                    <Tooltip contentStyle={RECHARTS_TOOLTIP} cursor={{ fill: 'rgb(var(--ink)/0.03)' }} />
                     <Bar dataKey="n" name={t('adm.common.signups')} fill={RED} radius={[3, 3, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>

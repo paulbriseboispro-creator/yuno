@@ -1,0 +1,554 @@
+/* ============================================================
+   THÈME CLAIR DES DASHBOARDS PRO (Yuno Console, espaces pro, admin)
+   ------------------------------------------------------------
+   Les dashboards ont été dessinés en sombre : texte = blanc à
+   96 / 58 / 36 %, bordures = blanc à 8,5 %, cartes = #0a0a0c.
+   Le thème clair ne réécrit pas ce langage, il change l'ENCRE :
+
+     --ink    = la couleur du « blanc » translucide. Tout
+                `rgb(var(--ink)/0.58)` est un blanc à 58 % en sombre
+                et un zinc-950 à 58 % en clair (≈ zinc-500 : c'est
+                exactement la hiérarchie de la landing claire).
+     --sf-xxx = une surface sombre codée en dur (#0a0a0c…). Valeur
+                sombre EXACTE par défaut, surface claire en thème clair.
+     --sheen  = le reflet blanc des cartes (dégradé 180deg, liseré
+                intérieur) — blanc dans les deux thèmes, donc
+                invisible sur une carte blanche.
+
+   Tout vaut le rendu sombre d'origine à `:root` : les pages
+   publiques, l'app client et un dashboard en thème sombre ne
+   bougent pas d'un pixel. Le clair n'existe que sous
+   `html[data-pro-theme="light"]`, que `ProThemeController` ne pose
+   QUE sur une route pro (`isThemedProPath`, src/lib/proTheme.ts).
+
+   `[data-theme-island="dark"]` rétablit le sombre dans un îlot
+   (globe Live View, maquette de téléphone, aperçu d'un écran
+   client). La palette Tailwind (gris, couleurs, `white`) suit la
+   même règle via `tailwind.theme.ts`.
+   ============================================================ */
+
+:root {
+  --ink: 255 255 255;
+  --paper: 0 0 0;
+  --page: 0 0 0;
+  --sheen: 255 255 255;
+  --pro-shadow-a: 1;
+
+  /* Jetons sémantiques pour du NOUVEAU code (préférer ceux-ci à un hex) */
+  --pro-page: #000000;
+  --pro-card: #0a0a0c;
+  --pro-elev: #1f1f22;
+
+  /* Surfaces sombres historiques — une variable par hex, valeur exacte */
+  --sf-000000: #000000;
+  --sf-050505: #050505;
+  --sf-050506: #050506;
+  --sf-08080a: #08080a;
+  --sf-0a0a0a: #0a0a0a;
+  --sf-0a0a0c: #0a0a0c;
+  --sf-0b0b0d: #0b0b0d;
+  --sf-0c0c0e: #0c0c0e;
+  --sf-0d0d0f: #0d0d0f;
+  --sf-0d0d10: #0d0d10;
+  --sf-0f0f12: #0f0f12;
+  --sf-111111: #111111;
+  --sf-111113: #111113;
+  --sf-121214: #121214;
+  --sf-131316: #131316;
+  --sf-141414: #141414;
+  --sf-141416: #141416;
+  --sf-191919: #191919;
+  --sf-1a1a1d: #1a1a1d;
+  --sf-1c1c1e: #1c1c1e;
+  --sf-1f1f22: #1f1f22;
+  --sf-26262b: #26262b;
+  --sf-2a2a2a: #2a2a2a;
+  --sf-2c2c2e: #2c2c2e;
+  --sf-3a3a3a: #3a3a3a;
+  --sf-3a3a3c: #3a3a3c;
+  --sf-3a3a3e: #3a3a3e;
+
+  /* Voile « puits » (rgba(0,0,0,a) posé sur une carte) */
+  --well: 0 0 0;
+  --toast-bg: 22 22 25;
+  --glass-0-0-0: 0 0 0;
+  --toast-error-bg: 28 12 15;
+
+  /* Gris de texte dessinés pour le noir (#9A9A9A…) — valeur exacte en sombre */
+  --tx-4a4a4a: #4a4a4a;
+  --tx-5a5a5e: #5a5a5e;
+  --tx-666666: #666666;
+  --tx-6a6a6a: #6a6a6a;
+  --tx-6a6a6e: #6a6a6e;
+  --tx-6b6b70: #6b6b70;
+  --tx-7a7a7e: #7a7a7e;
+  --tx-8a8a8a: #8a8a8a;
+  --tx-8a8a8e: #8a8a8e;
+  --tx-9a9a9a: #9a9a9a;
+  --tx-b8b8bc: #b8b8bc;
+  --tx-b9b9bd: #b9b9bd;
+  --tx-e5e5e5: #e5e5e5;
+  --tx-e8e8ea: #e8e8ea;
+  --tx-f5f5f5: #f5f5f5;
+
+  /* Accents vifs dessinés pour le noir — valeur exacte en sombre */
+  --acc-0ea5e9: #0ea5e9;
+  --acc-10b981: #10b981;
+  --acc-f472b6: #f472b6;
+  --acc-22d3ee: #22d3ee;
+  --acc-2dd4bf: #2dd4bf;
+  --acc-22c55e: #22c55e;
+  --acc-25d366: #25d366;
+  --acc-34d399: #34d399;
+  --acc-38bdf8: #38bdf8;
+  --acc-5b9cff: #5b9cff;
+  --acc-60a5fa: #60a5fa;
+  --acc-818cf8: #818cf8;
+  --acc-8b85ff: #8b85ff;
+  --acc-8fb6ff: #8fb6ff;
+  --acc-93c5fd: #93c5fd;
+  --acc-a5b4fc: #a5b4fc;
+  --acc-a78bfa: #a78bfa;
+  --acc-a7f3d0: #a7f3d0;
+  --acc-c084fc: #c084fc;
+  --acc-cd7f32: #cd7f32;
+  --acc-d8b4fe: #d8b4fe;
+  --acc-e7c15a: #e7c15a;
+  --acc-e8a019: #e8a019;
+  --acc-f0c987: #f0c987;
+  --acc-f2b23c: #f2b23c;
+  --acc-f59e0b: #f59e0b;
+  --acc-f5a623: #f5a623;
+  --acc-f87171: #f87171;
+  --acc-f97316: #f97316;
+  --acc-fb923c: #fb923c;
+  --acc-fbbf24: #fbbf24;
+  --acc-fca5a5: #fca5a5;
+  --acc-fcd34d: #fcd34d;
+  --acc-ff5c63: #ff5c63;
+  --acc-ff5d68: #ff5d68;
+  --acc-ff7a45: #ff7a45;
+  --acc-ff7a80: #ff7a80;
+  --acc-ff7a82: #ff7a82;
+  --acc-ff8a91: #ff8a91;
+  --acc-ff8a93: #ff8a93;
+  --glass-10-10-10: 10 10 10;
+  --glass-10-10-12: 10 10 12;
+  --glass-14-14-16: 14 14 16;
+  --glass-15-15-15: 15 15 15;
+  --glass-20-20-20: 20 20 20;
+  --glass-20-20-24: 20 20 24;
+  --glass-30-30-32: 30 30 32;
+}
+
+html[data-pro-theme="light"] {
+  color-scheme: light;
+
+  --ink: 9 9 11;
+  --paper: 255 255 255;
+  --page: 245 245 246;
+  --pro-shadow-a: 0.12;
+  --status-scrim: linear-gradient(to bottom, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.55) 62%, transparent 100%);
+
+  --pro-page: #f5f5f6;
+  --pro-card: #ffffff;
+  --pro-elev: #f4f4f5;
+
+  /* page */
+  --sf-000000: #f5f5f6;
+  --sf-050505: #f5f5f6;
+  --sf-050506: #f5f5f6;
+  --sf-08080a: #ffffff;
+  --sf-0a0a0a: #f5f5f6;
+  /* cartes, feuilles, dialogues */
+  --sf-0a0a0c: #ffffff;
+  --sf-0b0b0d: #ffffff;
+  --sf-0c0c0e: #ffffff;
+  --sf-0d0d0f: #ffffff;
+  --sf-0d0d10: #ffffff;
+  --sf-0f0f12: #ffffff;
+  --sf-111111: #ffffff;
+  --sf-111113: #ffffff;
+  --sf-121214: #ffffff;
+  --sf-131316: #ffffff;
+  --sf-141414: #ffffff;
+  --sf-141416: #ffffff;
+  --sf-191919: #ffffff;
+  --sf-1a1a1d: #ffffff;
+  --sf-1c1c1e: #ffffff;
+  /* champs, surfaces surélevées */
+  --sf-1f1f22: #f4f4f5;
+  --sf-26262b: #f4f4f5;
+  --sf-2a2a2a: #f4f4f5;
+  --sf-2c2c2e: #f4f4f5;
+  /* gris soutenus (traits, pastilles neutres) */
+  --sf-3a3a3a: #d4d4d8;
+  --sf-3a3a3c: #d4d4d8;
+  --sf-3a3a3e: #d4d4d8;
+
+  /* index.css — surfaces de marque */
+  --yuno-black: #f5f5f6;
+  --yuno-bg-2: #efeff1;
+  --yuno-card: #ffffff;
+  --yuno-card-2: #f4f4f5;
+  --yuno-elev: #ffffff;
+  --yuno-input: #ffffff;
+  --yuno-surface: #ffffff;
+  --yuno-surface-2: #f4f4f5;
+  --yuno-surface-3: #e4e4e7;
+  --yuno-white: #09090b;
+  --yuno-gray-1: #27272a;
+  --yuno-gray-2: #71717a;
+  --yuno-gray-3: #a1a1aa;
+  --yuno-gray-4: #d4d4d8;
+  --border-subtle: rgba(9, 9, 11, 0.08);
+  --border-strong: rgba(9, 9, 11, 0.14);
+
+  /* shadcn (HSL) */
+  --background: 240 5% 96%;
+  --foreground: 240 10% 4%;
+  --surface: 0 0% 100%;
+  --surface-elevated: 0 0% 100%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 4%;
+  --secondary: 240 5% 94%;
+  --secondary-foreground: 240 6% 20%;
+  --muted: 240 5% 95%;
+  --muted-foreground: 240 4% 46%;
+  --border: 240 6% 90%;
+  --input: 240 6% 88%;
+  --shadow-soft: 0 2px 8px hsla(240, 6%, 10%, 0.06);
+  --shadow-inset: inset 0 1px 0 hsla(0, 0%, 100%, 0.6);
+  --surface-glass: 240 10% 4% / 0.03;
+  --surface-glass-hover: 240 10% 4% / 0.06;
+  --chart-3: 240 4% 46%;
+  --chart-4: 240 5% 65%;
+  --chart-5: 240 5% 34%;
+
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 240 6% 10%;
+  --sidebar-accent: 240 5% 95%;
+  --sidebar-accent-foreground: 240 6% 10%;
+  --sidebar-border: 240 6% 91%;
+
+  --well: 150 150 160;
+  --toast-bg: 255 255 255;
+  --glass-0-0-0: 245 245 246;
+  --toast-error-bg: 255 241 242;
+
+  /* Gris de texte : le miroir (264 − canal), même contraste inversé */
+  --tx-4a4a4a: #bebebe;
+  --tx-5a5a5e: #a6a6aa;
+  --tx-666666: #a2a2a2;
+  --tx-6a6a6a: #9e9e9e;
+  --tx-6a6a6e: #96969a;
+  --tx-6b6b70: #939398;
+  --tx-7a7a7e: #86868a;
+  --tx-8a8a8a: #7e7e7e;
+  --tx-8a8a8e: #76767a;
+  --tx-9a9a9a: #6e6e6e;
+  --tx-b8b8bc: #48484c;
+  --tx-b9b9bd: #47474b;
+  --tx-e5e5e5: #232323;
+  --tx-e8e8ea: #1c1c1e;
+  --tx-f5f5f5: #131313;
+
+  /* Accents vifs : même teinte, assombrie jusqu'à ~4,2:1 sur la page claire */
+  --acc-0ea5e9: #117dae;
+  --acc-10b981: #0d845c;
+  --acc-f472b6: #db167d;
+  --acc-22d3ee: #0e8091;
+  --acc-2dd4bf: #1a8174;
+  --acc-22c55e: #17843f;
+  --acc-25d366: #178540;
+  --acc-34d399: #1d845f;
+  --acc-38bdf8: #117baa;
+  --acc-5b9cff: #206fe9;
+  --acc-60a5fa: #1672e3;
+  --acc-818cf8: #5866ee;
+  --acc-8b85ff: #645def;
+  --acc-8fb6ff: #2a6dea;
+  --acc-93c5fd: #1673dc;
+  --acc-a5b4fc: #4e69ed;
+  --acc-a78bfa: #7f59ef;
+  --acc-a7f3d0: #12844f;
+  --acc-c084fc: #9a47ed;
+  --acc-cd7f32: #a46628;
+  --acc-d8b4fe: #9a4aed;
+  --acc-e7c15a: #8e6d15;
+  --acc-e8a019: #9b6a0f;
+  --acc-f0c987: #9d6a14;
+  --acc-f2b23c: #9a690f;
+  --acc-f59e0b: #9f6a10;
+  --acc-f5a623: #9d6810;
+  --acc-f87171: #e71717;
+  --acc-f97316: #ba5712;
+  --acc-fb923c: #b55b12;
+  --acc-fbbf24: #916d0e;
+  --acc-fca5a5: #e71717;
+  --acc-fcd34d: #8e700e;
+  --acc-ff5c63: #e81720;
+  --acc-ff5d68: #e51725;
+  --acc-ff7a45: #ca4814;
+  --acc-ff7a80: #e81720;
+  --acc-ff7a82: #e81723;
+  --acc-ff8a91: #e81724;
+  --acc-ff8a93: #e81727;
+  --glass-10-10-10: 255 255 255;
+  --glass-10-10-12: 255 255 255;
+  --glass-14-14-16: 255 255 255;
+  --glass-15-15-15: 255 255 255;
+  --glass-20-20-20: 255 255 255;
+  --glass-20-20-24: 255 255 255;
+  --glass-30-30-32: 244 244 245;
+
+  /* Hiérarchie de l'encre : les textes translucides (≥ 20 %) gagnent un
+     cinquième de l'écart vers l'opaque — T3 (36 %) passe à 49 %, sinon un
+     label tertiaire tombe à 2,4:1 sur fond clair, sous le rendu sombre. */
+  --ink-a20: 0.36;
+  --ink-a22: 0.376;
+  --ink-a24: 0.392;
+  --ink-a25: 0.4;
+  --ink-a26: 0.408;
+  --ink-a28: 0.424;
+  --ink-a30: 0.44;
+  --ink-a33: 0.464;
+  --ink-a34: 0.472;
+  --ink-a35: 0.48;
+  --ink-a36: 0.488;
+  --ink-a38: 0.504;
+  --ink-a40: 0.52;
+  --ink-a42: 0.536;
+  --ink-a44: 0.552;
+  --ink-a45: 0.56;
+  --ink-a46: 0.568;
+  --ink-a50: 0.6;
+  --ink-a55: 0.64;
+  --ink-a58: 0.664;
+  --ink-a60: 0.68;
+  --ink-a62: 0.696;
+  --ink-a64: 0.712;
+  --ink-a65: 0.72;
+  --ink-a66: 0.728;
+  --ink-a70: 0.76;
+  --ink-a72: 0.776;
+  --ink-a75: 0.8;
+  --ink-a80: 0.84;
+  --ink-a82: 0.856;
+  --ink-a90: 0.92;
+  --ink-a92: 0.936;
+  --ink-a94: 0.952;
+  --ink-a96: 0.968;
+}
+
+/* Îlot sombre dans une page claire : on rétablit toutes les valeurs. */
+html[data-pro-theme="light"] [data-theme-island="dark"] {
+  color-scheme: dark;
+  color: #ffffff;
+  --status-scrim: initial;
+
+  --ink: 255 255 255;
+  --paper: 0 0 0;
+  --page: 0 0 0;
+  --pro-shadow-a: 1;
+  --pro-page: #000000;
+  --pro-card: #0a0a0c;
+  --pro-elev: #1f1f22;
+
+  --sf-000000: #000000;
+  --sf-050505: #050505;
+  --sf-050506: #050506;
+  --sf-08080a: #08080a;
+  --sf-0a0a0a: #0a0a0a;
+  --sf-0a0a0c: #0a0a0c;
+  --sf-0b0b0d: #0b0b0d;
+  --sf-0c0c0e: #0c0c0e;
+  --sf-0d0d0f: #0d0d0f;
+  --sf-0d0d10: #0d0d10;
+  --sf-0f0f12: #0f0f12;
+  --sf-111111: #111111;
+  --sf-111113: #111113;
+  --sf-121214: #121214;
+  --sf-131316: #131316;
+  --sf-141414: #141414;
+  --sf-141416: #141416;
+  --sf-191919: #191919;
+  --sf-1a1a1d: #1a1a1d;
+  --sf-1c1c1e: #1c1c1e;
+  --sf-1f1f22: #1f1f22;
+  --sf-26262b: #26262b;
+  --sf-2a2a2a: #2a2a2a;
+  --sf-2c2c2e: #2c2c2e;
+  --sf-3a3a3a: #3a3a3a;
+  --sf-3a3a3c: #3a3a3c;
+  --sf-3a3a3e: #3a3a3e;
+
+  --yuno-black: #0a0a0a;
+  --yuno-bg-2: #0e0e10;
+  --yuno-card: #141414;
+  --yuno-card-2: #1b1b1e;
+  --yuno-elev: #222226;
+  --yuno-input: #1f1f22;
+  --yuno-surface: #111111;
+  --yuno-surface-2: #191919;
+  --yuno-surface-3: #222222;
+  --yuno-white: #ffffff;
+  --yuno-gray-1: #e5e5e5;
+  --yuno-gray-2: #9a9a9a;
+  --yuno-gray-3: #5a5a5e;
+  --yuno-gray-4: #3a3a3e;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --background: 0 0% 4%;
+  --foreground: 0 0% 98%;
+  --surface: 0 0% 6%;
+  --surface-elevated: 0 0% 8%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 7%;
+  --popover-foreground: 0 0% 98%;
+  --secondary: 0 0% 8%;
+  --secondary-foreground: 0 0% 80%;
+  --muted: 0 0% 7%;
+  --muted-foreground: 0 0% 55%;
+  --border: 0 0% 10%;
+  --input: 0 0% 10%;
+  --shadow-soft: 0 2px 8px hsla(0, 0%, 0%, 0.3);
+  --shadow-inset: inset 0 1px 0 hsla(0, 0%, 100%, 0.03);
+  --surface-glass: 0 0% 100% / 0.03;
+  --surface-glass-hover: 0 0% 100% / 0.06;
+  --chart-3: 0 0% 45%;
+  --chart-4: 0 0% 30%;
+  --chart-5: 0 0% 62%;
+
+  --sidebar-background: 0 0% 5%;
+  --sidebar-foreground: 0 0% 90%;
+  --sidebar-accent: 0 0% 9%;
+  --sidebar-accent-foreground: 0 0% 90%;
+  --sidebar-border: 0 0% 11%;
+
+  --well: 0 0 0;
+  --toast-bg: 22 22 25;
+  --glass-0-0-0: 0 0 0;
+  --toast-error-bg: 28 12 15;
+  --tx-4a4a4a: #4a4a4a;
+  --tx-5a5a5e: #5a5a5e;
+  --tx-666666: #666666;
+  --tx-6a6a6a: #6a6a6a;
+  --tx-6a6a6e: #6a6a6e;
+  --tx-6b6b70: #6b6b70;
+  --tx-7a7a7e: #7a7a7e;
+  --tx-8a8a8a: #8a8a8a;
+  --tx-8a8a8e: #8a8a8e;
+  --tx-9a9a9a: #9a9a9a;
+  --tx-b8b8bc: #b8b8bc;
+  --tx-b9b9bd: #b9b9bd;
+  --tx-e5e5e5: #e5e5e5;
+  --tx-e8e8ea: #e8e8ea;
+  --tx-f5f5f5: #f5f5f5;
+  --acc-0ea5e9: #0ea5e9;
+  --acc-10b981: #10b981;
+  --acc-f472b6: #f472b6;
+  --acc-22d3ee: #22d3ee;
+  --acc-2dd4bf: #2dd4bf;
+  --acc-22c55e: #22c55e;
+  --acc-25d366: #25d366;
+  --acc-34d399: #34d399;
+  --acc-38bdf8: #38bdf8;
+  --acc-5b9cff: #5b9cff;
+  --acc-60a5fa: #60a5fa;
+  --acc-818cf8: #818cf8;
+  --acc-8b85ff: #8b85ff;
+  --acc-8fb6ff: #8fb6ff;
+  --acc-93c5fd: #93c5fd;
+  --acc-a5b4fc: #a5b4fc;
+  --acc-a78bfa: #a78bfa;
+  --acc-a7f3d0: #a7f3d0;
+  --acc-c084fc: #c084fc;
+  --acc-cd7f32: #cd7f32;
+  --acc-d8b4fe: #d8b4fe;
+  --acc-e7c15a: #e7c15a;
+  --acc-e8a019: #e8a019;
+  --acc-f0c987: #f0c987;
+  --acc-f2b23c: #f2b23c;
+  --acc-f59e0b: #f59e0b;
+  --acc-f5a623: #f5a623;
+  --acc-f87171: #f87171;
+  --acc-f97316: #f97316;
+  --acc-fb923c: #fb923c;
+  --acc-fbbf24: #fbbf24;
+  --acc-fca5a5: #fca5a5;
+  --acc-fcd34d: #fcd34d;
+  --acc-ff5c63: #ff5c63;
+  --acc-ff5d68: #ff5d68;
+  --acc-ff7a45: #ff7a45;
+  --acc-ff7a80: #ff7a80;
+  --acc-ff7a82: #ff7a82;
+  --acc-ff8a91: #ff8a91;
+  --acc-ff8a93: #ff8a93;
+  --glass-10-10-10: 10 10 10;
+  --glass-10-10-12: 10 10 12;
+  --glass-14-14-16: 14 14 16;
+  --glass-15-15-15: 15 15 15;
+  --glass-20-20-20: 20 20 20;
+  --glass-20-20-24: 20 20 24;
+  --glass-30-30-32: 30 30 32;
+  --ink-a20: 0.20;
+  --ink-a22: 0.22;
+  --ink-a24: 0.24;
+  --ink-a25: 0.25;
+  --ink-a26: 0.26;
+  --ink-a28: 0.28;
+  --ink-a30: 0.30;
+  --ink-a33: 0.33;
+  --ink-a34: 0.34;
+  --ink-a35: 0.35;
+  --ink-a36: 0.36;
+  --ink-a38: 0.38;
+  --ink-a40: 0.40;
+  --ink-a42: 0.42;
+  --ink-a44: 0.44;
+  --ink-a45: 0.45;
+  --ink-a46: 0.46;
+  --ink-a50: 0.50;
+  --ink-a55: 0.55;
+  --ink-a58: 0.58;
+  --ink-a60: 0.60;
+  --ink-a62: 0.62;
+  --ink-a64: 0.64;
+  --ink-a65: 0.65;
+  --ink-a66: 0.66;
+  --ink-a70: 0.70;
+  --ink-a72: 0.72;
+  --ink-a75: 0.75;
+  --ink-a80: 0.80;
+  --ink-a82: 0.82;
+  --ink-a90: 0.90;
+  --ink-a92: 0.92;
+  --ink-a94: 0.94;
+  --ink-a96: 0.96;
+}
+
+/* Passage d'un thème à l'autre : un fondu court, jamais au chargement. */
+html.pro-theme-switching,
+html.pro-theme-switching *,
+html.pro-theme-switching *::before,
+html.pro-theme-switching *::after {
+  transition: background-color 180ms var(--ease-out), color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out), fill 180ms var(--ease-out), stroke 180ms var(--ease-out) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.pro-theme-switching,
+  html.pro-theme-switching * { transition: none !important; }
+}
+
+html[data-pro-theme="light"] .dashboard-gradient-bg {
+  background: linear-gradient(180deg, #f5f5f6 0%, #f8f8f9 40%, #f5f5f6 100%);
+}
+html[data-pro-theme="light"] ::selection {
+  background-color: rgba(232, 25, 44, 0.18);
+  color: #09090b;
+}

@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 import { Pause, Play, Trash2, Check, X, Clock, Loader2, AlertTriangle } from 'lucide-react';
 import { T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 
-const AMBER = '#F5A623';
-const NEG = '#FF5C63';
+const AMBER = 'var(--acc-f5a623)';
+const NEG = 'var(--acc-ff5c63)';
 
 type Role = 'venue' | 'organizer';
 type Action = 'pause' | 'delete';
@@ -111,7 +111,7 @@ export function CollabActionControls({
   // ── Active request: scheduled (deferred to after the live event) ─────────────
   if (req && req.status === 'scheduled') {
     return (
-      <div style={{ ...banner, background: 'rgba(245,166,35,0.08)', border: `1px solid ${AMBER}40` }}>
+      <div style={{ ...banner, background: 'rgba(245,166,35,0.08)', border: '1px solid #F5A62340' }}>
         <Clock className="h-3.5 w-3.5 flex-none" style={{ color: AMBER }} />
         <span style={{ color: T2, fontSize: 11.5, flex: 1, minWidth: 180 }}>
           {req.action === 'pause'

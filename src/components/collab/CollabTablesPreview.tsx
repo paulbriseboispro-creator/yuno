@@ -9,8 +9,8 @@ import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
 import type { VenueFloorPlan, VipReservation } from '@/types';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T3 = 'rgba(255,255,255,0.36)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 
 type ResaRow = {
   id: string;

@@ -10,10 +10,10 @@ import { DJ_GENRES, RADIUS_PRESETS, type MarketplaceFilters, type DiscoveryMode 
  */
 
 const inputStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgb(var(--ink)/0.04)',
+  border: '1px solid rgb(var(--ink)/0.10)',
   borderRadius: 12,
-  color: '#fff',
+  color: 'rgb(var(--ink))',
   fontSize: 13,
   padding: '9px 12px',
   outline: 'none',
@@ -21,7 +21,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 const labelStyle: React.CSSProperties = {
-  fontFamily: 'monospace', fontSize: 10, color: '#7A7A7E',
+  fontFamily: 'monospace', fontSize: 10, color: 'var(--tx-7a7a7e)',
   letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6, display: 'block',
 };
 
@@ -48,7 +48,7 @@ export function DJFilterBar({
       {/* City / zone search + advanced toggle */}
       <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1, position: 'relative' }}>
-          <Search size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#7A7A7E' }} />
+          <Search size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-7a7a7e)' }} />
           <input
             value={value.city ?? ''}
             onChange={(e) => set({ city: e.target.value || null })}
@@ -64,9 +64,9 @@ export function DJFilterBar({
             style={{
               flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '0 14px', borderRadius: 12, cursor: 'pointer',
-              background: showAdvanced || activeCount ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${showAdvanced || activeCount ? 'rgba(232,25,44,0.3)' : 'rgba(255,255,255,0.10)'}`,
-              color: showAdvanced || activeCount ? '#E8192C' : '#B8B8BC', fontSize: 13, fontWeight: 600,
+              background: showAdvanced || activeCount ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.04)',
+              border: `1px solid ${showAdvanced || activeCount ? 'rgba(232,25,44,0.3)' : 'rgb(var(--ink)/0.10)'}`,
+              color: showAdvanced || activeCount ? '#E8192C' : 'var(--tx-b8b8bc)', fontSize: 13, fontWeight: 600,
             }}
           >
             <SlidersHorizontal size={14} />
@@ -88,9 +88,9 @@ export function DJFilterBar({
                 onClick={() => set({ radiusKm: km })}
                 style={{
                   flexShrink: 0, padding: '6px 11px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                  background: active ? 'rgba(232,25,44,0.16)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${active ? 'rgba(232,25,44,0.3)' : 'rgba(255,255,255,0.10)'}`,
-                  color: active ? '#fff' : '#B8B8BC',
+                  background: active ? 'rgba(232,25,44,0.16)' : 'rgb(var(--ink)/0.04)',
+                  border: `1px solid ${active ? 'rgba(232,25,44,0.3)' : 'rgb(var(--ink)/0.10)'}`,
+                  color: active ? 'rgb(var(--ink))' : 'var(--tx-b8b8bc)',
                 }}
               >
                 {lbl}
@@ -114,7 +114,7 @@ export function DJFilterBar({
           <button
             key={g}
             onClick={() => set({ genre: g })}
-            style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: '#B8B8BC', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600, background: 'rgb(var(--ink)/0.04)', border: '1px solid rgb(var(--ink)/0.10)', color: 'var(--tx-b8b8bc)', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             {g}
           </button>
@@ -123,7 +123,7 @@ export function DJFilterBar({
 
       {/* Advanced (booker) */}
       {mode === 'booker' && showAdvanced && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, padding: 14, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, padding: 14, background: 'rgb(var(--ink)/0.02)', border: '1px solid rgb(var(--ink)/0.08)', borderRadius: 14 }}>
           <div>
             <span style={labelStyle}>{tt('Dispo le', 'Available on', 'Disponible el')}</span>
             <input type="date" value={value.availableOn ?? ''} onChange={(e) => set({ availableOn: e.target.value || null })} style={inputStyle} />

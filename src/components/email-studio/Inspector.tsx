@@ -28,7 +28,7 @@ import {
 } from './ui';
 
 /** Or VIP — même signal que le rendu : ambre = restriction / rareté. */
-const GOLD = '#F2B23C';
+const GOLD = 'var(--acc-f2b23c)';
 
 interface Props {
   events: StudioEvent[];
@@ -57,7 +57,7 @@ export default function Inspector({ events, live, bucketFolder, brand }: Props) 
   if (!block) {
     return (
       <div style={{ textAlign: 'center', padding: '36px 10px' }}>
-        <MousePointer size={26} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.14)' }} />
+        <MousePointer size={26} strokeWidth={1.5} style={{ color: 'rgb(var(--ink)/0.14)' }} />
         <div style={{ color: T3, fontSize: 12, marginTop: 10, lineHeight: 1.5, fontFamily: FONT_UI }}>
           {t('studio.inspector.empty')}
         </div>
@@ -85,11 +85,11 @@ export default function Inspector({ events, live, bucketFolder, brand }: Props) 
           <div style={{ color: T3, fontSize: 11, fontFamily: FONT_UI }}>{t('studio.inspector.blockProps')}</div>
         </div>
         <IconBtn size={26} ariaLabel={t('studio.canvas.duplicate')} onClick={() => duplicate(block.id)}
-          style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+          style={{ background: 'rgb(var(--ink)/0.04)', borderRadius: 8 }}>
           <Copy size={13} strokeWidth={1.75} />
         </IconBtn>
         <IconBtn size={26} danger ariaLabel={t('studio.canvas.delete')} onClick={() => removeBlock(block.id)}
-          style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+          style={{ background: 'rgb(var(--ink)/0.04)', borderRadius: 8 }}>
           <Trash2 size={13} strokeWidth={1.75} />
         </IconBtn>
       </div>
@@ -229,7 +229,7 @@ function FooterFields() {
         }}>
           {legalLines.map((line) => (
             <span key={line} style={{
-              color: 'rgba(255,255,255,0.42)', fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI,
+              color: 'rgb(var(--ink)/var(--ink-a42,0.42))', fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI,
             }}>{line}</span>
           ))}
         </div>
@@ -266,7 +266,7 @@ function ThemedColor({ label, value, themeDefault, onChange }: {
           style={{
             alignSelf: 'flex-start', padding: '5px 10px', borderRadius: 8,
             border: `1px solid ${BORDER}`, background: 'transparent', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.58)', fontSize: 11.5, fontFamily: FONT_UI,
+            color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 11.5, fontFamily: FONT_UI,
           }}
         >{t('studio.inspector.ctaColorAuto')}</button>
       )}
@@ -326,11 +326,11 @@ function TextEditorWithFormatBar({ body, onBody, accent, background, ink }: {
       // onMouseDown plutôt que onClick : un bouton qui prend le focus ferait
       // perdre la sélection du texte avant même qu'on sache quoi mettre en gras.
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.09)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       style={{
         width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 6, color: 'rgba(255,255,255,0.62)', cursor: 'pointer',
+        borderRadius: 6, color: 'rgb(var(--ink)/var(--ink-a62,0.62))', cursor: 'pointer',
         background: 'transparent', border: 'none', flex: 'none',
       }}
     >{icon}</button>
@@ -346,24 +346,24 @@ function TextEditorWithFormatBar({ body, onBody, accent, background, ink }: {
         {fmtBtn(t('studio.inspector.fmtItalic'), <Italic size={13} strokeWidth={1.75} />, () => editor.current?.toggle('i'))}
         {fmtBtn(t('studio.inspector.fmtStrike'), <Strikethrough size={13} strokeWidth={1.75} />, () => editor.current?.toggle('s'))}
         {fmtBtn(t('studio.inspector.fmtUnderline'), <Underline size={13} strokeWidth={1.75} />, () => editor.current?.toggle('u'))}
-        <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px', flex: 'none' }} />
+        <span style={{ width: 1, height: 14, background: 'rgb(var(--ink)/0.12)', margin: '0 3px', flex: 'none' }} />
         {FMT_SIZES.map((n) => (
           <button
             key={n} type="button"
             aria-label={`${t('studio.inspector.fmtSize')} ${n}px`} title={`${t('studio.inspector.fmtSize')} ${n}px`}
             onMouseDown={(e) => { e.preventDefault(); editor.current?.applySize(n); }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.09)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             style={{
               height: 24, padding: '0 5px', display: 'inline-flex', alignItems: 'center',
-              borderRadius: 6, color: 'rgba(255,255,255,0.62)', cursor: 'pointer',
+              borderRadius: 6, color: 'rgb(var(--ink)/var(--ink-a62,0.62))', cursor: 'pointer',
               background: 'transparent', border: 'none', flex: 'none',
               fontFamily: FONT_UI, fontWeight: 600,
               fontSize: Math.min(13, 8 + n * 0.2),
             }}
           >A</button>
         ))}
-        <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px', flex: 'none' }} />
+        <span style={{ width: 1, height: 14, background: 'rgb(var(--ink)/0.12)', margin: '0 3px', flex: 'none' }} />
         {fmtBtn(t('studio.inspector.fmtLink'), <Link2 size={13} strokeWidth={1.75} />, addLink)}
         {fmtBtn(t('studio.inspector.fmtClear'), <RemoveFormatting size={13} strokeWidth={1.75} />, () => editor.current?.clearFormat())}
       </div>
@@ -376,7 +376,7 @@ function TextEditorWithFormatBar({ body, onBody, accent, background, ink }: {
             onMouseDown={(e) => { e.preventDefault(); editor.current?.applyColor(c); }}
             style={{
               width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', padding: 0, flex: 'none',
-              border: '1px solid rgba(255,255,255,0.25)',
+              border: '1px solid rgb(var(--ink)/var(--ink-a25,0.25))',
               background: c === 'accent'
                 ? 'conic-gradient(#E8192C,#D4AF37,#3B82F6,#E8192C)'
                 : c,
@@ -426,7 +426,7 @@ function EventPicker({ value, events, onChange }: {
       }}>
         <div style={{
           width: 26, height: 26, borderRadius: 7, flex: 'none',
-          background: 'repeating-linear-gradient(135deg,rgba(255,255,255,.10) 0 4px,rgba(255,255,255,.04) 4px 8px)',
+          background: 'repeating-linear-gradient(135deg,rgb(var(--ink)/.10) 0 4px,rgb(var(--ink)/.04) 4px 8px)',
         }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
@@ -464,7 +464,7 @@ function Banner({ tone, icon, children }: { tone: 'green' | 'red'; icon: React.R
       background: colors.bg, border: `1px solid ${colors.border}`,
     }}>
       {icon}
-      <span style={{ color: 'rgba(255,255,255,0.58)', fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{children}</span>
+      <span style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 11.5, lineHeight: 1.5, fontFamily: FONT_UI }}>{children}</span>
     </div>
   );
 }
@@ -499,7 +499,7 @@ function BlockVisibility({ block, patch }: {
       </div>
       {restricted && (
         <div style={{
-          fontSize: 11.5, lineHeight: 1.5, color: '#f0c987', fontFamily: FONT_UI,
+          fontSize: 11.5, lineHeight: 1.5, color: 'var(--acc-f0c987)', fontFamily: FONT_UI,
         }}>{t('studio.inspector.visibilityWarn')}</div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -553,8 +553,8 @@ function PerksEditor({ perks, onChange }: { perks: string[]; onChange: (next: st
         onClick={() => onChange([...perks, t('studio.inspector.tablePerkNew')])}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
-          borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
-          color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+          borderRadius: 11, border: '1px dashed rgb(var(--ink)/0.16)', background: 'transparent',
+          color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
         }}
       >
         <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.tablePerkAdd')}
@@ -955,8 +955,8 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
               onClick={() => patch({ perks: [...ticketPerks, t('studio.inspector.tablePerkNew')] })}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
-                borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
-                color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+                borderRadius: 11, border: '1px dashed rgb(var(--ink)/0.16)', background: 'transparent',
+                color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
               }}
             >
               <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.tablePerkAdd')}
@@ -1054,8 +1054,8 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
               onClick={() => patch({ rows: [...b.rows, { n: t('studio.inspector.rowNewName'), s: t('studio.inspector.rowNewSub'), p: '20 €', out: false }] })}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
-                borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
-                color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+                borderRadius: 11, border: '1px dashed rgb(var(--ink)/0.16)', background: 'transparent',
+                color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
               }}
             >
               <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.rowAdd')}
@@ -1184,8 +1184,8 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
                   onClick={() => patch({ packs: [...packs, { n: t('studio.inspector.rowNewName'), s: '', p: '250 €' }] })}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 9,
-                    borderRadius: 11, border: '1px dashed rgba(255,255,255,0.16)', background: 'transparent',
-                    color: 'rgba(255,255,255,0.58)', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
+                    borderRadius: 11, border: '1px dashed rgb(var(--ink)/0.16)', background: 'transparent',
+                    color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12, cursor: 'pointer', fontFamily: FONT_UI,
                   }}
                 >
                   <Plus size={13} strokeWidth={1.75} /> {t('studio.inspector.rowAdd')}
@@ -1461,7 +1461,7 @@ function BlockFields({ block, patch, events, live, bucketFolder, brand }: {
             themeDefault={theme.divider}
             onChange={(v) => patch({ color: v })}
           />
-          <span style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12, lineHeight: 1.55, fontFamily: FONT_UI }}>
+          <span style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12, lineHeight: 1.55, fontFamily: FONT_UI }}>
             {t('studio.inspector.dividerHelp')}
           </span>
         </PanelCard>

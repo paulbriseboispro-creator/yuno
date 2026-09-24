@@ -39,12 +39,12 @@ export default function IntegrationsSettings() {
   }
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
       <OwnerHeader title={t('integ.title')} />
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
-        <p style={{ color: 'rgba(255,255,255,0.58)', fontSize: 13.5, maxWidth: 720 }}>{t('integ.subtitle')}</p>
+        <p style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 13.5, maxWidth: 720 }}>{t('integ.subtitle')}</p>
         {ready && <MetaConnectionCard scope={metaScope} helpPath={helpPath} live={metaLive} returnTo="/owner/integrations" />}
       </div>
     </div>

@@ -258,7 +258,7 @@ export default function AgencyProfile() {
             >
               {uploadingLogo
                 ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                : <Camera className="h-3.5 w-3.5 text-white" />}
+                : <Camera className="h-3.5 w-3.5 text-snow" />}
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
           </div>
@@ -306,7 +306,7 @@ export default function AgencyProfile() {
             >
               {bannerBusy
                 ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                : <Camera className="h-3.5 w-3.5 text-white" />}
+                : <Camera className="h-3.5 w-3.5 text-snow" />}
             </button>
             <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerSelect} />
           </div>

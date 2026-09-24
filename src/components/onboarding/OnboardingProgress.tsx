@@ -49,7 +49,7 @@ export function OnboardingProgress({ currentStep, stepStatuses, onStepClick }: O
                 isCompleted
                   ? { background: POS, color: '#04130d' }
                   : isSkipped
-                  ? { background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T3 }
+                  ? { background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, color: T3 }
                   : isActive
                   ? { background: 'rgba(232,25,44,0.18)', border: `1px solid ${RED}`, color: RED }
                   : { border: `1px solid ${BORDER}`, color: T3 }

@@ -1249,11 +1249,11 @@ export default function OwnerTicketing() {
   if (venueLoading || loading) return <OwnerPageSkeleton />;
 
   return (
-    <div className={isOrganizerScope ? '' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: '#000' }}>
+    <div className={isOrganizerScope ? '' : 'min-h-screen pb-28'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && (
         <div
           className="fixed inset-0 pointer-events-none z-0"
-          style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
+          style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
         />
       )}
       {!isOrganizerScope && <OwnerHeader title={t('tickets.ticketManagement')} />}
@@ -1299,7 +1299,7 @@ export default function OwnerTicketing() {
         {activeTab === 'events' && (
             events.length === 0 ? (
               <div className="py-16 text-center" style={MAIN_CARD}>
-                <Ticket className="mx-auto h-14 w-14 mb-4" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                <Ticket className="mx-auto h-14 w-14 mb-4" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                 <p className="mb-4" style={{ color: T2, fontSize: 14 }}>{t('tickets.noUpcomingEvents')}</p>
                 <Button onClick={() => navigate(isOrganizerScope ? '/organizer-app/events' : '/owner/events')} style={{ background: RED, color: '#fff' }}>
                   {t('tickets.createEvent')}
@@ -1324,11 +1324,11 @@ export default function OwnerTicketing() {
                       ? t('tickets.sellingModeTimed')
                       : t('tickets.sellingModeRounds');
                   const status = !event.ticketingEnabled
-                    ? { label: t('tickets.ticketingOff'), color: T3, bg: 'rgba(255,255,255,0.06)', border: BORDER }
+                    ? { label: t('tickets.ticketingOff'), color: T3, bg: 'rgb(var(--ink)/0.06)', border: BORDER }
                     : salesMode === 'presale'
                       ? { label: t('tickets.statusPresale'), color: GOLD, bg: 'rgba(252,211,153,0.1)', border: 'rgba(252,211,153,0.3)' }
                       : salesMode === 'private'
-                        ? { label: t('tickets.statusPrivate'), color: T2, bg: 'rgba(255,255,255,0.06)', border: BORDER }
+                        ? { label: t('tickets.statusPrivate'), color: T2, bg: 'rgb(var(--ink)/0.06)', border: BORDER }
                         : { label: t('tickets.statusOnSale'), color: POS, bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)' };
 
                   return (
@@ -1590,7 +1590,7 @@ export default function OwnerTicketing() {
 
               {presets.length === 0 ? (
                 <div className="py-16 text-center" style={MAIN_CARD}>
-                  <FolderOpen className="mx-auto h-14 w-14 mb-4" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                  <FolderOpen className="mx-auto h-14 w-14 mb-4" style={{ color: 'rgb(var(--ink)/0.12)' }} />
                   <p className="mb-4" style={{ color: T2, fontSize: 14 }}>{t('tickets.noPresets')}</p>
                   <Button onClick={() => handleCreatePreset()} style={{ background: RED, color: '#fff' }}>
                     {t('tickets.createPreset')}

@@ -64,7 +64,7 @@ export function EventDrinksTeaser({ venueId, eventId }: EventDrinksTeaserProps) 
   if (!state.show) return null;
 
   return (
-    <FadeInView as="section" style={{ padding: 'clamp(28px, 4vw, 36px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+    <FadeInView as="section" style={{ padding: 'clamp(28px, 4vw, 36px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
       <div className="flex items-center justify-between mb-4">
         <p className="section-label-ruled">{t('drinksTeaser.title')}</p>
         {state.hasPresale && (
@@ -76,7 +76,7 @@ export function EventDrinksTeaser({ venueId, eventId }: EventDrinksTeaserProps) 
           </span>
         )}
       </div>
-      <p className="font-sans mb-4" style={{ fontSize: '13.5px', color: '#9A9A9A', lineHeight: 1.55 }}>
+      <p className="font-sans mb-4" style={{ fontSize: '13.5px', color: 'var(--tx-9a9a9a)', lineHeight: 1.55 }}>
         {state.hasPresale ? t('drinksTeaser.descPresale') : t('drinksTeaser.desc')}
       </p>
       <div className="grid grid-cols-3 gap-2">
@@ -88,10 +88,10 @@ export function EventDrinksTeaser({ venueId, eventId }: EventDrinksTeaserProps) 
           <div
             key={label}
             className="flex flex-col items-center text-center gap-2"
-            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '12px 8px' }}
+            style={{ background: 'var(--sf-141414)', border: '1px solid rgb(var(--ink)/0.08)', borderRadius: 8, padding: '12px 8px' }}
           >
             <Icon style={{ width: 16, height: 16, color: '#E8192C' }} />
-            <span className="font-sans" style={{ fontSize: '11px', color: '#E5E5E5', lineHeight: 1.3 }}>{label}</span>
+            <span className="font-sans" style={{ fontSize: '11px', color: 'var(--tx-e5e5e5)', lineHeight: 1.3 }}>{label}</span>
           </div>
         ))}
       </div>

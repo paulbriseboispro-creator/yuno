@@ -13,12 +13,12 @@ import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { SupportHelpOptIn } from '@/components/onboarding/SupportHelpOptIn';
 
 const RED = '#E8192C';
-const GREEN = '#22c55e';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.65)';
-const T3 = 'rgba(255,255,255,0.38)';
-const BORDER = 'rgba(255,255,255,0.08)';
-const BG = '#0a0a0c';
+const GREEN = 'var(--acc-22c55e)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a65,0.65))';
+const T3 = 'rgb(var(--ink)/var(--ink-a38,0.38))';
+const BORDER = 'rgb(var(--ink)/0.08)';
+const BG = 'var(--sf-0a0a0c)';
 
 // ─── Step definitions ─────────────────────────────────────────────────────────
 
@@ -259,7 +259,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
           border: `1px solid ${BORDER}`,
           borderRadius: 999,
           padding: '10px 16px 10px 12px',
-          boxShadow: '0 8px 32px -4px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
+          boxShadow: '0 8px 32px -4px rgb(0 0 0/calc(0.7*var(--pro-shadow-a))), 0 0 0 1px rgb(var(--ink)/0.04)',
         }}
       >
         <Rocket className="w-4 h-4 flex-none" style={{ color: RED }} />
@@ -347,7 +347,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
               {pct}%
             </span>
           </div>
-          <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 99 }}>
+          <div style={{ height: 4, background: 'rgb(var(--ink)/0.06)', borderRadius: 99 }}>
             <div
               style={{
                 height: '100%',
@@ -372,7 +372,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
         {/* ── Steps ── */}
         <div
           style={{
-            background: 'rgba(255,255,255,0.03)',
+            background: 'rgb(var(--ink)/0.03)',
             border: `1px solid ${BORDER}`,
             borderRadius: 16,
             overflow: 'hidden',
@@ -403,7 +403,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
                     className="flex-none w-7 h-7 rounded-full flex items-center justify-center"
                     style={
                       done
-                        ? { background: status === 'skipped' ? 'rgba(255,255,255,0.06)' : GREEN }
+                        ? { background: status === 'skipped' ? 'rgb(var(--ink)/0.06)' : GREEN }
                         : isNext
                         ? { border: `2px solid ${RED}`, background: 'rgba(232,25,44,0.1)' }
                         : { border: `1px solid ${BORDER}`, background: 'transparent' }
@@ -412,7 +412,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
                     {done ? (
                       status === 'skipped'
                         ? <SkipForward className="w-3 h-3" style={{ color: T3 }} />
-                        : <Check className="w-3.5 h-3.5" style={{ color: '#fff' }} strokeWidth={3} />
+                        : <Check className="w-3.5 h-3.5" style={{ color: 'rgb(var(--ink))' }} strokeWidth={3} />
                     ) : (
                       <span style={{ fontSize: 11, fontWeight: 700, color: isNext ? RED : T3 }}>
                         {step.key}
@@ -427,14 +427,14 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
                         fontWeight: isNext && !done ? 600 : 400,
                         color: done ? T2 : isNext ? T1 : T2,
                         textDecoration: status === 'skipped' ? 'line-through' : 'none',
-                        textDecorationColor: 'rgba(255,255,255,0.25)',
+                        textDecorationColor: 'rgb(var(--ink)/var(--ink-a25,0.25))',
                       }}>
                         {l(step.title)}
                       </span>
                       {step.optional && (
                         <span style={{
                           fontSize: 10.5, fontWeight: 600, color: T3,
-                          background: 'rgba(255,255,255,0.06)',
+                          background: 'rgb(var(--ink)/0.06)',
                           border: `1px solid ${BORDER}`,
                           borderRadius: 999, padding: '1px 6px',
                         }}>
@@ -488,7 +488,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
                             onClick={() => handleCta(step)}
                             className="flex items-center gap-2 cursor-pointer transition-all hover:opacity-90 active:scale-95"
                             style={{
-                              background: done ? 'rgba(255,255,255,0.06)' : RED,
+                              background: done ? 'rgb(var(--ink)/0.06)' : RED,
                               color: done ? T2 : '#fff',
                               fontSize: 13.5,
                               fontWeight: 600,

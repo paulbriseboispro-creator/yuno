@@ -12,12 +12,12 @@ import { previewAmendmentPDF, type AmendmentPDFData } from '@/lib/generateAmendm
 import { loadAmendmentPdfData, type CollabAmendmentRow as AmendmentRow } from '@/lib/collabAmendmentData';
 import { CollabAmendmentReviewDialog } from './CollabAmendmentReviewDialog';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T3 = 'rgba(255,255,255,0.36)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 const RED = '#E8192C';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'rgba(255,255,255,0.022)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'rgb(var(--ink)/0.022)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 
 /**

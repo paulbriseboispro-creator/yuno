@@ -13,18 +13,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
-const POS       = '#34D399';
-const NEG       = '#FF5C63';
-const T1        = 'rgba(255,255,255,0.96)';
-const T2        = 'rgba(255,255,255,0.58)';
-const T3        = 'rgba(255,255,255,0.36)';
-const C_FAINT   = 'rgba(255,255,255,0.06)';
-const BORDER    = 'rgba(255,255,255,0.085)';
-const F_BORDER  = 'rgba(255,255,255,0.055)';
-const INNER_BG  = 'rgba(255,255,255,0.032)';
-const TILE_BG   = 'rgba(255,255,255,0.025)';
-const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS       = 'var(--acc-34d399)';
+const NEG       = 'var(--acc-ff5c63)';
+const T1        = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2        = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3        = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT   = 'rgb(var(--ink)/0.06)';
+const BORDER    = 'rgb(var(--ink)/0.085)';
+const F_BORDER  = 'rgb(var(--ink)/0.055)';
+const INNER_BG  = 'rgb(var(--ink)/0.032)';
+const TILE_BG   = 'rgb(var(--ink)/0.025)';
+const CARD_BG   = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 type ViewMode = 'year' | 'month' | 'week' | 'day';
 
@@ -87,7 +87,7 @@ interface DJCalendarProps {
 function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'pos' | 'warn' | 'accent' }) {
   const style: React.CSSProperties =
     tone === 'pos' ? { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS }
-    : tone === 'warn' ? { background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', color: '#FCD34D' }
+    : tone === 'warn' ? { background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', color: 'var(--acc-fcd34d)' }
     : tone === 'accent' ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }
     : { background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 };
   return (
@@ -331,7 +331,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                       key={set.id}
                       onClick={(e) => { e.stopPropagation(); onSetClick?.(set); }}
                       className="text-[10px] rounded px-1 py-0.5 truncate cursor-pointer tabular-nums"
-                      style={{ background: 'rgba(232,25,44,0.16)', color: '#FF8A93' }}
+                      style={{ background: 'rgba(232,25,44,0.16)', color: 'var(--acc-ff8a93)' }}
                     >
                       {setChipLabel(set)}
                     </div>
@@ -367,8 +367,8 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                   className="text-center p-2 rounded-lg cursor-pointer transition-colors duration-150 hover:bg-white/[0.05]"
                   style={isToday ? { background: RED } : { background: TILE_BG, border: `1px solid ${F_BORDER}` }}
                 >
-                  <p className="text-[11px] font-medium capitalize" style={{ color: isToday ? '#fff' : T3 }}>{format(day, 'EEE', { locale: dateLocale })}</p>
-                  <p className="text-lg font-[640] tabular-nums" style={{ color: isToday ? '#fff' : T1 }}>{format(day, 'd')}</p>
+                  <p className="text-[11px] font-medium capitalize" style={{ color: isToday ? 'rgb(var(--ink))' : T3 }}>{format(day, 'EEE', { locale: dateLocale })}</p>
+                  <p className="text-lg font-[640] tabular-nums" style={{ color: isToday ? 'rgb(var(--ink))' : T1 }}>{format(day, 'd')}</p>
                 </button>
               );
             })}
@@ -540,7 +540,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                 onClick={() => setViewMode(mode)}
                 className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
                 style={viewMode === mode
-                  ? { color: T1, background: 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))', boxShadow: '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000' }
+                  ? { color: T1, background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))', boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' }
                   : { color: T3 }}
               >
                 {labels[mode]}
@@ -720,7 +720,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
                     {setToDelete.fee > 0 && (
                       <span className="block text-sm mt-2 tabular-nums" style={{ color: T2 }}>
                         {t('djCalendar.feeDisplay')}: {setToDelete.fee} €
-                        {!setToDelete.fee_paid && <span className="ml-2" style={{ color: '#FCD34D' }}>({t('djCalendar.unpaidLabel')})</span>}
+                        {!setToDelete.fee_paid && <span className="ml-2" style={{ color: 'var(--acc-fcd34d)' }}>({t('djCalendar.unpaidLabel')})</span>}
                       </span>
                     )}
                   </>

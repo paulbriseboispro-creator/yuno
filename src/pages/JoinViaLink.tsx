@@ -337,7 +337,7 @@ export default function JoinViaLink() {
             </div>
             <h2 className="text-white text-xl font-semibold mb-2">{t('join.invalid')}</h2>
             <p className="text-white/50 text-sm mb-6">{msg}</p>
-            <Button onClick={() => navigate('/')} className="bg-[#E8192C] hover:bg-[#FF2438] text-white">
+            <Button onClick={() => navigate('/')} className="bg-[#E8192C] hover:bg-[#FF2438] text-snow">
               {t('join.backHome')}
             </Button>
           </div>
@@ -377,7 +377,7 @@ export default function JoinViaLink() {
               <h2 className="text-white text-2xl font-bold mb-2">{t('join.welcome')}</h2>
               <p className="text-white/50 text-sm mb-8">{t('join.successSub')}</p>
               <Button
-                className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3 h-auto"
+                className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-snow font-semibold py-3 h-auto"
                 onClick={() => navigate(result.redirect || '/')}
               >
                 {t('join.openDashboard')}
@@ -392,7 +392,7 @@ export default function JoinViaLink() {
               <h2 className="text-white text-xl font-semibold mb-2">{t('join.error')}</h2>
               <p className="text-white/50 text-sm mb-6">{result.message}</p>
               {existingAccount ? (
-                <Button className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white" onClick={goLoginBack}>
+                <Button className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-snow" onClick={goLoginBack}>
                   <LogIn className="h-4 w-4 mr-2" />
                   {t('join.login')}
                 </Button>
@@ -425,7 +425,7 @@ export default function JoinViaLink() {
           borderColor: acceptedTerms ? '#E8192C' : 'rgba(255,255,255,0.25)',
         }}
       >
-        {acceptedTerms && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+        {acceptedTerms && <Check className="h-3 w-3 text-snow" strokeWidth={3} />}
       </span>
       <span className="text-xs leading-snug text-white/50">
         {t('legal.proPre')}{' '}
@@ -483,13 +483,13 @@ export default function JoinViaLink() {
             {/* Role highlight */}
             <div className="p-4 rounded-xl bg-[#E8192C]/8 border border-[#E8192C]/20 mb-6">
               <p className="text-white/40 text-xs mb-1">{t('join.yourRole')}</p>
-              <p className="text-white font-semibold">{roleLabel}</p>
+              <p className="text-snow font-semibold">{roleLabel}</p>
             </div>
 
             {consentCheckbox}
 
             <Button
-              className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base"
+              className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-snow font-semibold py-3.5 h-auto text-base"
               onClick={redeem}
               disabled={loading || !acceptedTerms}
             >
@@ -553,7 +553,7 @@ export default function JoinViaLink() {
               </div>
 
               <Button
-                className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base mb-3"
+                className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-snow font-semibold py-3.5 h-auto text-base mb-3"
                 onClick={() => setStep('form')}
               >
                 {t('join.acceptInvitation')}
@@ -642,7 +642,7 @@ export default function JoinViaLink() {
                 <div className="pt-1">{consentCheckbox}</div>
 
                 <Button
-                  className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base mt-2"
+                  className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-snow font-semibold py-3.5 h-auto text-base mt-2"
                   onClick={redeem}
                   disabled={loading || !canSubmitForm || !acceptedTerms}
                 >
@@ -738,7 +738,7 @@ export default function JoinViaLink() {
                 </div>
 
                 <Button
-                  className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base"
+                  className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-snow font-semibold py-3.5 h-auto text-base"
                   onClick={redeem}
                   disabled={loading || !canSubmitPassword}
                 >

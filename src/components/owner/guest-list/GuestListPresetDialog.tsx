@@ -208,11 +208,11 @@ export function GuestListPresetDialog({ editing, initial, t, onClose, onSave }: 
             {/* Actions */}
             <div className="flex gap-2 pt-1">
               <button onClick={handleSave} disabled={saving}
-                style={{ flex: 1, background: saving ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                style={{ flex: 1, background: saving ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: saving ? T1 : '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
                 {saving ? '…' : editing ? t('owner.save') : t('guestList.presets.create')}
               </button>
               <button type="button" onClick={onClose}
-                style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 18px', color: T1, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 18px', color: T1, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                 {t('common.cancel')}
               </button>
             </div>

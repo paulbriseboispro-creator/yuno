@@ -38,15 +38,15 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 
 const RED = '#E8192C';
-const POS = '#34D399';
-const WARN = '#FBBF24';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const WARN = 'var(--acc-fbbf24)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 const META_BLUE = '#0866FF';
 
 function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -75,7 +75,7 @@ function Btn({ onClick, children, tone = 'ghost', disabled, busy }: { onClick: (
   const s = tone === 'primary' ? { background: RED, color: '#fff' }
     : tone === 'meta' ? { background: META_BLUE, color: '#fff' }
     : tone === 'danger' ? { background: 'transparent', color: RED, border: '1px solid rgba(232,25,44,0.35)' }
-    : { background: 'rgba(255,255,255,0.08)', color: T1, border: `1px solid ${BORDER}` };
+    : { background: 'rgb(var(--ink)/0.08)', color: T1, border: `1px solid ${BORDER}` };
   return (
     <button type="button" onClick={onClick} disabled={disabled || busy}
       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12.5px] font-semibold disabled:opacity-50" style={s}>
@@ -317,7 +317,7 @@ export default function AdsPage() {
                 return (
                   <div key={c.id} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
                     <div className="flex items-start gap-3 p-3" style={{ background: INNER_BG }}>
-                      <div className="h-16 w-12 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <div className="h-16 w-12 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                         {(() => { const src = (c.creatives?.[0] ? creativeCover(c.creatives[0]) : null) || c.creative?.image_url || c.event_poster_url; return src ? <img src={src} alt="" className="h-full w-full object-cover" /> : null; })()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -406,7 +406,7 @@ export default function AdsPage() {
                                 <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
                                   {rows.map((r) => (
                                     <div key={r.i} className="flex items-center gap-3 px-3 py-2 flex-wrap" style={{ borderBottom: `1px solid ${BORDER}`, background: hasAny && r === best && score(r) > 0 ? 'rgba(52,211,153,0.05)' : undefined }}>
-                                      <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>{creativeCover(r.cr) && <img src={creativeCover(r.cr)!} alt="" className="h-full w-full object-cover" />}</div>
+                                      <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgb(var(--ink)/0.06)' }}>{creativeCover(r.cr) && <img src={creativeCover(r.cr)!} alt="" className="h-full w-full object-cover" />}</div>
                                       <div className="min-w-0 flex-1">
                                         <p className="truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('ads.w.creative.n').replace('{n}', String(r.i + 1))} · {t(`ads.w.format.${r.cr.format}`)}{r.cr.destination && r.cr.destination !== 'all' ? ` · ${t(`ads.w.dest.${r.cr.destination}`)}` : ''}{hasAny && r === best && score(r) > 0 ? ` · ${t('ads.row.best')}` : ''}</p>
                                         <p className="truncate" style={{ color: T3, fontSize: 11.5 }}>{r.cr.headline}{r.ref?.review ? ` · ${r.ref.review}` : ''}</p>
@@ -483,12 +483,12 @@ export default function AdsPage() {
                 {([...(['builtin', 'venue_segment', 'contact_segment'] as const), ...RULE_AUDIENCES] as Array<Exclude<AudienceKind, 'lookalike'>>).filter((k) => k !== 'venue_segment' || !isOrganizer).filter((k) => !(k === 'ig_engagers' || k === 'ig_visitors') || !!conn.ig_user_id).map((k) => (
                   <button key={k} type="button" onClick={() => { setAudKind(k); setAudRef(k === 'builtin' ? 'buyers_12m' : isRuleAudience(k) ? '90' : (k === 'venue_segment' ? data!.segments.venue[0]?.id : data!.segments.contact[0]?.id) ?? ''); }}
                     className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold"
-                    style={audKind === k ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.45)', color: '#FF7A82' } : { background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
+                    style={audKind === k ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.45)', color: 'var(--acc-ff7a82)' } : { background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                     {t(`ads.audiences.kind.${k}`)}
                   </button>
                 ))}
               </div>
-              <select value={audRef} onChange={(e) => setAudRef(e.target.value)} style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1, borderRadius: 12, padding: '10px 12px', fontSize: 13.5, width: '100%' }}>
+              <select value={audRef} onChange={(e) => setAudRef(e.target.value)} style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1, borderRadius: 12, padding: '10px 12px', fontSize: 13.5, width: '100%' }}>
                 {audKind === 'builtin' && BUILTIN_AUDIENCES.map((b) => <option key={b} value={b}>{t(`ads.audience.builtin.${b}`)}</option>)}
                 {audKind === 'venue_segment' && data!.segments.venue.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 {audKind === 'contact_segment' && data!.segments.contact.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -512,7 +512,7 @@ export default function AdsPage() {
             <span>{t('ads.audiences.lookalikeRatio')}</span>
             {LOOKALIKE_RATIOS.map((r) => (
               <button key={r} type="button" onClick={() => setLookalikeRatio(r)} className="px-2.5 py-1 rounded-full text-[12px] font-semibold cursor-pointer"
-                style={lookalikeRatio === r ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.45)', color: '#FF7A82' } : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>{Math.round(r * 100)} %</button>
+                style={lookalikeRatio === r ? { background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.45)', color: 'var(--acc-ff7a82)' } : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>{Math.round(r * 100)} %</button>
             ))}
             <span>{t('ads.audiences.lookalikeRatioHint')}</span>
           </div>
@@ -583,8 +583,8 @@ export default function AdsPage() {
       {mode === 'organizer' ? (
         <OrgPage>{header}<div className="space-y-5">{body}</div></OrgPage>
       ) : (
-        <div className="min-h-screen pb-28" style={{ background: '#000' }}>
-          <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
+        <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
+          <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
           {header}
           <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
             <p style={{ color: T2, fontSize: 13.5, maxWidth: 720 }}>{t('ads.subtitle')}</p>

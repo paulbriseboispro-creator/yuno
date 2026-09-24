@@ -15,6 +15,7 @@ import { buildFooterNavLinks, buildNavGroups } from "@/components/app-shared";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useOwnerVenueContext } from "@/contexts/OwnerVenueContext";
 import { useMetaIntegrationLive } from "@/lib/metaIntegration";
+import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 
 export function AppSidebar() {
 	const { t } = useLanguage();
@@ -37,6 +38,7 @@ export function AppSidebar() {
 				))}
 			</SidebarContent>
 			<SidebarFooter>
+				<SidebarProThemeSwitch />
 				<SidebarMenu>
 					{footerNavLinks.map((item) => (
 						<SidebarMenuItem key={item.title}>

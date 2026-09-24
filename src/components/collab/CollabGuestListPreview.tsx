@@ -5,12 +5,12 @@ import { translate } from '@/i18n/orgTranslate';
 import { Eye, Users, Building2, Music, Megaphone, UserPlus, Clock, Wine, Loader2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const GREEN = '#34D399';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const GREEN = 'var(--acc-34d399)';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 type PartRow = {
   id: string;
@@ -132,7 +132,7 @@ export function CollabGuestListPreview({ eventId, showChrome = true, houseOnly =
             <Building2 className="h-4 w-4" style={{ color: T3 }} />
             <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{tt('Part maison', 'House part', 'Parte casa')}</span>
             <span className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold"
-              style={clubPart.is_active ? { background: 'rgba(52,211,153,0.12)', color: GREEN } : { background: 'rgba(255,255,255,0.06)', color: T3 }}>
+              style={clubPart.is_active ? { background: 'rgba(52,211,153,0.12)', color: GREEN } : { background: 'rgb(var(--ink)/0.06)', color: T3 }}>
               {clubPart.is_active ? tt('Active', 'Active', 'Activa') : tt('Inactive', 'Inactive', 'Inactiva')}
             </span>
           </div>

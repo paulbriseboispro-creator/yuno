@@ -51,7 +51,7 @@ export function TopClientDialog({ open, onClose, clientInfo, ticketHolderName }:
       case 'platinum': return 'bg-gradient-to-r from-gray-300 to-gray-100 text-gray-800';
       case 'gold': return 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black';
       case 'silver': return 'bg-gradient-to-r from-gray-400 to-gray-300 text-gray-800';
-      default: return 'bg-gradient-to-r from-amber-700 to-amber-600 text-white';
+      default: return 'bg-gradient-to-r from-amber-700 to-amber-600 text-snow';
     }
   };
 

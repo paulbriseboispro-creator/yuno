@@ -24,7 +24,7 @@ interface Props {
   guestCount?: number;
 }
 
-const inputCls = 'h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
+const inputCls = 'h-11 rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
 
 export function VipTableWaitlistDialog({
   open, onOpenChange, venueId, eventId, zoneId, packId,
@@ -70,7 +70,7 @@ export function VipTableWaitlistDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#0f0f12] border-white/[0.08] text-white">
+      <DialogContent className="bg-[var(--sf-0f0f12)] border-white/[0.08] text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BellRing className="h-5 w-5 text-primary" />
@@ -93,7 +93,7 @@ export function VipTableWaitlistDialog({
           type="button"
           onClick={submit}
           disabled={submitting}
-          className="w-full h-12 mt-2 rounded-full flex items-center justify-center gap-2 font-semibold text-sm text-white bg-primary transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40"
+          className="w-full h-12 mt-2 rounded-full flex items-center justify-center gap-2 font-semibold text-sm text-snow bg-primary transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-40"
         >
           {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <BellRing className="h-4 w-4" />}
           {tt('Me prévenir', 'Notify me', 'Avisarme')}

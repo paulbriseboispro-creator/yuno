@@ -2146,7 +2146,7 @@ export default function Bouncer() {
                                       {isCancelling ? '...' : `${t('bouncer.deny')} + ${t('bouncer.refund90')}`}
                                     </Button>
                                     <Button
-                                      className="h-auto min-h-[48px] whitespace-normal bg-green-600 py-3 leading-tight text-white hover:bg-green-700"
+                                      className="h-auto min-h-[48px] whitespace-normal bg-green-600 py-3 leading-tight text-snow hover:bg-green-700"
                                       onClick={() => {
                                         toast({
                                           title: t('bouncer.entryApproved'),
@@ -2644,9 +2644,9 @@ export default function Bouncer() {
                         {/* Aplat orange solide : doit rester lisible sur la carte verte */}
                         <div className="rounded-xl px-3 py-2.5 text-left" style={{ background: '#C2410C' }}>
                           <div className="flex items-center gap-2.5">
-                            <AlertTriangle className="h-5 w-5 flex-none text-white" />
+                            <AlertTriangle className="h-5 w-5 flex-none text-snow" />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-bold text-white">{t('bouncer.outOfSlot')}</p>
+                              <p className="truncate text-sm font-bold text-snow">{t('bouncer.outOfSlot')}</p>
                               <p className="tabular-nums text-xs text-orange-100">+{late.lateLabel} {t('bouncer.late')}</p>
                             </div>
                           </div>

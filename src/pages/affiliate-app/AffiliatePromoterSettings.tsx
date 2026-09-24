@@ -347,7 +347,7 @@ export default function AffiliatePromoterSettings() {
               <FieldLabel>{t('aff.pset.slugLabel')}</FieldLabel>
               <div className="flex items-stretch">
                 <div className="flex items-center px-3 flex-none whitespace-nowrap"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}`, borderRight: 'none', borderRadius: '10px 0 0 10px', color: T3, fontSize: 12.5 }}>
+                  style={{ background: 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}`, borderRight: 'none', borderRadius: '10px 0 0 10px', color: T3, fontSize: 12.5 }}>
                   /promo/
                 </div>
                 <input value={form.linktree_slug} onChange={(e) => handleSlugChange(e.target.value)} placeholder={t('aff.pset.slugPlaceholder')}

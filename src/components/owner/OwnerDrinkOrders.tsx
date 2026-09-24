@@ -10,23 +10,23 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
-const POS     = '#34D399';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const F_BORDER= 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS     = 'var(--acc-34d399)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const F_BORDER= 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   paid:      { bg: 'rgba(52,211,153,0.12)',  color: POS },
-  served:    { bg: 'rgba(99,102,241,0.12)',  color: '#818CF8' },
-  refunded:  { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
-  cancelled: { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
-  pending:   { bg: 'rgba(255,255,255,0.06)', color: T2 },
+  served:    { bg: 'rgba(99,102,241,0.12)',  color: 'var(--acc-818cf8)' },
+  refunded:  { bg: 'rgba(232,25,44,0.12)',   color: 'var(--acc-ff5c63)' },
+  cancelled: { bg: 'rgba(232,25,44,0.12)',   color: 'var(--acc-ff5c63)' },
+  pending:   { bg: 'rgb(var(--ink)/0.06)', color: T2 },
 };
 
 const STATUS_KEY: Record<string, string> = {
@@ -64,7 +64,7 @@ function DarkSelect({ value, onChange, options }: {
         }}
       >
         {options.map(o => (
-          <option key={o.value} value={o.value} style={{ background: '#0a0a0c' }}>{o.label}</option>
+          <option key={o.value} value={o.value} style={{ background: 'var(--sf-0a0a0c)' }}>{o.label}</option>
         ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T3 }} />
@@ -284,7 +284,7 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <Wine className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+            <Wine className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
             <p style={{ color: T3, fontSize: 13 }}>{t('owner.noOrders')}</p>
           </div>
         ) : (
@@ -340,7 +340,7 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="border-0 p-0 overflow-hidden" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 440 }}>
+        <DialogContent className="border-0 p-0 overflow-hidden" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 440 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{t('owner.orderDetails')}</DialogTitle>
             <DialogDescription className="sr-only">{t('owner.orderDetails')}</DialogDescription>

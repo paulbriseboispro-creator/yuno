@@ -38,7 +38,7 @@ export function StaffStation({ staff }: Props) {
             return (
               <div key={member.id} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: TILE_BG }}>
                 <div className="relative flex-none">
-                  <div className="w-2 h-2 rounded-full" style={{ background: isRecent ? POS : 'rgba(255,255,255,0.12)' }} />
+                  <div className="w-2 h-2 rounded-full" style={{ background: isRecent ? POS : 'rgb(var(--ink)/0.12)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{member.name}</p>

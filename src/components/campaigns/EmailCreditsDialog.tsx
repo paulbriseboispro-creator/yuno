@@ -139,7 +139,7 @@ export default function EmailCreditsDialog({ open, onClose, scope, onCredited }:
             <div
               key={pack.id}
               className="flex items-center gap-3 rounded-xl border p-3.5"
-              style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}
+              style={{ borderColor: 'rgb(var(--ink)/0.1)', background: 'rgb(var(--ink)/0.02)' }}
             >
               <div
                 className="flex h-9 w-9 flex-none items-center justify-center rounded-lg"
@@ -162,8 +162,8 @@ export default function EmailCreditsDialog({ open, onClose, scope, onCredited }:
         </div>
 
         <p className="flex items-start gap-2 rounded-lg p-2.5 text-[11.5px] leading-relaxed"
-           style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.18)', color: 'rgba(255,255,255,0.7)' }}>
-          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-none" style={{ color: '#34D399' }} />
+           style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.18)', color: 'rgb(var(--ink)/var(--ink-a70,0.7))' }}>
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-none" style={{ color: 'var(--acc-34d399)' }} />
           <span>{t('em.credits.noExpiry')}</span>
         </p>
       </DialogContent>

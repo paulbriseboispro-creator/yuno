@@ -116,28 +116,28 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact, o
   const rate = (n: number) => (p.sent > 0 ? ((n / p.sent) * 100).toFixed(2) : '0.00');
 
   return (
-    <div className="rounded-xl border p-3.5" style={{ borderColor: 'rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.025)' }}>
+    <div className="rounded-xl border p-3.5" style={{ borderColor: 'rgb(var(--ink)/0.09)', background: 'rgb(var(--ink)/0.025)' }}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2 text-[13px] font-semibold">
-          {p.status === 'sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: '#FCD34D' }} />}
-          {p.status === 'paused' && <Pause className="h-3.5 w-3.5" style={{ color: '#FCD34D' }} />}
+          {p.status === 'sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: 'var(--acc-fcd34d)' }} />}
+          {p.status === 'paused' && <Pause className="h-3.5 w-3.5" style={{ color: 'var(--acc-fcd34d)' }} />}
           {p.sent.toLocaleString()} / {p.total.toLocaleString()} {t('em.send.sentOf')}
         </span>
         <span className="text-[12px] tabular-nums opacity-55">{pct}%</span>
       </div>
 
-      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'rgb(var(--ink)/0.08)' }}>
         <div className="h-full transition-all duration-500"
-             style={{ width: `${pct}%`, background: breaker ? '#FF5C63' : p.status === 'paused' ? '#FCD34D' : '#34D399' }} />
+             style={{ width: `${pct}%`, background: breaker ? 'var(--acc-ff5c63)' : p.status === 'paused' ? 'var(--acc-fcd34d)' : 'var(--acc-34d399)' }} />
       </div>
 
       {/* Pourquoi c'est arrêté — en clair, avec le chiffre. */}
       {breaker && (
         <div className="mt-2.5 flex items-start gap-2 rounded-lg p-2.5 text-[12px]"
              style={{ background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.22)' }}>
-          <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: '#FF5C63' }} />
+          <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: 'var(--acc-ff5c63)' }} />
           <div>
-            <p className="font-semibold" style={{ color: '#FF5C63' }}>{t('em.send.breakerTitle')}</p>
+            <p className="font-semibold" style={{ color: 'var(--acc-ff5c63)' }}>{t('em.send.breakerTitle')}</p>
             <p className="mt-0.5 opacity-75">
               {p.paused_reason === 'complaint_rate'
                 ? t('em.send.breakerComplaints').replace('{r}', rate(p.complained))
@@ -151,9 +151,9 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact, o
       {p.paused_reason === 'send_error' && (
         <div className="mt-2.5 flex items-start gap-2 rounded-lg p-2.5 text-[12px]"
              style={{ background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.22)' }}>
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: '#FF5C63' }} />
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: 'var(--acc-ff5c63)' }} />
           <div>
-            <p className="font-semibold" style={{ color: '#FF5C63' }}>{t('em.send.errorTitle')}</p>
+            <p className="font-semibold" style={{ color: 'var(--acc-ff5c63)' }}>{t('em.send.errorTitle')}</p>
             <p className="mt-0.5 opacity-70">{p.error_message}</p>
           </div>
         </div>
@@ -164,9 +164,9 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact, o
       {monthReached && (
         <div className="mt-2.5 flex items-center gap-2 rounded-lg p-2.5 text-[12px]"
              style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)' }}>
-          <Clock className="h-4 w-4 flex-shrink-0" style={{ color: '#FCD34D' }} />
+          <Clock className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold" style={{ color: '#FCD34D' }}>{t('em.send.monthlyCapTitle')}</p>
+            <p className="font-semibold" style={{ color: 'var(--acc-fcd34d)' }}>{t('em.send.monthlyCapTitle')}</p>
             <p className="mt-0.5 opacity-70">
               {t('em.send.monthlyCapBody').replace('{date}', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString())}
             </p>
@@ -182,9 +182,9 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact, o
       {capReached && (
         <div className="mt-2.5 flex items-start gap-2 rounded-lg p-2.5 text-[12px]"
              style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)' }}>
-          <Clock className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: '#FCD34D' }} />
+          <Clock className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: 'var(--acc-fcd34d)' }} />
           <div>
-            <p className="font-semibold" style={{ color: '#FCD34D' }}>{t('em.send.capTitle')}</p>
+            <p className="font-semibold" style={{ color: 'var(--acc-fcd34d)' }}>{t('em.send.capTitle')}</p>
             <p className="mt-0.5 opacity-70">
               {t('em.send.capBody').replace('{cap}', p.daily_cap.toLocaleString()).replace('{left}', (p.total - done).toLocaleString())}
             </p>
@@ -214,7 +214,7 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact, o
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => act('cancel')} disabled={acting}
-                  style={{ color: '#FF5C63' }}>
+                  style={{ color: 'var(--acc-ff5c63)' }}>
             {t('em.send.cancel')}
           </Button>
           {onOpenReport && (

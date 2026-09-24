@@ -12,15 +12,15 @@ const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'h
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const POS      = '#34D399';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const C_FAINT  = 'rgba(255,255,255,0.06)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS      = 'var(--acc-34d399)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT  = 'rgb(var(--ink)/0.06)';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // One row per upcoming event the DJ plays — aggregated server-side across ALL of
 // the DJ's profiles (venue + organizer rosters) by get_dj_audience().
@@ -204,14 +204,14 @@ export function DJEventLinks() {
                         <button
                           onClick={() => handleCopy(`s-${r.event_id}`, salesLink(r.link_code!))}
                           className="flex h-9 w-9 flex-none items-center justify-center rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+                          style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
                         >
                           {copied === `s-${r.event_id}` ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                         <button
                           onClick={() => handleShare(`s-${r.event_id}`, salesLink(r.link_code!), r.event_title)}
                           className="flex h-9 w-9 flex-none items-center justify-center rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+                          style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
                         >
                           <Share2 className="h-3.5 w-3.5" />
                         </button>
@@ -238,7 +238,7 @@ export function DJEventLinks() {
                         <span className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.06em]" style={{ color: RED }}>
                           <Users className="h-3.5 w-3.5" />{t('dj.guestList.tag')}
                         </span>
-                        <span className="text-xs tabular-nums" style={{ color: glFull ? '#FF5C63' : T2 }}>
+                        <span className="text-xs tabular-nums" style={{ color: glFull ? 'var(--acc-ff5c63)' : T2 }}>
                           {glFull && <span className="mr-1.5 font-semibold">{t('dj.guestList.full')}</span>}
                           {r.gl_signups}{r.gl_quota != null ? `/${r.gl_quota}` : ''} {t('dj.guestList.signups')}
                         </span>
@@ -251,14 +251,14 @@ export function DJEventLinks() {
                         <button
                           onClick={() => handleCopy(`g-${r.event_id}`, guestLink(r.gl_share_token!, r.event_id, r.location_name))}
                           className="flex h-9 w-9 flex-none items-center justify-center rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+                          style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
                         >
                           {copied === `g-${r.event_id}` ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                         <button
                           onClick={() => handleShare(`g-${r.event_id}`, guestLink(r.gl_share_token!, r.event_id, r.location_name), r.event_title)}
                           className="flex h-9 w-9 flex-none items-center justify-center rounded-lg cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+                          style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
                         >
                           <Share2 className="h-3.5 w-3.5" />
                         </button>

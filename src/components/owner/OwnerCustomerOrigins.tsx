@@ -12,17 +12,17 @@ const CityGlobe = lazy(() => import('@/components/analytics/CityGlobe'));
 
 // ─── Yuno Design Tokens (kept local — same palette as OwnerCustomers) ─────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
-const OCEAN_FILL   = 'rgba(255,255,255,0.022)';   // countries with no customers
-const GEO_STROKE   = 'rgba(255,255,255,0.10)';
+const OCEAN_FILL   = 'rgb(var(--ink)/0.022)';   // countries with no customers
+const GEO_STROKE   = 'rgb(var(--ink)/0.10)';
 
 interface OriginCustomer { phone: string | null; total_spent: number; }
 
@@ -360,7 +360,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                 {hover && (
                   <div
                     className="fixed z-50 pointer-events-none rounded-xl px-3 py-2"
-                    style={{ left: hover.x + 14, top: hover.y + 14, background: '#0a0a0c', border: `1px solid ${BORDER}`, boxShadow: '0 10px 30px -12px rgba(0,0,0,.9)' }}
+                    style={{ left: hover.x + 14, top: hover.y + 14, background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, boxShadow: '0 10px 30px -12px rgba(0,0,0,.9)' }}
                   >
                     <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{hover.flag} {hover.name}</p>
                     <p style={{ color: T2, fontSize: 11.5 }}>
@@ -388,7 +388,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
               <div className="max-h-[420px] overflow-y-auto">
                 {stats.length === 0 ? (
                   <div className="text-center py-14 px-4">
-                    <Globe className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                    <Globe className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                     <p style={{ color: T3, fontSize: 13 }}>{L('origins.empty', language)}</p>
                   </div>
                 ) : (
@@ -417,7 +417,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                             <span style={{ color: T1, fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.07)' }}>
                               <div style={{ width: `${share}%`, height: '100%', background: RED }} />
                             </div>
                             <span style={{ color: T3, fontSize: 10.5, minWidth: 64, textAlign: 'right' }}>{share.toFixed(0)}% · {s.revenue.toFixed(0)}€</span>
@@ -472,7 +472,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
               <div className="relative" style={{ minHeight: 420 }}>
                 {/* Placeholder behind the globe — shows through when the map can't render. */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pointer-events-none">
-                  <Globe className="h-9 w-9 mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                  <Globe className="h-9 w-9 mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                   <p style={{ color: T3, fontSize: 13 }}>
                     {cityLoading ? L('origins.cityLoading', language)
                       : cities.length === 0 ? L('origins.cityEmpty', language)
@@ -497,7 +497,7 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
               <div className="max-h-[420px] overflow-y-auto">
                 {cities.length === 0 ? (
                   <div className="text-center py-14 px-4">
-                    <Building2 className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.10)' }} />
+                    <Building2 className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.10)' }} />
                     <p style={{ color: T3, fontSize: 13 }}>{cityLoading ? L('origins.cityLoading', language) : L('origins.cityEmpty', language)}</p>
                   </div>
                 ) : (
@@ -517,8 +517,8 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                             <span style={{ color: T1, fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{c.count}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
-                              <div style={{ width: `${share}%`, height: '100%', background: i === 0 ? RED : 'rgba(255,255,255,0.42)' }} />
+                            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.07)' }}>
+                              <div style={{ width: `${share}%`, height: '100%', background: i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))' }} />
                             </div>
                             <span style={{ color: T3, fontSize: 10.5, minWidth: 40, textAlign: 'right' }}>
                               {cityTotalKnown ? Math.round((c.count / cityTotalKnown) * 100) : 0}%

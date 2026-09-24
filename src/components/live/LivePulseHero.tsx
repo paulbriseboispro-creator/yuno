@@ -7,14 +7,14 @@ import { seriesValueAt, type ComparableNight } from '@/lib/liveops/compare';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED    = '#E8192C';
-const POS    = '#34D399';
-const AMBER  = '#FCD34D';
-const T1     = 'rgba(255,255,255,0.96)';
-const T2     = 'rgba(255,255,255,0.58)';
-const T3     = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS    = 'var(--acc-34d399)';
+const AMBER  = 'var(--acc-fcd34d)';
+const T1     = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2     = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3     = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 interface Props {
   activeEvent: ActiveEventInfo | null;
@@ -45,7 +45,7 @@ function PaceSparkline({ buckets }: { buckets: number[] }) {
             height: `${Math.max(8, (v / max) * 100)}%`,
             background: i === buckets.length - 1
               ? RED
-              : v > 0 ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.08)',
+              : v > 0 ? 'rgb(var(--ink)/var(--ink-a28,0.28))' : 'rgb(var(--ink)/0.08)',
           }}
         />
       ))}
@@ -90,7 +90,7 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
       className="relative overflow-hidden"
       style={{
         background: `radial-gradient(ellipse 70% 50% at 90% -20%, rgba(232,25,44,0.08) 0%, transparent 65%),
-          linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c`,
+          linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)`,
         border: `1px solid ${BORDER}`,
         borderRadius: 18,
         boxShadow: CARD_SHADOW,
@@ -113,7 +113,7 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
                 {t('liveops.hero.remaining')} · <span className="tabular-nums" style={{ color: T2 }}>{formatClock(timing.remainingMin)}</span>
               </span>
             </div>
-            <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+            <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.07)' }}>
               <div className="h-full rounded-full" style={{ width: `${timing.progress * 100}%`, background: RED }} />
             </div>
           </div>
@@ -132,7 +132,7 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
               {entriesCount}
             </div>
             {entriesDelta !== null && (
-              <p className="tabular-nums" style={{ color: entriesDelta >= 0 ? POS : '#FF5C63', fontSize: 11.5, marginTop: 4, fontWeight: 600 }}>
+              <p className="tabular-nums" style={{ color: entriesDelta >= 0 ? POS : 'var(--acc-ff5c63)', fontSize: 11.5, marginTop: 4, fontWeight: 600 }}>
                 {entriesDelta >= 0 ? '+' : ''}{entriesDelta} {t('liveops.hero.vsCompare')}
               </p>
             )}
@@ -164,7 +164,7 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
                 <div className="tabular-nums leading-none" style={{ color: gaugeColor, fontSize: 'clamp(26px,3vw,36px)', fontWeight: 640, letterSpacing: '-0.025em' }}>
                   {fillPct}%
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden mt-2" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                <div className="h-1.5 rounded-full overflow-hidden mt-2" style={{ background: 'rgb(var(--ink)/0.07)' }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${fillPct}%`, background: gaugeColor }} />
                 </div>
                 <button onClick={onEditCapacity} className="flex items-center gap-1 mt-1.5 cursor-pointer" style={{ color: T3, fontSize: 10.5 }}>
@@ -192,7 +192,7 @@ export function LivePulseHero({ activeEvent, entriesCount, revenue, door, capaci
               {revenue.toFixed(0)} €
             </div>
             {revenueDelta !== null && (
-              <p className="tabular-nums" style={{ color: revenueDelta >= 0 ? POS : '#FF5C63', fontSize: 11.5, marginTop: 4, fontWeight: 600 }}>
+              <p className="tabular-nums" style={{ color: revenueDelta >= 0 ? POS : 'var(--acc-ff5c63)', fontSize: 11.5, marginTop: 4, fontWeight: 600 }}>
                 {revenueDelta >= 0 ? '+' : ''}{revenueDelta.toFixed(0)} € {t('liveops.hero.vsCompare')}
               </p>
             )}

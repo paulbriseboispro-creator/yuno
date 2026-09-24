@@ -290,7 +290,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
-                  <code className="hidden sm:block max-w-[220px] truncate rounded-md bg-black/30 px-2 py-1 text-xs text-white/45">
+                  <code className="hidden sm:block max-w-[220px] truncate rounded-md bg-white/[0.04] px-2 py-1 text-xs text-white/45">
                     /l/{row.code}
                   </code>
                   <button onClick={() => copyLink(row)} title={t('tlink.copy')} className="rounded-md p-1.5 text-white/50 hover:bg-white/10 hover:text-white">
@@ -345,7 +345,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
             <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-white/60 hover:text-white">
               {t('tlink.cancel')}
             </Button>
-            <Button onClick={save} disabled={saving} className="bg-white text-black hover:bg-white/90">
+            <Button onClick={save} disabled={saving} className="bg-white text-paper hover:bg-white/90">
               {saving ? t('tlink.saving') : editing ? t('tlink.save') : t('tlink.create')}
             </Button>
           </DialogFooter>

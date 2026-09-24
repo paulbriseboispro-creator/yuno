@@ -33,8 +33,8 @@ export function BarStation({ bar, pipeline, avgPrepMinutes, outOfStock = [] }: P
         bar.oldestUnservedMinutes !== null ? (
           <span className="tabular-nums px-2 py-0.5 rounded-full" style={{
             color: ageColor, fontSize: 11.5, fontWeight: 620,
-            background: bar.oldestUnservedMinutes > 5 ? 'rgba(252,211,77,0.08)' : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${bar.oldestUnservedMinutes > 5 ? 'rgba(252,211,77,0.2)' : 'rgba(255,255,255,0.08)'}`,
+            background: bar.oldestUnservedMinutes > 5 ? 'rgba(252,211,77,0.08)' : 'rgb(var(--ink)/0.04)',
+            border: `1px solid ${bar.oldestUnservedMinutes > 5 ? 'rgba(252,211,77,0.2)' : 'rgb(var(--ink)/0.08)'}`,
           }}>
             {t('liveops.bar.oldest').replace('{n}', String(bar.oldestUnservedMinutes))}
           </span>

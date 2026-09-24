@@ -6,13 +6,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Design tokens (Yuno pro DA — single red accent, mono ramp) ────────────────
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const FAINT = 'rgba(255,255,255,0.06)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const FAINT = 'rgb(var(--ink)/0.06)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const crd: React.CSSProperties = {
   background: CARD_BG,
@@ -173,7 +173,7 @@ export function VipConsumptionSection({ venueId, organizerUserId, eventId, from,
                 label={it.name || tt('Article', 'Item', 'Artículo')}
                 pct={topMax ? Math.round((it.revenue / topMax) * 100) : 0}
                 right={`${fmtPrice(it.revenue)} · ×${it.qty}`}
-                color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
             ))}
           </div>
         </div>
@@ -190,7 +190,7 @@ export function VipConsumptionSection({ venueId, organizerUserId, eventId, from,
                 label={catLabel(c.category)}
                 pct={catMax ? Math.round((c.revenue / catMax) * 100) : 0}
                 right={`${fmtPrice(c.revenue)} · ×${c.qty}`}
-                color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
             ))}
           </div>
         </div>
@@ -210,7 +210,7 @@ export function VipConsumptionSection({ venueId, organizerUserId, eventId, from,
                   label={z.zone_name}
                   pct={zoneMax ? Math.round((z.revenue / zoneMax) * 100) : 0}
                   right={`${fmtPrice(z.revenue)} · ${z.tables} ${tt('tables', 'tables', 'mesas')}`}
-                  color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                  color={i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))'} />
               ))}
             </div>
           </div>
@@ -255,7 +255,7 @@ export function VipConsumptionSection({ venueId, organizerUserId, eventId, from,
             {data.by_hour.map((h) => (
               <div key={h.hour} className="flex-1 flex flex-col items-center justify-end gap-1.5" title={`${h.hour}h · ${fmtPrice(h.revenue)}`}>
                 <div className="w-full rounded-t transition-all"
-                  style={{ height: `${hourMax ? Math.max(2, Math.round((h.revenue / hourMax) * 100)) : 0}%`, background: h.revenue === hourMax ? RED : 'rgba(255,255,255,0.28)', minHeight: 2 }} />
+                  style={{ height: `${hourMax ? Math.max(2, Math.round((h.revenue / hourMax) * 100)) : 0}%`, background: h.revenue === hourMax ? RED : 'rgb(var(--ink)/var(--ink-a28,0.28))', minHeight: 2 }} />
                 <span className="text-[10px] tabular-nums" style={{ color: T3 }}>{h.hour}h</span>
               </div>
             ))}

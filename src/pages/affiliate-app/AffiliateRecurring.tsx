@@ -174,7 +174,7 @@ export default function AffiliateRecurring() {
                   <div className="flex items-center gap-2">
                     <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{tpl.name}</p>
                     {!tpl.is_active && (
-                      <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.05em', color: T3, background: 'rgba(255,255,255,0.05)', border: `1px solid ${F_BORDER}`, padding: '1px 6px', borderRadius: 5 }}>{t('aff.recurring.inactiveBadge')}</span>
+                      <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.05em', color: T3, background: 'rgb(var(--ink)/0.05)', border: `1px solid ${F_BORDER}`, padding: '1px 6px', borderRadius: 5 }}>{t('aff.recurring.inactiveBadge')}</span>
                     )}
                   </div>
                   <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>

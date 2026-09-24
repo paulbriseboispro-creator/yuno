@@ -16,12 +16,12 @@ import { fr, es, enUS } from 'date-fns/locale';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
 
 interface PostEventAnalysisSectionProps {
   venueId: string | null;
@@ -52,7 +52,7 @@ export function PostEventAnalysisSection({ venueId }: PostEventAnalysisSectionPr
     return (
       <div className="space-y-4">
         {[48, 128, 80, 192].map((h, i) => (
-          <div key={i} style={{ height: h, background: 'rgba(255,255,255,0.04)', borderRadius: 14 }} className="animate-pulse" />
+          <div key={i} style={{ height: h, background: 'rgb(var(--ink)/0.04)', borderRadius: 14 }} className="animate-pulse" />
         ))}
       </div>
     );
@@ -93,7 +93,7 @@ export function PostEventAnalysisSection({ venueId }: PostEventAnalysisSectionPr
           <button
             onClick={() => { setShowPicker(!showPicker); setShowSearch(false); }}
             className="w-full flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all duration-150"
-            style={{ background: INNER_BG, border: `1px solid ${showPicker ? 'rgba(255,255,255,0.18)' : BORDER}` }}
+            style={{ background: INNER_BG, border: `1px solid ${showPicker ? 'rgb(var(--ink)/0.18)' : BORDER}` }}
           >
             <span className="flex items-center gap-2 min-w-0">
               {selectedEventId === null
@@ -118,10 +118,10 @@ export function PostEventAnalysisSection({ venueId }: PostEventAnalysisSectionPr
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.15 }}
                 className="absolute top-full left-0 right-0 mt-1 z-30 overflow-hidden rounded-xl"
-                style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.95)', maxHeight: 320, overflowY: 'auto' }}
+                style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, boxShadow: '0 20px 40px -12px rgba(0,0,0,0.95)', maxHeight: 320, overflowY: 'auto' }}
               >
                 {/* Search inside dropdown */}
-                <div className="sticky top-0 p-2" style={{ background: '#0a0a0c', borderBottom: `1px solid ${F_BORDER}` }}>
+                <div className="sticky top-0 p-2" style={{ background: 'var(--sf-0a0a0c)', borderBottom: `1px solid ${F_BORDER}` }}>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: T3 }} />
                     <input
@@ -256,7 +256,7 @@ export function PostEventAnalysisSection({ venueId }: PostEventAnalysisSectionPr
 
             {/* Quick results */}
             {searchQuery && filteredEvents.length > 0 && (
-              <div className="mt-2 rounded-xl overflow-hidden" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}` }}>
+              <div className="mt-2 rounded-xl overflow-hidden" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}` }}>
                 {filteredEvents.slice(0, 5).map(event => (
                   <button
                     key={event.id}
@@ -280,7 +280,7 @@ export function PostEventAnalysisSection({ venueId }: PostEventAnalysisSectionPr
       {loading ? (
         <div className="space-y-4">
           {[128, 80, 192].map((h, i) => (
-            <div key={i} style={{ height: h, background: 'rgba(255,255,255,0.04)', borderRadius: 14 }} className="animate-pulse" />
+            <div key={i} style={{ height: h, background: 'rgb(var(--ink)/0.04)', borderRadius: 14 }} className="animate-pulse" />
           ))}
         </div>
       ) : postEventData && (

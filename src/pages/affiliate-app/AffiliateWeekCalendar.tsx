@@ -63,7 +63,7 @@ function NavButton({ onClick, title, children }: { onClick: () => void; title: s
       aria-label={title}
       className="flex items-center justify-center rounded-xl transition-colors"
       style={{ width: 32, height: 32, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
-      onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'; }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.16)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = T2; e.currentTarget.style.borderColor = BORDER; }}
     >
       {children}
@@ -191,7 +191,7 @@ export default function AffiliateWeekCalendar() {
                   onClick={() => setWeekOffset(0)}
                   className="rounded-xl transition-colors"
                   style={{ height: 32, padding: '0 12px', fontSize: 12, fontWeight: 560, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = T1; e.currentTarget.style.borderColor = 'rgb(var(--ink)/0.16)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = T2; e.currentTarget.style.borderColor = BORDER; }}
                 >
                   {t('aff.week.today')}
@@ -240,7 +240,7 @@ export default function AffiliateWeekCalendar() {
               }}>
               {/* Day header */}
               <div className="px-4 py-2.5 flex items-center justify-between"
-                style={{ borderBottom: dayEvents.length > 0 ? `1px solid ${F_BORDER}` : 'none', background: isNow ? 'rgba(232,25,44,0.06)' : 'rgba(255,255,255,0.02)' }}>
+                style={{ borderBottom: dayEvents.length > 0 ? `1px solid ${F_BORDER}` : 'none', background: isNow ? 'rgba(232,25,44,0.06)' : 'rgb(var(--ink)/0.02)' }}>
                 <span className="capitalize" style={{ fontSize: 13.5, fontWeight: 600, color: isNow ? RED : T2 }}>
                   {dayLabel}
                   {isNow && <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(232,25,44,0.75)' }}>{t('aff.week.today')}</span>}
@@ -262,7 +262,7 @@ export default function AffiliateWeekCalendar() {
                       <div key={ev.id} style={{ borderLeft: `3px solid ${style.dot}` }}>
                       <div
                         className="flex items-center gap-3 px-4 py-3 transition-colors"
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgb(var(--ink)/0.02)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                         {/* Flyer */}
                         <div className="w-9 h-9 rounded-lg overflow-hidden flex-none flex items-center justify-center" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>

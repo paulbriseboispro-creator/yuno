@@ -5,14 +5,14 @@ import type { TicketAnalytics } from '@/hooks/useAnalyticsData';
 
 // ─── Design tokens (Yuno pro DA) ───────────────────────────────────────────────
 const RED = '#E8192C';
-const POS = '#34D399';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const FAINT = 'rgba(255,255,255,0.06)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS = 'var(--acc-34d399)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const FAINT = 'rgb(var(--ink)/0.06)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 const crd: React.CSSProperties = {
   background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden',
@@ -106,7 +106,7 @@ export function TicketPillarInsights({ data }: Props) {
                   </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: FAINT }}>
                     <div className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.max(4, Math.round((l.count / leadMax) * 100))}%`, background: i === 0 ? RED : 'rgba(255,255,255,0.42)' }} />
+                      style={{ width: `${Math.max(4, Math.round((l.count / leadMax) * 100))}%`, background: i === 0 ? RED : 'rgb(var(--ink)/var(--ink-a42,0.42))' }} />
                   </div>
                 </div>
               );

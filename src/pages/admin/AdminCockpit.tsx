@@ -367,7 +367,7 @@ export default function AdminCockpit() {
               <div>
                 {groups.map((g) => (
                   <div key={g.key} className="mb-3">
-                    <div className="sticky top-0 py-1" style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#0a0a0c' }}>{g.label}</div>
+                    <div className="sticky top-0 py-1" style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--sf-0a0a0c)' }}>{g.label}</div>
                     {g.items.map((item, i) => {
                       const Icon = KIND_ICON[item.kind] ?? Activity;
                       const color = KIND_COLOR[item.kind] ?? T2;

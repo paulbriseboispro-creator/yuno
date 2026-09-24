@@ -226,7 +226,7 @@ export default function AgencyFinance() {
                 </div>
               </button>
               {expandedClub === r.key && (
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '8px 14px 12px' }}>
+                <div style={{ borderTop: '1px solid rgb(var(--ink)/0.05)', padding: '8px 14px 12px' }}>
                   <div className="space-y-1 mb-3">
                     {r.convs.slice(0, 10).map(c => (
                       <div key={c.id} className="flex justify-between" style={{ fontSize: 12 }}>

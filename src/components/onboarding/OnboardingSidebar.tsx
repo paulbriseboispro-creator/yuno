@@ -77,7 +77,7 @@ export function OnboardingSidebar({ currentStep, stepStatuses }: OnboardingSideb
       </motion.button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col" style={{ background: '#0a0a0c', borderLeft: `1px solid ${BORDER}` }}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col" style={{ background: 'var(--sf-0a0a0c)', borderLeft: `1px solid ${BORDER}` }}>
           {/* Header */}
           <div className="px-5 pt-5 pb-4 space-y-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
             <SheetHeader className="p-0">
@@ -93,7 +93,7 @@ export function OnboardingSidebar({ currentStep, stepStatuses }: OnboardingSideb
                 <span style={{ color: T3 }}>{completedCount} / {TOTAL_STEPS} {t('onboarding.complete')}</span>
                 <span className="font-semibold" style={{ color: T1 }}>{progress}%</span>
               </div>
-              <div className="rounded-full overflow-hidden" style={{ height: 6, background: 'rgba(255,255,255,0.06)' }}>
+              <div className="rounded-full overflow-hidden" style={{ height: 6, background: 'rgb(var(--ink)/0.06)' }}>
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: RED }} />
               </div>
             </div>
@@ -123,7 +123,7 @@ export function OnboardingSidebar({ currentStep, stepStatuses }: OnboardingSideb
                       isCompleted
                         ? { background: POS, color: '#04130d' }
                         : isSkipped
-                        ? { background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T3 }
+                        ? { background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, color: T3 }
                         : isCurrent
                         ? { background: 'rgba(232,25,44,0.18)', border: `1px solid ${RED}`, color: RED }
                         : { border: `1px solid ${BORDER}`, color: T3 }

@@ -102,7 +102,7 @@ export function OrderPreparationView({ order, onComplete, onCancel }: OrderPrepa
         <div className="max-w-4xl mx-auto">
           <Button
             onClick={onComplete}
-            className="w-full h-16 text-lg md:text-xl font-semibold bg-green-600 hover:bg-green-700 text-white rounded-2xl shadow-lg"
+            className="w-full h-16 text-lg md:text-xl font-semibold bg-green-600 hover:bg-green-700 text-snow rounded-2xl shadow-lg"
           >
             <CheckCircle2 className="mr-2 md:mr-3 h-6 w-6 md:h-8 md:w-8 shrink-0" />
             <span className="truncate">{t('clickCollect.markAsReady')}</span>

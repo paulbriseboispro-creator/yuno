@@ -126,7 +126,7 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
           isVenue ? (
             <div className="space-y-2">
               {!data.organizer_has_iban && (
-                <p className="flex items-start gap-1.5" style={{ color: '#FCD34D', fontSize: 11.5 }}>
+                <p className="flex items-start gap-1.5" style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>
                   <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   {t("L'organisateur doit d'abord renseigner son IBAN (Console organisateur → Paiements).", 'The organizer must first enter their IBAN (organizer Console → Payments).', 'El organizador debe introducir primero su IBAN (Consola organizador → Pagos).')}
                 </p>
@@ -171,7 +171,7 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
             )}
 
             {open.status === 'approved' && dleft != null && (
-              <p style={{ color: dleft < 0 ? '#FCD34D' : T3, fontSize: 11.5 }}>
+              <p style={{ color: dleft < 0 ? 'var(--acc-fcd34d)' : T3, fontSize: 11.5 }}>
                 {dleft >= 0
                   ? t(`Accusé de réception attendu sous ${dleft} j.`, `Acknowledgement expected within ${dleft} day(s).`, `Acuse de recibo esperado en ${dleft} día(s).`)
                   : t('Délai dépassé — bascule en litige imminente.', 'Deadline passed — switching to dispute soon.', 'Plazo superado — pasará a litigio en breve.')}
@@ -179,7 +179,7 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
             )}
 
             {open.status === 'disputed' && open.dispute_reason && (
-              <p style={{ color: '#FCD34D', fontSize: 11.5 }}>
+              <p style={{ color: 'var(--acc-fcd34d)', fontSize: 11.5 }}>
                 {open.dispute_reason === 'auto:no_acknowledgement'
                   ? t('Aucune réponse dans les délais.', 'No response within the deadline.', 'Sin respuesta dentro del plazo.')
                   : open.dispute_reason}
@@ -261,7 +261,7 @@ function Cell({ label, value, strong }: { label: string; value: string; strong?:
   return (
     <div className="rounded-lg p-2.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
       <div style={{ color: T3, fontSize: 10.5 }}>{label}</div>
-      <div style={{ color: strong ? '#fff' : T1, fontSize: strong ? 15 : 13, fontWeight: strong ? 650 : 560 }}>{value}</div>
+      <div style={{ color: strong ? 'rgb(var(--ink))' : T1, fontSize: strong ? 15 : 13, fontWeight: strong ? 650 : 560 }}>{value}</div>
     </div>
   );
 }

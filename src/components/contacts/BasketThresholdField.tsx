@@ -9,9 +9,9 @@ import {
   type BasketSuggestion,
 } from '@/lib/contactSegments';
 
-const T1 = 'rgba(255,255,255,0.96)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
 const RED = '#E8192C';
 
 export default function BasketThresholdField({ value, onChange, suggestion, compact }: {
@@ -45,7 +45,7 @@ export default function BasketThresholdField({ value, onChange, suggestion, comp
         aria-label={t('cseg.basket.label')}
         style={{
           width: 76, padding: '4px 8px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, color: T1,
-          background: 'rgba(255,255,255,0.05)', border: `1px solid ${isYuno ? BORDER : 'rgba(232,25,44,0.4)'}`,
+          background: 'rgb(var(--ink)/0.05)', border: `1px solid ${isYuno ? BORDER : 'rgba(232,25,44,0.4)'}`,
           outline: 'none', fontVariantNumeric: 'tabular-nums',
         }}
       />

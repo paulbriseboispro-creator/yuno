@@ -19,7 +19,8 @@ export function NativeStatusBarScrim() {
         left: 0,
         right: 0,
         height: 'calc(env(safe-area-inset-top, 0px) + 6px)',
-        background: 'linear-gradient(to bottom, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.38) 62%, transparent 100%)',
+        // Dashboard pro en thème clair : voile blanc (--status-scrim, pro-theme.css).
+        background: 'var(--status-scrim, linear-gradient(to bottom, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.38) 62%, transparent 100%))',
         zIndex: 60,
         pointerEvents: 'none',
       }}

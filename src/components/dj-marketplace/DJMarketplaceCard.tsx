@@ -56,8 +56,8 @@ export function DJMarketplaceCard({
       style={{
         display: 'flex', alignItems: 'center', gap: 14,
         padding: '12px 14px',
-        background: 'rgba(255,255,255,0.025)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'rgb(var(--ink)/0.025)',
+        border: '1px solid rgb(var(--ink)/0.08)',
         borderRadius: 18,
       }}
     >
@@ -71,44 +71,44 @@ export function DJMarketplaceCard({
           cursor: target ? 'pointer' : 'default', color: 'inherit',
         }}
       >
-        <div style={{ width: 60, height: 60, flexShrink: 0, borderRadius: 14, overflow: 'hidden', background: '#191919', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ width: 60, height: 60, flexShrink: 0, borderRadius: 14, overflow: 'hidden', background: 'var(--sf-191919)', border: '1px solid rgb(var(--ink)/0.08)' }}>
           {dj.profile_image_url ? (
             <img src={getOptimizedImageUrl(dj.profile_image_url, { width: 120, height: 120 })} alt={dj.stage_name} loading="lazy"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
-              <Music size={22} strokeWidth={2} color="#5A5A5E" />
+              <Music size={22} strokeWidth={2} color="var(--tx-5a5a5e)" />
             </div>
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'rgb(var(--ink))', letterSpacing: '-0.01em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {dj.stage_name}
             </span>
             <DJTierBadge dj={dj} compact />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, fontFamily: 'monospace', fontSize: 11, color: '#9A9A9A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, fontFamily: 'monospace', fontSize: 11, color: 'var(--tx-9a9a9a)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {dj.city && (<><MapPin size={12} strokeWidth={2} />{dj.city.toUpperCase()}</>)}
             {dj.music_genres.length > 0 && (
-              <span style={{ color: '#5A5A5E' }}>
+              <span style={{ color: 'var(--tx-5a5a5e)' }}>
                 {dj.city ? ' · ' : ''}{dj.music_genres.slice(0, 2).join(' · ').toUpperCase()}
               </span>
             )}
           </div>
           {mode === 'booker' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, fontSize: 11.5, color: '#B8B8BC' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, fontSize: 11.5, color: 'var(--tx-b8b8bc)' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Users size={12} strokeWidth={2} color="#7A7A7E" />
+                <Users size={12} strokeWidth={2} color="var(--tx-7a7a7e)" />
                 {dj.followers_count.toLocaleString()}
               </span>
               {rate && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#E8E8EA', fontWeight: 600 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--tx-e8e8ea)', fontWeight: 600 }}>
                   {rate}
                 </span>
               )}
               {showAvailability && dj.available != null && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: dj.available ? '#34D399' : '#FF5C63', fontWeight: 600 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: dj.available ? 'var(--acc-34d399)' : 'var(--acc-ff5c63)', fontWeight: 600 }}>
                   {dj.available
                     ? <><CalendarCheck size={12} strokeWidth={2.2} />{tt('Dispo', 'Free', 'Libre')}</>
                     : <><CalendarX size={12} strokeWidth={2.2} />{tt('Occupé', 'Busy', 'Ocupado')}</>}
@@ -132,7 +132,7 @@ export function DJMarketplaceCard({
           {tt('Réserver', 'Book', 'Reservar')}
         </button>
       ) : (
-        <span style={{ color: '#5A5A5E', fontSize: 18, flexShrink: 0 }}>→</span>
+        <span style={{ color: 'var(--tx-5a5a5e)', fontSize: 18, flexShrink: 0 }}>→</span>
       )}
     </div>
   );

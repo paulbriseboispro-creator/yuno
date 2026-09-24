@@ -808,9 +808,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
             <div className="p-6">
               <div className="flex gap-4">
                 {event.poster_url ? (
-                  <img src={event.poster_url} alt="" className="h-28 w-20 flex-none rounded-lg object-cover" style={{ border: '1px solid rgba(255,255,255,0.08)' }} />
+                  <img src={event.poster_url} alt="" className="h-28 w-20 flex-none rounded-lg object-cover" style={{ border: '1px solid rgb(var(--ink)/0.08)' }} />
                 ) : (
-                  <div className="flex h-28 w-20 flex-none items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <div className="flex h-28 w-20 flex-none items-center justify-center rounded-lg" style={{ background: 'rgb(var(--ink)/0.04)' }}>
                     <Building2 className="h-6 w-6" style={{ color: T3 }} />
                   </div>
                 )}
@@ -897,7 +897,7 @@ function Section({ icon: Icon, title, sub, children }: { icon: LucideIcon; title
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}` }}>
+        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}` }}>
           <Icon className="h-4 w-4" style={{ color: RED }} />
         </div>
         <div>
@@ -915,7 +915,7 @@ function ToolTile({ icon: Icon, label, onClick, href, badge }: { icon: LucideIco
     <>
       {badge && (
         <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5"
-          style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T3, fontSize: 9, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid ${BORDER}`, color: T3, fontSize: 9, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
           <Eye className="h-2.5 w-2.5" /> {badge}
         </span>
       )}
@@ -924,7 +924,7 @@ function ToolTile({ icon: Icon, label, onClick, href, badge }: { icon: LucideIco
     </>
   );
   const cls = 'relative flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center transition-colors hover:bg-white/[0.03]';
-  const style = { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.015)' } as const;
+  const style = { border: '1px solid rgb(var(--ink)/0.07)', background: 'rgb(var(--ink)/0.015)' } as const;
   return href ? (
     <a href={href} target="_blank" rel="noreferrer" className={cls} style={style}>{inner}</a>
   ) : (
@@ -934,7 +934,7 @@ function ToolTile({ icon: Icon, label, onClick, href, badge }: { icon: LucideIco
 
 function StatCard({ icon: Icon, label, value, sub, accent }: { icon: LucideIcon; label: string; value: number | string; sub?: string; accent?: boolean }) {
   return (
-    <OrgCard style={accent ? { boxShadow: `0 0 0 1px rgba(232,25,44,0.2), 0 1px 0 rgba(255,255,255,.05) inset` } : undefined}>
+    <OrgCard style={accent ? { boxShadow: `0 0 0 1px rgba(232,25,44,0.2), 0 1px 0 rgb(var(--sheen)/.05) inset` } : undefined}>
       <div className="p-4">
         <div className="mb-1 flex items-center justify-between">
           <span style={{ color: accent ? RED : T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
@@ -1019,7 +1019,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
           </div>
           <div className="flex items-center gap-2">
             <input type="number" inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} placeholder={type === 'revenue' ? '5000' : '300'}
-              className="h-10 min-w-0 flex-1 rounded-xl px-3 text-sm outline-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: '#fff' }} />
+              className="h-10 min-w-0 flex-1 rounded-xl px-3 text-sm outline-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: 'rgb(var(--ink))' }} />
             <span className="flex-none text-xs" style={{ color: T3 }}>{type === 'revenue' ? '€' : ''}</span>
             <OrgButton size="sm" variant="primary" onClick={save} disabled={saving}><Check className="h-4 w-4" /> {tt('Définir', 'Set', 'Definir')}</OrgButton>
             <OrgButton size="sm" variant="secondary" onClick={() => setEditing(false)} disabled={saving}><X className="h-4 w-4" /></OrgButton>
@@ -1037,7 +1037,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
   if (!hasGoal && canEdit) {
     return (
       <button type="button" onClick={() => setEditing(true)} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-medium transition-colors"
-        style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.14)', color: T2 }}>
+        style={{ background: 'rgb(var(--ink)/0.03)', border: '1px dashed rgb(var(--ink)/0.14)', color: T2 }}>
         <Target className="h-4 w-4" /> {tt('Définir un objectif commun', 'Set a shared goal', 'Definir un objetivo común')}
       </button>
     );
@@ -1051,7 +1051,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
     <OrgCard>
       <div className="p-5">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style={{ color: reached ? '#34D399' : RED }}>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style={{ color: reached ? 'var(--acc-34d399)' : RED }}>
             <Target className="h-3.5 w-3.5" /> {tt('Objectif commun', 'Shared goal', 'Objetivo común')}
           </div>
           {canEdit && (
@@ -1064,13 +1064,13 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
           <div className="text-lg font-bold tabular-nums" style={{ color: T1 }}>
             {unit(goalType as string, current)} <span className="text-sm font-medium" style={{ color: T3 }}>/ {unit(goalType as string, goalValue as number)} {goalTypeLabel}</span>
           </div>
-          <div className="text-2xl font-bold tabular-nums" style={{ color: reached ? '#34D399' : RED }}>{pct}%</div>
+          <div className="text-2xl font-bold tabular-nums" style={{ color: reached ? 'var(--acc-34d399)' : RED }}>{pct}%</div>
         </div>
-        <div className="h-2 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(pct === 0 ? 0 : 3, pct)}%`, background: reached ? '#34D399' : RED }} />
+        <div className="h-2 overflow-hidden rounded-full" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(pct === 0 ? 0 : 3, pct)}%`, background: reached ? 'var(--acc-34d399)' : RED }} />
         </div>
         {reached && (
-          <p className="mt-2 text-xs font-medium" style={{ color: '#34D399' }}>
+          <p className="mt-2 text-xs font-medium" style={{ color: 'var(--acc-34d399)' }}>
             {tt('Objectif atteint. Bravo à vous deux.', 'Goal reached. Nice work, both of you.', 'Objetivo alcanzado. Bien hecho, los dos.')}
           </p>
         )}
@@ -1143,7 +1143,7 @@ function Foldable({ icon: Icon, title, sub, defaultOpen = false, children }: { i
         className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-white/[0.03]"
         style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}` }}>
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}` }}>
             <Icon className="h-4 w-4" style={{ color: RED }} />
           </span>
           <span className="min-w-0">

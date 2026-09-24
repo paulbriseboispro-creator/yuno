@@ -9,14 +9,14 @@ import { Heatmap, DeviceBar } from './behaviorPrimitives';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
-const NEG = '#FF5C63';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const FAINT_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const NEG = 'var(--acc-ff5c63)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const FAINT_BORDER = 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Promoted to a top-level Yuno card so each section reads as a native page card.
 const crd: React.CSSProperties = {
@@ -163,8 +163,8 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
           </h3>
           <div className="space-y-3">
             <DeviceBar icon={Smartphone} label="Mobile" value={stats.devices.mobile} total={totalDev} color={RED} />
-            <DeviceBar icon={Tablet} label="Tablet" value={stats.devices.tablet} total={totalDev} color="rgba(255,255,255,0.45)" />
-            <DeviceBar icon={Monitor} label="Desktop" value={stats.devices.desktop} total={totalDev} color="rgba(255,255,255,0.26)" />
+            <DeviceBar icon={Tablet} label="Tablet" value={stats.devices.tablet} total={totalDev} color="rgb(var(--ink)/var(--ink-a45,0.45))" />
+            <DeviceBar icon={Monitor} label="Desktop" value={stats.devices.desktop} total={totalDev} color="rgb(var(--ink)/var(--ink-a26,0.26))" />
           </div>
 
           <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${FAINT_BORDER}` }}>

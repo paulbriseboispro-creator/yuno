@@ -127,7 +127,7 @@ export function VipPlacementRequests({ requests, onRefresh, floorPlan, reservati
                     </span>
                     {request.zoneName && (
                       <span className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full" style={{ background: request.zoneColor || '#666' }} />
+                        <div className="w-2 h-2 rounded-full" style={{ background: request.zoneColor || 'var(--tx-666666)' }} />
                         {request.zoneName}
                       </span>
                     )}
@@ -163,7 +163,7 @@ export function VipPlacementRequests({ requests, onRefresh, floorPlan, reservati
                           rows={2}
                           className="w-full rounded-xl px-3 py-2 text-[13px] outline-none resize-none transition-all duration-150"
                           style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
-                          onFocus={(e) => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
+                          onFocus={(e) => (e.target.style.borderColor = 'rgb(var(--ink)/0.18)')}
                           onBlur={(e) => (e.target.style.borderColor = BORDER)}
                         />
                       </div>

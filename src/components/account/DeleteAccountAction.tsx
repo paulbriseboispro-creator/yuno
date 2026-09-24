@@ -92,10 +92,10 @@ export function DeleteAccountAction({
         type="button"
         onClick={openDialog}
         className="mt-2 flex w-full items-center gap-2.5 rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.03]"
-        style={{ border: '1px solid rgba(255,255,255,0.085)' }}
+        style={{ border: '1px solid rgb(var(--ink)/0.085)' }}
       >
-        <Trash2 className="h-4 w-4 flex-none" style={{ color: 'rgba(255,255,255,0.58)' }} />
-        <span className="flex-1 text-left" style={{ color: 'rgba(255,255,255,0.58)', fontSize: 13.5 }}>{label}</span>
+        <Trash2 className="h-4 w-4 flex-none" style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))' }} />
+        <span className="flex-1 text-left" style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 13.5 }}>{label}</span>
       </button>
     ) : (
       <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={openDialog}>

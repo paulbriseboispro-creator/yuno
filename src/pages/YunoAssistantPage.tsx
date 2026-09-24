@@ -411,7 +411,7 @@ export default function YunoAssistantPage() {
                   {msg.role === 'user' ? (
                     <div className="flex justify-end mb-4">
                       <div
-                        className="rounded-3xl px-5 py-2.5 text-sm text-white max-w-[80%] whitespace-pre-wrap break-words"
+                        className="rounded-3xl px-5 py-2.5 text-sm text-snow max-w-[80%] whitespace-pre-wrap break-words"
                         style={{
                           background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
                           border: '1px solid hsl(var(--primary) / 0.2)',

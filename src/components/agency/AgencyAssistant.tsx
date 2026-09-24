@@ -14,11 +14,11 @@ import { transitions, useReducedMotion, reducedTap } from '@/lib/motion';
 
 // ─── Tokens DA pro (miroir promoter-ui.tsx / docs/DESIGN_SYSTEM.md) ───────────
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 
 type Tri = { fr: string; en: string; es: string };
 
@@ -152,7 +152,7 @@ export function AgencyAssistant() {
           width: 52,
           height: 52,
           borderRadius: 16,
-          background: 'linear-gradient(180deg, rgba(232,25,44,0.22) 0%, rgba(232,25,44,0.10) 100%), #0a0a0c',
+          background: 'linear-gradient(180deg, rgba(232,25,44,0.22) 0%, rgba(232,25,44,0.10) 100%), var(--sf-0a0a0c)',
           border: '1px solid rgba(232,25,44,0.35)',
           boxShadow: '0 8px 32px -4px rgba(0,0,0,0.7), 0 0 24px -6px rgba(232,25,44,0.45)',
         }}
@@ -165,7 +165,7 @@ export function AgencyAssistant() {
         <SheetContent
           side="right"
           className="w-full sm:w-[420px] sm:max-w-[420px] p-0 flex flex-col gap-0"
-          style={{ background: '#0a0a0c', borderLeft: `1px solid ${BORDER}` }}
+          style={{ background: 'var(--sf-0a0a0c)', borderLeft: `1px solid ${BORDER}` }}
         >
           {/* Header */}
           <div
@@ -222,7 +222,7 @@ export function AgencyAssistant() {
                       onClick={() => handleSend(pick(s))}
                       className="text-left px-3.5 py-2.5 transition-colors hover:bg-white/[0.06]"
                       style={{
-                        background: 'rgba(255,255,255,0.032)',
+                        background: 'rgb(var(--ink)/0.032)',
                         border: `1px solid ${BORDER}`,
                         borderRadius: 12,
                         color: T2,
@@ -338,7 +338,7 @@ export function AgencyAssistant() {
               onSubmit={(e) => { e.preventDefault(); handleSend(inputText); }}
               className="flex items-end gap-2 px-3 py-2"
               style={{
-                background: 'rgba(255,255,255,0.032)',
+                background: 'rgb(var(--ink)/0.032)',
                 border: `1px solid ${BORDER}`,
                 borderRadius: 14,
               }}

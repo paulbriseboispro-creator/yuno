@@ -11,16 +11,16 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
-const POS     = '#34D399';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const F_BORDER= 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+const POS     = 'var(--acc-34d399)';
+const T1      = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2      = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3      = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const C_FAINT = 'rgb(var(--ink)/0.06)';
+const BORDER  = 'rgb(var(--ink)/0.085)';
+const F_BORDER= 'rgb(var(--ink)/0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // Entête et lignes partagent la même grille : un `gap` réel (les colonnes se
 // touchaient) et des colonnes assez larges pour que le titre d'une soirée
@@ -36,8 +36,8 @@ type EntryState = 'registered' | 'entered' | 'cancelled';
 
 const STATE_STYLE: Record<EntryState, { bg: string; color: string }> = {
   entered:    { bg: 'rgba(52,211,153,0.12)',  color: POS },
-  cancelled:  { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
-  registered: { bg: 'rgba(255,255,255,0.06)', color: T2 },
+  cancelled:  { bg: 'rgba(232,25,44,0.12)',   color: 'var(--acc-ff5c63)' },
+  registered: { bg: 'rgb(var(--ink)/0.06)', color: T2 },
 };
 
 const STATE_KEY: Record<EntryState, string> = {
@@ -93,7 +93,7 @@ function DarkSelect({ value, onChange, options }: {
         style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
       >
         {options.map(o => (
-          <option key={o.value} value={o.value} style={{ background: '#0a0a0c' }}>{o.label}</option>
+          <option key={o.value} value={o.value} style={{ background: 'var(--sf-0a0a0c)' }}>{o.label}</option>
         ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T3 }} />
@@ -337,7 +337,7 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <ClipboardList className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+            <ClipboardList className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
             <p style={{ color: T3, fontSize: 13 }}>{t('owner.gl.empty')}</p>
           </div>
         ) : (
@@ -394,7 +394,7 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="border-0 p-0 overflow-hidden" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 440 }}>
+        <DialogContent className="border-0 p-0 overflow-hidden" style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 440 }}>
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{t('owner.gl.details')}</DialogTitle>
             <DialogDescription className="sr-only">{t('owner.gl.details')}</DialogDescription>

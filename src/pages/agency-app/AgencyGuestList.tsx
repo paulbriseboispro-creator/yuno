@@ -216,7 +216,7 @@ function PartitionBody({
       </div>
 
       {sortedProms.map(p => (
-        <div key={p.promoter_id} className="flex items-center gap-2" style={{ padding: '6px 4px', borderTop: `1px solid rgba(255,255,255,0.04)` }}>
+        <div key={p.promoter_id} className="flex items-center gap-2" style={{ padding: '6px 4px', borderTop: `1px solid rgb(var(--ink)/0.04)` }}>
           <PromoAvatar src={p.profile_image_url} fallback={p.name.slice(0, 1)} size={26} />
           <div className="flex-1 min-w-0">
             <p className="truncate" style={{ color: T1, fontSize: 12.5 }}>{p.name}</p>
@@ -304,7 +304,7 @@ function PoolBody({ env, sortedProms, reload, tt }: {
       {/* Contributions par promoteur */}
       <div style={{ marginTop: 10 }}>
         {sortedProms.filter(p => p.assigned || p.pool_used > 0).map(p => (
-          <div key={p.promoter_id} className="flex items-center gap-2" style={{ padding: '5px 2px', borderTop: `1px solid rgba(255,255,255,0.04)` }}>
+          <div key={p.promoter_id} className="flex items-center gap-2" style={{ padding: '5px 2px', borderTop: `1px solid rgb(var(--ink)/0.04)` }}>
             <PromoAvatar src={p.profile_image_url} fallback={p.name.slice(0, 1)} size={24} />
             <p className="flex-1 truncate" style={{ color: T1, fontSize: 12 }}>{p.name}</p>
             <span style={{ color: p.pool_used > 0 ? POS : T3, fontSize: 12 }}>{p.pool_used}</span>
@@ -322,9 +322,9 @@ function PoolBody({ env, sortedProms, reload, tt }: {
           <div className="flex gap-2">
             <select value={type} onChange={e => setType(e.target.value)}
               className="outline-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 10px', color: T1, fontSize: 13, flex: 1 }}>
-              <option value="normal" style={{ background: '#111' }}>{tt('Normal', 'Standard')}</option>
-              {env.quota_drink > 0 && <option value="drink" style={{ background: '#111' }}>{tt('Conso', 'Drink')}</option>}
-              {env.quota_table > 0 && <option value="table" style={{ background: '#111' }}>VIP</option>}
+              <option value="normal" style={{ background: 'var(--sf-111111)' }}>{tt('Normal', 'Standard')}</option>
+              {env.quota_drink > 0 && <option value="drink" style={{ background: 'var(--sf-111111)' }}>{tt('Conso', 'Drink')}</option>}
+              {env.quota_table > 0 && <option value="table" style={{ background: 'var(--sf-111111)' }}>VIP</option>}
             </select>
             <PromoButton size="sm" onClick={addGuest} disabled={busy}>{tt('Ajouter', 'Add')}</PromoButton>
             <PromoButton size="sm" variant="ghost" onClick={() => setAddOpen(false)}>{tt('Annuler', 'Cancel')}</PromoButton>

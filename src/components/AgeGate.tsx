@@ -100,7 +100,7 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
   // A minor's birth date is already on file — block with a clear message, don't re-ask.
   if (storedMinor) {
     return (
-      <div className="space-y-2 p-4 rounded-[10px] border border-primary/40 bg-[#141414]">
+      <div className="space-y-2 p-4 rounded-[10px] border border-primary/40 bg-[var(--sf-141414)]">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
           <span className="text-sm font-bold text-white">{t('ageGate.title')}</span>
@@ -111,7 +111,7 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
   }
 
   return (
-    <div className="space-y-3 p-4 rounded-[10px] border border-white/[0.08] bg-[#141414]">
+    <div className="space-y-3 p-4 rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
@@ -125,12 +125,12 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
         </span>
       </div>
       <div className="space-y-1.5">
-        <Label className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('ageGate.birthDate')}</Label>
+        <Label className="font-mono uppercase text-[10px] tracking-[0.10em] text-[var(--tx-5a5a5e)]">{t('ageGate.birthDate')}</Label>
         <DateInput
           value={birthDate}
           onChange={(e) => setBirthDate(e.target.value)}
           max={new Date().toISOString().split('T')[0]}
-          className="h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white focus-visible:ring-0 focus-visible:border-primary/50"
+          className="h-11 rounded-lg bg-[var(--sf-1f1f22)] border-white/[0.08] text-white focus-visible:ring-0 focus-visible:border-primary/50"
         />
         {invalidDate && (
           <p className="text-[11px] text-primary">{t('ageGate.invalidDate')}</p>
@@ -151,11 +151,11 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
         >
           {attestation && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
         </span>
-        <span className="text-xs text-[#9A9A9A] leading-relaxed">
+        <span className="text-xs text-[var(--tx-9a9a9a)] leading-relaxed">
           {t('ageGate.attestation')}
         </span>
       </button>
-      <p className="text-[11px] text-[#5A5A5E] leading-relaxed">
+      <p className="text-[11px] text-[var(--tx-5a5a5e)] leading-relaxed">
         {t('ageGate.venueChecksId')}
       </p>
     </div>

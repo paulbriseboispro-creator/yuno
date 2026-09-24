@@ -7,13 +7,13 @@ import { EMPTY_BASELINE } from '@/hooks/useHypeBaseline';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
-const T1       = 'rgba(255,255,255,0.96)';
-const T2       = 'rgba(255,255,255,0.58)';
-const T3       = 'rgba(255,255,255,0.36)';
-const BORDER   = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const TILE_BG  = 'rgba(255,255,255,0.025)';
+const T1       = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2       = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3       = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER   = 'rgb(var(--ink)/0.085)';
+const F_BORDER = 'rgb(var(--ink)/0.055)';
+const INNER_BG = 'rgb(var(--ink)/0.032)';
+const TILE_BG  = 'rgb(var(--ink)/0.025)';
 
 interface Props {
   open: boolean;
@@ -94,17 +94,17 @@ export function HypeBaselineForm({ open, initial, saving, onClose, onSubmit }: P
             onClick={(e) => e.stopPropagation()}
             className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto"
             style={{
-              background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c',
+              background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)',
               border: `1px solid ${BORDER}`,
               borderRadius: 20,
-              boxShadow: '0 1px 0 rgba(255,255,255,.05) inset,0 30px 60px -20px rgba(0,0,0,.95)',
+              boxShadow: '0 1px 0 rgb(var(--sheen)/.05) inset,0 30px 60px -20px rgb(0 0 0/calc(.95*var(--pro-shadow-a)))',
               margin: '0 0 env(safe-area-inset-bottom)',
             }}
           >
             {/* Header */}
             <div
               className="sticky top-0 z-10 flex items-start justify-between gap-3 px-6 pt-6 pb-4"
-              style={{ background: '#0a0a0c', borderBottom: `1px solid ${F_BORDER}` }}
+              style={{ background: 'var(--sf-0a0a0c)', borderBottom: `1px solid ${F_BORDER}` }}
             >
               <div className="flex items-center gap-3">
                 <div
@@ -181,7 +181,7 @@ export function HypeBaselineForm({ open, initial, saving, onClose, onSubmit }: P
                 <label style={labelStyle}>{t('baseline.timingQ')}</label>
                 <div
                   className="grid grid-cols-3 gap-0.5 p-1 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}
+                  style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
                 >
                   {timingOpts.map((o) => {
                     const Icon = o.icon;
@@ -195,8 +195,8 @@ export function HypeBaselineForm({ open, initial, saving, onClose, onSubmit }: P
                           active
                             ? {
                                 color: T1,
-                                background: 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))',
-                                boxShadow: '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000',
+                                background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))',
+                                boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))',
                               }
                             : { color: T3, background: 'transparent' }
                         }
@@ -237,7 +237,7 @@ export function HypeBaselineForm({ open, initial, saving, onClose, onSubmit }: P
             {/* Footer */}
             <div
               className="sticky bottom-0 flex items-center gap-3 px-6 py-4"
-              style={{ background: '#0a0a0c', borderTop: `1px solid ${F_BORDER}` }}
+              style={{ background: 'var(--sf-0a0a0c)', borderTop: `1px solid ${F_BORDER}` }}
             >
               <button
                 onClick={onClose}

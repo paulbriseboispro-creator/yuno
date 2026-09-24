@@ -17,11 +17,11 @@ import { renderEmailHtml, type EmailTemplate } from '@/lib/email';
 import { useStudioLiveData, type StudioScope } from '@/components/email-studio/hooks';
 
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const POS = '#34D399';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
+const POS = 'var(--acc-34d399)';
 
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
@@ -103,8 +103,8 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
         style={{
           width: '100%', maxWidth: 660, maxHeight: '92vh', display: 'flex', flexDirection: 'column',
           borderRadius: 18, overflow: 'hidden', border: `1px solid ${BORDER}`,
-          background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c',
-          boxShadow: '0 1px 0 rgba(255,255,255,.05) inset,0 40px 80px -40px #000',
+          background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)',
+          boxShadow: '0 1px 0 rgb(var(--sheen)/.05) inset,0 40px 80px -40px rgb(0 0 0/var(--pro-shadow-a))',
         }}
       >
         <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'flex-start', gap: 12, borderBottom: `1px solid ${BORDER}` }}>
@@ -148,7 +148,7 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
               aria-label={t('studio.test.placeholder')}
               style={{
                 flex: 1, minWidth: 200, height: 38, borderRadius: 10, padding: '0 12px', colorScheme: 'dark',
-                background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 13,
+                background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T1, fontSize: 13,
               }}
             />
             <button
@@ -165,7 +165,7 @@ export default function FollowupPreviewDialog({ template, scope, eventId, campai
             </button>
           </div>
           <div style={{ color: T3, fontSize: 11 }}>{t('studio.sched.fu.testNote')}</div>
-          {error && <div style={{ color: '#FF5C63', fontSize: 12 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--acc-ff5c63)', fontSize: 12 }}>{error}</div>}
           {sent && (
             <div className="flex items-center gap-2" style={{ padding: '9px 12px', borderRadius: 11, background: 'rgba(52,211,153,0.09)', border: '1px solid rgba(52,211,153,0.25)' }}>
               <CheckCircle2 size={14} strokeWidth={1.75} style={{ color: POS, flex: 'none' }} />

@@ -325,7 +325,7 @@ export default function AffiliateCommissions() {
                         {r.note && <p className="truncate" style={{ color: T3, fontSize: 11, marginTop: 2, fontStyle: 'italic' }}>{r.note}</p>}
                       </div>
                       <div className="flex items-center gap-2 flex-none">
-                        <span style={{ color: r.commission_status === 'settled' ? POS : late ? '#FF5C63' : WARN, fontSize: 14, fontWeight: 700 }}>
+                        <span style={{ color: r.commission_status === 'settled' ? POS : late ? 'var(--acc-ff5c63)' : WARN, fontSize: 14, fontWeight: 700 }}>
                           {eur(r.commission_due)}
                         </span>
                         <Pill tone={r.commission_status === 'settled' ? 'success' : late ? 'danger' : 'warn'}>

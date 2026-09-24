@@ -192,7 +192,7 @@ export default function DJHelp() {
               <button onClick={() => setOpen(isOpen ? null : a.id)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.03]">
                 <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
+                  style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <span className="flex-1 text-[13.5px] font-[560]" style={{ color: T1 }}>{a.q}</span>
@@ -286,7 +286,7 @@ export default function DJHelp() {
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-[560] flex-1" style={{ color: T1 }}>{item.title}</p>
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold flex-none"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: s.color }}>
+                        style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: s.color }}>
                         <SIcon className="w-3 h-3" /> {s.label}
                       </span>
                     </div>

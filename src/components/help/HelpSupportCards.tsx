@@ -12,7 +12,7 @@ function ContactCard({ icon, color, title, desc, onClick, href, trailing }: {
     padding: '16px 18px',
     borderRadius: 16,
     background: hover
-      ? `radial-gradient(ellipse 70% 80% at 0% 50%, ${rgba(color, 0.14)} 0%, transparent 60%), rgba(255,255,255,0.045)`
+      ? `radial-gradient(ellipse 70% 80% at 0% 50%, ${rgba(color, 0.14)} 0%, transparent 60%), rgb(var(--ink)/0.045)`
       : `radial-gradient(ellipse 70% 80% at 0% 50%, ${rgba(color, 0.07)} 0%, transparent 60%), ${INNER_BG}`,
     border: `1px solid ${hover ? rgba(color, 0.4) : rgba(color, 0.18)}`,
   } as const;

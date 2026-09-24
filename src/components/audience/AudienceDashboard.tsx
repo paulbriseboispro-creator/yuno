@@ -76,7 +76,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
       const l = (gg.label || '').toLowerCase();
       if (['male', 'm', 'homme', 'hombre', 'man', 'h'].includes(l)) add('m', t('Hommes', 'Men', 'Hombres'), '#60A5FA', gg.count);
       else if (['female', 'f', 'femme', 'mujer', 'woman'].includes(l)) add('f', t('Femmes', 'Women', 'Mujeres'), RED, gg.count);
-      else add('o', t('Autre', 'Other', 'Otro'), 'rgba(255,255,255,0.35)', gg.count);
+      else add('o', t('Autre', 'Other', 'Otro'), 'rgb(var(--ink)/var(--ink-a35,0.35))', gg.count);
     }
     return [...b.values()].sort((x, y) => y.count - x.count);
   }, [a, language]);
@@ -370,10 +370,10 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
                       <span className="flex items-center gap-2 w-[130px] flex-none text-[12.5px]" style={{ color: T2 }}>
                         {ch.icon}{ch.label}
                       </span>
-                      <div className="flex-1 h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <div className="flex-1 h-[6px] rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.05)' }}>
                         <div className="h-full rounded-full" style={{
                           width: best > 0 ? `${Math.max(2, Math.round((ch.revenue / best) * 100))}%` : '2%',
-                          background: ch.revenue > 0 ? POS : 'rgba(255,255,255,0.12)',
+                          background: ch.revenue > 0 ? POS : 'rgb(var(--ink)/0.12)',
                         }} />
                       </div>
                       <div className="flex items-center gap-3 flex-none text-[12px] tabular-nums" style={{ color: T3 }}>
@@ -416,7 +416,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
                       </div>
                       {stat.percentile != null && (
                         <span className="text-[11px] font-[640] px-2.5 py-1 rounded-full flex-none"
-                          style={{ color: above ? POS : T2, background: above ? 'rgba(52,211,153,0.10)' : 'rgba(255,255,255,0.05)' }}>
+                          style={{ color: above ? POS : T2, background: above ? 'rgba(52,211,153,0.10)' : 'rgb(var(--ink)/0.05)' }}>
                           {t(`mieux que ${stat.percentile}%`, `better than ${stat.percentile}%`, `mejor que ${stat.percentile}%`)}
                         </span>
                       )}
@@ -493,14 +493,14 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
                   sub={t('Qui interagit avec tes notifs', 'Who engages with your pushes', 'Quién interactúa con tus push')}>
                   <SplitBar segments={[
                     { label: t('Engagés', 'Engaged', 'Activos'), count: seg.engagement.engaged, color: POS },
-                    { label: t('Passifs', 'Passive', 'Pasivos'), count: seg.engagement.passive, color: 'rgba(255,255,255,0.45)' },
+                    { label: t('Passifs', 'Passive', 'Pasivos'), count: seg.engagement.passive, color: 'rgb(var(--ink)/var(--ink-a45,0.45))' },
                     { label: t('Injoignables', 'Unreachable', 'Sin push'), count: seg.engagement.unreachable, color: 'rgba(255,92,99,0.65)' },
                   ]} />
                 </PCard>
                 <PCard icon={<Sparkles className="w-4 h-4" />} title={t('Ancienneté', 'Cohort', 'Antigüedad')}>
                   <SplitBar segments={[
                     { label: t('Nouveaux (30j)', 'New (30d)', 'Nuevos (30d)'), count: seg.cohort.new_30d, color: RED },
-                    { label: t('Établis', 'Established', 'Establecidos'), count: seg.cohort.established, color: 'rgba(255,255,255,0.45)' },
+                    { label: t('Établis', 'Established', 'Establecidos'), count: seg.cohort.established, color: 'rgb(var(--ink)/var(--ink-a45,0.45))' },
                   ]} />
                 </PCard>
               </div>
@@ -544,7 +544,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
               sub={t('Combien de ton revenu vient de ton audience possédée', 'How much revenue comes from your owned audience', 'Cuántos ingresos vienen de tu audiencia propia')}>
               <SplitBar segments={[
                 { label: t('Abonnés', 'Subscribers', 'Suscriptores'), count: Math.round(rev.followers.gross), color: RED },
-                { label: t('Non-abonnés', 'Non-subscribers', 'No suscriptores'), count: Math.round(rev.non_followers.gross), color: 'rgba(255,255,255,0.4)' },
+                { label: t('Non-abonnés', 'Non-subscribers', 'No suscriptores'), count: Math.round(rev.non_followers.gross), color: 'rgb(var(--ink)/var(--ink-a40,0.4))' },
               ]} />
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <div>

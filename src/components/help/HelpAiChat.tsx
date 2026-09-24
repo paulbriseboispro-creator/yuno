@@ -109,7 +109,7 @@ export const HelpAiChat = forwardRef<HelpAiChatHandle, {
       ref={cardRef}
       className="relative overflow-hidden"
       style={{
-        background: `radial-gradient(ellipse 55% 60% at 0% 0%, ${rgba(RED, 0.16)} 0%, transparent 60%), radial-gradient(ellipse 40% 50% at 100% 100%, ${rgba(RED, 0.07)} 0%, transparent 60%), linear-gradient(180deg,rgba(255,255,255,.035) 0%,rgba(255,255,255,.006) 100%),#0a0a0c`,
+        background: `radial-gradient(ellipse 55% 60% at 0% 0%, ${rgba(RED, 0.16)} 0%, transparent 60%), radial-gradient(ellipse 40% 50% at 100% 100%, ${rgba(RED, 0.07)} 0%, transparent 60%), linear-gradient(180deg,rgb(var(--sheen)/.035) 0%,rgb(var(--sheen)/.006) 100%),var(--sf-0a0a0c)`,
         border: `1px solid ${rgba(RED, 0.24)}`,
         borderRadius: 16,
         padding: compact ? 16 : 18,
@@ -128,7 +128,7 @@ export const HelpAiChat = forwardRef<HelpAiChatHandle, {
             <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, fontFamily: 'inherit' }}>{t('ohelp.ui.aiTitle')}</h3>
             <Sparkles style={{ width: 14, height: 14, color: RED }} aria-hidden="true" />
             {currentArticle && (
-              <span className="truncate" style={{ padding: '2px 8px', borderRadius: 999, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.04)', color: T3, fontSize: 11, maxWidth: 260 }}>
+              <span className="truncate" style={{ padding: '2px 8px', borderRadius: 999, border: `1px solid ${BORDER}`, background: 'rgb(var(--ink)/0.04)', color: T3, fontSize: 11, maxWidth: 260 }}>
                 {fmt(t('ohelp.ui.aiContext'), { title: t(currentArticle.titleKey) })}
               </span>
             )}
@@ -222,8 +222,8 @@ export const HelpAiChat = forwardRef<HelpAiChatHandle, {
         style={{
           height: 46,
           borderRadius: 12,
-          background: 'rgba(0,0,0,0.35)',
-          border: `1px solid ${focus ? rgba(RED, 0.5) : 'rgba(255,255,255,0.12)'}`,
+          background: 'rgb(var(--well)/0.35)',
+          border: `1px solid ${focus ? rgba(RED, 0.5) : 'rgb(var(--ink)/0.12)'}`,
           boxShadow: focus ? `0 0 0 3px ${rgba(RED, 0.12)}` : undefined,
         }}
       >
@@ -261,7 +261,7 @@ export const HelpAiChat = forwardRef<HelpAiChatHandle, {
               type="button"
               onClick={() => submit(c.prompt)}
               className="cursor-pointer transition-colors duration-150 hover:bg-white/[0.07] hover:border-white/20"
-              style={{ padding: '6px 11px', borderRadius: 999, border: `1px solid ${BORDER}`, background: 'rgba(255,255,255,0.03)', color: T2, fontSize: 12.5 }}
+              style={{ padding: '6px 11px', borderRadius: 999, border: `1px solid ${BORDER}`, background: 'rgb(var(--ink)/0.03)', color: T2, fontSize: 12.5 }}
             >
               {c.label}
             </button>

@@ -36,11 +36,11 @@ export function VipGuestCounter({
   const filledPercent = (Math.min(count, totalSegments) / totalSegments) * 100;
 
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[#141414] p-6">
+    <div className="rounded-[10px] border border-white/[0.08] bg-[var(--sf-141414)] p-6">
       {/* Label */}
       <div className="flex items-center justify-center gap-2 mb-6">
-        <Users className="h-3.5 w-3.5 text-[#5A5A5E]" />
-        <span className="font-mono uppercase" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.14em', color: '#5A5A5E' }}>
+        <Users className="h-3.5 w-3.5 text-[var(--tx-5a5a5e)]" />
+        <span className="font-mono uppercase" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.14em', color: 'var(--tx-5a5a5e)' }}>
           {t('tableCheckout.guestCount')}
         </span>
       </div>
@@ -68,7 +68,7 @@ export function VipGuestCounter({
               exit={{ y: -20, opacity: 0, scale: 0.8 }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               className="font-display font-bold tabular-nums block"
-              style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: 1, color: isInPayAtClub ? '#FBBF24' : '#FFFFFF' }}
+              style={{ fontSize: '56px', letterSpacing: '-0.04em', lineHeight: 1, color: isInPayAtClub ? 'var(--acc-fbbf24)' : 'rgb(var(--ink))' }}
             >
               {count}
             </motion.span>
@@ -78,7 +78,7 @@ export function VipGuestCounter({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="font-mono uppercase mt-1.5"
-            style={{ fontSize: '9px', letterSpacing: '0.10em', color: '#5A5A5E' }}
+            style={{ fontSize: '9px', letterSpacing: '0.10em', color: 'var(--tx-5a5a5e)' }}
           >
             {count === 1 ? 'personne' : 'personnes'}
           </motion.p>
@@ -90,8 +90,8 @@ export function VipGuestCounter({
           whileTap={{ scale: 0.9 }}
           onClick={() => onChange(Math.min(absoluteMax, count + 1))}
           disabled={count >= absoluteMax}
-          className="h-14 w-14 rounded-full flex items-center justify-center text-white disabled:opacity-20 transition-all active:scale-90"
-          style={{ backgroundColor: count < absoluteMax ? 'rgba(232,25,44,0.80)' : 'rgba(255,255,255,0.06)' }}
+          className="h-14 w-14 rounded-full flex items-center justify-center text-snow disabled:opacity-20 transition-all active:scale-90"
+          style={{ backgroundColor: count < absoluteMax ? 'rgba(232,25,44,0.80)' : 'rgb(var(--ink)/0.06)' }}
         >
           <Plus className="h-5 w-5" />
         </motion.button>
@@ -137,7 +137,7 @@ export function VipGuestCounter({
           />
         </div>
         {/* Labels */}
-        <div className="flex justify-between mt-2 font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em', color: '#5A5A5E' }}>
+        <div className="flex justify-between mt-2 font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em', color: 'var(--tx-5a5a5e)' }}>
           <span>1</span>
           {maxExtraPersons > 0 && (
             <span style={{ position: 'relative', left: `${basePercent - 50}%` }}>
@@ -192,7 +192,7 @@ export function VipGuestCounter({
                 <p className="text-xs font-medium text-amber-400">
                   +{payAtClubGuests} {payAtClubGuests === 1 ? 'personne' : 'personnes'} supplémentaire{payAtClubGuests > 1 ? 's' : ''}
                 </p>
-                <p className="text-[11px] text-[#9A9A9A] mt-0.5">
+                <p className="text-[11px] text-[var(--tx-9a9a9a)] mt-0.5">
                   {t('vipCheckout.extraGuestsAtClub') || 'Supplément à régler directement sur place'}
                 </p>
               </div>

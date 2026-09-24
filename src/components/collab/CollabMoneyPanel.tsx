@@ -13,7 +13,7 @@ import { normalizeSplitRules } from '@/lib/splitRules';
 import { OrgCard, RED, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import type { LucideIcon } from 'lucide-react';
 
-const AMBER = '#FBBF24';
+const AMBER = 'var(--acc-fbbf24)';
 const REFUND_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // miroir de REFUND_WINDOW_DAYS côté webhook
 
 export interface PillarStat { count: number; ca: number }
@@ -234,7 +234,7 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
                   </span>
                 )}
                 {!p.disabled && (
-                  <span className="rounded-full px-2 py-0.5 tabular-nums" style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T3, fontSize: 10.5 }}>
+                  <span className="rounded-full px-2 py-0.5 tabular-nums" style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T3, fontSize: 10.5 }}>
                     {tiered
                       ? t('Barème sur le total', 'Tiers on the total', 'Escala sobre el total')
                       : <>{t('Club', 'Club', 'Club')} {p.clubPct}% · {t('Orga', 'Org', 'Org')} {p.orgPct}%</>}
@@ -270,7 +270,7 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
           />
           {hasFailed && (
             <MoneyTile
-              color="#FF5C63"
+              color="var(--acc-ff5c63)"
               label={t('Versement échoué', 'Payout failed', 'Pago fallido')}
               value={eur(gain.failedEuros)}
               sub={t('Vérifiez votre compte Stripe', 'Check your Stripe account', 'Revisa tu cuenta Stripe')}
@@ -292,7 +292,7 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
                   <div className="flex flex-col items-center">
                     <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full"
                       style={{
-                        background: s.status === 'done' ? 'rgba(52,211,153,0.12)' : s.status === 'active' ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.04)',
+                        background: s.status === 'done' ? 'rgba(52,211,153,0.12)' : s.status === 'active' ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.04)',
                         border: `1px solid ${s.status === 'upcoming' ? BORDER : color}`,
                       }}>
                       {s.status === 'done'

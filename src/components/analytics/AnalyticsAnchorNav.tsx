@@ -3,8 +3,8 @@ import { LucideIcon } from 'lucide-react';
 
 // ─── Yuno pro-dashboard design tokens ─────────────────────────────────────────
 const RED = '#E8192C';
-const T2 = 'rgba(255,255,255,0.58)';
-const BORDER = 'rgba(255,255,255,0.085)';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const BORDER = 'rgb(var(--ink)/0.085)';
 
 export interface AnchorSection {
   /** id of the target element to scroll to (must exist in the DOM). */
@@ -48,7 +48,7 @@ export function AnalyticsAnchorNav({ sections }: { sections: AnchorSection[] }) 
   return (
     <div
       className="sticky top-[60px] sm:top-[68px] z-20 flex gap-1.5 overflow-x-auto no-scrollbar px-1 py-2 rounded-2xl"
-      style={{ background: 'rgba(10,10,12,0.72)', backdropFilter: 'blur(10px)' }}
+      style={{ background: 'rgb(var(--glass-10-10-12)/0.72)', backdropFilter: 'blur(10px)' }}
     >
       {sections.map(({ id, label, icon: Icon }) => {
         const on = active === id;
@@ -59,7 +59,7 @@ export function AnalyticsAnchorNav({ sections }: { sections: AnchorSection[] }) 
             onClick={() => go(id)}
             className="inline-flex items-center gap-1.5 px-3 h-9 rounded-full whitespace-nowrap cursor-pointer transition-colors duration-200 flex-none"
             style={{
-              background: on ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.04)',
+              background: on ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.04)',
               border: `1px solid ${on ? 'rgba(232,25,44,0.30)' : BORDER}`,
               color: on ? RED : T2,
               fontSize: 12.5,

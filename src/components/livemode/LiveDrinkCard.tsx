@@ -129,7 +129,7 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
           whileTap={{ scale: 0.97 }}
           transition={transitions.pressFeedback}
           aria-label={t('live.payNow')}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded px-3 font-mono font-bold uppercase text-white outline-none disabled:opacity-60"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded px-3 font-mono font-bold uppercase text-snow outline-none disabled:opacity-60"
           style={{
             fontSize: 10.5,
             letterSpacing: '0.06em',

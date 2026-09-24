@@ -30,10 +30,10 @@ interface Props {
 }
 
 const RED = '#E8192C';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
+const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+const BORDER = 'rgb(var(--ink)/0.085)';
 
 /**
  * Lightweight club ↔ organizer message thread, scoped to one co-event. Both
@@ -103,7 +103,7 @@ export function CollabMessageThread({ eventId, authorRole, venueLabel, organizer
   };
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c', border: `1px solid ${BORDER}` }}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)', border: `1px solid ${BORDER}` }}>
       <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <MessageSquare className="h-4 w-4" style={{ color: RED }} />
         <span className="text-sm font-semibold" style={{ color: T1 }}>{tt('Communication', 'Communication', 'Comunicación')}</span>
@@ -133,7 +133,7 @@ export function CollabMessageThread({ eventId, authorRole, venueLabel, organizer
                 <div
                   className="max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words"
                   style={{
-                    background: mine ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.04)',
+                    background: mine ? 'rgba(232,25,44,0.12)' : 'rgb(var(--ink)/0.04)',
                     border: `1px solid ${mine ? 'rgba(232,25,44,0.28)' : BORDER}`,
                     color: T1,
                   }}
@@ -154,7 +154,7 @@ export function CollabMessageThread({ eventId, authorRole, venueLabel, organizer
           rows={1}
           placeholder={tt('Écrire un message…', 'Write a message…', 'Escribe un mensaje…')}
           className="flex-1 min-w-0 outline-none resize-none rounded-xl px-3 py-2.5 text-sm"
-          style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T1, maxHeight: 120, fontFamily: 'inherit' }}
+          style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}`, color: T1, maxHeight: 120, fontFamily: 'inherit' }}
         />
         <button
           type="button"

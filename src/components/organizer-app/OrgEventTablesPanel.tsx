@@ -513,7 +513,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   // alors que le serveur, lui, la fait respecter (can_manage_event_tables).
   if (!canSideEdit(responsibilities, eventMode, 'operations', 'organizer')) {
     return (
-      <OrgCard style={{ padding: 20, background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}` }}>
+      <OrgCard style={{ padding: 20, background: 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}` }}>
         <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
           <Lock className="h-4 w-4" style={{ color: T3 }} />
           {tt('Tables VIP — gérées par le club', 'VIP Tables — managed by the club', 'Mesas VIP — gestionadas por el club')}
@@ -720,8 +720,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             <div className="min-w-[220px] flex-1">
               <FieldLabel>{tt('Réutiliser une salle VIP', 'Reuse a VIP room', 'Reutilizar una sala VIP')}</FieldLabel>
               <select className="w-full" value={roomToApply} onChange={(e) => setRoomToApply(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
-                <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir une salle…', 'Choose a room…', 'Elegir una sala…')}</option>
-                {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: '#0a0a0c' }}>{r.name}{r.location_name && r.location_name !== r.name ? ` — ${r.location_name}` : ''}</option>)}
+                <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Choisir une salle…', 'Choose a room…', 'Elegir una sala…')}</option>
+                {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: 'var(--sf-0a0a0c)' }}>{r.name}{r.location_name && r.location_name !== r.name ? ` — ${r.location_name}` : ''}</option>)}
               </select>
             </div>
             <OrgButton variant="secondary" size="sm" disabled={!roomToApply || applyingRoom} onClick={applyRoom}>
@@ -782,8 +782,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
           <div className="min-w-[220px] flex-1">
             <FieldLabel>{tt('Réutiliser une salle VIP', 'Reuse a VIP room', 'Reutilizar una sala VIP')}</FieldLabel>
             <select className="w-full" value={roomToApply} onChange={(e) => setRoomToApply(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
-              <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir une salle…', 'Choose a room…', 'Elegir una sala…')}</option>
-              {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: '#0a0a0c' }}>{r.name}{r.location_name && r.location_name !== r.name ? ` — ${r.location_name}` : ''}</option>)}
+              <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Choisir une salle…', 'Choose a room…', 'Elegir una sala…')}</option>
+              {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: 'var(--sf-0a0a0c)' }}>{r.name}{r.location_name && r.location_name !== r.name ? ` — ${r.location_name}` : ''}</option>)}
             </select>
           </div>
           <OrgButton variant="secondary" size="sm" disabled={!roomToApply || applyingRoom} onClick={applyRoom}>
@@ -857,7 +857,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             {tablesEnabled && packs.length > 0 ? (
               <button type="button" onClick={toggleTablesSoldOut}
                 className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 transition-all duration-150"
-                style={{ background: tablesSoldOut ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${tablesSoldOut ? 'rgba(232,25,44,0.45)' : BORDER}`, color: tablesSoldOut ? '#FF7A82' : T3, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ background: tablesSoldOut ? 'rgba(232,25,44,0.14)' : INNER_BG, border: `1px solid ${tablesSoldOut ? 'rgba(232,25,44,0.45)' : BORDER}`, color: tablesSoldOut ? 'var(--acc-ff7a82)' : T3, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
                 <Ban className="h-3 w-3" />
                 {tt('Toutes les tables complètes', 'All tables sold out', 'Todas las mesas agotadas')}
               </button>
@@ -888,7 +888,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                         {p.base_capacity} {tt('pers.', 'guests', 'pers.')}
                         {p.limit_tables && <> · {p.tables_count} {tt('tables max', 'tables max', 'mesas máx.')}</>}
                         {p.payment_mode === 'on_site'
-                          ? <> · <span style={{ color: '#34D399' }}>{tt('Règlement sur place', 'Paid on site', 'Pago en el local')}</span></>
+                          ? <> · <span style={{ color: 'var(--acc-34d399)' }}>{tt('Règlement sur place', 'Paid on site', 'Pago en el local')}</span></>
                           : Number(p.deposit) > 0 && <> · {tt('Acompte', 'Deposit', 'Señal')} {Number(p.deposit).toFixed(0)}€</>}
                       </div>
                     </div>
@@ -897,7 +897,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                         <button type="button" onClick={() => togglePackSoldOut(p.id)}
                           title={tt('Marquer cette formule complète', 'Mark this pack sold out', 'Marcar este pack como agotado')}
                           className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 transition-all duration-150"
-                          style={{ background: soldOutPackIds.includes(p.id) ? 'rgba(232,25,44,0.14)' : 'transparent', border: `1px solid ${soldOutPackIds.includes(p.id) ? 'rgba(232,25,44,0.45)' : BORDER}`, color: soldOutPackIds.includes(p.id) ? '#FF7A82' : T3, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                          style={{ background: soldOutPackIds.includes(p.id) ? 'rgba(232,25,44,0.14)' : 'transparent', border: `1px solid ${soldOutPackIds.includes(p.id) ? 'rgba(232,25,44,0.45)' : BORDER}`, color: soldOutPackIds.includes(p.id) ? 'var(--acc-ff7a82)' : T3, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                           <Ban className="h-3 w-3" />{tt('Complet', 'Sold out', 'Agotado')}
                         </button>
                       )}
@@ -989,7 +989,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
                 <div className="flex flex-col lg:flex-row">
                   {/* Aperçu */}
-                  <div className={`relative min-w-0 flex-1 border-b ${dividerCls} lg:border-b-0 lg:border-r`} style={{ background: 'rgba(0,0,0,0.38)' }}>
+                  <div className={`relative min-w-0 flex-1 border-b ${dividerCls} lg:border-b-0 lg:border-r`} style={{ background: 'rgb(var(--well)/0.38)' }}>
                     {hasPlan ? (
                       <div className="p-3">
                         <ClientFloorPlanPicker
@@ -1028,11 +1028,11 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                             src={floorPlanUrl}
                             alt={tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}
                             className="block h-auto w-auto max-w-full rounded-lg object-contain transition-transform duration-200 group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                            style={{ maxHeight: 300, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 14px 32px -14px rgba(0,0,0,0.85)' }}
+                            style={{ maxHeight: 300, border: '1px solid rgb(var(--ink)/0.1)', boxShadow: '0 14px 32px -14px rgba(0,0,0,0.85)' }}
                           />
                           <span
                             className="pointer-events-none absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
-                            style={{ background: 'rgba(10,10,12,0.78)', border: `1px solid ${BORDER}`, color: T1 }}
+                            style={{ background: 'rgb(var(--glass-10-10-12)/0.78)', border: `1px solid ${BORDER}`, color: T1 }}
                           >
                             <Maximize2 className="h-3.5 w-3.5" />
                           </span>
@@ -1042,9 +1042,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
                       <div className="flex h-full w-full items-center justify-center p-4" style={{ minHeight: 260 }}>
                         <div
                           className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg px-4 py-8 text-center"
-                          style={{ border: '1px dashed rgba(255,255,255,0.14)' }}
+                          style={{ border: '1px dashed rgb(var(--ink)/0.14)' }}
                         >
-                          <ImageIcon className="h-7 w-7" style={{ color: 'rgba(255,255,255,0.14)' }} />
+                          <ImageIcon className="h-7 w-7" style={{ color: 'rgb(var(--ink)/0.14)' }} />
                           <span style={{ color: T3, fontSize: 11.5 }}>
                             {lockedToVenue
                               ? tt("Le club n'a pas encore importé de plan.", 'The club has not uploaded a plan yet.', 'El club aún no ha subido un plano.')
@@ -1240,7 +1240,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
       {/* Enregistrer la soirée comme salle VIP */}
       <Dialog open={saveRoomOpen} onOpenChange={setSaveRoomOpen}>
-        <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
+        <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
           <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{tt('Enregistrer comme salle VIP', 'Save as VIP room', 'Guardar como sala VIP')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p style={{ color: T3, fontSize: 12.5 }}>
@@ -1258,8 +1258,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               <div>
                 <FieldLabel>{tt('Enregistrer', 'Save', 'Guardar')}</FieldLabel>
                 <select className="w-full" value={saveRoomTarget} onChange={(e) => setSaveRoomTarget(e.target.value)} style={{ ...daInputStyle, height: 42, cursor: 'pointer' }}>
-                  <option value="new" style={{ background: '#0a0a0c' }}>{tt('Comme nouvelle salle', 'As a new room', 'Como nueva sala')}</option>
-                  {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: '#0a0a0c' }}>{tt('Mettre à jour', 'Update', 'Actualizar')} « {r.name} »</option>)}
+                  <option value="new" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Comme nouvelle salle', 'As a new room', 'Como nueva sala')}</option>
+                  {rooms.map((r) => <option key={r.id} value={r.id} style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Mettre à jour', 'Update', 'Actualizar')} « {r.name} »</option>)}
                 </select>
               </div>
             )}
@@ -1272,7 +1272,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
       {/* Lightbox de l'image illustrative. */}
       <Dialog open={planPreviewOpen} onOpenChange={setPlanPreviewOpen}>
-        <DialogContent className="max-w-4xl border-0 bg-[#0a0a0c] p-2 sm:p-3">
+        <DialogContent className="max-w-4xl border-0 bg-[var(--sf-0a0a0c)] p-2 sm:p-3">
           <DialogHeader className="sr-only">
             <DialogTitle>{tt('Plan de salle illustratif', 'Illustrative floor plan', 'Plano de sala ilustrativo')}</DialogTitle>
           </DialogHeader>
@@ -1304,7 +1304,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
       {/* Zone dialog */}
       <Dialog open={zoneOpen} onOpenChange={setZoneOpen}>
-        <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
+        <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
           <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{editingZone ? tt('Modifier zone', 'Edit zone', 'Editar zona') : tt('Nouvelle zone', 'New zone', 'Nueva zona')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><FieldLabel>{tt('Nom', 'Name', 'Nombre')}</FieldLabel><DarkInput value={zoneForm.name} onChange={(v) => setZoneForm({ ...zoneForm, name: v })} /></div>
@@ -1332,14 +1332,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
       {/* Pack dialog */}
       <Dialog open={packOpen} onOpenChange={setPackOpen}>
-        <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
+        <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 }}>
           <DialogHeader><DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>{editingPack ? tt('Modifier pack', 'Edit pack', 'Editar pack') : tt('Nouveau pack', 'New pack', 'Nuevo pack')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <FieldLabel>{tt('Zone', 'Zone', 'Zona')}</FieldLabel>
               <select className="w-full" style={{ ...daInputStyle, height: 42, cursor: 'pointer' }} value={packForm.zone_id} onChange={(e) => setPackForm({ ...packForm, zone_id: e.target.value })}>
-                <option value="" style={{ background: '#0a0a0c' }}>{tt('Choisir...', 'Choose...', 'Elegir...')}</option>
-                {zones.map((z) => <option key={z.id} value={z.id} style={{ background: '#0a0a0c' }}>{z.name}</option>)}
+                <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Choisir...', 'Choose...', 'Elegir...')}</option>
+                {zones.map((z) => <option key={z.id} value={z.id} style={{ background: 'var(--sf-0a0a0c)' }}>{z.name}</option>)}
               </select>
             </div>
             <div><FieldLabel>{tt('Nom', 'Name', 'Nombre')}</FieldLabel><DarkInput value={packForm.name} onChange={(v) => setPackForm({ ...packForm, name: v })} /></div>
@@ -1350,11 +1350,11 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             <div>
               <FieldLabel>{tt('Paiement', 'Payment', 'Pago')}</FieldLabel>
               <select className="w-full" style={{ ...daInputStyle, height: 42, cursor: 'pointer' }} value={packForm.payment_mode} onChange={(e) => setPackForm({ ...packForm, payment_mode: e.target.value as 'online' | 'on_site' })}>
-                <option value="online" style={{ background: '#0a0a0c' }}>{tt('En ligne via Yuno (acompte ou total)', 'Online via Yuno (deposit or full)', 'En línea vía Yuno (señal o total)')}</option>
-                <option value="on_site" style={{ background: '#0a0a0c' }}>{tt('Sur place — aucun paiement en ligne', 'On site — no online payment', 'En el local — sin pago en línea')}</option>
+                <option value="online" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('En ligne via Yuno (acompte ou total)', 'Online via Yuno (deposit or full)', 'En línea vía Yuno (señal o total)')}</option>
+                <option value="on_site" style={{ background: 'var(--sf-0a0a0c)' }}>{tt('Sur place — aucun paiement en ligne', 'On site — no online payment', 'En el local — sin pago en línea')}</option>
               </select>
               {packForm.payment_mode === 'on_site' && (
-                <p style={{ color: '#34D399', fontSize: 11, marginTop: 4, lineHeight: 1.45 }}>
+                <p style={{ color: 'var(--acc-34d399)', fontSize: 11, marginTop: 4, lineHeight: 1.45 }}>
                   {tt(
                     'Le client réserve sans payer : la réservation est confirmée tout de suite, le prix affiché se règle au club. Aucun compte Stripe nécessaire.',
                     'Guests book without paying: the reservation is confirmed right away, the displayed price is settled at the venue. No Stripe account needed.',
@@ -1383,7 +1383,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             </div>
             {/* Acompte 0 = paiement INTÉGRAL au checkout : dit noir sur blanc,
                 sinon une table « 800 € sans acompte » débite 800 € sans prévenir. */}
-            {packForm.payment_mode !== 'on_site' && <p style={{ color: (parseFloat(packForm.deposit) || 0) > 0 ? T3 : '#E8A019', fontSize: 11, marginTop: -4, lineHeight: 1.45 }}>
+            {packForm.payment_mode !== 'on_site' && <p style={{ color: (parseFloat(packForm.deposit) || 0) > 0 ? T3 : 'var(--acc-e8a019)', fontSize: 11, marginTop: -4, lineHeight: 1.45 }}>
               {(parseFloat(packForm.deposit) || 0) > 0
                 ? tt(
                     "Le client paie l'acompte en ligne, le reste sur place.",

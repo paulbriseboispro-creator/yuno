@@ -24,7 +24,7 @@ export function Stepper({ steps, current, furthest, onGo }: {
               <button type="button" onClick={() => reachable && onGo(i)} disabled={!reachable} aria-current={active ? 'step' : undefined}
                 className={`flex items-center gap-2.5 min-w-0 px-2 py-2 rounded-xl transition-colors duration-150 ${reachable ? 'cursor-pointer hover:bg-white/[0.04]' : 'cursor-default'}`}>
                 <span className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 text-[13px] font-bold transition-colors duration-200"
-                  style={done ? { background: RED, color: '#fff' } : active ? { background: 'rgba(232,25,44,0.16)', border: `1.5px solid ${RED}`, color: '#FF8A91' } : { border: `1.5px solid ${BORDER_STRONG}`, color: T3 }}>
+                  style={done ? { background: RED, color: '#fff' } : active ? { background: 'rgba(232,25,44,0.16)', border: `1.5px solid ${RED}`, color: 'var(--acc-ff8a91)' } : { border: `1.5px solid ${BORDER_STRONG}`, color: T3 }}>
                   {done ? <Check className="w-4 h-4" /> : i + 1}
                 </span>
                 <span className="min-w-0 text-left">
@@ -44,7 +44,7 @@ export function Stepper({ steps, current, furthest, onGo }: {
           <p className="tabular-nums" style={{ color: T2, fontSize: 12.5 }}>{current + 1} / {steps.length}</p>
         </div>
         <div className="mt-2 flex gap-1.5" aria-hidden>
-          {steps.map((s, i) => <span key={s.key} className="h-1.5 flex-1 rounded-full transition-colors duration-200" style={{ background: i <= current ? RED : 'rgba(255,255,255,0.1)' }} />)}
+          {steps.map((s, i) => <span key={s.key} className="h-1.5 flex-1 rounded-full transition-colors duration-200" style={{ background: i <= current ? RED : 'rgb(var(--ink)/0.1)' }} />)}
         </div>
       </div>
     </nav>

@@ -125,7 +125,7 @@ export default function OrgAppOnboarding() {
   return (
     <div
       className="min-h-[100dvh] flex flex-col"
-      style={{ background: '#000', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      style={{ background: 'var(--sf-000000)', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {/* Ambient vignette */}
       <div
@@ -137,7 +137,7 @@ export default function OrgAppOnboarding() {
       <div
         className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 backdrop-blur-xl"
         style={{
-          background: 'rgba(10,10,12,0.82)',
+          background: 'rgb(var(--glass-10-10-12)/0.82)',
           borderBottom: `1px solid ${BORDER}`,
           paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
         }}

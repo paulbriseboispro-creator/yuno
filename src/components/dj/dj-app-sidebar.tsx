@@ -19,6 +19,7 @@ import {
   Users, User, LogOut, LifeBuoy, Inbox,
 } from 'lucide-react';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { SidebarProThemeSwitch } from '@/components/ProThemeSwitch';
 
 export function DJAppSidebar() {
   const navigate = useNavigate();
@@ -82,6 +83,8 @@ export function DJAppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+
+        <SidebarProThemeSwitch />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground" size="sm">

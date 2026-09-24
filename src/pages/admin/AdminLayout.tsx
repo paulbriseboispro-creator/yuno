@@ -19,6 +19,7 @@ import { ADMIN_FEED_CONFIG } from '@/lib/notifications';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { AdminScopeProvider, useAdminScope } from '@/components/admin/AdminScope';
 import { RED, T1, T2, T3, BORDER, F_BORDER, Spinner, Toggle } from '@/components/admin/ui';
+import { ProThemeField } from '@/components/ProThemeSwitch';
 
 // ─── Coque du super admin ─────────────────────────────────────────────────────
 // Rail gauche en quatre groupes (pilotage / acteurs / communication / système),
@@ -26,7 +27,7 @@ import { RED, T1, T2, T3, BORDER, F_BORDER, Spinner, Toggle } from '@/components
 // qui vaut pour toutes les pages (AdminScope). Le dictionnaire admin est un
 // chunk à part, chargé ici et jamais par un client.
 
-const SIDEBAR_BG = 'linear-gradient(180deg,rgba(255,255,255,.022) 0%,rgba(255,255,255,.004) 100%),#0a0a0c';
+const SIDEBAR_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.022) 0%,rgb(var(--sheen)/.004) 100%),var(--sf-0a0a0c)';
 
 interface NavItem { title: string; path: string; icon: LucideIcon; keywords?: string; end?: boolean }
 interface NavGroup { label: string; items: NavItem[] }
@@ -87,10 +88,10 @@ function DemoScopeSwitch({ compact }: { compact?: boolean }) {
   const { includeDemo, setIncludeDemo } = useAdminScope();
   return (
     <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl"
-      style={{ background: includeDemo ? 'rgba(252,211,77,0.06)' : 'rgba(255,255,255,0.025)', border: `1px solid ${includeDemo ? 'rgba(252,211,77,0.3)' : BORDER}` }}
+      style={{ background: includeDemo ? 'rgba(252,211,77,0.06)' : 'rgb(var(--ink)/0.025)', border: `1px solid ${includeDemo ? 'rgba(252,211,77,0.3)' : BORDER}` }}
       title={t('adm.common.demoHint')}>
       <div className="flex items-center gap-2 min-w-0">
-        <FlaskConical className="w-3.5 h-3.5 flex-none" style={{ color: includeDemo ? '#FCD34D' : T3 }} />
+        <FlaskConical className="w-3.5 h-3.5 flex-none" style={{ color: includeDemo ? 'var(--acc-fcd34d)' : T3 }} />
         {!compact && <span className="text-[12px] truncate" style={{ color: includeDemo ? T1 : T2 }}>{includeDemo ? t('adm.common.withDemo') : t('adm.common.realOnly')}</span>}
       </div>
       <Toggle checked={includeDemo} onChange={setIncludeDemo} />
@@ -105,10 +106,10 @@ function NavItemLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => v
     <Link to={item.path} onClick={onNavigate}
       className="group relative flex items-center gap-2.5 px-3 py-[7px] rounded-xl transition-all duration-150"
       style={active
-        ? { background: 'rgba(232,25,44,0.09)', border: '1px solid rgba(232,25,44,0.22)', boxShadow: '0 1px 0 rgba(255,255,255,.04) inset' }
+        ? { background: 'rgba(232,25,44,0.09)', border: '1px solid rgba(232,25,44,0.22)', boxShadow: '0 1px 0 rgb(var(--sheen)/.04) inset' }
         : { border: '1px solid transparent' }}>
-      <item.icon className="h-[17px] w-[17px] flex-none" style={{ color: active ? RED : 'rgba(255,255,255,0.4)' }} />
-      <span className="flex-1 text-[13px] truncate" style={{ color: active ? T1 : 'rgba(255,255,255,0.55)', fontWeight: active ? 600 : 500 }}>{item.title}</span>
+      <item.icon className="h-[17px] w-[17px] flex-none" style={{ color: active ? RED : 'rgb(var(--ink)/var(--ink-a40,0.4))' }} />
+      <span className="flex-1 text-[13px] truncate" style={{ color: active ? T1 : 'rgb(var(--ink)/var(--ink-a55,0.55))', fontWeight: active ? 600 : 500 }}>{item.title}</span>
       {active && <span className="w-1 h-4 rounded-full flex-none" style={{ background: RED, opacity: 0.85 }} />}
     </Link>
   );
@@ -128,6 +129,7 @@ function NavContent({ groups, onNavigate, onSignOut }: { groups: NavGroup[]; onN
       </nav>
       <div className="p-3 space-y-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
         <DemoScopeSwitch />
+        <ProThemeField className="px-2 pb-1" />
         <button onClick={onSignOut} className="flex w-full items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-150 cursor-pointer" style={{ border: '1px solid transparent', color: T3 }}>
           <LogOut className="h-[17px] w-[17px]" />
           <span className="text-[13px] font-medium">{t('adm.nav.signOut')}</span>
@@ -152,9 +154,9 @@ function Shell({ children }: { children: ReactNode }) {
 
   if (isMobile) {
     return (
-      <div className="min-h-[100dvh] flex flex-col" style={{ background: '#000' }}>
+      <div className="min-h-[100dvh] flex flex-col" style={{ background: 'var(--sf-000000)' }}>
         <header className="sticky top-0 z-50 flex h-14 items-center gap-3 px-4"
-          style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgba(10,10,12,0.92)', backdropFilter: 'blur(12px)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+          style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgb(var(--glass-10-10-12)/0.92)', backdropFilter: 'blur(12px)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <button onClick={() => navigate('/')} className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ color: T3 }} title={t('adm.nav.backToYuno')}>
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -176,18 +178,18 @@ function Shell({ children }: { children: ReactNode }) {
             <NavContent groups={groups} onNavigate={() => setSidebarOpen(false)} onSignOut={handleSignOut} />
           </SheetContent>
         </Sheet>
-        <main className="flex-1" style={{ background: '#000' }}>{children}</main>
+        <main className="flex-1" style={{ background: 'var(--sf-000000)' }}>{children}</main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] flex" style={{ background: '#000' }}>
+    <div className="min-h-[100dvh] flex" style={{ background: 'var(--sf-000000)' }}>
       <aside className="fixed inset-y-0 left-0 z-50 flex w-[236px] flex-col" style={{ background: SIDEBAR_BG, borderRight: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex h-16 items-center gap-2.5 px-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <button onClick={() => navigate('/')} title={t('adm.nav.backToYuno')}
             className="flex h-8 w-8 items-center justify-center rounded-lg flex-none transition-colors cursor-pointer"
-            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3 }}>
+            style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${F_BORDER}`, color: T3 }}>
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
@@ -199,7 +201,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="px-3 pt-3"><AdminSearchBar pages={searchPages} /></div>
         <NavContent groups={groups} onSignOut={handleSignOut} />
       </aside>
-      <main className="flex-1 ml-[236px] min-w-0" style={{ background: '#000', paddingTop: 'env(safe-area-inset-top, 0px)' }}>{children}</main>
+      <main className="flex-1 ml-[236px] min-w-0" style={{ background: 'var(--sf-000000)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>{children}</main>
     </div>
   );
 }

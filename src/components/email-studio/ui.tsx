@@ -11,33 +11,33 @@ import {
 
 export const RED = '#E8192C';
 export const RED_HOVER = '#ff2438';
-export const T1 = 'rgba(255,255,255,0.96)';
-export const T2 = 'rgba(255,255,255,0.58)';
-export const T3 = 'rgba(255,255,255,0.36)';
-export const BORDER = 'rgba(255,255,255,0.085)';
-export const BORDER_FAINT = 'rgba(255,255,255,0.055)';
-export const APP_BG = '#000';
-export const PANEL_BG = '#08080a';
-export const CANVAS_BG = '#050506';
-export const TOPBAR_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const SUBTLE = 'rgba(255,255,255,0.025)';
-export const CARD_INNER = 'rgba(255,255,255,0.032)';
-export const HOVER = 'rgba(255,255,255,0.06)';
-export const HOVER_STRONG = 'rgba(255,255,255,0.07)';
+export const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
+export const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
+export const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
+export const BORDER = 'rgb(var(--ink)/0.085)';
+export const BORDER_FAINT = 'rgb(var(--ink)/0.055)';
+export const APP_BG = 'var(--sf-000000)';
+export const PANEL_BG = 'var(--sf-08080a)';
+export const CANVAS_BG = 'var(--sf-050506)';
+export const TOPBAR_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const SUBTLE = 'rgb(var(--ink)/0.025)';
+export const CARD_INNER = 'rgb(var(--ink)/0.032)';
+export const HOVER = 'rgb(var(--ink)/0.06)';
+export const HOVER_STRONG = 'rgb(var(--ink)/0.07)';
 export const FONT_UI = '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif';
 export const MONO = 'ui-monospace, Menlo, monospace';
-export const POS = '#34D399';
-export const WARN = '#FCD34D';
-export const NEG = '#FF5C63';
+export const POS = 'var(--acc-34d399)';
+export const WARN = 'var(--acc-fcd34d)';
+export const NEG = 'var(--acc-ff5c63)';
 
 /** Cartes des écrans de flow (liste, audience, planification, récap). */
-export const FLOW_CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-export const FLOW_CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-export const RED_RADIAL_BG = 'radial-gradient(ellipse 70% 50% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.005) 100%),#0a0a0c';
+export const FLOW_CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
+export const FLOW_CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
+export const RED_RADIAL_BG = 'radial-gradient(ellipse 70% 50% at 90% -20%, rgba(232,25,44,0.10) 0%, transparent 65%),linear-gradient(180deg,rgb(var(--sheen)/.03) 0%,rgb(var(--sheen)/.005) 100%),var(--sf-0a0a0c)';
 /** Gradient actif (segments/options sélectionnés). */
-export const ACTIVE_GRAD = 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))';
+export const ACTIVE_GRAD = 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))';
 export const RED_SOFT_GRAD = 'linear-gradient(135deg,rgba(232,25,44,0.12),rgba(232,25,44,0.03))';
-export const PAGE_HALO = 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)';
+export const PAGE_HALO = 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)';
 
 /**
  * Hauteur réellement disponible pour un écran plein du Studio.
@@ -86,8 +86,8 @@ export function StudioGlobalStyles() {
     el.textContent = `
       .yn-studio *{box-sizing:border-box;}
       .yn-studio ::-webkit-scrollbar{width:9px;height:9px;}
-      .yn-studio ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:9px;}
-      .yn-studio ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18);}
+      .yn-studio ::-webkit-scrollbar-thumb{background:rgb(var(--ink)/.10);border-radius:9px;}
+      .yn-studio ::-webkit-scrollbar-thumb:hover{background:rgb(var(--ink)/.18);}
       .yn-studio ::-webkit-scrollbar-track{background:transparent;}
       @keyframes ynIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
       .yn-in{animation:ynIn .18s ease both;}
@@ -186,7 +186,7 @@ export function OptionPills<T extends string | number>({ value, options, onChang
 }) {
   return (
     <div role="group" aria-label={ariaLabel} style={{
-      display: 'flex', gap: 4, padding: 3, borderRadius: 11, background: 'rgba(255,255,255,0.02)',
+      display: 'flex', gap: 4, padding: 3, borderRadius: 11, background: 'rgb(var(--ink)/0.02)',
       opacity: disabled ? 0.5 : 1,
     }}>
       {options.map((o) => {
@@ -236,7 +236,7 @@ export function SegBtns<T extends string>({ value, options, onChange, ariaLabel 
               padding: '6px 13px', fontSize: 12.5, fontWeight: 500, fontFamily: FONT_UI,
               background: active ? ACTIVE_GRAD : 'transparent',
               color: active ? T1 : T3,
-              boxShadow: active ? '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000' : 'none',
+              boxShadow: active ? '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' : 'none',
               transition: 'all .12s',
             }}
           >{o.label}</button>
@@ -257,7 +257,7 @@ export function Switch({ checked, onChange, ariaLabel, disabled }: {
       onClick={(e) => { e.stopPropagation(); if (!disabled) onChange?.(!checked); }}
       style={{
         width: 34, height: 20, borderRadius: 999, flex: 'none', border: 'none', padding: 0,
-        background: checked ? RED : 'rgba(255,255,255,0.12)',
+        background: checked ? RED : 'rgb(var(--ink)/0.12)',
         position: 'relative', transition: 'background .15s',
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
       }}
@@ -384,7 +384,7 @@ export function UnderlineTabs<T extends string>({ value, options, onChange }: {
 
 export function StatusBadge({ label, tone }: { label: string; tone: 'neutral' | 'amber' | 'green' | 'red' }) {
   const tones = {
-    neutral: { color: T2, bg: 'rgba(255,255,255,0.06)', border: BORDER },
+    neutral: { color: T2, bg: 'rgb(var(--ink)/0.06)', border: BORDER },
     amber: { color: WARN, bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.28)' },
     green: { color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' },
     red: { color: NEG, bg: 'rgba(255,92,99,0.08)', border: 'rgba(255,92,99,0.20)' },
@@ -410,7 +410,7 @@ export function ShortcutRow({ keys, label }: { keys: string; label: string }) {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <span style={{ fontSize: 11, color: T2, fontFamily: FONT_UI }}>{label}</span>
       <span style={{
-        fontSize: 10.5, color: T3, fontFamily: MONO, background: 'rgba(255,255,255,0.05)',
+        fontSize: 10.5, color: T3, fontFamily: MONO, background: 'rgb(var(--ink)/0.05)',
         borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap',
       }}>{keys}</span>
     </div>

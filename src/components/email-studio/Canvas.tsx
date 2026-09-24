@@ -178,7 +178,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 borderRadius: 7, padding: '3px 6px', marginLeft: -6,
                 color: T1, fontSize: 13.5, fontWeight: 500, fontFamily: FONT_UI, outline: 'none',
               }}
-              onFocus={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              onFocus={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.05)'; }}
               onBlur={(e) => { e.currentTarget.style.background = 'transparent'; }}
             />
             {campaign.abOn && (
@@ -205,7 +205,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
               borderRadius: 7, padding: '3px 6px', marginLeft: -6,
               color: T2, fontSize: 13, fontFamily: FONT_UI, outline: 'none',
             }}
-            onFocus={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+            onFocus={(e) => { e.currentTarget.style.background = 'rgb(var(--ink)/0.05)'; }}
             onBlur={(e) => { e.currentTarget.style.background = 'transparent'; }}
           />
         </div>
@@ -233,7 +233,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
             <div className="yn-in" style={{
               position: 'absolute', top: '110%', right: 0, zIndex: 20, minWidth: 180,
               background: PANEL_BG, border: `1px solid ${BORDER}`, borderRadius: 11, padding: 4,
-              boxShadow: '0 20px 40px -20px #000',
+              boxShadow: '0 20px 40px -20px rgb(0 0 0/var(--pro-shadow-a))',
             }}>
               {PERSONAS.map((p) => (
                 <button
@@ -241,7 +241,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                   onClick={() => { setPersona(p); setPersonaOpen(false); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-                    background: p.id === persona.id ? 'rgba(255,255,255,0.05)' : 'transparent',
+                    background: p.id === persona.id ? 'rgb(var(--ink)/0.05)' : 'transparent',
                     border: 'none', borderRadius: 8, padding: '7px 9px', cursor: 'pointer',
                     color: T1, fontSize: 12, fontFamily: FONT_UI,
                   }}
@@ -260,7 +260,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
         style={{
           flex: 1, overflowY: 'auto', padding: '26px 0 70px',
           display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-          background: 'radial-gradient(90% 50% at 50% 0%,rgba(255,255,255,.03),transparent 60%)',
+          background: 'radial-gradient(90% 50% at 50% 0%,rgb(var(--ink)/.03),transparent 60%)',
           minHeight: 0,
         }}
         onClick={() => { select(null); setPersonaOpen(false); }}
@@ -285,7 +285,7 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
               style={{
                 background: theme.card, borderRadius: 12, overflow: 'hidden',
                 boxShadow: '0 30px 60px -30px rgba(0,0,0,.9)',
-                border: theme.dark ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                border: theme.dark ? '1px solid rgb(var(--ink)/0.06)' : 'none',
               }}
             >
               {/* Slot de drop tout en haut — hauteur nulle hors drag : l'éditeur
@@ -337,15 +337,15 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                         <div style={{
                           position: 'absolute', top: -13, right: 10, zIndex: 5,
                           display: 'flex', alignItems: 'center', gap: 1, padding: 3,
-                          borderRadius: 9, background: '#141416', border: '1px solid rgba(255,255,255,0.13)',
-                          boxShadow: '0 10px 24px -14px #000',
+                          borderRadius: 9, background: 'var(--sf-141416)', border: '1px solid rgb(var(--ink)/0.13)',
+                          boxShadow: '0 10px 24px -14px rgb(0 0 0/var(--pro-shadow-a))',
                         }}>
                           <span style={{
                             padding: '0 8px', height: 22, display: 'inline-flex', alignItems: 'center',
                             color: RED, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
                             textTransform: 'uppercase', fontFamily: FONT_UI,
                           }}>{t(meta.labelKey)}</span>
-                          <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px' }} />
+                          <span style={{ width: 1, height: 14, background: 'rgb(var(--ink)/0.12)', margin: '0 3px' }} />
                           <ToolBtn label={t('studio.canvas.moveUp')} disabled={i === 0} onClick={() => moveBlock(block.id, -1)}>
                             <ArrowUp size={12} strokeWidth={1.75} />
                           </ToolBtn>
@@ -382,8 +382,8 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                         <div style={{
                           position: 'absolute', left: -26, top: '50%', transform: 'translateY(-50%)',
                           width: 20, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'grab', color: 'rgba(255,255,255,0.5)',
-                          background: '#141416', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,
+                          cursor: 'grab', color: 'rgb(var(--ink)/var(--ink-a50,0.5))',
+                          background: 'var(--sf-141416)', border: '1px solid rgb(var(--ink)/0.12)', borderRadius: 6,
                         }} title={t('studio.canvas.dragHandle')}>
                           <GripVertical size={13} strokeWidth={1.75} />
                         </div>
@@ -408,12 +408,12 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                   <div style={{
                     width: 44, height: 44, margin: '0 auto 14px', borderRadius: 14,
                     background: 'rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', color: '#9a9a9a',
+                    justifyContent: 'center', color: 'var(--tx-9a9a9a)',
                   }}><Inbox size={16} strokeWidth={1.75} /></div>
-                  <div style={{ color: '#4a4a4a', fontSize: 15, fontWeight: 600, marginBottom: 5, fontFamily: FONT_UI }}>
+                  <div style={{ color: 'var(--tx-4a4a4a)', fontSize: 15, fontWeight: 600, marginBottom: 5, fontFamily: FONT_UI }}>
                     {t('studio.canvas.emptyTitle')}
                   </div>
-                  <div style={{ color: '#8a8a8a', fontSize: 13, fontFamily: FONT_UI }}>{t('studio.canvas.empty')}</div>
+                  <div style={{ color: 'var(--tx-8a8a8a)', fontSize: 13, fontFamily: FONT_UI }}>{t('studio.canvas.empty')}</div>
                 </div>
               )}
 
@@ -437,14 +437,14 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                   <div style={{
                     position: 'absolute', top: -13, right: 10, zIndex: 5,
                     display: 'flex', alignItems: 'center', gap: 5, padding: '0 9px', height: 26,
-                    borderRadius: 9, background: '#141416', border: '1px solid rgba(255,255,255,0.13)',
-                    boxShadow: '0 10px 24px -14px #000',
+                    borderRadius: 9, background: 'var(--sf-141416)', border: '1px solid rgb(var(--ink)/0.13)',
+                    boxShadow: '0 10px 24px -14px rgb(0 0 0/var(--pro-shadow-a))',
                   }}>
                     <span style={{
                       color: RED, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
                       textTransform: 'uppercase', fontFamily: FONT_UI,
                     }}>{t('studio.footer.label')}</span>
-                    <Lock size={11} strokeWidth={2} style={{ color: 'rgba(255,255,255,0.35)' }} />
+                    <Lock size={11} strokeWidth={2} style={{ color: 'rgb(var(--ink)/var(--ink-a35,0.35))' }} />
                   </div>
                 )}
 
@@ -525,10 +525,10 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
 
           {/* Largeur · poids */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, padding: '0 2px' }}>
-            <span style={{ color: 'rgba(255,255,255,0.28)', fontSize: 10.5, fontFamily: MONO }}>
+            <span style={{ color: 'rgb(var(--ink)/var(--ink-a28,0.28))', fontSize: 10.5, fontFamily: MONO }}>
               {device === 'mobile' ? '390 px · mobile' : '600 px · desktop'}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.28)', fontSize: 10.5, fontFamily: MONO }}>
+            <span style={{ color: 'rgb(var(--ink)/var(--ink-a28,0.28))', fontSize: 10.5, fontFamily: MONO }}>
               {(renderedBytes / 1024).toFixed(1).replace('.', ',')} Ko
               {renderedBytes <= 102_400 ? ` · ${t('studio.canvas.underGmail')}` : ` · ${t('studio.canvas.overGmail')}`}
             </span>
@@ -568,12 +568,12 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
               <div style={{ color: T3, fontSize: 11, marginBottom: 8, fontFamily: FONT_UI }}>
                 {t('studio.drawer.jsonHelp')}{' '}
-                <span style={{ color: 'rgba(255,255,255,0.7)', fontFamily: MONO }}>EmailBlock</span> /{' '}
-                <span style={{ color: 'rgba(255,255,255,0.7)', fontFamily: MONO }}>EmailTheme</span>.
+                <span style={{ color: 'rgb(var(--ink)/var(--ink-a70,0.7))', fontFamily: MONO }}>EmailBlock</span> /{' '}
+                <span style={{ color: 'rgb(var(--ink)/var(--ink-a70,0.7))', fontFamily: MONO }}>EmailTheme</span>.
               </div>
               <pre style={{
                 margin: 0, padding: 12, borderRadius: 11, background: SUBTLE,
-                border: `1px solid ${BORDER}`, color: 'rgba(255,255,255,0.72)',
+                border: `1px solid ${BORDER}`, color: 'rgb(var(--ink)/var(--ink-a72,0.72))',
                 fontFamily: MONO, fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre-wrap',
               }}>{modelJson}</pre>
             </div>
@@ -630,11 +630,11 @@ function ToolBtn({ children, onClick, disabled, danger, label }: {
     <button
       type="button" disabled={disabled} aria-label={label} title={label}
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = danger ? 'rgba(255,92,99,0.14)' : 'rgba(255,255,255,0.09)'; }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = danger ? 'rgba(255,92,99,0.14)' : 'rgb(var(--ink)/0.09)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       style={{
         width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 6, color: danger ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.6)',
+        borderRadius: 6, color: danger ? 'rgb(var(--ink)/var(--ink-a60,0.6))' : 'rgb(var(--ink)/var(--ink-a60,0.6))',
         cursor: disabled ? 'default' : 'pointer', background: 'transparent', border: 'none',
         opacity: disabled ? 0.3 : 1,
       }}

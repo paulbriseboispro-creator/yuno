@@ -129,7 +129,7 @@ export function DJDiscovery({
       {loading ? (
         <DJDiscoveryRowsSkeleton />
       ) : djs.length === 0 ? (
-        <p style={{ textAlign: 'center', color: '#5A5A5E', fontFamily: 'monospace', fontSize: 13, padding: '48px 0' }}>
+        <p style={{ textAlign: 'center', color: 'var(--tx-5a5a5e)', fontFamily: 'monospace', fontSize: 13, padding: '48px 0' }}>
           {tt('Aucun DJ ne correspond.', 'No DJs match.', 'Ningún DJ coincide.')}
         </p>
       ) : (
@@ -149,7 +149,7 @@ export function DJDiscovery({
             <button
               onClick={() => fetchPage(djs.length, false)}
               disabled={loadingMore}
-              style={{ alignSelf: 'center', marginTop: 8, padding: '10px 22px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              style={{ alignSelf: 'center', marginTop: 8, padding: '10px 22px', borderRadius: 999, background: 'rgb(var(--ink)/0.05)', border: '1px solid rgb(var(--ink)/0.12)', color: 'rgb(var(--ink))', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
             >
               {loadingMore ? tt('Chargement...', 'Loading...', 'Cargando...') : tt('Voir plus', 'Load more', 'Ver más')}
             </button>
@@ -181,7 +181,7 @@ export function DJDiscovery({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
                 <button
                   onClick={() => setViewTarget(null)}
-                  style={{ padding: '9px 16px', borderRadius: 11, background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.12)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  style={{ padding: '9px 16px', borderRadius: 11, background: 'transparent', color: 'rgb(var(--ink)/var(--ink-a60,0.6))', border: '1px solid rgb(var(--ink)/0.12)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                 >
                   {tt('Annuler', 'Cancel', 'Cancelar')}
                 </button>

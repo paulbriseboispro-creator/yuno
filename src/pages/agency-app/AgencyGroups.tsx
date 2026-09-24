@@ -23,7 +23,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
           onClick={() => onChange(c)}
           style={{
             width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer',
-            border: value === c ? '2px solid #fff' : '2px solid transparent',
+            border: value === c ? '2px solid rgb(var(--ink))' : '2px solid transparent',
             boxShadow: value === c ? `0 0 0 1px ${c}` : 'none',
           }}
         />
@@ -63,7 +63,7 @@ function GroupOverrideEditor({ group, members, tt, onSaved }: {
   };
 
   return (
-    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgb(var(--ink)/0.06)' }}>
       <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         {tt('Chef de groupe (commission override)', 'Group leader (override commission)')}
       </p>
@@ -77,13 +77,13 @@ function GroupOverrideEditor({ group, members, tt, onSaved }: {
         <div className="flex items-center gap-2 flex-wrap">
           <select value={leader} onChange={e => setLeader(e.target.value)}
             style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 9px', color: T1, fontSize: 12.5, cursor: 'pointer' }}>
-            <option value="" style={{ background: '#111' }}>{tt('Aucun chef', 'No leader')}</option>
-            {members.map(m => <option key={m.id} value={m.id} style={{ background: '#111' }}>{promoterName(m)}</option>)}
+            <option value="" style={{ background: 'var(--sf-111111)' }}>{tt('Aucun chef', 'No leader')}</option>
+            {members.map(m => <option key={m.id} value={m.id} style={{ background: 'var(--sf-111111)' }}>{promoterName(m)}</option>)}
           </select>
           <select value={type} onChange={e => setType(e.target.value as 'percentage' | 'fixed')}
             style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 9px', color: T1, fontSize: 12.5, cursor: 'pointer' }}>
-            <option value="percentage" style={{ background: '#111' }}>%</option>
-            <option value="fixed" style={{ background: '#111' }}>€</option>
+            <option value="percentage" style={{ background: 'var(--sf-111111)' }}>%</option>
+            <option value="fixed" style={{ background: 'var(--sf-111111)' }}>€</option>
           </select>
           <input type="number" min={0} value={value} onChange={e => setValue(e.target.value)}
             placeholder={type === 'percentage' ? '% ' + tt('de la commission', 'of commission') : '€/' + tt('vente', 'sale')}
@@ -281,7 +281,7 @@ export default function AgencyGroups() {
                 </div>
 
                 {confirmDelete === g.id && (
-                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(232,25,44,0.06)' }}>
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid rgb(var(--ink)/0.05)', background: 'rgba(232,25,44,0.06)' }}>
                     <p style={{ color: T1, fontSize: 13, marginBottom: 8 }}>
                       {tt(
                         `Supprimer "${g.name}" ? Les promoteurs resteront dans l'agence, juste sans groupe.`,
@@ -301,7 +301,7 @@ export default function AgencyGroups() {
                 )}
 
                 {isExpanded && (
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '8px 14px 12px' }}>
+                  <div style={{ borderTop: '1px solid rgb(var(--ink)/0.05)', padding: '8px 14px 12px' }}>
                     {members.length === 0 ? (
                       <p style={{ color: T3, fontSize: 12 }}>{tt('Aucun membre dans ce groupe.', 'No members in this group.')}</p>
                     ) : (
@@ -344,7 +344,7 @@ export default function AgencyGroups() {
               <div
                 key={p.id}
                 className="flex items-center gap-3"
-                style={{ padding: '8px 6px', borderBottom: i < ungrouped.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined }}
+                style={{ padding: '8px 6px', borderBottom: i < ungrouped.length - 1 ? '1px solid rgb(var(--ink)/0.05)' : undefined }}
               >
                 <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={30} />
                 <div className="min-w-0 flex-1">
@@ -360,9 +360,9 @@ export default function AgencyGroups() {
                       borderRadius: 8, padding: '4px 8px', color: T2, fontSize: 11.5, cursor: 'pointer',
                     }}
                   >
-                    <option value="" style={{ background: '#111' }}>{tt('Assigner…', 'Assign…')}</option>
+                    <option value="" style={{ background: 'var(--sf-111111)' }}>{tt('Assigner…', 'Assign…')}</option>
                     {groups.map(g => (
-                      <option key={g.id} value={g.id} style={{ background: '#111' }}>{g.name}</option>
+                      <option key={g.id} value={g.id} style={{ background: 'var(--sf-111111)' }}>{g.name}</option>
                     ))}
                   </select>
                 )}

@@ -144,7 +144,7 @@ export default function TrackedLinkRedirect() {
   }, [code]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white">
+    <div className="min-h-screen flex items-center justify-center bg-black text-snow">
       <div className="text-sm tracking-wide text-white/60">
         {failed ? 'Redirecting…' : 'Loading…'}
       </div>

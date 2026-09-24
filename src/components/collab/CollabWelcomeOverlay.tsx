@@ -98,8 +98,8 @@ export function CollabWelcomeOverlay({ venueId, venueName }: Props) {
       <div
         className="relative w-full max-w-md rounded-3xl overflow-hidden"
         style={{
-          background: 'linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01)),#0a0a0c',
-          border: '1px solid rgba(255,255,255,0.1)',
+          background: 'linear-gradient(180deg,rgb(var(--ink)/.05),rgb(var(--ink)/.01)),var(--sf-0a0a0c)',
+          border: '1px solid rgb(var(--ink)/0.1)',
           boxShadow: '0 30px 80px -20px rgba(0,0,0,0.9)',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -128,8 +128,8 @@ export function CollabWelcomeOverlay({ venueId, venueName }: Props) {
           </p>
           <div className="mt-6 space-y-3">
             {promises.map((p, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div key={i} className="flex items-start gap-3 rounded-2xl p-3" style={{ background: 'rgb(var(--ink)/0.03)', border: '1px solid rgb(var(--ink)/0.07)' }}>
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: 'rgb(var(--ink)/0.05)' }}>
                   <p.icon className="h-4 w-4" style={{ color: '#E8192C' }} />
                 </div>
                 <div className="min-w-0">

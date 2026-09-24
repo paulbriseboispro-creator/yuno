@@ -357,7 +357,7 @@ export default function DJProfile() {
               <button
                 onClick={() => setShowChangePinFlow(true)}
                 className="flex-none rounded-xl px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-white/[0.06]"
-                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+                style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
               >
                 {t('dj.modify')}
               </button>
@@ -410,7 +410,7 @@ export default function DJProfile() {
                 <button
                   onClick={() => document.getElementById('cover-upload')?.click()}
                   className="absolute bottom-2 right-2 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all duration-150"
-                  style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: `1px solid ${BORDER}`, color: T1 }}
+                  style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.96)' }}
                 >
                   {t('dj.change')}
                 </button>
@@ -629,7 +629,7 @@ export default function DJProfile() {
               onClick={() => document.getElementById('track-upload')?.click()}
               disabled={trackBusy}
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-50"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
             >
               {trackBusy ? (
                 <><div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{t('dj.saving')}</>
@@ -685,7 +685,7 @@ export default function DJProfile() {
               onClick={saveRate}
               disabled={rateBusy}
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-50"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
             >
               {rateBusy ? (
                 <><div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{t('dj.saving')}</>
@@ -741,7 +741,7 @@ export default function DJProfile() {
               onClick={() => document.getElementById('gallery-upload')?.click()}
               disabled={galleryBusy}
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-50"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T1 }}
+              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}
             >
               {galleryBusy ? (
                 <><div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />{t('dj.saving')}</>
