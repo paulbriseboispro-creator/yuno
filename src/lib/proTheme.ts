@@ -132,7 +132,6 @@ export function setProThemePref(pref: ProThemePref, origin?: ThemeOrigin): void 
   root.style.setProperty('--vt-x', `${x}px`);
   root.style.setProperty('--vt-y', `${y}px`);
   root.style.setProperty('--vt-r', `${radius}px`);
-  root.classList.add('pro-theme-vt');
   const cleanup = () => {
     root.classList.remove('pro-theme-vt');
     root.style.removeProperty('--vt-x');
@@ -141,6 +140,10 @@ export function setProThemePref(pref: ProThemePref, origin?: ThemeOrigin): void 
   };
   try {
     const vt = doc.startViewTransition(() => {
+      // La classe arrive AVEC le nouveau thème, dans le même recalcul de
+      // style : posée avant, elle coûtait un recalcul complet de plus avant
+      // la capture, sans rien changer à l'ancienne image.
+      root.classList.add('pro-theme-vt');
       // Le nouveau thème ET l'état React (sélecteur, icône) avant la capture.
       applyProTheme(pref);
       flushSync(notify);
