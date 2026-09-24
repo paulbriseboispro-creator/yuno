@@ -363,7 +363,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const navTo = {
     live: isVenue ? '/owner/live' : `/organizer-app/events/${eventId}/live`,
-    analytics: isVenue ? '/owner/analytics' : `/organizer-app/analytics?event=${eventId}`,
+    analytics: isVenue ? `/owner/analytics?tab=event&event=${eventId}` : `/organizer-app/analytics?tab=event&event=${eventId}`,
     promoters: isVenue ? '/owner/promoters' : `/organizer-app/promoters/event/${eventId}`,
     // ?event= : sans lui la page Guest list retombe sur la 1re soirée de la liste
     // (on ouvrait « Amore » et on atterrissait sur une autre).

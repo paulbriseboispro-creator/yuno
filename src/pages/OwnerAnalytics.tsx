@@ -5,7 +5,7 @@ import {
   Download, Ticket, Wine, Users, RotateCcw,
   Lock as LockIcon, Percent, Eye, ShoppingCart, CreditCard,
   MousePointerClick, TrendingUp, Layers, Flame, Clock,
-  ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity, ArrowLeft, ChevronDown,
+  ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity, ChevronDown,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
   ClipboardList, Sofa,
   Radio, ShoppingBag,
@@ -44,6 +44,7 @@ import { EventAudienceDemographics } from '@/components/analytics/EventAudienceD
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 import { useTabParam } from '@/hooks/useTabParam';
 import { useEventParam } from '@/hooks/useEventParam';
+import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 
@@ -783,29 +784,19 @@ export default function OwnerAnalytics() {
         ) : (
         <>
 
-        {/* Back to the night picker */}
+        {/* Rapport de soirée : les cinq questions (ventes, courbe comparée,
+            trafic, public, ce qui a fait vendre), verdict en tête une fois la
+            soirée passée. */}
         {mode === 'event' && selectedEventId && (
-          <button
-            type="button"
-            onClick={() => setSelectedEventId(null)}
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium cursor-pointer transition-colors hover:text-white"
-            style={{ color: T3 }}
-          >
-            <ArrowLeft className="w-4 h-4" /> {t('owner.an.backToEvents')}
-          </button>
-        )}
-
-        {/* ── Verdict first — "did this night work?" (event mode only) ───── */}
-        {mode === 'event' && selectedEventId && venueId && (
-          <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} />
-        )}
-
-        {/* ── Per-night audience: age & gender of who actually came ──────── */}
-        {mode === 'event' && selectedEventId && venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-3">
-            <ZoneHeading icon={<Users className="w-4 h-4" />} label={t('owner.an.audience')} />
-            <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} />
-          </motion.div>
+          <EventReportView
+            key={selectedEventId}
+            eventId={selectedEventId}
+            onEventChange={(id) => setSelectedEventId(id)}
+            onBack={() => setSelectedEventId(null)}
+            scope={{ venueId }}
+            verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} /> : undefined}
+            demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} /> : undefined}
+          />
         )}
 
         {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}

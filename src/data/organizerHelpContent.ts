@@ -99,7 +99,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'BarChart3',
         actionLink: { labelKey: OPEN, path: '/analytics' },
         relatedArticleIds: ['org-dashboard', 'org-customers', 'org-events'],
-        keywords: ['analytics', 'analytique', 'stats', 'reports', 'rapports', 'funnel', 'conversion', 'analítica', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'no-show'],
+        keywords: ['analytics', 'analytique', 'stats', 'reports', 'rapports', 'funnel', 'conversion', 'analítica', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'no-show', 'rapport de soirée', 'night report', 'informe', 'comparer', 'compare', 'comparar', 'courbe', 'j-n', 'nouveaux contacts', 'new contacts', 'détail des ventes'],
         sections: [
           { headingKey: 'ohelp.org.analytics.s1h', bodyKey: 'ohelp.org.analytics.s1b' },
           { headingKey: 'ohelp.org.analytics.s2h', bodyKey: 'ohelp.org.analytics.s2b', screenshotUrl: '/help/org-analytics.webp' },
@@ -107,6 +107,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.analytics.s4h', bodyKey: 'ohelp.org.analytics.s4b', type: 'tip' },
           { headingKey: 'ohelp.org.analytics.s5h', bodyKey: 'ohelp.org.analytics.s5b' },
           { headingKey: 'ohelp.org.analytics.s6h', bodyKey: 'ohelp.org.analytics.s6b' },
+          { headingKey: 'ohelp.org.analytics.s7h', bodyKey: 'ohelp.org.analytics.s7b', type: 'steps' },
         ],
       },
     ],

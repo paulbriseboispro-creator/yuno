@@ -493,7 +493,7 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
 ## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
 
 Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
-(lots A-B livrés, C-G à faire). Règles déjà posées :
+(lots A-C livrés, D-G à faire). Règles déjà posées :
 
 - **Tout écran d'analyse passe par le kit** `src/components/analytics/kit.tsx`
   (+ `kitFormat.ts` pour `KIT` et `useNumberFormat`) : `TodayDelta` (« ▲ 6
@@ -519,6 +519,23 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
 - **Les chiffres d'une liste de soirées se lisent en COLONNES FIXES**
   (`EventMetricsGrid` : CA · Billets · Tables · Guest list · Visites) : un
   pilier fermé laisse sa case vide sur grand écran pour garder l'alignement.
+- **Rapport de soirée = `get_event_report(p_event_id)`** (migration
+  `20260924170000`, `src/components/event-report/*`, `EventReportView` dans
+  l'onglet Événement des deux Analytics). Cinq questions dans CET ordre —
+  ventes, évolution, trafic, qui achète, ce qui a fait vendre — et le verdict
+  (`EventPostAnalysisView`) en tête une fois la soirée passée. La portée se
+  DÉDUIT de l'appelant (club qui gère le lieu, sinon organisateur / équipe) ;
+  mêmes gardes d'argent que `get_events_sales_summary`. La série est clée par
+  `d` = jours CALENDAIRES avant la soirée (fuseau de la soirée) : deux soirées
+  se comparent au même J-N, jamais à la même date (`buildCurve`, testé). La
+  comparaison par défaut est la soirée PRÉCÉDENTE de la portée. Messages de la
+  soirée = emails (`event_id` ou `automation_trigger_event_id`) et push
+  (`event_id`) de la portée ; une vente leur est rattachée sur 1er clic → achat
+  de CETTE soirée < 72 h (même fenêtre que l'attribution email), en CA club.
+  Côté orga, les push sans `venue_id` ni `agency_id` d'une soirée de l'orga
+  (la « Publication » automatique) sont les siens — le lot D ira plus loin.
+  « Nouveau contact » = email jamais vu (billet, table, guest list) à une
+  soirée de la portée qui a COMMENCÉ avant celle-ci.
 - Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
   qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de

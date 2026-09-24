@@ -43,7 +43,7 @@ mention CGU). Tout le plan est à faire.
 |---|---|---|
 | A | Kit commun : `kit.tsx` (TodayDelta, UpdatedAt, MetricHint, CoverageNote, FillBar), `kitFormat.ts`, clés `ak.*` / `gl.*`, soirée dans l'URL (`useEventParam`, `?event=`) | Livré 24/09 |
 | B | `get_events_sales_summary` + bande de ventes sur chaque carte soirée + bloc « Vos prochaines soirées » des deux dashboards | Livré 24/09 |
-| C | Rapport de soirée (avant / pendant / après, « Comparer avec » aligné sur J-N, trafic de la soirée, nouveaux contacts, canaux qui ont fait vendre, verdict en tête après la soirée) | À faire |
+| C | Rapport de soirée : `get_event_report` + `EventReportView` (ventes + détail par ligne, courbe « Comparer avec » alignée sur J-N, trafic, nouveaux contacts, canaux / liens / emails & push de la soirée, verdict en tête après la soirée) | Livré 24/09 |
 | D | Push : historique complet (fin de la limite à 20), « Publication – soirée », page push organisateur (lecture puis envoi), attribution organisateur, bandeau abonnés | À faire |
 | E | Analytics en quatre familles (Ventes / Trafic / Communauté / En direct), Global réparti, Audience + Hype absorbés, Communauté · Vue d'ensemble (`contact_rows`), Trafic · Ma page, lexique appliqué | À faire |
 | F | Codes promo par soirée (`promo_codes`, validation serveur dans les checkouts, `fees.ts`) | À faire |
