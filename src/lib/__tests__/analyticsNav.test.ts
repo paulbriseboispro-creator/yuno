@@ -15,6 +15,7 @@ describe('resolveAnalyticsRoute', () => {
     expect(resolveAnalyticsRoute('traffic', 'sources')).toEqual({ family: 'traffic', view: 'sources' });
     expect(resolveAnalyticsRoute('traffic', 'overview')).toEqual({ family: 'traffic', view: 'page' });
     expect(resolveAnalyticsRoute('community', null)).toEqual({ family: 'community', view: 'overview' });
+    expect(resolveAnalyticsRoute('community', 'tastes')).toEqual({ family: 'community', view: 'tastes' });
   });
   it('une soirée sans vue ouvre son rapport', () => {
     expect(resolveAnalyticsRoute('sales', null, true)).toEqual({ family: 'sales', view: 'event' });

@@ -611,6 +611,31 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   remisé) — elle porte désormais le sous-total remisé ; et le checkout client
   affiche la remise fixe promoteur × quantité et la remise table sur
   l'acompte, comme le serveur.
+- **Goûts du réseau = agrégé, ≥ 10 par ligne, opt-out respecté** (lot G,
+  migration `20260924220000`, `get_community_tastes`, vue Communauté → Goûts
+  `CommunityTastesView`). Communauté = comptes Yuno liés à la portée (achat,
+  guest list, abonnement) ; genres = quiz (`user_taste_profiles.genres`) ∪
+  genres des soirées fréquentées sur TOUT Yuno depuis 18 mois. Un genre ne
+  sort qu'à partir de 10 personnes, ses sous-comptes aussi (sinon `null`),
+  `profiles.personalization_opt_out` exclut la personne du calcul, et la
+  politique de confidentialité le dit (§ Destinataires, 24/09). Sous le seuil
+  la vue est prête mais éteinte (`tastesReady`). Ne jamais exposer un genre
+  sous le seuil ni une ligne par personne, y compris dans l'assistant.
+- **Accusés de réception push : serveur prêt, extension iOS À FAIRE** (lot G).
+  `send-push-notification` pose `mutable-content: 1` et `yr: {c, s}` (id de
+  campagne, id d'abonnement) sur toute notification de CAMPAGNE (`?pc=`) ;
+  `ack_push_delivery(c, s)` (anon, idempotent, campagnes < 3 j) écrit
+  `push_campaign_events.event_type = 'delivered'` ; l'historique lit
+  `get_push_delivery_counts` et n'affiche la colonne « Reçus » qu'au premier
+  accusé (`hasDeliveryReceipts`). Reste une Notification Service Extension
+  dans le binaire client (cible Xcode, `didReceive` : lire `yr`, POST
+  `/rest/v1/rpc/ack_push_delivery` avec la clé anon, puis afficher le contenu
+  tel quel) — elle ne part pas en OTA, donc prochaine version App Store.
+- **L'Assistant Console lit les écrans d'analyse** (lot G) : outils
+  `get_event_report`, `get_community_overview` (+ goûts) et `get_push_history`
+  appellent les MÊMES RPC que les écrans, avec le client au JWT de l'appelant
+  (`executeTool(…, userClient)`) — jamais le service role, sinon la porte de
+  portée et d'argent (`auth.uid()`) tombe.
 - Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
   qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de

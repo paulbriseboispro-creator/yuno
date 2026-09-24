@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { CommunityOverview, PageTraffic } from '@/lib/communityAnalytics';
+import type { CommunityOverview, CommunityTastes, PageTraffic } from '@/lib/communityAnalytics';
 
 export interface AnalyticsScope {
   venueId?: string | null;
@@ -56,4 +56,10 @@ export function usePageTraffic(scope: AnalyticsScope, days: number) {
   const base = scopeArgs(scope);
   const args = base ? { ...base, p_days: days } : null;
   return useScopedRpc<PageTraffic>('get_page_traffic', args, [scope.venueId, scope.organizerUserId, days]);
+}
+
+/** Communauté › Goûts (`get_community_tastes`) : agrégé, ≥ 10 personnes par ligne. */
+export function useCommunityTastes(scope: AnalyticsScope) {
+  const args = scopeArgs(scope);
+  return useScopedRpc<CommunityTastes>('get_community_tastes', args, [scope.venueId, scope.organizerUserId]);
 }

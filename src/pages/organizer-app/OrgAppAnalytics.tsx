@@ -42,6 +42,7 @@ import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
+import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
 import { TrafficView } from '@/components/analytics/families/TrafficView';
 import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
 import { EmptyNote, ReportCard } from '@/components/event-report/ui';
@@ -866,7 +867,7 @@ export default function OrgAppAnalytics() {
   // Contrôles (période, export) : seulement là où ils changent quelque chose.
   const showControls = !isLive && mode !== 'event'
     && !(family === 'traffic' && view !== 'sources')
-    && !(family === 'community' && (view === 'overview' || view === 'subscribers'));
+    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes'));
   const showExport = family === 'sales' && view === 'overview';
 
   return (
@@ -939,6 +940,8 @@ export default function OrgAppAnalytics() {
               }
             />
           ) : null
+        ) : family === 'community' && view === 'tastes' ? (
+          <CommunityTastesView scope={{ organizerUserId: organizerId }} />
         ) : family === 'community' && view === 'demographics' ? (
           audienceZone
         ) : family === 'traffic' && view === 'sources' ? (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { needsSecondAxis, onceShare, pct, trimLeadingEmpty } from '../communityAnalytics';
+import { needsSecondAxis, onceShare, pct, tastesReady, trimLeadingEmpty } from '../communityAnalytics';
 
 describe('communityAnalytics', () => {
   it('pct se tait sans base', () => {
@@ -19,5 +19,16 @@ describe('communityAnalytics', () => {
     const s = [{ contacts: 0, followers: 0 }, { contacts: 0, followers: 0 }, { contacts: 2, followers: 1 }, { contacts: 3, followers: 1 }];
     expect(trimLeadingEmpty(s)).toHaveLength(2);
     expect(trimLeadingEmpty([{ contacts: 1, followers: 0 }])).toHaveLength(1);
+  });
+});
+
+describe('tastesReady', () => {
+  it('stays off without data or below the threshold', () => {
+    expect(tastesReady(null)).toBe(false);
+    expect(tastesReady({ threshold: 10, genres: [] })).toBe(false);
+    expect(tastesReady({ threshold: 10, genres: [{ genre: 'Techno', n: 9, declared: null, attended: null }] })).toBe(false);
+  });
+  it('turns on as soon as one genre reaches the threshold', () => {
+    expect(tastesReady({ threshold: 10, genres: [{ genre: 'Techno', n: 10, declared: null, attended: 10 }] })).toBe(true);
   });
 });

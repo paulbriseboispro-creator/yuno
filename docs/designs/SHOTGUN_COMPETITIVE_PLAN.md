@@ -47,9 +47,18 @@ mention CGU). Tout le plan est à faire.
 | D | Push : historique complet (`get_push_campaigns`, fin de la limite à 20), « Publication – soirée », page push organisateur `/organizer-app/push` (lecture ET envoi), attribution organisateur, bandeau abonnés + lien / QR | Livré 24/09 |
 | E | Analytics en quatre familles (Ventes / Trafic / Communauté / En direct, `analyticsNav.ts`), Global réparti, Audience + Hype absorbés (redirections), Communauté · Vue d'ensemble (`get_community_overview`), Trafic · Ma page + Par soirée (`get_page_traffic`), lexique appliqué ; + politique client des push manuels | Livré 24/09 |
 | F | Codes promo par soirée (`promo_codes`, `claim_promo_code` sous verrou + usage retenu 30 min, checkouts billets et tables, champ client, page `PromoCodes` club + orga, stats par code) ; ligne Stripe des billets remisée corrigée | Livré 24/09 |
-| G | Accusés de réception push (Notification Service Extension), goûts du réseau, « Ma page », outils de lecture de l'Assistant Console | Plus tard |
+| G | Goûts du réseau (`get_community_tastes`, Communauté → Goûts, ≥ 10 / ligne, opt-out, politique de confidentialité), accusés de réception push (serveur + colonne « Reçus » ; extension iOS à livrer avec le prochain binaire), outils de lecture de l'Assistant Console (rapport de soirée, communauté, push). « Ma page » livrée au lot E | Livré 24/09 (sauf extension iOS) |
 
 ## Ce qu'on NE copie pas
 
 Une colonne revenu à 0 € sur une soirée gratuite (on montre les inscrits) ;
 la pagination « 1 / 57 » ; les jours de la semaine sans l'heure ; le violet.
+
+## Reste à faire hors code web
+
+- **Notification Service Extension (app client iOS)** : nouvelle cible Xcode
+  dans `ios/App`, `didReceive(_:withContentHandler:)` lit `yr.c` / `yr.s` du
+  payload, appelle `POST <SUPABASE_URL>/rest/v1/rpc/ack_push_delivery`
+  (`apikey` = clé anon, corps `{"p_campaign_id": c, "p_subscription_id": s}`),
+  puis rend le contenu inchangé (même en cas d'échec réseau). Livrée avec le
+  prochain binaire App Store : l'OTA ne transporte pas de code natif.

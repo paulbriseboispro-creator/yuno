@@ -2192,6 +2192,10 @@ const help: Record<string, string> = {
   "ohelp.org.promo.s3b": "Cada código muestra sus usos, las entradas y mesas vendidas con él y el descuento concedido. La columna de ingresos se muestra a quien ve el dinero (tú, o un miembro del equipo con acceso a finanzas).",
   "ohelp.org.promo.s4h": "A tener en cuenta",
   "ohelp.org.promo.s4b": "• Nunca se acumula con el descuento de un promotor: gana el mayor.\n• Se vuelve a comprobar al pagar; un pago abandonado devuelve su uso a los 30 minutos.\n• Un código usado se desactiva, no se elimina.\n• Solo tú y los administradores de tu equipo gestionáis los códigos.",
+  "ohelp.pg.analytics.s15h": "Comunidad → Gustos",
+  "ohelp.pg.analytics.s15b": "Los géneros musicales de tu comunidad: las personas con cuenta Yuno que compraron, se apuntaron a una guest list o siguen tu página. Dos fuentes combinadas: lo que declararon en el quiz de gustos y los géneros de los eventos a los que fueron en todo Yuno en los últimos 18 meses.\n• Un género solo aparece a partir de **10 personas**; por debajo, la vista muestra \"Todavía no hay suficientes personas\".\n• Nadie se muestra individualmente, y las personas que desactivaron las recomendaciones personalizadas quedan fuera.\n• Úsalo para elegir un line-up, escribir una campaña o segmentar un anuncio: el género principal no siempre es el que crees.",
+  "ohelp.org.analytics.s10h": "Comunidad → Gustos",
+  "ohelp.org.analytics.s10b": "Los géneros musicales de tu comunidad (personas con cuenta Yuno que compraron, se apuntaron a una guest list o siguen tu página): respuestas al quiz de gustos más los géneros de los eventos a los que van en todo Yuno. Un género solo aparece a partir de 10 personas, nadie se muestra individualmente y quienes desactivaron las recomendaciones personalizadas quedan fuera.",
 };
 
 export default help;

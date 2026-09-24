@@ -79,3 +79,34 @@ export function trimLeadingEmpty<T extends { contacts: number; followers: number
   const first = series.findIndex((s) => s.contacts > 0 || s.followers > 0);
   return first <= 0 ? series : series.slice(first);
 }
+
+/** Communauté › Goûts (`get_community_tastes`, plan Shotgun lot G). */
+export interface CommunityTasteRow {
+  genre: string;
+  /** Personnes liées à ce genre (déclaré OU fréquenté), toujours ≥ threshold. */
+  n: number;
+  /** Sous-comptes : null sous le seuil, jamais un petit nombre. */
+  declared: number | null;
+  attended: number | null;
+}
+
+export interface CommunityTastes {
+  ok: true;
+  threshold: number;
+  /** Personnes avec compte liées à la portée (achat, guest list, abonnement), opt-out exclus. */
+  people: number;
+  /** Personnes dont au moins un genre est connu. */
+  known: number;
+  declaredKnown: number;
+  genres: CommunityTasteRow[];
+  /** Genres tus parce que sous le seuil. */
+  hidden: number;
+}
+
+/**
+ * La vue ne s'allume qu'au-dessus du seuil : au moins un genre qui réunit
+ * `threshold` personnes. En dessous, l'écran dit « pas encore assez de monde ».
+ */
+export function tastesReady(data: Pick<CommunityTastes, 'genres' | 'threshold'> | null | undefined): boolean {
+  return !!data && data.genres.some((g) => g.n >= data.threshold);
+}

@@ -152,14 +152,25 @@ async function sendToApns(
     return 'fail';
   }
   const deviceToken = subscription.endpoint.replace(/^apns:/, '');
+  // Accusé de réception (plan Shotgun, lot G) : une notification de CAMPAGNE
+  // (`?pc=` dans l'URL) porte de quoi dire « reçue » — `mutable-content`
+  // réveille la Notification Service Extension de l'app, qui renvoie
+  // `yr.c` + `yr.s` à `ack_push_delivery`. Sans extension dans le binaire,
+  // iOS affiche la notification telle quelle : ces deux clés sont inertes.
+  const campaignId = campaignIdFromUrl(payload.url);
   const res = await sendApns({
     deviceToken,
     topic,
     pushType: 'alert',
     priority: 10,
     payload: {
-      aps: { alert: { title: payload.title, body: payload.body }, sound: 'default' },
+      aps: {
+        alert: { title: payload.title, body: payload.body },
+        sound: 'default',
+        ...(campaignId ? { 'mutable-content': 1 } : {}),
+      },
       url: payload.url,
+      ...(campaignId ? { yr: { c: campaignId, s: subscription.id } } : {}),
     },
   });
 
@@ -171,6 +182,18 @@ async function sendToApns(
   }
   console.error(`[APNs] Unexpected HTTP ${res.status} ${res.reason} for token ${deviceToken.slice(0, 12)}...`);
   return 'fail';
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** L'id de campagne porté par `?pc=` dans l'URL d'une notification, sinon null. */
+function campaignIdFromUrl(url: string): string | null {
+  try {
+    const pc = new URL(url, 'https://yunoapp.eu').searchParams.get('pc');
+    return pc && UUID_RE.test(pc) ? pc : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

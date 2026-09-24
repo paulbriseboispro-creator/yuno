@@ -6,7 +6,7 @@
  *
  *   Ventes      « Combien ai-je vendu ? »        vue d'ensemble · par soirée · partenaires
  *   Trafic      « Est-ce qu'on me voit ? »        ma page · par soirée · sources
- *   Communauté  « Qui sont mes clients ? »        vue d'ensemble · abonnés · achats · public
+ *   Communauté  « Qui sont mes clients ? »        vue d'ensemble · abonnés · achats · public · goûts
  *   En direct   (inchangé)
  *
  * Les anciennes adresses (`?tab=global|event|purchase`, `/owner/audience`,
@@ -21,7 +21,7 @@ export const ANALYTICS_FAMILIES: readonly AnalyticsFamily[] = ['sales', 'traffic
 export const FAMILY_VIEWS = {
   sales: ['overview', 'event', 'partners'],
   traffic: ['page', 'events', 'sources'],
-  community: ['overview', 'subscribers', 'purchase', 'demographics'],
+  community: ['overview', 'subscribers', 'purchase', 'demographics', 'tastes'],
   live: ['now'],
 } as const satisfies Record<AnalyticsFamily, readonly string[]>;
 

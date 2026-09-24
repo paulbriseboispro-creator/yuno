@@ -2288,6 +2288,10 @@ const help: Record<string, string> = {
   "ohelp.org.promo.s3b": "Chaque code affiche ses utilisations, les billets et tables vendus avec lui et la remise accordée. La colonne CA s'affiche pour qui voit l'argent (toi, ou un membre d'équipe avec l'accès finances).",
   "ohelp.org.promo.s4h": "À savoir",
   "ohelp.org.promo.s4b": "• Jamais cumulé avec la remise d'un promoteur : la plus forte l'emporte.\n• Revérifié au paiement ; un paiement abandonné rend son utilisation au bout de 30 minutes.\n• Un code déjà utilisé se désactive, il ne se supprime pas.\n• Seuls toi et les admins de ton équipe gèrent les codes.",
+  "ohelp.pg.analytics.s15h": "Communauté → Goûts",
+  "ohelp.pg.analytics.s15b": "Les genres musicaux de votre communauté : les personnes avec un compte Yuno qui ont acheté, se sont inscrites en guest list ou suivent votre page. Deux sources réunies : ce qu'elles ont déclaré dans le quiz de goûts, et les genres des soirées où elles sont allées sur tout Yuno depuis 18 mois.\n• Un genre n'apparaît qu'à partir de **10 personnes** ; en dessous, la vue affiche \"Pas encore assez de monde\".\n• Personne n'est montré individuellement, et les personnes qui ont coupé les recommandations personnalisées sont exclues.\n• Servez-vous-en pour choisir un line-up, écrire une campagne ou cibler une pub : le genre en tête n'est pas toujours celui qu'on croit.",
+  "ohelp.org.analytics.s10h": "Communauté → Goûts",
+  "ohelp.org.analytics.s10b": "Les genres musicaux de ta communauté (personnes avec un compte Yuno qui ont acheté, se sont inscrites en guest list ou suivent ta page) : réponses au quiz de goûts plus genres des soirées où elles vont sur tout Yuno. Un genre ne s'affiche qu'à partir de 10 personnes, personne n'est montré individuellement, et celles qui ont coupé les recommandations personnalisées sont exclues.",
 };
 
 export default help;

@@ -437,6 +437,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/analytics?tab=community&view=overview",
     snippet: "Analytics → Communauté → Vue d'ensemble (RPC get_community_overview, sur la base vivante : fichiers importés + clients venus par Yuno, une ligne par personne). Quatre chiffres avec leur progression sur 30 jours : contacts, joignables par email (consentement actif, adresse valide), abonnés à la page, joignables par push (app iPhone + notifications). Puis : à combien de soirées ils viennent (0, 1, 2, 3, 4+ et la moyenne), quand ils ont acheté pour la dernière fois (< 3 mois, 3-6, 6-12, 1-2 ans, > 2 ans) avec un lien vers la base de contacts pour relancer, la croissance cumulée sur 24 mois (deux échelles si les ordres de grandeur diffèrent), et les nouveaux contacts apportés par chacune des 10 dernières soirées (première soirée chez toi). La fidélité (réachat, meilleurs clients) suit. Chaque chiffre partiel dit sur combien de personnes il repose.",
   },
+  "community-tastes": {
+    title: "Goûts musicaux de ta communauté",
+    keywords: ["goûts", "goûts musicaux", "genres", "genre musical", "musique", "quelle musique", "tastes", "music taste", "gustos", "techno", "house", "rap", "afro", "reggaeton", "line-up", "programmation"],
+    path: "/owner/analytics?tab=community&view=tastes",
+    snippet: "Analytics → Communauté → Goûts (RPC get_community_tastes, outil get_community_overview). Les genres des personnes avec un compte Yuno liées au club (achat, guest list, abonnement) : réponses au quiz de goûts + genres des soirées où elles sont allées sur TOUT Yuno depuis 18 mois. Agrégé et anonyme : un genre n'apparaît qu'à partir de 10 personnes, rien par personne, et les personnes qui ont coupé les recommandations personnalisées sont exclues. En dessous du seuil la vue affiche « Pas encore assez de monde ». Utile pour choisir un line-up, écrire une campagne ou cibler une pub Meta.",
+  },
   "page-traffic": {
     title: "Trafic — est-ce qu'on me voit ?",
     keywords: ["trafic", "traffic", "visites", "ma page", "page du club", "page organisateur", "vues", "qui voit ma page", "visites par soirée", "sources", "d'où viennent mes visiteurs", "instagram", "seo", "combien de visites"],
@@ -603,6 +609,42 @@ const TOOLS = [
           event_id: { type: "string", description: "UUID of the event" },
         },
         required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_event_report",
+      description: "Full report of ONE event, the same numbers as Analytics → Sales → By event: tickets/tables/guest list/drinks with today's delta, club revenue, page visits and their sources, who buys (new vs returning), sales channels, tracked links, and the emails/pushes sent for this event with the sales they brought. Also the last 14 days of the sales curve (d = days before the event). Use for « how is Saturday selling », « what made this event sell », « compare with last time » (call it for both events).",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "UUID of the event (use list_events to find it)" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_community_overview",
+      description: "The club's community (Analytics → Community): contacts (imported files + Yuno customers), email-reachable, followers, push-reachable, 30-day growth, how many events people come to (0-4+), when they last bought, new contacts brought by each of the last 10 events, and the community's music tastes (aggregated, only genres with ≥ 10 people). Use for « who are my customers », « is my base growing », « what music do my customers like ».",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_push_history",
+      description: "History of the club's push notifications (manual, automatic, scheduled) with targeted / sent / opened (first tap per person) / buyers / revenue attributed (tap → purchase < 72 h), the 30-day summary and followers (total, reachable on iPhone, new). Use for « did my last push work », « how many people can I reach by push ».",
+      parameters: {
+        type: "object",
+        properties: {
+          filter: { type: "string", enum: ["all", "manual", "auto", "scheduled"], description: "Default all" },
+        },
+        required: [],
       },
     },
   },
@@ -1083,10 +1125,67 @@ async function executeTool(
   toolName: string,
   args: Record<string, any>,
   supabase: any,
-  venueId: string
+  venueId: string,
+  // Client au JWT de l'appelant : les RPC d'analyse (lot G) décident de la
+  // portée et de l'argent sur auth.uid(), jamais le service role.
+  userClient?: any,
 ): Promise<string> {
   try {
     switch (toolName) {
+
+      // ─── ANALYSE (mêmes RPC que les écrans Analytics / Push) ───
+      case "get_event_report": {
+        if (!userClient) return JSON.stringify({ error: "unavailable" });
+        const { data: evt } = await supabase.from("events").select("id").eq("id", args.event_id)
+          .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`).maybeSingle();
+        if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
+        const { data, error } = await userClient.rpc("get_event_report", { p_event_id: args.event_id });
+        if (error) return JSON.stringify({ error: error.message });
+        if (!data?.ok) return JSON.stringify({ error: data?.reason || "unavailable" });
+        const { series, lines, ...rest } = data;
+        return JSON.stringify({
+          ...rest,
+          lines: (lines || []).slice(0, 20),
+          series_last_14_days: (series || []).slice(-14),
+          page: `/owner/analytics?tab=sales&view=event&event=${args.event_id}`,
+          note: "Amounts = club revenue (Yuno fees, insurance and refunds deducted); revenue is null when the caller can't see money. d = calendar days before the event (event timezone).",
+        }).slice(0, 14000);
+      }
+      case "get_community_overview": {
+        if (!userClient) return JSON.stringify({ error: "unavailable" });
+        const [{ data: ov, error: e1 }, { data: tastes }] = await Promise.all([
+          userClient.rpc("get_community_overview", { p_venue_id: venueId }),
+          userClient.rpc("get_community_tastes", { p_venue_id: venueId }),
+        ]);
+        if (e1) return JSON.stringify({ error: e1.message });
+        if (!ov?.ok) return JSON.stringify({ error: ov?.reason || "unavailable" });
+        const { growth, ...rest } = ov;
+        return JSON.stringify({
+          ...rest,
+          growth_last_6_months: (growth?.series || []).slice(-6),
+          tastes: tastes?.ok ? { people: tastes.people, known: tastes.known, genres: tastes.genres, hidden_genres: tastes.hidden, threshold: tastes.threshold } : null,
+          page: "/owner/analytics?tab=community",
+          note: "Music tastes are aggregated: a genre only appears with at least 10 people (quiz answers + genres of events they attended anywhere on Yuno in 18 months). Never describe an individual's tastes.",
+        }).slice(0, 12000);
+      }
+      case "get_push_history": {
+        if (!userClient) return JSON.stringify({ error: "unavailable" });
+        const filter = ["all", "manual", "auto", "scheduled"].includes(args.filter) ? args.filter : "all";
+        const { data, error } = await userClient.rpc("get_push_campaigns", { p_venue_id: venueId, p_filter: filter, p_limit: 10, p_offset: 0 });
+        if (error) return JSON.stringify({ error: error.message });
+        if (!data?.ok) return JSON.stringify({ error: data?.reason || "unavailable" });
+        return JSON.stringify({
+          summary_30_days: data.summary,
+          followers: data.followers,
+          total_campaigns: data.total,
+          latest: (data.campaigns || []).map((c: any) => ({
+            title: c.title, source: c.source, status: c.status, at: c.scheduledAt || c.createdAt, event: c.eventTitle,
+            targeted: c.targeted, sent: c.sent, opened: c.taps, buyers: c.buyers, guest_list_entries: c.entries, revenue: c.revenue,
+          })),
+          page: "/owner/push",
+          note: "« Sent » = accepted by Apple, not proof of display. « Opened » = first tap per person. Revenue = tap → purchase within 72 h, club revenue; null when the caller can't see money.",
+        });
+      }
 
       // ─── STATS ───
       case "get_venue_stats": {
@@ -2816,7 +2915,7 @@ serve(async (req) => {
         }
 
         log("tool_exec", { round, tool: fnName, args: fnArgs });
-        const result = await executeTool(fnName, fnArgs, supabase, venueId);
+        const result = await executeTool(fnName, fnArgs, supabase, venueId, supabaseAuth);
         log("tool_result", { round, tool: fnName, result_length: result.length });
 
         conversationMessages.push({

@@ -22,6 +22,11 @@ export interface PushCampaignRow {
   /** Acceptés par Apple (APNs) — pas une preuve de réception. */
   sent: number;
   failed: number;
+  /**
+   * Reçues sur l'iPhone (accusé de la Notification Service Extension, lot G).
+   * `null`/absent tant que l'extension n'est pas dans le binaire.
+   */
+  delivered?: number | null;
   /** Personnes qui ont touché la notification (1 par personne). */
   taps: number;
   buyers: number;
@@ -63,4 +68,9 @@ export function campaignLabel(row: PushCampaignRow, t: (k: string) => string): s
 export function reachableShare(f: PushCampaignsPage['followers']): number | null {
   if (!f.total) return null;
   return Math.round((f.reachable / f.total) * 100);
+}
+
+/** La colonne « Reçus » ne s'allume qu'avec un premier accusé : sans extension, rien ne ment. */
+export function hasDeliveryReceipts(rows: readonly Pick<PushCampaignRow, 'delivered'>[]): boolean {
+  return rows.some((r) => (r.delivered ?? 0) > 0);
 }

@@ -18631,6 +18631,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      ack_push_delivery: {
+        Args: { p_campaign_id: string; p_subscription_id: string }
+        Returns: boolean
+      }
       check_promo_code: {
         Args: {
           p_code: string
@@ -20362,8 +20366,16 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_community_tastes: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_page_traffic: {
         Args: { p_days?: number; p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: Json
+      }
+      get_push_delivery_counts: {
+        Args: { p_campaign_ids: string[] }
         Returns: Json
       }
       get_promo_codes: {

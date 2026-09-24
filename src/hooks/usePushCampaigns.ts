@@ -41,8 +41,17 @@ export function usePushCampaigns(scope: PushScope, filter: PushFilter, page: num
           setData(null);
           return;
         }
+        // Accusés de réception (lot G) : un appel à part, qui ne bloque jamais la liste.
+        let withReceipts = res;
+        const ids = res.campaigns.map((c) => c.id);
+        if (ids.length > 0) {
+          const { data: counts } = await supabase.rpc('get_push_delivery_counts' as never, { p_campaign_ids: ids } as never);
+          if (cancelled) return;
+          const byId = (counts ?? {}) as Record<string, number>;
+          withReceipts = { ...res, campaigns: res.campaigns.map((c) => ({ ...c, delivered: byId[c.id] ?? null })) };
+        }
         setError(null);
-        setData(res);
+        setData(withReceipts);
         setFetchedAt(new Date());
       } catch (e) {
         console.error('get_push_campaigns', e);

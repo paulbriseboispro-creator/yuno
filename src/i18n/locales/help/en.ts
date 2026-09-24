@@ -2192,6 +2192,10 @@ const help: Record<string, string> = {
   "ohelp.org.promo.s3b": "Each code shows its uses, the tickets and tables sold with it and the discount given. The revenue column is shown to whoever can see the money (you, or a team member with finance access).",
   "ohelp.org.promo.s4h": "Good to know",
   "ohelp.org.promo.s4b": "• Never stacks with a promoter's discount: the bigger one wins.\n• Checked again at payment; an abandoned checkout gives its use back after 30 minutes.\n• A used code can be switched off, not deleted.\n• Only you and your team admins manage codes.",
+  "ohelp.pg.analytics.s15h": "Community → Tastes",
+  "ohelp.pg.analytics.s15b": "The music genres of your community: people with a Yuno account who bought, joined a guest list or follow your page. Two sources are combined: what they declared in the taste quiz, and the genres of the events they went to across Yuno in the last 18 months.\n• A genre only appears once it gathers **at least 10 people**; below that, the view says \"Not enough people yet\".\n• Nobody is shown individually, and people who turned off personalized recommendations are left out.\n• Use it to pick a line-up, write a campaign or target an ad: the top genre is often not the one you expect.",
+  "ohelp.org.analytics.s10h": "Community → Tastes",
+  "ohelp.org.analytics.s10b": "The music genres of your community (people with a Yuno account who bought, joined a guest list or follow your page): taste-quiz answers plus the genres of the events they go to across Yuno. A genre only shows from 10 people, nobody is shown individually, and people who turned off personalized recommendations are left out.",
 };
 
 export default help;

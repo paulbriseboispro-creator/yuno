@@ -13,7 +13,7 @@ import { MetricHint, UpdatedAt } from '@/components/analytics/kit';
 import { KIT, pctFmt, useNumberFormat } from '@/components/analytics/kitFormat';
 import { CardTitle, EmptyNote, ReportCard, Segmented } from '@/components/event-report/ui';
 import { INNER_BG } from '@/components/event-report/tokens';
-import { campaignLabel, openRate, type PushCampaignRow, type PushCampaignsPage, type PushFilter } from '@/lib/pushHistory';
+import { campaignLabel, hasDeliveryReceipts, openRate, type PushCampaignRow, type PushCampaignsPage, type PushFilter } from '@/lib/pushHistory';
 
 const RED_SOFT = 'rgba(232,25,44,0.1)';
 const RED_LINE = 'rgba(232,25,44,0.25)';
@@ -40,6 +40,7 @@ export default function PushHistoryCard({ data, loading, error, fetchedAt, filte
 
   const money = !!data?.money;
   const rows = data?.campaigns ?? [];
+  const receipts = hasDeliveryReceipts(rows);
   const total = data?.total ?? 0;
   const from = total === 0 ? 0 : page * pageSize + 1;
   const to = Math.min(total, (page + 1) * pageSize);
@@ -136,6 +137,7 @@ export default function PushHistoryCard({ data, loading, error, fetchedAt, filte
                   <th className="pb-2 text-left font-semibold">{t('ph.col.notification')}</th>
                   <Th label={t('ph.col.targeted')} hint={t('ph.hint.targeted')} />
                   <Th label={t('ph.col.sent')} hint={t('ph.hint.sent')} />
+                  {receipts && <Th label={t('ph.col.delivered')} hint={t('ph.hint.delivered')} />}
                   <Th label={t('ph.col.opened')} hint={t('ph.hint.opened')} />
                   <Th label={t('ph.col.rate')} />
                   <Th label={t('ph.col.buyers')} hint={t('ph.hint.buyers')} />
@@ -149,13 +151,14 @@ export default function PushHistoryCard({ data, loading, error, fetchedAt, filte
                       <NameCell row={r} dateFmt={dateFmt} cancelling={cancellingId === r.id} onCancel={() => cancel(r.id)} />
                     </td>
                     {r.status === 'scheduled' ? (
-                      <td colSpan={money ? 6 : 5} className="py-3 text-right align-top" style={{ color: KIT.T3, fontSize: 12 }}>
+                      <td colSpan={(money ? 6 : 5) + (receipts ? 1 : 0)} className="py-3 text-right align-top" style={{ color: KIT.T3, fontSize: 12 }}>
                         {t('ph.notYetSent')}
                       </td>
                     ) : (
                       <>
                         <Td>{n(r.targeted)}</Td>
                         <Td>{n(r.sent)}</Td>
+                        {receipts && <Td muted={!r.delivered}>{r.delivered ? n(r.delivered) : <Dash />}</Td>}
                         <Td>{n(r.taps)}</Td>
                         <Td muted>{fmtRate(openRate(r.taps, r.sent))}</Td>
                         <Td>{r.buyers > 0 ? n(r.buyers) : <Dash />}{r.entries > 0 && <EntriesNote n={r.entries} />}</Td>
@@ -175,7 +178,7 @@ export default function PushHistoryCard({ data, loading, error, fetchedAt, filte
                 <NameCell row={r} dateFmt={dateFmt} cancelling={cancellingId === r.id} onCancel={() => cancel(r.id)} />
                 {r.status !== 'scheduled' && (
                   <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Mini label={t('ph.col.sent')} value={n(r.sent)} />
+                    <Mini label={t('ph.col.sent')} value={receipts && r.delivered ? `${n(r.sent)} · ${t('ph.deliveredShort').replace('{n}', n(r.delivered))}` : n(r.sent)} />
                     <Mini label={t('ph.col.opened')} value={`${n(r.taps)} · ${fmtRate(openRate(r.taps, r.sent))}`} />
                     {money
                       ? <Mini label={t('ph.col.revenue')} value={(r.revenue ?? 0) > 0 ? eur(r.revenue ?? 0) : '—'} />

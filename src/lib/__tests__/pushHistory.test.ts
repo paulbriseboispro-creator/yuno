@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { campaignLabel, openRate, reachableShare, type PushCampaignRow } from '../pushHistory';
+import { campaignLabel, hasDeliveryReceipts, openRate, reachableShare, type PushCampaignRow } from '../pushHistory';
 
 const row: PushCampaignRow = {
   id: 'c', title: '📅 Nouveau chez Womber', body: null, templateKey: 'new_event', source: 'auto',
@@ -26,5 +26,13 @@ describe('openRate / reachableShare', () => {
     expect(openRate(3, 0)).toBeNull();
     expect(reachableShare({ total: 752, reachable: 301, new30d: 12 })).toBe(40);
     expect(reachableShare({ total: 0, reachable: 0, new30d: 0 })).toBeNull();
+  });
+});
+
+describe('hasDeliveryReceipts', () => {
+  it('stays off until a first receipt arrives', () => {
+    expect(hasDeliveryReceipts([])).toBe(false);
+    expect(hasDeliveryReceipts([{ delivered: null }, { delivered: 0 }, {}])).toBe(false);
+    expect(hasDeliveryReceipts([{ delivered: null }, { delivered: 3 }])).toBe(true);
   });
 });
