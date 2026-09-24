@@ -438,6 +438,30 @@ posée dans un dashboard pro, décision produit assumée. Règles :
   Chrome `--headless=new --use-angle=swiftshader`) a servi à voir le globe en
   vrai ; `--dump-dom` ne dit rien d'un canvas WebGL.
 
+## Comportement d'achat — Analytics → Comportement d'achat (2026-09-24)
+
+`/owner/analytics?tab=purchase` et `/organizer-app/analytics?tab=purchase`
+(`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
+`src/lib/purchaseBehavior.ts`, testés). Le reste de la page dit « combien ai-je
+vendu ? », cet onglet dit « comment mes clients achètent-ils ? » : délai avant
+la soirée, jour × heure, rythme du bar dans la nuit, taille de groupe / panier /
+palier, options prises, nouveaux vs habitués et concentration, achats croisés
+le même soir, canaux, passage visite → achat, présence à la porte. Règles :
+
+- **Une seule RPC, `get_purchase_behavior(p_venue_id, p_organizer_user_id,
+  p_from, p_to)`** (migration `20260924120000`), même porte, mêmes statuts et
+  mêmes formules que `get_live_view` (CA club de `fees.ts`, remboursement
+  déduit, instant d'achat = `coalesce(paid_at, created_at)`). Le front ne fait
+  que mettre en forme ; les phrases « À retenir » se taisent sur une base mince.
+- **Les boissons n'existent qu'en portée club** (`hasDrinks`) : l'organisateur
+  ne tient pas de bar, les commandes du bar d'un club ne lui appartiennent pas.
+- **Présence = soirées TERMINÉES dont la porte a scanné au moins une entrée** :
+  sans scanner, « pas scanné » ne veut pas dire « pas venu ».
+- L'onglet partage le sélecteur de période de la page ; l'export CSV y est
+  masqué (il exporte les ventes, pas ce tableau). Clés i18n `pb.*` (×3),
+  onglet `owner.an.purchaseTab`, aide `ohelp.pg.analytics.s11*` et
+  `ohelp.org.analytics.s6*`, assistant : article `purchase-behavior`.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous

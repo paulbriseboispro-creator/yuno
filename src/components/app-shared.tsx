@@ -17,6 +17,7 @@ import {
 	BellIcon,
 	TrendingUpIcon,
 	RadioIcon,
+	ShoppingBagIcon,
 	SparklesIcon,
 	Music2Icon,
 	HandshakeIcon,
@@ -89,6 +90,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 					subItems: [
 						{ title: t('owner.an.global'), path: "/owner/analytics?tab=global", icon: <GlobeIcon />, isDefault: true },
 						{ title: t('owner.an.event'), path: "/owner/analytics?tab=event", icon: <CalendarIcon /> },
+						{ title: t('owner.an.purchaseTab'), path: "/owner/analytics?tab=purchase", icon: <ShoppingBagIcon /> },
 						{ title: t('owner.an.liveTab'), path: "/owner/analytics?tab=live", icon: <RadioIcon /> },
 						{ title: t('sidebar.audience'), path: "/owner/audience", icon: <UsersIcon /> },
 						{ title: t('sidebar.hypeScore'), path: "/owner/hype", icon: <TrendingUpIcon /> },
