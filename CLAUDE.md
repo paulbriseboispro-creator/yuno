@@ -184,7 +184,9 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   lune/soleil dans les en-têtes ; préférence par appareil (`localStorage`
   `yuno:pro-theme`, toute valeur ≠ `light` = sombre). La bascule s'ouvre en
   CERCLE depuis le bouton cliqué (`setProThemePref(pref, originOf(el))`, View
-  Transitions + `clip-path`, classe `pro-theme-vt` le temps de la transition) ;
+  Transitions + keyframes `clip-path` sur `--vt-x/y/r`, classe `pro-theme-vt` le
+  temps de la transition, qui coupe TOUTES les transitions/animations de la page
+  — sinon le cercle accroche en plein milieu) ;
   sans View Transitions ou avec « réduire les animations », bascule nette. `html[data-pro-theme="light"]`
   n'est posé QUE sur une route pro (`isThemedProPath`, `src/lib/proTheme.ts`,
   miroir du script anti-flash d'`index.html`) : public, app client, emails et

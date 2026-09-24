@@ -123,26 +123,31 @@ export function setProThemePref(pref: ProThemePref, origin?: ThemeOrigin): void 
   const root = document.documentElement;
   const x = origin?.x ?? window.innerWidth - 40;
   const y = origin?.y ?? 40;
-  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+  const radius = Math.ceil(Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)));
 
+  // Le cercle est une animation CSS (pro-theme.css) lue dans ces trois
+  // variables, posées AVANT la capture : elle démarre avec la première image
+  // de la transition. Un `element.animate()` lancé depuis `vt.ready` laissait
+  // passer une image où tout le nouveau thème s'affichait d'un coup.
+  root.style.setProperty('--vt-x', `${x}px`);
+  root.style.setProperty('--vt-y', `${y}px`);
+  root.style.setProperty('--vt-r', `${radius}px`);
   root.classList.add('pro-theme-vt');
+  const cleanup = () => {
+    root.classList.remove('pro-theme-vt');
+    root.style.removeProperty('--vt-x');
+    root.style.removeProperty('--vt-y');
+    root.style.removeProperty('--vt-r');
+  };
   try {
     const vt = doc.startViewTransition(() => {
       // Le nouveau thème ET l'état React (sélecteur, icône) avant la capture.
       applyProTheme(pref);
       flushSync(notify);
     });
-    vt.ready
-      .then(() => {
-        root.animate(
-          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-          { duration: 560, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' },
-        );
-      })
-      .catch(() => {});
-    vt.finished.finally(() => root.classList.remove('pro-theme-vt'));
+    vt.finished.finally(cleanup);
   } catch {
-    root.classList.remove('pro-theme-vt');
+    cleanup();
     applyProTheme(pref);
     notify();
   }

@@ -95,6 +95,15 @@ describe('choix du thème / tint', () => {
     expect(CSS).not.toMatch(/^::view-transition/m);
   });
 
+  it('coupe transitions et animations de la page pendant le cercle (sinon il accroche)', () => {
+    const i = CSS.indexOf('html.pro-theme-vt *,');
+    expect(i).toBeGreaterThan(-1);
+    const rule = CSS.slice(i, CSS.indexOf('}', i));
+    expect(rule).toContain('transition: none !important');
+    expect(rule).toContain('animation-play-state: paused !important');
+    expect(CSS).toMatch(/view-transition-new\(root\) \{[^}]*animation: pro-theme-reveal/);
+  });
+
   it('rend une teinte translucide valide quel que soit le format de couleur', () => {
     expect(tint('#34D399', '1A')).toBe('#34D3991A');
     expect(tint('var(--acc-34d399)', '1A')).toBe('#34d3991A');
