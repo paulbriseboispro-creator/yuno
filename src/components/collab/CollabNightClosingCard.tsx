@@ -13,7 +13,7 @@ import {
   getSettlementBankDetails, settlementErrorCode,
 } from '@/lib/collabSettlement';
 import { tierFor } from '@/lib/splitRules';
-import { ActionOverlay, ActionResultCard } from '@/components/action/ActionOverlay';
+import { ActionFigure, ActionOverlay, ActionResultCard } from '@/components/action/ActionOverlay';
 import { formatIban, daysUntil } from '@/lib/promoterPayout';
 
 const eur = (n: number | null | undefined) =>
@@ -427,13 +427,18 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
         onClose={() => setRunOpen(false)}
         done={runResult ? (
           <ActionResultCard kicker={tk('owner.closingrun.cardKicker')}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', alignItems: 'baseline', columnGap: 14, rowGap: 9 }}>
-              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 34, lineHeight: .9, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums', color: '#E8192C' }}>{eur(runResult.due)}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.total')}</div>
-              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>{eur(runResult.online)}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.stripe')}</div>
-              <div style={{ textAlign: 'right', fontFamily: "'Space Grotesk', sans-serif", fontWeight: 500, fontSize: 16, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: '#E5E5E5' }}>{eur(runResult.sepa)}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9.5, fontWeight: 500, letterSpacing: '.10em', textTransform: 'uppercase', color: '#9A9A9A' }}>{tk('owner.closingrun.sepa')}</div>
+            <div style={{
+              background: 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.04))',
+              border: '1px solid rgba(232,25,44,0.22)', borderRadius: 12, padding: '12px 14px',
+            }}>
+              <ActionFigure value={eur(runResult.due)} label={tk('owner.closingrun.total')} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {([[runResult.online, 'owner.closingrun.stripe'], [runResult.sepa, 'owner.closingrun.sepa']] as const).map(([amount, key]) => (
+                <div key={key} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.085)', borderRadius: 12, padding: '10px 12px' }}>
+                  <ActionFigure size="secondary" value={eur(amount)} label={tk(key)} />
+                </div>
+              ))}
             </div>
           </ActionResultCard>
         ) : null}

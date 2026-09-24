@@ -839,3 +839,32 @@ Référence : `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/component
 | **Recherche** (`src/lib/helpSearch.ts`) : pliée sans accents, scorée titre > mots-clés > description > sections, résultat = article + section qui a fait mouche + extrait surligné | Ouvrir l'article au bon paragraphe, pas en haut |
 | **Avis « utile ? » et « reprendre »** vivent en `localStorage` | Aucune table, aucune migration : ce sont des conforts, pas des données |
 
+
+---
+
+## 16. Écran d'action (publication, envoi, import, décompte)
+
+Les quatre « animations » de la Console — publier une soirée
+(`PublishingOverlay`), envoyer une campagne (`ReviewStep`), importer des
+contacts (`ContactImportDialog`), répartir une co-soirée
+(`CollabNightClosingCard`) — passent toutes par UN moteur :
+`src/components/action/ActionOverlay.tsx`, tokens dans
+`src/components/action/tokens.ts` (`ACT`). Elles sont dans CE design system
+depuis le 2026-09-24 (elles avaient d'abord été dessinées en DA publique :
+Space Grotesk, mono, filet rouge — à ne pas réintroduire).
+
+- Fond flouté `rgba(0,0,0,.72)`, une **carte hero** (§3.5) de 520 px max au
+  centre : icône d'état 40 px (spinner rouge → coche verte), titre 17 px sur
+  UNE ligne (les `\n` des clés i18n sont repliés), étape en cours en T3,
+  pourcentage en KPI à droite, remplacé à la fin par une pill verte (§7.2)
+  portant le mot final.
+- Progress bar §8.3 (6 px, rouge en cours, `POS` terminé). Étapes dans une
+  carte imbriquée (§3.2) : numéro → spinner → coche, statut coloré
+  (T3 / rouge / vert).
+- Carte de résultat = `ActionResultCard` + `ActionFigure` (KPI + label
+  uppercase, `primary` / `secondary`) + `ActionNote` (muted). Un nouvel écran
+  d'action compose ces trois-là, il ne redessine pas de chiffre à la main.
+- Rouge pendant le travail, vert quand c'est fait : c'est la seule
+  sémantique de couleur de l'écran. La mécanique (plancher, plafond, compteur
+  borné à 99 %) est décrite en tête du fichier et ne se touche pas pour un
+  changement visuel.
