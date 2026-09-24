@@ -8,7 +8,7 @@ export interface PurchaseBehaviorScope {
 }
 
 /**
- * Onglet « Comportement d'achat » : un seul aller-retour
+ * Onglet « Achats » (comportement d'achat) : un seul aller-retour
  * (`get_purchase_behavior`), rappelé quand la portée ou la période changent.
  */
 export function usePurchaseBehavior(scope: PurchaseBehaviorScope, range: { from: string; to: string }) {
