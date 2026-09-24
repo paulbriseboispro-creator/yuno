@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { applyProTheme, isThemedProPath, useProTheme } from '@/lib/proTheme';
 import { isNative } from '@/lib/native';
@@ -13,14 +13,13 @@ export function ProThemeController() {
   const { resolved } = useProTheme();
   const themed = isThemedProPath(pathname);
   const target = themed ? resolved : null;
-  const lastResolved = useRef(resolved);
 
+  // Le changement de thème par la personne passe par `setProThemePref`, qui
+  // pose déjà l'attribut dans sa transition en cercle : ici on ne fait que
+  // suivre la navigation (entrer / sortir d'un dashboard), sans animation.
   useEffect(() => {
-    // Fondu seulement quand la personne bascule elle-même, pas à la navigation.
-    const animate = themed && lastResolved.current !== resolved;
-    lastResolved.current = resolved;
-    applyProTheme(target, { animate });
-  }, [target, themed, resolved]);
+    applyProTheme(target);
+  }, [target]);
 
   // Barre d'état iOS : texte sombre sur un dashboard clair, clair partout ailleurs.
   useEffect(() => {

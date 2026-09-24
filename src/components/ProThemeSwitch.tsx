@@ -1,32 +1,33 @@
-import { Moon, Sun, Monitor } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useProTheme, type ProThemePref } from '@/lib/proTheme';
+import { originOf, useProTheme, type ProThemePref } from '@/lib/proTheme';
 import { cn } from '@/lib/utils';
 
 const OPTIONS: { value: ProThemePref; icon: LucideIcon; key: string }[] = [
   { value: 'light', icon: Sun, key: 'proTheme.light' },
   { value: 'dark', icon: Moon, key: 'proTheme.dark' },
-  { value: 'system', icon: Monitor, key: 'proTheme.system' },
 ];
 
 /**
- * Réglage « Apparence » des dashboards pro : Clair / Sombre / Système.
+ * Réglage « Apparence » des dashboards pro : Clair / Sombre (le sombre est le
+ * défaut, un troisième choix « Système » n'apportait rien de plus).
  * Une seule implémentation, posée au pied de CHAQUE barre latérale pro
  * (club, manager, organisateur, agence, affilié, promoteur, DJ) et dans la
  * barre du super admin. Quand la barre est repliée en icônes, le sélecteur
- * devient un bouton unique qui bascule clair ⇄ sombre.
+ * devient un bouton unique qui bascule clair ⇄ sombre. Chaque bouton passe
+ * son centre à `setPref` : c'est de là que part le cercle de la transition.
  */
-export function ProThemeSegmented({ className, showLabels = false }: { className?: string; showLabels?: boolean }) {
+export function ProThemeSegmented({ className }: { className?: string }) {
   const { t } = useLanguage();
   const { pref, setPref } = useProTheme();
   return (
     <div
       role="radiogroup"
       aria-label={t('proTheme.title')}
-      className={cn('grid grid-cols-3 gap-0.5 rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5', className)}
+      className={cn('grid grid-cols-2 gap-0.5 rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5', className)}
     >
       {OPTIONS.map(({ value, icon: Icon, key }) => {
         const on = pref === value;
@@ -36,9 +37,7 @@ export function ProThemeSegmented({ className, showLabels = false }: { className
             type="button"
             role="radio"
             aria-checked={on}
-            aria-label={t(key)}
-            title={t(key)}
-            onClick={() => setPref(value)}
+            onClick={(e) => setPref(value, originOf(e.currentTarget))}
             className={cn(
               'flex h-7 min-w-0 items-center justify-center gap-1.5 rounded-md text-[11.5px] font-medium transition-colors',
               on
@@ -47,7 +46,7 @@ export function ProThemeSegmented({ className, showLabels = false }: { className
             )}
           >
             <Icon className="h-3.5 w-3.5 shrink-0" />
-            {showLabels && <span className="truncate">{t(key)}</span>}
+            <span className="truncate">{t(key)}</span>
           </button>
         );
       })}
@@ -55,16 +54,12 @@ export function ProThemeSegmented({ className, showLabels = false }: { className
   );
 }
 
-/** Libellé « Apparence » + choix courant, au-dessus du sélecteur. */
+/** Libellé « Apparence » au-dessus du sélecteur. */
 export function ProThemeField({ className }: { className?: string }) {
   const { t } = useLanguage();
-  const { pref } = useProTheme();
   return (
     <div className={className}>
-      <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
-        <p className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-white/40">{t('proTheme.title')}</p>
-        <p className="truncate text-[11px] text-white/55">{t(`proTheme.${pref}`)}</p>
-      </div>
+      <p className="mb-1.5 px-1 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-white/40">{t('proTheme.title')}</p>
       <ProThemeSegmented />
     </div>
   );
@@ -83,7 +78,7 @@ export function ProThemeIconButton({ className }: { className?: string }) {
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={() => setPref(next)}
+            onClick={(e) => setPref(next, originOf(e.currentTarget))}
             aria-label={label}
             className={cn(
               'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground',
@@ -118,7 +113,7 @@ export function SidebarProThemeSwitch() {
           size="sm"
           tooltip={label}
           aria-label={label}
-          onClick={() => setPref(next)}
+          onClick={(e) => setPref(next, originOf(e.currentTarget))}
           className="hidden text-muted-foreground group-data-[collapsible=icon]:flex"
         >
           <Icon />

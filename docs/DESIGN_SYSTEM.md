@@ -854,7 +854,9 @@ Référence : `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/component
 Toute la Yuno Console (club, manager, organisateur, agence), les espaces
 affilié, promoteur, DJ et le super admin existent en **sombre** (historique,
 par défaut) et en **clair**. Réglage « Apparence » au pied de chaque barre
-latérale (Clair / Sombre / Système) + icône lune/soleil dans les en-têtes.
+latérale (Clair / Sombre) + icône lune/soleil dans les en-têtes. La nouvelle
+couleur s'ouvre en cercle depuis le bouton cliqué : tout bouton qui change le
+thème passe son centre (`setPref(next, originOf(e.currentTarget))`).
 Code : `src/lib/proTheme.ts`, `src/components/ProThemeController.tsx`,
 `src/components/ProThemeSwitch.tsx`, `src/styles/pro-theme.css`,
 `tailwind.theme.ts`. Garde-fou : `src/lib/__tests__/proTheme.test.ts`.

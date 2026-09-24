@@ -1,8 +1,8 @@
 /**
- * Thème des dashboards pro — sombre (historique) ou clair.
+ * Thème des dashboards pro — sombre (historique, par défaut) ou clair.
  *
  * Porte unique :
- *   • la PRÉFÉRENCE (`dark` | `light` | `system`) est tenue par appareil dans
+ *   • la PRÉFÉRENCE (`dark` | `light`) est tenue par appareil dans
  *     localStorage (`yuno:pro-theme`) et diffusée aux autres onglets ;
  *   • les ROUTES concernées sont décidées par `isThemedProPath` — la Yuno
  *     Console (club, manager, organisateur, agence), les espaces affilié,
@@ -18,10 +18,12 @@
  * Les deux doivent rester alignés — clé de stockage, préfixes de routes.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { isDJAppPath } from '@/lib/native';
 
-export type ProThemePref = 'dark' | 'light' | 'system';
 export type ProTheme = 'dark' | 'light';
+/** Deux choix, pas de « Système » : le sombre EST le thème par défaut. */
+export type ProThemePref = ProTheme;
 
 export const PRO_THEME_STORAGE_KEY = 'yuno:pro-theme';
 const CHANGE_EVENT = 'yuno:pro-theme-change';
@@ -45,45 +47,18 @@ export function isThemedProPath(pathname: string): boolean {
   return THEMED_PRO_PREFIXES.some((p) => clean === p || clean.startsWith(p + '/'));
 }
 
-function isPref(v: unknown): v is ProThemePref {
-  return v === 'dark' || v === 'light' || v === 'system';
-}
-
+/** Toute valeur autre que `light` (absente, ancienne valeur `system`…) = sombre. */
 export function getProThemePref(): ProThemePref {
   try {
-    const v = localStorage.getItem(PRO_THEME_STORAGE_KEY);
-    return isPref(v) ? v : 'dark';
+    return localStorage.getItem(PRO_THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark';
   } catch {
     return 'dark';
   }
 }
 
-export function setProThemePref(pref: ProThemePref): void {
-  try {
-    localStorage.setItem(PRO_THEME_STORAGE_KEY, pref);
-  } catch {
-    // Navigation privée / stockage bloqué : le réglage vit le temps de l'onglet.
-  }
-  memoryPref = pref;
-  window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: pref }));
-}
-
 let memoryPref: ProThemePref | null = null;
 function currentPref(): ProThemePref {
   return memoryPref ?? getProThemePref();
-}
-
-function systemPrefersLight(): boolean {
-  try {
-    return window.matchMedia('(prefers-color-scheme: light)').matches;
-  } catch {
-    return false;
-  }
-}
-
-export function resolveProTheme(pref: ProThemePref): ProTheme {
-  if (pref === 'system') return systemPrefersLight() ? 'light' : 'dark';
-  return pref;
 }
 
 /** Thème effectivement appliqué à `<html>` (null = hors dashboard pro). */
@@ -92,35 +67,95 @@ export function readAppliedProTheme(): ProTheme | null {
   return v === 'light' || v === 'dark' ? v : null;
 }
 
-let switchTimer: number | undefined;
-
-/**
- * Pose (ou retire) le thème sur `<html>`. `animate` ajoute un fondu court,
- * seulement quand la personne change elle-même de thème — jamais à la
- * navigation, où le fondu ferait « respirer » chaque page.
- */
-export function applyProTheme(theme: ProTheme | null, { animate = false } = {}): void {
+/** Pose (ou retire) le thème sur `<html>`, sans animation. */
+export function applyProTheme(theme: ProTheme | null): void {
   const root = document.documentElement;
-  const prev = readAppliedProTheme();
-  if (prev === theme) return;
-  if (animate) {
-    root.classList.add('pro-theme-switching');
-    window.clearTimeout(switchTimer);
-    switchTimer = window.setTimeout(() => root.classList.remove('pro-theme-switching'), 260);
-  }
+  if (readAppliedProTheme() === theme) return;
   if (theme) root.setAttribute('data-pro-theme', theme);
   else root.removeAttribute('data-pro-theme');
 }
 
-/** Préférence + thème résolu, synchronisés entre onglets et avec l'OS. */
+/** Point d'où part le cercle : le centre du bouton cliqué. */
+export type ThemeOrigin = { x: number; y: number };
+
+export function originOf(el: Element | null | undefined): ThemeOrigin | undefined {
+  if (!el) return undefined;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+type ViewTransitionDoc = Document & {
+  startViewTransition?: (cb: () => void | Promise<void>) => { ready: Promise<void>; finished: Promise<void> };
+};
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Change le thème. Sur un dashboard, la nouvelle couleur S'OUVRE EN CERCLE
+ * depuis le bouton cliqué (View Transitions : capture de l'ancien écran, pose
+ * du nouveau thème, puis `clip-path: circle()` qui grandit sur la nouvelle
+ * capture jusqu'au coin le plus lointain). Sans View Transitions (Safari < 18,
+ * Firefox ancien) ou avec « réduire les animations », le thème change d'un
+ * coup — jamais d'écran figé ni de double bascule.
+ */
+export function setProThemePref(pref: ProThemePref, origin?: ThemeOrigin): void {
+  try {
+    localStorage.setItem(PRO_THEME_STORAGE_KEY, pref);
+  } catch {
+    // Navigation privée / stockage bloqué : le réglage vit le temps de l'onglet.
+  }
+  memoryPref = pref;
+  const notify = () => window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: pref }));
+
+  const doc = document as ViewTransitionDoc;
+  const onDashboard = isThemedProPath(window.location.pathname);
+  if (!onDashboard || readAppliedProTheme() === pref || !doc.startViewTransition || prefersReducedMotion()) {
+    notify();
+    return;
+  }
+
+  const root = document.documentElement;
+  const x = origin?.x ?? window.innerWidth - 40;
+  const y = origin?.y ?? 40;
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+  root.classList.add('pro-theme-vt');
+  try {
+    const vt = doc.startViewTransition(() => {
+      // Le nouveau thème ET l'état React (sélecteur, icône) avant la capture.
+      applyProTheme(pref);
+      flushSync(notify);
+    });
+    vt.ready
+      .then(() => {
+        root.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+          { duration: 560, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' },
+        );
+      })
+      .catch(() => {});
+    vt.finished.finally(() => root.classList.remove('pro-theme-vt'));
+  } catch {
+    root.classList.remove('pro-theme-vt');
+    applyProTheme(pref);
+    notify();
+  }
+}
+
+/** Préférence courante, synchronisée entre composants et entre onglets. */
 export function useProTheme() {
   const [pref, setPrefState] = useState<ProThemePref>(currentPref);
-  const [systemLight, setSystemLight] = useState(systemPrefersLight);
 
   useEffect(() => {
     const onChange = (e: Event) => {
       const next = (e as CustomEvent<ProThemePref>).detail;
-      if (isPref(next)) setPrefState(next);
+      if (next === 'light' || next === 'dark') setPrefState(next);
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === PRO_THEME_STORAGE_KEY) {
@@ -128,26 +163,16 @@ export function useProTheme() {
         setPrefState(getProThemePref());
       }
     };
-    let mq: MediaQueryList | null = null;
-    const onMq = () => setSystemLight(systemPrefersLight());
-    try {
-      mq = window.matchMedia('(prefers-color-scheme: light)');
-      mq.addEventListener?.('change', onMq);
-    } catch {
-      mq = null;
-    }
     window.addEventListener(CHANGE_EVENT, onChange);
     window.addEventListener('storage', onStorage);
     return () => {
       window.removeEventListener(CHANGE_EVENT, onChange);
       window.removeEventListener('storage', onStorage);
-      mq?.removeEventListener?.('change', onMq);
     };
   }, []);
 
-  const setPref = useCallback((next: ProThemePref) => setProThemePref(next), []);
-  const resolved: ProTheme = pref === 'system' ? (systemLight ? 'light' : 'dark') : pref;
-  return { pref, resolved, setPref };
+  const setPref = useCallback((next: ProThemePref, origin?: ThemeOrigin) => setProThemePref(next, origin), []);
+  return { pref, resolved: pref, setPref };
 }
 
 /**

@@ -179,9 +179,13 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   line-up invité se fait par DIFF, jamais par delete+insert comme `event_djs` :
   chaque ligne porte son compteur.
 - **Dashboards pro = thème sombre ET clair** (2026-09-24, `docs/DESIGN_SYSTEM.md`
-  §16). Réglage « Apparence » (Clair / Sombre / Système) au pied de chaque barre
-  latérale pro + icône lune/soleil dans les en-têtes ; préférence par appareil
-  (`localStorage` `yuno:pro-theme`, défaut sombre). `html[data-pro-theme="light"]`
+  §16). Réglage « Apparence » (Clair / Sombre — pas de « Système », retiré le
+  24/09 : le sombre est le défaut) au pied de chaque barre latérale pro + icône
+  lune/soleil dans les en-têtes ; préférence par appareil (`localStorage`
+  `yuno:pro-theme`, toute valeur ≠ `light` = sombre). La bascule s'ouvre en
+  CERCLE depuis le bouton cliqué (`setProThemePref(pref, originOf(el))`, View
+  Transitions + `clip-path`, classe `pro-theme-vt` le temps de la transition) ;
+  sans View Transitions ou avec « réduire les animations », bascule nette. `html[data-pro-theme="light"]`
   n'est posé QUE sur une route pro (`isThemedProPath`, `src/lib/proTheme.ts`,
   miroir du script anti-flash d'`index.html`) : public, app client, emails et
   staff de nuit restent sombres. Le clair change l'ENCRE, pas le dessin : les

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { isThemedProPath, resolveProTheme, tint } from '../proTheme';
+import { isThemedProPath, tint } from '../proTheme';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const CSS = fs.readFileSync(path.join(ROOT, 'src/styles/pro-theme.css'), 'utf8');
@@ -84,10 +84,15 @@ describe('isThemedProPath', () => {
   });
 });
 
-describe('resolveProTheme / tint', () => {
-  it('résout les choix explicites', () => {
-    expect(resolveProTheme('dark')).toBe('dark');
-    expect(resolveProTheme('light')).toBe('light');
+describe('choix du thème / tint', () => {
+  it('ne connaît que clair et sombre, sombre par défaut (plus de « Système »)', () => {
+    expect(INDEX_HTML).toContain("localStorage.getItem('yuno:pro-theme') === 'light'");
+    expect(INDEX_HTML).not.toContain('prefers-color-scheme');
+  });
+
+  it('garde la transition en cercle scopée à sa propre classe', () => {
+    expect(CSS).toContain('html.pro-theme-vt::view-transition-new(root)');
+    expect(CSS).not.toMatch(/^::view-transition/m);
   });
 
   it('rend une teinte translucide valide quel que soit le format de couleur', () => {

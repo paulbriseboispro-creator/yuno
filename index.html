@@ -78,8 +78,7 @@
           }
           if (p === '/owner/preview' || p.indexOf('/owner/preview/') === 0) themed = false;
           if (!themed) return;
-          var pref = localStorage.getItem('yuno:pro-theme');
-          var light = pref === 'light' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+          var light = localStorage.getItem('yuno:pro-theme') === 'light';
           document.documentElement.setAttribute('data-pro-theme', light ? 'light' : 'dark');
         } catch (e) { /* stockage bloqué : thème sombre */ }
       })();

@@ -532,17 +532,19 @@ html[data-pro-theme="light"] [data-theme-island="dark"] {
   --ink-a96: 0.96;
 }
 
-/* Passage d'un thème à l'autre : un fondu court, jamais au chargement. */
-html.pro-theme-switching,
-html.pro-theme-switching *,
-html.pro-theme-switching *::before,
-html.pro-theme-switching *::after {
-  transition: background-color 180ms var(--ease-out), color 180ms var(--ease-out),
-    border-color 180ms var(--ease-out), fill 180ms var(--ease-out), stroke 180ms var(--ease-out) !important;
+/* Passage d'un thème à l'autre : la nouvelle couleur s'ouvre en CERCLE depuis
+   le bouton cliqué (setProThemePref, src/lib/proTheme.ts). Le navigateur
+   capture l'écran avant/après ; on coupe son fondu par défaut et c'est le
+   clip-path animé sur la nouvelle capture qui dessine le cercle. La classe
+   n'est posée que pendant cette transition-là : aucune autre View Transition
+   de l'app n'est touchée. */
+html.pro-theme-vt::view-transition-old(root),
+html.pro-theme-vt::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
-@media (prefers-reduced-motion: reduce) {
-  html.pro-theme-switching,
-  html.pro-theme-switching * { transition: none !important; }
+html.pro-theme-vt::view-transition-new(root) {
+  z-index: 2;
 }
 
 html[data-pro-theme="light"] .dashboard-gradient-bg {
