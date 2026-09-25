@@ -210,7 +210,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: t('owner.orders'), value: filteredTickets.length.toString() },
+            { label: t('owner.orders'), value: soldTickets.length.toString() },
             { label: t('owner.ord.ticketsSold'), value: totalQty.toString() },
             { label: t('owner.totalRevenue'), value: `€${totalRevenue.toFixed(0)}` },
           ].map(({ label, value }) => (

@@ -15245,6 +15245,7 @@ const fr: Record<string, string> = {
   'er.a.refSame': 'Autant que {title} au même moment.',
   'er.a.unitTickets': 'billets vendus',
   'er.a.unitGuests': 'inscrits',
+  'er.a.unitTables': "tables réservées",
   'er.a.after': '{entered} entrées sur {expected} attendus ({presence}).',
   'er.a.afterMoney': ' {revenue} de CA, {spend} par tête.',
   'er.a.afterRefUp': '{diff} entrées de plus que {title}.',

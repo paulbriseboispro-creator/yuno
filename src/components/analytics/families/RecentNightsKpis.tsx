@@ -5,7 +5,7 @@
  * Ventes : l'accueil ne calcule plus son propre « CA » (il y en avait deux,
  * avec deux formules, sur le même écran). Chaque tuile ouvre Ventes.
  */
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSalesOverview } from '@/hooks/useSalesOverview';
@@ -21,6 +21,7 @@ export function RecentNightsKpis({ venueId, organizerUserId, salesHref }: {
 }) {
   const { t } = useLanguage();
   const fmt = useKpiFormat();
+  const navigate = useNavigate();
   const { data, loading } = useSalesOverview({ venueId, organizerUserId }, 'last4');
 
   if (loading && !data) {
@@ -49,15 +50,17 @@ export function RecentNightsKpis({ venueId, organizerUserId, salesHref }: {
         </Link>
       </div>
       <KpiRow>
+        {/* La tuile entière mène à Ventes, sans <a> autour : l'ⓘ est un bouton,
+            et un bouton dans un lien déclenchait la navigation au lieu de la définition. */}
         {pillarKpis(data, 'all').map((k) => (
-          <Link key={k.key} to={salesHref} className="block min-w-0 rounded-2xl focus-visible:outline focus-visible:outline-2">
-            <KpiTile
-              label={t(k.labelKey)}
-              hint={t(k.hintKey)}
-              value={fmt(k.value, k.format)}
-              delta={<DeltaBadge current={k.value} previous={k.previous} format={k.format} lowerIsBetter={k.lowerIsBetter} vs={vs} />}
-            />
-          </Link>
+          <KpiTile
+            key={k.key}
+            label={t(k.labelKey)}
+            hint={t(k.hintKey)}
+            value={fmt(k.value, k.format)}
+            delta={<DeltaBadge current={k.value} previous={k.previous} format={k.format} lowerIsBetter={k.lowerIsBetter} vs={vs} />}
+            onSelect={() => navigate(salesHref)}
+          />
         ))}
       </KpiRow>
     </section>

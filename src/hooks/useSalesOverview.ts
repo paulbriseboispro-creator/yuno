@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { SalesOverview, SalesPeriod } from '@/lib/salesOverview';
 
@@ -20,11 +20,15 @@ export function useSalesOverview(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<'forbidden' | 'error' | null>(null);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
+  // Seule la DERNIÈRE requête écrit : une réponse lente d'une autre période
+  // (« Tout » après « La dernière ») ne doit pas remplacer celle qu'on regarde.
+  const seq = useRef(0);
 
   const load = useCallback(async () => {
     // Sans portée (club ou organisateur pas encore connu), on ATTEND : rendre
     // « rien » ici affichait une erreur le temps que le contexte arrive.
     if (!enabled || (!venueId && !organizerUserId)) return;
+    const mine = ++seq.current;
     setLoading(true);
     try {
       const { data: raw, error: rpcError } = await supabase.rpc(withTakeaways ? 'get_sales_takeaways' : 'get_sales_overview', {
@@ -32,6 +36,7 @@ export function useSalesOverview(
         p_organizer_user_id: organizerUserId ?? undefined,
         p_period: period,
       });
+      if (mine !== seq.current) return;
       if (rpcError) throw rpcError;
       const res = raw as unknown as SalesOverview | null;
       if (!res || !res.ok) {
@@ -43,11 +48,12 @@ export function useSalesOverview(
       setData(res);
       setFetchedAt(new Date());
     } catch (e) {
+      if (mine !== seq.current) return;
       console.error('get_sales_overview', e);
       setError('error');
       setData(null);
     } finally {
-      setLoading(false);
+      if (mine === seq.current) setLoading(false);
     }
   }, [venueId, organizerUserId, period, enabled, withTakeaways]);
 

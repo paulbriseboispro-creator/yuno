@@ -15613,6 +15613,7 @@ const es: Record<string, string> = {
   'er.a.refSame': 'Igual que {title} en el mismo momento.',
   'er.a.unitTickets': 'entradas vendidas',
   'er.a.unitGuests': 'inscritos',
+  'er.a.unitTables': "mesas reservadas",
   'er.a.after': '{entered} accesos de {expected} esperados ({presence}).',
   'er.a.afterMoney': ' {revenue} de facturación, {spend} por persona.',
   'er.a.afterRefUp': '{diff} accesos más que {title}.',

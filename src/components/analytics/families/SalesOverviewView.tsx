@@ -98,7 +98,8 @@ export function SalesOverviewView({
         </div>
       </div>
 
-      {loading && !data ? (
+      {/* Une autre période est en route : on n'affiche pas les chiffres de l'ancienne sous le nouveau sélecteur. */}
+      {loading && (!data || data.period !== period) ? (
         <AnalyticsLoading rows={2} />
       ) : error || !data ? (
         <EmptyAnswer title={t(error === 'forbidden' ? 'so.err.forbidden' : 'so.err.load')} />
@@ -491,7 +492,7 @@ function NightsTable({ data, pillar, eventHref }: { data: SalesOverview; pillar:
       ];
       case 'tables': return [
         { key: 'tables', label: t('so.pillar.tables'), format: 'n' },
-        ...(data.money ? [{ key: 'rev_tables' as SalesMetricKey, label: t('m.revenue'), format: 'eur' as const }] : [{ key: 'tables' as SalesMetricKey, label: t('so.k.tableGuests'), format: 'n' as const, of: (x: SalesNight) => fmt(x.table_guests, 'n') }]),
+        ...(data.money ? [{ key: 'rev_tables' as SalesMetricKey, label: t('m.revenue'), format: 'eur' as const }] : [{ key: 'table_guests' as SalesMetricKey, label: t('so.k.tableGuests'), format: 'n' as const }]),
       ];
       case 'bar': return [
         { key: 'bar_orders', label: t('so.k.barOrders'), format: 'n' },

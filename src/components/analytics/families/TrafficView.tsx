@@ -18,7 +18,7 @@ import { KIT, pctFmt, useNumberFormat } from '@/components/analytics/kitFormat';
 import { CardTitle, EmptyNote, RankRow, ReportCard, Segmented, StatCard } from '@/components/event-report/ui';
 import { usePageTraffic, type AnalyticsScope } from '@/hooks/useAnalyticsFamilies';
 import { pct } from '@/lib/communityAnalytics';
-import { visitSourceLabel } from '@/lib/eventReport';
+import { conversionPct, visitSourceLabel } from '@/lib/eventReport';
 import { MIN_SAMPLE } from '@/lib/metrics';
 
 type Days = '30' | '90' | '365';
@@ -90,7 +90,8 @@ export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const conv = pct(r.ordered, r.visits);
+                    // Une conversion se lit au dixième : 4 achats sur 1 000 visites = 0,4 %, pas « 0 % ».
+                    const conv = r.visits >= MIN_SAMPLE ? conversionPct(r.ordered, r.visits) : null;
                     return (
                       <tr key={r.id} style={{ borderTop: `1px solid ${KIT.BORDER}` }}>
                         <td className="py-2.5 pr-3">
@@ -100,7 +101,7 @@ export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
                         <td className="py-2.5 pl-3 text-right tabular-nums" style={{ color: KIT.T1 }}>{n(r.visits)}</td>
                         <td className="py-2.5 pl-3 text-right tabular-nums" style={{ color: r.today > 0 ? 'var(--acc-34d399)' : KIT.T3 }}>{r.today > 0 ? `+${n(r.today)}` : '—'}</td>
                         <td className="py-2.5 pl-3 text-right tabular-nums" style={{ color: KIT.T2 }}>
-                          {n(r.ordered)}{conv != null && <span className="ml-1.5" style={{ color: KIT.T3 }}>{pctFmt(conv, locale)}</span>}
+                          {n(r.ordered)}{conv != null && <span className="ml-1.5" style={{ color: KIT.T3 }}>{pctFmt(conv, locale, 1)}</span>}
                         </td>
                       </tr>
                     );
@@ -128,7 +129,7 @@ export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
         <StatCard
           label={t('m.conversion')}
           hint={t('gl.conversion')}
-          value={p.ordered != null && p.total >= MIN_SAMPLE ? pctFmt(pct(p.ordered, p.total) ?? 0, locale) : '—'}
+          value={p.ordered != null && p.total >= MIN_SAMPLE ? pctFmt(conversionPct(p.ordered, p.total) ?? 0, locale, 1) : '—'}
           sub={p.ordered != null ? t('anf.tr.orderedSub').replace('{n}', n(p.ordered)) : undefined}
         />
       </div>

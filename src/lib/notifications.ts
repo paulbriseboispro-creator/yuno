@@ -4,6 +4,7 @@
 // super admin). The catalogue, priority config and scope-aware feed config all
 // live here so the full-page inbox and the header bell popover stay in sync.
 
+import { eventReportHref } from '@/lib/analyticsNav';
 import {
   ShoppingCart, Ticket, Crown, Users, Star,
   Heart, Zap, BarChart3, Mail, Calendar,
@@ -408,7 +409,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     // Bilan du lendemain → le Rapport de soirée.
     case 'night_recap':
       if (isManager) return null;
-      return eventId ? `${basePath}/analytics?tab=sales&view=event&event=${eventId}` : `${basePath}/analytics`;
+      return eventId ? eventReportHref(`${basePath}/analytics`, eventId) : `${basePath}/analytics`;
 
     // Event lifecycle.
     case 'event_starting':

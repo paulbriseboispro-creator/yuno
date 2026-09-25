@@ -36,7 +36,10 @@ export function ReportTarget({ report, compare, projection }: {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setTarget(report.event.entryTarget ?? null); setEditing(false); }, [report.event.id, report.event.entryTarget]);
+  // Le rafraîchissement du rapport (toutes les minutes) met la valeur à jour
+  // sans refermer une saisie en cours ; changer de soirée, lui, la referme.
+  useEffect(() => { setTarget(report.event.entryTarget ?? null); }, [report.event.entryTarget]);
+  useEffect(() => { setEditing(false); }, [report.event.id]);
 
   const after = report.event.phase === 'after';
   const status = targetStatus(report, compare, target);

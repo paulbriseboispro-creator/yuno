@@ -5,7 +5,7 @@
  */
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Takeaways } from '@/components/analytics/kit';
-import { useKpiFormat } from '@/components/analytics/kitFormat';
+import { pctFmt, useKpiFormat, useNumberFormat } from '@/components/analytics/kitFormat';
 import { visitSourceLabel, type EventReport, type ReportTakeaway } from '@/lib/eventReport';
 
 const SECTION_ID: Record<NonNullable<ReportTakeaway['section']>, string> = {
@@ -15,13 +15,15 @@ const SECTION_ID: Record<NonNullable<ReportTakeaway['section']>, string> = {
 export function ReportTakeaways({ report }: { report: EventReport }) {
   const { t } = useLanguage();
   const fmt = useKpiFormat();
+  const { locale } = useNumberFormat();
   const items = report.takeaways ?? [];
   const num = (v: string | number | null | undefined) => (typeof v === 'number' ? v : Number(v ?? 0));
   const text = (tk: ReportTakeaway): string => {
     const p = tk.params;
     const key = tk.key === 'msg_drove' ? `er.tk.msg_drove.${p.kind === 'push' ? 'push' : 'email'}` : `er.tk.${tk.key}`;
     return t(key)
-      .replace('{pct}', fmt(num(p.pct), 'pct'))
+      // Une conversion (< 2 %) se lit au dixième : arrondie à l'unité, 1,6 % devenait « 2 % ».
+      .replace('{pct}', tk.key === 'low_conversion' ? pctFmt(num(p.pct), locale, 1) : fmt(num(p.pct), 'pct'))
       .replace('{missing}', fmt(num(p.missing), 'n'))
       .replace('{visits}', fmt(num(p.visits), 'n'))
       .replace('{n}', fmt(num(p.n), 'n'))

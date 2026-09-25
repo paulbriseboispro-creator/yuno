@@ -32,7 +32,7 @@ export function ReportAnswer({ report, compare }: { report: EventReport; compare
     const when = h.daysBefore === 0 ? t('er.a.today') : t('er.a.jDay').replace('{d}', String(h.daysBefore));
     const main = fill(t('er.a.selling'), {
       sold: <B>{n(h.sold)}</B>,
-      unit: t(h.pillar === 'tickets' ? 'er.a.unitTickets' : 'er.a.unitGuests'),
+      unit: t(h.pillar === 'tickets' ? 'er.a.unitTickets' : h.pillar === 'tables' ? 'er.a.unitTables' : 'er.a.unitGuests'),
       when,
       cap: h.capacity ? t('er.a.sellingCap').replace('{cap}', n(h.capacity)) : '',
     });

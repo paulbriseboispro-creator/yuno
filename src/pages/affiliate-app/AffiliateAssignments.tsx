@@ -232,7 +232,7 @@ export default function AffiliateAssignments() {
     const { data } = await supabase
       .from('affiliate_event_assignments')
       .select(`
-        id, status, submitted_url, assigned_at,
+        id, member_id, status, submitted_url, assigned_at,
         affiliate_events!inner(name, event_date, affiliate_id),
         affiliate_members(first_name, last_name)
       `)

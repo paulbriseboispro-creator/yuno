@@ -255,15 +255,17 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       // bar est 100 % club par défaut). Sans elles, un club qui vit du bar voyait
       // un « CA de la soirée » qui ignorait sa recette principale.
       const [{ data: tickets }, { data: reservations }, { data: gl }, { data: drinkOrders }] = await Promise.all([
-        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).eq('status', 'paid'),
+        // Statuts du dictionnaire (metrics.ts / get_sales_overview) : un billet
+        // scanné peut passer « used », une commande servie « served ».
+        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned, used, status').eq('event_id', eventId).in('status', ['paid', 'used']),
         // `guest_count` (sans s) : l'ancien `guests_count` n'existait pas → la requête
         // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
         // status 'paid' : c'est la seule valeur écrite par le checkout —
         // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'paid'),
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count, entry_scanned, checked_in_at').eq('event_id', eventId).in('status', ['paid', 'confirmed']),
         supabase.from('guest_list_entries').select('id, entry_scanned, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId).neq('status', 'cancelled'),
         isVenue
-          ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
+          ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).in('status', ['paid', 'served'])
           : Promise.resolve({ data: null as Pick<Tables<'orders'>, 'total' | 'service_fee' | 'refund_amount'>[] | null }),
       ]);
       if (cancelled) return;
@@ -287,9 +289,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         ticketsSold: ticketsSoldQty,
         caSoiree: ticketCA + tableCA + drinksCA,
         myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
-        // Entrées = tout ce que la porte a scanné : billets ET guest list
-        // (un invité inscrit est une entrée comme une autre).
-        checkins: tk.filter((x) => x.entry_scanned).length + entries.filter((x) => x.entry_scanned).length,
+        // Entrées = la définition du dictionnaire (metrics.ts, Rapport de
+        // soirée) : billets scannés EN QUANTITÉ + convives des tables arrivées
+        // + guest list scannée.
+        checkins:
+          tk.filter((x) => x.entry_scanned || x.used || x.status === 'used').reduce((s, x) => s + Math.max(x.quantity || 1, 1), 0)
+          + tr.filter((x) => x.entry_scanned || x.checked_in_at).reduce((s, x) => s + Math.max(x.guest_count || 0, 1), 0)
+          + entries.filter((x) => x.entry_scanned).length,
         tableGuests: tr.reduce((s, x) => s + (x.guest_count || 0), 0),
         glEntries: entries.length,
         ticketPillar: { count: ticketsSoldQty, ca: ticketCA },

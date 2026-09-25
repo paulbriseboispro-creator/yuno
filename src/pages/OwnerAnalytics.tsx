@@ -125,6 +125,9 @@ export default function OwnerAnalytics() {
   const isPurchase = family === 'community' && view === 'purchase';
   const analyticsBase = useLocation().pathname.replace(/\/$/, '');
   const consolePrefix = analyticsBase.replace(/\/analytics$/, '');
+  // La même page sert /manager/analytics : le manager n'a ni Comptabilité, ni
+  // Push, ni base de contacts — ces liens mèneraient à une 404.
+  const isClubConsole = consolePrefix === '/owner';
   const eventHref = (id: string) => eventReportHref(analyticsBase, id);
   // La soirée choisie vit dans l'URL (`?event=`) : un lien depuis la liste des
   // soirées ou le tableau de bord ouvre directement son analyse.
@@ -390,7 +393,7 @@ export default function OwnerAnalytics() {
         {isPurchase ? (
           <PurchaseBehaviorView venueId={venueId} dateRange={dateRange} />
         ) : family === 'community' && view === 'overview' ? (
-          <CommunityOverviewView scope={{ venueId }} contactsHref={`${consolePrefix}/campaigns/contacts`} eventHref={eventHref}>
+          <CommunityOverviewView scope={{ venueId }} contactsHref={isClubConsole ? `${consolePrefix}/campaigns/contacts` : undefined} eventHref={eventHref}>
             {loyaltyZone}
           </CommunityOverviewView>
         ) : family === 'community' && view === 'subscribers' ? (
@@ -398,7 +401,7 @@ export default function OwnerAnalytics() {
             <AudienceDashboard
               embedded
               subject={{ type: 'venue', id: venueId }}
-              actions={
+              actions={isClubConsole ? (
                 <Link
                   to={`${consolePrefix}/push`}
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90"
@@ -407,7 +410,7 @@ export default function OwnerAnalytics() {
                   <Megaphone className="w-4 h-4" />
                   {t('anf.notifyFollowers')}
                 </Link>
-              }
+              ) : undefined}
             />
           ) : null
         ) : family === 'community' && view === 'demographics' ? (
@@ -467,7 +470,7 @@ export default function OwnerAnalytics() {
             venueId={venueId}
             eventHref={eventHref}
             eventsHref={`${consolePrefix}/events`}
-            accountingHref={`${consolePrefix}/accounting`}
+            accountingHref={isClubConsole ? `${consolePrefix}/accounting` : undefined}
             canExport={hasExport}
             renderDetail={(pillar, period) => (
               <SalesPillarDetail venueId={venueId} pillar={pillar} period={period} hasVipTables={hasVipTables} />

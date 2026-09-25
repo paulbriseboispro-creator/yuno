@@ -293,7 +293,8 @@ export function BulletBar({ label, value, display, capacity, reference, referenc
   return (
     <div className="grid items-center gap-x-3 gap-y-1" style={{ gridTemplateColumns: 'minmax(84px,auto) 1fr auto' }}>
       <span className="truncate" style={{ color: KIT.T2, fontSize: 13 }}>{label}</span>
-      <span className="relative h-2.5 rounded-full" style={{ background: KIT.TRACK }} aria-hidden>
+      {/* Sans capacité, pas de piste : une piste vide à côté de « 200 » se lisait « 0 % ». */}
+      <span className="relative h-2.5 rounded-full" style={{ background: cap ? KIT.TRACK : 'transparent' }} aria-hidden>
         {cap && <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${soldOut ? 100 : pct}%`, background: KIT.RED }} />}
         {refPct !== null && (
           <span className="absolute -top-1 -bottom-1 w-[2px] rounded-full" style={{ left: `calc(${refPct}% - 1px)`, background: KIT.T1 }}

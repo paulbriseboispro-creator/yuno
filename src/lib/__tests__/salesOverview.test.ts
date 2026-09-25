@@ -87,4 +87,45 @@ describe('salesOverview', () => {
     expect(nightDeltas(ns, 'revenue').get('a')).toBeNull();
     expect(bestNight([ns[0]], 'revenue')).toBeNull();
   });
+
+  it('dépense par tête et présence sur leurs dénominateurs de période', () => {
+    // 10 000 € sur 400 entrées des soirées dont on voit l'argent ET scannées,
+    // 250 entrées de plus sur une soirée seulement accueillie.
+    const t = totals({ revenue: 10000, entries: 650, spend_revenue: 10000, spend_entries: 400,
+      gl_registered: 300, gl_entered: 100, gl_presence_registered: 120, gl_presence_entered: 100 });
+    expect(metricValue(t, 'spendPerHead')).toBe(25);
+    expect(Math.round(metricValue(t, 'glPresence') ?? 0)).toBe(83);
+    // Une ligne de soirée reste son propre dénominateur.
+    expect(metricValue(night('a', '2026-09-13T21:00:00Z'), 'spendPerHead')).toBe(20);
+  });
+
+  it('aucune soirée dont on voit l\'argent : CA et dépense « — », jamais 0 €', () => {
+    const t = totals({ revenue: 0, money_nights: 0 });
+    expect(metricValue(t, 'revenue')).toBeNull();
+    expect(metricValue(t, 'spendPerHead')).toBeNull();
+    expect(metricValue(t, 'entries')).toBe(200);
+  });
+
+  it('série : pas de valeur = pas de barre, remplissage mensuel sur les soirées à capacité', () => {
+    const s1 = chartSeries([night('a', '2026-09-13T21:00:00Z', { ticket_cap: null })], ['fill']);
+    expect(s1.points[0].values.fill).toBeNull();
+    const ns = [
+      night('a', '2026-08-01T21:00:00Z', { tickets: 50, ticket_cap: 100 }),
+      night('b', '2026-08-08T21:00:00Z', { tickets: 80, ticket_cap: null }),
+      night('c', '2026-09-05T21:00:00Z'),
+    ];
+    const s = chartSeries(ns, ['fill'], { maxBars: 2 });
+    expect(s.points[0].values.fill).toBe(50); // 50 / 100, pas (50 + 80) / 100
+  });
+
+  it('série mensuelle : le mois de Paris, pas celui d\'UTC', () => {
+    const ns = [
+      night('a', '2026-08-31T22:30:00Z'), // 1er septembre, 00 h 30 à Paris
+      night('b', '2026-08-10T21:00:00Z'),
+      night('c', '2026-09-05T21:00:00Z'),
+    ];
+    const s = chartSeries(ns, ['revenue'], { maxBars: 2 });
+    expect(s.points.map((p) => p.key)).toEqual(['2026-08', '2026-09']);
+    expect(s.points[1].values.revenue).toBe(2000);
+  });
 });

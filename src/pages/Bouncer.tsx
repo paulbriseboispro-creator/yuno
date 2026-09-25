@@ -773,7 +773,7 @@ export default function Bouncer() {
         .select(`
           id, full_name, qr_code, entry_scanned, entry_scanned_at, ticket_id,
           tickets!inner(
-            id, user_email, full_name, quantity, status, user_id, total_price,
+            id, user_email, full_name, quantity, status, user_id, total_price, service_fee,
             drink_redeemed, drink_name, entry_scanned,
             events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
             ticket_rounds!inner(name, includes_drink, entry_deadline)
@@ -783,9 +783,7 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (attendee && !attendeeError) {
-        // `service_fee` n'est PAS dans la sélection `tickets!inner(…)` ci-dessus :
-        // il vaut donc toujours undefined à l'exécution (serviceFee → 0).
-        const ticket = attendee.tickets as typeof attendee.tickets & { service_fee?: number | null };
+        const ticket = attendee.tickets;
 
         // Verdict via les règles pures partagées online/offline (src/lib/scan/rules.ts).
         const verdict = validateTicketEntry(

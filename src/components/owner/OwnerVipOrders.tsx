@@ -210,7 +210,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: t('owner.reservations'), value: filteredReservations.length.toString() },
+            { label: t('owner.reservations'), value: soldReservations.length.toString() },
             { label: t('owner.ord.totalGuests'), value: totalGuests.toString() },
             { label: t('owner.ord.vipRevenue'), value: `€${totalRevenue.toFixed(0)}` },
           ].map(({ label, value }) => (

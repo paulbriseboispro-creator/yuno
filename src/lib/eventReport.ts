@@ -192,6 +192,9 @@ export function buildCurve(
 export function compareAtSameD(main: EventReport, compare: EventReport, metric: SeriesMetric): { main: number; compare: number } | null {
   const d = todayD(main);
   if (d < 0) return null;
+  // La soirée comparée n'a pas encore atteint ce J-N : son total d'aujourd'hui
+  // n'est pas « où elle en était au même moment ».
+  if (todayD(compare) > d) return null;
   const sumUpTo = (r: EventReport) => r.series.filter((s) => s.d >= d).reduce((acc, s) => acc + valueOf(s, metric), 0);
   return { main: sumUpTo(main), compare: sumUpTo(compare) };
 }
@@ -230,8 +233,8 @@ export type ReportHeadline =
   | { kind: 'empty'; phase: ReportPhase }
   | {
       kind: 'selling';
-      /** Le pilier qui porte la soirée : billets s'il y a une billetterie, sinon guest list. */
-      pillar: 'tickets' | 'guestList';
+      /** Le pilier qui porte la soirée : billets, sinon guest list, sinon tables. */
+      pillar: 'tickets' | 'guestList' | 'tables';
       sold: number;
       capacity: number | null;
       daysBefore: number;
@@ -260,15 +263,19 @@ export function reportHeadline(r: EventReport, compare: EventReport | null): Rep
       reference: ref && ref > 0 ? ref : null,
     };
   }
-  const useTickets = r.totals.tickets.enabled || r.totals.tickets.sold > 0;
-  const pillar = useTickets ? 'tickets' : 'guestList';
-  const metric: SeriesMetric = useTickets ? 'tickets' : 'guests';
+  const t = r.totals;
+  // Une soirée « tables seules » ne se résume pas en « 0 inscrits ».
+  const pillar: 'tickets' | 'guestList' | 'tables' =
+    t.tickets.enabled || t.tickets.sold > 0 ? 'tickets'
+      : t.guestList.enabled || t.guestList.registered > 0 ? 'guestList'
+        : t.tables.enabled || t.tables.booked > 0 ? 'tables' : 'guestList';
+  const metric: SeriesMetric = pillar === 'tickets' ? 'tickets' : pillar === 'tables' ? 'tables' : 'guests';
   const cmp = compare ? compareAtSameD(r, compare, metric) : null;
   return {
     kind: 'selling',
     pillar,
-    sold: useTickets ? r.totals.tickets.sold : r.totals.guestList.registered,
-    capacity: useTickets ? r.totals.tickets.capacity : r.totals.guestList.capacity,
+    sold: pillar === 'tickets' ? t.tickets.sold : pillar === 'tables' ? t.tables.booked : t.guestList.registered,
+    capacity: pillar === 'tickets' ? t.tickets.capacity : pillar === 'tables' ? t.tables.capacity : t.guestList.capacity,
     daysBefore: Math.max(0, todayD(r)),
     reference: cmp ? cmp.compare : null,
   };
@@ -281,6 +288,8 @@ export function reportHeadline(r: EventReport, compare: EventReport | null): Rep
 export function referenceFor(r: EventReport, compare: EventReport | null, metric: 'tickets' | 'tables' | 'guests'): number | null {
   if (!compare) return null;
   if (r.event.phase === 'after') {
+    // Le total final d'une soirée… qui n'est pas finie n'est pas un repère.
+    if (compare.event.phase !== 'after') return null;
     return metric === 'tickets' ? compare.totals.tickets.sold
       : metric === 'tables' ? compare.totals.tables.booked : compare.totals.guestList.registered;
   }
@@ -313,13 +322,17 @@ export function paceProjection(r: EventReport, compare: EventReport | null): Pac
   if (r.event.phase !== 'before') return null;
   const d = todayD(r);
   if (d < 0) return null;
+  const people = (s: ReportDay) => s.people ?? 0;
+  // Jours ENTIERS seulement, des deux côtés (strictement avant ce J-N) :
+  // aujourd'hui n'est pas fini ici, on ne le compare pas à une journée pleine
+  // là-bas — le jour même, la projection valait sinon toujours les attendus.
+  const before = r.series.filter((s) => s.d > d).reduce((acc, s) => acc + people(s), 0);
   let refFinal: number;
   let refAt: number;
   let refTitle: string;
   if (compare && compare.event.phase === 'after') {
-    const people = (s: ReportDay) => s.people ?? 0;
     refFinal = compare.series.reduce((acc, s) => acc + people(s), 0);
-    refAt = compare.series.filter((s) => s.d >= d).reduce((acc, s) => acc + people(s), 0);
+    refAt = compare.series.filter((s) => s.d > d).reduce((acc, s) => acc + people(s), 0);
     refTitle = compare.event.title;
   } else if (r.pace) {
     refFinal = r.pace.final;
@@ -328,8 +341,8 @@ export function paceProjection(r: EventReport, compare: EventReport | null): Pac
   } else {
     return null;
   }
-  if (refFinal < 20 || refAt <= 0 || refAt / refFinal < 0.05) return null;
-  return { projected: Math.round(expectedSoFar(r) / (refAt / refFinal)), refTitle };
+  if (refFinal < 20 || refAt <= 0 || before <= 0 || refAt / refFinal < 0.05) return null;
+  return { projected: Math.round(before / (refAt / refFinal)), refTitle };
 }
 
 export type TargetStatus =

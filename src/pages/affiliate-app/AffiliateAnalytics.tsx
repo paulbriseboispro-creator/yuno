@@ -503,17 +503,37 @@ export default function AffiliateAnalytics() {
       const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
       const prevEnd   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [
-        { data: thisS }, { data: prevS },
-        { data: thisC }, { data: prevC },
-      ] = await Promise.all([
-        supabase.from('affiliate_visitor_sessions').select('visitor_id').eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('visited_at', thisStart).limit(5000),
-        supabase.from('affiliate_visitor_sessions').select('visitor_id').eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('visited_at', prevStart).lt('visited_at', prevEnd).limit(5000),
-        supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', thisStart),
-        supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', prevStart).lt('clicked_at', prevEnd),
+      // Vues et clics = des COMPTES exacts (une requête « head » ne rend pas de
+      // lignes : lire `data` donnait toujours 0 clic) ; les visiteurs uniques
+      // se lisent page par page (PostgREST coupe à 1 000 lignes).
+      const sessions = (from: string, to?: string) => {
+        let q = supabase.from('affiliate_visitor_sessions').select('visitor_id', { count: 'exact' })
+          .eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('visited_at', from);
+        if (to) q = q.lt('visited_at', to);
+        return q;
+      };
+      const readSessions = async (from: string, to?: string) => {
+        const visitors = new Set<string>();
+        let views = 0;
+        for (let offset = 0; offset < 50_000; offset += 1000) {
+          const { data, count } = await sessions(from, to).order('visited_at').range(offset, offset + 999);
+          if (offset === 0) views = count ?? 0;
+          for (const r of data ?? []) if (r.visitor_id) visitors.add(r.visitor_id);
+          if (!data || data.length < 1000) break;
+        }
+        return { views, unique: visitors.size };
+      };
+      const clicks = (from: string, to?: string) => {
+        let q = supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true })
+          .eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', from);
+        if (to) q = q.lt('clicked_at', to);
+        return q;
+      };
+      const [thisS, prevS, { count: thisC }, { count: prevC }] = await Promise.all([
+        readSessions(thisStart), readSessions(prevStart, prevEnd), clicks(thisStart), clicks(prevStart, prevEnd),
       ]);
-      setThisMonth({ views: thisS?.length ?? 0, unique: new Set((thisS ?? []).map((r) => r.visitor_id).filter(Boolean)).size, clicks: (thisC as unknown as number | null) ?? 0 });
-      setPrevMonth({ views: prevS?.length ?? 0, unique: new Set((prevS ?? []).map((r) => r.visitor_id).filter(Boolean)).size, clicks: (prevC as unknown as number | null) ?? 0 });
+      setThisMonth({ views: thisS.views, unique: thisS.unique, clicks: thisC ?? 0 });
+      setPrevMonth({ views: prevS.views, unique: prevS.unique, clicks: prevC ?? 0 });
       setRapportLoading(false);
     })();
   }, [pillar, identity]);
