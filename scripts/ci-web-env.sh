@@ -32,4 +32,4 @@ export VITE_GOOGLE_IOS_CLIENT_ID_PRO="909249484986-bsp4od93uuus00atpcq7gsctoqrj5
 # PostHog (analytics produit, src/lib/posthog.ts) : cle PROJET publique `phc_`,
 # ecriture seule — deja visible dans le bundle web. Instance EU par defaut
 # (VITE_POSTHOG_HOST non pose). La meme cle sert yunoapp.eu et la landing.
-export VITE_POSTHOG_KEY="phc_xHVSBA8DU6pW6gHAFHG9gmjbHM3ipfCDgb7KBtCTxaPD"
+export VITE_POSTHOG_KEY="phc_xsbSXWwUKTxjYaceQyofygm5e5cXrcWWMZZQaPhbcYY8"

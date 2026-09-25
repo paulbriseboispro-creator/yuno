@@ -28,7 +28,16 @@ import { isNative, isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
 import { currentSurface, purchaseSurface } from '@/lib/posthogSurface';
 
-const KEY = (import.meta.env.VITE_POSTHOG_KEY as string | undefined)?.trim() || '';
+// Clé PROJET (publique, `phc_`) du projet PostHog EUROPÉEN (eu.posthog.com,
+// projet 284316). Elle vit dans le code pour qu'un build de production ne
+// dépende pas d'une variable Cloudflare : l'ancienne clé, celle d'un projet
+// créé par erreur sur le cloud AMÉRICAIN, était refusée par l'hôte EU — aucun
+// événement n'est jamais arrivé avec elle. Elle est donc ignorée si une
+// variable d'env la porte encore. En dev, rien sans variable explicite.
+const EU_PROJECT_KEY = 'phc_xsbSXWwUKTxjYaceQyofygm5e5cXrcWWMZZQaPhbcYY8';
+const DEAD_KEYS = new Set(['phc_xHVSBA8DU6pW6gHAFHG9gmjbHM3ipfCDgb7KBtCTxaPD']);
+const ENV_KEY = (import.meta.env.VITE_POSTHOG_KEY as string | undefined)?.trim() || '';
+const KEY = ENV_KEY && !DEAD_KEYS.has(ENV_KEY) ? ENV_KEY : import.meta.env.PROD ? EU_PROJECT_KEY : '';
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined)?.trim() || 'https://eu.i.posthog.com';
 
 let client: PostHog | null = null;
