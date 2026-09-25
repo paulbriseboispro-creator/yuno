@@ -202,6 +202,20 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   client = `data-theme-island="dark"`. Toute nouvelle variable
   se déclare dans les trois blocs de `pro-theme.css` (test `proTheme.test.ts`).
   Jamais ces variables dans un canvas, Mapbox, un PDF ou un email.
+- **Bannière d'accueil de la Console ≠ couverture publique** (2026-09-25,
+  migration `20260925120000`). Le héros de `/owner/dashboard` et
+  `/organizer-app` lit `venues.home_banner` / `organizer_profiles.home_banner`
+  (`{url, x, y, zoom, dim}`, `src/lib/homeBanner.ts`), JAMAIS `cover_url` :
+  la couverture orga est cadrée en 4:3 pour le profil public, étirée dans un
+  bandeau ~4,5:1 elle ne montrait qu'une tranche au hasard. Réglage depuis
+  l'accueil (`HomeBannerEditor` : import ou « partir de ma couverture
+  publique », glisser pour cadrer, aperçus ordinateur + téléphone). Le cadrage
+  est un POINT FOCAL + zoom (`object-position` + `transform-origin` au même
+  point), jamais un rectangle figé : le héros change de proportions avec la
+  largeur. Même `HomeBannerBackdrop` dans le héros et l'aperçu. Sans bannière =
+  dégradé Yuno. Lecture dans une requête À PART (`fetchHomeBanner`) : une
+  colonne absente ne doit jamais faire tomber `useOwnerVenue`. Orga : fondateur
+  seul (`can.manageOrganization`, policy UPDATE d'`organizer_profiles`).
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
@@ -223,6 +237,25 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Tracking visiteur externe : uniquement via les RPC SECURITY DEFINER
   (`flush_affiliate_session`, `ping_affiliate_live`) — les UPDATE anonymes
   directs sont morts en prod. Voir `docs/AFFILIATE_SYSTEM.md`.
+  **Le linktree de l'AGENCE se choisit** (2026-09-25, migration
+  `20260925160000`, page `/agency-app/linktree` « Mon linktree ») :
+  `affiliate_linktree_events` porte SOIT `affiliate_event_id` (externe) SOIT
+  `event_id` (soirée Yuno d'un club / orga sous contrat actif). Écriture par la
+  seule RPC `set_agency_linktree_events` (sélection entière, ordre = rang,
+  chaque soirée revérifiée ; plus aucune policy d'écriture directe), lecture
+  éditeur `get_agency_linktree_editor`, lecture publique des soirées Yuno
+  choisies `get_agency_linktree_curated_yuno`. Sélection vide (ou toute passée)
+  = linktree AUTOMATIQUE d'avant (8 externes + `get_agency_linktree_yuno_events`) ;
+  dès qu'une soirée est choisie, `/p/:slug` n'affiche QUE la sélection, rangée
+  par date sauf en tri `custom`.
+  **Linktrees publics (`/p/`, `/promo/`) — 2026-09-25** : le bouton d'une
+  soirée dit ce qu'on obtient (`linktreeCtaLabel`,
+  `src/components/linktree/linktreeShared.tsx`) : Complet › Tables (tables
+  uniquement) › Guest list (gratuit) › Billets. Barre flottante
+  `PoweredByYunoBar` → Instagram de Yuno de la langue du visiteur
+  (`instagramFor`, réglé dans `/admin/links`). Aucune étape d'accueil
+  (`OnboardingGate`) sur `isPublicLinktreePath` : langue du téléphone si Yuno
+  la parle, anglais sinon, jamais la carte « Select Language ».
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
@@ -1008,6 +1041,45 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
   (cron `pro-signups-purge`).
 - **Tout lien « créer un compte pro » de l'app passe par `proSignupUrl()`**
   (page de connexion, Explore faible densité). `/auth` crée un compte CLIENT.
+
+## PostHog — analytics produit, web + apps natives (2026-09-25)
+
+`src/lib/posthog.ts` (porte unique) + `src/components/PosthogTracker.tsx`
+(monté dans `App.tsx`, à côté de `PlatformTrafficTracker`). Règles :
+
+- **Aucune clé, aucun effet** : `VITE_POSTHOG_KEY` (clé projet `phc_…`,
+  publique) absente ⇒ rien n'est chargé. `VITE_POSTHOG_HOST` = instance EU par
+  défaut. La clé doit figurer dans les variables Cloudflare ET dans
+  `scripts/ci-web-env.sh` pour les binaires (sinon natif muet).
+- **Consentement = `hasAnalyticsConsent()`**, la même case que la mesure
+  maison : sur le web rien ne se charge avant l'acceptation ; un retrait
+  coupe la capture, efface l'identité et purge `ph_*` (cookie compris, domaine
+  parent). En natif le consentement analytics est acquis (cf. `consent.ts`).
+- `posthog-js` est un import DYNAMIQUE : jamais dans le chunk d'entrée.
+- **Identité = `user.id` seulement**, jamais email ni téléphone.
+- **Replay jamais sur une surface pro** (app Pro, `isProPath`) : les
+  `$snapshot` y sont jetés dans `before_send`. Champs de saisie masqués
+  partout. Session d'accès assisté ⇒ aucun événement (il serait attribué au pro).
+- CSP : `https://*.posthog.com` dans `script-src` et `connect-src`
+  (`public/_headers` + `vite.config.ts`). PostHog est déclaré dans la
+  politique de confidentialité, la page cookies et le DPA (`legalContent.ts`).
+- **Plan de marquage = le type `YunoEvent`** (`src/lib/posthog.ts`), jamais
+  une chaîne libre : `event_viewed`, `checkout_started`, `purchase_completed`
+  (`pillar` tickets / tables / drinks, `payment` stripe / free / on_site,
+  `value` en euros — tiré seulement quand CET appel a validé le paiement,
+  `!alreadyProcessed`), `guest_list_joined`, `user_signed_up`,
+  `user_signed_in`, `pro_event_created`, `email_campaign_sent`,
+  `push_campaign_sent`. `capturePosthog` met en file tant que le SDK charge ;
+  `usePosthogEvent` tire une fois par clé. Personne = `roles`, `is_pro`,
+  `is_demo` : **filtrer `is_demo = false` dans tout insight** (la démo n'est
+  pas un chiffre).
+- **La landing (`yuno-landing`) écrit dans le MÊME projet PostHog**, sans
+  cookie (`persistence: 'memory'`, pas de bandeau), événements `pro_signup_*`
+  et `contact_form_submitted`, et identifie le compte créé par son id Supabase
+  : le funnel landing → inscription → Console est un seul funnel.
+- PostHog ignore les navigateurs automatisés (`navigator.webdriver`) : un test
+  headless ne voit partir aucun événement sans
+  `--disable-blink-features=AutomationControlled`.
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 

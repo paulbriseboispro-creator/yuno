@@ -931,6 +931,21 @@ export default function AffiliateSettings() {
             right={<SavedIndicator state={saveStates.sort} />}
           />
 
+          {/* Quelles soirées : ça se choisit dans la Console Agence. */}
+          {agencyManaged && (
+            <Link
+              to="/agency-app/linktree"
+              className="flex items-center justify-between gap-3 p-3 rounded-xl mb-3"
+              style={{ background: 'rgba(232,25,44,0.07)', border: '1px solid rgba(232,25,44,0.22)' }}
+            >
+              <div>
+                <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.settings.pickEventsTitle')}</p>
+                <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{t('aff.settings.pickEventsDesc')}</p>
+              </div>
+              <span style={{ color: RED, fontSize: 18, fontWeight: 600 }} aria-hidden="true">→</span>
+            </Link>
+          )}
+
           <div className="space-y-2">
             {(
               [

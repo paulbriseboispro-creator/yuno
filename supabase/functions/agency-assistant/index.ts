@@ -74,7 +74,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Ma vitrine (pages publiques)",
     keywords: ["vitrine", "showcase", "page publique", "public page", "complétude", "checklist", "partager", "share", "adresse"],
     path: "/agency-app/vitrine",
-    snippet: "Ma vitrine (menu Réglages) montre les deux pages publiques (page RP /rp/slug et linktree /p/slug) avec URLs à copier, une check-list de complétude en 8 points (slug, logo, bio, ville, réseau, club, soirée à venir, stats de confiance) et des raccourcis vers chaque éditeur. Règle de répartition : identité → Profil de l'agence ; adresse/tri/QR → Linktree & externe ; catalogue → Clubs externes / Soirées externes.",
+    snippet: "Ma vitrine (menu Réglages) montre les deux pages publiques (page RP /rp/slug et linktree /p/slug) avec URLs à copier, une check-list de complétude en 8 points (slug, logo, bio, ville, réseau, club, soirée à venir, stats de confiance) et des raccourcis vers chaque éditeur. Règle de répartition : identité → Profil de l'agence ; soirées du linktree + tri → Mon linktree ; adresse/QR → Linktree & externe ; catalogue → Clubs externes / Soirées externes.",
   },
   "master-identity": {
     title: "L'identité maître (profil)",
@@ -90,9 +90,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "linktree": {
     title: "Le linktree (/p/slug)",
-    keywords: ["linktree", "slug", "adresse publique", "bio instagram", "qr", "qr code", "tri", "sort", "trust stats", "stats de confiance", "agenda"],
-    path: "/affiliate/settings",
-    snippet: "Le linktree est le lien unique de bio/stories/QR : identité, stats de confiance qui défilent, toutes les soirées à venir, agenda complet sur /p/slug/agenda. Le slug se choisit dans Linktree & externe et alimente AUSSI la page RP. Tri des soirées : par jour, par genre, par prix ou manuel ; les QR imprimables se génèrent dans la même page.",
+    keywords: ["linktree", "mon linktree", "my linktree", "choisir les soirées", "pick events", "sélection", "selection", "slug", "adresse publique", "bio instagram", "qr", "qr code", "tri", "sort", "trust stats", "stats de confiance", "agenda"],
+    path: "/agency-app/linktree",
+    snippet: "Le linktree est le lien unique de bio/stories/QR : identité, stats de confiance qui défilent, soirées à venir, agenda complet sur /p/slug/agenda. Les soirées se CHOISISSENT dans Réglages → Mon linktree (/agency-app/linktree) : on ajoute d'un clic des soirées Yuno (clubs sous contrat) et des soirées externes publiées, on les retire avec la croix, tout s'enregistre seul. Dès qu'une soirée est choisie, seules les soirées choisies s'affichent ; sans sélection (ou quand toutes sont passées) le linktree est automatique : 8 prochaines soirées externes + toutes les soirées Yuno sous contrat. Tri : par jour, par genre, par prix ou ordre personnalisé (flèches dans Mon linktree). Le slug et les QR imprimables se règlent dans Linktree & externe ; le slug alimente AUSSI la page RP. Pour la bio Instagram : copier le lien → Modifier le profil → Liens → Ajouter un lien externe.",
   },
   "promoters": {
     title: "Promoteurs, groupes, invitations",

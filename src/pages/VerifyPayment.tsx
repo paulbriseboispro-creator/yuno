@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
 import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
+import { capturePosthog } from '@/lib/posthog';
 
 export default function VerifyPayment() {
   const [searchParams] = useSearchParams();
@@ -54,6 +55,17 @@ export default function VerifyPayment() {
         setStatus('success');
         clearCart();
         if (orderId) trackOrderComplete(orderId);
+        // PostHog : achat confirmé par CET appel (jamais sur un rechargement).
+        if (orderId && !data.alreadyProcessed) {
+          capturePosthog('purchase_completed', {
+            pillar: 'drinks',
+            payment: 'stripe',
+            order_ref: `order:${orderId}`,
+            event_id: data.metaPurchase?.eventId ?? null,
+            value: data.metaPurchase?.valueCents != null ? Math.round(data.metaPurchase.valueCents) / 100 : null,
+            currency: (data.metaPurchase?.currency ?? 'eur').toUpperCase(),
+          });
+        }
         // Pixel Meta : Purchase navigateur (dédoublonné avec l'envoi serveur).
         if (orderId && !data.alreadyProcessed && data.metaPurchase) {
           firePurchase({ eventID: `order:${orderId}`, ...data.metaPurchase });

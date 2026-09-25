@@ -29,3 +29,7 @@ export VITE_MAPBOX_TOKEN="pk."'eyJ1IjoieXVub29vIiwiYSI6ImNtajRocnluNTA5d2UzbHNiY
 export VITE_STRIPE_PUBLISHABLE_KEY="pk_live_51SfNAdJxVnBQh5ChncHhEweTvlePOuHQLhGg1UHAPxgVDLNsfShmpg39NDAcjKNK6Siw0Cyl7ueKWD2EXwhDtliF00ukwobue4"
 export VITE_GOOGLE_IOS_CLIENT_ID="909249484986-9q4p8vbsqaq5mbhbl2efr8859bac0147.apps.googleusercontent.com"
 export VITE_GOOGLE_IOS_CLIENT_ID_PRO="909249484986-bsp4od93uuus00atpcq7gsctoqrj5tpl.apps.googleusercontent.com"
+# PostHog (analytics produit, src/lib/posthog.ts) : cle PROJET publique `phc_`,
+# ecriture seule — deja visible dans le bundle web. Instance EU par defaut
+# (VITE_POSTHOG_HOST non pose). La meme cle sert yunoapp.eu et la landing.
+export VITE_POSTHOG_KEY="phc_xHVSBA8DU6pW6gHAFHG9gmjbHM3ipfCDgb7KBtCTxaPD"

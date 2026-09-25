@@ -47,6 +47,8 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { TableCheckoutSkeleton } from '@/components/skeletons/TableCheckoutSkeleton';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 
@@ -92,6 +94,7 @@ export default function TableCheckout() {
   const [event, setEvent] = useState<Tables<'events'> | null>(null);
   const [venue, setVenue] = useState<PublicVenueRow | null>(null);
   useMetaCheckoutPixel({ eventId: eventId ?? null, enabled: !!eventId });
+  usePosthogEvent('checkout_started', eventId, { pillar: 'tables', event_id: eventId });
   // Indicatif par défaut du champ téléphone = pays de la soirée (fuseau figé à
   // la publication, ville en repli) — pas le pays du siège de Yuno.
   const phoneCountry = countryOfPlace({ timezone: event?.timezone, city: venue?.city ?? event?.location_city })?.code ?? null;
@@ -857,6 +860,17 @@ export default function TableCheckout() {
         onSitePayment: pack.paymentMode === 'on_site',
         organizerLed: !!event.organizer_user_id,
       } : undefined;
+      // Réservation confirmée sans Stripe (formule réglée sur place, ou achat
+      // simulé d'un compte démo) : la vente se compte ici, pas dans Verify*.
+      if (!data?.url && data?.redirectUrl) {
+        capturePosthog('purchase_completed', {
+          pillar: 'tables',
+          payment: pack.paymentMode === 'on_site' ? 'on_site' : 'free',
+          event_id: event.id,
+          value: pricing.totalPrice,
+          currency: 'EUR',
+        });
+      }
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
         // Navigation SPA — window.location.href recharge le bundle (splash natif).

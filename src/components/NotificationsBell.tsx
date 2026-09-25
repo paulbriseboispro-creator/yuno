@@ -203,7 +203,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[340px] max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden border-white/[0.08] bg-[var(--sf-0a0a0c)]/95 backdrop-blur-xl"
+        className="w-[340px] max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden border-white/[0.08] bg-[color-mix(in_srgb,var(--sf-0a0a0c)_95%,transparent)] backdrop-blur-xl"
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3.5 py-2.5">
@@ -260,19 +260,19 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
                       'mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border',
                       isUnread ? 'bg-white/[0.06] border-white/[0.10]' : 'bg-white/[0.02] border-white/[0.05]',
                     ].join(' ')}>
-                      <Icon className={`h-3.5 w-3.5 ${isUnread ? p.icon : 'text-white/25'}`} />
+                      <Icon className={`h-3.5 w-3.5 ${isUnread ? p.icon : 'text-white/35'}`} />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`truncate text-[13px] font-medium leading-snug ${isUnread ? 'text-white/95' : 'text-white/45'}`}>
+                        <p className={`truncate text-[13px] font-medium leading-snug ${isUnread ? 'text-white/95' : 'text-white/60'}`}>
                           {n.title}
                         </p>
                         {isUnread && <span className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${p.dot}`} />}
                       </div>
-                      <p className={`truncate text-[11px] leading-snug ${isUnread ? 'text-white/55' : 'text-white/30'}`}>
+                      <p className={`truncate text-[11px] leading-snug ${isUnread ? 'text-white/60' : 'text-white/45'}`}>
                         {n.message}
                       </p>
-                      <span className="mt-0.5 text-[10px] text-white/25 tabular-nums">
+                      <span className="mt-0.5 text-[10px] text-white/40 tabular-nums">
                         {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: dfLocale(language) })}
                       </span>
                     </div>

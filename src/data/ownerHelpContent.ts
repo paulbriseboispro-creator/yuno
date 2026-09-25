@@ -202,7 +202,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToDashboard', path: '/dashboard' },
         relatedArticleIds: ['understand-analytics', 'live-night'],
-        keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'prochaines soirées', 'upcoming nights', 'próximas noches', 'aujourd\'hui', 'today', 'hoy', 'j-2', 'compte à rebours', 'countdown', 'remplissage', 'fill rate', 'jauge', 'dernières soirées', 'last nights', 'últimas noches', 'dépense par tête', 'spend per head', 'gasto por persona', 'entrées', 'entries', 'clients', 'customers', 'à faire aujourd\'hui', 'do this today', 'actions rapides', 'quick actions'],
+        keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'prochaines soirées', 'upcoming nights', 'próximas noches', 'aujourd\'hui', 'today', 'hoy', 'j-2', 'compte à rebours', 'countdown', 'remplissage', 'fill rate', 'jauge', 'dernières soirées', 'last nights', 'últimas noches', 'dépense par tête', 'spend per head', 'gasto por persona', 'entrées', 'entries', 'clients', 'customers', 'à faire aujourd\'hui', 'do this today', 'actions rapides', 'quick actions', 'bannière', 'banner', 'couverture', 'cover', 'photo', 'panel'],
         sections: [
           { headingKey: 'ohelp.pg.dashboard.s1h', bodyKey: 'ohelp.pg.dashboard.s1b' },
           { headingKey: 'ohelp.pg.dashboard.s2h', bodyKey: 'ohelp.pg.dashboard.s2b', screenshotUrl: '/help/owner-dashboard.webp' },
@@ -210,6 +210,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.dashboard.s4h', bodyKey: 'ohelp.pg.dashboard.s4b' },
           { headingKey: 'ohelp.pg.dashboard.s5h', bodyKey: 'ohelp.pg.dashboard.s5b', type: 'steps' },
           { headingKey: 'ohelp.pg.dashboard.s6h', bodyKey: 'ohelp.pg.dashboard.s6b', type: 'tip' },
+          { headingKey: 'ohelp.pg.dashboard.s8h', bodyKey: 'ohelp.pg.dashboard.s8b', type: 'steps' },
         ],
       },
       {

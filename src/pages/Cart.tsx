@@ -39,6 +39,7 @@ import { AgeGate } from '@/components/AgeGate';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 
 interface VenueInfo {
   id: string;
@@ -75,6 +76,12 @@ export default function Cart() {
   const [showDetails, setShowDetails] = useState(false);
   const { trackCheckout } = useVisitorTracking(venueInfo?.id);
   useMetaCheckoutPixel({ eventId: cart[0]?.eventId ?? null, venueId: venueInfo?.id ?? null, enabled: !!(cart[0]?.eventId || venueInfo?.id) });
+  usePosthogEvent('checkout_started', cart.length > 0 ? (venueInfo?.id ?? cart[0]?.eventId ?? 'cart') : null, {
+    pillar: 'drinks',
+    event_id: cart[0]?.eventId ?? null,
+    venue_id: venueInfo?.id ?? null,
+    items: cart.length,
+  });
 
   const [guestEmail, setGuestEmail] = useState('');
   // Compte déjà existant sur cet email : dit pendant la saisie. Aucun mur —

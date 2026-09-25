@@ -40,6 +40,7 @@ const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats")
 const AgencyRules = lazyWithRetry(() => import("./pages/agency-app/AgencyRules"));
 const AgencyProfile = lazyWithRetry(() => import("./pages/agency-app/AgencyProfile"));
 const AgencyShowcase = lazyWithRetry(() => import("./pages/agency-app/AgencyShowcase"));
+const AgencyLinktree = lazyWithRetry(() => import("./pages/agency-app/AgencyLinktree"));
 const AgencyAudience = lazyWithRetry(() => import("./pages/agency-app/AgencyAudience"));
 const AgencyPush = lazyWithRetry(() => import("./pages/agency-app/AgencyPush"));
 const AgencyHelpCenter = lazyWithRetry(() => import("./pages/AgencyHelpCenter"));
@@ -71,6 +72,7 @@ import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { PushTokenKeeper } from "@/components/PushTokenKeeper";
 import PlatformTrafficTracker from "@/components/PlatformTrafficTracker";
+import PosthogTracker from "@/components/PosthogTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
@@ -573,6 +575,9 @@ const App = () => (
             {/* Mesure d'audience plateforme sans cookie — périmètre public/client
                 uniquement (voir src/lib/platformTraffic.ts). Dashboard : /admin/traffic. */}
             <PlatformTrafficTracker />
+            {/* PostHog (web + natif) : après consentement analytics, no-op sans
+                VITE_POSTHOG_KEY — voir src/lib/posthog.ts. */}
+            <PosthogTracker />
             {/* Célébrations (confettis/overlay) des succès rares — écoute
                 l'événement émis par src/lib/celebrate.ts. B2C uniquement. */}
             {!isProApp() && <CelebrationHost />}
@@ -792,6 +797,7 @@ const App = () => (
                   <Route path="dashboard" element={<Navigate to="/agency-app" replace />} />
                   <Route path="profile" element={<AgencyProfile />} />
                   <Route path="vitrine" element={<AgencyShowcase />} />
+                  <Route path="linktree" element={<AgencyLinktree />} />
                   {/* Miroirs sans mur MFA des surfaces transverses de l'entité fusionnée */}
                   <Route path="inbox" element={<AffiliateInbox />} />
                   <Route path="help" element={<AgencyHelpCenter />} />
