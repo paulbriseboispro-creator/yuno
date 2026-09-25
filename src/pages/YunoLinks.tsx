@@ -24,6 +24,7 @@ import {
   type LinksStats,
 } from '@/lib/yunoLinks';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { capturePosthog } from '@/lib/posthog';
 
 /**
  * Yuno Links — la page de la bio Instagram / TikTok (route /links).
@@ -270,7 +271,7 @@ export default function YunoLinks() {
       href={config.app_store_url}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={() => { trackLinksEvent('click', 'app_store'); markWebEngaged(); }}
+      onClick={() => { trackLinksEvent('click', 'app_store'); capturePosthog('app_store_clicked', { placement: 'yuno_links' }); markWebEngaged(); }}
       className={`ynl-press ynl-cta-red ${compact ? '' : 'ynl-lift'}`}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,

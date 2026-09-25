@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
@@ -36,6 +38,8 @@ export default function EventWaitlistPage() {
   const [submitting, setSubmitting] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [position, setPosition] = useState<number | null>(null);
+  // Marché de la soirée (analytics), lu avec le titre.
+  const [eventMarket, setEventMarket] = useState<Record<string, string>>({});
 
   // Auth state
   const [user, setUser] = useState<{ id: string; email: string; firstName?: string; lastName?: string } | null>(null);
@@ -59,10 +63,19 @@ export default function EventWaitlistPage() {
       // Fetch event title
       const { data: ev } = await supabase
         .from('events')
-        .select('title')
+        .select('title, timezone, location_city, venue_id, organizer_user_id')
         .eq('id', eventId!)
         .single();
-      if (ev) setEventTitle(ev.title);
+      if (ev) {
+        setEventTitle(ev.title);
+        setEventMarket(marketProps({
+          timezone: ev.timezone,
+          city: ev.location_city,
+          eventId: eventId!,
+          venueId: ev.venue_id,
+          organizerUserId: ev.organizer_user_id,
+        }));
+      }
 
       // Fetch auth user
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -152,6 +165,7 @@ export default function EventWaitlistPage() {
       setRegistered(true);
       markEventStale();
       toast.success(t('waitlist.registered'));
+      capturePosthog('waitlist_joined', { pillar: 'tickets', has_account: true, ...marketProps({ eventId }), ...eventMarket });
 
       // Send confirmation email (fire-and-forget)
       supabase.functions.invoke('notify-event-waitlist', {
@@ -197,6 +211,7 @@ export default function EventWaitlistPage() {
       setRegistered(true);
       markEventStale();
       toast.success(t('waitlist.registered'));
+      capturePosthog('waitlist_joined', { pillar: 'tickets', has_account: false, ...marketProps({ eventId }), ...eventMarket });
 
       // Confirmation email (fire-and-forget)
       supabase.functions.invoke('notify-event-waitlist', {

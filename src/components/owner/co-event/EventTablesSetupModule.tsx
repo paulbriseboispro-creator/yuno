@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { capturePosthog } from '@/lib/posthog';
+import { useDashboardMode } from '@/contexts/DashboardModeContext';
 
 /**
  * Configuration des tables (zones / packs / plan de salle) au niveau d'un event.
@@ -53,6 +55,8 @@ interface BasicPack {
 }
 
 export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
+  const { mode: dashboardMode } = useDashboardMode();
+  const phScope = dashboardMode === 'organizer' ? 'organizer' : dashboardMode === 'agency' ? 'agency' : 'venue';
   const { user } = useAuth();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -143,6 +147,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       toast.error(error.message);
       return;
     }
+    capturePosthog('pillar_toggled', { pillar: 'tables', enabled: true, scope: phScope, event_id: eventId });
     toast.success(t('coTables.salesEnabled'));
     loadAll();
   };
@@ -154,6 +159,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       toast.error(error.message);
       return;
     }
+    capturePosthog('pillar_toggled', { pillar: 'tables', enabled: false, scope: phScope, event_id: eventId });
     toast.success(t('coTables.salesDisabled'));
     loadAll();
   };

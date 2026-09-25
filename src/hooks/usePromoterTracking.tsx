@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 // Storage keys
 const PROMO_CODE_KEY = 'promoter_code';
@@ -110,6 +112,14 @@ export function usePromoterTracking(venueId?: string, routeEventId?: string) {
       if (eventId) sessionStorage.setItem(`promoter_event_click_${eventId}`, '1');
 
       storePromoCode(refCode, resolvedVenueId || null, resolvedOrganizerId || null, eventId, source);
+      // Analytics : le lien promoteur vient d'être capturé (jamais le code lui-même).
+      capturePosthog('promoter_attributed', {
+        pillar: null,
+        source: 'link',
+        stage: 'landing',
+        link_source: source ?? null,
+        ...marketProps({ eventId, venueId: resolvedVenueId, organizerUserId: resolvedOrganizerId }),
+      });
       // track-promoter-click sait déjà résoudre la portée organisateur.
       trackPromoterClick(refCode, resolvedVenueId || '', eventId, source);
 

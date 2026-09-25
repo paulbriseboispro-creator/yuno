@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { isNative, openExternal, toAppPath, PENDING_CHECKOUT_KEY } from '@/lib/native';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { noteAppOpenSource } from '@/lib/posthog';
 
 // Les payloads push portent tantôt des paths ('/my-orders'), tantôt des URLs
 // absolues ('https://yunoapp.eu/l/abc') — toAppPath (lib/native) normalise.
@@ -45,6 +46,7 @@ export function NativeBridge() {
 
     import('@capacitor/app').then(({ App: CapApp }) => {
       const urlSub = CapApp.addListener('appUrlOpen', ({ url }) => {
+        noteAppOpenSource('link');
         try {
           // Retour checkout / deep link : yuno:// (app B2C) ou yunopro:// (app Pro)
           if (url.startsWith('yuno://') || url.startsWith('yunopro://')) {
@@ -110,6 +112,7 @@ export function NativeBridge() {
 
     import('@capacitor/push-notifications').then(({ PushNotifications }) => {
       const tapSub = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        noteAppOpenSource('notification');
         const url = (action.notification.data as { url?: string } | undefined)?.url;
         const internal = toInternalPath(url);
         if (internal) {

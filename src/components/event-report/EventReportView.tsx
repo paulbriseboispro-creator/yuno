@@ -18,6 +18,8 @@ import { UpdatedAt } from '@/components/analytics/kit';
 import { KIT } from '@/components/analytics/kitFormat';
 import { CountdownTile } from '@/components/events-sales/EventSalesParts';
 import { useEventReport } from '@/hooks/useEventReport';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { marketProps } from '@/lib/geo';
 import type { EventSales } from '@/lib/eventsSales';
 import type { EventReport } from '@/lib/eventReport';
 import { ReportSales } from './ReportSales';
@@ -93,6 +95,12 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
   const { t, language } = useLanguage();
   const { data: report, loading, error, fetchedAt } = useEventReport(eventId);
   const events = useScopeEvents(scope);
+  // Une fois par soirée ouverte, quand le rapport de CETTE soirée est chargé.
+  usePosthogEvent('event_report_opened', report?.event.id === eventId ? eventId : null, {
+    scope: report?.scope,
+    phase: report?.event.phase,
+    ...marketProps({ timezone: report?.tz, eventId, venueId: scope.venueId, organizerUserId: scope.organizerUserId }),
+  });
 
   // Comparaison : choisie par la personne, sinon la soirée précédente dès
   // qu'elle est connue. `undefined` = pas encore décidé, `null` = aucune.

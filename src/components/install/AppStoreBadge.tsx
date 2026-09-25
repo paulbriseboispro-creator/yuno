@@ -1,5 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { APP_STORE_URL, APP_STORE_READY } from '@/lib/appStore';
+import { capturePosthog } from '@/lib/posthog';
 
 /**
  * Badge « Télécharger sur l'App Store » — DA publique (pill noire, bord
@@ -10,10 +11,13 @@ import { APP_STORE_URL, APP_STORE_READY } from '@/lib/appStore';
 export function AppStoreBadge({
   showComingSoon = false,
   className = '',
+  placement = 'badge',
 }: {
   showComingSoon?: boolean;
   /** Classes additionnelles (ex. `w-full sm:w-auto` pour les CTA de hero mobile). */
   className?: string;
+  /** Emplacement du badge, pour `app_store_clicked` (PostHog). */
+  placement?: string;
 }) {
   const { t } = useLanguage();
 
@@ -60,6 +64,7 @@ export function AppStoreBadge({
       href={APP_STORE_URL}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => capturePosthog('app_store_clicked', { placement })}
       className={`active:scale-[0.97] ${className}`}
       style={baseStyle}
     >

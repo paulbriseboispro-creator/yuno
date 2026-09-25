@@ -4,6 +4,7 @@
 // s'il manque, puis on allume. Le moteur (cron 5 min) fait le reste.
 
 import { supabase } from '@/integrations/supabase/client';
+import { capturePosthog } from '@/lib/posthog';
 import {
   AUTOMATION_META, DEFAULT_STUDIO_THEME, DEFAULT_TIER_THRESHOLD, buildStarter, delayToHours,
   type AutomationKind, type TemplateContent,
@@ -55,5 +56,6 @@ export async function turnOnAutomation({ scope, kind, t, createTemplate }: TurnO
     } as never);
     if (error) return { ok: false, error: error.message };
   }
+  if (!isPlatform) capturePosthog('email_automation_toggled', { scope: scope.kind, kind, enabled: true, source: 'suggestion' });
   return { ok: true, created };
 }

@@ -21,6 +21,7 @@ import { enUS, es, fr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTabParam } from '@/hooks/useTabParam';
 import { tint } from '@/lib/proTheme';
+import { capturePosthog } from '@/lib/posthog';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -208,6 +209,7 @@ export default function OwnerTables() {
     try {
       const { error } = await supabase.from('events').update({ tables_enabled: !event.tablesEnabled }).eq('id', event.id);
       if (error) throw error;
+      capturePosthog('pillar_toggled', { pillar: 'tables', enabled: !event.tablesEnabled, scope: 'venue', event_id: event.id, venue_id: venueId });
       toast.success(event.tablesEnabled ? t('tables.tablesDisabled') : t('tables.tablesEnabled'));
       fetchEvents();
     } catch { toast.error(t('tables.errorSaving')); }

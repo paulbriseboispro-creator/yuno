@@ -986,6 +986,62 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
   headless ne voit partir aucun événement sans
   `--disable-blink-features=AutomationControlled`.
 
+**Tracking complet + dashboard « Yuno — Pilotage » (2026-09-25).** Règles :
+
+- **`surface` sur CHAQUE événement**, recalculée à l'envoi (`before_send`) par
+  `src/lib/posthogSurface.ts` : `web_app`, `pwa` (standalone), `ios_app`,
+  `ios_pro`, `console` (tout `isProPath`), `admin` (exclu partout),
+  `landing` (posée par la landing). Plus `is_demo` (toujours présent, `false`
+  par défaut), et sur les apps iPhone `app_version` (« 1.2 (34) ») +
+  `ota_bundle`. Ne jamais poser `surface` à la main dans une page.
+- **Géo = `marketProps()`** (`src/lib/geo.ts`) sur tout événement lié à une
+  soirée / un club / un organisateur : `market_country` (fuseau, ville en
+  repli — il n'existe AUCUNE colonne pays), `market_city`, `event_id`,
+  `venue_id`, `organizer_user_id`. Le pays du visiteur reste
+  `$geoip_country_code`. Miroirs : `_shared/geo.ts` (edge) et
+  `analytics_wh.market_country()` (SQL) — une règle ajoutée se reporte aux trois.
+- **L'argent = `order_paid_server`** (`_shared/posthog.ts`), capturé sous la
+  transition atomique pending→paid des trois `verify-*`, à l'inscription
+  guest list (`create-guest-list-entry`, valeur 0) et à la table `on_site`
+  (`create-table-checkout`). Propriétés : `pillar`, `payment`, `value` (brut,
+  table = prix total), `club_revenue` (fees.ts), `paid_online`,
+  `has_promoter`, `has_promo_code`, `surface` = surface d'ACHAT, `source:
+  'server'`, géo, `event_title`, `is_demo`. Le contexte `analytics`
+  (`getAnalyticsCheckoutContext` : consentement, surface, distinct_id) part
+  dans le corps des `create-*` (`invokeEdgeFunction` pour les trois
+  checkouts, explicite pour la guest list) puis dans les métadonnées Stripe
+  `ph_*`. Sans consentement : distinct_id propre à la commande et
+  `$process_person_profile: false`. Fire-and-forget, ne lève jamais. Secret
+  `POSTHOG_PROJECT_KEY` (clé `phc_` publique). Redéployer les sept fonctions
+  ensemble (`verify-*`, `create-*`, `create-guest-list-entry`).
+  `purchase_completed` (navigateur) n'est PAS l'argent.
+- **Nouveaux événements** : tous listés dans `YunoEvent` avec leurs
+  propriétés en commentaire (découverte, étapes du paiement, codes promo,
+  tables, boissons, Wallet, `app_opened` / `push_opened` / `pwa_installed`,
+  bandeaux d'installation, `checkout_failed`, et côté pro publication,
+  piliers, Stripe Connect, mise en ligne, codes promo, imports,
+  automatisations, SMS, équipe, Live View, rapport de soirée, assistants IA).
+  `app_opened.source` vient de NativeBridge (`noteAppOpenSource`). Jamais un
+  événement par scan de porte : les entrées se lisent dans l'entrepôt.
+  `capture_exceptions: true` (`$exception`, section Santé).
+- **Entrepôt** (migration `20260925235000`) : schéma `analytics_wh`, VUES
+  seulement, sans aucune colonne personnelle (acheteur = `buyer_key`, md5
+  salé par `analytics_wh_private.salt`, sel illisible), démo exclue
+  (CTE MATERIALIZED). Rôle `posthog_reader` : lecture seule, aucun droit sur
+  `public`, mot de passe posé HORS migration au branchement de la source
+  PostHog (pooler `aws-0-eu-west-1.pooler.supabase.com:5432`, utilisateur
+  `posthog_reader.<ref>`). Ajouter une vue = pas de colonne email / nom /
+  téléphone / IP / QR / remarque, jamais.
+- **Le dashboard est du code** : `scripts/posthog/pilotage.mjs`
+  (`POSTHOG_PERSONAL_API_KEY=phx_… node scripts/posthog/pilotage.mjs
+  [--warehouse <préfixe des tables>]`), idempotent, qui pose aussi les
+  filtres « comptes de test » du projet (`is_demo = true`, `surface =
+  admin`) et l'épingle en accueil. Neuf sections dans CET ordre : 0 lecture,
+  1 coup d'œil (12 chiffres comparés), 2 ventes, 3 tunnel, 4 surfaces,
+  5 communauté, 6 offre (entrepôt), 7 acquisition, 8 santé. Une tuile
+  ajoutée se range dans sa section, jamais dans une section à part ; on
+  modifie le script puis on le rejoue, jamais le dashboard à la main.
+
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
 La racine `/` du web montre une **landing vitrine** (`src/pages/Landing.tsx`) au seul

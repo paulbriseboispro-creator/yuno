@@ -5,6 +5,7 @@ import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush } from '../_shared/auto-push.ts';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
+import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -167,6 +168,26 @@ serve(async (req) => {
       } catch (metaErr) {
         console.error('[META] purchase enqueue failed (non-blocking):', metaErr);
       }
+
+      // PostHog — `order_paid_server` (une fois, sous la même transition).
+      // Valeur = prix de la réservation (l'engagement, comme la Console) ;
+      // `paid_online` = l'acompte encaissé maintenant.
+      captureOrderPaid(supabaseAdmin, {
+        pillar: 'tables',
+        orderId: reservationId,
+        payment: 'stripe',
+        eventId: reservation.event_id,
+        value: Number(reservation.total_price || 0),
+        clubRevenue: clubRevenue.table(reservation),
+        paidOnline: (session.amount_total ?? 0) / 100,
+        currency: session.currency,
+        quantity: reservation.guest_count || 1,
+        hasPromoter: !!(session.metadata?.promoterId || session.metadata?.promoCode),
+        hasPromoCode: !!session.metadata?.promoCodeId,
+        userId: effectiveUserId ?? null,
+        buyerEmail: session.customer_details?.email || session.customer_email || reservation.user_email || null,
+        ctx: analyticsContextFromStripeMetadata(session.metadata as Record<string, string> | null),
+      });
 
       const { data: event } = await supabaseAdmin
         .from('events')

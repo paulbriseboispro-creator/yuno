@@ -36,6 +36,8 @@ import { VenuePromoSection } from '@/components/upsell/VenuePromoSection';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { marketProps } from '@/lib/geo';
 
 interface VenueData extends Venue {
   description?: string;
@@ -194,6 +196,23 @@ export default function VenuePage() {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [menuEnabled, setMenuEnabled] = useState<boolean>(true);
   const addToCart = useStore((state) => state.addToCart);
+  usePosthogEvent('venue_viewed', venue?.id, marketProps({ city: venue?.city, venueId: venue?.id }));
+  // drinks_menu_viewed : la carte est arrivée à l'écran, une fois par club.
+  // (callback ref : la section n'existe qu'une fois le club et son plan chargés)
+  const [menuEl, setMenuEl] = useState<HTMLDivElement | null>(null);
+  const [menuInView, setMenuInView] = useState(false);
+  useEffect(() => {
+    if (!menuEl || menuInView || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setMenuInView(true);
+    });
+    io.observe(menuEl);
+    return () => io.disconnect();
+  }, [menuEl, menuInView]);
+  usePosthogEvent('drinks_menu_viewed', menuInView && drinks.length > 0 ? venue?.id : null, {
+    placement: 'venue_page',
+    ...marketProps({ city: venue?.city, venueId: venue?.id }),
+  });
 
   // Tag every visible event with the source so checkout can attribute it
   useTagEventsSource(events.map((e) => e.id), 'venue_profile');
@@ -955,7 +974,7 @@ export default function VenuePage() {
 
       {/* ===== LA CARTE ===== */}
       {isDrinksEnabled && (
-        <div className="pt-8">
+        <div className="pt-8" ref={setMenuEl}>
           {/* Promo drinks */}
           <VenuePromoSection drinks={drinks} onAdd={handleAddDrink} />
 

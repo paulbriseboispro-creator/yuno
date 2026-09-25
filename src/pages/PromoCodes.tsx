@@ -23,6 +23,7 @@ import { EmptyNote, ReportCard, Segmented } from '@/components/event-report/ui';
 import { INNER_BG } from '@/components/event-report/tokens';
 import { PUBLIC_BASE_URL } from '@/lib/native';
 import { normalizePromoCode, type PromoPillar } from '@/lib/promoCode';
+import { capturePosthog } from '@/lib/posthog';
 
 interface PromoCodeRow {
   id: string;
@@ -315,6 +316,16 @@ function PromoCodeDialog({ open, onClose, onCreated, scope, events }: {
       setFormError(error.code === '23505' ? t('pc.err.duplicate') : t('pc.saveError'));
       return;
     }
+    capturePosthog('promo_code_created', {
+      scope: scope.organizerUserId ? 'organizer' : 'venue',
+      kind: kind === 'percentage' ? 'percent' : 'amount',
+      pillars: [...(tickets ? ['tickets'] : []), ...(tables ? ['tables'] : [])],
+      all_events: !eventId,
+      has_quota: uses !== null,
+      ...(eventId ? { event_id: eventId } : {}),
+      ...(scope.venueId ? { venue_id: scope.venueId } : {}),
+      ...(scope.organizerUserId ? { organizer_user_id: scope.organizerUserId } : {}),
+    });
     toast.success(t('pc.created').replace('{code}', clean));
     onCreated();
   };

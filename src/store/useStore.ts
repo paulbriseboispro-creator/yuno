@@ -4,6 +4,8 @@ import { CartItem, Order, Drink, Role } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { drinks as seedDrinks, mockOrders } from '@/data/seeds';
 import { haptics } from '@/lib/haptics';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 interface StoreState {
   // Cart
@@ -62,6 +64,13 @@ export const useStore = create<StoreState>()(
         } else if (drink.promoPrice) {
           unitPrice = drink.promoPrice;
         }
+        // Analytics : un ajout = un événement, quelle que soit la surface
+        // (carte du club, Mode Live au QR du bar, profil orga, suggestions).
+        capturePosthog('drink_added_to_cart', {
+          price: unitPrice,
+          collection: drink.collection ?? 'drink',
+          ...marketProps({ eventId, venueId: drink.venueId }),
+        });
         
         if (existing) {
           set({
@@ -96,6 +105,11 @@ export const useStore = create<StoreState>()(
         haptics.selection();
         const mixersTotal = mixers.reduce((sum, m) => sum + (m.price || 0), 0);
         const mixerKey = mixers.map((m) => m.id).sort().join(',');
+        capturePosthog('drink_added_to_cart', {
+          price: bottle.price + mixersTotal,
+          collection: 'bottle',
+          ...marketProps({ eventId }),
+        });
         const existing = get().cart.find(
           (item) =>
             item.kind === 'bottle' &&

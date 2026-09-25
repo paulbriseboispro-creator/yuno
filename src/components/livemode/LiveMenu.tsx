@@ -18,6 +18,8 @@ import { useLiveInstantCheckout } from '@/hooks/useLiveInstantCheckout';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { Drink } from '@/types';
 import { transitions } from '@/lib/motion';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { marketProps } from '@/lib/geo';
 
 type LiveCategory = 'drink' | 'shot' | 'soft' | 'bottle';
 
@@ -38,6 +40,12 @@ export function LiveMenu() {
   const { payNow, payingId } = useLiveInstantCheckout(
     session ? { eventId: session.eventId, venueId: session.venueId } : null
   );
+
+  // Carte ouverte pendant la soirée (Mode Live) : une fois par soirée.
+  usePosthogEvent('drinks_menu_viewed', !loading && showMenu && session ? session.eventId : null, {
+    placement: 'live_mode',
+    ...marketProps({ eventId: session?.eventId, venueId }),
+  });
 
   const favoriteDrinkIds = getFavoritesByType('drink')
     .map((f) => f.drinkId)

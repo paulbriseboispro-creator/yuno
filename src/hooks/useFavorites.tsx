@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavoritesContext, FavoriteType, isSubscriptionType, type Favorite } from '@/contexts/FavoritesContext';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 export type { FavoriteType, Favorite };
 export { isSubscriptionType };
@@ -38,6 +40,26 @@ export function useFavorites() {
           haptics.error();
           toast.error(sub ? t('subscribe.loginRequired') : t('favorites.loginRequired'));
           return;
+        }
+
+        // Analytics : un abonnement (club, DJ) est un `follow_toggled`, une
+        // soirée / boisson enregistrée un `favorite_toggled`.
+        const on = result === 'added';
+        if (sub) {
+          capturePosthog('follow_toggled', {
+            target_type: type === 'dj' ? 'dj' : 'venue',
+            following: on,
+            external: type === 'affiliate_venue',
+            source: source ?? null,
+            ...marketProps({ venueId: type === 'club' ? id : null }),
+          });
+        } else {
+          capturePosthog('favorite_toggled', {
+            favorited: on,
+            item_type: type,
+            source: source ?? null,
+            ...marketProps({ eventId: type === 'event' ? id : null }),
+          });
         }
 
         if (sub) {

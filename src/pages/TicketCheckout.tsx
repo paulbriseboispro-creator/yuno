@@ -40,6 +40,8 @@ import { TicketCheckoutSkeleton } from '@/components/skeletons/TicketCheckoutSke
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 
@@ -67,7 +69,6 @@ export default function TicketCheckout() {
   const [event, setEvent] = useState<EventWithTicketing | null>(null);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string } | null>(null);
   useMetaCheckoutPixel({ eventId: event?.id ?? null, enabled: !!event?.id });
-  usePosthogEvent('checkout_started', event?.id, { pillar: 'tickets', event_id: event?.id });
   const [round, setRound] = useState<TicketRound | null>(null);
   // Indicatif par défaut du champ téléphone = pays de la soirée. Un acheteur à
   // Madrid qui tape son numéro sous un drapeau français laisse un téléphone
@@ -112,6 +113,15 @@ export default function TicketCheckout() {
     organizerUserId: string | null;
     scopeName: string;
   } | null>(null);
+  // Marché de la soirée (analytics PostHog) : fuseau + ville, club ou orga.
+  const ticketMarket = marketProps({
+    timezone: event?.timezone,
+    city: venue?.city,
+    eventId: event?.id,
+    venueId: consentScope?.venueId,
+    organizerUserId: consentScope?.organizerUserId,
+  });
+  usePosthogEvent('checkout_started', event?.id, { pillar: 'tickets', ...ticketMarket });
   // « A-t-elle déjà dit oui à CE club ? » — la seule question qui vaille.
   const marketingConsent = useMarketingConsent(consentScope);
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
@@ -530,11 +540,27 @@ export default function TicketCheckout() {
         p_code: code, p_event_id: event.id, p_pillar: 'tickets', p_ticket_round_id: round.id,
       } as never);
       const res = data as { ok?: boolean; code?: string; discountType?: 'percentage' | 'fixed'; discountValue?: number } | null;
+      const ok = !!(res?.ok && res.discountType && res.discountValue != null);
+      capturePosthog('promo_code_applied', {
+        pillar: 'tickets',
+        result: ok ? 'applied' : 'rejected',
+        reason: ok ? null : ((res as { reason?: string } | null)?.reason ?? 'not_found'),
+        source: fromUrl ? 'link' : 'session',
+        ...marketProps({ eventId: event.id }),
+      });
       if (res?.ok && res.discountType && res.discountValue != null) {
         setAppliedPromo({ code: res.code ?? code, discountType: res.discountType, discountValue: Number(res.discountValue) });
       }
     })();
   }, [promoRestored, event?.id, round?.id]);
+  // Lien promoteur retenu pour ce paiement (le code vient du lien, jamais saisi).
+  usePosthogEvent('promoter_attributed', event?.id && promoterDiscount?.promoterId ? `${event.id}:${promoterDiscount.promoterId}` : null, {
+    pillar: 'tickets',
+    source: 'link',
+    stage: 'checkout',
+    promoter_id: promoterDiscount?.promoterId ?? null,
+    ...ticketMarket,
+  });
   // Absorb mode: the club covers the Yuno commission, so the fan only pays the Stripe
   // transaction fee. Mirrors create-ticket-checkout so this total matches the charge.
   const feeAbsorbed = useAbsorbYunoFees(venue?.id ?? null);
@@ -667,8 +693,16 @@ export default function TicketCheckout() {
     // Validate form FIRST before checking auth
     if (!validateForm()) return;
     if (!round || !event) return;
+    capturePosthog('checkout_step_completed', { pillar: 'tickets', step: 'details', quantity, ...ticketMarket });
 
     setCheckoutLoading(true);
+    // checkout_failed : une fois par échec, raison courte (jamais le message).
+    let failureTracked = false;
+    const trackFailure = (err: unknown, code?: unknown) => {
+      if (failureTracked) return;
+      failureTracked = true;
+      capturePosthog('checkout_failed', { pillar: 'tickets', reason: checkoutFailReason(err, code), ...ticketMarket });
+    };
     try {
       // Password-gated sale: mint the access grant for THIS buyer's identity
       // (user_id when authed, email for guests) right before checkout. The
@@ -682,6 +716,7 @@ export default function TicketCheckout() {
           p_guest_email: guestEmailForGrant,
         });
         if (unlockErr || unlocked !== true) {
+          trackFailure(unlockErr, 'sale_password');
           toast.error(t('tickets.salePasswordWrong'));
           setCheckoutLoading(false);
           navigate(`${basePath}/billets`, { state: { eventId } });
@@ -819,10 +854,12 @@ export default function TicketCheckout() {
       // opaque. invokeEdgeFunction rattache le corps réel — c'est lui qui porte le
       // motif (club sans paiement configuré, sold out…) et le code d'aiguillage.
       if (data?.code === 'PAYMENTS_DISABLED') {
+        trackFailure(error, data.code);
         toast.error(t('payments.disabledBanner'));
         return;
       }
       if (data?.error) {
+        trackFailure(error, data.code);
         if (data.code === 'COMMUNITY_ONLY') {
           // Tarif réservé à la communauté : on montre l'action qui débloque au
           // lieu d'un simple toast (le message serveur est déjà localisé).
@@ -834,6 +871,7 @@ export default function TicketCheckout() {
         if (data.code === 'PROMO_INVALID') {
           // Code devenu invalide entre l'aperçu et le paiement (quota épuisé,
           // fin de validité) : on le retire et on le dit, le total se recalcule.
+          capturePosthog('promo_code_applied', { pillar: 'tickets', result: 'rejected', reason: data.reason ?? 'invalid', source: 'checkout', ...ticketMarket });
           setAppliedPromo(null);
           forgetPromoForEvent(event?.id);
           toast.error(t(promoReasonKey(data.reason)));
@@ -875,7 +913,7 @@ export default function TicketCheckout() {
       if (data?.testMode && data?.redirectUrl) {
         // Pas de Stripe (billet gratuit, ou achat simulé d'un compte démo) :
         // la vente est confirmée ici, pas par une page Verify*.
-        capturePosthog('purchase_completed', { pillar: 'tickets', payment: 'free', event_id: event?.id ?? null, value: 0, currency: 'EUR' });
+        capturePosthog('purchase_completed', { pillar: 'tickets', payment: 'free', value: 0, currency: 'EUR', quantity, ...ticketMarket });
         toast.success(t('tickets.purchaseSuccess'));
         // Navigation SPA (jamais window.location.href : rechargement complet du
         // bundle → replay du splash dans l'app native, état perdu).
@@ -887,11 +925,13 @@ export default function TicketCheckout() {
       }
 
       if (data?.url) {
+        capturePosthog('checkout_step_completed', { pillar: 'tickets', step: 'payment', quantity, ...ticketMarket });
         haptics.medium();
         launchCheckout(data.url);
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
+      trackFailure(error);
       haptics.error();
       toast.error(error.message || t('tickets.checkoutError'));
     } finally {

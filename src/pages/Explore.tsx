@@ -47,6 +47,9 @@ import { activeMomentForCity } from '@/data/featuredMoments';
 import { PublicPage } from '@/components/PublicPage';
 import { markWebEngaged } from '@/lib/webHome';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 
@@ -190,8 +193,15 @@ export default function Explore() {
   // Tous les events suivent sur toute la session (stockage partagé).
   useEffect(() => {
     const forced = cityFromUrl();
-    if (forced) setManualLocation(forced);
+    if (forced) {
+      setManualLocation(forced);
+      const m = marketProps({ city: forced });
+      capturePosthog('city_selected', { city: m.market_city ?? null, source: 'url', ...m });
+    }
   }, []);
+
+  // Une ouverture du feed = un `explore_viewed` (ville connue à l'ouverture).
+  usePosthogEvent('explore_viewed', 'explore', { city: marketProps({ city }).market_city ?? null, ...marketProps({ city }) });
 
   // ── Module « Pour toi » : cartes + raisons, autonome (horizon 45 j, ville
   //    courante). Déclaré après `city` dont il dépend. Vide = rien à
@@ -461,6 +471,7 @@ export default function Explore() {
   }, []);
 
   const handleDateSelect = (date: Date | null, preset?: string) => {
+    if (preset || date) capturePosthog('explore_filter_applied', { filter: 'date', value: preset ?? 'custom_date' });
     if (preset) {
       setSelectedDate(null);
       setDateFilter(preset as DateFilter);
@@ -481,6 +492,19 @@ export default function Explore() {
 
   const handleApplyFilters = (newFilters: ExploreFilters) => {
     setFilters(newFilters);
+    capturePosthog('explore_filter_applied', {
+      filter: 'filter_page',
+      value: [
+        newFilters.eventTypes.length > 0 && `types:${newFilters.eventTypes.join('+')}`,
+        newFilters.genres.length > 0 && `genres:${newFilters.genres.join('+')}`,
+        newFilters.priceType !== 'both' && `price:${newFilters.priceType}`,
+        newFilters.dateFilter && `date:${newFilters.dateFilter}`,
+      ].filter(Boolean).join('|') || null,
+      event_types: newFilters.eventTypes,
+      genres: newFilters.genres,
+      price_type: newFilters.priceType,
+      date: newFilters.dateFilter ?? null,
+    });
     if (newFilters.dateFilter && newFilters.dateFilter !== filters.dateFilter) {
       if (['today', 'tomorrow', 'weekend', 'week'].includes(newFilters.dateFilter)) {
         setSelectedDate(null);
@@ -503,19 +527,22 @@ export default function Explore() {
 
   // ── Chip handlers ──
   const handleDateChip = (filter: 'today' | 'tomorrow' | 'weekend') => {
+    capturePosthog('explore_filter_applied', { filter: 'date', value: filter });
     setSelectedDate(null);
     setDateFilter(filter);
   };
 
   const handleGenreToggle = useCallback((genre: string) => {
+    capturePosthog('explore_filter_applied', { filter: 'genre', value: genre, active: !chipGenres.includes(genre) });
     setChipGenres(prev =>
       prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
     );
-  }, []);
+  }, [chipGenres]);
 
   const handleFreeToggle = useCallback(() => {
+    capturePosthog('explore_filter_applied', { filter: 'free', value: !freeOnly ? 'on' : 'off', active: !freeOnly });
     setFreeOnly(prev => !prev);
-  }, []);
+  }, [freeOnly]);
 
   const sliderToHour = (val: number): number => (18 + val) % 24;
 

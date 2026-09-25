@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Bell, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 interface EventWaitlistFormProps {
   eventId: string;
@@ -56,6 +58,7 @@ export function EventWaitlistForm({ eventId, onSuccess }: EventWaitlistFormProps
       setPosition(count || 1);
       setRegistered(true);
       toast.success(t('waitlist.registered'));
+      capturePosthog('waitlist_joined', { pillar: 'tickets', has_account: !!user, ...marketProps({ eventId }) });
       onSuccess?.();
     } catch (err) {
       console.error('Waitlist error:', err);

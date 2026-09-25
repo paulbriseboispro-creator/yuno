@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
+import { capturePosthog } from '@/lib/posthog';
 
 export type AgencyAssistantMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -70,6 +71,8 @@ export function useAgencyAssistantChat() {
       const allMessages = [...messages, userMsg].slice(-MAX_MESSAGES);
       setMessages(allMessages);
       setIsLoading(true);
+      // Jamais le texte : seulement qu'un message est parti, et à quel tour.
+      capturePosthog('ai_assistant_used', { assistant: 'agency', turn: allMessages.filter((m) => m.role === 'user').length });
 
       let assistantSoFar = '';
       const appendAssistant = (snapshot: string) => {

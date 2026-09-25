@@ -16,6 +16,7 @@ import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CO
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from "../_shared/meta-capi.ts";
+import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPaid } from "../_shared/posthog.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 
@@ -96,6 +97,7 @@ serve(async (req) => {
       purchaseSource, trackedLinkId,
       // Contexte Meta (consentement pub, _fbp/_fbc)
       meta,
+      analytics,
       // Déclaration sur l'honneur de majorité
       ageDeclaration,
       // Pré-commande de bouteilles (préparées pour l'arrivée, réglées à la table)
@@ -114,6 +116,7 @@ serve(async (req) => {
     // réservation. L'attribution dégrade en « non attribué », jamais en échec de vente.
     const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
     const metaCtx = parseMetaClientContext(meta, req);
+    const analyticsCtx = parseAnalyticsContext(analytics);
 
     // ── Déclaration sur l'honneur de majorité (bouteilles / bottle service) ───
     // Obligatoire et enregistrée côté serveur, comme pour la commande de boissons.
@@ -692,6 +695,23 @@ serve(async (req) => {
         console.error("[META] on-site lead enqueue failed (non-blocking):", metaErr);
       }
 
+      // PostHog — `order_paid_server` : table à régler sur place (rien en ligne).
+      captureOrderPaid(supabaseAdmin, {
+        pillar: "tables",
+        orderId: onSiteReservationId,
+        payment: "on_site",
+        eventId,
+        venueId: effectiveVenueId ?? null,
+        value: Number(onSiteTotal || 0),
+        clubRevenue: Number(onSiteTotal || 0),
+        paidOnline: 0,
+        quantity: validGuestCount,
+        hasPromoter: !!promoterId,
+        userId: user?.id ?? null,
+        buyerEmail: user?.email || guestEmail || null,
+        ctx: analyticsCtx,
+      });
+
       // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct du
       // club : sa case est distincte, son abonnement l'est aussi. Écrit au même
       // moment que celui du club (trigger AFTER INSERT), y compris sur une résa
@@ -1200,7 +1220,7 @@ serve(async (req) => {
       cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx) },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx) },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;

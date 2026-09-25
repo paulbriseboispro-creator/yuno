@@ -40,6 +40,8 @@ import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
 import { CancelTicketDialog } from '@/components/orders/CancelTicketDialog';
 import { getGuestTickets, removeGuestTicket, type GuestTicket } from '@/lib/guestTickets';
 import { addToWallet } from '@/lib/wallet';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
 import { publishNextEventFromTickets } from '@/lib/widgetData';
@@ -1703,6 +1705,7 @@ export default function MyOrders() {
       const w = opts.wallet;
       acts.push({ icon: Wallet, label: t('orders.addToWallet'), accent: true, onClick: () => {
         haptics.medium();
+        capturePosthog('wallet_pass_clicked', { pillar: w.type === 'ticket' ? 'tickets' : w.type === 'table' ? 'tables' : 'guest_list', placement: 'my_orders', ...marketProps({ eventId: opts.eventId, city: opts.venue.city }) });
         addToWallet(w.type, w.id).catch(() => toast.error(t('confirmation.walletError')));
       } });
     }

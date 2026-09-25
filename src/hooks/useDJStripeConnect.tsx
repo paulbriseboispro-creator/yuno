@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { trackStripeConnectStarted, trackStripeConnectStatus } from '@/lib/stripeConnectTracking';
 
 /**
  * DJ-side Stripe Connect status + onboarding. Mirrors useStripeConnect (owner) and
@@ -21,6 +23,8 @@ export function useDJStripeConnect() {
     connected: false, status: 'none', chargesEnabled: false, payoutsEnabled: false,
   });
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   const refresh = useCallback(async () => {
     try {
@@ -34,10 +38,11 @@ export function useDJStripeConnect() {
         chargesEnabled: data.chargesEnabled || false,
         payoutsEnabled: data.payoutsEnabled || false,
       });
+      trackStripeConnectStatus('dj', userId, { accountId: data.connected ? userId : null, ready: !!data.chargesEnabled });
     } catch (e) {
       console.error('Error fetching DJ Stripe status:', e);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     (async () => {
@@ -48,6 +53,7 @@ export function useDJStripeConnect() {
   }, [refresh]);
 
   const startOnboarding = async () => {
+    trackStripeConnectStarted('dj', userId);
     try {
       const { data, error } = await supabase.functions.invoke('stripe-connect', {
         body: { action: 'onboard', actor_type: 'dj' },

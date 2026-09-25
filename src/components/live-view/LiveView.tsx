@@ -3,6 +3,7 @@ import { Maximize2, Minimize2, Pause, Play, Radio } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useReducedMotion } from '@/lib/motion';
 import { useLiveView } from '@/hooks/useLiveView';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { fmtInt, timeAgoLabel } from '@/lib/liveView';
 import { BigNumber, Label, LiveBadge, LV, Muted } from './liveViewUi';
 import { LivePanel } from './LivePanel';
@@ -23,6 +24,10 @@ export function LiveView({ venueId = null, organizerUserId = null }: { venueId?:
   const reducedMotion = !!useReducedMotion();
   const [paused, setPaused] = useState(false);
   const { snapshot, loading, error, lastUpdatedAt, freshIds, bursts } = useLiveView({ venueId, organizerUserId }, paused);
+  usePosthogEvent('live_view_opened', venueId ?? organizerUserId, {
+    scope: venueId ? 'venue' : 'organizer',
+    ...(venueId ? { venue_id: venueId } : { organizer_user_id: organizerUserId }),
+  });
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);

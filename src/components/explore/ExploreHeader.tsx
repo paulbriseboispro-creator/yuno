@@ -14,6 +14,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { isNative } from '@/lib/native';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+
+/** Nom de ville choisi → événement PostHog (jamais la saisie brute du champ). */
+function trackCitySelected(cityName: string, source: 'picker' | 'geoloc') {
+  const m = marketProps({ city: cityName });
+  capturePosthog('city_selected', { city: m.market_city ?? null, source, ...m });
+}
 
 interface ExploreHeaderProps {
   city: string;
@@ -105,6 +113,7 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
             });
             cityName = data?.city || data?.name || city;
           }
+          trackCitySelected(cityName, 'geoloc');
           onCityChange(cityName, { lat: pos.coords.latitude, lng: pos.coords.longitude });
         } catch (e) {
           console.error("Geocoding reverse failed:", e);
@@ -408,6 +417,7 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
                   <button
                     key={i}
                     onClick={() => {
+                      trackCitySelected(s.name, 'picker');
                       onCityChange(s.name, { lat: s.lat, lng: s.lng });
                       setCityDialogOpen(false);
                       setCitySearch('');

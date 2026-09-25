@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { APP_STORE_URL, canPromoteApp } from '@/lib/appStore';
 import { AppleLogo } from '@/components/install/AppStoreBadge';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
 
 /**
  * Le moment honnête de la conversion : APRÈS l'achat. L'intention
@@ -15,7 +17,9 @@ import { AppleLogo } from '@/components/install/AppStoreBadge';
  */
 export function PostPurchaseAppCard() {
   const { t } = useLanguage();
-  if (!canPromoteApp()) return null;
+  const visible = canPromoteApp();
+  usePosthogEvent('install_banner_viewed', visible ? 'post_purchase' : null, { placement: 'post_purchase' });
+  if (!visible) return null;
 
   return (
     <motion.section
@@ -47,6 +51,10 @@ export function PostPurchaseAppCard() {
           href={APP_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => {
+            capturePosthog('install_banner_clicked', { placement: 'post_purchase' });
+            capturePosthog('app_store_clicked', { placement: 'post_purchase' });
+          }}
           className="btn btn--primary w-full"
         >
           <AppleLogo size={15} />

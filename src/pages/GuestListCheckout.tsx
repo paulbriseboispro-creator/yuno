@@ -3,7 +3,9 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { capturePosthog } from '@/lib/posthog';
+import { capturePosthog, getAnalyticsCheckoutContext } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,6 +61,8 @@ interface GuestListInfo {
   venueName: string;
   /** Pays où se déroule la soirée — indicatif par défaut du champ téléphone. */
   phoneCountry: string | null;
+  /** Marché de la soirée (analytics PostHog : pays, ville, ids). */
+  market: Record<string, string>;
   /** « Complet » posé à la main — toute la soirée, ou cette part (lib/soldOut.ts). */
   soldOut: boolean;
 }
@@ -306,6 +310,13 @@ export default function GuestListCheckout() {
           timezone: ev.timezone,
           city: venueCity || ev.location_city,
         })?.code ?? null,
+        market: marketProps({
+          timezone: ev.timezone,
+          city: venueCity || ev.location_city,
+          eventId: ev.id,
+          venueId: eventVenueId,
+          organizerUserId: eventOrganizerId,
+        }),
       });
 
       // Fill counts via the aggregated SECURITY DEFINER RPC. A direct count() on
@@ -414,6 +425,9 @@ export default function GuestListCheckout() {
     }
 
     setSubmitting(true);
+    // Code court d'un refus serveur, pour `checkout_failed` (jamais le message).
+    let failCode: string | null = null;
+    let joined = false;
     try {
       const promoterCode = ref || getStoredPromoCodeForScope(guestList.venueId, guestList.venueId) || undefined;
       // Attribution du canal (newsletter, instagram…) : ce tunnel s'ouvre
@@ -471,6 +485,7 @@ export default function GuestListCheckout() {
           ...(trackedLinkId ? { trackedLinkId } : {}),
           // Consentement publicité + identifiants Meta (Lead côté serveur).
           meta: getMetaCheckoutContext(),
+          analytics: getAnalyticsCheckoutContext(),
           // Langue lue par l'invité = langue de son email de confirmation.
           lang: language,
           gender: gender || undefined,
@@ -490,8 +505,12 @@ export default function GuestListCheckout() {
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      capturePosthog('guest_list_joined', { pillar: 'guest_list', event_id: eventId ?? null, via_invite: false });
+      if (data?.error) {
+        failCode = typeof data.code === 'string' ? data.code : null;
+        throw new Error(data.error);
+      }
+      capturePosthog('guest_list_joined', { pillar: 'guest_list', via_invite: false, ...(guestList.market ?? marketProps({ eventId })) });
+      joined = true;
 
       // Le couple (id, email) de l'inscription : c'est la cle du rattachement au
       // compte propose juste apres. L'email vient de la reponse serveur, pas du
@@ -520,8 +539,20 @@ export default function GuestListCheckout() {
         if (err?.context && typeof err.context.json === 'function') {
           const body = await err.context.json();
           if (body?.error) msg = body.error;
+          if (typeof body?.code === 'string') failCode = body.code;
         }
       } catch { /* ignore body parse errors */ }
+      if (!joined) capturePosthog('checkout_failed', {
+        pillar: 'guest_list',
+        reason: failCode
+          ?? (/authentication required|log in/i.test(msg) ? 'auth_required'
+            : /first name and last name/i.test(msg) ? 'name_incomplete'
+            : msg.includes('already registered') ? 'already_registered'
+            : msg.includes('quota reached') ? 'quota_reached'
+            : msg.includes('full') ? 'full'
+            : checkoutFailReason(err)),
+        ...(guestList?.market ?? {}),
+      });
       // Graceful fallback until the guest-capable edge function is deployed: a guest
       // who can't yet be registered without an account is routed to login instead of
       // hitting a dead-end error. Once the function ships, guests succeed and never

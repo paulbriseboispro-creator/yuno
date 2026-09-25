@@ -11,6 +11,8 @@ import { Plus, Pencil, Trash2, Ticket, Crown, Wine, Sparkles, Users } from 'luci
 import { normalizeTicketAudience, type TicketAudience } from '@/types/ticketing';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { capturePosthog } from '@/lib/posthog';
+import { useDashboardMode } from '@/contexts/DashboardModeContext';
 
 /**
  * Configuration de la billetterie au niveau d'un event.
@@ -45,6 +47,8 @@ interface Round {
 }
 
 export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) {
+  const { mode: dashboardMode } = useDashboardMode();
+  const phScope = dashboardMode === 'organizer' ? 'organizer' : dashboardMode === 'agency' ? 'agency' : 'venue';
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [ticketingEnabled, setTicketingEnabled] = useState(false);
@@ -86,6 +90,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
   const enableTicketing = async () => {
     const { error } = await supabase.from('events').update({ ticketing_enabled: true }).eq('id', eventId);
     if (error) { toast.error(error.message); return; }
+    capturePosthog('pillar_toggled', { pillar: 'tickets', enabled: true, scope: phScope, event_id: eventId });
     toast.success(t('coEvent.ticketingEnabled'));
     loadAll();
   };
@@ -94,6 +99,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
     if (!confirm(t('coEvent.confirmDisableTicketing'))) return;
     const { error } = await supabase.from('events').update({ ticketing_enabled: false }).eq('id', eventId);
     if (error) { toast.error(error.message); return; }
+    capturePosthog('pillar_toggled', { pillar: 'tickets', enabled: false, scope: phScope, event_id: eventId });
     toast.success(t('coEvent.ticketingDisabled'));
     loadAll();
   };

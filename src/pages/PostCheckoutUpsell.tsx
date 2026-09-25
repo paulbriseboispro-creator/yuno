@@ -22,6 +22,9 @@ import { motion } from 'framer-motion';
 import { Loader2, Minus, Plus, QrCode, Wine, Zap, ArrowRight, GlassWater } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { launchCheckout } from '@/lib/native';
 import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
@@ -206,6 +209,18 @@ export default function PostCheckoutUpsell() {
     if (hasAlcohol && !ageVerified) { toast({ title: t('ageGate.required'), variant: 'destructive' }); return; }
     if (!acceptCgv) { toast({ title: t('cgv.required'), variant: 'destructive' }); return; }
     setPaying(true);
+    // checkout_failed : une fois par échec, raison courte (jamais le message).
+    let failureTracked = false;
+    const trackFailure = (err: unknown, code?: unknown) => {
+      if (failureTracked) return;
+      failureTracked = true;
+      capturePosthog('checkout_failed', {
+        pillar: 'drinks',
+        reason: checkoutFailReason(err, code),
+        placement: 'post_checkout_upsell',
+        ...marketProps({ eventId: eventInfo.id, venueId: venueInfo.id }),
+      });
+    };
     try {
       const body: Record<string, unknown> = {
         items: selection.map((d) => ({ id: d.id, quantity: qty[d.id] || 0, collection: d.collection })),
@@ -218,12 +233,19 @@ export default function PostCheckoutUpsell() {
         ageDeclaration: { confirmed: true, birthDate: ageBirthDate },
       };
       const { data, error } = await invokeEdgeFunction('create-checkout', { body });
-      if (error) throw error;
+      if (error) {
+        trackFailure(error, data?.code);
+        throw error;
+      }
       if (data?.code === 'PAYMENTS_DISABLED') {
+        trackFailure(null, data.code);
         toast({ title: t('payments.disabledBanner'), variant: 'destructive' });
         return;
       }
-      if (!data?.success) throw new Error(data?.error || 'checkout failed');
+      if (!data?.success) {
+        trackFailure(null, data?.code);
+        throw new Error(data?.error || 'checkout failed');
+      }
       if (data.testMode && data.redirectUrl) {
         haptics.medium();
         navigate(data.redirectUrl, { replace: true });
@@ -236,6 +258,7 @@ export default function PostCheckoutUpsell() {
       }
       throw new Error('no checkout url');
     } catch (e) {
+      trackFailure(e);
       haptics.error();
       toast({
         title: t('upsellPage.payError'),

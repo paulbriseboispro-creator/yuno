@@ -10,6 +10,9 @@ import { CreditBudgetBar } from '@/components/vip/CreditBudgetBar';
 import { VipOrderTracking } from '@/components/vip/VipOrderTracking';
 import { MixerSuggestionDialog } from '@/components/vip/MixerSuggestionDialog';
 import { VipMenuSkeleton } from '@/components/skeletons/VipMenuSkeleton';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import {
   ShoppingCart,
   Plus,
@@ -93,6 +96,11 @@ export default function VipMenu() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [noReservation, setNoReservation] = useState(false);
+  // Carte VIP (bottle service au QR de la table) : une fois par club.
+  usePosthogEvent('drinks_menu_viewed', !menuLoading && menuItems.length > 0 ? venueId : null, {
+    placement: 'vip_menu',
+    ...marketProps({ venueId }),
+  });
   
   // Mixer suggestion dialog state
   const [mixerDialogOpen, setMixerDialogOpen] = useState(false);
@@ -378,6 +386,7 @@ export default function VipMenu() {
       return;
     }
 
+    capturePosthog('drink_added_to_cart', { price: item.price, collection: 'vip_menu', ...marketProps({ venueId }) });
     setCart(prev => {
       const existing = prev.find(c => c.menuItem.id === item.id);
       if (existing) {
@@ -395,6 +404,7 @@ export default function VipMenu() {
   const handleMixerConfirm = (selected: { id: string; name: string }[]) => {
     const spirit = pendingSpirit;
     if (spirit) {
+      capturePosthog('drink_added_to_cart', { price: spirit.price, collection: 'vip_menu', with_mixers: selected.length, ...marketProps({ venueId }) });
       setCart(prev => {
         const map = new Map(prev.map(c => [c.menuItem.id, { ...c }]));
         const bump = (mi: VipMenuItem) => {

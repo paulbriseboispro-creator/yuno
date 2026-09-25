@@ -43,6 +43,7 @@ import { EventSellingModeToggle } from '@/components/owner/ticketing/EventSellin
 import { EventRoundsVisibility } from '@/components/owner/ticketing/EventRoundsVisibility';
 import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCapacity';
 import { useTabParam } from '@/hooks/useTabParam';
+import { capturePosthog } from '@/lib/posthog';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -550,6 +551,7 @@ export default function OwnerTicketing() {
         .eq('id', event.id);
 
       if (error) throw error;
+      capturePosthog('pillar_toggled', { pillar: 'tickets', enabled: !event.ticketingEnabled, scope: isOrganizerScope ? 'organizer' : 'venue', event_id: event.id });
 
       toast.success(event.ticketingEnabled ? t('tickets.ticketingDisabled') : t('tickets.ticketingEnabled'));
       fetchEvents();
@@ -702,6 +704,7 @@ export default function OwnerTicketing() {
       if (!enabledRows || enabledRows.length === 0) {
         throw new Error('Ticketing activation did not persist (no row updated)');
       }
+      capturePosthog('pillar_toggled', { pillar: 'tickets', enabled: true, scope: isOrganizerScope ? 'organizer' : 'venue', event_id: wizardEventId });
 
       // Notify waitlist if presale
       if (wizardSalesDraft.mode === 'presale') {

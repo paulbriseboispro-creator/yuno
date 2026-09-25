@@ -7,6 +7,18 @@ import { format, isToday, isTomorrow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, staggerItem, spring, tapScale, scaleIn } from '@/lib/animations';
 import { searchNorm } from '@/lib/searchNorm';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+
+/**
+ * Requête de recherche publiable dans PostHog : minuscules, ≤ 40 caractères,
+ * et RIEN si elle ressemble à un email ou à un numéro (≥ 6 chiffres).
+ */
+function analyticsQuery(q: string): string | null {
+  const v = q.trim().toLowerCase().slice(0, 40);
+  if (!v || v.includes('@') || (v.match(/\d/g)?.length ?? 0) >= 6) return null;
+  return v;
+}
 
 // ─── Types ────────────────────────────────────────────────────────
 interface SearchResult {
@@ -766,6 +778,36 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
     return () => { cancelled = true; clearTimeout(timer); };
   }, [query, loading, results.events.length]);
 
+  // search_performed : une fois par requête, quand les résultats sont posés
+  // et que la frappe s'est arrêtée (~800 ms) — jamais une par touche.
+  const lastTrackedQueryRef = useRef<string | null>(null);
+  useEffect(() => {
+    const q = query.trim();
+    if (!open || loading || q.length < 2 || lastTrackedQueryRef.current === q.toLowerCase()) return;
+    const timer = setTimeout(() => {
+      lastTrackedQueryRef.current = q.toLowerCase();
+      const count = results.events.length + results.clubs.length + results.djs.length
+        + results.organizers.length + results.agencies.length;
+      const m = marketProps({ city });
+      capturePosthog('search_performed', {
+        query: analyticsQuery(q),
+        results_count: count,
+        has_results: count > 0,
+        city: m.market_city ?? null,
+        ...m,
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [open, query, loading, results, city]);
+
+  const trackResultClick = (resultType: string, position: number) => {
+    capturePosthog('search_result_clicked', {
+      result_type: resultType,
+      position,
+      query_length: query.trim().length,
+    });
+  };
+
   const handleChipClick = (action: ChipAction) => {
     if (action.type === 'date') {
       setQuery('');
@@ -992,13 +1034,14 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                 >
                   {results.events.length > 0 && (
                     <ResultSection title={t('search.events')} count={results.events.length} sectionKey="events" expanded={expandedSections.events} onToggle={toggleSection} t={t}>
-                      {getVisibleItems(results.events, 'events').map(e => (
+                      {getVisibleItems(results.events, 'events').map((e, i) => (
                         <motion.button
                           key={e.id}
-                          onClick={() => e.isAffiliate && e.affiliateSlug
-                            ? handleNavigate(`/affiliate-event/${e.affiliateSlug}`)
-                            : handleNavigate(`/club/${e.venue_slug}/event/${e.id}`)
-                          }
+                          onClick={() => {
+                            trackResultClick(e.isAffiliate ? 'affiliate_event' : 'event', i);
+                            if (e.isAffiliate && e.affiliateSlug) handleNavigate(`/affiliate-event/${e.affiliateSlug}`);
+                            else handleNavigate(`/club/${e.venue_slug}/event/${e.id}`);
+                          }}
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                           variants={staggerItem}
                           whileTap={tapScale}
@@ -1047,10 +1090,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                         </p>
                       </div>
                       <div className="space-y-1">
-                        {semanticEvents.map(e => (
+                        {semanticEvents.map((e, i) => (
                           <motion.button
                             key={`sem-${e.id}`}
-                            onClick={() => handleNavigate(`/club/${e.venue_slug}/event/${e.id}`)}
+                            onClick={() => { trackResultClick('semantic_event', i); handleNavigate(`/club/${e.venue_slug}/event/${e.id}`); }}
                             className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                             variants={staggerItem}
                             whileTap={tapScale}
@@ -1079,10 +1122,11 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
                   {results.clubs.length > 0 && (
                     <ResultSection title={t('search.clubs')} count={results.clubs.length} sectionKey="clubs" expanded={expandedSections.clubs} onToggle={toggleSection} t={t}>
-                      {getVisibleItems(results.clubs, 'clubs').map(c => (
+                      {getVisibleItems(results.clubs, 'clubs').map((c, i) => (
                         <motion.button
                           key={c.id}
                           onClick={() => {
+                            trackResultClick(c.isAffiliate ? 'affiliate_venue' : 'club', i);
                             sessionStorage.setItem('yuno_club_origin', 'explore');
                             handleNavigate(c.isAffiliate && c.slug ? `/affiliate-venue/${c.slug}` : `/club/${c.slug || c.id}`);
                           }}
@@ -1121,10 +1165,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
                   {results.djs.length > 0 && (
                     <ResultSection title={t('search.djs')} count={results.djs.length} sectionKey="djs" expanded={expandedSections.djs} onToggle={toggleSection} t={t}>
-                      {getVisibleItems(results.djs, 'djs').map(d => (
+                      {getVisibleItems(results.djs, 'djs').map((d, i) => (
                         <motion.button
                           key={d.id}
-                          onClick={() => handleNavigate((d.handle || d.slug) ? `/dj/${d.handle || d.slug}` : '/')}
+                          onClick={() => { trackResultClick('dj', i); handleNavigate((d.handle || d.slug) ? `/dj/${d.handle || d.slug}` : '/'); }}
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                           variants={staggerItem}
                           whileTap={tapScale}
@@ -1155,10 +1199,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
                   {results.organizers.length > 0 && (
                     <ResultSection title={t('search.organizers')} count={results.organizers.length} sectionKey="organizers" expanded={expandedSections.organizers} onToggle={toggleSection} t={t}>
-                      {getVisibleItems(results.organizers, 'organizers').map(o => (
+                      {getVisibleItems(results.organizers, 'organizers').map((o, i) => (
                         <motion.button
                           key={o.id}
-                          onClick={() => handleNavigate(o.slug ? `/o/${o.slug}` : '/')}
+                          onClick={() => { trackResultClick('organizer', i); handleNavigate(o.slug ? `/o/${o.slug}` : '/'); }}
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                           variants={staggerItem}
                           whileTap={tapScale}
@@ -1189,10 +1233,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
                   {results.agencies.length > 0 && (
                     <ResultSection title={t('search.agencies')} count={results.agencies.length} sectionKey="agencies" expanded={expandedSections.agencies} onToggle={toggleSection} t={t}>
-                      {getVisibleItems(results.agencies, 'agencies').map(a => (
+                      {getVisibleItems(results.agencies, 'agencies').map((a, i) => (
                         <motion.button
                           key={a.id}
-                          onClick={() => handleNavigate(`/rp/${a.slug}`)}
+                          onClick={() => { trackResultClick('agency', i); handleNavigate(`/rp/${a.slug}`); }}
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                           variants={staggerItem}
                           whileTap={tapScale}

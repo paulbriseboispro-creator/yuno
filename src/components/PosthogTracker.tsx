@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { capturePosthog, identifyPosthogUser, initPosthog } from '@/lib/posthog';
+import { capturePosthog, identifyPosthogUser, initPosthog, trackAppLifecycle } from '@/lib/posthog';
 
 /**
  * PostHog (web + apps natives) : chargement après consentement analytics et
@@ -16,6 +16,7 @@ export default function PosthogTracker() {
 
   useEffect(() => {
     initPosthog();
+    trackAppLifecycle();
   }, []);
 
   useEffect(() => {

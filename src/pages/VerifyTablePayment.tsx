@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
 import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 import { capturePosthog } from '@/lib/posthog';
+import { fetchEventMarket } from '@/lib/eventMarket';
 
 export default function VerifyTablePayment() {
   const [searchParams] = useSearchParams();
@@ -50,14 +51,16 @@ export default function VerifyTablePayment() {
         if (reservationId) trackOrderComplete(reservationId);
         // PostHog : achat confirmé par CET appel (jamais sur un rechargement).
         if (reservationId && !data.alreadyProcessed) {
-          capturePosthog('purchase_completed', {
+          // Marché de la soirée lu à part (une lecture légère), puis l'envoi.
+          const purchase = {
             pillar: 'tables',
             payment: 'stripe',
             order_ref: `table:${reservationId}`,
-            event_id: data.metaPurchase?.eventId ?? null,
             value: data.metaPurchase?.valueCents != null ? Math.round(data.metaPurchase.valueCents) / 100 : null,
             currency: (data.metaPurchase?.currency ?? 'eur').toUpperCase(),
-          });
+          };
+          void fetchEventMarket(data.metaPurchase?.eventId, null).then((market) =>
+            capturePosthog('purchase_completed', { ...purchase, ...market }));
         }
         // Pixel Meta : Purchase navigateur (dédoublonné avec l'envoi serveur).
         if (reservationId && !data.alreadyProcessed && data.metaPurchase) {

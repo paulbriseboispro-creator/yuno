@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { trackStripeConnectStarted, trackStripeConnectStatus } from '@/lib/stripeConnectTracking';
 
 export interface OrganizerStripeStatus {
   accountId: string | null;
@@ -60,6 +61,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
             onboardedAt: fresh.onboardedAt ?? null,
             canSell: !!fresh.chargesEnabled,
           });
+          trackStripeConnectStatus('organizer', userId, { accountId: fresh.accountId ?? null, ready: !!fresh.chargesEnabled });
         }
       }
     } catch (e) {
@@ -74,6 +76,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
   }, [userId, refresh]);
 
   const startOnboarding = async () => {
+    trackStripeConnectStarted('organizer', userId);
     try {
       const { data, error } = await supabase.functions.invoke(
         'stripe-connect',

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { capturePosthog } from '@/lib/posthog';
 
 export type HelpChatMessage = { role: 'user' | 'assistant'; content: string };
 export type HelpChatDoc = { title: string; path: string; text: string };
@@ -57,6 +58,11 @@ export function useHelpChat(scope: string, language: string, errorText: string, 
     const thread = [...messages, userMsg].slice(-MAX_MESSAGES);
     setMessages(thread);
     setIsLoading(true);
+    // Jamais le texte : le centre d'aide, l'article ouvert ou non, le tour.
+    capturePosthog('ai_assistant_used', {
+      assistant: 'help', help_scope: scope, in_article: !!currentArticle,
+      turn: thread.filter((m) => m.role === 'user').length,
+    });
 
     let soFar = '';
     const push = (snapshot: string) => {

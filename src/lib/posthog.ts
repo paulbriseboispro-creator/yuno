@@ -26,6 +26,7 @@ import type { PostHog } from 'posthog-js';
 import { CONSENT_CHANGE_EVENT, hasAnalyticsConsent } from '@/lib/consent';
 import { isNative, isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
+import { currentSurface, purchaseSurface } from '@/lib/posthogSurface';
 
 const KEY = (import.meta.env.VITE_POSTHOG_KEY as string | undefined)?.trim() || '';
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined)?.trim() || 'https://eu.i.posthog.com';
@@ -35,6 +36,15 @@ let loading: Promise<PostHog | null> | null = null;
 let listening = false;
 // Dernier utilisateur voulu : rejoué si l'identité arrive avant le chargement.
 let wantedUser: PosthogUser | null = null;
+// Démo : `false` tant qu'aucun compte @womber.fr n'est identifié. Posé sur
+// CHAQUE événement (before_send) : un insight qui filtre `is_demo = false`
+// ne doit jamais perdre les visiteurs anonymes faute de propriété.
+let demo = false;
+// Version de l'app native (build App Store + bundle OTA), lue une fois.
+let nativeVersion: Record<string, string> = {};
+// Source de la prochaine ouverture d'app (tap de push, lien) — posée par
+// NativeBridge, consommée par `app_opened`.
+let openSource: 'notification' | 'link' | null = null;
 // Événements tirés (avec consentement) avant la fin du chargement du SDK.
 const queue: Array<[YunoEvent, Record<string, unknown> | undefined]> = [];
 const MAX_QUEUE = 50;
@@ -47,17 +57,63 @@ const MAX_QUEUE = 50;
  * (`tickets` | `tables` | `guest_list` | `drinks`), `value` (euros), `currency`.
  */
 export type YunoEvent =
-  // Client
-  | 'event_viewed'
-  | 'checkout_started'
-  | 'purchase_completed'
-  | 'guest_list_joined'
+  // ── Client : découverte ──────────────────────────────────────────────────
+  | 'explore_viewed' //            { city }
+  | 'city_selected' //             { city, source: 'picker' | 'geoloc' | 'url' }
+  | 'search_performed' //          { query (≤ 40 car., sans email/tél.), results_count, has_results, city }
+  | 'search_result_clicked' //     { result_type, position, query_length }
+  | 'explore_filter_applied' //    { filter, value }
+  | 'event_viewed' //              { + géo }
+  | 'venue_viewed' //              { + géo }
+  | 'organizer_viewed' //          { + géo }
+  | 'follow_toggled' //            { target_type: 'venue' | 'organizer' | 'dj', following }
+  | 'favorite_toggled' //          { favorited, + géo }
+  | 'event_shared' //              { channel, + géo }
+  | 'waitlist_joined' //           { pillar, + géo }
+  // ── Client : achat ───────────────────────────────────────────────────────
+  | 'checkout_started' //          { pillar, + géo }
+  | 'checkout_step_completed' //   { pillar, step: 'quantity' | 'tier' | 'details' | 'payment' }
+  | 'ticket_tier_selected' //      { tier_id, price, quantity }
+  | 'promo_code_applied' //        { pillar, result: 'applied' | 'rejected', reason }
+  | 'promoter_attributed' //       { pillar, source: 'link' | 'code' }
+  | 'table_zone_viewed' //         { zone_id }
+  | 'table_pack_selected' //       { pack_id, payment_mode, price }
+  | 'drinks_menu_viewed' //        { venue_id }
+  | 'drink_added_to_cart' //       { venue_id, price }
+  | 'checkout_failed' //           { pillar, reason (code court, jamais le message brut) }
+  | 'purchase_completed' //        { pillar, payment, value, currency } — navigateur ; l'ARGENT = `order_paid_server`
+  | 'guest_list_joined' //         { pillar: 'guest_list', via_invite }
+  | 'wallet_pass_clicked' //       { pillar }
+  // ── Client : app ─────────────────────────────────────────────────────────
+  | 'app_opened' //                { cold_start, source: 'icon' | 'notification' | 'link' }
+  | 'push_opened' //               { kind: 'campaign' | 'auto', campaign_id?, notification_key? }
+  | 'install_banner_viewed' //     { placement }
+  | 'install_banner_clicked' //    { placement }
+  | 'app_store_clicked' //         { placement }
+  | 'pwa_installed'
   | 'user_signed_up'
   | 'user_signed_in'
-  // Pro
-  | 'pro_event_created'
+  // ── Pro ──────────────────────────────────────────────────────────────────
+  | 'pro_event_created' //         { scope, source }
+  | 'pro_event_published' //       { scope, pillars[] }
+  | 'pillar_toggled' //            { pillar, enabled, scope }
+  | 'stripe_connect_started' //    { scope }
+  | 'stripe_connect_completed' //  { scope }
+  | 'venue_went_live'
+  | 'promo_code_created' //        { scope, kind: 'percent' | 'amount', pillars[] }
+  | 'contacts_imported' //         { scope, rows, channels[] }
+  | 'email_automation_toggled' //  { scope, kind, enabled }
   | 'email_campaign_sent'
-  | 'push_campaign_sent';
+  | 'push_campaign_sent'
+  | 'sms_campaign_sent' //         { scope, recipients }
+  | 'team_member_invited' //       { scope, role }
+  | 'live_view_opened' //          { scope }
+  | 'event_report_opened' //       { scope }
+  | 'ai_assistant_used'; //        { assistant: 'owner' | 'agency' | 'help' | 'client' }
+
+// Côté serveur (supabase/functions/_shared/posthog.ts), hors de ce type :
+// `order_paid_server` — la vérité sur l'argent, capturée sous la transition
+// atomique pending→paid. C'est lui qui fait foi dans le dashboard.
 
 export type PosthogUser = { id: string; createdAt?: string | null; roles?: readonly string[]; email?: string | null };
 
@@ -110,10 +166,21 @@ async function load(): Promise<PostHog | null> {
         capture_pageleave: true,
         persistence: 'localStorage+cookie',
         session_recording: { maskAllInputs: true },
+        // Erreurs JS ($exception) : lues par surface et version d'app dans la
+        // section « Santé » du dashboard.
+        capture_exceptions: true,
         before_send: (event) => {
           if (!event) return null;
           if (isSupportSessionActive()) return null;
           if (event.event === '$snapshot' && onProSurface()) return null;
+          // Surface recalculée à CHAQUE envoi : une session passe de
+          // `web_app` à `console` en ouvrant /owner (src/lib/posthogSurface.ts).
+          event.properties = {
+            ...event.properties,
+            surface: currentSurface(),
+            is_demo: demo,
+            ...nativeVersion,
+          };
           return event;
         },
       });
@@ -121,6 +188,7 @@ async function load(): Promise<PostHog | null> {
         platform: isNative() ? 'ios' : 'web',
         app: isProApp() ? 'pro' : 'client',
       });
+      if (isNative()) void readNativeVersion();
       client = posthog;
       if (wantedUser) applyIdentity(posthog, wantedUser);
       for (const [event, props] of queue.splice(0)) posthog.capture(event, props);
@@ -168,6 +236,7 @@ function applyIdentity(ph: PostHog, user: PosthogUser) {
   // Démo @womber.fr : jamais un chiffre (cf. CLAUDE.md « la démo n'est pas un
   // chiffre ») — marquée pour pouvoir l'exclure de chaque insight PostHog.
   const isDemo = /@womber\.fr$/i.test(user.email ?? '');
+  demo = isDemo;
   ph.register({ is_demo: isDemo });
   if (user.id !== ph.get_distinct_id()) {
     ph.identify(user.id, { roles, is_pro: roles.some((r) => r !== 'client'), is_demo: isDemo });
@@ -195,7 +264,10 @@ export function identifyPosthogUser(user: PosthogUser | null) {
   wantedUser = user;
   if (!client) return;
   if (user) applyIdentity(client, user);
-  else if (previous) client.reset();
+  else if (previous) {
+    demo = false;
+    client.reset();
+  }
 }
 
 /**
@@ -211,4 +283,92 @@ export function capturePosthog(event: YunoEvent, properties?: Record<string, unk
   if (!hasAnalyticsConsent() || queue.length >= MAX_QUEUE) return;
   queue.push([event, properties]);
   void load();
+}
+
+/**
+ * Version de l'app native : `app_version` = version App Store (build),
+ * `ota_bundle` = bundle web livré par Capgo. Posées sur chaque événement
+ * (before_send) pour lire les erreurs et l'adoption version par version.
+ */
+async function readNativeVersion() {
+  try {
+    const { App } = await import('@capacitor/app');
+    const info = await App.getInfo();
+    nativeVersion = { ...nativeVersion, app_version: `${info.version} (${info.build})` };
+  } catch {
+    // Pas d'info native : on n'invente rien.
+  }
+  try {
+    const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
+    const { bundle } = await CapacitorUpdater.current();
+    if (bundle?.version) nativeVersion = { ...nativeVersion, ota_bundle: bundle.version };
+  } catch {
+    // Bundle embarqué (pas d'OTA) : pas de propriété.
+  }
+}
+
+/**
+ * NativeBridge signale d'où vient l'ouverture en cours (tap de notification,
+ * lien universel / deep link) — lu par `app_opened` juste après.
+ */
+export function noteAppOpenSource(source: 'notification' | 'link') {
+  openSource = source;
+}
+
+let lifecycleBound = false;
+
+/**
+ * Ouvertures d'app (natif) et installation PWA (web). `app_opened` part au
+ * démarrage (`cold_start: true`) et à chaque retour au premier plan, avec un
+ * court délai pour laisser NativeBridge poser la source (le tap de push et le
+ * lien arrivent juste après l'événement de reprise).
+ */
+export function trackAppLifecycle() {
+  if (!posthogEnabled() || lifecycleBound || typeof window === 'undefined') return;
+  lifecycleBound = true;
+  const fireOpen = (coldStart: boolean) => {
+    window.setTimeout(() => {
+      capturePosthog('app_opened', { cold_start: coldStart, source: openSource ?? 'icon' });
+      openSource = null;
+    }, coldStart ? 1500 : 800);
+  };
+  if (isNative()) {
+    fireOpen(true);
+    void import('@capacitor/app')
+      .then(({ App }) => App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) fireOpen(false);
+      }))
+      .catch(() => {});
+    return;
+  }
+  window.addEventListener('appinstalled', () => capturePosthog('pwa_installed'));
+}
+
+/** Contexte analytics joint à tout checkout / inscription guest list. */
+export type AnalyticsCheckoutContext = {
+  /** Consentement « mesure d'audience » au moment de l'achat (natif = acquis). */
+  consent: boolean;
+  /** Surface d'achat : web_app / pwa / ios_app / ios_pro. */
+  surface: string;
+  /** Identifiant PostHog du navigateur — seulement avec consentement. */
+  distinctId: string | null;
+};
+
+/**
+ * Voyage dans le corps des `create-*` puis dans les métadonnées Stripe
+ * (`ph_*`) : c'est ce qui permet à la capture serveur `order_paid_server`
+ * (supabase/functions/_shared/posthog.ts) de dire où la vente a eu lieu et,
+ * avec consentement seulement, de la relier à la personne.
+ */
+export function getAnalyticsCheckoutContext(): AnalyticsCheckoutContext {
+  const consent = hasAnalyticsConsent();
+  let distinctId: string | null = null;
+  if (consent && client) {
+    try {
+      distinctId = client.get_distinct_id() || null;
+    } catch {
+      distinctId = null;
+    }
+  }
+  return { consent, surface: purchaseSurface(), distinctId };
 }
