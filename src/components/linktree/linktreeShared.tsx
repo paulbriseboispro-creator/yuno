@@ -26,16 +26,6 @@ export function linktreeCtaLabel(ev: LinktreeCtaFacts, t: (key: string) => strin
 /** Hauteur réservée en bas de page pour que la barre ne cache pas le dernier bouton. */
 export const POWERED_BAR_SPACE = 'calc(88px + env(safe-area-inset-bottom, 0px))';
 
-function IconInstagram() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 /**
  * Barre flottante « Powered by Yuno » des linktrees publics. Un clic ouvre
  * l'Instagram de Yuno qui parle la langue du visiteur (yunoapp.fr pour un
@@ -67,7 +57,7 @@ export function PoweredByYunoBar() {
         style={{
           pointerEvents: 'auto',
           display: 'inline-flex', alignItems: 'center', gap: 10,
-          padding: '10px 14px 10px 16px',
+          padding: '11px 18px',
           borderRadius: 999,
           background: 'rgba(10,10,10,0.86)',
           backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -87,16 +77,6 @@ export function PoweredByYunoBar() {
           Powered by
         </span>
         <Wordmark height={14} alt="Yuno" style={{ display: 'block' }} />
-        <span
-          aria-hidden="true"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 26, height: 26, borderRadius: 999,
-            background: '#E8192C', color: '#FFFFFF', marginLeft: 2,
-          }}
-        >
-          <IconInstagram />
-        </span>
       </OutboundLink>
       <style>{`
         .yuno-powered-bar:hover { transform: translateY(-2px); border-color: rgba(232,25,44,0.45) !important; }
