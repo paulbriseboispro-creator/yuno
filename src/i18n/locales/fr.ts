@@ -12381,7 +12381,7 @@ const fr: Record<string, string> = {
   'cookies.banner.necessaryLabel': 'Strictement nécessaires',
   'cookies.banner.necessaryDesc': "Connexion, sécurité, panier et attribution d'un achat au lien que vous avez suivi. Toujours actifs.",
   'cookies.banner.analyticsLabel': "Mesure d'audience",
-  'cookies.banner.analyticsDesc': "Statistiques anonymes sur la façon dont les clubs et soirées sont consultés. Inactif tant que vous ne l'autorisez pas.",
+  'cookies.banner.analyticsDesc': "Statistiques sur la façon dont le site et les soirées sont utilisés (dont PostHog, hébergé dans l'UE). Inactif tant que vous ne l'autorisez pas.",
 
   // ── Landing web (vitrine racine, visiteurs inconnus) ──
   'landing.kicker': 'Billets · Tables VIP · Boissons',

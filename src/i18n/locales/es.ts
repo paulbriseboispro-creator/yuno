@@ -12749,7 +12749,7 @@ const es: Record<string, string> = {
   'cookies.banner.necessaryLabel': 'Estrictamente necesarias',
   'cookies.banner.necessaryDesc': 'Inicio de sesión, seguridad, carrito y atribución de una compra al enlace que seguiste. Siempre activas.',
   'cookies.banner.analyticsLabel': 'Medición de audiencia',
-  'cookies.banner.analyticsDesc': 'Estadísticas anónimas sobre cómo se ven los clubs y las fiestas. Inactivo hasta que lo permitas.',
+  'cookies.banner.analyticsDesc': 'Estadísticas sobre cómo se usan el sitio y las fiestas (incluido PostHog, alojado en la UE). Inactivo hasta que lo permitas.',
 
   // ── Landing web (vitrine racine, visiteurs inconnus) ──
   'landing.kicker': 'Entradas · Mesas VIP · Copas',

@@ -914,6 +914,29 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
 - **Tout lien « créer un compte pro » de l'app passe par `proSignupUrl()`**
   (page de connexion, Explore faible densité). `/auth` crée un compte CLIENT.
 
+## PostHog — analytics produit, web + apps natives (2026-09-25)
+
+`src/lib/posthog.ts` (porte unique) + `src/components/PosthogTracker.tsx`
+(monté dans `App.tsx`, à côté de `PlatformTrafficTracker`). Règles :
+
+- **Aucune clé, aucun effet** : `VITE_POSTHOG_KEY` (clé projet `phc_…`,
+  publique) absente ⇒ rien n'est chargé. `VITE_POSTHOG_HOST` = instance EU par
+  défaut. La clé doit figurer dans les variables Cloudflare ET dans
+  `scripts/ci-web-env.sh` pour les binaires (sinon natif muet).
+- **Consentement = `hasAnalyticsConsent()`**, la même case que la mesure
+  maison : sur le web rien ne se charge avant l'acceptation ; un retrait
+  coupe la capture, efface l'identité et purge `ph_*` (cookie compris, domaine
+  parent). En natif le consentement analytics est acquis (cf. `consent.ts`).
+- `posthog-js` est un import DYNAMIQUE : jamais dans le chunk d'entrée.
+- **Identité = `user.id` seulement**, jamais email ni téléphone.
+- **Replay jamais sur une surface pro** (app Pro, `isProPath`) : les
+  `$snapshot` y sont jetés dans `before_send`. Champs de saisie masqués
+  partout. Session d'accès assisté ⇒ aucun événement (il serait attribué au pro).
+- CSP : `https://*.posthog.com` dans `script-src` et `connect-src`
+  (`public/_headers` + `vite.config.ts`). PostHog est déclaré dans la
+  politique de confidentialité, la page cookies et le DPA (`legalContent.ts`).
+- Événement métier : `capturePosthog(nom, props)` — silencieux sans consentement.
+
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
 La racine `/` du web montre une **landing vitrine** (`src/pages/Landing.tsx`) au seul

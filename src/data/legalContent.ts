@@ -694,7 +694,7 @@ Yuno traite ces données uniquement sur instruction documentée du Partenaire ; 
 Les personnes autorisées à traiter les données sont soumises à une obligation de confidentialité. Yuno met en œuvre les mesures techniques et organisationnelles appropriées (article 32 RGPD) : chiffrement en transit (HTTPS/TLS), cloisonnement des données par établissement (row level security), contrôle d'accès par rôle, authentification renforcée (MFA), journalisation de sécurité.
 
 **5. Sous-traitants ultérieurs**
-Le Partenaire autorise de manière générale le recours aux sous-traitants ultérieurs suivants : Supabase (hébergement base de données), Stripe (paiements), Resend (envoi d'emails), Mapbox (cartographie), Cloudflare (diffusion du site). Yuno informe le Partenaire de tout changement envisagé (ajout ou remplacement), lui laissant la possibilité d'émettre des objections raisonnables, et impose à ses sous-traitants des obligations équivalentes au présent accord.
+Le Partenaire autorise de manière générale le recours aux sous-traitants ultérieurs suivants : Supabase (hébergement base de données), Stripe (paiements), Resend (envoi d'emails), Mapbox (cartographie), Cloudflare (diffusion du site), PostHog (mesure d'audience, hébergement UE). Yuno informe le Partenaire de tout changement envisagé (ajout ou remplacement), lui laissant la possibilité d'émettre des objections raisonnables, et impose à ses sous-traitants des obligations équivalentes au présent accord.
 
 **6. Assistance**
 Compte tenu de la nature du traitement, Yuno aide le Partenaire, par des mesures techniques et organisationnelles appropriées, à donner suite aux demandes d'exercice des droits des personnes concernées (accès, rectification, effacement, opposition, limitation, portabilité), et l'assiste pour ses obligations d'analyse d'impact et de consultation préalable le cas échéant.
@@ -732,7 +732,7 @@ Yuno processes this data only on the Partner's documented instructions; configur
 Persons authorized to process the data are bound by confidentiality obligations. Yuno implements appropriate technical and organizational measures (Article 32 GDPR): encryption in transit (HTTPS/TLS), per-venue data isolation (row level security), role-based access control, strong authentication (MFA), security logging.
 
 **5. Sub-Processors**
-The Partner grants general authorization for the following sub-processors: Supabase (database hosting), Stripe (payments), Resend (email delivery), Mapbox (maps), Cloudflare (site delivery). Yuno informs the Partner of any intended change (addition or replacement), giving the Partner the opportunity to raise reasonable objections, and imposes equivalent obligations on its sub-processors.
+The Partner grants general authorization for the following sub-processors: Supabase (database hosting), Stripe (payments), Resend (email delivery), Mapbox (maps), Cloudflare (site delivery), PostHog (product analytics, EU hosting). Yuno informs the Partner of any intended change (addition or replacement), giving the Partner the opportunity to raise reasonable objections, and imposes equivalent obligations on its sub-processors.
 
 **6. Assistance**
 Taking into account the nature of the processing, Yuno assists the Partner with appropriate technical and organizational measures in responding to data subject requests (access, rectification, erasure, objection, restriction, portability), and assists with impact assessments and prior consultation obligations where applicable.
@@ -770,7 +770,7 @@ Yuno trata estos datos únicamente siguiendo instrucciones documentadas del Soci
 Las personas autorizadas a tratar los datos están sujetas a obligaciones de confidencialidad. Yuno aplica las medidas técnicas y organizativas apropiadas (artículo 32 RGPD): cifrado en tránsito (HTTPS/TLS), aislamiento de datos por establecimiento (row level security), control de acceso por rol, autenticación reforzada (MFA), registro de seguridad.
 
 **5. Subencargados**
-El Socio autoriza de forma general los siguientes subencargados: Supabase (alojamiento de base de datos), Stripe (pagos), Resend (envío de emails), Mapbox (mapas), Cloudflare (distribución del sitio). Yuno informa al Socio de cualquier cambio previsto (adición o sustitución), dándole la posibilidad de presentar objeciones razonables, e impone a sus subencargados obligaciones equivalentes a este acuerdo.
+El Socio autoriza de forma general los siguientes subencargados: Supabase (alojamiento de base de datos), Stripe (pagos), Resend (envío de emails), Mapbox (mapas), Cloudflare (distribución del sitio), PostHog (analítica de uso, alojamiento en la UE). Yuno informa al Socio de cualquier cambio previsto (adición o sustitución), dándole la posibilidad de presentar objeciones razonables, e impone a sus subencargados obligaciones equivalentes a este acuerdo.
 
 **6. Asistencia**
 Teniendo en cuenta la naturaleza del tratamiento, Yuno ayuda al Socio, mediante medidas técnicas y organizativas apropiadas, a responder a las solicitudes de ejercicio de derechos de los interesados (acceso, rectificación, supresión, oposición, limitación, portabilidad), y le asiste en sus obligaciones de evaluación de impacto y consulta previa cuando proceda.
@@ -837,6 +837,7 @@ Yuno ne vend jamais vos données. Elles ne sont partagées qu'avec :
 • Stripe (paiements — vos données bancaires sont traitées directement par Stripe et ne transitent jamais par les serveurs de Yuno)
 • Supabase (hébergement backend — chiffrement en transit HTTPS/TLS)
 • Cloudflare (diffusion sécurisée du site)
+• PostHog (mesure d'audience du site et des apps, hébergée dans l'UE, uniquement après votre consentement sur le web)
 • Mapbox (affichage cartographique des clubs)
 • Resend (emails transactionnels : confirmations, billets)
 • Twilio (SMS, lorsque vous y avez consenti)
@@ -922,6 +923,7 @@ Yuno never sells your data. It is only shared with:
 • Stripe (payments — your card details are processed directly by Stripe and never pass through Yuno's servers)
 • Supabase (backend hosting — encryption in transit via HTTPS/TLS)
 • Cloudflare (secure site delivery)
+• PostHog (site and app usage analytics, hosted in the EU, only after your consent on the web)
 • Mapbox (map display of clubs)
 • Resend (transactional emails: confirmations, tickets)
 • Twilio (SMS, when you have consented)
@@ -1007,6 +1009,7 @@ Yuno nunca vende tus datos. Solo se comparten con:
 • Stripe (pagos — tus datos bancarios los procesa directamente Stripe y nunca pasan por los servidores de Yuno)
 • Supabase (alojamiento backend — cifrado en tránsito HTTPS/TLS)
 • Cloudflare (distribución segura del sitio)
+• PostHog (analítica de uso del sitio y de las apps, alojada en la UE, solo tras tu consentimiento en la web)
 • Mapbox (visualización cartográfica de los clubs)
 • Resend (emails transaccionales: confirmaciones, entradas)
 • Twilio (SMS, cuando lo has consentido)
@@ -1073,7 +1076,7 @@ Un menu "Cookies" est accessible à tout moment depuis : Profil → Réglages �
 • Stripe : cookies de sécurité pour le traitement des paiements (nécessaires au fonctionnement du paiement sécurisé)
 
 **Cookies analytiques (mesure d'audience)** :
-• Uniquement après votre consentement, Yuno dépose un identifiant de visite (yuno_visitor_id) et des indicateurs de fréquentation « live » pour mesurer, de façon anonyme, comment les clubs et soirées sont consultés. Aucun cookie analytique tiers n'est utilisé. Vous pouvez retirer ce consentement à tout moment via le menu Cookies.
+• Uniquement après votre consentement, Yuno dépose un identifiant de visite (yuno_visitor_id) et des indicateurs de fréquentation « live » pour mesurer, de façon anonyme, comment les clubs et soirées sont consultés, et charge PostHog (mesure d'audience hébergée dans l'UE, cookie et stockage ph_*, 1 an) pour comprendre comment le site et l'app sont utilisés : pages vues, clics, parcours. Si vous êtes connecté, ces mesures sont reliées à l'identifiant interne de votre compte, jamais à votre email ni à votre téléphone. Aucun autre cookie analytique tiers n'est utilisé. Vous pouvez retirer ce consentement à tout moment via le menu Cookies.
 
 **Cookies publicitaires (Meta)** :
 • Uniquement après votre consentement « Publicité (Meta) », les pages publiques chargent le pixel Meta du club, de l'organisateur ou de Yuno, qui dépose les cookies _fbp (identifiant navigateur, 90 jours) et _fbc (identifiant de clic publicitaire) sur yunoapp.eu. Vos consultations de soirées, ouvertures du tunnel d'achat, achats et inscriptions guest list sont alors transmis à Meta Platforms Ireland Ltd, y compris depuis nos serveurs (API Conversions), sous forme hachée. Un refus efface ces cookies et n'envoie rien, même côté serveur. Rien n'est envoyé depuis l'app mobile Yuno. Politique de Meta : facebook.com/privacy/policy.`
@@ -1100,7 +1103,7 @@ A "Cookies" menu is accessible at any time from: Profile → Settings → Legal 
 • Stripe: security cookies for payment processing (necessary for secure payment operation)
 
 **Analytical Cookies (audience measurement)**:
-• Only after your consent, Yuno stores a visit identifier (yuno_visitor_id) and "live" attendance indicators to anonymously measure how clubs and parties are viewed. No third-party analytical cookies are used. You can withdraw this consent at any time via the Cookies menu.
+• Only after your consent, Yuno stores a visit identifier (yuno_visitor_id) and "live" attendance indicators to anonymously measure how clubs and parties are viewed, and loads PostHog (EU-hosted product analytics, ph_* cookie and storage, 1 year) to understand how the site and app are used: pages viewed, clicks, journeys. When you are signed in, these measurements are linked to your account's internal identifier, never to your email or phone number. No other third-party analytical cookies are used. You can withdraw this consent at any time via the Cookies menu.
 
 **Advertising Cookies (Meta)**:
 • Only after your "Advertising (Meta)" consent, public pages load the Meta pixel of the club, the organizer or Yuno, which sets the _fbp (browser identifier, 90 days) and _fbc (ad click identifier) cookies on yunoapp.eu. Your event page views, checkout openings, purchases and guest list sign-ups are then transmitted to Meta Platforms Ireland Ltd, including from our servers (Conversions API), in hashed form. A refusal deletes those cookies and sends nothing, server-side included. Nothing is sent from the Yuno mobile app. Meta's policy: facebook.com/privacy/policy.`
@@ -1127,7 +1130,7 @@ Un menú "Cookies" es accesible en cualquier momento desde: Perfil → Ajustes �
 • Stripe: cookies de seguridad para el procesamiento de pagos (necesarias para el funcionamiento del pago seguro)
 
 **Cookies analíticas (medición de audiencia)**:
-• Solo tras tu consentimiento, Yuno guarda un identificador de visita (yuno_visitor_id) e indicadores de afluencia «live» para medir, de forma anónima, cómo se ven los clubs y las fiestas. No se utilizan cookies analíticas de terceros. Puedes retirar este consentimiento en cualquier momento desde el menú Cookies.
+• Solo tras tu consentimiento, Yuno guarda un identificador de visita (yuno_visitor_id) e indicadores de afluencia «live» para medir, de forma anónima, cómo se ven los clubs y las fiestas, y carga PostHog (analítica de uso alojada en la UE, cookie y almacenamiento ph_*, 1 año) para entender cómo se usan el sitio y la app: páginas vistas, clics, recorridos. Si has iniciado sesión, estas mediciones se vinculan al identificador interno de tu cuenta, nunca a tu email ni a tu teléfono. No se utilizan otras cookies analíticas de terceros. Puedes retirar este consentimiento en cualquier momento desde el menú Cookies.
 
 **Cookies publicitarias (Meta)**:
 • Solo tras tu consentimiento «Publicidad (Meta)», las páginas públicas cargan el píxel de Meta del club, del organizador o de Yuno, que instala las cookies _fbp (identificador de navegador, 90 días) y _fbc (identificador de clic publicitario) en yunoapp.eu. Tus visitas a fiestas, aperturas del proceso de compra, compras e inscripciones a guest lists se transmiten entonces a Meta Platforms Ireland Ltd, también desde nuestros servidores (API de conversiones), en forma cifrada con hash. Un rechazo borra esas cookies y no envía nada, tampoco desde el servidor. Nada se envía desde la app móvil de Yuno. Política de Meta: facebook.com/privacy/policy.`

@@ -12407,7 +12407,7 @@ const en: Record<string, string> = {
   'cookies.banner.necessaryLabel': 'Strictly necessary',
   'cookies.banner.necessaryDesc': 'Sign-in, security, cart and attributing a purchase to the link you followed. Always on.',
   'cookies.banner.analyticsLabel': 'Audience measurement',
-  'cookies.banner.analyticsDesc': 'Anonymous stats on how clubs and parties are viewed. Off unless you allow it.',
+  'cookies.banner.analyticsDesc': 'Stats on how the site and parties are used (including PostHog, hosted in the EU). Off unless you allow it.',
 
   // ── Landing web (vitrine racine, visiteurs inconnus) ──
   'landing.kicker': 'Tickets · VIP tables · Drinks',
