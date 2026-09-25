@@ -12119,6 +12119,8 @@ const en: Record<string, string> = {
   'aff.settings.viewAgencyPage': "View agency page",
   'aff.settings.sortTitle': "Linktree ordering",
   'aff.settings.sortSubtitle': "Choose how events are sorted on your public page and on your promoters' linktrees.",
+  'aff.settings.pickEventsTitle': "Pick the linktree events",
+  'aff.settings.pickEventsDesc': "By default, your next events show on their own. Choose which ones yourself, Yuno and external.",
   'aff.settings.sortByDay': "By day",
   'aff.settings.sortByDayDesc': "Events are grouped by date (default)",
   'aff.settings.sortByGenre': "By music genre",
@@ -12294,6 +12296,7 @@ const en: Record<string, string> = {
   'agc.nav.externalGroup': 'External clubs',
   'agc.nav.trafficAnalytics': 'Traffic analytics',
   'agc.nav.showcase': 'My showcase',
+  'agc.nav.linktree': 'My linktree',
   'agc.nav.agencyProfile': 'Agency profile',
   'agc.nav.externalSettings': 'Linktree & external',
 

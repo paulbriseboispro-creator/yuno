@@ -12233,6 +12233,8 @@ const es: Record<string, string> = {
   'aff.settings.viewAgencyPage': "Ver la página de agencia",
   'aff.settings.sortTitle': "Orden del linktree",
   'aff.settings.sortSubtitle': "Elija cómo se ordenan los eventos en su página pública y en los linktrees de sus promotores.",
+  'aff.settings.pickEventsTitle': "Elegir las fiestas del linktree",
+  'aff.settings.pickEventsDesc': "Por defecto, tus próximas fiestas se muestran solas. Elige tú cuáles, Yuno y externas.",
   'aff.settings.sortByDay': "Por día",
   'aff.settings.sortByDayDesc': "Los eventos se agrupan por fecha (por defecto)",
   'aff.settings.sortByGenre': "Por género musical",
@@ -12408,6 +12410,7 @@ const es: Record<string, string> = {
   'agc.nav.externalGroup': 'Clubs externos',
   'agc.nav.trafficAnalytics': 'Analytics de tráfico',
   'agc.nav.showcase': 'Mi vitrina',
+  'agc.nav.linktree': 'Mi linktree',
   'agc.nav.agencyProfile': 'Perfil de la agencia',
   'agc.nav.externalSettings': 'Linktree y externo',
 

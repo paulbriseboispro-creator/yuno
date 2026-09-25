@@ -223,6 +223,17 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Tracking visiteur externe : uniquement via les RPC SECURITY DEFINER
   (`flush_affiliate_session`, `ping_affiliate_live`) — les UPDATE anonymes
   directs sont morts en prod. Voir `docs/AFFILIATE_SYSTEM.md`.
+  **Le linktree de l'AGENCE se choisit** (2026-09-25, migration
+  `20260925160000`, page `/agency-app/linktree` « Mon linktree ») :
+  `affiliate_linktree_events` porte SOIT `affiliate_event_id` (externe) SOIT
+  `event_id` (soirée Yuno d'un club / orga sous contrat actif). Écriture par la
+  seule RPC `set_agency_linktree_events` (sélection entière, ordre = rang,
+  chaque soirée revérifiée ; plus aucune policy d'écriture directe), lecture
+  éditeur `get_agency_linktree_editor`, lecture publique des soirées Yuno
+  choisies `get_agency_linktree_curated_yuno`. Sélection vide (ou toute passée)
+  = linktree AUTOMATIQUE d'avant (8 externes + `get_agency_linktree_yuno_events`) ;
+  dès qu'une soirée est choisie, `/p/:slug` n'affiche QUE la sélection, rangée
+  par date sauf en tri `custom`.
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
