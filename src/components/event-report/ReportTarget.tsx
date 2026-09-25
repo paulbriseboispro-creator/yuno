@@ -7,8 +7,11 @@
  *
  * Mesure : les ATTENDUS avant et pendant la soirée (billets + convives de
  * table + guest list, `totals.door.expected`), les entrées scannées après.
- * L'objectif s'écrit dans `events.entry_target` ; la RLS d'`events` décide qui
- * peut le poser, un refus s'affiche tel quel.
+ * L'objectif s'écrit dans `events.entry_target` par la RPC
+ * `set_event_entry_target` ; `can_set_event_entry_target` (la même porte)
+ * décide si les boutons existent — un club qui ne fait qu'accueillir, un
+ * manager sans « soirées » ou un membre en lecture voient l'objectif, sans
+ * bouton qui mènerait à un refus.
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { Check, Pencil, Target, X } from 'lucide-react';
@@ -36,23 +39,32 @@ export function ReportTarget({ report, compare, projection }: {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   // Le rafraîchissement du rapport (toutes les minutes) met la valeur à jour
   // sans refermer une saisie en cours ; changer de soirée, lui, la referme.
   useEffect(() => { setTarget(report.event.entryTarget ?? null); }, [report.event.entryTarget]);
   useEffect(() => { setEditing(false); }, [report.event.id]);
+  useEffect(() => {
+    let alive = true;
+    setCanEdit(false);
+    void supabase.rpc('can_set_event_entry_target', { p_event_id: report.event.id })
+      .then(({ data }) => { if (alive) setCanEdit(data === true); });
+    return () => { alive = false; };
+  }, [report.event.id]);
 
   const after = report.event.phase === 'after';
   const status = targetStatus(report, compare, target);
 
   const save = async (value: number | null) => {
     setSaving(true);
-    const { data, error } = await supabase
-      .from('events')
-      .update({ entry_target: value })
-      .eq('id', report.event.id)
-      .select('id');
+    const { error } = await supabase.rpc('set_event_entry_target', {
+      p_event_id: report.event.id,
+      // null retire l'objectif (les types générés ne savent pas qu'un
+      // argument SQL peut être NULL).
+      p_target: value as number,
+    });
     setSaving(false);
-    if (error || !data?.length) {
+    if (error) {
       toast.error(t('er.tg.saveError'));
       return;
     }
@@ -112,7 +124,7 @@ export function ReportTarget({ report, compare, projection }: {
             {fillTpl(t('er.tg.paceNoTarget'), { title: pp.refTitle, proj: n(pp.projected) })}
           </p>
         ) : projection}
-        {!after && (
+        {!after && canEdit && (
           <button type="button" onClick={openEditor} className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-medium" style={{ color: KIT.T2 }}>
             <Target className="h-3.5 w-3.5" aria-hidden />{t('er.tg.set')}
           </button>
@@ -149,9 +161,11 @@ export function ReportTarget({ report, compare, projection }: {
         <div className="min-w-0 flex-1">
           <BulletBar label={t('er.tg.short')} value={current} display={n(current)} capacity={status.target} />
         </div>
-        <button type="button" onClick={openEditor} className="flex-none rounded-md p-1" style={{ color: KIT.T3 }} aria-label={t('er.tg.edit')} title={t('er.tg.edit')}>
-          <Pencil className="h-3.5 w-3.5" aria-hidden />
-        </button>
+        {canEdit && (
+          <button type="button" onClick={openEditor} className="flex-none rounded-md p-1" style={{ color: KIT.T3 }} aria-label={t('er.tg.edit')} title={t('er.tg.edit')}>
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        )}
       </div>
       <p className="text-[12.5px]" style={{ color: KIT.T2 }}>
         {main}
