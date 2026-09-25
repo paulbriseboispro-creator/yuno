@@ -74,8 +74,10 @@ async function main() {
   const orgIds = ['organizer@womber.fr', 'bde@womber.fr']
     .map((e) => scope.byEmail.get(e)).filter(Boolean);
   const orgEvents = await rest.get(
-    `events?select=id,title,start_at,status,venue_id,ticketing_enabled,tables_enabled&organizer_user_id=in.(${orgIds.join(',')})&order=start_at.asc&limit=500`,
+    `events?select=id,title,start_at,status,venue_id,ticketing_enabled,tables_enabled&or=(organizer_user_id.in.(${orgIds.join(',')}),partner_organizer_id.in.(${orgIds.join(',')}))&order=start_at.asc&limit=500`,
   );
+  // Une collab menée par le club porte l'orga en `partner_organizer_id`, pas
+  // en `organizer_user_id` : sans cette branche l'audit ne voyait aucune collab.
   const orgFuture = orgEvents.filter((e) => e.start_at > NOW && e.status === 'active');
   check(orgFuture.length >= 3, `${orgFuture.length} soirée(s) à venir`, 'Orga : moins de 3 soirées à venir — le côté organisateur paraît mort.');
   if (orgFuture.length) console.log(`      prochaine : ${fmt.day(orgFuture[0].start_at)} — ${orgFuture[0].title}`);

@@ -682,9 +682,24 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     `ticket_rounds.tickets_sold` (le checkout l'incrémente, un INSERT direct
     non). Le relancer quand les dates passent. Codes promo de démo : `DEMO20`
     (club, Reggaeton Party) et `NEWSLETTER15` (orga, toutes soirées).
-  - **Jamais d'automatisation email allumée sur la démo** même si `audit.mjs`
-    le réclame : la base de `organizer@womber.fr` contient 12 315 adresses
-    importées, réelles.
+  - **Les automatisations email de la démo sont ALLUMÉES mais n'envoient
+    jamais** (migration `20260925110000`) : `collect_email_automations()`
+    saute toute recette d'une portée démo (`is_demo_marketing_scope(venue,
+    orga)` : `demo_venue_ids()` ou orga `is_demo_email`). Indispensable : la
+    base de `organizer@womber.fr` contient 12 315 adresses importées,
+    réelles. Toute réécriture de ce moteur garde ce filtre.
+  - **Soirée orga SANS club de la démo = « Rooftop Session »**
+    (`c0ffee00-25a9-4d3e-9c1a-0000000000a1`, 17/10, `solo_organizer`) :
+    tables basic event-scopées (deux zones, trois formules dont une
+    `on_site`), créées avec le jeton de l'organisateur. Disco Sundae est une
+    collab menée par l'orga CHEZ le club (`partner_venue_id = womber`) : ses
+    tables suivent le plan du club, n'y pose jamais de zone sans club. Une
+    soirée démo créée à la main garde un `published_at` de plus de 72 h,
+    sinon `get_new_events_to_announce()` (qui ne filtre pas la démo)
+    l'annoncerait en push aux abonnés.
+  - `audit.mjs` compte les collabs menées par le club
+    (`partner_organizer_id`) ; la page Tables VIP orga les étiquette
+    « Formules du club » (ce n'était pas « Non activées »).
   - Pages club Codes promo et Push = `OwnerHeader` comme les autres pages
     club ; côté orga, le titre reste dans la page (le layout a sa barre).
   - Codes promo joués en vrai (achat démo simulé `DEMO20`) ;
