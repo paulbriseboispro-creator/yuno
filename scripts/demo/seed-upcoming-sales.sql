@@ -163,21 +163,48 @@ begin
       insert into public.visitor_sessions (session_id, visitor_id, venue_id, organizer_user_id, event_id,
                                            entry_page, entry_page_type, referrer_category, utm_source,
                                            device_type, visited_at, created_at, last_activity_at,
-                                           added_to_cart, proceeded_to_checkout, completed_order, is_returning, pages_viewed)
+                                           added_to_cart, proceeded_to_checkout, completed_order, is_returning, pages_viewed,
+                                           city, region, country, country_code, latitude, longitude)
       select 'seed-' || gen_random_uuid(), gen_random_uuid()::text,
              v_ev.venue_id, case when v_ev.venue_id is null then v_ev.organizer_user_id end, v_ev.id,
              '/event/' || v_ev.id, 'event_page', x.cat, x.src,
              case when random() < 0.78 then 'mobile' else 'desktop' end,
              v_at, v_at, v_at + interval '2 minutes',
-             x.r < 0.30, x.r < 0.22, x.r < 0.16, random() < 0.35, 1 + floor(random() * 4)::int
-      from (select random() as r, random() as c) z
+             x.r < 0.30, x.r < 0.22, x.r < 0.16, random() < 0.35, 1 + floor(random() * 4)::int,
+             g.city, g.region, g.country, g.cc,
+             g.lat + (random() - 0.5) * 0.06, g.lng + (random() - 0.5) * 0.08
+      from (select random() as r, random() as c, random() as w) z
       cross join lateral (
         select case when z.c < 0.42 then 'direct' when z.c < 0.72 then 'social' when z.c < 0.84 then 'search' else 'internal' end as cat,
                case when z.c >= 0.42 and z.c < 0.72 then 'instagram' end as src,
                z.r
-      ) x;
+      ) x
+      -- Ville du visiteur : surtout Paris et sa couronne, un peu de province
+      -- et d'étranger. Sans ça « Villes » et le globe du Live View restaient vides.
+      cross join lateral (
+        select * from (values
+          (0.52, 'Paris', 'Île-de-France', 'France', 'FR', 48.8566, 2.3522),
+          (0.60, 'Boulogne-Billancourt', 'Île-de-France', 'France', 'FR', 48.8397, 2.2399),
+          (0.67, 'Saint-Denis', 'Île-de-France', 'France', 'FR', 48.9362, 2.3574),
+          (0.73, 'Versailles', 'Île-de-France', 'France', 'FR', 48.8049, 2.1204),
+          (0.80, 'Lyon', 'Auvergne-Rhône-Alpes', 'France', 'FR', 45.7640, 4.8357),
+          (0.86, 'Lille', 'Hauts-de-France', 'France', 'FR', 50.6292, 3.0573),
+          (0.91, 'Bruxelles', 'Bruxelles-Capitale', 'Belgique', 'BE', 50.8503, 4.3517),
+          (0.95, 'London', 'England', 'United Kingdom', 'GB', 51.5072, -0.1276),
+          (1.01, 'Madrid', 'Comunidad de Madrid', 'España', 'ES', 40.4168, -3.7038)
+        ) c(upto, city, region, country, cc, lat, lng)
+        where z.w < c.upto order by c.upto limit 1
+      ) g;
     end loop;
   end loop;
+
+  -- 3. Compteurs des paliers : le checkout les incrémente, un INSERT direct
+  -- non. Sans ça la carte « Release » du Live View affichait 5 / 150 sur un
+  -- palier qui avait vendu 92 billets. On recale sur les billets payés.
+  update public.ticket_rounds r
+     set tickets_sold = coalesce((select sum(t.quantity) from public.tickets t
+                                  where t.ticket_round_id = r.id and t.status = 'paid'), 0)
+   where r.event_id in (select id from seed_target);
 end
 $seed$;
 

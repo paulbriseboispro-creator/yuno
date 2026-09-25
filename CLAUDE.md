@@ -677,8 +677,16 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     soirées QUI ONT EU DU PUBLIC (`20260925090000`).
   - **Démo pendant la vente** : `scripts/demo/seed-upcoming-sales.sql`
     (rejouable, borné à `demo_event_ids()`, efface ses lignes `seed.…`) sème
-    billets, tables sur de vraies formules, guest list et visites sur les
-    soirées à venir. Le relancer quand les dates passent.
+    billets, tables sur de vraies formules, guest list et visites (avec une
+    ville, pour le Live View) sur les soirées à venir, et recale
+    `ticket_rounds.tickets_sold` (le checkout l'incrémente, un INSERT direct
+    non). Le relancer quand les dates passent. Codes promo de démo : `DEMO20`
+    (club, Reggaeton Party) et `NEWSLETTER15` (orga, toutes soirées).
+  - **Jamais d'automatisation email allumée sur la démo** même si `audit.mjs`
+    le réclame : la base de `organizer@womber.fr` contient 12 315 adresses
+    importées, réelles.
+  - Pages club Codes promo et Push = `OwnerHeader` comme les autres pages
+    club ; côté orga, le titre reste dans la page (le layout a sa barre).
   - Codes promo joués en vrai (achat démo simulé `DEMO20`) ;
     `create-ticket-checkout` arrondit sous-total remisé et total au centime.
   - Tester en cloud : `scripts/demo/drive.mjs` lit l'environnement
