@@ -37,8 +37,10 @@ export interface PageTraffic {
     today: number;
     visitors: number;
     returning: number;
+    /** Visites qui ont fini par un achat (migration 20260925150000 ; absent avant). */
+    ordered?: number;
     series: Array<{ date: string; visits: number }>;
-    sources: Array<{ source: string; visits: number }>;
+    sources: Array<{ source: string; visits: number; ordered?: number }>;
   };
   events: {
     total: number;

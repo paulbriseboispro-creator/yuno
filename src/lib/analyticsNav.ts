@@ -5,9 +5,12 @@
  * `?tab=<famille>&view=<vue>` (+ `&event=<id>` quand une soirée est choisie).
  *
  *   Ventes      « Combien ai-je vendu ? »        vue d'ensemble · par soirée · partenaires
- *   Trafic      « Est-ce qu'on me voit ? »        ma page · par soirée · sources
- *   Communauté  « Qui sont mes clients ? »        vue d'ensemble · abonnés · achats · public · goûts
+ *   Trafic      « Est-ce qu'on me voit ? »        ma page · par soirée
+ *   Communauté  « Qui sont mes clients ? »        vue d'ensemble · abonnés · achats · public
  *   En direct   (inchangé)
+ *
+ * Plan de simplification (25/09) : « Sources » a rejoint « Ma page » (la même
+ * question, un second sélecteur de période) et « Goûts » a rejoint « Public ».
  *
  * Les anciennes adresses (`?tab=global|event|purchase`, `/owner/audience`,
  * `/owner/hype`) restent valables : liens déjà partagés, alertes déjà émises,
@@ -20,8 +23,8 @@ export const ANALYTICS_FAMILIES: readonly AnalyticsFamily[] = ['sales', 'traffic
 
 export const FAMILY_VIEWS = {
   sales: ['overview', 'event', 'partners'],
-  traffic: ['page', 'events', 'sources'],
-  community: ['overview', 'subscribers', 'purchase', 'demographics', 'tastes'],
+  traffic: ['page', 'events'],
+  community: ['overview', 'subscribers', 'purchase', 'demographics'],
   live: ['now'],
 } as const satisfies Record<AnalyticsFamily, readonly string[]>;
 
@@ -37,6 +40,12 @@ const LEGACY_TABS: Record<string, AnalyticsRoute> = {
   global: { family: 'sales', view: 'overview' },
   event: { family: 'sales', view: 'event' },
   purchase: { family: 'community', view: 'purchase' },
+};
+
+/** Les vues fondues dans une autre (liens déjà partagés, favoris). */
+const LEGACY_VIEWS: Partial<Record<AnalyticsFamily, Record<string, string>>> = {
+  traffic: { sources: 'page' },
+  community: { tastes: 'demographics' },
 };
 
 export function defaultView(family: AnalyticsFamily): string {
@@ -65,6 +74,8 @@ export function resolveAnalyticsRoute(
     ? (tab as AnalyticsFamily)
     : 'sales';
   if (isValidView(family, view)) return { family, view: view as string };
+  const moved = view ? LEGACY_VIEWS[family]?.[view] : undefined;
+  if (moved) return { family, view: moved };
   if (family === 'sales' && hasEvent) return { family, view: 'event' };
   return { family, view: defaultView(family) };
 }

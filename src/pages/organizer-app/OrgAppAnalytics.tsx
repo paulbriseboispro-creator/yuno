@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import {
-  CreditCard, TrendingUp, Activity, Loader2, Megaphone, Target, Crown, MousePointerClick,
+  CreditCard, TrendingUp, Loader2, Megaphone, Target, Crown, MousePointerClick,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -16,14 +16,12 @@ import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from '@/components/analytics/scopeFilter';
 import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicker';
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
-import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
-import { AudienceInsights } from '@/components/analytics/AudienceInsights';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
-import { AnalyticsLoading } from '@/components/analytics/kit';
+import { AnalyticsLoading, MoreDetail } from '@/components/analytics/kit';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
@@ -85,16 +83,6 @@ function PCard({
         </div>
       )}
       {children}
-    </div>
-  );
-}
-
-// ─── Zone heading (IA section separator) ──────────────────────────────────────
-function ZoneHeading({ icon, label, id }: { icon: React.ReactNode; label: string; id?: string }) {
-  return (
-    <div id={id} className="flex items-center gap-2 px-1" style={id ? { scrollMarginTop: 84 } : undefined}>
-      <span style={{ color: T2 }}>{icon}</span>
-      <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{label}</h3>
     </div>
   );
 }
@@ -206,6 +194,8 @@ export default function OrgAppAnalytics() {
 
   // Event mode with no night chosen yet → show the calendar-style card picker.
   const showEventPicker = mode === 'event' && !selectedEventId;
+  // Détail du trafic : les 30 derniers jours (la vue n'a plus de sélecteur de période).
+  const trafficWindow = dateRangeToWindow('30days');
   const hasPromoter = !!promoterAnalytics && promoterAnalytics.promoters.length > 0;
 
   // ── Zones rangées hors de Ventes › Vue d'ensemble (lot E) ────────────────
@@ -282,27 +272,12 @@ export default function OrgAppAnalytics() {
           {mode === 'global' && (
             <EventAudienceDemographics scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
           )}
-          <AudienceInsights scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
         </motion.div>
 
   </>);
-  const webZone = (<div className="space-y-4">
-        {/* ── Zone · Web traffic ────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
-          <AcquisitionDashboard scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
-        </motion.div>
-
-        {/* ── Zone · Web engagement ─────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
-          <ZoneHeading icon={<Activity className="w-4 h-4" />} label={t('owner.an.zoneEngagement')} />
-          <BehaviorAnalytics scope={{ kind: 'organizer', id: organizerId }} from={webWindow.from} to={webWindow.to} />
-        </motion.div>
-
-  </div>);
   // Contrôles (période, export) : seulement là où ils changent quelque chose.
   // Ventes porte sa propre période (en soirées) et son export.
-  const showControls = (family === 'traffic' && view === 'sources')
-    || (family === 'community' && (view === 'purchase' || view === 'demographics'));
+  const showControls = family === 'community' && (view === 'purchase' || view === 'demographics');
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
@@ -370,14 +345,24 @@ export default function OrgAppAnalytics() {
               }
             />
           ) : null
-        ) : family === 'community' && view === 'tastes' ? (
-          <CommunityTastesView scope={{ organizerUserId: organizerId }} />
         ) : family === 'community' && view === 'demographics' ? (
-          audienceZone
-        ) : family === 'traffic' && view === 'sources' ? (
-          webZone
+          // Public = qui ils sont (âge, sexe, villes) ET ce qu'ils aiment (goûts) :
+          // une seule vue depuis le 25/09.
+          <div className="space-y-4">
+            {audienceZone}
+            <CommunityTastesView scope={{ organizerUserId: organizerId }} />
+          </div>
         ) : family === 'traffic' ? (
-          <TrafficView scope={{ organizerUserId: organizerId }} mode={view === 'events' ? 'events' : 'page'} publicPath={orgSlug ? `/o/${orgSlug}` : null} eventHref={eventHref} />
+          <div className="space-y-4">
+            <TrafficView scope={{ organizerUserId: organizerId }} mode={view === 'events' ? 'events' : 'page'} publicPath={orgSlug ? `/o/${orgSlug}` : null} eventHref={eventHref} />
+            {/* Campagnes, sites référents et pays : l'ancienne vue Sources,
+                repliée sous Ma page (même question, plus de second sélecteur). */}
+            {view === 'page' && organizerId && (
+              <MoreDetail label={t('anf.trafficDetail')}>
+                <AcquisitionDashboard scope={{ kind: 'organizer', id: organizerId }} from={trafficWindow.from} to={trafficWindow.to} variant="detail" />
+              </MoreDetail>
+            )}
+          </div>
         ) : family === 'sales' && view === 'partners' ? (
           promoterLoading ? <AnalyticsLoading /> : hasPromoter ? promoterZone : <ReportCard><EmptyNote text={t('anf.pa.empty')} /></ReportCard>
         ) : isLive ? (

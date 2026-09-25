@@ -19,6 +19,7 @@ import { CardTitle, EmptyNote, RankRow, ReportCard, Segmented, StatCard } from '
 import { usePageTraffic, type AnalyticsScope } from '@/hooks/useAnalyticsFamilies';
 import { pct } from '@/lib/communityAnalytics';
 import { visitSourceLabel } from '@/lib/eventReport';
+import { MIN_SAMPLE } from '@/lib/metrics';
 
 type Days = '30' | '90' | '365';
 
@@ -122,10 +123,13 @@ export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatCard label={t('anf.tr.pageVisits')} hint={t('gl.pageVisits')} value={n(p.total)} today={p.today} />
         <StatCard label={t('anf.tr.visitors')} hint={t('gl.visitors')} value={n(p.visitors)} />
+        {/* La conversion remplace « Reviennent » : ce que le patron veut savoir
+            d'une visite, c'est si elle finit en achat (plan de simplification). */}
         <StatCard
-          label={t('anf.tr.returning')}
-          value={pct(p.returning, p.total) != null ? pctFmt(pct(p.returning, p.total) ?? 0, locale) : '—'}
-          sub={t('anf.tr.returningSub').replace('{n}', n(p.returning))}
+          label={t('m.conversion')}
+          hint={t('gl.conversion')}
+          value={p.ordered != null && p.total >= MIN_SAMPLE ? pctFmt(pct(p.ordered, p.total) ?? 0, locale) : '—'}
+          sub={p.ordered != null ? t('anf.tr.orderedSub').replace('{n}', n(p.ordered)) : undefined}
         />
       </div>
 
@@ -180,7 +184,9 @@ export function TrafficView({ scope, mode, publicPath, eventHref }: Props) {
                 key={s.source}
                 label={visitSourceLabel(s.source, t)}
                 value={n(s.visits)}
-                note={pct(s.visits, p.total) != null ? pctFmt(pct(s.visits, p.total) ?? 0, locale) : undefined}
+                note={s.ordered
+                  ? t('er.reach.orders').replace('{n}', n(s.ordered))
+                  : pct(s.visits, p.total) != null ? pctFmt(pct(s.visits, p.total) ?? 0, locale) : undefined}
                 share={(s.visits / sourcesTop) * 100}
               />
             ))}

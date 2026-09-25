@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ShoppingBag, Users, Clock, Repeat, Hourglass, UserX, Lightbulb, CalendarClock,
-  Layers, Plus, Crown, Shuffle, Compass, MousePointerClick, DoorOpen, Wine,
-  Smartphone, Monitor, Tablet, HelpCircle, ShieldCheck, GlassWater, ArrowUpCircle,
-  Mail, MessageSquare, Wallet, Store, Gift, Link2,
+  Layers, Plus, Crown, Shuffle, DoorOpen, Wine,
+  ShieldCheck, GlassWater, ArrowUpCircle,
+  Mail, MessageSquare, Wallet, Store, Gift,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePurchaseBehavior } from '@/hooks/usePurchaseBehavior';
@@ -177,12 +177,6 @@ function Empty({ text }: { text: string }) {
   return <p className="text-[13px] py-6 text-center" style={{ color: T3 }}>{text}</p>;
 }
 
-const DEVICE_ICON: Record<string, React.ReactNode> = {
-  mobile: <Smartphone className="w-3.5 h-3.5" />,
-  desktop: <Monitor className="w-3.5 h-3.5" />,
-  tablet: <Tablet className="w-3.5 h-3.5" />,
-};
-
 // ─── Vue ──────────────────────────────────────────────────────────────────────
 export function PurchaseBehaviorView({ venueId = null, organizerUserId = null, dateRange }: {
   venueId?: string | null;
@@ -233,7 +227,6 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
   const s = d.summary;
   const insights = buildInsights(d, t, language);
   const pillarsPresent = new Set(d.pillars.map(p => p.pillar));
-  const totalAmount = d.pillars.reduce((a, p) => a + p.amount, 0);
 
   const ticketsPre = d.leadTime.reduce((a, b) => a + b.tickets, 0);
   const tablesPre = d.leadTime.reduce((a, b) => a + b.tables, 0);
@@ -244,13 +237,11 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
   const tbl = d.crossSell.find(c => c.pillar === 'tables');
   const gls = d.crossSell.find(c => c.pillar === 'guestlist');
 
-  const channelTotal = d.channels.reduce((a, c) => a + c.n, 0);
   const freqTotal = d.loyalty.frequency.reduce((a, f) => a + f.buyers, 0);
   const roundsUnits = d.rounds.reduce((a, r) => a + r.units, 0);
   const bands = BASKET_BANDS.map(b => ({ band: b, n: d.basketBands.find(x => x.pillar === bandPillar && x.band === b)?.n ?? 0 }));
   const bandsTotal = bands.reduce((a, b) => a + b.n, 0);
 
-  const f = d.funnel;
   const att = d.attendance;
 
   const sections: AnchorSection[] = [
@@ -258,8 +249,6 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
     { id: 'pb-howmuch', label: t('pb.zone.howMuch'), icon: Layers },
     { id: 'pb-extras', label: t('pb.zone.extras'), icon: Plus },
     { id: 'pb-who', label: t('pb.zone.who'), icon: Crown },
-    { id: 'pb-channels', label: t('pb.zone.channels'), icon: Compass },
-    { id: 'pb-conversion', label: t('pb.zone.conversion'), icon: MousePointerClick },
     { id: 'pb-attendance', label: t('pb.zone.attendance'), icon: DoorOpen },
   ];
 
@@ -272,13 +261,11 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
       <AnalyticsAnchorNav sections={sections} />
 
       {/* ── Chiffres clés ────────────────────────────────────────────────── */}
-      <motion.div {...rise} className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <Kpi icon={<Users className="w-3.5 h-3.5" />} label={t('pb.kpi.buyers')} value={num(s.buyers)}
-          sub={fill('pb.kpi.buyersSub', num(s.transactions))} />
+      {/* Quatre chiffres : « acheteurs » et « dépense par client » vivent dans
+          Communauté › Vue d'ensemble et Ventes (plan de simplification). */}
+      <motion.div {...rise} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Kpi icon={<ShoppingBag className="w-3.5 h-3.5" />} label={t('pb.kpi.basket')} value={eur(s.avgBasket)}
           sub={t('pb.kpi.basketSub')} />
-        <Kpi icon={<Wallet className="w-3.5 h-3.5" />} label={t('pb.kpi.perBuyer')} value={eur(s.avgPerBuyer)}
-          sub={fill('pb.kpi.perBuyerSub', num(s.avgTxPerBuyer, 1))} />
         <Kpi icon={<Repeat className="w-3.5 h-3.5" />} label={t('pb.kpi.repeat')} value={pct(ratio(s.repeatBuyers, s.buyers))}
           sub={fill('pb.kpi.repeatSub', num(s.repeatBuyers))} tone={POS} />
         <Kpi icon={<Hourglass className="w-3.5 h-3.5" />} label={t('pb.kpi.lead')} value={fmtLeadHours(s.medianLeadHours, t)}
@@ -299,47 +286,6 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
               </li>
             ))}
           </ul>
-        </Card>
-      )}
-
-      {/* ── Par pilier ───────────────────────────────────────────────────── */}
-      {d.pillars.length > 0 && (
-        <Card icon={<Layers className="w-4 h-4" />} title={t('pb.pillars.title')} sub={t('pb.pillars.sub')}>
-          <div className="overflow-x-auto -mx-1">
-            <table className="w-full min-w-[520px] text-[13px]">
-              <thead>
-                <tr style={{ color: T3 }} className="text-left text-[11.5px] uppercase tracking-[0.06em]">
-                  <th className="font-medium px-1 pb-2">{t('pb.pillars.pillar')}</th>
-                  <th className="font-medium px-1 pb-2 text-right">{t('pb.pillars.orders')}</th>
-                  <th className="font-medium px-1 pb-2 text-right">{t('pb.pillars.buyers')}</th>
-                  <th className="font-medium px-1 pb-2 text-right">{t('pb.pillars.basket')}</th>
-                  <th className="font-medium px-1 pb-2 text-right">{t('pb.pillars.amount')}</th>
-                  <th className="font-medium px-1 pb-2 w-[22%]" />
-                </tr>
-              </thead>
-              <tbody>
-                {d.pillars.map(p => (
-                  <tr key={p.pillar} style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <td className="px-1 py-2.5" style={{ color: T1 }}>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ background: PILLAR_COLOR[p.pillar] }} />
-                        {t(`pb.pillar.${p.pillar}`)}
-                      </span>
-                    </td>
-                    <td className="px-1 py-2.5 text-right tabular-nums" style={{ color: T2 }}>{num(p.transactions)}</td>
-                    <td className="px-1 py-2.5 text-right tabular-nums" style={{ color: T2 }}>{num(p.buyers)}</td>
-                    <td className="px-1 py-2.5 text-right tabular-nums" style={{ color: T2 }}>{eur(p.avgBasket)}</td>
-                    <td className="px-1 py-2.5 text-right tabular-nums font-semibold" style={{ color: T1 }}>{eur(p.amount)}</td>
-                    <td className="px-1 py-2.5 pl-3">
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: FAINT }}>
-                        <div className="h-full rounded-full" style={{ width: `${(ratio(p.amount, totalAmount) ?? 0) * 100}%`, background: PILLAR_COLOR[p.pillar] }} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </Card>
       )}
 
@@ -552,82 +498,8 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
         </Card>
       )}
 
-      {/* ═══ Par quel canal ? ═════════════════════════════════════════════ */}
-      <Zone id="pb-channels" icon={<Compass className="w-4 h-4" />} label={t('pb.zone.channels')} hint={t('pb.zone.channelsHint')} />
-
-      <Card icon={<Compass className="w-4 h-4" />} title={t('pb.channels.title')}
-        sub={d.trackedShare != null ? fill('pb.channels.tracked', pct(d.trackedShare)) : t('pb.channels.sub')}
-        right={<Link2 className="w-4 h-4" style={{ color: T3 }} />}>
-        {channelTotal === 0 ? <Empty text={t('pb.none')} /> : (
-          <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
-            {d.channels.map(c => (
-              <BarRow key={c.source} label={t(`pb.src.${c.source}`)} value={num(c.n)} share={ratio(c.n, channelTotal)}
-                note={`${pct(ratio(c.n, channelTotal))} · ${eur(c.amount)}`} />
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* ═══ Passage à l'achat ═════════════════════════════════════════════ */}
-      <Zone id="pb-conversion" icon={<MousePointerClick className="w-4 h-4" />} label={t('pb.zone.conversion')} hint={t('pb.zone.conversionHint')} />
-
-      {f.sessions === 0 ? (
-        <Card><Empty text={t('pb.conv.none')} /></Card>
-      ) : (
-        <>
-          <Card icon={<MousePointerClick className="w-4 h-4" />} title={t('pb.conv.funnel')} sub={fill('pb.conv.funnelSub', pct(ratio(f.orders, f.sessions), 1))}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {[
-                { k: 'sessions', v: f.sessions, prev: null as number | null },
-                { k: 'carts', v: f.carts, prev: f.sessions },
-                { k: 'checkouts', v: f.checkouts, prev: f.carts },
-                { k: 'orders', v: f.orders, prev: f.checkouts },
-              ].map(step => (
-                <div key={step.k} className="rounded-xl px-3.5 py-3" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
-                  <div className="text-[11.5px]" style={{ color: T3 }}>{t(`pb.conv.${step.k}`)}</div>
-                  <div className="mt-1 text-xl font-[640] tabular-nums" style={{ color: T1 }}>{num(step.v)}</div>
-                  <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: FAINT }}>
-                    <div className="h-full rounded-full" style={{ width: `${(ratio(step.v, f.sessions) ?? 0) * 100}%`, background: RED }} />
-                  </div>
-                  {step.prev != null && (
-                    <div className="mt-1 text-[11px]" style={{ color: T3 }}>{fill('pb.conv.fromPrev', pct(ratio(step.v, step.prev)))}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-              <Stat label={t('pb.conv.abandoned')} value={num(f.abandonedCarts)} sub={fill('pb.conv.abandonedSub', eur(f.abandonedValue))} />
-              <Stat label={t('pb.conv.visitNumber')} value={f.medianVisitAtPurchase != null ? fill('pb.conv.nth', num(f.medianVisitAtPurchase)) : '—'} sub={t('pb.conv.visitNumberSub')} />
-              <Stat label={t('pb.conv.timeBuyers')} value={f.medianDurationBuyers != null ? fill('pb.unit.minutes', num(f.medianDurationBuyers / 60, 1)) : '—'}
-                sub={f.medianDurationOthers != null ? fill('pb.conv.timeOthers', num(f.medianDurationOthers / 60, 1)) : undefined} />
-              <Stat label={t('pb.conv.returning')} value={pct(ratio(f.returningOrders, f.returningSessions), 1)}
-                sub={fill('pb.conv.newRate', pct(ratio(f.newOrders, f.newSessions), 1))} />
-            </div>
-          </Card>
-
-          <div className="grid lg:grid-cols-2 gap-3">
-            <Card icon={<Smartphone className="w-4 h-4" />} title={t('pb.conv.devices')} sub={t('pb.conv.devicesSub')}>
-              <div className="space-y-3">
-                {f.devices.map(dv => (
-                  <BarRow key={dv.device} icon={DEVICE_ICON[dv.device] ?? <HelpCircle className="w-3.5 h-3.5" />}
-                    label={t(`pb.device.${DEVICE_ICON[dv.device] ? dv.device : 'unknown'}`)}
-                    value={pct(ratio(dv.orders, dv.sessions), 1)} share={ratio(dv.orders, dv.sessions)} color={POS}
-                    note={fill('pb.conv.visits', num(dv.sessions))} />
-                ))}
-              </div>
-            </Card>
-            <Card icon={<Compass className="w-4 h-4" />} title={t('pb.conv.sources')} sub={t('pb.conv.sourcesSub')}>
-              <div className="space-y-3">
-                {f.sources.map(sr => (
-                  <BarRow key={sr.source} label={sr.source.charAt(0).toUpperCase() + sr.source.slice(1)}
-                    value={pct(ratio(sr.orders, sr.sessions), 1)} share={ratio(sr.orders, sr.sessions)} color={POS}
-                    note={fill('pb.conv.visits', num(sr.sessions))} />
-                ))}
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
+      {/* Canaux et passage à l'achat : dans le Rapport de soirée (« D'où
+          viennent les ventes ? ») et Trafic › Ma page (conversion). */}
 
       {/* ═══ Achat ≠ venue ═════════════════════════════════════════════════ */}
       <Zone id="pb-attendance" icon={<DoorOpen className="w-4 h-4" />} label={t('pb.zone.attendance')} hint={t('pb.zone.attendanceHint')} />
