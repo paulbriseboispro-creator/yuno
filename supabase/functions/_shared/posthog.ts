@@ -89,6 +89,7 @@ export type OrderPaidInput = {
 };
 
 type EventRow = {
+  title: string | null;
   timezone: string | null;
   location_city: string | null;
   venue_id: string | null;
@@ -103,7 +104,7 @@ async function buildProperties(admin: SupabaseClient, input: OrderPaidInput): Pr
   if (input.eventId) {
     const { data } = await admin
       .from("events")
-      .select("timezone, location_city, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id")
+      .select("title, timezone, location_city, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id")
       .eq("id", input.eventId)
       .maybeSingle();
     ev = (data as EventRow | null) ?? null;
@@ -140,8 +141,10 @@ async function buildProperties(admin: SupabaseClient, input: OrderPaidInput): Pr
     quantity: input.quantity ?? 1,
     has_promoter: !!input.hasPromoter,
     has_promo_code: !!input.hasPromoCode,
-    purchase_surface: input.ctx.surface,
-    surface: "server",
+    // `surface` = surface d'ACHAT (même vocabulaire que le navigateur) : le
+    // filtre « surface » du dashboard s'applique donc aussi à l'argent.
+    surface: input.ctx.surface,
+    source: "server",
     analytics_consent: input.ctx.consent,
     is_demo: isDemo,
   };
@@ -150,6 +153,8 @@ async function buildProperties(admin: SupabaseClient, input: OrderPaidInput): Pr
   if (country) props.market_country = country;
   if (mCity) props.market_city = mCity;
   if (input.eventId) props.event_id = input.eventId;
+  // Nom public de la soirée (déjà affiché sur sa page) : lisible dans « top soirées ».
+  if (ev?.title) props.event_title = ev.title.slice(0, 120);
   if (venueId) props.venue_id = venueId;
   const organizer = ev?.organizer_user_id ?? ev?.partner_organizer_id ?? null;
   if (organizer) props.organizer_user_id = organizer;
