@@ -11,6 +11,19 @@ const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
 const isAllowedOrigin = (o: string) =>
   o === "https://yuno.club" || o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
+/** Palier d'un barème sur le CA (`remuneration.tiers`). */
+interface SplitTier { from?: number | string; pct?: number | string }
+/** Part d'un pilier (billets, tables, boissons). */
+interface PillarSplit { organizer_pct?: number | string | null }
+/** Conditions financières proposées au club (`revenue_split_rules`), telles que reçues. */
+interface CollabSplitRules {
+  remuneration?: { mode?: string; tiers?: SplitTier[] } | null;
+  tickets?: PillarSplit | null;
+  tables?: PillarSplit | null;
+  drinks?: PillarSplit | null;
+  [key: string]: unknown;
+}
+
 interface Payload {
   club_name: string;
   club_email: string;
@@ -20,20 +33,20 @@ interface Payload {
   contact_last_name?: string;
   event_id?: string | null;
   invitation_message?: string;
-  default_split_rules?: any;
+  default_split_rules?: CollabSplitRules | null;
   origin?: string;
   /** Langue de l'email reçu par le club (fr par défaut). */
   lang?: string;
 }
 
 /** « Billets 100 % orga · tables 100 % club » ou « barème sur le CA : 0 % < 3 500 €, 7 % … ». */
-function summarizeTerms(rules: any, lang: "fr" | "en" | "es"): string | null {
+function summarizeTerms(rules: CollabSplitRules | null | undefined, lang: "fr" | "en" | "es"): string | null {
   if (!rules || typeof rules !== "object") return null;
   const orga = lang === "en" ? "organizer" : lang === "es" ? "orga" : "orga";
   const rem = rules.remuneration;
   if (rem && rem.mode === "tiered_total" && Array.isArray(rem.tiers) && rem.tiers.length) {
-    const tiers = [...rem.tiers].sort((a: any, b: any) => Number(a.from) - Number(b.from));
-    const parts = tiers.map((t: any, i: number) => {
+    const tiers = [...rem.tiers].sort((a: SplitTier, b: SplitTier) => Number(a.from) - Number(b.from));
+    const parts = tiers.map((t: SplitTier, i: number) => {
       const next = tiers[i + 1];
       const range = next ? `${Number(t.from).toLocaleString("fr-FR")}–${Number(next.from).toLocaleString("fr-FR")} €` : `≥ ${Number(t.from).toLocaleString("fr-FR")} €`;
       return `${range} : ${t.pct} %`;
@@ -41,7 +54,7 @@ function summarizeTerms(rules: any, lang: "fr" | "en" | "es"): string | null {
     const head = lang === "en" ? "Tiers on the night's total revenue" : lang === "es" ? "Escala sobre la facturación de la noche" : "Barème sur le CA de la soirée";
     return `${head} (${orga}) — ${parts.join(" · ")}`;
   }
-  const pct = (b: any) => Number(b?.organizer_pct ?? 0);
+  const pct = (b: PillarSplit | null | undefined) => Number(b?.organizer_pct ?? 0);
   const tk = lang === "en" ? "Tickets" : lang === "es" ? "Entradas" : "Billets";
   const tb = lang === "en" ? "tables" : lang === "es" ? "mesas" : "tables";
   const dr = lang === "en" ? "drinks" : lang === "es" ? "bebidas" : "boissons";
@@ -246,9 +259,9 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, invitation_id: invitation.id, token: invitation.token }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("invite-club-collab error:", error);
-    return new Response(JSON.stringify({ error: error.message ?? "Unknown error" }), {
+    return new Response(JSON.stringify({ error: (error as { message?: string }).message ?? "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 import { buildWinBack, fmtDateParts } from "../_shared/email-templates.ts";
@@ -14,11 +15,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[MISSED-YOU] ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
 };
 
-async function wasAlreadySent(supabase: any, userId: string, notifType: string, key: string): Promise<boolean> {
+interface MissedYouEvent {
+  id: string;
+  title: string;
+  start_at: string;
+  venue_id: string | null;
+  organizer_user_id: string | null;
+  poster_url: string | null;
+  venues: { name: string | null } | null;
+}
+
+interface TicketContactRow { user_id: string | null; user_email: string | null }
+
+async function wasAlreadySent(supabase: SupabaseClient, userId: string, notifType: string, key: string): Promise<boolean> {
   const { data } = await supabase
     .from('notification_log')
     .select('id')
@@ -26,10 +39,10 @@ async function wasAlreadySent(supabase: any, userId: string, notifType: string, 
     .eq('notification_type', notifType)
     .eq('title', key)
     .limit(1);
-  return (data && data.length > 0);
+  return !!(data && data.length > 0);
 }
 
-async function markSent(supabase: any, userId: string, notifType: string, key: string) {
+async function markSent(supabase: SupabaseClient, userId: string, notifType: string, key: string) {
   await supabase
     .from('notification_log')
     .insert({ user_id: userId, notification_type: notifType, title: key });
@@ -84,7 +97,9 @@ serve(async (req) => {
       .lte('end_at', twelveHoursAgo)
       .gte('end_at', fortyEightHoursAgo);
     // Jamais la démo (comptes @womber.fr, invités semés @demo.womber.fr).
-    const recentEvents = (recentRaw ?? []).filter((e) => !demoIds.has(e.id));
+    // Embarquement many-to-one : `venues` arrive en OBJET (le typage générique
+    // de supabase-js, sans schéma, le suppose en tableau).
+    const recentEvents = ((recentRaw ?? []) as unknown as MissedYouEvent[]).filter((e) => !demoIds.has(e.id));
 
     if (!recentEvents || recentEvents.length === 0) {
       return new Response(
@@ -99,7 +114,7 @@ serve(async (req) => {
       // Une recette « On t'a manqué » (club, organisateur ou Yuno) couvre cette
       // soirée : une seule voix par soirée, cette version historique s'efface.
       if (await automationCoversEvent(supabaseAdmin, event.id, 'post_event_missed')) continue;
-      const venueName = (event.venues as any)?.name || '';
+      const venueName = event.venues?.name || '';
       const safeEventTitle = escapeHtml(event.title);
       const safeVenueName = escapeHtml(venueName);
       const eventImageUrl = event.poster_url || null;
@@ -121,8 +136,8 @@ serve(async (req) => {
         .select('user_id, user_email')
         .eq('event_id', event.id)
         .eq('status', 'used');
-      const attendedUserIds = new Set((attendedRows || []).map((r: any) => r.user_id).filter(Boolean));
-      const attendedEmails = new Set((attendedRows || []).map((r: any) => r.user_email).filter(Boolean));
+      const attendedUserIds = new Set((attendedRows || []).map((r: TicketContactRow) => r.user_id).filter(Boolean));
+      const attendedEmails = new Set((attendedRows || []).map((r: TicketContactRow) => r.user_email).filter(Boolean));
 
       const attendeeCount = attendedRows?.length ?? 0;
 
@@ -137,7 +152,7 @@ serve(async (req) => {
 
       const nextEvent = nextEvents?.[0];
 
-      const optins = await loadOptIns(supabaseAdmin, noShowTickets.map((tk: any) => tk.user_email));
+      const optins = await loadOptIns(supabaseAdmin, noShowTickets.map((tk: TicketContactRow) => tk.user_email));
 
       const seen = new Set<string>();
       for (const ticket of noShowTickets) {
@@ -145,7 +160,7 @@ serve(async (req) => {
         if (isDemoEmail(ticket.user_email)) continue;
         if (attendedUserIds.has(ticket.user_id) || attendedEmails.has(ticket.user_email)) continue;
         // Marketing: send ONLY to recipients who opted in for this venue/organizer.
-        const unsubToken = optInToken(optins, ticket.user_email, { venueId: event.venue_id, organizerUserId: (event as any).organizer_user_id });
+        const unsubToken = optInToken(optins, ticket.user_email, { venueId: event.venue_id, organizerUserId: event.organizer_user_id });
         if (unsubToken === null) continue;
         seen.add(ticket.user_email);
 
@@ -257,7 +272,7 @@ serve(async (req) => {
           });
           if (res.ok) {
             await markSent(supabaseAdmin, ticket.user_id, 'missed_you', event.id);
-            await logMarketingEmail(supabaseAdmin, ticket.user_email, 'missed_you', { venueId: event.venue_id, organizerUserId: (event as any).organizer_user_id });
+            await logMarketingEmail(supabaseAdmin, ticket.user_email, 'missed_you', { venueId: event.venue_id, organizerUserId: event.organizer_user_id });
             sentCount++;
           }
         } catch (err) {

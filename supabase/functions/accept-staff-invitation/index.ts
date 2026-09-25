@@ -9,6 +9,9 @@ const corsHeaders = {
 
 const APP_URL = 'https://yunoapp.eu';
 
+/** Corps JSON d'une requête — lu champ par champ, chaque valeur coercée à l'usage. */
+type RequestBody = Record<string, unknown>;
+
 // ─── Onboarding-link roles (shared with create/redeem branches) ──────────────
 // This function also hosts the email-free "onboarding link" mechanism (create +
 // redeem), folded in here as action branches because the Supabase edge-function
@@ -101,7 +104,7 @@ async function liveAuthUserIdForEmail(supabase: SupabaseClient, email: string): 
   return (data as string | null) ?? null;
 }
 
-async function handleCreateOnboardingLink(req: Request, supabase: SupabaseClient, body: any): Promise<Response> {
+async function handleCreateOnboardingLink(req: Request, supabase: SupabaseClient, body: RequestBody): Promise<Response> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return json({ error: 'Unauthorized' }, 401);
   const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
@@ -111,7 +114,7 @@ async function handleCreateOnboardingLink(req: Request, supabase: SupabaseClient
   const venue_id: string | null = body.venue_id ? String(body.venue_id) : null;
   const organizer_user_id: string | null = body.organizer_user_id ? String(body.organizer_user_id) : null;
   const label: string | null = body.label ? String(body.label).trim().slice(0, 120) : null;
-  const config: Record<string, unknown> = (body.config && typeof body.config === 'object') ? body.config : {};
+  const config: Record<string, unknown> = (body.config && typeof body.config === 'object') ? body.config as Record<string, unknown> : {};
   let max_uses: number | null =
     body.max_uses === null || body.max_uses === undefined ? null : Math.max(1, parseInt(String(body.max_uses), 10) || 1);
   const expires_in_days = Math.min(365, Math.max(1, parseInt(String(body.expires_in_days ?? 14), 10) || 14));
@@ -224,7 +227,10 @@ async function linkIssuerAllowed(
 }
 
 // ─── Branch: redeem an onboarding link (public, account created inline) ───────
-async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient, body: any): Promise<Response> {
+/** Colonnes d'image qui départagent les profils DJ existants d'un compte. */
+interface DjImageRank { cover_image_url?: string | null; profile_image_url?: string | null }
+
+async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient, body: RequestBody): Promise<Response> {
   const token = String(body.token ?? '');
   const email = String(body.email ?? '').toLowerCase().trim();
   const password = String(body.password ?? '');
@@ -250,7 +256,7 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
     return json({ error: 'Ce lien a été désactivé', code: 'revoked' }, 403);
   }
 
-  const cfg: Record<string, any> = link.config || {};
+  const cfg: Record<string, unknown> = link.config || {};
   const role: string = link.role;
   const venueId: string | null = link.venue_id;
   const orgId: string | null = link.organizer_user_id;
@@ -337,7 +343,7 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
     const { data: alreadyLinked } = await scopeQ.limit(1);
     if (!alreadyLinked || alreadyLinked.length === 0) {
       const { data: existing } = await supabase.from('djs').select('*').eq('user_id', userId);
-      const src = (existing ?? []).sort((a: any, b: any) =>
+      const src = (existing ?? []).sort((a: DjImageRank, b: DjImageRank) =>
         ((b.cover_image_url ? 2 : 0) + (b.profile_image_url ? 1 : 0)) -
         ((a.cover_image_url ? 2 : 0) + (a.profile_image_url ? 1 : 0)))[0];
       const payload: Record<string, unknown> = src
@@ -427,7 +433,7 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
  * c'est le serveur qui le lit, pas la RLS de quelqu'un qui n'est pas encore
  * l'employé.
  */
-async function handleDescribeInvitation(supabase: SupabaseClient, body: any): Promise<Response> {
+async function handleDescribeInvitation(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
   const token = String(body.token ?? '');
   if (!token) return json({ error: 'Token requis' }, 400);
 
@@ -461,7 +467,7 @@ async function handleDescribeInvitation(supabase: SupabaseClient, body: any): Pr
   });
 }
 
-async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any): Promise<Response> {
+async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
   const token = String(body?.token ?? '').trim();
   const password = String(body?.password ?? '');
   if (!token || !password) return json({ error: 'Missing token or password', code: 'bad_request' }, 400);
@@ -857,9 +863,9 @@ Deno.serve(async (req) => {
         : 'Invitation acceptée ! Connectez-vous et définissez votre code PIN.',
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('accept-staff-invitation error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Erreur inconnue' }), {
+    return new Response(JSON.stringify({ error: (error as { message?: string }).message || 'Erreur inconnue' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

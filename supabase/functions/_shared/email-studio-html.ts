@@ -13,7 +13,7 @@
 // RPC get_recipient_block_conds — jamais une requête par destinataire.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 export interface StudioTheme {
   name: string; bg: string; card: string; headerBg: string; headerText: string;
@@ -109,7 +109,126 @@ export interface StudioRenderCtx {
   ignoreConds?: boolean;
 }
 
-export type StudioBlock = { id: string; type: string } & Record<string, any>;
+/**
+ * Bloc tel que stocké dans `blocks_json` — forme APLATIE des blocs de
+ * src/lib/email/types.ts (EmailBlock) : chaque champ n'est lu que par le
+ * `case` de son type. `size` est un nombre (texte) ou une clé (espaceur).
+ */
+export interface StudioBlock {
+  id: string;
+  type: string;
+  // BlockBase
+  px?: number;
+  py?: number;
+  bg?: string;
+  bgc?: string;
+  cond?: string | null;
+  // header
+  venueName?: string;
+  showName?: boolean;
+  logoSize?: string;
+  logoShape?: string;
+  logoUrl?: string;
+  // image / cta / countdown
+  url?: string;
+  label?: string;
+  linkUrl?: string;
+  radius?: number;
+  // text / spacer / html
+  body?: string;
+  size?: number | string;
+  align?: string;
+  color?: string;
+  code?: string;
+  // columns
+  left?: { title?: string; body?: string };
+  right?: { title?: string; body?: string };
+  // blocs Yuno (event, tickets, guestlist, table, countdown)
+  eventId?: string;
+  accent?: string;
+  title?: string;
+  dateLabel?: string;
+  venueLabel?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  coverUrl?: string;
+  cover?: boolean;
+  venue?: boolean;
+  price?: boolean;
+  layout?: string;
+  kicker?: string;
+  sub?: string;
+  perks?: string[];
+  metaDisplay?: string;
+  coverPos?: 'top' | 'bottom';
+  note?: string;
+  full?: boolean;
+  live?: boolean;
+  rows?: StudioTicketRow[];
+  priceDisplay?: string;
+  hiddenRows?: string[];
+  packs?: StudioTablePackRow[];
+  livePacks?: boolean;
+  hiddenPacks?: string[];
+  packDisplay?: string;
+  targetAt?: string;
+}
+
+/** Lignes lues par fetchStudioLiveData (colonnes du `select`). */
+interface StudioEventRow {
+  id: string;
+  title: string;
+  start_at: string;
+  timezone: string | null;
+  slug: string | null;
+  poster_url: string | null;
+  image_url: string | null;
+  venue_id: string | null;
+  partner_venue_id: string | null;
+  location_name: string | null;
+  location_city: string | null;
+  ticketing_enabled: boolean | null;
+  tables_enabled: boolean | null;
+  tickets_sold_out: boolean | null;
+  tables_sold_out: boolean | null;
+  guest_list_sold_out: boolean | null;
+  sold_out_pack_ids: string[] | null;
+}
+
+interface StudioVenueRow { id: string; name: string | null; city: string | null }
+
+interface StudioRoundRow {
+  event_id: string;
+  name: string | null;
+  description: string | null;
+  price: number | null;
+  max_tickets: number | null;
+  tickets_sold: number | null;
+  is_active: boolean | null;
+  manually_sold_out: boolean | null;
+  position: number | null;
+}
+
+interface StudioGuestListRow extends GuestListOffer {
+  id: string;
+  event_id: string;
+  quota: number | null;
+  show_remaining: boolean | null;
+  created_at: string;
+}
+
+interface StudioPackRow extends TablePackOffer {
+  event_id: string | null;
+  venue_id: string | null;
+  tables_count: number | null;
+  is_active: boolean | null;
+}
+
+interface StudioTrackedLinkRow {
+  event_id: string;
+  event_code: string | null;
+  guest_list_code: string | null;
+}
 
 const FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 /** Métadonnées (kicker, jauge, badges) — miroir de MONO dans render.ts. */
@@ -1417,7 +1536,7 @@ export function collectStudioConds(blocks: StudioBlock[]): string[] {
  * s'effacent (l'audience rétrécit, jamais l'inverse).
  */
 export async function fetchRecipientConds(
-  admin: any,
+  admin: SupabaseClient,
   campaignId: string,
   emails: string[],
   usedConds: string[],
@@ -1442,7 +1561,7 @@ export async function fetchRecipientConds(
 }
 
 export async function fetchStudioLiveData(
-  admin: any,
+  admin: SupabaseClient,
   blocks: StudioBlock[],
   fallbackEventId: string | null,
   publicUrl: string,
@@ -1458,27 +1577,29 @@ export async function fetchStudioLiveData(
   if (ids.length === 0) return live;
 
   try {
-    const { data: events } = await admin
+    const { data: eventsData } = await admin
       .from('events')
       .select('id, title, start_at, timezone, slug, poster_url, image_url, venue_id, partner_venue_id, location_name, location_city, ticketing_enabled, tables_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids')
       .in('id', ids);
+    const events = eventsData as StudioEventRow[] | null;
 
-    const venueIds = [...new Set((events || []).map((e: any) => e.venue_id || e.partner_venue_id).filter(Boolean))];
+    const venueIds = [...new Set((events || []).map((e) => e.venue_id || e.partner_venue_id).filter(Boolean))] as string[];
     const { data: venues } = venueIds.length
       ? await admin.from('venues').select('id, name, city').in('id', venueIds)
       : { data: [] };
-    const venueById = new Map<string, any>((venues || []).map((v: any) => [v.id, v]));
+    const venueById = new Map<string | null, StudioVenueRow>(((venues || []) as StudioVenueRow[]).map((v) => [v.id, v]));
 
-    const { data: rounds } = await admin
+    const { data: roundsData } = await admin
       .from('ticket_rounds')
       .select('event_id, name, description, price, max_tickets, tickets_sold, is_active, manually_sold_out, position')
       .in('event_id', ids)
       .order('position', { ascending: true });
+    const rounds = roundsData as StudioRoundRow[] | null;
 
     // Même filtre que la page publique : seules les parts marquées « visible
     // sur la page club » entrent dans l'email. Les parts déléguées ne vivent
     // que derrière leur propre lien, on ne les révèle pas à toute une audience.
-    const { data: guestLists } = await admin
+    const { data: guestListsData } = await admin
       .from('guest_lists')
       .select('id, event_id, holder_type, free_before_time, includes_drink, quota, show_remaining, manually_sold_out, created_at')
       .in('event_id', ids)
@@ -1488,8 +1609,9 @@ export async function fetchStudioLiveData(
       // doivent désigner la MÊME part, sinon le bouton ouvre une autre liste que
       // celle annoncée dans le corps du message.
       .order('created_at', { ascending: true });
+    const guestLists = guestListsData as StudioGuestListRow[] | null;
     // Inscrits par part, pour les places restantes du bloc Liste invités.
-    const glIds = ((guestLists || []) as { id: string }[]).map((g) => g.id);
+    const glIds = (guestLists || []).map((g) => g.id);
     const entriesByList = new Map<string, number>();
     if (glIds.length) {
       const { data: glEntries } = await admin
@@ -1522,17 +1644,19 @@ export async function fetchStudioLiveData(
         `event_id.in.(${ids.join(',')})`,
         venueIds.length ? `venue_id.in.(${venueIds.join(',')})` : '',
       ].filter(Boolean).join(',');
-      const { data: packs } = await admin
+      const { data: packsData } = await admin
         .from('table_packs')
         .select('id, zone_id, event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
         .eq('is_active', true)
         .or(packScope);
-      const { data: reservations } = await admin
+      const packs = packsData as StudioPackRow[] | null;
+      const { data: reservationsData } = await admin
         .from('table_reservations')
         .select('event_id, status')
         .in('event_id', ids)
         .in('status', ['paid', 'confirmed']);
-      const zoneIds = [...new Set((packs || []).map((p: any) => p.zone_id).filter(Boolean))];
+      const reservations = reservationsData as { event_id: string; status: string }[] | null;
+      const zoneIds = [...new Set((packs || []).map((p) => p.zone_id).filter(Boolean))] as string[];
       const { data: zones } = zoneIds.length
         ? await admin.from('table_zones').select('id, name, position').in('id', zoneIds)
         : { data: [] };
@@ -1546,8 +1670,8 @@ export async function fetchStudioLiveData(
         let total = 0;
         // Les formules nommées « complètes » pour cette soirée n'entrent ni
         // dans les lignes ni dans le stock (miroir de _event_tables_left).
-        const mine: any[] = openTablePacks(
-          ((packs || []) as any[]).filter((p) => p.event_id === e.id || (!p.event_id && venueId && p.venue_id === venueId)),
+        const mine: StudioPackRow[] = openTablePacks(
+          (packs || []).filter((p) => p.event_id === e.id || (!p.event_id && venueId && p.venue_id === venueId)),
           liveSoldOut(e),
         );
         for (const p of mine) total += Number(p.tables_count || 0);
@@ -1569,12 +1693,12 @@ export async function fetchStudioLiveData(
       const dateLabel = `${start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })} · ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
 
       const flags = liveSoldOut(e);
-      const evRounds = (rounds || []).filter((r: any) => r.event_id === e.id);
-      const isOut = (r: any) => !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)));
-      const visible = evRounds.filter((r: any) => r.is_active || isOut(r)).slice(0, 4);
+      const evRounds = (rounds || []).filter((r) => r.event_id === e.id);
+      const isOut = (r: StudioRoundRow) => !!(r.manually_sold_out || (r.max_tickets != null && Number(r.tickets_sold || 0) >= Number(r.max_tickets)));
+      const visible = evRounds.filter((r) => r.is_active || isOut(r)).slice(0, 4);
       // Billetterie éteinte : aucune tranche (bloc effacé). Fermée à la main :
       // chaque tranche « épuisé », aucun prix d'appel (miroir de hooks.ts).
-      const roundRows: StudioTicketRow[] = e.ticketing_enabled === false ? [] : applyTicketsSoldOut(visible.map((r: any) => ({
+      const roundRows: StudioTicketRow[] = e.ticketing_enabled === false ? [] : applyTicketsSoldOut(visible.map((r) => ({
         n: r.name || 'Billet',
         s: r.description || '',
         p: euro(Number(r.price || 0)),
@@ -1583,17 +1707,17 @@ export async function fetchStudioLiveData(
       const activePrices = roundRows.length === 0 || flags.ticketsSoldOut
         ? []
         : evRounds
-          .filter((r: any) => r.is_active && !isOut(r))
-          .map((r: any) => Number(r.price || 0));
+          .filter((r) => r.is_active && !isOut(r))
+          .map((r) => Number(r.price || 0));
       const guestList = pickPublicGuestList(
-        ((guestLists || []) as any[]).filter((g: any) => g.event_id === e.id),
+        (guestLists || []).filter((g) => g.event_id === e.id),
       );
       const { tickets, guestListOnly } = buildEntryRows(roundRows, guestList);
-      const glQuota = guestList && (guestList as any).quota != null ? Number((guestList as any).quota) : null;
+      const glQuota = guestList && guestList.quota != null ? Number(guestList.quota) : null;
       const glClosed = !!guestList && (flags.guestListSoldOut || !!guestList.manually_sold_out);
       const glRemaining = !guestList ? null : glClosed ? 0
-        : ((guestList as any).show_remaining && glQuota != null
-          ? Math.max(0, glQuota - (entriesByList.get((guestList as any).id || '') || 0)) : null);
+        : (guestList.show_remaining && glQuota != null
+          ? Math.max(0, glQuota - (entriesByList.get(guestList.id || '') || 0)) : null);
       const guestListLive: StudioGuestListLive | null = guestList ? {
         freeBefore: String(guestList.free_before_time || '').slice(0, 5) || null,
         includesDrink: !!guestList.includes_drink,
@@ -1637,8 +1761,8 @@ export async function fetchStudioLiveData(
         p_event_ids: ids,
         p_channel: trackedChannel,
       });
-      for (const row of (links || []) as any[]) {
-        const ev = live[row.event_id as string];
+      for (const row of (links || []) as StudioTrackedLinkRow[]) {
+        const ev = live[row.event_id];
         if (!ev) continue;
         if (row.event_code) ev.trackedUrl = `${publicUrl}/l/${row.event_code}`;
         if (row.guest_list_code) ev.entryTrackedUrl = `${publicUrl}/l/${row.guest_list_code}`;

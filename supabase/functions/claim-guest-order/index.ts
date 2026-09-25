@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildOtp } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
@@ -9,8 +10,7 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
  * (_venue_customer_rfm) disparaît d'elle-même au prochain chargement.
  * JAMAIS bloquant : le claim est déjà réussi, un échec ici est silencieux.
  */
-// deno-lint-ignore no-explicit-any
-async function graduateGuestToCrm(admin: any, table: string, purchaseId: string, userId: string): Promise<void> {
+async function graduateGuestToCrm(admin: SupabaseClient, table: string, purchaseId: string, userId: string): Promise<void> {
   try {
     let venueId: string | null = null;
     let email: string | null = null;
@@ -18,7 +18,7 @@ async function graduateGuestToCrm(admin: any, table: string, purchaseId: string,
     let lastName: string | null = null;
     let phone: string | null = null;
     let spent = 0;
-    let deltas = { order: 0, ticket: 0, table: 0 };
+    const deltas = { order: 0, ticket: 0, table: 0 };
 
     if (table === "guest_list_entries") {
       // Une inscription guest list n'est PAS un achat : on crée (ou retrouve) le
@@ -28,7 +28,7 @@ async function graduateGuestToCrm(admin: any, table: string, purchaseId: string,
         .select("email, full_name, phone, guest_lists!inner(event_id)")
         .eq("id", purchaseId).maybeSingle();
       if (!e) return;
-      const eventId = (e.guest_lists as any)?.event_id;
+      const eventId = (e.guest_lists as { event_id?: string | null } | null)?.event_id;
       if (!eventId) return;
       // Co-soirée menée par un organisateur : events.venue_id est NULL, le club
       // hôte vit dans partner_venue_id.
@@ -86,7 +86,7 @@ async function graduateGuestToCrm(admin: any, table: string, purchaseId: string,
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[CLAIM-GUEST-ORDER] ${step}`, details ? JSON.stringify(details) : "");
 };
 
@@ -367,7 +367,7 @@ serve(async (req) => {
       // `guest_list_entries` n'a ni `claimed_by_user_id` ni `claimed_at` :
       // écrire ces colonnes ferait échouer tout l'UPDATE et l'inscription
       // resterait orpheline malgré un compte fraîchement créé.
-      const updateData: Record<string, any> = purchase.table === 'guest_list_entries'
+      const updateData: Record<string, unknown> = purchase.table === 'guest_list_entries'
         ? { user_id: userId }
         : {
             user_id: userId,
@@ -596,7 +596,7 @@ serve(async (req) => {
         .eq("id", otpRecord.id);
 
       // Build response based on type
-      let responseData: any = { id: purchase.id, reference: purchase.reference };
+      let responseData: Record<string, unknown> = { id: purchase.id, reference: purchase.reference };
 
       if (type === 'ticket') {
         // NOTE: the FK column is `ticket_round_id` (not `round_id`). Selecting a
@@ -632,7 +632,7 @@ serve(async (req) => {
           fullName: ticket?.full_name,
           status: ticket?.status,
           paidAt: ticket?.paid_at,
-          roundName: (ticket?.ticket_rounds as any)?.name,
+          roundName: (ticket?.ticket_rounds as { name?: string | null } | null)?.name,
           eventTitle,
           venueName,
           eventStartAt,
@@ -672,8 +672,8 @@ serve(async (req) => {
           eventStartAt,
           eventPoster,
           venueAddress,
-          zoneName: (reservation?.table_zones as any)?.name,
-          packName: (reservation?.table_packs as any)?.name,
+          zoneName: (reservation?.table_zones as { name?: string | null } | null)?.name,
+          packName: (reservation?.table_packs as { name?: string | null } | null)?.name,
           eventTitle,
           venueName,
         };

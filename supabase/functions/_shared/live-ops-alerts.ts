@@ -13,7 +13,8 @@
 // front affiche déjà l'état instantané dans les stations. L'anti-spam passe
 // par notifAlreadySent avec une fenêtre par type (30 min à 1× par nuit).
 
-import { insertOwnerNotif, notifAlreadySent, type NotifPriority } from './owner-notifications.ts';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { insertOwnerNotif, notifAlreadySent, type NotifPriority, type OwnerNotifPayload } from './owner-notifications.ts';
 
 type Lang = 'fr' | 'en' | 'es';
 type LocalizedText = { title: string; body: string };
@@ -84,8 +85,30 @@ function render(text: string, vars: Record<string, string | number>): string {
   );
 }
 
-// deno-lint-ignore no-explicit-any
-type Admin = any;
+type Admin = SupabaseClient;
+
+interface LiveEventRow { id: string; title: string; venue_id: string | null; start_at: string; end_at: string }
+
+interface LiveOrderRow {
+  id: string;
+  order_number: string | null;
+  status: string;
+  prep_status: string | null;
+  created_at: string;
+  ready_at: string | null;
+  refunded_at: string | null;
+  total: number | null;
+  service_fee: number | null;
+}
+
+interface LiveTableRow {
+  id: string;
+  full_name: string | null;
+  status: string;
+  checked_in_at: string | null;
+  entry_scanned: boolean | null;
+  minimum_spend: number | null;
+}
 
 interface PendingAlert {
   type: string;
@@ -131,6 +154,8 @@ export async function dispatchLiveOpsAlerts(
   const nowIso = now.toISOString();
   let alerts = 0;
   let pushed = 0;
+  // Le client supabase-js couvre la forme minimale attendue par owner-notifications.
+  const notifClient = admin as unknown as OwnerNotifPayload['client'];
 
   const { data: activeEvents } = await admin
     .from('events')
@@ -141,7 +166,7 @@ export async function dispatchLiveOpsAlerts(
     .not('venue_id', 'is', null)
     .limit(50);
 
-  for (const event of activeEvents || []) {
+  for (const event of (activeEvents || []) as LiveEventRow[]) {
     try {
       const pending: PendingAlert[] = [];
       const venueId = event.venue_id as string;
@@ -169,12 +194,9 @@ export async function dispatchLiveOpsAlerts(
           .neq('status', 'cancelled'),
       ]);
 
-      // deno-lint-ignore no-explicit-any
-      const orders: any[] = ordersRes.data || [];
-      // deno-lint-ignore no-explicit-any
-      const scannedTickets: any[] = ticketsRes.data || [];
-      // deno-lint-ignore no-explicit-any
-      const tables: any[] = (tablesRes.data || []).filter((t: any) => t.status !== 'denied');
+      const orders: LiveOrderRow[] = ordersRes.data || [];
+      const scannedTickets: { id: string; entry_scanned: boolean | null; entry_scanned_at: string | null }[] = ticketsRes.data || [];
+      const tables: LiveTableRow[] = ((tablesRes.data || []) as LiveTableRow[]).filter((t) => t.status !== 'denied');
 
       const entries = scannedTickets.length + tables.filter((t) => t.entry_scanned || t.checked_in_at).length;
       const orderRef = (o: { order_number?: string | null; id: string }) => `#${o.order_number || o.id.slice(0, 6)}`;
@@ -224,8 +246,7 @@ export async function dispatchLiveOpsAlerts(
             .eq('venue_id', venueId)
             .gte('served_at', event.start_at);
           const spendByTable = new Map<string, number>();
-          // deno-lint-ignore no-explicit-any
-          (consumptions || []).forEach((c: any) => {
+          ((consumptions || []) as { table_reservation_id: string; total_price: number | null }[]).forEach((c) => {
             spendByTable.set(c.table_reservation_id, (spendByTable.get(c.table_reservation_id) || 0) + Number(c.total_price || 0));
           });
           arrived
@@ -288,8 +309,8 @@ export async function dispatchLiveOpsAlerts(
 
       // ── Comparable : porte lente + objectif CA (1× par nuit chacune) ─────
       // Dédup AVANT le calcul : la soirée comparable coûte 3 requêtes.
-      const doorSlowSent = await notifAlreadySent(admin, venueId, 'liveops_door_slow', event.id, 12);
-      const revenueGoalSent = await notifAlreadySent(admin, venueId, 'liveops_revenue_goal', event.id, 12);
+      const doorSlowSent = await notifAlreadySent(notifClient, venueId, 'liveops_door_slow', event.id, 12);
+      const revenueGoalSent = await notifAlreadySent(notifClient, venueId, 'liveops_revenue_goal', event.id, 12);
       if ((!doorSlowSent && elapsedMin >= 90) || !revenueGoalSent) {
         const comparable = await fetchComparable(admin, venueId, event.id, event.start_at);
         if (comparable) {
@@ -329,7 +350,7 @@ export async function dispatchLiveOpsAlerts(
       }
 
       for (const alert of pending) {
-        const already = await notifAlreadySent(admin, venueId, alert.type, alert.referenceId, alert.dedupHours);
+        const already = await notifAlreadySent(notifClient, venueId, alert.type, alert.referenceId, alert.dedupHours);
         if (already) continue;
         const text = TEXTS[alert.type][lang];
         await insertOwnerNotif({
@@ -342,7 +363,7 @@ export async function dispatchLiveOpsAlerts(
           referenceId: alert.referenceId,
           eventId: event.id,
           metadata: { ...alert.vars, ...(alert.metadata || {}) },
-          client: admin,
+          client: notifClient,
         });
         alerts++;
         if (alert.push && ownerId) {
@@ -382,8 +403,8 @@ async function fetchComparable(
   const weekday = (iso: string) =>
     new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date(iso));
   const currentDay = weekday(currentStartAt);
-  // deno-lint-ignore no-explicit-any
-  const chosen = candidates.find((c: any) => weekday(c.start_at) === currentDay) ?? candidates[0];
+  const rows = candidates as { id: string; start_at: string; end_at: string }[];
+  const chosen = rows.find((c) => weekday(c.start_at) === currentDay) ?? rows[0];
   const chosenStartMs = new Date(chosen.start_at).getTime();
 
   const [scansRes, ordersRes] = await Promise.all([
@@ -400,15 +421,12 @@ async function fetchComparable(
       .in('status', ['paid', 'served']),
   ]);
 
-  const scanOffsets: number[] = (scansRes.data || [])
-    // deno-lint-ignore no-explicit-any
-    .filter((t: any) => t.entry_scanned_at)
-    // deno-lint-ignore no-explicit-any
-    .map((t: any) => Math.max(0, Math.floor((new Date(t.entry_scanned_at).getTime() - chosenStartMs) / 60_000)))
+  const scanOffsets: number[] = ((scansRes.data || []) as { entry_scanned_at: string | null }[])
+    .filter((t): t is { entry_scanned_at: string } => !!t.entry_scanned_at)
+    .map((t) => Math.max(0, Math.floor((new Date(t.entry_scanned_at).getTime() - chosenStartMs) / 60_000)))
     .sort((a: number, b: number) => a - b);
-  const totalRevenue = (ordersRes.data || [])
-    // deno-lint-ignore no-explicit-any
-    .reduce((s: number, o: any) => s + Number(o.total || 0) - Number(o.service_fee || 0), 0);
+  const totalRevenue = ((ordersRes.data || []) as { total: number | null; service_fee: number | null; status: string }[])
+    .reduce((s: number, o) => s + Number(o.total || 0) - Number(o.service_fee || 0), 0);
 
   return {
     entriesAt: (elapsedMin: number) => scanOffsets.filter((m) => m <= elapsedMin).length,

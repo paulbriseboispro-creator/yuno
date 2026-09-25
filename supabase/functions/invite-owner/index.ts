@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { User } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { buildInvitation } from "../_shared/email-templates.ts";
 
@@ -9,6 +10,9 @@ const corsHeaders = {
 };
 
 const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
+
+/** Resend renvoie `{ data, error }` au lieu de lever. */
+type ResendSendResult = { error?: { message?: string } | null } | null;
 
 const isAllowedOrigin = (origin: string) => {
   // Keep this tight: we only use it to build onboarding links in admin-triggered emails.
@@ -118,7 +122,7 @@ serve(async (req: Request) => {
 
     // Check if user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find((u: any) => (u.email || "").toLowerCase() === normalizedEmail);
+    const existingUser = existingUsers?.users?.find((u: User) => (u.email || "").toLowerCase() === normalizedEmail);
 
     if (existingUser) {
       console.log(`User ${email} already exists, assigning as owner`);
@@ -181,9 +185,10 @@ serve(async (req: Request) => {
           html: mail.html,
         });
         // Resend returns { data, error }
-        if ((emailResponse as any)?.error) {
-          console.error("Resend error (existing user):", (emailResponse as any).error);
-          throw new Error((emailResponse as any).error.message || "Email delivery failed");
+        const sendError = (emailResponse as ResendSendResult)?.error;
+        if (sendError) {
+          console.error("Resend error (existing user):", sendError);
+          throw new Error(sendError.message || "Email delivery failed");
         }
         console.log("Notification email sent to existing user", emailResponse);
       }
@@ -239,9 +244,10 @@ serve(async (req: Request) => {
         subject: mail.subject,
         html: mail.html,
       });
-      if ((emailResponse as any)?.error) {
-        console.error("Resend error (invitation):", (emailResponse as any).error);
-        throw new Error((emailResponse as any).error.message || "Email delivery failed");
+      const sendError = (emailResponse as ResendSendResult)?.error;
+      if (sendError) {
+        console.error("Resend error (invitation):", sendError);
+        throw new Error(sendError.message || "Email delivery failed");
       }
       console.log("Invitation email sent", emailResponse);
     } else {
@@ -258,10 +264,10 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in invite-owner:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as { message?: string }).message }),
       { 
         status: 400, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
