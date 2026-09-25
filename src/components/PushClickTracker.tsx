@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { isNative } from '@/lib/native';
+import { capturePosthog } from '@/lib/posthog';
 
 /**
  * Attribution des clics de notifications push. Deux familles, deux paramètres :
@@ -33,6 +34,10 @@ export function PushClickTracker() {
     params.delete('an');
     const cleaned = location.pathname + (params.toString() ? `?${params.toString()}` : '') + location.hash;
     navigate(cleaned, { replace: true });
+
+    // PostHog : ouverture de notification (web ou natif), même sans compte.
+    if (campaignId) capturePosthog('push_opened', { kind: 'campaign', campaign_id: campaignId });
+    if (autoKey) capturePosthog('push_opened', { kind: 'auto', notification_key: autoKey });
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
