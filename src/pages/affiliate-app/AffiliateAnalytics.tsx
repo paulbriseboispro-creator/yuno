@@ -8,7 +8,8 @@ import {
   Link2, ExternalLink, Zap, BarChart3, ArrowRight, Activity,
   LayoutGrid, Info, FileBarChart, TrendingDown,
 } from 'lucide-react';
-import { format, subDays, subMinutes, getDay, getHours } from 'date-fns';
+import { format, subDays, subHours, subMinutes, getDay, getHours } from 'date-fns';
+import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -19,7 +20,7 @@ import { tint } from '@/lib/proTheme';
 
 const NEG_C = NEG;
 
-type Period = '7d' | '30d' | '90d' | 'all';
+type Period = '24h' | '48h' | '7d' | '30d' | '90d' | 'all';
 type Pillar = 'overview' | 'audience' | 'events' | 'campaigns' | 'rapport';
 
 interface Identity {
@@ -77,8 +78,10 @@ interface RawClick {
   utm_campaign: string | null;
 }
 
-const PERIOD_DAYS: Record<Period, number | null> = { '7d': 7, '30d': 30, '90d': 90, all: null };
-const PERIOD_LABELS: Record<Period, string> = { '7d': 'aff.ana.period7d', '30d': 'aff.ana.period30d', '90d': 'aff.ana.period90d', all: 'aff.ana.periodAll' };
+// Fenêtre glissante en heures (null = tout). 24 / 48 h passent en série horaire.
+const PERIOD_HOURS: Record<Period, number | null> = { '24h': 24, '48h': 48, '7d': 7 * 24, '30d': 30 * 24, '90d': 90 * 24, all: null };
+const PERIOD_LABELS: Record<Period, string> = { '24h': 'aff.ana.period24h', '48h': 'aff.ana.period48h', '7d': 'aff.ana.period7d', '30d': 'aff.ana.period30d', '90d': 'aff.ana.period90d', all: 'aff.ana.periodAll' };
+const isHourly = (p: Period) => (PERIOD_HOURS[p] ?? Infinity) <= HOURLY_MAX_HOURS;
 
 const SOURCE_META: Record<string, { label: string; icon: any }> = {
   direct:       { label: 'aff.ana.srcDirect',     icon: Link2 },
@@ -101,9 +104,9 @@ const DEVICE_META: Record<string, { label: string; icon: any }> = {
 const DAY_KEYS = ['aff.ana.daySun', 'aff.ana.dayMon', 'aff.ana.dayTue', 'aff.ana.dayWed', 'aff.ana.dayThu', 'aff.ana.dayFri', 'aff.ana.daySat'];
 
 function periodFrom(p: Period): string | null {
-  const days = PERIOD_DAYS[p];
-  if (!days) return null;
-  return subDays(new Date(), days).toISOString();
+  const hours = PERIOD_HOURS[p];
+  if (!hours) return null;
+  return subHours(new Date(), hours).toISOString();
 }
 
 function fmtDuration(s: number): string {
@@ -117,7 +120,7 @@ function fmtPct(n: number): string { return `${n.toFixed(1)}%`; }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function DualChart({ data }: { data: DailyPoint[] }) {
+function DualChart({ data, hourly = false }: { data: DailyPoint[]; hourly?: boolean }) {
   const { t, language } = useLanguage();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const maxViews  = Math.max(...data.map(d => d.views), 1);
@@ -137,7 +140,7 @@ function DualChart({ data }: { data: DailyPoint[] }) {
               <div className="w-full rounded-sm" style={{ height: `${(views / maxViews) * 100}%`, minHeight: views > 0 ? '3px' : '1px', background: RED, opacity: 0.85 }} />
               <div className="absolute bottom-full mb-1.5 hidden group-hover:block text-xs px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none"
                 style={{ background: 'var(--sf-1a1a1d)', border: `1px solid ${BORDER}`, color: T1 }}>
-                {format(new Date(date), 'd MMM', { locale: dateLocale })}
+                {format(new Date(date), hourly ? 'EEE HH:mm' : 'd MMM', { locale: dateLocale })}
                 <br /><span style={{ color: RED }}>{t('aff.ana.tooltipViews')} {views}</span>
                 <br /><span style={{ color: C_HI }}>{t('aff.ana.tooltipClicks')} {clicks}</span>
               </div>
@@ -160,8 +163,8 @@ function DualChart({ data }: { data: DailyPoint[] }) {
         </div>
       </div>
       <div className="flex justify-between">
-        <span style={{ color: T3, fontSize: 10.5 }}>{data.length > 0 ? format(new Date(data[0].date), 'd MMM', { locale: dateLocale }) : ''}</span>
-        <span style={{ color: T3, fontSize: 10.5 }}>{t('aff.ana.today')}</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{data.length > 0 ? format(new Date(data[0].date), hourly ? 'EEE HH:mm' : 'd MMM', { locale: dateLocale }) : ''}</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{t(hourly ? 'aff.ana.now' : 'aff.ana.today')}</span>
       </div>
     </div>
   );
@@ -432,17 +435,24 @@ export default function AffiliateAnalytics() {
         yunoShare: rows.length > 0 ? (yunoViews / rows.length) * 100 : 0,
       });
 
-      const days       = Math.min(PERIOD_DAYS[period] ?? 90, 90);
-      const viewBuckets: Record<string, number> = {};
-      const clickBuckets: Record<string, number> = {};
-      for (let i = days - 1; i >= 0; i--) {
-        const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
-        viewBuckets[d] = 0;
-        clickBuckets[d] = 0;
+      if (isHourly(period)) {
+        const hours  = PERIOD_HOURS[period]!;
+        const views  = bucketByHour(rows, hours, r => r.visited_at);
+        const clicks = bucketByHour(clickRows, hours, r => r.clicked_at);
+        setDaily(views.map((v, i) => ({ date: v.key, views: v.value, clicks: clicks[i].value })));
+      } else {
+        const days       = Math.min((PERIOD_HOURS[period] ?? 90 * 24) / 24, 90);
+        const viewBuckets: Record<string, number> = {};
+        const clickBuckets: Record<string, number> = {};
+        for (let i = days - 1; i >= 0; i--) {
+          const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
+          viewBuckets[d] = 0;
+          clickBuckets[d] = 0;
+        }
+        rows.forEach(r => { const d = r.visited_at.split('T')[0]; if (viewBuckets[d] !== undefined) viewBuckets[d]++; });
+        clickRows.forEach(r => { const d = r.clicked_at.split('T')[0]; if (clickBuckets[d] !== undefined) clickBuckets[d]++; });
+        setDaily(Object.keys(viewBuckets).map(date => ({ date, views: viewBuckets[date], clicks: clickBuckets[date] })));
       }
-      rows.forEach(r => { const d = r.visited_at.split('T')[0]; if (viewBuckets[d] !== undefined) viewBuckets[d]++; });
-      clickRows.forEach(r => { const d = r.clicked_at.split('T')[0]; if (clickBuckets[d] !== undefined) clickBuckets[d]++; });
-      setDaily(Object.keys(viewBuckets).map(date => ({ date, views: viewBuckets[date], clicks: clickBuckets[date] })));
 
       const srcMap: Record<string, { views: number; clicks: number }> = {};
       rows.forEach(r => { const cat = r.referrer_category || 'direct'; srcMap[cat] = srcMap[cat] ?? { views: 0, clicks: 0 }; srcMap[cat].views++; });
@@ -542,7 +552,7 @@ export default function AffiliateAnalytics() {
     );
   }
 
-  const PERIODS: Period[]    = ['7d', '30d', '90d', 'all'];
+  const PERIODS: Period[]    = ['24h', '48h', '7d', '30d', '90d', 'all'];
   const maxSourceViews       = Math.max(...sources.map(s => s.views), 1);
   const totalDeviceViews     = devices.reduce((s, d) => s + d.views, 0);
 
@@ -586,7 +596,7 @@ export default function AffiliateAnalytics() {
       )}
 
       {/* Period filter */}
-      <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
+      <div className="flex flex-wrap gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
         {PERIODS.map(p => (
           <button key={p} onClick={() => setPeriod(p)}
             className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
@@ -678,12 +688,12 @@ export default function AffiliateAnalytics() {
           {/* Trend chart */}
           <AffCard padding={20}>
             <div className="flex items-center justify-between mb-4">
-              <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('aff.ana.dailyChartTitle')}</h2>
+              <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t(isHourly(period) ? 'aff.ana.hourlyChartTitle' : 'aff.ana.dailyChartTitle')}</h2>
               <span style={{ color: T3, fontSize: 11 }}>{t('aff.ana.independentScales')}</span>
             </div>
             {daily.every(d => d.views === 0 && d.clicks === 0) ? (
               <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataPeriod')}</div>
-            ) : <DualChart data={daily} />}
+            ) : <DualChart data={daily} hourly={isHourly(period)} />}
           </AffCard>
 
           {/* Pillar tabs */}

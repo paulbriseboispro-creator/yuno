@@ -16,11 +16,15 @@ import {
 const eur = (n: number) => `${Number(n || 0).toFixed(2)} €`;
 const pct = (n: number, total: number) => total > 0 ? Math.round((n / total) * 100) : 0;
 
+// Fenêtre glissante en HEURES (0 = tout) : 24 h / 48 h pour lire une soirée
+// qui vient de se vendre, 7 / 30 / 90 j pour la tendance.
 const RANGES = [
-  { fr: '7j',  en: '7d',   es: '7d',   days: 7   },
-  { fr: '30j', en: '30d',  es: '30d',  days: 30  },
-  { fr: '90j', en: '90d',  es: '90d',  days: 90  },
-  { fr: 'Tout', en: 'All', es: 'Todo', days: 0   },
+  { fr: '24h', en: '24h',  es: '24h',  hours: 24       },
+  { fr: '48h', en: '48h',  es: '48h',  hours: 48       },
+  { fr: '7j',  en: '7d',   es: '7d',   hours: 7 * 24   },
+  { fr: '30j', en: '30d',  es: '30d',  hours: 30 * 24  },
+  { fr: '90j', en: '90d',  es: '90d',  hours: 90 * 24  },
+  { fr: 'Tout', en: 'All', es: 'Todo', hours: 0        },
 ];
 
 function fmtDate(iso: string, lang: string) {
@@ -30,8 +34,8 @@ function fmtDate(iso: string, lang: string) {
 }
 
 function RangePill({
-  days, active, label, onClick,
-}: { days: number; active: boolean; label: string; onClick: () => void }) {
+  active, label, onClick,
+}: { active: boolean; label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -337,11 +341,11 @@ export default function AgencyStats() {
   const tt = (fr: string, en: string) => translate(language, fr, en);
 
   const [tab, setTab] = useState<'promoters' | 'events'>('promoters');
-  const [rangeDays, setRangeDays] = useState(30);
+  const [rangeHours, setRangeHours] = useState(30 * 24);
 
   const cutoff = useMemo(
-    () => rangeDays > 0 ? new Date(Date.now() - rangeDays * 86_400_000) : null,
-    [rangeDays],
+    () => rangeHours > 0 ? new Date(Date.now() - rangeHours * 3_600_000) : null,
+    [rangeHours],
   );
   const dateFrom = cutoff;
   const dateTo: Date | null = null;
@@ -371,14 +375,13 @@ export default function AgencyStats() {
       {/* Header + range */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SectionLabel>{tt('Statistiques', 'Statistics')}</SectionLabel>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {RANGES.map(r => (
             <RangePill
-              key={r.days}
-              days={r.days}
-              active={rangeDays === r.days}
+              key={r.hours}
+              active={rangeHours === r.hours}
               label={language === 'fr' ? r.fr : language === 'es' ? r.es : r.en}
-              onClick={() => setRangeDays(r.days)}
+              onClick={() => setRangeHours(r.hours)}
             />
           ))}
         </div>

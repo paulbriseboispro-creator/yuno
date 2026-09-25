@@ -8,18 +8,21 @@ import {
   Trophy, ExternalLink, Smartphone, Monitor, Tablet,
   Share2, Search, Mail, QrCode, Link2,
 } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, subHours } from 'date-fns';
+import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, KpiCard, Pill, AffAvatar, AffSpinner,
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, C_HI, C_MID, TILE_BG,
 } from '@/components/affiliate/affiliate-ui';
 
-type Period = '7d' | '30d' | '90d' | 'all';
+type Period = '24h' | '48h' | '7d' | '30d' | '90d' | 'all';
 type SortBy = 'views' | 'clicks' | 'ctr' | 'duration';
 
-const PERIOD_LABEL_KEYS: Record<Period, string> = { '7d': 'aff.suivi.period.7d', '30d': 'aff.suivi.period.30d', '90d': 'aff.suivi.period.90d', all: 'aff.suivi.period.all' };
-const PERIOD_DAYS: Record<Period, number | null> = { '7d': 7, '30d': 30, '90d': 90, all: null };
+const PERIOD_LABEL_KEYS: Record<Period, string> = { '24h': 'aff.suivi.period.24h', '48h': 'aff.suivi.period.48h', '7d': 'aff.suivi.period.7d', '30d': 'aff.suivi.period.30d', '90d': 'aff.suivi.period.90d', all: 'aff.suivi.period.all' };
+// Fenêtre glissante en heures (null = tout). 24 / 48 h passent en série horaire.
+const PERIOD_HOURS: Record<Period, number | null> = { '24h': 24, '48h': 48, '7d': 7 * 24, '30d': 30 * 24, '90d': 90 * 24, all: null };
+const isHourly = (p: Period) => (PERIOD_HOURS[p] ?? Infinity) <= HOURLY_MAX_HOURS;
 
 type MemberRow = {
   id: string;
@@ -61,8 +64,8 @@ type MemberStats = {
 };
 
 function periodFrom(p: Period): string | null {
-  const days = PERIOD_DAYS[p];
-  return days ? subDays(new Date(), days).toISOString() : null;
+  const hours = PERIOD_HOURS[p];
+  return hours ? subHours(new Date(), hours).toISOString() : null;
 }
 
 function fmtDuration(s: number): string {
@@ -90,10 +93,11 @@ const SOURCE_ICONS: Record<string, React.ElementType> = {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function MiniDualChart({ data }: { data: Array<{ date: string; views: number; clicks: number }> }) {
+function MiniDualChart({ data, hourly = false }: { data: Array<{ date: string; views: number; clicks: number }>; hourly?: boolean }) {
   const { t, language } = useLanguage();
   const dfLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const visible = data.slice(-30);
+  const visible = hourly ? data : data.slice(-30);
+  const dateFmt = hourly ? 'EEE HH:mm' : 'd MMM';
   const maxViews = Math.max(...visible.map(d => d.views), 1);
   const maxClicks = Math.max(...visible.map(d => d.clicks), 1);
   const hasData = visible.some(d => d.views > 0 || d.clicks > 0);
@@ -116,7 +120,7 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
               <div className="w-full rounded-sm" style={{ height: `${(views / maxViews) * 100}%`, minHeight: views > 0 ? '2px' : '1px', background: RED, opacity: 0.85 }} />
               <div className="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col text-xs px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none"
                 style={{ background: 'var(--sf-1a1a1d)', border: `1px solid ${BORDER}`, color: T1 }}>
-                <span style={{ color: T3 }}>{format(new Date(date), 'd MMM', { locale: dfLocale })}</span>
+                <span style={{ color: T3 }}>{format(new Date(date), dateFmt, { locale: dfLocale })}</span>
                 <span style={{ color: RED }}>{t('aff.suivi.viewsCount').replace('{n}', String(views))}</span>
               </div>
             </div>
@@ -138,8 +142,8 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
         </div>
       </div>
       <div className="flex justify-between mt-1">
-        <span style={{ color: T3, fontSize: 10.5 }}>{visible.length > 0 ? format(new Date(visible[0].date), 'd MMM', { locale: dfLocale }) : ''}</span>
-        <span style={{ color: T3, fontSize: 10.5 }}>{t('aff.suivi.chart.today')}</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{visible.length > 0 ? format(new Date(visible[0].date), dateFmt, { locale: dfLocale }) : ''}</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{t(hourly ? 'aff.suivi.chart.now' : 'aff.suivi.chart.today')}</span>
       </div>
     </div>
   );
@@ -251,7 +255,8 @@ export default function AffiliatePromotersTracking() {
 
   const statsMap = useMemo(() => {
     const map = new Map<string, MemberStats>();
-    const chartDays = Math.min(PERIOD_DAYS[period] ?? 60, 60);
+    const chartHours = isHourly(period) ? PERIOD_HOURS[period]! : null;
+    const chartDays = Math.min((PERIOD_HOURS[period] ?? 60 * 24) / 24, 60);
 
     for (const member of members) {
       const mSessions = sessions.filter(s => s.affiliate_member_id === member.id);
@@ -265,13 +270,20 @@ export default function AffiliatePromotersTracking() {
       const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
       const returningRate = views > 0 ? (mSessions.filter(s => s.is_returning).length / views) * 100 : 0;
 
-      const dayMap = new Map<string, { views: number; clicks: number }>();
-      for (let i = chartDays - 1; i >= 0; i--) {
-        dayMap.set(format(subDays(new Date(), i), 'yyyy-MM-dd'), { views: 0, clicks: 0 });
+      let dailyPoints: MemberStats['dailyPoints'];
+      if (chartHours) {
+        const v = bucketByHour(mSessions, chartHours, s => s.visited_at);
+        const c = bucketByHour(mClicks, chartHours, x => x.clicked_at);
+        dailyPoints = v.map((p, i) => ({ date: p.key, views: p.value, clicks: c[i].value }));
+      } else {
+        const dayMap = new Map<string, { views: number; clicks: number }>();
+        for (let i = chartDays - 1; i >= 0; i--) {
+          dayMap.set(format(subDays(new Date(), i), 'yyyy-MM-dd'), { views: 0, clicks: 0 });
+        }
+        mSessions.forEach(s => { const e = dayMap.get(s.visited_at.slice(0, 10)); if (e) e.views++; });
+        mClicks.forEach(c => { const e = dayMap.get(c.clicked_at.slice(0, 10)); if (e) e.clicks++; });
+        dailyPoints = Array.from(dayMap.entries()).map(([date, v]) => ({ date, ...v }));
       }
-      mSessions.forEach(s => { const e = dayMap.get(s.visited_at.slice(0, 10)); if (e) e.views++; });
-      mClicks.forEach(c => { const e = dayMap.get(c.clicked_at.slice(0, 10)); if (e) e.clicks++; });
-      const dailyPoints = Array.from(dayMap.entries()).map(([date, v]) => ({ date, ...v }));
 
       const devices = { mobile: 0, desktop: 0, tablet: 0 };
       mSessions.forEach(s => {
@@ -340,8 +352,8 @@ export default function AffiliatePromotersTracking() {
           title={t('aff.suivi.title')}
           subtitle={t('aff.suivi.subtitle')}
           right={
-            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
-              {(['7d', '30d', '90d', 'all'] as Period[]).map(p => (
+            <div className="flex flex-wrap gap-1 p-1 rounded-xl" style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
+              {(['24h', '48h', '7d', '30d', '90d', 'all'] as Period[]).map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
                   style={period === p ? { color: '#fff', background: RED, boxShadow: `0 0 14px -4px ${RED}88` } : { color: T3 }}>
@@ -465,7 +477,7 @@ export default function AffiliatePromotersTracking() {
                         {/* Chart */}
                         <div className="lg:col-span-2 rounded-xl p-4" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
                           <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>{t('aff.suivi.activity')}</p>
-                          <MiniDualChart data={stats.dailyPoints} />
+                          <MiniDualChart data={stats.dailyPoints} hourly={isHourly(period)} />
                         </div>
 
                         {/* Side panels */}

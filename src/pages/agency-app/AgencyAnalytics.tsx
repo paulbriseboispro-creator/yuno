@@ -12,14 +12,19 @@ import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar,
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
+// Fenêtre glissante en HEURES (0 = tout). Jusqu'à 48 h la courbe passe à
+// l'heure : une série hebdomadaire n'y montrerait qu'un point.
 const RANGES = [
-  { fr: '7 jours', en: '7 days', es: '7 días', days: 7 },
-  { fr: '30 jours', en: '30 days', es: '30 días', days: 30 },
-  { fr: '90 jours', en: '90 days', es: '90 días', days: 90 },
-  { fr: 'Tout', en: 'All time', es: 'Todo', days: 0 },
+  { fr: '24 h', en: '24 h', es: '24 h', hours: 24 },
+  { fr: '48 h', en: '48 h', es: '48 h', hours: 48 },
+  { fr: '7 jours', en: '7 days', es: '7 días', hours: 7 * 24 },
+  { fr: '30 jours', en: '30 days', es: '30 días', hours: 30 * 24 },
+  { fr: '90 jours', en: '90 days', es: '90 días', hours: 90 * 24 },
+  { fr: 'Tout', en: 'All time', es: 'Todo', hours: 0 },
 ];
 
 const DAYS = {
@@ -42,16 +47,28 @@ export default function AgencyAnalytics() {
   const { language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const dayLabels = language === 'fr' ? DAYS.fr : language === 'es' ? DAYS.es : DAYS.en;
-  const [range, setRange] = useState(30);
+  const [range, setRange] = useState(30 * 24);
+  const hourly = range > 0 && range <= HOURLY_MAX_HOURS;
   const [expandedPromo, setExpandedPromo] = useState<string | null>(null);
 
-  const cutoff = range > 0 ? new Date(Date.now() - range * 86400_000) : null;
+  const cutoff = range > 0 ? new Date(Date.now() - range * 3_600_000) : null;
   const filtered = cutoff
     ? conversions.filter(c => new Date(c.created_at) >= cutoff)
     : conversions;
 
-  // Weekly volume chart
+  // Volume chart : par heure sur 24 / 48 h, par semaine au-delà
   const weeklyData = useMemo(() => {
+    const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
+    if (hourly) {
+      if (filtered.length === 0) return [];
+      return bucketByHour(filtered, range, c => c.created_at, c => Number(c.gross_amount || 0))
+        .map(({ key, value }) => ({
+          week: new Date(key).toLocaleString(locale, range > 24
+            ? { weekday: 'short', hour: '2-digit', minute: '2-digit' }
+            : { hour: '2-digit', minute: '2-digit' }),
+          amount: value,
+        }));
+    }
     const map = new Map<string, number>();
     for (const c of filtered) {
       const w = startOfWeek(new Date(c.created_at));
@@ -61,10 +78,10 @@ export default function AgencyAnalytics() {
     return [...map.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([week, amount]) => ({
-        week: new Date(week).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short' }),
+        week: new Date(week).toLocaleDateString(locale, { day: '2-digit', month: 'short' }),
         amount,
       }));
-  }, [filtered, language]);
+  }, [filtered, language, hourly, range]);
 
   // Heatmap day×hour
   const heatmap = useMemo(() => {
@@ -117,16 +134,16 @@ export default function AgencyAnalytics() {
       {/* Range filter */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SectionLabel>{tt('Analytiques', 'Analytics')}</SectionLabel>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {RANGES.map(r => (
             <button
-              key={r.days}
-              onClick={() => setRange(r.days)}
+              key={r.hours}
+              onClick={() => setRange(r.hours)}
               style={{
                 padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                background: range === r.days ? INNER_BG : 'transparent',
-                border: `1px solid ${range === r.days ? BORDER : 'rgb(var(--ink)/0.08)'}`,
-                color: range === r.days ? 'rgb(var(--ink))' : T3,
+                background: range === r.hours ? INNER_BG : 'transparent',
+                border: `1px solid ${range === r.hours ? BORDER : 'rgb(var(--ink)/0.08)'}`,
+                color: range === r.hours ? 'rgb(var(--ink))' : T3,
               }}
             >
               {language === 'fr' ? r.fr : language === 'es' ? r.es : r.en}
@@ -145,7 +162,7 @@ export default function AgencyAnalytics() {
       {weeklyData.length > 0 ? (
         <PromoCard>
           <p style={{ color: T3, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            {tt('Volume hebdomadaire', 'Weekly volume')}
+            {hourly ? tt('Volume par heure', 'Hourly volume') : tt('Volume hebdomadaire', 'Weekly volume')}
           </p>
           <ResponsiveContainer width="100%" height={140}>
             <AreaChart data={weeklyData} margin={{ top: 4, right: 0, left: -16, bottom: 0 }}>

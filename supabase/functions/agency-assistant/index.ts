@@ -207,7 +207,7 @@ const TOOLS = [
       parameters: {
         type: "object",
         properties: {
-          period: { type: "string", enum: ["7d", "30d", "month", "all"], description: "Période (month = mois calendaire en cours)" },
+          period: { type: "string", enum: ["24h", "48h", "7d", "30d", "month", "all"], description: "Période glissante (24h / 48h = la soirée qui vient de passer ; month = mois calendaire en cours)" },
           limit: { type: "number", description: "Nombre de promoteurs (défaut 10)" },
         },
         required: ["period"],
@@ -273,7 +273,7 @@ const TOOLS = [
       description: "Trafic du bras externe : vues des pages publiques et clics vers les billetteries externes sur une période (trafic interne exclu).",
       parameters: {
         type: "object",
-        properties: { period: { type: "string", enum: ["7d", "30d", "90d"], description: "Période" } },
+        properties: { period: { type: "string", enum: ["24h", "48h", "7d", "30d", "90d"], description: "Période glissante (24h / 48h = la soirée qui vient de passer)" } },
         required: ["period"],
       },
     },
@@ -370,6 +370,8 @@ function log(type: string, data: Record<string, any>) {
 function periodStart(period: string): string {
   const now = new Date();
   switch (period) {
+    case "24h": return new Date(now.getTime() - 24 * 3_600_000).toISOString();
+    case "48h": return new Date(now.getTime() - 48 * 3_600_000).toISOString();
     case "7d": { const d = new Date(now); d.setDate(d.getDate() - 7); return d.toISOString(); }
     case "30d": { const d = new Date(now); d.setDate(d.getDate() - 30); return d.toISOString(); }
     case "90d": { const d = new Date(now); d.setDate(d.getDate() - 90); return d.toISOString(); }
