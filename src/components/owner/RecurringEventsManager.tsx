@@ -4,6 +4,7 @@ import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticke
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { EventVideoField } from '@/components/owner/events/EventVideoField';
@@ -613,11 +614,11 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
 
       let templateId = editing?.id;
       if (editing) {
-        const { error } = await supabase.from('owner_recurring_templates').update(payload as any).eq('id', editing.id);
+        const { error } = await supabase.from('owner_recurring_templates').update(payload as unknown as TablesUpdate<'owner_recurring_templates'>).eq('id', editing.id);
         if (error) throw error;
         video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
       } else {
-        const { data, error } = await supabase.from('owner_recurring_templates').insert(payload as any).select('id').single();
+        const { data, error } = await supabase.from('owner_recurring_templates').insert(payload as unknown as TablesInsert<'owner_recurring_templates'>).select('id').single();
         if (error) throw error;
         templateId = data.id;
         video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer

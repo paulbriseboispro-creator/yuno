@@ -94,7 +94,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
 
     // Cast client : agency_id / agency_distribution_mode ne sont pas encore dans
     // les types générés (gen types après migration). Comme partout dans le repo.
-    const { data: rows } = await (supabase as any).from('guest_lists').select(PART_COLS).eq('event_id', eventId);
+    const { data: rows } = await supabase.from('guest_lists').select(PART_COLS).eq('event_id', eventId);
     const list = ((rows || []) as Part[]).slice().sort(orderParts);
 
     // Resolve holder display names for dj/promoter parts in two batched queries.

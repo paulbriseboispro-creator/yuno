@@ -78,7 +78,7 @@ export function ServiceNightTab({ reservations, consumptions, serviceInfo, momen
       <p style={{ color: T3, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </p>
-      <p className="tabular-nums" style={{ color: accent || T1, fontSize: 24, fontWeight: 640 as any, letterSpacing: '-0.025em', marginTop: 4 }}>
+      <p className="tabular-nums" style={{ color: accent || T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.025em', marginTop: 4 }}>
         {value}
       </p>
     </div>

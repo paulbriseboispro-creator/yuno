@@ -288,7 +288,7 @@ export function RoundDialog({
                               : { border: `1px solid ${BORDER}`, background: TILE_BG }}
                             onClick={async () => {
                               setFreeDrinkMode(opt.key);
-                              if (venueId) await supabase.from('venues').update({ free_drink_mode: opt.key } as any).eq('id', venueId);
+                              if (venueId) await supabase.from('venues').update({ free_drink_mode: opt.key }).eq('id', venueId);
                             }}
                           >
                             <div className="mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center flex-none" style={{ borderColor: sel ? RED : T3 }}>

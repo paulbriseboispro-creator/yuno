@@ -66,7 +66,7 @@ export function VipOrderTracking({ reservationId, onOrderServed }: VipOrderTrack
         .in('order_id', orderIds);
 
       const itemsMap: Record<string, OrderItem[]> = {};
-      (itemsData || []).forEach((item: any) => {
+      (itemsData || []).forEach((item) => {
         if (!itemsMap[item.order_id]) itemsMap[item.order_id] = [];
         itemsMap[item.order_id].push({
           id: item.id,
@@ -103,7 +103,7 @@ export function VipOrderTracking({ reservationId, onOrderServed }: VipOrderTrack
         },
         (payload) => {
           // If an order changed to 'served', notify parent to refresh consumptions
-          if (payload.new && (payload.new as any).status === 'served') {
+          if (payload.new && (payload.new as { status?: string }).status === 'served') {
             onOrderServed?.();
           }
           fetchOrders();

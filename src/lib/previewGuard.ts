@@ -62,13 +62,16 @@ function notifyBlocked(): void {
 
 // Résultat "bloqué" : thenable ET chaînable comme un query builder PostgREST, pour ne
 // jamais faire crasher un appelant (beaucoup ne catchent pas → white-screen).
-function blockedResult(): any {
+type AnyFn = (...args: unknown[]) => unknown;
+type MethodBag = Record<string, unknown>;
+
+function blockedResult(): unknown {
   const result = {
     data: null,
     error: { message: 'read_only_preview', details: '', hint: '', code: 'READ_ONLY' },
   };
   const p = Promise.resolve(result);
-  const proxy: any = new Proxy(function () {}, {
+  const proxy: object = new Proxy(function () {}, {
     get(_t, prop) {
       if (prop === 'then') return p.then.bind(p);
       if (prop === 'catch') return p.catch.bind(p);
@@ -90,13 +93,13 @@ export function installPreviewWriteGuard(): void {
   installed = true;
 
   // 1) .from(table) — on wrappe les méthodes d'écriture du builder.
-  const origFrom = supabase.from.bind(supabase);
-  (supabase as any).from = (table: string) => {
-    const builder: any = origFrom(table as any);
+  const origFrom = supabase.from.bind(supabase) as unknown as (table: string) => unknown;
+  (supabase as unknown as { from: (table: string) => unknown }).from = (table: string) => {
+    const builder = origFrom(table) as MethodBag;
     for (const m of WRITE_BUILDER_METHODS) {
-      const orig = typeof builder[m] === 'function' ? builder[m].bind(builder) : null;
+      const orig = typeof builder[m] === 'function' ? (builder[m] as AnyFn).bind(builder) : null;
       if (!orig) continue;
-      builder[m] = (...args: any[]) => {
+      builder[m] = (...args: unknown[]) => {
         if (isPreviewActive()) {
           notifyBlocked();
           return blockedResult();
@@ -108,39 +111,48 @@ export function installPreviewWriteGuard(): void {
   };
 
   // 2) .rpc(name) — bloque seulement les RPC d'écriture en aperçu.
-  const origRpc = supabase.rpc.bind(supabase);
-  (supabase as any).rpc = (fn: string, args?: any, options?: any) => {
+  const origRpc = supabase.rpc.bind(supabase) as unknown as (fn: string, args?: unknown, options?: unknown) => unknown;
+  (supabase as unknown as { rpc: (fn: string, args?: unknown, options?: unknown) => unknown }).rpc = (
+    fn: string,
+    args?: unknown,
+    options?: unknown,
+  ) => {
     if (isPreviewActive() && isWriteRpc(fn)) {
       notifyBlocked();
       return blockedResult();
     }
-    return origRpc(fn as any, args, options);
+    return origRpc(fn, args, options);
   };
 
   // 3) .functions.invoke(name) — tout bloqué en aperçu (effets de bord edge), SAUF
   //    le redeem du lien de preview lui-même (doit marcher même si l'onglet est déjà
   //    armé, ex. le prospect rouvre son lien).
-  const origInvoke = supabase.functions.invoke.bind(supabase.functions);
-  (supabase.functions as any).invoke = (name: string, options?: any) => {
+  const origInvoke = supabase.functions.invoke.bind(supabase.functions) as unknown as (
+    name: string,
+    options?: { body?: { action?: unknown } },
+  ) => unknown;
+  (supabase.functions as unknown as {
+    invoke: (name: string, options?: { body?: { action?: unknown } }) => unknown;
+  }).invoke = (name: string, options?: { body?: { action?: unknown } }) => {
     const action = options?.body?.action;
     const isRedeem = name === 'accept-staff-invitation' && action === 'redeem_demo_preview_link';
     if (isPreviewActive() && !isRedeem) {
       notifyBlocked();
       return Promise.resolve({ data: null, error: { message: 'read_only_preview', name: 'ReadOnlyPreview' } });
     }
-    return origInvoke(name as any, options);
+    return origInvoke(name, options);
   };
 
   // 4) Storage : bloquer les écritures (upload/update/remove/move/copy). Les lectures
   //    (download / signed urls / list) passent.
   const STORAGE_WRITE_METHODS = ['upload', 'update', 'remove', 'move', 'copy', 'uploadToSignedUrl', 'createSignedUploadUrl'];
   const origStorageFrom = supabase.storage.from.bind(supabase.storage);
-  (supabase.storage as any).from = (bucket: string) => {
-    const api: any = origStorageFrom(bucket);
+  (supabase.storage as unknown as { from: (bucket: string) => unknown }).from = (bucket: string) => {
+    const api = origStorageFrom(bucket) as unknown as MethodBag;
     for (const m of STORAGE_WRITE_METHODS) {
-      const orig = typeof api[m] === 'function' ? api[m].bind(api) : null;
+      const orig = typeof api[m] === 'function' ? (api[m] as AnyFn).bind(api) : null;
       if (!orig) continue;
-      api[m] = (...args: any[]) => {
+      api[m] = (...args: unknown[]) => {
         if (isPreviewActive()) {
           notifyBlocked();
           return Promise.resolve({ data: null, error: { message: 'read_only_preview', name: 'ReadOnlyPreview' } });
@@ -154,12 +166,12 @@ export function installPreviewWriteGuard(): void {
   // 5) Auth : bloquer updateUser (changement de mot de passe / email du compte démo),
   //    sans jamais toucher setSession / getUser / signOut / onAuthStateChange.
   const origUpdateUser = supabase.auth.updateUser.bind(supabase.auth);
-  (supabase.auth as any).updateUser = (...args: any[]) => {
+  (supabase.auth as unknown as { updateUser: AnyFn }).updateUser = (...args: unknown[]) => {
     if (isPreviewActive()) {
       notifyBlocked();
       return Promise.resolve({ data: { user: null }, error: { message: 'read_only_preview', name: 'ReadOnlyPreview' } });
     }
-    return (origUpdateUser as any)(...args);
+    return (origUpdateUser as unknown as AnyFn)(...args);
   };
 }
 

@@ -130,10 +130,10 @@ export default function AffiliateEventForm() {
           is_free: data.is_free ?? false,
           is_sold_out: data.is_sold_out ?? false,
           status: (data.status ?? 'draft') as 'draft' | 'published' | 'featured',
-          has_tables: (data as any).has_tables ?? false,
-          tables_only: (data as any).tables_only ?? false,
-          has_guest_list: (data as any).has_guest_list ?? false,
-          guest_list_type: ((data as any).guest_list_type === 'women' ? 'women' : 'mixed'),
+          has_tables: data.has_tables ?? false,
+          tables_only: data.tables_only ?? false,
+          has_guest_list: data.has_guest_list ?? false,
+          guest_list_type: (data.guest_list_type === 'women' ? 'women' : 'mixed'),
         });
       }
     }

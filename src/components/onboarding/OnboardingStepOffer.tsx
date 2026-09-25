@@ -56,7 +56,7 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
         is_active: true,
         ticketing_enabled: pillars.includes('tickets'),
         tables_enabled: pillars.includes('tables'),
-      } as any);
+      });
       if (error) throw error;
       setTitle('');
       setDate('');

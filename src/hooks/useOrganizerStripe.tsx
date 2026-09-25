@@ -37,7 +37,7 @@ export function useOrganizerStripe(userId: string | null | undefined) {
       if (profile) {
         setData({
           accountId: profile.stripe_connect_account_id ?? null,
-          status: (profile.stripe_connect_status as any) ?? 'none',
+          status: (profile.stripe_connect_status as OrganizerStripeStatus['status'] | null) ?? 'none',
           chargesEnabled: !!profile.stripe_connect_charges_enabled,
           payoutsEnabled: !!profile.stripe_connect_payouts_enabled,
           onboardedAt: profile.stripe_connect_onboarded_at ?? null,
@@ -85,8 +85,8 @@ export function useOrganizerStripe(userId: string | null | undefined) {
       } else if (data?.error) {
         toast.error(data.error);
       }
-    } catch (e: any) {
-      toast.error(e?.message || "Erreur lors de l'onboarding Stripe");
+    } catch (e: unknown) {
+      toast.error((e as { message?: string } | null | undefined)?.message || "Erreur lors de l'onboarding Stripe");
     }
   };
 
@@ -99,8 +99,8 @@ export function useOrganizerStripe(userId: string | null | undefined) {
       if (error) throw error;
       if (data?.url) window.open(data.url, '_blank');
       else if (data?.error) toast.error(data.error);
-    } catch (e: any) {
-      toast.error(e?.message || "Erreur d'ouverture du dashboard");
+    } catch (e: unknown) {
+      toast.error((e as { message?: string } | null | undefined)?.message || "Erreur d'ouverture du dashboard");
     }
   };
 

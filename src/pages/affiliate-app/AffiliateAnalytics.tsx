@@ -6,7 +6,7 @@ import {
   TrendingUp, MousePointerClick, Eye, Users, Clock, Repeat2,
   Smartphone, Monitor, Tablet, Globe, Share2, Search, Mail, QrCode,
   Link2, ExternalLink, Zap, BarChart3, ArrowRight, Activity,
-  LayoutGrid, Info, FileBarChart, TrendingDown,
+  LayoutGrid, Info, FileBarChart, TrendingDown, type LucideIcon,
 } from 'lucide-react';
 import { format, subDays, subMinutes, getDay, getHours } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -80,7 +80,7 @@ interface RawClick {
 const PERIOD_DAYS: Record<Period, number | null> = { '7d': 7, '30d': 30, '90d': 90, all: null };
 const PERIOD_LABELS: Record<Period, string> = { '7d': 'aff.ana.period7d', '30d': 'aff.ana.period30d', '90d': 'aff.ana.period90d', all: 'aff.ana.periodAll' };
 
-const SOURCE_META: Record<string, { label: string; icon: any }> = {
+const SOURCE_META: Record<string, { label: string; icon: LucideIcon }> = {
   direct:       { label: 'aff.ana.srcDirect',     icon: Link2 },
   social:       { label: 'aff.ana.srcSocial',     icon: Share2 },
   paid_social:  { label: 'aff.ana.srcPaidSocial', icon: Share2 },
@@ -92,7 +92,7 @@ const SOURCE_META: Record<string, { label: string; icon: any }> = {
   internal:     { label: 'aff.ana.srcInternal',   icon: Link2 },
 };
 
-const DEVICE_META: Record<string, { label: string; icon: any }> = {
+const DEVICE_META: Record<string, { label: string; icon: LucideIcon }> = {
   mobile:  { label: 'aff.ana.devMobile',  icon: Smartphone },
   desktop: { label: 'aff.ana.devDesktop', icon: Monitor },
   tablet:  { label: 'aff.ana.devTablet',  icon: Tablet },
@@ -328,7 +328,7 @@ export default function AffiliateAnalytics() {
         .maybeSingle();
 
       if (aff) {
-        setIdentity({ affiliateId: aff.id, memberId: null, memberSlug: null, role: 'admin', linktreeUrl: `/p/${(aff as any).linktree_slug ?? ''}` });
+        setIdentity({ affiliateId: aff.id, memberId: null, memberSlug: null, role: 'admin', linktreeUrl: `/p/${aff.linktree_slug ?? ''}` });
         setIdentityLoading(false);
         return;
       }
@@ -341,7 +341,7 @@ export default function AffiliateAnalytics() {
         .maybeSingle();
 
       if (mem) {
-        setIdentity({ affiliateId: (mem as any).affiliate_id, memberId: mem.id, memberSlug: (mem as any).linktree_slug ?? null, role: 'member', linktreeUrl: `/promo/${(mem as any).linktree_slug ?? ''}` });
+        setIdentity({ affiliateId: mem.affiliate_id, memberId: mem.id, memberSlug: mem.linktree_slug ?? null, role: 'member', linktreeUrl: `/promo/${mem.linktree_slug ?? ''}` });
       }
 
       setIdentityLoading(false);
@@ -462,13 +462,13 @@ export default function AffiliateAnalytics() {
       rows.forEach(r => { if (r.affiliate_event_id) evtViewMap[r.affiliate_event_id] = (evtViewMap[r.affiliate_event_id] ?? 0) + 1; });
       clickRows.forEach(r => { if (r.affiliate_event_id) evtClickMap[r.affiliate_event_id] = (evtClickMap[r.affiliate_event_id] ?? 0) + 1; });
       const top = evts
-        .map((e: any) => {
+        .map((e) => {
           const views = evtViewMap[e.id] ?? 0;
           const clicks = evtClickMap[e.id] ?? 0;
           return { id: e.id, name: e.name, event_date: e.event_date, views, clicks, ctr: views > 0 ? (clicks / views) * 100 : 0, venue_name: e.affiliate_venues?.name ?? null };
         })
-        .filter((e: any) => e.views > 0 || e.clicks > 0)
-        .sort((a: any, b: any) => b.views - a.views)
+        .filter((e) => e.views > 0 || e.clicks > 0)
+        .sort((a, b) => b.views - a.views)
         .slice(0, 10);
       setTopEvents(top);
 
@@ -512,8 +512,8 @@ export default function AffiliateAnalytics() {
         supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', thisStart),
         supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', prevStart).lt('clicked_at', prevEnd),
       ]);
-      setThisMonth({ views: thisS?.length ?? 0, unique: new Set((thisS ?? []).map((r: any) => r.visitor_id).filter(Boolean)).size, clicks: (thisC as any) ?? 0 });
-      setPrevMonth({ views: prevS?.length ?? 0, unique: new Set((prevS ?? []).map((r: any) => r.visitor_id).filter(Boolean)).size, clicks: (prevC as any) ?? 0 });
+      setThisMonth({ views: thisS?.length ?? 0, unique: new Set((thisS ?? []).map((r) => r.visitor_id).filter(Boolean)).size, clicks: (thisC as unknown as number | null) ?? 0 });
+      setPrevMonth({ views: prevS?.length ?? 0, unique: new Set((prevS ?? []).map((r) => r.visitor_id).filter(Boolean)).size, clicks: (prevC as unknown as number | null) ?? 0 });
       setRapportLoading(false);
     })();
   }, [pillar, identity]);
@@ -546,7 +546,7 @@ export default function AffiliateAnalytics() {
   const maxSourceViews       = Math.max(...sources.map(s => s.views), 1);
   const totalDeviceViews     = devices.reduce((s, d) => s + d.views, 0);
 
-  const PILLARS: { id: Pillar; label: string; icon: any }[] = [
+  const PILLARS: { id: Pillar; label: string; icon: LucideIcon }[] = [
     { id: 'overview',  label: t('aff.ana.pillarOverview'),  icon: LayoutGrid },
     { id: 'audience',  label: t('aff.ana.pillarAudience'),  icon: Users },
     { id: 'events',    label: t('aff.ana.pillarEvents'),    icon: TrendingUp },

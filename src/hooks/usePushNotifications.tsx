@@ -35,7 +35,7 @@ async function syncSubscriptionToDb(subscription: PushSubscription) {
 
   // Upsert current endpoint
   await supabase
-    .from('push_subscriptions' as any)
+    .from('push_subscriptions')
     .upsert({
       user_id: user.id,
       endpoint: subscription.endpoint,
@@ -48,7 +48,7 @@ async function syncSubscriptionToDb(subscription: PushSubscription) {
   // Never touch platform='ios' rows: the APNs token of the native app must
   // survive the user opening the web app on desktop.
   await supabase
-    .from('push_subscriptions' as any)
+    .from('push_subscriptions')
     .delete()
     .eq('user_id', user.id)
     .eq('platform', 'web')
@@ -109,7 +109,7 @@ function nativePlatform(): 'ios' | 'ios_pro' {
 async function syncNativeTokenToDb(token: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  const { error } = await supabase.rpc('register_push_token' as any, {
+  const { error } = await supabase.rpc('register_push_token', {
     p_endpoint: `apns:${token}`,
     p_platform: nativePlatform(),
   });
@@ -120,7 +120,7 @@ async function deleteNativeSubscription(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   await supabase
-    .from('push_subscriptions' as any)
+    .from('push_subscriptions')
     .delete()
     .eq('user_id', user.id)
     .eq('platform', nativePlatform());
@@ -149,11 +149,11 @@ export function usePushNotifications() {
       return () => window.removeEventListener('pushSubscriptionChanged', onSync);
     }
 
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream;
     setIsiOS(isIOSDevice);
 
     const isPWAMode = window.matchMedia('(display-mode: standalone)').matches ||
-                      (navigator as any).standalone === true;
+                      (navigator as Navigator & { standalone?: boolean }).standalone === true;
     setIsPWA(isPWAMode);
 
     // Web push abandonné (stratégie app-first : les notifications passent par
@@ -182,7 +182,7 @@ export function usePushNotifications() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setIsSubscribed(false); return; }
         const { data } = await supabase
-          .from('push_subscriptions' as any)
+          .from('push_subscriptions')
           .select('id')
           .eq('user_id', user.id)
           .eq('platform', nativePlatform())
@@ -316,7 +316,7 @@ export function usePushNotifications() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await supabase
-            .from('push_subscriptions' as any)
+            .from('push_subscriptions')
             .delete()
             .eq('user_id', user.id)
             .eq('endpoint', subscription.endpoint);

@@ -53,11 +53,11 @@ export function CollabWelcomeOverlay({ venueId, venueName }: Props) {
         .maybeSingle();
       if (cancelled || !p?.organizer_user_id) return;
       const { data: prof } = await supabase
-        .from('organizer_profiles' as any)
+        .from('organizer_profiles')
         .select('display_name')
         .eq('user_id', p.organizer_user_id)
         .maybeSingle();
-      if (!cancelled) setOrgName((prof as any)?.display_name ?? null);
+      if (!cancelled) setOrgName(prof?.display_name ?? null);
     })();
     return () => { cancelled = true; };
   }, [open, venueId]);

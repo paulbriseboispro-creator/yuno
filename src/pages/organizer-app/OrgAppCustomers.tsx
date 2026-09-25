@@ -139,7 +139,7 @@ export default function OrgAppCustomers() {
   };
   const dowName = (d: number | null) => (d == null ? '—' : (DOW_NAMES[language] || DOW_NAMES.en)[d] ?? '—');
 
-  const num = (v: any) => Number(v || 0);
+  const num = (v: unknown) => Number(v || 0);
 
   useEffect(() => { if (organizerId) { fetchAllCustomers(); fetchFlags(); fetchMinorEmails(); } }, [organizerId]);
 
@@ -148,7 +148,7 @@ export default function OrgAppCustomers() {
     const { data: events } = await supabase
       .from('events').select('id')
       .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
-    const eventIds = (events ?? []).map((e: any) => e.id);
+    const eventIds = (events ?? []).map((e) => e.id);
     setMinorByEmail(await fetchMinorDocsByEmail(eventIds));
   };
 
@@ -158,7 +158,7 @@ export default function OrgAppCustomers() {
     try {
       const { data, error } = await supabase.rpc('get_organizer_customer_segments', { p_organizer_user_id: organizerId });
       if (error) throw error;
-      const mapped: OrgCustomer[] = (data || []).map((r: any) => ({
+      const mapped: OrgCustomer[] = (data || []).map((r) => ({
         id: r.id, user_id: r.user_id, email: r.email, first_name: r.first_name, last_name: r.last_name,
         phone: r.phone, first_visit_at: r.first_visit_at, last_visit_at: r.last_visit_at,
         total_spent: num(r.total_spent), ticket_count: r.ticket_count || 0, order_count: 0,
@@ -190,8 +190,8 @@ export default function OrgAppCustomers() {
         supabase.from('organizer_banned_emails').select('email, ban_reason, banned_at')
           .eq('organizer_user_id', organizerId),
       ]);
-      setIncidentEmails(new Set((incs || []).map((i: any) => (i.email || '').toLowerCase())));
-      setEmailBans((bans || []) as any);
+      setIncidentEmails(new Set((incs || []).map((i) => (i.email || '').toLowerCase())));
+      setEmailBans(bans || []);
     } catch { /* best-effort : signalements/bans restent vides */ }
   };
 
@@ -675,10 +675,10 @@ export default function OrgAppCustomers() {
                       <p style={{ color: T3, fontSize: 11, marginBottom: 6 }}>{label}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {opts.map(({ v, l }) => {
-                          const active = (segmentFilters as any)[key] === v;
+                          const active = (segmentFilters as unknown as Record<string, unknown>)[key] === v;
                           return (
                             <button key={v} type="button"
-                              onClick={() => setSegmentFilters(f => ({ ...f, [key]: (f as any)[key] === v ? '' : v }))}
+                              onClick={() => setSegmentFilters(f => ({ ...f, [key]: (f as unknown as Record<string, unknown>)[key] === v ? '' : v }))}
                               className="px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-all duration-150"
                               style={{ background: active ? `rgba(232,25,44,0.12)` : INNER_BG, border: `1px solid ${active ? RED : BORDER}`, color: active ? RED : T2 }}>
                               {l}

@@ -100,7 +100,7 @@ export function useEventNetGain(eventId: string | null | undefined, perspective:
           }
         };
 
-        (distros || []).forEach((d: any) => {
+        (distros || []).forEach((d) => {
           if (perspective.kind === 'venue') {
             if (d.primary_recipient_venue_id === perspective.venueId) {
               considerLeg(d.primary_amount_cents, d.primary_transfer_status, d.transfers_release_at);
@@ -142,12 +142,12 @@ export function useEventNetGain(eventId: string | null | undefined, perspective:
           ]);
           if (cancelled) return;
 
-          const ticketNet = (tk.data || []).reduce((s: number, t: any) => {
+          const ticketNet = (tk.data || []).reduce((s: number, t) => {
             const total = Number(t.total_price || 0);
             const yunoFee = Number(t.service_fee || 0) + Number(t.insurance_fee || 0);
             return s + Math.max(0, total - yunoFee - calcStripeFee(total));
           }, 0);
-          const tableNet = (tr.data || []).reduce((s: number, r: any) => {
+          const tableNet = (tr.data || []).reduce((s: number, r) => {
             const base = Number(r.deposit || r.total_price || 0);
             const yunoFee = Number(r.service_fee || 0);
             return s + Math.max(0, base - yunoFee - calcStripeFee(base));

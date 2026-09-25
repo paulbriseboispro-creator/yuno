@@ -43,7 +43,7 @@ export default function AgencyStart() {
       return;
     }
     setSaving(true);
-    const { data, error } = await (supabase as any).rpc('create_agency', {
+    const { data, error } = await supabase.rpc('create_agency', {
       p_name: name.trim(),
       p_city: city.trim() || null,
     });

@@ -852,13 +852,13 @@ export default function AffiliateLinktree() {
         // Agence fusionnée : les soirées Yuno des clubs sous contrat actif
         // s'affichent aussi — un linktree d'agence qui ne travaille que des
         // clubs Yuno n'est pas vide pour autant.
-        (supabase as any).rpc('get_agency_linktree_yuno_events', { p_affiliate_id: aff.id }),
+        supabase.rpc('get_agency_linktree_yuno_events', { p_affiliate_id: aff.id }),
       ]);
 
       if (linktreeError) console.warn('[AffiliateLinktree] linktree error:', linktreeError.message);
       if (yunoRes?.error) console.warn('[AffiliateLinktree] yuno events error:', yunoRes.error.message);
 
-      const yunoEvents: LinktreeEvent[] = ((yunoRes?.data ?? []) as YunoLinktreeRow[]).map(mapYunoRow);
+      const yunoEvents: LinktreeEvent[] = ((yunoRes?.data ?? []) as unknown as YunoLinktreeRow[]).map(mapYunoRow);
 
       let eventsToShow: LinktreeEvent[] = [];
 

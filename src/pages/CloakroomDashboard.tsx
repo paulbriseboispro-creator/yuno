@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Shirt, ScanLine, Check, CreditCard, ArrowLeft, Package, QrCode, Users, DollarSign, Camera, Plus, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner, type IDetectedBarcode } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -45,6 +46,9 @@ const mainCard: React.CSSProperties = {
   position: 'relative',
 };
 
+type ActiveDeposit = Pick<Tables<'cloakroom_transactions'>,
+  'id' | 'cloakroom_number' | 'customer_name' | 'deposited_at' | 'items_count' | 'price'>;
+
 type ScanMode = 'idle' | 'deposit_pay' | 'deposit_prepaid' | 'retrieve';
 
 interface ScanResult {
@@ -52,8 +56,8 @@ interface ScanResult {
   customerName: string;
   ticketId: string | null;
   attendeeQr: string;
-  existingTransaction?: any;
-  prepaidUpsell?: any;
+  existingTransaction?: Tables<'cloakroom_transactions'>;
+  prepaidUpsell?: Tables<'ticket_upsell_selections'>;
 }
 
 export default function CloakroomDashboard() {
@@ -72,7 +76,7 @@ export default function CloakroomDashboard() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
-  const [activeDepositsList, setActiveDepositsList] = useState<any[]>([]);
+  const [activeDepositsList, setActiveDepositsList] = useState<ActiveDeposit[]>([]);
   const [showActiveDeposits, setShowActiveDeposits] = useState(false);
 
   useEffect(() => {
@@ -180,7 +184,7 @@ export default function CloakroomDashboard() {
     setScanning(true);
   };
 
-  const handleScan = useCallback(async (result: any) => {
+  const handleScan = useCallback(async (result: IDetectedBarcode[]) => {
     if (!venueId || processing) return;
     const qrCode = result?.[0]?.rawValue;
     if (!qrCode) return;
@@ -361,8 +365,8 @@ export default function CloakroomDashboard() {
       toast.success(`${t('cloakroom.depositConfirmed')} — N°${cloakroomNumber}`);
       if (venueId) fetchStats(venueId);
       resetScan();
-    } catch (err: any) {
-      toast.error(err.message || t('staffLogin.error'));
+    } catch (err: unknown) {
+      toast.error((err as { message?: string }).message || t('staffLogin.error'));
     }
   };
 
@@ -404,8 +408,8 @@ export default function CloakroomDashboard() {
       toast.success(t('cloakroom.retrievalDone'));
       if (venueId) fetchStats(venueId);
       resetScan();
-    } catch (err: any) {
-      toast.error(err.message || t('staffLogin.error'));
+    } catch (err: unknown) {
+      toast.error((err as { message?: string }).message || t('staffLogin.error'));
     }
   };
 

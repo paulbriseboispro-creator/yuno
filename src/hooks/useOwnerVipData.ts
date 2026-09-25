@@ -111,7 +111,7 @@ export function useOwnerVipData() {
         .eq('table_zones.venue_id', venueId)
         .order('created_at', { ascending: false });
 
-      const mapped: OwnerVipReservation[] = (resData || []).map((r: any) => ({
+      const mapped: OwnerVipReservation[] = (resData || []).map((r) => ({
         id: r.id,
         fullName: r.full_name || 'Guest',
         userEmail: r.user_email || '',
@@ -120,7 +120,7 @@ export function useOwnerVipData() {
         deposit: r.deposit || 0,
         totalPrice: r.total_price || 0,
         minimumSpend: r.minimum_spend || 0,
-        vipStatus: r.vip_status || 'waiting',
+        vipStatus: (r.vip_status || 'waiting') as OwnerVipReservation['vipStatus'],
         zoneName: r.table_zones?.name || '',
         zoneColor: r.table_zones?.color || '#666',
         zoneId: r.zone_id,
@@ -147,7 +147,7 @@ export function useOwnerVipData() {
           .in('table_reservation_id', resIds)
           .order('served_at', { ascending: false });
 
-        setConsumptions((consData || []).map((c: any) => ({
+        setConsumptions((consData || []).map((c) => ({
           id: c.id,
           itemName: c.item_name,
           itemType: c.item_type,
@@ -166,14 +166,14 @@ export function useOwnerVipData() {
           .neq('status', 'cancelled')
           .order('created_at', { ascending: true });
 
-        const orderIds = (ordersData || []).map((o: any) => o.id);
+        const orderIds = (ordersData || []).map((o) => o.id);
         const itemsByOrder = new Map<string, OwnerVipOrderItem[]>();
         if (orderIds.length > 0) {
           const { data: itemsData } = await supabase
             .from('vip_table_order_items')
             .select('order_id, quantity, unit_price, vip_menu_items(name)')
             .in('order_id', orderIds);
-          (itemsData || []).forEach((it: any) => {
+          (itemsData || []).forEach((it) => {
             const arr = itemsByOrder.get(it.order_id) || [];
             arr.push({
               name: it.vip_menu_items?.name || 'Bouteille',
@@ -184,7 +184,7 @@ export function useOwnerVipData() {
           });
         }
 
-        setOrders((ordersData || []).map((o: any) => ({
+        setOrders((ordersData || []).map((o) => ({
           id: o.id,
           reservationId: o.table_reservation_id,
           status: o.status,

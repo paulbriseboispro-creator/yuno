@@ -104,7 +104,7 @@ export default function OwnerPromoterTeams() {
     const leaderMap: Record<string, string> = {};
     if (leaderIds.length > 0) {
       const { data: leaderData } = await supabase.from('promoters').select('id, promo_code, first_name, last_name, user_id').in('id', leaderIds);
-      (leaderData || []).forEach((p: any) => {
+      (leaderData || []).forEach(p => {
         const prof = memberProfileMap[p.user_id];
         leaderMap[p.id] = prof?.first_name ? `${prof.first_name} ${prof.last_name || ''}`.trim()
           : p.first_name ? `${p.first_name} ${p.last_name || ''}`.trim() : p.promo_code;
@@ -115,7 +115,7 @@ export default function OwnerPromoterTeams() {
     const convMap: Record<string, { revenue: number; count: number; commission: number }> = {};
     if (promoterIds.length > 0) {
       const { data: convs } = await supabase.from('promoter_conversions').select('promoter_id, amount, commission').in('promoter_id', promoterIds);
-      (convs || []).forEach((c: any) => {
+      (convs || []).forEach(c => {
         if (!convMap[c.promoter_id]) convMap[c.promoter_id] = { revenue: 0, count: 0, commission: 0 };
         convMap[c.promoter_id].revenue += Number(c.amount || 0);
         convMap[c.promoter_id].count++;
@@ -133,7 +133,7 @@ export default function OwnerPromoterTeams() {
     const teamStats: Record<string, { revenue: number; conversions: number }> = {};
     const detailsByTeam: Record<string, MemberDetail[]> = {};
 
-    (membersData || []).forEach((m: any) => {
+    (membersData || []).forEach(m => {
       if (!membersByTeam[m.team_id]) membersByTeam[m.team_id] = [];
       if (!teamStats[m.team_id]) teamStats[m.team_id] = { revenue: 0, conversions: 0 };
       if (!detailsByTeam[m.team_id]) detailsByTeam[m.team_id] = [];
@@ -158,7 +158,7 @@ export default function OwnerPromoterTeams() {
       maxSales: t.max_sales, memberCount: membersByTeam[t.id]?.length || 0,
       members: membersByTeam[t.id] || [],
       totalRevenue: teamStats[t.id]?.revenue || 0, totalConversions: teamStats[t.id]?.conversions || 0,
-      overrideType: (t as any).override_type ?? null, overrideValue: Number((t as any).override_value || 0),
+      overrideType: (t.override_type as TeamRow['overrideType']) ?? null, overrideValue: Number(t.override_value || 0),
     })));
     setLoading(false);
   }
@@ -302,7 +302,7 @@ export default function OwnerPromoterTeams() {
                     <div style={{ marginTop: 14, borderTop: `1px solid ${F_BORDER}`, paddingTop: 14 }}>
                       <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
                         <h4 style={{ color: T1, fontSize: 13, fontWeight: 620, margin: 0 }}>{tt('Classement interne', 'Internal ranking')}</h4>
-                        <Select value={sortBy} onValueChange={v => setSortBy(v as any)}>
+                        <Select value={sortBy} onValueChange={v => setSortBy(v as 'revenue' | 'conversions' | 'commission')}>
                           <SelectTrigger className="h-7 text-xs w-28" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="revenue">{tt('CA', 'Revenue')}</SelectItem>

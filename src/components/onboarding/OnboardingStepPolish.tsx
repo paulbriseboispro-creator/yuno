@@ -56,18 +56,18 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
         fetchMyVenuePrivate(venueId),
       ]);
       if (data) {
-        setCoverPreview((data as any).cover_url || '');
-        setDescription((data as any).description || '');
-        setGalleryImages(((data as any).gallery_images as string[]) || []);
+        setCoverPreview(data.cover_url || '');
+        setDescription(data.description || '');
+        setGalleryImages((data.gallery_images as string[] | null) || []);
         setInstagramUrl(data.instagram_url || '');
         setFacebookUrl(data.facebook_url || '');
         setTiktokUrl(data.tiktok_url || '');
         setTwitterUrl(data.twitter_url || '');
         setWhatsappNumber(data.whatsapp_number || '');
-        setLegalName((data as any).legal_name || '');
-        setSiret((data as any).siret || '');
-        setVatNumber((data as any).vat_number || '');
-        setLegalAddress((data as any).legal_address || '');
+        setLegalName(data.legal_name || '');
+        setSiret(data.siret || '');
+        setVatNumber(data.vat_number || '');
+        setLegalAddress(data.legal_address || '');
         setInvoicePrefix(priv?.invoice_prefix || 'FAC');
       }
       setLoaded(true);
@@ -86,7 +86,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(path);
       setCoverPreview(publicUrl);
-      const { error: updErr } = await supabase.from('venues').update({ cover_url: publicUrl } as any).eq('id', venueId);
+      const { error: updErr } = await supabase.from('venues').update({ cover_url: publicUrl }).eq('id', venueId);
       if (updErr) throw updErr;
     } catch {
       toast.error(t('onboarding.saveError'));
@@ -111,7 +111,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
         newImages.push(publicUrl);
       }
       setGalleryImages(newImages);
-      const { error: updErr } = await supabase.from('venues').update({ gallery_images: newImages } as any).eq('id', venueId);
+      const { error: updErr } = await supabase.from('venues').update({ gallery_images: newImages }).eq('id', venueId);
       if (updErr) throw updErr;
     } catch {
       toast.error(t('onboarding.saveError'));
@@ -124,7 +124,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
     const prev = galleryImages;
     const newImages = galleryImages.filter((_, i) => i !== index);
     setGalleryImages(newImages);
-    const { error } = await supabase.from('venues').update({ gallery_images: newImages } as any).eq('id', venueId);
+    const { error } = await supabase.from('venues').update({ gallery_images: newImages }).eq('id', venueId);
     if (error) { setGalleryImages(prev); toast.error(t('onboarding.saveError')); }
   };
 
@@ -143,7 +143,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
         vat_number: vatNumber.trim() || null,
         legal_address: legalAddress.trim() || null,
         invoice_prefix: invoicePrefix.trim() || 'FAC',
-      } as any).eq('id', venueId);
+      }).eq('id', venueId);
       if (error) throw error;
       onComplete();
       toast.success(t('onboarding.polishSaved'));

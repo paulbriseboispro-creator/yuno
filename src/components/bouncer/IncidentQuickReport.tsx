@@ -39,7 +39,7 @@ export function IncidentQuickReport({ venueId, eventId }: Props) {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth?.user?.id;
       if (!userId) return;
-      const { error } = await (supabase as any).from('night_ops_events').insert({
+      const { error } = await supabase.from('night_ops_events').insert({
         venue_id: venueId,
         event_id: eventId ?? null,
         reported_by: userId,

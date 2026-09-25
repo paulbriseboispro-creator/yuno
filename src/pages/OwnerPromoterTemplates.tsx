@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -208,7 +209,7 @@ export default function OwnerPromoterTemplates() {
     try {
       if (isDefault) await supabase.from('commission_templates').update({ is_default: false }).eq(scopeFilter.column, sid);
       if (editing) {
-        await supabase.from('commission_templates').update({ name, rules: rules as any, is_default: isDefault }).eq('id', editing.id);
+        await supabase.from('commission_templates').update({ name, rules: rules as unknown as Json, is_default: isDefault }).eq('id', editing.id);
         // Le modèle porte une allocation guest list : (re)matérialiser les parts
         // des promoteurs qui l'utilisent, sur leurs soirées à venir déjà reliées
         // (les nouvelles assignations passent par le trigger). ON CONFLICT DO
@@ -222,10 +223,10 @@ export default function OwnerPromoterTemplates() {
             : q.eq('default_commission_template_id', editing.id);
           const { data: promos } = await q;
           await Promise.all((promos || []).map(p =>
-            (supabase as any).rpc('sync_promoter_guestlist_parts', { p_promoter_id: p.id })));
+            supabase.rpc('sync_promoter_guestlist_parts', { p_promoter_id: p.id })));
         }
       } else {
-        await supabase.from('commission_templates').insert({ ...scopeFilter.payload, name, rules: rules as any, is_default: isDefault });
+        await supabase.from('commission_templates').insert({ ...scopeFilter.payload, name, rules: rules as unknown as Json, is_default: isDefault });
       }
       toast.success(t('promoterTemplates.saved'));
       setDialogOpen(false);
@@ -242,7 +243,7 @@ export default function OwnerPromoterTemplates() {
     fetchTemplates();
   }
 
-  function updateTier(idx: number, field: keyof CommissionRuleTier, val: any) {
+  function updateTier(idx: number, field: keyof CommissionRuleTier, val: number | null) {
     setTiers(prev => prev.map((tier, i) => i === idx ? { ...tier, [field]: val } : tier));
   }
   function addTier() {
@@ -251,7 +252,7 @@ export default function OwnerPromoterTemplates() {
   }
   function removeTier(idx: number) { setTiers(prev => prev.filter((_, i) => i !== idx)); }
   function addWindow() { setTimeWindows(prev => [...prev, { before: '00:30', type: 'fixed', value: 5 }]); }
-  function updateWindow(idx: number, field: keyof CommissionTimeWindow, val: any) {
+  function updateWindow(idx: number, field: keyof CommissionTimeWindow, val: string | number) {
     setTimeWindows(prev => prev.map((w, i) => i === idx ? { ...w, [field]: val } : w));
   }
   function removeWindow(idx: number) { setTimeWindows(prev => prev.filter((_, i) => i !== idx)); }
@@ -374,7 +375,7 @@ export default function OwnerPromoterTemplates() {
                     <div>
                       <Label className="text-xs">{t('owner.promo.perTicket')}</Label>
                       <div className="flex gap-2">
-                        <Select value={ticketType} onValueChange={v => setTicketType(v as any)}>
+                        <Select value={ticketType} onValueChange={v => setTicketType(v as 'fixed' | 'percentage')}>
                           <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
                           <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="fixed">€</SelectItem></SelectContent>
                         </Select>
@@ -384,7 +385,7 @@ export default function OwnerPromoterTemplates() {
                     <div>
                       <Label className="text-xs">{t('owner.promo.perTable')}</Label>
                       <div className="flex gap-2">
-                        <Select value={tableType} onValueChange={v => setTableType(v as any)}>
+                        <Select value={tableType} onValueChange={v => setTableType(v as 'fixed' | 'percentage')}>
                           <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
                           <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="fixed">€</SelectItem></SelectContent>
                         </Select>
@@ -553,7 +554,7 @@ export default function OwnerPromoterTemplates() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">{t('owner.promo.type')}</Label>
-                  <Select value={cdType} onValueChange={v => setCdType(v as any)}>
+                  <Select value={cdType} onValueChange={v => setCdType(v as 'percentage' | 'fixed')}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="percentage">{t('owner.promo.percentage')}</SelectItem><SelectItem value="fixed">{t('owner.promo.fixedAmount')}</SelectItem></SelectContent>
                   </Select>
@@ -562,7 +563,7 @@ export default function OwnerPromoterTemplates() {
               </div>
               <div>
                 <Label className="text-xs">{t('owner.promo.appliesTo')}</Label>
-                <Select value={cdAppliesTo} onValueChange={v => setCdAppliesTo(v as any)}>
+                <Select value={cdAppliesTo} onValueChange={v => setCdAppliesTo(v as 'tickets' | 'drinks' | 'both')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="both">{t('owner.promo.ticketsAndDrinks')}</SelectItem>

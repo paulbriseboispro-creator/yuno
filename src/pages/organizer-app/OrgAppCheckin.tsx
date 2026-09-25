@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   ScanLine, CheckCircle2, XCircle, Clock, Ticket as TicketIcon,
-  Wine, Shirt, Ban, AlertTriangle, User, ClipboardList,
+  Wine, Shirt, Ban, AlertTriangle, User, ClipboardList, type LucideIcon,
 } from 'lucide-react';
 import OrgQRScanner from '@/components/organizer-app/OrgQRScanner';
 import { toast } from 'sonner';
@@ -70,13 +70,24 @@ function ScanResult({ ok, title, sub }: { ok: boolean; title: string; sub?: stri
   );
 }
 
+/** Soirée proposée au scan (select de l'effet de chargement ci-dessous). */
+interface CheckinEvent {
+  id: string;
+  title: string;
+  start_at: string;
+  venue_id: string | null;
+  partner_venue_id: string | null;
+  organizer_user_id: string | null;
+  partner_organizer_id: string | null;
+}
+
 export default function OrgAppCheckin() {
   const { user } = useAuth();
   const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<CheckinEvent[]>([]);
   const [eventId, setEventId] = useState<string>('');
   const [tab, setTab] = useTabParam<ScanTab>('tickets', ['tickets', 'drinks', 'cloakroom']);
   const [ticketMode, setTicketMode] = useState<TicketMode>('entry');
@@ -345,9 +356,9 @@ export default function OrgAppCheckin() {
       }
 
       setLastScan({ ok: false, reason: t('Billet introuvable', 'Ticket not found') });
-    } catch (e: any) {
-      setLastScan({ ok: false, reason: e.message ?? t('Erreur de scan', 'Scan error') });
-      toast.error(e.message ?? t('Erreur de scan', 'Scan error'));
+    } catch (e: unknown) {
+      setLastScan({ ok: false, reason: (e as { message?: string }).message ?? t('Erreur de scan', 'Scan error') });
+      toast.error((e as { message?: string }).message ?? t('Erreur de scan', 'Scan error'));
     } finally {
       setProcessing(false);
     }
@@ -392,13 +403,13 @@ export default function OrgAppCheckin() {
         totalPrice: Number(full.total_price ?? 0),
         serviceFee: Number(full.service_fee ?? 0),
         eventId: full.event_id,
-        eventTitle: (full as any).events?.title ?? '',
+        eventTitle: (full as unknown as { events?: { title?: string } | null }).events?.title ?? '',
         status: full.status,
         entryScanned: full.entry_scanned,
         paymentIntentId: full.stripe_payment_intent_id ?? null,
       });
-    } catch (e: any) {
-      setLastScan({ ok: false, reason: e.message ?? t('Erreur de scan', 'Scan error') });
+    } catch (e: unknown) {
+      setLastScan({ ok: false, reason: (e as { message?: string }).message ?? t('Erreur de scan', 'Scan error') });
     } finally {
       setProcessing(false);
     }
@@ -423,8 +434,8 @@ export default function OrgAppCheckin() {
       toast.success(`${t('Billet annulé', 'Ticket cancelled')} — ${Number(data.refundAmount).toFixed(2)}€ ${t('remboursés', 'refunded')}`);
       setShowCancelConfirm(false);
       resetTicketScan();
-    } catch (e: any) {
-      toast.error(e.message ?? t("Erreur lors de l'annulation", 'Cancel error'));
+    } catch (e: unknown) {
+      toast.error((e as { message?: string }).message ?? t("Erreur lors de l'annulation", 'Cancel error'));
     } finally {
       setIsCancelling(false);
     }
@@ -459,12 +470,12 @@ export default function OrgAppCheckin() {
         .eq('id', order.id).is('served_at', null);
       if (error) throw error;
       const itemsLabel = Array.isArray(order.items)
-        ? (order.items as any[]).map(i => `${i.qty ?? i.quantity ?? 1}× ${i.name ?? '—'}`).join(', ')
+        ? (order.items as { qty?: number; quantity?: number; name?: string }[]).map(i => `${i.qty ?? i.quantity ?? 1}× ${i.name ?? '—'}`).join(', ')
         : '';
       setDrinkResult({ ok: true, label: itemsLabel || t('Commande validée', 'Order validated') });
       toast.success(t('Commande servie', 'Order served'));
-    } catch (e: any) {
-      setDrinkResult({ ok: false, reason: e.message ?? t('Erreur de scan', 'Scan error') });
+    } catch (e: unknown) {
+      setDrinkResult({ ok: false, reason: (e as { message?: string }).message ?? t('Erreur de scan', 'Scan error') });
     } finally {
       setDrinkProcessing(false);
     }
@@ -488,8 +499,8 @@ export default function OrgAppCheckin() {
       if (!tx) { setCloakResult({ ok: false, reason: t('Aucun dépôt actif pour ce QR', 'No active deposit for this QR') }); return; }
       const statusLabel = tx.retrieved ? t('récupéré', 'retrieved') : t('en dépôt', 'in storage');
       setCloakResult({ ok: true, label: `${t('Vestiaire', 'Cloakroom')} #${tx.cloakroom_number ?? '—'} · ${tx.items_count ?? 1} ${t('pièce(s)', 'item(s)')} — ${statusLabel}` });
-    } catch (e: any) {
-      setCloakResult({ ok: false, reason: e.message ?? t('Erreur de scan', 'Scan error') });
+    } catch (e: unknown) {
+      setCloakResult({ ok: false, reason: (e as { message?: string }).message ?? t('Erreur de scan', 'Scan error') });
     } finally {
       setCloakProcessing(false);
     }
@@ -504,7 +515,7 @@ export default function OrgAppCheckin() {
     );
   }
 
-  const infoBanner = (icon: any, text: string, tone: 'info' | 'danger' = 'info') => {
+  const infoBanner = (icon: LucideIcon, text: string, tone: 'info' | 'danger' = 'info') => {
     const Icon = icon;
     const styles = tone === 'danger'
       ? { background: 'rgba(255,92,99,0.06)', border: '1px solid rgba(255,92,99,0.25)', color: RED_SOFT }

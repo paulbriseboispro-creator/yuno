@@ -88,7 +88,7 @@ export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode
       const { data: clicks } = await kq;
 
       const convByPromoter = new Map<string, { revenue: number; commission: number; count: number; paid: number }>();
-      (conversions || []).forEach((c: any) => {
+      (conversions || []).forEach((c) => {
         const e = convByPromoter.get(c.promoter_id) || { revenue: 0, commission: 0, count: 0, paid: 0 };
         e.revenue += Number(c.amount) || 0;
         e.commission += Number(c.commission) || 0;
@@ -98,7 +98,7 @@ export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode
         convByPromoter.set(c.promoter_id, e);
       });
       const clicksByPromoter = new Map<string, number>();
-      (clicks || []).forEach((c: any) => clicksByPromoter.set(c.promoter_id, (clicksByPromoter.get(c.promoter_id) || 0) + 1));
+      (clicks || []).forEach((c) => clicksByPromoter.set(c.promoter_id, (clicksByPromoter.get(c.promoter_id) || 0) + 1));
 
       const rows: PromoterRow[] = (promoters || []).map(p => {
         const conv = convByPromoter.get(p.id) || { revenue: 0, commission: 0, count: 0, paid: 0 };

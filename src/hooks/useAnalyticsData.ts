@@ -596,7 +596,7 @@ export function useAnalyticsData({
       const paidTickets = allTickets || [];
       // Club revenue = total_price − service_fee − insurance_fee (== unit_price×qty face value).
       // Stripe is charged on the full client-paid total_price, not the face value.
-      const ticketRev = paidTickets.reduce((acc, t: any) => {
+      const ticketRev = paidTickets.reduce((acc, t) => {
         const r = ticketRevenue(t);
         acc.gross += r.gross; acc.refunded += r.refunded; acc.stripe += r.stripe;
         return acc;
@@ -610,7 +610,7 @@ export function useAnalyticsData({
 
       // Tickets by event
       const eventCounts: Record<string, { quantity: number; revenue: number }> = {};
-      paidTickets.forEach((ticket: any) => {
+      paidTickets.forEach((ticket) => {
         const eventTitle = ticket.events?.title || 'Unknown Event';
         if (!eventCounts[eventTitle]) eventCounts[eventTitle] = { quantity: 0, revenue: 0 };
         eventCounts[eventTitle].quantity += ticket.quantity;
@@ -620,7 +620,7 @@ export function useAnalyticsData({
 
       // Tickets by round (phase)
       const roundCounts: Record<string, { quantity: number; revenue: number; maxTickets: number; ticketsSold: number; position: number }> = {};
-      paidTickets.forEach((ticket: any) => {
+      paidTickets.forEach((ticket) => {
         const roundName = ticket.ticket_rounds?.name || 'Unknown Round';
         if (!roundCounts[roundName]) roundCounts[roundName] = { quantity: 0, revenue: 0, maxTickets: ticket.ticket_rounds?.max_tickets || 0, ticketsSold: ticket.ticket_rounds?.tickets_sold || 0, position: ticket.ticket_rounds?.position || 0 };
         roundCounts[roundName].quantity += ticket.quantity;
@@ -630,7 +630,7 @@ export function useAnalyticsData({
 
       // Tickets by type
       const typeCounts: Record<string, { quantity: number; revenue: number }> = {};
-      paidTickets.forEach((ticket: any) => {
+      paidTickets.forEach((ticket) => {
         const ticketType = ticket.ticket_type || ticket.ticket_rounds?.ticket_type || 'standard';
         if (!typeCounts[ticketType]) typeCounts[ticketType] = { quantity: 0, revenue: 0 };
         typeCounts[ticketType].quantity += ticket.quantity;
@@ -657,11 +657,11 @@ export function useAnalyticsData({
       }).filter(d => d.tickets > 0);
 
       // Launch metrics
-      const presaleTickets = paidTickets.filter((t: any) => {
+      const presaleTickets = paidTickets.filter((t) => {
         const pos = t.ticket_rounds?.position;
         return pos === 1 || pos === 0;
       });
-      const publicTickets = paidTickets.filter((t: any) => {
+      const publicTickets = paidTickets.filter((t) => {
         const pos = t.ticket_rounds?.position;
         return pos !== 1 && pos !== 0;
       });
@@ -709,16 +709,16 @@ export function useAnalyticsData({
       ].filter(d => d.value > 0);
 
       // ── Insight metrics (real ticket columns) — weighted by quantity to match totalTickets ──
-      const q = (t: any) => t.quantity || 0;
-      const withDrinkQty = paidTickets.filter((t: any) => t.drink_id || t.drink_name).reduce((s, t) => s + q(t), 0);
-      const redeemedQty = paidTickets.filter((t: any) => (t.drink_id || t.drink_name) && t.drink_redeemed).reduce((s, t) => s + q(t), 0);
-      const upgradeTickets = paidTickets.filter((t: any) => t.is_upgrade);
+      const q = (t: { quantity: number | null }) => t.quantity || 0;
+      const withDrinkQty = paidTickets.filter((t) => t.drink_id || t.drink_name).reduce((s, t) => s + q(t), 0);
+      const redeemedQty = paidTickets.filter((t) => (t.drink_id || t.drink_name) && t.drink_redeemed).reduce((s, t) => s + q(t), 0);
+      const upgradeTickets = paidTickets.filter((t) => t.is_upgrade);
       const upgradeQty = upgradeTickets.reduce((s, t) => s + q(t), 0);
-      const upgradeRevenue = upgradeTickets.reduce((s, t: any) => s + Number(t.unit_price) * q(t), 0);
-      const loyaltyQty = paidTickets.filter((t: any) => t.is_loyalty_reward).reduce((s, t) => s + q(t), 0);
+      const upgradeRevenue = upgradeTickets.reduce((s, t) => s + Number(t.unit_price) * q(t), 0);
+      const loyaltyQty = paidTickets.filter((t) => t.is_loyalty_reward).reduce((s, t) => s + q(t), 0);
       // "Guest checkout" = explicitly flagged guest OR no linked account (user_id null).
-      const guestQty = paidTickets.filter((t: any) => t.is_guest || !t.user_id).reduce((s, t) => s + q(t), 0);
-      const insuranceQty = paidTickets.filter((t: any) => t.has_insurance).reduce((s, t) => s + q(t), 0);
+      const guestQty = paidTickets.filter((t) => t.is_guest || !t.user_id).reduce((s, t) => s + q(t), 0);
+      const insuranceQty = paidTickets.filter((t) => t.has_insurance).reduce((s, t) => s + q(t), 0);
 
       const drinkAttach = {
         withDrink: withDrinkQty,
@@ -744,7 +744,7 @@ export function useAnalyticsData({
         'J-0': { count: 0, revenue: 0 }, 'J-1': { count: 0, revenue: 0 },
         'J-2-3': { count: 0, revenue: 0 }, 'J-4-7': { count: 0, revenue: 0 }, 'J-8+': { count: 0, revenue: 0 },
       };
-      paidTickets.forEach((t: any) => {
+      paidTickets.forEach((t) => {
         const start = t.events?.start_at;
         if (!start) return;
         const days = (new Date(start).getTime() - new Date(t.created_at).getTime()) / 86400000;
@@ -769,8 +769,8 @@ export function useAnalyticsData({
       // ==================== PROCESS TABLE ANALYTICS ====================
       const paidReservations = allTableReservations || [];
       // Club revenue = total_price − service_fee − management_fee (Yuno fees excluded).
-      const gross = (r: any) => tableRevenue(r).gross;
-      const tableRev = paidReservations.reduce((acc, r: any) => {
+      const gross = (r: Parameters<typeof tableRevenue>[0]) => tableRevenue(r).gross;
+      const tableRev = paidReservations.reduce((acc, r) => {
         const x = tableRevenue(r);
         acc.gross += x.gross; acc.refunded += x.refunded; acc.stripe += x.stripe;
         return acc;
@@ -783,7 +783,7 @@ export function useAnalyticsData({
       const uniqueTableCustomers = new Set(paidReservations.map(r => r.user_email).filter(Boolean)).size;
 
       const zoneCounts: Record<string, { count: number; revenue: number }> = {};
-      paidReservations.forEach((res: any) => {
+      paidReservations.forEach((res) => {
         const zoneName = res.table_zones?.name || 'Unknown Zone';
         if (!zoneCounts[zoneName]) zoneCounts[zoneName] = { count: 0, revenue: 0 };
         zoneCounts[zoneName].count += 1;
@@ -792,7 +792,7 @@ export function useAnalyticsData({
       const reservationsByZone = Object.entries(zoneCounts).map(([zoneName, data]) => ({ zoneName, ...data })).sort((a, b) => b.revenue - a.revenue);
 
       const tableRevenueByDay: Record<string, { revenue: number; reservations: number }> = {};
-      paidReservations.forEach((res: any) => {
+      paidReservations.forEach((res) => {
         const date = parisDay(res.created_at);
         if (!tableRevenueByDay[date]) tableRevenueByDay[date] = { revenue: 0, reservations: 0 };
         tableRevenueByDay[date].revenue += gross(res);
@@ -801,7 +801,7 @@ export function useAnalyticsData({
       const tableRevenueByDayArray = Object.entries(tableRevenueByDay).map(([date, data]) => ({ date, ...data })).sort((a, b) => a.date.localeCompare(b.date));
 
       const eventResCounts: Record<string, { count: number; revenue: number }> = {};
-      paidReservations.forEach((res: any) => {
+      paidReservations.forEach((res) => {
         const eventTitle = res.events?.title || 'Unknown Event';
         if (!eventResCounts[eventTitle]) eventResCounts[eventTitle] = { count: 0, revenue: 0 };
         eventResCounts[eventTitle].count += 1;
@@ -810,8 +810,8 @@ export function useAnalyticsData({
       const reservationsByEvent = Object.entries(eventResCounts).map(([eventTitle, data]) => ({ eventTitle, ...data })).sort((a, b) => b.revenue - a.revenue);
 
       const tableHourlyData = Array.from({ length: 24 }, (_, hour) => {
-        const hourRes = paidReservations.filter((r: any) => parisHour(r.created_at) === hour);
-        return { hour: `${hour}h`, reservations: hourRes.length, revenue: hourRes.reduce((sum: number, r: any) => sum + gross(r), 0) };
+        const hourRes = paidReservations.filter((r) => parisHour(r.created_at) === hour);
+        return { hour: `${hour}h`, reservations: hourRes.length, revenue: hourRes.reduce((sum: number, r) => sum + gross(r), 0) };
       }).filter(d => d.reservations > 0);
 
       setTableAnalytics({
@@ -824,7 +824,7 @@ export function useAnalyticsData({
       // ==================== UNIQUE GUESTS (deduped across categories) + PERIOD TOTALS ====================
       // A guest who bought a drink AND a ticket counts once (the old per-category sum double-counted).
       const guestEmails = new Set<string>();
-      [...paidOrders, ...paidTickets, ...paidReservations].forEach((r: any) => { if (r.user_email) guestEmails.add(r.user_email); });
+      [...paidOrders, ...paidTickets, ...paidReservations].forEach((r) => { if (r.user_email) guestEmails.add(r.user_email); });
       const uniqueGuests = guestEmails.size;
       setUniqueGuestsTotal(uniqueGuests);
       const totalsNow: PeriodTotals = {
@@ -853,7 +853,7 @@ export function useAnalyticsData({
       // ==================== PROCESS REFUND ANALYTICS ====================
       // All three sources are windowed on the SAME field (refunded_at) so a refund
       // issued today on an old booking is counted consistently across categories.
-      const refundOrdersP = (async (): Promise<any[]> => {
+      const refundOrdersP = (async () => {
       if (!isOrganizerScope && venueId) {
         let refundOrdersQuery = supabase
           .from('orders')
@@ -906,8 +906,8 @@ export function useAnalyticsData({
 
       // Fall back to created_at when refunded_at is missing, so no refund is silently
       // dropped from the by-day chart (previously tickets/tables used an empty date).
-      const refundDay = (r: any): string => parisDay(r.refunded_at || r.created_at);
-      refundedOrders.forEach((o: any) => {
+      const refundDay = (r: { refunded_at: string | null; created_at: string }): string => parisDay(r.refunded_at || r.created_at);
+      refundedOrders.forEach((o) => {
         allRefunds.push({
           type: 'order',
           amount: Number(o.refund_amount) || Number(o.total),
@@ -915,7 +915,7 @@ export function useAnalyticsData({
           date: refundDay(o),
         });
       });
-      (refundedTickets || []).forEach((tk: any) => {
+      (refundedTickets || []).forEach((tk) => {
         allRefunds.push({
           type: 'ticket',
           amount: Number(tk.refund_amount) || Number(tk.total_price),
@@ -923,7 +923,7 @@ export function useAnalyticsData({
           date: refundDay(tk),
         });
       });
-      (refundedTables || []).forEach((tr: any) => {
+      (refundedTables || []).forEach((tr) => {
         allRefunds.push({
           type: 'table_reservation',
           amount: Number(tr.refund_amount) || Number(tr.total_price),

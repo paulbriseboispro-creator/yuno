@@ -91,10 +91,10 @@ export default function VerifyPayment() {
         setStatus('error');
         setErrorMessage(t('verify.paymentNotConfirmed'));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Payment verification error:', error);
       setStatus('error');
-      setErrorMessage(error.message || t('verify.verificationFailed'));
+      setErrorMessage((error as { message?: string }).message || t('verify.verificationFailed'));
     }
   };
 

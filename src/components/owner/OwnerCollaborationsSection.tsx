@@ -71,11 +71,11 @@ export function OwnerCollaborationsSection({ venueId }: Props) {
 
       if (organizerIds.length > 0) {
         const { data: orgProfiles } = await supabase
-          .from('organizer_profiles' as any)
+          .from('organizer_profiles')
           .select('user_id, display_name, avatar_url, slug')
           .in('user_id', organizerIds);
 
-        (orgProfiles || []).forEach((p: any) => {
+        (orgProfiles || []).forEach(p => {
           organizerMap.set(p.user_id, {
             display_name: p.display_name,
             avatar_url: p.avatar_url,

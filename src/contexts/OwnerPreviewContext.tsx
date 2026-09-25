@@ -1,5 +1,5 @@
 import { createContext, useContext, useCallback } from 'react';
-import { useNavigate, NavigateOptions } from 'react-router-dom';
+import { useNavigate, NavigateOptions, type To } from 'react-router-dom';
 
 interface OwnerPreviewContextValue {
   isPreview: boolean;
@@ -26,7 +26,9 @@ export function usePreviewNavigate() {
       if (typeof to === 'string' && isPreview && to.startsWith('/club/')) {
         navigate(to.replace('/club/', '/owner/preview/'), options);
       } else {
-        navigate(to as any, options);
+        // `to` is a number only for history deltas; react-router routes that
+        // through the same call at runtime.
+        navigate(to as To, options);
       }
     },
     [navigate, isPreview],

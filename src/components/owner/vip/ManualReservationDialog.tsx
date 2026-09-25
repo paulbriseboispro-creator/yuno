@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { Loader2, UserPlus } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -58,7 +59,7 @@ export function ManualReservationDialog({ open, events, zones, defaultEventId, o
     if (!canSubmit) return;
     setBusy(true);
     try {
-      const { error } = await (supabase as any).rpc('create_manual_table_reservation', {
+      const { error } = await supabase.rpc('create_manual_table_reservation', {
         p_event_id: eventId,
         p_zone_id: zoneId,
         p_full_name: name.trim() || null,
@@ -69,7 +70,7 @@ export function ManualReservationDialog({ open, events, zones, defaultEventId, o
         p_minimum_spend: Math.max(0, parseFloat(minimum) || 0),
         p_assigned_table_id: null,
         p_remarks: null,
-      });
+      } as unknown as Database['public']['Functions']['create_manual_table_reservation']['Args']);
       if (error) throw error;
       toast.success(tt('Réservation créée', 'Reservation created', 'Reserva creada'));
       onCreated();

@@ -69,7 +69,7 @@ export default function AgencyProfile() {
     if (!affiliateId) return;
     let active = true;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('affiliates')
         .select('linktree_slug, banner_url')
         .eq('id', affiliateId)
@@ -102,7 +102,7 @@ export default function AgencyProfile() {
     // liens publics changent et que le nom est ensuite verrouillé 30 jours.
     if (isRenaming && !renameOpen) { setRenameOpen(true); return; }
     setSaving(true);
-    const { error } = await (supabase as any).rpc('update_agency_profile', {
+    const { error } = await supabase.rpc('update_agency_profile', {
       p_agency_id:        agency.id,
       p_name:             name.trim() || null,
       p_city:             city.trim() || null,
@@ -152,7 +152,7 @@ export default function AgencyProfile() {
         .upload(path, cropped, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('affiliate-media').getPublicUrl(path);
-      const { error: rpcError } = await (supabase as any).rpc('update_agency_profile', {
+      const { error: rpcError } = await supabase.rpc('update_agency_profile', {
         p_agency_id: agency.id,
         p_logo_url:  urlData.publicUrl,
       });
@@ -185,7 +185,7 @@ export default function AgencyProfile() {
         .upload(path, cropped, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('affiliate-media').getPublicUrl(path);
-      const { error: updateError } = await (supabase as any)
+      const { error: updateError } = await supabase
         .from('affiliates')
         .update({ banner_url: urlData.publicUrl })
         .eq('id', affiliateId);
@@ -203,7 +203,7 @@ export default function AgencyProfile() {
     const affiliateId = shell?.affiliateId;
     if (!affiliateId) return;
     setBannerBusy(true);
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('affiliates')
       .update({ banner_url: null })
       .eq('id', affiliateId);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,8 @@ interface Props {
   eventId: string;
   readOnly?: boolean;
 }
+
+type DrinkDeadlineType = 'hours_after_start' | 'fixed_time' | 'none';
 
 interface Round {
   id: string;
@@ -59,7 +62,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
     is_active: true,
     ticket_type: 'standard' as 'standard' | 'vip',
     includes_drink: false,
-    drink_deadline_type: 'fixed_time' as 'hours_after_start' | 'fixed_time' | 'none',
+    drink_deadline_type: 'fixed_time' as DrinkDeadlineType,
     drink_deadline_hours: '2',
     drink_cutoff_time: '02:00',
     audience: 'everyone' as TicketAudience,
@@ -76,8 +79,8 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
       ]);
       setTicketingEnabled(!!ev?.ticketing_enabled);
       setRounds((rs ?? []) as Round[]);
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -109,7 +112,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
             is_active: r.is_active,
             ticket_type: r.ticket_type,
             includes_drink: r.includes_drink ?? false,
-            drink_deadline_type: (r.drink_deadline_type as any) ?? 'fixed_time',
+            drink_deadline_type: (r.drink_deadline_type as DrinkDeadlineType) ?? 'fixed_time',
             drink_deadline_hours: String(r.drink_deadline_hours ?? 2),
             drink_cutoff_time: r.drink_cutoff_time ?? '02:00',
             audience: normalizeTicketAudience(r.audience),
@@ -135,7 +138,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
       toast.error(t('coEvent.nameAndPriceRequired'));
       return;
     }
-    const payload: any = {
+    const payload: TablesInsert<'ticket_rounds'> = {
       event_id: eventId,
       name: form.name.trim(),
       price: parseFloat(form.price),
@@ -317,7 +320,7 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
                   <select
                     className="w-full h-10 rounded-md border bg-background px-3 text-sm"
                     value={form.drink_deadline_type}
-                    onChange={(e) => setForm({ ...form, drink_deadline_type: e.target.value as any })}
+                    onChange={(e) => setForm({ ...form, drink_deadline_type: e.target.value as DrinkDeadlineType })}
                   >
                     <option value="fixed_time">{t('coEvent.fixedTime')}</option>
                     <option value="hours_after_start">{t('coEvent.hoursAfterStart')}</option>

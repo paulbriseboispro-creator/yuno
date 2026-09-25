@@ -17,7 +17,7 @@ export default function AgencyAnnouncements() {
   const { agency } = useAgency();
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const db = supabase as any;
+  const db = supabase;
 
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);

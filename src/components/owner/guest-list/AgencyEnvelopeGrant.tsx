@@ -29,7 +29,7 @@ export function AgencyEnvelopeGrant({
 }) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const db = supabase as any;
+  const db = supabase;
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -49,10 +49,10 @@ export function AgencyEnvelopeGrant({
     ]);
 
     const envByAgency = new Map<string, { quota: number | null; mode: string | null }>();
-    for (const e of (envRes.data ?? []) as any[]) {
+    for (const e of envRes.data ?? []) {
       envByAgency.set(e.agency_id, { quota: e.quota, mode: e.agency_distribution_mode });
     }
-    const next: Row[] = ((cRes.data ?? []) as any[]).map(c => {
+    const next: Row[] = (cRes.data ?? []).map(c => {
       const env = envByAgency.get(c.agency_id);
       const q = env ? env.quota : c.gl_default_quota;
       return {

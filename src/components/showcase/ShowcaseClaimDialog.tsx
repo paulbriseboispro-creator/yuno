@@ -92,10 +92,10 @@ export function ShowcaseClaimDialog({ open, onOpenChange, language, entityName }
     setSubmitting(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await supabase.rpc('request_showcase_claim' as any, {
+      const { data, error: rpcError } = await supabase.rpc('request_showcase_claim', {
         p_email: trimmed,
       });
-      const result = data as { ok?: boolean; error?: string } | null;
+      const result = data as unknown as { ok?: boolean; error?: string } | null;
       if (rpcError || !result?.ok) {
         setError(result?.error === 'invalid_email' ? c.errInvalid : c.errUnknown);
         setSubmitting(false);

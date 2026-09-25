@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Trash2, Key, Shield, Wine, Pencil, UserCog, RefreshCw, CheckCircle, Crown, Shirt, Lock, Users, Megaphone, Activity, Tag, Check, X } from 'lucide-react';
+import { UserPlus, Trash2, Key, Shield, Wine, Pencil, UserCog, RefreshCw, CheckCircle, Crown, Shirt, Lock, Users, Megaphone, Activity, Tag, Check, X, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamBriefingTab } from '@/components/owner/staff/TeamBriefingTab';
 import { TeamActivityTab } from '@/components/owner/staff/TeamActivityTab';
@@ -70,7 +70,7 @@ const defaultManagerPermissions: ManagerPermissions = {
   can_view_live: false, can_manage_vip_service: false,
 };
 
-const ROLE_CONFIG: Record<EmployeeRole, { labelKey: string; color: string; bg: string; icon: any }> = {
+const ROLE_CONFIG: Record<EmployeeRole, { labelKey: string; color: string; bg: string; icon: LucideIcon }> = {
   bouncer:   { labelKey: 'owner.stf.roleBouncer',  color: 'var(--acc-fb923c)', bg: 'rgba(251,146,60,0.12)',   icon: Shield  },
   barman:    { labelKey: 'owner.stf.roleBarman',   color: 'var(--acc-60a5fa)', bg: 'rgba(96,165,250,0.12)',    icon: Wine    },
   manager:   { labelKey: 'owner.stf.roleManager',  color: 'var(--acc-a78bfa)', bg: 'rgba(167,139,250,0.12)',   icon: UserCog },
@@ -241,8 +241,8 @@ export default function OwnerStaff() {
       setIsDialogOpen(false);
       setFormData({ email: '', firstName: '', roles: [], managerPermissions: { ...defaultManagerPermissions }, isClickCollectManager: false });
       fetchEmployees();
-    } catch (error: any) {
-      const msg = error.message || t('owner.cannotAddEmployee');
+    } catch (error: unknown) {
+      const msg = (error as { message?: string }).message || t('owner.cannotAddEmployee');
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
     }
   };
@@ -262,8 +262,8 @@ export default function OwnerStaff() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast({ title: t('common.success'), description: t('owner.staffInviteSent') });
-    } catch (error: any) {
-      toast({ title: t('common.error'), description: error.message || t('owner.cannotAddEmployee'), variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: t('common.error'), description: (error as { message?: string }).message || t('owner.cannotAddEmployee'), variant: 'destructive' });
     }
   };
 
@@ -271,8 +271,8 @@ export default function OwnerStaff() {
     try {
       await supabase.from('staff_invitations').update({ status: 'revoked' }).eq('id', inviteId);
       fetchEmployees();
-    } catch (error: any) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: t('common.error'), description: (error as { message?: string }).message, variant: 'destructive' });
     }
   };
 
@@ -308,7 +308,7 @@ export default function OwnerStaff() {
       toast({ title: t('common.success'), description: rolesToAdd.length > 0 ? t('owner.staffInviteSent') : t('owner.employeeUpdated') });
       setIsEditDialogOpen(false); setSelectedEmployee(null);
       fetchEmployees();
-    } catch (error: any) { toast({ title: t('common.error'), description: error.message || t('owner.cannotUpdateEmployee'), variant: 'destructive' }); }
+    } catch (error: unknown) { toast({ title: t('common.error'), description: (error as { message?: string }).message || t('owner.cannotUpdateEmployee'), variant: 'destructive' }); }
   };
 
   const handleToggleClickCollectManager = async (employeeId: string, currentStatus: boolean) => {
@@ -334,8 +334,8 @@ export default function OwnerStaff() {
       toast({ title: t('ownerteam.titleSaved') });
       setTitleEditId(null);
       fetchEmployees();
-    } catch (error: any) {
-      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: t('common.error'), description: (error as { message?: string }).message, variant: 'destructive' });
     } finally {
       setTitleSaving(false);
     }
@@ -348,7 +348,7 @@ export default function OwnerStaff() {
       if (error) throw error;
       toast({ title: t('common.success'), description: t('owner.employeeDeleted') });
       fetchEmployees();
-    } catch (error: any) { toast({ title: t('common.error'), description: error.message || t('owner.cannotDeleteEmployee'), variant: 'destructive' }); }
+    } catch (error: unknown) { toast({ title: t('common.error'), description: (error as { message?: string }).message || t('owner.cannotDeleteEmployee'), variant: 'destructive' }); }
   };
 
   const permissionLabels: Record<keyof ManagerPermissions, string> = {

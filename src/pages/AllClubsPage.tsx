@@ -37,7 +37,7 @@ export default function AllClubsPage() {
         .eq('is_hidden', false)
         .order('name', { ascending: true });
       setClubs(
-        (data || []).map((v: any) => ({
+        (data || []).map((v) => ({
           id: v.id,
           name: v.name,
           city: v.city,

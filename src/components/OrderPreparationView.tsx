@@ -59,9 +59,9 @@ export function OrderPreparationView({ order, onComplete, onCancel }: OrderPrepa
             <h2 className="text-lg md:text-2xl font-semibold mb-4 md:mb-6">{t('clickCollect.orderItems')}</h2>
             <div className="space-y-3 md:space-y-4">
               {order.items.map((item, index) => {
-                const qty = item.qty || (item as any).quantity || 1;
+                const qty = item.qty || (item as typeof item & { quantity?: number }).quantity || 1;
                 const name = item.name || 'Unknown';
-                const unitPrice = item.unitPrice || (item as any).price || 0;
+                const unitPrice = item.unitPrice || (item as typeof item & { price?: number }).price || 0;
                 return (
                 <motion.div
                   key={index}

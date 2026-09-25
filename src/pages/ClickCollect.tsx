@@ -20,7 +20,7 @@ import {
 import { PublicPage } from '@/components/PublicPage';
 import { ProBackButton } from '@/components/pro/ProBackButton';
 import { ClickCollectSkeleton } from '@/components/skeletons/ClickCollectSkeleton';
-import { Order, NotifyStatus, PrepStatus } from '@/types';
+import { Order, NotifyStatus, PrepStatus, CartItem } from '@/types';
 
 // Represents a group of orders from the same user+event merged into one card
 interface MergedOrder extends Order {
@@ -149,7 +149,7 @@ export default function ClickCollect() {
         id: order.id,
         userEmail: order.user_email || undefined,
         venueId: order.venue_id,
-        items: order.items as any,
+        items: order.items as unknown as CartItem[],
         total: Number(order.total),
         status: order.status as 'pending' | 'paid' | 'served',
         createdAt: order.created_at,
@@ -170,11 +170,11 @@ export default function ClickCollect() {
       // Group orders by user_email + event_id so same client = single card
       const groupMap = new Map<string, MergedOrder>();
       mappedOrders.forEach(order => {
-        const key = `${order.userEmail || order.id}__${(order as any).eventId || 'no-event'}`;
+        const key = `${order.userEmail || order.id}__${(order as Order & { eventId?: string }).eventId || 'no-event'}`;
         const existing = groupMap.get(key);
         if (existing) {
           // Merge items and totals
-          existing.items = [...(existing.items as any[]), ...(order.items as any[])];
+          existing.items = [...existing.items, ...order.items];
           existing.total += order.total;
           existing.sourceOrderIds.push(order.id);
           // Use earliest createdAt
@@ -247,7 +247,7 @@ export default function ClickCollect() {
       }
 
       const updatedOrders = await fetchOrders();
-      const updatedOrder = updatedOrders?.find((o: any) => o.id === orderId);
+      const updatedOrder = updatedOrders?.find((o) => o.id === orderId);
       if (updatedOrder?.prepClaimedBy !== currentUserId) {
         const barmanName = getBarmanName(updatedOrder?.prepClaimedBy || '');
         toast.error(`${t('clickCollect.alreadyClaimed')} ${barmanName}`);
@@ -408,7 +408,7 @@ export default function ClickCollect() {
           )}
 
           <div className="space-y-1 mb-2 sm:mb-3">
-            {(order.items as any[]).map((item: any, idx: number) => (
+            {order.items.map((item, idx: number) => (
               <div key={idx} className="flex justify-between text-xs sm:text-sm gap-2">
                 <span className="text-muted-foreground truncate">
                   {item.qty}x {item.name}
@@ -607,7 +607,7 @@ export default function ClickCollect() {
 
               <div className="space-y-2">
                 <p className="font-medium">{t('clickCollect.items')}</p>
-                {(selectedOrder.items as any[]).map((item: any, idx: number) => (
+                {selectedOrder.items.map((item, idx: number) => (
                   <div key={idx} className="flex justify-between gap-3 text-sm">
                     <span className="min-w-0 truncate">{item.qty}x {item.name}</span>
                     <span className="font-medium flex-none tabular-nums">{(item.unitPrice * item.qty).toFixed(2)}€</span>

@@ -50,7 +50,7 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(path);
       setLogoUrl(publicUrl);
-      const { error: updErr } = await supabase.from('venues').update({ logo_url: publicUrl } as any).eq('id', venueId);
+      const { error: updErr } = await supabase.from('venues').update({ logo_url: publicUrl }).eq('id', venueId);
       if (updErr) throw updErr;
       toast.success(t('onboarding.logoUploaded'));
     } catch {
@@ -68,14 +68,14 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
     try {
       const { error } = await supabase
         .from('venues')
-        .update({ name: name.trim(), city: city.trim(), address: address.trim() } as any)
+        .update({ name: name.trim(), city: city.trim(), address: address.trim() })
         .eq('id', venueId);
       if (error) throw error;
       // Geocode for the public map (best-effort, non-blocking on failure).
       try {
         const { data } = await supabase.functions.invoke('geocode-address', { body: { address: address.trim() } });
         if (data?.latitude && data?.longitude) {
-          await supabase.from('venues').update({ latitude: data.latitude, longitude: data.longitude } as any).eq('id', venueId);
+          await supabase.from('venues').update({ latitude: data.latitude, longitude: data.longitude }).eq('id', venueId);
         }
       } catch {
         // silent — geocoding can be retried later

@@ -6,6 +6,7 @@ import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Search, Download, FileText, ChevronDown, Ticket, Wine, Sparkles, Loader2, FileSpreadsheet, Files, Archive, X } from 'lucide-react';
@@ -28,7 +29,7 @@ const INNER_BG  = 'rgb(var(--ink)/0.032)';
 const CARD_BG   = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
-const TYPE_CFG: Record<InvoiceType, { label_key: string; color: string; bg: string; border: string; Icon: React.FC<any> }> = {
+const TYPE_CFG: Record<InvoiceType, { label_key: string; color: string; bg: string; border: string; Icon: React.ComponentType<{ className?: string }> }> = {
   ticket: { label_key: 'invoices.ticket',   color: RED,       bg: 'rgba(232,25,44,0.10)',    border: 'rgba(232,25,44,0.30)',   Icon: Ticket   },
   table:  { label_key: 'invoices.vipTable', color: 'var(--acc-fcd34d)', bg: 'rgba(251,191,36,0.10)',  border: 'rgba(251,191,36,0.25)',  Icon: Sparkles },
   order:  { label_key: 'invoices.order',    color: 'var(--acc-818cf8)', bg: 'rgba(129,140,248,0.10)', border: 'rgba(129,140,248,0.25)', Icon: Wine     },
@@ -148,8 +149,8 @@ export default function OwnerInvoices() {
     setLoading(true);
 
     try {
-      let invoiceData: any[] | null = null;
-      let error: any = null;
+      let invoiceData: Tables<'invoices'>[] | null = null;
+      let error: unknown = null;
 
       if (isOrganizerScope) {
         // Organizer scope: invoices tagged with this organizer OR linked to one of their events.
@@ -177,12 +178,12 @@ export default function OwnerInvoices() {
           .maybeSingle();
         if (orgProfile) {
           setOrgIssuer({
-            name: (orgProfile as any).legal_name || (orgProfile as any).display_name || 'Organisateur',
-            legalName: (orgProfile as any).legal_name || (orgProfile as any).display_name || undefined,
-            address: (orgProfile as any).legal_address || undefined,
-            siret: (orgProfile as any).siret || undefined,
-            vatNumber: (orgProfile as any).vat_number || undefined,
-            email: (orgProfile as any).billing_email || undefined,
+            name: orgProfile.legal_name || orgProfile.display_name || 'Organisateur',
+            legalName: orgProfile.legal_name || orgProfile.display_name || undefined,
+            address: orgProfile.legal_address || undefined,
+            siret: orgProfile.siret || undefined,
+            vatNumber: orgProfile.vat_number || undefined,
+            email: orgProfile.billing_email || undefined,
           });
         }
       } else {
@@ -392,7 +393,7 @@ export default function OwnerInvoices() {
     }
 
     if (storedInvoice?.items && Array.isArray(storedInvoice.items)) {
-      items = (storedInvoice.items as any[]).map(item => ({
+      items = (storedInvoice.items as unknown as Array<{ description?: string; quantity?: number; unitPrice?: number; total?: number }>).map(item => ({
         description: item.description || 'Item',
         quantity: item.quantity || 1,
         unitPrice: item.unitPrice || 0,

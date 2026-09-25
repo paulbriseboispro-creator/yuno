@@ -129,7 +129,7 @@ export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkO
         id: order.id,
         userEmail: order.user_email || undefined,
         venueId: order.venue_id,
-        items: order.items as any,
+        items: order.items as unknown as Order['items'],
         total: Number(order.total),
         serviceFee: Number(order.service_fee || 0),
         status: order.status as 'pending' | 'paid' | 'served' | 'refunded' | 'cancelled',

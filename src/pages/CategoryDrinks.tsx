@@ -100,7 +100,7 @@ export default function CategoryDrinks() {
 
         if (error) throw error;
 
-        const mappedDrinks: Drink[] = (data || []).map((drink: any) => ({
+        const mappedDrinks: Drink[] = (data || []).map(drink => ({
           id: drink.id,
           name: drink.name,
           description: drink.description || '',

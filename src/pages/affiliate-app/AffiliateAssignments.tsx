@@ -32,6 +32,16 @@ type AssignmentRow = {
   submitted_url: string | null;
   assigned_at: string;
 };
+/** Ligne brute de affiliate_event_assignments (select du suivi). */
+type RawAssignment = {
+  id: string;
+  member_id?: string | null;
+  status: string;
+  submitted_url: string | null;
+  assigned_at: string;
+  affiliate_events: { name: string; event_date: string } | null;
+  affiliate_members: { first_name: string | null; last_name: string | null } | null;
+};
 
 const STATUS_TONE: Record<string, 'warn' | 'success' | 'muted'> = {
   pending_url: 'warn', url_submitted: 'success', skipped: 'muted',
@@ -88,7 +98,7 @@ export default function AffiliateAssignments() {
     ]);
 
     setEvents((evData ?? []) as EventOption[]);
-    setMembers((memData ?? []).map((m: any) => ({
+    setMembers((memData ?? []).map((m) => ({
       id: m.id,
       display_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.id.slice(0, 8),
       venue_scope: m.venue_scope ?? null,
@@ -98,7 +108,7 @@ export default function AffiliateAssignments() {
     // le sélecteur, aux côtés des soirées externes.
     if (aff.agency_id) {
       const [{ data: yEv }, { data: yProm }] = await Promise.all([
-        (supabase as any).rpc('get_agency_upcoming_events', {
+        supabase.rpc('get_agency_upcoming_events', {
           p_agency_id: aff.agency_id,
           p_days_ahead: 60,
         }),
@@ -164,7 +174,7 @@ export default function AffiliateAssignments() {
           (selectedYunoEvent.venue_id && r.venue_id === selectedYunoEvent.venue_id) ||
           (selectedYunoEvent.organizer_user_id && r.organizer_user_id === selectedYunoEvent.organizer_user_id)
         ) ?? person.records[0];
-        const { error } = await (supabase as any).rpc('assign_agency_promoter_to_event', {
+        const { error } = await supabase.rpc('assign_agency_promoter_to_event', {
           p_promoter_id: record.id,
           p_event_id: selectedYunoEvent.event_id,
           p_assign: true,
@@ -230,7 +240,7 @@ export default function AffiliateAssignments() {
       .order('assigned_at', { ascending: false })
       .limit(100);
 
-    const rows: AssignmentRow[] = (data ?? []).map((r: any) => ({
+    const rows: AssignmentRow[] = ((data ?? []) as unknown as RawAssignment[]).map((r) => ({
       id: r.id,
       event_name: r.affiliate_events?.name ?? '—',
       event_date: r.affiliate_events?.event_date ?? '',

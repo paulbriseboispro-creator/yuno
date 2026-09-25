@@ -335,7 +335,7 @@ export function PromoterDataProvider({ children }: { children: ReactNode }) {
     if (!promoter?.id) return;
     (async () => {
       // featured_on_linktree n'est pas encore dans les types générés → cast.
-      const { data } = await (supabase as any).from('promoter_event_assignments')
+      const { data } = await supabase.from('promoter_event_assignments')
         .select('event_id, can_access_guestlist, can_access_tables, featured_on_linktree')
         .eq('promoter_id', promoter.id)
         .eq('status', 'active') as { data: Array<{ event_id: string; can_access_guestlist: boolean | null; can_access_tables: boolean | null; featured_on_linktree: boolean | null }> | null };

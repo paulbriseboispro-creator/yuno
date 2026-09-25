@@ -7,7 +7,7 @@ export async function retrySupabaseAction<T>(
   maxRetries = 3,
   baseDelay = 500
 ): Promise<T> {
-  let lastError: any;
+  let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();

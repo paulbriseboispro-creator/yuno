@@ -207,9 +207,9 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
       onCreated?.();
       reset();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Propose event error:', err);
-      toast.error(err.message || t('proposeEvent.createError'));
+      toast.error((err as Error).message || t('proposeEvent.createError'));
     } finally {
       setSaving(false);
     }

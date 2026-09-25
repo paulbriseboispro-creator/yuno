@@ -10,6 +10,11 @@ import { toast } from 'sonner';
 import { CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { SupportOfferScreen } from '@/components/onboarding/SupportOfferScreen';
 
+interface PlatformInvitation {
+  email: string;
+  organization_name?: string | null;
+}
+
 export default function AcceptPlatformInvitation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -17,7 +22,7 @@ export default function AcceptPlatformInvitation() {
   const { language } = useLanguage();
   const token = searchParams.get('token');
 
-  const [invitation, setInvitation] = useState<any>(null);
+  const [invitation, setInvitation] = useState<PlatformInvitation | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -41,7 +46,7 @@ export default function AcceptPlatformInvitation() {
 
   const handleAccept = async () => {
     if (!user) {
-      navigate(`/auth?invite=platform&token=${token}&email=${encodeURIComponent(invitation.email)}`);
+      navigate(`/auth?invite=platform&token=${token}&email=${encodeURIComponent(invitation!.email)}`);
       return;
     }
     setSubmitting(true);
@@ -61,8 +66,8 @@ export default function AcceptPlatformInvitation() {
       }
       setAccepted(true);
       setTimeout(() => navigate('/organizer-app'), 1500);
-    } catch (e: any) {
-      toast.error(e.message ?? 'Error');
+    } catch (e: unknown) {
+      toast.error((e as { message?: string }).message ?? 'Error');
     } finally {
       setSubmitting(false);
     }

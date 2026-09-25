@@ -393,7 +393,7 @@ export default function PromoterHub() {
   useEffect(() => {
     if (venues.length === 0) return;
     const primaryVenueId = venues[0].venue_id;
-    (supabase as any)
+    supabase
       .from('venue_subscription_public')
       .select('subscription_plan')
       .eq('venue_id', primaryVenueId)

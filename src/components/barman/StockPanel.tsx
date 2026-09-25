@@ -41,7 +41,7 @@ export function StockPanel({ venueId }: Props) {
   useEffect(() => {
     if (!open || !venueId) return;
     setLoading(true);
-    (supabase as any)
+    supabase
       .from('drinks')
       .select('id, name, collection, out_of_stock')
       .eq('venue_id', venueId)

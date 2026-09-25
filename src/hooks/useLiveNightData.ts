@@ -74,6 +74,31 @@ type LiveIncidentRow = Pick<Tables<'customer_incidents'>, 'id' | 'incident_type'
 type LiveNightOpsRow = Pick<Tables<'night_ops_events'>,
   'id' | 'kind' | 'note' | 'reported_by' | 'created_at'>;
 
+/** Lignes brutes reçues par Realtime (payload non typé) : seuls les champs lus. */
+type RtOrderRow = {
+  id: string;
+  order_number?: number | string | null;
+  total?: number | string | null;
+  created_at: string;
+  user_email?: string;
+  prep_status?: string | null;
+  status?: string | null;
+  served_at?: string | null;
+  refunded_at?: string | null;
+  refund_amount?: number | string | null;
+};
+type RtScanRow = {
+  id: string;
+  event_id?: string | null;
+  full_name?: string | null;
+  user_email?: string | null;
+  entry_scanned?: boolean | null;
+  entry_scanned_at?: string | null;
+  created_at: string;
+};
+type RtCloakroomRow = { id: string; cloakroom_number?: number | string | null; created_at: string };
+type RtGuestListRow = { guest_list_id?: string | null };
+
 export interface StaffMember {
   /** Unique row key: `${userId}:${role}` — one person can hold several roles in one night. */
   id: string;
@@ -622,8 +647,8 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // Prises de poste : rend visible un staff qui n'a encore rien traité
       // (présent mais compteur à zéro).
       const STAFF_ROLES: StaffMember['role'][] = ['barman', 'bouncer', 'vip_host', 'cloakroom'];
-      nightOps.filter((e: any) => e.kind === 'shift_start').forEach((e: any) => {
-        const role = STAFF_ROLES.includes(e.note) ? (e.note as StaffMember['role']) : null;
+      nightOps.filter((e) => e.kind === 'shift_start').forEach((e) => {
+        const role = STAFF_ROLES.includes(e.note as StaffMember['role']) ? (e.note as StaffMember['role']) : null;
         if (!role) return;
         const key = `${e.reported_by}:${role}`;
         const entry = staffMap.get(key) || { userId: e.reported_by, role, count: 0, firstAt: null, lastAt: null };
@@ -661,12 +686,12 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // Station aggregates for the command center
       if (extendedOpt) {
         const now = new Date();
-        const vipStats = computeVipStats(tables as any[], vipConsumptions, vipMoments);
+        const vipStats = computeVipStats(tables as unknown as Parameters<typeof computeVipStats>[0], vipConsumptions, vipMoments);
         setExtended({
           door: computeDoorStats(scannedTickets, scannedTables, glEntries, vipStats.tables, activeEvent?.start_at ?? null, now),
-          bar: computeBarStats(orders as any[], now),
+          bar: computeBarStats(orders as unknown as Parameters<typeof computeBarStats>[0], now),
           vip: vipStats,
-          cloakroom: computeCloakroomStats(cloakroom as any[]),
+          cloakroom: computeCloakroomStats(cloakroom as unknown as Parameters<typeof computeCloakroomStats>[0]),
           incidents: nightIncidents,
           outOfStock: outOfStockNames,
         });
@@ -740,10 +765,10 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${venueId}` }, (payload) => {
         scheduleRefetch();
         if (payload.eventType === 'INSERT') {
-          const o = payload.new as any;
+          const o = payload.new as RtOrderRow;
           addRealtimeFeedItem({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
         } else if (payload.eventType === 'UPDATE') {
-          const o = payload.new as any;
+          const o = payload.new as RtOrderRow;
           if (o.prep_status === 'ready') addRealtimeFeedItem({ id: feedId('rdy', o.id), type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: new Date().toISOString() });
           if (o.status === 'served' || o.prep_status === 'served') addRealtimeFeedItem({ id: feedId('srv', o.id), type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || new Date().toISOString() });
           if (o.refunded_at && !payload.old?.refunded_at) addRealtimeFeedItem({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || 0).toFixed(0)} €`, timestamp: o.refunded_at });
@@ -753,7 +778,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     const ticketChannel = supabase
       .channel(uniqueChannel('live-tickets'))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets', ...(eventFilter ? { filter: eventFilter } : {}) }, (payload) => {
-        const t = payload.new as any;
+        const t = payload.new as RtScanRow;
         if (!isOurEvent(t.event_id)) return;
         if (t.entry_scanned && !payload.old?.entry_scanned) {
           addRealtimeFeedItem({ id: feedId('tik', t.id), type: 'ticket_scanned', description: t.full_name || t.user_email || 'Guest', timestamp: t.entry_scanned_at || new Date().toISOString() });
@@ -764,13 +789,13 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     const tableChannel = supabase
       .channel(uniqueChannel('live-tables'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations', ...(eventFilter ? { filter: eventFilter } : {}) }, (payload) => {
-        const r = (payload.new ?? payload.old) as any;
+        const r = (payload.new ?? payload.old) as Partial<RtScanRow> | undefined;
         if (!isOurEvent(r?.event_id)) return;
         if (payload.eventType === 'INSERT') {
-          addRealtimeFeedItem({ id: feedId('tbl', (payload.new as any).id), type: 'table_booked', description: (payload.new as any).full_name || 'VIP', timestamp: (payload.new as any).created_at });
+          addRealtimeFeedItem({ id: feedId('tbl', (payload.new as RtScanRow).id), type: 'table_booked', description: (payload.new as RtScanRow).full_name || 'VIP', timestamp: (payload.new as RtScanRow).created_at });
         }
         if (payload.eventType === 'UPDATE') {
-          const row = payload.new as any;
+          const row = payload.new as RtScanRow;
           if (row.entry_scanned && !payload.old?.entry_scanned) {
             addRealtimeFeedItem({ id: feedId('vip', row.id), type: 'vip_scanned', description: row.full_name || 'VIP', timestamp: row.entry_scanned_at || new Date().toISOString() });
           }
@@ -781,7 +806,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     const cloakroomChannel = supabase
       .channel(uniqueChannel('live-cloakroom'))
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cloakroom_transactions', filter: `venue_id=eq.${venueId}` }, (payload) => {
-        const c = payload.new as any;
+        const c = payload.new as RtCloakroomRow;
         addRealtimeFeedItem({ id: feedId('clk', c.id), type: 'cloakroom', description: `#${c.cloakroom_number || ''}`, timestamp: c.created_at });
         scheduleRefetch();
       }).subscribe();
@@ -799,7 +824,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
           supabase
             .channel(uniqueChannel('live-guest-list'))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_list_entries' }, (payload) => {
-              const g = (payload.new ?? payload.old) as any;
+              const g = (payload.new ?? payload.old) as RtGuestListRow | undefined;
               if (!g?.guest_list_id || !glListIds.current.has(g.guest_list_id)) return;
               scheduleRefetch();
             }).subscribe(),

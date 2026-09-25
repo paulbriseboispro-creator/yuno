@@ -281,9 +281,9 @@ export default function Cart() {
       clearCart();
       navigate(`/order-confirmation?type=order&id=${data.orderId}`);
       toast({ title: t('cart.success'), description: t('upsell.creditUsedSuccess') });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Credit checkout error:', err);
-      toast({ title: t('cart.error'), description: err.message, variant: 'destructive' });
+      toast({ title: t('cart.error'), description: (err as { message?: string }).message, variant: 'destructive' });
     } finally { setIsProcessing(false); }
   };
 
@@ -354,7 +354,7 @@ export default function Cart() {
         mixerIds: item.kind === 'bottle' ? (item.mixers ?? []).map(m => m.id) : undefined,
       }));
       // language : les refus serveur (paiements non configurés, etc.) arrivent dans la langue de l'acheteur — même pattern que TicketCheckout/TableCheckout.
-      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId, language, ageDeclaration: { confirmed: true, birthDate: ageBirthDate } };
+      const body: Record<string, unknown> = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId, language, ageDeclaration: { confirmed: true, birthDate: ageBirthDate } };
 
       if (!user) {
         body.guestEmail = guestEmail.trim();
@@ -395,11 +395,11 @@ export default function Cart() {
       }
 
       throw new Error('No checkout URL returned');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Checkout error:', error);
       haptics.error();
       sessionStorage.removeItem(pendingSessionKey);
-      toast({ title: t('cart.error'), description: error.message || t('cart.errorDesc'), variant: 'destructive' });
+      toast({ title: t('cart.error'), description: (error as { message?: string }).message || t('cart.errorDesc'), variant: 'destructive' });
       setIsProcessing(false);
     }
   };

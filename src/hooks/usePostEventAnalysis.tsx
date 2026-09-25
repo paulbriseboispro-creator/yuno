@@ -182,7 +182,7 @@ export function usePostEventAnalysis(
         .in('event_id', ids)
         .eq('status', 'paid'),
       // Organizers never sell drinks → no orders contribute to their benchmark.
-      isOrg ? Promise.resolve({ data: [] as any[] }) : supabase
+      isOrg ? Promise.resolve({ data: [] as never[] }) : supabase
         .from('orders')
         .select('total, service_fee, refunded_at, refund_amount, items, event_id')
         .eq('venue_id', venueId!)
@@ -288,7 +288,7 @@ export function usePostEventAnalysis(
             .in('event_id', eventIds)
             .eq('status', 'paid'),
           // Organizers don't sell drinks → no orders.
-          isOrg ? Promise.resolve({ data: [] as any[] }) : supabase
+          isOrg ? Promise.resolve({ data: [] as never[] }) : supabase
             .from('orders')
             .select('total, service_fee, created_at, refunded_at, refund_amount, items, user_email')
             .eq('venue_id', venueId!)

@@ -1,5 +1,6 @@
 // Shared block-type metadata and starter templates for the unified email editor.
 import {
+  type LucideIcon,
   Heading, Type, Image as ImageIcon, MousePointerClick, CalendarDays, Minus, MoveVertical,
 } from 'lucide-react';
 import { newBlock, type EmailBlock } from '@/lib/emailCampaign';
@@ -7,7 +8,7 @@ import { newBlock, type EmailBlock } from '@/lib/emailCampaign';
 export type EmailType = 'informational' | 'promotional';
 type TFn = (key: string) => string;
 
-export const BLOCK_TYPES: { type: EmailBlock['type']; labelKey: string; Icon: any }[] = [
+export const BLOCK_TYPES: { type: EmailBlock['type']; labelKey: string; Icon: LucideIcon }[] = [
   { type: 'header', labelKey: 'em.block.header', Icon: Heading },
   { type: 'text', labelKey: 'em.block.text', Icon: Type },
   { type: 'image', labelKey: 'em.block.image', Icon: ImageIcon },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentProps, type ComponentType } from 'react';
 import { Plus, Pencil, Trash2, Package, Layers, Save, FolderOpen, Zap, Calendar, Check, LayoutGrid, Clock, Ban } from 'lucide-react';
 import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -6,6 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { TableZone, TablePack, EventTableSettings } from '@/types/ticketing';
 import { Event } from '@/types';
 import { toast } from 'sonner';
@@ -82,7 +83,7 @@ export default function OwnerTables() {
   const [activeTab, setActiveTab] = useTabParam<TabKey>('events', ['events', 'zones', 'packs', 'presets']);
   const [showFloorPlanEditor, setShowFloorPlanEditor] = useState(false);
   const [labelsSaving, setLabelsSaving] = useState(false);
-  const [floorPlan, setFloorPlan] = useState<any>(null);
+  const [floorPlan, setFloorPlan] = useState<Tables<'venue_floor_plans'> | null>(null);
 
   const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
@@ -339,7 +340,7 @@ export default function OwnerTables() {
 
   if (venueLoading || loading) return <OwnerPageSkeleton />;
 
-  const TABS: { key: TabKey; label: string; Icon: any }[] = [
+  const TABS: { key: TabKey; label: string; Icon: ComponentType<{ className?: string }> }[] = [
     { key: 'events',  label: t('tables.events'),  Icon: Calendar },
     { key: 'zones',   label: t('tables.zones'),   Icon: Layers },
     { key: 'packs',   label: t('tables.packs'),   Icon: Package },
@@ -370,7 +371,7 @@ export default function OwnerTables() {
                 <LayoutGrid className="w-4 h-4 flex-shrink-0" style={{ color: POS }} />
                 <div>
                   <p style={{ color: POS, fontSize: 13, fontWeight: 500 }}>{t('vipHost.floorPlanConfigured')}</p>
-                  <p style={{ color: T3, fontSize: 11.5 }}>{(floorPlan.layout as any)?.tables?.length || 0} {t('vipHost.tablesConfigured')}</p>
+                  <p style={{ color: T3, fontSize: 11.5 }}>{(floorPlan.layout as { tables?: unknown[] } | null)?.tables?.length || 0} {t('vipHost.tablesConfigured')}</p>
                 </div>
               </div>
               <button onClick={() => setShowFloorPlanEditor(true)}
@@ -884,8 +885,8 @@ export default function OwnerTables() {
         open={showFloorPlanEditor}
         onClose={() => setShowFloorPlanEditor(false)}
         venueId={venueId || ''}
-        existingLayout={floorPlan?.layout as any}
-        existingBackgroundUrl={(floorPlan as any)?.background_image_url}
+        existingLayout={floorPlan?.layout as unknown as ComponentProps<typeof FloorPlanEditor>['existingLayout']}
+        existingBackgroundUrl={floorPlan?.background_image_url}
         zones={zones}
         packs={packs.map(pk => ({ id: pk.id, name: pk.name, zoneId: pk.zoneId, baseCapacity: pk.baseCapacity, basePrice: pk.basePrice, maxExtraPersons: pk.maxExtraPersons, limitTables: pk.limitTables, tablesCount: pk.tablesCount }))}
         onSave={async () => { const fp = await fetchFloorPlan(); await syncZoneCountsFromLayout(fp?.layout); }}

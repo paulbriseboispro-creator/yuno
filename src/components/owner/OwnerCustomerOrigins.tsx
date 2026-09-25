@@ -284,8 +284,8 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                   style={{ width: '100%', height: 'auto' }}
                 >
                   {worldTopo != null && (
-                  <Geographies geography={worldTopo as any} parseGeographies={splitTerritories}>
-                    {({ geographies }: { geographies: any[] }) => (
+                  <Geographies geography={worldTopo as Record<string, unknown>} parseGeographies={splitTerritories}>
+                    {({ geographies }: { geographies: Array<Feature & { rsmKey: string }> }) => (
                       <>
                       {geographies.map((geo) => {
                         const numeric = Number(geo.id);
@@ -298,11 +298,11 @@ export function OwnerCustomerOrigins({ customers, onSelectCountry, scope }: Prop
                           <Geography
                             key={geo.rsmKey}
                             geography={geo}
-                            onMouseEnter={(e: any) => {
+                            onMouseEnter={(e: React.MouseEvent<SVGPathElement>) => {
                               if (!stat || !country) return;
                               setHover({ name: getCountryName(country, language), flag: country.flag, count: stat.count, revenue: stat.revenue, x: e.clientX, y: e.clientY });
                             }}
-                            onMouseMove={(e: any) => { if (stat) setHover(h => h ? { ...h, x: e.clientX, y: e.clientY } : h); }}
+                            onMouseMove={(e: React.MouseEvent<SVGPathElement>) => { if (stat) setHover(h => h ? { ...h, x: e.clientX, y: e.clientY } : h); }}
                             onClick={() => { if (country && stat) selectCountry(country.code); }}
                             style={{
                               default: { fill, stroke: isActive ? RED : GEO_STROKE, strokeWidth: isActive ? 1.1 : 0.4, outline: 'none', cursor: stat ? 'pointer' : 'default', transition: 'fill 150ms' },

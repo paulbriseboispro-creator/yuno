@@ -428,12 +428,12 @@ export default function VipMenu() {
         .map(c => {
           if (c.menuItem.id === itemId) {
             const newQty = c.quantity + delta;
-            if (newQty <= 0) return null as any;
+            if (newQty <= 0) return null;
             return { ...c, quantity: newQty };
           }
           return c;
         })
-        .filter(Boolean);
+        .filter((c): c is NonNullable<typeof c> => Boolean(c));
     });
   };
 

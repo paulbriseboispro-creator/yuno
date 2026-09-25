@@ -19,7 +19,7 @@ export function useAgencyEvents(agencyId: string | null, daysAhead = 30) {
   const refetch = useCallback(async () => {
     if (!agencyId) { setEvents([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await (supabase as any).rpc('get_agency_upcoming_events', {
+    const { data } = await supabase.rpc('get_agency_upcoming_events', {
       p_agency_id: agencyId,
       p_days_ahead: daysAhead,
     });

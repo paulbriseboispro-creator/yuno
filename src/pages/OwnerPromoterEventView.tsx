@@ -341,7 +341,7 @@ export default function OwnerPromoterEventView() {
         {/* Sort */}
         <div className="flex items-center justify-between">
           <SectionLabel>{tt('Promoteurs', 'Promoters')} ({performers.length})</SectionLabel>
-          <Select value={sortBy} onValueChange={v => setSortBy(v as any)}>
+          <Select value={sortBy} onValueChange={v => setSortBy(v as typeof sortBy)}>
             <SelectTrigger className="w-36 h-8 text-xs" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="tickets">{tt('Trier par ventes', 'Sort by sales')}</SelectItem>

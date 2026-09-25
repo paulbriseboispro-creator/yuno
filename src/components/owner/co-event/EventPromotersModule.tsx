@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Megaphone, Ticket, Euro, Percent, MousePointerClick, TrendingUp } from 'lucide-react';
+import { Megaphone, Ticket, Euro, Percent, MousePointerClick, TrendingUp, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PromoterEventStats {
@@ -220,7 +220,7 @@ export function EventPromotersModule({ eventId }: Props) {
   );
 }
 
-function KpiCard({ icon: Icon, label, value, accent }: { icon: any; label: string; value: string; accent?: boolean }) {
+function KpiCard({ icon: Icon, label, value, accent }: { icon: LucideIcon; label: string; value: string; accent?: boolean }) {
   return (
     <Card className="owner-stat border-0">
       <CardContent className="p-3 text-center">

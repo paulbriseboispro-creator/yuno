@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { UserCircle, Globe, ImagePlus, Loader2, ArrowRight, SkipForward, MapPin } from 'lucide-react';
@@ -38,7 +39,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
       setLogoUrl(profile?.organization_logo_url ?? null);
       setCoverUrl(orgProfile?.cover_url ?? null);
       setBio(orgProfile?.bio ?? '');
-      setCity((orgProfile as any)?.city ?? '');
+      setCity(orgProfile?.city ?? '');
       setInstagram(orgProfile?.instagram_url ?? '');
       setWebsite(orgProfile?.website_url ?? '');
       setLoaded(true);
@@ -48,9 +49,9 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
   const upsertOrgProfile = async (patch: Record<string, unknown>) => {
     const { data: existing } = await supabase.from('organizer_profiles').select('user_id').eq('user_id', userId).maybeSingle();
     if (existing) {
-      return supabase.from('organizer_profiles').update(patch as any).eq('user_id', userId);
+      return supabase.from('organizer_profiles').update(patch as TablesUpdate<'organizer_profiles'>).eq('user_id', userId);
     }
-    return supabase.from('organizer_profiles').insert({ user_id: userId, is_public: true, ...patch } as any);
+    return supabase.from('organizer_profiles').insert({ user_id: userId, is_public: true, ...patch } as TablesInsert<'organizer_profiles'>);
   };
 
   const upload = async (file: File, kind: 'logo' | 'cover') => {
@@ -62,15 +63,15 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
       if (upErr) throw upErr;
       const { data: { publicUrl } } = supabase.storage.from('organization-assets').getPublicUrl(path);
       if (kind === 'logo') {
-        await supabase.from('profiles').update({ organization_logo_url: publicUrl } as any).eq('id', userId);
+        await supabase.from('profiles').update({ organization_logo_url: publicUrl }).eq('id', userId);
         setLogoUrl(publicUrl);
       } else {
         await upsertOrgProfile({ cover_url: publicUrl });
         setCoverUrl(publicUrl);
       }
       toast.success(tt('Image téléchargée', 'Image uploaded', 'Imagen subida'));
-    } catch (e: any) {
-      toast.error(e.message || tt('Erreur upload', 'Upload error', 'Error de subida'));
+    } catch (e: unknown) {
+      toast.error((e as { message?: string }).message || tt('Erreur upload', 'Upload error', 'Error de subida'));
     } finally {
       setUploading(null);
     }

@@ -17,6 +17,19 @@ import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
+/** `ticketDetails` renvoyé par verify-ticket-payment pour un achat invité. */
+interface GuestTicketDetails {
+  customerName?: string | null;
+  customerEmail?: string | null;
+  qrCode?: string | null;
+  eventDate?: string | null;
+  eventTitle?: string | null;
+  eventPosterUrl?: string | null;
+  quantity?: number | null;
+  roundName?: string | null;
+  venueName?: string | null;
+}
+
 export default function VerifyTicketPayment() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -27,7 +40,7 @@ export default function VerifyTicketPayment() {
   // le retour se fait par deep link yuno:// vers la confirmation in-app.
   const isNativeReturn = searchParams.get('native') === '1';
   const [errorMessage, setErrorMessage] = useState('');
-  const [guestDetails, setGuestDetails] = useState<any>(null);
+  const [guestDetails, setGuestDetails] = useState<GuestTicketDetails | null>(null);
   const [guestEmail, setGuestEmail] = useState('');
 
   const [password, setPassword] = useState('');
@@ -95,10 +108,10 @@ export default function VerifyTicketPayment() {
         setStatus('error');
         setErrorMessage(t('verify.paymentNotConfirmed'));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Payment verification error:', err);
       setStatus('error');
-      setErrorMessage(err.message || t('verify.verificationFailed'));
+      setErrorMessage((err as { message?: string }).message || t('verify.verificationFailed'));
     }
   };
 

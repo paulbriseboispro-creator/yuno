@@ -3,7 +3,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Ticket, Wine, Crown, ScanLine, CreditCard, MapPin, Sparkles, Loader2, ShieldAlert, FileText, Download, Mail } from 'lucide-react';
+import { Ticket, Wine, Crown, ScanLine, CreditCard, MapPin, Sparkles, Loader2, ShieldAlert, FileText, Download, Mail, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr as frLocale, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -26,7 +26,7 @@ interface ActivityItem {
   eventTitle?: string;
 }
 
-const TYPE_META: Record<ActivityItem['type'], { icon: any; cls: string }> = {
+const TYPE_META: Record<ActivityItem['type'], { icon: LucideIcon; cls: string }> = {
   ticket: { icon: Ticket, cls: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
   table: { icon: Crown, cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
   order: { icon: Wine, cls: 'bg-purple-500/15 text-purple-400 border-purple-500/30' },
@@ -60,27 +60,27 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
             .from('events')
             .select('id, title')
             .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
-          eventIds = (events ?? []).map((e: any) => e.id);
-          (events ?? []).forEach((e: any) => eventTitles.set(e.id, e.title));
+          eventIds = (events ?? []).map((e) => e.id);
+          (events ?? []).forEach((e) => eventTitles.set(e.id, e.title));
         } else if (venueId) {
           const { data: events } = await supabase
             .from('events')
             .select('id, title')
             .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
-          eventIds = (events ?? []).map((e: any) => e.id);
-          (events ?? []).forEach((e: any) => eventTitles.set(e.id, e.title));
+          eventIds = (events ?? []).map((e) => e.id);
+          (events ?? []).forEach((e) => eventTitles.set(e.id, e.title));
         }
 
         // Minor-ticket record for this buyer (across the scoped events).
         if (eventIds.length > 0) {
           const { data: minorRows } = await supabase
-            .from('minor_ticket_docs' as any)
+            .from('minor_ticket_docs')
             .select('birth_date, doc_url, doc_name, created_at')
             .in('event_id', eventIds)
             .ilike('buyer_email', lc)
             .order('created_at', { ascending: false })
             .limit(1);
-          const mr = (minorRows as any[])?.[0];
+          const mr = minorRows?.[0];
           if (!cancelled) setMinorDoc(mr ? { birthDate: mr.birth_date ?? null, docUrl: mr.doc_url ?? null, docName: mr.doc_name ?? null } : null);
         } else if (!cancelled) {
           setMinorDoc(null);
@@ -103,7 +103,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
               .order('created_at', { ascending: false })
               .limit(50),
           ]);
-          (ticketsRes.data ?? []).forEach((t: any) => {
+          (ticketsRes.data ?? []).forEach((t) => {
             list.push({
               ts: t.created_at,
               type: 'ticket',
@@ -120,7 +120,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
               });
             }
           });
-          (tablesRes.data ?? []).forEach((t: any) => {
+          (tablesRes.data ?? []).forEach((t) => {
             list.push({
               ts: t.created_at,
               type: 'table',
@@ -141,7 +141,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
             .eq('status', 'paid')
             .order('created_at', { ascending: false })
             .limit(50);
-          (orders ?? []).forEach((o: any) => {
+          (orders ?? []).forEach((o) => {
             const itemCount = Array.isArray(o.items) ? o.items.length : 0;
             list.push({
               ts: o.created_at,

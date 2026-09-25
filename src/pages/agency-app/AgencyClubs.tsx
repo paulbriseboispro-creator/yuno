@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useAgency } from '@/hooks/useAgency';
 import { useAgencyData, contractScopeLabel, promoterName, AgencyContract } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -44,7 +45,7 @@ export default function AgencyClubs() {
     if (!v.trim()) { setResults([]); return; }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
-      const { data, error } = await (supabase as any).rpc('search_venues_for_agency', {
+      const { data, error } = await supabase.rpc('search_venues_for_agency', {
         p_query: v.trim(),
         p_limit: 8,
       });
@@ -66,13 +67,15 @@ export default function AgencyClubs() {
       return;
     }
     setBusy(true);
-    const { error } = await (supabase as any).rpc('create_agency_venue_contract', {
+    // NULL = pas d'organisateur / pas de marge propre : la RPC l'accepte,
+    // le type généré (arguments optionnels) ne le dit pas.
+    const { error } = await supabase.rpc('create_agency_venue_contract', {
       p_agency_id:          agency!.id,
       p_venue_id:           selectedVenue.id,
       p_organizer_user_id:  null,
       p_override_type:      Number(marginValue) > 0 ? marginType : null,
       p_override_value:     Number(marginValue) || 0,
-    });
+    } as unknown as Database['public']['Functions']['create_agency_venue_contract']['Args']);
     setBusy(false);
     if (error) { errorToast(error); return; }
     toast.success(tt('Proposition envoyée au club', 'Proposal sent to the club'));
@@ -82,7 +85,7 @@ export default function AgencyClubs() {
 
   const sign = async (id: string) => {
     setActing(id);
-    const { data, error } = await (supabase as any).rpc('sign_agency_venue_contract', { p_contract_id: id });
+    const { data, error } = await supabase.rpc('sign_agency_venue_contract', { p_contract_id: id });
     setActing(null);
     if (error) { errorToast(error); return; }
     toast.success(
@@ -95,7 +98,7 @@ export default function AgencyClubs() {
 
   const setStatus = async (id: string, status: string) => {
     setActing(id);
-    const { error } = await (supabase as any).rpc('set_agency_contract_status', { p_contract_id: id, p_status: status });
+    const { error } = await supabase.rpc('set_agency_contract_status', { p_contract_id: id, p_status: status });
     setActing(null);
     if (error) { errorToast(error); return; }
     refetch();

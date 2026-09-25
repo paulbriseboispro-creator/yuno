@@ -263,8 +263,7 @@ export default function AgencyPublicPage() {
     (async () => {
       setLoading(true);
       try {
-        // Cast any : banner_url n'est pas encore dans les types générés.
-        const { data: aff } = await (supabase as any)
+        const { data: aff } = await supabase
           .from('affiliates')
           .select('id, user_id, name, city, bio, avatar_url, banner_url, instagram, tiktok, website, whatsapp, linktree_slug, agency_id')
           .eq('linktree_slug', slug)

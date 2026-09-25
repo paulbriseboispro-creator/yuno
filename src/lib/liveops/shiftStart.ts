@@ -18,7 +18,7 @@ export async function emitShiftStart(venueId: string, role: string): Promise<voi
     if (!userId || !venueId) return;
 
     const { start, end } = getNightWindow();
-    const { data: existing } = await (supabase as any)
+    const { data: existing } = await supabase
       .from('night_ops_events')
       .select('id')
       .eq('venue_id', venueId)
@@ -29,7 +29,7 @@ export async function emitShiftStart(venueId: string, role: string): Promise<voi
       .limit(1);
     if (existing && existing.length > 0) return;
 
-    await (supabase as any)
+    await supabase
       .from('night_ops_events')
       .insert({ venue_id: venueId, reported_by: userId, kind: 'shift_start', note: role });
   } catch {

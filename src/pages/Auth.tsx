@@ -128,9 +128,9 @@ export default function Auth() {
               }
             }, 1000);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('Error processing recovery token:', err);
-          setSessionError(err.message);
+          setSessionError((err as Error).message);
         }
       } else if (isReset && user) {
         // Already have a session from previous token processing
@@ -168,11 +168,11 @@ export default function Auth() {
 
         // Redirect to owner dashboard
         setTimeout(() => navigate('/owner/dashboard'), 1500);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error accepting invitation:', error);
         toast({
           title: t('auth.invitationError'),
-          description: error.message || t('auth.invitationErrorDesc'),
+          description: (error as Error).message || t('auth.invitationErrorDesc'),
           variant: 'destructive',
         });
         // Still redirect to default location
@@ -203,9 +203,9 @@ export default function Auth() {
           return;
         }
         setTimeout(() => navigate('/organizer-app'), 1200);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('Error accepting platform invitation:', e);
-        toast({ title: 'Erreur', description: e.message ?? 'Impossible d\'activer le compte', variant: 'destructive' });
+        toast({ title: 'Erreur', description: (e as Error).message ?? 'Impossible d\'activer le compte', variant: 'destructive' });
         navigate('/');
       }
     };
@@ -225,9 +225,9 @@ export default function Auth() {
         if (data?.error) throw new Error(data.error);
         toast({ title: 'Compte affilié activé', description: 'Bienvenue sur Yuno !' });
         setTimeout(() => navigate('/affiliate'), 1200);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('Error accepting affiliate invitation:', e);
-        toast({ title: 'Erreur', description: e.message ?? "Impossible d'activer le compte affilié", variant: 'destructive' });
+        toast({ title: 'Erreur', description: (e as Error).message ?? "Impossible d'activer le compte affilié", variant: 'destructive' });
         navigate('/');
       }
     };
@@ -247,9 +247,9 @@ export default function Auth() {
         if (data?.error) throw new Error(data.error);
         toast({ title: 'Compte membre activé', description: 'Bienvenue dans l\'équipe !' });
         setTimeout(() => navigate('/affiliate'), 1200);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('Error accepting affiliate member invitation:', e);
-        toast({ title: 'Erreur', description: e.message ?? "Impossible d'activer le compte membre", variant: 'destructive' });
+        toast({ title: 'Erreur', description: (e as Error).message ?? "Impossible d'activer le compte membre", variant: 'destructive' });
         navigate('/');
       }
     };
@@ -428,7 +428,7 @@ export default function Auth() {
           // Redirection will be handled by useEffect based on role
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         toast({
           title: t('auth.errors.validationError'),
@@ -438,7 +438,7 @@ export default function Auth() {
       } else {
         toast({
           title: t('auth.errors.error'),
-          description: error.message,
+          description: (error as Error).message,
           variant: 'destructive',
         });
       }

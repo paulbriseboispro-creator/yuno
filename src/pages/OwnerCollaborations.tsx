@@ -311,11 +311,11 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
     const orgIds = Array.from(new Set(
       (data || []).map((e) => e.organizer_user_id ?? e.partner_organizer_id).filter(Boolean) as string[]
     ));
-    const orgMap = new Map<string, any>();
+    const orgMap = new Map<string, NonNullable<CollabEvent['organizer']>>();
     if (orgIds.length) {
-      const { data: profs } = await supabase.from('organizer_profiles' as any)
+      const { data: profs } = await supabase.from('organizer_profiles')
         .select('user_id, display_name, avatar_url, slug').in('user_id', orgIds);
-      (profs || []).forEach((p: any) => orgMap.set(p.user_id, p));
+      (profs || []).forEach((p) => orgMap.set(p.user_id, p));
     }
     // Collaboration acceptance status lives in the signed contract, not the event
     // row. Pull the contract per event so the card can show "pending acceptance"
@@ -930,14 +930,14 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
       const tables = tr.data || [];
       const entries = gl.data || [];
       const drinks = dr.data || [];
-      const ticketsSold = tickets.reduce((a, x: any) => a + (x.quantity || 1), 0);
-      const tableGuests = tables.reduce((a, x: any) => a + (x.guest_count || 0), 0);
+      const ticketsSold = tickets.reduce((a, x) => a + (x.quantity || 1), 0);
+      const tableGuests = tables.reduce((a, x) => a + (x.guest_count || 0), 0);
       // CA = montant client − frais Yuno (jamais le TTC : les frais Yuno ne sont pas du revenu).
       // Boissons incluses, comme le caSoiree du dashboard co-event — sinon le
       // même partenariat affiche deux CA différents selon la surface.
-      const gross = tickets.reduce((a, x: any) => a + ticketRevenue(x).gross, 0)
-        + tables.reduce((a, x: any) => a + tableRevenue(x).gross, 0)
-        + drinks.reduce((a, x: any) => a + orderRevenue(x).gross, 0);
+      const gross = tickets.reduce((a, x) => a + ticketRevenue(x).gross, 0)
+        + tables.reduce((a, x) => a + tableRevenue(x).gross, 0)
+        + drinks.reduce((a, x) => a + orderRevenue(x).gross, 0);
       const participants = ticketsSold + tableGuests + entries.length;
       const sinceYear = events.reduce<number | null>((min, e) => {
         const y = new Date(e.start_at).getFullYear();
@@ -993,11 +993,11 @@ function InviteTab({ venueId }: { venueId: string }) {
         body: { ...form, origin: window.location.origin },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
       sonnerToast.success(t('collab.external.inviteSentTitle'), { description: `${t('collab.external.inviteSentDesc')} ${form.organizer_email}.` });
       setForm({ organizer_email: '', organizer_name: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
-    } catch (err: any) {
-      sonnerToast.error(err.message || 'Error');
+    } catch (err: unknown) {
+      sonnerToast.error((err as { message?: string }).message || 'Error');
     } finally {
       setSending(false);
     }

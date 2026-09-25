@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,31 @@ import { addToWallet } from '@/lib/wallet';
 import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
 import { publishNextEventFromTickets } from '@/lib/widgetData';
+
+/**
+ * One line of an order's `items` jsonb. The app writes qty/unitPrice, the
+ * Stripe checkout writes quantity/price; the page normalises on load.
+ */
+type RawOrderItem = {
+  id?: string;
+  drinkId?: string;
+  name?: string;
+  qty?: number;
+  quantity?: number;
+  unitPrice?: number;
+  price?: number;
+  imgUrl?: string;
+  isLoyaltyReward?: boolean;
+  served?: boolean;
+  servedUnits?: boolean[];
+  prepUnits?: boolean[];
+  [key: string]: Json | undefined;
+};
+
+/** Sub-order of an order merged per event by GroupedDrinksView (`_sourceOrders`). */
+type SourceOrder = { id: string; items: RawOrderItem[] };
+
+type ModalSourceOrders = ComponentProps<typeof DrinkOrderDetailModal>['order']['_sourceOrders'];
 
 // ── Instantané du dernier chargement, par utilisateur (stale-while-revalidate) ──
 // Revenir sur l'onglet Commandes affichait un squelette complet à CHAQUE fois,
@@ -314,7 +340,7 @@ export default function MyOrders() {
       const ordersWithVenue = (data || []).map(order => {
         // Normalize items: some orders use price/quantity (from Stripe checkout), others use unitPrice/qty
         const normalizedItems = Array.isArray(order.items) 
-          ? (order.items as any[]).map((item: any) => ({
+          ? (order.items as RawOrderItem[]).map((item) => ({
               ...item,
               qty: item.qty || item.quantity || 1,
               unitPrice: item.unitPrice ?? item.price ?? 0,
@@ -333,7 +359,7 @@ export default function MyOrders() {
       // Collect all drink IDs from orders that don't have imgUrl
       const drinkIdsToFetch = new Set<string>();
       (ordersWithVenue || []).forEach(order => {
-        const items = Array.isArray(order.items) ? order.items as any[] : [];
+        const items = Array.isArray(order.items) ? order.items as RawOrderItem[] : [];
         items.forEach(item => {
           if (!item.imgUrl && (item.drinkId || item.id)) {
             drinkIdsToFetch.add(item.drinkId || item.id);
@@ -395,7 +421,7 @@ export default function MyOrders() {
       if (error) throw error;
 
       // Fetch venue info (fallback to partner_venue_id for organizer-led co-events)
-      const venueIds = [...new Set(ticketsData?.map(t => (t.events as any).venue_id ?? (t.events as any).partner_venue_id).filter(Boolean) || [])];
+      const venueIds = [...new Set(ticketsData?.map(t => t.events.venue_id ?? t.events.partner_venue_id).filter(Boolean) || [])];
       const { data: venuesData } = await supabase
         .from('venues')
         .select('id, name, address, city, latitude, longitude')
@@ -404,20 +430,20 @@ export default function MyOrders() {
       const venueMap = new Map(venuesData?.map(v => [v.id, v]) || []);
 
       const formattedTickets: TicketWithDetails[] = (ticketsData || []).map(t => {
-        const v = venueMap.get((t.events as any).venue_id ?? (t.events as any).partner_venue_id);
+        const v = venueMap.get(t.events.venue_id ?? t.events.partner_venue_id);
         return ({
         id: t.id,
         eventId: t.event_id,
-        eventTitle: (t.events as any).title,
-        eventStartAt: (t.events as any).start_at,
-        eventEndAt: (t.events as any).end_at,
-        eventPosterUrl: (t.events as any).poster_url,
+        eventTitle: t.events.title,
+        eventStartAt: t.events.start_at,
+        eventEndAt: t.events.end_at,
+        eventPosterUrl: t.events.poster_url,
         venueName: v?.name || '',
         venueAddress: v?.address ?? null,
         venueCity: v?.city ?? null,
         venueLat: v?.latitude ?? null,
         venueLng: v?.longitude ?? null,
-        roundName: (t.ticket_rounds as any).name,
+        roundName: t.ticket_rounds.name,
         quantity: t.quantity,
         totalPrice: Number(t.total_price),
         serviceFee: Number(t.service_fee),
@@ -425,13 +451,13 @@ export default function MyOrders() {
         qrCode: t.qr_code || '',
         used: t.used,
         paidAt: t.paid_at || undefined,
-        includesDrink: (t.ticket_rounds as any).includes_drink,
+        includesDrink: t.ticket_rounds.includes_drink,
         drinkRedeemed: t.drink_redeemed,
         hasInsurance: t.has_insurance,
         insuranceFee: Number(t.insurance_fee || 0),
-        drinkDeadlineType: (t.ticket_rounds as any).drink_deadline_type,
-        drinkDeadlineHours: (t.ticket_rounds as any).drink_deadline_hours,
-        drinkCutoffTime: (t.ticket_rounds as any).drink_cutoff_time,
+        drinkDeadlineType: t.ticket_rounds.drink_deadline_type,
+        drinkDeadlineHours: t.ticket_rounds.drink_deadline_hours,
+        drinkCutoffTime: t.ticket_rounds.drink_cutoff_time,
         entryScanned: t.entry_scanned,
         entryScannedAt: t.entry_scanned_at || undefined,
         refundAmount: t.refund_amount ? Number(t.refund_amount) : undefined,
@@ -521,7 +547,7 @@ export default function MyOrders() {
       if (error) throw error;
 
       // Fetch venue info (fallback to partner_venue_id for organizer-led co-events)
-      const venueIds = [...new Set(reservationsData?.map(r => (r.events as any).venue_id ?? (r.events as any).partner_venue_id).filter(Boolean) || [])];
+      const venueIds = [...new Set(reservationsData?.map(r => r.events.venue_id ?? r.events.partner_venue_id).filter(Boolean) || [])];
       const { data: venuesData } = await supabase
         .from('venues')
         .select('id, name, address, city, latitude, longitude')
@@ -530,21 +556,21 @@ export default function MyOrders() {
       const venueMap = new Map(venuesData?.map(v => [v.id, v]) || []);
 
       const formattedReservations: VipReservationWithDetails[] = (reservationsData || []).map(r => {
-        const v = venueMap.get((r.events as any).venue_id ?? (r.events as any).partner_venue_id);
+        const v = venueMap.get(r.events.venue_id ?? r.events.partner_venue_id);
         return ({
         id: r.id,
         eventId: r.event_id,
-        eventTitle: (r.events as any).title,
-        eventStartAt: (r.events as any).start_at,
-        eventEndAt: (r.events as any).end_at,
-        eventPosterUrl: (r.events as any).poster_url,
+        eventTitle: r.events.title,
+        eventStartAt: r.events.start_at,
+        eventEndAt: r.events.end_at,
+        eventPosterUrl: r.events.poster_url,
         venueName: v?.name || '',
         venueAddress: v?.address ?? null,
         venueCity: v?.city ?? null,
         venueLat: v?.latitude ?? null,
         venueLng: v?.longitude ?? null,
-        zoneName: (r.table_zones as any)?.name || '',
-        packName: (r.table_packs as any)?.name || '',
+        zoneName: r.table_zones?.name || '',
+        packName: r.table_packs?.name || '',
         guestCount: r.guest_count || 1,
         totalPrice: Number(r.total_price),
         deposit: Number(r.deposit || 0),
@@ -558,10 +584,10 @@ export default function MyOrders() {
         entryScannedAt: r.entry_scanned_at || undefined,
         refundAmount: r.refund_amount ? Number(r.refund_amount) : undefined,
         refundReason: r.refund_reason || undefined,
-        placementStatus: (r as any).placement_status || undefined,
+        placementStatus: r.placement_status || undefined,
         requestedTableName: undefined, // Would need floor plan to resolve
         assignedTableName: undefined,
-        placementNote: (r as any).placement_note || undefined,
+        placementNote: r.placement_note || undefined,
       });
       });
 
@@ -613,7 +639,7 @@ export default function MyOrders() {
       if (error) throw error;
 
       // Fetch venue info (fallback to partner_venue_id)
-      const venueIds = [...new Set(entries?.map(e => (e.guest_lists as any).events.venue_id ?? (e.guest_lists as any).events.partner_venue_id).filter(Boolean) || [])];
+      const venueIds = [...new Set(entries?.map(e => e.guest_lists.events.venue_id ?? e.guest_lists.events.partner_venue_id).filter(Boolean) || [])];
       const { data: venuesData } = await supabase
         .from('venues')
         .select('id, name, address, city, latitude, longitude')
@@ -621,7 +647,7 @@ export default function MyOrders() {
       const venueMap = new Map(venuesData?.map(v => [v.id, v]) || []);
 
       const formatted: GuestListEntryWithDetails[] = (entries || []).map(e => {
-        const ev = (e.guest_lists as any).events;
+        const ev = e.guest_lists.events;
         const v = venueMap.get(ev.venue_id ?? ev.partner_venue_id);
         return ({
         id: e.id,
@@ -635,15 +661,15 @@ export default function MyOrders() {
         venueCity: v?.city ?? null,
         venueLat: v?.latitude ?? null,
         venueLng: v?.longitude ?? null,
-        freeBeforeTime: (e.guest_lists as any).free_before_time?.substring(0, 5) || '02:00',
-        includesDrink: (e.guest_lists as any).includes_drink || (e as any).entry_type === 'drink',
+        freeBeforeTime: e.guest_lists.free_before_time?.substring(0, 5) || '02:00',
+        includesDrink: e.guest_lists.includes_drink || e.entry_type === 'drink',
         qrCode: e.qr_code || '',
         status: e.status,
         fullName: e.full_name,
         entryScanned: e.entry_scanned,
         entryScannedAt: e.entry_scanned_at || undefined,
         createdAt: e.created_at,
-        entryType: (e as any).entry_type || 'normal',
+        entryType: e.entry_type || 'normal',
       });
       });
 
@@ -687,7 +713,7 @@ export default function MyOrders() {
       if (!entries || entries.length === 0) { setWaitlistEntries([]); return; }
 
       // Check if user already has paid tickets for these events
-      const eventIds = [...new Set(entries.map((e: any) => e.event_id))];
+      const eventIds = [...new Set(entries.map((e) => e.event_id))];
       const { data: userTickets } = await supabase
         .from('tickets')
         .select('event_id')
@@ -703,7 +729,7 @@ export default function MyOrders() {
       // plus jamais, même une fois la vente ouverte.
       const nowMs = Date.now();
       const NIGHT_GRACE = 2 * 60 * 60 * 1000;
-      const filtered = entries.filter((e: any) => {
+      const filtered = entries.filter((e) => {
         // Billet déjà acheté : la ligne d'attente n'a plus d'objet.
         if (ticketedEventIds.has(e.event_id)) return false;
         const ev = e.events;
@@ -721,8 +747,8 @@ export default function MyOrders() {
       // Nom de la salle : une soirée d'organisateur n'a pas de venue_id (elle
       // peut porter une salle partenaire, ou aucune). Sans ce repli, la ligne
       // sortait sans nom de lieu.
-      const venueIds = [...new Set(filtered.map((e: any) => e.events.venue_id || e.events.partner_venue_id).filter(Boolean))];
-      const orgIds = [...new Set(filtered.filter((e: any) => !e.events.venue_id && !e.events.partner_venue_id).map((e: any) => e.events.organizer_user_id).filter(Boolean))];
+      const venueIds = [...new Set(filtered.map((e) => e.events.venue_id || e.events.partner_venue_id).filter(Boolean))];
+      const orgIds = [...new Set(filtered.filter((e) => !e.events.venue_id && !e.events.partner_venue_id).map((e) => e.events.organizer_user_id).filter(Boolean))];
       const [venuesRes, orgsRes] = await Promise.all([
         venueIds.length > 0
           ? supabase.from('venues').select('id, name').in('id', venueIds)
@@ -734,7 +760,7 @@ export default function MyOrders() {
       const venueMap = new Map((venuesRes.data ?? []).map(v => [v.id, v.name]));
       const orgMap = new Map((orgsRes.data ?? []).map(o => [o.user_id, o.display_name]));
 
-      setWaitlistEntries(filtered.map((e: any) => ({
+      setWaitlistEntries(filtered.map((e) => ({
         id: e.id,
         eventId: e.event_id,
         eventTitle: e.events.title,
@@ -809,7 +835,7 @@ export default function MyOrders() {
       
       if (redemptions) {
         // Collect venue IDs to fetch the next active event for each venue
-        const venueIds = [...new Set(redemptions.map((r: any) => r.venue_id))];
+        const venueIds = [...new Set(redemptions.map((r) => r.venue_id))];
         
         // Fetch the next active event for each venue (for free_ticket rewards)
         const venueEventsMap: Record<string, { id: string; title: string; startAt: string; endAt: string; posterUrl: string | null }> = {};
@@ -839,8 +865,8 @@ export default function MyOrders() {
           }
         }
         
-        const formattedRewards: PendingReward[] = redemptions.map((r: any) => {
-          const rewardType = r.loyalty_rewards?.reward_type || 'free_drink';
+        const formattedRewards: PendingReward[] = redemptions.map((r) => {
+          const rewardType = (r.loyalty_rewards?.reward_type || 'free_drink') as PendingReward['rewardType'];
           
           // For free tickets, use the next event of the venue
           // For free drinks, we also show event info if available
@@ -986,13 +1012,13 @@ export default function MyOrders() {
     }
 
     try {
-      const sourceOrders = (order as any)._sourceOrders as any[] | undefined;
+      const sourceOrders = (order as Order & { _sourceOrders?: SourceOrder[] })._sourceOrders;
       
       if (sourceOrders && sourceOrders.length > 1) {
         const expandedMap: { sourceOrderId: string; sourceIdx: number; localExpandedIdx: number }[] = [];
         sourceOrders.forEach(so => {
           let localIdx = 0;
-          so.items.forEach((item: any) => {
+          so.items.forEach((item) => {
             for (let i = 0; i < item.qty; i++) {
               expandedMap.push({ sourceOrderId: so.id, sourceIdx: localIdx, localExpandedIdx: localIdx });
               localIdx++;
@@ -1013,13 +1039,13 @@ export default function MyOrders() {
           const so = sourceOrders.find(s => s.id === orderId);
           if (!so) continue;
           
-          const updatedItems = so.items.map((item: any) => ({
+          const updatedItems = so.items.map((item) => ({
             ...item,
             prepUnits: item.prepUnits || Array(item.qty).fill(false),
           }));
 
           let expandedIdx = 0;
-          updatedItems.forEach((item: any) => {
+          updatedItems.forEach((item) => {
             for (let i = 0; i < item.qty; i++) {
               if (indices.includes(expandedIdx)) {
                 item.prepUnits[i] = true;
@@ -1034,14 +1060,14 @@ export default function MyOrders() {
             .eq('id', orderId);
         }
       } else {
-        const items = Array.isArray(order.items) ? (order.items as any[]) : [];
-        const updatedItems = items.map((item: any) => ({
+        const items = Array.isArray(order.items) ? (order.items as RawOrderItem[]) : [];
+        const updatedItems = items.map((item) => ({
           ...item,
           prepUnits: item.prepUnits || Array(item.qty).fill(false),
         }));
 
         let expandedIdx = 0;
-        updatedItems.forEach((item: any) => {
+        updatedItems.forEach((item) => {
           for (let i = 0; i < item.qty; i++) {
             if (expandedIndices.includes(expandedIdx)) {
               item.prepUnits[i] = true;
@@ -1100,8 +1126,8 @@ export default function MyOrders() {
 
   const handleEditOrder = (order: Order) => {
     setEditingOrder(order);
-    const items = Array.isArray(order.items) ? order.items as any[] : [];
-    setEditItems(items.map((item: any) => ({
+    const items = Array.isArray(order.items) ? order.items as RawOrderItem[] : [];
+    setEditItems(items.map((item) => ({
       id: item.id || '',
       name: item.name || '',
       qty: item.qty || 1,
@@ -1128,7 +1154,7 @@ export default function MyOrders() {
       const { error } = await supabase
         .from('orders')
         .update({ 
-          items: editItems as any,
+          items: editItems as unknown as Json,
           total: newTotal
         })
         .eq('id', editingOrder.id)
@@ -1192,9 +1218,9 @@ export default function MyOrders() {
       toast.success(t('tickets.cancelSuccess'));
       setTicketToCancel(null);
       fetchTickets();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling ticket:', error);
-      toast.error(error.message || t('tickets.cancelError'));
+      toast.error((error as Error).message || t('tickets.cancelError'));
     } finally {
       setCancellingTicket(false);
     }
@@ -1483,12 +1509,12 @@ export default function MyOrders() {
   
   // Filter free drink orders (loyalty rewards with total = 0 or isLoyaltyReward flag)
   const rewardOrders = paidOrders.filter(o => 
-    (Array.isArray(o.items) && o.items.some((item: any) => item.isLoyaltyReward === true)) || Number(o.total) === 0
+    (Array.isArray(o.items) && o.items.some((item) => (item as RawOrderItem).isLoyaltyReward === true)) || Number(o.total) === 0
   );
   
   // Filter regular paid orders (excluding rewards)
   const regularPaidOrders = paidOrders.filter(o => 
-    !(Array.isArray(o.items) && o.items.some((item: any) => item.isLoyaltyReward === true)) && Number(o.total) > 0
+    !(Array.isArray(o.items) && o.items.some((item) => (item as RawOrderItem).isLoyaltyReward === true)) && Number(o.total) > 0
   );
   
   const hasDrinkContent = paidOrders.length > 0 || pendingOrders.length > 0 || archivedOrders.length > 0;
@@ -1571,7 +1597,7 @@ export default function MyOrders() {
   // Drinks — paid (collect) + reward drinks
   [...rewardOrders, ...regularPaidOrders].forEach(o => {
     const startAt = o.events?.start_at;
-    const items = Array.isArray(o.items) ? (o.items as any[]) : [];
+    const items = Array.isArray(o.items) ? (o.items as RawOrderItem[]) : [];
     const itemNames = items.map(i => `${i.qty > 1 ? `${i.qty}× ` : ''}${i.name}`);
     entries.push({
       id: `dr-${o.id}`, kind: 'drink', bucket: bucketFor(startAt, o.events?.end_at),
@@ -1586,7 +1612,7 @@ export default function MyOrders() {
   });
   // Drinks — pending payment (always tonight bucket, CTA = pay)
   pendingOrders.forEach(o => {
-    const items = Array.isArray(o.items) ? (o.items as any[]) : [];
+    const items = Array.isArray(o.items) ? (o.items as RawOrderItem[]) : [];
     const itemNames = items.map(i => `${i.qty > 1 ? `${i.qty}× ` : ''}${i.name}`);
     entries.push({
       id: `drp-${o.id}`, kind: 'drink', bucket: 'pending',
@@ -1988,7 +2014,7 @@ export default function MyOrders() {
             status: selectedDrinkOrder.status,
             prep_requested: selectedDrinkOrder.prep_requested || undefined,
             prep_status: selectedDrinkOrder.prep_status || undefined,
-            items: Array.isArray(selectedDrinkOrder.items) ? (selectedDrinkOrder.items as any[]).map((item: any) => ({
+            items: Array.isArray(selectedDrinkOrder.items) ? (selectedDrinkOrder.items as RawOrderItem[]).map((item) => ({
               id: item.id,
               drinkId: item.drinkId,
               name: item.name,
@@ -2001,7 +2027,7 @@ export default function MyOrders() {
             })) : [],
             events: selectedDrinkOrder.events || null,
             venue_id: selectedDrinkOrder.venue_id,
-            _sourceOrders: (selectedDrinkOrder as any)._sourceOrders || undefined,
+            _sourceOrders: (selectedDrinkOrder as Order & { _sourceOrders?: ModalSourceOrders })._sourceOrders || undefined,
           }}
           clickCollectMode={clickCollectModeByVenue[selectedDrinkOrder.venue_id] || false}
           onClose={() => { setSelectedDrinkOrder(null); setCollectMode(false); }}

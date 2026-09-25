@@ -129,7 +129,7 @@ export default function EmailEditor(props: EmailEditorProps) {
   // Inject the campaign-level logo into header blocks for the live canvas only
   // (stored blocks stay clean; the send pipeline injects the same way).
   const blocksWithLogo = useMemo(() => blocks.map(b => (
-    b.type === 'header' && !(b as any).logo_url && logoUrl ? { ...b, logo_url: logoUrl } : b
+    b.type === 'header' && !b.logo_url && logoUrl ? { ...b, logo_url: logoUrl } : b
   )), [blocks, logoUrl]);
 
   const previewHtml = useMemo(() => buildPreviewHtml({

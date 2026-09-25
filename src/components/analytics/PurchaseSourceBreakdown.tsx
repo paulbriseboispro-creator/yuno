@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Building2, Megaphone, Compass, Link as LinkIcon, UserPlus, Music } from 'lucide-react';
+import { TrendingUp, Building2, Megaphone, Compass, Link as LinkIcon, UserPlus, Music, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 type SourceCount = {
@@ -30,7 +30,7 @@ interface Props {
   title?: string;
 }
 
-const SOURCE_META: Record<keyof SourceCount, { labelFr: string; labelEn: string; icon: any; color: string }> = {
+const SOURCE_META: Record<keyof SourceCount, { labelFr: string; labelEn: string; icon: LucideIcon; color: string }> = {
   venue_profile:     { labelFr: 'Profil club',         labelEn: 'Club page',        icon: Building2,  color: 'text-blue-400' },
   organizer_profile: { labelFr: 'Profil organisateur', labelEn: 'Organizer page',   icon: Megaphone,  color: 'text-fuchsia-400' },
   dj_profile:        { labelFr: 'Profil DJ',           labelEn: 'DJ page',          icon: Music,      color: 'text-amber-400' },
@@ -68,14 +68,14 @@ export function PurchaseSourceBreakdown({ eventId, title }: Props) {
       if (cancelled) return;
 
       const tCount = { ...EMPTY };
-      (ticketRows || []).forEach((r: any) => {
+      (ticketRows || []).forEach((r) => {
         const key = (r.purchase_source as keyof SourceCount) || 'unknown';
         if (key in tCount) tCount[key] += r.quantity || 1;
         else tCount.unknown += r.quantity || 1;
       });
 
       const rCount = { ...EMPTY };
-      (tableRows || []).forEach((r: any) => {
+      (tableRows || []).forEach((r) => {
         const key = (r.purchase_source as keyof SourceCount) || 'unknown';
         if (key in rCount) rCount[key] += 1;
         else rCount.unknown += 1;

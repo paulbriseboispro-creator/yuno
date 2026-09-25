@@ -359,19 +359,19 @@ export default function TicketCheckout() {
         ticketsSoldOut: !!eventData.tickets_sold_out,
         maxTickets: eventData.max_tickets,
         tablesEnabled: eventData.tables_enabled,
-        alcoholFree: (eventData as any).alcohol_free ?? false,
-        isBde: (eventData as any).is_bde ?? false,
+        alcoholFree: eventData.alcohol_free ?? false,
+        isBde: eventData.is_bde ?? false,
         createdAt: eventData.created_at,
         updatedAt: eventData.updated_at,
       });
 
-      setSalePasswordEnabled((eventData as any).sale_password_enabled ?? false);
-      setPerPersonLimit((eventData as any).max_tickets_per_person ?? null);
+      setSalePasswordEnabled(eventData.sale_password_enabled ?? false);
+      setPerPersonLimit(eventData.max_tickets_per_person ?? null);
 
       // Alcohol-free events welcome minors. If the venue (or, for venue-less events,
       // the organizer) requires a signed authorization, load that blank template so
       // a minor buyer can download, sign, and re-upload it before paying.
-      if ((eventData as any).alcohol_free) {
+      if (eventData.alcohol_free) {
         let doc: { url: string; name: string } | null = null;
         if (eventData.venue_id) {
           const { data: v } = await supabase
@@ -379,14 +379,14 @@ export default function TicketCheckout() {
             .select('minor_auth_doc_url, minor_auth_doc_name')
             .eq('id', eventData.venue_id)
             .maybeSingle();
-          if ((v as any)?.minor_auth_doc_url) doc = { url: (v as any).minor_auth_doc_url, name: (v as any).minor_auth_doc_name || '' };
+          if (v?.minor_auth_doc_url) doc = { url: v.minor_auth_doc_url, name: v.minor_auth_doc_name || '' };
         } else if (eventData.organizer_user_id) {
           const { data: o } = await supabase
             .from('organizer_profiles')
             .select('minor_auth_doc_url, minor_auth_doc_name')
             .eq('user_id', eventData.organizer_user_id)
             .maybeSingle();
-          if ((o as any)?.minor_auth_doc_url) doc = { url: (o as any).minor_auth_doc_url, name: (o as any).minor_auth_doc_name || '' };
+          if (o?.minor_auth_doc_url) doc = { url: o.minor_auth_doc_url, name: o.minor_auth_doc_name || '' };
         }
         setMinorTemplate(doc);
       }
@@ -401,7 +401,7 @@ export default function TicketCheckout() {
         position: roundData.position,
         isActive: roundData.is_active,
         autoActivate: roundData.auto_activate,
-        manuallySoldOut: (roundData as any).manually_sold_out ?? false,
+        manuallySoldOut: roundData.manually_sold_out ?? false,
         audience: normalizeTicketAudience(roundData.audience),
         lastTicketsThreshold: roundData.last_tickets_threshold ?? 20,
         createdAt: roundData.created_at,
@@ -673,7 +673,7 @@ export default function TicketCheckout() {
       if (salePasswordEnabled) {
         const storedPw = sessionStorage.getItem(`yuno_sale_pw_${event.id}`) || '';
         const guestEmailForGrant = !user ? attendees[0].email.trim() : null;
-        const { data: unlocked, error: unlockErr } = await supabase.rpc('unlock_event_sale' as any, {
+        const { data: unlocked, error: unlockErr } = await supabase.rpc('unlock_event_sale', {
           p_event_id: event.id,
           p_password: storedPw,
           p_guest_email: guestEmailForGrant,
@@ -693,14 +693,14 @@ export default function TicketCheckout() {
       // never shows up. Never block the purchase if this insert fails.
       if (minorInfo?.isMinor) {
         try {
-          await supabase.from('minor_ticket_docs' as any).insert({
+          await supabase.from('minor_ticket_docs').insert({
             event_id: event.id,
             buyer_email: attendees[0].email.trim(),
             buyer_name: attendees[0].fullName.trim() || null,
             birth_date: minorInfo.birthDate || null,
             doc_url: minorInfo.docUrl,
             doc_name: minorInfo.docName,
-          } as any);
+          });
         } catch (e) {
           console.error('minor_ticket_docs insert failed:', e);
         }
@@ -884,10 +884,10 @@ export default function TicketCheckout() {
         haptics.medium();
         launchCheckout(data.url);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Checkout error:', error);
       haptics.error();
-      toast.error(error.message || t('tickets.checkoutError'));
+      toast.error((error as Error).message || t('tickets.checkoutError'));
     } finally {
       setCheckoutLoading(false);
     }

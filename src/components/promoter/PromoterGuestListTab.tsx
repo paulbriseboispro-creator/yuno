@@ -141,7 +141,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
         .order('start_at', { ascending: true })
         .limit(30);
 
-      const mapped: EventOption[] = (data || []).map((e: any) => {
+      const mapped: EventOption[] = (data || []).map((e) => {
         const orgProfile = !e.venue_id && e.organizer_user_id
           ? promoterProfiles.find(p => p.organizer_user_id === e.organizer_user_id)
           : null;
@@ -221,7 +221,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
         id: d.id,
         fullName: d.full_name || '',
         email: d.email || '',
-        entryType: (d as any).entry_type || 'normal',
+        entryType: d.entry_type || 'normal',
         createdAt: d.created_at,
       }));
       setEntries(mapped);
@@ -268,7 +268,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
       if (error) {
         let fnMessage = '';
-        const errorContext = (error as any)?.context;
+        const errorContext = (error as { context?: { json?: () => Promise<{ error?: string } | null> } } | null)?.context;
 
         if (errorContext && typeof errorContext.json === 'function') {
           try {
@@ -279,7 +279,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
           }
         }
 
-        throw new Error(fnMessage || (error as any)?.message || t('promoterGuestlist.addError'));
+        throw new Error(fnMessage || (error as { message?: string } | null)?.message || t('promoterGuestlist.addError'));
       }
 
       if (data?.error) throw new Error(data.error);
@@ -291,9 +291,9 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       setEntryType('normal');
       setGender('');
       fetchQuotaAndEntries();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || t('promoterGuestlist.addError'));
+      toast.error((err as { message?: string }).message || t('promoterGuestlist.addError'));
     } finally { setAdding(false); }
   }
 

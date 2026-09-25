@@ -67,7 +67,7 @@ export default function OwnerOrders() {
         .from('events')
         .select('id')
         .or(`organizer_user_id.eq.${organizerUserId},and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted)`);
-      if (active) setOrgEventIds((data ?? []).map((e: any) => e.id));
+      if (active) setOrgEventIds((data ?? []).map((e) => e.id));
     })();
     return () => { active = false; };
   }, [isOrganizerScope, organizerUserId]);

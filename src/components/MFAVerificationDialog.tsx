@@ -60,7 +60,9 @@ export function MFAVerificationDialog({ open, onVerified, onCancel }: MFAVerific
         // Try to extract a server-provided message from the underlying Response
         let message: string = t('mfa.incorrectCode');
         try {
-          const ctx: any = (fnError as any)?.context;
+          const ctx = (fnError as { context?: unknown } | null)?.context as
+            | { json?: () => Promise<{ error?: unknown } | null>; body?: { error?: unknown } }
+            | undefined;
           if (ctx && typeof ctx.json === 'function') {
             const body = await ctx.json();
             if (body?.error && typeof body.error === 'string') message = body.error;
@@ -83,8 +85,9 @@ export function MFAVerificationDialog({ open, onVerified, onCancel }: MFAVerific
 
       toast.success(t('mfa.activated'));
       onVerified();
-    } catch (err: any) {
-      setError(err?.context?.body?.error || err?.message || t('mfa.incorrectCode'));
+    } catch (err: unknown) {
+      const e = err as { context?: { body?: { error?: string } }; message?: string } | null;
+      setError(e?.context?.body?.error || e?.message || t('mfa.incorrectCode'));
     } finally {
       setLoading(false);
     }

@@ -38,7 +38,7 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
     if (!coreReady) return;
     setPublishing(true);
     try {
-      const { error } = await supabase.from('venues').update({ is_hidden: false } as any).eq('id', venueId);
+      const { error } = await supabase.from('venues').update({ is_hidden: false }).eq('id', venueId);
       if (error) throw error;
       setPublished(true);
     } catch {

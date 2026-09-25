@@ -98,7 +98,7 @@ export default function AffiliatePromoterDashboard() {
       const p: MemberProfile = {
         ...data,
         venue_scope: (data as { venue_scope?: string[] | null }).venue_scope ?? null,
-        affiliate: Array.isArray(data.affiliates) ? data.affiliates[0] ?? null : (data.affiliates as any),
+        affiliate: Array.isArray(data.affiliates) ? data.affiliates[0] ?? null : (data.affiliates as MemberProfile['affiliate']),
       };
       setProfile(p);
       await Promise.all([
@@ -138,7 +138,7 @@ export default function AffiliatePromoterDashboard() {
     // Périmètre clubs : une assignation « tous les promoteurs » ne concerne ce
     // membre que si la soirée a lieu dans un de SES clubs. Une assignation
     // nominative, elle, passe toujours (choix explicite de l'agence).
-    const data = (raw ?? []).filter((r: any) =>
+    const data = (raw ?? []).filter(r =>
       r.member_id !== null
       || !venueScope
       || venueScope.length === 0
@@ -149,13 +149,13 @@ export default function AffiliatePromoterDashboard() {
     if (data.length === 0) { setAssignments([]); return; }
 
     // check which events have briefs
-    const eventIds = (data as any[]).map((r: any) => r.affiliate_event_id).filter(Boolean);
+    const eventIds = data.map(r => r.affiliate_event_id).filter(Boolean);
     const { data: briefs } = eventIds.length
       ? await supabase.from('affiliate_event_briefs').select('affiliate_event_id').in('affiliate_event_id', eventIds)
       : { data: [] };
-    const briefSet = new Set((briefs ?? []).map((b: any) => b.affiliate_event_id));
+    const briefSet = new Set((briefs ?? []).map((b: { affiliate_event_id: string }) => b.affiliate_event_id));
 
-    setAssignments((data as any[]).map((r: any) => ({
+    setAssignments(data.map(r => ({
       id: r.id,
       affiliate_event_id: r.affiliate_event_id,
       event_name: r.affiliate_events?.name ?? '—',
@@ -203,17 +203,17 @@ export default function AffiliatePromoterDashboard() {
 
     if (!evs || evs.length === 0) return;
 
-    const evIds = evs.map((e: any) => e.id);
+    const evIds = evs.map(e => e.id);
     const { data: briefs } = await supabase
       .from('affiliate_event_briefs')
       .select('affiliate_event_id')
       .in('affiliate_event_id', evIds);
-    const briefSet = new Set((briefs ?? []).map((b: any) => b.affiliate_event_id));
+    const briefSet = new Set((briefs ?? []).map((b: { affiliate_event_id: string }) => b.affiliate_event_id));
 
     setBriefEvents(
       evs
-        .filter((e: any) => briefSet.has(e.id))
-        .map((e: any) => ({ id: e.id, name: e.name, event_date: e.event_date, flyer_url: e.flyer_url }))
+        .filter(e => briefSet.has(e.id))
+        .map(e => ({ id: e.id, name: e.name, event_date: e.event_date, flyer_url: e.flyer_url }))
     );
   };
 

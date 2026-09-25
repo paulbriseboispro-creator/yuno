@@ -173,7 +173,7 @@ export default function OwnerCustomers() {
     if (venue?.id) { fetchAllCustomers(); fetchWarnedCustomers(); fetchMinorEmails(); }
   }, [venue?.id]);
 
-  const num = (v: any) => Number(v || 0);
+  const num = (v: unknown) => Number(v || 0);
 
   // Which customers bought a minor ticket on this venue's events (+ their doc).
   const fetchMinorEmails = async () => {
@@ -182,7 +182,7 @@ export default function OwnerCustomers() {
       .from('events')
       .select('id')
       .or(`venue_id.eq.${venue.id},partner_venue_id.eq.${venue.id}`);
-    const eventIds = (events ?? []).map((e: any) => e.id);
+    const eventIds = (events ?? []).map((e) => e.id);
     setMinorByEmail(await fetchMinorDocsByEmail(eventIds));
   };
 
@@ -192,7 +192,7 @@ export default function OwnerCustomers() {
     try {
       const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: venue.id });
       if (error) throw error;
-      const mapped: VenueCustomer[] = (data || []).map((r: any) => ({
+      const mapped: VenueCustomer[] = (data || []).map((r) => ({
         id: r.id, user_id: r.user_id, email: r.email, first_name: r.first_name, last_name: r.last_name,
         phone: r.phone, first_visit_at: r.first_visit_at, last_visit_at: r.last_visit_at,
         total_spent: num(r.total_spent), ticket_count: r.ticket_count || 0, order_count: r.order_count || 0,
@@ -227,7 +227,7 @@ export default function OwnerCustomers() {
         // fall back to a direct fetch if the segments list hasn't populated yet
         if (accountRows.length === 0) {
           const { data } = await supabase.from('venue_customers').select('*').eq('venue_id', venue.id).in('id', uniqueIds);
-          accountRows = (data || []).map((r: any) => ({ ...r, total_spent: num(r.total_spent), revenue_30d: 0, revenue_90d: 0, revenue_prev_90d: 0, avg_basket: 0, visit_nights: 0, visits_per_month: 0, last_activity_at: r.last_visit_at, preferred_dow: null, preferred_event_title: null, recency_days: 9999, rfm_r: 1, rfm_f: 1, rfm_m: 1, rfm_segment: 'lost' as SegmentKey, rfm_tier: 'bronze' as Tier, churn_risk: false }));
+          accountRows = (data || []).map((r) => ({ ...r, total_spent: num(r.total_spent), revenue_30d: 0, revenue_90d: 0, revenue_prev_90d: 0, avg_basket: 0, visit_nights: 0, visits_per_month: 0, last_activity_at: r.last_visit_at, preferred_dow: null, preferred_event_title: null, recency_days: 9999, rfm_r: 1, rfm_f: 1, rfm_m: 1, rfm_segment: 'lost' as SegmentKey, rfm_tier: 'bronze' as Tier, churn_risk: false }));
         }
       }
       // (b) email-only bans (guest / no account) that have no venue_customer
@@ -820,10 +820,10 @@ export default function OwnerCustomers() {
                       <p style={{ color: T3, fontSize: 11, marginBottom: 6 }}>{label}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {opts.map(({ v, l }) => {
-                          const active = (segmentFilters as any)[key] === v;
+                          const active = segmentFilters[key as keyof SegmentFilters] === v;
                           return (
                             <button key={v} type="button"
-                              onClick={() => setSegmentFilters(f => ({ ...f, [key]: (f as any)[key] === v ? '' : v }))}
+                              onClick={() => setSegmentFilters(f => ({ ...f, [key]: f[key as keyof SegmentFilters] === v ? '' : v }))}
                               className="px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-all duration-150"
                               style={{ background: active ? `rgba(232,25,44,0.12)` : INNER_BG, border: `1px solid ${active ? RED : BORDER}`, color: active ? RED : T2 }}>
                               {l}

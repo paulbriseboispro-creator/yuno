@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 
 export type StepStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 
@@ -66,14 +67,14 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
   );
 
   // Step 3 — First event created.
-  const eventsQuery: any = supabase.from('events').select('id', { count: 'exact', head: true });
+  const eventsQuery = supabase.from('events').select('id', { count: 'exact', head: true });
   const { count: eventCount } = await eventsQuery.or(
     `organizer_user_id.eq.${userId},partner_organizer_id.eq.${userId}`,
   );
   result['3'] = (eventCount ?? 0) > 0;
 
   // Step 4 — Team (optional): at least one accepted member.
-  const membersQuery: any = supabase.from('org_members').select('id', { count: 'exact', head: true });
+  const membersQuery = supabase.from('org_members').select('id', { count: 'exact', head: true });
   const { count: memberCount } = await membersQuery
     .eq('organizer_user_id', userId)
     .eq('invitation_status', 'accepted');
@@ -121,8 +122,8 @@ export function useOrganizerOnboarding(userId: string | null) {
           .insert({
             user_id: userId,
             current_step: 1,
-            steps: DEFAULT_STEPS,
-          } as any)
+            steps: DEFAULT_STEPS as unknown as Json,
+          })
           .select()
           .single();
         if (createErr) throw createErr;
@@ -162,7 +163,7 @@ export function useOrganizerOnboarding(userId: string | null) {
           .find(n => steps[String(n)]?.status !== 'completed' && steps[String(n)]?.status !== 'skipped');
         currentStep = firstIncomplete ?? TOTAL_STEPS;
 
-        const update: any = { steps, current_step: currentStep, updated_at: new Date().toISOString() };
+        const update: TablesUpdate<'organizer_onboarding'> = { steps: steps as unknown as Json, current_step: currentStep, updated_at: new Date().toISOString() };
         if (completedAt) update.completed_at = completedAt;
 
         await supabase.from('organizer_onboarding').update(update).eq('id', onboardingId);
@@ -202,8 +203,8 @@ export function useOrganizerOnboarding(userId: string | null) {
       k => newSteps[k]?.status === 'completed' || newSteps[k]?.status === 'skipped',
     );
 
-    const update: any = {
-      steps: newSteps,
+    const update: TablesUpdate<'organizer_onboarding'> = {
+      steps: newSteps as unknown as Json,
       current_step: newCurrentStep,
       updated_at: new Date().toISOString(),
     };
@@ -217,7 +218,7 @@ export function useOrganizerOnboarding(userId: string | null) {
 
     // When all done, also mark profile as onboarded so the route guard releases.
     if (isComplete && userId) {
-      await supabase.from('profiles').update({ onboarding_completed: true } as any).eq('id', userId);
+      await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', userId);
     }
 
     setState(prev => prev ? {
@@ -237,7 +238,7 @@ export function useOrganizerOnboarding(userId: string | null) {
     if (!state) return;
     const { error } = await supabase
       .from('organizer_onboarding')
-      .update({ current_step: step, updated_at: new Date().toISOString() } as any)
+      .update({ current_step: step, updated_at: new Date().toISOString() })
       .eq('id', state.id);
     if (!error) setState(prev => prev ? { ...prev, current_step: step } : null);
   }, [state]);

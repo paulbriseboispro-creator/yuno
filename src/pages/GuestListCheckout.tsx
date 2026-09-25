@@ -250,7 +250,7 @@ export default function GuestListCheckout() {
 
       if (!gl) { setLoading(false); return; }
 
-      const ev = (gl as any).events;
+      const ev = gl.events;
       let venueName = '';
       let venueCity = '';
       // Co-soirée menée par un organisateur : le club physique est partner_venue_id.
@@ -511,7 +511,8 @@ export default function GuestListCheckout() {
       setSuccess(true);
       haptics.success();
       toast.success(t('guestList.registrationSuccess'));
-    } catch (err: any) {
+    } catch (caught: unknown) {
+      const err = caught as { message?: string; context?: { json?: () => Promise<{ error?: string } | null> } } | null | undefined;
       let msg = err?.message || t('guestList.registrationError');
       // supabase-js wraps a non-2xx function response; the real message is in the body.
       try {

@@ -39,7 +39,7 @@ export function useAgency() {
     // `.order + .limit(1)` et non `.maybeSingle()` seul : si un doublon
     // d'agence existe (créé avant la garde anti-doublon de create_agency),
     // maybeSingle() renvoie une erreur PGRST116 et lockait l'owner dehors.
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from('agencies')
       .select('*')
       .eq('owner_user_id', user.id)

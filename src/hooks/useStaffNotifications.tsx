@@ -15,7 +15,25 @@ export interface StaffNotification {
   createdAt: string;
   readAt?: string;
   readBy?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
+}
+
+/** Ligne brute `staff_notifications` telle que lue (select * / Realtime). */
+interface StaffNotificationRow {
+  id: string;
+  venue_id: string;
+  event_id?: string;
+  target_role: string;
+  notification_type: string;
+  title: string;
+  message: string;
+  reference_type?: string;
+  reference_id?: string;
+  priority?: StaffNotification['priority'];
+  created_at: string;
+  read_at?: string;
+  read_by?: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface UseStaffNotificationsOptions {
@@ -48,7 +66,7 @@ export function useStaffNotifications({ venueId, targetRole, autoPlay = true }: 
 
       if (error) throw error;
 
-      const mapped: StaffNotification[] = (data || []).map((n: any) => ({
+      const mapped: StaffNotification[] = ((data || []) as unknown as StaffNotificationRow[]).map((n) => ({
         id: n.id,
         venueId: n.venue_id,
         eventId: n.event_id,
@@ -80,7 +98,7 @@ export function useStaffNotifications({ venueId, targetRole, autoPlay = true }: 
     
     try {
       // Use Web Audio API for a simple beep
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -123,7 +141,7 @@ export function useStaffNotifications({ venueId, targetRole, autoPlay = true }: 
           filter: `venue_id=eq.${venueId}`,
         },
         (payload) => {
-          const newNotif = payload.new as any;
+          const newNotif = payload.new as StaffNotificationRow;
           if (newNotif.target_role === targetRole) {
             const mapped: StaffNotification = {
               id: newNotif.id,

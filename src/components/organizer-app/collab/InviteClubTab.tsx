@@ -79,7 +79,7 @@ export function InviteClubTab() {
         body: { ...form, lang: mailLang, event_id: eventId || null, default_split_rules: buildRules(), origin: window.location.origin },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
       toast({
         title: t('Invitation envoyée 📧', 'Invitation sent 📧', 'Invitación enviada 📧'),
         description: t(
@@ -89,8 +89,8 @@ export function InviteClubTab() {
         ),
       });
       setForm({ club_name: '', club_email: '', club_city: '', club_address: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
-    } catch (err: any) {
-      toast({ title: t('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: t('Erreur', 'Error', 'Error'), description: (err as Error).message, variant: 'destructive' });
     } finally {
       setInviting(false);
     }

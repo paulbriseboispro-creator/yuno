@@ -894,10 +894,10 @@ export default function PromoterLinktree() {
             external_ticket_url: ev.external_ticket_url ?? null,
             genres: Array.isArray(ev.genres) ? ev.genres : [],
             venue_name: venue?.name ?? null,
-            has_tables: !!(ev as any).has_tables,
-            tables_only: !!(ev as any).tables_only,
-            has_guest_list: !!(ev as any).has_guest_list,
-            guest_list_type: (ev as any).guest_list_type ?? null,
+            has_tables: !!ev.has_tables,
+            tables_only: !!ev.tables_only,
+            has_guest_list: !!ev.has_guest_list,
+            guest_list_type: ev.guest_list_type ?? null,
           };
         });
 

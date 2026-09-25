@@ -56,7 +56,7 @@ export function normalizePhone(raw: string, country: CountryOption): string | nu
   let s = (raw || '').trim();
   if (!s) return null;
   // Préfixe ~ / ' des tableurs, parenthèses, points, tirets, espaces insécables.
-  s = s.replace(/^[~'"\s]+|["'\s]+$/g, '').replace(/[\s.\-() ]/g, '');
+  s = s.replace(/^[~'"\s]+|["'\s]+$/g, '').replace(/[\s.\-()\u00a0]/g, '');
   if (!s) return null;
   if (s.startsWith('00')) s = '+' + s.slice(2);
   if (s.startsWith('+')) {
@@ -84,7 +84,7 @@ const LAST_HEADERS  = ['nom', 'nom de famille', 'last name', 'lastname', 'last_n
 const FULL_HEADERS  = ['nom complet', 'full name', 'fullname', 'name', 'nombre completo', 'contact'];
 
 function normalizeHeader(h: string): string {
-  return h.trim().toLowerCase().replace(/^﻿/, '').replace(/["']/g, '')
+  return h.trim().toLowerCase().replace(/^\uFEFF/, '').replace(/["']/g, '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
@@ -118,7 +118,7 @@ function looksLikePhone(cell: string): boolean {
 }
 
 export function parsePhoneList(raw: string, country: CountryOption): PhoneParseResult {
-  const text = raw.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  const text = raw.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   const lines = text.split('\n').filter((l) => l.trim().length > 0);
   const result: PhoneParseResult = { contacts: [], invalid: [], duplicates: 0, totalRows: 0, detected: {} };
   if (lines.length === 0) return result;

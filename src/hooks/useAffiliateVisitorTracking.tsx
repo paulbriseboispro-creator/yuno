@@ -59,7 +59,7 @@ function getOrCreateVisitorId(): { id: string; visitNumber: number; isReturning:
 }
 
 function getConnectionType(): string | null {
-  const conn = (navigator as any).connection;
+  const conn = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
   return conn?.effectiveType || null;
 }
 

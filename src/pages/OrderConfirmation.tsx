@@ -9,6 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useAuth } from '@/hooks/useAuth';
 import { downloadICS } from '@/lib/calendar';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -121,6 +122,24 @@ interface ConfirmationData {
   accessDocs?: Array<{ id: string; label: string; fileUrl: string; fileName: string }>;
 }
 
+/**
+ * Receipt handed over through navigation state by a guest checkout: an
+ * anonymous buyer cannot read the row back under RLS, so the page falls back
+ * on what the checkout passed along.
+ */
+type GuestReceipt = Omit<Partial<ConfirmationData>, 'id' | 'qrCode'> & {
+  id: string;
+  qrCode: string;
+  roundName?: string;
+  roundPrice?: number;
+  invoiceNumber?: string;
+};
+
+interface ConfirmationNavState {
+  guestTicketData?: GuestReceipt;
+  guestTableData?: GuestReceipt;
+}
+
 export default function OrderConfirmation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -161,10 +180,10 @@ export default function OrderConfirmation() {
 
   const type = searchParams.get('type') as 'ticket' | 'table' | 'order';
   const id = searchParams.get('id');
-  const guestTicketData = (location.state as any)?.guestTicketData;
+  const guestTicketData = (location.state as ConfirmationNavState | null)?.guestTicketData;
   // Table réservée en invité : la RLS ne laisse pas un anonyme relire sa
   // réservation, le checkout passe donc le reçu par l'état de navigation.
-  const guestTableData = (location.state as any)?.guestTableData;
+  const guestTableData = (location.state as ConfirmationNavState | null)?.guestTableData;
 
   const getLocale = () => {
     switch (language) {
@@ -341,7 +360,7 @@ export default function OrderConfirmation() {
           .select('offer_type, unit_price, total_price, ticket_upsell_offers(name)')
           .eq('ticket_id', id);
 
-        const upsellSelections: UpsellSelection[] = (upsellSels || []).map((s: any) => ({
+        const upsellSelections: UpsellSelection[] = (upsellSels || []).map((s) => ({
           name: s.ticket_upsell_offers?.name || s.offer_type,
           price: Number(s.total_price || 0),
           offerType: s.offer_type,
@@ -383,8 +402,8 @@ export default function OrderConfirmation() {
           .select('id, label, file_url, file_name')
           .eq('venue_id', ticket.events.venue_id)
           .eq('is_active', true)
-          .order('position', { ascending: true }) : { data: [] as any[] };
-        const accessDocs = (docs || []).map((d: any) => ({ id: d.id, label: d.label, fileUrl: d.file_url, fileName: d.file_name }));
+          .order('position', { ascending: true }) : { data: [] as Pick<Tables<'venue_access_documents'>, 'id' | 'label' | 'file_url' | 'file_name'>[] };
+        const accessDocs = (docs || []).map((d) => ({ id: d.id, label: d.label, fileUrl: d.file_url, fileName: d.file_name }));
 
         // Alcohol-free events: surface the minor-authorization document (from the
         // venue, or the organizer for venue-less events) so minors can sign it.
@@ -392,10 +411,10 @@ export default function OrderConfirmation() {
           let minorDoc: { url: string | null; name: string | null } | null = null;
           if (ticket.events.venue_id) {
             const { data: v } = await supabase.from('venues').select('minor_auth_doc_url, minor_auth_doc_name').eq('id', ticket.events.venue_id).maybeSingle();
-            if ((v as any)?.minor_auth_doc_url) minorDoc = { url: (v as any).minor_auth_doc_url, name: (v as any).minor_auth_doc_name };
+            if (v?.minor_auth_doc_url) minorDoc = { url: v.minor_auth_doc_url, name: v.minor_auth_doc_name };
           } else if (ticketEvent.organizer_user_id) {
             const { data: o } = await supabase.from('organizer_profiles').select('minor_auth_doc_url, minor_auth_doc_name').eq('user_id', ticketEvent.organizer_user_id).maybeSingle();
-            if ((o as any)?.minor_auth_doc_url) minorDoc = { url: (o as any).minor_auth_doc_url, name: (o as any).minor_auth_doc_name };
+            if (o?.minor_auth_doc_url) minorDoc = { url: o.minor_auth_doc_url, name: o.minor_auth_doc_name };
           }
           if (minorDoc?.url) {
             accessDocs.push({ id: 'minor-auth', label: t('confirmation.minorDocLabel'), fileUrl: minorDoc.url, fileName: minorDoc.name || 'authorization.pdf' });
@@ -575,7 +594,7 @@ export default function OrderConfirmation() {
         }
 
         // Parse order items
-        const orderItems = (order.items as any[])?.map(item => ({
+        const orderItems = (order.items as unknown as Array<{ name: string; qty: number; unitPrice: number }> | null)?.map(item => ({
           name: item.name,
           qty: item.qty,
           unitPrice: item.unitPrice,
@@ -711,7 +730,7 @@ export default function OrderConfirmation() {
         const { data: newNum, error } = await supabase
           .rpc('generate_invoice_number', { p_venue_id: data.venueId });
         if (!error && newNum) {
-          const insertData: any = { venue_id: data.venueId, invoice_number: newNum };
+          const insertData: TablesInsert<'invoice_numbers'> = { venue_id: data.venueId, invoice_number: newNum };
           if (type === 'ticket') insertData.ticket_id = id;
           else if (type === 'table') insertData.table_reservation_id = id;
           else if (type === 'order') insertData.order_id = id;

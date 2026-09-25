@@ -66,7 +66,7 @@ export default function AcceptInvitation() {
             return;
           }
           email = invitation.email;
-          venueName = (invitation.venues as any)?.name || 'Club';
+          venueName = (invitation.venues as unknown as { name?: string } | null)?.name || 'Club';
         } else {
           const { data: invitation, error } = await supabase
             .from('promoter_invitations')
@@ -79,7 +79,7 @@ export default function AcceptInvitation() {
             return;
           }
           email = invitation.email;
-          venueName = (invitation.venues as any)?.name || 'Club';
+          venueName = (invitation.venues as unknown as { name?: string } | null)?.name || 'Club';
           promoCode = invitation.promo_code;
           
           // Use the has_yuno_account flag stored in commission_config
@@ -161,9 +161,9 @@ export default function AcceptInvitation() {
         });
         toast.success(response.data.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error accepting invitation:', error);
-      setResult({ success: false, message: error.message || t('acceptInv.acceptError') });
+      setResult({ success: false, message: (error as { message?: string }).message || t('acceptInv.acceptError') });
     } finally {
       setLoading(false);
     }

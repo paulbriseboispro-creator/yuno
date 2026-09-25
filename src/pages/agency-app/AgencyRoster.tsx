@@ -113,7 +113,7 @@ export default function AgencyRoster() {
   const [revoking, setRevoking] = useState<string | null>(null);
   const loadInvites = useCallback(async () => {
     if (!agency?.id) { setPendingInvites([]); return; }
-    const { data, error } = await (supabase as any).rpc('get_agency_pending_invitations', { p_agency_id: agency.id });
+    const { data, error } = await supabase.rpc('get_agency_pending_invitations', { p_agency_id: agency.id });
     if (!error) setPendingInvites((data as PendingInvite[] | null) ?? []);
   }, [agency?.id]);
   useEffect(() => { loadInvites(); }, [loadInvites]);
@@ -134,7 +134,7 @@ export default function AgencyRoster() {
     setRevoking(group[0].email);
     try {
       for (const inv of group) {
-        await (supabase as any).rpc('revoke_agency_invitation', { p_kind: inv.kind, p_invitation_id: inv.invitation_id });
+        await supabase.rpc('revoke_agency_invitation', { p_kind: inv.kind, p_invitation_id: inv.invitation_id });
       }
       toast.success(tt('Invitation révoquée', 'Invitation revoked'));
     } finally {

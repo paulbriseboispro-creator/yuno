@@ -75,17 +75,17 @@ export default function AffiliatePromoterLinktree() {
     if (!member) { setLoading(false); return; }
 
     setMemberId(member.id);
-    setLinktreeSlug((member as any).linktree_slug ?? null);
-    setMemberSortMode((member as any).linktree_sort_mode ?? null);
+    setLinktreeSlug(member.linktree_slug ?? null);
+    setMemberSortMode(member.linktree_sort_mode ?? null);
 
     const { data: aff } = await supabase
       .from('affiliates')
       .select('allow_promoter_sort, linktree_sort_mode')
-      .eq('id', (member as any).affiliate_id)
+      .eq('id', member.affiliate_id)
       .maybeSingle();
     if (aff) {
-      setAllowPromoterSort((aff as any).allow_promoter_sort ?? false);
-      setAdminSortMode((aff as any).linktree_sort_mode ?? 'by_day');
+      setAllowPromoterSort(aff.allow_promoter_sort ?? false);
+      setAdminSortMode(aff.linktree_sort_mode ?? 'by_day');
     }
 
     const { data: existingEntries } = await supabase
@@ -94,7 +94,7 @@ export default function AffiliatePromoterLinktree() {
       .eq('member_id', member.id)
       .order('sort_order', { ascending: true });
 
-    const mapped: LinktreeEntry[] = (existingEntries ?? []).map((row: any) => ({
+    const mapped: LinktreeEntry[] = (existingEntries ?? []).map((row) => ({
       id: row.id,
       affiliate_event_id: row.affiliate_event_id,
       promo_link: row.promo_link,
@@ -117,13 +117,13 @@ export default function AffiliatePromoterLinktree() {
     const { data: upcoming } = await supabase
       .from('affiliate_events')
       .select('id, name, slug, event_date, start_time, flyer_url, affiliate_venues(name)')
-      .eq('affiliate_id', (member as any).affiliate_id)
+      .eq('affiliate_id', member.affiliate_id)
       .in('status', ['published', 'featured'])
       .gte('event_date', today)
       .order('event_date', { ascending: true })
       .limit(100);
 
-    const normalised: AffiliateEvent[] = (upcoming ?? []).map((e: any) => ({
+    const normalised: AffiliateEvent[] = (upcoming ?? []).map((e) => ({
       ...e,
       affiliate_venues: Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] ?? null : e.affiliate_venues,
     }));

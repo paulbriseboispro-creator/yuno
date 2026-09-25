@@ -24,7 +24,7 @@ export function AgencyRoute({ children }: AgencyRouteProps) {
         return;
       }
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)

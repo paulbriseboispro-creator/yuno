@@ -232,8 +232,8 @@ export default function AffiliateSettings() {
         website: p.website ?? '',
         whatsapp: p.whatsapp ?? '',
         promoter_social_mode: p.promoter_social_mode ?? 'promoter',
-        linktree_sort_mode: (p as any).linktree_sort_mode ?? 'by_day',
-        allow_promoter_sort: (p as any).allow_promoter_sort ?? false,
+        linktree_sort_mode: p.linktree_sort_mode ?? 'by_day',
+        allow_promoter_sort: p.allow_promoter_sort ?? false,
       });
       setTrustStats(Array.isArray(p.trust_stats) ? p.trust_stats : []);
     }

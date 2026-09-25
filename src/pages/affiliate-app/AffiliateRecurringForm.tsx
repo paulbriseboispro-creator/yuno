@@ -453,7 +453,7 @@ export default function AffiliateRecurringForm() {
       if (data) {
         const loaded: FormData = {
           name: data.name ?? '',
-          slug: (data as any).slug ?? '',
+          slug: data.slug ?? '',
           affiliate_venue_id: data.affiliate_venue_id ?? '',
           day_of_week: data.day_of_week ?? 5,
           advance_days: data.advance_days ?? 7,
@@ -466,15 +466,15 @@ export default function AffiliateRecurringForm() {
           price_from: data.price_from?.toString() ?? '',
           is_free: data.is_free ?? false,
           is_active: data.is_active ?? true,
-          flyer_url: (data as any).flyer_url ?? null,
+          flyer_url: data.flyer_url ?? null,
           // Anciens libellés ramenés sur les puces réelles (cf. musicGenres.ts).
           genres: canonicalGenres(data.genres),
-          publication_url: (data as any).publication_url ?? '',
-          publication_url_is_permanent: (data as any).publication_url_is_permanent ?? false,
-          has_tables: (data as any).has_tables ?? false,
-          tables_only: (data as any).tables_only ?? false,
-          has_guest_list: (data as any).has_guest_list ?? false,
-          guest_list_type: ((data as any).guest_list_type === 'women' ? 'women' : 'mixed'),
+          publication_url: data.publication_url ?? '',
+          publication_url_is_permanent: data.publication_url_is_permanent ?? false,
+          has_tables: data.has_tables ?? false,
+          tables_only: data.tables_only ?? false,
+          has_guest_list: data.has_guest_list ?? false,
+          guest_list_type: (data.guest_list_type === 'women' ? 'women' : 'mixed'),
         };
         setForm(loaded);
         savedOccValues.current = occurrenceValues(loaded);

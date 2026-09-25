@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -123,8 +124,8 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
           setFloorPlanIsInherited(false);
         }
       }
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e) {
+      toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -178,7 +179,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       toast.error(t('coTables.noHostVenue'));
       return;
     }
-    const payload: any = {
+    const payload: TablesInsert<'table_zones'> = {
       name: zoneForm.name.trim(),
       color: zoneForm.color,
       tables_count: parseInt(zoneForm.tables_count) || 1,
@@ -240,7 +241,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       toast.error(t('coTables.noHostVenueShort'));
       return;
     }
-    const payload: any = {
+    const payload: TablesInsert<'table_packs'> = {
       zone_id: packForm.zone_id,
       name: packForm.name.trim(),
       description: packForm.description.trim() || null,
@@ -287,7 +288,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       const { data: pub } = supabase.storage.from('floor-plans').getPublicUrl(path);
       const { data: existing } = await supabase
         .from('venue_floor_plans').select('id').eq('event_id', eventId).maybeSingle();
-      const payload: any = {
+      const payload: TablesInsert<'venue_floor_plans'> = {
         event_id: eventId,
         owner_user_id: user?.id ?? null,
         venue_id: hostVenueId,
@@ -301,8 +302,8 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
       setFloorPlanUrl(pub.publicUrl);
       setFloorPlanIsInherited(false);
       toast.success(t('coTables.planImported'));
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e) {
+      toast.error((e as Error).message);
     } finally {
       setUploading(false);
     }

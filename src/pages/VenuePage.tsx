@@ -298,10 +298,10 @@ export default function VenuePage() {
           coverUrl: data.cover_url || undefined,
           logoUrl: data.logo_url,
           coverPosition: data.cover_position as { x: number; y: number } | undefined,
-          description: (data as any).description || undefined,
-          shortDescription: (data as any).short_description || undefined,
-          musicGenre: (data as any).music_genre || undefined,
-          minAge: (data as any).min_age || undefined,
+          description: data.description || undefined,
+          shortDescription: data.short_description || undefined,
+          musicGenre: data.music_genre || undefined,
+          minAge: data.min_age || undefined,
           instagramUrl: data.instagram_url || undefined,
           facebookUrl: data.facebook_url || undefined,
           tiktokUrl: data.tiktok_url || undefined,
@@ -385,7 +385,7 @@ export default function VenuePage() {
 
         if (error) throw error;
         
-        const mappedDrinks: Drink[] = (data || []).map((drink: any) => ({
+        const mappedDrinks: Drink[] = (data || []).map((drink) => ({
           id: drink.id,
           name: drink.name,
           description: drink.description || '',
@@ -466,7 +466,7 @@ export default function VenuePage() {
           organizerUserId?: string | null;
           musicGenre?: string;
           slug?: string | null;
-        })[] = rawEvents.map((event: any) => ({
+        })[] = rawEvents.map((event) => ({
           id: event.id,
           slug: event.slug ?? null,
           venueId: event.venue_id,
@@ -493,11 +493,11 @@ export default function VenuePage() {
         );
         if (organizerIds.length > 0) {
           const { data: orgs } = await supabase
-            .from('organizer_profiles' as any)
+            .from('organizer_profiles')
             .select('user_id, display_name, slug')
             .in('user_id', organizerIds);
           const map: Record<string, { name: string; slug: string | null }> = {};
-          (orgs || []).forEach((o: any) => {
+          (orgs || []).forEach((o) => {
             map[o.user_id] = { name: o.display_name || 'Organisateur', slug: o.slug };
           });
           const byEvent: Record<string, { name: string; slug: string | null } | undefined> = {};
@@ -869,7 +869,7 @@ export default function VenuePage() {
             {events.map((event, index) => {
               const organizer = eventOrganizers[event.id];
               const isCoOrganized = !!organizer;
-              const posterSrc = (event as any).posterUrl;
+              const posterSrc = event.posterUrl;
               const startDate = new Date(event.startAt);
 
               return (

@@ -129,7 +129,7 @@ export function useAgencyData(agencyId: string | null) {
       return;
     }
     setLoading(true);
-    const db = supabase as any;
+    const db = supabase;
     const [pRes, cRes, convRes, gRes, armRes] = await Promise.all([
       db.from('promoters')
         .select('*, venues(name)')
@@ -152,12 +152,12 @@ export function useAgencyData(agencyId: string | null) {
         .eq('agency_id', agencyId)
         .maybeSingle(),
     ]);
-    setPromoters((pRes.data as AgencyPromoter[]) ?? []);
-    setContracts((cRes.data as AgencyContract[]) ?? []);
-    setConversions((convRes.data as AgencyConversion[]) ?? []);
-    setGroups((gRes.data as AgencyPromoterGroup[]) ?? []);
-    setExternalMembers(((armRes.data?.affiliate_members as ExternalMember[]) ?? []).filter(m => m.is_active));
-    setExternalVenues((armRes.data?.affiliate_venues as ExternalVenue[]) ?? []);
+    setPromoters((pRes.data as unknown as AgencyPromoter[] | null) ?? []);
+    setContracts((cRes.data as unknown as AgencyContract[] | null) ?? []);
+    setConversions((convRes.data as unknown as AgencyConversion[] | null) ?? []);
+    setGroups((gRes.data as unknown as AgencyPromoterGroup[] | null) ?? []);
+    setExternalMembers(((armRes.data?.affiliate_members as unknown as ExternalMember[] | undefined) ?? []).filter(m => m.is_active));
+    setExternalVenues((armRes.data?.affiliate_venues as unknown as ExternalVenue[] | undefined) ?? []);
     setLoading(false);
   }, [agencyId]);
 

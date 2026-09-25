@@ -18,6 +18,27 @@ import { legalContent } from '@/data/legalContent';
 
 const RED = '#E8192C';
 
+interface RedeemEntity {
+  id?: string | null;
+  user_id?: string | null;
+  slug?: string | null;
+  name?: string | null;
+}
+
+interface RedeemResponse {
+  success?: boolean;
+  code?: string;
+  error?: string;
+  showcase?: boolean;
+  target?: string;
+  venue?: RedeemEntity | null;
+  organizer?: RedeemEntity | null;
+  target_accounts?: TargetAccount[];
+  language?: string;
+  access_token?: string;
+  refresh_token?: string;
+}
+
 interface LinkInfo {
   label: string;
   target_accounts: TargetAccount[];
@@ -172,11 +193,11 @@ export default function PreviewGate() {
     let active = true;
     (async () => {
       if (!token) { setLoading(false); return; }
-      const { data, error: rpcError } = await supabase.rpc('get_demo_preview_link_public' as any, { p_token: token });
+      const { data, error: rpcError } = await supabase.rpc('get_demo_preview_link_public', { p_token: token });
       if (!active) return;
       if (rpcError) { setInfo(null); setLoading(false); return; }
       const row = Array.isArray(data) ? data[0] : data;
-      setInfo(row ? (row as LinkInfo) : null);
+      setInfo(row ? (row as unknown as LinkInfo) : null);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -198,8 +219,9 @@ export default function PreviewGate() {
       const { data, error: invokeError } = await supabase.functions.invoke('accept-staff-invitation', {
         body: { action: 'redeem_demo_preview_link', token, password },
       });
-      const code = (data as any)?.code ?? (data as any)?.error;
-      if (invokeError || !(data as any)?.success) {
+      const res = data as RedeemResponse | null;
+      const code = res?.code ?? res?.error;
+      if (invokeError || !res?.success) {
         if (code === 'wrong_password') setError(c.err.wrong);
         else if (code === 'locked') setError(c.err.locked);
         else if (code === 'expired') setError(c.err.expired);
@@ -213,7 +235,7 @@ export default function PreviewGate() {
       // Clickwrap : trace l'engagement de confidentialité du prospect AVANT le
       // setSession (encore anon) et avant l'armement du mode lecture seule, qui
       // bloquerait cette écriture. On n'enregistre que les entrées réussies.
-      const isShowcase = !!(data as any).showcase;
+      const isShowcase = !!res.showcase;
       await recordLegalAcceptance({
         docType: 'demo_confidentiality',
         docContent: legalContent['confidentialite'][lang].content,
@@ -221,19 +243,19 @@ export default function PreviewGate() {
           ? {
               surface: 'showcase_gate',
               label: info?.label ?? '',
-              target: (data as any).target === 'organizer' ? 'organizer' : 'venue',
-              venue_id: String((data as any).venue?.id ?? ''),
-              organizer_user_id: String((data as any).organizer?.user_id ?? ''),
+              target: res.target === 'organizer' ? 'organizer' : 'venue',
+              venue_id: String(res.venue?.id ?? ''),
+              organizer_user_id: String(res.organizer?.user_id ?? ''),
             }
           : { surface: 'preview_gate', label: info?.label ?? '', roles: info?.target_accounts ?? [] },
       });
 
-      const roles = ((data as any).target_accounts as TargetAccount[]) ?? [];
+      const roles = (res.target_accounts as TargetAccount[]) ?? [];
       const primary = roles[0];
-      const language = String((data as any).language ?? info?.language ?? 'en');
+      const language = String(res.language ?? info?.language ?? 'en');
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: (data as any).access_token,
-        refresh_token: (data as any).refresh_token,
+        access_token: res.access_token as string,
+        refresh_token: res.refresh_token as string,
       });
       if (sessionError) throw sessionError;
 
@@ -244,8 +266,8 @@ export default function PreviewGate() {
         // club ou de SON profil organisateur. Pas d'applyDemoBypass complet
         // (compte non-démo) — seulement le bypass MFA local, en
         // ceinture-bretelles du mfa_exempt posé côté base.
-        const target: 'venue' | 'organizer' = (data as any).target === 'organizer' ? 'organizer' : 'venue';
-        const ent = (target === 'organizer' ? (data as any).organizer : (data as any).venue) ?? {};
+        const target: 'venue' | 'organizer' = res.target === 'organizer' ? 'organizer' : 'venue';
+        const ent: RedeemEntity = (target === 'organizer' ? res.organizer : res.venue) ?? {};
         const role = target === 'organizer' ? 'organizer' : 'owner';
         setMfaBypass(userId);
         enablePreviewMode({

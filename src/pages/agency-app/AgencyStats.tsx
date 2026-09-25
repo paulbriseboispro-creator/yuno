@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useAgency } from '@/hooks/useAgency';
-import { useAgencyData, promoterName } from '@/hooks/useAgencyData';
+import { useAgencyData, promoterName, type AgencyConversion } from '@/hooks/useAgencyData';
 import { useAgencyFullStats, PromoterStat, EventStat } from '@/hooks/useAgencyFullStats';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -54,7 +54,7 @@ function PromoterRow({
   stat: PromoterStat;
   rank: number;
   share: number;
-  conversions: any[];
+  conversions: AgencyConversion[];
   eventMap: Map<string, EventStat>;
   cutoff: Date | null;
   tt: (fr: string, en: string) => string;
@@ -220,7 +220,7 @@ function EventRow({
   stat: EventStat;
   rank: number;
   share: number;
-  conversions: any[];
+  conversions: AgencyConversion[];
   promoterStatsMap: Map<string, PromoterStat>;
   cutoff: Date | null;
   tt: (fr: string, en: string) => string;

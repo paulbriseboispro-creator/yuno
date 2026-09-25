@@ -143,7 +143,7 @@ export default function OrganizerPublicProfile() {
       if (!isBde) evQuery = evQuery.eq('visibility', 'public');
       const { data: evs } = await evQuery.order('start_at', { ascending: true });
 
-      const enriched: OrgEvent[] = (evs ?? []).map((e: any) => ({
+      const enriched: OrgEvent[] = (evs ?? []).map((e) => ({
         ...e,
         // Normalise: for collab events, the actual host venue lives in partner_venue_id
         venue_id: e.venue_id || e.partner_venue_id || null,
@@ -199,12 +199,12 @@ export default function OrganizerPublicProfile() {
         // Source 2: any host venue used by this orga's events (solo @ partner club, or co_event)
         // — this catches collab events even when no formal partnership row exists.
         const eventHostVenueIds = enriched
-          .map((e: any) => e.venue_id)
+          .map((e) => e.venue_id)
           .filter(Boolean) as string[];
 
         const partnerVenueIds = [
           ...new Set([
-            ...(partnerships ?? []).map((p: any) => p.venue_id).filter(Boolean),
+            ...(partnerships ?? []).map((p) => p.venue_id).filter(Boolean),
             ...eventHostVenueIds,
           ]),
         ];
@@ -220,14 +220,14 @@ export default function OrganizerPublicProfile() {
           ]);
 
           const planByVenue: Record<string, string> = {};
-          (subRows ?? []).forEach((s: any) => { planByVenue[s.venue_id] = s.subscription_plan; });
+          (subRows ?? []).forEach((s) => { planByVenue[s.venue_id] = s.subscription_plan; });
 
-          const eligibleVenues = (vRows ?? []).filter((v: any) =>
+          const eligibleVenues = (vRows ?? []).filter((v) =>
             v.menu_enabled === true && hasFeature((planByVenue[v.id] || 'core') as PlanCode, 'menu')
           );
 
           if (eligibleVenues.length > 0) {
-            const eligibleIds = eligibleVenues.map((v: any) => v.id);
+            const eligibleIds = eligibleVenues.map((v) => v.id);
             const { data: drinksData } = await supabase
               .from('drinks')
               .select('*')
@@ -236,7 +236,7 @@ export default function OrganizerPublicProfile() {
               .order('position', { ascending: true });
 
             const grouped: Record<string, Drink[]> = {};
-            (drinksData ?? []).forEach((d: any) => {
+            (drinksData ?? []).forEach((d) => {
               const mapped: Drink = {
                 id: d.id,
                 name: d.name,
@@ -257,7 +257,7 @@ export default function OrganizerPublicProfile() {
             });
 
             const result = eligibleVenues
-              .map((v: any) => ({ venueId: v.id, venueName: v.name, drinks: grouped[v.id] || [] }))
+              .map((v) => ({ venueId: v.id, venueName: v.name, drinks: grouped[v.id] || [] }))
               .filter(g => g.drinks.length > 0);
             setPartnerDrinksByVenue(result);
             if (result.length > 0) setSelectedPartnerVenueId(result[0].venueId);

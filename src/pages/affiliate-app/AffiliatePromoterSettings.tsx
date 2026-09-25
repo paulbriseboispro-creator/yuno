@@ -83,20 +83,22 @@ export default function AffiliatePromoterSettings() {
       .maybeSingle();
 
     if (data) {
-      const affiliate = Array.isArray((data as any).affiliates)
-        ? (data as any).affiliates[0] ?? null
-        : (data as any).affiliates ?? null;
+      // The embed may come back as an object or a one-element array.
+      const affiliates = data.affiliates as unknown as MemberProfile['affiliate'] | MemberProfile['affiliate'][] | null;
+      const affiliate = Array.isArray(affiliates)
+        ? affiliates[0] ?? null
+        : affiliates ?? null;
 
       const p: MemberProfile = {
         id: data.id,
-        first_name: (data as any).first_name ?? null,
-        last_name: (data as any).last_name ?? null,
-        linktree_slug: (data as any).linktree_slug ?? null,
-        avatar_url: (data as any).avatar_url ?? null,
-        instagram: (data as any).instagram ?? null,
-        tiktok: (data as any).tiktok ?? null,
-        whatsapp: (data as any).whatsapp ?? null,
-        website: (data as any).website ?? null,
+        first_name: data.first_name ?? null,
+        last_name: data.last_name ?? null,
+        linktree_slug: data.linktree_slug ?? null,
+        avatar_url: data.avatar_url ?? null,
+        instagram: data.instagram ?? null,
+        tiktok: data.tiktok ?? null,
+        whatsapp: data.whatsapp ?? null,
+        website: data.website ?? null,
         affiliate,
       };
       setNameChangedAt((data as { name_changed_at?: string | null }).name_changed_at ?? null);

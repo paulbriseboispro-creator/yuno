@@ -88,17 +88,17 @@ export default function OrgAppProfile() {
           instagram_url: data.instagram_url || '',
           website_url: data.website_url || '',
           is_public: data.is_public ?? true,
-          legal_name: (data as any).legal_name || '',
-          legal_address: (data as any).legal_address || '',
-          siret: (data as any).siret || '',
-          vat_number: (data as any).vat_number || '',
-          billing_email: (data as any).billing_email || '',
-          minors_allowed: (data as any).minors_allowed ?? false,
-          minor_auth_doc_url: (data as any).minor_auth_doc_url ?? null,
-          minor_auth_doc_name: (data as any).minor_auth_doc_name ?? null,
-          absorb_yuno_fees: (data as any).absorb_yuno_fees ?? false,
-          can_sell_alcohol: (data as any).can_sell_alcohol ?? false,
-          can_sell_alcohol_confirmed_at: (data as any).can_sell_alcohol_confirmed_at ?? null,
+          legal_name: data.legal_name || '',
+          legal_address: data.legal_address || '',
+          siret: data.siret || '',
+          vat_number: data.vat_number || '',
+          billing_email: data.billing_email || '',
+          minors_allowed: data.minors_allowed ?? false,
+          minor_auth_doc_url: data.minor_auth_doc_url ?? null,
+          minor_auth_doc_name: data.minor_auth_doc_name ?? null,
+          absorb_yuno_fees: data.absorb_yuno_fees ?? false,
+          can_sell_alcohol: data.can_sell_alcohol ?? false,
+          can_sell_alcohol_confirmed_at: data.can_sell_alcohol_confirmed_at ?? null,
         });
         setSavedName(data.display_name || '');
         setNameChangedAt((data as { name_changed_at?: string | null }).name_changed_at ?? null);
@@ -144,8 +144,8 @@ export default function OrgAppProfile() {
       // would get baked into the stored URL and break getOptimizedImageUrl's
       // transform params on the public profile (malformed ?t=123?width=...).
       return data.publicUrl;
-    } catch (e: any) {
-      toast.error(e.message || t('Erreur upload', 'Upload error'));
+    } catch (e: unknown) {
+      toast.error((e as Error).message || t('Erreur upload', 'Upload error'));
       return null;
     } finally {
       setter(false);
@@ -170,8 +170,8 @@ export default function OrgAppProfile() {
       const { data } = supabase.storage.from('profile-photos').getPublicUrl(path);
       setProfile((p) => ({ ...p, minor_auth_doc_url: data.publicUrl, minor_auth_doc_name: file.name }));
       toast.success(t('Document ajouté — pensez à enregistrer', 'Document added — remember to save'));
-    } catch (err: any) {
-      toast.error(err.message || t('Erreur upload', 'Upload error'));
+    } catch (err: unknown) {
+      toast.error((err as Error).message || t('Erreur upload', 'Upload error'));
     } finally {
       setUploadingMinorDoc(false);
     }
@@ -269,7 +269,7 @@ export default function OrgAppProfile() {
       setSavedName(payload.display_name);
       if (renaming) setNameChangedAt(new Date().toISOString());
       return true;
-    } catch (e: any) {
+    } catch (e: unknown) {
       const lockedUntil = parseRenameCooldownError(e);
       if (lockedUntil) {
         toast.error(t(
@@ -279,7 +279,7 @@ export default function OrgAppProfile() {
         ));
         return false;
       }
-      toast.error(e.message || t('Erreur', 'Error'));
+      toast.error((e as Error).message || t('Erreur', 'Error'));
       return false;
     } finally {
       setSaving(false);
