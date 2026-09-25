@@ -20,7 +20,9 @@ Fondateur solo : Paul. Site public multilingue **EN / FR / ES** (défaut : angla
   Project ref : `fulawxvdlwtdlpkycixe`. (Ancien ref Lovable mort : `kredmghiqesyrmjqvxen`.)
 - **Paiements** : Stripe + **Stripe Connect double destination** (owner→venues, organizer→profiles).
 - **Autres** : Mapbox (carte clubs, lazy-load), Resend (emails), i18n maison.
-- **Pas de tests** (aucun framework configuré). `eslint` seulement.
+- **Tests** : `npx vitest run` (helpers `src/lib/__tests__`, ~400 tests) + `npm run lint`
+  (eslint couvre AUSSI `supabase/functions` : 0 erreur exigée, types réels — jamais un
+  `eslint-disable`, et `// deno-lint-ignore` n'est pas lu par eslint).
 
 ## Commandes
 
@@ -827,7 +829,27 @@ billet » quand le tableau en montrait 84). Règles :
   avec `SUPABASE_ACCESS_TOKEN`, puis la ligne dans
   `supabase_migrations.schema_migrations` et `notify pgrst, 'reload schema'`
   (sinon PostgREST rend 404 sur la fonction neuve). Toute réécriture part de
-  `pg_get_functiondef` sur la base liée.
+  `pg_get_functiondef` sur la base liée. **Avant de nommer une migration,
+  `git fetch origin main` et vérifier que le timestamp n'y existe pas** : le
+  25/09, `20260925160000` existait des deux côtés (deux migrations, une seule
+  ligne dans `schema_migrations`, la seconde jamais rejouée par `db push`).
+- **Revue du 25/09 — ce qu'elle a trouvé, à ne pas rejouer** :
+  - Ventes compte en SOIRÉES TERMINÉES (`end_at`, sinon `start_at + 8 h`), et
+    chaque ratio a son dénominateur servi par `get_sales_overview`
+    (`money_nights`, `spend_revenue/spend_entries`, `presence_entries/expected`,
+    `gl_presence_*`, `tables_presence_*`) : un CA sur 4 soirées divisé par les
+    entrées de 3 donnait une « dépense par tête » fausse. Un palier de prix
+    illimité rend la capacité inconnue (`null`), jamais la somme des autres.
+    La comparaison n'est rendue que sur le MÊME nombre de soirées.
+  - Rythme (`paceProjection`) et « même J-N » : jours PLEINS (`d > J`), et une
+    soirée de référence doit être TERMINÉE pour servir après coup.
+  - Un pourcentage de conversion s'affiche avec une décimale (`pctFmt(p, l, 1)`) :
+    arrondi à l'entier, 0,4 % devenait « 0 % ».
+  - Les liens de l'Analytics vers Compta / Push / Contacts n'existent qu'en
+    Console Club (`consolePrefix === '/owner'`) : le manager tombait en 404.
+  - Le bilan du lendemain ne montre JAMAIS le CA dans la cloche (lisible par
+    tout le staff) ; sans scan à la porte, variante `unscanned` (« aucune
+    entrée n'a été scannée »), jamais « 0 entrée ».
 
 ## Backend Supabase — gotchas critiques
 
@@ -972,6 +994,15 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   rien d'autre (décision du 2026-09-21). Ne pas exécuter
   `scripts/rotate-demo-password.mjs` : les bundles publiés portent le mot de
   passe en dur.
+- **Tout cron d'email ou de push passe par `_shared/demo-scope.ts`**
+  (`loadDemoEventIds` + `isDemoEmail`) et S'ARRÊTE si la liste démo ne se
+  charge pas. Le 25/09, quatre crons réactivés (`send-pre-night-checklist`,
+  `send-next-event-recommendation`, `send-missed-you`, `send-low-ticket-alert`)
+  allaient écrire aux invités semés de la démo. Piège : les invités de
+  `seed-*.sql` sont en `@demo.womber.fr`, que le SQL `is_demo_email()`
+  (`@womber.fr` exact) ne reconnaît PAS — `isDemoEmail` accepte les
+  sous-domaines ; une porte démo SQL filtre donc par `demo_event_ids()`, pas
+  par l'email.
 - **`node scripts/demo/audit.mjs` avant de montrer la démo.** Une démo se
   dégrade seule : les soirées passent, les nouveautés ne sont mises en scène
   nulle part. Le rapport rend un verdict, pas des compteurs.
@@ -1372,6 +1403,10 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   reste. `/admin/alerts` ≠ `/admin/notifications` (registre des push auto).
 - Ajouter les 3 langues i18n pour toute nouvelle string.
 - Migrations : un fichier par changement, timestamp croissant, push via CLI.
+  Une fonction qui touche un secret ou un contournement (mot de passe de
+  maintenance…) : `REVOKE … FROM PUBLIC, anon` explicite — le 25/09,
+  `update_maintenance_password` était exécutable par un visiteur anonyme
+  (`20260925186000`).
 - Respecter le bon design system selon surface (public vs pro).
 - **Tenir l'IA à jour** (voir section ci-dessous) : tout changement de fonctionnalité
   visible par un client ou un owner DOIT mettre à jour la connaissance des assistants IA.
