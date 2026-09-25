@@ -54,6 +54,10 @@ import { CollabWelcomeOverlay } from '@/components/collab/CollabWelcomeOverlay';
 import { isCollabPlan } from '@/lib/planFeatures';
 import type { FeatureKey } from '@/lib/planFeatures';
 import { formatChartAxisTick } from '@/components/formater';
+import { useHomeBanner } from '@/hooks/useHomeBanner';
+import { HomeBannerBackdrop } from '@/components/home-banner/HomeBannerBackdrop';
+import { HomeBannerEditButton } from '@/components/home-banner/HomeBannerEditButton';
+import { HomeBannerEditor } from '@/components/home-banner/HomeBannerEditor';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -123,6 +127,8 @@ interface NextEventStats {
 export default function OwnerDashboard() {
   const { t, language } = useLanguage();
   const { venueId, venue, loading: venueLoading } = useOwnerVenue();
+  const { banner: homeBanner, loaded: bannerLoaded, setBanner: setHomeBanner } = useHomeBanner(venueId ? { kind: 'venue', id: venueId } : null);
+  const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
   useStripeConnect(venueId);
   const { plan: currentPlan, isTrial, daysRemaining, status: subStatus, loading: planLoading } = useSubscriptionPlan();
   const { isComplete: onboardingComplete, loading: onbLoading, currentStep, stepStatuses } = useOwnerOnboarding(venueId);
@@ -363,46 +369,11 @@ export default function OwnerDashboard() {
             data-theme-island="dark"
           >
 
-            {/* ── Layer 1 : fond ─────────────────────────────────────────── */}
-            {venue.coverUrl ? (
-              <img
-                src={venue.coverUrl}
-                alt={venue.name}
-                className="absolute inset-0 h-full w-full object-cover object-center"
-                style={{ filter: 'brightness(0.5) saturate(1.35)' }}
-              />
-            ) : (
-              <>
-                {/* Base gradient (DS §3.5) */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: `radial-gradient(ellipse 90% 70% at 80% -10%, rgba(232,25,44,0.24) 0%, transparent 58%),
-                                 radial-gradient(ellipse 70% 55% at 5% 110%, rgba(232,25,44,0.14) 0%, transparent 52%),
-                                 linear-gradient(155deg, #130508 0%, var(--sf-0a0a0c) 50%, #0c0a12 100%)`,
-                  }}
-                />
-                {/* Glow blobs */}
-                <div
-                  className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full"
-                  style={{ background: 'rgba(232,25,44,0.16)', filter: 'blur(80px)' }}
-                />
-                <div
-                  className="pointer-events-none absolute -bottom-28 left-2 w-64 h-64 rounded-full"
-                  style={{ background: 'rgba(232,25,44,0.09)', filter: 'blur(72px)' }}
-                />
-              </>
+            {/* ── Fond : bannière d'accueil (pas la couverture publique) ── */}
+            <HomeBannerBackdrop banner={homeBanner} alt={venue.name} />
+            {bannerLoaded && (
+              <HomeBannerEditButton hasBanner={!!homeBanner} onClick={() => setBannerEditorOpen(true)} />
             )}
-
-            {/* ── Layer 2 : overlay cinématique ──────────────────────────── */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: venue.coverUrl
-                  ? 'linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.52) 38%, rgba(0,0,0,0.04) 100%)'
-                  : 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 65%, transparent 100%)',
-              }}
-            />
 
             {/* ── Layer 3 : contenu ──────────────────────────────────────── */}
             <div className="relative flex h-full flex-col justify-end gap-0 px-4 pb-5">
@@ -530,6 +501,18 @@ export default function OwnerDashboard() {
               </div>
             </div>
           </motion.div>
+        )}
+
+        {venue && venueId && (
+          <HomeBannerEditor
+            open={bannerEditorOpen}
+            onOpenChange={setBannerEditorOpen}
+            scope={{ kind: 'venue', id: venueId }}
+            current={homeBanner}
+            identity={{ name: venue.name, subtitle: venue.city, logoUrl: venue.logoUrl }}
+            publicCover={venue.coverUrl ? { url: venue.coverUrl } : null}
+            onSaved={setHomeBanner}
+          />
         )}
 
         {/* Onboarding */}

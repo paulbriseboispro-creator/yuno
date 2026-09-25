@@ -13,6 +13,10 @@ import { UpcomingEventsBoard } from '@/components/events-sales/UpcomingEventsBoa
 import { format, subDays, startOfDay } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { useHomeBanner } from '@/hooks/useHomeBanner';
+import { HomeBannerBackdrop } from '@/components/home-banner/HomeBannerBackdrop';
+import { HomeBannerEditButton } from '@/components/home-banner/HomeBannerEditButton';
+import { HomeBannerEditor } from '@/components/home-banner/HomeBannerEditor';
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED       = '#E8192C';
@@ -57,6 +61,8 @@ export default function OrgAppDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [orgCover, setOrgCover] = useState<string | null>(null);
+  const { banner: homeBanner, loaded: bannerLoaded, setBanner: setHomeBanner } = useHomeBanner(organizerId ? { kind: 'organizer', id: organizerId } : null);
+  const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
   const [orgCity, setOrgCity] = useState<string | null>(null);
   const [nextEvent, setNextEvent] = useState<NextEvent | null>(null);
   const [period, setPeriod] = useState<PeriodDays>(30);
@@ -72,7 +78,8 @@ export default function OrgAppDashboard() {
     if (!organizerId) return;
     (async () => {
       try {
-        // 0. Org identity extras (cover + city) for the hero
+        // 0. Org identity extras for the hero (city) and the banner editor
+        //    (public cover, offered as a starting point — never shown as is)
         const [{ data: prof }, { data: orgProf }] = await Promise.all([
           supabase.from('profiles').select('city').eq('id', organizerId).maybeSingle(),
           supabase.from('organizer_profiles').select('cover_url').eq('user_id', organizerId).maybeSingle(),
@@ -173,36 +180,11 @@ export default function OrgAppDashboard() {
         // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
         data-theme-island="dark"
       >
-        {orgCover ? (
-          <img
-            src={orgCover}
-            alt={orgName}
-            className="absolute inset-0 h-full w-full object-cover object-center"
-            style={{ filter: 'brightness(0.5) saturate(1.3)' }}
-          />
-        ) : (
-          <>
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(ellipse 90% 70% at 80% -10%, rgba(232,25,44,0.24) 0%, transparent 58%),
-                             radial-gradient(ellipse 70% 55% at 5% 110%, rgba(232,25,44,0.14) 0%, transparent 52%),
-                             linear-gradient(155deg, #130508 0%, var(--sf-0a0a0c) 50%, #0c0a12 100%)`,
-              }}
-            />
-            <div className="pointer-events-none absolute -top-24 -right-24 h-80 w-80 rounded-full" style={{ background: 'rgba(232,25,44,0.16)', filter: 'blur(80px)' }} />
-            <div className="pointer-events-none absolute -bottom-28 left-2 h-64 w-64 rounded-full" style={{ background: 'rgba(232,25,44,0.09)', filter: 'blur(72px)' }} />
-          </>
+        {/* Fond : bannière d'accueil (pas la couverture 4:3 du profil public). */}
+        <HomeBannerBackdrop banner={homeBanner} alt={orgName} />
+        {bannerLoaded && can.manageOrganization && (
+          <HomeBannerEditButton hasBanner={!!homeBanner} onClick={() => setBannerEditorOpen(true)} />
         )}
-
-        <div
-          className="absolute inset-0"
-          style={{
-            background: orgCover
-              ? 'linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.52) 38%, rgba(0,0,0,0.04) 100%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 65%, transparent 100%)',
-          }}
-        />
 
         <div className="relative flex h-full flex-col justify-end px-5 pb-5">
           <div className="flex items-end justify-between gap-3">
@@ -265,6 +247,18 @@ export default function OrgAppDashboard() {
           </div>
         </div>
       </motion.div>
+
+      {organizerId && can.manageOrganization && (
+        <HomeBannerEditor
+          open={bannerEditorOpen}
+          onOpenChange={setBannerEditorOpen}
+          scope={{ kind: 'organizer', id: organizerId }}
+          current={homeBanner}
+          identity={{ name: orgName, subtitle: orgCity, logoUrl: orgLogo }}
+          publicCover={orgCover ? { url: orgCover } : null}
+          onSaved={setHomeBanner}
+        />
+      )}
 
       <div className="mt-4 space-y-4">
         {/* Title row + CTA */}

@@ -202,6 +202,20 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   client = `data-theme-island="dark"`. Toute nouvelle variable
   se déclare dans les trois blocs de `pro-theme.css` (test `proTheme.test.ts`).
   Jamais ces variables dans un canvas, Mapbox, un PDF ou un email.
+- **Bannière d'accueil de la Console ≠ couverture publique** (2026-09-25,
+  migration `20260925120000`). Le héros de `/owner/dashboard` et
+  `/organizer-app` lit `venues.home_banner` / `organizer_profiles.home_banner`
+  (`{url, x, y, zoom, dim}`, `src/lib/homeBanner.ts`), JAMAIS `cover_url` :
+  la couverture orga est cadrée en 4:3 pour le profil public, étirée dans un
+  bandeau ~4,5:1 elle ne montrait qu'une tranche au hasard. Réglage depuis
+  l'accueil (`HomeBannerEditor` : import ou « partir de ma couverture
+  publique », glisser pour cadrer, aperçus ordinateur + téléphone). Le cadrage
+  est un POINT FOCAL + zoom (`object-position` + `transform-origin` au même
+  point), jamais un rectangle figé : le héros change de proportions avec la
+  largeur. Même `HomeBannerBackdrop` dans le héros et l'aperçu. Sans bannière =
+  dégradé Yuno. Lecture dans une requête À PART (`fetchHomeBanner`) : une
+  colonne absente ne doit jamais faire tomber `useOwnerVenue`. Orga : fondateur
+  seul (`can.manageOrganization`, policy UPDATE d'`organizer_profiles`).
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
