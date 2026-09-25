@@ -13,6 +13,7 @@ import { openExternal } from '@/lib/native';
 import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { currentNightDate } from '@/lib/nightDate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -843,7 +844,7 @@ export default function AffiliateLinktree() {
         linktree_sort_mode: (aff.linktree_sort_mode ?? 'by_day') as SortMode,
       });
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
 
       const [{ data: linktreeItems, error: linktreeError }, yunoRes] = await Promise.all([
         supabase
@@ -920,7 +921,7 @@ export default function AffiliateLinktree() {
   const isYunoInternal = affiliate.type === 'yuno_internal';
   const trustStats = affiliate.trust_stats;
   const allGenres = Array.from(new Set(events.flatMap(e => e.genres))).sort();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
   const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const weekendDates = getWeekendDates();
 

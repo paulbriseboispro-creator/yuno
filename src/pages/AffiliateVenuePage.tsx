@@ -20,6 +20,7 @@ import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAff
 import { useFavorites } from '@/hooks/useFavorites';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { OutboundLink } from '@/components/OutboundLink';
+import { currentNightDate } from '@/lib/nightDate';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type AffiliateVenue = {
@@ -201,7 +202,7 @@ export default function AffiliateVenuePage() {
       genres: (v.genres ?? []) as string[],
     } as unknown as AffiliateVenue);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
     const [{ data: evts }, { data: aff }] = await Promise.all([
       supabase
         .from('affiliate_events')
@@ -234,7 +235,7 @@ export default function AffiliateVenuePage() {
   if (!venue) return null;
 
   // Is there an event tonight?
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
   const isOpenTonight = events.some(e => e.event_date === todayStr);
 
   // Stats bar items (non-null) — musique / ville / âge (pas de tenue)

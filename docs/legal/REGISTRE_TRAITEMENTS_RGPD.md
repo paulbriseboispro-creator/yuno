@@ -105,6 +105,13 @@
 - **Finalité** : analytics post-soirée, origines clients (villes/pays), âge/sexe agrégés.
 - **Données** : agrégats démographiques (âge via date de naissance, genre via guest list), villes d'origine.
 
+### B7. Mesure d'audience des pages d'agence (soirées et clubs externes, linktrees)
+- **Finalité** : dire à l'agence combien de visites et de clics billetterie ses pages reçoivent, d'où ils viennent (dont la part apportée par Yuno).
+- **Avec consentement analytics** : identifiant visiteur (localStorage, ~1 an), durée, scroll, pings « en ligne », appareil, langue, taille d'écran.
+- **Sans consentement** (2026-09-25) : comptage ANONYME de la page vue et du clic — aucun identifiant, rien lu ni écrit dans le stockage de l'appareil, ni durée ni ping ; ne restent que la page, la date, un type d'appareil grossier (mobile / tablette / ordinateur), le domaine référent et les paramètres UTM de l'URL. ⚠️ À valider au regard de l'exemption CNIL « mesure d'audience ».
+- **Robots** d'aperçu de lien et d'indexation exclus.
+- **Conservation** : données brutes 13 mois — ⚠️ à valider.
+
 ---
 
 ## Sous-traitants ultérieurs (chaîne complète)

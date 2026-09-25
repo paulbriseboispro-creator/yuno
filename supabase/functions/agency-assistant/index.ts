@@ -164,7 +164,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Trafic et commissions externes",
     keywords: ["trafic", "traffic", "vues", "views", "clics", "clicks", "conversion externe", "commission externe", "facturation"],
     path: "/affiliate/analytics",
-    snippet: "Analytics trafic mesure les vues des pages publiques et les clics vers les billetteries externes (30 jours, trafic interne filtré). Les commissions externes se déclarent et se suivent dans Commissions : c'est l'outil de facturation du bras externe auprès des clubs.",
+    snippet: "Analytics trafic mesure les vues des pages publiques et les clics vers les billetteries externes (7 j / 30 j / 90 j / tout, visites et clics de l'agence elle-même filtrés, robots d'aperçu exclus). La tuile « Trafic apporté par Yuno » donne la part et le nombre de visites et de clics arrivés depuis une page Yuno (Explore, recherche, carte, app native). Sous « Vues linktree », le nombre de fiches soirée ou club ouvertes depuis le linktree ou la page RP. Un visiteur qui refuse les cookies est compté anonymement (vue et clic, sans identifiant) : il entre dans les vues et les clics, pas dans les visiteurs uniques ni les fidèles (part des visiteurs revenus après plus de 30 min d'absence). Les commissions externes se déclarent et se suivent dans Commissions : c'est l'outil de facturation du bras externe auprès des clubs.",
   },
   "finance": {
     title: "Finance : les deux flux",

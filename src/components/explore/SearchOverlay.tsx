@@ -7,6 +7,7 @@ import { format, isToday, isTomorrow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, staggerItem, spring, tapScale, scaleIn } from '@/lib/animations';
 import { searchNorm } from '@/lib/searchNorm';
+import { currentNightDate } from '@/lib/nightDate';
 
 // ─── Types ────────────────────────────────────────────────────────
 interface SearchResult {
@@ -280,7 +281,8 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
   const searchAll = useCallback(async (q: string, dateFilter: DateFilter | null) => {
     setLoading(true);
     const now = new Date().toISOString();
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // Soirées d'agence : la nuit en cours reste trouvable jusqu'à 6 h.
+    const todayStr = currentNightDate();
     const hasText = q.trim().length >= 1;
     // Le terme est normalisé (minuscules + sans accents) et confronté aux colonnes
     // générées `search_*`, normalisées de la même façon côté Postgres. C'est ce qui

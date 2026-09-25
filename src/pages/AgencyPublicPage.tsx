@@ -21,6 +21,7 @@ import { useAffiliateVisitorTracking } from '@/hooks/useAffiliateVisitorTracking
 import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { currentNightDate } from '@/lib/nightDate';
 
 /* ============================================================
    AgencyPublicPage — /rp/:slug
@@ -281,7 +282,7 @@ export default function AgencyPublicPage() {
           return;
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
         const [externalRes, yunoRes, yunoVenuesRes, externalVenuesRes] = await Promise.all([
           supabase
             .from('affiliate_events')

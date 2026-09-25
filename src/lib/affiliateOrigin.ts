@@ -12,11 +12,10 @@ import { isNative } from '@/lib/native';
 //  - une page Yuno (Explore, recherche, carte, favoris, ville, Yuno Links,
 //    assistant…)            → le visiteur vient de Yuno ('internal') ;
 //  - une page de l'agence   → il poursuit le parcours de l'agence : il garde
-//    l'origine de son entrée dans ce parcours (mémorisée pour l'onglet) ;
+//    l'origine de son entrée dans ce parcours (gardée en mémoire) ;
 //  - aucune (il arrive ici) → web : on laisse parler le référent et les UTM ;
 //    app native : il est dans l'app Yuno, c'est Yuno qui l'amène.
 
-const ORIGIN_KEY = 'yuno_aff_origin';
 // Pages publiques d'une agence (App.tsx) : linktree /p/, linktree promoteur
 // /promo/ (et leurs agendas), page RP in-app /rp/, soirée et club externes.
 const AGENCY_SURFACE = /^\/(p|promo|rp|affiliate-event|affiliate-venue)\//;
@@ -30,7 +29,8 @@ export function recordRoute(pathname: string): void {
   if (history.length > 10) history.shift();
 }
 
-function previousPath(): string | null {
+/** Page de l'app vue juste avant celle-ci (null si le visiteur arrive ici). */
+export function previousRoute(): string | null {
   const current = typeof window !== 'undefined' ? window.location.pathname : history[history.length - 1];
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i] !== current) return history[i];
@@ -42,24 +42,19 @@ export function isAgencySurface(pathname: string): boolean {
   return AGENCY_SURFACE.test(pathname);
 }
 
-function readStored(): boolean {
-  try { return sessionStorage.getItem(ORIGIN_KEY) === 'internal'; } catch { return false; }
-}
-
-function store(fromYuno: boolean): void {
-  try {
-    if (fromYuno) sessionStorage.setItem(ORIGIN_KEY, 'internal');
-    else sessionStorage.removeItem(ORIGIN_KEY);
-  } catch { /* stockage indisponible : l'origine vaut pour cette page seule */ }
-}
+// Origine du parcours d'agence en cours, EN MÉMOIRE seulement : rien n'est
+// écrit sur l'appareil, donc rien à demander au consentement cookies. Elle vit
+// le temps de la navigation dans l'app (un rechargement complet repart de
+// zéro, comme le ferait un nouveau référent).
+let journeyFromYuno = false;
 
 /** Vrai si le visiteur de la page d'agence courante a été amené par Yuno. */
 export function cameFromYuno(): boolean {
-  const prev = previousPath();
+  const prev = previousRoute();
   let fromYuno: boolean;
   if (prev === null) fromYuno = isNative();
-  else if (isAgencySurface(prev)) fromYuno = readStored();
+  else if (isAgencySurface(prev)) fromYuno = journeyFromYuno;
   else fromYuno = true;
-  store(fromYuno);
+  journeyFromYuno = fromYuno;
   return fromYuno;
 }

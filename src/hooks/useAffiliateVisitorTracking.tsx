@@ -2,14 +2,23 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { getBrowserId } from '@/lib/browserId';
-import { useConsent } from '@/lib/consent';
-import { cameFromYuno } from '@/lib/affiliateOrigin';
+import { hasAnalyticsConsent, useConsent } from '@/lib/consent';
+import { cameFromYuno, previousRoute } from '@/lib/affiliateOrigin';
 import { useAuth } from '@/hooks/useAuth';
+import { isLikelyBot } from '@/lib/botUserAgent';
 
 const SESSION_KEY       = 'yuno_aff_session_id';
 const SESSION_START_KEY = 'yuno_aff_session_start';
 const VISITOR_ID_KEY    = 'yuno_aff_visitor_id';
 const VISIT_NUMBER_KEY  = 'yuno_aff_visit_number';
+const LAST_SEEN_KEY     = 'yuno_aff_last_seen';
+
+// Une VISITE = une présence séparée de la précédente par plus de 30 min
+// d'inactivité (définition usuelle de la mesure d'audience). Avant, chaque
+// changement de page ouvrait une session et incrémentait le numéro de visite :
+// la 2e page vue d'un premier visiteur le comptait déjà « fidèle » (354
+// sessions pour 92 visiteurs chez Mad by Night, taux de fidèles gonflé).
+const VISIT_GAP_MS = 30 * 60 * 1000;
 
 function detectDevice(): string {
   const ua = navigator.userAgent.toLowerCase();
@@ -54,15 +63,23 @@ function categorizeReferrer(referrer: string, utmMedium: string | null, params: 
 
 function getOrCreateVisitorId(): { id: string; visitNumber: number; isReturning: boolean } {
   let id = localStorage.getItem(VISITOR_ID_KEY);
-  let visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '0', 10);
-  const isReturning = !!id;
+  let visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '0', 10) || 0;
+  const lastSeen = Number(localStorage.getItem(LAST_SEEN_KEY) || 0);
+  const now = Date.now();
   if (!id) {
     id = uuidv4();
     localStorage.setItem(VISITOR_ID_KEY, id);
+    visitNumber = 0;
   }
-  visitNumber += 1;
+  // Nouvelle visite seulement après 30 min sans activité (ou la toute première).
+  if (visitNumber === 0 || !lastSeen || now - lastSeen > VISIT_GAP_MS) visitNumber += 1;
   localStorage.setItem(VISIT_NUMBER_KEY, String(visitNumber));
-  return { id, visitNumber, isReturning };
+  localStorage.setItem(LAST_SEEN_KEY, String(now));
+  return { id, visitNumber, isReturning: visitNumber > 1 };
+}
+
+function touchLastSeen() {
+  try { localStorage.setItem(LAST_SEEN_KEY, String(Date.now())); } catch { /* best-effort */ }
 }
 
 function getConnectionType(): string | null {
@@ -88,6 +105,10 @@ export function useAffiliateVisitorTracking({
   const startTimeRef = useRef<number>(Date.now());
   const heartbeatRef = useRef<number | null>(null);
   const maxScrollRef = useRef<number>(0);
+  // Page vue comptée SANS consentement (voir plus bas) : on garde son id pour
+  // la reprendre si la personne accepte sur cette même page — sinon la même
+  // vue serait comptée deux fois.
+  const anonRef = useRef<{ scope: string; sessionId: string } | null>(null);
   // Mesure d'audience de la vitrine externe = analytics non nécessaire → gatée
   // au consentement (identifiant visiteur 1 an + pings « live »). L'attribution
   // d'une conversion (?via=) est un mécanisme SÉPARÉ, résolu en amont, et reste
@@ -98,20 +119,38 @@ export function useAffiliateVisitorTracking({
   const { loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (!analyticsConsent) return;
     if (!affiliateId || authLoading) return;
+    if (isLikelyBot()) return;
+
+    const scopeKey = [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId].filter(Boolean).join('-');
+
+    // Sans consentement analytics : la page vue est COMPTÉE, anonymement —
+    // aucun identifiant, rien lu ni écrit sur l'appareil, ni durée ni « en
+    // ligne ». Le clic billetterie, lui, était déjà compté sans consentement :
+    // les vues ne l'étant pas, le taux de clic dépassait 100 %. Les deux se
+    // mesurent désormais sur la même base (voir aussi trackAffiliateClick).
+    if (!analyticsConsent) {
+      if (anonRef.current?.scope !== scopeKey) {
+        const anonId = uuidv4();
+        anonRef.current = { scope: scopeKey, sessionId: anonId };
+        trackPageView(anonId, affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, isOwner ?? false, false);
+      }
+      return;
+    }
 
     let sessionId = sessionStorage.getItem(SESSION_KEY);
-    const scopeKey = [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId].filter(Boolean).join('-');
     const storedScope = sessionStorage.getItem('yuno_aff_scope');
 
     if (!sessionId || storedScope !== scopeKey) {
-      sessionId = uuidv4();
+      const anon = anonRef.current?.scope === scopeKey ? anonRef.current : null;
+      sessionId = anon?.sessionId ?? uuidv4();
       sessionStorage.setItem(SESSION_KEY, sessionId);
       sessionStorage.setItem('yuno_aff_scope', scopeKey);
       sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
       startTimeRef.current = Date.now();
-      trackPageView(sessionId, affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, isOwner ?? false);
+      // Consentement donné sur cette page : la vue anonyme existe déjà, on
+      // la reprend (durée, scroll) au lieu d'en créer une seconde.
+      if (!anon) trackPageView(sessionId, affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, isOwner ?? false, true);
     } else {
       const stored = sessionStorage.getItem(SESSION_START_KEY);
       startTimeRef.current = stored ? Number(stored) : Date.now();
@@ -165,6 +204,7 @@ export function useAffiliateVisitorTracking({
     const sendHeartbeat = () => {
       const sid = sessionStorage.getItem(SESSION_KEY);
       if (!sid) return;
+      touchLastSeen();
       supabase.rpc('ping_affiliate_live', {
         p_session_id: sid,
         p_affiliate_id: affiliateId,
@@ -200,12 +240,14 @@ async function trackPageView(
   affiliateEventId?: string,
   affiliateVenueId?: string,
   isInternal = false,
+  consented = true,
 ) {
   try {
     const params = new URLSearchParams(window.location.search);
     const referrer = document.referrer;
     const utmMedium = params.get('utm_medium');
-    const { id: visitorId, visitNumber, isReturning } = getOrCreateVisitorId();
+    // Sans consentement : ni identifiant visiteur, ni empreinte de l'appareil.
+    const visitor = consented ? getOrCreateVisitorId() : null;
 
     await supabase.from('affiliate_visitor_sessions').insert({
       session_id: sessionId,
@@ -213,15 +255,19 @@ async function trackPageView(
       affiliate_member_id: affiliateMemberId || null,
       affiliate_event_id: affiliateEventId || null,
       affiliate_venue_id: affiliateVenueId || null,
-      visitor_id: visitorId,
-      is_returning: isReturning,
-      visit_number: visitNumber,
+      visitor_id: visitor?.id ?? null,
+      is_returning: visitor?.isReturning ?? false,
+      visit_number: visitor?.visitNumber ?? null,
       device_type: detectDevice(),
-      user_agent: navigator.userAgent,
-      language: navigator.language,
-      viewport_w: window.innerWidth,
-      viewport_h: window.innerHeight,
-      connection_type: getConnectionType(),
+      user_agent: consented ? navigator.userAgent : null,
+      language: consented ? navigator.language : null,
+      viewport_w: consented ? window.innerWidth : null,
+      viewport_h: consented ? window.innerHeight : null,
+      connection_type: consented ? getConnectionType() : null,
+      // Page de l'app d'où vient le visiteur (linktree → soirée, Explore →
+      // soirée…) : c'est ce qui relie une vue de soirée au linktree qui l'a
+      // amenée.
+      previous_path: previousRoute()?.slice(0, 300) ?? null,
       referrer: referrer || null,
       referrer_domain: extractDomain(referrer),
       referrer_category: categorizeReferrer(referrer, utmMedium, params),
@@ -253,8 +299,9 @@ export function getClickAttribution(): {
   const params = new URLSearchParams(window.location.search);
   const referrer = document.referrer;
   const utmMedium = params.get('utm_medium');
-  const visitorId = localStorage.getItem(VISITOR_ID_KEY);
-  const visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '1', 10);
+  const consented = hasAnalyticsConsent();
+  const visitorId = consented ? localStorage.getItem(VISITOR_ID_KEY) : null;
+  const visitNumber = consented ? parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '1', 10) : 1;
   return {
     device_type: detectDevice(),
     referrer_category: categorizeReferrer(referrer, utmMedium, params),
@@ -293,14 +340,20 @@ export function trackAffiliateClick({
   clickType = 'ticket',
 }: TrackClickParams) {
   if (!affiliateId || (!affiliateEventId && !affiliateVenueId)) return;
+  if (isLikelyBot()) return;
   const attribution = getClickAttribution();
+  // Le clic se compte toujours (c'est l'action du visiteur vers la
+  // billetterie du club), mais sans identifiant tant que la mesure d'audience
+  // n'est pas acceptée : getBrowserId() écrivait un identifiant d'un an sur
+  // l'appareil de quelqu'un qui avait refusé les cookies.
+  const consented = hasAnalyticsConsent();
   supabase.from('affiliate_clicks').insert({
     affiliate_event_id: affiliateEventId ?? null,
     affiliate_id: affiliateId,
     affiliate_venue_id: affiliateVenueId ?? null,
     affiliate_member_id: affiliateMemberId ?? null,
     user_id: userId ?? null,
-    browser_id: getBrowserId(),
+    browser_id: consented ? getBrowserId() : null,
     referrer: document.referrer || null,
     is_internal: isInternal,
     click_type: clickType,

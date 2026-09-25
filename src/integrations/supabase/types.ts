@@ -1418,6 +1418,7 @@ export type Database = {
           landing_page_full: string | null
           language: string | null
           last_activity_at: string | null
+          previous_path: string | null
           referrer: string | null
           referrer_category: string | null
           referrer_domain: string | null
@@ -1453,6 +1454,7 @@ export type Database = {
           landing_page_full?: string | null
           language?: string | null
           last_activity_at?: string | null
+          previous_path?: string | null
           referrer?: string | null
           referrer_category?: string | null
           referrer_domain?: string | null
@@ -1488,6 +1490,7 @@ export type Database = {
           landing_page_full?: string | null
           language?: string | null
           last_activity_at?: string | null
+          previous_path?: string | null
           referrer?: string | null
           referrer_category?: string | null
           referrer_domain?: string | null

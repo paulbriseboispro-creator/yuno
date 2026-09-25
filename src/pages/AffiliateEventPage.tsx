@@ -21,6 +21,7 @@ import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { openExternal, publicUrl } from '@/lib/native';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { currentNightDate } from '@/lib/nightDate';
 
 type AffiliateEvent = {
   id: string;
@@ -153,7 +154,7 @@ export default function AffiliateEventPage() {
 
   const fetchEvent = async () => {
     setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
+    const today = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
     const { data } = await supabase
       .from('affiliate_events')
       .select('*, affiliate_venues(id, name, city, neighborhood, slug, address, instagram, website, cover_image_url, logo_url)')

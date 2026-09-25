@@ -44,6 +44,12 @@ interface KPIs {
   returningVisitors: number;
   /** Part des vues arrivées depuis Yuno (marketplace/app) plutôt que des canaux de l'agence. */
   yunoShare: number;
+  yunoViews: number;
+  yunoClicks: number;
+  /** Fiches soirée / club ouvertes depuis un linktree ou la page RP de l'agence. */
+  linktreeOpens: number;
+  /** Vues comptées sans consentement cookies : ni visiteur, ni durée. */
+  anonymousViews: number;
 }
 
 interface DailyPoint { date: string; views: number; clicks: number }
@@ -62,6 +68,7 @@ interface RawSession {
   device_type: string | null;
   affiliate_event_id: string | null;
   entry_page_type: string | null;
+  previous_path: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
@@ -301,7 +308,7 @@ export default function AffiliateAnalytics() {
   const [period, setPeriod]  = useState<Period>('30d');
   const [pillar, setPillar]  = useState<Pillar>('overview');
 
-  const [kpis, setKpis]               = useState<KPIs>({ totalViews: 0, linktreeViews: 0, uniqueVisitors: 0, totalClicks: 0, clickRate: 0, returningRate: 0, avgDurationSeconds: 0, avgScrollDepth: 0, liveNow: 0, newVisitors: 0, returningVisitors: 0, yunoShare: 0 });
+  const [kpis, setKpis]               = useState<KPIs>({ totalViews: 0, linktreeViews: 0, uniqueVisitors: 0, totalClicks: 0, clickRate: 0, returningRate: 0, avgDurationSeconds: 0, avgScrollDepth: 0, liveNow: 0, newVisitors: 0, returningVisitors: 0, yunoShare: 0, yunoViews: 0, yunoClicks: 0, linktreeOpens: 0, anonymousViews: 0 });
   const [daily, setDaily]             = useState<DailyPoint[]>([]);
   const [sources, setSources]         = useState<SourceRow[]>([]);
   const [devices, setDevices]         = useState<DeviceRow[]>([]);
@@ -364,7 +371,7 @@ export default function AffiliateAnalytics() {
       const sessPage = (lo: number, hi: number) => {
         let q = supabase
           .from('affiliate_visitor_sessions')
-          .select('visited_at, visitor_id, is_returning, duration_seconds, scroll_depth_max, referrer_category, device_type, affiliate_event_id, entry_page_type, utm_source, utm_medium, utm_campaign')
+          .select('visited_at, visitor_id, is_returning, duration_seconds, scroll_depth_max, referrer_category, device_type, affiliate_event_id, entry_page_type, previous_path, utm_source, utm_medium, utm_campaign')
           .eq('affiliate_id', identity.affiliateId)
           .eq('is_internal', false)
           .gte('visited_at', from || '2000-01-01');
@@ -418,7 +425,6 @@ export default function AffiliateAnalytics() {
       setAllSessions(rows);
 
       const uniqueVids        = new Set(rows.filter(r => r.visitor_id).map(r => r.visitor_id));
-      const returningCount    = rows.filter(r => r.is_returning).length;
       const durRows           = rows.filter(r => typeof r.duration_seconds === 'number' && (r.duration_seconds ?? 0) > 0);
       const avgDur            = durRows.length > 0 ? Math.round(durRows.reduce((s, r) => s + (r.duration_seconds ?? 0), 0) / durRows.length) : 0;
       const scrollRows        = rows.filter(r => typeof r.scroll_depth_max === 'number' && (r.scroll_depth_max ?? 0) > 0);
@@ -434,6 +440,12 @@ export default function AffiliateAnalytics() {
       // (Explore, recherche, carte, app native… cf. src/lib/affiliateOrigin.ts)
       // — l'argument « revenu passif ».
       const yunoViews         = rows.filter(r => r.referrer_category === 'internal').length;
+      const yunoClicks        = clickRows.filter(r => r.referrer_category === 'internal').length;
+      // Fiches ouvertes depuis les pages de l'agence (linktree /p/, linktree
+      // promoteur /promo/, page RP /rp/) : ce que le linktree fait ouvrir.
+      const linktreeOpens     = rows.filter(r => (r.entry_page_type === 'event_page' || r.entry_page_type === 'venue_page')
+        && /^\/(p|promo|rp)\//.test(r.previous_path ?? '')).length;
+      const anonymousViews    = rows.filter(r => !r.visitor_id).length;
 
       setKpis({
         totalViews: rows.length,
@@ -441,13 +453,20 @@ export default function AffiliateAnalytics() {
         uniqueVisitors: uniqueVids.size,
         totalClicks: clickRows.length,
         clickRate: rows.length > 0 ? (clickRows.length / rows.length) * 100 : 0,
-        returningRate: rows.length > 0 ? (returningCount / rows.length) * 100 : 0,
+        // Part des VISITEURS (identifiés) qui sont revenus, comme le dit
+        // l'intitulé — plus une part de sessions, que les vues anonymes
+        // (cookies refusés, sans identifiant) auraient diluée.
+        returningRate: uniqueVids.size > 0 ? (returningVisitors / uniqueVids.size) * 100 : 0,
         avgDurationSeconds: avgDur,
         avgScrollDepth: avgScroll,
         liveNow: (livePings ?? []).length,
         newVisitors,
         returningVisitors,
         yunoShare: rows.length > 0 ? (yunoViews / rows.length) * 100 : 0,
+        yunoViews,
+        yunoClicks,
+        linktreeOpens,
+        anonymousViews,
       });
 
       const days       = Math.min(PERIOD_DAYS[period] ?? 90, 90);
@@ -621,13 +640,15 @@ export default function AffiliateAnalytics() {
           {/* KPI grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <KpiCard icon={Eye} label={t('aff.ana.totalViews')} value={kpis.totalViews.toLocaleString()} tone="red" />
-            <KpiCard icon={Users} label={t('aff.ana.uniqueVisitors')} value={kpis.uniqueVisitors.toLocaleString()} />
+            <KpiCard icon={Users} label={t('aff.ana.uniqueVisitors')} value={kpis.uniqueVisitors.toLocaleString()}
+              hint={kpis.anonymousViews > 0 ? (kpis.anonymousViews === 1 ? t('aff.ana.anonViewsOne') : t('aff.ana.anonViews').replace('{count}', kpis.anonymousViews.toLocaleString())) : undefined} />
             <KpiCard icon={MousePointerClick} label={t('aff.ana.ticketClicks')} value={kpis.totalClicks.toLocaleString()} />
             <KpiCard icon={TrendingUp} label={t('aff.ana.clickRate')} value={fmtPct(kpis.clickRate)} tone="pos" />
             <KpiCard icon={Repeat2} label={t('aff.ana.returningVisitors')} value={fmtPct(kpis.returningRate)} />
             <KpiCard icon={Clock} label={t('aff.ana.avgDuration')} value={fmtDuration(kpis.avgDurationSeconds)} />
             <KpiCard icon={Activity} label={t('aff.ana.avgScroll')} value={`${kpis.avgScrollDepth}%`} />
-            <KpiCard icon={Link2} label={t('aff.ana.linktreeViews')} value={kpis.linktreeViews.toLocaleString()} />
+            <KpiCard icon={Link2} label={t('aff.ana.linktreeViews')} value={kpis.linktreeViews.toLocaleString()}
+              hint={kpis.linktreeOpens > 0 ? (kpis.linktreeOpens === 1 ? t('aff.ana.linktreeOpensOne') : t('aff.ana.linktreeOpens').replace('{count}', kpis.linktreeOpens.toLocaleString())) : undefined} />
           </div>
 
           {/* Trafic apporté par Yuno — l'app amène des visiteurs sans action de l'agence */}
@@ -648,6 +669,11 @@ export default function AffiliateAnalytics() {
                     {fmtPct(kpis.yunoShare)}
                   </span>
                   <p style={{ color: T3, fontSize: 10.5 }}>{t('aff.ana.yunoTrafficShare')}</p>
+                  <p className="tabular-nums" style={{ color: T2, fontSize: 11, marginTop: 2 }}>
+                    {t(kpis.yunoViews === 1 ? 'aff.ana.yunoTrafficViewsOne' : 'aff.ana.yunoTrafficViews').replace('{count}', kpis.yunoViews.toLocaleString())}
+                    {' · '}
+                    {t(kpis.yunoClicks === 1 ? 'aff.ana.yunoTrafficClicksOne' : 'aff.ana.yunoTrafficClicks').replace('{count}', kpis.yunoClicks.toLocaleString())}
+                  </p>
                 </div>
               </div>
             </AffCard>

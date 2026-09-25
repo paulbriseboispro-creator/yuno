@@ -11,6 +11,7 @@ import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/tim
 import { openExternal } from '@/lib/native';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { currentNightDate } from '@/lib/nightDate';
 
 type DayFilter = 'today' | 'tomorrow' | 'weekend' | null;
 type PriceFilter = 'free' | 'paid' | null;
@@ -862,7 +863,7 @@ export default function PromoterLinktree() {
 
       setMember(memberData);
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
       const { data: linktreeRows, error: linktreeError } = await supabase
         .from('promoter_linktree_events')
         .select('id, affiliate_event_id, promo_link, sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name))')
@@ -928,7 +929,7 @@ export default function PromoterLinktree() {
   const displayName = [member.first_name, member.last_name].filter(Boolean).join(' ') || 'Promoteur';
   const trustStats: TrustStat[] = org?.trust_stats ?? [];
   const allGenres = Array.from(new Set(events.flatMap(e => e.genres))).sort();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = currentNightDate(); // nuit en cours (jusqu'à 6 h), pas la date UTC
   const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const weekendDates = getWeekendDates();
 

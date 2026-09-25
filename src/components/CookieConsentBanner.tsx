@@ -16,7 +16,8 @@ import {
  * openConsentSettings() (« Gérer les cookies »). « Refuser » est aussi simple
  * qu'« Accepter » (deux boutons de poids égal) : exigence CNIL. Tant que
  * l'utilisateur n'a pas accepté l'analytics, useVisitorTracking /
- * useAffiliateVisitorTracking ne posent aucun identifiant ; tant qu'il n'a pas
+ * useAffiliateVisitorTracking ne posent aucun identifiant (le second compte
+ * seulement la page vue, anonymement, sans rien stocker) ; tant qu'il n'a pas
  * accepté la publicité, aucun pixel Meta n'est chargé et aucun achat n'est
  * envoyé à Meta côté serveur (src/lib/metaPixel.ts, _shared/meta-capi.ts).
  */

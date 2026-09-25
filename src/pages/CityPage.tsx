@@ -11,6 +11,7 @@ import { CITY_PAGES } from '@/data/cityPages';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { markWebEngaged } from '@/lib/webHome';
 import NotFound from '@/pages/NotFound';
+import { currentNightDate } from '@/lib/nightDate';
 
 /**
  * Page ville SEO — /paris, /madrid (routes générées depuis CITY_PAGES dans
@@ -90,7 +91,8 @@ function useCityData(cityName: string) {
           .from('affiliate_events')
           .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, affiliate_venue_id')
           .in('status', ['published', 'featured'])
-          .gte('event_date', todayStr)
+          // La nuit en cours reste listée jusqu'à 6 h (pas la date UTC).
+          .gte('event_date', currentNightDate())
           .order('event_date', { ascending: true })
           .limit(40);
         if (cancelled) return;

@@ -5,14 +5,7 @@ vi.mock('@/lib/native', () => ({ isNative: () => native }));
 
 // Pas de DOM dans ces tests : juste ce que le module lit.
 const loc = { pathname: '/' };
-const store = new Map<string, string>();
 vi.stubGlobal('window', { location: loc });
-vi.stubGlobal('sessionStorage', {
-  getItem: (k: string) => store.get(k) ?? null,
-  setItem: (k: string, v: string) => { store.set(k, v); },
-  removeItem: (k: string) => { store.delete(k); },
-  clear: () => store.clear(),
-});
 
 // Le module garde l'historique des routes en mémoire : on le recharge à
 // chaque cas pour repartir d'une visite neuve.
@@ -29,7 +22,6 @@ function go(mod: Awaited<ReturnType<typeof fresh>>, path: string) {
 describe('cameFromYuno', () => {
   beforeEach(() => {
     native = false;
-    sessionStorage.clear();
   });
 
   it('web, arrivée directe sur la soirée : pas Yuno (le référent décide)', async () => {
@@ -67,6 +59,13 @@ describe('cameFromYuno', () => {
     const m = await fresh();
     go(m, '/affiliate-event/houseo-2026-09-29');
     expect(m.cameFromYuno()).toBe(true);
+  });
+
+  it('previousRoute rend la page précédente', async () => {
+    const m = await fresh();
+    go(m, '/p/mad-by-night');
+    go(m, '/affiliate-event/houseo-2026-09-29');
+    expect(m.previousRoute()).toBe('/p/mad-by-night');
   });
 
   it('reconnaît les pages d’agence', async () => {
