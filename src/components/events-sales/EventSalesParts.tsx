@@ -53,7 +53,7 @@ export function CountdownTile({ ev, size = 'md' }: { ev: EventSales; size?: 'sm'
 /** Label en capitales + ⓘ, au-dessus d'un chiffre. */
 export function MetricLabel({ label, hint }: { label: string; hint?: string }) {
   return (
-    <span className="inline-flex items-center gap-1" style={{ color: KIT.T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+    <span className="inline-flex items-center gap-1 whitespace-nowrap" style={{ color: KIT.T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
       {label}
       {hint && <MetricHint text={hint} label={label} />}
     </span>
@@ -71,7 +71,8 @@ export function RevenueBlock({ ev }: { ev: EventSales }) {
       <span className="tabular-nums" style={{ color: KIT.T1, fontSize: 17, fontWeight: 650, letterSpacing: '-0.01em' }}>
         {eur(ev.revenue.total)}
       </span>
-      <TodayDelta value={ev.revenue.today} display={eur(ev.revenue.today)} />
+      {/* Rien vendu du tout : « rien aujourd'hui » sous « 0 € » n'apprend rien. */}
+      {ev.revenue.total > 0 && <TodayDelta value={ev.revenue.today} display={eur(ev.revenue.today)} />}
     </div>
   );
 }
@@ -96,10 +97,10 @@ export function PillarGauge({ line }: { line: PillarLine }) {
       </span>
       <FillBar pct={line.pct} soldOut={line.soldOut} />
       <span className="flex flex-wrap items-center justify-between gap-x-2">
-        <TodayDelta value={line.today} size={11} />
+        {line.count > 0 ? <TodayDelta value={line.today} size={11} /> : <span />}
         {line.soldOut ? (
           <span className="whitespace-nowrap" style={{ color: 'var(--acc-ff5c63)', fontSize: 11, fontWeight: 650 }}>{t('evs.soldOut')}</span>
-        ) : line.pct !== null ? (
+        ) : line.pct !== null && line.count > 0 ? (
           <span className="whitespace-nowrap tabular-nums" style={{ color: KIT.T2, fontSize: 11, fontWeight: 600 }}>{line.pct} %</span>
         ) : null}
       </span>
@@ -118,7 +119,7 @@ export function VisitsBlock({ ev }: { ev: EventSales }) {
         <MetricLabel label={t('evs.visits')} hint={t('gl.visits')} />
       </span>
       <span className="tabular-nums" style={{ color: KIT.T1, fontSize: 15, fontWeight: 650 }}>{n(ev.visits.total)}</span>
-      <TodayDelta value={ev.visits.today} size={11} />
+      {ev.visits.total > 0 && <TodayDelta value={ev.visits.today} size={11} />}
     </div>
   );
 }

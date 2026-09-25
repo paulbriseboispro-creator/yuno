@@ -30,9 +30,15 @@ interface HypeScoreSectionProps {
   onEditBaseline?: () => void;
   /** Increments whenever the baseline is saved — triggers a forecast refetch. */
   baselineVersion?: number;
+  /**
+   * Rangé dans le Rapport de soirée : la note, la prévision et les actions
+   * seulement. Métriques en direct, tendance et comparaison y existent déjà
+   * (avec leurs propres chiffres) : les répéter donnait deux CA différents.
+   */
+  compact?: boolean;
 }
 
-export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEditBaseline, baselineVersion = 0 }: HypeScoreSectionProps) {
+export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEditBaseline, baselineVersion = 0, compact = false }: HypeScoreSectionProps) {
   const { t } = useLanguage();
   const { loading, hypeData, refetch, toggleCheckAction } = useHypeScore(venueId, eventId);
   const [expandedPillar, setExpandedPillar] = useState<string | null>(null);
@@ -78,7 +84,7 @@ export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEdit
 
   return (
     <div className="space-y-4">
-      <HypeScoreCard data={hypeData} />
+      <HypeScoreCard data={hypeData} compact={compact} />
 
       {/* Calibration prompt — shown until the venue has given us its baseline */}
       {!baselineSet && onEditBaseline && (
@@ -125,18 +131,18 @@ export function HypeScoreSection({ venueId, eventId, baselineSet = false, onEdit
       )}
 
       {/* Live metrics */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      {!compact && <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px 22px', overflow: 'hidden' }}>
           <h3 style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 16 }}>
             {t('hype.liveMetrics')}
           </h3>
           <PreEventQuickStats stats={hypeData.quickStats} />
         </div>
-      </motion.div>
+      </motion.div>}
 
-      <HypeTrendChart data={hypeData.trendData} />
+      {!compact && <HypeTrendChart data={hypeData.trendData} />}
 
-      {hypeData.comparison && <HypeEventComparison data={hypeData.comparison} />}
+      {!compact && hypeData.comparison && <HypeEventComparison data={hypeData.comparison} />}
 
       {/* How it works — custom accordion */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>

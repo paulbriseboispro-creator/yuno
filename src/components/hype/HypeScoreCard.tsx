@@ -17,6 +17,8 @@ const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0
 
 interface HypeScoreCardProps {
   data: HypeScoreData;
+  /** Dans le Rapport de soirée : pas de CA ni de billets ici, la section ventes les porte déjà. */
+  compact?: boolean;
 }
 
 function CircularGauge({ percentage, color, size = 72, strokeWidth = 5 }: {
@@ -49,7 +51,7 @@ function CircularGauge({ percentage, color, size = 72, strokeWidth = 5 }: {
   );
 }
 
-export function HypeScoreCard({ data }: HypeScoreCardProps) {
+export function HypeScoreCard({ data, compact = false }: HypeScoreCardProps) {
   const { t, language } = useLanguage();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -158,20 +160,20 @@ export function HypeScoreCard({ data }: HypeScoreCardProps) {
                 </span>
               </div>
             )}
-            <div className="flex items-center gap-1.5">
+            {!compact && <div className="flex items-center gap-1.5">
               <Euro className="h-3.5 w-3.5" style={{ color: T3 }} />
               <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
                 {data.quickStats.totalRevenue.toFixed(0)} €
               </span>
-            </div>
-            <div className="flex items-center gap-1.5">
+            </div>}
+            {!compact && <div className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5" style={{ color: T3 }} />
               <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
                 {data.quickStats.ticketsSold}
                 {data.quickStats.maxTickets ? `/${data.quickStats.maxTickets}` : ''}{' '}
                 {t('hype.ticketsSold').toLowerCase()}
               </span>
-            </div>
+            </div>}
             <span className="ml-auto" style={{ color: T3, fontSize: 10.5 }}>
               {formatDistanceToNow(data.lastUpdated, { addSuffix: true, locale: dateLocale })}
             </span>

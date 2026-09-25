@@ -28,6 +28,7 @@ export function HypeEventForecast({ venueId, eventId }: { venueId: string; event
         baselineSet={isBaselineConfigured(baseline)}
         onEditBaseline={() => setOpen(true)}
         baselineVersion={version}
+        compact
       />
       <HypeBaselineForm open={open} initial={baseline} saving={saving} onClose={() => setOpen(false)} onSubmit={handleSave} />
     </>

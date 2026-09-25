@@ -42,7 +42,7 @@ export function ReportSales({ report }: { report: EventReport }) {
   // Après la soirée, « aujourd'hui » ne dit plus rien, et une ligne n'est plus
   // « en vente » : elle a fini complète ou fermée.
   const after = report.event.phase === 'after';
-  const today = (v: number) => (after ? undefined : v);
+  const today = (v: number, total: number) => (after || total === 0 ? undefined : v);
   const lineStatus = (st: LineStatus): LineStatus => (after && st !== 'sold_out' ? 'closed' : st);
   // Une réservation hors formule (walk-in, placement) peut dépasser le nombre
   // de tables des formules : on n'affiche pas « 5 / 4 ».
@@ -54,32 +54,39 @@ export function ReportSales({ report }: { report: EventReport }) {
         sub={totals.drinks && totals.revenue.drinks > 0
           ? t('er.stat.revenueSplit').replace('{tickets}', eur(totals.revenue.tickets)).replace('{tables}', eur(totals.revenue.tables)).replace('{drinks}', eur(totals.revenue.drinks))
           : undefined}
-        today={today(totals.revenue.today)} todayDisplay={eur(totals.revenue.today)} />
+        today={today(totals.revenue.today, totals.revenue.total)} todayDisplay={eur(totals.revenue.today)} />
     ),
     (totals.tickets.enabled || totals.tickets.sold > 0) && (
       <StatCard key="tk" label={t('evs.tickets')} hint={t('gl.tickets')}
         value={ofCap(totals.tickets.sold, totals.tickets.capacity)}
         sub={t('er.stat.orders').replace('{n}', n(totals.tickets.orders))}
-        today={today(totals.tickets.today)} pct={fillPct(totals.tickets.sold, totals.tickets.capacity)} soldOut={totals.tickets.soldOut} />
+        today={today(totals.tickets.today, totals.tickets.sold)} pct={fillPct(totals.tickets.sold, totals.tickets.capacity)} soldOut={totals.tickets.soldOut} />
     ),
     (totals.tables.enabled || totals.tables.booked > 0) && (
       <StatCard key="tb" label={t('evs.tables')} hint={t('gl.tables')}
         value={ofCap(totals.tables.booked, totals.tables.capacity)}
         sub={t('er.stat.guests').replace('{n}', n(totals.tables.guests))}
-        today={today(totals.tables.today)} pct={fillPct(totals.tables.booked, totals.tables.capacity)} soldOut={totals.tables.soldOut} />
+        today={today(totals.tables.today, totals.tables.booked)} pct={fillPct(totals.tables.booked, totals.tables.capacity)} soldOut={totals.tables.soldOut} />
     ),
     (totals.guestList.enabled || totals.guestList.registered > 0) && (
       <StatCard key="gl" label={t('evs.guestList')} hint={t('gl.guestList')}
         value={ofCap(totals.guestList.registered, totals.guestList.capacity)}
-        today={today(totals.guestList.today)} pct={fillPct(totals.guestList.registered, totals.guestList.capacity)} soldOut={totals.guestList.soldOut} />
+        today={today(totals.guestList.today, totals.guestList.registered)} pct={fillPct(totals.guestList.registered, totals.guestList.capacity)} soldOut={totals.guestList.soldOut} />
     ),
     <StatCard key="vis" label={t('evs.visits')} hint={t('gl.visits')} value={n(totals.visits.total)}
       sub={conv !== null ? t('er.stat.conversion').replace('{pct}', String(conv).replace('.', t('er.decimal'))) : undefined}
-      today={today(totals.visits.today)} />,
+      today={today(totals.visits.today, totals.visits.total)} />,
   ].filter(Boolean);
 
   const byPillar: Record<PillarKey, ReportLine[]> = { tickets: [], tables: [], guestList: [] };
-  for (const l of report.lines) byPillar[l.pillar].push(l);
+  // Un pilier éteint sur la soirée n'étale pas ses formules à zéro (les packs
+  // du club partenaire d'une soirée d'organisateur sans tables, par exemple) ;
+  // une ligne qui a vendu reste, elle.
+  const pillarOn: Record<PillarKey, boolean> = {
+    tickets: totals.tickets.enabled, tables: totals.tables.enabled, guestList: totals.guestList.enabled,
+  };
+  const lines = report.lines.filter((l) => pillarOn[l.pillar] || l.sold > 0);
+  for (const l of lines) byPillar[l.pillar].push(l);
   const showAmount = report.money;
 
   return (
@@ -88,7 +95,7 @@ export function ReportSales({ report }: { report: EventReport }) {
 
       <ReportCard>
         <CardTitle title={t('er.lines.title')} hint={t('er.lines.hint')} />
-        {report.lines.length === 0 ? (
+        {lines.length === 0 ? (
           <EmptyNote text={t('er.lines.empty')} />
         ) : (
           <div className="-mx-2 overflow-x-auto">
