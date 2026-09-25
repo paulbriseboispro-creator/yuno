@@ -20,10 +20,14 @@ const C_TICKETS = RED;
 const C_DRINKS = 'rgb(var(--ink)/var(--ink-a72,0.72))';
 const C_TABLES = 'rgb(var(--ink)/var(--ink-a34,0.34))';
 
+// Montant au format de la page (espace fine en français : « 1 234 € »).
 const fmtPrice = (n: number): string => {
   const v = Math.round((n || 0) * 100) / 100;
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k€`;
-  return `${Math.round(v).toLocaleString()}€`;
+  const locale = typeof document !== 'undefined' && document.documentElement.lang ? document.documentElement.lang : 'fr-FR';
+  return new Intl.NumberFormat(locale, {
+    style: 'currency', currency: 'EUR',
+    notation: Math.abs(v) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(v) >= 10000 ? 1 : 0,
+  }).format(v);
 };
 
 interface EventPnl {

@@ -112,6 +112,35 @@ export interface EventInfo {
 
 export type AnalyticsScope = 'venue' | 'organizer';
 
+/**
+ * Jeux vides : ce que lit une page d'Analytics tant que la vue affichée n'a
+ * pas chargé ses ventes (hook éteint), ou quand la portée n'a encore aucune
+ * soirée. Les calculs de la vue Ventes tournent dessus sans rien afficher.
+ */
+export const EMPTY_TICKET_ANALYTICS: TicketAnalytics = {
+  totalRevenue: 0, netRevenue: 0, stripeFee: 0, partialRefunded: 0, totalTickets: 0, avgTicketPrice: 0, uniqueCustomers: 0,
+  ticketsByEvent: [], ticketsByRound: [], ticketsByType: [], revenueByDay: [], hourlyData: [],
+  waitlistSize: 0, presaleBuyers: 0, presaleRevenue: 0, presaleConversionRate: null, demandRatio: 0,
+  velocityMilestones: [], cumulativeSales: [], presaleVsPublic: [],
+  drinkAttach: { withDrink: 0, redeemed: 0, attachRate: 0, redemptionRate: 0 },
+  upgrades: { count: 0, revenue: 0, rate: 0 }, loyaltyRewards: 0,
+  guestShare: { guest: 0, account: 0, guestRate: 0 },
+  insuranceAttach: { withInsurance: 0, rate: 0 }, leadTime: [],
+};
+
+export const EMPTY_TABLE_ANALYTICS: TableAnalytics = {
+  totalRevenue: 0, netRevenue: 0, stripeFee: 0, partialRefunded: 0, totalReservations: 0, avgReservationValue: 0,
+  uniqueCustomers: 0, reservationsByZone: [], reservationsByEvent: [], revenueByDay: [], hourlyData: [],
+};
+
+export const EMPTY_DRINK_ANALYTICS: DrinkAnalytics = {
+  totalRevenue: 0, netRevenue: 0, stripeFee: 0, partialRefunded: 0, totalOrders: 0, avgOrderValue: 0, uniqueCustomers: 0,
+  topProducts: [], revenueByDay: [], ordersByStatus: [], categoryData: [], hourlyData: [], rushHours: '',
+  visitors: 0, addedToCart: 0, proceededToCheckout: 0, conversionRate: 0, cartConversionRate: 0, checkoutConversionRate: 0,
+  byBar: [], serviceTime: { medianMin: null, avgMin: null, sample: 0 }, prepFunnel: { paid: 0, ready: 0, served: 0 },
+  byEvent: [], avgItemsPerOrder: 0,
+};
+
 interface UseAnalyticsDataProps {
   venueId?: string | null;
   /** When scope='organizer', filter all queries through events of this organizer. */
@@ -121,6 +150,12 @@ interface UseAnalyticsDataProps {
   dateRange: DateRange;
   mode: AnalyticsMode;
   selectedEventId: string | null;
+  /**
+   * false = la vue affichée n'a pas besoin de ces chiffres : rien n'est
+   * chargé. L'Analytics n'allume chaque jeu que sur les vues qui le lisent,
+   * sinon Trafic ou Communauté attendaient ~70 requêtes de Ventes.
+   */
+  enabled?: boolean;
 }
 
 /** Shape of one line item stored in orders.items (Json column). */
@@ -141,6 +176,12 @@ function getStartDate(dateRange: DateRange): Date | null {
  * as the rest of the analytics page instead of carrying their own filter.
  * 'alltime' falls back to a fixed early date.
  */
+/** Premier et dernier jour (Paris, `yyyy-MM-dd`) de la période ; `from` null = tout le temps. */
+export function periodDays(dateRange: DateRange): { from: string | null; to: string } {
+  const start = getStartDate(dateRange);
+  return { from: start ? parisDay(start) : null, to: parisDay(new Date()) };
+}
+
 export function dateRangeToWindow(dateRange: DateRange): { from: string; to: string } {
   const start = getStartDate(dateRange) ?? new Date('2020-01-01');
   return { from: start.toISOString(), to: new Date().toISOString() };
@@ -215,6 +256,7 @@ export function useAnalyticsData({
   dateRange,
   mode,
   selectedEventId,
+  enabled = true,
 }: UseAnalyticsDataProps) {
   const [drinkAnalytics, setDrinkAnalytics] = useState<DrinkAnalytics | null>(null);
   const [ticketAnalytics, setTicketAnalytics] = useState<TicketAnalytics | null>(null);
@@ -225,6 +267,10 @@ export function useAnalyticsData({
   const [previousTotals, setPreviousTotals] = useState<PeriodTotals | null>(null);
   const [uniqueGuestsTotal, setUniqueGuestsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Les chiffres attendent la liste des soirées (titres, soirée choisie) :
+  // sans ce drapeau, l'arrivée de la liste relançait tout le calcul et chaque
+  // requête partait deux fois.
+  const [eventsReady, setEventsReady] = useState(false);
 
   /** When true, the hook is configured for an organizer (no venue, no drinks). */
   const isOrganizerScope = scope === 'organizer';
@@ -247,6 +293,7 @@ export function useAnalyticsData({
 
     const { data } = await query;
 
+    if (!data) setEventsReady(true);
     if (data) {
       setEvents(data.map(e => ({
         id: e.id,
@@ -258,6 +305,7 @@ export function useAnalyticsData({
         tablesEnabled: e.tables_enabled,
         maxTickets: e.max_tickets,
       })));
+      setEventsReady(true);
     }
   }, [venueId, organizerUserId, isOrganizerScope]);
 
@@ -282,20 +330,8 @@ export function useAnalyticsData({
         // No events yet → return empty analytics gracefully
         if (scopedEventIds.length === 0) {
           setDrinkAnalytics(null);
-          setTicketAnalytics({
-            totalRevenue: 0, netRevenue: 0, stripeFee: 0, partialRefunded: 0, totalTickets: 0, avgTicketPrice: 0, uniqueCustomers: 0,
-            ticketsByEvent: [], ticketsByRound: [], ticketsByType: [], revenueByDay: [], hourlyData: [],
-            waitlistSize: 0, presaleBuyers: 0, presaleRevenue: 0, presaleConversionRate: null, demandRatio: 0,
-            velocityMilestones: [], cumulativeSales: [], presaleVsPublic: [],
-            drinkAttach: { withDrink: 0, redeemed: 0, attachRate: 0, redemptionRate: 0 },
-            upgrades: { count: 0, revenue: 0, rate: 0 }, loyaltyRewards: 0,
-            guestShare: { guest: 0, account: 0, guestRate: 0 },
-            insuranceAttach: { withInsurance: 0, rate: 0 }, leadTime: [],
-          });
-          setTableAnalytics({
-            totalRevenue: 0, netRevenue: 0, stripeFee: 0, partialRefunded: 0, totalReservations: 0, avgReservationValue: 0,
-            uniqueCustomers: 0, reservationsByZone: [], reservationsByEvent: [], revenueByDay: [], hourlyData: [],
-          });
+          setTicketAnalytics(EMPTY_TICKET_ANALYTICS);
+          setTableAnalytics(EMPTY_TABLE_ANALYTICS);
           setRefundAnalytics({
             totalRefunded: 0, totalRefundCount: 0, refundsByType: [], refundsByDay: [], refundsByReason: [],
             refundRate: 0, avgRefundAmount: 0,
@@ -309,7 +345,9 @@ export function useAnalyticsData({
       }
 
       // === ORDERS (drinks) ===
-      let allOrders: Tables<'orders'>[] | null = null;
+      // Les cinq lectures sont indépendantes : elles partent ensemble (elles
+      // s'enchaînaient, ~0,7 s chacune — la vue d'ensemble mettait 25 s).
+      const ordersP = (async (): Promise<Tables<'orders'>[] | null> => {
       if (!isOrganizerScope && venueId) {
         let ordersQuery = supabase.from('orders').select('*').eq('venue_id', venueId);
         if (mode === 'event' && selectedEventId) {
@@ -318,11 +356,13 @@ export function useAnalyticsData({
           ordersQuery = ordersQuery.gte('created_at', startDate.toISOString());
         }
         const { data } = await ordersQuery;
-        allOrders = data;
+        return data;
       } else if (eventScopeOnly) {
         const { data } = await supabase.from('orders').select('*').eq('event_id', selectedEventId!);
-        allOrders = data;
+        return data;
       }
+      return null;
+      })();
 
       // === TICKETS ===
       let ticketsQuery = supabase
@@ -343,7 +383,7 @@ export function useAnalyticsData({
         ticketsQuery = ticketsQuery.eq('events.venue_id', venueId!);
         if (startDate) ticketsQuery = ticketsQuery.gte('created_at', startDate.toISOString());
       }
-      const { data: allTickets } = await ticketsQuery;
+      const ticketsP = ticketsQuery.then((r) => r.data);
 
       // === TABLE RESERVATIONS ===
       let tableQuery = supabase
@@ -361,11 +401,10 @@ export function useAnalyticsData({
         tableQuery = tableQuery.eq('events.venue_id', venueId!);
         if (startDate) tableQuery = tableQuery.gte('created_at', startDate.toISOString());
       }
-      const { data: allTableReservations } = await tableQuery;
-      console.debug('[useAnalyticsData]', { scope, mode, selectedEventId, ticketRows: allTickets?.length ?? 0, tableRows: allTableReservations?.length ?? 0 });
+      const tablesP = tableQuery.then((r) => r.data);
 
       // === VISITOR SESSIONS ===
-      let visitorSessions: Tables<'visitor_sessions'>[] | null = null;
+      const visitorsP = (async (): Promise<Tables<'visitor_sessions'>[] | null> => {
       if (!isOrganizerScope && venueId) {
         let visitorQuery = supabase.from('visitor_sessions').select('*').eq('venue_id', venueId);
         if (mode === 'event' && selectedEventId) {
@@ -374,18 +413,25 @@ export function useAnalyticsData({
           visitorQuery = visitorQuery.gte('visited_at', startDate.toISOString());
         }
         const { data } = await visitorQuery;
-        visitorSessions = data;
+        return data;
       }
+      return null;
+      })();
 
       // === WAITLIST (for launch metrics) ===
-      let waitlistCount = 0;
+      const waitlistP = (async (): Promise<number> => {
       if (mode === 'event' && selectedEventId) {
         const { count } = await supabase
           .from('ticket_waitlist')
           .select('*', { count: 'exact', head: true })
           .eq('event_id', selectedEventId);
-        waitlistCount = count || 0;
+        return count || 0;
       }
+      return 0;
+      })();
+
+      const [allOrders, allTickets, allTableReservations, visitorSessions, waitlistCount] =
+        await Promise.all([ordersP, ticketsP, tablesP, visitorsP, waitlistP]);
 
       // ==================== PROCESS DRINK ANALYTICS (venue scope only) ====================
       const paidOrders = allOrders?.filter(o => o.status === 'paid' || o.status === 'served') || [];
@@ -796,9 +842,10 @@ export function useAnalyticsData({
       if (prevScope && mode === 'global' && startDate && windowMs) {
         const prevEnd = startDate;
         const prevStart = new Date(startDate.getTime() - windowMs);
-        try {
-          setPreviousTotals(await fetchPreviousTotals(prevScope, prevStart, prevEnd));
-        } catch { setPreviousTotals(null); }
+        // Pas d'attente : la période précédente arrive pendant les remboursements.
+        void fetchPreviousTotals(prevScope, prevStart, prevEnd)
+          .then((tot) => setPreviousTotals(tot))
+          .catch(() => setPreviousTotals(null));
       } else {
         setPreviousTotals(null);
       }
@@ -806,7 +853,7 @@ export function useAnalyticsData({
       // ==================== PROCESS REFUND ANALYTICS ====================
       // All three sources are windowed on the SAME field (refunded_at) so a refund
       // issued today on an old booking is counted consistently across categories.
-      let refundOrdersData: any[] = [];
+      const refundOrdersP = (async (): Promise<any[]> => {
       if (!isOrganizerScope && venueId) {
         let refundOrdersQuery = supabase
           .from('orders')
@@ -816,9 +863,10 @@ export function useAnalyticsData({
         if (mode === 'event' && selectedEventId) refundOrdersQuery = refundOrdersQuery.eq('event_id', selectedEventId);
         else if (startDate) refundOrdersQuery = refundOrdersQuery.gte('refunded_at', startDate.toISOString());
         const { data } = await refundOrdersQuery;
-        refundOrdersData = data || [];
+        return data || [];
       }
-      const refundedOrders = refundOrdersData;
+      return [];
+      })();
 
       // Fetch refunded tickets
       let refundTicketsQuery = supabase
@@ -834,7 +882,6 @@ export function useAnalyticsData({
         refundTicketsQuery = refundTicketsQuery.eq('events.venue_id', venueId!);
         if (startDate) refundTicketsQuery = refundTicketsQuery.gte('refunded_at', startDate.toISOString());
       }
-      const { data: refundedTickets } = await refundTicketsQuery;
 
       // Fetch refunded table reservations
       let refundTablesQuery = supabase
@@ -850,7 +897,8 @@ export function useAnalyticsData({
         refundTablesQuery = refundTablesQuery.eq('events.venue_id', venueId!);
         if (startDate) refundTablesQuery = refundTablesQuery.gte('refunded_at', startDate.toISOString());
       }
-      const { data: refundedTables } = await refundTablesQuery;
+      const [refundedOrders, { data: refundedTickets }, { data: refundedTables }] =
+        await Promise.all([refundOrdersP, refundTicketsQuery, refundTablesQuery]);
 
       // Aggregate all refund items
       interface RefundItem { type: string; amount: number; reason: string; date: string; }
@@ -932,12 +980,12 @@ export function useAnalyticsData({
   }, [venueId, organizerUserId, isOrganizerScope, dateRange, mode, selectedEventId, events]);
 
   useEffect(() => {
-    if (isOrganizerScope ? !!organizerUserId : !!venueId) fetchEvents();
-  }, [venueId, organizerUserId, isOrganizerScope, fetchEvents]);
+    if (enabled && (isOrganizerScope ? !!organizerUserId : !!venueId)) fetchEvents();
+  }, [enabled, venueId, organizerUserId, isOrganizerScope, fetchEvents]);
 
   useEffect(() => {
-    if (isOrganizerScope ? !!organizerUserId : !!venueId) fetchAnalytics();
-  }, [venueId, organizerUserId, isOrganizerScope, dateRange, mode, selectedEventId, fetchAnalytics]);
+    if (enabled && eventsReady && (isOrganizerScope ? !!organizerUserId : !!venueId)) fetchAnalytics();
+  }, [enabled, eventsReady, venueId, organizerUserId, isOrganizerScope, dateRange, mode, selectedEventId, fetchAnalytics]);
 
   return {
     drinkAnalytics, ticketAnalytics, tableAnalytics, refundAnalytics, events,

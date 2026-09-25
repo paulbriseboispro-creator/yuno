@@ -108,3 +108,22 @@ export function FillBar({ pct, soldOut = false, height = 4 }: { pct: number | nu
     </div>
   );
 }
+
+/**
+ * Vue en cours de chargement, sous la navigation de l'Analytics : la page
+ * reste en place (familles, vues) et seule la zone de la vue attend.
+ */
+export function AnalyticsLoading({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="space-y-3" aria-busy="true">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-[104px] rounded-2xl animate-pulse" style={{ background: KIT.TRACK }} />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="h-[180px] rounded-2xl animate-pulse" style={{ background: KIT.TRACK }} />
+      ))}
+    </div>
+  );
+}

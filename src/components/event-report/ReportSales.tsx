@@ -39,6 +39,14 @@ export function ReportSales({ report }: { report: EventReport }) {
   const { n, eur } = useNumberFormat();
   const { totals } = report;
   const conv = conversionPct(totals.visits.withOrder, totals.visits.total);
+  // Après la soirée, « aujourd'hui » ne dit plus rien, et une ligne n'est plus
+  // « en vente » : elle a fini complète ou fermée.
+  const after = report.event.phase === 'after';
+  const today = (v: number) => (after ? undefined : v);
+  const lineStatus = (st: LineStatus): LineStatus => (after && st !== 'sold_out' ? 'closed' : st);
+  // Une réservation hors formule (walk-in, placement) peut dépasser le nombre
+  // de tables des formules : on n'affiche pas « 5 / 4 ».
+  const ofCap = (done: number, cap: number | null | undefined) => (cap && done <= cap ? `${n(done)} / ${n(cap)}` : n(done));
 
   const cards = [
     totals.revenue && (totals.revenue.total > 0 || totals.tickets.enabled || totals.tables.enabled) && (
@@ -46,28 +54,28 @@ export function ReportSales({ report }: { report: EventReport }) {
         sub={totals.drinks && totals.revenue.drinks > 0
           ? t('er.stat.revenueSplit').replace('{tickets}', eur(totals.revenue.tickets)).replace('{tables}', eur(totals.revenue.tables)).replace('{drinks}', eur(totals.revenue.drinks))
           : undefined}
-        today={totals.revenue.today} todayDisplay={eur(totals.revenue.today)} />
+        today={today(totals.revenue.today)} todayDisplay={eur(totals.revenue.today)} />
     ),
     (totals.tickets.enabled || totals.tickets.sold > 0) && (
       <StatCard key="tk" label={t('evs.tickets')} hint={t('gl.tickets')}
-        value={totals.tickets.capacity ? `${n(totals.tickets.sold)} / ${n(totals.tickets.capacity)}` : n(totals.tickets.sold)}
+        value={ofCap(totals.tickets.sold, totals.tickets.capacity)}
         sub={t('er.stat.orders').replace('{n}', n(totals.tickets.orders))}
-        today={totals.tickets.today} pct={fillPct(totals.tickets.sold, totals.tickets.capacity)} soldOut={totals.tickets.soldOut} />
+        today={today(totals.tickets.today)} pct={fillPct(totals.tickets.sold, totals.tickets.capacity)} soldOut={totals.tickets.soldOut} />
     ),
     (totals.tables.enabled || totals.tables.booked > 0) && (
       <StatCard key="tb" label={t('evs.tables')} hint={t('gl.tables')}
-        value={totals.tables.capacity ? `${n(totals.tables.booked)} / ${n(totals.tables.capacity)}` : n(totals.tables.booked)}
+        value={ofCap(totals.tables.booked, totals.tables.capacity)}
         sub={t('er.stat.guests').replace('{n}', n(totals.tables.guests))}
-        today={totals.tables.today} pct={fillPct(totals.tables.booked, totals.tables.capacity)} soldOut={totals.tables.soldOut} />
+        today={today(totals.tables.today)} pct={fillPct(totals.tables.booked, totals.tables.capacity)} soldOut={totals.tables.soldOut} />
     ),
     (totals.guestList.enabled || totals.guestList.registered > 0) && (
       <StatCard key="gl" label={t('evs.guestList')} hint={t('gl.guestList')}
-        value={totals.guestList.capacity ? `${n(totals.guestList.registered)} / ${n(totals.guestList.capacity)}` : n(totals.guestList.registered)}
-        today={totals.guestList.today} pct={fillPct(totals.guestList.registered, totals.guestList.capacity)} soldOut={totals.guestList.soldOut} />
+        value={ofCap(totals.guestList.registered, totals.guestList.capacity)}
+        today={today(totals.guestList.today)} pct={fillPct(totals.guestList.registered, totals.guestList.capacity)} soldOut={totals.guestList.soldOut} />
     ),
     <StatCard key="vis" label={t('evs.visits')} hint={t('gl.visits')} value={n(totals.visits.total)}
       sub={conv !== null ? t('er.stat.conversion').replace('{pct}', String(conv).replace('.', t('er.decimal'))) : undefined}
-      today={totals.visits.today} />,
+      today={today(totals.visits.today)} />,
   ].filter(Boolean);
 
   const byPillar: Record<PillarKey, ReportLine[]> = { tickets: [], tables: [], guestList: [] };
@@ -99,7 +107,8 @@ export function ReportSales({ report }: { report: EventReport }) {
                   const meta = PILLAR[pillar];
                   const Icon = meta.icon;
                   const pct = fillPct(line.sold, line.capacity);
-                  const st = STATUS_STYLE[line.status];
+                  const status = lineStatus(line.status);
+                  const st = STATUS_STYLE[status];
                   return (
                     <tr key={`${pillar}:${line.id}`} style={{ borderTop: `1px solid rgb(var(--ink)/0.055)` }}>
                       <td className="px-2 py-2.5">
@@ -110,7 +119,7 @@ export function ReportSales({ report }: { report: EventReport }) {
                         {/* Téléphone : le statut passe sous le nom (colonne masquée). */}
                         <span className="mt-1 flex items-center gap-2 sm:hidden">
                           <span className="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ background: st.bg, color: st.fg }}>
-                            {t(`er.status.${line.status}`)}
+                            {t(`er.status.${status}`)}
                           </span>
                           {line.price !== null && (
                             <span className="tabular-nums" style={{ color: KIT.T3, fontSize: 11.5 }}>{line.price > 0 ? eur(line.price) : t('er.free')}</span>
@@ -122,7 +131,7 @@ export function ReportSales({ report }: { report: EventReport }) {
                       </td>
                       <td className="hidden px-2 py-2.5 sm:table-cell">
                         <span className="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: st.bg, color: st.fg }}>
-                          {t(`er.status.${line.status}`)}
+                          {t(`er.status.${status}`)}
                         </span>
                       </td>
                       <td className="px-2 py-2.5">
@@ -131,7 +140,7 @@ export function ReportSales({ report }: { report: EventReport }) {
                             {n(line.sold)}{line.capacity !== null && <span style={{ color: KIT.T3, fontWeight: 500 }}> / {n(line.capacity)}</span>}
                           </span>
                           {line.capacity !== null && (
-                            <div className="hidden flex-1 sm:block"><FillBar pct={pct} soldOut={line.status === 'sold_out'} /></div>
+                            <div className="hidden flex-1 sm:block"><FillBar pct={pct} soldOut={status === 'sold_out'} /></div>
                           )}
                         </div>
                       </td>

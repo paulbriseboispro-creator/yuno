@@ -355,8 +355,10 @@ export function computeNightStats(input: NightInput): NightStats {
 
   // ── Deltas vs venue average (per-event) ──
   const perEventAttendance = heads / n;
+  // Sous 10 personnes de moyenne, l'écart ne dit rien (« +3100 % » face à 3
+  // présents) : on se tait plutôt que d'afficher un chiffre spectaculaire.
   const attendanceChangePct =
-    benchmark.avgAttendance && benchmark.avgAttendance > 0
+    benchmark.avgAttendance && benchmark.avgAttendance >= 10
       ? Math.round(((perEventAttendance - benchmark.avgAttendance) / benchmark.avgAttendance) * 100)
       : null;
   const revenuePerHeadChangePct =

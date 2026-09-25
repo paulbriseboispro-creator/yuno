@@ -16,7 +16,7 @@ import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
+import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow, EMPTY_TICKET_ANALYTICS, EMPTY_TABLE_ANALYTICS, periodDays } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
@@ -41,6 +41,10 @@ import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnal
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
+import { AnalyticsLoading } from '@/components/analytics/kit';
+import { SalesByDayChart } from '@/components/analytics/SalesByDayChart';
+import { buildSalesSeries } from '@/lib/salesSeries';
+import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
 import { TrafficView } from '@/components/analytics/families/TrafficView';
@@ -167,7 +171,8 @@ function smooth(pts: [number, number][]): string {
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean }) {
   const W = 96, H = 34, pad = 3;
-  if (!pts.length) return <svg width={W} height={H} />;
+  // Une courbe à un seul point n'est qu'un point parasite sous le chiffre.
+  if (pts.length < 2) return <svg width={W} height={H} />;
   const max = Math.max(...pts), min = Math.min(...pts), rng = max - min || 1;
   const xs = pts.map((_, i) => pad + (i / Math.max(pts.length - 1, 1)) * (W - pad * 2));
   const ys = pts.map(v => H - pad - ((v - min) / rng) * (H - pad * 2));
@@ -407,6 +412,7 @@ export default function OrgAppAnalytics() {
   // chacune rangée en vues ; tout vit dans l'URL (`?tab=&view=&event=`), les
   // anciens onglets (`global`, `event`, `purchase`) y sont traduits.
   const { family, view, go } = useAnalyticsRoute();
+  const { eur: eurFmt } = useNumberFormat();
   const mode: AnalyticsMode = family === 'sales' && view === 'event' ? 'event' : 'global';
   const isLive = family === 'live';
   const isPurchase = family === 'community' && view === 'purchase';
@@ -430,14 +436,18 @@ export default function OrgAppAnalytics() {
   const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'tables' | 'refunds'>('overview');
   // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
   const [showAdvancedZones, setShowAdvancedZones] = useState(false);
+  const [showOverviewDetail, setShowOverviewDetail] = useState(false);
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
 
   // Web-traffic zones share the page's main period selector (no separate filter).
   const webWindow = dateRangeToWindow(dateRange);
 
   const { eventIds, venueIds } = useOrganizerEventIds(organizerId);
+  // Chaque jeu de chiffres ne se charge que sur les vues qui le lisent :
+  // Trafic, Communauté ou En direct n'attendent plus ~70 requêtes de Ventes.
+  const needsSales = family === 'sales' && (view === 'overview' || (view === 'event' && showAdvancedZones));
   const {
-    ticketAnalytics, tableAnalytics, refundAnalytics,
+    ticketAnalytics: ticketRaw, tableAnalytics: tableRaw, refundAnalytics,
     currentTotals, previousTotals, uniqueGuestsTotal, loading,
   } = useAnalyticsData({
     organizerUserId: organizerId,
@@ -445,15 +455,21 @@ export default function OrgAppAnalytics() {
     dateRange,
     mode,
     selectedEventId,
+    enabled: needsSales,
   });
-  const { nightAnalytics } = useNightAnalytics({ organizerUserId: organizerId, dateRange, mode, selectedEventId });
-  const { promoterAnalytics } = usePromoterAnalytics({ organizerUserId: organizerId, dateRange, mode, selectedEventId });
-  const { customerAnalytics } = useCustomerAnalytics({ organizerUserId: organizerId });
+  const salesPending = needsSales && (loading || !ticketRaw || !tableRaw);
+  const ticketAnalytics = ticketRaw ?? EMPTY_TICKET_ANALYTICS;
+  const tableAnalytics = tableRaw ?? EMPTY_TABLE_ANALYTICS;
+  const { nightAnalytics } = useNightAnalytics({ organizerUserId: organizerId, dateRange, mode, selectedEventId, enabled: needsSales && (mode === 'event' || showOverviewDetail) });
+  const { promoterAnalytics, loading: promoterLoading } = usePromoterAnalytics({
+    organizerUserId: organizerId, dateRange, mode, selectedEventId, enabled: family === 'sales' && view === 'partners',
+  });
+  const { customerAnalytics } = useCustomerAnalytics({ organizerUserId: organizerId, enabled: family === 'community' && view === 'overview' });
 
   // Net gain (organizer's actual share after Stripe + Yuno fees AND partnership split)
   const [netGain, setNetGain] = useState<number | null>(null);
   useEffect(() => {
-    if (!organizerId) return;
+    if (!organizerId || !needsSales) return;
     let cancelled = false;
     (async () => {
       try {
@@ -526,7 +542,7 @@ export default function OrgAppAnalytics() {
       }
     })();
     return () => { cancelled = true; };
-  }, [organizerId, dateRange, mode, selectedEventId]);
+  }, [organizerId, needsSales, dateRange, mode, selectedEventId]);
 
   // Visitor funnel (organizer scope) + live count
   useEffect(() => {
@@ -557,11 +573,11 @@ export default function OrgAppAnalytics() {
       if (!cancelled) setLiveVisitors(data?.length ?? 0);
     };
 
-    fetchFunnel();
+    if (needsSales) fetchFunnel();
     fetchLive();
     const interval = setInterval(fetchLive, 10000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [organizerId, eventIds.join(','), venueIds.join(','), dateRange, mode, selectedEventId]);
+  }, [organizerId, needsSales, eventIds.join(','), venueIds.join(','), dateRange, mode, selectedEventId]);
 
   const handleExportData = async () => {
     if (!ticketAnalytics || !tableAnalytics) return;
@@ -625,7 +641,7 @@ export default function OrgAppAnalytics() {
     }
   };
 
-  if (loading || !ticketAnalytics || !tableAnalytics || !organizerId) {
+  if (!organizerId) {
     return <div className="flex justify-center py-24"><Loader2 className="h-7 w-7 animate-spin" style={{ color: T3 }} /></div>;
   }
 
@@ -655,7 +671,12 @@ export default function OrgAppAnalytics() {
   const ordersSparkPts = dayKeys.map(ordAt);
   const aovSparkPts = grossSparkPts.map((r, i) => ordersSparkPts[i] ? r / ordersSparkPts[i] : 0);
 
-  const fmt = (n: number) => n >= 1000 ? `€${(n / 1000).toFixed(1)}k` : `€${n.toFixed(0)}`;
+  // Montants au format de la langue : « 321 € » / « 3,1 k€ » en français,
+  // « €321 » / « €3.1K » en anglais — jamais un « €321 » figé.
+  const fmt = (n: number) => new Intl.NumberFormat(
+    language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB',
+    { style: 'currency', currency: 'EUR', notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(n) >= 10000 ? 1 : 0 },
+  ).format(n);
 
   // Real "vs previous period" deltas computed from the prior equal-length window.
   const pctDelta = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
@@ -665,6 +686,18 @@ export default function OrgAppAnalytics() {
   const aovCur = currentTotals && currentTotals.orders > 0 ? currentTotals.revenue / currentTotals.orders : 0;
   const aovPrev = previousTotals && previousTotals.orders > 0 ? previousTotals.revenue / previousTotals.orders : 0;
   const aovDelta = previousTotals ? pctDelta(aovCur, aovPrev) : null;
+
+  // Ventes jour par jour (mois par mois au-delà de trois mois), sans trou.
+  const hourly = dateRange === '24h' || dateRange === '48h';
+  const { from: periodFrom, to: periodTo } = periodDays(dateRange);
+  const salesSeries = buildSalesSeries({
+    tickets: ticketAnalytics.revenueByDay,
+    tables: tableAnalytics.revenueByDay,
+  }, periodFrom, periodTo);
+  const salesPillars = [
+    { key: 'tickets' as const, label: t('evs.tickets') },
+    { key: 'tables' as const, label: t('evs.tables') },
+  ];
 
   const kpis = [
     { label: t('owner.an.grossRevenue'), val: fmt(totalRevenue), spark: grossSparkPts, icon: <TrendingUp className="w-4 h-4" />, delta: revDelta },
@@ -700,10 +733,10 @@ export default function OrgAppAnalytics() {
 
   // Finance strip — Gross − Stripe − Refunds, then the organizer's net gain after partnership split.
   const financeData = [
-    { label: t('owner.an.grossVolume'), val: `€${totalRevenue.toFixed(0)}`, desc: `${totalOrders} ${t('owner.an.transactions')}` },
-    { label: 'Stripe', val: `−€${totalStripeFee.toFixed(0)}`, desc: '1.5% + €0.25 / txn' },
-    { label: t('owner.an.refunds'), val: `−€${totalRefunded.toFixed(0)}`, desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
-    { label: tt('Gain net', 'Net gain', 'Ganancia neta'), val: netGain == null ? '—' : `€${netGain.toFixed(0)}`, desc: tt('Après frais & part partenaire', 'After fees & partner split', 'Tras comisiones y parte del socio'), accent: true },
+    { label: t('owner.an.grossVolume'), val: fmt(totalRevenue), desc: `${totalOrders} ${t('owner.an.transactions')}` },
+    { label: 'Stripe', val: totalStripeFee > 0 ? `−${fmt(totalStripeFee)}` : '—', desc: '1.5% + €0.25 / txn' },
+    { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmt(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
+    { label: tt('Gain net', 'Net gain', 'Ganancia neta'), val: netGain == null ? '—' : fmt(netGain), desc: tt('Après frais & part partenaire', 'After fees & partner split', 'Tras comisiones y parte del socio'), accent: true },
   ];
 
   const periodOptions = [
@@ -731,7 +764,6 @@ export default function OrgAppAnalytics() {
   // Global-mode spine: only the zones that actually render get an anchor pill.
   const hasNight = !!nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0);
   const hasPromoter = !!promoterAnalytics && promoterAnalytics.promoters.length > 0;
-  const hasLoyalty = !!customerAnalytics && customerAnalytics.totalCustomers > 0;
   const navSections: AnchorSection[] = [
     { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
     ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
@@ -781,65 +813,30 @@ export default function OrgAppAnalytics() {
         )}
 
   </>);
+  // Communauté › Vue d'ensemble compte déjà la participation et la récence
+  // (base de contacts). L'ancienne zone Fidélité les recomptait avec d'autres
+  // définitions (« 96 % reviennent » sous « 54 % ne sont venus qu'une fois ») :
+  // seule la liste des meilleurs clients, qu'on ne voit nulle part ailleurs,
+  // reste ici.
   const loyaltyZone = (<>
-        {/* ── Customer loyalty / RFM ─────────────────────────────────────── */}
-        {customerAnalytics && hasLoyalty && (() => {
-          const segMeta: Record<string, { label: string; color: string }> = {
-            new: { label: t('owner.an.segNew'), color: 'var(--acc-38bdf8)' },
-            active: { label: t('owner.an.segActive'), color: POS },
-            atRisk: { label: t('owner.an.segAtRisk'), color: 'var(--acc-f59e0b)' },
-            lapsed: { label: t('owner.an.segLapsed'), color: T3 },
-          };
-          const segTotal = customerAnalytics.segments.reduce((s, x) => s + x.count, 0) || 1;
-          const g = customerAnalytics.growth90;
-          const tiles = [
-            { label: t('owner.an.customers'), val: customerAnalytics.totalCustomers.toLocaleString(), sub: t('owner.an.lifetimeBase'), icon: <Users className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.repeatRate'), val: `${customerAnalytics.repeatRate.toFixed(0)}%`, sub: t('owner.an.cameMoreThanOnce'), icon: <Repeat className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.avgClv'), val: fmt(customerAnalytics.avgClv), sub: t('owner.an.lifetimeSpend'), icon: <Crown className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.growth90'), val: g === null ? '—' : `${g >= 0 ? '+' : ''}${g.toFixed(0)}%`, sub: t('owner.an.vsPrev90'), icon: <TrendingUp className="w-4 h-4" />, tone: g === null ? T1 : (g >= 0 ? POS : NEG) },
-          ];
-          return (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }} className="space-y-3">
-              <ZoneHeading id="an-loyalty" icon={<HeartHandshake className="w-4 h-4" />} label={t('owner.an.loyalty')} />
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {tiles.map((tile, i) => <Tile key={i} {...tile} />)}
+        {customerAnalytics && customerAnalytics.topCustomers.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <PCard icon={<Crown className="w-4 h-4" />} title={t('owner.an.topCustomers')} sub={t('owner.an.byLifetimeSpend')}>
+              <div className="grid gap-x-8 md:grid-cols-2">
+                {customerAnalytics.topCustomers.slice(0, 10).map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <span className="text-[12.5px] tabular-nums w-5" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{c.name}</div>
+                      <div className="text-[11.5px]" style={{ color: T3 }}>{c.visitNights} {t('owner.an.nights')}</div>
+                    </div>
+                    <div className="text-sm font-[620] tabular-nums" style={{ color: T1 }}>{eurFmt(c.totalSpent)}</div>
+                  </div>
+                ))}
               </div>
-              <div className="grid lg:grid-cols-2 gap-3">
-                <PCard icon={<HeartHandshake className="w-4 h-4" />} title={t('owner.an.lifecycle')} sub={t('owner.an.byRecency')}>
-                  <div className="flex h-2.5 rounded-full overflow-hidden mt-1" style={{ background: 'rgb(var(--ink)/0.06)' }}>
-                    {customerAnalytics.segments.map(s => s.count > 0 && (
-                      <div key={s.key} style={{ width: `${(s.count / segTotal) * 100}%`, background: segMeta[s.key].color }} />
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {customerAnalytics.segments.map(s => (
-                      <div key={s.key} className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: segMeta[s.key].color }} />
-                        <span className="text-[12.5px]" style={{ color: T2 }}>{segMeta[s.key].label}</span>
-                        <span className="text-[12.5px] tabular-nums ml-auto" style={{ color: T1 }}>{s.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </PCard>
-                <PCard icon={<Crown className="w-4 h-4" />} title={t('owner.an.topCustomers')} sub={t('owner.an.byLifetimeSpend')}>
-                  <div className="divide-y" style={{ borderColor: BORDER }}>
-                    {customerAnalytics.topCustomers.slice(0, 5).map((c, i) => (
-                      <div key={i} className="flex items-center gap-3 py-2.5">
-                        <span className="text-[12.5px] tabular-nums w-5" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{c.name}</div>
-                          <div className="text-[11.5px]" style={{ color: T3 }}>{c.visitNights} {t('owner.an.nights')}</div>
-                        </div>
-                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1 }}>{fmt(c.totalSpent)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </PCard>
-              </div>
-            </motion.div>
-          );
-        })()}
-
+            </PCard>
+          </motion.div>
+        )}
   </>);
   const audienceZone = (<>
         {/* ── Zone · Audience (age & gender + follower insights) ─────────── */}
@@ -949,7 +946,7 @@ export default function OrgAppAnalytics() {
         ) : family === 'traffic' ? (
           <TrafficView scope={{ organizerUserId: organizerId }} mode={view === 'events' ? 'events' : 'page'} publicPath={orgSlug ? `/o/${orgSlug}` : null} eventHref={eventHref} />
         ) : family === 'sales' && view === 'partners' ? (
-          hasPromoter ? promoterZone : <ReportCard><EmptyNote text={t('anf.pa.empty')} /></ReportCard>
+          promoterLoading ? <AnalyticsLoading /> : hasPromoter ? promoterZone : <ReportCard><EmptyNote text={t('anf.pa.empty')} /></ReportCard>
         ) : isLive ? (
           <LiveView organizerUserId={organizerId} />
         ) : showEventPicker ? (
@@ -973,7 +970,7 @@ export default function OrgAppAnalytics() {
             onEventChange={(id) => setSelectedEventId(id)}
             onBack={() => setSelectedEventId(null)}
             scope={{ organizerUserId: organizerId }}
-            verdict={<EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={null} organizerUserId={organizerId} />}
+            verdict={<EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={null} organizerUserId={organizerId} layout="summary" />}
             demographics={organizerId ? <EventAudienceDemographics scope={{ kind: 'organizer', id: organizerId }} eventId={selectedEventId} /> : undefined}
           />
         )}
@@ -994,7 +991,9 @@ export default function OrgAppAnalytics() {
           </button>
         )}
 
-        {(mode === 'global' || showAdvancedZones) && (
+        {(mode === 'global' || showAdvancedZones) && salesPending && <AnalyticsLoading />}
+
+        {(mode === 'global' || showAdvancedZones) && !salesPending && (
         <>
 
         {/* ── Primary pillar navigation — tickets / VIP tables promoted ── */}
@@ -1026,7 +1025,6 @@ export default function OrgAppAnalytics() {
         <>
 
         {/* Anchor-nav spine — global mode only (event mode has its own in the verdict view) */}
-        {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
 
         {/* ── Zone 1 · Overview ─────────────────────────────────────────── */}
         <ZoneHeading id="an-overview" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
@@ -1054,7 +1052,7 @@ export default function OrgAppAnalytics() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <PCard
             icon={<TrendingUp className="w-4 h-4" />}
-            title={t('owner.an.grossRevenueHourly')}
+            title={hourly ? t('owner.an.grossRevenueHourly') : salesSeries.unit === 'month' ? t('owner.an.revenueByMonth') : t('owner.an.revenueByDay')}
             sub={t('owner.an.distributionOverPeriod')}
             right={
               <div className="text-right">
@@ -1063,17 +1061,56 @@ export default function OrgAppAnalytics() {
               </div>
             }
           >
-            {hourlyData.length > 0
+            {hourly ? (
+              hourlyData.length > 0
               ? <RevenueBars data={hourlyData} />
-              : <div className="h-40 flex items-center justify-center text-sm" style={{ color: T3 }}>{t('owner.an.noDataPeriod')}</div>}
+              : <div className="h-40 flex items-center justify-center text-sm" style={{ color: T3 }}>{t('owner.an.noDataPeriod')}</div>
+            ) : (
+              <SalesByDayChart series={salesSeries} pillars={salesPillars} />
+            )}
           </PCard>
         </motion.div>
+
+        {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+          <PCard icon={<CreditCard className="w-4 h-4" />} title={t('owner.an.settlement')} sub={t('owner.an.payoutsViaStripe')}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {financeData.map((f, i) => (
+                <div key={i} className={i > 0 ? 'sm:border-l pl-0 sm:pl-4' : ''} style={{ borderColor: BORDER }}>
+                  <div className="text-[11px] uppercase tracking-[0.07em]" style={{ color: f.accent ? RED : T3 }}>{f.label}</div>
+                  <div className="text-2xl font-[640] tabular-nums mt-2" style={{ color: f.accent ? RED : f.val.startsWith('−') ? T2 : T1, letterSpacing: '-0.02em' }}>{f.val}</div>
+                  <div className="text-[11.5px] mt-1.5" style={{ color: T3 }}>{f.desc}</div>
+                </div>
+              ))}
+            </div>
+          </PCard>
+        </motion.div>
+
 
         {/* ── Bilan par soirée (cross-pillar P&L per night) ──────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
           <EventsPnlLedger organizerUserId={organizerId} from={webWindow.from} to={webWindow.to} />
         </motion.div>
 
+        {/* ── Le détail (parcours d'achat, top ventes, la nuit, guest list) :
+            replié. La vue d'ensemble répond à « combien ai-je vendu ? » en
+            quatre blocs, le reste se déplie à la demande. ─────────────── */}
+        <button
+          type="button"
+          onClick={() => setShowOverviewDetail((v) => !v)}
+          aria-expanded={showOverviewDetail}
+          className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
+          style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
+        >
+          <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
+            <Layers className="w-4 h-4" style={{ color: T3 }} />
+            {t('owner.an.salesDetail')}
+          </span>
+          <ChevronDown className={`w-4 h-4 transition-transform ${showOverviewDetail ? 'rotate-180' : ''}`} style={{ color: T3 }} />
+        </button>
+
+        {showOverviewDetail && (
+        <>
         {/* ── Funnel + Donut ────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="grid lg:grid-cols-[3fr,2fr] gap-3">
           <PCard
@@ -1199,20 +1236,8 @@ export default function OrgAppAnalytics() {
           />
         </motion.div>
 
-        {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-          <PCard icon={<CreditCard className="w-4 h-4" />} title={t('owner.an.settlement')} sub={t('owner.an.payoutsViaStripe')}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {financeData.map((f, i) => (
-                <div key={i} className={i > 0 ? 'sm:border-l pl-0 sm:pl-4' : ''} style={{ borderColor: BORDER }}>
-                  <div className="text-[11px] uppercase tracking-[0.07em]" style={{ color: f.accent ? RED : T3 }}>{f.label}</div>
-                  <div className="text-2xl font-[640] tabular-nums mt-2" style={{ color: f.accent ? RED : f.val.startsWith('−') ? T2 : T1, letterSpacing: '-0.02em' }}>{f.val}</div>
-                  <div className="text-[11.5px] mt-1.5" style={{ color: T3 }}>{f.desc}</div>
-                </div>
-              ))}
-            </div>
-          </PCard>
-        </motion.div>
+        </>
+        )}
 
         </>
         )}
