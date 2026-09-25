@@ -1,4 +1,5 @@
 import { renderAutoTpl, resolveUserLang, sendAutoPush, type AutoPushLang, type AutoPushVar } from "./auto-push.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 // Bilan du lendemain (plan de simplification de l'analyse, lot 7) : le
 // lendemain d'une soirée, à partir de 11 h à Paris, le pro reçoit ses trois
@@ -15,8 +16,7 @@ import { renderAutoTpl, resolveUserLang, sendAutoPush, type AutoPushLang, type A
 // tout envoi ; un passage qui perd la course ne fait rien. Une soirée sans
 // personne attendue est réclamée et tue (pas de bilan vide).
 // Drainé par process-scheduled-campaigns (même convention que le récap hebdo).
-// deno-lint-ignore no-explicit-any
-export async function dispatchNightRecaps(admin: any): Promise<{ processed: number; sent: number; inApp: number }> {
+export async function dispatchNightRecaps(admin: SupabaseClient): Promise<{ processed: number; sent: number; inApp: number }> {
   const { data: due, error } = await admin.rpc("night_recap_due");
   if (error || !Array.isArray(due) || due.length === 0) return { processed: 0, sent: 0, inApp: 0 };
 

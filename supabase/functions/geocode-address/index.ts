@@ -1,6 +1,35 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
+// Champs lus dans la réponse ipapi.co (tout est optionnel : la réponse peut
+// être une erreur `{ error: true, reason }`).
+interface IpApiGeo {
+  error?: unknown;
+  country_name?: string;
+  country_code?: string;
+  region?: string;
+  city?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+}
+
+// Champs lus dans une « feature » Mapbox Geocoding v5.
+interface MapboxFeature {
+  text?: string;
+  place_name: string;
+  center: [number, number];
+}
+
+interface CityResult {
+  name: string;
+  city: string | undefined;
+  place_name: string;
+  lat: number;
+  lng: number;
+  latitude: number;
+  longitude: number;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -26,7 +55,7 @@ serve(async (req) => {
       if (!ip || ip === "127.0.0.1" || ip.startsWith("::")) {
         return new Response(JSON.stringify({ skipped: true, reason: "no_public_ip" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      let geo: any = null;
+      let geo: IpApiGeo | null = null;
       try {
         const res = await fetch(`https://ipapi.co/${ip}/json/`, { headers: { "User-Agent": "Yuno-Analytics/1.0" } });
         if (res.ok) geo = await res.json();
@@ -99,8 +128,8 @@ serve(async (req) => {
       const queryLower = body.query.toLowerCase();
       const seen = new Set<string>();
       const results = (data.features || [])
-        .filter((f: any) => f.text?.toLowerCase().startsWith(queryLower))
-        .map((f: any) => ({
+        .filter((f: MapboxFeature) => f.text?.toLowerCase().startsWith(queryLower))
+        .map((f: MapboxFeature): CityResult => ({
           name: f.place_name,
           city: f.text,
           place_name: f.place_name,
@@ -109,7 +138,7 @@ serve(async (req) => {
           latitude: f.center[1],
           longitude: f.center[0],
         }))
-        .filter((r: any) => {
+        .filter((r: CityResult) => {
           if (seen.has(r.place_name)) return false;
           seen.add(r.place_name);
           return true;

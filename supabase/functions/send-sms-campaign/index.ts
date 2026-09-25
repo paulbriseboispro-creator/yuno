@@ -27,7 +27,7 @@
 //      le cron reprend au créneau suivant.
 // ───────────────────────────────────────────────────────────────────────────
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { composeSmsBody, smsSizing, normalizeLang, cleanSenderName } from "../_shared/sms-text.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 
@@ -52,8 +52,7 @@ const E164 = /^\+[1-9][0-9]{6,14}$/;
 const QUIET_START_HOUR = 20;
 const QUIET_END_HOUR = 8;
 
-// deno-lint-ignore no-explicit-any
-type Admin = any;
+type Admin = SupabaseClient;
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 

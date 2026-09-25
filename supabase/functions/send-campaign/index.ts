@@ -807,8 +807,7 @@ Deno.serve(async (req) => {
     // Test d'une RECETTE automatique : il n'y a pas de campagne, l'email
     // enfant est monté par le cron. On rejoue ici exactement sa composition
     // (modèle de la recette, portée, soirée choisie) pour un envoi de test.
-    // deno-lint-ignore no-explicit-any
-    let campaign: Record<string, any>;
+    let campaign: Record<string, unknown>;
     if (!campaign_id && send_test && typeof automation_id === 'string') {
       const { data: auto } = await admin
         .from('email_automations').select('*').eq('id', automation_id).maybeSingle();
@@ -901,7 +900,7 @@ Deno.serve(async (req) => {
       const supportSession = token && !internal
         ? await supportSessionFor(admin as unknown as Parameters<typeof supportSessionFor>[0], token)
         : null;
-      if (['sent', 'cancelled'].includes(campaign.status)) {
+      if (['sent', 'cancelled'].includes(campaign.status as string)) {
         return new Response(JSON.stringify({ error: `Campagne déjà ${campaign.status}` }), { status: 409, headers: jsonHeaders });
       }
       // Le disjoncteur ne se contourne pas par un simple re-clic sur

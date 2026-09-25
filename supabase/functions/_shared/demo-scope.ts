@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
 // Porte démo des emails automatiques historiques (checklist du soir,
 // recommandation, « on t'a manqué », alerte derniers billets). Ces crons
 // avaient été rendus muets par une jointure ambiguë jusqu'au 25/09 ; une fois
@@ -7,8 +9,7 @@
 // même porte que tout le tracking super admin ; une adresse démo =
 // `isDemoEmail`. Sans la liste, on n'envoie RIEN : un email perdu vaut mieux
 // qu'un rebond sur le domaine transactionnel.
-// deno-lint-ignore no-explicit-any
-export async function loadDemoEventIds(admin: any): Promise<Set<string> | null> {
+export async function loadDemoEventIds(admin: SupabaseClient): Promise<Set<string> | null> {
   const { data, error } = await admin.rpc("demo_event_ids");
   if (error || !Array.isArray(data)) {
     console.error("[DEMO-SCOPE] demo_event_ids failed:", error?.message ?? "no data");

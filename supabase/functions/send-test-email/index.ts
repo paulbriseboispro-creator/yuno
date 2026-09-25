@@ -190,7 +190,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Test email sent:', { id: (emailResponse as any)?.data?.id, to: recipientEmail });
+    console.log('Test email sent:', { id: emailResponse?.data?.id, to: recipientEmail });
 
     return new Response(
       JSON.stringify({ success: true, message: "Email sent" }),

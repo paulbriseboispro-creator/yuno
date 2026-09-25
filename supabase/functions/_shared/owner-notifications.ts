@@ -25,6 +25,15 @@ export interface OwnerNotifPayload {
   };
 }
 
+/** Minimal shape of the head-count query chain used by `notifAlreadySent`. */
+interface NotifCountQuery {
+  eq: (column: string, value: string) => NotifCountQuery;
+  gte: (column: string, value: string) => PromiseLike<{ count: number | null }>;
+}
+interface NotifCountTable {
+  select: (columns: string, opts: { count: 'exact'; head: boolean }) => NotifCountQuery;
+}
+
 /**
  * Insert a single owner notification. Swallows errors to avoid breaking
  * the parent payment/action flow — notifications are best-effort.
@@ -68,7 +77,7 @@ export async function notifAlreadySent(
 ): Promise<boolean> {
   try {
     const since = new Date(Date.now() - withinHours * 60 * 60 * 1000).toISOString();
-    const result = await (client.from('staff_notifications') as any)
+    const result = await (client.from('staff_notifications') as unknown as NotifCountTable)
       .select('id', { count: 'exact', head: true })
       .eq('venue_id', venueId)
       .eq('notification_type', type)

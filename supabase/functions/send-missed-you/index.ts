@@ -141,16 +141,25 @@ serve(async (req) => {
 
       const attendeeCount = attendedRows?.length ?? 0;
 
-      const { data: nextEvents } = await supabaseAdmin
+      // Soirée d'un organisateur (sans club) : sa prochaine date à lui —
+      // `.eq('venue_id', null)` ne trouvait jamais rien.
+      const nextQuery = supabaseAdmin
         .from('events')
-        .select('id, title, start_at, timezone')
-        .eq('venue_id', event.venue_id)
+        .select('id, title, start_at, timezone');
+      const { data: nextEvents } = await (event.venue_id
+        ? nextQuery.eq('venue_id', event.venue_id)
+        : nextQuery.eq('organizer_user_id', event.organizer_user_id ?? ''))
         .eq('is_active', true)
         .gt('start_at', new Date().toISOString())
         .order('start_at', { ascending: true })
         .limit(1);
 
       const nextEvent = nextEvents?.[0];
+      // Le bouton mène au club ; sans club, à la prochaine soirée de
+      // l'organisateur, sinon au feed — jamais « /club/null ».
+      const ctaUrl = event.venue_id
+        ? `https://yunoapp.eu/club/${event.venue_id}`
+        : nextEvent ? `https://yunoapp.eu/event/${nextEvent.id}` : 'https://yunoapp.eu/explore';
 
       const optins = await loadOptIns(supabaseAdmin, noShowTickets.map((tk: TicketContactRow) => tk.user_email));
 
@@ -234,7 +243,7 @@ serve(async (req) => {
 
               ${nextEventHtml}
 
-              <a href="https://yunoapp.eu/club/${event.venue_id}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px; margin-top: 16px;">
+              <a href="${ctaUrl}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px; margin-top: 16px;">
                 ${t('missed.cta', lang)}
               </a>
 
@@ -258,7 +267,7 @@ serve(async (req) => {
             posterUrl: eventImageUrl || undefined,
             attendeeCount: attendeeCount ? String(attendeeCount) : undefined,
             nextEvent: nextEventBuilt,
-            venueUrl: `https://yunoapp.eu/club/${event.venue_id}`,
+            venueUrl: ctaUrl,
             unsubscribeUrl: unsubUrl,
             recipientEmail: ticket.user_email,
           });

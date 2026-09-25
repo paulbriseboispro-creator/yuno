@@ -10,7 +10,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[SEND-EVENT-UPDATE] ${step}${detailsStr}`);
 };
@@ -52,7 +52,7 @@ serve(async (req) => {
 
     if (eventError || !event) throw new Error("Event not found");
 
-    const venueName = (event.venues as any)?.name || '';
+    const venueName = (event.venues as unknown as { name?: string } | null)?.name || '';
 
     const { data: tickets } = await supabaseAdmin
       .from('tickets')

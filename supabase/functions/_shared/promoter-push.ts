@@ -1,4 +1,5 @@
 import { sendAutoPush, AUTO_PUSH, type AutoPushVar } from "./auto-push.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 /**
  * Vidange de la file de notifications promoteur (app Yuno Pro).
@@ -50,8 +51,7 @@ function formatVars(vars: Record<string, unknown> | null): Record<string, AutoPu
   return out;
 }
 
-// deno-lint-ignore no-explicit-any
-export async function dispatchPromoterPushes(admin: any): Promise<{ processed: number; sent: number }> {
+export async function dispatchPromoterPushes(admin: SupabaseClient): Promise<{ processed: number; sent: number }> {
   const { data: rows, error } = await admin
     .from("promoter_push_queue")
     .select("id, user_id, push_key, variant, vars, url")

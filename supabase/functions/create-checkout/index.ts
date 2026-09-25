@@ -34,6 +34,14 @@ interface CartRule {
   free_qty: number;
 }
 
+// Ligne brute de `upsell_cart_rules` : `discount_percent` est un numeric
+// (peut arriver en texte), `free_qty` peut être NULL.
+type CartRuleRow = Omit<CartRule, "discount_percent" | "free_qty"> & {
+  discount_percent: number | string | null;
+  free_qty: number | null;
+  priority: number | null;
+};
+
 interface ValidatedItem {
   id: string;
   name: string;
@@ -452,7 +460,7 @@ serve(async (req) => {
       .eq("rule_type", "percentage_discount")
       .order("priority", { ascending: true });
 
-    const cartRules: CartRule[] = (cartRulesData || []).map((r: any) => ({
+    const cartRules: CartRule[] = (cartRulesData || []).map((r: CartRuleRow) => ({
       ...r,
       discount_percent: r.discount_percent ? Number(r.discount_percent) : null,
       free_qty: r.free_qty ?? 1,
@@ -497,7 +505,7 @@ serve(async (req) => {
     });
 
     // Build order insert data
-    const orderInsert: Record<string, any> = {
+    const orderInsert: Record<string, unknown> = {
       user_id: user?.id || null,
       user_email: user?.email || guestEmail,
       venue_id: venueId,

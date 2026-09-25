@@ -12,9 +12,9 @@
 //     message, le pro passe avant Yuno).
 // Toutes échouent FERMÉ : une base injoignable = pas de marketing ce tour-ci,
 // jamais un email de plus.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-// deno-lint-ignore no-explicit-any
-type Admin = any;
+type Admin = SupabaseClient;
 
 export type PolicyReason = 'suppressed' | 'pressure_24h' | 'pressure_7d' | 'fatigue' | 'averse' | 'policy_error';
 

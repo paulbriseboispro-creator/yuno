@@ -19,7 +19,7 @@ function calcStripeFee(totalPriceCents: number): number {
   return (Math.round(totalPriceCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS) / 100;
 }
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[STAFF-CANCEL] ${step}${detailsStr}`);
 };
@@ -206,8 +206,8 @@ serve(async (req) => {
                   refund_application_fee: false,
                 }, linkedAccount ? { stripeAccount: linkedAccount } : undefined);
                 logStep("Linked order Stripe refund", { orderId: linkedOrder.id, amount: orderRefund, direct: !!linkedAccount });
-              } catch (stripeErr: any) {
-                logStep("Linked order Stripe refund error", { orderId: linkedOrder.id, error: stripeErr.message });
+              } catch (stripeErr) {
+                logStep("Linked order Stripe refund error", { orderId: linkedOrder.id, error: (stripeErr as Error).message });
               }
             }
 
@@ -337,12 +337,12 @@ serve(async (req) => {
           refund_application_fee: false,
         }, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined);
         logStep("Stripe refund processed", { paymentIntentId, refundAmountCents, direct: !!connectedAccountId });
-      } catch (stripeError: any) {
-        logStep("Stripe refund error", { error: stripeError.message, type });
+      } catch (stripeError) {
+        logStep("Stripe refund error", { error: (stripeError as Error).message, type });
         // For drink orders the DB write happens AFTER this, so aborting here
         // leaves the order untouched (still 'paid') — no phantom "refunded".
         if (type === 'order') {
-          throw new Error(`Stripe refund failed, cancellation aborted: ${stripeError.message}`);
+          throw new Error(`Stripe refund failed, cancellation aborted: ${(stripeError as Error).message}`);
         }
         // Ticket path keeps its existing (pre-write) behaviour to avoid
         // destabilising the entry-refusal + linked-orders flow.

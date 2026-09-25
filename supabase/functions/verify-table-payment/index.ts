@@ -6,7 +6,7 @@ import { sendAutoPush } from '../_shared/auto-push.ts';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[VERIFY-TABLE-PAYMENT] ${step}${detailsStr}`);
 };
@@ -25,14 +25,15 @@ async function eventTableCapacity(admin: ReturnType<typeof createClient>, eventI
     .eq('id', eventId)
     .maybeSingle();
   if (!ev) return 0;
-  const vid = (ev as any).venue_id ?? (ev as any).partner_venue_id ?? null;
-  const closed = new Set<string>(((ev as any).sold_out_pack_ids ?? []) as string[]);
+  const evRow = ev as unknown as { venue_id: string | null; partner_venue_id: string | null; sold_out_pack_ids: string[] | null };
+  const vid = evRow.venue_id ?? evRow.partner_venue_id ?? null;
+  const closed = new Set<string>((evRow.sold_out_pack_ids ?? []) as string[]);
   const { data: packs } = await admin
     .from('table_packs')
     .select('id, tables_count, event_id, venue_id')
     .eq('is_active', true)
     .or(vid ? `event_id.eq.${eventId},and(event_id.is.null,venue_id.eq.${vid})` : `event_id.eq.${eventId}`);
-  return (packs ?? []).reduce((sum: number, p: any) => (closed.has(p.id) ? sum : sum + (p.tables_count ?? 0)), 0);
+  return (packs ?? []).reduce((sum: number, p: { id: string; tables_count: number | null }) => (closed.has(p.id) ? sum : sum + (p.tables_count ?? 0)), 0);
 }
 
 serve(async (req) => {

@@ -69,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
         .eq("id", inv.organizer_user_id)
         .maybeSingle();
 
-      let event: any = null;
+      let event: { id: string; title: string; start_at: string; poster_url: string | null } | null = null;
       if (inv.event_id) {
         const { data: ev } = await admin
           .from("events")
@@ -336,9 +336,9 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, venue_id: slug }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("accept-club-collab-invitation error:", error);
-    return new Response(JSON.stringify({ error: error.message ?? "Unknown error" }), {
+    return new Response(JSON.stringify({ error: (error as { message?: string }).message ?? "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

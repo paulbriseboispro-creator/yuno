@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildPreNightChecklist, fmtDateParts } from "../_shared/email-templates.ts";
 
@@ -10,7 +10,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   console.log(`[PRE-NIGHT-CHECKLIST] ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
 };
 
@@ -25,7 +25,7 @@ function emailToUuid(email: string): string {
   return `00000000-0000-4000-8000-${hex.padStart(12, '0')}`;
 }
 
-async function wasAlreadySent(supabase: any, userId: string, notifType: string, key: string): Promise<boolean> {
+async function wasAlreadySent(supabase: SupabaseClient, userId: string, notifType: string, key: string): Promise<boolean> {
   const { data } = await supabase
     .from('notification_log')
     .select('id')
@@ -36,7 +36,7 @@ async function wasAlreadySent(supabase: any, userId: string, notifType: string, 
   return (data && data.length > 0);
 }
 
-async function markSent(supabase: any, userId: string, notifType: string, key: string) {
+async function markSent(supabase: SupabaseClient, userId: string, notifType: string, key: string) {
   await supabase
     .from('notification_log')
     .insert({ user_id: userId, notification_type: notifType, title: key });
@@ -98,8 +98,8 @@ serve(async (req) => {
     let sentCount = 0;
 
     for (const event of upcomingEvents) {
-      const venueName = (event.venues as any)?.name || '';
-      const venueAddress = (event.venues as any)?.address || '';
+      const venueName = (event.venues as unknown as { name?: string } | null)?.name || '';
+      const venueAddress = (event.venues as unknown as { address?: string } | null)?.address || '';
       const eventImageUrl = event.poster_url || undefined;
 
       const { data: tickets } = await supabaseAdmin

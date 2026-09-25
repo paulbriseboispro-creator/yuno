@@ -46,7 +46,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const logStep = (step: string, details?: any) => {
+// Club embarqué sous la soirée (`venues!events_venue_id_fkey(...)`).
+interface ConfirmationVenue {
+  name?: string | null;
+  address?: string | null;
+  city?: string | null;
+  legal_name?: string | null;
+  legal_address?: string | null;
+  siret?: string | null;
+  vat_number?: string | null;
+  logo_url?: string | null;
+}
+
+// Soirée embarquée sous le billet (`events!inner(...)`).
+interface ConfirmationEvent {
+  id: string;
+  title: string | null;
+  start_at: string;
+  timezone: string | null;
+  venue_id: string | null;
+  organizer_user_id: string | null;
+  poster_url: string | null;
+  location_name: string | null;
+  location_address: string | null;
+  location_city: string | null;
+  location_is_secret: boolean | null;
+  reveal_address_in_email: boolean | null;
+  venues: ConfirmationVenue | null;
+}
+
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[SEND-TICKET-CONFIRMATION] ${step}${detailsStr}`);
 };
@@ -94,7 +123,7 @@ serve(async (req) => {
         id, qr_code, reference_code, quantity, unit_price, total_price, service_fee, insurance_fee, full_name, phone, user_email, user_id, status,
         ticket_round_id, event_id,
         ticket_rounds(name, group_label),
-        events!inner(id, title, start_at, timezone, venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
+        events!inner(id, title, start_at, timezone, venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, city, legal_name, legal_address, siret, vat_number, logo_url))
       `)
       .eq("id", ticketId)
       .single();
@@ -110,9 +139,9 @@ serve(async (req) => {
       throw new Error("Email mismatch");
     }
 
-    const event = ticket.events as any;
+    const event = ticket.events as unknown as ConfirmationEvent | null;
     const venue = event?.venues;
-    const round = ticket.ticket_rounds as any;
+    const round = ticket.ticket_rounds as unknown as { name: string | null; group_label: string | null } | null;
     const venueName = venue?.name || event?.location_name || "";
     const eventTitle = event?.title || "";
 
@@ -173,7 +202,7 @@ serve(async (req) => {
     let attachments: Array<{ filename: string; content: string }> = [];
     try {
       const docLang = (["en", "es", "fr"].includes(lang) ? lang : "fr") as DocLang;
-      const v = (venue || {}) as any;
+      const v: ConfirmationVenue = venue || {};
       // Seller = merchant of record (Yuno direct-charge model). Venue legal info,
       // else the organizer profile for organizer-led events.
       let seller = {

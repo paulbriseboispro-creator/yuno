@@ -283,7 +283,7 @@ serve(async (req) => {
 
       entryId = updatedEntry.id;
       qrCode = updatedEntry.qr_code || qrCode;
-      reservationCode = (updatedEntry as any).reservation_code || reservationCode;
+      reservationCode = (updatedEntry as { reservation_code?: string | null }).reservation_code || reservationCode;
       wasUpdated = true;
       logStep("Guest updated", { entryId, entryType: resolvedEntryType });
     } else {
@@ -431,10 +431,10 @@ serve(async (req) => {
       JSON.stringify({ success: true, entryId, updated: wasUpdated, reservationCode }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
     );
   }

@@ -7,10 +7,40 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[OWNER-REFUND] ${step}${detailsStr}`);
 };
+
+// Champs lus sur la ligne remboursée — commande, billet ou table (`select("*")`
+// plus l'embed du club pour une commande, de la soirée pour un billet / une table).
+interface RefundableRecord {
+  status?: string | null;
+  venue_id?: string | null;
+  event_id?: string | null;
+  user_email?: string | null;
+  user_id?: string | null;
+  fee_absorbed?: boolean | null;
+  service_fee?: number | string | null;
+  insurance_fee?: number | string | null;
+  management_fee?: number | string | null;
+  deposit?: number | string | null;
+  total?: number | string | null;
+  total_price?: number | string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_session_id?: string | null;
+  stripe_connected_account_id?: string | null;
+  venues?: { id: string; owner_id: string | null; name: string | null };
+  events?: {
+    id: string;
+    title: string | null;
+    venue_id: string | null;
+    partner_venue_id: string | null;
+    organizer_user_id: string | null;
+    partner_organizer_id: string | null;
+    venues: { id: string; owner_id: string | null; name: string | null } | null;
+  };
+}
 
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
@@ -101,7 +131,7 @@ serve(async (req) => {
 
     for (const item of items) {
       try {
-        let record: any = null;
+        let record: RefundableRecord | null = null;
         let venueId: string = "";
         let customerEmail: string = "";
         let customerUserId: string = "";
@@ -227,8 +257,8 @@ serve(async (req) => {
               await supabaseAdmin.from(table).update({ stripe_payment_intent_id: paymentIntentId }).eq("id", item.id);
               logStep("Retrieved and saved payment_intent_id", { paymentIntentId });
             }
-          } catch (sessionError: any) {
-            logStep("Error retrieving Stripe session", { error: sessionError.message });
+          } catch (sessionError) {
+            logStep("Error retrieving Stripe session", { error: (sessionError as Error).message });
           }
         }
 
@@ -249,14 +279,14 @@ serve(async (req) => {
             refund_application_fee: false,
           }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
           logStep("Stripe refund created", { paymentIntentId, refundAmount, refundAmountCents, direct: !!connectedAccount });
-        } catch (stripeError: any) {
-          logStep("Stripe refund error", { error: stripeError.message });
-          results.push({ id: item.id, type: item.type, success: false, error: `Stripe: ${stripeError.message}` }); continue;
+        } catch (stripeError) {
+          logStep("Stripe refund error", { error: (stripeError as Error).message });
+          results.push({ id: item.id, type: item.type, success: false, error: `Stripe: ${(stripeError as Error).message}` }); continue;
         }
 
         // Update status in DB
         const table = item.type === "order" ? "orders" : item.type === "ticket" ? "tickets" : "table_reservations";
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           status: "refunded",
           refund_reason: reason.trim(),
           refund_amount: refundAmount,
@@ -287,7 +317,7 @@ serve(async (req) => {
         // Decrement venue customer stats
         if (venueId && customerUserId) {
           try {
-            const deltas: any = { p_venue_id: venueId, p_user_id: customerUserId, p_order_delta: 0, p_ticket_delta: 0, p_table_delta: 0, p_spent_delta: -refundAmount };
+            const deltas: Record<string, string | number> = { p_venue_id: venueId, p_user_id: customerUserId, p_order_delta: 0, p_ticket_delta: 0, p_table_delta: 0, p_spent_delta: -refundAmount };
             if (item.type === "order") deltas.p_order_delta = -1;
             if (item.type === "ticket") deltas.p_ticket_delta = -1;
             if (item.type === "table_reservation") deltas.p_table_delta = -1;
@@ -438,8 +468,8 @@ serve(async (req) => {
           }
         }
 
-      } catch (itemError: any) {
-        results.push({ id: item.id, type: item.type, success: false, error: itemError.message });
+      } catch (itemError) {
+        results.push({ id: item.id, type: item.type, success: false, error: (itemError as Error).message });
       }
     }
 

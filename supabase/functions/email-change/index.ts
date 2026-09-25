@@ -125,9 +125,9 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ error: "Invalid request status" }), { status: 400, headers: jsonHeaders });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error in email-change verify:", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+      return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: jsonHeaders });
     }
   }
 
@@ -224,9 +224,9 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ success: true }), { headers: jsonHeaders });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error in email-change request:", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+      return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: jsonHeaders });
     }
   }
 
@@ -345,9 +345,9 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ success: true }), { headers: jsonHeaders });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error in email-change submit:", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: jsonHeaders });
+      return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: jsonHeaders });
     }
   }
 

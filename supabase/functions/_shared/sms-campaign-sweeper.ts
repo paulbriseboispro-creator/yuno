@@ -12,6 +12,7 @@
 //      « sending » (worker tué juste avant la clôture).
 // Il relance aussi les campagnes arrêtées par les heures calmes : le créneau
 // rouvre, la campagne repart d'elle-même.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const STALE_CLAIM_MINUTES = 10;
 const MAX_CAMPAIGNS_PER_RUN = 10;
@@ -23,8 +24,7 @@ interface SweepResult {
   errors: string[];
 }
 
-// deno-lint-ignore no-explicit-any
-export async function sweepSendingSmsCampaigns(admin: any, supabaseUrl: string, serviceKey: string): Promise<SweepResult> {
+export async function sweepSendingSmsCampaigns(admin: SupabaseClient, supabaseUrl: string, serviceKey: string): Promise<SweepResult> {
   const out: SweepResult = { requeued: 0, resumed: [], closed: [], errors: [] };
 
   try {

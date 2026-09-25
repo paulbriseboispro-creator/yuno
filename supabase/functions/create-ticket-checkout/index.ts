@@ -268,7 +268,7 @@ serve(async (req) => {
       throw new Error(t("checkout.soldOut", lang));
     }
     // Épuisé forcé manuellement par le club/orga → non achetable même si capacité dispo.
-    if ((ticketRound as any).manually_sold_out) throw new Error(t("checkout.soldOut", lang));
+    if ((ticketRound as { manually_sold_out?: boolean }).manually_sold_out) throw new Error(t("checkout.soldOut", lang));
 
     // ── Billet communauté ─────────────────────────────────────────────────
     // Un tarif `audience != 'everyone'` n'est vendu qu'aux abonnés de l'hôte
@@ -277,7 +277,7 @@ serve(async (req) => {
     // invité — c'est ce qui permet à une liste importée sans compte Yuno de
     // profiter du tarif avec l'adresse abonnée. Refus = code COMMUNITY_ONLY,
     // que le front transforme en appel à l'action (suivre / s'abonner).
-    const roundAudience = (ticketRound as any).audience ?? 'everyone';
+    const roundAudience = (ticketRound as { audience?: string | null }).audience ?? 'everyone';
     if (roundAudience !== 'everyone') {
       const { data: communityAllowed, error: communityErr } = await supabaseAdmin.rpc(
         "check_community_access",
@@ -296,7 +296,7 @@ serve(async (req) => {
     // et ne la bloque pas (sinon un tour « abonnés » en tête fermait la vente
     // aux non-abonnés).
     if (event.ticket_selling_mode === 'rounds' && roundAudience === 'everyone') {
-      const visibility = (event as any).rounds_visibility ?? 'sequential';
+      const visibility = (event as { rounds_visibility?: string | null }).rounds_visibility ?? 'sequential';
       if (visibility === 'sequential' || visibility === 'preview_upcoming') {
         // Only the first non-sold-out active round in `position` order is buyable
         const { data: orderedRounds } = await supabaseAdmin
@@ -306,7 +306,7 @@ serve(async (req) => {
           .eq("ticket_type", ticketRound.ticket_type)
           .order("position", { ascending: true });
 
-        const firstAvailable = (orderedRounds || []).find((r: any) =>
+        const firstAvailable = (orderedRounds || []).find((r: { audience: string | null; is_active: boolean; manually_sold_out: boolean | null; tickets_sold: number; max_tickets: number }) =>
           (r.audience ?? 'everyone') === 'everyone' && r.is_active && !r.manually_sold_out && r.tickets_sold < r.max_tickets
         );
         if (!firstAvailable || firstAvailable.id !== ticketRound.id) {

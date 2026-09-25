@@ -15,8 +15,13 @@ const corsHeaders = {
  * diffèrent d'un import esm.sh à l'autre : les nommer ici ne ferait que figer
  * une version.
  */
+interface AdminQuery extends PromiseLike<{ data: unknown[] | null }> {
+  select: (columns: string) => AdminQuery;
+  eq: (column: string, value: string) => AdminQuery;
+  maybeSingle: () => Promise<{ data: unknown }>;
+}
 interface AdminLike {
-  from: (table: string) => any;
+  from: (table: string) => AdminQuery;
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
 }
 
@@ -236,10 +241,10 @@ serve(async (req) => {
       JSON.stringify({ success: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in request-pin-reset:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Server error", success: false }),
+      JSON.stringify({ error: (error as Error).message || "Server error", success: false }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
