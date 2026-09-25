@@ -12093,6 +12093,8 @@ const fr: Record<string, string> = {
   'aff.settings.viewAgencyPage': "Voir la page agence",
   'aff.settings.sortTitle': "Classement du linktree",
   'aff.settings.sortSubtitle': "Choisissez comment les soirées sont triées sur votre page publique et sur les linktrees de vos promoteurs.",
+  'aff.settings.pickEventsTitle': "Choisir les soirées du linktree",
+  'aff.settings.pickEventsDesc': "Par défaut, vos prochaines soirées s'affichent seules. Choisissez vous-même lesquelles, Yuno et externes.",
   'aff.settings.sortByDay': "Par jour",
   'aff.settings.sortByDayDesc': "Les soirées sont groupées par date (défaut)",
   'aff.settings.sortByGenre': "Par genre musical",
@@ -12268,6 +12270,7 @@ const fr: Record<string, string> = {
   'agc.nav.externalGroup': 'Clubs externes',
   'agc.nav.trafficAnalytics': 'Analytics trafic',
   'agc.nav.showcase': 'Ma vitrine',
+  'agc.nav.linktree': 'Mon linktree',
   'agc.nav.agencyProfile': "Profil de l'agence",
   'agc.nav.externalSettings': 'Linktree & externe',
 

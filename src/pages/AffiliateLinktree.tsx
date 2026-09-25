@@ -843,39 +843,63 @@ export default function AffiliateLinktree() {
 
       const today = new Date().toISOString().split('T')[0];
 
-      const [{ data: linktreeItems, error: linktreeError }, yunoRes] = await Promise.all([
+      const [{ data: linktreeItems, error: linktreeError }, yunoRes, curatedYunoRes] = await Promise.all([
         supabase
           .from('affiliate_linktree_events')
-          .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name, city))')
+          .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, status, affiliate_venues(name, city))')
           .eq('affiliate_id', aff.id)
+          .not('affiliate_event_id', 'is', null)
           .order('sort_order', { ascending: true }),
         // Agence fusionnée : les soirées Yuno des clubs sous contrat actif
         // s'affichent aussi — un linktree d'agence qui ne travaille que des
         // clubs Yuno n'est pas vide pour autant.
         (supabase as any).rpc('get_agency_linktree_yuno_events', { p_affiliate_id: aff.id }),
+        // Soirées Yuno CHOISIES par l'agence (Console Agence → Mon linktree).
+        (supabase as unknown as {
+          rpc: (fn: string, args: Record<string, unknown>) => Promise<{
+            data: (YunoLinktreeRow & { sort_order: number })[] | null;
+            error: { message: string } | null;
+          }>;
+        }).rpc('get_agency_linktree_curated_yuno', { p_affiliate_id: aff.id }),
       ]);
 
       if (linktreeError) console.warn('[AffiliateLinktree] linktree error:', linktreeError.message);
       if (yunoRes?.error) console.warn('[AffiliateLinktree] yuno events error:', yunoRes.error.message);
+      if (curatedYunoRes?.error) console.warn('[AffiliateLinktree] curated yuno error:', curatedYunoRes.error.message);
 
-      const yunoEvents: LinktreeEvent[] = ((yunoRes?.data ?? []) as YunoLinktreeRow[]).map(mapYunoRow);
+      // Sélection de l'agence : soirées externes et Yuno mêlées, chacune avec
+      // son rang. Une soirée passée, dépubliée ou sortie du contrat n'y est plus.
+      const curated: { ev: LinktreeEvent; order: number }[] = [];
+      for (const item of linktreeItems ?? []) {
+        const ev = item.affiliate_events as (LinktreeEvent & { status?: string }) | null;
+        if (!ev || ev.event_date < today) continue;
+        if (ev.status && !['published', 'featured'].includes(ev.status)) continue;
+        const { status: _status, ...rest } = ev;
+        curated.push({
+          order: item.sort_order,
+          ev: {
+            ...rest,
+            affiliate_venues: Array.isArray(ev.affiliate_venues) ? ev.affiliate_venues[0] ?? null : ev.affiliate_venues,
+          },
+        });
+      }
+      for (const row of curatedYunoRes?.data ?? []) {
+        curated.push({ order: row.sort_order, ev: mapYunoRow(row) });
+      }
 
       let eventsToShow: LinktreeEvent[] = [];
 
-      if (linktreeItems && linktreeItems.length > 0) {
-        eventsToShow = linktreeItems
-          .map((item) => {
-            const ev = item.affiliate_events;
-            if (!ev || ev.event_date < today) return null;
-            return {
-              ...ev,
-              affiliate_venues: Array.isArray(ev.affiliate_venues) ? ev.affiliate_venues[0] ?? null : ev.affiliate_venues,
-            };
-          })
-          .filter(Boolean) as LinktreeEvent[];
-      }
-
-      if (eventsToShow.length === 0) {
+      if (curated.length > 0) {
+        // Le rang ne compte qu'en classement « manuel » ; les autres modes
+        // regroupent par jour / genre / prix et partent de l'ordre des dates.
+        const manual = (aff.linktree_sort_mode ?? 'by_day') === 'custom';
+        eventsToShow = curated
+          .sort((a, b) => manual
+            ? a.order - b.order
+            : a.ev.event_date.localeCompare(b.ev.event_date) || (a.ev.start_time ?? '').localeCompare(b.ev.start_time ?? ''))
+          .map(c => c.ev);
+      } else {
+        // Pas de sélection (ou toutes passées) : linktree automatique.
         const { data: upcoming } = await supabase
           .from('affiliate_events')
           .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name, city)')
@@ -888,12 +912,13 @@ export default function AffiliateLinktree() {
           ...e,
           affiliate_venues: Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] ?? null : e.affiliate_venues,
         })) as LinktreeEvent[];
-      }
 
-      if (yunoEvents.length > 0) {
-        const seen = new Set(eventsToShow.map(e => e.id));
-        eventsToShow = [...eventsToShow, ...yunoEvents.filter(e => !seen.has(e.id))]
-          .sort((a, b) => a.event_date.localeCompare(b.event_date));
+        const yunoEvents: LinktreeEvent[] = ((yunoRes?.data ?? []) as YunoLinktreeRow[]).map(mapYunoRow);
+        if (yunoEvents.length > 0) {
+          const seen = new Set(eventsToShow.map(e => e.id));
+          eventsToShow = [...eventsToShow, ...yunoEvents.filter(e => !seen.has(e.id))]
+            .sort((a, b) => a.event_date.localeCompare(b.event_date));
+        }
       }
 
       setEvents(eventsToShow);

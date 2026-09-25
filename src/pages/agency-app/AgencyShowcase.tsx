@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import {
   Store, Globe, Link2, ExternalLink, MapPin, CalendarDays, CheckCircle2,
-  Circle, Sparkles, Building2, QrCode, Settings, ChevronRight, CalendarRange,
+  Circle, Sparkles, Building2, QrCode, Settings, ChevronRight, CalendarRange, ListChecks,
 } from 'lucide-react';
 import {
   T1, T2, T3, RED, POS, BORDER, C_FAINT, INNER_BG,
@@ -183,6 +183,9 @@ export default function AgencyShowcase() {
                   <CalendarRange className="h-4 w-4" /> {tt('Agenda', 'Agenda', 'Agenda')}
                 </PromoButton>
               </div>
+              <PromoButton size="sm" full onClick={() => navigate('/agency-app/linktree')}>
+                <ListChecks className="h-4 w-4" /> {tt('Choisir les soirées du linktree', 'Pick the linktree events', 'Elegir las fiestas del linktree')}
+              </PromoButton>
             </div>
           </PromoCard>
         </div>
@@ -254,6 +257,14 @@ export default function AgencyShowcase() {
             to: '/agency-app/profile',
           },
           {
+            icon: ListChecks,
+            title: tt('Mon linktree', 'My linktree', 'Mi linktree'),
+            desc: tt('Les soirées de votre lien de bio : vous choisissez lesquelles, Yuno et externes, et dans quel ordre.',
+                     'The events on your bio link: you choose which ones, Yuno and external, and in what order.',
+                     'Las fiestas de tu enlace de bio: tú eliges cuáles, Yuno y externas, y en qué orden.'),
+            to: '/agency-app/linktree',
+          },
+          {
             icon: QrCode,
             title: tt('Linktree & externe', 'Linktree & external', 'Linktree y externo'),
             desc: tt('Adresse publique (slug), ordre des soirées, stats de confiance, QR codes.',
@@ -272,9 +283,9 @@ export default function AgencyShowcase() {
           {
             icon: CalendarDays,
             title: tt('Soirées externes', 'External events', 'Fiestas externas'),
-            desc: tt('Les soirées à billetterie externe affichées sur vos pages (les soirées Yuno sous contrat arrivent toutes seules).',
-                     'External-ticketing events shown on your pages (Yuno events under contract appear automatically).',
-                     'Las fiestas con venta externa que se muestran en tus páginas (las fiestas Yuno con contrato aparecen solas).'),
+            desc: tt('Les soirées à billetterie externe de votre catalogue (les soirées Yuno sous contrat arrivent toutes seules).',
+                     'The external-ticketing events in your catalog (Yuno events under contract appear automatically).',
+                     'Las fiestas con venta externa de tu catálogo (las fiestas Yuno con contrato aparecen solas).'),
             to: '/affiliate/events',
           },
         ].map((card, i) => (

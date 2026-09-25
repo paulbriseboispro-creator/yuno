@@ -16,7 +16,7 @@ import {
   LayoutDashboard, Inbox, Users, Layers, UserPlus, Activity, Megaphone, ShieldCheck,
   Building2, CalendarDays, TrendingUp, BarChart2, Wallet, MapPin, RefreshCw,
   Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send, Store,
-  Radio, BellRing,
+  Radio, BellRing, ListChecks,
 } from 'lucide-react';
 import { SidebarIdentity } from '@/components/sidebar-identity';
 import { SidebarProThemeSwitch } from '@/components/ProThemeSwitch';
@@ -93,6 +93,7 @@ function buildGroups(t: T): SidebarNavGroup[] {
       label: t('aff.nav.settingsGroup'),
       items: [
         { title: t('agc.nav.showcase'), path: '/agency-app/vitrine', icon: <Store /> },
+        { title: t('agc.nav.linktree'), path: '/agency-app/linktree', icon: <ListChecks /> },
         { title: t('agc.nav.agencyProfile'), path: '/agency-app/profile', icon: <Settings /> },
         { title: t('agc.nav.externalSettings'), path: '/affiliate/settings', icon: <Link2 /> },
       ],
