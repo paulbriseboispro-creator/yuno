@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { format, subDays, subHours, subMinutes, getDay, getHours } from 'date-fns';
 import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -50,7 +51,8 @@ interface KPIs {
 interface DailyPoint { date: string; views: number; clicks: number }
 interface SourceRow { category: string; views: number; clicks: number }
 interface DeviceRow { device: string; views: number }
-interface TopEvent { id: string; name: string; event_date: string; views: number; clicks: number; ctr: number; venue_name: string | null }
+interface TopEvent { id: string; name: string; event_date: string | null; views: number; clicks: number; ctr: number; venue_name: string | null }
+interface TopVenue { id: string; name: string; views: number; clicks: number; ctr: number }
 interface CampaignRow { source: string; medium: string; campaign: string; views: number; clicks: number }
 
 interface RawSession {
@@ -62,6 +64,10 @@ interface RawSession {
   referrer_category: string | null;
   device_type: string | null;
   affiliate_event_id: string | null;
+  affiliate_venue_id: string | null;
+  event_slug: string | null;
+  event_name: string | null;
+  event_date: string | null;
   entry_page_type: string | null;
   utm_source: string | null;
   utm_medium: string | null;
@@ -71,6 +77,10 @@ interface RawSession {
 interface RawClick {
   clicked_at: string;
   affiliate_event_id: string | null;
+  affiliate_venue_id: string | null;
+  event_slug: string | null;
+  event_name: string | null;
+  event_date: string | null;
   referrer_category: string | null;
   device_type: string | null;
   utm_source: string | null;
@@ -309,6 +319,7 @@ export default function AffiliateAnalytics() {
   const [sources, setSources]         = useState<SourceRow[]>([]);
   const [devices, setDevices]         = useState<DeviceRow[]>([]);
   const [topEvents, setTopEvents]     = useState<TopEvent[]>([]);
+  const [topVenues, setTopVenues]     = useState<TopVenue[]>([]);
   const [campaigns, setCampaigns]     = useState<CampaignRow[]>([]);
   const [heatmap, setHeatmap]         = useState<number[][]>(Array.from({ length: 7 }, () => Array(24).fill(0)));
   const [allSessions, setAllSessions] = useState<RawSession[]>([]);
@@ -359,47 +370,44 @@ export default function AffiliateAnalytics() {
     const fiveMinAgo = subMinutes(new Date(), 5).toISOString();
 
     try {
-      let sessQuery = supabase
-        .from('affiliate_visitor_sessions')
-        .select('visited_at, visitor_id, is_returning, duration_seconds, scroll_depth_max, referrer_category, device_type, affiliate_event_id, entry_page_type, utm_source, utm_medium, utm_campaign')
-        .eq('affiliate_id', identity.affiliateId)
-        .eq('is_internal', false)
-        .gte('visited_at', from || '2000-01-01')
-        .limit(10000);
-
-      if (identity.role === 'member' && identity.memberId) {
-        sessQuery = sessQuery.eq('affiliate_member_id', identity.memberId);
-      }
-
-      let clickQuery = supabase
-        .from('affiliate_clicks')
-        .select('clicked_at, affiliate_event_id, referrer_category, device_type, utm_source, utm_medium, utm_campaign')
-        .eq('affiliate_id', identity.affiliateId)
-        .eq('is_internal', false)
-        .gte('clicked_at', from || '2000-01-01')
-        .limit(10000);
-
-      if (identity.role === 'member' && identity.memberId) {
-        clickQuery = clickQuery.eq('affiliate_member_id', identity.memberId);
-      }
+      const isMember = identity.role === 'member' && !!identity.memberId;
+      const sessPage = (fromRow: number, toRow: number) => {
+        let q = supabase
+          .from('affiliate_visitor_sessions')
+          .select('visited_at, visitor_id, is_returning, duration_seconds, scroll_depth_max, referrer_category, device_type, affiliate_event_id, affiliate_venue_id, event_slug, event_name, event_date, entry_page_type, utm_source, utm_medium, utm_campaign')
+          .eq('affiliate_id', identity.affiliateId)
+          .eq('is_internal', false)
+          .gte('visited_at', from || '2000-01-01');
+        if (isMember) q = q.eq('affiliate_member_id', identity.memberId!);
+        return q.order('visited_at', { ascending: true }).order('id', { ascending: true }).range(fromRow, toRow);
+      };
+      const clickPage = (fromRow: number, toRow: number) => {
+        let q = supabase
+          .from('affiliate_clicks')
+          .select('clicked_at, affiliate_event_id, affiliate_venue_id, event_slug, event_name, event_date, referrer_category, device_type, utm_source, utm_medium, utm_campaign')
+          .eq('affiliate_id', identity.affiliateId)
+          .eq('is_internal', false)
+          .gte('clicked_at', from || '2000-01-01');
+        if (isMember) q = q.eq('affiliate_member_id', identity.memberId!);
+        return q.order('clicked_at', { ascending: true }).order('id', { ascending: true }).range(fromRow, toRow);
+      };
 
       const [
-        { data: sessions },
-        { data: clicks },
+        rows,
+        clickRows,
         { data: livePings },
-        { data: eventsRaw },
+        { data: venuesRaw },
       ] = await Promise.all([
-        sessQuery,
-        clickQuery,
-        (identity.role === 'member' && identity.memberId
-          ? supabase.from('affiliate_live_pings').select('session_id').eq('affiliate_id', identity.affiliateId).eq('affiliate_member_id', identity.memberId).gte('last_seen', fiveMinAgo)
+        // Toutes les lignes, page par page : PostgREST plafonne à ~1 000.
+        fetchAllRows<RawSession>(sessPage),
+        fetchAllRows<RawClick>(clickPage),
+        (isMember
+          ? supabase.from('affiliate_live_pings').select('session_id').eq('affiliate_id', identity.affiliateId).eq('affiliate_member_id', identity.memberId!).gte('last_seen', fiveMinAgo)
           : supabase.from('affiliate_live_pings').select('session_id').eq('affiliate_id', identity.affiliateId).gte('last_seen', fiveMinAgo)),
-        supabase.from('affiliate_events').select('id, name, event_date, affiliate_venues(name)').eq('affiliate_id', identity.affiliateId).limit(200),
+        supabase.from('affiliate_venues').select('id, name').eq('affiliate_id', identity.affiliateId),
       ]);
 
-      const rows: RawSession[]      = (sessions ?? []) as RawSession[];
-      const clickRows: RawClick[]   = (clicks ?? []) as RawClick[];
-      const evts                    = eventsRaw ?? [];
+      const venueName = new Map<string, string>((venuesRaw ?? []).map((v: { id: string; name: string }) => [v.id, v.name]));
 
       setAllSessions(rows);
 
@@ -409,7 +417,7 @@ export default function AffiliateAnalytics() {
       const avgDur            = durRows.length > 0 ? Math.round(durRows.reduce((s, r) => s + (r.duration_seconds ?? 0), 0) / durRows.length) : 0;
       const scrollRows        = rows.filter(r => typeof r.scroll_depth_max === 'number' && (r.scroll_depth_max ?? 0) > 0);
       const avgScroll         = scrollRows.length > 0 ? Math.round(scrollRows.reduce((s, r) => s + (r.scroll_depth_max ?? 0), 0) / scrollRows.length) : 0;
-      const linktreeViews     = rows.filter(r => r.entry_page_type === 'linktree' || r.entry_page_type === 'member_linktree').length;
+      const linktreeViews     = rows.filter(r => r.entry_page_type === 'linktree' || r.entry_page_type === 'member_linktree' || r.entry_page_type === 'agency_page').length;
       // Comptages réels par visiteur (et non une estimation à partir du taux
       // par session) : un visiteur est « fidèle » si au moins une de ses
       // sessions est un retour.
@@ -449,8 +457,9 @@ export default function AffiliateAnalytics() {
           viewBuckets[d] = 0;
           clickBuckets[d] = 0;
         }
-        rows.forEach(r => { const d = r.visited_at.split('T')[0]; if (viewBuckets[d] !== undefined) viewBuckets[d]++; });
-        clickRows.forEach(r => { const d = r.clicked_at.split('T')[0]; if (clickBuckets[d] !== undefined) clickBuckets[d]++; });
+        // Jour LOCAL de l'instant (une visite à 01 h reste sur sa nuit, pas sur la veille UTC).
+        rows.forEach(r => { const d = format(new Date(r.visited_at), 'yyyy-MM-dd'); if (viewBuckets[d] !== undefined) viewBuckets[d]++; });
+        clickRows.forEach(r => { const d = format(new Date(r.clicked_at), 'yyyy-MM-dd'); if (clickBuckets[d] !== undefined) clickBuckets[d]++; });
         setDaily(Object.keys(viewBuckets).map(date => ({ date, views: viewBuckets[date], clicks: clickBuckets[date] })));
       }
 
@@ -467,19 +476,34 @@ export default function AffiliateAnalytics() {
       rows.forEach(r => { const d = new Date(r.visited_at); mat[getDay(d)][getHours(d)]++; });
       setHeatmap(mat);
 
-      const evtViewMap: Record<string, number>  = {};
-      const evtClickMap: Record<string, number> = {};
-      rows.forEach(r => { if (r.affiliate_event_id) evtViewMap[r.affiliate_event_id] = (evtViewMap[r.affiliate_event_id] ?? 0) + 1; });
-      clickRows.forEach(r => { if (r.affiliate_event_id) evtClickMap[r.affiliate_event_id] = (evtClickMap[r.affiliate_event_id] ?? 0) + 1; });
-      const top = evts
-        .map((e: any) => {
-          const views = evtViewMap[e.id] ?? 0;
-          const clicks = evtClickMap[e.id] ?? 0;
-          return { id: e.id, name: e.name, event_date: e.event_date, views, clicks, ctr: views > 0 ? (clicks / views) * 100 : 0, venue_name: e.affiliate_venues?.name ?? null };
-        })
-        .filter((e: any) => e.views > 0 || e.clicks > 0)
-        .sort((a: any, b: any) => b.views - a.views)
-        .slice(0, 10);
+      // Par soirée : la photo posée sur chaque vue/clic (event_slug) survit à
+      // la suppression de la soirée — l'id seul se vidait à chaque purge.
+      type Agg = { name: string; event_date: string | null; venueId: string | null; views: number; clicks: number };
+      const evtMap = new Map<string, Agg>();
+      const evtKey = (r: { affiliate_event_id: string | null; event_slug: string | null }) => r.event_slug ?? r.affiliate_event_id;
+      const touchEvent = (r: RawSession | RawClick, kind: 'views' | 'clicks') => {
+        const key = evtKey(r);
+        if (!key) return;
+        const cur = evtMap.get(key) ?? { name: r.event_name ?? r.event_slug ?? '—', event_date: r.event_date, venueId: r.affiliate_venue_id, views: 0, clicks: 0 };
+        cur[kind]++;
+        if (!cur.venueId && r.affiliate_venue_id) cur.venueId = r.affiliate_venue_id;
+        evtMap.set(key, cur);
+      };
+      rows.forEach(r => touchEvent(r, 'views'));
+      clickRows.forEach(r => touchEvent(r, 'clicks'));
+      const top: TopEvent[] = [...evtMap.entries()]
+        .map(([id, e]) => ({ id, name: e.name, event_date: e.event_date, views: e.views, clicks: e.clicks, ctr: e.views > 0 ? (e.clicks / e.views) * 100 : 0, venue_name: e.venueId ? venueName.get(e.venueId) ?? null : null }))
+        .sort((a, b) => b.views - a.views || b.clicks - a.clicks)
+        .slice(0, 20);
+
+      // Par club : toute vue ou tout clic qui porte un club (page soirée,
+      // page club, clic de réservation).
+      const venueAgg = new Map<string, { views: number; clicks: number }>();
+      rows.forEach(r => { if (r.affiliate_venue_id) { const v = venueAgg.get(r.affiliate_venue_id) ?? { views: 0, clicks: 0 }; v.views++; venueAgg.set(r.affiliate_venue_id, v); } });
+      clickRows.forEach(r => { if (r.affiliate_venue_id) { const v = venueAgg.get(r.affiliate_venue_id) ?? { views: 0, clicks: 0 }; v.clicks++; venueAgg.set(r.affiliate_venue_id, v); } });
+      setTopVenues([...venueAgg.entries()]
+        .map(([id, v]) => ({ id, name: venueName.get(id) ?? '—', views: v.views, clicks: v.clicks, ctr: v.views > 0 ? (v.clicks / v.views) * 100 : 0 }))
+        .sort((a, b) => b.views - a.views || b.clicks - a.clicks));
       setTopEvents(top);
 
       const campMap: Record<string, CampaignRow> = {};
@@ -497,6 +521,8 @@ export default function AffiliateAnalytics() {
       });
       setCampaigns(Object.values(campMap).sort((a, b) => (b.views + b.clicks) - (a.views + a.clicks)).slice(0, 10));
 
+    } catch (err) {
+      console.error('[AffiliateAnalytics] load failed:', err);
     } finally {
       setDataLoading(false);
     }
@@ -513,17 +539,32 @@ export default function AffiliateAnalytics() {
       const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
       const prevEnd   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [
-        { data: thisS }, { data: prevS },
-        { data: thisC }, { data: prevC },
-      ] = await Promise.all([
-        supabase.from('affiliate_visitor_sessions').select('visitor_id').eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('visited_at', thisStart).limit(5000),
-        supabase.from('affiliate_visitor_sessions').select('visitor_id').eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('visited_at', prevStart).lt('visited_at', prevEnd).limit(5000),
-        supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', thisStart),
-        supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', prevStart).lt('clicked_at', prevEnd),
+      const isMember = identity.role === 'member' && !!identity.memberId;
+      const sessIds = (fromIso: string, toIso: string | null) => fetchAllRows<{ visitor_id: string | null }>((a, b) => {
+        let q = supabase.from('affiliate_visitor_sessions').select('visitor_id')
+          .eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('visited_at', fromIso);
+        if (toIso) q = q.lt('visited_at', toIso);
+        if (isMember) q = q.eq('affiliate_member_id', identity.memberId!);
+        return q.order('visited_at', { ascending: true }).order('id', { ascending: true }).range(a, b);
+      });
+      const clickCount = (fromIso: string, toIso: string | null) => {
+        let q = supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true })
+          .eq('affiliate_id', identity.affiliateId).eq('is_internal', false).gte('clicked_at', fromIso);
+        if (toIso) q = q.lt('clicked_at', toIso);
+        if (isMember) q = q.eq('affiliate_member_id', identity.memberId!);
+        return q;
+      };
+
+      const [thisS, prevS, { count: thisC }, { count: prevC }] = await Promise.all([
+        sessIds(thisStart, null),
+        sessIds(prevStart, prevEnd),
+        // Le nombre de clics est dans `count` (requête head) — lire `data`
+        // affichait toujours 0 clic dans le rapport.
+        clickCount(thisStart, null),
+        clickCount(prevStart, prevEnd),
       ]);
-      setThisMonth({ views: thisS?.length ?? 0, unique: new Set((thisS ?? []).map((r: any) => r.visitor_id).filter(Boolean)).size, clicks: (thisC as any) ?? 0 });
-      setPrevMonth({ views: prevS?.length ?? 0, unique: new Set((prevS ?? []).map((r: any) => r.visitor_id).filter(Boolean)).size, clicks: (prevC as any) ?? 0 });
+      setThisMonth({ views: thisS.length, unique: new Set(thisS.map(r => r.visitor_id).filter(Boolean)).size, clicks: thisC ?? 0 });
+      setPrevMonth({ views: prevS.length, unique: new Set(prevS.map(r => r.visitor_id).filter(Boolean)).size, clicks: prevC ?? 0 });
       setRapportLoading(false);
     })();
   }, [pillar, identity]);
@@ -869,7 +910,7 @@ export default function AffiliateAnalytics() {
                         <span className="flex-none tabular-nums" style={{ color: T3, fontSize: 13, fontWeight: 700, width: 20 }}>{i + 1}</span>
                         <div className="flex-1 min-w-0">
                           <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{e.name}</p>
-                          <p style={{ color: T3, fontSize: 11 }}>{e.venue_name ?? '—'} · {e.event_date}</p>
+                          <p style={{ color: T3, fontSize: 11 }}>{e.venue_name ?? '—'}{e.event_date ? ` · ${format(new Date(`${e.event_date}T12:00:00`), 'EEE d MMM', { locale: dateLocale })}` : ''}</p>
                           <div className="mt-1.5 h-1 w-full rounded-full overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
                             <div className="h-full rounded-full" style={{ width: `${Math.min(e.ctr, 50) / 50 * 100}%`, background: `linear-gradient(90deg,${C_MID},${POS})` }} />
                           </div>
@@ -888,6 +929,32 @@ export default function AffiliateAnalytics() {
                   </div>
                 )}
               </AffCard>
+
+              {topVenues.length > 0 && (
+                <AffCard padding={0}>
+                  <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.venuePerfTitle')}</h2>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('aff.ana.venuePerfSubtitle')}</p>
+                  </div>
+                  <div className="divide-y" style={{ borderColor: F_BORDER }}>
+                    {topVenues.map((v, i) => (
+                      <div key={v.id} className="flex items-center gap-4 px-5 py-3">
+                        <span className="flex-none tabular-nums" style={{ color: T3, fontSize: 13, fontWeight: 700, width: 20 }}>{i + 1}</span>
+                        <p className="flex-1 min-w-0 truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{v.name}</p>
+                        <div className="flex items-center gap-3 flex-none">
+                          <div className="flex items-center gap-1 tabular-nums" style={{ fontSize: 11.5 }}>
+                            <Eye className="h-3 w-3" style={{ color: RED }} /><span style={{ color: T1, fontWeight: 600 }}>{v.views}</span>
+                          </div>
+                          <div className="flex items-center gap-1 tabular-nums" style={{ fontSize: 11.5 }}>
+                            <MousePointerClick className="h-3 w-3" style={{ color: C_HI }} /><span style={{ color: T1, fontWeight: 600 }}>{v.clicks}</span>
+                          </div>
+                          <span className="tabular-nums" style={{ color: POS, fontSize: 11.5, fontWeight: 600, minWidth: 44, textAlign: 'right' }}>{fmtPct(v.ctr)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </AffCard>
+              )}
 
               {identity.role === 'admin' && topEvents.length > 0 && (
                 <div className="rounded-2xl p-4" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.2)' }}>

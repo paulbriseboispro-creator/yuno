@@ -2,12 +2,25 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { getBrowserId } from '@/lib/browserId';
-import { useConsent } from '@/lib/consent';
+import { hasAnalyticsConsent, useConsent } from '@/lib/consent';
+import { useAuth } from '@/hooks/useAuth';
 
 const SESSION_KEY       = 'yuno_aff_session_id';
 const SESSION_START_KEY = 'yuno_aff_session_start';
 const VISITOR_ID_KEY    = 'yuno_aff_visitor_id';
 const VISIT_NUMBER_KEY  = 'yuno_aff_visit_number';
+// Par onglet : la visite en cours (compteur déjà incrémenté ?) et sa source
+// d'arrivée, réutilisée par les pages suivantes et par les clics — sans ça,
+// linktree → fiche soirée comptait une « deuxième visite » et perdait
+// l'Instagram / l'UTM / le QR d'origine dès la première navigation.
+const VISIT_STATE_KEY   = 'yuno_aff_visit_state';
+const LANDING_ATTR_KEY  = 'yuno_aff_landing';
+
+/** Serveur de développement / réseau local : jamais un visiteur réel. */
+function isDevHost(): boolean {
+  if (import.meta.env.DEV) return true;
+  return /^(localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.)/.test(window.location.hostname);
+}
 
 function detectDevice(): string {
   const ua = navigator.userAgent.toLowerCase();
@@ -18,6 +31,7 @@ function detectDevice(): string {
 
 function detectEntryType(path: string): string {
   if (/\/promo\//.test(path)) return 'member_linktree';
+  if (/^\/rp\//.test(path)) return 'agency_page';
   if (/\/p\//.test(path)) return 'linktree';
   if (/\/affiliate-event\//.test(path)) return 'event_page';
   if (/\/affiliate-venue\//.test(path)) return 'venue_page';
@@ -47,15 +61,54 @@ function categorizeReferrer(referrer: string, utmMedium: string | null, params: 
 
 function getOrCreateVisitorId(): { id: string; visitNumber: number; isReturning: boolean } {
   let id = localStorage.getItem(VISITOR_ID_KEY);
-  let visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '0', 10);
+  // Une VISITE = un onglet : les pages suivantes du même onglet reprennent le
+  // numéro de visite au lieu de l'incrémenter (le taux de « fidèles » était
+  // gonflé par chaque navigation linktree → soirée).
+  try {
+    const state = JSON.parse(sessionStorage.getItem(VISIT_STATE_KEY) || 'null') as { visitNumber: number; isReturning: boolean } | null;
+    if (id && state) return { id, visitNumber: state.visitNumber, isReturning: state.isReturning };
+  } catch { /* état illisible : on recompte */ }
   const isReturning = !!id;
   if (!id) {
     id = uuidv4();
     localStorage.setItem(VISITOR_ID_KEY, id);
   }
-  visitNumber += 1;
+  const visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '0', 10) + 1;
   localStorage.setItem(VISIT_NUMBER_KEY, String(visitNumber));
+  sessionStorage.setItem(VISIT_STATE_KEY, JSON.stringify({ visitNumber, isReturning }));
   return { id, visitNumber, isReturning };
+}
+
+type LandingAttribution = {
+  referrer: string | null;
+  referrer_category: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+};
+
+/** Source d'arrivée de la visite : celle de la PREMIÈRE page de l'onglet. */
+function landingAttribution(): LandingAttribution {
+  try {
+    const stored = sessionStorage.getItem(LANDING_ATTR_KEY);
+    if (stored) return JSON.parse(stored) as LandingAttribution;
+  } catch { /* on recalcule */ }
+  const params = new URLSearchParams(window.location.search);
+  const referrer = document.referrer;
+  const utmMedium = params.get('utm_medium');
+  const attr: LandingAttribution = {
+    referrer: referrer || null,
+    referrer_category: categorizeReferrer(referrer, utmMedium, params),
+    utm_source: params.get('utm_source'),
+    utm_medium: utmMedium,
+    utm_campaign: params.get('utm_campaign'),
+    utm_content: params.get('utm_content'),
+    utm_term: params.get('utm_term'),
+  };
+  try { sessionStorage.setItem(LANDING_ATTR_KEY, JSON.stringify(attr)); } catch { /* navigation privée */ }
+  return attr;
 }
 
 function getConnectionType(): string | null {
@@ -86,10 +139,14 @@ export function useAffiliateVisitorTracking({
   // d'une conversion (?via=) est un mécanisme SÉPARÉ, résolu en amont, et reste
   // hors périmètre de ce gate (code argent intouché).
   const { analytics: analyticsConsent } = useConsent();
+  // On attend la session : sinon la vue du propriétaire partait avant que
+  // `isOwner` soit connu, comptée comme un visiteur externe pour toujours.
+  const { loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (!analyticsConsent) return;
     if (!affiliateId) return;
+    if (authLoading) return;
 
     let sessionId = sessionStorage.getItem(SESSION_KEY);
     const scopeKey = [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId].filter(Boolean).join('-');
@@ -101,7 +158,7 @@ export function useAffiliateVisitorTracking({
       sessionStorage.setItem('yuno_aff_scope', scopeKey);
       sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
       startTimeRef.current = Date.now();
-      trackPageView(sessionId, affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, isOwner ?? false);
+      trackPageView(sessionId, affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, !!isOwner || isDevHost());
     } else {
       const stored = sessionStorage.getItem(SESSION_START_KEY);
       startTimeRef.current = stored ? Number(stored) : Date.now();
@@ -155,6 +212,8 @@ export function useAffiliateVisitorTracking({
     const sendHeartbeat = () => {
       const sid = sessionStorage.getItem(SESSION_KEY);
       if (!sid) return;
+      // Onglet en arrière-plan : ni « en ligne », ni durée qui grimpe.
+      if (document.visibilityState === 'hidden') return;
       supabase.rpc('ping_affiliate_live', {
         p_session_id: sid,
         p_affiliate_id: affiliateId,
@@ -171,16 +230,18 @@ export function useAffiliateVisitorTracking({
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flushDuration(true);
     };
+    const handleBeforeUnload = () => flushDuration(true);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', () => flushDuration(true));
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('scroll', handleScroll);
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       flushDuration(false);
     };
-  }, [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, analyticsConsent]);
+  }, [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, analyticsConsent, authLoading, isOwner]);
 }
 
 async function trackPageView(
@@ -192,9 +253,7 @@ async function trackPageView(
   isInternal = false,
 ) {
   try {
-    const params = new URLSearchParams(window.location.search);
-    const referrer = document.referrer;
-    const utmMedium = params.get('utm_medium');
+    const landing = landingAttribution();
     const { id: visitorId, visitNumber, isReturning } = getOrCreateVisitorId();
 
     await supabase.from('affiliate_visitor_sessions').insert({
@@ -212,14 +271,14 @@ async function trackPageView(
       viewport_w: window.innerWidth,
       viewport_h: window.innerHeight,
       connection_type: getConnectionType(),
-      referrer: referrer || null,
-      referrer_domain: extractDomain(referrer),
-      referrer_category: categorizeReferrer(referrer, utmMedium, params),
-      utm_source: params.get('utm_source'),
-      utm_medium: utmMedium,
-      utm_campaign: params.get('utm_campaign'),
-      utm_content: params.get('utm_content'),
-      utm_term: params.get('utm_term'),
+      referrer: landing.referrer,
+      referrer_domain: extractDomain(landing.referrer ?? ''),
+      referrer_category: landing.referrer_category,
+      utm_source: landing.utm_source,
+      utm_medium: landing.utm_medium,
+      utm_campaign: landing.utm_campaign,
+      utm_content: landing.utm_content,
+      utm_term: landing.utm_term,
       landing_page_full: window.location.href,
       entry_page: window.location.pathname,
       entry_page_type: detectEntryType(window.location.pathname),
@@ -240,19 +299,23 @@ export function getClickAttribution(): {
   visitor_id: string | null;
   is_returning: boolean;
 } {
-  const params = new URLSearchParams(window.location.search);
-  const referrer = document.referrer;
-  const utmMedium = params.get('utm_medium');
-  const visitorId = localStorage.getItem(VISITOR_ID_KEY);
-  const visitNumber = parseInt(localStorage.getItem(VISIT_NUMBER_KEY) || '1', 10);
+  // Source de la VISITE (première page de l'onglet), pas de la page courante :
+  // après une navigation interne l'URL n'a plus ses utm / fbclid / from=qr.
+  const landing = landingAttribution();
+  const consent = hasAnalyticsConsent();
+  const visitorId = consent ? localStorage.getItem(VISITOR_ID_KEY) : null;
+  let isReturning = false;
+  try {
+    isReturning = !!(JSON.parse(sessionStorage.getItem(VISIT_STATE_KEY) || 'null') as { isReturning?: boolean } | null)?.isReturning;
+  } catch { /* défaut : nouveau */ }
   return {
     device_type: detectDevice(),
-    referrer_category: categorizeReferrer(referrer, utmMedium, params),
-    utm_source: params.get('utm_source'),
-    utm_medium: utmMedium,
-    utm_campaign: params.get('utm_campaign'),
+    referrer_category: landing.referrer_category,
+    utm_source: landing.utm_source,
+    utm_medium: landing.utm_medium,
+    utm_campaign: landing.utm_campaign,
     visitor_id: visitorId,
-    is_returning: visitNumber > 1,
+    is_returning: isReturning,
   };
 }
 
@@ -290,9 +353,11 @@ export function trackAffiliateClick({
     affiliate_venue_id: affiliateVenueId ?? null,
     affiliate_member_id: affiliateMemberId ?? null,
     user_id: userId ?? null,
-    browser_id: getBrowserId(),
+    // Identifiant navigateur (localStorage, 1 an) seulement avec le
+    // consentement analytics : sans lui le clic reste compté, anonyme.
+    browser_id: hasAnalyticsConsent() ? getBrowserId() : null,
     referrer: document.referrer || null,
-    is_internal: isInternal,
+    is_internal: isInternal || isDevHost(),
     click_type: clickType,
     ...attribution,
   }).then(({ error }) => {

@@ -479,7 +479,7 @@ export default function AffiliateVenuePage() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.06 }}
-                    onClick={() => navigate(`/affiliate-event/${event.slug}`)}
+                    onClick={() => navigate(`/affiliate-event/${event.slug}${viaSlug ? `?via=${encodeURIComponent(viaSlug)}` : ''}`)}
                     className="cursor-pointer group"
                   >
                     {/* Poster — 1:1 */}

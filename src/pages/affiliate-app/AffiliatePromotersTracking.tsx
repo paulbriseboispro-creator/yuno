@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { format, subDays, subHours } from 'date-fns';
 import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, KpiCard, Pill, AffAvatar, AffSpinner,
@@ -226,27 +227,31 @@ export default function AffiliatePromotersTracking() {
 
     const from = periodFrom(period);
 
-    let sessQ = supabase
-      .from('affiliate_visitor_sessions')
-      .select('visited_at, visitor_id, is_returning, duration_seconds, device_type, referrer_category, affiliate_member_id')
-      .eq('affiliate_id', aff.id)
-      .eq('is_internal', false)
-      .not('affiliate_member_id', 'is', null)
-      .limit(10000);
-    if (from) sessQ = sessQ.gte('visited_at', from);
-    const { data: sessRows } = await sessQ;
-    setSessions((sessRows ?? []) as RawSession[]);
-
-    let clickQ = supabase
-      .from('affiliate_clicks')
-      .select('clicked_at, device_type, referrer_category, affiliate_member_id')
-      .eq('affiliate_id', aff.id)
-      .eq('is_internal', false)
-      .not('affiliate_member_id', 'is', null)
-      .limit(10000);
-    if (from) clickQ = clickQ.gte('clicked_at', from);
-    const { data: clickRows } = await clickQ;
-    setClicks((clickRows ?? []) as RawClick[]);
+    // Toutes les lignes, page par page (PostgREST plafonne à ~1 000).
+    const [sessRows, clickRows] = await Promise.all([
+      fetchAllRows<RawSession>((a, b) => {
+        let q = supabase
+          .from('affiliate_visitor_sessions')
+          .select('visited_at, visitor_id, is_returning, duration_seconds, device_type, referrer_category, affiliate_member_id')
+          .eq('affiliate_id', aff.id)
+          .eq('is_internal', false)
+          .not('affiliate_member_id', 'is', null);
+        if (from) q = q.gte('visited_at', from);
+        return q.order('visited_at', { ascending: true }).order('id', { ascending: true }).range(a, b);
+      }).catch(() => [] as RawSession[]),
+      fetchAllRows<RawClick>((a, b) => {
+        let q = supabase
+          .from('affiliate_clicks')
+          .select('clicked_at, device_type, referrer_category, affiliate_member_id')
+          .eq('affiliate_id', aff.id)
+          .eq('is_internal', false)
+          .not('affiliate_member_id', 'is', null);
+        if (from) q = q.gte('clicked_at', from);
+        return q.order('clicked_at', { ascending: true }).order('id', { ascending: true }).range(a, b);
+      }).catch(() => [] as RawClick[]),
+    ]);
+    setSessions(sessRows);
+    setClicks(clickRows);
 
     setLoading(false);
   }, [user, period]);
@@ -280,8 +285,9 @@ export default function AffiliatePromotersTracking() {
         for (let i = chartDays - 1; i >= 0; i--) {
           dayMap.set(format(subDays(new Date(), i), 'yyyy-MM-dd'), { views: 0, clicks: 0 });
         }
-        mSessions.forEach(s => { const e = dayMap.get(s.visited_at.slice(0, 10)); if (e) e.views++; });
-        mClicks.forEach(c => { const e = dayMap.get(c.clicked_at.slice(0, 10)); if (e) e.clicks++; });
+        // Jour LOCAL de l'instant, comme les clés du graphique.
+        mSessions.forEach(s => { const e = dayMap.get(format(new Date(s.visited_at), 'yyyy-MM-dd')); if (e) e.views++; });
+        mClicks.forEach(c => { const e = dayMap.get(format(new Date(c.clicked_at), 'yyyy-MM-dd')); if (e) e.clicks++; });
         dailyPoints = Array.from(dayMap.entries()).map(([date, v]) => ({ date, ...v }));
       }
 

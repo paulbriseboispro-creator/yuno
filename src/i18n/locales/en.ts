@@ -11591,6 +11591,8 @@ const en: Record<string, string> = {
   'aff.ana.pageTypeMemberLinktree': "Promoter linktree (/promo/…)",
   'aff.ana.pageTypeEvent': "Event pages (/affiliate-event/…)",
   'aff.ana.pageTypeVenue': "Club pages (/affiliate-venue/…)",
+  'aff.ana.venuePerfTitle': "Performance by club",
+  'aff.ana.venuePerfSubtitle': "Views and clicks for each partner club, across all its events",
   'aff.ana.eventPerfTitle': "Performance by event",
   'aff.ana.eventPerfSubtitle': "Views · Clicks · Conversion rate",
   'aff.ana.noTrafficTitle': "Events without traffic",

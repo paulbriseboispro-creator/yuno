@@ -404,12 +404,16 @@ function EventCard({
 
   const handleClick = () => {
     if (isSoldOut) return;
-    trackAffiliateClick({
-      affiliateId,
-      affiliateEventId: event.affiliate_event_id,
-      affiliateMemberId: memberId,
-      isInternal: isOwner,
-    });
+    // Un clic = une SORTIE vers la billetterie ; la fiche soirée compte le
+    // sien elle-même (sinon double comptage).
+    if (ctaHref) {
+      trackAffiliateClick({
+        affiliateId,
+        affiliateEventId: event.affiliate_event_id,
+        affiliateMemberId: memberId,
+        isInternal: isOwner,
+      });
+    }
     if (ctaHref) {
       // Navigateur in-app en natif (pas d'éjection vers Safari).
       openExternal(ctaHref);

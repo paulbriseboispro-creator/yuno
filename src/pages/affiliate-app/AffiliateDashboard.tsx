@@ -19,6 +19,7 @@ import {
 } from '@/components/affiliate/affiliate-ui';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { currentNightDate } from '@/lib/affiliateEventTime';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 type NextEvent = {
   id: string;
@@ -94,8 +95,16 @@ export default function AffiliateDashboard() {
         supabase.from('affiliate_venues').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).eq('is_active', true),
         supabase.from('affiliate_events').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).gte('event_date', today),
         supabase.from('affiliate_events').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).gte('event_date', today).is('external_ticket_url', null),
-        supabase.from('affiliate_clicks').select('clicked_at').eq('affiliate_id', affRow.id).gte('clicked_at', since60).limit(20000),
-        (supabase.from('affiliate_visitor_sessions') as any).select('visited_at').eq('affiliate_id', affRow.id).eq('is_internal', false).gte('visited_at', since60).limit(20000),
+        // Clics internes (l'agence qui teste ses liens) exclus comme les vues,
+        // et toutes les lignes page par page (PostgREST plafonne à ~1 000).
+        fetchAllRows<{ clicked_at: string }>((a, b) => supabase.from('affiliate_clicks').select('clicked_at')
+          .eq('affiliate_id', affRow.id).eq('is_internal', false).gte('clicked_at', since60)
+          .order('clicked_at', { ascending: true }).order('id', { ascending: true }).range(a, b))
+          .then((data) => ({ data })).catch(() => ({ data: [] as { clicked_at: string }[] })),
+        fetchAllRows<{ visited_at: string }>((a, b) => supabase.from('affiliate_visitor_sessions').select('visited_at')
+          .eq('affiliate_id', affRow.id).eq('is_internal', false).gte('visited_at', since60)
+          .order('visited_at', { ascending: true }).order('id', { ascending: true }).range(a, b))
+          .then((data) => ({ data })).catch(() => ({ data: [] as { visited_at: string }[] })),
         supabase.from('affiliate_events')
           .select('id, name, event_date, flyer_url, external_ticket_url, status, affiliate_venues(name)')
           .eq('affiliate_id', affRow.id)
@@ -109,11 +118,13 @@ export default function AffiliateDashboard() {
       setMissingTicketUrl(missingC ?? 0);
       setUpcoming((upcomingEvents ?? []) as NextEvent[]);
 
-      const clicks = (clickRows ?? []).map((r: any) => r.clicked_at as string);
-      const views = (sessRows ?? []).map((r: any) => r.visited_at as string);
+      const clicks = clickRows.map((r) => r.clicked_at);
+      const views = sessRows.map((r) => r.visited_at);
 
-      const inLast30 = (iso: string) => iso >= since30;
-      const inPrev30 = (iso: string) => iso >= since60 && iso < since30;
+      const t30 = new Date(since30).getTime();
+      const t60 = new Date(since60).getTime();
+      const inLast30 = (iso: string) => new Date(iso).getTime() >= t30;
+      const inPrev30 = (iso: string) => { const t = new Date(iso).getTime(); return t >= t60 && t < t30; };
       setClicks30(clicks.filter(inLast30).length);
       setClicksPrev30(clicks.filter(inPrev30).length);
       setViews30(views.filter(inLast30).length);
@@ -126,8 +137,8 @@ export default function AffiliateDashboard() {
         const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
         cMap[d] = 0; vMap[d] = 0;
       }
-      clicks.forEach(iso => { const d = iso.slice(0, 10); if (cMap[d] !== undefined) cMap[d]++; });
-      views.forEach(iso => { const d = iso.slice(0, 10); if (vMap[d] !== undefined) vMap[d]++; });
+      clicks.forEach(iso => { const d = format(new Date(iso), 'yyyy-MM-dd'); if (cMap[d] !== undefined) cMap[d]++; });
+      views.forEach(iso => { const d = format(new Date(iso), 'yyyy-MM-dd'); if (vMap[d] !== undefined) vMap[d]++; });
       setDaily(Object.keys(cMap).map(date => ({ date, clicks: cMap[date], views: vMap[date] })));
     } finally {
       setLoading(false);

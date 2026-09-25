@@ -295,9 +295,9 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
   const midday = (d: string) => new Date(`${d}T12:00:00`);
 
   const openEvent = (event: AgendaItem) => {
-    // Même règle que le linktree : le tracking de clic (FK affiliate_event_id)
-    // ne s'applique qu'aux soirées externes.
-    if (!event.yuno_event_id) {
+    // Même règle que le linktree : un clic = une sortie vers la billetterie
+    // d'une soirée externe ; la fiche soirée compte le sien elle-même.
+    if (!event.yuno_event_id && (event.promo_link || event.external_ticket_url)) {
       trackAffiliateClick({
         affiliateId: identity?.affiliateId ?? '',
         affiliateEventId: event.id,
