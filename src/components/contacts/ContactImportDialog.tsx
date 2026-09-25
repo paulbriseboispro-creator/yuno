@@ -35,6 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { capturePosthog } from '@/lib/posthog';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import type { ConsentSource } from '@/lib/emailImport';
 import { IMPORT_COUNTRIES } from '@/lib/smsImport';
@@ -305,6 +306,16 @@ export default function ContactImportDialog({ open, onClose, scope, mode = 'impo
       // Le dernier lot porte l'empreinte et la fusion : elle est acquise.
       setRunTotals(tot);
       setRunStage(4);
+      if (scope.kind !== 'platform') {
+        capturePosthog('contacts_imported', {
+          scope: scope.kind,
+          rows: tot.rows,
+          channels: [...(wantEmail ? ['email'] : []), ...(wantSms ? ['sms'] : [])],
+          mode: importMode,
+          merged: tot.merged > 0,
+          ...(scope.kind === 'venue' ? { venue_id: scope.venueId } : { organizer_user_id: scope.organizerId }),
+        });
+      }
       toast.success(t('cimp.done').replace('{n}', String(tot.rows)));
     } catch (e) {
       const msg = errMsg(e);

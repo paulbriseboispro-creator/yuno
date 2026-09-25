@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { capturePosthog } from '@/lib/posthog';
 import {
   AUTOMATION_KINDS, AUTOMATION_META, PLATFORM_AUTOMATION_KINDS, TIER_THRESHOLDS, DEFAULT_TIER_THRESHOLD,
   buildStarter, delayToHours, formatEuro, hoursToDelay, DEFAULT_STUDIO_THEME,
@@ -189,12 +190,15 @@ export default function EmailAutomationsPanel({ scope, basePath }: {
         } as never);
         if (error) { toast.error(error.message); return false; }
       }
+      if (patch.enabled !== undefined && !isPlatform) {
+        capturePosthog('email_automation_toggled', { scope: scope.kind, kind, enabled: patch.enabled, source: 'panel' });
+      }
       await load();
       return true;
     } finally {
       setBusy(null);
     }
-  }, [rows, scopeCol, scopeId, isPlatform, load]);
+  }, [rows, scopeCol, scopeId, isPlatform, load, scope.kind]);
 
   /** Modèle Yuno de la recette, créé d'un clic et attaché. */
   const createStarter = useCallback(async (kind: AutomationKind, thenEnable: boolean) => {

@@ -42,6 +42,8 @@ import { BarConfigSection } from '@/components/owner/BarConfigSection';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
 // Libellés RÉELS du filtre public — une seule liste pour toute l'app.
 import { MUSIC_GENRES } from '@/lib/musicGenres';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -579,6 +581,7 @@ export default function OwnerVenue() {
     try {
       const { error } = await supabase.from('venues').update({ is_hidden: false }).eq('id', venueId);
       if (error) throw error;
+      capturePosthog('venue_went_live', { scope: 'venue', source: 'venue_page', ...marketProps({ city, venueId }) });
       setIsHidden(false);
       toast.success(t('owner.publishSuccess'));
     } catch { toast.error(t('owner.errorSaving')); }

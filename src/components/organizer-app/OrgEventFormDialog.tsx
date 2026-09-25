@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { notifyDjLineup } from '@/lib/djNotify';
 import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
@@ -15,6 +15,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import {
   Upload,
   Music,
@@ -183,6 +185,9 @@ export function OrgEventFormDialog({
   /** Private events only: hide the top "back to Yuno" button so visitors stay on the event page. */
   const [hideYunoNavigation, setHideYunoNavigation] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  // État publié au chargement d'une soirée existante (PostHog : `pro_event_published`
+  // ne part qu'au passage inactive → active, avec les piliers déjà ouverts).
+  const loadedPublishRef = useRef<{ active: boolean; pillars: string[] } | null>(null);
 
   // Metadata (Yuno standard)
   const [musicGenres, setMusicGenres] = useState<string[]>(['Open Format']);
@@ -284,6 +289,7 @@ export function OrgEventFormDialog({
     if (!open) return;
     if (!eventId) {
       // Reset all fields for create
+      loadedPublishRef.current = null;
       setTitle('');
       setDescription('');
       setStartAt('');
@@ -342,6 +348,10 @@ export function OrgEventFormDialog({
         setRevealAddressInEmail((ev as any).reveal_address_in_email !== false);
         setHideYunoNavigation(!!(ev as any).hide_yuno_navigation);
         setIsActive(ev.is_active);
+        loadedPublishRef.current = {
+          active: !!ev.is_active,
+          pillars: [...(ev.ticketing_enabled ? ['tickets'] : []), ...(ev.tables_enabled ? ['tables'] : [])],
+        };
         setMusicGenres(
           (ev as any).music_genres?.length ? (ev as any).music_genres : [(ev as any).music_genre || 'Open Format']
         );
@@ -537,9 +547,13 @@ export function OrgEventFormDialog({
       }
 
       let savedId = eventId;
+      const phMarket = (id: string) => marketProps({ timezone: payload.timezone, city: payload.location_city, eventId: id, organizerUserId });
       if (isEdit && eventId) {
         const { error } = await supabase.from('events').update(payload as TablesUpdate<'events'>).eq('id', eventId);
         if (error) throw error;
+        if (isActive && loadedPublishRef.current && !loadedPublishRef.current.active) {
+          capturePosthog('pro_event_published', { scope: 'organizer', pillars: loadedPublishRef.current.pillars, private: visibility === 'private', ...phMarket(eventId) });
+        }
       } else {
         const { data, error } = await supabase
           .from('events')
@@ -548,6 +562,8 @@ export function OrgEventFormDialog({
           .single();
         if (error) throw error;
         savedId = data.id;
+        capturePosthog('pro_event_created', { scope: 'organizer', source: 'event_dialog', ...phMarket(data.id) });
+        if (isActive) capturePosthog('pro_event_published', { scope: 'organizer', pillars: [], private: visibility === 'private', ...phMarket(data.id) });
       }
       // La soirée pointe maintenant sur ces fichiers : la remise à zéro du
       // formulaire ne doit plus les retirer du bucket comme un envoi abandonné.

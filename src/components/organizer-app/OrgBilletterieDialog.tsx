@@ -6,6 +6,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Ticket, Sparkles, Plus, Loader2, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { capturePosthog } from '@/lib/posthog';
 import { OrgButton, OrgPill, RED, T1, T3, BORDER, INNER_BG } from '@/components/org-ui';
 
 interface PresetRound {
@@ -104,6 +105,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
       const { error: evErr } = await supabase.from('events').update(update).eq('id', eventId);
       if (evErr) throw evErr;
 
+      capturePosthog('pillar_toggled', { pillar: 'tickets', enabled: true, scope: 'organizer', event_id: eventId });
       toast.success(tt('Billetterie en ligne', 'Ticketing is live'));
       onActivated?.();
       onOpenChange(false);

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users, Mail, Megaphone, Shield, Check, Loader2, ArrowRight, SkipForward, type LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { capturePosthog } from '@/lib/posthog';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, OptionalPill, RED, POS, T1, T3 } from '@/components/onboarding/onboardingUI';
 
 type TeamRole = 'admin' | 'editor' | 'scanner';
@@ -35,6 +36,7 @@ export function OrgOnboardingStepTeam({ onComplete, onSkip }: Props) {
       const { data, error } = await supabase.functions.invoke('invite-org-member', { body: { email: email.trim(), role } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      capturePosthog('team_member_invited', { scope: 'organizer', role, kind: 'team', source: 'onboarding' });
       toast.success(tt('Invitation envoyée', 'Invitation sent', 'Invitación enviada'));
       setInvited(true);
       setDialogOpen(false);

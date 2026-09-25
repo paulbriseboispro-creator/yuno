@@ -56,6 +56,7 @@ import { useEventsSalesSummary } from '@/hooks/useEventsSalesSummary';
 import { EventSalesStrip } from '@/components/events-sales/EventSalesStrip';
 import type { EventSales } from '@/lib/eventsSales';
 import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
 type PresetRound = {
@@ -97,6 +98,20 @@ export default function OwnerEvents() {
   const { basePath, mode: dashboardMode } = useDashboardMode();
   const isOrganizerScope = scope === 'organizer';
   const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
+  // PostHog : portée + marché de la soirée (fuseau, ville du club ou du lieu orga).
+  const phScope = isOrganizerScope ? 'organizer' : 'venue';
+  const venueCityRef = useRef<string | null>(null);
+  const phMarket = (eventId: string | null | undefined, timezone?: string | null, city?: string | null) => marketProps({
+    timezone, city: city ?? (isOrganizerScope ? null : venueCityRef.current), eventId,
+    venueId: isOrganizerScope ? null : venueId, organizerUserId: isOrganizerScope ? organizerUserId : null,
+  });
+  const phPillars = (e?: Pick<OwnerEventRow, 'ticketingEnabled' | 'tablesEnabled' | 'guestListEnabled'> | null) => [
+    ...(e?.ticketingEnabled ? ['tickets'] : []),
+    ...(e?.tablesEnabled ? ['tables'] : []),
+    ...(e?.guestListEnabled ? ['guest_list'] : []),
+  ];
+  const phPillarToggled = (event: OwnerEventRow, pillar: 'tickets' | 'tables' | 'guest_list', enabled: boolean) =>
+    capturePosthog('pillar_toggled', { pillar, enabled, scope: phScope, ...phMarket(event.id, event.timezone) });
   // Chiffres de vente de chaque soirée à venir (J-N, CA, jauges) — une RPC pour
   // toute la liste. Le CA ne revient qu'à qui a le droit de voir l'argent.
   const { can: orgCan } = useActingOrganizer({ enabled: dashboardMode === 'organizer' });
@@ -238,6 +253,7 @@ export default function OwnerEvents() {
         const { data } = await supabase.from('venues').select('minors_allowed, timezone, city').eq('id', venueId!).maybeSingle();
         setGlobalMinorsAllowed(data?.minors_allowed ?? false);
         setVenueTimezone(data?.timezone || cityToTimezone(data?.city));
+        venueCityRef.current = data?.city ?? null;
       }
     })();
   }, [venueId, organizerUserId, isOrganizerScope, scopeReady]);
@@ -457,14 +473,19 @@ export default function OwnerEvents() {
     }
 
     let savedId = editingEvent?.id;
+    const orgMarket = (id: string) => phMarket(id, payload.timezone, payload.location_city);
     if (editingEvent) {
       const { error } = await supabase.from('events').update(payload as TablesUpdate<'events'>).eq('id', editingEvent.id);
       if (error) throw error;
+      if (formData.isActive && !editingEvent.isActive) {
+        capturePosthog('pro_event_published', { scope: phScope, pillars: phPillars(events.find((e) => e.id === editingEvent.id)), private: visibility === 'private', ...orgMarket(editingEvent.id) });
+      }
     } else {
       const { data, error } = await supabase.from('events').insert(payload).select('id').single();
       if (error) throw error;
       savedId = data.id;
-      capturePosthog('pro_event_created', { scope: isOrganizerScope ? 'organizer' : 'venue', event_id: data.id, source: 'events_page' });
+      capturePosthog('pro_event_created', { scope: phScope, source: 'events_page', ...orgMarket(data.id) });
+      if (formData.isActive) capturePosthog('pro_event_published', { scope: phScope, pillars: [], private: visibility === 'private', ...orgMarket(data.id) });
     }
     // La soirée pointe maintenant sur ces fichiers : `resetForm()` ne doit plus
     // les retirer du bucket comme il retire un envoi abandonné.
@@ -630,6 +651,9 @@ export default function OwnerEvents() {
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).eq('id', editingEvent.id);
         if (error) throw error;
+        if (formData.isActive && !editingEvent.isActive) {
+          capturePosthog('pro_event_published', { scope: phScope, pillars: phPillars(events.find((e) => e.id === editingEvent.id)), ...phMarket(editingEvent.id, formData.timezone) });
+        }
         video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
         bump(3);
         const oldDjIds = initialLineupEntries.filter(e => e.status === 'confirmed').map(e => e.djId).sort();
@@ -661,7 +685,8 @@ export default function OwnerEvents() {
         video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
         bump(3);
         savedId = newEvent?.id;
-        capturePosthog('pro_event_created', { scope: 'venue', event_id: newEvent?.id ?? null, venue_id: venueId, source: 'events_page' });
+        capturePosthog('pro_event_created', { scope: 'venue', source: 'events_page', ...phMarket(newEvent?.id, formData.timezone) });
+        if (formData.isActive) capturePosthog('pro_event_published', { scope: 'venue', pillars: [], ...phMarket(newEvent?.id, formData.timezone) });
         await Promise.all([
           (newEvent && (lineupEntries.length > 0 || guestArtists.length > 0))
             ? persistLineup(newEvent.id)
@@ -697,6 +722,9 @@ export default function OwnerEvents() {
     try {
       const { error } = await supabase.from('events').update({ is_active: !event.isActive }).eq('id', event.id);
       if (error) throw error;
+      if (!event.isActive) {
+        capturePosthog('pro_event_published', { scope: phScope, pillars: phPillars(events.find((e) => e.id === event.id)), ...phMarket(event.id, event.timezone) });
+      }
       toast.success(event.isActive ? t('owner.toastEventDeactivated') : t('owner.toastEventActivated'));
       fetchEvents();
     } catch (error) { toast.error(t('owner.toastToggleError')); }
@@ -723,6 +751,7 @@ export default function OwnerEvents() {
       if (event.tablesEnabled) {
         const { error } = await supabase.from('events').update({ tables_enabled: false }).eq('id', event.id);
         if (error) throw error;
+        phPillarToggled(event, 'tables', false);
         toast.success(t('owner.ev.tablesRemoved'));
         fetchEvents();
         return true;
@@ -747,6 +776,7 @@ export default function OwnerEvents() {
         const { error } = await supabase.from('events').update({ tables_enabled: true }).eq('id', event.id);
         if (error) throw error;
       }
+      phPillarToggled(event, 'tables', true);
       toast.success(t('owner.ev.tablesOnlineToast'));
       fetchEvents();
       return true;
@@ -763,6 +793,7 @@ export default function OwnerEvents() {
       if (!existing) return false; // caller opens the inline guest-list picker
       const { error } = await supabase.from('guest_lists').update({ is_active: !existing.is_active }).eq('id', existing.id);
       if (error) throw error;
+      phPillarToggled(event, 'guest_list', !existing.is_active);
       toast.success(existing.is_active ? t('owner.ev.guestListRemoved') : t('owner.ev.guestListOnline'));
       fetchEvents();
       return true;
@@ -802,6 +833,7 @@ export default function OwnerEvents() {
         });
         if (error) throw error;
       }
+      phPillarToggled(event, 'guest_list', true);
       toast.success(t('owner.ev.guestListOnline'));
       fetchEvents();
     } catch { toast.error(t('owner.toastSaveError')); }
@@ -849,6 +881,7 @@ export default function OwnerEvents() {
     try {
       const { error } = await supabase.from('events').update({ ticketing_enabled: !event.ticketingEnabled }).eq('id', event.id);
       if (error) throw error;
+      phPillarToggled(event, 'tickets', !event.ticketingEnabled);
       toast.success(event.ticketingEnabled ? t('owner.ev.ticketingRemovedToast') : t('owner.ev.ticketingOnlineToast'));
       fetchEvents();
     } catch { toast.error(t('owner.toastSaveError')); }
@@ -899,6 +932,7 @@ export default function OwnerEvents() {
       const { error: evErr } = await supabase.from('events').update(update).eq('id', event.id);
       if (evErr) throw evErr;
 
+      phPillarToggled(event, 'tickets', true);
       toast.success(t('owner.ev.ticketingOnlineToast'));
       fetchEvents();
     } catch (err) {

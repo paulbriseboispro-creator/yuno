@@ -60,6 +60,11 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
       } as any);
       if (error) throw error;
       capturePosthog('pro_event_created', { scope: 'venue', venue_id: venueId, source: 'onboarding' });
+      // Créée active : la soirée est publiée d'emblée.
+      capturePosthog('pro_event_published', {
+        scope: 'venue', venue_id: venueId,
+        pillars: (['tickets', 'tables'] as const).filter((p) => pillars.includes(p)),
+      });
       setTitle('');
       setDate('');
       toast.success(t('onboarding.eventCreatedToast'));

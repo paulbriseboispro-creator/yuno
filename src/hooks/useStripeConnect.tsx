@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PlanCode } from '@/lib/planFeatures';
+import { trackStripeConnectStarted, trackStripeConnectStatus } from '@/lib/stripeConnectTracking';
 
 interface StripeConnectStatus {
   connected: boolean;
@@ -41,6 +42,7 @@ export function useStripeConnect(venueId: string | null) {
         onboardingComplete: data.onboardingComplete || false,
         accountId: data.accountId || null,
       });
+      trackStripeConnectStatus('venue', venueId, { accountId: data.accountId || null, ready: !!data.chargesEnabled });
     } catch (e) { console.error('Error refreshing Stripe status:', e); }
   }, [venueId]);
 
@@ -70,6 +72,7 @@ export function useStripeConnect(venueId: string | null) {
   }, [venueId, refreshStatus, checkSubscription]);
 
   const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string }) => {
+    trackStripeConnectStarted('venue', venueId);
     try {
       const { data, error } = await supabase.functions.invoke('stripe-connect', {
         body: { action: 'onboard', actor_type: 'owner', venueId, returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl },

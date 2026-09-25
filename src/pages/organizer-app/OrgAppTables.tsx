@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { capturePosthog } from '@/lib/posthog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Crown, CalendarClock, Map as MapIcon, Lock, ArrowRight, ArrowLeft, Loader2, Sparkles, Layers, Package, LayoutGrid, Trash2, Calendar, Building2, Play, Eye, Pencil } from 'lucide-react';
@@ -191,6 +192,7 @@ export default function OrgAppTables() {
       : await supabase.rpc('enable_collab_tables', { p_event_id: e.id });
     setToggling(null);
     if (error) { toast.error(error.message); return; }
+    capturePosthog('pillar_toggled', { pillar: 'tables', enabled: !e.tables_enabled, scope: 'organizer', event_id: e.id, organizer_user_id: organizerId });
     toast.success(e.tables_enabled
       ? tt('Vente de tables désactivée', 'Table sales disabled', 'Venta de mesas desactivada')
       : tt('Vente de tables activée', 'Table sales enabled', 'Venta de mesas activada'));

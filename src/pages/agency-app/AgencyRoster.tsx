@@ -13,6 +13,7 @@ import {
 } from '@/components/promoter/promoter-ui';
 import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
 import { tint } from '@/lib/proTheme';
+import { capturePosthog } from '@/lib/posthog';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -310,6 +311,10 @@ export default function AgencyRoster() {
     }
 
     setSending(false);
+    capturePosthog('team_member_invited', {
+      scope: 'agency', role: 'promoter', kind: 'roster',
+      yuno_clubs: targets.length, external: externalSelected,
+    });
     toast.success(recapSent
       ? tt('Invitation envoyée — un seul email récapitulatif', 'Invitation sent — one recap email')
       : tt('Invitation envoyée', 'Invitation sent'));

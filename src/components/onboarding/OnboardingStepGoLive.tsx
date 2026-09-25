@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { capturePosthog } from '@/lib/posthog';
 import { motion } from 'framer-motion';
 import { Check, X, Rocket, Eye, ExternalLink, PartyPopper } from 'lucide-react';
 import type { StepState, Pillar } from '@/hooks/useOwnerOnboarding';
@@ -40,6 +41,7 @@ export function OnboardingStepGoLive({ venueId, venueSlug, pillars, stepStatuses
     try {
       const { error } = await supabase.from('venues').update({ is_hidden: false } as any).eq('id', venueId);
       if (error) throw error;
+      capturePosthog('venue_went_live', { scope: 'venue', venue_id: venueId, source: 'onboarding' });
       setPublished(true);
     } catch {
       toast.error(t('onboarding.saveError'));

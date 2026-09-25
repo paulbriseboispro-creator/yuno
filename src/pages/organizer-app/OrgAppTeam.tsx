@@ -14,6 +14,7 @@ import {
   T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
+import { capturePosthog } from '@/lib/posthog';
 
 type TeamRole = 'admin' | 'editor' | 'scanner';
 type StaffRole = 'barman' | 'bouncer' | 'cloakroom';
@@ -122,6 +123,7 @@ export default function OrgAppTeam() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      capturePosthog('team_member_invited', { scope: 'organizer', role: memberRole, kind: 'team', organizer_user_id: organizerId });
       toast.success(t('Invitation envoyée', 'Invitation sent'));
       setMemberEmail(''); setMemberRole('editor'); setTeamOpen(false); loadMembers();
     } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
@@ -173,6 +175,7 @@ export default function OrgAppTeam() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      capturePosthog('team_member_invited', { scope: 'organizer', role: staffRole, kind: 'staff', organizer_user_id: organizerId });
       toast.success(t("Invitation envoyée · l'employé définira son propre PIN", 'Invitation sent · the employee will set their own PIN'));
       setStaffEmail(''); setStaffName(''); setStaffRole('barman'); setStaffOpen(false);
       loadStaff();

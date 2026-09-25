@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { cn } from '@/lib/utils';
+import { capturePosthog } from '@/lib/posthog';
 import {
   SMS_BODY_HARD_LIMIT, SMS_BODY_SOFT_LIMIT, SMS_LINK_TOKEN, SMS_MARKETING_LIVE, SAMPLE_TRACKED_LINK,
   composeSmsBody, isE164, normalizeLang, smsSizing, worstSegments,
@@ -257,6 +258,20 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     toast.error(data.message || data.error || t('smsCampaigns.errorSend'));
   };
 
+  /** PostHog : jamais le texte ni les numéros, seulement l'ampleur de l'envoi. */
+  const trackSmsSent = (scheduled: boolean) => {
+    if (scope.kind === 'platform') return;
+    capturePosthog('sms_campaign_sent', {
+      scope: scope.kind,
+      recipients: recipientCount ?? 0,
+      credits: totalCredits,
+      segment_type: segmentType,
+      scheduled,
+      ...(scope.kind === 'venue' ? { venue_id: scope.venueId } : { organizer_user_id: scope.organizerUserId }),
+      ...(eventId ? { event_id: eventId } : {}),
+    });
+  };
+
   const sendNow = async () => {
     if (guardPreview()) return;
     const err = validate(); if (err) { toast.error(err); return; }
@@ -267,6 +282,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
       const id = await persist({ status: 'draft', scheduled_at: null, error_message: null });
       const res = await invokeSms<{ sent?: number; remaining?: number; status?: string }>({ campaign_id: id, mode: 'send' });
       if (!res.ok || res.data.error) { handleEdgeFailure(res.status, res.data); onChanged(); return; }
+      trackSmsSent(false);
       const sent = Number(res.data.sent ?? 0);
       const remaining = Number(res.data.remaining ?? 0);
       toast.success(remaining > 0
@@ -290,6 +306,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
     setBusy('schedule');
     try {
       await persist({ status: 'scheduled', scheduled_at: when.toISOString(), error_message: null });
+      trackSmsSent(true);
       toast.success(t('smsc.editor.scheduled').replace('{date}', format(when, 'd MMM yyyy HH:mm', { locale: dateLocale })));
       onChanged();
       onClose();

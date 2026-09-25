@@ -18,6 +18,7 @@ import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
 import { useTabParam } from '@/hooks/useTabParam';
+import { capturePosthog } from '@/lib/posthog';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -216,6 +217,7 @@ export default function OwnerStaff() {
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
+        capturePosthog('team_member_invited', { scope: 'venue', role, kind: 'staff', venue_id: venueId });
       }
       // C&C manager only applies if the invited person already has a profile at this venue.
       if (formData.roles.includes('barman') && formData.isClickCollectManager) {
@@ -288,6 +290,7 @@ export default function OwnerStaff() {
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
+        capturePosthog('team_member_invited', { scope: 'venue', role, kind: 'staff', venue_id: venueId });
       }
       for (const role of rolesToRemove) {
         await supabase.from('user_roles').delete().eq('user_id', selectedEmployee.id).eq('role', role);
