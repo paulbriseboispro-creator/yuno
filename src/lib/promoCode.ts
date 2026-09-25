@@ -67,7 +67,7 @@ export function forgetPromoForEvent(eventId: string | null | undefined): void {
 }
 
 /** Raisons de refus renvoyées par la base (clés i18n `promo.reason.*`). */
-export const PROMO_REASONS = ['not_found', 'inactive', 'not_started', 'expired', 'not_eligible', 'exhausted', 'unavailable'] as const;
+export const PROMO_REASONS = ['not_found', 'inactive', 'not_started', 'expired', 'not_eligible', 'exhausted', 'unavailable', 'rate_limited'] as const;
 
 export function promoReasonKey(reason: string | null | undefined): string {
   return `promo.reason.${(PROMO_REASONS as readonly string[]).includes(reason ?? '') ? reason : 'not_found'}`;

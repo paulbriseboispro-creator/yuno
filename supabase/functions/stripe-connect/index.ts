@@ -323,6 +323,21 @@ serve(async (req) => {
         });
       }
 
+      // Sentinelle démo (`acct_demo_…`, seed womber) : compte FICTIF, inconnu
+      // de Stripe. L'interroger rend un 400 « does not have access to account »
+      // à chaque ouverture de la Console démo — on rend l'état semé, tel quel.
+      if (profile.stripe_connect_account_id.startsWith("acct_demo")) {
+        return json({
+          connected: true,
+          status: profile.stripe_connect_status || "active",
+          chargesEnabled: !!profile.stripe_connect_charges_enabled,
+          payoutsEnabled: !!profile.stripe_connect_payouts_enabled,
+          detailsSubmitted: true,
+          requirements: null,
+          demo: true,
+        });
+      }
+
       const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
       const account = await stripe.accounts.retrieve(profile.stripe_connect_account_id);
 
@@ -398,6 +413,9 @@ serve(async (req) => {
 
         if (!profile?.stripe_connect_account_id) {
           throw new Error("Stripe Connect non configuré.");
+        }
+        if (profile.stripe_connect_account_id.startsWith("acct_demo")) {
+          throw new Error("Compte Stripe de démonstration : pas de tableau de bord Stripe.");
         }
 
         const account = await stripe.accounts.retrieve(profile.stripe_connect_account_id);

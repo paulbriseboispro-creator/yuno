@@ -15384,6 +15384,7 @@ const en: Record<string, string> = {
   "promo.reason.not_eligible": "This code doesn't apply to this purchase.",
   "promo.reason.exhausted": "This code has been used up.",
   "promo.reason.unavailable": "We couldn't check this code. Try again in a moment.",
+  "promo.reason.rate_limited": "Too many attempts. Try again in an hour.",
   "pc.title": "Promo codes",
   "pc.subtitle": "A code for one event or all of them, on tickets and/or tables, with a limit and an end date.",
   "pc.new": "New code",

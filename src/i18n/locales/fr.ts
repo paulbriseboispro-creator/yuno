@@ -15358,6 +15358,7 @@ const fr: Record<string, string> = {
   "promo.reason.not_eligible": "Ce code ne s'applique pas à cet achat.",
   "promo.reason.exhausted": "Ce code a déjà été entièrement utilisé.",
   "promo.reason.unavailable": "Impossible de vérifier ce code. Réessaie dans un instant.",
+  "promo.reason.rate_limited": "Trop d'essais. Réessaie dans une heure.",
   "pc.title": "Codes promo",
   "pc.subtitle": "Un code pour une soirée ou pour toutes, sur les billets et/ou les tables, avec un quota et une date de fin.",
   "pc.new": "Nouveau code",

@@ -15726,6 +15726,7 @@ const es: Record<string, string> = {
   "promo.reason.not_eligible": "Este código no se aplica a esta compra.",
   "promo.reason.exhausted": "Este código ya se ha agotado.",
   "promo.reason.unavailable": "No hemos podido comprobar este código. Inténtalo de nuevo en un momento.",
+  "promo.reason.rate_limited": "Demasiados intentos. Vuelve a intentarlo en una hora.",
   "pc.title": "Códigos promocionales",
   "pc.subtitle": "Un código para un evento o para todos, en entradas y/o mesas, con un límite y una fecha de fin.",
   "pc.new": "Nuevo código",

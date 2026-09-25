@@ -606,7 +606,10 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   `p_discount` / `promoDiscount` ne portent que SA remise. Table : remise
   sur l'acompte, jamais sur une formule `on_site`. Un code utilisé se
   désactive, ne se supprime pas. `?promo=CODE` sur la page soirée pré-remplit
-  (sessionStorage). **Bug corrigé au passage** : la ligne Stripe des billets
+  (sessionStorage). L'aperçu anon `check_promo_code` est freiné à 15 codes
+  INCONNUS / heure / visiteur (`promo_code_failed_checks`, migration
+  `20260925100000`, raison `rate_limited`) : sans ça les codes privés se
+  devinaient par force brute. **Bug corrigé au passage** : la ligne Stripe des billets
   portait le prix PLEIN quand une remise promoteur existait (le client
   payait plein pendant que commission et reversements partaient du prix
   remisé) — elle porte désormais le sous-total remisé ; et le checkout client
