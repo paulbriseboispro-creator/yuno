@@ -335,7 +335,7 @@ function PromoCodeDialog({ open, onClose, onCreated, scope, events }: {
             <input value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal"
               placeholder={kind === 'percentage' ? '20' : '5'} aria-label={t('pc.f.value')} style={inputStyle} />
           </div>
-          <p style={{ color: KIT.T3, fontSize: 11.5, marginTop: -6 }}>{t(kind === 'percentage' ? 'pc.f.percentHint' : 'pc.f.fixedHint')}</p>
+          <p style={{ color: KIT.T3, fontSize: 11.5, marginTop: 6 }}>{t(kind === 'percentage' ? 'pc.f.percentHint' : 'pc.f.fixedHint')}</p>
           <div>
             <span style={labelStyle}>{t('pc.f.appliesTo')}</span>
             <div className="flex flex-wrap gap-4 text-[13px]" style={{ color: KIT.T1 }}>

@@ -493,7 +493,8 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
 ## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
 
 Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
-(lots A-E livrés, F-G à faire). Règles déjà posées :
+(lots A-G livrés le 24/09, repris et joués sur la démo contre la vraie base le
+25/09 — voir le dernier point). Règles posées :
 
 - **Tout écran d'analyse passe par le kit** `src/components/analytics/kit.tsx`
   (+ `kitFormat.ts` pour `KIT` et `useNumberFormat`) : `TodayDelta` (« ▲ 6
@@ -641,6 +642,48 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de
   large : pour le mobile, contraindre le CONTENEUR, pas la fenêtre. Ne jamais
   committer le banc.
+- **Reprise du 25/09 : rien n'avait été joué contre la vraie base, et ça se
+  voyait.** Quatre migrations (190000→220000) n'étaient pas appliquées (404 sur
+  Trafic, Communauté, Goûts, Codes promo), les edge functions de la branche
+  n'étaient pas déployées, l'Analytics orga restait sur un spinner et les
+  soirées démo à venir n'avaient aucune vente. Règles qui en sortent :
+  - **Une vue ne charge que ses chiffres.** `useAnalyticsData`,
+    `useNightAnalytics`, `usePromoterAnalytics`, `useCustomerAnalytics`
+    prennent `enabled` ; les pages ne les allument que sur la vue qui les lit
+    (Ventes › Vue d'ensemble, Partenaires, Communauté › Vue d'ensemble, le
+    détail replié). Toute vue se rend tout de suite ; seul Ventes montre
+    `AnalyticsLoading` sous la navigation. Ne JAMAIS reposer un verrou de page
+    entière sur ces hooks : ~70 requêtes en série, 6 à 25 s pour ouvrir Trafic.
+  - `useAnalyticsData` attend la liste des soirées (`eventsReady`) avant de
+    calculer (sinon tout partait deux fois) et lance ses lectures en
+    parallèle.
+  - Ventes › Vue d'ensemble = chiffres, `SalesByDayChart` (série
+    `buildSalesSeries`, testée : jour par jour, mois au-delà de 92 j, horaire
+    seulement sur 24/48 h), « Ce que tu touches », bilan par soirée ; le reste
+    sous « Détail ». Montants au format de la langue, jamais `€${n}`.
+  - Rapport de soirée : `EventPostAnalysisView layout="summary"` (note +
+    chiffres, « Bilan complet » replié) et `HypeScoreSection compact` (sans
+    métriques / tendance / comparaison, qui répétaient la section ventes avec
+    d'AUTRES chiffres). Soirée passée : lignes « Fermé », pas de « rien
+    aujourd'hui » ; un total nul n'affiche jamais « rien aujourd'hui » ni
+    « 0 % » ; un pilier éteint n'étale pas ses formules.
+  - Une vue rangée sous une question de famille n'a pas de second titre
+    (`AudienceDashboard embedded`, `PurchaseBehaviorView` sans en-tête).
+  - Communauté : la zone Fidélité héritée est réduite au top clients (ses
+    tuiles contredisaient la page) ; « Nouveaux contacts » = les 10 dernières
+    soirées QUI ONT EU DU PUBLIC (`20260925090000`).
+  - **Démo pendant la vente** : `scripts/demo/seed-upcoming-sales.sql`
+    (rejouable, borné à `demo_event_ids()`, efface ses lignes `seed.…`) sème
+    billets, tables sur de vraies formules, guest list et visites sur les
+    soirées à venir. Le relancer quand les dates passent.
+  - Codes promo joués en vrai (achat démo simulé `DEMO20`) ;
+    `create-ticket-checkout` arrondit sous-total remisé et total au centime.
+  - Tester en cloud : `scripts/demo/drive.mjs` lit l'environnement
+    (`. scripts/ci-web-env.sh`, `SUPABASE_SERVICE_ROLE_KEY`), prend Chromium
+    `/opt/pw-browsers` et le proxy `HTTPS_PROXY` ; importer la CA du proxy
+    dans `~/.pki/nssdb` (`certutil`), sinon ERR_CERT_AUTHORITY_INVALID. Le club
+    démo est caché : une page publique de soirée se teste avec un compte
+    `@womber.fr`, jamais en anonyme (« Événement introuvable »).
 
 ## Backend Supabase — gotchas critiques
 

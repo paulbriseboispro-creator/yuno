@@ -49,6 +49,18 @@ mention CGU). Tout le plan est à faire.
 | F | Codes promo par soirée (`promo_codes`, `claim_promo_code` sous verrou + usage retenu 30 min, checkouts billets et tables, champ client, page `PromoCodes` club + orga, stats par code) ; ligne Stripe des billets remisée corrigée | Livré 24/09 |
 | G | Goûts du réseau (`get_community_tastes`, Communauté → Goûts, ≥ 10 / ligne, opt-out, politique de confidentialité), accusés de réception push (serveur + colonne « Reçus » ; extension iOS à livrer avec le prochain binaire), outils de lecture de l'Assistant Console (rapport de soirée, communauté, push). « Ma page » livrée au lot E | Livré 24/09 (sauf extension iOS) |
 
+## Reprise du 25/09 (joué contre la vraie base)
+
+Paul a ouvert la démo : « rien ne marche ». Causes : migrations 190000→220000
+jamais appliquées, edge functions de la branche jamais déployées, Analytics
+orga bloquée sur un spinner (toutes les vues attendaient le gros calcul de
+Ventes), soirées démo à venir sans aucune vente. Repris lot par lot avec le
+compte démo : migrations appliquées, 7 edge functions déployées, chargement
+par vue, Vue d'ensemble relue (ventes par jour, détail replié), rapport de
+soirée resserré (verdict compact, Hype sans doublon), titres doublés retirés,
+démo semée (`scripts/demo/seed-upcoming-sales.sql`), codes promo et push
+orga joués en vrai. Détail des règles dans CLAUDE.md.
+
 ## Ce qu'on NE copie pas
 
 Une colonne revenu à 0 € sur une soirée gratuite (on montre les inscrits) ;
