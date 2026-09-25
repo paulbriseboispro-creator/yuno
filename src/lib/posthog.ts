@@ -80,6 +80,7 @@ export type YunoEvent =
   | 'table_pack_selected' //       { pack_id, payment_mode, price }
   | 'drinks_menu_viewed' //        { venue_id }
   | 'drink_added_to_cart' //       { venue_id, price }
+  | 'checkout_failed' //           { pillar, reason (code court, jamais le message brut) }
   | 'purchase_completed' //        { pillar, payment, value, currency } — navigateur ; l'ARGENT = `order_paid_server`
   | 'guest_list_joined' //         { pillar: 'guest_list', via_invite }
   | 'wallet_pass_clicked' //       { pillar }
@@ -165,6 +166,9 @@ async function load(): Promise<PostHog | null> {
         capture_pageleave: true,
         persistence: 'localStorage+cookie',
         session_recording: { maskAllInputs: true },
+        // Erreurs JS ($exception) : lues par surface et version d'app dans la
+        // section « Santé » du dashboard.
+        capture_exceptions: true,
         before_send: (event) => {
           if (!event) return null;
           if (isSupportSessionActive()) return null;
