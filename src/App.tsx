@@ -40,6 +40,7 @@ const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats")
 const AgencyRules = lazyWithRetry(() => import("./pages/agency-app/AgencyRules"));
 const AgencyProfile = lazyWithRetry(() => import("./pages/agency-app/AgencyProfile"));
 const AgencyShowcase = lazyWithRetry(() => import("./pages/agency-app/AgencyShowcase"));
+const AgencyLinktree = lazyWithRetry(() => import("./pages/agency-app/AgencyLinktree"));
 const AgencyAudience = lazyWithRetry(() => import("./pages/agency-app/AgencyAudience"));
 const AgencyPush = lazyWithRetry(() => import("./pages/agency-app/AgencyPush"));
 const AgencyHelpCenter = lazyWithRetry(() => import("./pages/AgencyHelpCenter"));
@@ -796,6 +797,7 @@ const App = () => (
                   <Route path="dashboard" element={<Navigate to="/agency-app" replace />} />
                   <Route path="profile" element={<AgencyProfile />} />
                   <Route path="vitrine" element={<AgencyShowcase />} />
+                  <Route path="linktree" element={<AgencyLinktree />} />
                   {/* Miroirs sans mur MFA des surfaces transverses de l'entité fusionnée */}
                   <Route path="inbox" element={<AffiliateInbox />} />
                   <Route path="help" element={<AgencyHelpCenter />} />

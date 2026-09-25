@@ -202,6 +202,20 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   client = `data-theme-island="dark"`. Toute nouvelle variable
   se déclare dans les trois blocs de `pro-theme.css` (test `proTheme.test.ts`).
   Jamais ces variables dans un canvas, Mapbox, un PDF ou un email.
+- **Bannière d'accueil de la Console ≠ couverture publique** (2026-09-25,
+  migration `20260925120000`). Le héros de `/owner/dashboard` et
+  `/organizer-app` lit `venues.home_banner` / `organizer_profiles.home_banner`
+  (`{url, x, y, zoom, dim}`, `src/lib/homeBanner.ts`), JAMAIS `cover_url` :
+  la couverture orga est cadrée en 4:3 pour le profil public, étirée dans un
+  bandeau ~4,5:1 elle ne montrait qu'une tranche au hasard. Réglage depuis
+  l'accueil (`HomeBannerEditor` : import ou « partir de ma couverture
+  publique », glisser pour cadrer, aperçus ordinateur + téléphone). Le cadrage
+  est un POINT FOCAL + zoom (`object-position` + `transform-origin` au même
+  point), jamais un rectangle figé : le héros change de proportions avec la
+  largeur. Même `HomeBannerBackdrop` dans le héros et l'aperçu. Sans bannière =
+  dégradé Yuno. Lecture dans une requête À PART (`fetchHomeBanner`) : une
+  colonne absente ne doit jamais faire tomber `useOwnerVenue`. Orga : fondateur
+  seul (`can.manageOrganization`, policy UPDATE d'`organizer_profiles`).
 - **Deux design systems séparés** :
   - `docs/DESIGN_SYSTEM_PUBLIC.md` → pages publiques (éditorial, marketplace).
   - `docs/DESIGN_SYSTEM.md` → dashboards pro.
@@ -223,6 +237,25 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   Tracking visiteur externe : uniquement via les RPC SECURITY DEFINER
   (`flush_affiliate_session`, `ping_affiliate_live`) — les UPDATE anonymes
   directs sont morts en prod. Voir `docs/AFFILIATE_SYSTEM.md`.
+  **Le linktree de l'AGENCE se choisit** (2026-09-25, migration
+  `20260925160000`, page `/agency-app/linktree` « Mon linktree ») :
+  `affiliate_linktree_events` porte SOIT `affiliate_event_id` (externe) SOIT
+  `event_id` (soirée Yuno d'un club / orga sous contrat actif). Écriture par la
+  seule RPC `set_agency_linktree_events` (sélection entière, ordre = rang,
+  chaque soirée revérifiée ; plus aucune policy d'écriture directe), lecture
+  éditeur `get_agency_linktree_editor`, lecture publique des soirées Yuno
+  choisies `get_agency_linktree_curated_yuno`. Sélection vide (ou toute passée)
+  = linktree AUTOMATIQUE d'avant (8 externes + `get_agency_linktree_yuno_events`) ;
+  dès qu'une soirée est choisie, `/p/:slug` n'affiche QUE la sélection, rangée
+  par date sauf en tri `custom`.
+  **Linktrees publics (`/p/`, `/promo/`) — 2026-09-25** : le bouton d'une
+  soirée dit ce qu'on obtient (`linktreeCtaLabel`,
+  `src/components/linktree/linktreeShared.tsx`) : Complet › Tables (tables
+  uniquement) › Guest list (gratuit) › Billets. Barre flottante
+  `PoweredByYunoBar` → Instagram de Yuno de la langue du visiteur
+  (`instagramFor`, réglé dans `/admin/links`). Aucune étape d'accueil
+  (`OnboardingGate`) sur `isPublicLinktreePath` : langue du téléphone si Yuno
+  la parle, anglais sinon, jamais la carte « Select Language ».
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),

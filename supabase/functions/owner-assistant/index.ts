@@ -83,6 +83,12 @@ Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu),
 // ═══════════════════════════════════════════
 
 const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
+  "home-banner": {
+    title: "Changer la photo en haut de l'accueil",
+    keywords: ["bannière", "banniere", "banner", "photo accueil", "image accueil", "couverture", "cover", "photo du haut", "photo mal cadrée", "image coupée", "home banner", "header image"],
+    path: "/owner/help?article=dashboard-overview",
+    snippet: "La photo en haut de l'accueil est une bannière à part, distincte de la couverture de la page publique (qui garde son propre cadrage). Sur l'accueil, bouton « Personnaliser » (ou « Ajouter une bannière ») en haut à droite de la bannière : importer une photo en paysage (idéalement 2400 × 800 px) ou « Partir de ma couverture publique », glisser la photo dans l'aperçu Ordinateur pour la cadrer, régler le zoom — l'aperçu Téléphone montre le même cadrage — puis choisir l'« Assombrissement » (Léger / Moyen / Fort) et « Enregistrer ». Garder le sujet au centre ou en haut : le nom se pose en bas à gauche, la puce « Ce soir » en bas à droite. « Retirer » remet le dégradé Yuno. Côté organisateur, seul le fondateur de l'organisation peut la changer.",
+  },
   "appearance": {
     title: "Mode clair ou mode sombre de la Console",
     keywords: ["mode sombre", "mode clair", "dark mode", "light mode", "thème", "theme", "apparence", "appearance", "clair", "sombre", "blanc", "noir", "couleurs", "écran trop sombre", "ecran trop sombre", "modo oscuro", "modo claro"],
