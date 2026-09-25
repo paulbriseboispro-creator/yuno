@@ -51,6 +51,16 @@ describe('jetons du thème pro', () => {
     }
   });
 
+  it('ne pose jamais d\'opacité Tailwind sur une variable (`bg-[var(--x)]/95` ne génère AUCUN CSS)', () => {
+    // Tailwind 3 ne sait pas ajouter un alpha à une couleur inconnue : la
+    // classe disparaît et la surface devient transparente (centre de
+    // notifications illisible en clair). Écrire
+    // `bg-[color-mix(in_srgb,var(--x)_95%,transparent)]` à la place.
+    const bad = srcFiles(path.join(ROOT, 'src')).flatMap((f) =>
+      [...fs.readFileSync(f, 'utf8').matchAll(/-\[var\(--[\w-]+\)\]\/[\d[.]/g)].map((m) => `${path.relative(ROOT, f)}: ${m[0]}`));
+    expect(bad).toEqual([]);
+  });
+
   it('pose les mêmes variables dans le bloc clair et dans l\'îlot sombre', () => {
     const names = (b: string) => [...b.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1]).sort();
     const light = new Set(names(LIGHT_BLOCK));

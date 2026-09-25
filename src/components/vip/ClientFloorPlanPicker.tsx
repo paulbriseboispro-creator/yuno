@@ -822,7 +822,7 @@ export function ClientFloorPlanPicker({
           }}
         >
           {/* Top bar */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-[var(--sf-0a0a0a)]/95 backdrop-blur">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-[color-mix(in_srgb,var(--sf-0a0a0a)_95%,transparent)] backdrop-blur">
             <div className="flex items-center gap-2 min-w-0">
               <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
               <span className="font-display font-bold uppercase truncate text-white" style={{ fontSize: '13px', letterSpacing: '-0.005em' }}>{t('vipCheckout.floorPlan') || 'Plan de salle'}</span>
@@ -843,7 +843,7 @@ export function ClientFloorPlanPicker({
           </div>
 
           {/* Bottom action bar */}
-          <div className="px-4 py-3 border-t border-white/[0.08] bg-[var(--sf-0a0a0a)]/95 backdrop-blur flex items-center justify-between gap-3">
+          <div className="px-4 py-3 border-t border-white/[0.08] bg-[color-mix(in_srgb,var(--sf-0a0a0a)_95%,transparent)] backdrop-blur flex items-center justify-between gap-3">
             {selectedTable ? (
               <>
                 <div className="flex items-center gap-2 min-w-0">
