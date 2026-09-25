@@ -468,8 +468,8 @@ jamais Space Grotesk, mono ni filet rouge ici. Règles :
 
 ## Comportement d'achat — Analytics → Achats (2026-09-24)
 
-`/owner/analytics?tab=purchase` et `/organizer-app/analytics?tab=purchase`
-(`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
+`/owner/analytics?tab=community&view=purchase` (et côté orga ; l'ancien `?tab=purchase`
+est réécrit) (`PurchaseBehaviorView`, hook `usePurchaseBehavior`, helpers
 `src/lib/purchaseBehavior.ts`, testés). Le reste de la page dit « combien ai-je
 vendu ? », cet onglet dit « comment mes clients achètent-ils ? » : délai avant
 la soirée, jour × heure, rythme du bar dans la nuit, taille de groupe / panier /
@@ -569,8 +569,9 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   `20260924200000`). Adresse `?tab=sales|traffic|community|live&view=…`
   (`src/lib/analyticsNav.ts`, testé ; `useAnalyticsRoute`) : Ventes (Vue
   d'ensemble · Par soirée = Rapport de soirée · Partenaires = promoteurs),
-  Trafic (Ma page · Par soirée · Sources), Communauté (Vue d'ensemble · Abonnés
-  · Achats · Public), En direct. Les anciens onglets (`global`, `event`,
+  Trafic (Ma page · Par soirée — Sources fondue dans Ma page le 25/09),
+  Communauté (Vue d'ensemble · Abonnés · Achats · Public, Goûts rangés dans
+  Public), En direct. Les vues retirées passent par `LEGACY_VIEWS`. Les anciens onglets (`global`, `event`,
   `purchase`) sont traduits ET l'URL réécrite en place ; un lien de soirée se
   construit par `eventReportHref(base, id)`, jamais à la main. Navigation
   commune `AnalyticsFamilyNav` (club + orga) ; les zones de l'ancien Global
@@ -660,12 +661,11 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   - `useAnalyticsData` attend la liste des soirées (`eventsReady`) avant de
     calculer (sinon tout partait deux fois) et lance ses lectures en
     parallèle.
-  - Ventes › Vue d'ensemble = chiffres, `SalesByDayChart` (série
-    `buildSalesSeries`, testée : jour par jour, mois au-delà de 92 j, horaire
-    seulement sur 24/48 h), « Ce que tu touches », bilan par soirée ; le reste
-    sous « Détail ». Montants au format de la langue, jamais `€${n}`.
-  - Rapport de soirée : `EventPostAnalysisView layout="summary"` (note +
-    chiffres, « Bilan complet » replié) et `HypeScoreSection compact` (sans
+  - Ventes › Vue d'ensemble : remplacée le 25/09 par `SalesOverviewView`
+    (voir « Lire une analyse en dix secondes » ci-dessous). Montants au format
+    de la langue, jamais `€${n}`.
+  - Rapport de soirée : `EventPostAnalysisView layout="report"` (dans le
+    « Bilan complet » replié sous la phrase-réponse) et `HypeScoreSection compact` (sans
     métriques / tendance / comparaison, qui répétaient la section ventes avec
     d'AUTRES chiffres). Soirée passée : lignes « Fermé », pas de « rien
     aujourd'hui » ; un total nul n'affiche jamais « rien aujourd'hui » ni
@@ -710,6 +710,65 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     dans `~/.pki/nssdb` (`certutil`), sinon ERR_CERT_AUTHORITY_INVALID. Le club
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
+
+## Lire une analyse en dix secondes — la simplification des chiffres (2026-09-25)
+
+Plan et état des lots : `docs/designs/ANALYTICS_SIMPLIFICATION_PLAN.md` (lots
+1-6 livrés, lot 7 « nouveautés » à faire). Né d'un constat : treize endroits
+où le même mot portait deux chiffres différents (guest list comptée avec les
+annulés ici, sans là ; deux « CA » sur le même accueil ; l'IA disait « 0
+billet » quand le tableau en montrait 84). Règles :
+
+- **Un nom = une formule, partout** : `src/lib/metrics.ts` (testé) est le
+  dictionnaire — CA, Ce que tu touches, Billets, Tables, Guest list, Entrées,
+  Présence, Remplissage, Dépense par tête, Panier, Clients, Nouveaux, Habitués,
+  Visites, Conversion. Libellés `m.*`, définitions ⓘ `gl.*` (×3). Un chiffre
+  nouveau prend un nom du dictionnaire ou y entre ; jamais un synonyme.
+  `MIN_SAMPLE = 10` : en dessous, pas de pourcentage ni de répartition (âge,
+  sexe, conversion) ; `readableDelta` passe à l'écart absolu au-delà de ±300 %.
+  Les totaux d'une liste de commandes ne comptent que le PAYÉ.
+- **Grammaire d'un écran d'analyse** : une phrase-réponse (`AnswerLine`) →
+  quatre chiffres avec leur écart (`KpiRow`/`KpiTile` + `DeltaBadge`) → un
+  graphique par soirée → une liste classée (`RankedList`) → le tableau des
+  soirées → le reste dans `MoreDetail` replié. Blocs dans
+  `src/components/analytics/kit.tsx` (`BulletBar` = jauge avec le trait de la
+  référence, `StackBar`, `EmptyAnswer`, `ChoicePills`), formats dans
+  `kitFormat.ts` (`useKpiFormat`). Un écran qui affiche plus de quatre
+  chiffres en tête a oublié de choisir.
+- **Les périodes se comptent en SOIRÉES, pas en jours** :
+  `get_sales_overview(p_venue_id, p_organizer_user_id, p_period)` (migration
+  `20260925130000`, `last` | `last4` | `month` | `year` | `all`) ne prend que
+  les soirées PASSÉES et les compare au même nombre de soirées juste avant.
+  Formules de `get_events_sales_summary` ; Entrées = billets scannés
+  (quantité) + convives de table arrivés + guest list scannée. Elle sert
+  Ventes › Vue d'ensemble (`SalesOverviewView`, un pilier à la fois, détail
+  historique par pilier dans `SalesPillarDetail`) ET le bloc « Tes 4
+  dernières soirées » des accueils club et orga (`RecentNightsKpis`) : l'accueil
+  ne calcule plus son propre CA. Les graphes et « Top soirées » des accueils
+  sont supprimés ; il reste ce bloc, « Vos prochaines soirées » et deux
+  actions conseillées.
+- **Rapport de soirée = une phrase d'abord** (`ReportAnswer`,
+  `reportHeadline`, testé) : avant, « 92 billets vendus à J-3 sur 650, 21 de
+  plus que <référence> au même moment » ; après, entrées / attendus, CA et
+  dépense par tête. `get_event_report` rend `totals.door {entered, expected}`
+  (migration `20260925140000`). Les jauges portent le trait de la soirée de
+  référence au même J-N ; la prévision Hype tient en UNE ligne
+  (`HypeProjectionLine`), score et calibration repliés ; le verdict passe
+  dans « Bilan complet » replié. Une soirée sans vente ni entrée n'est pas
+  notée (`reportHasActivity`).
+- **Trafic = deux vues, Communauté = quatre** (`analyticsNav.ts`,
+  `LEGACY_VIEWS` : `sources` → `page`, `tastes` → `demographics`).
+  `get_page_traffic` rend les achats (`ordered`) de la page et de chaque
+  source (migration `20260925150000`) : la conversion s'affiche dès 10 visites.
+- **Démo, soirées PASSÉES** : `scripts/demo/seed-past-nights.sql` (rejouable,
+  45 derniers jours, borné à `demo_event_ids()`) sème ventes et entrées des
+  soirées passées — sans lui Ventes et « Tes 4 dernières soirées » sont vides.
+  Le relancer quand les dates passent, comme `seed-upcoming-sales.sql`.
+- **Migration sans CLI** : `POST https://api.supabase.com/v1/projects/<ref>/database/query`
+  avec `SUPABASE_ACCESS_TOKEN`, puis la ligne dans
+  `supabase_migrations.schema_migrations` et `notify pgrst, 'reload schema'`
+  (sinon PostgREST rend 404 sur la fonction neuve). Toute réécriture part de
+  `pg_get_functiondef` sur la base liée.
 
 ## Backend Supabase — gotchas critiques
 

@@ -378,6 +378,19 @@ proxy importée dans `~/.pki/nssdb` avec `certutil`).
 | Communauté › Abonnés | ≈ 15 | 5 |
 | Trafic (3 vues) | 13 | 7 (2 vues) |
 
+
+### État au 25/09 (soir)
+
+| Lot | État | Commit |
+|---|---|---|
+| 1 | Livré. `metrics.ts` + test, totaux Commandes sur le payé, guest list sans annulés, uniques non additionnés, « Articles / commande », Comptabilité, IA des actions conseillées lue sur les ventes réelles. | `50b7ea5` |
+| 2 | Livré. « Tes 4 dernières soirées » (`RecentNightsKpis`, même RPC que Ventes) sur les accueils club et orga ; graphiques, « Top soirées » et CA brut retirés ; deux actions conseillées. | `47e5f2b` |
+| 3 | Livré. `get_sales_overview` (périodes en soirées) + `SalesOverviewView` ; piliers au même gabarit ; ancien détail replié par pilier. **Écart** : « Ce que tu touches » reste une ligne sous les chiffres (part seule côté orga) au lieu de partir en Finance — une ligne, pas un bloc. | `6039f6c` |
+| 4 | Livré. Phrase-réponse, jauges avec trait de référence, prévision en une ligne, trafic + canaux sous une question, verdict et prévision repliés, état vide, âge / sexe sous seuil masqués. | `bc1174e` |
+| 5 | Livré. Trafic 3 → 2 (Sources dans Ma page, conversion et achats par source). **Écart** : Communauté 5 → 4 (Vue d'ensemble · Abonnés · Achats · Public avec Goûts) — Achats garde sa vue, resserrée à quatre chiffres. | `2906fa3` |
+| 6 | Livré. Service VIP à quatre chiffres + analyse repliée, libellés Clients, guest list « attendus », 12 composants morts supprimés. | `e25538b` |
+| 7 | Doc, mode d'emploi, Assistant Console et CLAUDE.md à jour. **Nouveautés NON faites** : objectif de soirée + rythme, « À retenir », récap du lendemain, repères sur la courbe — prochain chantier. | lot 7 |
+
 ---
 
 ## Annexe — sources consultées
