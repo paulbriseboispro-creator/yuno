@@ -26,7 +26,7 @@ import type { PostHog } from 'posthog-js';
 import { CONSENT_CHANGE_EVENT, hasAnalyticsConsent } from '@/lib/consent';
 import { isNative, isProApp, isProPath } from '@/lib/native';
 import { isSupportSessionActive } from '@/lib/supportSession';
-import { currentSurface } from '@/lib/posthogSurface';
+import { currentSurface, purchaseSurface } from '@/lib/posthogSurface';
 
 const KEY = (import.meta.env.VITE_POSTHOG_KEY as string | undefined)?.trim() || '';
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined)?.trim() || 'https://eu.i.posthog.com';
@@ -338,4 +338,33 @@ export function trackAppLifecycle() {
     return;
   }
   window.addEventListener('appinstalled', () => capturePosthog('pwa_installed'));
+}
+
+/** Contexte analytics joint à tout checkout / inscription guest list. */
+export type AnalyticsCheckoutContext = {
+  /** Consentement « mesure d'audience » au moment de l'achat (natif = acquis). */
+  consent: boolean;
+  /** Surface d'achat : web_app / pwa / ios_app / ios_pro. */
+  surface: string;
+  /** Identifiant PostHog du navigateur — seulement avec consentement. */
+  distinctId: string | null;
+};
+
+/**
+ * Voyage dans le corps des `create-*` puis dans les métadonnées Stripe
+ * (`ph_*`) : c'est ce qui permet à la capture serveur `order_paid_server`
+ * (supabase/functions/_shared/posthog.ts) de dire où la vente a eu lieu et,
+ * avec consentement seulement, de la relier à la personne.
+ */
+export function getAnalyticsCheckoutContext(): AnalyticsCheckoutContext {
+  const consent = hasAnalyticsConsent();
+  let distinctId: string | null = null;
+  if (consent && client) {
+    try {
+      distinctId = client.get_distinct_id() || null;
+    } catch {
+      distinctId = null;
+    }
+  }
+  return { consent, surface: purchaseSurface(), distinctId };
 }

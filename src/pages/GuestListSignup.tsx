@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
-import { capturePosthog } from '@/lib/posthog';
+import { capturePosthog, getAnalyticsCheckoutContext } from '@/lib/posthog';
 import type { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -703,6 +703,7 @@ export default function GuestListSignup() {
           lang: language,
           // Consentement publicité + identifiants Meta (Lead côté serveur).
           meta: getMetaCheckoutContext(),
+          analytics: getAnalyticsCheckoutContext(),
           // Lien unique (?invite=) OU lien public de la part.
           ...(inviteParam
             ? { inviteToken: inviteParam }

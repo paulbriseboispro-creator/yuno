@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { purgeServiceWorkersAndReload } from './swRecovery';
 import { getMetaCheckoutContext } from './metaPixel';
+import { getAnalyticsCheckoutContext } from './posthog';
 
 // Fonctions de vente : on leur joint le contexte Meta (consentement publicité,
 // identifiants _fbp/_fbc) pour que l'achat, confirmé plus tard par webhook,
@@ -79,6 +80,12 @@ export async function invokeEdgeFunction<T = any>(
       options = { ...options, body: { ...(options.body as Record<string, unknown>), meta: getMetaCheckoutContext() } };
     } catch {
       // Le contexte Meta est optionnel : jamais un obstacle au paiement.
+    }
+    try {
+      // Surface d'achat + consentement analytics → capture serveur PostHog.
+      options = { ...options, body: { ...(options.body as Record<string, unknown>), analytics: getAnalyticsCheckoutContext() } };
+    } catch {
+      // Idem : l'analytics n'empêche jamais un paiement.
     }
   }
   const result = await supabase.functions.invoke<T>(name, options);

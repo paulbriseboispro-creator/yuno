@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { capturePosthog } from '@/lib/posthog';
+import { capturePosthog, getAnalyticsCheckoutContext } from '@/lib/posthog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useAuth } from '@/hooks/useAuth';
@@ -471,6 +471,7 @@ export default function GuestListCheckout() {
           ...(trackedLinkId ? { trackedLinkId } : {}),
           // Consentement publicité + identifiants Meta (Lead côté serveur).
           meta: getMetaCheckoutContext(),
+          analytics: getAnalyticsCheckoutContext(),
           // Langue lue par l'invité = langue de son email de confirmation.
           lang: language,
           gender: gender || undefined,
