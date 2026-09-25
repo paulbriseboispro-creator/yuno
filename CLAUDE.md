@@ -1038,10 +1038,15 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
   `public`, mot de passe posé HORS migration au branchement de la source
   PostHog (pooler `aws-0-eu-west-1.pooler.supabase.com:5432`, utilisateur
   `posthog_reader.<ref>`). Ajouter une vue = pas de colonne email / nom /
-  téléphone / IP / QR / remarque, jamais.
+  téléphone / IP / QR / remarque, jamais. Source PostHog branchée le 25/09
+  (préfixe de tables `yunopostgres_`, copie complète toutes les 6 h). **Une vue
+  SANS aucune ligne ne crée pas de table côté PostHog** : le script lit la
+  liste réelle (`warehouse_tables`) et remplace par une tuile texte toute
+  tuile SQL dont les tables manquent — le rejouer quand les premières ventes
+  réelles arrivent (billets, tables, commandes, clubs sont vides hors démo).
 - **Le dashboard est du code** : `scripts/posthog/pilotage.mjs`
   (`POSTHOG_PERSONAL_API_KEY=phx_… node scripts/posthog/pilotage.mjs
-  [--warehouse <préfixe des tables>]`), idempotent, qui pose aussi les
+  --warehouse yunopostgres_`, dashboard 975173 du projet 284316), idempotent, qui pose aussi les
   filtres « comptes de test » du projet (`is_demo = true`, `surface =
   admin`) et l'épingle en accueil. Neuf sections dans CET ordre : 0 lecture,
   1 coup d'œil (12 chiffres comparés), 2 ventes, 3 tunnel, 4 surfaces,

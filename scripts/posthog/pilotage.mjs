@@ -118,6 +118,20 @@ function lifecycle(event) {
   };
 }
 
+// Tables de l'entrepôt réellement présentes côté PostHog : une vue sans aucune
+// ligne ne crée pas de table, et une requête qui la cite échouerait. Les
+// tuiles SQL ne lisent que ce qui existe ; sinon une tuile texte tient la place.
+let WH_TABLES = new Set();
+const has = (t) => !!WH && WH_TABLES.has(`${WH}${t}`);
+// Achats / inscriptions présents : (event_id, buyer_key, instant) de chaque pilier.
+function salesUnion() {
+  const parts = [];
+  if (has('tickets')) parts.push(`SELECT event_id, buyer_key, paid_at AS at FROM ${WH}tickets WHERE status = 'paid'`);
+  if (has('table_reservations')) parts.push(`SELECT event_id, buyer_key, paid_at AS at FROM ${WH}table_reservations WHERE status = 'paid'`);
+  if (has('guest_list_entries')) parts.push(`SELECT event_id, buyer_key, created_at AS at FROM ${WH}guest_list_entries`);
+  return parts.length ? parts.join(' UNION ALL ') : null;
+}
+
 function sql(query, display = 'ActionsTable') {
   return { kind: 'DataVisualizationNode', source: { kind: 'HogQLQuery', query }, display };
 }
@@ -132,6 +146,13 @@ function sections() {
   const H = (title, line) => S.push({ text: `## ${title}\n${line}`, w: 12, h: 2 });
   const T = (name, description, query, w = 6, h = 7) => S.push({ name, description, query, w, h });
   const N = (name, description, query) => T(name, description, query, 2, 5);
+  // Tuile SQL de l'entrepôt : `build()` rend la requête, ou null si les tables
+  // nécessaires n'existent pas encore — une tuile texte garde alors la place.
+  const W = (name, description, build, display, fillsWhen) => {
+    const q = WH ? build() : null;
+    if (q) return T(name, description, sql(q, display));
+    S.push({ text: `**${name}**\n\n${description}\n\n_Se remplira ${fillsWhen}._`, w: 6, h: 7 });
+  };
 
   S.push({
     text: [
@@ -187,25 +208,24 @@ function sections() {
   // 5 · Communauté
   H('5 · Communauté — les clients reviennent-ils ?', 'Nouveaux, revenants, fidélité après un premier achat. Décide des campagnes de rétention.');
   T('Nouveaux vs revenants', 'Acheteurs par semaine : nouveaux, revenants, de retour, perdus. Partiel : acheteurs ayant accepté la mesure.', lifecycle(PAID));
-  T('Sorties par mois', "Nombre de soirées par acheteur et par mois, depuis la base (acheteurs uniques, invités compris)." , WH
-    ? sql(`SELECT n AS soirees, count() AS acheteurs FROM (SELECT buyer_key, toStartOfMonth(paid_at) m, count(DISTINCT event_id) n FROM ${WH}tickets WHERE status = 'paid' AND paid_at >= now() - INTERVAL 180 DAY GROUP BY buyer_key, m) GROUP BY n ORDER BY n`)
-    : trend({ series: [ev(PAID, { math: 'dau' })], interval: 'month', display: 'ActionsBar' }));
+  W('Sorties par mois', 'Nombre de soirées par personne et par mois (billets, tables, guest list), lu dans la base — invités sans compte compris.', () => {
+    const u = salesUnion();
+    return u && `SELECT n AS soirees, count() AS personnes FROM (SELECT buyer_key, toStartOfMonth(at) AS m, count(DISTINCT event_id) AS n FROM (${u}) WHERE at >= now() - INTERVAL 180 DAY GROUP BY buyer_key, m) GROUP BY n ORDER BY n`;
+  }, 'ActionsTable', "dès la première vente ou inscription copiée depuis la base");
   T('Rétention après un 1er achat', 'Part des acheteurs qui achètent à nouveau le mois N après leur premier achat.', retention({ target: PAID, returning: PAID, period: 'Month', total: 7 }), 12, 8);
   T('Recherches sans résultat', 'Ce que les gens cherchent sans trouver (villes, clubs, artistes) : la demande sans offre.' + ONLY_AFTER_DEPLOY, trend({ series: [ev('search_performed')], breakdown: 'query', display: 'ActionsTable', filters: [p('has_results', 'false')] }));
   T('Favoris et suivis', 'Soirées ajoutées en favori, clubs / organisateurs suivis.' + ONLY_AFTER_DEPLOY, trend({ series: [ev('favorite_toggled', { properties: [p('favorited', 'true')] }), ev('follow_toggled', { properties: [p('following', 'true')] })], display: 'ActionsBar' }));
 
   // 6 · Offre
   H('6 · Offre — la marketplace grandit-elle ?', "Soirées, clubs, capacité et adoption des pros, lus dans la base Yuno (copiée chaque jour). Décide qui accompagner.");
-  if (WH) {
-    T('Soirées publiées par semaine et pays', 'Soirées mises en ligne (published_at) par semaine, par pays du lieu.', sql(`SELECT toStartOfWeek(published_at) AS semaine, coalesce(market_country, '?') AS pays, count() AS soirees FROM ${WH}events WHERE published_at >= now() - INTERVAL 180 DAY GROUP BY semaine, pays ORDER BY semaine`, 'ActionsBar'));
-    T('Clubs et organisateurs actifs', 'Clubs et organisateurs ayant au moins une soirée publiée à venir ou dans les 30 derniers jours.', sql(`SELECT countIf(DISTINCT venue_id, venue_id IS NOT NULL) AS clubs, countIf(DISTINCT organizer_user_id, organizer_user_id IS NOT NULL) AS organisateurs FROM ${WH}events WHERE is_published AND start_at >= now() - INTERVAL 30 DAY`));
-    T('Liquidité', 'Part des soirées publiées (passées, 90 j) avec au moins une vente ou inscription.', sql(`SELECT round(100 * countIf(s > 0) / count(), 1) AS pct_soirees_avec_vente, count() AS soirees FROM (SELECT e.event_id, (SELECT count() FROM ${WH}tickets t WHERE t.event_id = e.event_id AND t.status = 'paid') + (SELECT count() FROM ${WH}table_reservations r WHERE r.event_id = e.event_id AND r.status = 'paid') + (SELECT count() FROM ${WH}guest_list_entries g WHERE g.event_id = e.event_id) AS s FROM ${WH}events e WHERE e.is_published AND e.start_at < now() AND e.start_at >= now() - INTERVAL 90 DAY)`));
-    T('Capacité mise en vente vs vendue', 'Billets mis en vente (paliers) et vendus, soirées des 90 derniers jours et à venir.', sql(`SELECT e.market_country AS pays, sum(r.max_tickets) AS mis_en_vente, sum(r.tickets_sold) AS vendus, round(100 * sum(r.tickets_sold) / nullIf(sum(r.max_tickets), 0), 1) AS pct FROM ${WH}ticket_rounds r JOIN ${WH}events e ON e.event_id = r.event_id WHERE e.start_at >= now() - INTERVAL 90 DAY GROUP BY pays`));
-  } else {
-    for (const n of ['Soirées publiées par semaine et pays', 'Clubs et organisateurs actifs', 'Liquidité', 'Capacité mise en vente vs vendue']) {
-      S.push({ text: `**${n}**\n\nSe remplira quand l'entrepôt (base Yuno → PostHog) sera branché.`, w: 6, h: 5 });
-    }
-  }
+  const when = "quand la base Yuno aura les lignes nécessaires (copie toutes les 6 h)";
+  W('Soirées publiées par semaine et pays', 'Soirées mises en ligne (published_at) par semaine, par pays du lieu.', () => has('events') && `SELECT toStartOfWeek(published_at) AS semaine, coalesce(market_country, '?') AS pays, count() AS soirees FROM ${WH}events WHERE published_at >= now() - INTERVAL 180 DAY GROUP BY semaine, pays ORDER BY semaine`, 'ActionsTable', when);
+  W('Clubs et organisateurs actifs', 'Clubs et organisateurs ayant au moins une soirée publiée à venir ou dans les 30 derniers jours.', () => has('events') && `SELECT count(DISTINCT venue_id) AS clubs, count(DISTINCT organizer_user_id) AS organisateurs FROM ${WH}events WHERE is_published AND start_at >= now() - INTERVAL 30 DAY`, 'ActionsTable', when);
+  W('Liquidité', 'Part des soirées publiées passées (90 j) qui ont eu au moins une vente ou inscription.', () => {
+    const u = salesUnion();
+    return has('events') && u && `SELECT round(100 * countIf(s.has = 1) / count(), 1) AS pct_soirees_avec_vente, count() AS soirees FROM ${WH}events e LEFT JOIN (SELECT DISTINCT event_id, 1 AS has FROM (${u})) s ON s.event_id = e.event_id WHERE e.is_published AND e.start_at < now() AND e.start_at >= now() - INTERVAL 90 DAY`;
+  }, 'ActionsTable', when);
+  W('Capacité mise en vente vs vendue', 'Billets mis en vente (paliers) et vendus, soirées des 90 derniers jours et à venir, par pays.', () => has('ticket_rounds') && has('events') && `SELECT e.market_country AS pays, sum(r.max_tickets) AS mis_en_vente, sum(r.tickets_sold) AS vendus, round(100 * sum(r.tickets_sold) / nullIf(sum(r.max_tickets), 0), 1) AS pct FROM ${WH}ticket_rounds r JOIN ${WH}events e ON e.event_id = r.event_id WHERE e.start_at >= now() - INTERVAL 90 DAY GROUP BY pays`, 'ActionsTable', 'dès la première billetterie ouverte sur une vraie soirée');
   T('Tunnel pro', "Inscription landing → compte → Console → Stripe → 1re soirée publiée, avec le délai médian entre étapes.", funnel({ steps: [ev('pro_signup_opened'), ev('pro_signup_account_created'), ev('$pageview', { properties: [p('surface', 'console')] }), ev('stripe_connect_completed'), ev('pro_event_published')], windowDays: 60 }), 12, 8);
   T('Adoption des fonctionnalités', 'Pros qui ont utilisé chaque outil dans la période.' + ONLY_AFTER_DEPLOY, trend({ series: [
     ev('pillar_toggled', { math: 'dau', name: 'Piliers activés', properties: [p('enabled', 'true')] }),
@@ -215,11 +235,14 @@ function sections() {
     ev('push_campaign_sent', { math: 'dau' }),
     ev('sms_campaign_sent', { math: 'dau' }),
   ], display: 'ActionsBarValue' }));
-  if (WH) {
-    T('Pros à risque', "Clubs et organisateurs sans soirée publiée depuis 30 jours (et aucune à venir).", sql(`SELECT 'club' AS type, v.venue_id AS id, v.market_city AS ville FROM ${WH}venues v WHERE v.is_live AND v.venue_id NOT IN (SELECT venue_id FROM ${WH}events WHERE is_published AND start_at >= now() - INTERVAL 30 DAY AND venue_id IS NOT NULL) UNION ALL SELECT 'organisateur', toString(o.organizer_user_id), o.market_city FROM ${WH}organizers o WHERE o.organizer_user_id NOT IN (SELECT organizer_user_id FROM ${WH}events WHERE is_published AND start_at >= now() - INTERVAL 30 DAY AND organizer_user_id IS NOT NULL)`));
-  } else {
-    S.push({ text: "**Pros à risque**\n\nSe remplira quand l'entrepôt (base Yuno → PostHog) sera branché.", w: 6, h: 5 });
-  }
+  W('Pros à risque', 'Clubs en ligne et organisateurs sans soirée publiée depuis 30 jours ni à venir : à rappeler.', () => {
+    if (!has('events')) return null;
+    const recent = (col) => `SELECT ${col} FROM ${WH}events WHERE is_published AND start_at >= now() - INTERVAL 30 DAY AND ${col} IS NOT NULL`;
+    const parts = [];
+    if (has('venues')) parts.push(`SELECT 'club' AS type, v.venue_id AS id, v.market_city AS ville FROM ${WH}venues v WHERE v.is_live AND v.venue_id NOT IN (${recent('venue_id')})`);
+    if (has('organizers')) parts.push(`SELECT 'organisateur' AS type, toString(o.organizer_user_id) AS id, o.market_city AS ville FROM ${WH}organizers o WHERE o.organizer_user_id NOT IN (${recent('organizer_user_id')})`);
+    return parts.length ? parts.join(' UNION ALL ') : null;
+  }, 'ActionsTable', when);
   T('Console web vs app Pro', 'Pros actifs sur 7 jours glissants : Console (web) et app Yuno Pro.', trend({ series: [ev('$pageview', { math: 'weekly_active' })], breakdown: 'surface', interval: 'day', filters: [p('surface', ['console', 'ios_pro'])] }));
   T('Messages envoyés par les pros', 'Campagnes email, push et SMS envoyées depuis la Console.', trend({ series: [ev('email_campaign_sent'), ev('push_campaign_sent'), ev('sms_campaign_sent')], display: 'ActionsBar' }));
 
@@ -254,6 +277,12 @@ async function main() {
   const projectId = me.team?.id ?? me.team?.project_id;
   if (!projectId) throw new Error('Projet PostHog introuvable');
   console.log(`Projet ${me.team?.name} (${projectId})`);
+
+  if (WH) {
+    const tables = await api('GET', `/api/projects/${projectId}/warehouse_tables/?limit=500`);
+    WH_TABLES = new Set((tables.results ?? []).map((t) => t.name));
+    console.log(`Entrepôt : ${[...WH_TABLES].filter((n) => n.startsWith(WH)).join(', ') || 'aucune table'}`);
+  }
 
   // Comptes « de test » = démo + super admin : exclus de chaque insight.
   await api('PATCH', `/api/projects/${projectId}/`, {
