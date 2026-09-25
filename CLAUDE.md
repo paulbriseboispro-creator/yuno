@@ -871,6 +871,22 @@ billet » quand le tableau en montrait 84). Règles :
   - Un organisateur partenaire voit le CA de toute la co-soirée : en barème,
     sa rémunération EST un pourcentage de ce total.
   - RPC d'analyse pro : jamais `anon` (`20260925189000`).
+  - **Postgres accorde EXECUTE à PUBLIC par défaut** : 45 fonctions SECURITY
+    DEFINER qui écrivent sans lire `auth.uid()` étaient appelables par un
+    visiteur anonyme — créditer des SMS, distribuer des points, appliquer un
+    avenant collab, marquer « servies » des boissons payées, effacer des
+    factures. `20260925193000` les range : service_role seul quand seuls une
+    edge au service role, un cron, un trigger ou une fonction DEFINER les
+    appellent ; `authenticated` pour la Console ; `anon` gardé pour ce qui
+    sert un visiteur (suivi, bio, liste d'attente, désinscription par jeton,
+    aperçu de code promo, landing, accusé push iOS). **Toute nouvelle fonction
+    SECURITY DEFINER finit par son REVOKE / GRANT explicite.** Inventaire à
+    rejouer : `prosecdef` + `has_function_privilege('anon', …)` + corps qui
+    écrit sans `auth.uid()`.
+  - Archiver n'est pas servir : `archive_expired_event_orders` ne pose plus
+    que `archived` (cron SQL `archive-stale-orders`). Les trois crons qui
+    appelaient des edge disparues (404 horaires) sont retirés ; l'ancien
+    travail supprimait des commandes payées et des factures, il ne revient pas.
 
 ## Backend Supabase — gotchas critiques
 
@@ -883,10 +899,8 @@ billet » quand le tableau en montrait 84). Règles :
   **2026-08-06 : `agency-assistant` (fonction neuve) s'est déployée sans 402** — le cap
   ne bloque plus ; les fonctions codées-mais-jamais-déployées (auth mineurs, staff PIN,
   `promoter-payout-notify`) sont probablement déployables, à retenter.
-  Pour `promoter-payout-notify` : le cycle de règlement fonctionne sans elle (les
-  demandes d'accusé de réception s'affichent dans l'app et la bascule en litige est
-  un cron SQL), mais le promoteur n'est pas poussé sur son téléphone tant qu'elle
-  n'est pas déployée.
+  `promoter-payout-notify` EST déployée (constaté le 25/09) : elle embarque
+  `_shared/auto-push.ts`, la redéployer avec les autres quand il change.
 - **`events` a DEUX clés vers `venues`** (`venue_id`, `partner_venue_id`) : un
   `venues(…)` embarqué depuis `events` (ou sous `events!inner(…)`) est refusé
   par PostgREST (PGRST201) et la requête ENTIÈRE rend une erreur — liste vide,
