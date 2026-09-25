@@ -345,7 +345,15 @@ export function HomeBannerEditor({ open, onOpenChange, scope, current, identity,
             )}
           </div>
 
-          <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('homeBanner.tip')}</p>
+          {/* Format conseillé : toujours visible, pas seulement quand l'aperçu est vide. */}
+          <div className="flex items-start gap-2.5 rounded-xl px-3.5 py-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+            <ImagePlus className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: T2 }} />
+            <div className="min-w-0 space-y-1">
+              <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('homeBanner.formatTitle')}</p>
+              <p style={{ color: T2, fontSize: 11.5, lineHeight: 1.5 }}>{t('homeBanner.formatBody')}</p>
+              <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('homeBanner.tip')}</p>
+            </div>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-1" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
             <OrgButton variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>{t('homeBanner.cancel')}</OrgButton>
