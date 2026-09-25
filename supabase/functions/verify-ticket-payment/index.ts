@@ -5,6 +5,7 @@ import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush, localizedDate } from '../_shared/auto-push.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
+import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -172,6 +173,25 @@ serve(async (req) => {
         } catch (metaErr) {
           console.error('[META] purchase enqueue failed (non-blocking):', metaErr);
         }
+
+        // PostHog — `order_paid_server`, la vérité sur l'argent (une fois, sous
+        // la même transition). Fire-and-forget, ne lève jamais.
+        captureOrderPaid(supabaseAdmin, {
+          pillar: 'tickets',
+          orderId: ticketId,
+          payment: 'stripe',
+          eventId: ticket.event_id,
+          value: Number(ticket.total_price || 0),
+          clubRevenue: clubRevenue.ticket(ticket),
+          paidOnline: (session.amount_total ?? 0) / 100,
+          currency: session.currency,
+          quantity: ticket.quantity || 1,
+          hasPromoter: !!(session.metadata?.promoterId || session.metadata?.promoCode),
+          hasPromoCode: !!(session.metadata?.promoCodeId || ticket.promo_code_id),
+          userId: effectiveUserId ?? null,
+          buyerEmail: session.customer_details?.email || session.customer_email || ticket.user_email || null,
+          ctx: analyticsContextFromStripeMetadata(session.metadata as Record<string, string> | null),
+        });
 
       // Consentement SMS marketing. Le chemin Stripe live ne l'enregistrait nulle
       // part : la case cochée au checkout atterrissait dans tickets.sms_opt_in et

@@ -15,6 +15,7 @@ import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
+import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 
 // Production mode - payments go through Stripe Connect
@@ -86,6 +87,7 @@ serve(async (req) => {
       purchaseSource, minorAuthDocUrl, language, trackedLinkId,
       // Contexte Meta (consentement pub, _fbp/_fbc) → métadonnées Stripe, relues par verify-ticket-payment.
       meta,
+      analytics,
     } = await req.json();
     const lang = resolveLang(language);
 
@@ -99,6 +101,7 @@ serve(async (req) => {
     // échec de vente. Voir _shared/tracked-link.ts.
     const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
     const metaCtx = parseMetaClientContext(meta, req);
+    const analyticsCtx = parseAnalyticsContext(analytics);
 
     if (!eventId || !ticketRoundId || !quantity) {
       throw new Error("Missing required fields");
@@ -1217,7 +1220,7 @@ serve(async (req) => {
         reservationId: reservationId || '',
         // Meta Conversions API : consentement + identifiants navigateur, relus au
         // moment où l'achat est confirmé (verify-ticket-payment).
-        ...metaContextToStripeMetadata(metaCtx),
+        ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx),
       },
       payment_intent_data: (() => {
         const clientTotalCents = split.grossAmountCents;

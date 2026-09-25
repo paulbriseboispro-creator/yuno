@@ -12,6 +12,7 @@ import {
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { isCompleteName } from "../_shared/guest-name.ts";
 import { parseMetaClientContext, enqueueMetaEvent, drainMetaOutboxInBackground } from "../_shared/meta-capi.ts";
+import { parseAnalyticsContext, captureOrderPaid } from "../_shared/posthog.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -114,6 +115,7 @@ serve(async (req) => {
       newsletterOptIn, smsOptIn, platformOptIn,
       // Contexte Meta (consentement pub, _fbp/_fbc) : une inscription guest list = `Lead`.
       meta,
+      analytics,
     } = await req.json();
     // Langue affichée au moment de l'inscription : c'est celle que l'invité
     // vient de lire, donc celle de son email de confirmation.
@@ -598,6 +600,22 @@ serve(async (req) => {
     } catch (metaErr) {
       console.error("[META] guest list lead enqueue failed (non-blocking):", metaErr);
     }
+
+    // PostHog — `order_paid_server` pilier guest list (gratuit, valeur 0) :
+    // une inscription est une venue promise, comptée à part des ventes.
+    captureOrderPaid(supabaseAdmin, {
+      pillar: "guest_list",
+      orderId: entry.id,
+      payment: "free",
+      eventId: (guestList.events as { id: string }).id,
+      venueId: guestList.venue_id ?? null,
+      value: 0,
+      clubRevenue: 0,
+      hasPromoter: !!promoterId,
+      userId: registrantUser?.id ?? null,
+      buyerEmail: email || null,
+      ctx: parseAnalyticsContext(analytics),
+    });
 
     // ── Consentement SMS ─────────────────────────────────────────────────────
     // Même helper que les checkouts billet et table : il normalise en E.164,

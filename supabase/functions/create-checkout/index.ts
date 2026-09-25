@@ -11,6 +11,7 @@ import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
+import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -138,9 +139,10 @@ serve(async (req) => {
     );
 
     // Parse request body
-    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration, purchaseSource, language, meta } = await req.json();
+    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration, purchaseSource, language, meta, analytics } = await req.json();
     // Contexte Meta (consentement pub, _fbp/_fbc) → métadonnées Stripe, relues par verify-payment.
     const metaCtx = parseMetaClientContext(meta, req);
+    const analyticsCtx = parseAnalyticsContext(analytics);
     const lang = resolveLang(language);
     // Tracked-link attribution persisted on the order. On revalide l'EXISTENCE (pas
     // juste le format) : un id périmé côté client — lien promoteur supprimé, reset démo,
@@ -731,7 +733,7 @@ serve(async (req) => {
         eventId: eventId || "",
         userId: user?.id || "",
         isGuest: isGuest ? "true" : "false",
-        ...metaContextToStripeMetadata(metaCtx),
+        ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx),
       },
       payment_intent_data: (() => {
         const clientTotalCents = Math.round(clientTotal * 100);

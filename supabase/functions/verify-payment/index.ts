@@ -3,6 +3,7 @@ import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from '../_shared/meta-capi.ts';
+import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -179,6 +180,22 @@ serve(async (req) => {
       } catch (metaErr) {
         console.error('[META] purchase enqueue failed (non-blocking):', metaErr);
       }
+
+      // PostHog — `order_paid_server` (une fois, sous la même transition).
+      captureOrderPaid(supabaseAdmin, {
+        pillar: 'drinks',
+        orderId,
+        payment: 'stripe',
+        eventId: order.event_id ?? null,
+        venueId: order.venue_id ?? null,
+        value: Number(order.total || 0),
+        clubRevenue: clubRevenue.order(order),
+        paidOnline: (session.amount_total ?? 0) / 100,
+        currency: session.currency,
+        userId: order.user_id ?? null,
+        buyerEmail: session.customer_details?.email || session.customer_email || order.user_email || null,
+        ctx: analyticsContextFromStripeMetadata(session.metadata as Record<string, string> | null),
+      });
 
       // Create invoice — resolve ownership for co-events (venue OR organizer)
       try {
