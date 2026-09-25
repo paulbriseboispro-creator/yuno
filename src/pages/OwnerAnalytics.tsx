@@ -2,17 +2,11 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Download, Ticket, Wine, Users, RotateCcw,
-  Lock as LockIcon, Percent, Eye, ShoppingCart, CreditCard,
-  MousePointerClick, TrendingUp, Layers, Flame, Clock,
-  ArrowUpRight, ArrowDownRight, Activity, ChevronDown,
-  DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
-  ClipboardList, Sofa,
-  } from 'lucide-react';
+  Lock as LockIcon, CreditCard, MousePointerClick, TrendingUp, Activity, Megaphone, Target, Crown,
+} from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subMinutes, subHours } from 'date-fns';
-import { fr, es, enUS } from 'date-fns/locale';
+import { subMinutes } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
@@ -20,35 +14,19 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import {
   useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow,
-  EMPTY_DRINK_ANALYTICS, EMPTY_TICKET_ANALYTICS, EMPTY_TABLE_ANALYTICS, periodDays } from '@/hooks/useAnalyticsData';
-import { useNightAnalytics } from '@/hooks/useNightAnalytics';
+  EMPTY_DRINK_ANALYTICS, EMPTY_TICKET_ANALYTICS, EMPTY_TABLE_ANALYTICS } from '@/hooks/useAnalyticsData';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
 import { AnalyticsEssentialView } from '@/components/analytics/AnalyticsEssentialView';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicker';
-import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
-import { DrinkAnalyticsSection } from '@/components/analytics/DrinkAnalyticsSection';
-import { DrinkOpsInsights } from '@/components/analytics/DrinkOpsInsights';
-import { VipTablesPillar } from '@/components/analytics/VipTablesPillar';
-import { EventsPnlLedger } from '@/components/analytics/EventsPnlLedger';
-import { GuestListAnalyticsSection } from '@/components/analytics/GuestListAnalyticsSection';
-import { TicketAnalyticsOverview } from '@/components/analytics/TicketAnalyticsOverview';
-import { TicketPillarInsights } from '@/components/analytics/TicketPillarInsights';
-import { TicketAnalyticsLaunch } from '@/components/analytics/TicketAnalyticsLaunch';
-import { TicketAnalyticsTypes } from '@/components/analytics/TicketAnalyticsTypes';
-import { TicketAnalyticsPhases } from '@/components/analytics/TicketAnalyticsPhases';
-import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSection';
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
-import { STRIPE_FEE_LABEL } from '@/utils/fees';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
 import { AnalyticsLoading } from '@/components/analytics/kit';
-import { SalesByDayChart } from '@/components/analytics/SalesByDayChart';
-import { buildSalesSeries } from '@/lib/salesSeries';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
 import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
@@ -60,17 +38,17 @@ import { useEventParam } from '@/hooks/useEventParam';
 import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
+import { SalesOverviewView } from '@/components/analytics/families/SalesOverviewView';
+import { SalesPillarDetail } from '@/components/analytics/families/SalesPillarDetail';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
 const POS = 'var(--acc-34d399)';
-const NEG = 'var(--acc-ff5c63)';
 const T1 = 'rgb(var(--ink)/var(--ink-a96,0.96))';
 const T2 = 'rgb(var(--ink)/var(--ink-a58,0.58))';
 const T3 = 'rgb(var(--ink)/var(--ink-a36,0.36))';
 const C_HI = 'rgb(var(--ink)/var(--ink-a92,0.92))';
 const C_MID = 'rgb(var(--ink)/var(--ink-a40,0.40))';
-const C_LO = 'rgb(var(--ink)/0.14)';
 const C_FAINT = 'rgb(var(--ink)/0.06)';
 const BORDER = 'rgb(var(--ink)/0.085)';
 const CARD_BG = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
@@ -125,24 +103,6 @@ function PCard({
   );
 }
 
-// ─── Delta badge ──────────────────────────────────────────────────────────────
-function Delta({ delta, vs }: { delta: number | null; vs?: string }) {
-  // Real period-over-period delta. Null when there's no comparable prior period
-  // (all-time, single-event, or no prior activity) — we render nothing rather than a fake number.
-  if (delta === null || !isFinite(delta)) return null;
-  const up = delta >= 0;
-  return (
-    <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold tabular-nums"
-      style={{ color: up ? POS : NEG }}>
-      {up
-        ? <ArrowUpRight className="w-3 h-3" />
-        : <ArrowDownRight className="w-3 h-3" />}
-      {Math.abs(delta).toFixed(1)}%
-      {vs && <span className="font-normal ml-1" style={{ color: T3 }}>{vs}</span>}
-    </span>
-  );
-}
-
 // ─── Zone heading (IA section separator) ──────────────────────────────────────
 function ZoneHeading({ icon, label, id }: { icon: React.ReactNode; label: string; id?: string }) {
   return (
@@ -150,254 +110,6 @@ function ZoneHeading({ icon, label, id }: { icon: React.ReactNode; label: string
       <span style={{ color: T2 }}>{icon}</span>
       <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{label}</h3>
     </div>
-  );
-}
-
-// ─── Catmull-Rom smooth path ──────────────────────────────────────────────────
-function smooth(pts: [number, number][]): string {
-  if (pts.length < 2) return '';
-  let d = `M ${pts[0][0]} ${pts[0][1]}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] ?? p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2[0]} ${p2[1]}`;
-  }
-  return d;
-}
-
-// ─── Sparkline ────────────────────────────────────────────────────────────────
-function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean }) {
-  const W = 96, H = 34, pad = 3;
-  // Une courbe à un seul point n'est qu'un point parasite sous le chiffre.
-  if (pts.length < 2) return <svg width={W} height={H} />;
-  const max = Math.max(...pts), min = Math.min(...pts), rng = max - min || 1;
-  const xs = pts.map((_, i) => pad + (i / Math.max(pts.length - 1, 1)) * (W - pad * 2));
-  const ys = pts.map(v => H - pad - ((v - min) / rng) * (H - pad * 2));
-  const linePts: [number, number][] = xs.map((x, i) => [x, ys[i]]);
-  const line = smooth(linePts);
-  const area = `${line} L ${xs[xs.length - 1]} ${H} L ${xs[0]} ${H} Z`;
-  const stroke = accent ? RED : C_HI;
-  const uid = `sg${pts.length}${Math.round((pts[0] ?? 0) * 10)}`;
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', flexShrink: 0 }}>
-      <defs>
-        <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={stroke} stopOpacity={0.22} />
-          <stop offset="1" stopColor={stroke} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${uid})`} />
-      <path d={line} fill="none" stroke={stroke} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
-      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={2.2} fill={stroke} />
-    </svg>
-  );
-}
-
-// ─── Revenue hourly bars ──────────────────────────────────────────────────────
-// Turn a sparse list of active hours into a continuous min→max hour range,
-// inserting revenue:0 for the gaps so the chart reads as a real timeline.
-function fillHourGaps(rows: { hour: string; revenue: number }[]): { hour: string; revenue: number }[] {
-  const byHour = new Map<number, number>();
-  rows.forEach(d => { const h = parseInt(d.hour); if (!Number.isNaN(h)) byHour.set(h, (byHour.get(h) || 0) + d.revenue); });
-  if (byHour.size === 0) return rows;
-  const hours = Array.from(byHour.keys());
-  const min = Math.min(...hours), max = Math.max(...hours);
-  const out: { hour: string; revenue: number }[] = [];
-  for (let h = min; h <= max; h++) out.push({ hour: `${h}h`, revenue: byHour.get(h) || 0 });
-  return out;
-}
-
-function RevenueBars({ data: raw }: { data: { hour: string; revenue: number }[] }) {
-  if (!raw.length) return null;
-  // Fill every hour between the first and last active hour so the x-axis reads
-  // as a continuous timeline instead of a few sparse bars floating in space.
-  const data = fillHourGaps(raw);
-  // Fixed wide viewBox (≈3.5:1) so the chart height stays sane regardless of bar
-  // count — bars are distributed across W instead of W growing per bar. With the
-  // old per-bar width, a single active hour (e.g. one arrival hour) made the
-  // viewBox tiny and stretching it to width:100% blew the height up into one
-  // giant red bar.
-  const W = 640, plotH = 180, labelH = 20, H = plotH + labelH;
-  const slot = W / data.length;
-  const bw = Math.min(28, slot * 0.6);
-  const maxVal = Math.max(...data.map(d => d.revenue), 1) * 1.1;
-  const peakIdx = data.reduce((m, d, i) => d.revenue > data[m].revenue ? i : m, 0);
-  // Thin out hour labels so they never collide; aim for ~8 labels max.
-  const labelEvery = Math.max(1, Math.ceil(data.length / 8));
-  return (
-    <div style={{ width: '100%', overflowX: 'hidden' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', width: '100%', height: 'auto' }}>
-        {[0.25, 0.5, 0.75].map((g, i) => (
-          <line key={i} x1={0} x2={W} y1={plotH - plotH * g} y2={plotH - plotH * g} stroke={C_FAINT} strokeWidth={1} />
-        ))}
-        {data.map((d, i) => {
-          const isEmpty = d.revenue <= 0;
-          // Empty hours render as a faint baseline tick, not a rounded sliver.
-          const bh = isEmpty ? 3 : Math.max(6, (d.revenue / maxVal) * plotH);
-          const y = plotH - bh;
-          // Clamp the corner radius to the bar's own height so short bars don't
-          // produce a malformed path (the little "U"/tab shapes at the baseline).
-          const r = Math.min(5, bw / 2, bh / 2);
-          const isPeak = i === peakIdx;
-          const showLabel = i % labelEvery === 0;
-          const x = i * slot + (slot - bw) / 2;
-          return (
-            <g key={i}>
-              {/* Animate the rect's own height/y so the bar grows from the
-                  baseline — robust across browsers (no transform-origin quirks). */}
-              <motion.rect
-                x={x} width={bw} rx={r}
-                fill={isPeak ? RED : C_MID}
-                initial={{ height: 0, y: plotH, opacity: 0 }}
-                animate={{ height: bh, y, opacity: isEmpty ? 0.25 : (isPeak ? 0.92 : 0.82) }}
-                transition={{ delay: i * 0.035, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              />
-              {showLabel && (
-                <text x={x + bw / 2} y={H - 4} fill={T3} fontSize={9} textAnchor="middle" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {d.hour}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-// ─── Conversion funnel ribbon ─────────────────────────────────────────────────
-// Band edges use horizontal-handle cubics: both control points sit on the x
-// midpoint, flat at each end. Catmull-Rom overshot on the uneven column spacing
-// (edge anchors sit half a column apart, inner ones a full column), which drew
-// phantom waves through stages that are actually flat — a funnel of 1 visitor
-// then zeros rippled instead of collapsing cleanly.
-function ribbonEdge(pts: [number, number][], move: boolean): string {
-  let d = `${move ? 'M' : 'L'} ${pts[0][0]} ${pts[0][1]}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [x1, y1] = pts[i];
-    const [x2, y2] = pts[i + 1];
-    if (y1 === y2) { d += ` L ${x2} ${y2}`; continue; }
-    const mx = (x1 + x2) / 2;
-    d += ` C ${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`;
-  }
-  return d;
-}
-
-// Every pill in the ribbon reads the same way: a whole percent, with one decimal
-// only when a real but tiny share would otherwise round away to 0%.
-function funnelPct(n: number, total: number): string {
-  if (!total) return '0%';
-  const v = (n / total) * 100;
-  return v > 0 && v < 1 ? `${v.toFixed(1)}%` : `${Math.round(v)}%`;
-}
-
-function FunnelRibbon({ stages }: { stages: { label: string; n: number; pct: string }[] }) {
-  if (!stages.length) return null;
-  const W = 900, H = 260, cy = H / 2;
-  const colW = W / stages.length;
-  const vmax = stages[0].n || 1;
-  const maxBand = 200;
-  // Floor applied after scaling: flooring before it gave each layer its own
-  // minimum, stacking three visible stripes across an empty funnel.
-  const HAIR = 2;
-  const hAt = (i: number, scale: number) => Math.max(HAIR, (stages[i].n / vmax) * maxBand * scale);
-  const centers = stages.map((_, i) => (i + 0.5) * colW);
-  const ax = [0, ...centers, W];
-
-  const layers = [
-    { scale: 1.0, fill: C_LO, op: 1 },
-    { scale: 0.66, fill: C_MID, op: 0.9 },
-    { scale: 0.36, fill: RED, op: 0.75 },
-  ];
-
-  const ribbons = layers.map((L, li) => {
-    const hs = [hAt(0, L.scale), ...stages.map((_, i) => hAt(i, L.scale)), hAt(stages.length - 1, L.scale)];
-    const top: [number, number][] = ax.map((x, i): [number, number] => [x, cy - hs[i] / 2]);
-    const bot: [number, number][] = ax.map((x, i): [number, number] => [x, cy + hs[i] / 2]).reverse();
-    const d = `${ribbonEdge(top, true)} ${ribbonEdge(bot, false)} Z`;
-    return <path key={li} d={d} fill={L.fill} opacity={L.op} />;
-  });
-
-  // Pills render as HTML on top of the ribbon: the SVG is stretched to fill the
-  // card (preserveAspectRatio="none"), which squashed the percentages inside it.
-  return (
-    <div className="relative" style={{ width: '100%' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', width: '100%', height: 220 }}>
-        {ribbons}
-        {stages.map((_, i) => i === 0 ? null : (
-          <line key={i} x1={i * colW} x2={i * colW} y1={18} y2={H - 18} stroke={BORDER} strokeWidth={1} />
-        ))}
-      </svg>
-      <div className="absolute inset-0 flex items-center pointer-events-none select-none">
-        {stages.map((s, i) => (
-          <div key={i} className="flex-1 flex justify-center">
-            <span
-              className="px-3 py-[5px] rounded-full text-[13px] font-bold leading-none tabular-nums"
-              style={{ background: 'rgb(var(--ink)/var(--ink-a94,0.94))', color: 'var(--sf-000000)' }}
-            >
-              {s.pct}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Donut chart ──────────────────────────────────────────────────────────────
-function DonutChart({ data }: { data: { name: string; val: number; pct: number }[] }) {
-  const S = 160, c = S / 2, r = 56, sw = 18;
-  const circ = 2 * Math.PI * r;
-  const gapDeg = 4;
-  const shades = [RED, C_HI, C_MID, C_LO];
-  let acc = 0;
-  const total = data.reduce((s, d) => s + d.pct, 0) || 100;
-  const segs = data.map((d, i) => {
-    const frac = d.pct / total;
-    const len = circ * frac - (circ * gapDeg / 360);
-    const off = circ * (acc / total) + (circ * gapDeg / 720);
-    acc += d.pct;
-    return (
-      <circle
-        key={i} cx={c} cy={c} r={r}
-        fill="none" stroke={shades[i % shades.length]} strokeWidth={sw}
-        strokeDasharray={`${Math.max(0, len)} ${circ - Math.max(0, len)}`}
-        strokeDashoffset={-off}
-        transform={`rotate(-90 ${c} ${c})`}
-        strokeLinecap="butt"
-      />
-    );
-  });
-  // Center label shows the dominant category, not data[0] (which made an empty
-  // first category like "Boissons" read "0%" while real revenue sat in others).
-  const hasData = data.some(d => d.val > 0);
-  const top = data.reduce((m, d) => (d.val > m.val ? d : m), data[0] ?? { name: '', val: 0, pct: 0 });
-  // Both lines are baseline-centred on their own y, and the pair is offset so the
-  // block sits on the ring's centre. Without a caption the value takes the centre
-  // outright — it used to keep the two-line offset and float above the middle.
-  const label = hasData ? top.name.split(' ')[0] : '';
-  const valueY = label ? c - 6 : c;
-  return (
-    <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ flexShrink: 0 }}>
-      <circle cx={c} cy={c} r={r} fill="none" stroke={C_FAINT} strokeWidth={sw} />
-      {segs}
-      <text x={c} y={valueY} fill={T1} fontSize={21} fontWeight={650} textAnchor="middle" dominantBaseline="central"
-        style={{ letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-        {hasData ? top.pct : 0}%
-      </text>
-      {label && (
-        <text x={c} y={c + 13} fill={T3} fontSize={10} textAnchor="middle" dominantBaseline="central"
-          style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {label}
-        </text>
-      )}
-    </svg>
   );
 }
 
@@ -428,28 +140,20 @@ export default function OwnerAnalytics() {
   // La soirée choisie vit dans l'URL (`?event=`) : un lien depuis la liste des
   // soirées ou le tableau de bord ouvre directement son analyse.
   const [selectedEventId, setSelectedEventId] = useEventParam();
-  const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
-  const [recentActivity, setRecentActivity] = useState(0);
-  const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'drinks' | 'tables' | 'refunds'>('overview');
-  const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
-  // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
-  const [showAdvancedZones, setShowAdvancedZones] = useState(false);
-  const [showOverviewDetail, setShowOverviewDetail] = useState(false);
 
   // Web-traffic zones (acquisition / engagement) share the page's main period
   // selector — one period control for the whole page, no separate hub filter.
   const webWindow = dateRangeToWindow(dateRange);
 
-  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   // Chaque jeu de chiffres ne se charge que sur les vues qui le lisent :
   // Trafic, Communauté ou En direct n'attendent plus ~70 requêtes de Ventes.
-  const needsSales = !hasAdvancedAnalytics
-    || (family === 'sales' && (view === 'overview' || (view === 'event' && showAdvancedZones)));
+  // Seul le plan Essentiel lit encore ce gros jeu de chiffres ; Ventes passe
+  // par `get_sales_overview` et le détail replié charge le sien à l'ouverture.
+  const needsSales = !hasAdvancedAnalytics;
   const {
-    drinkAnalytics: drinkRaw, ticketAnalytics: ticketRaw, tableAnalytics: tableRaw, refundAnalytics, events,
-    currentTotals, previousTotals, uniqueGuestsTotal, loading,
+    drinkAnalytics: drinkRaw, ticketAnalytics: ticketRaw, tableAnalytics: tableRaw, refundAnalytics, loading,
   } = useAnalyticsData({
     venueId, dateRange, mode, selectedEventId, enabled: needsSales,
   });
@@ -457,7 +161,6 @@ export default function OwnerAnalytics() {
   const drinkAnalytics = drinkRaw ?? EMPTY_DRINK_ANALYTICS;
   const ticketAnalytics = ticketRaw ?? EMPTY_TICKET_ANALYTICS;
   const tableAnalytics = tableRaw ?? EMPTY_TABLE_ANALYTICS;
-  const { nightAnalytics } = useNightAnalytics({ venueId, dateRange, mode, selectedEventId, enabled: needsSales && (mode === 'event' || showOverviewDetail) });
   const { promoterAnalytics, loading: promoterLoading } = usePromoterAnalytics({
     venueId, dateRange, mode, selectedEventId, enabled: family === 'sales' && view === 'partners',
   });
@@ -467,11 +170,8 @@ export default function OwnerAnalytics() {
     if (!venueId) return;
     const fetchLive = async () => {
       const fiveMinutesAgo = subMinutes(new Date(), 5);
-      const oneHourAgo = subHours(new Date(), 1);
       const { data: liveData } = await supabase.from('visitor_sessions').select('id').eq('venue_id', venueId).gte('visited_at', fiveMinutesAgo.toISOString());
       setLiveVisitors(liveData?.length || 0);
-      const { data: recentData } = await supabase.from('visitor_sessions').select('id').eq('venue_id', venueId).gte('visited_at', oneHourAgo.toISOString());
-      setRecentActivity(recentData?.length || 0);
     };
     fetchLive();
     const interval = setInterval(fetchLive, 10000);
@@ -481,56 +181,6 @@ export default function OwnerAnalytics() {
       .subscribe();
     return () => { clearInterval(interval); supabase.removeChannel(channel); };
   }, [venueId]);
-
-  const handleExportData = async () => {
-    if (!drinkAnalytics || !ticketAnalytics || !tableAnalytics) return;
-    setExporting(true);
-    try {
-      const rows: string[] = [];
-      rows.push('Yuno Analytics Export');
-      rows.push(`Date: ${format(new Date(), 'PPP', { locale: dateLocale })}`);
-      rows.push(`Period: ${dateRange}`);
-      rows.push('');
-      rows.push('=== DRINKS ===');
-      rows.push(`Total Revenue,${drinkAnalytics.totalRevenue.toFixed(2)}€`);
-      rows.push(`Net Revenue,${drinkAnalytics.netRevenue.toFixed(2)}€`);
-      rows.push(`Total Orders,${drinkAnalytics.totalOrders}`);
-      rows.push('');
-      rows.push('=== TICKETS ===');
-      rows.push(`Total Revenue,${ticketAnalytics.totalRevenue.toFixed(2)}€`);
-      rows.push(`Net Revenue,${ticketAnalytics.netRevenue.toFixed(2)}€`);
-      rows.push(`Total Tickets,${ticketAnalytics.totalTickets}`);
-      rows.push('');
-      rows.push('=== TABLES VIP ===');
-      rows.push(`Total Revenue,${tableAnalytics.totalRevenue.toFixed(2)}€`);
-      rows.push(`Net Revenue,${tableAnalytics.netRevenue.toFixed(2)}€`);
-      rows.push(`Total Reservations,${tableAnalytics.totalReservations}`);
-      if (refundAnalytics && refundAnalytics.totalRefundCount > 0) {
-        rows.push('');
-        rows.push('=== REFUNDS ===');
-        rows.push(`Total Refunded,${refundAnalytics.totalRefunded.toFixed(2)}€`);
-        rows.push(`Refund Count,${refundAnalytics.totalRefundCount}`);
-        rows.push(`Refund Rate,${refundAnalytics.refundRate.toFixed(1)}%`);
-        rows.push(`Average Refund,${refundAnalytics.avgRefundAmount.toFixed(2)}€`);
-        rows.push('');
-        rows.push('Type,Count,Amount');
-        refundAnalytics.refundsByType.forEach(r => rows.push(`${r.type},${r.count},${r.amount.toFixed(2)}€`));
-      }
-      const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `yuno-analytics-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Export error', e);
-    } finally {
-      setExporting(false);
-    }
-  };
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   // Le plan Essentiel n'affiche que les ventes : il attend donc ses chiffres.
@@ -584,45 +234,6 @@ export default function OwnerAnalytics() {
 
   // ── Pro / Elite ──────────────────────────────────────────────────────────────
 
-  // Aggregate KPI data — all on the same club-revenue base (Yuno fees excluded).
-  const totalRevenue = drinkAnalytics.totalRevenue + ticketAnalytics.totalRevenue + tableAnalytics.totalRevenue;
-  const totalOrders = drinkAnalytics.totalOrders + ticketAnalytics.totalTickets + tableAnalytics.totalReservations;
-  const totalStripeFee = drinkAnalytics.stripeFee + ticketAnalytics.stripeFee + tableAnalytics.stripeFee;
-  // Refunds line = fully-refunded bookings + partial refunds on still-paid rows (both club-side).
-  const partialRefunded = drinkAnalytics.partialRefunded + ticketAnalytics.partialRefunded + tableAnalytics.partialRefunded;
-  const totalRefunded = (refundAnalytics?.totalRefunded || 0) + partialRefunded;
-  // Net payout foots exactly: Gross − Stripe − Refunds.
-  const totalNetRevenue = totalRevenue - totalStripeFee - totalRefunded;
-  const totalGuests = uniqueGuestsTotal;
-
-  // Unified day series across all categories (not just drinks) for the KPI sparklines.
-  const dayKeys = Array.from(new Set([
-    ...drinkAnalytics.revenueByDay.map(d => d.date),
-    ...ticketAnalytics.revenueByDay.map(d => d.date),
-    ...tableAnalytics.revenueByDay.map(d => d.date),
-  ])).sort();
-  const revAt = (date: string) =>
-    (drinkAnalytics.revenueByDay.find(d => d.date === date)?.revenue || 0) +
-    (ticketAnalytics.revenueByDay.find(d => d.date === date)?.revenue || 0) +
-    (tableAnalytics.revenueByDay.find(d => d.date === date)?.revenue || 0);
-  const ordAt = (date: string) =>
-    (drinkAnalytics.revenueByDay.find(d => d.date === date)?.orders || 0) +
-    (ticketAnalytics.revenueByDay.find(d => d.date === date)?.tickets || 0) +
-    (tableAnalytics.revenueByDay.find(d => d.date === date)?.reservations || 0);
-  const grossSparkPts = dayKeys.map(revAt);
-  const ordersSparkPts = dayKeys.map(ordAt);
-  const aovSparkPts = grossSparkPts.map((r, i) => ordersSparkPts[i] ? r / ordersSparkPts[i] : 0);
-
-  // Combined hourly revenue across all categories for the main "Gross Revenue / hour" chart.
-  const combinedHourly = (() => {
-    const byHour = new Map<string, number>();
-    [drinkAnalytics.hourlyData, ticketAnalytics.hourlyData, tableAnalytics.hourlyData].forEach(arr =>
-      arr.forEach((d: any) => byHour.set(d.hour, (byHour.get(d.hour) || 0) + d.revenue)));
-    return Array.from(byHour.entries())
-      .map(([hour, revenue]) => ({ hour, revenue }))
-      .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
-  })();
-
   // Montants au format de la langue : « 321 € » / « 3,1 k€ » en français,
   // « €321 » / « €3.1K » en anglais — jamais un « €321 » figé.
   const fmt = (n: number) => new Intl.NumberFormat(
@@ -630,60 +241,7 @@ export default function OwnerAnalytics() {
     { style: 'currency', currency: 'EUR', notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(n) >= 10000 ? 1 : 0 },
   ).format(n);
 
-  // Real "vs previous period" deltas computed from the prior equal-length window.
-  const pctDelta = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
-  const revDelta = previousTotals && currentTotals ? pctDelta(currentTotals.revenue, previousTotals.revenue) : null;
-  const ordDelta = previousTotals && currentTotals ? pctDelta(currentTotals.orders, previousTotals.orders) : null;
-  const guestDelta = previousTotals && currentTotals ? pctDelta(currentTotals.guests, previousTotals.guests) : null;
-  const aovCur = currentTotals && currentTotals.orders > 0 ? currentTotals.revenue / currentTotals.orders : 0;
-  const aovPrev = previousTotals && previousTotals.orders > 0 ? previousTotals.revenue / previousTotals.orders : 0;
-  const aovDelta = previousTotals ? pctDelta(aovCur, aovPrev) : null;
-
-  // Ventes jour par jour (mois par mois au-delà de trois mois), sans trou.
-  const hourly = dateRange === '24h' || dateRange === '48h';
-  const { from: periodFrom, to: periodTo } = periodDays(dateRange);
-  const salesSeries = buildSalesSeries({
-    tickets: ticketAnalytics.revenueByDay,
-    tables: tableAnalytics.revenueByDay,
-    drinks: drinkAnalytics.revenueByDay,
-  }, periodFrom, periodTo);
-  const salesPillars = [
-    { key: 'tickets' as const, label: t('evs.tickets') },
-    { key: 'tables' as const, label: t('evs.tables') },
-    { key: 'drinks' as const, label: t('owner.drinksTab') },
-  ];
-
-  const kpis = [
-    { label: t('owner.an.grossRevenue'), val: fmt(totalRevenue), spark: grossSparkPts, icon: <TrendingUp className="w-4 h-4" />, delta: revDelta },
-    { label: t('owner.an.totalOrders'), val: totalOrders.toLocaleString(), spark: ordersSparkPts, icon: <ShoppingCart className="w-4 h-4" />, delta: ordDelta },
-    { label: t('owner.an.avgOrderValue'), val: totalOrders > 0 ? fmt(totalRevenue / totalOrders) : '€0', spark: aovSparkPts, icon: <CreditCard className="w-4 h-4" />, delta: aovDelta },
-    { label: t('owner.an.uniqueGuests'), val: totalGuests.toLocaleString(), spark: [], icon: <Users className="w-4 h-4" />, delta: guestDelta },
-  ];
-
-  // Funnel steps (drinks funnel data)
-  const funnelSteps = [
-    { label: t('owner.visitors'), n: drinkAnalytics.visitors, pct: funnelPct(drinkAnalytics.visitors, drinkAnalytics.visitors) },
-    { label: t('owner.addedToCart'), n: drinkAnalytics.addedToCart, pct: funnelPct(drinkAnalytics.addedToCart, drinkAnalytics.visitors) },
-    { label: t('owner.proceededToCheckout'), n: drinkAnalytics.proceededToCheckout, pct: funnelPct(drinkAnalytics.proceededToCheckout, drinkAnalytics.visitors) },
-    { label: t('owner.paidOrders'), n: drinkAnalytics.totalOrders, pct: funnelPct(drinkAnalytics.totalOrders, drinkAnalytics.visitors) },
-  ];
-
-  // Donut: revenue mix by category
-  const categories = [
-    { name: t('owner.an.drinks'), val: drinkAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(drinkAnalytics.totalRevenue / totalRevenue * 100) : 0 },
-    { name: t('owner.an.tickets'), val: ticketAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(ticketAnalytics.totalRevenue / totalRevenue * 100) : 0 },
-    { name: t('owner.an.vipTables'), val: tableAnalytics.totalRevenue, pct: totalRevenue > 0 ? Math.round(tableAnalytics.totalRevenue / totalRevenue * 100) : 0 },
-  ];
-
-  // Finance strip — Gross − Stripe − Refunds = Net Payout (now foots exactly).
-  const financeData = [
-    { label: t('owner.an.grossVolume'), val: fmt(totalRevenue), desc: `${totalOrders} ${t('owner.an.transactions')}` },
-    { label: 'Stripe', val: totalStripeFee > 0 ? `−${fmt(totalStripeFee)}` : '—', desc: STRIPE_FEE_LABEL },
-    { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmt(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
-    { label: t('owner.an.netPayout'), val: fmt(totalNetRevenue), desc: t('owner.an.settles2days') },
-  ];
-
-  // Period options
+  // Période des vues qui lisent encore une fenêtre d'achats (Sources, Achats, Public).
   const periodOptions = [
     { key: '24h' as DateRange, label: '24h' },
     { key: '48h' as DateRange, label: '48h' },
@@ -693,28 +251,9 @@ export default function OwnerAnalytics() {
     { key: 'alltime' as DateRange, label: t('owner.allTime') },
   ];
 
-  // Primary pillar navigation — the 3 sales pillars promoted to first-class
-  // destinations (each tab shows its own revenue), plus Overview and Refunds.
-  const pillarTabs = [
-    { id: 'overview' as const, label: t('owner.an.zoneOverview'), icon: Layers, value: fmt(totalRevenue) },
-    { id: 'tickets' as const, label: t('owner.ticketsTab'), icon: Ticket, value: fmt(ticketAnalytics.totalRevenue) },
-    { id: 'drinks' as const, label: t('owner.drinksTab'), icon: Wine, value: fmt(drinkAnalytics.totalRevenue) },
-    { id: 'tables' as const, label: t('owner.tablesVIP'), icon: Sofa, value: fmt(tableAnalytics.totalRevenue) },
-    { id: 'refunds' as const, label: t('owner.refundsTab'), icon: RotateCcw, value: (refundAnalytics && refundAnalytics.totalRefunded > 0) ? `−${fmt(refundAnalytics.totalRefunded)}` : '—' },
-  ];
-
-  // Event mode with no night chosen yet → show the calendar-style card picker
-  // instead of the full zone stack.
+  // Event mode with no night chosen yet → show the calendar-style card picker.
   const showEventPicker = mode === 'event' && !selectedEventId;
-
-  // Global-mode spine: only the zones that actually render get an anchor pill.
-  const hasNight = !!nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0);
   const hasPromoter = !!promoterAnalytics && promoterAnalytics.promoters.length > 0;
-  const navSections: AnchorSection[] = [
-    { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
-    ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
-    ...(venueId ? [{ id: 'an-guestlist', label: t('owner.an.guestList'), icon: ClipboardList }] : []),
-  ];
 
   // ── Zones rangées hors de Ventes › Vue d'ensemble (lot E) ────────────────
   const promoterZone = (<>
@@ -822,10 +361,9 @@ export default function OwnerAnalytics() {
 
   </div>);
   // Contrôles (période, export) : seulement là où ils changent quelque chose.
-  const showControls = !isLive && mode !== 'event'
-    && !(family === 'traffic' && view !== 'sources')
-    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes'));
-  const showExport = family === 'sales' && view === 'overview';
+  // Ventes porte sa propre période (en soirées) et son export.
+  const showControls = (family === 'traffic' && view === 'sources')
+    || (family === 'community' && (view === 'purchase' || view === 'demographics'));
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
@@ -872,15 +410,6 @@ export default function OwnerAnalytics() {
                 ))}
               </div>
             )}
-            {showExport && <button
-              onClick={handleExportData}
-              disabled={exporting || !hasExport}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40"
-              style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T1 }}>
-              {hasExport
-                ? <><Download className="w-4 h-4" /><span className="hidden sm:inline">{exporting ? t('owner.exporting') : t('owner.exportData')}</span><span className="sm:hidden">Export</span></>
-                : <><LockIcon className="w-4 h-4" /><span className="text-xs">Pro</span></>}
-            </button>}
           </div>
           )}
         </motion.div>
@@ -947,397 +476,19 @@ export default function OwnerAnalytics() {
           />
         )}
 
-        {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}
-        {mode === 'event' && selectedEventId && (
-          <button
-            type="button"
-            onClick={() => setShowAdvancedZones((v) => !v)}
-            className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
-            style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
-          >
-            <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
-              <Layers className="w-4 h-4" style={{ color: T3 }} />
-              {t('owner.an.advancedDetail')}
-            </span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedZones ? 'rotate-180' : ''}`} style={{ color: T3 }} />
-          </button>
-        )}
-
-        {(mode === 'global' || showAdvancedZones) && salesPending && <AnalyticsLoading />}
-
-        {(mode === 'global' || showAdvancedZones) && !salesPending && (
-        <>
-
-        {/* ── Primary pillar navigation — tickets / drinks / VIP tables promoted ── */}
-        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {pillarTabs.map(pt => {
-            const Icon = pt.icon;
-            const active = primaryView === pt.id;
-            return (
-              <button
-                key={pt.id}
-                onClick={() => { setPrimaryView(pt.id); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                className="text-left rounded-2xl px-4 py-3 cursor-pointer transition-all duration-150"
-                style={active
-                  ? { background: 'linear-gradient(180deg,rgba(232,25,44,.16),rgba(232,25,44,.05)),var(--sf-0a0a0c)', border: `1px solid rgba(232,25,44,0.5)`, boxShadow: `0 0 22px -8px ${RED}` }
-                  : { background: CARD_BG, border: `1px solid ${BORDER}` }}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Icon className="w-4 h-4 flex-none" style={{ color: active ? RED : T3 }} />
-                  <span className="text-[12.5px] font-[560] truncate" style={{ color: active ? T1 : T2 }}>{pt.label}</span>
-                </div>
-                <div className="text-[19px] font-[680] tabular-nums leading-none" style={{ color: active ? T1 : T2, letterSpacing: '-0.02em' }}>{pt.value}</div>
-              </button>
-            );
-          })}
-        </motion.div>
-
-        {primaryView === 'overview' && (
-        <>
-
-        {/* Anchor-nav spine — global mode only (event mode has its own in the verdict view) */}
-
-        {/* ── Zone 1 · Overview ─────────────────────────────────────────── */}
-        <ZoneHeading id="an-overview" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
-
-        {/* ── KPI row ───────────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {kpis.map((kpi, i) => (
-            <PCard key={i}>
-              <div className="flex flex-col min-h-[120px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>
-                    {kpi.label}
-                  </span>
-                  <span style={{ color: T3 }}>{kpi.icon}</span>
-                </div>
-                <div className="mt-3 text-[clamp(26px,3vw,36px)] font-[640] leading-none tabular-nums"
-                  style={{ color: T1, letterSpacing: '-0.025em' }}>
-                  {kpi.val}
-                </div>
-                <div className="mt-auto pt-3 flex items-end justify-between gap-2">
-                  <Delta delta={kpi.delta} vs="vs prev" />
-                  <Sparkline pts={kpi.spark} accent={i === 0} />
-                </div>
-              </div>
-            </PCard>
-          ))}
-        </motion.div>
-
-        {/* ── Revenue bars ──────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <PCard
-            icon={<TrendingUp className="w-4 h-4" />}
-            title={hourly ? t('owner.an.grossRevenueHourly') : salesSeries.unit === 'month' ? t('owner.an.revenueByMonth') : t('owner.an.revenueByDay')}
-            sub={t('owner.an.distributionOverPeriod')}
-            right={
-              <div className="text-right">
-                <div className="text-[clamp(22px,2.5vw,30px)] font-[640] tabular-nums leading-none" style={{ color: T1, letterSpacing: '-0.025em' }}>
-                  {fmt(totalRevenue)}
-                </div>
-                <div className="text-xs mt-1" style={{ color: T3 }}>
-                  {t('owner.an.totalPeriod')}
-                </div>
-              </div>
-            }
-          >
-            {hourly ? (
-              combinedHourly.length > 0
-              ? <RevenueBars data={combinedHourly} />
-              : <div className="h-40 flex items-center justify-center text-sm" style={{ color: T3 }}>
-                  {t('owner.an.noDataPeriod')}
-                </div>
-
-            ) : (
-              <SalesByDayChart series={salesSeries} pillars={salesPillars} />
+        {/* Ventes › Vue d'ensemble : le bilan des dernières soirées, pilier par
+            pilier, avec le détail hérité replié (plan de simplification). */}
+        {mode === 'global' && (
+          <SalesOverviewView
+            venueId={venueId}
+            eventHref={eventHref}
+            eventsHref={`${consolePrefix}/events`}
+            accountingHref={`${consolePrefix}/accounting`}
+            canExport={hasExport}
+            renderDetail={(pillar, period) => (
+              <SalesPillarDetail venueId={venueId} pillar={pillar} period={period} hasVipTables={hasVipTables} />
             )}
-          </PCard>
-        </motion.div>
-
-        {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-          <PCard
-            icon={<CreditCard className="w-4 h-4" />}
-            title={t('owner.an.settlement')}
-            sub={t('owner.an.payoutsViaStripe')}
-          >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {financeData.map((f, i) => (
-                <div key={i} className={i > 0 ? 'sm:border-l pl-0 sm:pl-4' : ''} style={{ borderColor: BORDER }}>
-                  <div className="text-[11px] uppercase tracking-[0.07em]" style={{ color: T3 }}>{f.label}</div>
-                  <div className="text-2xl font-[640] tabular-nums mt-2"
-                    style={{ color: f.val.startsWith('−') ? T2 : i === 3 ? T1 : T1, letterSpacing: '-0.02em' }}>
-                    {f.val}
-                  </div>
-                  <div className="text-[11.5px] mt-1.5" style={{ color: T3 }}>{f.desc}</div>
-                </div>
-              ))}
-            </div>
-          </PCard>
-        </motion.div>
-
-
-        {/* ── Bilan par soirée (cross-pillar P&L per night) ──────────────── */}
-        {venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-            <EventsPnlLedger venueId={venueId} from={webWindow.from} to={webWindow.to} />
-          </motion.div>
-        )}
-
-        {/* ── Le détail (parcours d'achat, top ventes, la nuit, guest list) :
-            replié. La vue d'ensemble répond à « combien ai-je vendu ? » en
-            quatre blocs, le reste se déplie à la demande. ─────────────── */}
-        <button
-          type="button"
-          onClick={() => setShowOverviewDetail((v) => !v)}
-          aria-expanded={showOverviewDetail}
-          className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
-          style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
-        >
-          <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
-            <Layers className="w-4 h-4" style={{ color: T3 }} />
-            {t('owner.an.salesDetail')}
-          </span>
-          <ChevronDown className={`w-4 h-4 transition-transform ${showOverviewDetail ? 'rotate-180' : ''}`} style={{ color: T3 }} />
-        </button>
-
-        {showOverviewDetail && (
-        <>
-        {/* ── Funnel + Donut ────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="grid lg:grid-cols-[3fr,2fr] gap-3">
-          {/* Conversion funnel */}
-          <PCard
-            icon={<Percent className="w-4 h-4" />}
-            title={t('owner.conversionFunnel')}
-            sub={t('owner.an.drinksFunnel')}
-            right={
-              <div className="text-right px-4 py-2 rounded-xl" style={{ background: 'rgba(232,25,44,0.08)', border: `1px solid rgba(232,25,44,0.2)` }}>
-                <div className="text-[10px] uppercase tracking-[0.07em] mb-1" style={{ color: T3 }}>{t('owner.globalRate')}</div>
-                <div className="text-2xl font-[660] tabular-nums" style={{ color: RED, letterSpacing: '-0.03em' }}>
-                  {drinkAnalytics.visitors > 0 ? `${drinkAnalytics.conversionRate.toFixed(1)}%` : '—'}
-                </div>
-              </div>
-            }
-          >
-            {drinkAnalytics.visitors > 0 ? (
-              <>
-                <FunnelRibbon stages={funnelSteps} />
-                <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${funnelSteps.length}, 1fr)` }}>
-                  {funnelSteps.map((s, i) => (
-                    <div key={i} className="text-center px-1" style={{ borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
-                      <div className="text-base font-[640] tabular-nums leading-tight" style={{ color: T1, letterSpacing: '-0.02em' }}>
-                        {s.n.toLocaleString()}
-                      </div>
-                      <div className="text-[11.5px] mt-1" style={{ color: T3 }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-center text-sm" style={{ height: 248, color: T3 }}>
-                {t('owner.an.noDataPeriod')}
-              </div>
-            )}
-          </PCard>
-
-          {/* Revenue mix donut */}
-          <PCard
-            icon={<Layers className="w-4 h-4" />}
-            title={t('owner.an.revenueMix')}
-            sub={t('owner.an.shareByCategory')}
-          >
-            <div className="flex items-center gap-4 flex-wrap">
-              <DonutChart data={categories} />
-              <div className="flex flex-col gap-3 flex-1 min-w-[140px]">
-                {categories.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-sm flex-none"
-                      style={{ background: i === 0 ? RED : i === 1 ? C_HI : C_MID }} />
-                    <span className="text-sm flex-1" style={{ color: T2 }}>{c.name}</span>
-                    <span className="text-[13.5px] font-[620] tabular-nums" style={{ color: T1 }}>
-                      {fmt(c.val)}
-                    </span>
-                    <span className="text-[11.5px] w-9 text-right tabular-nums" style={{ color: T3 }}>
-                      {c.pct}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </PCard>
-        </motion.div>
-
-        {/* ── Top sellers ───────────────────────────────────────────────── */}
-        {drinkAnalytics.topProducts.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <PCard
-              icon={<Flame className="w-4 h-4" />}
-              title={t('owner.an.topSellers')}
-              sub={t('owner.an.byRevenuePeriod')}
-            >
-              <div className="divide-y" style={{ borderColor: BORDER }}>
-                {drinkAnalytics.topProducts.slice(0, 6).map((p, i) => {
-                  const maxRev = drinkAnalytics.topProducts[0]?.revenue || 1;
-                  const barPct = (p.revenue / maxRev) * 100;
-                  return (
-                    <div key={i} className="grid items-center gap-4 py-3" style={{ gridTemplateColumns: '20px 1fr auto' }}>
-                      <span className="text-[12.5px] tabular-nums" style={{ color: T3 }}>
-                        {String(i + 1).padStart(2, '0')}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-[560] truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>{p.name}</div>
-                        <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
-                          {p.quantity} {t('owner.an.sold')}
-                        </div>
-                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
-                          <div
-                            className="h-full rounded transition-all"
-                            style={{
-                              width: `${barPct}%`,
-                              background: i === 0
-                                ? `linear-gradient(90deg,${RED}88,${RED})`
-                                : `linear-gradient(90deg,${C_MID},${C_HI})`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1, letterSpacing: '-0.01em' }}>
-                          {fmt(p.revenue)}
-                        </div>
-                        <div className="text-[11px] mt-1" style={{ color: T3 }}>
-                          {t('owner.an.revenue')}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </PCard>
-          </motion.div>
-        )}
-
-        {/* ── The Night: attendance / no-show / arrivals ─────────────────── */}
-        {nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0) && (() => {
-          const revenuePerHead = nightAnalytics.attendance > 0 ? totalRevenue / nightAnalytics.attendance : 0;
-          const nightTiles = [
-            { label: t('owner.an.attendance'), val: nightAnalytics.attendance.toLocaleString(), sub: t('owner.an.headsThroughDoor'), icon: <Footprints className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.ticketNoShow'), val: `${nightAnalytics.ticketNoShowRate.toFixed(0)}%`, sub: `${nightAnalytics.ticketsScanned}/${nightAnalytics.ticketsSold} ${t('owner.an.scanned')}`, icon: <UserCheck className="w-4 h-4" />, tone: nightAnalytics.ticketNoShowRate > 25 ? NEG : POS },
-            { label: t('owner.an.revenuePerHead'), val: fmt(revenuePerHead), sub: t('owner.an.clubRevenueDivided'), icon: <CreditCard className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.guestlistFill'), val: nightAnalytics.guestlistSize > 0 ? `${nightAnalytics.guestlistFillRate.toFixed(0)}%` : '—', sub: nightAnalytics.guestlistSize > 0 ? `${nightAnalytics.guestlistArrived}/${nightAnalytics.guestlistSize}` : t('owner.an.noGuestlist'), icon: <DoorOpen className="w-4 h-4" />, tone: T1 },
-          ];
-          return (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
-              <ZoneHeading id="an-night" icon={<DoorOpen className="w-4 h-4" />} label={t('owner.an.theNight')} />
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {nightTiles.map((tile, i) => (
-                  <PCard key={i}>
-                    <div className="flex flex-col min-h-[104px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tile.label}</span>
-                        <span style={{ color: T3 }}>{tile.icon}</span>
-                      </div>
-                      <div className="mt-2 text-[clamp(22px,2.6vw,30px)] font-[640] leading-none tabular-nums" style={{ color: tile.tone, letterSpacing: '-0.025em' }}>
-                        {tile.val}
-                      </div>
-                      <div className="mt-auto pt-2 text-[11.5px]" style={{ color: T3 }}>{tile.sub}</div>
-                    </div>
-                  </PCard>
-                ))}
-              </div>
-              {nightAnalytics.arrivalsByHour.length > 0 && (
-                <PCard
-                  icon={<Clock className="w-4 h-4" />}
-                  title={t('owner.an.arrivalsByHour')}
-                  sub={t('owner.an.realDoorPeak')}
-                >
-                  <RevenueBars data={nightAnalytics.arrivalsByHour.map(a => ({ hour: a.hour, revenue: a.arrivals }))} />
-                </PCard>
-              )}
-            </motion.div>
-          );
-        })()}
-
-        {/* ── Guest list : volume, no-show, peak time, valeur réelle ─────── */}
-        {venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }} className="space-y-3">
-            <ZoneHeading id="an-guestlist" icon={<ClipboardList className="w-4 h-4" />} label={t('owner.an.guestList')} />
-            <GuestListAnalyticsSection
-              venueId={venueId}
-              eventId={mode === 'event' ? selectedEventId : null}
-              from={webWindow.from}
-              to={webWindow.to}
-            />
-          </motion.div>
-        )}
-
-        </>
-        )}
-
-        </>
-        )}
-
-        {/* ═══ Billetterie pillar ═══════════════════════════════════════════ */}
-        {primaryView === 'tickets' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-            <TicketPillarInsights data={ticketAnalytics} />
-            <div className="flex gap-1 p-1 rounded-xl w-fit"
-              style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}>
-              {(['overview', 'launch', 'types', 'phases'] as const).map(tab => (
-                <button key={tab} onClick={() => setTicketSubTab(tab)}
-                  className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
-                  style={ticketSubTab === tab
-                    ? { color: '#fff', background: RED }
-                    : { color: T3 }}>
-                  {t(`analytics.tab.${tab}`)}
-                </button>
-              ))}
-            </div>
-            {ticketSubTab === 'overview' && <TicketAnalyticsOverview data={ticketAnalytics} />}
-            {ticketSubTab === 'launch' && <TicketAnalyticsLaunch data={ticketAnalytics} />}
-            {ticketSubTab === 'types' && <TicketAnalyticsTypes data={ticketAnalytics} />}
-            {ticketSubTab === 'phases' && <TicketAnalyticsPhases data={ticketAnalytics} />}
-          </motion.div>
-        )}
-
-        {/* ═══ Boissons pillar ══════════════════════════════════════════════ */}
-        {primaryView === 'drinks' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-            <DrinkOpsInsights data={drinkAnalytics} />
-            <DrinkAnalyticsSection data={drinkAnalytics} hasAdvancedAnalytics={hasAdvancedAnalytics} />
-          </motion.div>
-        )}
-
-        {/* ═══ Tables VIP pillar ════════════════════════════════════════════ */}
-        {primaryView === 'tables' && venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <VipTablesPillar
-              venueId={venueId}
-              eventId={mode === 'event' ? selectedEventId : null}
-              from={webWindow.from}
-              to={webWindow.to}
-              tableAnalytics={tableAnalytics}
-              hasVipTables={hasVipTables}
-            />
-          </motion.div>
-        )}
-
-        {/* ═══ Remboursements pillar ════════════════════════════════════════ */}
-        {primaryView === 'refunds' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            {refundAnalytics
-              ? <RefundAnalyticsSection data={refundAnalytics} />
-              : <div className="flex flex-col items-center justify-center py-16" style={{ color: T3 }}>
-                  <RotateCcw className="w-10 h-10 mb-3 opacity-40" />
-                  <p className="text-sm">{t('refund.noItems')}</p>
-                </div>}
-          </motion.div>
-        )}
-
-        </>
+          />
         )}
 
         </>

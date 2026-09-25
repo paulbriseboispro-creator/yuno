@@ -30,3 +30,19 @@ export function useNumberFormat() {
 export function pctFmt(pct: number, locale: string) {
   return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(pct / 100);
 }
+
+/** Formate une valeur de tuile ; `null` = « — » (jamais un faux zéro). */
+export type DeltaFormat = 'eur' | 'n' | 'pct' | 'min';
+
+export function useKpiFormat() {
+  const { n, eur, locale } = useNumberFormat();
+  return (v: number | null, format: DeltaFormat) => {
+    if (v === null || !Number.isFinite(v)) return '—';
+    if (format === 'eur') return eur(v);
+    if (format === 'pct') return pctFmt(v, locale);
+    if (format === 'min') return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(v)} min`;
+    return n(v);
+  };
+}
+
+

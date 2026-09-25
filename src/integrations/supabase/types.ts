@@ -20424,6 +20424,14 @@ export type Database = {
         Args: { _reservation_id: string }
         Returns: string
       }
+      get_sales_overview: {
+        Args: {
+          p_organizer_user_id?: string
+          p_period?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       get_sms_campaign_report: {
         Args: { p_campaign_id: string }
         Returns: Json
