@@ -38,12 +38,24 @@ const safeFormat = (s: string | null | undefined, fmt: string, opts?: Parameters
   return d ? format(d, fmt, opts) : '';
 };
 
+/** Une ligne du jsonb `invoices.items`. */
+interface InvoiceItem {
+  description?: string | null;
+  quantity?: number | string | null;
+  total?: number | string | null;
+}
+type IdRow = { id: string; name?: string | null; refund_amount?: number | null };
+type TicketAcctRow = IdRow & { ticket_round_id: string | null; ticket_type: string | null; quantity: number | null };
+type TableAcctRow = IdRow & { pack_id: string | null; management_fee: number | null };
+/** Les lectures optionnelles rendent `{ data }` ou un résultat Supabase. */
+const rowsOf = <T,>(res: { data: unknown }): T[] => (Array.isArray(res.data) ? (res.data as T[]) : []);
+
 interface EventRow {
   id: string;
   title: string | null;
   start_at: string | null;
   event_mode: string | null;
-  revenue_split_rules: any;
+  revenue_split_rules: unknown;
   venue_id: string | null;
   partner_venue_id: string | null;
   organizer_user_id: string | null;
@@ -61,7 +73,7 @@ interface InvoiceRow {
   customer_email: string;
   invoice_number: string;
   created_at: string;
-  items: any;
+  items: unknown;
   ticket_id: string | null;
   table_reservation_id: string | null;
   order_id: string | null;
@@ -178,7 +190,7 @@ export default function OwnerAccounting() {
       }
       const { data: invData, error: invErr } = await invQuery;
       if (invErr) throw invErr;
-      const invoices = ((invData || []) as any[]).map(i => ({
+      const invoices = ((invData || []) as Array<Omit<InvoiceRow, 'amount'> & { amount: number | string | null }>).map(i => ({
         id: i.id, type: i.type as InvoiceType, amount: Number(i.amount) || 0,
         event_id: i.event_id, event_name: i.event_name,
         customer_name: i.customer_name, customer_email: i.customer_email || '',
@@ -199,10 +211,10 @@ export default function OwnerAccounting() {
         tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id, management_fee').in('id', tableIds) : Promise.resolve({ data: [] }),
         orderIds.length ? supabase.from('orders').select('id, refund_amount').in('id', orderIds) : Promise.resolve({ data: [] }),
       ]);
-      const tkRows = ((tk as any).data || []) as any[];
-      const tbRows = ((tb as any).data || []) as any[];
-      [...tkRows, ...tbRows, ...((od as any).data || [])]
-        .forEach((r: any) => { if (Number(r.refund_amount)) refundMap.set(r.id, Number(r.refund_amount)); });
+      const tkRows = rowsOf<TicketAcctRow>(tk);
+      const tbRows = rowsOf<TableAcctRow>(tb);
+      [...tkRows, ...tbRows, ...rowsOf<IdRow>(od)]
+        .forEach((r) => { if (Number(r.refund_amount)) refundMap.set(r.id, Number(r.refund_amount)); });
 
       // Commission ACTUALLY charged, per table reservation. Accounting must report
       // what was billed, not re-price history against the current rate card — a
@@ -222,8 +234,8 @@ export default function OwnerAccounting() {
         roundIds.length ? supabase.from('ticket_rounds').select('id, name').in('id', roundIds) : Promise.resolve({ data: [] }),
         packIds.length ? supabase.from('table_packs').select('id, name').in('id', packIds) : Promise.resolve({ data: [] }),
       ]);
-      const roundName = new Map<string, string>(((rd as any).data || []).map((r) => [r.id, r.name]));
-      const packName = new Map<string, string>(((tp as any).data || []).map((r) => [r.id, r.name]));
+      const roundName = new Map<string, string>(rowsOf<IdRow>(rd).map((r) => [r.id, r.name ?? '']));
+      const packName = new Map<string, string>(rowsOf<IdRow>(tp).map((r) => [r.id, r.name ?? '']));
       // txn id → { label, qty } for tickets and tables.
       const txnMeta = new Map<string, { label: string; qty: number }>();
       tkRows.forEach(r => txnMeta.set(r.id, {
@@ -238,7 +250,7 @@ export default function OwnerAccounting() {
       // Stamp a human "detail" on each invoice for the CSV export + line grouping.
       invoices.forEach(inv => {
         if (inv.type === 'order') {
-          const its = Array.isArray(inv.items) ? inv.items as any[] : [];
+          const its = Array.isArray(inv.items) ? inv.items as InvoiceItem[] : [];
           inv.detail = its.map(i => i.description).filter(Boolean).join(', ') || t('acct.typeDrink');
         } else {
           const tid = txnId(inv);
@@ -280,10 +292,10 @@ export default function OwnerAccounting() {
           // Distribute this invoice's share across its line items. Drinks keep
           // their per-drink breakdown from the order; tickets/tables roll up under
           // the rate / package name resolved above (their jsonb is generic).
-          let items: any[];
+          let items: InvoiceItem[];
           if (inv.type === 'order') {
             items = Array.isArray(inv.items) && inv.items.length
-              ? inv.items as any[]
+              ? inv.items as InvoiceItem[]
               : [{ description: inv.event_name || labelForType(inv.type, t), quantity: 1, total: inv.amount }];
           } else {
             const meta = invTxnId ? txnMeta.get(invTxnId) : undefined;

@@ -96,7 +96,7 @@ export default function ForYouSelection() {
       const [evRes, affRes, roundsRes, orgRes] = await Promise.all([
         eventIds.length
           ? supabase.from('events')
-              .select('id, title, slug, poster_url, start_at, end_at, venue_id, location_city, location_name, music_genres, organizer_user_id, event_type, tables_enabled, venues(name, city)')
+              .select('id, title, slug, poster_url, start_at, end_at, venue_id, location_city, location_name, music_genres, organizer_user_id, event_type, tables_enabled, venues!events_venue_id_fkey(name, city)')
               .in('id', eventIds)
           : Promise.resolve({ data: [] as EventRow[] }),
         affIds.length

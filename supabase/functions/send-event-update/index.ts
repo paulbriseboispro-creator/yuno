@@ -46,7 +46,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, end_at, venue_id, poster_url, venues(name)')
+      .select('id, title, start_at, end_at, venue_id, poster_url, venues!events_venue_id_fkey(name)')
       .eq('id', eventId)
       .single();
 

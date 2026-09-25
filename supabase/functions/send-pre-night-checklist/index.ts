@@ -73,7 +73,7 @@ serve(async (req) => {
 
     const { data: upcomingEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, poster_url, venues(name, address)')
+      .select('id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address)')
       .eq('is_active', true)
       .gte('start_at', twoHoursFromNow)
       .lte('start_at', fourHoursFromNow);

@@ -382,11 +382,10 @@ export function PromoterDataProvider({ children }: { children: ReactNode }) {
       let leaderName: string | null = null;
       if (team.leader_promoter_id) {
         const { data: leader } = await supabase.from('promoters')
-          .select('promo_code, profiles!promoters_user_id_fkey(first_name, last_name)')
+          .select('promo_code, first_name, last_name')
           .eq('id', team.leader_promoter_id).single();
         if (leader) {
-          const prof = (leader as any).profiles;
-          leaderName = prof?.first_name ? `${prof.first_name} ${prof.last_name || ''}`.trim() : leader.promo_code;
+          leaderName = leader.first_name ? `${leader.first_name} ${leader.last_name || ''}`.trim() : leader.promo_code;
         }
       }
 

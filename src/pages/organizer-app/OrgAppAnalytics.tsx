@@ -7,7 +7,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { supabase } from '@/integrations/supabase/client';
 import { subMinutes } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
@@ -154,23 +154,25 @@ export default function OrgAppAnalytics() {
   const { customerAnalytics } = useCustomerAnalytics({ organizerUserId: organizerId, enabled: family === 'community' && view === 'overview' });
 
   // Visitor funnel (organizer scope) + live count
+  const scopeOr = useMemo(
+    () => (organizerId ? buildOrganizerScopeOr(organizerId, eventIds, venueIds) : null),
+    [organizerId, eventIds, venueIds],
+  );
   useEffect(() => {
-    if (!organizerId) return;
+    if (!scopeOr) return;
     let cancelled = false;
-    const orFilter = buildOrganizerScopeOr(organizerId, eventIds, venueIds);
 
     const fetchLive = async () => {
-      const fiveMinutesAgo = subMinutes(new Date(), 5);
-      let q: any = supabase.from('visitor_sessions').select('id').or(orFilter).gte('visited_at', fiveMinutesAgo.toISOString());
-      if (mode === 'event' && selectedEventId) q = supabase.from('visitor_sessions').select('id').eq('event_id', selectedEventId).gte('visited_at', fiveMinutesAgo.toISOString());
-      const { data } = await q;
+      const since = subMinutes(new Date(), 5).toISOString();
+      const base = supabase.from('visitor_sessions').select('id').gte('visited_at', since);
+      const { data } = await (mode === 'event' && selectedEventId ? base.eq('event_id', selectedEventId) : base.or(scopeOr));
       if (!cancelled) setLiveVisitors(data?.length ?? 0);
     };
 
     fetchLive();
     const interval = setInterval(fetchLive, 10000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [organizerId, eventIds.join(','), venueIds.join(','), mode, selectedEventId]);
+  }, [scopeOr, mode, selectedEventId]);
 
   if (!organizerId) {
     return <div className="flex justify-center py-24"><Loader2 className="h-7 w-7 animate-spin" style={{ color: T3 }} /></div>;

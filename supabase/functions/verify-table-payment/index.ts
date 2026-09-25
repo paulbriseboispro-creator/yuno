@@ -11,6 +11,30 @@ const logStep = (step: string, details?: any) => {
   console.log(`[VERIFY-TABLE-PAYMENT] ${step}${detailsStr}`);
 };
 
+
+/**
+ * Tables mises en vente pour une soirée : même calcul que `_event_tables_left`
+ * (formules actives de la soirée, ou du club pour une formule sans soirée,
+ * formules marquées complètes exclues). `table_zones.max_tables` n'existe pas :
+ * l'ancien calcul échouait en silence et aucune alerte de remplissage ne partait.
+ */
+async function eventTableCapacity(admin: ReturnType<typeof createClient>, eventId: string): Promise<number> {
+  const { data: ev } = await admin
+    .from('events')
+    .select('id, venue_id, partner_venue_id, sold_out_pack_ids')
+    .eq('id', eventId)
+    .maybeSingle();
+  if (!ev) return 0;
+  const vid = (ev as any).venue_id ?? (ev as any).partner_venue_id ?? null;
+  const closed = new Set<string>(((ev as any).sold_out_pack_ids ?? []) as string[]);
+  const { data: packs } = await admin
+    .from('table_packs')
+    .select('id, tables_count, event_id, venue_id')
+    .eq('is_active', true)
+    .or(vid ? `event_id.eq.${eventId},and(event_id.is.null,venue_id.eq.${vid})` : `event_id.eq.${eventId}`);
+  return (packs ?? []).reduce((sum: number, p: any) => (closed.has(p.id) ? sum : sum + (p.tables_count ?? 0)), 0);
+}
+
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === 'OPTIONS') {
@@ -338,13 +362,7 @@ serve(async (req) => {
           // 2. Table capacity threshold checks
           if (reservation.event_id) {
             // Count total table capacity and confirmed reservations for this event
-            const { data: zones } = await supabaseAdmin
-              .from('table_zones')
-              .select('id, max_tables')
-              .eq('venue_id', resolvedVenueId)
-              .eq('event_id', reservation.event_id);
-
-            const totalCapacity = (zones ?? []).reduce((sum: number, z: any) => sum + (z.max_tables ?? 0), 0);
+            const totalCapacity = await eventTableCapacity(supabaseAdmin, reservation.event_id);
 
             if (totalCapacity > 0) {
               const { count: confirmedCount } = await supabaseAdmin
@@ -436,11 +454,7 @@ serve(async (req) => {
 
           // Table capacity threshold checks (dedup once per event / 24h)
           if (reservation.event_id) {
-            const { data: zones } = await supabaseAdmin
-              .from('table_zones')
-              .select('id, max_tables')
-              .eq('event_id', reservation.event_id);
-            const totalCapacity = (zones ?? []).reduce((sum: number, z: any) => sum + (z.max_tables ?? 0), 0);
+            const totalCapacity = await eventTableCapacity(supabaseAdmin, reservation.event_id);
 
             if (totalCapacity > 0) {
               const { count: confirmedCount } = await supabaseAdmin

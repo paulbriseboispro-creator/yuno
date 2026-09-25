@@ -382,7 +382,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 function promoterDisplayName(p: any): string {
   const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
-  return full || p.name || p.promo_code || "Promoteur";
+  return full || p.promo_code || "Promoteur";
 }
 
 // ═══════════════════════════════════════════
@@ -445,7 +445,7 @@ async function executeTool(
         }
         const { data: promoters } = await supabase
           .from("promoters")
-          .select("id, first_name, last_name, name, promo_code, venues(name)")
+          .select("id, first_name, last_name, promo_code, venues(name)")
           .eq("agency_id", agencyId);
         const ranked = (promoters ?? [])
           .map((p: any) => ({
@@ -462,7 +462,7 @@ async function executeTool(
       case "list_promoters": {
         let q = supabase
           .from("promoters")
-          .select("first_name, last_name, name, promo_code, is_active, pending_amount, total_paid, venues(name)")
+          .select("first_name, last_name, promo_code, is_active, pending_amount, total_paid, venues(name)")
           .eq("agency_id", agencyId)
           .order("created_at", { ascending: false });
         if (args.only_active) q = q.eq("is_active", true);
@@ -582,7 +582,7 @@ async function executeTool(
             .select("gross_amount, margin_amount, club_status, venue_id")
             .eq("agency_id", agencyId),
           supabase.from("promoters")
-            .select("first_name, last_name, name, promo_code, pending_amount")
+            .select("first_name, last_name, promo_code, pending_amount")
             .eq("agency_id", agencyId)
             .gt("pending_amount", 0),
         ]);

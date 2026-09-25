@@ -91,7 +91,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
         if (eventIds.length > 0) {
           const [ticketsRes, tablesRes] = await Promise.all([
             supabase.from('tickets')
-              .select('total_price, created_at, event_id, scanned_at, quantity')
+              .select('total_price, created_at, event_id, entry_scanned_at, quantity')
               .in('event_id', eventIds)
               .ilike('user_email', lc)
               .order('created_at', { ascending: false })
@@ -111,9 +111,9 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
               amount: Number(t.total_price ?? 0),
               eventTitle: eventTitles.get(t.event_id),
             });
-            if (t.scanned_at) {
+            if (t.entry_scanned_at) {
               list.push({
-                ts: t.scanned_at,
+                ts: t.entry_scanned_at,
                 type: 'scan',
                 label: tt('Scanné à l\'entrée', 'Scanned at entry'),
                 eventTitle: eventTitles.get(t.event_id),

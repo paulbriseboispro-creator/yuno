@@ -130,7 +130,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       if (orgScope && eventIds!.length === 0) { setTickets([]); setMinorDocs(new Map()); return; }
       let query = supabase
         .from('tickets')
-        .select(`*, events!inner(title, start_at, venue_id, timezone, venues(name)), ticket_rounds!inner(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name)), ticket_rounds!inner(name)`)
         .in('status', ['paid', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
@@ -142,7 +142,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       else if (venueId) query = query.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`, { referencedTable: 'events' });
       const { data, error } = await query;
       if (error) throw error;
-      const mapped: TicketOrder[] = (data || []).map((t: any) => ({
+      const mapped: TicketOrder[] = (data || []).map((t) => ({
         id: t.id,
         eventId: t.event_id,
         userEmail: t.user_email,

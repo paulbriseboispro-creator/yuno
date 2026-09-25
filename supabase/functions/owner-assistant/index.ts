@@ -1887,11 +1887,13 @@ async function executeTool(
 
       // ─── ONBOARDING ───
       case "get_onboarding_status": {
-        const { data } = await supabase.from("venue_onboarding").select("current_step, completed_steps").eq("venue_id", venueId).maybeSingle();
+        const { data } = await supabase.from("venue_onboarding").select("current_step, steps").eq("venue_id", venueId).maybeSingle();
         const { data: venue } = await supabase.from("venues").select("stripe_account_id, name").eq("id", venueId).maybeSingle();
+        // `steps` = { "<n>": { status, completed_at } } : les étapes cochées.
+        const steps = (data?.steps ?? {}) as Record<string, { status?: string }>;
         return JSON.stringify({
           current_step: data?.current_step || "not_started",
-          completed_steps: data?.completed_steps || [],
+          completed_steps: Object.keys(steps).filter((k) => steps[k]?.status === "completed").map(Number).sort((a, b) => a - b),
           stripe_connected: !!venue?.stripe_account_id,
           venue_name: venue?.name,
         });
@@ -2005,20 +2007,29 @@ async function executeTool(
       case "get_promoter_stats": {
         const { data: promoters } = await supabase
           .from("promoters")
-          .select("id, first_name, last_name, pending_amount, total_paid, total_conversions, is_active")
-          .eq("venue_id", venueId)
-          .order("total_conversions", { ascending: false });
+          .select("id, first_name, last_name, pending_amount, total_paid, is_active")
+          .eq("venue_id", venueId);
 
         if (!promoters || promoters.length === 0) {
           return JSON.stringify({ message: "Aucun promoteur configuré pour ce club.", promoters: [] });
         }
+        // Conversions comptées dans promoter_conversions (la colonne
+        // `promoters.total_conversions` n'existe pas).
+        const { data: convRows } = await supabase
+          .from("promoter_conversions")
+          .select("promoter_id")
+          .in("promoter_id", promoters.map((p: any) => p.id))
+          .limit(10000);
+        const convCount = new Map<string, number>();
+        for (const c of convRows ?? []) convCount.set(c.promoter_id, (convCount.get(c.promoter_id) ?? 0) + 1);
+        promoters.sort((a: any, b: any) => (convCount.get(b.id) ?? 0) - (convCount.get(a.id) ?? 0));
 
         return JSON.stringify({
           total_promoters: promoters.length,
           active: promoters.filter((p: any) => p.is_active).length,
           promoters: promoters.map((p: any) => ({
             name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-            conversions: p.total_conversions || 0,
+            conversions: convCount.get(p.id) ?? 0,
             pending: r2(p.pending_amount || 0),
             total_paid: r2(p.total_paid || 0),
             active: p.is_active,

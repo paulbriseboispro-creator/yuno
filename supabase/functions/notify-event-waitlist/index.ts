@@ -94,7 +94,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('title, start_at, venue_id, poster_url, description, organizer_user_id, venues(name)')
+      .select('title, start_at, venue_id, poster_url, description, organizer_user_id, venues!events_venue_id_fkey(name)')
       .eq('id', eventId)
       .single();
 

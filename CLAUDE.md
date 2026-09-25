@@ -785,6 +785,16 @@ billet » quand le tableau en montrait 84). Règles :
   demandes d'accusé de réception s'affichent dans l'app et la bascule en litige est
   un cron SQL), mais le promoteur n'est pas poussé sur son téléphone tant qu'elle
   n'est pas déployée.
+- **`events` a DEUX clés vers `venues`** (`venue_id`, `partner_venue_id`) : un
+  `venues(…)` embarqué depuis `events` (ou sous `events!inner(…)`) est refusé
+  par PostgREST (PGRST201) et la requête ENTIÈRE rend une erreur — liste vide,
+  email qui ne part pas, sans bruit. Toujours `venues!events_venue_id_fkey(…)`.
+  Même piège pour `events → profiles`, `tracked_links → venues`, etc. :
+  `python3 scripts/check-selects.py` rejoue toutes les sélections statiques du
+  code contre la base (`limit=0`) — le lancer après une migration qui ajoute
+  une clé étrangère ou retire une colonne. Le 25/09 il en a trouvé 20
+  (Commandes › Billets et Tables vides, page « Pour toi » des push découverte,
+  six emails automatiques, timeline CRM, alerte de remplissage des tables…).
 - **CORS-lock `yunoapp.eu`** : les edge functions n'autorisent que l'origine `https://yunoapp.eu`.
   → checkout impossible en local (échec silencieux, pas de toast) ET la prod DOIT servir depuis
   ce domaine exact.

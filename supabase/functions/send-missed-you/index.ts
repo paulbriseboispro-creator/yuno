@@ -72,7 +72,7 @@ serve(async (req) => {
 
     const { data: recentEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, organizer_user_id, poster_url, venues(name)')
+      .select('id, title, start_at, venue_id, organizer_user_id, poster_url, venues!events_venue_id_fkey(name)')
       .lte('end_at', twelveHoursAgo)
       .gte('end_at', fortyEightHoursAgo);
 

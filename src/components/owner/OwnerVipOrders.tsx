@@ -128,7 +128,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       if (orgScope && eventIds!.length === 0) { setReservations([]); return; }
       let query = supabase
         .from('table_reservations')
-        .select(`*, events!inner(title, start_at, venue_id, timezone, venues(name)), table_zones(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name)), table_zones(name)`)
         .in('status', ['paid', 'confirmed', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
@@ -140,7 +140,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       else if (venueId) query = query.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`, { referencedTable: 'events' });
       const { data, error } = await query;
       if (error) throw error;
-      const mapped: VipOrder[] = (data || []).map((r: any) => ({
+      const mapped: VipOrder[] = (data || []).map((r) => ({
         id: r.id,
         userEmail: r.user_email,
         fullName: r.full_name,

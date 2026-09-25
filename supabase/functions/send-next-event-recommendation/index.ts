@@ -77,7 +77,7 @@ serve(async (req) => {
 
     const { data: upcomingEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, organizer_user_id, music_genre, music_genres, poster_url, ticketing_enabled, timezone, venues(name)')
+      .select('id, title, start_at, venue_id, organizer_user_id, music_genre, music_genres, poster_url, ticketing_enabled, timezone, venues!events_venue_id_fkey(name)')
       .eq('is_active', true)
       .gt('start_at', now)
       .lt('start_at', twoWeeksFromNow)

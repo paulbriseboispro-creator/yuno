@@ -29,6 +29,8 @@ interface MapboxFeature {
   place_type: string[];
   properties?: { address?: string };
   context?: MapboxContext[];
+  /** [longitude, latitude] du résultat. */
+  center?: [number, number];
 }
 
 export interface AddressPick {
@@ -73,9 +75,7 @@ function secondaryLine(feature: MapboxFeature, primary: string): string {
 }
 
 function toPick(feature: MapboxFeature, language: string): AddressPick {
-  const [lng, lat] = Array.isArray((feature as { center?: number[] }).center)
-    ? ((feature as { center: number[] }).center as [number, number])
-    : [null, null];
+  const [lng, lat] = Array.isArray(feature.center) ? feature.center : [null, null];
   return {
     address: streetLine(feature),
     city: pickContext(feature, 'place', language) || pickContext(feature, 'locality', language),

@@ -73,7 +73,7 @@ serve(async (req) => {
     const now = new Date().toISOString();
     const { data: events } = await supabaseAdmin
       .from('events')
-      .select('id, title, venue_id, max_tickets, start_at, venues(name, owner_id)')
+      .select('id, title, venue_id, max_tickets, start_at, venues!events_venue_id_fkey(name, owner_id)')
       .eq('is_active', true)
       .eq('ticketing_enabled', true)
       .gt('start_at', now)

@@ -44,24 +44,6 @@ serve(async (req) => {
       });
     }
 
-    // Check for active (unpaid/pending) purchases before deletion.
-    const { data: activePurchases } = await supabaseAdmin
-      .from("purchases")
-      .select("id")
-      .eq("user_id", user.id)
-      .in("status", ["pending", "processing"])
-      .limit(1);
-
-    if (activePurchases?.length) {
-      return new Response(
-        JSON.stringify({
-          code: "active_purchases",
-          error: "Des achats sont en cours. Contactez le support pour clôturer avant de supprimer votre compte.",
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
     // Un compte qui EST une entité (club, agence) ne peut pas s'effacer seul :
     // `venues.owner_id` et `affiliates.user_id` sont l'identité du tenant, pas une
     // trace d'activité. L'effacer orphelinerait le club/l'agence, ses employés et
