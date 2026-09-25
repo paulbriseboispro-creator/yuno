@@ -269,7 +269,8 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: t('owner.gl.signups'), value: filtered.length.toString() },
+            // Inscrits = annulations exclues, comme partout ailleurs (dictionnaire).
+            { label: t('owner.gl.signups'), value: expected.toString() },
             { label: t('owner.gl.checkedIn'), value: checkedIn.toString() },
             { label: t('owner.gl.showRate'), value: `${showRate}%` },
           ].map(({ label, value }) => (

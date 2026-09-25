@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { MoreDetail } from '@/components/analytics/kit';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
   Crown, Users, Euro, TrendingUp,
-  Wine, Clock, BarChart3, Repeat, Timer, ShoppingCart,
+  Wine, Clock, BarChart3,
 } from 'lucide-react';
 import type { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder } from '@/hooks/useOwnerVipData';
 import {
@@ -176,18 +177,92 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* KPI Grid */}
+      {/* Quatre chiffres (plan de simplification) : le reste de l'analyse des
+          tables est replié plus bas — cet écran sert le service. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <VipKpi icon={Euro} label={t('vipHost.totalRevenue')} value={`${stats.totalRevenue.toFixed(0)}€`} accent />
         <VipKpi icon={Crown} label={t('vipHost.totalReservations')} value={String(stats.totalReservations)} />
-        <VipKpi icon={Wine} label={t('vipOwner.bottlesServed')} value={String(stats.totalBottles)} />
         <VipKpi icon={Users} label={t('vipHost.guests')} value={String(stats.totalGuests)} sub={`~${stats.avgGuests.toFixed(1)}${t('vipOwner.perTable')}`} />
+        <VipKpi icon={Euro} label={t('vipOwner.revenueWithConso')} value={`${stats.totalRevenue.toFixed(0)}€`} accent />
         <VipKpi icon={TrendingUp} label={t('vipOwner.avgSpendPerTable')} value={`${stats.avgPerTable.toFixed(0)}€`} />
-        <VipKpi icon={ShoppingCart} label={t('vipOwner.avgCart')} value={`${stats.avgOrderValue.toFixed(0)}€`} />
-        <VipKpi icon={Timer} label={t('vipOwner.timeBetweenOrders')} value={stats.avgTimeBetweenOrders > 0 ? `${stats.avgTimeBetweenOrders} min` : '—'} />
-        <VipKpi icon={Repeat} label={t('vipOwner.loyalClients')} value={`${stats.repeatRate.toFixed(0)}%`} sub={`${stats.uniqueClients} ${t('vipOwner.unique')}`} />
       </div>
 
+      {/* Client Leaderboard */}
+      {clientLeaderboard.length > 0 && (
+        <VipCard icon={<Crown className="w-4 h-4" />} title={t('vipOwner.topVipClients')} accent>
+          <div className="space-y-2">
+            {clientLeaderboard.map((client, i) => {
+              const medal = i === 0
+                ? { bg: 'rgba(232,25,44,0.14)', b: 'rgba(232,25,44,0.3)', c: RED }
+                : i === 1
+                ? { bg: 'rgb(var(--ink)/0.08)', b: F_BORDER, c: 'rgb(var(--ink)/var(--ink-a70,0.7))' }
+                : i === 2
+                ? { bg: 'rgba(251,191,36,0.12)', b: 'rgba(251,191,36,0.25)', c: WARN }
+                : { bg: C_FAINT, b: F_BORDER, c: T3 };
+              return (
+                <div
+                  key={client.email || client.name}
+                  className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl"
+                  style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-none tabular-nums"
+                      style={{ background: medal.bg, border: `1px solid ${medal.b}`, color: medal.c }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{client.name}</p>
+                      <p className="truncate tabular-nums" style={{ color: T3, fontSize: 11 }}>
+                        {client.visits} {client.visits > 1 ? t('vipOwner.visitsPlural') : t('vipOwner.visits')} • {client.bottles} {client.bottles > 1 ? t('vipOwner.bottlesPlural') : t('vipOwner.bottles')}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontSize: 13.5, fontWeight: 640 }}>{client.spent.toFixed(0)}€</span>
+                </div>
+              );
+            })}
+          </div>
+        </VipCard>
+      )}
+
+      {/* Recent Activity */}
+      <VipCard icon={<Clock className="w-4 h-4" />} title={t('vipHost.recentActivity')}>
+        {consumptions.length === 0 ? (
+          <p className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('vipHost.noActivity')}</p>
+        ) : (
+          <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 280 }}>
+            {consumptions.slice(0, 20).map(c => {
+              const res = reservations.find(r => r.id === c.reservationId);
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg"
+                  style={{ background: INNER_BG }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Wine className="h-4 w-4 shrink-0" style={{ color: T3 }} />
+                    <div className="min-w-0">
+                      <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>
+                        {c.quantity > 1 && `${c.quantity}x `}{c.itemName}
+                      </p>
+                      <p className="truncate tabular-nums" style={{ color: T3, fontSize: 11 }}>
+                        {res?.fullName || '?'} {res?.eventTitle && `• ${res.eventTitle}`} • {format(new Date(c.servedAt), 'HH:mm', { locale })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="tabular-nums whitespace-nowrap ml-2" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{c.totalPrice.toFixed(0)}€</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </VipCard>
+
+      {/* L'analyse des tables (répartition, catégories, heures, zones, soirées) :
+          repliée. L'analyse complète vit dans Analytics › Ventes › Tables. */}
+      <MoreDetail label={t('vipOwner.analysisDetail')}>
+        <div className="space-y-4">
       {/* Revenue Breakdown + Category */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <VipCard icon={<Euro className="w-4 h-4" />} title={t('vipOwner.revenueBreakdown')}>
@@ -297,78 +372,8 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
         )}
       </div>
 
-      {/* Client Leaderboard */}
-      {clientLeaderboard.length > 0 && (
-        <VipCard icon={<Crown className="w-4 h-4" />} title={t('vipOwner.topVipClients')} accent>
-          <div className="space-y-2">
-            {clientLeaderboard.map((client, i) => {
-              const medal = i === 0
-                ? { bg: 'rgba(232,25,44,0.14)', b: 'rgba(232,25,44,0.3)', c: RED }
-                : i === 1
-                ? { bg: 'rgb(var(--ink)/0.08)', b: F_BORDER, c: 'rgb(var(--ink)/var(--ink-a70,0.7))' }
-                : i === 2
-                ? { bg: 'rgba(251,191,36,0.12)', b: 'rgba(251,191,36,0.25)', c: WARN }
-                : { bg: C_FAINT, b: F_BORDER, c: T3 };
-              return (
-                <div
-                  key={client.email || client.name}
-                  className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl"
-                  style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-none tabular-nums"
-                      style={{ background: medal.bg, border: `1px solid ${medal.b}`, color: medal.c }}
-                    >
-                      {i + 1}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{client.name}</p>
-                      <p className="truncate tabular-nums" style={{ color: T3, fontSize: 11 }}>
-                        {client.visits} {client.visits > 1 ? t('vipOwner.visitsPlural') : t('vipOwner.visits')} • {client.bottles} {client.bottles > 1 ? t('vipOwner.bottlesPlural') : t('vipOwner.bottles')}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="tabular-nums whitespace-nowrap" style={{ color: T1, fontSize: 13.5, fontWeight: 640 }}>{client.spent.toFixed(0)}€</span>
-                </div>
-              );
-            })}
-          </div>
-        </VipCard>
-      )}
-
-      {/* Recent Activity */}
-      <VipCard icon={<Clock className="w-4 h-4" />} title={t('vipHost.recentActivity')}>
-        {consumptions.length === 0 ? (
-          <p className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('vipHost.noActivity')}</p>
-        ) : (
-          <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 280 }}>
-            {consumptions.slice(0, 20).map(c => {
-              const res = reservations.find(r => r.id === c.reservationId);
-              return (
-                <div
-                  key={c.id}
-                  className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg"
-                  style={{ background: INNER_BG }}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Wine className="h-4 w-4 shrink-0" style={{ color: T3 }} />
-                    <div className="min-w-0">
-                      <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>
-                        {c.quantity > 1 && `${c.quantity}x `}{c.itemName}
-                      </p>
-                      <p className="truncate tabular-nums" style={{ color: T3, fontSize: 11 }}>
-                        {res?.fullName || '?'} {res?.eventTitle && `• ${res.eventTitle}`} • {format(new Date(c.servedAt), 'HH:mm', { locale })}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="tabular-nums whitespace-nowrap ml-2" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{c.totalPrice.toFixed(0)}€</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </VipCard>
+        </div>
+      </MoreDetail>
     </div>
   );
 }
