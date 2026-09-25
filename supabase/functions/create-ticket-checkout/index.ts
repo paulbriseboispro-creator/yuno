@@ -602,7 +602,7 @@ serve(async (req) => {
       logStep("Promo code resolved", { code: cleanDiscountCode, promoCodeId, promoCodeDiscount, promoterDiscount });
     }
 
-    const discountedSubtotal = subtotal - validatedDiscount;
+    const discountedSubtotal = Math.round((subtotal - validatedDiscount) * 100) / 100;
     
     // BDE-verified organizers get a reduced floor (0.49€ vs 0.99€); the 4% rate is unchanged.
     const commissionMin = event.is_bde ? YUNO_COMMISSION_MIN_BDE : YUNO_COMMISSION_MIN;
@@ -702,7 +702,9 @@ serve(async (req) => {
     //              Yuno commission (taken via the split's application_fee override).
     const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, effectiveVenueId, effectiveOrganizerId);
     const transactionFee = feeAbsorbed ? estimateStripeFeeEur(discountedSubtotal) : serviceFee;
-    const totalPrice = discountedSubtotal + transactionFee + insuranceFee + upsellTotal;
+    // Au centime : une remise (promoteur ou code) laissait un total flottant
+    // (« 20.189999999999998 ») dans tickets.total_price.
+    const totalPrice = Math.round((discountedSubtotal + transactionFee + insuranceFee + upsellTotal) * 100) / 100;
 
     // Yuno commission, logged for observability only (4% of total). The actual
     // application_fee charged on the Connect charge is computed by resolvePaymentSplit

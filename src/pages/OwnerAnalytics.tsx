@@ -894,6 +894,7 @@ export default function OwnerAnalytics() {
         ) : family === 'community' && view === 'subscribers' ? (
           venueId ? (
             <AudienceDashboard
+              embedded
               subject={{ type: 'venue', id: venueId }}
               actions={
                 <Link

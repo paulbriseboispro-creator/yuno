@@ -924,6 +924,7 @@ export default function OrgAppAnalytics() {
         ) : family === 'community' && view === 'subscribers' ? (
           organizerId ? (
             <AudienceDashboard
+              embedded
               subject={{ type: 'organizer', id: organizerId }}
               actions={
                 <Link

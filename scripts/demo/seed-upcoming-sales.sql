@@ -26,6 +26,17 @@
 --   ou     : supabase db query --linked -f scripts/demo/seed-upcoming-sales.sql
 -- =============================================================================
 
+-- Heure d'achat plausible : le jour tiré, à une heure de Paris surtout
+-- l'après-midi et le soir (12 h → 23 h, quelques achats de nuit), jamais dans
+-- le futur. Sans ça, le « pic d'achat » de l'onglet Achats tombait à 1 h.
+create or replace function pg_temp.seed_time(p_at timestamptz) returns timestamptz
+language sql volatile as $$
+  select least(now(),
+    (date_trunc('day', p_at at time zone 'Europe/Paris')
+      + make_interval(hours => case when random() < 0.9 then 12 + floor(random() * 12)::int else floor(random() * 3)::int end,
+                      mins => floor(random() * 60)::int)) at time zone 'Europe/Paris');
+$$;
+
 do $seed$
 declare
   v_now  timestamptz := now();
@@ -86,7 +97,7 @@ begin
           v_q := 1 + floor(random() * 3)::int + case when random() < 0.15 then 1 else 0 end;
           v_at := case when v_i <= greatest(1, v_n / 8)
                        then v_today + (v_now - v_today) * random()               -- aujourd'hui
-                       else v_now - interval '14 days' * power(random(), 2) end;
+                       else pg_temp.seed_time(v_now - interval '14 days' * power(random(), 2)) end;
           v_sub := v_round.price * v_q;
           v_fee := round(v_sub * 0.04, 2);
           insert into public.tickets (event_id, ticket_round_id, user_email, quantity, unit_price, total_price,
@@ -109,7 +120,7 @@ begin
       loop
         v_i := v_i + 1; v_seq := v_seq + 1;
         v_at := case when v_i = 1 and v_days <= 3 then v_today + (v_now - v_today) * random()
-                     else v_now - interval '10 days' * power(random(), 2) end;
+                     else pg_temp.seed_time(v_now - interval '10 days' * power(random(), 2)) end;
         insert into public.table_reservations (event_id, pack_id, zone_id, user_email, full_name, guest_count,
                                                total_price, deposit, service_fee, management_fee, payment_mode,
                                                status, paid_at, created_at)
@@ -132,7 +143,7 @@ begin
         v_seq := v_seq + 1;
         v_at := case when v_i <= greatest(1, v_n / 6)
                      then v_today + (v_now - v_today) * random()
-                     else v_now - interval '14 days' * power(random(), 2) end;
+                     else pg_temp.seed_time(v_now - interval '14 days' * power(random(), 2)) end;
         insert into public.guest_list_entries (guest_list_id, full_name, email, phone, qr_code, status, entry_type, gender, created_at)
         values (v_gl.id,
                 v_first[1 + floor(random() * 20)::int] || ' ' || v_last[1 + floor(random() * 20)::int],
@@ -148,7 +159,7 @@ begin
                                                             and t.user_email like 'seed.%@demo.womber.fr')::int * 6);
     for v_i in 1..v_n loop
       v_at := case when v_i <= v_n / 7 then v_today + (v_now - v_today) * random()
-                   else v_now - interval '14 days' * power(random(), 2) end;
+                   else pg_temp.seed_time(v_now - interval '14 days' * power(random(), 2)) end;
       insert into public.visitor_sessions (session_id, visitor_id, venue_id, organizer_user_id, event_id,
                                            entry_page, entry_page_type, referrer_category, utm_source,
                                            device_type, visited_at, created_at, last_activity_at,
