@@ -273,7 +273,7 @@ export default function ManagerDashboard() {
       title: t('manager.hypeAnalysis'),
       description: t('manager.eventScoreAnalysis'),
       icon: <Flame className="h-6 w-6" />,
-      path: '/manager/hype',
+      path: '/manager/analytics?tab=sales&view=event',
       permission: permissions.canViewHype,
       color: 'from-red-500/20 to-red-600/10',
     },

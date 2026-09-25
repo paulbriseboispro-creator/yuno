@@ -1,4 +1,5 @@
 import { canSideEdit, type CollabDomain } from '@/utils/collabResponsibilities';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabPreviewDialog } from './CollabPreviewDialog';
 import { GuestListRequestAlert } from '@/components/owner/guest-list/GuestListRequestAlert';
@@ -363,7 +364,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const navTo = {
     live: isVenue ? '/owner/live' : `/organizer-app/events/${eventId}/live`,
-    analytics: isVenue ? '/owner/analytics' : `/organizer-app/analytics?event=${eventId}`,
+    analytics: eventReportHref(isVenue ? '/owner/analytics' : '/organizer-app/analytics', eventId),
     promoters: isVenue ? '/owner/promoters' : `/organizer-app/promoters/event/${eventId}`,
     // ?event= : sans lui la page Guest list retombe sur la 1re soirée de la liste
     // (on ouvrait « Amore » et on atterrissait sur une autre).

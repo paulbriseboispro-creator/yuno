@@ -22,7 +22,10 @@ import {
   APP_ORIGIN, AUTH_STORAGE_KEY, DEMO_EMAIL_DOMAIN, mintSession, rest,
 } from './lib.mjs';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = process.env.CHROME_PATH
+  || (fs.existsSync('/opt/pw-browsers/chromium-1194/chrome-linux/chrome')
+    ? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+    : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
 
 /**
  * Miroir de DEMO_ACCOUNTS (src/lib/demoSession.ts) : rôle → compte, route
@@ -157,6 +160,8 @@ export async function open({
   bypass: withBypass = true,
   // Dossier où Chrome dépose les téléchargements (PDF de contrat, exports).
   downloadDir = null,
+  // noWait:true = rend la page sans attendre le boot (diagnostic d'un écran blanc).
+  noWait = false,
 } = {}) {
   // `as: 'anon'` = navigateur VIERGE, sans session : c'est ce que voit un club
   // qui clique le lien d'invitation reçu par email, ou un visiteur.
@@ -178,6 +183,8 @@ export async function open({
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${userDataDir}`,
     '--no-first-run', '--no-default-browser-check', '--disable-gpu',
+    ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []),
+    ...(process.env.HTTPS_PROXY ? [`--proxy-server=${process.env.HTTPS_PROXY}`, '--proxy-bypass-list=localhost;127.0.0.1'] : []),
     '--hide-scrollbars', '--use-angle=swiftshader',
     `--window-size=${metrics.width},${metrics.height}`,
     'about:blank',
@@ -427,7 +434,7 @@ export async function open({
   };
 
   // Une page hors de l'app (email rendu en file://) n'a pas de #root à attendre.
-  await page.goto(go || role?.route || '/', { wait: !/^file:/.test(go || '') });
+  await page.goto(go || role?.route || '/', { wait: !noWait && !/^file:/.test(go || '') });
   return page;
 }
 

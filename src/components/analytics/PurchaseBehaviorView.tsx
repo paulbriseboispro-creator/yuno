@@ -267,12 +267,8 @@ function PurchaseBehaviorBody({ d, allTime, t, language }: {
 
   return (
     <div className="space-y-4">
-      {/* ── En-tête ─────────────────────────────────────────────────────── */}
-      <motion.div {...rise} className="px-1">
-        <h2 className="text-[20px] font-[680]" style={{ color: T1, letterSpacing: '-0.02em' }}>{t('pb.title')}</h2>
-        <p className="mt-1 text-[13px]" style={{ color: T3 }}>{t('pb.tagline')}</p>
-      </motion.div>
-
+      {/* Pas d'en-tête : la vue vit sous « Comment mes clients achètent-ils ? »
+          (Analytics › Communauté › Achats), qui porte déjà la question. */}
       <AnalyticsAnchorNav sections={sections} />
 
       {/* ── Chiffres clés ────────────────────────────────────────────────── */}

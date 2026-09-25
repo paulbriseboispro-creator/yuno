@@ -47,6 +47,8 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { TableCheckoutSkeleton } from '@/components/skeletons/TableCheckoutSkeleton';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
+import { PromoCodeField } from '@/components/checkout/PromoCodeField';
+import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -99,6 +101,8 @@ export default function TableCheckout() {
   const [pack, setPack] = useState<TablePack | null>(null);
   const [zone, setZone] = useState<TableZone | null>(null);
   const [promoterDiscount, setPromoterDiscount] = useState<PromoterDiscount | null>(null);
+  // Code promo saisi (lot F) : aperçu ici, décision serveur au paiement.
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
   const [placementEnabled, setPlacementEnabled] = useState(false);
   const [allZones, setAllZones] = useState<TableZone[]>([]);
@@ -501,33 +505,38 @@ export default function TableCheckout() {
   }, [pack, packGuestLimit, guestCountParam]);
 
   const calculatePricing = () => {
-    if (!pack) return { totalPrice: 0, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: 0, discount: 0 };
+    if (!pack) return { totalPrice: 0, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: 0, discount: 0, promoterAmount: 0, promoAmount: 0, discountSource: null as 'promoter' | 'promo' | null };
     const effectiveGuestCount = Math.min(Math.max(guestCount, 1), packGuestLimit);
     const baseGuests = pack.baseCapacity;
     const extraGuests = Math.max(0, Math.min(effectiveGuestCount - baseGuests, pack.maxExtraPersons));
-    let totalPrice = pack.basePrice + (extraGuests * pack.extraPersonPrice);
-    let discount = 0;
-    if (promoterDiscount && promoterDiscount.discountValue > 0) {
-      if (promoterDiscount.discountType === 'percentage') {
-        discount = Math.round(totalPrice * (promoterDiscount.discountValue / 100) * 100) / 100;
-      } else {
-        discount = Math.min(promoterDiscount.discountValue, totalPrice);
-      }
-      totalPrice = totalPrice - discount;
-    }
-    let deposit = 0;
-    if (pack.deposit > 0) {
-      if (pack.depositType === 'percentage') {
-        deposit = Math.round(totalPrice * pack.deposit / 100 * 100) / 100;
-      } else {
-        deposit = pack.deposit;
-      }
-    }
-    // Règlement sur place : rien à payer en ligne, le prix reste informatif.
+    const fullPrice = pack.basePrice + (extraGuests * pack.extraPersonPrice);
+    // Règlement sur place : rien à payer en ligne, rien à remiser, le prix reste informatif.
     if (pack.paymentMode === 'on_site') {
-      return { totalPrice, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: totalPrice, discount };
+      return { totalPrice: fullPrice, deposit: 0, managementFee: 0, toPay: 0, remainingBalance: fullPrice, discount: 0, promoterAmount: 0, promoAmount: 0, discountSource: null as 'promoter' | 'promo' | null };
     }
-    const feeBase = deposit > 0 ? deposit * MANAGEMENT_FEE_RATE : (totalPrice / 2) * MANAGEMENT_FEE_RATE;
+    // Miroir de create-table-checkout : l'acompte se calcule sur le prix plein
+    // (pas d'acompte = tout payer en ligne), et la remise — promoteur OU code
+    // promo, jamais les deux — porte sur cet acompte puis sur le total.
+    let fullDeposit = fullPrice;
+    if (pack.deposit > 0) {
+      fullDeposit = pack.depositType === 'percentage'
+        ? Math.round(fullPrice * pack.deposit / 100 * 100) / 100
+        : pack.deposit;
+    }
+    let promoterAmount = 0;
+    if (promoterDiscount && promoterDiscount.discountValue > 0) {
+      promoterAmount = promoterDiscount.discountType === 'percentage'
+        ? Math.round(fullDeposit * (promoterDiscount.discountValue / 100) * 100) / 100
+        : Math.min(promoterDiscount.discountValue, fullDeposit);
+    }
+    const promoAmount = appliedPromo
+      ? promoDiscountAmount(appliedPromo.discountType, appliedPromo.discountValue, 'tables', 1, fullDeposit)
+      : 0;
+    const best = bestDiscount(promoterAmount, promoAmount);
+    const discount = best.amount;
+    const deposit = fullDeposit - discount;
+    const totalPrice = fullPrice - discount;
+    const feeBase = deposit > 0 ? deposit * MANAGEMENT_FEE_RATE : (fullPrice / 2) * MANAGEMENT_FEE_RATE;
     // Absorb mode: the club covers the Yuno commission, so the fan pays only the Stripe
     // transaction cost on the deposit charged now. Mirrors create-table-checkout's
     // `transactionFee`; the default path is left byte-identical.
@@ -537,10 +546,31 @@ export default function TableCheckout() {
       : Math.round(Math.min(MANAGEMENT_FEE_MAX, Math.max(MANAGEMENT_FEE_MIN, feeBase)) * 100) / 100;
     const toPay = deposit + managementFee;
     const remainingBalance = totalPrice - deposit;
-    return { totalPrice, deposit, managementFee, toPay, remainingBalance, discount };
+    return { totalPrice, deposit, managementFee, toPay, remainingBalance, discount, promoterAmount, promoAmount, discountSource: best.source };
   };
 
   const pricing = calculatePricing();
+
+  // Un lien « …?promo=CODE » (ou un code déjà saisi dans la session) est
+  // réappliqué tout seul, après vérification.
+  const [promoRestored, setPromoRestored] = useState(false);
+  useEffect(() => {
+    if (promoRestored || !event?.id || !pack || pack.paymentMode === 'on_site') return;
+    setPromoRestored(true);
+    const fromUrl = normalizePromoCode(new URLSearchParams(window.location.search).get('promo'));
+    if (fromUrl) rememberPromoForEvent(event.id, fromUrl);
+    const code = fromUrl ?? recallPromoForEvent(event.id);
+    if (!code) return;
+    void (async () => {
+      const { data } = await supabase.rpc('check_promo_code' as never, {
+        p_code: code, p_event_id: event.id, p_pillar: 'tables',
+      } as never);
+      const res = data as { ok?: boolean; code?: string; discountType?: 'percentage' | 'fixed'; discountValue?: number } | null;
+      if (res?.ok && res.discountType && res.discountValue != null) {
+        setAppliedPromo({ code: res.code ?? code, discountType: res.discountType, discountValue: Number(res.discountValue) });
+      }
+    })();
+  }, [promoRestored, event?.id, pack]);
 
   const handleNextStep = () => {
     if (currentStep === 1) {
@@ -750,6 +780,8 @@ export default function TableCheckout() {
           promoCode: promoterDiscount?.promoCode || getStoredPromoCodeForScope(venue?.id, event.organizer_user_id ?? event.partner_organizer_id),
           promoterId: promoterDiscount?.promoterId || null,
           discountAmount: pricing.discount,
+          // Code promo saisi (lot F) : le serveur le revalide et retient un usage.
+          discountCode: pack?.paymentMode === 'on_site' ? null : appliedPromo?.code ?? null,
           cancelUrl: window.location.pathname,
           // Placement data
           requestedTableId: selectedTableId,
@@ -771,6 +803,12 @@ export default function TableCheckout() {
         return;
       }
       if (data?.error) {
+        if (data.code === 'PROMO_INVALID') {
+          setAppliedPromo(null);
+          forgetPromoForEvent(event?.id);
+          toast.error(t(promoReasonKey(data.reason)));
+          return;
+        }
         if (data.code === 'ACCOUNT_EXISTS') {
           toast.error(data.error);
           navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
@@ -948,9 +986,35 @@ export default function TableCheckout() {
                   </div>
                 )}
 
+                {/* Code promo (lot F) — rien à remiser sur une formule réglée sur place */}
+                {event && pack.paymentMode !== 'on_site' && (
+                  <PromoCodeField
+                    eventId={event.id}
+                    pillar="tables"
+                    applied={appliedPromo}
+                    onChange={(promo) => {
+                      setAppliedPromo(promo);
+                      if (promo) rememberPromoForEvent(event.id, promo.code);
+                      else forgetPromoForEvent(event.id);
+                    }}
+                    discount={pricing.promoAmount}
+                    outranked={!!appliedPromo && pricing.discountSource === 'promoter'}
+                  />
+                )}
+
                 {/* Price breakdown */}
                 <div className="mt-5 border border-white/[0.08] bg-[var(--sf-141414)] p-4 space-y-2.5" style={{ borderRadius: 10 }}>
-                  {promoterDiscount && pricing.discount > 0 && (
+                  {appliedPromo && pricing.discountSource === 'promo' && (
+                    <div className="flex justify-between items-center gap-3 text-emerald-400 text-sm">
+                      <span className="font-mono uppercase flex items-center gap-1.5" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
+                        <Tag className="h-3 w-3" />
+                        Code {appliedPromo.code}
+                        {appliedPromo.discountType === 'percentage' ? ` (-${appliedPromo.discountValue}%)` : ''}
+                      </span>
+                      <span className="font-mono font-medium tabular-nums">-{pricing.discount.toFixed(2)} €</span>
+                    </div>
+                  )}
+                  {promoterDiscount && pricing.discountSource === 'promoter' && (
                     <div className="flex justify-between items-center gap-3 text-emerald-400 text-sm">
                       <span className="font-mono uppercase flex items-center gap-1.5" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
                         <Tag className="h-3 w-3" />

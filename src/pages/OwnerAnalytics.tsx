@@ -1,15 +1,14 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Download, Ticket, Wine, Users, RotateCcw,
   Lock as LockIcon, Percent, Eye, ShoppingCart, CreditCard,
   MousePointerClick, TrendingUp, Layers, Flame, Clock,
-  ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity, ArrowLeft, ChevronDown,
+  ArrowUpRight, ArrowDownRight, Activity, ChevronDown,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
   ClipboardList, Sofa,
-  Radio, ShoppingBag,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours } from 'date-fns';
@@ -19,7 +18,9 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
-import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
+import {
+  useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow,
+  EMPTY_DRINK_ANALYTICS, EMPTY_TICKET_ANALYTICS, EMPTY_TABLE_ANALYTICS, periodDays } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
@@ -42,7 +43,21 @@ import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboar
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
-import { useTabParam } from '@/hooks/useTabParam';
+import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
+import { eventReportHref } from '@/lib/analyticsNav';
+import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
+import { AnalyticsLoading } from '@/components/analytics/kit';
+import { SalesByDayChart } from '@/components/analytics/SalesByDayChart';
+import { buildSalesSeries } from '@/lib/salesSeries';
+import { useNumberFormat } from '@/components/analytics/kitFormat';
+import { CommunityOverviewView } from '@/components/analytics/families/CommunityOverviewView';
+import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
+import { TrafficView } from '@/components/analytics/families/TrafficView';
+import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
+import { HypeEventForecast } from '@/components/hype/HypeEventForecast';
+import { EmptyNote, ReportCard } from '@/components/event-report/ui';
+import { useEventParam } from '@/hooks/useEventParam';
+import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 
@@ -159,7 +174,8 @@ function smooth(pts: [number, number][]): string {
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean }) {
   const W = 96, H = 34, pad = 3;
-  if (!pts.length) return <svg width={W} height={H} />;
+  // Une courbe à un seul point n'est qu'un point parasite sous le chiffre.
+  if (pts.length < 2) return <svg width={W} height={H} />;
   const max = Math.max(...pts), min = Math.min(...pts), rng = max - min || 1;
   const xs = pts.map((_, i) => pad + (i / Math.max(pts.length - 1, 1)) * (W - pad * 2));
   const ys = pts.map(v => H - pad - ((v - min) / rng) * (H - pad * 2));
@@ -385,35 +401,6 @@ function DonutChart({ data }: { data: { name: string; val: number; pct: number }
   );
 }
 
-// ─── Segment control ──────────────────────────────────────────────────────────
-function Seg({ value, options, onChange }: {
-  value: string;
-  options: { key: string; label: string; icon?: React.ReactNode }[];
-  onChange: (k: string) => void;
-}) {
-  return (
-    <div
-      className="inline-flex gap-0.5 p-1 rounded-xl"
-      style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
-    >
-      {options.map(o => (
-        <button
-          key={o.key}
-          onClick={() => onChange(o.key)}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150"
-          style={value === o.key
-            ? { color: T1, background: 'linear-gradient(180deg,rgb(var(--ink)/.13),rgb(var(--ink)/.07))', boxShadow: '0 1px 0 rgb(var(--sheen)/.08) inset,0 4px 10px -6px rgb(0 0 0/var(--pro-shadow-a))' }
-            : { color: T3 }
-          }
-        >
-          {o.icon && <span style={{ opacity: 0.7 }}>{o.icon}</span>}
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function OwnerAnalytics() {
   const { t, language } = useLanguage();
@@ -427,12 +414,20 @@ export default function OwnerAnalytics() {
   // `live` = la vue en direct (globe + flux) et `purchase` = le comportement
   // d'achat : des onglets de la page, pas des modes de données — les hooks
   // d'analytics restent sur « global » pendant qu'ils tournent.
-  const [tab, setTab] = useTabParam<AnalyticsMode | 'live' | 'purchase'>('global', ['global', 'event', 'live', 'purchase']);
-  const mode: AnalyticsMode = tab === 'live' || tab === 'purchase' ? 'global' : tab;
-  const setMode = setTab as (m: AnalyticsMode | 'live' | 'purchase') => void; // identité stable (setter useState)
-  const isLive = tab === 'live';
-  const isPurchase = tab === 'purchase';
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  // Analytics en quatre familles (Ventes · Trafic · Communauté · En direct),
+  // chacune rangée en vues ; tout vit dans l'URL (`?tab=&view=&event=`), les
+  // anciens onglets (`global`, `event`, `purchase`) y sont traduits.
+  const { family, view, go } = useAnalyticsRoute();
+  const { eur: eurFmt } = useNumberFormat();
+  const mode: AnalyticsMode = family === 'sales' && view === 'event' ? 'event' : 'global';
+  const isLive = family === 'live';
+  const isPurchase = family === 'community' && view === 'purchase';
+  const analyticsBase = useLocation().pathname.replace(/\/$/, '');
+  const consolePrefix = analyticsBase.replace(/\/analytics$/, '');
+  const eventHref = (id: string) => eventReportHref(analyticsBase, id);
+  // La soirée choisie vit dans l'URL (`?event=`) : un lien depuis la liste des
+  // soirées ou le tableau de bord ouvre directement son analyse.
+  const [selectedEventId, setSelectedEventId] = useEventParam();
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [recentActivity, setRecentActivity] = useState(0);
@@ -440,6 +435,7 @@ export default function OwnerAnalytics() {
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
   // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
   const [showAdvancedZones, setShowAdvancedZones] = useState(false);
+  const [showOverviewDetail, setShowOverviewDetail] = useState(false);
 
   // Web-traffic zones (acquisition / engagement) share the page's main period
   // selector — one period control for the whole page, no separate hub filter.
@@ -447,15 +443,25 @@ export default function OwnerAnalytics() {
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
+  // Chaque jeu de chiffres ne se charge que sur les vues qui le lisent :
+  // Trafic, Communauté ou En direct n'attendent plus ~70 requêtes de Ventes.
+  const needsSales = !hasAdvancedAnalytics
+    || (family === 'sales' && (view === 'overview' || (view === 'event' && showAdvancedZones)));
   const {
-    drinkAnalytics, ticketAnalytics, tableAnalytics, refundAnalytics, events,
+    drinkAnalytics: drinkRaw, ticketAnalytics: ticketRaw, tableAnalytics: tableRaw, refundAnalytics, events,
     currentTotals, previousTotals, uniqueGuestsTotal, loading,
   } = useAnalyticsData({
-    venueId, dateRange, mode, selectedEventId,
+    venueId, dateRange, mode, selectedEventId, enabled: needsSales,
   });
-  const { nightAnalytics } = useNightAnalytics({ venueId, dateRange, mode, selectedEventId });
-  const { promoterAnalytics } = usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId });
-  const { customerAnalytics } = useCustomerAnalytics({ venueId });
+  const salesPending = needsSales && (loading || !drinkRaw || !ticketRaw || !tableRaw);
+  const drinkAnalytics = drinkRaw ?? EMPTY_DRINK_ANALYTICS;
+  const ticketAnalytics = ticketRaw ?? EMPTY_TICKET_ANALYTICS;
+  const tableAnalytics = tableRaw ?? EMPTY_TABLE_ANALYTICS;
+  const { nightAnalytics } = useNightAnalytics({ venueId, dateRange, mode, selectedEventId, enabled: needsSales && (mode === 'event' || showOverviewDetail) });
+  const { promoterAnalytics, loading: promoterLoading } = usePromoterAnalytics({
+    venueId, dateRange, mode, selectedEventId, enabled: family === 'sales' && view === 'partners',
+  });
+  const { customerAnalytics } = useCustomerAnalytics({ venueId, enabled: family === 'community' && view === 'overview' });
 
   useEffect(() => {
     if (!venueId) return;
@@ -527,7 +533,10 @@ export default function OwnerAnalytics() {
   };
 
   // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading || !drinkAnalytics || !ticketAnalytics || !tableAnalytics) return <OwnerPageSkeleton />;
+  // Le plan Essentiel n'affiche que les ventes : il attend donc ses chiffres.
+  // Les autres vues se rendent tout de suite ; Ventes montre son squelette
+  // dans la page, sous la navigation.
+  if (!hasAdvancedAnalytics && salesPending) return <OwnerPageSkeleton />;
 
   // ── Essential plan ───────────────────────────────────────────────────────────
   if (!hasAdvancedAnalytics) {
@@ -614,7 +623,12 @@ export default function OwnerAnalytics() {
       .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
   })();
 
-  const fmt = (n: number) => n >= 1000 ? `€${(n / 1000).toFixed(1)}k` : `€${n.toFixed(0)}`;
+  // Montants au format de la langue : « 321 € » / « 3,1 k€ » en français,
+  // « €321 » / « €3.1K » en anglais — jamais un « €321 » figé.
+  const fmt = (n: number) => new Intl.NumberFormat(
+    language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB',
+    { style: 'currency', currency: 'EUR', notation: Math.abs(n) >= 10000 ? 'compact' : 'standard', maximumFractionDigits: Math.abs(n) >= 10000 ? 1 : 0 },
+  ).format(n);
 
   // Real "vs previous period" deltas computed from the prior equal-length window.
   const pctDelta = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
@@ -624,6 +638,20 @@ export default function OwnerAnalytics() {
   const aovCur = currentTotals && currentTotals.orders > 0 ? currentTotals.revenue / currentTotals.orders : 0;
   const aovPrev = previousTotals && previousTotals.orders > 0 ? previousTotals.revenue / previousTotals.orders : 0;
   const aovDelta = previousTotals ? pctDelta(aovCur, aovPrev) : null;
+
+  // Ventes jour par jour (mois par mois au-delà de trois mois), sans trou.
+  const hourly = dateRange === '24h' || dateRange === '48h';
+  const { from: periodFrom, to: periodTo } = periodDays(dateRange);
+  const salesSeries = buildSalesSeries({
+    tickets: ticketAnalytics.revenueByDay,
+    tables: tableAnalytics.revenueByDay,
+    drinks: drinkAnalytics.revenueByDay,
+  }, periodFrom, periodTo);
+  const salesPillars = [
+    { key: 'tickets' as const, label: t('evs.tickets') },
+    { key: 'tables' as const, label: t('evs.tables') },
+    { key: 'drinks' as const, label: t('owner.drinksTab') },
+  ];
 
   const kpis = [
     { label: t('owner.an.grossRevenue'), val: fmt(totalRevenue), spark: grossSparkPts, icon: <TrendingUp className="w-4 h-4" />, delta: revDelta },
@@ -649,10 +677,10 @@ export default function OwnerAnalytics() {
 
   // Finance strip — Gross − Stripe − Refunds = Net Payout (now foots exactly).
   const financeData = [
-    { label: t('owner.an.grossVolume'), val: `€${totalRevenue.toFixed(0)}`, desc: `${totalOrders} ${t('owner.an.transactions')}` },
-    { label: 'Stripe fees', val: `−€${totalStripeFee.toFixed(0)}`, desc: STRIPE_FEE_LABEL },
-    { label: t('owner.an.refunds'), val: `−€${totalRefunded.toFixed(0)}`, desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
-    { label: t('owner.an.netPayout'), val: `€${totalNetRevenue.toFixed(0)}`, desc: t('owner.an.settles2days') },
+    { label: t('owner.an.grossVolume'), val: fmt(totalRevenue), desc: `${totalOrders} ${t('owner.an.transactions')}` },
+    { label: 'Stripe', val: totalStripeFee > 0 ? `−${fmt(totalStripeFee)}` : '—', desc: STRIPE_FEE_LABEL },
+    { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmt(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
+    { label: t('owner.an.netPayout'), val: fmt(totalNetRevenue), desc: t('owner.an.settles2days') },
   ];
 
   // Period options
@@ -682,16 +710,122 @@ export default function OwnerAnalytics() {
   // Global-mode spine: only the zones that actually render get an anchor pill.
   const hasNight = !!nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0);
   const hasPromoter = !!promoterAnalytics && promoterAnalytics.promoters.length > 0;
-  const hasLoyalty = !!customerAnalytics && customerAnalytics.totalCustomers > 0;
   const navSections: AnchorSection[] = [
     { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
     ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
     ...(venueId ? [{ id: 'an-guestlist', label: t('owner.an.guestList'), icon: ClipboardList }] : []),
-    ...(hasPromoter ? [{ id: 'an-promoter', label: t('owner.an.promoterRoi'), icon: Megaphone }] : []),
-    ...(hasLoyalty ? [{ id: 'an-loyalty', label: t('owner.an.loyalty'), icon: HeartHandshake }] : []),
-    ...(venueId ? [{ id: 'an-audience', label: t('owner.an.audience'), icon: Users }] : []),
-    ...(venueId ? [{ id: 'an-web', label: t('owner.an.zoneTraffic'), icon: Globe }] : []),
   ];
+
+  // ── Zones rangées hors de Ventes › Vue d'ensemble (lot E) ────────────────
+  const promoterZone = (<>
+        {/* ── Promoter ROI ───────────────────────────────────────────────── */}
+        {promoterAnalytics && promoterAnalytics.promoters.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: t('owner.an.attributedRevenue'), val: fmt(promoterAnalytics.totalAttributed), sub: `${promoterAnalytics.totalConversions} ${t('owner.an.conversions')}`, icon: <TrendingUp className="w-4 h-4" />, tone: T1 },
+                { label: t('owner.an.commissions'), val: `−${fmt(promoterAnalytics.totalCommission)}`, sub: t('owner.an.owedToPromoters'), icon: <CreditCard className="w-4 h-4" />, tone: T1 },
+                { label: t('owner.an.clickToSale'), val: `${promoterAnalytics.convRate.toFixed(0)}%`, sub: `${promoterAnalytics.totalClicks} ${t('owner.an.clicks')}`, icon: <MousePointerClick className="w-4 h-4" />, tone: T1 },
+                { label: t('owner.an.promoterRoiShort'), val: promoterAnalytics.totalCommission > 0 ? `${promoterAnalytics.roi.toFixed(1)}x` : '—', sub: t('owner.an.revenuePerEuro'), icon: <Target className="w-4 h-4" />, tone: promoterAnalytics.roi >= 1 ? POS : T1 },
+              ].map((tile, i) => (
+                <PCard key={i}>
+                  <div className="flex flex-col min-h-[104px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tile.label}</span>
+                      <span style={{ color: T3 }}>{tile.icon}</span>
+                    </div>
+                    <div className="mt-2 text-[clamp(22px,2.6vw,30px)] font-[640] leading-none tabular-nums" style={{ color: tile.tone, letterSpacing: '-0.025em' }}>{tile.val}</div>
+                    <div className="mt-auto pt-2 text-[11.5px]" style={{ color: T3 }}>{tile.sub}</div>
+                  </div>
+                </PCard>
+              ))}
+            </div>
+            <PCard icon={<Megaphone className="w-4 h-4" />} title={t('owner.an.topPromoters')} sub={t('owner.an.byAttributedRevenue')}>
+              <div className="divide-y" style={{ borderColor: BORDER }}>
+                {promoterAnalytics.promoters.slice(0, 8).map((p, i) => {
+                  const maxRev = promoterAnalytics.promoters[0]?.revenue || 1;
+                  const barPct = maxRev > 0 ? (p.revenue / maxRev) * 100 : 0;
+                  return (
+                    <div key={p.id} className="grid items-center gap-4 py-3" style={{ gridTemplateColumns: '20px 1fr auto' }}>
+                      <span className="text-[12.5px] tabular-nums" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-[560] truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>{p.name}</div>
+                        <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
+                          {p.conversions} {t('owner.an.conversions')} · {p.clicks} {t('owner.an.clicks')} · {p.convRate.toFixed(0)}%
+                        </div>
+                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
+                          <div className="h-full rounded transition-all" style={{ width: `${barPct}%`, background: i === 0 ? `linear-gradient(90deg,${RED}88,${RED})` : `linear-gradient(90deg,${C_MID},${C_HI})` }} />
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1, letterSpacing: '-0.01em' }}>{fmt(p.revenue)}</div>
+                        <div className="text-[11px] mt-1" style={{ color: T3 }}>−{fmt(p.commission)} {t('owner.an.commissionLower')}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </PCard>
+          </motion.div>
+        )}
+
+  </>);
+  // Communauté › Vue d'ensemble compte déjà la participation et la récence
+  // (base de contacts). L'ancienne zone Fidélité les recomptait avec d'autres
+  // définitions (« 96 % reviennent » sous « 54 % ne sont venus qu'une fois ») :
+  // seule la liste des meilleurs clients, qu'on ne voit nulle part ailleurs,
+  // reste ici.
+  const loyaltyZone = (<>
+        {customerAnalytics && customerAnalytics.topCustomers.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <PCard icon={<Crown className="w-4 h-4" />} title={t('owner.an.topCustomers')} sub={t('owner.an.byLifetimeSpend')}>
+              <div className="grid gap-x-8 md:grid-cols-2">
+                {customerAnalytics.topCustomers.slice(0, 10).map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <span className="text-[12.5px] tabular-nums w-5" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{c.name}</div>
+                      <div className="text-[11.5px]" style={{ color: T3 }}>{c.visitNights} {t('owner.an.nights')}</div>
+                    </div>
+                    <div className="text-sm font-[620] tabular-nums" style={{ color: T1 }}>{eurFmt(c.totalSpent)}</div>
+                  </div>
+                ))}
+              </div>
+            </PCard>
+          </motion.div>
+        )}
+  </>);
+  const audienceZone = (<>
+        {/* ── Zone · Audience (age & gender of participants) ────────────── */}
+        {mode === 'global' && venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
+            <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
+          </motion.div>
+        )}
+
+  </>);
+  const webZone = (<div className="space-y-4">
+        {/* ── Zone · Web traffic ────────────────────────────────────────── */}
+        {venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
+            <AcquisitionDashboard scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
+          </motion.div>
+        )}
+
+        {/* ── Zone · Web engagement ─────────────────────────────────────── */}
+        {venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
+            <ZoneHeading icon={<Activity className="w-4 h-4" />} label={t('owner.an.zoneEngagement')} />
+            <BehaviorAnalytics scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
+          </motion.div>
+        )}
+
+  </div>);
+  // Contrôles (période, export) : seulement là où ils changent quelque chose.
+  const showControls = !isLive && mode !== 'event'
+    && !(family === 'traffic' && view !== 'sources')
+    && !(family === 'community' && (view === 'overview' || view === 'subscribers' || view === 'tastes'));
+  const showExport = family === 'sales' && view === 'overview';
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
@@ -719,19 +853,8 @@ export default function OwnerAnalytics() {
 
         {/* ── Controls row ──────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Seg
-              value={tab}
-              options={[
-                { key: 'global', label: t('owner.an.global'), icon: <Globe className="w-3.5 h-3.5" /> },
-                { key: 'event', label: t('owner.an.event'), icon: <Calendar className="w-3.5 h-3.5" /> },
-                { key: 'purchase', label: t('owner.an.purchaseTab'), icon: <ShoppingBag className="w-3.5 h-3.5" /> },
-                { key: 'live', label: t('owner.an.liveTab'), icon: <Radio className="w-3.5 h-3.5" /> },
-              ]}
-              onChange={(k) => { setMode(k as AnalyticsMode | 'live' | 'purchase'); if (k === 'global') setSelectedEventId(null); }}
-            />
-          </div>
-          {!isLive && (
+          <AnalyticsFamilyNav family={family} view={view} go={go} hideQuestion={isLive || mode === 'event'} />
+          {showControls && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
               <div className="flex gap-1 flex-wrap p-1 rounded-xl"
@@ -749,7 +872,7 @@ export default function OwnerAnalytics() {
                 ))}
               </div>
             )}
-            {!isPurchase && <button
+            {showExport && <button
               onClick={handleExportData}
               disabled={exporting || !hasExport}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40"
@@ -764,6 +887,37 @@ export default function OwnerAnalytics() {
 
         {isPurchase ? (
           <PurchaseBehaviorView venueId={venueId} dateRange={dateRange} />
+        ) : family === 'community' && view === 'overview' ? (
+          <CommunityOverviewView scope={{ venueId }} contactsHref={`${consolePrefix}/campaigns/contacts`} eventHref={eventHref}>
+            {loyaltyZone}
+          </CommunityOverviewView>
+        ) : family === 'community' && view === 'subscribers' ? (
+          venueId ? (
+            <AudienceDashboard
+              embedded
+              subject={{ type: 'venue', id: venueId }}
+              actions={
+                <Link
+                  to={`${consolePrefix}/push`}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90"
+                  style={{ background: RED, color: '#fff' }}
+                >
+                  <Megaphone className="w-4 h-4" />
+                  {t('anf.notifyFollowers')}
+                </Link>
+              }
+            />
+          ) : null
+        ) : family === 'community' && view === 'tastes' ? (
+          <CommunityTastesView scope={{ venueId }} />
+        ) : family === 'community' && view === 'demographics' ? (
+          audienceZone
+        ) : family === 'traffic' && view === 'sources' ? (
+          webZone
+        ) : family === 'traffic' ? (
+          <TrafficView scope={{ venueId }} mode={view === 'events' ? 'events' : 'page'} publicPath={venueId ? `/club/${venueId}` : null} eventHref={eventHref} />
+        ) : family === 'sales' && view === 'partners' ? (
+          promoterLoading ? <AnalyticsLoading /> : hasPromoter ? promoterZone : <ReportCard><EmptyNote text={t('anf.pa.empty')} /></ReportCard>
         ) : isLive ? (
           <LiveView venueId={venueId} />
         ) : showEventPicker ? (
@@ -777,29 +931,20 @@ export default function OwnerAnalytics() {
         ) : (
         <>
 
-        {/* Back to the night picker */}
+        {/* Rapport de soirée : les cinq questions (ventes, courbe comparée,
+            trafic, public, ce qui a fait vendre), verdict en tête une fois la
+            soirée passée. */}
         {mode === 'event' && selectedEventId && (
-          <button
-            type="button"
-            onClick={() => setSelectedEventId(null)}
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium cursor-pointer transition-colors hover:text-white"
-            style={{ color: T3 }}
-          >
-            <ArrowLeft className="w-4 h-4" /> {t('owner.an.backToEvents')}
-          </button>
-        )}
-
-        {/* ── Verdict first — "did this night work?" (event mode only) ───── */}
-        {mode === 'event' && selectedEventId && venueId && (
-          <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} />
-        )}
-
-        {/* ── Per-night audience: age & gender of who actually came ──────── */}
-        {mode === 'event' && selectedEventId && venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-3">
-            <ZoneHeading icon={<Users className="w-4 h-4" />} label={t('owner.an.audience')} />
-            <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} />
-          </motion.div>
+          <EventReportView
+            key={selectedEventId}
+            eventId={selectedEventId}
+            onEventChange={(id) => setSelectedEventId(id)}
+            onBack={() => setSelectedEventId(null)}
+            scope={{ venueId }}
+            verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} layout="summary" /> : undefined}
+            demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} /> : undefined}
+            forecast={venueId && hasFeature('hype_analysis') ? <HypeEventForecast venueId={venueId} eventId={selectedEventId} /> : undefined}
+          />
         )}
 
         {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}
@@ -818,7 +963,9 @@ export default function OwnerAnalytics() {
           </button>
         )}
 
-        {(mode === 'global' || showAdvancedZones) && (
+        {(mode === 'global' || showAdvancedZones) && salesPending && <AnalyticsLoading />}
+
+        {(mode === 'global' || showAdvancedZones) && !salesPending && (
         <>
 
         {/* ── Primary pillar navigation — tickets / drinks / VIP tables promoted ── */}
@@ -850,7 +997,6 @@ export default function OwnerAnalytics() {
         <>
 
         {/* Anchor-nav spine — global mode only (event mode has its own in the verdict view) */}
-        {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
 
         {/* ── Zone 1 · Overview ─────────────────────────────────────────── */}
         <ZoneHeading id="an-overview" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
@@ -884,7 +1030,7 @@ export default function OwnerAnalytics() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <PCard
             icon={<TrendingUp className="w-4 h-4" />}
-            title={t('owner.an.grossRevenueHourly')}
+            title={hourly ? t('owner.an.grossRevenueHourly') : salesSeries.unit === 'month' ? t('owner.an.revenueByMonth') : t('owner.an.revenueByDay')}
             sub={t('owner.an.distributionOverPeriod')}
             right={
               <div className="text-right">
@@ -897,14 +1043,41 @@ export default function OwnerAnalytics() {
               </div>
             }
           >
-            {combinedHourly.length > 0
+            {hourly ? (
+              combinedHourly.length > 0
               ? <RevenueBars data={combinedHourly} />
               : <div className="h-40 flex items-center justify-center text-sm" style={{ color: T3 }}>
                   {t('owner.an.noDataPeriod')}
                 </div>
-            }
+
+            ) : (
+              <SalesByDayChart series={salesSeries} pillars={salesPillars} />
+            )}
           </PCard>
         </motion.div>
+
+        {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+          <PCard
+            icon={<CreditCard className="w-4 h-4" />}
+            title={t('owner.an.settlement')}
+            sub={t('owner.an.payoutsViaStripe')}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {financeData.map((f, i) => (
+                <div key={i} className={i > 0 ? 'sm:border-l pl-0 sm:pl-4' : ''} style={{ borderColor: BORDER }}>
+                  <div className="text-[11px] uppercase tracking-[0.07em]" style={{ color: T3 }}>{f.label}</div>
+                  <div className="text-2xl font-[640] tabular-nums mt-2"
+                    style={{ color: f.val.startsWith('−') ? T2 : i === 3 ? T1 : T1, letterSpacing: '-0.02em' }}>
+                    {f.val}
+                  </div>
+                  <div className="text-[11.5px] mt-1.5" style={{ color: T3 }}>{f.desc}</div>
+                </div>
+              ))}
+            </div>
+          </PCard>
+        </motion.div>
+
 
         {/* ── Bilan par soirée (cross-pillar P&L per night) ──────────────── */}
         {venueId && (
@@ -913,6 +1086,25 @@ export default function OwnerAnalytics() {
           </motion.div>
         )}
 
+        {/* ── Le détail (parcours d'achat, top ventes, la nuit, guest list) :
+            replié. La vue d'ensemble répond à « combien ai-je vendu ? » en
+            quatre blocs, le reste se déplie à la demande. ─────────────── */}
+        <button
+          type="button"
+          onClick={() => setShowOverviewDetail((v) => !v)}
+          aria-expanded={showOverviewDetail}
+          className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
+          style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
+        >
+          <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
+            <Layers className="w-4 h-4" style={{ color: T3 }} />
+            {t('owner.an.salesDetail')}
+          </span>
+          <ChevronDown className={`w-4 h-4 transition-transform ${showOverviewDetail ? 'rotate-180' : ''}`} style={{ color: T3 }} />
+        </button>
+
+        {showOverviewDetail && (
+        <>
         {/* ── Funnel + Donut ────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="grid lg:grid-cols-[3fr,2fr] gap-3">
@@ -1082,172 +1274,8 @@ export default function OwnerAnalytics() {
           </motion.div>
         )}
 
-        {/* ── Promoter ROI ───────────────────────────────────────────────── */}
-        {promoterAnalytics && promoterAnalytics.promoters.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
-            <ZoneHeading id="an-promoter" icon={<Megaphone className="w-4 h-4" />} label={t('owner.an.promoterRoi')} />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: t('owner.an.attributedRevenue'), val: fmt(promoterAnalytics.totalAttributed), sub: `${promoterAnalytics.totalConversions} ${t('owner.an.conversions')}`, icon: <TrendingUp className="w-4 h-4" />, tone: T1 },
-                { label: t('owner.an.commissions'), val: `−${fmt(promoterAnalytics.totalCommission)}`, sub: t('owner.an.owedToPromoters'), icon: <CreditCard className="w-4 h-4" />, tone: T1 },
-                { label: t('owner.an.clickToSale'), val: `${promoterAnalytics.convRate.toFixed(0)}%`, sub: `${promoterAnalytics.totalClicks} ${t('owner.an.clicks')}`, icon: <MousePointerClick className="w-4 h-4" />, tone: T1 },
-                { label: t('owner.an.promoterRoiShort'), val: promoterAnalytics.totalCommission > 0 ? `${promoterAnalytics.roi.toFixed(1)}x` : '—', sub: t('owner.an.revenuePerEuro'), icon: <Target className="w-4 h-4" />, tone: promoterAnalytics.roi >= 1 ? POS : T1 },
-              ].map((tile, i) => (
-                <PCard key={i}>
-                  <div className="flex flex-col min-h-[104px]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tile.label}</span>
-                      <span style={{ color: T3 }}>{tile.icon}</span>
-                    </div>
-                    <div className="mt-2 text-[clamp(22px,2.6vw,30px)] font-[640] leading-none tabular-nums" style={{ color: tile.tone, letterSpacing: '-0.025em' }}>{tile.val}</div>
-                    <div className="mt-auto pt-2 text-[11.5px]" style={{ color: T3 }}>{tile.sub}</div>
-                  </div>
-                </PCard>
-              ))}
-            </div>
-            <PCard icon={<Megaphone className="w-4 h-4" />} title={t('owner.an.topPromoters')} sub={t('owner.an.byAttributedRevenue')}>
-              <div className="divide-y" style={{ borderColor: BORDER }}>
-                {promoterAnalytics.promoters.slice(0, 8).map((p, i) => {
-                  const maxRev = promoterAnalytics.promoters[0]?.revenue || 1;
-                  const barPct = maxRev > 0 ? (p.revenue / maxRev) * 100 : 0;
-                  return (
-                    <div key={p.id} className="grid items-center gap-4 py-3" style={{ gridTemplateColumns: '20px 1fr auto' }}>
-                      <span className="text-[12.5px] tabular-nums" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
-                      <div className="min-w-0">
-                        <div className="text-sm font-[560] truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>{p.name}</div>
-                        <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
-                          {p.conversions} {t('owner.an.conversions')} · {p.clicks} {t('owner.an.clicks')} · {p.convRate.toFixed(0)}%
-                        </div>
-                        <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgb(var(--ink)/0.06)' }}>
-                          <div className="h-full rounded transition-all" style={{ width: `${barPct}%`, background: i === 0 ? `linear-gradient(90deg,${RED}88,${RED})` : `linear-gradient(90deg,${C_MID},${C_HI})` }} />
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1, letterSpacing: '-0.01em' }}>{fmt(p.revenue)}</div>
-                        <div className="text-[11px] mt-1" style={{ color: T3 }}>−{fmt(p.commission)} {t('owner.an.commissionLower')}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </PCard>
-          </motion.div>
+        </>
         )}
-
-        {/* ── Customer loyalty / RFM ─────────────────────────────────────── */}
-        {customerAnalytics && customerAnalytics.totalCustomers > 0 && (() => {
-          const segMeta: Record<string, { label: string; color: string }> = {
-            new: { label: t('owner.an.segNew'), color: 'var(--acc-38bdf8)' },
-            active: { label: t('owner.an.segActive'), color: POS },
-            atRisk: { label: t('owner.an.segAtRisk'), color: 'var(--acc-f59e0b)' },
-            lapsed: { label: t('owner.an.segLapsed'), color: T3 },
-          };
-          const segTotal = customerAnalytics.segments.reduce((s, x) => s + x.count, 0) || 1;
-          const g = customerAnalytics.growth90;
-          const tiles = [
-            { label: t('owner.an.customers'), val: customerAnalytics.totalCustomers.toLocaleString(), sub: t('owner.an.lifetimeBase'), icon: <Users className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.repeatRate'), val: `${customerAnalytics.repeatRate.toFixed(0)}%`, sub: t('owner.an.cameMoreThanOnce'), icon: <Repeat className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.avgClv'), val: fmt(customerAnalytics.avgClv), sub: t('owner.an.lifetimeSpend'), icon: <Crown className="w-4 h-4" />, tone: T1 },
-            { label: t('owner.an.growth90'), val: g === null ? '—' : `${g >= 0 ? '+' : ''}${g.toFixed(0)}%`, sub: t('owner.an.vsPrev90'), icon: <TrendingUp className="w-4 h-4" />, tone: g === null ? T1 : (g >= 0 ? POS : NEG) },
-          ];
-          return (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }} className="space-y-3">
-              <ZoneHeading id="an-loyalty" icon={<HeartHandshake className="w-4 h-4" />} label={t('owner.an.loyalty')} />
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {tiles.map((tile, i) => (
-                  <PCard key={i}>
-                    <div className="flex flex-col min-h-[104px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tile.label}</span>
-                        <span style={{ color: T3 }}>{tile.icon}</span>
-                      </div>
-                      <div className="mt-2 text-[clamp(22px,2.6vw,30px)] font-[640] leading-none tabular-nums" style={{ color: tile.tone, letterSpacing: '-0.025em' }}>{tile.val}</div>
-                      <div className="mt-auto pt-2 text-[11.5px]" style={{ color: T3 }}>{tile.sub}</div>
-                    </div>
-                  </PCard>
-                ))}
-              </div>
-              <div className="grid lg:grid-cols-2 gap-3">
-                <PCard icon={<HeartHandshake className="w-4 h-4" />} title={t('owner.an.lifecycle')} sub={t('owner.an.byRecency')}>
-                  <div className="flex h-2.5 rounded-full overflow-hidden mt-1" style={{ background: 'rgb(var(--ink)/0.06)' }}>
-                    {customerAnalytics.segments.map(s => s.count > 0 && (
-                      <div key={s.key} style={{ width: `${(s.count / segTotal) * 100}%`, background: segMeta[s.key].color }} />
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {customerAnalytics.segments.map(s => (
-                      <div key={s.key} className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: segMeta[s.key].color }} />
-                        <span className="text-[12.5px]" style={{ color: T2 }}>{segMeta[s.key].label}</span>
-                        <span className="text-[12.5px] tabular-nums ml-auto" style={{ color: T1 }}>{s.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </PCard>
-                <PCard icon={<Crown className="w-4 h-4" />} title={t('owner.an.topCustomers')} sub={t('owner.an.byLifetimeSpend')}>
-                  <div className="divide-y" style={{ borderColor: BORDER }}>
-                    {customerAnalytics.topCustomers.slice(0, 5).map((c, i) => (
-                      <div key={i} className="flex items-center gap-3 py-2.5">
-                        <span className="text-[12.5px] tabular-nums w-5" style={{ color: T3 }}>{String(i + 1).padStart(2, '0')}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{c.name}</div>
-                          <div className="text-[11.5px]" style={{ color: T3 }}>{c.visitNights} {t('owner.an.nights')}</div>
-                        </div>
-                        <div className="text-sm font-[620] tabular-nums" style={{ color: T1 }}>{fmt(c.totalSpent)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </PCard>
-              </div>
-            </motion.div>
-          );
-        })()}
-
-        {/* ── Zone · Audience (age & gender of participants) ────────────── */}
-        {mode === 'global' && venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
-            <ZoneHeading id="an-audience" icon={<Users className="w-4 h-4" />} label={t('owner.an.audience')} />
-            <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
-          </motion.div>
-        )}
-
-        {/* ── Zone · Web traffic ────────────────────────────────────────── */}
-        {venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
-            <ZoneHeading id="an-web" icon={<Globe className="w-4 h-4" />} label={t('owner.an.zoneTraffic')} />
-            <AcquisitionDashboard scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
-          </motion.div>
-        )}
-
-        {/* ── Zone · Web engagement ─────────────────────────────────────── */}
-        {venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
-            <ZoneHeading icon={<Activity className="w-4 h-4" />} label={t('owner.an.zoneEngagement')} />
-            <BehaviorAnalytics scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
-          </motion.div>
-        )}
-
-        {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-          <PCard
-            icon={<CreditCard className="w-4 h-4" />}
-            title={t('owner.an.settlement')}
-            sub={t('owner.an.payoutsViaStripe')}
-          >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {financeData.map((f, i) => (
-                <div key={i} className={i > 0 ? 'sm:border-l pl-0 sm:pl-4' : ''} style={{ borderColor: BORDER }}>
-                  <div className="text-[11px] uppercase tracking-[0.07em]" style={{ color: T3 }}>{f.label}</div>
-                  <div className="text-2xl font-[640] tabular-nums mt-2"
-                    style={{ color: f.val.startsWith('−') ? T2 : i === 3 ? T1 : T1, letterSpacing: '-0.02em' }}>
-                    {f.val}
-                  </div>
-                  <div className="text-[11.5px] mt-1.5" style={{ color: T3 }}>{f.desc}</div>
-                </div>
-              ))}
-            </div>
-          </PCard>
-        </motion.div>
 
         </>
         )}

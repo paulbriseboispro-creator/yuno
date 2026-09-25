@@ -38,6 +38,8 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { TicketCheckoutSkeleton } from '@/components/skeletons/TicketCheckoutSkeleton';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
+import { PromoCodeField } from '@/components/checkout/PromoCodeField';
+import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -81,6 +83,9 @@ export default function TicketCheckout() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [promoterDiscount, setPromoterDiscount] = useState<PromoterDiscount | null>(null);
+  // Code promo saisi (lot F) : aperçu ici, décision serveur au paiement.
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
+  const [promoRestored, setPromoRestored] = useState(false);
   
   // Attendees info - index 0 is always the primary buyer
   const [attendees, setAttendees] = useState<AttendeeInfo[]>([
@@ -495,11 +500,38 @@ export default function TicketCheckout() {
     if (promoterDiscount.discountType === 'percentage') {
       return Math.round(subtotal * (promoterDiscount.discountValue / 100) * 100) / 100;
     }
-    return Math.min(promoterDiscount.discountValue, subtotal);
+    // Montant PAR billet, comme le serveur (create-ticket-checkout).
+    return Math.min(promoterDiscount.discountValue * quantity, subtotal);
   };
-  
-  const discount = calculateDiscount();
+
+  const promoterAmount = calculateDiscount();
+  const promoAmount = appliedPromo
+    ? promoDiscountAmount(appliedPromo.discountType, appliedPromo.discountValue, 'tickets', quantity, subtotal)
+    : 0;
+  // Jamais de cumul : la plus forte des deux remises, comme le serveur.
+  const best = bestDiscount(promoterAmount, promoAmount);
+  const discount = best.amount;
   const discountedSubtotal = subtotal - discount;
+
+  // Un lien « …?promo=CODE » (ou un code déjà saisi dans la session) est
+  // réappliqué tout seul, après vérification.
+  useEffect(() => {
+    if (promoRestored || !event?.id || !round?.id) return;
+    setPromoRestored(true);
+    const fromUrl = normalizePromoCode(new URLSearchParams(window.location.search).get('promo'));
+    if (fromUrl) rememberPromoForEvent(event.id, fromUrl);
+    const code = fromUrl ?? recallPromoForEvent(event.id);
+    if (!code) return;
+    void (async () => {
+      const { data } = await supabase.rpc('check_promo_code' as never, {
+        p_code: code, p_event_id: event.id, p_pillar: 'tickets', p_ticket_round_id: round.id,
+      } as never);
+      const res = data as { ok?: boolean; code?: string; discountType?: 'percentage' | 'fixed'; discountValue?: number } | null;
+      if (res?.ok && res.discountType && res.discountValue != null) {
+        setAppliedPromo({ code: res.code ?? code, discountType: res.discountType, discountValue: Number(res.discountValue) });
+      }
+    })();
+  }, [promoRestored, event?.id, round?.id]);
   // Absorb mode: the club covers the Yuno commission, so the fan only pays the Stripe
   // transaction fee. Mirrors create-ticket-checkout so this total matches the charge.
   const feeAbsorbed = useAbsorbYunoFees(venue?.id ?? null);
@@ -764,6 +796,8 @@ export default function TicketCheckout() {
           promoCode: getStoredPromoCodeForScope(venue?.id, venue?.id) ?? promoterDiscount?.promoCode ?? null,
           promoterId: promoterDiscount?.promoterId || null,
           discountAmount: discount,
+          // Code promo saisi (lot F) : le serveur le revalide et retient un usage.
+          discountCode: appliedPromo?.code ?? null,
           upsellSelections: selectedUpsells.map(u => ({ offerId: u.offerId, offerType: u.offerType, price: u.price, drinkCount: u.drinkCount })),
           cancelUrl: window.location.pathname,
           // All attendees for nominative tickets
@@ -792,6 +826,14 @@ export default function TicketCheckout() {
           setCommunityDenied(true);
           void community.refresh();
           toast.error(data.error);
+          return;
+        }
+        if (data.code === 'PROMO_INVALID') {
+          // Code devenu invalide entre l'aperçu et le paiement (quota épuisé,
+          // fin de validité) : on le retire et on le dit, le total se recalcule.
+          setAppliedPromo(null);
+          forgetPromoForEvent(event?.id);
+          toast.error(t(promoReasonKey(data.reason)));
           return;
         }
         if (data.code === 'ACCOUNT_EXISTS') {
@@ -994,7 +1036,7 @@ export default function TicketCheckout() {
         )}
 
         {/* Promo code */}
-        {promoterDiscount && discount > 0 && (
+        {promoterDiscount && best.source === 'promoter' && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1010,6 +1052,21 @@ export default function TicketCheckout() {
                 : ` (-${discount.toFixed(2)}€)`}
             </span>
           </motion.div>
+        )}
+        {event && round && (
+          <PromoCodeField
+            eventId={event.id}
+            pillar="tickets"
+            ticketRoundId={round.id}
+            applied={appliedPromo}
+            onChange={(promo) => {
+              setAppliedPromo(promo);
+              if (promo) rememberPromoForEvent(event.id, promo.code);
+              else forgetPromoForEvent(event.id);
+            }}
+            discount={promoAmount}
+            outranked={!!appliedPromo && best.source === 'promoter'}
+          />
         )}
 
         <div className="my-6 h-px bg-white/[0.06]" />

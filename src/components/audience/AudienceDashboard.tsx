@@ -15,8 +15,10 @@ const langLabel = (code: string) => ({ fr: 'Français', en: 'English', es: 'Espa
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
 const eur = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} €`;
 
-export function AudienceDashboard({ subject, subjectLabel, actions }: {
+export function AudienceDashboard({ subject, subjectLabel, actions, embedded = false }: {
   subject: AudienceSubject; subjectLabel?: string; actions?: ReactNode;
+  /** Rangé sous une question d'Analytics (« Qui me suit ? ») : pas de second titre. */
+  embedded?: boolean;
 }) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es: string) => (language === 'fr' ? fr : language === 'es' ? es : en);
@@ -42,7 +44,10 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
     explore: t('Explore', 'Explore', 'Explorar'),
     post_purchase: t('Après achat', 'After purchase', 'Tras la compra'),
     trigger: t('Direct / autre', 'Direct / other', 'Directo / otro'),
-  } as Record<string, string>)[s] || s);
+    community_ticket: t('Case cochée à l’achat d’un billet', 'Box ticked when buying a ticket', 'Casilla marcada al comprar una entrada'),
+    community_table: t('Case cochée à la réservation d’une table', 'Box ticked when booking a table', 'Casilla marcada al reservar una mesa'),
+    community_guestlist: t('Case cochée à l’inscription guest list', 'Box ticked on the guest list', 'Casilla marcada en la guest list'),
+  } as Record<string, string>)[s] || s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()));
 
   // ── Courbe : série nette (snapshots) sinon brut mensuel (analytics.growth) ──
   const growthSeries = useMemo(() => {
@@ -94,6 +99,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   return (
     <div className="space-y-1">
       {/* Header */}
+      {embedded ? (actions && <div className="flex justify-end">{actions}</div>) : (
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[22px] sm:text-[26px] font-[680] tracking-tight" style={{ color: T1 }}>
@@ -107,6 +113,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
         </div>
         {actions && <div className="flex-none">{actions}</div>}
       </div>
+      )}
 
       {empty ? (
         <PCard style={{ marginTop: 20 }} icon={<Users className="w-4 h-4" />}

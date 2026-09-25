@@ -15,6 +15,7 @@ import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
+import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -56,6 +57,8 @@ serve(async (req) => {
   // qui refuse la session…) gelait les places 10 minutes, et un événement finissait
   // par afficher « complet » alors que rien n'avait été vendu.
   let reservationId: string | null = null;
+  // Usage de code promo retenu (lot F) : rendu si le checkout échoue.
+  let promoRedemptionId: string | null = null;
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -76,6 +79,8 @@ serve(async (req) => {
       // `hasInsurance` is intentionally NOT destructured — cancellation insurance is
       // withdrawn from sale and the field is ignored if a client still sends it.
       newsletterOptIn, smsOptIn, platformOptIn, promoCode, promoterId, attendees,
+      // Code promo SAISI par l'acheteur (lot F), distinct du code promoteur mémorisé.
+      discountCode,
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
       purchaseSource, minorAuthDocUrl, language, trackedLinkId,
@@ -562,7 +567,42 @@ serve(async (req) => {
     
     logStep("Promoter resolved", { finalPromoterId, validatedDiscount, originalPromoterId: promoterId, promoCode });
 
-    const discountedSubtotal = subtotal - validatedDiscount;
+    // ── Code promo autonome (lot F) ──────────────────────────────────────────
+    // Le serveur décide : claim_promo_code relit le code sous verrou et retient
+    // un usage 30 min. Jamais de cumul avec la remise promoteur : la plus forte
+    // gagne, l'attribution au promoteur (sa commission) reste.
+    let promoterDiscount = validatedDiscount;
+    let promoCodeId: string | null = null;
+    let promoCodeDiscount = 0;
+    const cleanDiscountCode = normalizePromoCode(discountCode);
+    if (discountCode && !cleanDiscountCode) {
+      throw new PromoCodeError(t("checkout.promoInvalid", lang), "not_found");
+    }
+    if (cleanDiscountCode) {
+      const claim = await claimPromoCode(supabaseAdmin, {
+        code: cleanDiscountCode,
+        eventId,
+        pillar: "tickets",
+        ticketRoundId,
+        quantity,
+        baseAmount: subtotal,
+        email: user?.email || guestEmail || null,
+        userId: user?.id ?? null,
+      });
+      if (!claim.ok) throw new PromoCodeError(t("checkout.promoInvalid", lang), claim.reason);
+      if (claim.discount >= promoterDiscount) {
+        promoRedemptionId = claim.redemptionId;
+        promoCodeId = claim.promoCodeId;
+        promoCodeDiscount = claim.discount;
+        promoterDiscount = 0;
+        validatedDiscount = claim.discount;
+      } else {
+        await releasePromoRedemption(supabaseAdmin, claim.redemptionId);
+      }
+      logStep("Promo code resolved", { code: cleanDiscountCode, promoCodeId, promoCodeDiscount, promoterDiscount });
+    }
+
+    const discountedSubtotal = Math.round((subtotal - validatedDiscount) * 100) / 100;
     
     // BDE-verified organizers get a reduced floor (0.49€ vs 0.99€); the 4% rate is unchanged.
     const commissionMin = event.is_bde ? YUNO_COMMISSION_MIN_BDE : YUNO_COMMISSION_MIN;
@@ -662,7 +702,9 @@ serve(async (req) => {
     //              Yuno commission (taken via the split's application_fee override).
     const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, effectiveVenueId, effectiveOrganizerId);
     const transactionFee = feeAbsorbed ? estimateStripeFeeEur(discountedSubtotal) : serviceFee;
-    const totalPrice = discountedSubtotal + transactionFee + insuranceFee + upsellTotal;
+    // Au centime : une remise (promoteur ou code) laissait un total flottant
+    // (« 20.189999999999998 ») dans tickets.total_price.
+    const totalPrice = Math.round((discountedSubtotal + transactionFee + insuranceFee + upsellTotal) * 100) / 100;
 
     // Yuno commission, logged for observability only (4% of total). The actual
     // application_fee charged on the Connect charge is computed by resolvePaymentSplit
@@ -740,6 +782,8 @@ serve(async (req) => {
           purchase_source: safePurchaseSource,
           tracked_link_id: safeTrackedLinkId,
           minor_auth_doc_url: minorAuthDocUrl || null,
+          promo_code_id: promoCodeId,
+          promo_discount: promoCodeId ? promoCodeDiscount : null,
         })
         .select()
         .single();
@@ -748,6 +792,7 @@ serve(async (req) => {
         logStep("Error creating ticket", { error: ticketError.message });
         throw new Error("Failed to create ticket");
       }
+      if (promoRedemptionId) await attachPromoRedemption(supabaseAdmin, promoRedemptionId, { ticketId: ticket.id });
 
       // Consentement SMS : profil de l'acheteur + liste du club (helper partagé,
       // même écriture que sur le chemin Stripe live via verify-ticket-payment).
@@ -817,7 +862,8 @@ serve(async (req) => {
           p_amount: unitPrice * quantity,
           p_event_id: eventId,
           p_ticket_id: ticket.id,
-          p_discount: validatedDiscount,
+          // Seule la remise du PROMOTEUR est la sienne (un code promo l'a remplacée).
+          p_discount: promoterDiscount,
         });
         if (conversionError) {
           logStep("Error creating promoter conversion", { error: conversionError.message });
@@ -1029,6 +1075,8 @@ serve(async (req) => {
         tracked_link_id: safeTrackedLinkId,
         reservation_id: reservationId,
         minor_auth_doc_url: minorAuthDocUrl || null,
+        promo_code_id: promoCodeId,
+        promo_discount: promoCodeId ? promoCodeDiscount : null,
       })
       .select()
       .single();
@@ -1040,6 +1088,7 @@ serve(async (req) => {
     }
 
     logStep("Pending ticket created", { ticketId: ticket.id });
+    if (promoRedemptionId) await attachPromoRedemption(supabaseAdmin, promoRedemptionId, { ticketId: ticket.id });
 
     // Accord donné à YUNO lui-même (portée plateforme). Destinataire distinct
     // du club : sa case est distincte, son abonnement l'est aussi. Best-effort
@@ -1056,18 +1105,34 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
     // Build line items
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-      {
-        price_data: {
-          currency: "eur",
-          product_data: {
-            name: `${ticketRound.name} - ${event.title}`,
-            description: `${quantity} billet(s) à ${unitPrice}€`,
+    // Avec une remise (promoteur ou code promo), la ligne des billets porte le
+    // sous-total REMISÉ : sans ça Stripe facturait le prix plein alors que le
+    // total affiché, la commission et les reversements partaient du prix remisé.
+    const ticketLine: Stripe.Checkout.SessionCreateParams.LineItem = validatedDiscount > 0
+      ? {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `${ticketRound.name} - ${event.title}`,
+              description: `${quantity} billet(s) à ${unitPrice}€ − remise ${validatedDiscount.toFixed(2)}€${promoCodeId && cleanDiscountCode ? ` (code ${cleanDiscountCode})` : ""}`,
+            },
+            unit_amount: Math.round(discountedSubtotal * 100),
           },
-          unit_amount: Math.round(unitPrice * 100),
-        },
-        quantity,
-      },
+          quantity: 1,
+        }
+      : {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `${ticketRound.name} - ${event.title}`,
+              description: `${quantity} billet(s) à ${unitPrice}€`,
+            },
+            unit_amount: Math.round(unitPrice * 100),
+          },
+          quantity,
+        };
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      ticketLine,
       {
         price_data: {
           currency: "eur",
@@ -1142,7 +1207,10 @@ serve(async (req) => {
         promoterId: finalPromoterId || '',
         // Remise promoteur, relue par verify-ticket-payment pour reporter la
         // conversion avec sa remise (base commission = BRUT, remise à part).
-        promoDiscount: String(validatedDiscount || 0),
+        promoDiscount: String(promoterDiscount || 0),
+        // Code promo autonome (lot F) : l'usage est confirmé par trigger au paiement.
+        promoCodeId: promoCodeId || '',
+        promoRedemptionId: promoRedemptionId || '',
         trackedLinkId: safeTrackedLinkId || '',
         isGuest: isGuestCheckout ? 'true' : 'false',
         upsells: upsellMeta,
@@ -1242,6 +1310,8 @@ serve(async (req) => {
     // Rendre la capacité gelée : sans ça, chaque tentative ratée immobilisait des
     // places pendant 10 minutes et l'événement finissait par se déclarer complet
     // alors qu'aucun billet n'avait été vendu.
+    // Rendre l'usage du code promo retenu pour cette tentative.
+    await releasePromoRedemption(supabaseAdmin, promoRedemptionId);
     if (reservationId) {
       try {
         await supabaseAdmin.rpc('cancel_ticket_reservation', { _reservation_id: reservationId });
@@ -1256,8 +1326,9 @@ serve(async (req) => {
     const errorCode = error instanceof Error && typeof (error as { code?: unknown }).code === "string"
       ? (error as { code: string }).code
       : undefined;
+    const errorReason = error instanceof PromoCodeError ? error.reason : undefined;
     return new Response(
-      JSON.stringify({ error: errorMessage, ...(errorCode ? { code: errorCode } : {}) }),
+      JSON.stringify({ error: errorMessage, ...(errorCode ? { code: errorCode } : {}), ...(errorReason ? { reason: errorReason } : {}) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
     );
   }

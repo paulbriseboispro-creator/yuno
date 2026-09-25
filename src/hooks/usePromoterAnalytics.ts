@@ -48,9 +48,11 @@ interface UsePromoterAnalyticsProps {
   dateRange: DateRange;
   mode: AnalyticsMode;
   selectedEventId: string | null;
+  /** false = vue qui n'en a pas besoin : rien n'est chargé. */
+  enabled?: boolean;
 }
 
-export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode, selectedEventId }: UsePromoterAnalyticsProps) {
+export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode, selectedEventId, enabled = true }: UsePromoterAnalyticsProps) {
   const [data, setData] = useState<PromoterAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -131,7 +133,7 @@ export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode
     }
   }, [venueId, organizerUserId, dateRange, mode, selectedEventId]);
 
-  useEffect(() => { if (venueId || organizerUserId) fetch(); }, [venueId, organizerUserId, fetch]);
+  useEffect(() => { if (enabled && (venueId || organizerUserId)) fetch(); }, [enabled, venueId, organizerUserId, fetch]);
 
   return { promoterAnalytics: data, loading };
 }

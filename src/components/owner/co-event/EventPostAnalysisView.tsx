@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trophy, BarChart3, Users, Lightbulb, LucideIcon } from 'lucide-react';
+import { Trophy, BarChart3, Users, Lightbulb, ChevronDown, LucideIcon } from 'lucide-react';
+import { PostEventAIInsights } from '@/components/hype/PostEventAIInsights';
 import { usePostEventAnalysis } from '@/hooks/usePostEventAnalysis';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PostEventOverview } from '@/components/hype/PostEventOverview';
@@ -26,6 +27,12 @@ interface Props {
   /** Organizer scope (organizer Console). When set with a null venueId, the engine
    *  runs org-scoped: tickets + tables across the organizer's events, no drinks. */
   organizerUserId?: string | null;
+  /**
+   * `summary` = en tête du Rapport de soirée : la note et les chiffres clés,
+   * le bilan détaillé (performance, public, conseils, IA, notes) replié
+   * dessous. Sans ça le verdict occupait 3 000 px avant la première question.
+   */
+  layout?: 'full' | 'summary';
 }
 
 type SectionId = 'verdict' | 'performance' | 'audience' | 'advice';
@@ -57,8 +64,9 @@ function ChapterHeader({ icon: Icon, title, sub }: { icon: LucideIcon; title: st
  * Reuses the existing engine (usePostEventAnalysis) and PostEvent* components, so
  * there is one source of truth for "was this night a success?". Not plan-gated.
  */
-export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Props) {
+export function EventPostAnalysisView({ eventId, venueId, organizerUserId, layout = 'full' }: Props) {
   const { t } = useLanguage();
+  const [detailOpen, setDetailOpen] = useState(false);
   const { loading, postEventData, saveNotes } = usePostEventAnalysis(venueId, eventId, organizerUserId);
   const [active, setActive] = useState<SectionId>('verdict');
   const refs = {
@@ -96,6 +104,51 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Pro
   }
 
   if (!postEventData) return null;
+
+  if (layout === 'summary') {
+    return (
+      <div className="space-y-3">
+        <PostEventOverview data={postEventData} />
+        <button
+          type="button"
+          onClick={() => setDetailOpen((v) => !v)}
+          aria-expanded={detailOpen}
+          className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors"
+          style={{ background: 'rgb(var(--ink)/0.025)', border: `1px solid ${BORDER}` }}
+        >
+          <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
+            <Lightbulb className="w-4 h-4" style={{ color: T3 }} />
+            {t('postEvent.fullDebrief')}
+          </span>
+          <ChevronDown className={`w-4 h-4 transition-transform ${detailOpen ? 'rotate-180' : ''}`} style={{ color: T3 }} />
+        </button>
+        {detailOpen && (
+          <div className="space-y-6 pt-2">
+            <div className="space-y-4">
+              <ChapterHeader icon={Lightbulb} title={t('postEvent.secAdvice')} sub={t('postEvent.secAdviceSub')} />
+              <PostEventWhatWorked items={postEventData.whatWorked} />
+              <PostEventSuggestions suggestions={postEventData.suggestions} />
+            </div>
+            <div className="space-y-4">
+              <ChapterHeader icon={BarChart3} title={t('postEvent.secPerformance')} sub={t('postEvent.secPerformanceSub')} />
+              <PostEventExtendedStats stats={postEventData.extendedStats} />
+              <PostEventTimeline timeline={postEventData.timeline} insights={postEventData.timelineInsights} />
+            </div>
+            <div className="space-y-4">
+              <ChapterHeader icon={Users} title={t('postEvent.secAudience')} sub={t('postEvent.secAudienceSub')} />
+              <PostEventCustomerInsights insights={postEventData.customerInsights} />
+            </div>
+            {venueId && !organizerUserId && !postEventData.isAggregate && postEventData.eventId && (
+              <PostEventAIInsights eventId={postEventData.eventId} stats={postEventData.rawStats} />
+            )}
+            {!postEventData.isAggregate && (
+              <PostEventNotes notes={postEventData.notes} onSave={saveNotes} />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const nav: { id: SectionId; label: string; icon: LucideIcon }[] = [
     { id: 'verdict', label: t('postEvent.secVerdict'), icon: Trophy },
@@ -161,6 +214,12 @@ export function EventPostAnalysisView({ eventId, venueId, organizerUserId }: Pro
         <PostEventWhatWorked items={postEventData.whatWorked} />
         <PostEventSuggestions suggestions={postEventData.suggestions} />
       </div>
+
+      {/* Le Night Report IA (ex-page Hype Score) : club seulement — l'IA de la
+          Console exige le rôle owner, un organisateur recevrait un refus. */}
+      {venueId && !organizerUserId && !postEventData.isAggregate && postEventData.eventId && (
+        <PostEventAIInsights eventId={postEventData.eventId} stats={postEventData.rawStats} />
+      )}
 
       {!postEventData.isAggregate && (
         <PostEventNotes notes={postEventData.notes} onSave={saveNotes} />

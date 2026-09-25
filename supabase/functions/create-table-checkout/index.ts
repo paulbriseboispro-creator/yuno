@@ -17,6 +17,7 @@ import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackground, resolveEventScopes } from "../_shared/meta-capi.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
+import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -49,6 +50,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Usage de code promo retenu (lot F) : rendu si le checkout échoue.
+  let promoRedemptionId: string | null = null;
   try {
     logStep("Function started", { testMode: TEST_MODE });
 
@@ -76,6 +79,8 @@ serve(async (req) => {
       smsOptIn,
       platformOptIn,
       promoCode,
+      // Code promo SAISI par l'acheteur (lot F), distinct du code promoteur mémorisé.
+      discountCode,
       // Renommé : le promoteur effectif est résolu plus bas (par id fourni, sinon
       // par code) et porté par la variable `promoterId`.
       promoterId: rawPromoterId,
@@ -539,6 +544,40 @@ serve(async (req) => {
       }
     }
 
+    // ── Code promo autonome (lot F) ──────────────────────────────────────────
+    // Même règle que la remise promoteur : sur l'acompte payé en ligne, jamais
+    // de cumul (la plus forte gagne). Une formule réglée sur place n'encaisse
+    // rien via Yuno : il n'y a rien à remiser, le code n'est pas consommé.
+    let promoterDiscount = validatedDiscount;
+    let promoCodeId: string | null = null;
+    let promoCodeDiscount = 0;
+    const cleanDiscountCode = normalizePromoCode(discountCode);
+    if (discountCode && !cleanDiscountCode && pack.payment_mode !== 'on_site') {
+      throw new PromoCodeError(t("checkout.promoInvalid", lang), "not_found");
+    }
+    if (cleanDiscountCode && pack.payment_mode !== 'on_site') {
+      const claim = await claimPromoCode(supabaseAdmin, {
+        code: cleanDiscountCode,
+        eventId,
+        pillar: "tables",
+        quantity: 1,
+        baseAmount: serverDeposit,
+        email: user?.email || guestEmail || null,
+        userId: user?.id ?? null,
+      });
+      if (!claim.ok) throw new PromoCodeError(t("checkout.promoInvalid", lang), claim.reason);
+      if (claim.discount >= promoterDiscount) {
+        promoRedemptionId = claim.redemptionId;
+        promoCodeId = claim.promoCodeId;
+        promoCodeDiscount = claim.discount;
+        promoterDiscount = 0;
+        validatedDiscount = claim.discount;
+      } else {
+        await releasePromoRedemption(supabaseAdmin, claim.redemptionId);
+      }
+      logStep("Promo code resolved", { code: cleanDiscountCode, promoCodeId, promoCodeDiscount, promoterDiscount });
+    }
+
     const discountedDeposit = serverDeposit - validatedDiscount;
     
     // Service fee: min(cap, max(floor, 4% of deposit)). BDE events get a reduced
@@ -772,6 +811,10 @@ serve(async (req) => {
         throw new Error(reservationError?.message || "Failed to create reservation");
       }
       const reservation = { id: reservationId as string };
+      if (promoCodeId) {
+        await supabaseAdmin.from("table_reservations").update({ promo_code_id: promoCodeId, promo_discount: promoCodeDiscount }).eq('id', reservation.id);
+      }
+      if (promoRedemptionId) await attachPromoRedemption(supabaseAdmin, promoRedemptionId, { tableReservationId: reservation.id });
       if (safeTrackedLinkId) {
         await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
       }
@@ -863,7 +906,8 @@ serve(async (req) => {
           p_amount: finalTotalPrice + validatedDiscount,
           p_event_id: eventId,
           p_table_reservation_id: reservation.id,
-          p_discount: validatedDiscount,
+          // Seule la remise du PROMOTEUR est la sienne (un code promo l'a remplacée).
+          p_discount: promoterDiscount,
         });
         if (conversionError) {
           logStep("Error creating promoter conversion", { error: conversionError.message });
@@ -1031,6 +1075,10 @@ serve(async (req) => {
       throw new Error(reservationError?.message || "Failed to create reservation");
     }
     const reservation = { id: reservationId as string };
+    if (promoCodeId) {
+      await supabaseAdmin.from("table_reservations").update({ promo_code_id: promoCodeId, promo_discount: promoCodeDiscount }).eq('id', reservation.id);
+    }
+    if (promoRedemptionId) await attachPromoRedemption(supabaseAdmin, promoRedemptionId, { tableReservationId: reservation.id });
     if (safeTrackedLinkId) {
       await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
     }
@@ -1152,7 +1200,7 @@ serve(async (req) => {
       cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx) },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx) },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;
@@ -1223,6 +1271,15 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
+    // Rendre l'usage du code promo retenu pour cette tentative (le client
+    // admin du try n'est pas visible ici).
+    if (promoRedemptionId) {
+      await releasePromoRedemption(
+        createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } }),
+        promoRedemptionId,
+      );
+    }
+    const promo = error instanceof PromoCodeError ? { code: error.code, reason: error.reason } : {};
+    return new Response(JSON.stringify({ error: errorMessage, ...promo }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
   }
 });

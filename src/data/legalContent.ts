@@ -795,7 +795,7 @@ Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro en lo relativ
   'privacy': {
     fr: {
       title: 'Politique de Confidentialité',
-      content: `Dernière mise à jour : 11 août 2026
+      content: `Dernière mise à jour : 24 septembre 2026
 
 Cette politique explique quelles données Yuno collecte, pourquoi, avec qui elles sont partagées et quels sont vos droits. Elle s'applique au site yunoapp.eu et aux applications mobiles Yuno et Yuno Pro.
 
@@ -833,6 +833,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 **4. Destinataires**
 Yuno ne vend jamais vos données. Elles ne sont partagées qu'avec :
 • Les clubs et organisateurs concernés par vos achats (commande, identité nécessaire à l'entrée, QR) ; pour une guest list via promoteur, le club et l'équipe concernés voient votre inscription
+• Statistiques de goûts pour les clubs et organisateurs : si vous êtes venu chez eux, vos préférences musicales (quiz de goûts) et les genres des soirées où vous êtes allé sur Yuno peuvent entrer dans des statistiques AGRÉGÉES de leur communauté. Elles ne sont jamais présentées personne par personne, et un genre n'est affiché que s'il réunit au moins 10 personnes. Désactivable dans Réglages → Recommandations personnalisées
 • Stripe (paiements — vos données bancaires sont traitées directement par Stripe et ne transitent jamais par les serveurs de Yuno)
 • Supabase (hébergement backend — chiffrement en transit HTTPS/TLS)
 • Cloudflare (diffusion sécurisée du site)
@@ -879,7 +880,7 @@ Cette politique peut évoluer avec le service. En cas de changement substantiel,
     },
     en: {
       title: 'Privacy Policy',
-      content: `Last updated: 11 August 2026
+      content: `Last updated: 24 September 2026
 
 This policy explains what data Yuno collects, why, who it is shared with, and what your rights are. It applies to yunoapp.eu and to the Yuno and Yuno Pro mobile apps.
 
@@ -917,6 +918,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 **4. Recipients**
 Yuno never sells your data. It is only shared with:
 • The clubs and organizers involved in your purchases (order, identity needed at the door, QR); for a guest list joined through a promoter, the relevant club and team see your registration
+• Taste statistics for clubs and organizers: if you went to their events, your music preferences (taste quiz) and the genres of the events you attended on Yuno may be included in AGGREGATED statistics about their community. They are never shown person by person, and a genre is only displayed when it gathers at least 10 people. You can turn this off in Settings → Personalized recommendations
 • Stripe (payments — your card details are processed directly by Stripe and never pass through Yuno's servers)
 • Supabase (backend hosting — encryption in transit via HTTPS/TLS)
 • Cloudflare (secure site delivery)
@@ -963,7 +965,7 @@ This policy may evolve with the service. In case of substantial change, you will
     },
     es: {
       title: 'Política de Privacidad',
-      content: `Última actualización: 11 de agosto de 2026
+      content: `Última actualización: 24 de septiembre de 2026
 
 Esta política explica qué datos recoge Yuno, por qué, con quién se comparten y cuáles son tus derechos. Se aplica a yunoapp.eu y a las apps móviles Yuno y Yuno Pro.
 
@@ -1001,6 +1003,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 **4. Destinatarios**
 Yuno nunca vende tus datos. Solo se comparten con:
 • Los clubs y organizadores implicados en tus compras (pedido, identidad necesaria en la puerta, QR); si te apuntas a una guest list a través de un promotor, el club y el equipo implicados ven tu inscripción
+• Estadísticas de gustos para clubs y organizadores: si has ido a sus eventos, tus preferencias musicales (quiz de gustos) y los géneros de los eventos a los que has ido en Yuno pueden formar parte de estadísticas AGREGADAS de su comunidad. Nunca se muestran persona por persona, y un género solo aparece si reúne al menos 10 personas. Puedes desactivarlo en Ajustes → Recomendaciones personalizadas
 • Stripe (pagos — tus datos bancarios los procesa directamente Stripe y nunca pasan por los servidores de Yuno)
 • Supabase (alojamiento backend — cifrado en tránsito HTTPS/TLS)
 • Cloudflare (distribución segura del sitio)

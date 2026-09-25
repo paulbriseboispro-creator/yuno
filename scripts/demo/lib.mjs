@@ -19,9 +19,16 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 /** Lit .env.local sans dépendance (dotenv n'est pas installé). */
 export function loadEnv() {
   const file = path.join(ROOT, '.env.local');
-  if (!fs.existsSync(file)) throw new Error('.env.local introuvable — impossible de travailler sur la démo.');
+  // Session cloud : pas de .env.local, les secrets arrivent en variables
+  // d'environnement (les VITE_* publiques via `. scripts/ci-web-env.sh`).
   const env = {};
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+  for (const k of ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'VITE_APP_BASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
+    if (process.env[k]) env[k] = process.env[k];
+  }
+  if (!fs.existsSync(file)) {
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('.env.local introuvable — impossible de travailler sur la démo.');
+  }
+  for (const line of fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n') : []) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const i = trimmed.indexOf('=');

@@ -202,7 +202,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToDashboard', path: '/dashboard' },
         relatedArticleIds: ['understand-analytics', 'live-night'],
-        keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'panel'],
+        keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'panel', 'prochaines soirées', 'upcoming nights', 'próximas noches', 'aujourd\'hui', 'today', 'hoy', 'j-2', 'compte à rebours', 'countdown', 'remplissage', 'fill rate', 'jauge'],
         sections: [
           { headingKey: 'ohelp.pg.dashboard.s1h', bodyKey: 'ohelp.pg.dashboard.s1b' },
           { headingKey: 'ohelp.pg.dashboard.s2h', bodyKey: 'ohelp.pg.dashboard.s2b', screenshotUrl: '/help/owner-dashboard.webp' },
@@ -217,7 +217,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.pg.audience.title',
         descKey: 'ohelp.pg.audience.desc',
         icon: 'Users',
-        actionLink: { labelKey: 'ohelp.action.goToAudience', path: '/audience' },
+        actionLink: { labelKey: 'ohelp.action.goToAudience', path: '/analytics?tab=community&view=subscribers' },
         relatedArticleIds: ['understand-analytics', 'crm-setup'],
         keywords: ['audience', 'abonnés', 'subscribers', 'followers', 'fans', 'démographie', 'portée', 'reachable', 'joignables', 'croissance', 'segmentation', 'notifications', 'revenu abonnés', 'valeur par abonné', 'ltv', 'entonnoir', 'funnel', 'conversion', 'ré-acheteurs', 'attribution', 'push vente', 'combien rapporte un abonné', 'benchmark', 'médiane', 'ville', 'comparaison', 'percentile', 'source', 'acquisition', 'd\'où viennent', 'cohorte', 'rétention', 'récap hebdo', 'audience partagée', 'chevauchement', 'collab', 'net-new'],
         sections: [
@@ -236,7 +236,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'BarChart3',
         actionLink: { labelKey: 'ohelp.action.goToAnalytics', path: '/analytics' },
         relatedArticleIds: ['dashboard-overview', 'crm-setup', 'refund-management'],
-        keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', 'visiteurs en ce moment', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'repeat', 'habitués', 'no-show', 'présence'],
+        keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue', 'guest list', 'guestlist', 'no-show', 'invités', 'présence', 'peak time', 'valeur invité', 'live view', 'en direct', 'temps réel', 'real time', 'globe', 'release', 'visiteurs en ce moment', "comportement d'achat", 'purchase behavior', 'comportamiento de compra', "délai d'achat", 'lead time', 'panier', 'basket', 'réachat', 'repeat', 'habitués', 'no-show', 'présence', 'rapport de soirée', 'night report', 'informe', 'comparer', 'compare', 'comparar', 'courbe', 'curve', 'j-n', 'nouveaux contacts', 'new contacts', 'emails de la soirée', 'push de la soirée', 'détail des ventes', 'paliers', 'ventes', 'sales', 'ventas', 'trafic', 'traffic', 'tráfico', 'communauté', 'community', 'comunidad', 'ma page', 'my page', 'visites de la page', 'page views', 'contacts', 'participation', 'dernier achat', 'last purchase', 'nouveaux contacts', 'partenaires', 'partners', 'public', 'abonnés', 'followers', 'hype score'],
         sections: [
           { headingKey: 'ohelp.pg.analytics.s1h', bodyKey: 'ohelp.pg.analytics.s1b' },
           { headingKey: 'ohelp.pg.analytics.s2h', bodyKey: 'ohelp.pg.analytics.s2b', screenshotUrl: '/help/owner-analytics.webp' },
@@ -248,6 +248,10 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.analytics.s8h', bodyKey: 'ohelp.pg.analytics.s8b', type: 'steps' },
           { headingKey: 'ohelp.pg.analytics.s9h', bodyKey: 'ohelp.pg.analytics.s9b' },
           { headingKey: 'ohelp.pg.analytics.s11h', bodyKey: 'ohelp.pg.analytics.s11b' },
+          { headingKey: 'ohelp.pg.analytics.s12h', bodyKey: 'ohelp.pg.analytics.s12b', type: 'steps' },
+          { headingKey: 'ohelp.pg.analytics.s13h', bodyKey: 'ohelp.pg.analytics.s13b' },
+          { headingKey: 'ohelp.pg.analytics.s14h', bodyKey: 'ohelp.pg.analytics.s14b' },
+          { headingKey: 'ohelp.pg.analytics.s15h', bodyKey: 'ohelp.pg.analytics.s15b' },
           { headingKey: 'ohelp.pg.analytics.s10h', bodyKey: 'ohelp.pg.analytics.s10b', type: 'tip' },
         ],
       },
@@ -274,7 +278,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.pg.hype.title',
         descKey: 'ohelp.pg.hype.desc',
         icon: 'TrendingUp',
-        actionLink: { labelKey: 'ohelp.action.goToHype', path: '/hype' },
+        actionLink: { labelKey: 'ohelp.action.goToHype', path: '/analytics?tab=sales&view=event' },
         relatedArticleIds: ['understand-analytics', 'events-setup', 'promoter-system'],
         keywords: ['hype', 'score', 'forecast', 'prévision', 'attendance', 'fréquentation', 'sellout', 'demand', 'demande', 'pace', 'prediction', 'calibrate', 'analytics', 'vue d\'ensemble'],
         sections: [
@@ -308,6 +312,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         sections: [
           { headingKey: 'ohelp.ev.events.s1h', bodyKey: 'ohelp.ev.events.s1b' },
           { headingKey: 'ohelp.ev.events.s2h', bodyKey: 'ohelp.ev.events.s2b', screenshotUrl: '/help/owner-events.webp' },
+          { headingKey: 'ohelp.ev.events.s9h', bodyKey: 'ohelp.ev.events.s9b' },
           { headingKey: 'ohelp.ev.events.s3h', bodyKey: 'ohelp.ev.events.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.events.s4h', bodyKey: 'ohelp.ev.events.s4b', type: 'steps' },
           { headingKey: 'ohelp.ev.events.s5h', bodyKey: 'ohelp.ev.events.s5b' },
@@ -334,6 +339,22 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.ticketing.s6h', bodyKey: 'ohelp.ev.ticketing.s6b' },
           { headingKey: 'ohelp.ev.ticketing.s7h', bodyKey: 'ohelp.ev.ticketing.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.ticketing.s8h', bodyKey: 'ohelp.ev.ticketing.s8b', type: 'warning' },
+        ],
+      },
+      {
+        id: 'promo-codes',
+        titleKey: 'ohelp.pg.promo.title',
+        descKey: 'ohelp.pg.promo.desc',
+        icon: 'Tag',
+        actionLink: { labelKey: 'ohelp.action.goToPromoCodes', path: '/promo-codes' },
+        relatedArticleIds: ['ticketing-setup', 'promoter-system', 'email-campaigns'],
+        keywords: ['code promo', 'promo code', 'código promocional', 'réduction', 'remise', 'discount', 'descuento', 'coupon', 'cupón', 'early', 'story', 'partenaire', 'partner', 'quota', 'limite', 'lien', 'link'],
+        sections: [
+          { headingKey: 'ohelp.pg.promo.s1h', bodyKey: 'ohelp.pg.promo.s1b' },
+          { headingKey: 'ohelp.pg.promo.s2h', bodyKey: 'ohelp.pg.promo.s2b', type: 'steps' },
+          { headingKey: 'ohelp.pg.promo.s3h', bodyKey: 'ohelp.pg.promo.s3b' },
+          { headingKey: 'ohelp.pg.promo.s4h', bodyKey: 'ohelp.pg.promo.s4b', type: 'tip' },
+          { headingKey: 'ohelp.pg.promo.s5h', bodyKey: 'ohelp.pg.promo.s5b', type: 'warning' },
         ],
       },
       {
@@ -515,13 +536,14 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Bell',
         actionLink: { labelKey: 'ohelp.action.goToPush', path: '/push' },
         relatedArticleIds: ['email-campaigns', 'sms-credits', 'crm-setup'],
-        keywords: ['push', 'notification', 'notif', 'automatique', 'auto', 'automation', 'soirée live', 'event live', 'remerciement', 'thank you', 'rappel', 'reminder', 'bientôt complet', 'almost sold out', 'happy hour', 'tables vip', 'guest list', 'campagne push', 'notificación', 'automática'],
+        keywords: ['push', 'notification', 'notif', 'automatique', 'auto', 'automation', 'soirée live', 'event live', 'remerciement', 'thank you', 'rappel', 'reminder', 'bientôt complet', 'almost sold out', 'happy hour', 'tables vip', 'guest list', 'campagne push', 'notificación', 'automática', 'historique', 'history', 'historial', 'ouvertures', 'taux d\'ouverture', 'open rate', 'acheteurs', 'buyers', 'publication', 'abonnés', 'followers', 'qr'],
         sections: [
           { headingKey: 'ohelp.pg.push.s1h', bodyKey: 'ohelp.pg.push.s1b' },
           { headingKey: 'ohelp.pg.push.s2h', bodyKey: 'ohelp.pg.push.s2b', screenshotUrl: '/help/owner-push-notifications.webp' },
           { headingKey: 'ohelp.pg.push.s3h', bodyKey: 'ohelp.pg.push.s3b', type: 'steps' },
           { headingKey: 'ohelp.pg.push.s4h', bodyKey: 'ohelp.pg.push.s4b', type: 'steps' },
           { headingKey: 'ohelp.pg.push.s5h', bodyKey: 'ohelp.pg.push.s5b', type: 'tip' },
+          { headingKey: 'ohelp.pg.push.s6h', bodyKey: 'ohelp.pg.push.s6b' },
         ],
       },
       {

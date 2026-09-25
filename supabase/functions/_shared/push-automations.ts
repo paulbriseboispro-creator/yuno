@@ -420,6 +420,9 @@ export async function dispatchNewEventPushes(
         url: targetUrl,
         segment: "followers",
         venue_id: ev.venue_id ?? null,
+        // Une soirée d'organisateur sans club : l'annonce est à lui (page Push
+        // de la Console Organisateur, rapport de soirée).
+        organizer_user_id: ev.venue_id ? null : (ev.organizer_user_id ?? null),
         event_id: ev.id,
         template_key: "new_event",
         source: "auto",

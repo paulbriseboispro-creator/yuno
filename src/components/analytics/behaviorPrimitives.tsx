@@ -1,5 +1,6 @@
 // Shared visual primitives for behavior/audience analytics, reused by the
 // owner/organizer BehaviorAnalytics panel and the super-admin Global Analytics page.
+import { Fragment } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 const RED = '#E8192C';
@@ -36,7 +37,9 @@ export function DeviceBar({
 export function Heatmap({ matrix, language }: { matrix: number[][]; language: string }) {
   const days = language === 'fr'
     ? ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-    : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    : language === 'es'
+      ? ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+      : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const max = Math.max(...matrix.flat(), 1);
   return (
     <div className="overflow-x-auto">
@@ -48,8 +51,8 @@ export function Heatmap({ matrix, language }: { matrix: number[][]; language: st
           </div>
         ))}
         {matrix.map((row, di) => (
-          <>
-            <div key={`d${di}`} className="flex items-center justify-center" style={{ color: T3 }}>
+          <Fragment key={`row${di}`}>
+            <div className="flex items-center justify-center" style={{ color: T3 }}>
               {days[di]}
             </div>
             {row.map((v, hi) => {
@@ -67,7 +70,7 @@ export function Heatmap({ matrix, language }: { matrix: number[][]; language: st
                 />
               );
             })}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>

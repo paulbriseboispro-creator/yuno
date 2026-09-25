@@ -113,12 +113,10 @@ const OwnerDJs = lazyWithRetry(() => import("./pages/OwnerDJs"));
 const OwnerDJDetail = lazyWithRetry(() => import("./pages/OwnerDJDetail"));
 const OwnerManagers = lazyWithRetry(() => import("./pages/OwnerManagers"));
 const OwnerCustomers = lazyWithRetry(() => import("./pages/OwnerCustomers"));
-const OwnerAudience = lazyWithRetry(() => import("./pages/OwnerAudience"));
 const OwnerInvoices = lazyWithRetry(() => import("./pages/OwnerInvoices"));
 const OwnerAccounting = lazyWithRetry(() => import("./pages/OwnerAccounting"));
 const OwnerLoyalty = lazyWithRetry(() => import("./pages/OwnerLoyalty"));
 // Email Campaign Editor - Hidden for now, feature in development
-const OwnerHypeAnalysis = lazyWithRetry(() => import("./pages/OwnerHypeAnalysis"));
 const OwnerVipService = lazyWithRetry(() => import("./pages/OwnerVipService"));
 const OwnerWaitlist = lazyWithRetry(() => import("./pages/OwnerWaitlist"));
 const OwnerUpsell = lazyWithRetry(() => import("./pages/OwnerUpsell"));
@@ -129,6 +127,7 @@ const OwnerBilling = lazyWithRetry(() => import("./pages/OwnerBilling"));
 const OwnerSmsCredits = lazyWithRetry(() => import("./pages/OwnerSmsCredits"));
 const OwnerSmsCampaigns = lazyWithRetry(() => import("./pages/OwnerSmsCampaigns"));
 const OwnerPush = lazyWithRetry(() => import("./pages/OwnerPush"));
+const PromoCodes = lazyWithRetry(() => import("./pages/PromoCodes"));
 const OwnerOnboarding = lazyWithRetry(() => import("./pages/OwnerOnboarding"));
 const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
 const OwnerHelpCenter = lazyWithRetry(() => import("./pages/OwnerHelpCenter"));
@@ -181,7 +180,6 @@ const OrgAppCollabHub = lazyWithRetry(() => import("./pages/organizer-app/OrgApp
 const OrgAppProfile = lazyWithRetry(() => import("./pages/organizer-app/OrgAppProfile"));
 const OrgAppTeam = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTeam"));
 const OrgAppCustomers = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCustomers"));
-const OrgAppAudience = lazyWithRetry(() => import("./pages/organizer-app/OrgAppAudience"));
 const OrgAppTables = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTables"));
 const OrgAppVipService = lazyWithRetry(() => import("./pages/organizer-app/OrgAppVipService"));
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
@@ -721,6 +719,7 @@ const App = () => (
                   <Route path="events/:eventId" element={<OrgAppRoute requires="editEvents"><OrgAppEventDetail /></OrgAppRoute>} />
                   <Route path="events/:eventId/live" element={<OrgAppRoute requires="editEvents"><OrgAppEventLive /></OrgAppRoute>} />
                   <Route path="ticketing" element={<OrgAppRoute requires="editEvents"><OwnerTicketing /></OrgAppRoute>} />
+                  <Route path="promo-codes" element={<OrgAppRoute requires="marketing"><PromoCodes /></OrgAppRoute>} />
                   <Route path="tables" element={<OrgAppRoute requires="editEvents"><OrgAppTables /></OrgAppRoute>} />
                   <Route path="vip-service" element={<OrgAppRoute requires="editEvents"><OrgAppVipService /></OrgAppRoute>} />
                   {/* Rareté / FOMO — même page que le club, scope organisateur via useVenueContext */}
@@ -737,7 +736,7 @@ const App = () => (
                   <Route path="profile" element={<OrgAppRoute requires="manageOrganization"><OrgAppProfile /></OrgAppRoute>} />
                   <Route path="team" element={<OrgAppRoute requires="manageStaff"><OrgAppTeam /></OrgAppRoute>} />
                   <Route path="customers" element={<OrgAppRoute requires="viewInsights"><OrgAppCustomers /></OrgAppRoute>} />
-                  <Route path="audience" element={<OrgAppRoute requires="viewInsights"><OrgAppAudience /></OrgAppRoute>} />
+                  <Route path="audience" element={<Navigate to="/organizer-app/analytics?tab=community&view=subscribers" replace />} />
                   <Route path="invoices" element={<OrgAppRoute requires="viewFinance"><OwnerInvoices /></OrgAppRoute>} />
                   <Route path="accounting" element={<OrgAppRoute requires="viewFinance"><OwnerAccounting /></OrgAppRoute>} />
                   <Route path="refunds" element={<OrgAppRoute requires="refund"><OwnerRefunds /></OrgAppRoute>} />
@@ -759,6 +758,7 @@ const App = () => (
                   <Route path="campaigns/:id/report" element={<OrgAppRoute requires="marketing"><OrgAppCampaignReport /></OrgAppRoute>} />
                   {/* Campagnes SMS — même moteur que le club, portée organisateur */}
                   <Route path="sms" element={<OrgAppRoute requires="marketing"><OrgAppSms /></OrgAppRoute>} />
+                  <Route path="push" element={<OrgAppRoute requires="marketing"><OwnerPush /></OrgAppRoute>} />
                   <Route path="sms/:id" element={<OrgAppRoute requires="marketing"><OrgAppSms /></OrgAppRoute>} />
                   <Route path="organization" element={<OrgAppRoute requires="manageOrganization"><OrgAppOrganization /></OrgAppRoute>} />
                   <Route path="integrations" element={<OrgAppRoute requires="manageOrganization"><IntegrationsSettings /></OrgAppRoute>} />
@@ -911,9 +911,11 @@ const App = () => (
                   <Route path="dashboard" element={<OwnerDashboard />} />
                   <Route path="analytics" element={<PlanGuard feature="analytics_basic"><OwnerAnalytics /></PlanGuard>} />
                   <Route path="live" element={<PlanGuard feature="live_night"><OwnerLiveNight /></PlanGuard>} />
-                  <Route path="hype" element={<PlanGuard feature="hype_analysis"><OwnerHypeAnalysis /></PlanGuard>} />
+                  {/* Hype Score et Audience ont rejoint Analytics (lot E) : les anciennes adresses redirigent. */}
+                  <Route path="hype" element={<Navigate to="/owner/analytics?tab=sales&view=event" replace />} />
                   <Route path="events" element={<OwnerEvents />} />
                   <Route path="ticketing" element={<OwnerTicketing />} />
+                  <Route path="promo-codes" element={<PromoCodes />} />
                   <Route path="guest-list" element={<OwnerGuestList />} />
                   <Route path="tables" element={<PlanGuard feature="vip_tables_basic"><OwnerTables /></PlanGuard>} />
                   <Route path="djs" element={<PlanGuard feature="djs_orchestrate"><OwnerDJs /></PlanGuard>} />
@@ -923,7 +925,7 @@ const App = () => (
                   <Route path="collab/event/:eventId" element={<OwnerCollabEventDashboard />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
                   <Route path="customers" element={<PlanGuard feature="clients_basic"><OwnerCustomers /></PlanGuard>} />
-                  <Route path="audience" element={<PlanGuard feature="analytics_basic"><OwnerAudience /></PlanGuard>} />
+                  <Route path="audience" element={<Navigate to="/owner/analytics?tab=community&view=subscribers" replace />} />
                   <Route path="loyalty" element={<PlanGuard feature="loyalty_crm"><OwnerLoyalty /></PlanGuard>} />
                   <Route path="campaigns" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaigns /></PlanGuard>} />
                   <Route path="campaigns/new" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignEditor /></PlanGuard>} />
@@ -1138,11 +1140,7 @@ const App = () => (
                     <OwnerLoyalty />
                   </ManagerRoute>
                 } />
-                <Route path="/manager/hype" element={
-                  <ManagerRoute>
-                    <OwnerHypeAnalysis />
-                  </ManagerRoute>
-                } />
+                <Route path="/manager/hype" element={<Navigate to="/manager/analytics?tab=sales&view=event" replace />} />
                 <Route path="/manager/upsell" element={
                   <ManagerRoute>
                     <OwnerUpsell />

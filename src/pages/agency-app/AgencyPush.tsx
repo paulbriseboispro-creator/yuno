@@ -61,6 +61,10 @@ export default function AgencyPush() {
   const [url, setUrl] = useState('/');
   const [reach, setReach] = useState<number | null>(null);
   const [reachLoading, setReachLoading] = useState(false);
+  // Règles Yuno des push manuels : heures calmes 22 h → 10 h, et les abonnés
+  // déjà notifiés aujourd'hui (tous expéditeurs) sont protégés.
+  const [quietHours, setQuietHours] = useState(false);
+  const [heldBack, setHeldBack] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -149,6 +153,8 @@ export default function AgencyPush() {
           body: { title: '·', body: '·', dry_run: true, agency_id: agencyId, scope: 'followers' },
         });
         setReach(typeof data?.targeted === 'number' ? data.targeted : null);
+        setQuietHours(!!data?.quiet_hours);
+        setHeldBack(typeof data?.held_back === 'number' ? data.held_back : 0);
       } catch {
         setReach(null);
       } finally {
@@ -176,6 +182,14 @@ export default function AgencyPush() {
             const bodyJson = await errAny.context.json();
             if (bodyJson?.error === 'campaign_rate_limited') {
               toast.error(t('Limite de 4 envois / 24 h atteinte', 'Limit of 4 sends / 24h reached', 'Límite de 4 envíos / 24 h alcanzado'));
+              return;
+            }
+            if (bodyJson?.error === 'quiet_hours') {
+              toast.error(t('Heures calmes : rien ne part entre 22 h et 10 h.', 'Quiet hours: nothing goes out between 10 pm and 10 am.', 'Horas de descanso: no se envía nada entre las 22 h y las 10 h.'));
+              return;
+            }
+            if (bodyJson?.error === 'no_eligible_recipients') {
+              toast.error(t('Tous tes abonnés ont déjà reçu une notification aujourd\'hui.', 'All your subscribers already got a notification today.', 'Todos tus suscriptores ya recibieron una notificación hoy.'));
               return;
             }
             if (bodyJson?.error) msg = bodyJson.error;
@@ -324,7 +338,17 @@ export default function AgencyPush() {
                 {t('Envoyer', 'Send', 'Enviar')}
               </button>
             </div>
-            {!reachLoading && (reach ?? 0) === 0 && (
+            {!reachLoading && quietHours && (
+              <p style={{ color: T2, fontSize: 11.5, lineHeight: 1.5 }}>
+                {t('Heures calmes : aucune notification ne part entre 22 h et 10 h. Reviens à partir de 10 h.', 'Quiet hours: no notification goes out between 10 pm and 10 am. Come back after 10 am.', 'Horas de descanso: no sale ninguna notificación entre las 22 h y las 10 h. Vuelve a partir de las 10 h.')}
+              </p>
+            )}
+            {!reachLoading && !quietHours && heldBack > 0 && (
+              <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                {t(`${heldBack} abonné·es protégé·es par les règles Yuno (déjà notifié·es aujourd'hui, ou notifications marketing coupées).`, `${heldBack} subscribers protected by Yuno's rules (already notified today, or marketing notifications off).`, `${heldBack} suscriptores protegidos por las reglas de Yuno (ya notificados hoy, o notificaciones de marketing desactivadas).`)}
+              </p>
+            )}
+            {!reachLoading && !quietHours && (reach ?? 0) === 0 && heldBack === 0 && (
               <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
                 {t('Aucun abonné joignable pour l\'instant. Partage ta page /rp pour que le public s\'abonne.', 'No reachable subscribers yet. Share your /rp page so people subscribe.', 'Aún no hay suscriptores localizables. Comparte tu página /rp para que la gente se suscriba.')}
               </p>

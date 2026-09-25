@@ -229,6 +229,7 @@ export const FEATURE_ROUTES: Partial<Record<FeatureKey, string[]>> = {
   vip_service: ['/owner/vip-service'],
   offers_upsell: ['/owner/upsell'],
   loyalty_crm: ['/owner/loyalty'],
+  // Le Hype Score vit dans le Rapport de soirée (Analytics › Ventes › Par soirée) ; l'ancienne adresse redirige.
   hype_analysis: ['/owner/hype'],
   scarcity_tools: ['/owner/scarcity'],
 };

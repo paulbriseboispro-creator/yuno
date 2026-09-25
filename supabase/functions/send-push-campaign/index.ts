@@ -25,6 +25,7 @@ type CampaignRequest = {
   scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | segment:<uuid> (segment sauvegardé) | all_customers
   venue_id?: string;         // présent => campagne club (auth is_venue_owner)
   agency_id?: string;        // présent => campagne RP/agence (auth is_agency_owner) — scope 'followers'
+  organizer_user_id?: string; // présent => campagne organisateur (fondateur ou admin d'équipe) — followers | event_tickets | checked_in | all_customers
   event_id?: string;         // requis pour event_tickets / checked_in
   template_key?: string;
   platform?: string;         // DÉPRÉCIÉ (ignoré) : les campagnes ciblent toujours l'app iOS
@@ -110,6 +111,60 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
   if (req.agency_id) {
     const ids = new Set(await collectUserIds((f, t) => supabase
       .from('agency_followers').select('user_id').eq('agency_id', req.agency_id!).not('user_id', 'is', null).range(f, t)));
+    return { userIds: [...ids].filter((id) => subscribers.has(id)) };
+  }
+
+  // ── Scopes organisateur ──────────────────────────────────────────────────
+  // Même vocabulaire que le club, borné aux soirées DE l'organisation
+  // (organisateur ou co-organisateur) et à ses propres abonnés. Pas de RFM ni
+  // de segment sauvegardé ici : ils sont venue-scopés.
+  if (req.organizer_user_id) {
+    const orgId = req.organizer_user_id;
+    const scope = req.scope || 'followers';
+    let ids = new Set<string>();
+
+    if (scope === 'event_tickets' || scope === 'checked_in') {
+      if (!req.event_id) return { userIds: [], error: 'event_id required for this scope' };
+      const { data: event } = await supabase
+        .from('events').select('id, organizer_user_id, partner_organizer_id').eq('id', req.event_id).maybeSingle();
+      if (!event || (event.organizer_user_id !== orgId && event.partner_organizer_id !== orgId)) {
+        return { userIds: [], error: 'event does not belong to this organizer' };
+      }
+      ids = new Set(await collectUserIds((f, t) => {
+        let q = supabase.from('tickets').select('user_id').eq('event_id', req.event_id!).in('status', ['paid', 'used']).not('user_id', 'is', null);
+        if (scope === 'checked_in') q = q.eq('entry_scanned', true);
+        return q.range(f, t);
+      }));
+      if (scope === 'event_tickets') {
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('table_reservations').select('user_id').eq('event_id', req.event_id!).in('status', ['paid', 'confirmed']).not('user_id', 'is', null).range(f, t))) ids.add(id);
+      }
+    } else if (scope === 'all_customers') {
+      // Toute personne qui a acheté un billet ou réservé une table à une
+      // soirée de l'organisation.
+      const eventIds = (await (async () => {
+        const out: string[] = [];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await supabase.from('events').select('id')
+            .or(`organizer_user_id.eq.${orgId},partner_organizer_id.eq.${orgId}`).range(from, from + 999);
+          if (error) throw new Error(`events read failed: ${error.message}`);
+          (data || []).forEach((e: { id: string }) => out.push(e.id));
+          if (!data || data.length < 1000) break;
+        }
+        return out;
+      })());
+      for (let i = 0; i < eventIds.length; i += 200) {
+        const chunk = eventIds.slice(i, i + 200);
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('tickets').select('user_id').in('event_id', chunk).in('status', ['paid', 'used']).not('user_id', 'is', null).range(f, t))) ids.add(id);
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('table_reservations').select('user_id').in('event_id', chunk).in('status', ['paid', 'confirmed']).not('user_id', 'is', null).range(f, t))) ids.add(id);
+      }
+    } else { // followers
+      ids = new Set(await collectUserIds((f, t) => supabase
+        .from('organizer_profile_followers').select('user_id').eq('organizer_user_id', orgId).not('user_id', 'is', null).range(f, t)));
+    }
+
     return { userIds: [...ids].filter((id) => subscribers.has(id)) };
   }
 
@@ -229,6 +284,50 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
   return { userIds: ids };
 }
 
+// ── Politique des push MANUELS (migration 20260924190000) ────────────────
+// Un push composé par un pro passe par la même doctrine que les automatiques :
+//  • 'event' — acheteurs / clients entrés d'UNE soirée : seul l'opt-out
+//    marketing s'applique (la notif parle d'une nuit achetée, elle peut
+//    partir pendant la soirée) ;
+//  • 'marketing' — toute autre audience : opt-out, heures calmes 22 h → 10 h
+//    Paris à l'heure d'ENVOI, 1 / 24 h et 3 / 7 j tous expéditeurs confondus.
+// Le super admin (campagne globale) garde sa propre main.
+const EVENT_SCOPES = new Set(['event_tickets', 'checked_in']);
+
+function manualPolicyKind(req: CampaignRequest): 'marketing' | 'event' | null {
+  if (!req.venue_id && !req.organizer_user_id && !req.agency_id) return null;
+  return EVENT_SCOPES.has(req.scope || '') ? 'event' : 'marketing';
+}
+
+/** Heure de Paris (0-23) — formatToParts, jamais Number(format()) (voir CLAUDE.md). */
+function parisHour(d: Date): number {
+  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' })
+    .formatToParts(d).find((p) => p.type === 'hour')?.value ?? '0');
+  return h === 24 ? 0 : h;
+}
+
+function isQuietHourParis(d: Date): boolean {
+  const h = parisHour(d);
+  return h >= 22 || h < 10;
+}
+
+async function applyManualPolicy(
+  supabase: SupabaseClient, userIds: string[], kind: 'marketing' | 'event', at: Date,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (let i = 0; i < userIds.length; i += 1000) {
+    const { data, error } = await supabase.rpc('filter_manual_push_recipients', {
+      p_user_ids: userIds.slice(i, i + 1000), p_kind: kind, p_at: at.toISOString(),
+    });
+    // Fail-closed : une politique illisible n'envoie à personne.
+    if (error) throw new Error(`push policy failed: ${error.message}`);
+    for (const row of (data || []) as Array<string | { filter_manual_push_recipients: string }>) {
+      out.push(typeof row === 'string' ? row : row.filter_manual_push_recipients);
+    }
+  }
+  return out;
+}
+
 /** Ajoute le paramètre de tracking clic ?pc=<campaign_id> à l'URL de la notif. */
 function withTracking(url: string, campaignId: string): string {
   const base = url || '/';
@@ -267,15 +366,22 @@ Deno.serve(async (req) => {
         title: campaign.title, body: campaign.body, url: campaign.url || '/',
         segment: campaign.segment, venue_id: campaign.venue_id || undefined,
         agency_id: campaign.agency_id || undefined,
+        organizer_user_id: campaign.organizer_user_id || undefined,
         event_id: campaign.event_id || undefined, template_key: campaign.template_key || undefined,
         scope: stored.scope, platform: stored.platform, city: stored.city,
         title_i18n: sanitizeI18n(campaign.title_i18n), body_i18n: sanitizeI18n(campaign.body_i18n),
       };
-      const { userIds, error } = await resolveAudience(supabase, request);
+      const { userIds: audienceIds, error } = await resolveAudience(supabase, request);
       if (error) {
         await supabase.from('push_campaigns').update({ status: 'failed' }).eq('id', campaign.id);
         return json(400, { error });
       }
+      // Politique évaluée à l'heure PRÉVUE : un cron en retard de quelques
+      // minutes ne fait pas basculer la campagne dans les heures calmes.
+      const cronKind = manualPolicyKind(request);
+      const userIds = cronKind
+        ? await applyManualPolicy(supabase, audienceIds, cronKind, new Date(campaign.scheduled_at || Date.now()))
+        : audienceIds;
       const result = await sendCampaign(supabase, supabaseUrl, serviceKey, campaign.id, request, userIds);
       return json(200, { success: true, ...result });
     }
@@ -307,6 +413,20 @@ Deno.serve(async (req) => {
           allowed = !!mgr?.can_manage_crm;
         }
         if (!allowed) return json(403, { error: 'forbidden_not_owner_or_crm_manager' });
+      } else if (body.organizer_user_id) {
+        // Campagne organisateur : le fondateur, ou un admin de son équipe (la
+        // capacité « marketing » de capabilitiesFor). Un éditeur ou un
+        // scanner ne pousse rien vers les abonnés de l'organisation.
+        let allowed = user.id === body.organizer_user_id;
+        if (!allowed) {
+          const { data: member } = await supabase.rpc('is_org_team_member', {
+            _user_id: user.id,
+            _organizer_user_id: body.organizer_user_id,
+            _min_role: 'admin',
+          });
+          allowed = !!member;
+        }
+        if (!allowed) return json(403, { error: 'forbidden_not_organizer_admin' });
       } else if (body.agency_id) {
         // Campagne RP : uniquement le propriétaire de l'agence.
         const { data: ownsAgency } = await supabase.rpc('is_agency_owner', {
@@ -328,11 +448,30 @@ Deno.serve(async (req) => {
     }
 
     // ── Résolution d'audience ───────────────────────────────────────────────
-    const { userIds, error: audienceError } = await resolveAudience(supabase, body);
+    const { userIds: audienceIds, error: audienceError } = await resolveAudience(supabase, body);
     if (audienceError) return json(400, { error: audienceError });
 
-    // Portée estimée sans envoi (compteur live des UIs admin/owner).
-    if (body.dry_run) return json(200, { targeted: userIds.length });
+    const isScheduled = !!body.scheduled_at && new Date(body.scheduled_at).getTime() > Date.now();
+    const sendAt = isScheduled ? new Date(body.scheduled_at!) : new Date();
+    const policyKind = manualPolicyKind(body);
+    const quietHours = policyKind === 'marketing' && isQuietHourParis(sendAt);
+    const userIds = policyKind ? await applyManualPolicy(supabase, audienceIds, policyKind, sendAt) : audienceIds;
+
+    // Portée estimée sans envoi (compteur live des UIs admin/owner) : ceux qui
+    // RECEVRONT, plus ce que la politique a retenu et pourquoi l'expliquer.
+    if (body.dry_run) {
+      return json(200, {
+        targeted: userIds.length,
+        audience: audienceIds.length,
+        held_back: audienceIds.length - userIds.length,
+        quiet_hours: quietHours,
+        policy: policyKind,
+      });
+    }
+
+    // Heures calmes : on refuse plutôt que de créer une campagne à zéro.
+    if (quietHours) return json(409, { error: 'quiet_hours' });
+    if (!isScheduled && userIds.length === 0) return json(409, { error: 'no_eligible_recipients' });
 
     // ── Garde-fou club : 4 campagnes / 24 h ────────────────────────────────
     if (body.venue_id) {
@@ -342,6 +481,20 @@ Deno.serve(async (req) => {
         .select('id', { count: 'exact', head: true })
         .eq('venue_id', body.venue_id)
         .eq('source', 'manual')  // les campagnes AUTO ne consomment pas le cap manuel
+        .gte('created_at', dayAgo);
+      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
+        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
+      }
+    }
+
+    // ── Garde-fou organisateur : même plafond 4 campagnes / 24 h ───────────
+    if (body.organizer_user_id) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('push_campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('organizer_user_id', body.organizer_user_id)
+        .eq('source', 'manual')
         .gte('created_at', dayAgo);
       if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
         return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
@@ -367,11 +520,13 @@ Deno.serve(async (req) => {
     };
 
     // ── Planification : on enregistre, process-scheduled-campaigns enverra ──
-    if (body.scheduled_at && new Date(body.scheduled_at).getTime() > Date.now()) {
+    if (isScheduled) {
       const { data: row, error: insErr } = await supabase.from('push_campaigns').insert({
         title: body.title, body: body.body, url: body.url || '/',
         segment: body.segment || body.scope || 'all',
         venue_id: body.venue_id || null, event_id: body.event_id || null,
+        agency_id: body.agency_id || null,
+        organizer_user_id: body.organizer_user_id || null,
         template_key: body.template_key || null,
         audience: audienceSnapshot,
         status: 'scheduled', scheduled_at: body.scheduled_at,
@@ -390,6 +545,7 @@ Deno.serve(async (req) => {
       segment: body.segment || body.scope || 'all',
       venue_id: body.venue_id || null, event_id: body.event_id || null,
       agency_id: body.agency_id || null,
+      organizer_user_id: body.organizer_user_id || null,
       template_key: body.template_key || null,
       audience: audienceSnapshot,
       status: 'sending',
@@ -490,7 +646,8 @@ async function sendCampaign(
     await supabase.from('notification_log').insert(
       userIds.slice(i, i + 500).map((uid) => ({
         user_id: uid,
-        notification_type: 'campaign',
+        // Un push de soirée achetée n'entre dans aucun plafond (voir la migration).
+        notification_type: manualPolicyKind(request) === 'event' ? 'event_campaign' : 'campaign',
         title: request.title,
       })),
     );

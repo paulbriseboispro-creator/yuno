@@ -490,6 +490,204 @@ le même soir, canaux, passage visite → achat, présence à la porte. Règles 
   onglet `owner.an.purchaseTab`, aide `ohelp.pg.analytics.s11*` et
   `ohelp.org.analytics.s6*`, assistant : article `purchase-behavior`.
 
+## Grammaire de l'analyse + ventes par soirée (2026-09-24, plan Shotgun)
+
+Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
+(lots A-G livrés le 24/09, repris et joués sur la démo contre la vraie base le
+25/09 — voir le dernier point). Règles posées :
+
+- **Tout écran d'analyse passe par le kit** `src/components/analytics/kit.tsx`
+  (+ `kitFormat.ts` pour `KIT` et `useNumberFormat`) : `TodayDelta` (« ▲ 6
+  aujourd'hui », gris « rien aujourd'hui » à zéro), `UpdatedAt` (« Mis à jour à
+  HH:MM »), `MetricHint` (ⓘ = UNE phrase de définition, clés `gl.*`),
+  `CoverageNote` (« connu pour N sur M »), `FillBar`. Un total sans son « du
+  jour », un chiffre sans définition, une donnée partielle sans couverture : ce
+  sont les défauts que Shotgun n'a pas.
+- **La soirée choisie vit dans l'URL** (`?event=`, `useEventParam`) : Analytics
+  club et orga ; un lien `…/analytics?tab=event&event=<id>` ouvre son analyse.
+- **`get_events_sales_summary(p_venue_id, p_organizer_user_id)`** (migration
+  `20260924160000`) sert la bande de ventes de chaque carte soirée
+  (`EventSalesStrip`, page Événements) et « Vos prochaines soirées »
+  (`UpcomingEventsBoard`, remplace le héros à soirée unique des deux
+  dashboards). Mêmes statuts et formules que `get_live_view` (CA club de
+  `fees.ts`, remboursement déduit) ; « aujourd'hui » = minuit dans le fuseau de
+  la soirée. Le CA ne part qu'à qui voit l'argent (owner, manager
+  analytics/finance, fondateur, membre `view_finance`) ; un éditeur d'équipe
+  voit les jauges, jamais le CA ; un club ne voit pas le CA d'une soirée qu'il
+  ne fait qu'ACCUEILLIR (`partner_venue_id`). Aucune agrégation côté front.
+- **J-N = jours CALENDAIRES de Paris** (`countdownFor`, testé), pas des
+  tranches de 24 h. Une soirée gratuite n'affiche pas « 0 € » (`showsRevenue`).
+- **Les chiffres d'une liste de soirées se lisent en COLONNES FIXES**
+  (`EventMetricsGrid` : CA · Billets · Tables · Guest list · Visites) : un
+  pilier fermé laisse sa case vide sur grand écran pour garder l'alignement.
+- **Rapport de soirée = `get_event_report(p_event_id)`** (migration
+  `20260924170000`, `src/components/event-report/*`, `EventReportView` dans
+  l'onglet Événement des deux Analytics). Cinq questions dans CET ordre —
+  ventes, évolution, trafic, qui achète, ce qui a fait vendre — et le verdict
+  (`EventPostAnalysisView`) en tête une fois la soirée passée. La portée se
+  DÉDUIT de l'appelant (club qui gère le lieu, sinon organisateur / équipe) ;
+  mêmes gardes d'argent que `get_events_sales_summary`. La série est clée par
+  `d` = jours CALENDAIRES avant la soirée (fuseau de la soirée) : deux soirées
+  se comparent au même J-N, jamais à la même date (`buildCurve`, testé). La
+  comparaison par défaut est la soirée PRÉCÉDENTE de la portée. Messages de la
+  soirée = emails (`event_id` ou `automation_trigger_event_id`) et push
+  (`event_id`) de la portée ; une vente leur est rattachée sur 1er clic → achat
+  de CETTE soirée < 72 h (même fenêtre que l'attribution email), en CA club.
+  Côté orga, les push sans `venue_id` ni `agency_id` d'une soirée de l'orga
+  (la « Publication » automatique) sont les siens — le lot D ira plus loin.
+  « Nouveau contact » = email jamais vu (billet, table, guest list) à une
+  soirée de la portée qui a COMMENCÉ avant celle-ci.
+- **Push = une page pour le club ET l'organisateur** (lot D, migration
+  `20260924180000`). `OwnerPush` sert `/owner/push` et `/organizer-app/push`
+  (`OrgAppRoute requires="marketing"`, `PATH_CAPABILITY`) ; côté orga, tout ce
+  qui est venue-scopé disparaît (automatisations, RFM, segments sauvegardés,
+  assistant IA — `owner-assistant` exige le rôle owner), le modèle « Flash
+  boissons » aussi. `push_campaigns.organizer_user_id` porte la portée orga
+  (backfill des « Publication » d'orga, `push-automations.ts` la pose) ;
+  `send-push-campaign` accepte `organizer_user_id` (fondateur ou admin
+  d'équipe, audiences `followers` / `event_tickets` / `checked_in` /
+  `all_customers`, même plafond 4 / 24 h que le club).
+  L'historique = `get_push_campaigns(p_venue_id, p_organizer_user_id, p_filter,
+  p_event_id, p_limit, p_offset)` : toutes les campagnes paginées, ciblés /
+  envoyés / ouverts (1er tap par personne) / acheteurs / CA (tap → achat < 72 h,
+  CA club de `fees.ts`, remboursement déduit, CA seulement pour qui voit
+  l'argent), résumé 30 j et abonnés (`followers.total/reachable/new30d`,
+  bandeau `FollowersNudge`). L'annonce automatique d'une soirée s'appelle
+  « Publication – soirée » (`campaignLabel`). `PushHistoryCard` ne compte rien.
+  **Push MANUELS = politique client, deux familles** (migration
+  `20260924190000`, `filter_manual_push_recipients(ids, kind, at)`,
+  ensembliste, `service_role` seul) : `marketing` (abonnés, tous les clients,
+  segments, RFM, abonnés d'agence) = opt-out `marketing` + heures calmes
+  22 h → 10 h Paris jugées à l'heure d'ENVOI (planifiée ou non ; le cron juge à
+  `scheduled_at`) + 1 / 24 h et 3 / 7 j tous expéditeurs (`notification_log`) ;
+  `event` (`event_tickets`, `checked_in`) = opt-out seul, journalisé
+  `event_campaign` (hors plafonds) : on parle d'une nuit achetée. Le dry_run
+  rend `targeted` APRÈS politique + `audience`, `held_back`, `quiet_hours`,
+  `policy` ; l'envoi refuse `quiet_hours` (409) et `no_eligible_recipients`
+  plutôt que de créer une campagne à zéro. Le super admin garde sa main.
+- **Analytics = quatre familles, une question par page** (lot E, migration
+  `20260924200000`). Adresse `?tab=sales|traffic|community|live&view=…`
+  (`src/lib/analyticsNav.ts`, testé ; `useAnalyticsRoute`) : Ventes (Vue
+  d'ensemble · Par soirée = Rapport de soirée · Partenaires = promoteurs),
+  Trafic (Ma page · Par soirée · Sources), Communauté (Vue d'ensemble · Abonnés
+  · Achats · Public), En direct. Les anciens onglets (`global`, `event`,
+  `purchase`) sont traduits ET l'URL réécrite en place ; un lien de soirée se
+  construit par `eventReportHref(base, id)`, jamais à la main. Navigation
+  commune `AnalyticsFamilyNav` (club + orga) ; les zones de l'ancien Global
+  sont rangées (promoteurs → Partenaires, fidélité → Communauté, âge/sexe →
+  Public, trafic web → Sources). `/owner/audience`, `/organizer-app/audience`,
+  `/owner/hype`, `/manager/hype` REDIRIGENT : les Abonnés sont une vue de
+  Communauté, le Hype Score vit dans le Rapport de soirée (slot `forecast`,
+  club seul, `HypeEventForecast`) et le Night Report IA sous le verdict
+  (`EventPostAnalysisView`, club seul : l'IA exige le rôle owner).
+  `get_community_overview` lit la base vivante `contact_rows` (contacts,
+  joignables, abonnés, participation 0-4+, dernier achat par tranches de mois,
+  croissance 24 mois, nouveaux contacts = PREMIÈRE soirée dans la portée,
+  comme le Rapport) ; `get_page_traffic` lit `visitor_sessions` (page publique
+  `venue_page` / `organizer_profile`, soirées de la portée). Même porte que
+  `get_events_sales_summary`, aucun montant. Lexique : « Mix revenu »,
+  « Settlement », « Funnel », « ROI » sont devenus des mots de pro
+  (`owner.an.*`). Période et export ne s'affichent que là où ils changent
+  quelque chose.
+- **Codes promo par soirée = une porte serveur, jamais de cumul** (lot F,
+  migration `20260924210000`, page `PromoCodes` sur `/owner/promo-codes` et
+  `/organizer-app/promo-codes`, sous Billetterie ; orga : `requires="marketing"`,
+  `PATH_CAPABILITY`). `promo_codes` = portée club OU organisateur, soirée
+  précise ou toutes (le code d'une soirée gagne sur le code « toutes »), %
+  ou € (par billet ; par réservation pour une table), piliers `tickets` /
+  `tables`, paliers, quota, dates. Le client n'envoie qu'un TEXTE
+  (`discountCode`) ; `check_promo_code` (anon) n'est qu'un aperçu,
+  `claim_promo_code` (service_role, `FOR UPDATE`) redécide et RETIENT un
+  usage 30 min dans `promo_code_redemptions` ; la vente y est reliée
+  (`attach_promo_redemption`), le passage à `paid` confirme l'usage par
+  trigger, un échec ou une expiration le rend. Toute panne du contrôle =
+  pas de remise (`unavailable`). **Jamais cumulé avec la remise promoteur :
+  la plus forte gagne** ; le promoteur garde son attribution, et
+  `p_discount` / `promoDiscount` ne portent que SA remise. Table : remise
+  sur l'acompte, jamais sur une formule `on_site`. Un code utilisé se
+  désactive, ne se supprime pas. `?promo=CODE` sur la page soirée pré-remplit
+  (sessionStorage). L'aperçu anon `check_promo_code` est freiné à 15 codes
+  INCONNUS / heure / visiteur (`promo_code_failed_checks`, migration
+  `20260925100000`, raison `rate_limited`) : sans ça les codes privés se
+  devinaient par force brute. **Bug corrigé au passage** : la ligne Stripe des billets
+  portait le prix PLEIN quand une remise promoteur existait (le client
+  payait plein pendant que commission et reversements partaient du prix
+  remisé) — elle porte désormais le sous-total remisé ; et le checkout client
+  affiche la remise fixe promoteur × quantité et la remise table sur
+  l'acompte, comme le serveur.
+- **Goûts du réseau = agrégé, ≥ 10 par ligne, opt-out respecté** (lot G,
+  migration `20260924220000`, `get_community_tastes`, vue Communauté → Goûts
+  `CommunityTastesView`). Communauté = comptes Yuno liés à la portée (achat,
+  guest list, abonnement) ; genres = quiz (`user_taste_profiles.genres`) ∪
+  genres des soirées fréquentées sur TOUT Yuno depuis 18 mois. Un genre ne
+  sort qu'à partir de 10 personnes, ses sous-comptes aussi (sinon `null`),
+  `profiles.personalization_opt_out` exclut la personne du calcul, et la
+  politique de confidentialité le dit (§ Destinataires, 24/09). Sous le seuil
+  la vue est prête mais éteinte (`tastesReady`). Ne jamais exposer un genre
+  sous le seuil ni une ligne par personne, y compris dans l'assistant.
+- **Accusés de réception push : serveur prêt, extension iOS À FAIRE** (lot G).
+  `send-push-notification` pose `mutable-content: 1` et `yr: {c, s}` (id de
+  campagne, id d'abonnement) sur toute notification de CAMPAGNE (`?pc=`) ;
+  `ack_push_delivery(c, s)` (anon, idempotent, campagnes < 3 j) écrit
+  `push_campaign_events.event_type = 'delivered'` ; l'historique lit
+  `get_push_delivery_counts` et n'affiche la colonne « Reçus » qu'au premier
+  accusé (`hasDeliveryReceipts`). Reste une Notification Service Extension
+  dans le binaire client (cible Xcode, `didReceive` : lire `yr`, POST
+  `/rest/v1/rpc/ack_push_delivery` avec la clé anon, puis afficher le contenu
+  tel quel) — elle ne part pas en OTA, donc prochaine version App Store.
+- **L'Assistant Console lit les écrans d'analyse** (lot G) : outils
+  `get_event_report`, `get_community_overview` (+ goûts) et `get_push_history`
+  appellent les MÊMES RPC que les écrans, avec le client au JWT de l'appelant
+  (`executeTool(…, userClient)`) — jamais le service role, sinon la porte de
+  portée et d'argent (`auth.uid()`) tombe.
+- Vérif visuelle sans compte : banc Vite (`harness.html` à la racine + entrée
+  qui remplace `supabase.rpc` par des données d'exemple, env `VITE_SUPABASE_*`
+  factices) + Chromium headless. Chromium headless ne descend pas sous 500 px de
+  large : pour le mobile, contraindre le CONTENEUR, pas la fenêtre. Ne jamais
+  committer le banc.
+- **Reprise du 25/09 : rien n'avait été joué contre la vraie base, et ça se
+  voyait.** Quatre migrations (190000→220000) n'étaient pas appliquées (404 sur
+  Trafic, Communauté, Goûts, Codes promo), les edge functions de la branche
+  n'étaient pas déployées, l'Analytics orga restait sur un spinner et les
+  soirées démo à venir n'avaient aucune vente. Règles qui en sortent :
+  - **Une vue ne charge que ses chiffres.** `useAnalyticsData`,
+    `useNightAnalytics`, `usePromoterAnalytics`, `useCustomerAnalytics`
+    prennent `enabled` ; les pages ne les allument que sur la vue qui les lit
+    (Ventes › Vue d'ensemble, Partenaires, Communauté › Vue d'ensemble, le
+    détail replié). Toute vue se rend tout de suite ; seul Ventes montre
+    `AnalyticsLoading` sous la navigation. Ne JAMAIS reposer un verrou de page
+    entière sur ces hooks : ~70 requêtes en série, 6 à 25 s pour ouvrir Trafic.
+  - `useAnalyticsData` attend la liste des soirées (`eventsReady`) avant de
+    calculer (sinon tout partait deux fois) et lance ses lectures en
+    parallèle.
+  - Ventes › Vue d'ensemble = chiffres, `SalesByDayChart` (série
+    `buildSalesSeries`, testée : jour par jour, mois au-delà de 92 j, horaire
+    seulement sur 24/48 h), « Ce que tu touches », bilan par soirée ; le reste
+    sous « Détail ». Montants au format de la langue, jamais `€${n}`.
+  - Rapport de soirée : `EventPostAnalysisView layout="summary"` (note +
+    chiffres, « Bilan complet » replié) et `HypeScoreSection compact` (sans
+    métriques / tendance / comparaison, qui répétaient la section ventes avec
+    d'AUTRES chiffres). Soirée passée : lignes « Fermé », pas de « rien
+    aujourd'hui » ; un total nul n'affiche jamais « rien aujourd'hui » ni
+    « 0 % » ; un pilier éteint n'étale pas ses formules.
+  - Une vue rangée sous une question de famille n'a pas de second titre
+    (`AudienceDashboard embedded`, `PurchaseBehaviorView` sans en-tête).
+  - Communauté : la zone Fidélité héritée est réduite au top clients (ses
+    tuiles contredisaient la page) ; « Nouveaux contacts » = les 10 dernières
+    soirées QUI ONT EU DU PUBLIC (`20260925090000`).
+  - **Démo pendant la vente** : `scripts/demo/seed-upcoming-sales.sql`
+    (rejouable, borné à `demo_event_ids()`, efface ses lignes `seed.…`) sème
+    billets, tables sur de vraies formules, guest list et visites sur les
+    soirées à venir. Le relancer quand les dates passent.
+  - Codes promo joués en vrai (achat démo simulé `DEMO20`) ;
+    `create-ticket-checkout` arrondit sous-total remisé et total au centime.
+  - Tester en cloud : `scripts/demo/drive.mjs` lit l'environnement
+    (`. scripts/ci-web-env.sh`, `SUPABASE_SERVICE_ROLE_KEY`), prend Chromium
+    `/opt/pw-browsers` et le proxy `HTTPS_PROXY` ; importer la CA du proxy
+    dans `~/.pki/nssdb` (`certutil`), sinon ERR_CERT_AUTHORITY_INVALID. Le club
+    démo est caché : une page publique de soirée se teste avec un compte
+    `@womber.fr`, jamais en anonyme (« Événement introuvable »).
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous

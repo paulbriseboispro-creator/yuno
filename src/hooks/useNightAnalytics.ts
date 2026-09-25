@@ -51,6 +51,8 @@ interface UseNightAnalyticsProps {
   dateRange: DateRange;
   mode: AnalyticsMode;
   selectedEventId: string | null;
+  /** false = vue qui n'en a pas besoin : rien n'est chargé. */
+  enabled?: boolean;
 }
 
 const EMPTY: NightAnalytics = {
@@ -60,7 +62,7 @@ const EMPTY: NightAnalytics = {
   attendance: 0, arrivalsByHour: [],
 };
 
-export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, selectedEventId }: UseNightAnalyticsProps) {
+export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, selectedEventId, enabled = true }: UseNightAnalyticsProps) {
   const [data, setData] = useState<NightAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const isOrganizerScope = !venueId && !!organizerUserId;
@@ -163,7 +165,7 @@ export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, s
     }
   }, [venueId, organizerUserId, isOrganizerScope, dateRange, mode, selectedEventId]);
 
-  useEffect(() => { if (venueId || organizerUserId) fetch(); }, [venueId, organizerUserId, fetch]);
+  useEffect(() => { if (enabled && (venueId || organizerUserId)) fetch(); }, [enabled, venueId, organizerUserId, fetch]);
 
   return { nightAnalytics: data, loading };
 }

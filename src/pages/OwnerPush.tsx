@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { Bell, Send, Loader2, Clock, Users, Zap, Sparkles, CalendarClock } from 'lucide-react';
+import { Bell, Send, Loader2, Users, Zap, Sparkles, CalendarClock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
@@ -17,6 +17,11 @@ import {
 } from '@/lib/pushTemplates';
 import { eventPath } from '@/lib/eventUrl';
 import AIContentGenerator from '@/components/campaigns/AIContentGenerator';
+import PushHistoryCard from '@/components/push/PushHistoryCard';
+import FollowersNudge from '@/components/push/FollowersNudge';
+import { usePushCampaigns } from '@/hooks/usePushCampaigns';
+import type { PushFilter } from '@/lib/pushHistory';
+import { PUBLIC_BASE_URL } from '@/lib/native';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
 const RED        = '#E8192C';
@@ -24,7 +29,6 @@ const POS        = 'var(--acc-34d399)';
 const T1         = 'rgb(var(--ink)/var(--ink-a96,0.96))';
 const T2         = 'rgb(var(--ink)/var(--ink-a58,0.58))';
 const T3         = 'rgb(var(--ink)/var(--ink-a36,0.36))';
-const C_FAINT    = 'rgb(var(--ink)/0.06)';
 const BORDER     = 'rgb(var(--ink)/0.085)';
 const F_BORDER   = 'rgb(var(--ink)/0.055)';
 const INNER_BG   = 'rgb(var(--ink)/0.032)';
@@ -49,20 +53,10 @@ type VenueEvent = {
   slug: string | null;
 };
 
-type Campaign = {
-  id: string;
-  title: string;
-  body: string;
-  segment: string;
-  sent_count: number;
-  failed_count?: number;
-  targeted_count?: number;
-  template_key?: string | null;
-  source?: string | null;
-  status?: string | null;
-  scheduled_at?: string | null;
-  created_at: string;
-};
+// Un organisateur ne tient pas de bar : le modèle « Flash boissons » n'a pas
+// de sens chez lui.
+const ORG_HIDDEN_TEMPLATES = new Set(['flash_drinks']);
+const HISTORY_PAGE_SIZE = 20;
 
 const RFM_SEGMENTS = ['champions', 'loyal', 'promising', 'new', 'at_risk', 'dormant', 'lost'] as const;
 const RFM_LABEL_KEYS: Record<string, string> = {
@@ -72,7 +66,13 @@ const RFM_LABEL_KEYS: Record<string, string> = {
 
 export default function OwnerPush() {
   const { t, language } = useLanguage();
-  const { venueId, venue, loading: venueLoading } = useVenueContext();
+  const { venueId, venue, loading: venueLoading, scope: dashScope, organizerUserId } = useVenueContext();
+  // Même page pour le club et pour l'organisateur (Console Organisateur →
+  // Marketing & CRM → Notifications push). Tout ce qui est venue-scopé
+  // (automatisations, RFM, segments sauvegardés, assistant IA) reste au club.
+  const isOrg = dashScope === 'organizer';
+  const ready = isOrg ? !!organizerUserId : !!venueId;
+  const scopeBody = isOrg ? { organizer_user_id: organizerUserId } : { venue_id: venueId };
   const { hasFeature } = useSubscriptionPlan();
   const hasAdvancedCrm = hasFeature('personalization_advanced');
 
@@ -94,16 +94,18 @@ export default function OwnerPush() {
   const [reach, setReach] = useState<number | null>(null);
   const [reachLoading, setReachLoading] = useState(false);
   const [reachError, setReachError] = useState<string | null>(null);
+  // Règles Yuno des push manuels (send-push-campaign → filter_manual_push_recipients).
+  const [quietHours, setQuietHours] = useState(false);
+  const [heldBack, setHeldBack] = useState(0);
+  const [policyKind, setPolicyKind] = useState<'marketing' | 'event' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [clicks, setClicks] = useState<Record<string, number>>({});
-  const [pushRevenue, setPushRevenue] = useState<Record<string, { revenue: number; buyers: number }>>({});
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyFilter, setHistoryFilter] = useState<PushFilter>('all');
+  const [historyPage, setHistoryPage] = useState(0);
+  const [orgProfile, setOrgProfile] = useState<{ name: string; slug: string | null } | null>(null);
   const [savedSegments, setSavedSegments] = useState<Array<{ id: string; name: string }>>([]);
   const [scheduledAt, setScheduledAt] = useState<string>(''); // datetime-local ; vide = envoi immédiat
   const [bestSlot, setBestSlot] = useState<{ dow: number; hour: number } | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [automations, setAutomations] = useState<Record<string, boolean>>({});
   const [automationParams, setAutomationParams] = useState<Record<string, { days?: number }>>({});
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
@@ -112,14 +114,17 @@ export default function OwnerPush() {
   const needsEvent = audience === 'event_tickets' || audience === 'checked_in';
   const selectedEvent = events.find((e) => e.id === eventId);
 
-  // Soirées du club (ce soir + à venir) pour le ciblage et les variables.
+  // Soirées de la portée (ce soir + à venir) pour le ciblage et les variables.
   useEffect(() => {
-    if (!venueId) return;
+    if (!ready) return;
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    supabase
+    let q = supabase
       .from('events')
-      .select('id, title, start_at, slug')
-      .eq('venue_id', venueId)
+      .select('id, title, start_at, slug');
+    q = isOrg
+      ? q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+      : q.eq('venue_id', venueId as string);
+    q
       .gte('start_at', twelveHoursAgo)
       .order('start_at', { ascending: true })
       .limit(20)
@@ -128,61 +133,43 @@ export default function OwnerPush() {
         setEvents(rows);
         if (rows.length > 0) setEventId((prev) => prev || rows[0].id);
       });
-  }, [venueId]);
+  }, [ready, isOrg, venueId, organizerUserId]);
 
-  const fetchHistory = async () => {
-    if (!venueId) return;
-    const { data } = await supabase
-      .from('push_campaigns' as never)
-      .select('*')
-      .eq('venue_id', venueId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    const rows = ((data as unknown) as Campaign[]) || [];
-    setCampaigns(rows);
-    setHistoryLoading(false);
-    if (rows.length > 0) {
-      const { data: eventsData } = await supabase
-        .from('push_campaign_events' as never)
-        .select('campaign_id')
-        .eq('event_type', 'clicked')
-        .in('campaign_id', rows.map((r) => r.id));
-      const counts: Record<string, number> = {};
-      (((eventsData as unknown) as Array<{ campaign_id: string }>) || []).forEach((e) => {
-        counts[e.campaign_id] = (counts[e.campaign_id] || 0) + 1;
+  // Nom et adresse publique de l'organisation (variables + lien à partager).
+  useEffect(() => {
+    if (!isOrg || !organizerUserId) return;
+    supabase
+      .from('organizer_profiles')
+      .select('display_name, slug')
+      .eq('user_id', organizerUserId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setOrgProfile({ name: data.display_name, slug: data.slug });
       });
-      setClicks(counts);
-    }
-    // Revenus attribués par campagne (clic→achat 72 h, net) — best-effort.
-    try {
-      const { data: attr } = await supabase.rpc('get_audience_push_attribution' as never, {
-        p_subject_type: 'venue', p_subject_id: venueId,
-      } as never);
-      const payload = attr as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number; buyers: number }> } | null;
-      if (payload?.supported) {
-        const map: Record<string, { revenue: number; buyers: number }> = {};
-        (payload.campaigns || []).forEach((c) => { map[c.id] = { revenue: c.revenue, buyers: c.buyers }; });
-        setPushRevenue(map);
-      }
-    } catch { /* chips absentes */ }
-  };
+  }, [isOrg, organizerUserId]);
 
-  useEffect(() => { fetchHistory(); }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const history = usePushCampaigns(
+    isOrg ? { organizerUserId } : { venueId },
+    historyFilter,
+    historyPage,
+    HISTORY_PAGE_SIZE,
+  );
+  const reloadHistory = history.reload;
 
   // Meilleur créneau d'envoi (user_send_profiles agrégés par get_audience_notifications).
   // Best-effort : sans données, le hint ne s'affiche pas.
   useEffect(() => {
-    if (!venueId) return;
+    if (!ready) return;
     (async () => {
       try {
         const { data } = await supabase.rpc('get_audience_notifications' as never, {
-          p_subject_type: 'venue', p_subject_id: venueId,
+          p_subject_type: isOrg ? 'organizer' : 'venue', p_subject_id: isOrg ? organizerUserId : venueId,
         } as never);
         const bs = (data as { best_send?: { dow: number | null; hour: number | null } } | null)?.best_send;
         if (bs && typeof bs.dow === 'number' && typeof bs.hour === 'number') setBestSlot({ dow: bs.dow, hour: bs.hour });
       } catch { /* hint optionnel */ }
     })();
-  }, [venueId]);
+  }, [ready, isOrg, venueId, organizerUserId]);
 
   // État des automatisations du club (toggles opt-in, désactivés par défaut).
   useEffect(() => {
@@ -244,6 +231,7 @@ export default function OwnerPush() {
   };
 
   // Valeurs d'aperçu pour les cartes d'automatisation (soirée à venir la plus proche).
+  const hostName = isOrg ? (orgProfile?.name || '') : (venue?.name || '');
   const autoPreviewValues = useMemo(() => ({
     venue: venue?.name || '',
     event: events[0]?.title || t('ownerPush.autoSampleEvent'),
@@ -251,11 +239,11 @@ export default function OwnerPush() {
 
   // Interpolation live du template tant que l'owner n'a pas édité à la main.
   const templateValues = useMemo(() => ({
-    venue: venue?.name || '',
+    venue: hostName,
     event: selectedEvent?.title || '',
     offer,
     count,
-  }), [venue?.name, selectedEvent?.title, offer, count]);
+  }), [hostName, selectedEvent?.title, offer, count]);
 
   useEffect(() => {
     if (!template || manuallyEdited) return;
@@ -301,18 +289,25 @@ export default function OwnerPush() {
   }, [searchParams]);
 
   // URL par défaut : la soirée sélectionnée, sinon la page du club.
+  // Organisateur : `/event/<uuid>` est toujours résolu (la forme à slug exige
+  // le slug d'orga), et la page publique est `/o/<slug>`.
   useEffect(() => {
+    if (isOrg) {
+      if (selectedEvent) setUrl(`/event/${selectedEvent.id}`);
+      else if (orgProfile?.slug) setUrl(`/o/${orgProfile.slug}`);
+      return;
+    }
     if (selectedEvent) {
       setUrl(eventPath({ id: selectedEvent.id, slug: selectedEvent.slug, isOrganizerLed: false, venueSlug: venueId || undefined }));
     } else if (venueId) {
       setUrl(`/club/${venueId}`);
     }
-  }, [selectedEvent, venueId]);
+  }, [isOrg, selectedEvent, venueId, orgProfile?.slug]);
 
   // Portée estimée (dry_run débouncé). En cas d'échec on REMONTE la cause
   // (403 owner/manager, erreur segments…) au lieu d'un « … » silencieux.
   useEffect(() => {
-    if (!venueId) return;
+    if (!ready) return;
     if (needsEvent && !eventId) { setReach(0); return; }
     setReachLoading(true);
     setReachError(null);
@@ -321,8 +316,10 @@ export default function OwnerPush() {
         const { data, error } = await supabase.functions.invoke('send-push-campaign', {
           body: {
             title: '·', body: '·', dry_run: true,
-            venue_id: venueId, scope,
+            ...scopeBody, scope,
             ...(needsEvent ? { event_id: eventId } : {}),
+            // Heures calmes jugées à l'heure d'ENVOI, planifiée ou non.
+            ...(scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
           },
         });
         if (error) {
@@ -338,6 +335,9 @@ export default function OwnerPush() {
           return;
         }
         setReach(typeof data?.targeted === 'number' ? data.targeted : null);
+        setQuietHours(!!data?.quiet_hours);
+        setHeldBack(typeof data?.held_back === 'number' ? data.held_back : 0);
+        setPolicyKind(data?.policy === 'event' || data?.policy === 'marketing' ? data.policy : null);
         if (data?.error) setReachError(String(data.error));
       } catch (e) {
         console.error('[Push] dry_run failed:', e);
@@ -348,7 +348,7 @@ export default function OwnerPush() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [venueId, scope, eventId, needsEvent]);
+  }, [ready, isOrg, venueId, organizerUserId, scope, eventId, needsEvent, scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -363,6 +363,15 @@ export default function OwnerPush() {
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   };
 
+  // Prochain 10 h (fin des heures calmes), au format datetime-local.
+  const nextTenLocal = (): string => {
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    if (d.getHours() >= 10) d.setDate(d.getDate() + 1);
+    d.setHours(10);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+
   const bestSlotDayLabel = (): string => {
     if (!bestSlot) return '';
     // extract(dow) SQL et getDay() JS partagent 0 = dimanche.
@@ -372,24 +381,8 @@ export default function OwnerPush() {
     return ref.toLocaleDateString(tag, { weekday: 'long' });
   };
 
-  const cancelScheduled = async (id: string) => {
-    setCancellingId(id);
-    try {
-      const { data, error } = await supabase.rpc('cancel_scheduled_push_campaign' as never, {
-        p_campaign_id: id,
-      } as never);
-      if (error) throw error;
-      if (data) { toast.success(t('ownerPush.scheduleCancelled')); fetchHistory(); }
-      else toast.error(t('ownerPush.scheduleCancelTooLate')); // déjà partie (le cron marque 'sending' avant d'envoyer)
-    } catch {
-      toast.error(t('ownerPush.sendError'));
-    } finally {
-      setCancellingId(null);
-    }
-  };
-
   const handleSend = async () => {
-    if (!venueId || !title.trim() || !body.trim()) return;
+    if (!ready || !title.trim() || !body.trim()) return;
     if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
       toast.error(t('ownerPush.schedulePast'));
       return;
@@ -399,7 +392,7 @@ export default function OwnerPush() {
       const { data, error } = await supabase.functions.invoke('send-push-campaign', {
         body: {
           title: title.trim(), body: body.trim(), url: url.trim() || '/',
-          venue_id: venueId, scope,
+          ...scopeBody, scope,
           ...(needsEvent ? { event_id: eventId } : {}),
           template_key: template?.key || 'custom',
           ...(i18nContent ? { title_i18n: i18nContent.title_i18n, body_i18n: i18nContent.body_i18n } : {}),
@@ -417,6 +410,14 @@ export default function OwnerPush() {
               toast.error(t('ownerPush.rateLimited'));
               return;
             }
+            if (bodyJson?.error === 'quiet_hours') {
+              toast.error(t('ph.policy.quietToast'));
+              return;
+            }
+            if (bodyJson?.error === 'no_eligible_recipients') {
+              toast.error(t('ph.policy.noEligibleToast'));
+              return;
+            }
             if (bodyJson?.error) msg = bodyJson.error;
           }
         } catch { /* garder msg */ }
@@ -428,7 +429,8 @@ export default function OwnerPush() {
       setTemplate(null);
       setTitle(''); setBody(''); setManuallyEdited(false); setI18nContent(null);
       setScheduledAt('');
-      fetchHistory();
+      setHistoryPage(0);
+      reloadHistory();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('ownerPush.sendError'));
     } finally {
@@ -436,15 +438,25 @@ export default function OwnerPush() {
     }
   };
 
-  if (venueLoading || !venueId) return <OwnerPageSkeleton />;
+  if (venueLoading || !ready) return <OwnerPageSkeleton />;
 
-  const audienceOptions = [
-    { value: 'event_tickets', label: t('ownerPush.audEventTickets') },
-    { value: 'checked_in', label: t('ownerPush.audCheckedIn') },
-    { value: 'followers', label: t('ownerPush.audFollowers') },
-    { value: 'rfm', label: t('ownerPush.audRfm') },
-    { value: 'all_customers', label: t('ownerPush.audAllCustomers') },
-  ];
+  const audienceOptions = isOrg
+    ? [
+      { value: 'event_tickets', label: t('ownerPush.audEventTickets') },
+      { value: 'checked_in', label: t('ownerPush.audCheckedIn') },
+      { value: 'followers', label: t('ph.audOrgFollowers') },
+      { value: 'all_customers', label: t('ownerPush.audAllCustomers') },
+    ]
+    : [
+      { value: 'event_tickets', label: t('ownerPush.audEventTickets') },
+      { value: 'checked_in', label: t('ownerPush.audCheckedIn') },
+      { value: 'followers', label: t('ownerPush.audFollowers') },
+      { value: 'rfm', label: t('ownerPush.audRfm') },
+      { value: 'all_customers', label: t('ownerPush.audAllCustomers') },
+    ];
+  const templates = isOrg ? PUSH_TEMPLATES.filter((tpl) => !ORG_HIDDEN_TEMPLATES.has(tpl.key)) : PUSH_TEMPLATES;
+  const publicPath = isOrg ? (orgProfile?.slug ? `/o/${orgProfile.slug}` : null) : `/club/${venueId}`;
+  const publicUrl = publicPath ? `${PUBLIC_BASE_URL}${publicPath}` : null;
 
   return (
     <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
@@ -465,11 +477,28 @@ export default function OwnerPush() {
             <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
               {t('ownerPush.title')}
             </h1>
-            <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>{t('ownerPush.subtitle')}</p>
+            <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>{isOrg ? t('ph.orgSubtitle') : t('ownerPush.subtitle')}</p>
           </div>
         </div>
 
+        {history.data && (
+          <FollowersNudge
+            followers={history.data.followers}
+            pageUrl={publicUrl}
+            fileSlug={isOrg ? (orgProfile?.slug || 'yuno') : (venueId || 'yuno')}
+          />
+        )}
+
         {/* ─── Notifications AUTOMATIQUES ──────────────────────────────── */}
+        {isOrg ? (
+          <div className="flex items-start gap-2.5" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18 }}>
+            <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
+            <div>
+              <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('ph.orgAutoTitle')}</p>
+              <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('ph.orgAutoBody')}</p>
+            </div>
+          </div>
+        ) : (
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
           <div className="flex items-start gap-2.5 mb-1">
             <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
@@ -541,6 +570,7 @@ export default function OwnerPush() {
           </div>
           <p style={{ color: T3, fontSize: 11, marginTop: 14, lineHeight: 1.5 }}>{t('ownerPush.autoFootnote')}</p>
         </div>
+        )}
 
         {/* ─── Notifications MANUELLES ─────────────────────────────────── */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
@@ -554,7 +584,7 @@ export default function OwnerPush() {
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {PUSH_TEMPLATES.map((tpl) => (
+            {templates.map((tpl) => (
               <button
                 key={tpl.key}
                 onClick={() => pickTemplate(tpl)}
@@ -580,7 +610,7 @@ export default function OwnerPush() {
                 <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
                   {t('ownerPush.composeTitle')}
                 </h3>
-                <AIContentGenerator
+                {!isOrg && <AIContentGenerator
                   channel="push"
                   eventId={eventId || null}
                   segment={scope}
@@ -594,7 +624,7 @@ export default function OwnerPush() {
                       body_i18n: { en: v.en.body, fr: v.fr.body, es: v.es.body },
                     });
                   }}
-                />
+                />}
               </div>
 
               {/* Variables spécifiques au template */}
@@ -746,12 +776,12 @@ export default function OwnerPush() {
                 </span>
                 <button
                   onClick={() => setConfirmOpen(true)}
-                  disabled={sending || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0}
+                  disabled={sending || quietHours || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0}
                   className="inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                   style={{
                     background: RED, color: '#fff', padding: '11px 18px',
                     boxShadow: `0 0 18px -6px ${RED}88`,
-                    opacity: (sending || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
+                    opacity: (sending || quietHours || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
                   }}
                 >
                   {scheduledAt ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
@@ -759,8 +789,31 @@ export default function OwnerPush() {
                 </button>
               </div>
 
+              {/* Règles Yuno : heures calmes et personnes protégées */}
+              {!reachLoading && quietHours && (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl p-3" style={{ background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
+                  <p style={{ color: T2, fontSize: 12, lineHeight: 1.5, flex: '1 1 260px' }}>{t('ph.policy.quiet')}</p>
+                  <button
+                    type="button"
+                    onClick={() => setScheduledAt(nextTenLocal())}
+                    className="rounded-lg px-3 py-1.5 text-[12px] font-semibold"
+                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 }}
+                  >
+                    {t('ph.policy.scheduleAt10')}
+                  </button>
+                </div>
+              )}
+              {!reachLoading && !quietHours && heldBack > 0 && (
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                  {(heldBack === 1 ? t('ph.policy.heldBackOne') : t('ph.policy.heldBack')).replace('{n}', String(heldBack))}
+                </p>
+              )}
+              {!reachLoading && policyKind === 'event' && (reach ?? 0) > 0 && (
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('ph.policy.eventNote')}</p>
+              )}
+
               {/* Explication quand la portée est vide ou en erreur — jamais un « … » muet */}
-              {!reachLoading && (reach === 0 || (reach === null && reachError)) && (
+              {!reachLoading && !quietHours && heldBack === 0 && (reach === 0 || (reach === null && reachError)) && (
                 <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
                   {reach === 0 ? t('ownerPush.reachZeroHint') : reachError}
                 </p>
@@ -801,104 +854,19 @@ export default function OwnerPush() {
           </div>
         )}
 
-        {/* Historique */}
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
-          <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 18 }}>
-            {t('ownerPush.history')}
-          </h3>
-          {historyLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} />
-            </div>
-          ) : campaigns.length === 0 ? (
-            <div className="text-center py-10 px-4">
-              <Bell className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgb(var(--ink)/0.12)' }} />
-              <p className="text-xs" style={{ color: T3 }}>{t('ownerPush.noCampaigns')}</p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {campaigns.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex items-start justify-between gap-3 p-3 rounded-xl"
-                  style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-[560] truncate" style={{ color: T1, fontSize: 13 }}>{c.title}</p>
-                    <p className="truncate" style={{ color: T3, fontSize: 12, marginTop: 2 }}>{c.body}</p>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {c.source === 'auto' && (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
-                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED, fontSize: 10, fontWeight: 600 }}
-                        >
-                          <Zap className="h-2.5 w-2.5" />
-                          {t('ownerPush.autoBadge')}
-                        </span>
-                      )}
-                      {c.template_key && c.template_key !== 'custom' && (
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-full"
-                          style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 10, fontWeight: 600 }}
-                        >
-                          {t(`ownerPush.tplName.${c.template_key}`)}
-                        </span>
-                      )}
-                      {c.status === 'scheduled' && c.scheduled_at && (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full tabular-nums"
-                          style={{ background: 'rgba(252,211,77,0.08)', border: '1px solid rgba(252,211,77,0.25)', color: 'var(--acc-fcd34d)', fontSize: 10, fontWeight: 600 }}
-                        >
-                          <CalendarClock className="h-2.5 w-2.5" />
-                          {t('ownerPush.scheduledBadge')} · {new Date(c.scheduled_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1 tabular-nums" style={{ color: T3, fontSize: 10 }}>
-                        <Clock className="h-3 w-3" />
-                        {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    {c.status === 'scheduled' ? (
-                      <button
-                        onClick={() => cancelScheduled(c.id)}
-                        disabled={cancellingId === c.id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full cursor-pointer transition-all duration-150"
-                        style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.25)', color: RED, fontSize: 11, fontWeight: 600, opacity: cancellingId === c.id ? 0.5 : 1 }}
-                      >
-                        {cancellingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                        {t('ownerPush.cancelSchedule')}
-                      </button>
-                    ) : (
-                      <>
-                        <span
-                          className="inline-flex items-center px-2.5 py-1 rounded-full tabular-nums"
-                          style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}
-                        >
-                          {t('ownerPush.sent').replace('{count}', String(c.sent_count))}
-                        </span>
-                        {pushRevenue[c.id] && pushRevenue[c.id].revenue > 0 && (
-                          <span
-                            className="inline-flex items-center px-2.5 py-1 rounded-full tabular-nums"
-                            style={{ background: 'rgba(52,211,153,0.14)', border: '1px solid rgba(52,211,153,0.35)', color: POS, fontSize: 11, fontWeight: 700 }}
-                            title={t('ownerPush.attributedRevenueTitle')}
-                          >
-                            {t('ownerPush.attributedRevenue').replace('{amount}', pushRevenue[c.id].revenue.toLocaleString(undefined, { maximumFractionDigits: 0 }))}
-                          </span>
-                        )}
-                        <span className="tabular-nums" style={{ color: T3, fontSize: 10 }}>
-                          {t('ownerPush.clicked').replace('{count}', String(clicks[c.id] || 0))}
-                          {c.sent_count > 0 && <> · CTR {Math.round(((clicks[c.id] || 0) / c.sent_count) * 100)}%</>}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Historique : toutes les campagnes, avec ouvertures, acheteurs et CA */}
+        <PushHistoryCard
+          data={history.data}
+          loading={history.loading}
+          error={history.error}
+          fetchedAt={history.fetchedAt}
+          filter={historyFilter}
+          onFilter={setHistoryFilter}
+          page={historyPage}
+          onPage={setHistoryPage}
+          pageSize={HISTORY_PAGE_SIZE}
+          onChanged={reloadHistory}
+        />
       </div>
 
       {/* Confirmation d'envoi */}

@@ -1,4 +1,5 @@
 import { AppHeader } from '@/components/app-header';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { calcStripeFee, ticketRevenue } from '@/utils/fees';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
@@ -20,29 +21,20 @@ import {
 } from 'recharts';
 import {
   ArrowRightIcon,
-  Calendar,
-  CalendarIcon,
   CalendarPlusIcon,
   ChevronRightIcon,
   CreditCard,
   Crown,
-  Handshake,
   Minus,
-  Radio,
-  ScanLine,
   Sparkles,
   Store,
-  Ticket,
   TrendingDownIcon,
   TrendingUpIcon,
-  type LucideIcon,
   BarChart3Icon,
   QrCodeIcon,
-  ShoppingCart,
-  Wine,
   ZapIcon,
 } from 'lucide-react';
-import { startOfDay, subDays, format, formatDistanceToNow } from 'date-fns';
+import { startOfDay, subDays, format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -56,6 +48,7 @@ import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import { NextBestActionsCard } from '@/components/owner/NextBestActionsCard';
+import { UpcomingEventsBoard } from '@/components/events-sales/UpcomingEventsBoard';
 import { CollabActivateBanner } from '@/components/collab/CollabActivateBanner';
 import { CollabWelcomeOverlay } from '@/components/collab/CollabWelcomeOverlay';
 import { isCollabPlan } from '@/lib/planFeatures';
@@ -613,14 +606,14 @@ export default function OwnerDashboard() {
             />
           </motion.div>
 
-          {/* Next event hero — full width */}
+          {/* Vos prochaines soirées — J-N, CA du jour, jauges (full width) */}
           <motion.div className="md:col-span-2 lg:col-span-4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
-            <NextEventHero
-              nextEvent={nextEvent}
-              stats={nextStats}
-              dateLocale={dateLocale}
-              t={t}
-              venueId={venueId}
+            <UpcomingEventsBoard
+              scope={{ venueId }}
+              statsHref={(id) => eventReportHref('/owner/analytics', id)}
+              allHref="/owner/events"
+              liveHref={() => '/owner/live'}
+              emptyCta={{ label: t('owner.dash.createEvent'), href: '/owner/events' }}
             />
           </motion.div>
 
@@ -928,133 +921,6 @@ function YunoQuickActions({ t }: { t: (k: string) => string }) {
           </Link>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ─── Next event hero ──────────────────────────────────────────────────────────
-function NextEventHero({
-  nextEvent, stats, dateLocale, t, venueId,
-}: {
-  nextEvent: NextEvent | null;
-  stats: NextEventStats | null;
-  dateLocale: any;
-  t: (k: string) => string;
-  venueId: string | null;
-}) {
-  const isCollab = !!nextEvent && (
-    !!nextEvent.partner_organizer_id || !!nextEvent.partner_venue_id ||
-    (!!nextEvent.venue_id && nextEvent.venue_id !== venueId)
-  );
-  const manageHref = nextEvent ? (isCollab ? `/owner/collab/event/${nextEvent.id}` : '/owner/events') : '/owner/events';
-  const liveHref = nextEvent && isCollab ? `/owner/collab/event/${nextEvent.id}?tab=live` : '/owner/live';
-
-  if (!nextEvent) {
-    return (
-      <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '40px 22px', overflow: 'hidden', textAlign: 'center' }}>
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
-          <Calendar className="h-6 w-6" style={{ color: T3 }} />
-        </div>
-        <h3 style={{ color: T1, fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t('owner.noUpcomingEvent')}</h3>
-        <p style={{ color: T3, fontSize: 13, marginBottom: 20 }}>{t('owner.createFirstEvent')}</p>
-        <Link
-          to="/owner/events"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 12, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: RED, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-        >
-          {t('owner.dash.createEvent')}
-        </Link>
-      </div>
-    );
-  }
-
-  const fillRate = nextEvent.max_tickets && nextEvent.max_tickets > 0 && stats
-    ? Math.min(100, Math.round((stats.ticketsSold / nextEvent.max_tickets) * 100)) : null;
-  const checkinRate = stats && stats.ticketsSold > 0 ? Math.round((stats.scanned / stats.ticketsSold) * 100) : 0;
-  const poster = nextEvent.poster_url;
-
-  return (
-    <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
-      <div className="grid md:grid-cols-[260px_1fr]">
-        {/* Poster */}
-        <div className="relative h-44 md:h-full min-h-[160px]" style={{ background: INNER_BG }}>
-          {poster ? (
-            <img src={poster} alt={nextEvent.title} className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center" style={{ color: T3 }}>
-              <Sparkles className="h-12 w-12" />
-            </div>
-          )}
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 60%)' }} />
-          <span className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider backdrop-blur"
-            style={{ background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.58)' }}>
-            {t('owner.nextEvent')}
-          </span>
-          {isCollab && (
-            <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold backdrop-blur"
-              style={{ background: 'rgba(232,25,44,0.20)', color: RED }}>
-              <Handshake className="h-2.5 w-2.5" /> Collab
-            </span>
-          )}
-        </div>
-
-        {/* Details */}
-        <div style={{ padding: '20px 22px' }} className="space-y-4">
-          <div>
-            <h2 style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>{nextEvent.title}</h2>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className="flex items-center gap-1" style={{ color: T3, fontSize: 12 }}>
-                <CalendarIcon className="h-3 w-3" />
-                {format(new Date(nextEvent.start_at), 'PPP p', { locale: dateLocale })}
-              </span>
-              {nextEvent.location_city && <span style={{ color: T3, fontSize: 12 }}>· {nextEvent.location_city}</span>}
-            </div>
-            <p style={{ color: RED, fontSize: 12, fontWeight: 600, marginTop: 4 }}>
-              {t('owner.dash.in')} {formatDistanceToNow(new Date(nextEvent.start_at), { locale: dateLocale })}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-4 gap-2">
-            <EventMiniStat icon={Ticket} label={t('owner.dash.sold')} value={stats?.ticketsSold ?? 0} sub={fillRate !== null ? `${fillRate}%` : undefined} />
-            <EventMiniStat icon={ShoppingCart} label={t('owner.dash.revenueShort')} value={`${(stats?.revenue ?? 0).toFixed(0)} €`} />
-            <EventMiniStat icon={ScanLine} label="Scans" value={`${checkinRate}%`} sub={`${stats?.scanned ?? 0}/${stats?.ticketsSold ?? 0}`} />
-            <EventMiniStat icon={Wine} label="Tables" value={stats?.tablesBooked ?? 0} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to={manageHref}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: RED, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-            >
-              {t('owner.manage')}
-            </Link>
-            <Link
-              to={liveHref}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-            >
-              <Radio className="h-3.5 w-3.5" />{t('owner.live')}
-            </Link>
-            <Link
-              to="/owner/staff"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-            >
-              <ScanLine className="h-3.5 w-3.5" />{t('owner.checkin')}
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EventMiniStat({ icon: Icon, label, value, sub }: { icon: LucideIcon; label: string; value: number | string; sub?: string }) {
-  return (
-    <div style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderRadius: 10, padding: '10px 10px 9px' }}>
-      <div className="flex items-center justify-between mb-1">
-        <span style={{ color: T3, fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-        <Icon className="h-3 w-3" style={{ color: RED }} />
-      </div>
-      <div className="tabular-nums" style={{ color: T1, fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>{value}</div>
-      {sub && <div style={{ color: T3, fontSize: 9.5, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Radio, ChevronDown, ChevronUp, BarChart3, ChevronRight } from 'lucide-react';
@@ -130,7 +131,7 @@ export default function OwnerLiveNight() {
           <motion.button
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            onClick={() => navigate('/owner/hype')}
+            onClick={() => navigate(activeEvent ? eventReportHref('/owner/analytics', activeEvent.id) : '/owner/analytics?tab=sales&view=event')}
             className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer text-left"
             style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
           >

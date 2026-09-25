@@ -460,6 +460,8 @@ export function usePostEventAnalysis(
         eventDate: isAggregate ? null : evList[0] ? new Date(evList[0].start_at) : null,
         tr,
         notes: '',
+        locale: language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB',
+        hasDrinks: !isOrg,
       }));
 
       // Load saved notes for single events.
@@ -516,11 +518,28 @@ interface MapCtx {
   eventDate: Date | null;
   tr: (key: string, params?: Record<string, string | number>) => string;
   notes: string;
+  /** Langue de l'écran : montants au format de la langue (« 10 573 € »). */
+  locale: string;
+  /** Un organisateur ne tient pas de bar : pas de tuile boissons. */
+  hasDrinks: boolean;
+}
+
+function segmentLabel(
+  key: string | null | undefined,
+  returningRatePct: number,
+  tr: (key: string) => string,
+): string {
+  const k = (key || '').toLowerCase();
+  if (k === 'new' || k === 'first_time' || k === 'newcomer') return tr('postEvent.seg.newVisitors');
+  if (k === 'regular' || k === 'loyal' || k === 'returning' || k === 'vip') {
+    return k === 'vip' ? 'VIP' : tr('postEvent.seg.regulars');
+  }
+  return returningRatePct > 50 ? tr('postEvent.seg.regulars') : tr('postEvent.seg.newVisitors');
 }
 
 function buildPostEventData(s: NightStats, ctx: MapCtx): PostEventData {
   const { tr } = ctx;
-  const eur = (n: number) => `${Math.round(n).toLocaleString()} €`;
+  const eur = (n: number) => `${Math.round(n).toLocaleString(ctx.locale)} €`;
 
   // ── Headline KPIs ──
   // Guest list entries are free tickets: they sit inside ticketsSold. When there
@@ -537,9 +556,11 @@ function buildPostEventData(s: NightStats, ctx: MapCtx): PostEventData {
       change: s.attendanceChangePct ?? undefined,
       changeLabel: s.hasScanData ? tr('postEvent.kpi.scanned') : hasGuests ? tr('postEvent.kpi.ticketsAndGuests') : tr('postEvent.kpi.sold'),
     },
-    { label: tr('postEvent.kpi.netRevenue'), value: eur(s.netRevenue), changeLabel: s.refunds > 0 ? tr('postEvent.kpi.afterRefunds') : undefined },
+    { label: tr('postEvent.kpi.netRevenue'), value: eur(s.netRevenue), changeLabel: s.refunds > 0 ? tr('postEvent.kpi.afterRefunds') : tr('postEvent.kpi.afterFees') },
     { label: hasGuests ? tr('postEvent.kpi.entries') : tr('postEvent.kpi.ticketsSold'), value: s.ticketsSold, changeLabel: ticketSub || undefined },
-    { label: tr('postEvent.kpi.drinksOrdered'), value: s.drinkCount, changeLabel: `${s.drinksPerHead.toFixed(1)} ${tr('postEvent.kpi.perHead')}` },
+    ...(ctx.hasDrinks
+      ? [{ label: tr('postEvent.kpi.drinksOrdered'), value: s.drinkCount, changeLabel: `${s.drinksPerHead.toLocaleString(ctx.locale, { maximumFractionDigits: 1 })} ${tr('postEvent.kpi.perHead')}` }]
+      : []),
     { label: tr('postEvent.kpi.showUp'), value: s.showUpRatePct != null ? `${Math.round(s.showUpRatePct)}%` : '—', changeLabel: s.noShowRatePct != null ? `${Math.round(s.noShowRatePct)}% ${tr('postEvent.kpi.noShow')}` : undefined },
   ];
 
@@ -639,7 +660,9 @@ function buildPostEventData(s: NightStats, ctx: MapCtx): PostEventData {
     returningRate: s.returningRatePct,
     newCustomers: s.newCustomers,
     returningCustomers: s.returningCustomers,
-    topSegment: s.topSegment || (s.returningRatePct > 50 ? tr('postEvent.seg.regulars') : tr('postEvent.seg.newVisitors')),
+    // `venue_customers.customer_segment` est une clé technique (« new ») : on
+    // l'affiche avec les mots de l'écran, jamais telle quelle.
+    topSegment: segmentLabel(s.topSegment, s.returningRatePct, tr),
     topDrink: s.topDrink || '—',
     topDrinkCount: s.topDrinkCount,
   };

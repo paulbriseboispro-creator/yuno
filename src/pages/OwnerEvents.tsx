@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { eventReportHref } from '@/lib/analyticsNav';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, Rocket, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -50,6 +51,10 @@ import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 import { openExternal, publicUrl } from '@/lib/native';
 import { useTabParam } from '@/hooks/useTabParam';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useEventsSalesSummary } from '@/hooks/useEventsSalesSummary';
+import { EventSalesStrip } from '@/components/events-sales/EventSalesStrip';
+import type { EventSales } from '@/lib/eventsSales';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
 type PresetRound = {
@@ -88,9 +93,21 @@ export default function OwnerEvents() {
     (language === 'en' ? en : language === 'es' ? esTxt : frTxt);
   const navigate = useNavigate();
   const { venueId, organizerUserId, scope, loading: venueLoading } = useVenueContext();
-  const { basePath } = useDashboardMode();
+  const { basePath, mode: dashboardMode } = useDashboardMode();
   const isOrganizerScope = scope === 'organizer';
   const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
+  // Chiffres de vente de chaque soirée à venir (J-N, CA, jauges) — une RPC pour
+  // toute la liste. Le CA ne revient qu'à qui a le droit de voir l'argent.
+  const { can: orgCan } = useActingOrganizer({ enabled: dashboardMode === 'organizer' });
+  const { data: salesSummary } = useEventsSalesSummary(
+    isOrganizerScope ? { organizerUserId } : { venueId },
+    scopeReady,
+  );
+  const salesById = new Map<string, EventSales>((salesSummary?.events ?? []).map((e) => [e.id, e]));
+  // Le lien « Voir les stats » ouvre l'analyse de la soirée ; un éditeur
+  // d'équipe (pas d'accès à l'analytique) n'en a pas.
+  const statsHrefFor = (eventId: string): string | null =>
+    isOrganizerScope && !orgCan.viewInsights ? null : eventReportHref(`${basePath}/analytics`, eventId);
   const { plan, loading: planLoading } = useSubscriptionPlan();
   // Collab read-only / subscription plans are venue concepts — never gate organizers.
   const collabReadOnly = !isOrganizerScope && !planLoading && isCollabPlan(plan);
@@ -1172,6 +1189,8 @@ export default function OwnerEvents() {
                       onDetails={isOrganizerScope ? () => navigate(`${basePath}/events/${event.id}`) : undefined}
                       basePath={basePath}
                       t={t}
+                      sales={salesById.get(event.id) ?? null}
+                      statsHref={statsHrefFor(event.id)}
                       ownerKind={isOrganizerScope ? 'organizer' : 'venue'}
                       venueId={isOrganizerScope ? null : venueId}
                       organizerUserId={isOrganizerScope ? organizerUserId : null}
@@ -1754,7 +1773,7 @@ function BoostSoonSuffix({ t }: { t: (key: string) => string }) {
   return live ? null : <>{` · ${t('integ.buildingBadge')}`}</>;
 }
 
-function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onToggleSoldOut, onApplyPreset, onApplyGuestListPreset, presets, guestPresets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
+function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onToggleSoldOut, onApplyPreset, onApplyGuestListPreset, presets, guestPresets, onNavigate, onDetails, basePath, t, sales, statsHref, ownerKind, venueId, organizerUserId }: {
   event: OwnerEventRow;
   onEdit: () => void;
   onDelete: () => void;
@@ -1771,6 +1790,9 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   onDetails?: () => void;
   basePath: string;
   t: (k: string) => string;
+  /** Ventes de la soirée (J-N, CA, jauges) — `null` le temps du chargement. */
+  sales: EventSales | null;
+  statsHref: string | null;
   ownerKind: TrackedOwnerKind;
   venueId: string | null;
   organizerUserId: string | null;
@@ -1867,6 +1889,9 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
           </div>
         </div>
       </div>
+
+      {/* Ventes de la soirée : J-N, CA total et du jour, jauge par pilier. */}
+      {sales && !isPast && <EventSalesStrip ev={sales} statsHref={statsHref} />}
 
       {/* Private events: surface the shareable direct link right on the card (it lives nowhere else) */}
       {event.isPrivate && (

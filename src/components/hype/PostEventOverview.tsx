@@ -82,7 +82,7 @@ export function PostEventOverview({ data }: PostEventOverviewProps) {
       </motion.div>
 
       {/* KPIs grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className={`grid grid-cols-2 sm:grid-cols-3 gap-3 ${data.kpis.length >= 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
         {data.kpis.map((kpi, index) => (
           <motion.div
             key={kpi.label}

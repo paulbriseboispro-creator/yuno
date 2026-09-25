@@ -505,7 +505,12 @@ export function localizedDate(iso: string | null | undefined): Record<AutoPushLa
   const d = new Date(iso);
   const fmt = (locale: string) => {
     try {
-      return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }).format(d);
+      // Heure de Paris (l'edge tourne en UTC : une soirée à 0 h 30 changeait de
+      // jour) ; et sans le point final de l'abréviation (« oct. »), que le
+      // gabarit suit d'un point : « 22 oct.. Sois dans… ».
+      return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Paris" })
+        .format(d)
+        .replace(/\.$/, "");
     } catch {
       return "";
     }

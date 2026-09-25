@@ -104,8 +104,8 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   "audience-tracking": {
     title: "Abonnés — suivre son audience",
     keywords: ["audience", "abonnés", "abonnes", "subscribers", "followers", "suivis", "fans", "statistiques abonnés", "démographie", "demographics", "portée", "reachable", "joignables", "croissance", "growth", "segmentation", "notifications", "efficacité notifs", "revenu abonnés", "clients fidèles", "valeur par abonné", "ltv", "combien rapporte un abonné", "entonnoir", "funnel", "conversion", "ré-acheteurs", "attribution", "revenu par push", "combien a rapporté mon push", "benchmark", "médiane ville", "comparaison", "percentile", "source d'acquisition", "d'où viennent mes abonnés", "cohorte", "rétention", "récap hebdo", "audience partagée", "chevauchement", "collab", "net-new"],
-    path: "/owner/audience",
-    snippet: "La page Abonnés (Analytics → Abonnés, anciennement « Audience ») montre qui suit ton club et ce que ça rapporte. La couche argent est en tête : (0) Valeur de l'audience — combien vaut chaque abonné (revenu net qu'ils génèrent ÷ leur nombre, sur 90j) avec taux de conversion et panier moyen ; un entonnoir Abonnés → Joignables → Engagés → Acheteurs → Ré-acheteurs ; et l'attribution push→vente qui chiffre chaque campagne (« ton dernier push a rapporté X€ » = abonnés qui ont cliqué puis acheté dans les 72h). Puis : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic + revenu attribué de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et combien de ton chiffre vient de tes abonnés vs des non-abonnés. (5) Comparaison, sources & récap — ta position face aux autres clubs de ta ville (percentiles anonymes, « ta portée mieux que 60% »), d'où viennent tes abonnés (quelle surface les déclenche), la rétention par cohorte, et chaque lundi un récap de ta semaine (abonnés, push, ventes) poussé sur ton app Pro. Sur une soirée en collab, une carte « Audience partagée » montre les abonnés communs avec le co-organisateur et le net-new que la collab débloque. Une zone « Performance marketing » compare les canaux côte à côte : revenus attribués du push, de l'email et des liens trackés sur 90 j. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné. (Valeur/entonnoir/attribution = clubs uniquement ; côté DJ/organisateur, l'audience reste démographie + portée.)",
+    path: "/owner/analytics?tab=community&view=subscribers",
+    snippet: "La vue Abonnés (Analytics → Communauté → Abonnés, anciennement la page « Audience ») montre qui suit ton club et ce que ça rapporte. La couche argent est en tête : (0) Valeur de l'audience — combien vaut chaque abonné (revenu net qu'ils génèrent ÷ leur nombre, sur 90j) avec taux de conversion et panier moyen ; un entonnoir Abonnés → Joignables → Engagés → Acheteurs → Ré-acheteurs ; et l'attribution push→vente qui chiffre chaque campagne (« ton dernier push a rapporté X€ » = abonnés qui ont cliqué puis acheté dans les 72h). Puis : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic + revenu attribué de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et combien de ton chiffre vient de tes abonnés vs des non-abonnés. (5) Comparaison, sources & récap — ta position face aux autres clubs de ta ville (percentiles anonymes, « ta portée mieux que 60% »), d'où viennent tes abonnés (quelle surface les déclenche), la rétention par cohorte, et chaque lundi un récap de ta semaine (abonnés, push, ventes) poussé sur ton app Pro. Sur une soirée en collab, une carte « Audience partagée » montre les abonnés communs avec le co-organisateur et le net-new que la collab débloque. Une zone « Performance marketing » compare les canaux côte à côte : revenus attribués du push, de l'email et des liens trackés sur 90 j. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné. (Valeur/entonnoir/attribution = clubs uniquement ; côté DJ/organisateur, l'audience reste démographie + portée.)",
   },
   "staff-push-notifications": {
     title: "Alertes push du staff (app Yuno Pro)",
@@ -118,6 +118,18 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     keywords: ["complet", "sold out", "épuisé", "epuise", "agotado", "fermer la vente", "close sales", "plus de places", "stopper les ventes", "arrêter les ventes", "bloquer les réservations", "tables complètes", "guest list fermée", "liste complète", "no more spots"],
     path: "/owner/events",
     snippet: "Sur la fiche de chaque soirée (page Événements), sous les trois interrupteurs de mise en ligne, une rangée « Marquer complet » ferme la vente d'un pilier en un clic : billetterie, tables VIP, guest list. La soirée reste publiée et sa page reste en ligne — elle affiche « Complet », et plus personne ne peut réserver (le serveur refuse aussi le paiement, y compris par lien direct). C'est différent d'éteindre l'interrupteur de mise en ligne, qui fait disparaître l'offre de la page. Un second clic rouvre la vente : rien n'est supprimé, aucun palier de billets n'est refermé, aucune formule désactivée. Pour ne fermer qu'une partie : page Tables VIP, onglet Soirées → « Toutes les tables » ou formule par formule (le réglage vaut pour CETTE soirée, vos formules restent intactes sur vos autres dates) ; page Guest list → interrupteur « Complet » sur une part (maison, DJ, promoteur, agence), qui ferme le lien public, le lien de la part ET les liens d'invitation nominatifs. Dans tous les cas vous pouvez continuer d'ajouter un invité à la main et de créer une réservation walk-in : « complet » ne ferme que le libre-service côté client. Même chose côté organisateur (/organizer-app/events, /organizer-app/tables, /organizer-app/guest-list).",
+  },
+  "events-sales-today": {
+    title: "Ventes du jour et remplissage de chaque soirée",
+    keywords: ["aujourd'hui", "today", "hoy", "ventes du jour", "combien vendu", "how many sold", "remplissage", "fill rate", "jauge", "capacité", "j-2", "compte à rebours", "countdown", "prochaines soirées", "upcoming nights", "ça bouge", "release", "visites de la soirée", "ca de la soirée"],
+    path: "/owner/events",
+    snippet: "Chaque soirée à venir porte ses chiffres de vente, à deux endroits : la carte de la soirée sur la page Événements, et le bloc « Vos prochaines soirées » du Dashboard (cinq prochaines dates). On y lit le compte à rebours (J-2, Demain, Ce soir, En cours), le CA de la soirée (frais Yuno et remboursements déduits, avant frais Stripe) avec ce qui est entré AUJOURD'HUI en vert, une jauge par pilier ouvert — Billets, Tables, Guest list — avec vendus / capacité, « +N aujourd'hui » et le % de remplissage (rouge quand c'est complet), et les visites de la page de la soirée. « Aujourd'hui » = depuis minuit, heure de la soirée ; « rien aujourd'hui » en gris veut dire aucune vente depuis minuit. Une soirée gratuite n'affiche pas de CA, seulement ses inscrits. Les chiffres se rafraîchissent chaque minute (« Mis à jour à »), chaque ⓘ donne la définition exacte, et « Voir les stats » ouvre l'analyse de la soirée (/owner/analytics?tab=event&event=<id>). Un membre d'équipe sans accès à l'argent voit les jauges mais jamais le CA. Même chose côté organisateur (/organizer-app/events et son Dashboard).",
+  },
+  "event-report": {
+    title: "Le rapport d'une soirée (Analytics › Ventes › Par soirée)",
+    keywords: ["rapport de soirée", "stats de la soirée", "statistiques soirée", "night report", "comparer", "comparer avec", "compare", "courbe", "j-5", "en avance", "ahead", "détail des ventes", "paliers", "nouveaux contacts", "new contacts", "habitués", "qu'est-ce qui a fait vendre", "email de la soirée", "push de la soirée", "liens suivis", "sources", "visites de la soirée", "conversion"],
+    path: "/owner/analytics?tab=sales&view=event",
+    snippet: "Analytics › Ventes › Par soirée ouvre le rapport d'UNE soirée (lien direct : /owner/analytics?tab=sales&view=event&event=<id>, avant la soirée il affiche aussi son Hype Score sous « La soirée va-t-elle remplir ? », aussi via « Voir les stats » sur la liste des soirées et le Dashboard). Cinq questions dans l'ordre : 1) Où en sont mes ventes ? — CA, Billets, Tables, Guest list, Visites avec « +N aujourd'hui », puis le Détail des ventes : chaque palier, formule de table et part de guest list avec statut (En vente, Complet, À venir, Fermé) et jauge. 2) Comment évoluent mes ventes ? — courbe jour par jour avant la soirée (J-N), « Comparer avec » superpose une autre soirée AU MÊME NOMBRE DE JOURS AVANT (par défaut la précédente) et une phrase dit si tu es en avance (« À J-3 : 122 contre 104, +17 % ») ; mesures Billets / CA / Inscrits / Tables / Visites, cumulé ou par jour. 3) Est-ce qu'on voit ma soirée ? — sources des visiteurs de la page et part qui achète (visites consenties seulement, donc un minimum). 4) Qui achète ? — nouveaux contacts (jamais venus à une soirée précédente) vs habitués, puis âge / sexe / villes. 5) Qu'est-ce qui a fait vendre ? — par où passent les achats (Explorer, page du club, lien promoteur…), les liens suivis (clics, ventes, CA), et chaque email et push envoyé pour cette soirée, automatiques compris (« Publication – soirée »), avec achats, inscrits et CA : une vente est rattachée à un message si la personne a cliqué puis acheté la soirée dans les 72 h. Après la soirée, le verdict passe en tête. Le sélecteur « Soirée » en haut à droite change de soirée sans revenir à la liste. Même rapport côté organisateur (/organizer-app/analytics?tab=event&event=<id>) ; un membre d'équipe sans accès à l'argent voit tout sauf les montants.",
   },
   "ticketing-modes": {
     title: "Modes de billetterie",
@@ -290,8 +302,8 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   "hype-score": {
     title: "Hype Score",
     keywords: ["hype", "score", "engagement", "popularité", "prévision", "forecast", "tendance"],
-    path: "/owner/hype",
-    snippet: "Le Hype Score mesure l'engagement autour de tes soirées (vues, favoris, abonnés, ventes) et projette la tendance de remplissage. Utilise-le pour repérer tôt une soirée qui décolle ou qui a besoin d'un coup de promo.",
+    path: "/owner/analytics?tab=sales&view=event",
+    snippet: "Le Hype Score vit dans le rapport de chaque soirée à venir (Analytics → Ventes → Par soirée, « La soirée va-t-elle remplir ? » ; l'ancienne page Hype redirige). Il mesure l'engagement autour de tes soirées (vues, favoris, abonnés, ventes) et projette la tendance de remplissage. Utilise-le pour repérer tôt une soirée qui décolle ou qui a besoin d'un coup de promo.",
   },
   "live-night": {
     title: "Centre de commandement soirée (Live)",
@@ -373,9 +385,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "push-notifications": {
     title: "Notifications push",
-    keywords: ["push", "notification", "notif", "automatique", "auto", "soirée live", "event live", "remerciement", "thank you", "rappel", "reminder", "bientôt complet", "sold out", "happy hour", "tables vip", "guest list", "campagne push", "programmer", "programmé", "planifier", "schedule", "meilleur créneau", "meilleur moment", "annuler un push"],
+    keywords: ["push", "notification", "notif", "automatique", "auto", "soirée live", "event live", "remerciement", "thank you", "rappel", "reminder", "bientôt complet", "sold out", "happy hour", "tables vip", "guest list", "campagne push", "programmer", "programmé", "planifier", "schedule", "meilleur créneau", "meilleur moment", "annuler un push", "historique push", "taux d'ouverture", "open rate", "acheteurs push", "publication", "abonnés", "followers"],
     path: "/owner/push",
-    snippet: "La page Notifications push a DEUX familles bien séparées. 1) AUTOMATIQUES : tu actives un toggle, Yuno envoie tout seul au bon moment — Rappel jour J (6 h avant, aux acheteurs), La soirée commence (à l'ouverture, aux acheteurs), Remerciement (après la soirée, aux clients entrés), Bientôt complet (à 85 % de billets vendus, aux followers), Pré-commande boissons (l'après-midi, aux acheteurs), et trois automations CRM : Upsell table VIP (à J-2, aux détenteurs de billet SANS table — le plus gros panier de la nuit), Reconquête (client inactif depuis N jours, paramétrable 30/45/60/90, max une fois par trimestre par client) et Anniversaire (le jour J, une fois par an). Reconquête et Anniversaire respectent le plafond global de 3 push non transactionnels par client et par 24 h. Désactivées par défaut, chacune ne part qu'une fois par soirée et dans la langue de chaque client, et ne compte PAS dans la limite de 4 campagnes/24 h. 2) MANUELLES : tu composes et envoies un push ponctuel (Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou message libre), en ciblant l'audience (acheteurs, clients entrés, followers, segment). L'envoi peut être immédiat ou PROGRAMMÉ à une date/heure précise ; Yuno suggère le meilleur créneau d'envoi calculé sur les habitudes de l'audience, et un push programmé reste annulable depuis l'historique tant qu'il n'est pas parti. Plafond 4 campagnes/24 h.",
+    snippet: "La page Notifications push a DEUX familles bien séparées. 1) AUTOMATIQUES : tu actives un toggle, Yuno envoie tout seul au bon moment — Rappel jour J (6 h avant, aux acheteurs), La soirée commence (à l'ouverture, aux acheteurs), Remerciement (après la soirée, aux clients entrés), Bientôt complet (à 85 % de billets vendus, aux followers), Pré-commande boissons (l'après-midi, aux acheteurs), et trois automations CRM : Upsell table VIP (à J-2, aux détenteurs de billet SANS table — le plus gros panier de la nuit), Reconquête (client inactif depuis N jours, paramétrable 30/45/60/90, max une fois par trimestre par client) et Anniversaire (le jour J, une fois par an). Reconquête et Anniversaire respectent le plafond global de 3 push non transactionnels par client et par 24 h. Désactivées par défaut, chacune ne part qu'une fois par soirée et dans la langue de chaque client, et ne compte PAS dans la limite de 4 campagnes/24 h. 2) MANUELLES : tu composes et envoies un push ponctuel (Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou message libre), en ciblant l'audience (acheteurs, clients entrés, followers, segment). L'envoi peut être immédiat ou PROGRAMMÉ à une date/heure précise ; Yuno suggère le meilleur créneau d'envoi calculé sur les habitudes de l'audience, et un push programmé reste annulable depuis l'historique tant qu'il n'est pas parti. Plafond 4 campagnes/24 h. Règles Yuno appliquées à tout push manuel, tous expéditeurs confondus : vers les followers, tous les clients, un segment ou le RFM, rien ne part entre 22 h et 10 h (l'écran propose « Programmer à 10 h ») et personne ne reçoit plus d'1 notification marketing par jour et 3 par semaine ; ceux qui ont coupé le marketing ne reçoivent rien. Les audiences « acheteurs de la soirée » et « clients entrés » font exception : la notif parle d'une nuit achetée, elle peut partir pendant la soirée. La portée estimée ne compte que ceux qui la recevront. 3) HISTORIQUE : la carte « Historique des notifications » liste TOUTES les notifications (automatiques comprises, sans limite, filtres Toutes / Envoyées par toi / Automatiques / Programmées) avec Ciblés, Envoyés (acceptés par Apple), Ouverts, Taux, Acheteurs et CA (touché puis acheté sous 72 h, frais Yuno et remboursements déduits) ; l'annonce automatique d'une soirée publiée s'y appelle « Publication – nom de la soirée ». Au-dessus, « Qui recevra tes notifications ? » donne les abonnés, la part joignable par push et deux boutons pour en gagner (copier le lien de la page, télécharger le QR à afficher à la porte). Un organisateur a la même page dans sa Console (Marketing & CRM → Notifications push, fondateur ou admin d'équipe) : audiences acheteurs de la soirée, clients entrés, abonnés de sa page, tous ses clients.",
   },
   "refund-management": {
     title: "Remboursements",
@@ -415,21 +427,45 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "analytics": {
     title: "Analytics",
-    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance", "attach boisson", "temps de service", "par bar", "bilan par soirée", "rotation table", "réservé consommé", "anticipation des ventes", "revenu par tête", "piliers", "vue d'ensemble"],
+    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance", "attach boisson", "temps de service", "par bar", "bilan par soirée", "rotation table", "réservé consommé", "anticipation des ventes", "revenu par tête", "piliers", "vue d'ensemble", "ventes", "trafic", "communauté", "partenaires", "familles"],
     path: "/owner/analytics",
-    snippet: "Analytics s'organise par pilier : une Vue d'ensemble (KPI, bilan par soirée, funnel, audience, trafic, règlement) puis un onglet plein écran par pilier de vente — Billetterie, Boissons, Tables VIP, Remboursements — chacun affichant son propre CA. Billetterie : attach boisson (billets avec conso incluse) et sa récupération, upgrades, fidélité, achat invité, et l'anticipation des ventes (à combien de jours de la soirée les billets partent). Boissons : temps de service médian, cycle de préparation (payées → prêtes → servies), performance par bar, CA par soirée. Tables VIP : réservé vs consommé (upsell au-delà du minimum), revenu par tête, taille des groupes, rotation des tables, top bouteilles et classement des hôtes. La Vue d'ensemble contient le « Bilan par soirée » : billets + boissons + tables + guest list + remboursements, une ligne nette par nuit. Après chaque soirée, une analyse post-event résume la performance.",
+    snippet: "Analytics se range en QUATRE familles, chacune ouverte sur une question : Ventes (Vue d'ensemble · Par soirée = rapport d'une soirée · Partenaires = promoteurs), Trafic (Ma page · Par soirée · Sources), Communauté (Vue d'ensemble · Abonnés · Achats · Public) et En direct ; l'adresse garde le choix (?tab=sales|traffic|community|live&view=…). Ventes › Vue d'ensemble tient en quatre blocs : les chiffres principaux, « Ventes, jour par jour » (CA de chaque pilier par jour ; par mois au-delà de trois mois, par heure sur 24 h / 48 h), « Ce que tu touches » et le bilan par soirée ; « De la visite à l'achat (bar) », « D'où vient le CA », les meilleures ventes, la nuit et la guest list sont repliés sous « Détail », puis un onglet plein écran par pilier de vente — Billetterie, Boissons, Tables VIP, Remboursements — chacun affichant son propre CA. Billetterie : attach boisson (billets avec conso incluse) et sa récupération, upgrades, fidélité, achat invité, et l'anticipation des ventes (à combien de jours de la soirée les billets partent). Boissons : temps de service médian, cycle de préparation (payées → prêtes → servies), performance par bar, CA par soirée. Tables VIP : réservé vs consommé (upsell au-delà du minimum), revenu par tête, taille des groupes, rotation des tables, top bouteilles et classement des hôtes. La Vue d'ensemble contient le « Bilan par soirée » : billets + boissons + tables + guest list + remboursements, une ligne nette par nuit. Après chaque soirée, une analyse post-event résume la performance.",
+  },
+  "community-overview": {
+    title: "Communauté — qui sont mes clients ?",
+    keywords: ["communauté", "community", "contacts", "combien de contacts", "joignables", "abonnés", "participation", "combien de soirées", "fidélité", "dernier achat", "depuis combien de temps", "croissance de la base", "nouveaux contacts", "nouveaux clients par soirée", "shotgun"],
+    path: "/owner/analytics?tab=community&view=overview",
+    snippet: "Analytics → Communauté → Vue d'ensemble (RPC get_community_overview, sur la base vivante : fichiers importés + clients venus par Yuno, une ligne par personne). Quatre chiffres avec leur progression sur 30 jours : contacts, joignables par email (consentement actif, adresse valide), abonnés à la page, joignables par push (app iPhone + notifications). Puis : à combien de soirées ils viennent (0, 1, 2, 3, 4+ et la moyenne), quand ils ont acheté pour la dernière fois (< 3 mois, 3-6, 6-12, 1-2 ans, > 2 ans) avec un lien vers la base de contacts pour relancer, la croissance cumulée sur 24 mois (deux échelles si les ordres de grandeur diffèrent), et les nouveaux contacts apportés par chacune des 10 dernières soirées qui ont eu du public (première soirée chez toi). Puis tes 10 meilleurs clients (dépense totale, nombre de soirées). Chaque chiffre partiel dit sur combien de personnes il repose.",
+  },
+  "community-tastes": {
+    title: "Goûts musicaux de ta communauté",
+    keywords: ["goûts", "goûts musicaux", "genres", "genre musical", "musique", "quelle musique", "tastes", "music taste", "gustos", "techno", "house", "rap", "afro", "reggaeton", "line-up", "programmation"],
+    path: "/owner/analytics?tab=community&view=tastes",
+    snippet: "Analytics → Communauté → Goûts (RPC get_community_tastes, outil get_community_overview). Les genres des personnes avec un compte Yuno liées au club (achat, guest list, abonnement) : réponses au quiz de goûts + genres des soirées où elles sont allées sur TOUT Yuno depuis 18 mois. Agrégé et anonyme : un genre n'apparaît qu'à partir de 10 personnes, rien par personne, et les personnes qui ont coupé les recommandations personnalisées sont exclues. En dessous du seuil la vue affiche « Pas encore assez de monde ». Utile pour choisir un line-up, écrire une campagne ou cibler une pub Meta.",
+  },
+  "page-traffic": {
+    title: "Trafic — est-ce qu'on me voit ?",
+    keywords: ["trafic", "traffic", "visites", "ma page", "page du club", "page organisateur", "vues", "qui voit ma page", "visites par soirée", "sources", "d'où viennent mes visiteurs", "instagram", "seo", "combien de visites"],
+    path: "/owner/analytics?tab=traffic&view=page",
+    snippet: "Analytics → Trafic (RPC get_page_traffic). « Ma page » : visites de la page publique du club jour par jour sur 30 jours, 90 jours ou 1 an, avec aujourd'hui, visiteurs différents, part qui revient, et les sources (réseaux sociaux, recherche, email, QR, pub, promoteurs, direct). « Par soirée » : chaque page de soirée avec ses visites, celles du jour et combien ont commandé, un clic ouvre son rapport. « Sources » : canaux, campagnes, sites référents et navigation, toutes pages confondues. Seules les visites consenties (bandeau cookies) sont comptées : c'est un minimum.",
+  },
+  "promo-codes": {
+    title: "Codes promo — une réduction pour une soirée ou pour toutes",
+    keywords: ["code promo", "codes promo", "promo code", "código promocional", "réduction", "remise", "discount", "descuento", "coupon", "early", "code réduction", "code partenaire", "quota", "offre flash"],
+    path: "/owner/promo-codes",
+    snippet: "Événements → Billetterie → « Codes promo ». Un code (3 à 32 lettres/chiffres) donne une remise en % ou en € (par billet, ou par réservation de table) sur les billets et/ou les tables VIP, pour une soirée ou toutes, avec un quota et une date de fin facultatifs. Le client le saisit au paiement (« J'ai un code promo ») ou arrive par le lien copié depuis la liste, qui pré-remplit le code. Jamais cumulé avec la remise d'un promoteur : la plus forte s'applique. Yuno revérifie le code au paiement ; un paiement abandonné rend l'utilisation après 30 minutes. La liste montre utilisations, billets et tables vendus, remise accordée et CA club. Un code déjà utilisé se désactive mais ne se supprime pas. Pas de remise sur les tables réglées sur place.",
   },
   "purchase-behavior": {
     title: "Achats (comportement d'achat) — comment tes clients achètent",
     keywords: ["comportement d'achat", "comportement", "purchase behavior", "comportamiento de compra", "quand achètent", "délai d'achat", "à l'avance", "dernière minute", "last minute", "lead time", "heure d'achat", "jour d'achat", "panier", "taille du panier", "billets par commande", "taille des tables", "palier", "early bird", "réachat", "habitués", "nouveaux clients", "fidélité", "top clients", "no-show", "présence", "absents", "billet et bar", "canal", "conversion", "abandon de panier"],
-    path: "/owner/analytics?tab=purchase",
-    snippet: "Analytique → onglet « Achats » (sur la période choisie en haut) : QUAND (délai entre l'achat et l'ouverture pour billets et tables, part des billets vendus dans les 72 dernières heures, carte jour × heure des commandes, rythme du bar heure par heure pendant la nuit et délai entrée → 1er verre), COMBIEN (billets par commande, taille des tables et dépense par personne, articles par commande bar, tranches de panier, part des billets vendus au 1er palier), CE QU'ILS AJOUTENT (assurance, boisson incluse et son taux de retrait, surclassements, accords newsletter/SMS au paiement, tables à acompte ou réglées sur place), QUI (nouveaux vs habitués, nombre de soirées par acheteur, délai médian entre deux achats, part du CA des 10 % meilleurs clients, achats le même soir : billet → bar, table → bar, guest list → bar ou table), les CANAUX (page club, Explorer, lien promoteur, lien direct, ajout sur place ; part via lien suivi), le PASSAGE À L'ACHAT (visite → panier → paiement → achat, par appareil et par source, paniers abandonnés, visite qui convertit) et la PRÉSENCE (part des acheteurs scannés à la porte, par délai d'achat — seulement les soirées terminées où la porte a scanné). Le bloc « À retenir » résume l'essentiel. Montants = CA club (frais Yuno, assurance et remboursements déduits).",
+    path: "/owner/analytics?tab=community&view=purchase",
+    snippet: "Analytics → Communauté → « Achats » (sur la période choisie en haut) : QUAND (délai entre l'achat et l'ouverture pour billets et tables, part des billets vendus dans les 72 dernières heures, carte jour × heure des commandes, rythme du bar heure par heure pendant la nuit et délai entrée → 1er verre), COMBIEN (billets par commande, taille des tables et dépense par personne, articles par commande bar, tranches de panier, part des billets vendus au 1er palier), CE QU'ILS AJOUTENT (assurance, boisson incluse et son taux de retrait, surclassements, accords newsletter/SMS au paiement, tables à acompte ou réglées sur place), QUI (nouveaux vs habitués, nombre de soirées par acheteur, délai médian entre deux achats, part du CA des 10 % meilleurs clients, achats le même soir : billet → bar, table → bar, guest list → bar ou table), les CANAUX (page club, Explorer, lien promoteur, lien direct, ajout sur place ; part via lien suivi), le PASSAGE À L'ACHAT (visite → panier → paiement → achat, par appareil et par source, paniers abandonnés, visite qui convertit) et la PRÉSENCE (part des acheteurs scannés à la porte, par délai d'achat — seulement les soirées terminées où la porte a scanné). Le bloc « À retenir » résume l'essentiel. Montants = CA club (frais Yuno, assurance et remboursements déduits).",
   },
   "live-view": {
     title: "Vue en direct (Live View) — ta page en temps réel, globe + flux",
     keywords: ["en direct", "live view", "live", "temps réel", "temps reel", "real time", "globe", "carte", "qui est sur ma page", "visiteurs en ce moment", "combien de gens", "release", "lancement", "billets par minute", "suivre les ventes", "en ce moment", "maintenant", "flux d'activité", "activité"],
     path: "/owner/analytics?tab=live",
-    snippet: "Analytique → onglet « En direct » : l'écran de soir de release. Un globe allume un point rouge par visiteur en train de regarder ta page (mise à jour toutes les 4 secondes) et une onde + un arc vers ton club pour chaque billet, table ou commande bar à la seconde où elle tombe. À droite : visiteurs en ce moment, sessions et ventes du jour, comportement des 10 dernières minutes (en visite → panier → paiement → payé), villes, pages regardées, et le flux de chaque visite et vente des 24 dernières heures. La carte en bas du globe suit la soirée qui vend le plus depuis une heure : billets sur 10 / 60 min et aujourd'hui, billets par minute, chaque palier avec son remplissage et son statut Complet. Boutons Pause (fige l'écran) et Plein écran (pour une télé au club). Seules les visites de personnes ayant accepté les cookies analytics apparaissent ; les ventes apparaissent toujours. Ne pas confondre avec « Soirée en direct » (/owner/live), qui pilote la porte, le bar et le staff pendant la nuit.",
+    snippet: "Analytics → « En direct » : l'écran de soir de release. Un globe allume un point rouge par visiteur en train de regarder ta page (mise à jour toutes les 4 secondes) et une onde + un arc vers ton club pour chaque billet, table ou commande bar à la seconde où elle tombe. À droite : visiteurs en ce moment, sessions et ventes du jour, comportement des 10 dernières minutes (en visite → panier → paiement → payé), villes, pages regardées, et le flux de chaque visite et vente des 24 dernières heures. La carte en bas du globe suit la soirée qui vend le plus depuis une heure : billets sur 10 / 60 min et aujourd'hui, billets par minute, chaque palier avec son remplissage et son statut Complet. Boutons Pause (fige l'écran) et Plein écran (pour une télé au club). Seules les visites de personnes ayant accepté les cookies analytics apparaissent ; les ventes apparaissent toujours. Ne pas confondre avec « Soirée en direct » (/owner/live), qui pilote la porte, le bar et le staff pendant la nuit.",
   },
   "analytics-guest-list": {
     title: "Analytics guest list",
@@ -488,8 +524,8 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   "ai-night-report": {
     title: "Analyse IA de la soirée",
     keywords: ["ia", "ai", "analyse", "rapport", "night report", "post-event", "soirée", "enseignements", "insights", "bilan", "hype"],
-    path: "/owner/hype",
-    snippet: "Dans l'analyse post-soirée (page Hype), la carte « Analyse IA de la soirée » transforme les chiffres en 5 enseignements et 3 actions concrètes pour la prochaine fois (marketing, tarifs, opérations, expérience). L'analyse n'utilise QUE tes chiffres réels et te dit honnêtement quand les données sont trop maigres. Elle est mise en cache et ne se régénère que si les chiffres changent.",
+    path: "/owner/analytics?tab=sales&view=event",
+    snippet: "Dans le rapport d'une soirée passée (Analytics → Ventes → Par soirée, sous le verdict), la carte « Analyse IA de la soirée » transforme les chiffres en 5 enseignements et 3 actions concrètes pour la prochaine fois (marketing, tarifs, opérations, expérience). L'analyse n'utilise QUE tes chiffres réels et te dit honnêtement quand les données sont trop maigres. Elle est mise en cache et ne se régénère que si les chiffres changent.",
   },
   "ai-dj-matching": {
     title: "Les DJs qui collent à ta soirée",
@@ -573,6 +609,42 @@ const TOOLS = [
           event_id: { type: "string", description: "UUID of the event" },
         },
         required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_event_report",
+      description: "Full report of ONE event, the same numbers as Analytics → Sales → By event: tickets/tables/guest list/drinks with today's delta, club revenue, page visits and their sources, who buys (new vs returning), sales channels, tracked links, and the emails/pushes sent for this event with the sales they brought. Also the last 14 days of the sales curve (d = days before the event). Use for « how is Saturday selling », « what made this event sell », « compare with last time » (call it for both events).",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "UUID of the event (use list_events to find it)" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_community_overview",
+      description: "The club's community (Analytics → Community): contacts (imported files + Yuno customers), email-reachable, followers, push-reachable, 30-day growth, how many events people come to (0-4+), when they last bought, new contacts brought by each of the last 10 events, and the community's music tastes (aggregated, only genres with ≥ 10 people). Use for « who are my customers », « is my base growing », « what music do my customers like ».",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_push_history",
+      description: "History of the club's push notifications (manual, automatic, scheduled) with targeted / sent / opened (first tap per person) / buyers / revenue attributed (tap → purchase < 72 h), the 30-day summary and followers (total, reachable on iPhone, new). Use for « did my last push work », « how many people can I reach by push ».",
+      parameters: {
+        type: "object",
+        properties: {
+          filter: { type: "string", enum: ["all", "manual", "auto", "scheduled"], description: "Default all" },
+        },
+        required: [],
       },
     },
   },
@@ -1053,10 +1125,67 @@ async function executeTool(
   toolName: string,
   args: Record<string, any>,
   supabase: any,
-  venueId: string
+  venueId: string,
+  // Client au JWT de l'appelant : les RPC d'analyse (lot G) décident de la
+  // portée et de l'argent sur auth.uid(), jamais le service role.
+  userClient?: any,
 ): Promise<string> {
   try {
     switch (toolName) {
+
+      // ─── ANALYSE (mêmes RPC que les écrans Analytics / Push) ───
+      case "get_event_report": {
+        if (!userClient) return JSON.stringify({ error: "unavailable" });
+        const { data: evt } = await supabase.from("events").select("id").eq("id", args.event_id)
+          .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`).maybeSingle();
+        if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
+        const { data, error } = await userClient.rpc("get_event_report", { p_event_id: args.event_id });
+        if (error) return JSON.stringify({ error: error.message });
+        if (!data?.ok) return JSON.stringify({ error: data?.reason || "unavailable" });
+        const { series, lines, ...rest } = data;
+        return JSON.stringify({
+          ...rest,
+          lines: (lines || []).slice(0, 20),
+          series_last_14_days: (series || []).slice(-14),
+          page: `/owner/analytics?tab=sales&view=event&event=${args.event_id}`,
+          note: "Amounts = club revenue (Yuno fees, insurance and refunds deducted); revenue is null when the caller can't see money. d = calendar days before the event (event timezone). Every count is PAID: tickets.orders = number of paid ticket orders (never call them pending), sold = tickets, today = since midnight in the event timezone.",
+        }).slice(0, 14000);
+      }
+      case "get_community_overview": {
+        if (!userClient) return JSON.stringify({ error: "unavailable" });
+        const [{ data: ov, error: e1 }, { data: tastes }] = await Promise.all([
+          userClient.rpc("get_community_overview", { p_venue_id: venueId }),
+          userClient.rpc("get_community_tastes", { p_venue_id: venueId }),
+        ]);
+        if (e1) return JSON.stringify({ error: e1.message });
+        if (!ov?.ok) return JSON.stringify({ error: ov?.reason || "unavailable" });
+        const { growth, ...rest } = ov;
+        return JSON.stringify({
+          ...rest,
+          growth_last_6_months: (growth?.series || []).slice(-6),
+          tastes: tastes?.ok ? { people: tastes.people, known: tastes.known, genres: tastes.genres, hidden_genres: tastes.hidden, threshold: tastes.threshold } : null,
+          page: "/owner/analytics?tab=community",
+          note: "Music tastes are aggregated: a genre only appears with at least 10 people (quiz answers + genres of events they attended anywhere on Yuno in 18 months). Never describe an individual's tastes.",
+        }).slice(0, 12000);
+      }
+      case "get_push_history": {
+        if (!userClient) return JSON.stringify({ error: "unavailable" });
+        const filter = ["all", "manual", "auto", "scheduled"].includes(args.filter) ? args.filter : "all";
+        const { data, error } = await userClient.rpc("get_push_campaigns", { p_venue_id: venueId, p_filter: filter, p_limit: 10, p_offset: 0 });
+        if (error) return JSON.stringify({ error: error.message });
+        if (!data?.ok) return JSON.stringify({ error: data?.reason || "unavailable" });
+        return JSON.stringify({
+          summary_30_days: data.summary,
+          followers: data.followers,
+          total_campaigns: data.total,
+          latest: (data.campaigns || []).map((c: any) => ({
+            title: c.title, source: c.source, status: c.status, at: c.scheduledAt || c.createdAt, event: c.eventTitle,
+            targeted: c.targeted, sent: c.sent, opened: c.taps, buyers: c.buyers, guest_list_entries: c.entries, revenue: c.revenue,
+          })),
+          page: "/owner/push",
+          note: "« Sent » = accepted by Apple, not proof of display. « Opened » = first tap per person. Revenue = tap → purchase within 72 h, club revenue; null when the caller can't see money.",
+        });
+      }
 
       // ─── STATS ───
       case "get_venue_stats": {
@@ -2786,7 +2915,7 @@ serve(async (req) => {
         }
 
         log("tool_exec", { round, tool: fnName, args: fnArgs });
-        const result = await executeTool(fnName, fnArgs, supabase, venueId);
+        const result = await executeTool(fnName, fnArgs, supabase, venueId, supabaseAuth);
         log("tool_result", { round, tool: fnName, result_length: result.length });
 
         conversationMessages.push({

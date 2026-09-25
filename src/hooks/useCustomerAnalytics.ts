@@ -22,7 +22,12 @@ export interface CustomerAnalytics {
 
 const DAY = 86_400_000;
 
-export function useCustomerAnalytics({ venueId, organizerUserId }: { venueId?: string | null; organizerUserId?: string | null }) {
+export function useCustomerAnalytics({ venueId, organizerUserId, enabled = true }: {
+  venueId?: string | null;
+  organizerUserId?: string | null;
+  /** false = vue qui n'en a pas besoin : rien n'est chargé. */
+  enabled?: boolean;
+}) {
   const [data, setData] = useState<CustomerAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -98,7 +103,7 @@ export function useCustomerAnalytics({ venueId, organizerUserId }: { venueId?: s
     }
   }, [venueId, organizerUserId]);
 
-  useEffect(() => { if (venueId || organizerUserId) fetch(); }, [venueId, organizerUserId, fetch]);
+  useEffect(() => { if (enabled && (venueId || organizerUserId)) fetch(); }, [enabled, venueId, organizerUserId, fetch]);
 
   return { customerAnalytics: data, loading };
 }
