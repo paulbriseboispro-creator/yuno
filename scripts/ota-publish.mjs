@@ -20,12 +20,17 @@
  *   promote   Copie le bundle actif d'un canal vers un autre (beta→production).
  *                                           --app <...> [--from beta] [--to production] [--version x]
  *   rollback  Ré-active un bundle antérieur. --app <...> [--channel c] [--to <version>]
+ *   prune     Supprime les vieux zips du Storage (quota Supabase).  [--keep N=5] [--yes]
+ *             Garde, par app + canal, le bundle actif + les N plus récents (cibles
+ *             de rollback) ; le reste (lignes + zips non référencés) est effacé.
+ *             Sans --yes : simulation. Lancé automatiquement après chaque publish.
  *
  * Exemples :
  *   node scripts/ota-publish.mjs publish --channel beta --app both
  *   node scripts/ota-publish.mjs promote --app both --from beta --to production
  *   node scripts/ota-publish.mjs rollback --app client --channel production
  *   node scripts/ota-publish.mjs channel --device <id> --set beta
+ *   node scripts/ota-publish.mjs prune --keep 5 --yes
  *
  * Secrets : lit VITE_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY depuis .env.local
  * (jamais commité). La service_role bypass la RLS des tables ota_*.
@@ -193,6 +198,11 @@ async function cmdPublish(supa, url, args) {
   }
 
   rmSync(work, { recursive: true, force: true });
+
+  // Chaque publication ajoute ~9 Mo de zip : sans ménage, 80 publications ont
+  // rempli à elles seules le Go du plan gratuit (2026-09-25). --no-prune pour tout garder.
+  if (!args['no-prune']) await cmdPrune(supa, { keep: 5, yes: true });
+
   log('\n✅ Publication terminée.');
   log('   Les appareils sur ce canal téléchargeront la MàJ au prochain lancement/retour au 1er plan.');
   log('   (canal beta ? mets un appareil dessus : ota-publish.mjs channel --device <id> --set beta)\n');
@@ -304,6 +314,57 @@ async function cmdRollback(supa, args) {
   log('');
 }
 
+async function cmdPrune(supa, args) {
+  const keep = Math.max(1, parseInt(args.keep, 10) || 5);
+  const apply = !!args.yes;
+
+  const { data: rows, error } = await supa.from('ota_bundles')
+    .select('id, app_id, channel, version, active, url, created_at')
+    .order('created_at', { ascending: false });
+  if (error) die(`lecture ota_bundles échouée: ${error.message}`);
+
+  // Par app + canal : l'actif + les `keep` plus récents (cibles de `rollback`).
+  const seen = new Map();
+  const kept = [];
+  const dropped = [];
+  for (const r of rows ?? []) {
+    const k = `${r.app_id}|${r.channel}`;
+    const n = seen.get(k) ?? 0;
+    if (r.active || n < keep) { kept.push(r); seen.set(k, n + 1); } else { dropped.push(r); }
+  }
+  // Content-addressed : un zip peut servir plusieurs lignes (beta + production, client + pro).
+  const objectOf = (u) => (u ?? '').split(`/${BUCKET}/`)[1] ?? null;
+  const keptObjects = new Set(kept.map((r) => objectOf(r.url)).filter(Boolean));
+
+  const objects = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error: e } = await supa.storage.from(BUCKET).list('bundles', { limit: 1000, offset });
+    if (e) die(`listing ${BUCKET} échoué: ${e.message}`);
+    objects.push(...(data ?? []).map((o) => ({ path: `bundles/${o.name}`, size: o.metadata?.size ?? 0 })));
+    if (!data || data.length < 1000) break;
+  }
+  const doomed = objects.filter((o) => !keptObjects.has(o.path));
+  const mb = (b) => (b / 1024 / 1024).toFixed(1);
+  const total = objects.reduce((a, o) => a + o.size, 0);
+  const freed = doomed.reduce((a, o) => a + o.size, 0);
+
+  log(`\n▸ ménage OTA (garde l'actif + ${keep} récents par app + canal)`);
+  log(`  lignes : ${kept.length} gardées, ${dropped.length} supprimées`);
+  log(`  zips   : ${objects.length - doomed.length} gardés, ${doomed.length} supprimés — ${mb(freed)} Mo libérés sur ${mb(total)} Mo`);
+  if (!apply) { log('  (simulation — relancer avec --yes pour appliquer)\n'); return; }
+
+  // Lignes d'abord : un rollback ne doit jamais pouvoir réactiver un zip effacé.
+  for (let i = 0; i < dropped.length; i += 100) {
+    const { error: e } = await supa.from('ota_bundles').delete().in('id', dropped.slice(i, i + 100).map((r) => r.id));
+    if (e) die(`suppression des lignes échouée: ${e.message}`);
+  }
+  for (let i = 0; i < doomed.length; i += 100) {
+    const { error: e } = await supa.storage.from(BUCKET).remove(doomed.slice(i, i + 100).map((o) => o.path));
+    if (e) die(`suppression des zips échouée: ${e.message}`);
+  }
+  log('  ✓ ménage appliqué\n');
+}
+
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
@@ -318,9 +379,9 @@ if (!cmd || ['help', '-h', '--help'].includes(cmd)) {
 const { url, key } = loadEnv();
 const supa = createClient(url, key, { auth: { persistSession: false } });
 
-const table = { publish: cmdPublish, list: cmdList, devices: cmdDevices, channel: cmdChannel, promote: cmdPromote, rollback: cmdRollback };
+const table = { publish: cmdPublish, list: cmdList, devices: cmdDevices, channel: cmdChannel, promote: cmdPromote, rollback: cmdRollback, prune: cmdPrune };
 const fn = table[cmd];
-if (!fn) die(`sous-commande inconnue: ${cmd} (publish|list|devices|channel|promote|rollback)`);
+if (!fn) die(`sous-commande inconnue: ${cmd} (publish|list|devices|channel|promote|rollback|prune)`);
 
 // cmdPublish a besoin de `url` pour rien de plus que la cohérence de signature ;
 // les autres n'en ont pas besoin.

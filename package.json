@@ -20,6 +20,7 @@
     "ota:rollback": "node scripts/ota-publish.mjs rollback --app both --channel production",
     "ota:list": "node scripts/ota-publish.mjs list",
     "ota:devices": "node scripts/ota-publish.mjs devices",
+    "ota:prune": "node scripts/ota-publish.mjs prune",
     "ota": "node scripts/ota-publish.mjs",
     "test": "vitest run"
   },
