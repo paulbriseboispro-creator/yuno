@@ -38,6 +38,8 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { TicketCheckoutSkeleton } from '@/components/skeletons/TicketCheckoutSkeleton';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 
@@ -65,6 +67,7 @@ export default function TicketCheckout() {
   const [event, setEvent] = useState<EventWithTicketing | null>(null);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string } | null>(null);
   useMetaCheckoutPixel({ eventId: event?.id ?? null, enabled: !!event?.id });
+  usePosthogEvent('checkout_started', event?.id, { pillar: 'tickets', event_id: event?.id });
   const [round, setRound] = useState<TicketRound | null>(null);
   // Indicatif par défaut du champ téléphone = pays de la soirée. Un acheteur à
   // Madrid qui tape son numéro sous un drapeau français laisse un téléphone
@@ -870,6 +873,9 @@ export default function TicketCheckout() {
       }
 
       if (data?.testMode && data?.redirectUrl) {
+        // Pas de Stripe (billet gratuit, ou achat simulé d'un compte démo) :
+        // la vente est confirmée ici, pas par une page Verify*.
+        capturePosthog('purchase_completed', { pillar: 'tickets', payment: 'free', event_id: event?.id ?? null, value: 0, currency: 'EUR' });
         toast.success(t('tickets.purchaseSuccess'));
         // Navigation SPA (jamais window.location.href : rechargement complet du
         // bundle → replay du splash dans l'app native, état perdu).

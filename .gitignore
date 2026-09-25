@@ -60,3 +60,6 @@ ds-bundle/
 src/components/__ds-entry.ts
 src/components/__ds-preview-provider.tsx
 .design-sync/ds-package/
+
+# Dossier local du wizard PostHog (peut contenir des jetons) — jamais committé
+.posthog/

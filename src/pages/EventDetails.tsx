@@ -1,5 +1,6 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
@@ -138,6 +139,11 @@ export default function EventDetails() {
   // Pixel Meta du club / de l'organisateur / de Yuno (après consentement
   // publicité seulement) : ViewContent sur la soirée, une fois par chargement.
   const metaPixel = useMetaPixel({ eventId: eventId || null, enabled: !!eventId });
+  usePosthogEvent('event_viewed', event ? eventId : null, {
+    event_id: eventId,
+    venue_id: venueIdForTracking,
+    organizer_user_id: organizerIdForTracking,
+  });
   // Lien « …?promo=CODE » (lot F) : le code suit l'acheteur jusqu'au paiement
   // (sessionStorage par soirée), où il est revérifié puis appliqué.
   const promoParam = searchParams.get('promo');

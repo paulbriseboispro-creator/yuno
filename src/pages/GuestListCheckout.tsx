@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { capturePosthog } from '@/lib/posthog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useAuth } from '@/hooks/useAuth';
@@ -490,6 +491,7 @@ export default function GuestListCheckout() {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      capturePosthog('guest_list_joined', { pillar: 'guest_list', event_id: eventId ?? null, via_invite: false });
 
       // Le couple (id, email) de l'inscription : c'est la cle du rattachement au
       // compte propose juste apres. L'email vient de la reponse serveur, pas du

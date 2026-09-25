@@ -72,6 +72,7 @@ import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { PushTokenKeeper } from "@/components/PushTokenKeeper";
 import PlatformTrafficTracker from "@/components/PlatformTrafficTracker";
+import PosthogTracker from "@/components/PosthogTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
@@ -574,6 +575,9 @@ const App = () => (
             {/* Mesure d'audience plateforme sans cookie — périmètre public/client
                 uniquement (voir src/lib/platformTraffic.ts). Dashboard : /admin/traffic. */}
             <PlatformTrafficTracker />
+            {/* PostHog (web + natif) : après consentement analytics, no-op sans
+                VITE_POSTHOG_KEY — voir src/lib/posthog.ts. */}
+            <PosthogTracker />
             {/* Célébrations (confettis/overlay) des succès rares — écoute
                 l'événement émis par src/lib/celebrate.ts. B2C uniquement. */}
             {!isProApp() && <CelebrationHost />}

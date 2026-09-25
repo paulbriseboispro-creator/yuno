@@ -11,6 +11,7 @@ import { ActionFigure, ActionNote, ActionOverlay, ActionResultCard, type ActionS
 import { actionFmt } from '@/components/action/tokens';
 import { useStudio } from './store';
 import { useAudienceCount, type StudioEvent, type StudioScope } from './hooks';
+import { capturePosthog } from '@/lib/posthog';
 import {
   BORDER, FlowCard, FONT_UI, GhostBtn, Help, MicroLabel, PANEL_BG, POS, PrimaryBtn,
   RED, T1, T2, T3, WARN,
@@ -126,6 +127,12 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
     }
     setRunStage(1); // la campagne est enregistrée, son audience est résolue
     const campaignId = id;
+    capturePosthog('email_campaign_sent', {
+      scope: scope.kind,
+      venue_id: scope.kind === 'venue' ? scope.venueId : null,
+      organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
+      campaign_id: campaignId,
+    });
 
     let invokeFailed = false;
     void supabase.functions

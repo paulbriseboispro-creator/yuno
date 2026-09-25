@@ -23,6 +23,7 @@ import FollowersNudge from '@/components/push/FollowersNudge';
 import { usePushCampaigns } from '@/hooks/usePushCampaigns';
 import type { PushFilter } from '@/lib/pushHistory';
 import { PUBLIC_BASE_URL } from '@/lib/native';
+import { capturePosthog } from '@/lib/posthog';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
 const RED        = '#E8192C';
@@ -424,6 +425,15 @@ export default function OwnerPush() {
         } catch { /* garder msg */ }
         throw new Error(msg);
       }
+      capturePosthog('push_campaign_sent', {
+        scope: isOrg ? 'organizer' : 'venue',
+        venue_id: isOrg ? null : venueId,
+        organizer_user_id: isOrg ? organizerUserId : null,
+        audience: scope,
+        template: template?.key || 'custom',
+        scheduled: !!scheduledAt,
+        recipients: data?.sent ?? null,
+      });
       if (scheduledAt) toast.success(t('ownerPush.scheduledToast'));
       else toast.success(t('ownerPush.sentToast').replace('{count}', String(data?.sent || 0)));
       setConfirmOpen(false);

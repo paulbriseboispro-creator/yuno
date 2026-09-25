@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
+import { capturePosthog } from '@/lib/posthog';
 import type { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -729,6 +730,7 @@ export default function GuestListSignup() {
 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
+      capturePosthog('guest_list_joined', { pillar: 'guest_list', event_id: guestList?.eventId ?? null, via_invite: !!inviteParam });
 
       // Generate QR image
       if (data.entry?.qrCode) {
