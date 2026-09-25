@@ -1963,7 +1963,10 @@ async function executeTool(
 
       // ─── AUTOMATISATIONS EMAIL ───
       case "list_email_automations": {
-        const { data: stats, error } = await supabase.rpc("get_email_automation_stats", { p_venue_id: venueId, p_organizer_user_id: null });
+        // Ces RPC gardent leur portée sur auth.uid() : au client de service
+        // elles répondaient toujours « Unauthorized ». Client de l'appelant.
+        const reader = userClient ?? supabase;
+        const { data: stats, error } = await reader.rpc("get_email_automation_stats", { p_venue_id: venueId, p_organizer_user_id: null });
         if (error) return JSON.stringify({ error: error.message });
         const rows = (stats || []) as EmailAutomationStatRow[];
         const KINDS = ["new_event", "abandoned_checkout", "tier_closing", "last_call", "table_upsell", "post_event_thanks", "post_event_missed", "welcome", "win_back"];
@@ -1972,10 +1975,10 @@ async function executeTool(
         // Qui Yuno cible maintenant (compte, jamais de liste) + suggestions.
         const [previews, { data: suggestions }] = await Promise.all([
           Promise.all(KINDS.map(async (kind) => {
-            const { data } = await supabase.rpc("preview_email_automation", { p_venue_id: venueId, p_organizer_user_id: null, p_kind: kind });
+            const { data } = await reader.rpc("preview_email_automation", { p_venue_id: venueId, p_organizer_user_id: null, p_kind: kind });
             return [kind, data] as const;
           })),
-          supabase.rpc("get_email_automation_suggestions", { p_venue_id: venueId, p_organizer_user_id: null }),
+          reader.rpc("get_email_automation_suggestions", { p_venue_id: venueId, p_organizer_user_id: null }),
         ]);
         const previewByKind: Record<string, EmailAutomationPreview | null> = Object.fromEntries(previews);
         const out = KINDS.map((kind) => {
