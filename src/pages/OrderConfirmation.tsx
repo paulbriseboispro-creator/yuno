@@ -25,6 +25,8 @@ import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
 import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { PublicPage } from '@/components/PublicPage';
 import { OrderConfirmationSkeleton } from '@/components/skeletons/OrderConfirmationSkeleton';
 import { publicUrl } from '@/lib/native';
@@ -645,6 +647,7 @@ export default function OrderConfirmation() {
         ? await supabase.from('organizer_profile_followers').delete().eq('organizer_user_id', orgId).eq('user_id', user.id)
         : await supabase.from('organizer_profile_followers').insert({ organizer_user_id: orgId, user_id: user.id });
       if (error) throw error;
+      capturePosthog('follow_toggled', { target_type: 'organizer', following: !wasFollowing, source: 'order_confirmation', ...marketProps({ organizerUserId: orgId }) });
       toast.success(wasFollowing ? t('subscribe.removed') : t('subscribe.added'));
     } catch {
       setOrgFollowing(prev => ({ ...prev, [orgId]: wasFollowing }));
@@ -664,6 +667,13 @@ export default function OrderConfirmation() {
     };
     try {
       const outcome = await shareContent(shareData);
+      if (outcome === 'shared' || outcome === 'copied') {
+        capturePosthog('event_shared', {
+          channel: outcome === 'copied' ? 'copy_link' : 'native_share',
+          placement: 'order_confirmation',
+          ...marketProps({ eventId: data.eventId, venueId: data.venueId }),
+        });
+      }
       if (outcome === 'copied') toast.success(t('confirmation.linkCopied') || 'Lien copié');
     } catch {
       /* clipboard blocked — nothing more we can do */

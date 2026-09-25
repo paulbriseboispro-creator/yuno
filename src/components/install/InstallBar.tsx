@@ -10,6 +10,8 @@ import {
 } from '@/lib/appStore';
 import { shouldShowLanding } from '@/lib/webHome';
 import { AppleLogo } from '@/components/install/AppStoreBadge';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
 
 /**
  * Barre fine « Yuno sur iPhone » — web mobile iOS UNIQUEMENT, sur les pages
@@ -55,12 +57,16 @@ export function InstallBar() {
   const { t } = useLanguage();
   const [dismissed, setDismissed] = useState(false);
 
-  if (dismissed) return null;
-  if (!canPromoteApp()) return null;
-  if (isInstallBarDismissed()) return null;
-  if (!SHOW_PATTERNS.some((p) => matchPath(p, pathname))) return null;
-  // À la racine, la landing porte déjà ses propres CTA App Store : pas de doublon.
-  if (pathname === '/' && shouldShowLanding()) return null;
+  const visible =
+    !dismissed &&
+    canPromoteApp() &&
+    !isInstallBarDismissed() &&
+    SHOW_PATTERNS.some((p) => matchPath(p, pathname)) &&
+    // À la racine, la landing porte déjà ses propres CTA App Store : pas de doublon.
+    !(pathname === '/' && shouldShowLanding());
+  // Une vue par session d'affichage de la barre (pas une par page).
+  usePosthogEvent('install_banner_viewed', visible ? 'install_bar' : null, { placement: 'install_bar' });
+  if (!visible) return null;
 
   const close = () => {
     dismissInstallBar();
@@ -101,6 +107,10 @@ export function InstallBar() {
           href={APP_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => {
+            capturePosthog('install_banner_clicked', { placement: 'install_bar' });
+            capturePosthog('app_store_clicked', { placement: 'install_bar' });
+          }}
           className="flex items-center gap-1.5 flex-none font-mono font-bold uppercase active:scale-[0.97]"
           style={{
             height: 32,

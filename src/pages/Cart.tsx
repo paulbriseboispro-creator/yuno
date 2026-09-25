@@ -40,10 +40,16 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { marketProps } from '@/lib/geo';
+import { capturePosthog } from '@/lib/posthog';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 
 interface VenueInfo {
   id: string;
   name: string;
+  /** Marché (analytics PostHog) : fuseau de la soirée, ville du club. */
+  timezone?: string | null;
+  city?: string | null;
 }
 
 export default function Cart() {
@@ -76,11 +82,12 @@ export default function Cart() {
   const [showDetails, setShowDetails] = useState(false);
   const { trackCheckout } = useVisitorTracking(venueInfo?.id);
   useMetaCheckoutPixel({ eventId: cart[0]?.eventId ?? null, venueId: venueInfo?.id ?? null, enabled: !!(cart[0]?.eventId || venueInfo?.id) });
-  usePosthogEvent('checkout_started', cart.length > 0 ? (venueInfo?.id ?? cart[0]?.eventId ?? 'cart') : null, {
+  // Clé stable (une fois par soirée), posée quand le club est chargé : avant,
+  // la clé passait de l'id de soirée à l'id du club et l'événement partait deux fois.
+  usePosthogEvent('checkout_started', cart.length > 0 && venueInfo ? (cart[0]?.eventId ?? venueInfo.id) : null, {
     pillar: 'drinks',
-    event_id: cart[0]?.eventId ?? null,
-    venue_id: venueInfo?.id ?? null,
     items: cart.length,
+    ...marketProps({ timezone: venueInfo?.timezone, city: venueInfo?.city, eventId: cart[0]?.eventId, venueId: venueInfo?.id }),
   });
 
   const [guestEmail, setGuestEmail] = useState('');
@@ -196,13 +203,13 @@ export default function Cart() {
       if (!firstItem.eventId) return;
       try {
         const { data: eventData, error: eventError } = await supabase
-          .from('events').select('venue_id, partner_venue_id, poster_url').eq('id', firstItem.eventId).single();
+          .from('events').select('venue_id, partner_venue_id, poster_url, timezone').eq('id', firstItem.eventId).single();
         const hostVenueId = eventData?.venue_id || eventData?.partner_venue_id;
         if (eventError || !hostVenueId) throw eventError || new Error('No venue');
         const { data: venue, error: venueError } = await supabase
-          .from('venues').select('id, name, cover_url').eq('id', hostVenueId).single();
+          .from('venues').select('id, name, cover_url, city').eq('id', hostVenueId).single();
         if (venueError) throw venueError;
-        if (venue) setVenueInfo({ id: venue.id, name: venue.name });
+        if (venue) setVenueInfo({ id: venue.id, name: venue.name, timezone: eventData?.timezone ?? null, city: venue.city ?? null });
         setHeroImage(eventData?.poster_url || venue?.cover_url || null);
       } catch (error) { console.error('Error fetching venue info:', error); }
     };
@@ -334,6 +341,17 @@ export default function Cart() {
     }
 
     setIsProcessing(true);
+    // checkout_failed : une fois par échec, raison courte (jamais le message).
+    let failureTracked = false;
+    const trackFailure = (err: unknown, code?: unknown) => {
+      if (failureTracked) return;
+      failureTracked = true;
+      capturePosthog('checkout_failed', {
+        pillar: 'drinks',
+        reason: checkoutFailReason(err, code),
+        ...marketProps({ timezone: venueInfo?.timezone, city: venueInfo?.city, eventId: cart[0]?.eventId, venueId: venueInfo?.id }),
+      });
+    };
     try {
       const eventId = selectedEventId || cart[0]?.eventId;
 
@@ -344,6 +362,7 @@ export default function Cart() {
       // l'organisateur : c'est le club qu'on interroge en priorité.
       const paymentsOk = await fetchDrinksPaymentsReady(venueInfo?.id, eventId);
       if (!paymentsOk) {
+        trackFailure(null, 'PAYMENTS_DISABLED');
         toast({ title: t('salesStatus.salesNotOpenYet') });
         setIsProcessing(false);
         return;
@@ -370,21 +389,29 @@ export default function Cart() {
       }
 
       const { data, error } = await invokeEdgeFunction('create-checkout', { body });
-      if (error) throw error;
+      if (error) {
+        trackFailure(error, data?.code);
+        throw error;
+      }
 
       if (data?.code === 'ACCOUNT_EXISTS') {
+        trackFailure(null, data.code);
         toast({ title: t('guest.accountExists') || 'Compte existant', description: t('guest.accountExistsDesc') || 'Un compte existe déjà avec cet email. Connectez-vous pour continuer.', variant: 'destructive' });
         navigate('/auth?redirect=/cart');
         return;
       }
 
       if (data?.code === 'PAYMENTS_DISABLED') {
+        trackFailure(null, data.code);
         toast({ title: t('payments.disabledBanner'), variant: 'destructive' });
         setIsProcessing(false);
         return;
       }
 
-      if (!data?.success) throw new Error(data?.error || 'Failed to create checkout');
+      if (!data?.success) {
+        trackFailure(null, data?.code);
+        throw new Error(data?.error || 'Failed to create checkout');
+      }
 
       if (data.testMode && data.redirectUrl) {
         sessionStorage.removeItem(pendingSessionKey);
@@ -395,6 +422,12 @@ export default function Cart() {
       }
 
       if (data.url) {
+        capturePosthog('checkout_step_completed', {
+          pillar: 'drinks',
+          step: 'payment',
+          items: cart.length,
+          ...marketProps({ timezone: venueInfo?.timezone, city: venueInfo?.city, eventId: cart[0]?.eventId, venueId: venueInfo?.id }),
+        });
         sessionStorage.setItem(pendingSessionKey, JSON.stringify({ hash: cartHash, ts: Date.now() }));
         haptics.medium();
         launchCheckout(data.url);
@@ -404,6 +437,7 @@ export default function Cart() {
       throw new Error('No checkout URL returned');
     } catch (error: any) {
       console.error('Checkout error:', error);
+      trackFailure(error);
       haptics.error();
       sessionStorage.removeItem(pendingSessionKey);
       toast({ title: t('cart.error'), description: error.message || t('cart.errorDesc'), variant: 'destructive' });

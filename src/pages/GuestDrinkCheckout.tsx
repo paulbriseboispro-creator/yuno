@@ -24,6 +24,9 @@ import { PublicPage } from '@/components/PublicPage';
 import { launchCheckout } from '@/lib/native';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 
 interface VenueInfo {
   id: string;
@@ -133,6 +136,18 @@ export default function GuestDrinkCheckout() {
     }
 
     setIsProcessing(true);
+    // checkout_failed : une fois par échec, raison courte (jamais le message).
+    let failureTracked = false;
+    const trackFailure = (err: unknown, code?: unknown) => {
+      if (failureTracked) return;
+      failureTracked = true;
+      capturePosthog('checkout_failed', {
+        pillar: 'drinks',
+        reason: checkoutFailReason(err, code),
+        placement: 'guest_checkout',
+        ...marketProps({ eventId: selectedEventId || cart[0]?.eventId, venueId: venueInfo?.id }),
+      });
+    };
     try {
       // CGV acceptance is handled by TermsAcceptance component
 
@@ -144,6 +159,7 @@ export default function GuestDrinkCheckout() {
       // l'organisateur : c'est le club qu'on interroge en priorité.
       const paymentsOk = await fetchDrinksPaymentsReady(venueInfo?.id, eventId);
       if (!paymentsOk) {
+        trackFailure(null, 'PAYMENTS_DISABLED');
         toast({ title: t('salesStatus.salesNotOpenYet') });
         setIsProcessing(false);
         return;
@@ -166,9 +182,13 @@ export default function GuestDrinkCheckout() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        trackFailure(error, data?.code);
+        throw error;
+      }
 
       if (data?.code === 'ACCOUNT_EXISTS') {
+        trackFailure(null, data.code);
         toast({
           title: t('guest.accountExists'),
           description: t('guest.accountExistsDesc'),
@@ -179,11 +199,15 @@ export default function GuestDrinkCheckout() {
       }
 
       if (data?.code === 'PAYMENTS_DISABLED') {
+        trackFailure(null, data.code);
         toast({ title: t('payments.disabledBanner'), variant: 'destructive' });
         return;
       }
 
-      if (!data?.success) throw new Error(data?.error || 'Failed to create checkout');
+      if (!data?.success) {
+        trackFailure(null, data?.code);
+        throw new Error(data?.error || 'Failed to create checkout');
+      }
 
       if (data.testMode && data.redirectUrl) {
         sessionStorage.removeItem(pendingSessionKey);
@@ -202,6 +226,7 @@ export default function GuestDrinkCheckout() {
       throw new Error('No checkout URL returned');
     } catch (error: any) {
       console.error('Checkout error:', error);
+      trackFailure(error);
       toast({ title: t('cart.error'), description: error.message, variant: 'destructive' });
     } finally {
       setIsProcessing(false);

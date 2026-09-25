@@ -16,6 +16,8 @@ import { FavoriteListRow } from '@/components/favorites/FavoriteListRow';
 import { FavoritesHeader } from '@/components/favorites/FavoritesHeader';
 import { D, shuffleSeed, formatCompact, FILTER_OF_KIND, type FavItem, type Filter } from '@/components/favorites/shared';
 import { useAuth } from '@/hooks/useAuth';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 /* Upcoming-events label, pluralised + interpolated (t() returns the raw string). */
 function upcomingNightsLabel(n: number, t: (k: string) => string): string {
@@ -535,6 +537,7 @@ export default function Favorites() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await supabase.from('organizer_profile_followers').delete().eq('organizer_user_id', orgId).eq('user_id', user.id);
+    capturePosthog('follow_toggled', { target_type: 'organizer', following: false, source: 'favorites', ...marketProps({ organizerUserId: orgId }) });
     setFollowedOrganizers(prev => prev.filter(o => o.id !== orgId));
   };
 

@@ -15,6 +15,7 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { useMetaPurchasePixel } from '@/hooks/useMetaPixel';
 import { capturePosthog } from '@/lib/posthog';
+import { fetchEventMarket } from '@/lib/eventMarket';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -69,14 +70,16 @@ export default function VerifyTicketPayment() {
         if (ticketId) trackOrderComplete(ticketId);
         // PostHog : achat confirmé par CET appel (jamais sur un rechargement).
         if (ticketId && !data.alreadyProcessed) {
-          capturePosthog('purchase_completed', {
+          // Marché de la soirée lu à part (une lecture légère), puis l'envoi.
+          const purchase = {
             pillar: 'tickets',
             payment: 'stripe',
             order_ref: `ticket:${ticketId}`,
-            event_id: data.metaPurchase?.eventId ?? null,
             value: data.metaPurchase?.valueCents != null ? Math.round(data.metaPurchase.valueCents) / 100 : null,
             currency: (data.metaPurchase?.currency ?? 'eur').toUpperCase(),
-          });
+          };
+          void fetchEventMarket(data.metaPurchase?.eventId, null).then((market) =>
+            capturePosthog('purchase_completed', { ...purchase, ...market }));
         }
         // Pixel Meta : Purchase navigateur (dédoublonné avec l'envoi serveur).
         if (ticketId && !data.alreadyProcessed && data.metaPurchase) {

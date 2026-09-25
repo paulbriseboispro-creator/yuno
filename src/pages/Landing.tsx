@@ -283,13 +283,13 @@ export default function Landing() {
           <div className="animate-hero-cta flex flex-col sm:flex-row sm:items-center gap-3">
             {APP_STORE_READY ? (
               <>
-                <AppStoreBadge className="w-full sm:w-auto" />
+                <AppStoreBadge className="w-full sm:w-auto" placement="landing_hero" />
                 {exploreCta}
               </>
             ) : (
               <>
                 {exploreCta}
-                <AppStoreBadge showComingSoon className="w-full sm:w-auto" />
+                <AppStoreBadge showComingSoon className="w-full sm:w-auto" placement="landing_hero" />
               </>
             )}
           </div>
@@ -446,7 +446,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <AppStoreBadge showComingSoon className="w-full sm:w-auto" />
+              <AppStoreBadge showComingSoon className="w-full sm:w-auto" placement="landing_footer" />
             </div>
             {/* Vraies captures de l'app (celles du mode d'emploi, par langue) */}
             <div className="flex justify-center gap-4" aria-hidden="true">

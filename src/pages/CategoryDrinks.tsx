@@ -16,6 +16,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { PublicPage } from '@/components/PublicPage';
 import { CategoryDrinksSkeleton } from '@/components/skeletons/CategoryDrinksSkeleton';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { marketProps } from '@/lib/geo';
 
 type CategoryType = 'drink' | 'shot' | 'soft';
 
@@ -26,6 +28,7 @@ export default function CategoryDrinks() {
   const { t } = useLanguage();
   const [drinks, setDrinks] = useState<Drink[]>([]);
   const [venueName, setVenueName] = useState('');
+  const [venueCity, setVenueCity] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState<Drink | null>(null);
@@ -33,6 +36,11 @@ export default function CategoryDrinks() {
   const { getFavoritesByType } = useFavorites();
   
   const favoriteDrinkIds = getFavoritesByType('drink').map(f => f.drinkId).filter(Boolean) as string[];
+  usePosthogEvent('drinks_menu_viewed', !loading && venueName ? `${slug}:${category}` : null, {
+    placement: 'category',
+    category,
+    ...marketProps({ city: venueCity, venueId: slug }),
+  });
 
   // Redirect only if the venue's plan lacks the drink menu feature. Menu is a Core
   // feature (free on every plan, see planFeatures.ts), so this no longer bounces
@@ -81,12 +89,13 @@ export default function CategoryDrinks() {
         // Fetch venue name
         const { data: venueData } = await supabase
           .from('venues')
-          .select('name')
+          .select('name, city')
           .eq('id', slug)
           .single();
         
         if (venueData) {
           setVenueName(venueData.name);
+          setVenueCity(venueData.city ?? null);
         }
 
         // Fetch drinks for this category

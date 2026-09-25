@@ -31,6 +31,9 @@ import { isPackSoldOut, type SoldOutFlags } from '@/lib/soldOut';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
 import { tint } from '@/lib/proTheme';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 type SelectionType = 'ticket' | 'table' | 'guestlist';
 type Selection = {
@@ -75,6 +78,8 @@ export default function TicketSelection() {
     waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
     alcoholFree?: boolean; maxTicketsPerPerson?: number | null; salePasswordEnabled?: boolean;
     isBde?: boolean;
+    /** Marché de la soirée (analytics PostHog). */
+    timezone?: string | null; city?: string | null; organizerUserId?: string | null;
     /** « Complet » posé à la main sur cette soirée — voir lib/soldOut.ts. */
     soldOut?: SoldOutFlags;
   } | null>(null);
@@ -147,7 +152,7 @@ export default function TicketSelection() {
     try {
       const { data: ev, error } = await supabase
         .from('events')
-        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids')
+        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled, tickets_sold_out, tables_sold_out, guest_list_sold_out, sold_out_pack_ids, timezone, location_city, organizer_user_id')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -172,6 +177,7 @@ export default function TicketSelection() {
         isBde: ev.is_bde ?? false,
         maxTicketsPerPerson: ev.max_tickets_per_person ?? null,
         salePasswordEnabled: ev.sale_password_enabled ?? false,
+        timezone: ev.timezone ?? null, city: ev.location_city ?? null, organizerUserId: ev.organizer_user_id ?? null,
         soldOut: {
           ticketsSoldOut: !!ev.tickets_sold_out,
           tablesSoldOut: !!ev.tables_sold_out,
@@ -491,8 +497,33 @@ export default function TicketSelection() {
     else if (newQty <= cap) { setSelection({ ...selection, quantity: newQty }); }
   };
 
+  // Marché de la soirée, joint à chaque événement PostHog de la page.
+  const selectionMarket = marketProps({
+    timezone: eventData?.timezone,
+    city: eventData?.city,
+    eventId,
+    venueId: eventData?.venueId,
+    organizerUserId: eventData?.organizerUserId,
+  });
+  usePosthogEvent('table_zone_viewed', selectedZoneId, { zone_id: selectedZoneId, placement: 'selection', ...selectionMarket });
+
   const handleContinue = () => {
     if (!selection) return;
+    // Choix validé (bouton « Continuer ») : formule / palier + étape du tunnel.
+    const pillar = selection.type === 'ticket' ? 'tickets' : selection.type === 'table' ? 'tables' : 'guest_list';
+    if (selection.type === 'ticket') {
+      capturePosthog('ticket_tier_selected', { tier_id: selection.id, price: selection.price, quantity: selection.quantity, ...selectionMarket });
+    } else if (selection.type === 'table') {
+      capturePosthog('table_pack_selected', {
+        pack_id: selection.id,
+        zone_id: selection.zoneId ?? null,
+        payment_mode: selection.onSite ? 'on_site' : 'online',
+        price: selection.price,
+        guests: selection.quantity,
+        ...selectionMarket,
+      });
+    }
+    capturePosthog('checkout_step_completed', { pillar, step: 'tier', ...selectionMarket });
     const ref = (searchParams.get('ref') || '').trim();
     const src = (searchParams.get('src') || '').trim();
     if (selection.type === 'guestlist') {

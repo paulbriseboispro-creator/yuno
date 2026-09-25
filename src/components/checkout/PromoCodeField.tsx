@@ -11,6 +11,8 @@ import { Loader2, Tag, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizePromoCode, promoReasonKey, type AppliedPromo, type PromoPillar } from '@/lib/promoCode';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 
 interface Props {
   eventId: string;
@@ -31,6 +33,10 @@ export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChan
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Jamais le code lui-même (saisie libre) : le résultat et la raison serveur.
+  const track = (result: 'applied' | 'rejected', reason: string | null) =>
+    capturePosthog('promo_code_applied', { pillar, result, reason, source: 'typed', ...marketProps({ eventId }) });
+
   const apply = async () => {
     const code = normalizePromoCode(value);
     if (!code) { setError(t('promo.reason.not_found')); return; }
@@ -43,13 +49,16 @@ export function PromoCodeField({ eventId, pillar, ticketRoundId, applied, onChan
       if (rpcError) throw rpcError;
       const res = data as { ok: boolean; reason?: string; code?: string; discountType?: 'percentage' | 'fixed'; discountValue?: number } | null;
       if (!res?.ok || !res.discountType || res.discountValue == null) {
+        track('rejected', res?.reason ?? 'not_found');
         setError(t(promoReasonKey(res?.reason)));
         return;
       }
+      track('applied', null);
       onChange({ code: res.code ?? code, discountType: res.discountType, discountValue: Number(res.discountValue) });
       setOpen(false);
       setValue('');
     } catch {
+      track('rejected', 'unavailable');
       setError(t('promo.reason.unavailable'));
     } finally {
       setChecking(false);

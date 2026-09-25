@@ -49,6 +49,8 @@ import { TableCheckoutSkeleton } from '@/components/skeletons/TableCheckoutSkele
 import { useMetaCheckoutPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
 
@@ -94,7 +96,15 @@ export default function TableCheckout() {
   const [event, setEvent] = useState<Tables<'events'> | null>(null);
   const [venue, setVenue] = useState<PublicVenueRow | null>(null);
   useMetaCheckoutPixel({ eventId: eventId ?? null, enabled: !!eventId });
-  usePosthogEvent('checkout_started', eventId, { pillar: 'tables', event_id: eventId });
+  // Marché de la soirée (analytics PostHog) : fuseau + ville, club ou orga.
+  const tableMarket = marketProps({
+    timezone: event?.timezone,
+    city: venue?.city ?? event?.location_city,
+    eventId,
+    venueId: venue?.id,
+    organizerUserId: event?.organizer_user_id ?? event?.partner_organizer_id,
+  });
+  usePosthogEvent('checkout_started', event?.id, { pillar: 'tables', ...tableMarket });
   // Indicatif par défaut du champ téléphone = pays de la soirée (fuseau figé à
   // la publication, ville en repli) — pas le pays du siège de Yuno.
   const phoneCountry = countryOfPlace({ timezone: event?.timezone, city: venue?.city ?? event?.location_city })?.code ?? null;
@@ -495,6 +505,16 @@ export default function TableCheckout() {
     checkPromoterDiscount();
   }, [venue?.id, event?.organizer_user_id, event?.partner_organizer_id]);
 
+  // Lien promoteur retenu pour cette réservation (le code vient du lien).
+  usePosthogEvent('promoter_attributed', event?.id && promoterDiscount?.promoterId ? `${event.id}:${promoterDiscount.promoterId}` : null, {
+    pillar: 'tables',
+    source: 'link',
+    stage: 'checkout',
+    promoter_id: promoterDiscount?.promoterId ?? null,
+    ...tableMarket,
+  });
+  usePosthogEvent('table_zone_viewed', zone?.id, { zone_id: zone?.id, placement: 'checkout', ...tableMarket });
+
   const packGuestLimit = pack ? pack.baseCapacity + pack.maxExtraPersons : 1;
 
   useEffect(() => {
@@ -568,7 +588,15 @@ export default function TableCheckout() {
       const { data } = await supabase.rpc('check_promo_code' as never, {
         p_code: code, p_event_id: event.id, p_pillar: 'tables',
       } as never);
-      const res = data as { ok?: boolean; code?: string; discountType?: 'percentage' | 'fixed'; discountValue?: number } | null;
+      const res = data as { ok?: boolean; reason?: string; code?: string; discountType?: 'percentage' | 'fixed'; discountValue?: number } | null;
+      const ok = !!(res?.ok && res.discountType && res.discountValue != null);
+      capturePosthog('promo_code_applied', {
+        pillar: 'tables',
+        result: ok ? 'applied' : 'rejected',
+        reason: ok ? null : (res?.reason ?? 'not_found'),
+        source: fromUrl ? 'link' : 'session',
+        ...marketProps({ eventId: event.id }),
+      });
       if (res?.ok && res.discountType && res.discountValue != null) {
         setAppliedPromo({ code: res.code ?? code, discountType: res.discountType, discountValue: Number(res.discountValue) });
       }
@@ -585,6 +613,13 @@ export default function TableCheckout() {
       if (showPlacement && !selectedTableId && placementStatus === 'none') {
         setPlacementStatus('assign_on_arrival');
       }
+      capturePosthog('checkout_step_completed', {
+        pillar: 'tables',
+        step: 'placement',
+        table_chosen: !!selectedTableId,
+        guests: guestCount,
+        ...tableMarket,
+      });
       setCurrentStep(2);
     }
   };
@@ -630,6 +665,15 @@ export default function TableCheckout() {
     setSwitchFocus({ packId: newPackId, zoneId: newZoneId, tableId: keepTableId, nonce: Date.now() });
     navigate(`${basePath}/table/${newPackId}?zone=${newZoneId}&guests=${guestCount}`, { replace: true, state: { eventId } });
     if (!target) return;
+    capturePosthog('table_pack_selected', {
+      pack_id: target.id,
+      zone_id: newZoneId,
+      payment_mode: target.paymentMode ?? 'online',
+      price: packPriceFor(target, Math.max(1, Math.min(guestCount, target.baseCapacity + target.maxExtraPersons))),
+      guests: guestCount,
+      source: 'switch',
+      ...tableMarket,
+    });
     const keptTable = keepTableId ? (floorPlan?.layout?.tables || []).find((tb) => tb.id === keepTableId) : undefined;
     const guestsForPrice = Math.max(1, Math.min(guestCount, target.baseCapacity + target.maxExtraPersons));
     toast(`${target.name} · ${Math.round(packPriceFor(target, guestsForPrice))} €`, {
@@ -696,8 +740,16 @@ export default function TableCheckout() {
       setSubmitting(false);
       return;
     }
+    capturePosthog('checkout_step_completed', { pillar: 'tables', step: 'details', guests: guestCount, ...tableMarket });
     
     setSubmitting(true);
+    // checkout_failed : une fois par échec, raison courte (jamais le message).
+    let failureTracked = false;
+    const trackFailure = (err: unknown, code?: unknown) => {
+      if (failureTracked) return;
+      failureTracked = true;
+      capturePosthog('checkout_failed', { pillar: 'tables', reason: checkoutFailReason(err, code), ...tableMarket });
+    };
     try {
       const isGuest = !user;
       const guestCheckout = isGuest ? { guestEmail: email.trim(), guestFullName: fullName.trim(), guestPhone: phone.trim() } : null;
@@ -802,11 +854,14 @@ export default function TableCheckout() {
       // supabase-js n'expose alors qu'un « non-2xx status code » opaque. Le motif
       // réel (et le code d'aiguillage) vit dans le corps, rattaché par invokeEdgeFunction.
       if (data?.code === 'PAYMENTS_DISABLED') {
+        trackFailure(error, data.code);
         toast.error(t('payments.disabledBanner'));
         return;
       }
       if (data?.error) {
+        trackFailure(error, data.code);
         if (data.code === 'PROMO_INVALID') {
+          capturePosthog('promo_code_applied', { pillar: 'tables', result: 'rejected', reason: data.reason ?? 'invalid', source: 'checkout', ...tableMarket });
           setAppliedPromo(null);
           forgetPromoForEvent(event?.id);
           toast.error(t(promoReasonKey(data.reason)));
@@ -866,9 +921,9 @@ export default function TableCheckout() {
         capturePosthog('purchase_completed', {
           pillar: 'tables',
           payment: pack.paymentMode === 'on_site' ? 'on_site' : 'free',
-          event_id: event.id,
           value: pricing.totalPrice,
           currency: 'EUR',
+          ...tableMarket,
         });
       }
       if (data?.testMode && data?.redirectUrl) {
@@ -877,13 +932,18 @@ export default function TableCheckout() {
         navigate(data.redirectUrl, { state: { guestTableData } });
         return;
       }
-      if (data?.url) { haptics.medium(); launchCheckout(data.url); }
+      if (data?.url) {
+        capturePosthog('checkout_step_completed', { pillar: 'tables', step: 'payment', guests: guestCount, ...tableMarket });
+        haptics.medium();
+        launchCheckout(data.url);
+      }
       else if (data?.redirectUrl) {
         toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
         navigate(data.redirectUrl, { state: { guestTableData } });
       }
     } catch (error) {
       console.error('Checkout error:', error);
+      trackFailure(error);
       haptics.error();
       toast.error((error as Error).message || t('tickets.checkoutError'));
       // Échec de réservation (le plus souvent : zone complète) -> proposer la liste d'attente.

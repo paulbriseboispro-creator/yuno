@@ -21,6 +21,9 @@ import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
+import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { DrinkCard } from '@/components/DrinkCard';
 import type { Drink, Event } from '@/types';
 import { useStore } from '@/store/useStore';
@@ -39,6 +42,7 @@ interface OrgProfile {
   instagram_url: string | null;
   website_url: string | null;
   bde_verified: boolean | null;
+  city?: string | null;
 }
 
 interface OrgEvent {
@@ -94,6 +98,7 @@ export default function OrganizerPublicProfile() {
   // ni commission). Le hook lit ?ref= et ?event= dans l'URL, résout la portée
   // organisateur depuis l'event et enregistre le clic.
   usePromoterTracking();
+  usePosthogEvent('organizer_viewed', profile?.user_id, marketProps({ city: profile?.city, organizerUserId: profile?.user_id }));
 
   useEffect(() => {
     if (!slug) return;
@@ -298,7 +303,14 @@ export default function OrganizerPublicProfile() {
       setIsFollowing(wasFollowing);
       setFollowersCount(c => wasFollowing ? c + 1 : Math.max(0, c - 1));
       toast.error(t('subscribe.error') || 'Erreur, réessaie');
+      return;
     }
+    capturePosthog('follow_toggled', {
+      target_type: 'organizer',
+      following: !wasFollowing,
+      source: 'organizer_page',
+      ...marketProps({ city: profile.city, organizerUserId: profile.user_id }),
+    });
   };
 
   const handleShare = async () => {

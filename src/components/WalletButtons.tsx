@@ -5,6 +5,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { addToWallet } from '@/lib/wallet';
 import { haptics } from '@/lib/haptics';
+import { capturePosthog } from '@/lib/posthog';
+
+/** Type de pass → pilier du plan de marquage PostHog. */
+const WALLET_PILLAR = { ticket: 'tickets', table: 'tables', guestlist: 'guest_list', order: 'drinks' } as const;
 
 interface WalletButtonsProps {
   type: 'ticket' | 'table' | 'order' | 'guestlist';
@@ -37,6 +41,7 @@ export function WalletButtons({ type, id, variant = 'documents' }: WalletButtons
     if (loading) return;
     setLoading(true);
     haptics.medium();
+    capturePosthog('wallet_pass_clicked', { pillar: WALLET_PILLAR[type], placement: variant });
     try {
       await addToWallet(type, id);
     } catch {

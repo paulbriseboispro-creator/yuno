@@ -15,6 +15,8 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
@@ -205,6 +207,15 @@ export default function AffiliateEventPage() {
     const url = publicUrl();
     const shareData = { title: event?.name || '', url };
     const outcome = await shareContent(shareData);
+    if (outcome === 'shared' || outcome === 'copied') {
+      // Soirée partenaire (hors Yuno) : pas d'`event_id` Yuno, l'id externe à part.
+      capturePosthog('event_shared', {
+        channel: outcome === 'copied' ? 'copy_link' : 'native_share',
+        external: true,
+        affiliate_event_id: event?.id ?? null,
+        ...marketProps({ city: event?.affiliate_venues?.city }),
+      });
+    }
     if (outcome === 'copied') toast.success(t('share.copied'));
   };
 

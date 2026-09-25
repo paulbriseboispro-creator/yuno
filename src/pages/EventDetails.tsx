@@ -1,6 +1,8 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { capturePosthog } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
@@ -139,11 +141,15 @@ export default function EventDetails() {
   // Pixel Meta du club / de l'organisateur / de Yuno (après consentement
   // publicité seulement) : ViewContent sur la soirée, une fois par chargement.
   const metaPixel = useMetaPixel({ eventId: eventId || null, enabled: !!eventId });
-  usePosthogEvent('event_viewed', event ? eventId : null, {
-    event_id: eventId,
-    venue_id: venueIdForTracking,
-    organizer_user_id: organizerIdForTracking,
+  // Marché de la soirée (analytics) : fuseau + ville du lieu, et les ids.
+  const eventMarket = marketProps({
+    timezone: event?.timezone,
+    city: venue?.city,
+    eventId,
+    venueId: venueIdForTracking,
+    organizerUserId: organizerIdForTracking,
   });
+  usePosthogEvent('event_viewed', event ? eventId : null, eventMarket);
   // Lien « …?promo=CODE » (lot F) : le code suit l'acheteur jusqu'au paiement
   // (sessionStorage par soirée), où il est revérifié puis appliqué.
   const promoParam = searchParams.get('promo');
@@ -670,6 +676,9 @@ export default function EventDetails() {
     const url = publicUrl();
     const shareData = { title: event?.title || '', url };
     const outcome = await shareContent(shareData);
+    if (outcome === 'shared' || outcome === 'copied') {
+      capturePosthog('event_shared', { channel: outcome === 'copied' ? 'copy_link' : 'native_share', ...eventMarket });
+    }
     if (outcome === 'copied') toast.success(t('share.copied'));
   };
 
@@ -1617,6 +1626,7 @@ export default function EventDetails() {
                     await supabase.from('organizer_profile_followers').insert({ organizer_user_id: org.id, user_id: user.id });
                   }
                   setOrgFollowing(prev => ({ ...prev, [org.id]: !isFollowingOrg }));
+                  capturePosthog('follow_toggled', { target_type: 'organizer', following: !isFollowingOrg, source: 'event_page', ...marketProps({ organizerUserId: org.id }) });
                   setOrgFollowers(prev => ({ ...prev, [org.id]: (prev[org.id] || 0) + (isFollowingOrg ? -1 : 1) }));
                 };
                 return (

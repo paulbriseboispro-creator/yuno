@@ -8,6 +8,8 @@ import {
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { capturePosthog, getAnalyticsCheckoutContext } from '@/lib/posthog';
+import { marketProps } from '@/lib/geo';
+import { checkoutFailReason } from '@/lib/checkoutFailure';
 import type { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -93,6 +95,8 @@ interface GuestListInfo {
   /** « Complet » posé à la main — toute la soirée, ou cette part seule. Le
    *  formulaire se ferme : le serveur refuserait l'inscription de toute façon. */
   soldOut: boolean;
+  /** Marché de la soirée (analytics PostHog : pays, ville, ids). */
+  market: Record<string, string>;
 }
 
 /** Remplissage agrégé renvoyé par get_guest_list_public_fill (aucune donnée d'invité). */
@@ -510,6 +514,13 @@ export default function GuestListSignup() {
         shareToken: data.share_token,
         publicEntryTypes: publicTypes.length ? publicTypes : null,
         soldOut: isGuestListSoldOut(soldOutFlags(data.events), data),
+        market: marketProps({
+          timezone: data.events!.timezone,
+          city: venue?.city || data.events!.location_city,
+          eventId: data.event_id,
+          venueId: eventVenueId,
+          organizerUserId: eventOrganizerId,
+        }),
       });
       if (publicTypes.length) setChosenType(prev => (prev && publicTypes.includes(prev) ? prev : publicTypes[0]));
 
@@ -642,6 +653,9 @@ export default function GuestListSignup() {
     }
 
     setSubmitting(true);
+    // Code court d'un refus serveur, pour `checkout_failed` (jamais le message).
+    let failCode: string | null = null;
+    let joined = false;
     try {
       // Attribution du canal (newsletter, instagram…) : le `?tl=` de l'arrivée
       // directe, sinon le lien mémorisé pour cette soirée — un visiteur venu
@@ -730,8 +744,12 @@ export default function GuestListSignup() {
       });
 
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      capturePosthog('guest_list_joined', { pillar: 'guest_list', event_id: guestList?.eventId ?? null, via_invite: !!inviteParam });
+      if (data.error) {
+        failCode = typeof data.code === 'string' ? data.code : null;
+        throw new Error(data.error);
+      }
+      capturePosthog('guest_list_joined', { pillar: 'guest_list', via_invite: !!inviteParam, ...(guestList?.market ?? marketProps({ eventId: guestList?.eventId })) });
+      joined = true;
 
       // Generate QR image
       if (data.entry?.qrCode) {
@@ -765,10 +783,22 @@ export default function GuestListSignup() {
       // supabase-js wraps a non-2xx function response; the real message is in the body.
       try {
         if (fnError?.context && typeof fnError.context.json === 'function') {
-          const body = await fnError.context.json();
+          const body = await fnError.context.json() as { error?: string; code?: string };
           if (body?.error) msg = body.error;
+          if (typeof body?.code === 'string') failCode = body.code;
         }
       } catch { /* ignore body parse errors */ }
+      if (!joined) capturePosthog('checkout_failed', {
+        pillar: 'guest_list',
+        reason: failCode
+          ?? (/authentication required|log in/i.test(msg) ? 'auth_required'
+            : /first name and last name/i.test(msg) ? 'name_incomplete'
+            : msg.includes('already registered') ? 'already_registered'
+            : msg.includes('quota reached') ? 'quota_reached'
+            : msg.includes('full') ? 'full'
+            : checkoutFailReason(err)),
+        ...(guestList?.market ?? {}),
+      });
       // Graceful fallback until the guest-capable edge function is deployed: a guest
       // who can't yet be registered without an account is routed to login instead of
       // hitting a dead-end error. Once the function ships, guests succeed here.
