@@ -935,7 +935,23 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
 - CSP : `https://*.posthog.com` dans `script-src` et `connect-src`
   (`public/_headers` + `vite.config.ts`). PostHog est déclaré dans la
   politique de confidentialité, la page cookies et le DPA (`legalContent.ts`).
-- Événement métier : `capturePosthog(nom, props)` — silencieux sans consentement.
+- **Plan de marquage = le type `YunoEvent`** (`src/lib/posthog.ts`), jamais
+  une chaîne libre : `event_viewed`, `checkout_started`, `purchase_completed`
+  (`pillar` tickets / tables / drinks, `payment` stripe / free / on_site,
+  `value` en euros — tiré seulement quand CET appel a validé le paiement,
+  `!alreadyProcessed`), `guest_list_joined`, `user_signed_up`,
+  `user_signed_in`, `pro_event_created`, `email_campaign_sent`,
+  `push_campaign_sent`. `capturePosthog` met en file tant que le SDK charge ;
+  `usePosthogEvent` tire une fois par clé. Personne = `roles`, `is_pro`,
+  `is_demo` : **filtrer `is_demo = false` dans tout insight** (la démo n'est
+  pas un chiffre).
+- **La landing (`yuno-landing`) écrit dans le MÊME projet PostHog**, sans
+  cookie (`persistence: 'memory'`, pas de bandeau), événements `pro_signup_*`
+  et `contact_form_submitted`, et identifie le compte créé par son id Supabase
+  : le funnel landing → inscription → Console est un seul funnel.
+- PostHog ignore les navigateurs automatisés (`navigator.webdriver`) : un test
+  headless ne voit partir aucun événement sans
+  `--disable-blink-features=AutomationControlled`.
 
 ## Web = acquisition, app = rétention (stratégie 2026-08)
 
