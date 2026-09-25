@@ -256,6 +256,26 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   (`instagramFor`, réglé dans `/admin/links`). Aucune étape d'accueil
   (`OnboardingGate`) sur `isPublicLinktreePath` : langue du téléphone si Yuno
   la parle, anglais sinon, jamais la carte « Select Language ».
+- **Soirées de clubs externes (`affiliate_events`) — le temps et l'historique
+  (2026-09-25, après la purge qui a effacé les soirées du soir même).** Une
+  soirée n'a qu'une DATE et vit la nuit : porte unique
+  `src/lib/affiliateEventTime.ts`. Public = `currentNightDate()` (date de
+  Paris/Madrid de maintenant − 8 h ; miroir SQL `affiliate_night_date()`),
+  jamais `toISOString().split('T')[0]` — la date UTC faisait disparaître la
+  soirée à 02 h en pleine nuit et la page soirée renvoyait sur l'accueil.
+  Pro = `isAffiliateEventOver()` (lendemain midi) ; fin d'une soirée =
+  `affiliateEventEndAt()` (fermeture du matin = lendemain). **On ne SUPPRIME
+  jamais les soirées passées** : la purge est devenue un masquage, car la
+  suppression emporte en cascade ventes déclarées, commissions, assignations,
+  briefs, favoris ; une soirée avec ventes déclarées est refusée à la
+  suppression (`guard_affiliate_event_delete`). Vues et clics portent une
+  PHOTO de leur soirée (`event_slug`, `event_name`, `event_date`, trigger à
+  l'insertion + avant suppression, migration `20260926090000`) : les écrans
+  groupent par elle, jamais par le seul `affiliate_event_id`. Un clic = une
+  SORTIE vers la billetterie (la fiche soirée le compte, pas la carte qui y
+  mène) ; une visite = un onglet (source d'arrivée gardée en sessionStorage) ;
+  les lectures de trafic passent par `fetchAllRows` (PostgREST plafonne à
+  ~1 000 lignes). Le générateur de récurrents lit et écrit EN LOT.
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),

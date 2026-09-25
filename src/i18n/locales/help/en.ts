@@ -1073,7 +1073,7 @@ const help: Record<string, string> = {
   "ohelp.agc.stats.s6h": "Common issues",
   "ohelp.agc.stats.title": "Sales stats and charts",
   "ohelp.agc.traffic.desc": "Prove your audience to a club, then get paid for it.",
-  "ohelp.agc.traffic.s1b": "Traffic analytics (External clubs → Traffic analytics) reads views of your public pages and clicks to external ticketing, per club and per event, with 24h/48h/7d/30d/90d/All periods (at 24h and 48h the chart goes hour by hour) and a breakdown by source, device and top events. Your own traffic is filtered out automatically — the numbers can be shown to a club as they are.",
+  "ohelp.agc.traffic.s1b": "Traffic analytics (External clubs → Traffic analytics) reads views of your public pages and clicks to external ticketing, per club and per event, with 24h/48h/7d/30d/90d/All periods (at 24h and 48h the chart goes hour by hour) and a breakdown by source, device, event and club (\"Performance by club\") — a deleted event keeps its views and clicks. Your own traffic is filtered out automatically — the numbers can be shown to a club as they are.",
   "ohelp.agc.traffic.s1h": "What is measured",
   "ohelp.agc.traffic.s2b": "1. Open Commissions (External clubs → Commissions). Past events with no numbers yet appear in \"Sales to report\".\n2. Click \"Report\" on an event.\n3. Fill in tickets sold, revenue (optional) and the commission the club owes you, plus a note if useful.\n4. Click \"Save\". The row moves into the club's ledger, grouped with everything else owed by that club.\n5. Once the club pays, click \"Mark settled\" (\"Reopen\" undoes it).",
   "ohelp.agc.traffic.s2h": "Declare a sale in Commissions",

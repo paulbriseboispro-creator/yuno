@@ -1073,7 +1073,7 @@ const help: Record<string, string> = {
   "ohelp.agc.stats.s6h": "Problemas frecuentes",
   "ohelp.agc.stats.title": "Estadísticas de ventas",
   "ohelp.agc.traffic.desc": "Demuestra tu audiencia a un club, luego cóbrala.",
-  "ohelp.agc.traffic.s1b": "Analytics de tráfico (Clubs externos → Analytics de tráfico) lee las vistas de tus páginas públicas y los clics hacia las ventas externas, por club y por fiesta, con períodos 24h/48h/7d/30d/90d/Todo (en 24h y 48h el gráfico va hora por hora) y un desglose por fuente, dispositivo y mejores fiestas. Tu propio tráfico se filtra automáticamente — las cifras se pueden enseñar a un club tal cual.",
+  "ohelp.agc.traffic.s1b": "Analytics de tráfico (Clubs externos → Analytics de tráfico) lee las vistas de tus páginas públicas y los clics hacia las ventas externas, por club y por fiesta, con períodos 24h/48h/7d/30d/90d/Todo (en 24h y 48h el gráfico va hora por hora) y un desglose por fuente, dispositivo, fiesta y club («Rendimiento por club») — una fiesta borrada conserva sus visitas y clics. Tu propio tráfico se filtra automáticamente — las cifras se pueden enseñar a un club tal cual.",
   "ohelp.agc.traffic.s1h": "Qué se mide",
   "ohelp.agc.traffic.s2b": "1. Abre Comisiones (Clubs externos → Comisiones). Las fiestas pasadas sin cifras aparecen en «Ventas por registrar».\n2. Haz clic en «Registrar» en una fiesta.\n3. Rellena entradas vendidas, ingresos (opcional) y la comisión que te debe el club, más una nota si es útil.\n4. Haz clic en «Guardar». La línea entra en el registro del club, agrupada con todo lo que te debe.\n5. Una vez que el club pague, haz clic en «Marcar cobrada» («Reabrir» lo deshace).",
   "ohelp.agc.traffic.s2h": "Declarar una venta en Comisiones",
