@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Pencil, Trash2, AlertTriangle, ExternalLink, Flame, CheckCircle, FileText, CalendarOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, ExternalLink, History, CheckCircle, FileText, CalendarOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { format, isPast, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { isAffiliateEventOver } from '@/lib/affiliateEventTime';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, Pill, AffButton, AffLinkButton, AffSpinner, AffEmpty,
@@ -21,7 +22,6 @@ type EventRow = {
   external_ticket_url: string | null;
   is_sold_out: boolean;
   flyer_url: string | null;
-  gallery_urls: string[] | null;
   affiliate_venues: { name: string } | null;
 };
 
@@ -46,8 +46,11 @@ export default function AffiliateEvents() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [loading, setLoading] = useState(true);
-  const [purging, setPurging] = useState(false);
-  const [affiliateId, setAffiliateId] = useState<string | null>(null);
+  // Les soirées terminées sont MASQUÉES, jamais supprimées : les effacer
+  // emportait en cascade les ventes déclarées, les commissions, les
+  // assignations promoteurs et le rattachement des vues/clics (25/09/2026,
+  // soirées du soir même comprises). Un simple interrupteur d'affichage.
+  const [showPast, setShowPast] = useState(false);
 
   useEffect(() => {
     if (user) fetchEvents();
@@ -58,11 +61,10 @@ export default function AffiliateEvents() {
     setLoading(true);
     const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user.id).single();
     if (!aff) { setLoading(false); return; }
-    setAffiliateId(aff.id);
 
     const { data } = await supabase
       .from('affiliate_events')
-      .select('id, name, event_date, status, external_ticket_url, is_sold_out, flyer_url, gallery_urls, affiliate_venues(name)')
+      .select('id, name, event_date, status, external_ticket_url, is_sold_out, flyer_url, affiliate_venues(name)')
       .eq('affiliate_id', aff.id)
       .order('event_date', { ascending: false });
 
@@ -94,79 +96,27 @@ export default function AffiliateEvents() {
     toast({ title: t('aff.events.deletedToast') });
   };
 
-  const handlePurgePast = async () => {
-    const pastEvents = events.filter((e) => isPast(parseISO(e.event_date)));
-    if (pastEvents.length === 0) {
-      toast({ title: t('aff.events.noPastToPurge') });
-      return;
-    }
-    if (!confirm((pastEvents.length > 1 ? t('aff.events.purgeConfirmMany') : t('aff.events.purgeConfirmOne')).replace('{count}', String(pastEvents.length)))) return;
-
-    setPurging(true);
-    let errors = 0;
-
-    // Les fichiers candidats à la suppression, collectés AVANT d'effacer les
-    // lignes. Le flyer d'un modèle récurrent est délibérément écarté : le même
-    // fichier sert la soirée de la semaine dernière ET les dix à venir, plus le
-    // modèle lui-même. Le supprimer avec une soirée passée cassait l'image de
-    // toutes les autres (l'icône « image introuvable » du navigateur, sans
-    // aucun message). Un flyer de modèle ne s'efface qu'en changeant le modèle.
-    const candidates = new Set<string>();
-    for (const ev of pastEvents) {
-      for (const url of [ev.flyer_url, ...(ev.gallery_urls ?? [])]) {
-        const match = url?.match(/affiliate-media\/(.+)$/);
-        if (match && !match[1].includes('/recurring/flyers/')) candidates.add(match[1]);
-      }
-    }
-
-    for (const ev of pastEvents) {
-      const { error } = await supabase.from('affiliate_events').delete().eq('id', ev.id);
-      if (error) errors++;
-    }
-
-    // Deuxième garde-fou : une fois les soirées passées effacées, un fichier ne
-    // part que si plus rien ne le référence. Deux requêtes, pas une par fichier.
-    if (candidates.size > 0 && affiliateId) {
-      const [{ data: evRefs }, { data: tplRefs }] = await Promise.all([
-        supabase.from('affiliate_events').select('flyer_url, gallery_urls').eq('affiliate_id', affiliateId),
-        supabase.from('affiliate_recurring_templates').select('flyer_url').eq('affiliate_id', affiliateId),
-      ]);
-      const stillUsed = new Set<string>();
-      for (const row of evRefs ?? []) {
-        for (const url of [row.flyer_url, ...(row.gallery_urls ?? [])]) if (url) stillUsed.add(url);
-      }
-      for (const row of tplRefs ?? []) if (row.flyer_url) stillUsed.add(row.flyer_url);
-
-      const orphans = [...candidates].filter((path) => ![...stillUsed].some((url) => url.endsWith(path)));
-      if (orphans.length > 0) await supabase.storage.from('affiliate-media').remove(orphans);
-    }
-
-    await fetchEvents();
-    setPurging(false);
-
-    if (errors > 0) {
-      toast({ title: t('aff.events.purgePartialTitle'), description: t('aff.events.purgeErrorsDesc').replace('{count}', String(errors)), variant: 'destructive' });
-    } else {
-      toast({ title: (pastEvents.length > 1 ? t('aff.events.purgedMany') : t('aff.events.purgedOne')).replace('{count}', String(pastEvents.length)), description: t('aff.events.purgedDesc') });
-    }
-  };
-
-  const pastCount = events.filter((e) => isPast(parseISO(e.event_date))).length;
-  const upcomingCount = events.filter((e) => !isPast(parseISO(e.event_date))).length;
-  const filtered = filter === 'all' ? events : events.filter((e) => e.status === filter);
-  const missingLink = events.filter((e) => !e.external_ticket_url && !isPast(parseISO(e.event_date))).length;
+  const now = new Date();
+  const isOver = (e: EventRow) => isAffiliateEventOver(e.event_date, now);
+  const pastCount = events.filter(isOver).length;
+  const upcomingCount = events.length - pastCount;
+  const visible = showPast ? events : events.filter((e) => !isOver(e));
+  const filtered = filter === 'all' ? visible : visible.filter((e) => e.status === filter);
+  const missingLink = events.filter((e) => !e.external_ticket_url && !isOver(e)).length;
 
   // Groupement par date : chaque jour a son en-tête, les soirées à venir en
   // premier (plus proche → plus lointaine), le passé ensuite (plus récent
   // d'abord). Rend lisible une longue liste d'occurrences récurrentes.
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = format(now, 'yyyy-MM-dd');
   const groups = new Map<string, EventRow[]>();
   for (const e of filtered) {
     const arr = groups.get(e.event_date);
     if (arr) arr.push(e); else groups.set(e.event_date, [e]);
   }
-  const upcomingDates = [...groups.keys()].filter((d) => d >= todayStr).sort();
-  const pastDates = [...groups.keys()].filter((d) => d < todayStr).sort().reverse();
+  // « À venir » = pas encore finie : la soirée d'hier soir reste en tête
+  // jusqu'au lendemain midi (cf. isAffiliateEventOver).
+  const upcomingDates = [...groups.keys()].filter((d) => !isAffiliateEventOver(d, now)).sort();
+  const pastDates = [...groups.keys()].filter((d) => isAffiliateEventOver(d, now)).sort().reverse();
   const orderedDates = [...upcomingDates, ...pastDates];
 
   if (loading) return <AffSpinner />;
@@ -180,9 +130,9 @@ export default function AffiliateEvents() {
           right={
             <div className="flex items-center gap-2">
               {pastCount > 0 && (
-                <AffButton variant="ghost" size="sm" onClick={handlePurgePast} disabled={purging}>
-                  <Flame className="h-3.5 w-3.5" />
-                  {purging ? t('aff.events.purging') : t('aff.events.purgeBtn').replace('{count}', String(pastCount))}
+                <AffButton variant="ghost" size="sm" onClick={() => setShowPast((v) => !v)}>
+                  <History className="h-3.5 w-3.5" />
+                  {(showPast ? t('aff.events.hidePastBtn') : t('aff.events.showPastBtn')).replace('{count}', String(pastCount))}
                 </AffButton>
               )}
               <AffLinkButton to="/affiliate/events/new" size="sm">
@@ -230,7 +180,7 @@ export default function AffiliateEvents() {
             const dayEvents = groups.get(dateStr)!;
             const d = parseISO(dateStr);
             const isTodayGroup = dateStr === todayStr;
-            const isPastGroup = dateStr < todayStr;
+            const isPastGroup = isAffiliateEventOver(dateStr, now);
             return (
               <div key={dateStr}>
                 {/* En-tête de jour */}
@@ -245,7 +195,7 @@ export default function AffiliateEvents() {
                 <AffCard padding={0}>
                   <div className="divide-y" style={{ borderColor: BORDER }}>
                     {dayEvents.map((event, i) => {
-                      const past = isPast(parseISO(event.event_date));
+                      const past = isOver(event);
                       return (
                         <motion.div key={event.id}
                           initial={{ opacity: 0 }} animate={{ opacity: past ? 0.5 : 1 }} transition={{ delay: Math.min(i * 0.025, 0.3) }}
