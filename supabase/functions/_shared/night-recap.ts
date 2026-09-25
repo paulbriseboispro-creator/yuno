@@ -36,19 +36,25 @@ export async function dispatchNightRecaps(admin: any): Promise<{ processed: numb
       processed++;
 
       const vars = recapVars(d);
-      const variant = d.revenue > 0 ? "default" : "free";
+      // Push (au seul destinataire) : avec le CA. Cloche : SANS le CA — la
+      // policy de staff_notifications ouvre la ligne à tout le staff du club,
+      // et une équipe d'organisateur n'a pas toujours l'accès à l'argent.
+      const hasMoney = d.revenue >= 1 && d.entered > 0;
+      const variant = d.entered <= 0 ? "unscanned" : hasMoney ? "default" : "free";
+      const bellVariant = d.entered <= 0 ? "unscanned" : "free";
+      const bellVars = { ...vars, revenue: "" };
       const path = d.venue_id
         ? `/owner/analytics?tab=sales&view=event&event=${eventId}`
         : `/organizer-app/analytics?tab=sales&view=event&event=${eventId}`;
 
       // 1. La cloche, dans la langue du destinataire.
       const lang = await resolveUserLang(admin, d.recipient);
-      const tpl = renderAutoTpl("night_recap", lang, vars, variant);
+      const tpl = renderAutoTpl("night_recap", lang, bellVars, bellVariant);
       if (tpl) {
         const common = {
           p_type: "night_recap", p_title: tpl.title, p_message: tpl.body, p_priority: "normal",
           p_reference_type: "event", p_reference_id: eventId, p_event_id: eventId,
-          p_metadata: { entered: d.entered, expected: d.expected, revenue: d.revenue, spend: d.spend },
+          p_metadata: { entered: d.entered, expected: d.expected },
           p_dedup_key: `night_recap:${eventId}`,
         };
         const { error: notifErr } = d.venue_id
@@ -112,11 +118,18 @@ function recapVars(d: NightRecap): Record<string, AutoPushVar> {
       es: `, ${sign}${abs} % de accesos vs ${d.prev_title}`,
     };
   }
+  const revenue = eur(d.revenue, 0);
   return {
     event: d.title,
     entered: n(d.entered),
     expected: n(d.expected),
-    revenue: eur(d.revenue, 0),
+    // Variante « default » : le montant seul ; « unscanned » : une incise qui
+    // porte sa ponctuation, vide sans CA.
+    revenue: d.entered > 0
+      ? revenue
+      : d.revenue >= 1
+        ? { fr: `, ${revenue.fr} de CA`, en: `, ${revenue.en} revenue`, es: `, ${revenue.es} de facturación` }
+        : "",
     spend: d.spend ? eur(d.spend, 2) : "",
     compare,
   };

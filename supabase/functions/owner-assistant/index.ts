@@ -123,19 +123,19 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Ventes du jour et remplissage de chaque soirée",
     keywords: ["aujourd'hui", "today", "hoy", "ventes du jour", "combien vendu", "how many sold", "remplissage", "fill rate", "jauge", "capacité", "j-2", "compte à rebours", "countdown", "prochaines soirées", "upcoming nights", "ça bouge", "release", "visites de la soirée", "ca de la soirée"],
     path: "/owner/events",
-    snippet: "Chaque soirée à venir porte ses chiffres de vente, à deux endroits : la carte de la soirée sur la page Événements, et le bloc « Vos prochaines soirées » du Dashboard (cinq prochaines dates). On y lit le compte à rebours (J-2, Demain, Ce soir, En cours), le CA de la soirée (frais Yuno et remboursements déduits, avant frais Stripe) avec ce qui est entré AUJOURD'HUI en vert, une jauge par pilier ouvert — Billets, Tables, Guest list — avec vendus / capacité, « +N aujourd'hui » et le % de remplissage (rouge quand c'est complet), et les visites de la page de la soirée. « Aujourd'hui » = depuis minuit, heure de la soirée ; « rien aujourd'hui » en gris veut dire aucune vente depuis minuit. Une soirée gratuite n'affiche pas de CA, seulement ses inscrits. Les chiffres se rafraîchissent chaque minute (« Mis à jour à »), chaque ⓘ donne la définition exacte, et « Voir les stats » ouvre le Rapport de la soirée (/owner/analytics?tab=sales&view=event&event=<id>). Au-dessus, le Dashboard montre « Tes 4 dernières soirées » : CA, Entrées, Dépense par tête et Clients des quatre dernières soirées passées, comparés aux quatre d'avant — les MÊMES chiffres que Ventes › Vue d'ensemble, un clic y mène. Un membre d'équipe sans accès à l'argent voit les jauges mais jamais le CA. Même chose côté organisateur (/organizer-app/events et son Dashboard).",
+    snippet: "Chaque soirée à venir porte ses chiffres de vente, à deux endroits : la carte de la soirée sur la page Événements, et le bloc « Vos prochaines soirées » du Dashboard (cinq prochaines dates). On y lit le compte à rebours (J-2, Demain, Ce soir, En cours), le CA de la soirée (frais Yuno et remboursements déduits, avant frais Stripe) avec ce qui est entré AUJOURD'HUI en vert, une jauge par pilier ouvert — Billets, Tables, Guest list — avec vendus / capacité, « +N aujourd'hui » et le % de remplissage (rouge quand c'est complet), et les visites de la page de la soirée. « Aujourd'hui » = depuis minuit, heure de la soirée ; « rien aujourd'hui » en gris veut dire aucune vente depuis minuit. Une soirée gratuite n'affiche pas de CA, seulement ses inscrits. Les chiffres se rafraîchissent chaque minute (« Mis à jour à »), chaque ⓘ donne la définition exacte, et « Voir les stats » ouvre le Rapport de la soirée (/owner/analytics?tab=sales&view=event, puis la soirée dans le sélecteur). Au-dessus, le Dashboard montre « Tes 4 dernières soirées » : CA, Entrées, Dépense par tête et Clients des quatre dernières soirées passées, comparés aux quatre d'avant — les MÊMES chiffres que Ventes › Vue d'ensemble, un clic y mène. Un membre d'équipe sans accès à l'argent voit les jauges mais jamais le CA. Même chose côté organisateur (/organizer-app/events et son Dashboard).",
   },
   "night-target-recap": {
     title: "Objectif de soirée, « À retenir », repères et bilan du lendemain",
     keywords: ["objectif", "objectif d'entrées", "target", "cible", "vais-je remplir", "remplir", "rythme", "pace", "projection", "à retenir", "takeaways", "constat", "repères", "markers", "annotations", "bilan du lendemain", "récap", "recap", "bilan de la soirée", "lendemain"],
-    path: "/owner/analytics?tab=sales&view=event&event=<id>",
+    path: "/owner/analytics?tab=sales&view=event",
     snippet: "Dans le rapport d'une soirée à venir, « Fixer un objectif d'entrées » sous les jauges : le rapport dit alors « Objectif 180 entrées : 90 attendus à J-3 » et, au rythme de la dernière soirée TERMINÉE du club, où elle finira (« Au rythme de The Revival, tu finirais vers 154 : il en manquerait 26 ») ; le crayon le modifie ou le retire, et après la soirée l'objectif se compare aux entrées scannées. « À retenir » (sous la première phrase de Ventes et du rapport) = jusqu'à trois constats calculés par Yuno avec un seuil de volume (présence faible, guest list qui ne vient pas, dépense par tête qui bouge de 10 % ou plus, email ou push qui a fait 20 % des ventes, achats du jour J, public neuf ou d'habitués) ; un clic mène à la preuve. La courbe « Comment évoluent mes ventes ? » porte des repères : publication, ouverture d'un nouveau tarif, chaque email et push de la soirée. Le lendemain à partir de 11 h, la cloche de la Console affiche le bilan de la soirée (entrées / attendus, CA, dépense par tête, écart avec la précédente) — et un push Yuno Pro quand Yuno l'a activé.",
   },
   "event-report": {
     title: "Le rapport d'une soirée (Analytics › Ventes › Par soirée)",
     keywords: ["rapport de soirée", "stats de la soirée", "statistiques soirée", "night report", "comparer", "comparer avec", "compare", "courbe", "j-5", "en avance", "ahead", "détail des ventes", "paliers", "nouveaux contacts", "new contacts", "habitués", "qu'est-ce qui a fait vendre", "email de la soirée", "push de la soirée", "liens suivis", "sources", "visites de la soirée", "conversion"],
     path: "/owner/analytics?tab=sales&view=event",
-    snippet: "Analytics › Ventes › Par soirée ouvre le rapport d'UNE soirée (lien : /owner/analytics?tab=sales&view=event&event=<id>, aussi via « Voir les stats » sur la liste des soirées et le Dashboard). D'abord UNE phrase : avant la soirée « 92 billets vendus à J-3 sur 650. C'est 21 de plus que The Revival au même moment » ; après « 336 entrées sur 448 attendus (75 %). 10 347 € de CA, 30,80 € par tête ». La soirée comparée est la précédente par défaut, changeable dans « Comparer avec ». Après la soirée, « Bilan complet » replié (note /10, à retenir, déroulé, public, Night Report IA, notes). Puis « Où en sont mes ventes ? » (« Qu'est-ce qui s'est vendu ? » après) : le CA et sa répartition, des jauges vendu / capacité pour Billets, Tables, Guest list avec un trait = où en était la soirée comparée au même J-N (son total après la soirée), et pour le club la projection en une ligne (« ≈ 109 entrées, 17 % de la salle, en retard sur le rythme habituel ») ; puis le Détail des ventes (chaque palier, formule et liste, statut, jauge, CA). Puis la courbe alignée sur J-N, « D'où viennent les ventes ? » (visites par source avec achats, part des visites qui achètent, canaux, liens suivis, emails et push de la soirée, vente rattachée sur clic → achat < 72 h), « Qui achète ? » (nouveaux vs habitués, âge et sexe seulement au-delà de 10 personnes connues), et la « Prévision détaillée » repliée (Hype Score, club, avant la soirée). Une soirée sans aucune vente ni entrée n'est pas notée : une phrase le dit.",
+    snippet: "Analytics › Ventes › Par soirée ouvre le rapport d'UNE soirée (lien : /owner/analytics?tab=sales&view=event puis la soirée dans le sélecteur ; aussi via « Voir les stats » sur la liste des soirées et le Dashboard). D'abord UNE phrase : avant la soirée « 92 billets vendus à J-3 sur 650. C'est 21 de plus que The Revival au même moment » ; après « 336 entrées sur 448 attendus (75 %). 10 347 € de CA, 30,80 € par tête ». La soirée comparée est la précédente par défaut, changeable dans « Comparer avec ». Après la soirée, « Bilan complet » replié (note /10, à retenir, déroulé, public, Night Report IA, notes). Puis « Où en sont mes ventes ? » (« Qu'est-ce qui s'est vendu ? » après) : le CA et sa répartition, des jauges vendu / capacité pour Billets, Tables, Guest list avec un trait = où en était la soirée comparée au même J-N (son total après la soirée), et pour le club la projection en une ligne (« ≈ 109 entrées, 17 % de la salle, en retard sur le rythme habituel ») ; puis le Détail des ventes (chaque palier, formule et liste, statut, jauge, CA). Puis la courbe alignée sur J-N, « D'où viennent les ventes ? » (visites par source avec achats, part des visites qui achètent, canaux, liens suivis, emails et push de la soirée, vente rattachée sur clic → achat < 72 h), « Qui achète ? » (nouveaux vs habitués, âge et sexe seulement au-delà de 10 personnes connues), et la « Prévision détaillée » repliée (Hype Score, club, avant la soirée). Une soirée sans aucune vente ni entrée n'est pas notée : une phrase le dit.",
   },
   "ticketing-modes": {
     title: "Modes de billetterie",
@@ -2021,13 +2021,16 @@ async function executeTool(
         }
         // Conversions comptées dans promoter_conversions (la colonne
         // `promoters.total_conversions` n'existe pas).
-        const { data: convRows } = await supabase
-          .from("promoter_conversions")
-          .select("promoter_id")
-          .in("promoter_id", promoters.map((p: any) => p.id))
-          .limit(10000);
+        // Un compte exact par promoteur (une requête « head » chacun) : une
+        // liste de lignes serait tronquée à 1 000 par PostgREST.
         const convCount = new Map<string, number>();
-        for (const c of convRows ?? []) convCount.set(c.promoter_id, (convCount.get(c.promoter_id) ?? 0) + 1);
+        await Promise.all(promoters.map(async (p: any) => {
+          const { count } = await supabase
+            .from("promoter_conversions")
+            .select("id", { count: "exact", head: true })
+            .eq("promoter_id", p.id);
+          convCount.set(p.id, count ?? 0);
+        }));
         promoters.sort((a: any, b: any) => (convCount.get(b.id) ?? 0) - (convCount.get(a.id) ?? 0));
 
         return JSON.stringify({
@@ -2490,11 +2493,23 @@ async function handleNextBestActions(
     // incrémenté que par le checkout et a déjà fait écrire « 0 billet vendu »
     // à l'IA au-dessus d'une soirée affichée à 84 / 650.
     const ids = events.map((e: any) => e.id);
+    // PostgREST rend au plus 1 000 lignes par requête : on pagine, sinon une
+    // grosse guest list serait comptée à 1 000 et l'IA contredirait l'écran.
+    const allRows = async (build: (from: number, to: number) => any): Promise<{ data: any[] }> => {
+      const out: any[] = [];
+      for (let from = 0; from < 50_000; from += 1000) {
+        const { data, error } = await build(from, from + 999);
+        if (error || !data?.length) break;
+        out.push(...data);
+        if (data.length < 1000) break;
+      }
+      return { data: out };
+    };
     const [roundsRes, ticketsRes, tablesRes, glRes] = await Promise.all([
       supabase.from("ticket_rounds").select("event_id, max_tickets").in("event_id", ids),
-      supabase.from("tickets").select("event_id, quantity").in("event_id", ids).in("status", ["paid", "used"]),
-      supabase.from("table_reservations").select("event_id").in("event_id", ids).in("status", ["paid", "confirmed"]),
-      supabase.from("guest_list_entries").select("id, guest_lists!inner(event_id)").in("guest_lists.event_id", ids).neq("status", "cancelled"),
+      allRows((f, t) => supabase.from("tickets").select("event_id, quantity").in("event_id", ids).in("status", ["paid", "used"]).order("id").range(f, t)),
+      allRows((f, t) => supabase.from("table_reservations").select("event_id").in("event_id", ids).in("status", ["paid", "confirmed"]).order("id").range(f, t)),
+      allRows((f, t) => supabase.from("guest_list_entries").select("id, guest_lists!inner(event_id)").in("guest_lists.event_id", ids).neq("status", "cancelled").order("id").range(f, t)),
     ]);
     const sumBy = (rows: any[] | null, key: (r: any) => string, val: (r: any) => number) => {
       const m = new Map<string, number>();

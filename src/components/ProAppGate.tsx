@@ -77,7 +77,7 @@ function WebOnlyNotice() {
         <p className="text-sm text-white/60 leading-relaxed mb-8 break-words">{t('proapp.webOnlyBody')}</p>
         <div className="space-y-3">
           <button
-            onClick={() => { void openOnWebWithSession(location.pathname); }}
+            onClick={() => { void openOnWebWithSession(location.pathname + location.search); }}
             className="w-full min-h-[44px] rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
           >
             {t('natGate.openWeb')}

@@ -113,11 +113,19 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
         en: { title: "{event}: last night in numbers 🌙", body: "{entered} entries out of {expected} expected{compare}. {revenue} revenue, {spend} per head." },
         es: { title: "El balance de {event} 🌙", body: "{entered} accesos de {expected} esperados{compare}. {revenue} de facturación, {spend} por persona." },
       },
-      // Soirée gratuite (guest list seule) : pas de CA à annoncer.
+      // Soirée gratuite (guest list seule), et la cloche de la Console (lisible
+      // par tout le staff du club : jamais de CA dedans).
       free: {
         fr: { title: "Le bilan de {event} 🌙", body: "{entered} entrées sur {expected} attendus{compare}. Le rapport complet est prêt." },
         en: { title: "{event}: last night in numbers 🌙", body: "{entered} entries out of {expected} expected{compare}. The full report is ready." },
         es: { title: "El balance de {event} 🌙", body: "{entered} accesos de {expected} esperados{compare}. El informe completo está listo." },
+      },
+      // Porte non scannée : « 0 entrée » serait faux (pas scanné ≠ pas venu).
+      // {revenue} est vide ou porte sa ponctuation (« , 2 400 € de CA »).
+      unscanned: {
+        fr: { title: "Le bilan de {event} 🌙", body: "{expected} attendus{revenue}. Aucune entrée n'a été scannée à la porte : le rapport complet est prêt." },
+        en: { title: "{event}: last night in numbers 🌙", body: "{expected} expected{revenue}. No entry was scanned at the door: the full report is ready." },
+        es: { title: "El balance de {event} 🌙", body: "{expected} esperados{revenue}. No se escaneó ningún acceso en la puerta: el informe completo está listo." },
       },
     },
   },
