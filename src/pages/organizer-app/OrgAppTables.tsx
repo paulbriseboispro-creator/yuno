@@ -172,6 +172,9 @@ export default function OrgAppTables() {
     if (e.event_mode === 'org_hosted') return { label: tt('Gérées par le club', 'Managed by the club', 'Gestionadas por el club'), tone: 'muted', icon: Lock };
     if (e.tables_enabled && e.tables_mode === 'elite') return { label: tt('Plan interactif', 'Interactive plan', 'Plano interactivo'), tone: 'success', icon: MapIcon };
     if (e.tables_enabled && e.tables_mode === 'basic') return { label: tt('Tables basic', 'Basic tables', 'Mesas basic'), tone: 'info', icon: Crown };
+    // Collab menée par le club : la vente est ouverte, mais sur les formules et
+    // le plan DU CLUB (aucun mode posé côté soirée) — pas « Non activées ».
+    if (e.tables_enabled && e.venue_id) return { label: tt('Formules du club', "Club's packs", 'Packs del club'), tone: 'info', icon: Crown };
     return { label: tt('Non activées', 'Not enabled', 'No activadas'), tone: 'warn', icon: Sparkles };
   };
 
