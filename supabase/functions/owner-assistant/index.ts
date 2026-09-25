@@ -1080,6 +1080,25 @@ type RoleRow = { role: string };
 interface OrderAmounts { total: Amount; service_fee: Amount }
 interface TicketAmounts { total_price: Amount; service_fee: Amount; insurance_fee: Amount }
 interface TableAmounts { total_price: Amount; service_fee: Amount; management_fee: Amount }
+
+// PostgREST rend au plus 1 000 lignes par requête : toute somme d'argent ou
+// tout décompte fait sur des lignes passe par ici, sinon au-delà de 1 000
+// ventes l'IA annonce un CA plus bas que l'écran. Le constructeur reçoit la
+// tranche à lire et doit trier sur une clé stable (`order("id")`). Une erreur
+// remonte : un chiffre partiel ne doit jamais être donné comme un total.
+async function fetchAllRows<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 100_000; from += 1000) {
+    const { data, error } = await build(from, from + 999);
+    if (error) throw error instanceof Error ? error : new Error(String((error as { message?: unknown }).message ?? error));
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out;
+}
 // Ligne d'`orders.items` (jsonb) : les deux nommages coexistent.
 interface OrderItem {
   name?: string;
@@ -1357,39 +1376,41 @@ async function executeTool(
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
-        if (periodEnd) oq = oq.lt("created_at", periodEnd);
-        const ordersRes = await oq;
+        const ordersData = await fetchAllRows<OrderAmounts>((f, t) => {
+          let oq = supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+          if (periodEnd) oq = oq.lt("created_at", periodEnd);
+          return oq.order("id").range(f, t);
+        });
 
         let ticketsData: TicketAmounts[] = [];
-        let ticketsCount = 0;
         if (eventIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("status", "paid").in("event_id", eventIds).gte("created_at", since);
-          if (periodEnd) tq = tq.lt("created_at", periodEnd);
-          const tr = await tq;
-          ticketsData = tr.data || [];
-          ticketsCount = tr.count || 0;
+          ticketsData = await fetchAllRows<TicketAmounts>((f, t) => {
+            let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("status", "paid").in("event_id", eventIds).gte("created_at", since);
+            if (periodEnd) tq = tq.lt("created_at", periodEnd);
+            return tq.order("id").range(f, t);
+          });
         }
+        const ticketsCount = ticketsData.length;
 
         let tablesData: TableAmounts[] = [];
-        let tablesCount = 0;
         if (zoneIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee", { count: "exact" }).eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since);
-          if (periodEnd) trq = trq.lt("created_at", periodEnd);
-          const tres = await trq;
-          tablesData = tres.data || [];
-          tablesCount = tres.count || 0;
+          tablesData = await fetchAllRows<TableAmounts>((f, t) => {
+            let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since);
+            if (periodEnd) trq = trq.lt("created_at", periodEnd);
+            return trq.order("id").range(f, t);
+          });
         }
+        const tablesCount = tablesData.length;
 
         const drinksRes = await supabase.from("drinks").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("active", true);
 
-        const ord = calcOrdersRevenue(ordersRes.data || []);
+        const ord = calcOrdersRevenue(ordersData);
         const tik = calcTicketsRevenue(ticketsData);
         const tab = calcTablesRevenue(tablesData);
 
         return JSON.stringify({
           period: args.period,
-          orders: { count: ordersRes.count || 0, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          orders: { count: ordersData.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
           tickets: { count: ticketsCount, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
           tables: { count: tablesCount, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           active_drinks: drinksRes.count || 0,
@@ -1407,31 +1428,37 @@ async function executeTool(
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const znIds = (venueZns || []).map((z: IdRow) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
-        if (periodEnd) oq = oq.lt("created_at", periodEnd);
-        const ordersRes = await oq;
+        const ordersData = await fetchAllRows<OrderAmounts>((f, t) => {
+          let oq = supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+          if (periodEnd) oq = oq.lt("created_at", periodEnd);
+          return oq.order("id").range(f, t);
+        });
 
         let ticketsData: TicketAmounts[] = [];
         if (evtIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("status", "paid").in("event_id", evtIds).gte("created_at", since);
-          if (periodEnd) tq = tq.lt("created_at", periodEnd);
-          ticketsData = (await tq).data || [];
+          ticketsData = await fetchAllRows<TicketAmounts>((f, t) => {
+            let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("status", "paid").in("event_id", evtIds).gte("created_at", since);
+            if (periodEnd) tq = tq.lt("created_at", periodEnd);
+            return tq.order("id").range(f, t);
+          });
         }
 
         let tablesData: TableAmounts[] = [];
         if (znIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", znIds).gte("created_at", since);
-          if (periodEnd) trq = trq.lt("created_at", periodEnd);
-          tablesData = (await trq).data || [];
+          tablesData = await fetchAllRows<TableAmounts>((f, t) => {
+            let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", znIds).gte("created_at", since);
+            if (periodEnd) trq = trq.lt("created_at", periodEnd);
+            return trq.order("id").range(f, t);
+          });
         }
 
-        const ord = calcOrdersRevenue(ordersRes.data || []);
+        const ord = calcOrdersRevenue(ordersData);
         const tik = calcTicketsRevenue(ticketsData);
         const tab = calcTablesRevenue(tablesData);
 
         return JSON.stringify({
           period: args.period,
-          orders: { count: (ordersRes.data || []).length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          orders: { count: ordersData.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
           tickets: { count: ticketsData.length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
           tables: { count: tablesData.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
@@ -1557,30 +1584,28 @@ async function executeTool(
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
 
-        const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since).lt("created_at", until);
+        const ordersData = await fetchAllRows<OrderAmounts>((f, t) => supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since).lt("created_at", until).order("id").range(f, t));
         const pendingRes = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("status", "paid").is("served_at", null).gte("created_at", since).lt("created_at", until);
 
         let ticketsData: (TicketAmounts & { entry_scanned: boolean | null })[] = [];
         let ticketsScanned = 0;
         if (eventIds.length > 0) {
-          const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, entry_scanned").eq("status", "paid").in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
-          ticketsData = tr.data || [];
+          ticketsData = await fetchAllRows<TicketAmounts & { entry_scanned: boolean | null }>((f, t) => supabase.from("tickets").select("total_price, service_fee, insurance_fee, entry_scanned").eq("status", "paid").in("event_id", eventIds).gte("created_at", since).lt("created_at", until).order("id").range(f, t));
           ticketsScanned = ticketsData.filter((t) => t.entry_scanned).length;
         }
 
         let tablesData: TableAmounts[] = [];
         if (zoneIds.length > 0) {
-          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
-          tablesData = tres.data || [];
+          tablesData = await fetchAllRows<TableAmounts>((f, t) => supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until).order("id").range(f, t));
         }
 
-        const ord = calcOrdersRevenue(ordersRes.data || []);
+        const ord = calcOrdersRevenue(ordersData);
         const tik = calcTicketsRevenue(ticketsData);
         const tab = calcTablesRevenue(tablesData);
 
         return JSON.stringify({
           window: { from: since, to: until },
-          orders: { count: ordersRes.count || 0, pending: pendingRes.count || 0, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          orders: { count: ordersData.length, pending: pendingRes.count || 0, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
           tickets: { sold: ticketsData.length, scanned: ticketsScanned, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
           tables: { count: tablesData.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
@@ -1833,18 +1858,18 @@ async function executeTool(
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (zones || []).map((z: IdRow) => z.id);
 
-        const [roundsRes, ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
+        const [roundsRes, ticketsRows, ordersRows, tablesRows] = await Promise.all([
           supabase.from("ticket_rounds").select("id, name, price, max_tickets, tickets_sold, is_active").eq("event_id", args.event_id).order("position"),
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("event_id", args.event_id).eq("status", "paid"),
-          supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
+          fetchAllRows<TicketAmounts>((f, t) => supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid").order("id").range(f, t)),
+          fetchAllRows<OrderAmounts>((f, t) => supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid").order("id").range(f, t)),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
-            : Promise.resolve({ data: [] }),
+            ? fetchAllRows<TableAmounts>((f, t) => supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds).order("id").range(f, t))
+            : Promise.resolve([] as TableAmounts[]),
         ]);
 
-        const tik = calcTicketsRevenue(ticketsDataRes.data || []);
-        const ord = calcOrdersRevenue(ordersDataRes.data || []);
-        const tab = calcTablesRevenue(tablesDataRes.data || []);
+        const tik = calcTicketsRevenue(ticketsRows);
+        const ord = calcOrdersRevenue(ordersRows);
+        const tab = calcTablesRevenue(tablesRows);
 
         const now = new Date().toISOString();
         let status = "🔜 À venir";
@@ -1860,11 +1885,11 @@ async function executeTool(
             ticket_selling_mode: evt.ticket_selling_mode, event_status: status,
           },
           ticket_rounds: roundsRes.data || [],
-          tickets_sold: ticketsDataRes.count || 0,
+          tickets_sold: ticketsRows.length,
           revenue: {
-            orders: { count: (ordersDataRes.data || []).length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
-            tickets: { count: (ticketsDataRes.data || []).length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
-            tables: { count: (tablesDataRes.data || []).length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
+            orders: { count: ordersRows.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+            tickets: { count: ticketsRows.length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
+            tables: { count: tablesRows.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
             total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
             total_ca_net: r2(ord.caNet + tik.caNet + tab.caNet),
           },
@@ -1879,24 +1904,24 @@ async function executeTool(
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (zones || []).map((z: IdRow) => z.id);
 
-        const [ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid"),
-          supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
+        const [ticketsRows, ordersRows, tablesRows] = await Promise.all([
+          fetchAllRows<TicketAmounts>((f, t) => supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid").order("id").range(f, t)),
+          fetchAllRows<OrderAmounts>((f, t) => supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid").order("id").range(f, t)),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
-            : Promise.resolve({ data: [] }),
+            ? fetchAllRows<TableAmounts>((f, t) => supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds).order("id").range(f, t))
+            : Promise.resolve([] as TableAmounts[]),
         ]);
 
-        const tik = calcTicketsRevenue(ticketsDataRes.data || []);
-        const ord = calcOrdersRevenue(ordersDataRes.data || []);
-        const tab = calcTablesRevenue(tablesDataRes.data || []);
+        const tik = calcTicketsRevenue(ticketsRows);
+        const ord = calcOrdersRevenue(ordersRows);
+        const tab = calcTablesRevenue(tablesRows);
 
         return JSON.stringify({
           event_id: args.event_id,
           event_title: evt.title,
-          orders: { count: (ordersDataRes.data || []).length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
-          tickets: { count: (ticketsDataRes.data || []).length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
-          tables: { count: (tablesDataRes.data || []).length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
+          orders: { count: ordersRows.length, ca_club: r2(ord.caClub), ca_net: r2(ord.caNet) },
+          tickets: { count: ticketsRows.length, ca_club: r2(tik.caClub), ca_net: r2(tik.caNet) },
+          tables: { count: tablesRows.length, ca_club: r2(tab.caClub), ca_net: r2(tab.caNet) },
           total_ca_club: r2(ord.caClub + tik.caClub + tab.caClub),
           total_ca_net: r2(ord.caNet + tik.caNet + tab.caNet),
         });
@@ -2091,9 +2116,9 @@ async function executeTool(
         const limit = args.limit || 10;
         const [topCustomers, totalCustomers] = await Promise.all([
           supabase.from("venue_customers").select("id, first_name, last_name, email, total_spent, order_count, ticket_count, table_count, last_visit_at").eq("venue_id", venueId).order("total_spent", { ascending: false }).limit(limit),
-          supabase.from("venue_customers").select("total_spent").eq("venue_id", venueId),
+          fetchAllRows<{ total_spent: Amount }>((f, t) => supabase.from("venue_customers").select("total_spent").eq("venue_id", venueId).order("id").range(f, t)),
         ]);
-        const customers = totalCustomers.data || [];
+        const customers = totalCustomers;
         const totalSpent = customers.reduce((s: number, c: { total_spent: Amount }) => s + (c.total_spent || 0), 0);
         const avgSpent = customers.length > 0 ? totalSpent / customers.length : 0;
         const segments = {
@@ -2120,8 +2145,8 @@ async function executeTool(
       // ─── TOP DRINKS ───
       case "get_top_drinks": {
         const since = getPeriodFilter(args.period || "30d");
-        const { data: orders } = await supabase.from("orders").select("items").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
-        if (!orders || orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
+        const orders = await fetchAllRows<{ items: unknown }>((f, t) => supabase.from("orders").select("items").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since).order("id").range(f, t));
+        if (orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
         const drinkSales: Record<string, { name: string; qty: number; revenue: number }> = {};
         for (const order of orders) {
           const items = order.items as OrderItem[];
@@ -2631,7 +2656,7 @@ async function handleNextBestActions(
       .eq("source", "manual").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("email_campaigns").select("created_at").eq("venue_id", venueId)
       .eq("status", "sent").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("venue_customers").select("last_visit_at").eq("venue_id", venueId).eq("is_banned", false).limit(2000),
+    fetchAllRows<{ last_visit_at: string | null }>((f, t) => supabase.from("venue_customers").select("last_visit_at").eq("venue_id", venueId).eq("is_banned", false).order("id").range(f, t)).then((data) => ({ data }), () => ({ data: [] as { last_visit_at: string | null }[] })),
     supabase.from("venue_push_automations").select("automation_key, enabled").eq("venue_id", venueId),
   ]);
 
@@ -2705,7 +2730,7 @@ async function handleNextBestActions(
 
   const autos = automationsRes.data || [];
   const autosOn = autos.filter((a: { enabled: boolean }) => a.enabled).length;
-  lines.push(`Notifications automatiques : ${autosOn}/4 activées.`);
+  lines.push(`Notifications automatiques : ${autosOn}/${autos.length} activées.`);
 
   const systemPrompt = `Tu es le conseiller opérationnel quotidien d'un club sur Yuno. On te donne l'état réel du club ce matin.
 Propose EXACTEMENT 3 actions concrètes et priorisées à faire AUJOURD'HUI, la plus impactante d'abord, en ${language === "fr" ? "français" : language === "es" ? "espagnol" : "anglais"}.
