@@ -760,6 +760,32 @@ billet » quand le tableau en montrait 84). Règles :
   `LEGACY_VIEWS` : `sources` → `page`, `tastes` → `demographics`).
   `get_page_traffic` rend les achats (`ordered`) de la page et de chaque
   source (migration `20260925150000`) : la conversion s'affiche dès 10 visites.
+- **Lot 7, les nouveautés (25/09)** :
+  - **Objectif de soirée** = `events.entry_target` (migration `20260925170000`),
+    posé depuis le Rapport (`ReportTarget`, écriture directe sous la RLS
+    d'`events`). Mesuré sur les ATTENDUS avant la soirée (`series[].people`,
+    même définition que `door.expected`), sur les entrées après. Le rythme
+    (`paceProjection`, testé) prend la soirée comparée si elle est terminée,
+    sinon `report.pace` : la dernière soirée TERMINÉE de la portée (≥ 20
+    attendus), choisie serveur. Sans objectif, cette ligne de rythme remplace
+    la projection Hype — jamais deux projections côte à côte.
+  - **« À retenir »** = constats calculés SERVEUR, 0 à 3, chacun avec un seuil
+    de volume : `get_event_report.takeaways` (clé, ton, section qui prouve,
+    paramètres ; texte `er.tk.*`) et `get_sales_takeaways` (Ventes, qui rend la
+    vue d'ensemble COMPLÉTÉE : l'écran ne l'appelle qu'elle ; texte `so.tk.*`).
+    Bloc `Takeaways` du kit. Un nouveau constat se pose en SQL avec son seuil,
+    jamais calculé au front.
+  - **Repères** de la courbe J-N = `get_event_report.markers` (publication,
+    1re vente d'un palier qui n'est pas le premier, emails et push de la
+    soirée), clés `er.mk.*`.
+  - **Bilan du lendemain** (migration `20260925180000`,
+    `_shared/night-recap.ts`, drainé par `process-scheduled-campaigns`) :
+    11 h → 20 h Paris, soirées finies depuis 3 à 30 h, dédup
+    `night_recap_log` réclamé AVANT l'envoi. Cloche de la Console toujours
+    (`night_recap`, club via `emit_staff_notification`, orga via
+    `emit_organizer_notification`) ; push Yuno Pro par la clé AUTO_PUSH
+    `night_recap`, SEMÉE ÉTEINTE dans `/admin/notifications`, jamais pour la
+    démo.
 - **Démo, soirées PASSÉES** : `scripts/demo/seed-past-nights.sql` (rejouable,
   45 derniers jours, borné à `demo_event_ids()`) sème ventes et entrées des
   soirées passées — sans lui Ventes et « Tes 4 dernières soirées » sont vides.

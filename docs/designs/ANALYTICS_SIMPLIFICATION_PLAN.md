@@ -389,7 +389,7 @@ proxy importée dans `~/.pki/nssdb` avec `certutil`).
 | 4 | Livré. Phrase-réponse, jauges avec trait de référence, prévision en une ligne, trafic + canaux sous une question, verdict et prévision repliés, état vide, âge / sexe sous seuil masqués. | `bc1174e` |
 | 5 | Livré. Trafic 3 → 2 (Sources dans Ma page, conversion et achats par source). **Écart** : Communauté 5 → 4 (Vue d'ensemble · Abonnés · Achats · Public avec Goûts) — Achats garde sa vue, resserrée à quatre chiffres. | `2906fa3` |
 | 6 | Livré. Service VIP à quatre chiffres + analyse repliée, libellés Clients, guest list « attendus », 12 composants morts supprimés. | `e25538b` |
-| 7 | Doc, mode d'emploi, Assistant Console et CLAUDE.md à jour. **Nouveautés NON faites** : objectif de soirée + rythme, « À retenir », récap du lendemain, repères sur la courbe — prochain chantier. | lot 7 |
+| 7 | Doc, mode d'emploi, Assistant Console et CLAUDE.md à jour ; nouveautés livrées : objectif de soirée + rythme (dernière soirée terminée), « À retenir » serveur (Rapport + Ventes), repères sur la courbe J-N, bilan du lendemain (cloche + push Yuno Pro, clé éteinte par défaut). **Écart** : pas d'email hebdo — le push hebdo existant (`audience_weekly_recap`) reste le récap de la semaine. | `df86f11`, `bb77864`, `e7e35ed` |
 
 ---
 
