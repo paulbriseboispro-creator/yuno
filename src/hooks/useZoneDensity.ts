@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { fetchPublicVenues, haversineKm, toLocalDate, type PublicVenueRow } from '@/lib/explore/catalog';
 import type { EventCardData } from '@/components/explore/EventCard';
+import { affiliateEventEndAt, currentNightDate } from '@/lib/affiliateEventTime';
 
 /**
  * Densité de la zone — pilote la bascule automatique de l'Explore entre le
@@ -119,7 +120,7 @@ async function fetchZoneDensitySource(qc: QueryClient): Promise<DensitySource> {
       .from('affiliate_events')
       .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, tables_only, affiliate_venues(id, name, city, slug, cover_image_url, logo_url, lat, lng)')
       .in('status', ['published', 'featured'])
-      .gte('event_date', toLocalDate(now))
+      .gte('event_date', toLocalDate(now) < currentNightDate() ? toLocalDate(now) : currentNightDate())
       .lte('event_date', toLocalDate(horizon))
       .order('event_date', { ascending: true }),
   ]);
@@ -241,7 +242,7 @@ async function fetchZoneDensitySource(qc: QueryClient): Promise<DensitySource> {
     const venue = ae.affiliate_venues;
     if (!venue) return [];
     const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
-    const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
+    const endAt = affiliateEventEndAt(ae.event_date, ae.start_time, ae.end_time);
     const minPrice = affiliateMinPrice(ae);
     return [{
       id: ae.id,

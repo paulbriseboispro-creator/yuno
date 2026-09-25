@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { EventCardData } from '@/components/explore/EventCard';
 import { affiliateMinPrice } from '@/lib/eventPriceLabel';
+import { affiliateEventEndAt, currentNightDate } from '@/lib/affiliateEventTime';
 
 /** Fraîcheur des référentiels publics (lieux, compteurs) — 5 min, comme le QueryClient. */
 export const PUBLIC_STALE_MS = 5 * 60 * 1000;
@@ -215,7 +216,9 @@ export async function fetchExploreCatalog(
         .from('affiliate_events')
         .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, tables_only, external_ticket_url, affiliate_venues(id, name, city, neighborhood, lat, lng)')
         .in('status', ['published', 'featured'])
-        .gte('event_date', startDate)
+        // La soirée de la nuit en cours (datée d'hier après minuit) reste
+        // chargée jusqu'à 8 h : le filtrage « en cours » se fait au rendu.
+        .gte('event_date', startDate < currentNightDate() ? startDate : currentNightDate())
         .lte('event_date', endDate)
         .order('event_date', { ascending: true }),
     ]);
@@ -359,7 +362,7 @@ export async function fetchExploreCatalog(
     const venue = ae.affiliate_venues;
     if (!venue) return [];
     const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
-    const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
+    const endAt = affiliateEventEndAt(ae.event_date, ae.start_time, ae.end_time);
     const minPrice = affiliateMinPrice(ae);
     return [
       {

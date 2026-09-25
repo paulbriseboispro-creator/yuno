@@ -13,6 +13,7 @@ import { getManualCoords, hasManualCity, setManualLocation, clearManualLocation 
 import { getCurrentPosition } from '@/lib/geolocation';
 import mapboxgl from 'mapbox-gl';
 import { Music, MapPin, Layers } from 'lucide-react';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 const VenueMap = lazy(() => import('@/components/welcome/VenueMap').then(m => ({ default: m.default })));
 
@@ -51,7 +52,7 @@ export default function ClubMap() {
       const windowStart = new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString();
       const windowEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate();
 
       const [venuesRes, eventsRes, affiliateVenuesRes, affiliateEventsRes] = await Promise.all([
         supabase.from('venues').select('id, name, city, latitude, longitude, logo_url'),

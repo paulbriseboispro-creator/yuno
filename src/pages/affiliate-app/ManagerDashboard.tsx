@@ -10,6 +10,7 @@ import {
   AffPage, AffHeading, AffCard, AffCardHeader, AffButton, Pill, AffSpinner, SectionLabel, AffAvatar,
   RED, POS, WARN, T1, T3, BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 type TeamMember = {
   id: string;
@@ -72,7 +73,7 @@ export default function ManagerDashboard() {
   };
 
   const fetchBriefs = async (affId: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = currentNightDate();
     const { data: evs } = await supabase
       .from('affiliate_events')
       .select('id, name, event_date')

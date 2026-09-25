@@ -13,6 +13,7 @@ import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { PoweredByYunoBar, linktreeCtaLabel } from '@/components/linktree/linktreeShared';
 import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
+import { currentNightDate, addDaysToDate, upcomingWeekendDates } from '@/lib/affiliateEventTime';
 
 type DayFilter = 'today' | 'tomorrow' | 'weekend' | null;
 type PriceFilter = 'free' | 'paid' | null;
@@ -164,19 +165,9 @@ function PartnerBadge() {
   );
 }
 
+// Nuit en cours comprise, en heure de Paris/Madrid (cf. affiliateEventTime).
 function getWeekendDates(): string[] {
-  const dates: string[] = [];
-  const now = new Date();
-  for (let offset = 0; offset <= 7; offset++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + offset);
-    const dow = d.getDay();
-    if (dow === 5 || dow === 6 || dow === 0) {
-      dates.push(d.toISOString().split('T')[0]);
-    }
-    if (dates.length >= 3) break;
-  }
-  return dates;
+  return upcomingWeekendDates();
 }
 
 function LinktreeFilters({
@@ -859,7 +850,7 @@ export default function PromoterLinktree() {
 
       setMember(memberData);
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate();
       const { data: linktreeRows, error: linktreeError } = await supabase
         .from('promoter_linktree_events')
         .select('id, affiliate_event_id, promo_link, sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name))')
@@ -925,8 +916,8 @@ export default function PromoterLinktree() {
   const displayName = [member.first_name, member.last_name].filter(Boolean).join(' ') || 'Promoteur';
   const trustStats: TrustStat[] = org?.trust_stats ?? [];
   const allGenres = Array.from(new Set(events.flatMap(e => e.genres))).sort();
-  const todayStr = new Date().toISOString().split('T')[0];
-  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const todayStr = currentNightDate();
+  const tomorrowStr = addDaysToDate(todayStr, 1);
   const weekendDates = getWeekendDates();
 
   const filteredEvents = events.filter(ev => {

@@ -18,6 +18,7 @@ import {
   RED, POS, NEG, T1, T2, T3, C_HI, BORDER, F_BORDER, C_FAINT, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW,
 } from '@/components/affiliate/affiliate-ui';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 type NextEvent = {
   id: string;
@@ -78,7 +79,7 @@ export default function AffiliateDashboard() {
       if (!affRow) { setLoading(false); return; }
       setAff(affRow as any);
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate();
       const since30 = subDays(new Date(), 30).toISOString();
       const since60 = subDays(new Date(), 60).toISOString();
 
@@ -174,7 +175,7 @@ export default function AffiliateDashboard() {
           {/* Next event mini card */}
           {nextEvent && (() => {
             const evDate = parseISO(nextEvent.event_date);
-            const isToday = nextEvent.event_date === new Date().toISOString().split('T')[0];
+            const isToday = nextEvent.event_date === currentNightDate();
             return (
               <div className="flex-none rounded-2xl px-4 py-3"
                 style={{ background: isToday ? 'rgba(232,25,44,0.13)' : 'rgb(var(--ink)/0.04)', border: `1px solid ${isToday ? 'rgba(232,25,44,0.3)' : BORDER}`, minWidth: 120 }}>

@@ -14,6 +14,7 @@ import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { PoweredByYunoBar, linktreeCtaLabel } from '@/components/linktree/linktreeShared';
+import { currentNightDate, addDaysToDate, upcomingWeekendDates } from '@/lib/affiliateEventTime';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -191,19 +192,9 @@ function PartnerBadge({ city }: { city?: string | null }) {
 // Weekend dates helper
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Nuit en cours comprise, en heure de Paris/Madrid (cf. affiliateEventTime).
 function getWeekendDates(): string[] {
-  const dates: string[] = [];
-  const now = new Date();
-  for (let offset = 0; offset <= 7; offset++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + offset);
-    const dow = d.getDay();
-    if (dow === 5 || dow === 6 || dow === 0) {
-      dates.push(d.toISOString().split('T')[0]);
-    }
-    if (dates.length >= 3) break;
-  }
-  return dates;
+  return upcomingWeekendDates();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -841,7 +832,7 @@ export default function AffiliateLinktree() {
         linktree_sort_mode: (aff.linktree_sort_mode ?? 'by_day') as SortMode,
       });
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate();
 
       const [{ data: linktreeItems, error: linktreeError }, yunoRes, curatedYunoRes] = await Promise.all([
         supabase
@@ -943,8 +934,8 @@ export default function AffiliateLinktree() {
   const isYunoInternal = affiliate.type === 'yuno_internal';
   const trustStats = affiliate.trust_stats;
   const allGenres = Array.from(new Set(events.flatMap(e => e.genres))).sort();
-  const todayStr = new Date().toISOString().split('T')[0];
-  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const todayStr = currentNightDate();
+  const tomorrowStr = addDaysToDate(todayStr, 1);
   const weekendDates = getWeekendDates();
 
   const filteredEvents = events.filter(ev => {

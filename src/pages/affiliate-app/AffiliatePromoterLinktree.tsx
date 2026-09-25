@@ -11,6 +11,7 @@ import {
   AffPage, AffHeading, AffCard, AffButton, AffLinkButton, SectionLabel, AffSpinner,
   RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG,
 } from '@/components/affiliate/affiliate-ui';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 const MAX_EVENTS = 15;
 
@@ -112,7 +113,7 @@ export default function AffiliatePromoterLinktree() {
 
     // Toutes les soirées publiées à venir (plus de fenêtre 7 jours) : le
     // promoteur choisit librement ce qu'il met en avant sur son linktree.
-    const today = new Date().toISOString().split('T')[0];
+    const today = currentNightDate();
 
     const { data: upcoming } = await supabase
       .from('affiliate_events')

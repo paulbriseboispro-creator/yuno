@@ -19,6 +19,7 @@ import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill, PromoButton,
   T1, T2, T3, RED, POS, WARN,
 } from '@/components/promoter/promoter-ui';
+import { currentNightDate, addDaysToDate } from '@/lib/affiliateEventTime';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -43,7 +44,7 @@ export default function AgencyDashboard() {
     (async () => {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate();
       const [v, c, ven, ev] = await Promise.all([
         supabase.from('affiliate_visitor_sessions')
           .select('id', { count: 'exact', head: true })
@@ -65,15 +66,13 @@ export default function AgencyDashboard() {
         setExt({ views: v.count ?? 0, clicks: c.count ?? 0, venues: ven.count ?? 0, events: ev.count ?? 0 });
       }
       // Les 7 prochains jours côté externe, pour le strip unifié.
-      const in7 = new Date();
-      in7.setDate(in7.getDate() + 7);
       const { data: week } = await supabase
         .from('affiliate_events')
         .select('id, name, event_date, start_time, affiliate_venues(name)')
         .eq('affiliate_id', affiliateId)
         .in('status', ['published', 'featured'])
         .gte('event_date', today)
-        .lte('event_date', in7.toISOString().split('T')[0])
+        .lte('event_date', addDaysToDate(today, 7))
         .order('event_date')
         .limit(10);
       if (active) {

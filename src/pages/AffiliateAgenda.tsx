@@ -13,6 +13,7 @@ import { MonthLabel } from '@/components/agenda/timeline';
 import { AgendaPosterCard } from '@/components/agenda/AgendaPosterCard';
 import { offerBadgeLabels } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 /* ============================================================
    AffiliateAgenda — l'agenda complet du bras affilié/agence.
@@ -169,7 +170,7 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
     if (!slug) return;
     (async () => {
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = currentNightDate();
 
         let affiliateId: string | null = null;
         let ident: AgendaIdentity | null = null;

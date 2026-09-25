@@ -12,6 +12,7 @@ import {
   FieldLabel, DarkSelect, SegToggle,
   RED, POS, T1, T2, T3, BORDER, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 type EventOption = { id: string; name: string; event_date: string; affiliate_venue_id: string | null };
 type MemberOption = { id: string; display_name: string; venue_scope: string[] | null };
@@ -78,7 +79,7 @@ export default function AffiliateAssignments() {
         .select('id, name, event_date, affiliate_venue_id')
         .eq('affiliate_id', aff.id)
         .in('status', ['published', 'featured'])
-        .gte('event_date', new Date().toISOString().split('T')[0])
+        .gte('event_date', currentNightDate())
         .order('event_date'),
       supabase.from('affiliate_members')
         .select('id, first_name, last_name, venue_scope')

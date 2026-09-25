@@ -13,6 +13,7 @@ import {
   T1, T2, T3, RED, POS, BORDER, C_FAINT, INNER_BG,
   PromoCard, PromoButton, PromoPill, SectionLabel, CopyField,
 } from '@/components/promoter/promoter-ui';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 /**
  * « Ma vitrine » — le hub de la présence publique de l'agence.
@@ -36,7 +37,7 @@ export default function AgencyShowcase() {
     if (!affiliateId || !agency) return;
     let active = true;
     (async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = currentNightDate();
       const [aff, ven, ev, ctr] = await Promise.all([
         (supabase as any).from('affiliates').select('linktree_slug, trust_stats, banner_url').eq('id', affiliateId).maybeSingle(),
         supabase.from('affiliate_venues').select('id', { count: 'exact', head: true })

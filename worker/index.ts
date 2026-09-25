@@ -26,6 +26,7 @@
 
 // Pages villes : mêmes définitions que la SPA (slug, nom, meta) — données pures.
 import { CITY_PAGES } from '../src/data/cityPages';
+import { currentNightDate } from '../src/lib/affiliateEventTime';
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -432,7 +433,8 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
   const cityDef = CITY_PAGES[path.replace(/^\//, '').toLowerCase()];
   if (cityDef && /^\/[a-z-]+$/.test(path)) {
     const cityPat = `ilike.*${encodeURIComponent(cityDef.name)}*`;
-    const todayStr = nowIso.slice(0, 10);
+    // Nuit en cours (Paris/Madrid, jusqu'à 8 h) — miroir de la page publique.
+    const todayStr = currentNightDate();
     const [venues, affVenues] = await Promise.all([
       fetchRows(env, `venues?is_hidden=eq.false&city=${cityPat}&select=id,name,city`),
       fetchRows(env, `affiliate_venues?city=${cityPat}&select=id,slug,name,city`),
@@ -618,13 +620,14 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
   // correcte » et ne les indexait jamais.
   //
   // Mêmes filtres que la page publique (AffiliateEventPage) : `status in (published,
-  // featured)` ET `event_date >= aujourd'hui`. La page REDIRIGE vers l'accueil pour une
+  // featured)` ET `event_date >= nuit en cours` (currentNightDate). La page REDIRIGE vers l'accueil pour une
   // soirée passée — enrichir une URL qui renvoie un humain ailleurs serait du cloaking.
   // ⚠️ `affiliate_events.status` vaut published/featured — vocabulaire DIFFÉRENT
   // d'`events.status` (active/cancelled/postponed).
   if ((m = path.match(/^\/affiliate-event\/([^/?#]+)/))) {
     const slug = decodeURIComponent(m[1]);
-    const todayStr = nowIso.slice(0, 10);
+    // Nuit en cours (Paris/Madrid, jusqu'à 8 h) — miroir de la page publique.
+    const todayStr = currentNightDate();
     const ae = await fetchRow(
       env,
       `affiliate_events?slug=eq.${encodeURIComponent(slug)}&status=in.(published,featured)` +
@@ -776,7 +779,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       ? await fetchRows(
           env,
           `affiliate_events?affiliate_venue_id=eq.${encodeURIComponent(av.id as string)}` +
-            `&status=in.(published,featured)&event_date=gte.${nowIso.slice(0, 10)}` +
+            `&status=in.(published,featured)&event_date=gte.${currentNightDate()}` +
             `&select=slug,name,event_date,start_time&order=event_date.asc&limit=20`,
         )
       : [];
@@ -1432,7 +1435,7 @@ async function buildSitemap(env: Env): Promise<string> {
     // Une soirée partenaire passée REDIRIGE vers l'accueil (AffiliateEventPage) : la
     // soumettre gaspille du budget de crawl et se range en soft-404. Même borne que le
     // builder et que la page.
-    fetchRows(env, `affiliate_events?status=in.(published,featured)&event_date=gte.${new Date().toISOString().slice(0, 10)}&select=slug,updated_at&limit=5000`),
+    fetchRows(env, `affiliate_events?status=in.(published,featured)&event_date=gte.${currentNightDate()}&select=slug,updated_at&limit=5000`),
     fetchRows(env, 'affiliate_venues?is_active=eq.true&select=slug,updated_at&limit=5000'),
   ]);
 
@@ -1531,7 +1534,7 @@ async function submitRecentToIndexNow(env: Env): Promise<void> {
     fetchRows(env, `venues?is_hidden=eq.false&created_at=gte.${since}&select=id&limit=5000`),
     fetchRows(env, `djs?is_active=eq.true&updated_at=gte.${since}&select=slug,handle&limit=5000`),
     fetchRows(env, `organizer_profiles?is_public=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
-    fetchRows(env, `affiliate_events?status=in.(published,featured)&event_date=gte.${new Date().toISOString().slice(0, 10)}&updated_at=gte.${since}&select=slug&limit=5000`),
+    fetchRows(env, `affiliate_events?status=in.(published,featured)&event_date=gte.${currentNightDate()}&updated_at=gte.${since}&select=slug&limit=5000`),
     fetchRows(env, `affiliate_venues?is_active=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
   ]);
   const urls: string[] = [];

@@ -13,6 +13,7 @@ import {
   AffPage, AffHeading, AffCard, AffCardHeader, StatTile, SectionLabel, DarkInput,
   AffButton, AffSpinner, RED, T1, T2, T3, BORDER, C_FAINT,
 } from '@/components/affiliate/affiliate-ui';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 type MemberProfile = {
   id: string;
@@ -191,7 +192,7 @@ export default function AffiliatePromoterDashboard() {
   };
 
   const fetchBriefEvents = async (affiliateId: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = currentNightDate();
     const { data: evs } = await supabase
       .from('affiliate_events')
       .select('id, name, event_date, flyer_url')

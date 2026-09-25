@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EventCard, type EventCardData } from '@/components/explore/EventCard';
 import { Button } from '@/components/ui/button';
+import { affiliateEventEndAt } from '@/lib/affiliateEventTime';
 
 /**
  * /for-you/:id — la page qu'ouvre un push « {count} soirées pour toi ».
@@ -155,7 +156,7 @@ export default function ForYouSelection() {
       const partnerCards: EventCardData[] = ((affRes.data || []) as AffiliateRow[]).map((ae) => {
         const venue = one(ae.affiliate_venues);
         const startAt = `${ae.event_date}T${(ae.start_time || '23:00').substring(0, 5)}:00`;
-        const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
+        const endAt = affiliateEventEndAt(ae.event_date, ae.start_time, ae.end_time);
         return {
           id: ae.id,
           title: ae.name,

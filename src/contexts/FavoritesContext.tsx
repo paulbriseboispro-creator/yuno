@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 export type FavoriteType = 'club' | 'event' | 'drink' | 'dj' | 'affiliate_event' | 'affiliate_venue';
 
@@ -184,7 +185,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         .eq('id', id)
         .single();
 
-      if (affEvent && new Date(affEvent.event_date) < new Date(new Date().toISOString().split('T')[0])) {
+      if (affEvent && affEvent.event_date < currentNightDate()) {
         return 'removed';
       }
     }

@@ -11,6 +11,7 @@ import { CITY_PAGES } from '@/data/cityPages';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { markWebEngaged } from '@/lib/webHome';
 import NotFound from '@/pages/NotFound';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 /**
  * Page ville SEO — /paris, /madrid (routes générées depuis CITY_PAGES dans
@@ -53,7 +54,8 @@ function useCityData(cityName: string) {
       setLoading(true);
       try {
         const nowIso = new Date().toISOString();
-        const todayStr = nowIso.slice(0, 10);
+        // Soirées externes : nuit en cours (jusqu'à 8 h), cf. affiliateEventTime.
+        const todayStr = currentNightDate();
 
         // Clubs natifs de la ville (publics) + clubs affiliés (billetterie externe).
         const [venuesRes, affVenuesRes] = await Promise.all([

@@ -325,10 +325,14 @@ export default function Explore() {
       .map(c => {
         const s = new Date(c.startAt).getTime();
         const e = new Date(c.endAt).getTime();
-        const live = !c.isAffiliate && s <= now && e > now;
-        return { card: c, s, e, live };
+        // Une soirée partenaire en cours reste dans « Ce soir » jusqu'à sa fin
+        // (sans badge live : on ne voit pas sa porte) — elle disparaissait
+        // à son heure d'ouverture.
+        const ongoing = s <= now && e > now;
+        const live = !c.isAffiliate && ongoing;
+        return { card: c, s, e, live, ongoing };
       })
-      .filter(({ s, e, live }) => (live ? includeLive && e > now : s >= lower && s <= upper))
+      .filter(({ s, e, ongoing }) => (ongoing ? includeLive && e > now : s >= lower && s <= upper))
       .map(({ card, live }) => (card.isLive === live ? card : { ...card, isLive: live }));
   }, [dayOutside, dayZoneCards, zoneCards, selectedDate, dateFilter]);
   const allEvents = events;

@@ -9,6 +9,7 @@ import { staggerContainer, staggerItem, spring, tapScale, scaleIn } from '@/lib/
 import { searchNorm } from '@/lib/searchNorm';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
+import { currentNightDate, addDaysToDate } from '@/lib/affiliateEventTime';
 
 /**
  * Requête de recherche publiable dans PostHog : minuscules, ≤ 40 caractères,
@@ -222,12 +223,9 @@ function getDateRange(filter: DateFilter): { start: string; end: string } {
 }
 
 function getAffiliateDateStr(filter: DateFilter): { start: string; end: string } {
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = currentNightDate();
   if (filter === 'today') return { start: todayStr, end: todayStr };
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+  const tomorrowStr = addDaysToDate(todayStr, 1);
   return { start: tomorrowStr, end: tomorrowStr };
 }
 
@@ -292,7 +290,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
   const searchAll = useCallback(async (q: string, dateFilter: DateFilter | null) => {
     setLoading(true);
     const now = new Date().toISOString();
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = currentNightDate();
     const hasText = q.trim().length >= 1;
     // Le terme est normalisé (minuscules + sans accents) et confronté aux colonnes
     // générées `search_*`, normalisées de la même façon côté Postgres. C'est ce qui

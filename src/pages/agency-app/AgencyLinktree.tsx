@@ -14,6 +14,7 @@ import {
   T1, T2, T3, RED, POS, BORDER, F_BORDER, INNER_BG, C_FAINT,
   PromoCard, PromoButton, PromoPill, SectionLabel, CopyField, DarkInput, PromoEmpty,
 } from '@/components/promoter/promoter-ui';
+import { currentNightDate } from '@/lib/affiliateEventTime';
 
 /**
  * « Mon linktree » — le chef d'agence choisit les soirées de SON /p/:slug.
@@ -96,7 +97,7 @@ export default function AgencyLinktree() {
   const load = useCallback(async () => {
     if (!affiliateId) return;
     setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
+    const today = currentNightDate();
     const [aff, ext, editor] = await Promise.all([
       supabase.from('affiliates').select('linktree_slug, linktree_sort_mode').eq('id', affiliateId).maybeSingle(),
       supabase
