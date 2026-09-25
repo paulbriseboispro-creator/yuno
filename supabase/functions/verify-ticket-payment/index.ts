@@ -811,6 +811,9 @@ serve(async (req) => {
             ticketDetails = {
               id: fullTicket.id,
               qrCode: fullTicket.qr_code,
+              // Lien vers la soirée et carte boissons du reçu invité : sans
+              // lui, la page de confirmation d'un invité les perdait.
+              eventId: ticket.event_id,
               eventTitle: (fullTicket.events as TicketEventEmbed).title,
               eventDate: (fullTicket.events as TicketEventEmbed).start_at,
               eventPosterUrl: (fullTicket.events as TicketEventEmbed).poster_url,

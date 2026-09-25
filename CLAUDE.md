@@ -820,7 +820,7 @@ billet » quand le tableau en montrait 84). Règles :
     (`night_recap`, club via `emit_staff_notification`, orga via
     `emit_organizer_notification`) ; push Yuno Pro par la clé AUTO_PUSH
     `night_recap`, SEMÉE ÉTEINTE dans `/admin/notifications`, jamais pour la
-    démo.
+    démo. Allumé le 25/09.
 - **Démo, soirées PASSÉES** : `scripts/demo/seed-past-nights.sql` (rejouable,
   45 derniers jours, borné à `demo_event_ids()`) sème ventes et entrées des
   soirées passées — sans lui Ventes et « Tes 4 dernières soirées » sont vides.
@@ -847,9 +847,30 @@ billet » quand le tableau en montrait 84). Règles :
     arrondi à l'entier, 0,4 % devenait « 0 % ».
   - Les liens de l'Analytics vers Compta / Push / Contacts n'existent qu'en
     Console Club (`consolePrefix === '/owner'`) : le manager tombait en 404.
-  - Le bilan du lendemain ne montre JAMAIS le CA dans la cloche (lisible par
-    tout le staff) ; sans scan à la porte, variante `unscanned` (« aucune
-    entrée n'a été scannée »), jamais « 0 entrée ».
+  - Le bilan du lendemain ne montre JAMAIS le CA dans la cloche ; sans scan à
+    la porte, variante `unscanned` (« aucune entrée n'a été scannée »), jamais
+    « 0 entrée ». Son push (`night_recap`) est ALLUMÉ depuis le 25/09.
+- **Arbitrages du 25/09 (ne pas rouvrir sans fait nouveau)** :
+  - `staff_notifications` : une ligne `target_role = 'owner'` ne se lit que
+    par le propriétaire (`venues.owner_id`), un compte au rôle `owner` rattaché
+    au club ou un manager (`can_read_staff_notification`, `20260925188000`).
+    Avant, un videur lisait ventes et virements par PostgREST.
+  - Le registre des push auto (`isAutoPushEnabled`) se FERME sur une erreur de
+    lecture, sauf pour une clé `transactional` : un interrupteur coupé ne se
+    rouvre jamais sur une panne. supabase-js RENVOIE l'erreur, il ne la lève
+    pas — un `catch` seul ne l'attrape pas.
+  - Objectif de soirée = `set_event_entry_target` / `can_set_event_entry_target`
+    (`20260925190000`) : l'écran ne montre le bouton que si la porte répond oui.
+    Le posent le club qui porte la soirée, l'organisateur et son équipe
+    (éditeur+), et le partenaire d'une co-soirée (chiffre du travail commun).
+  - Produits du bar = part du CA CLUB de leur commande au prorata du prix
+    carte (`20260925191000`) : la liste retombe sur le CA bar au centime.
+  - Entrées = billets VALIDES scannés : un billet remboursé après le scan ne
+    compte pas (9 sur toute la base au 25/09). Une seule formule dans cinq
+    fonctions vaut mieux qu'un cas rare juste dans une seule.
+  - Un organisateur partenaire voit le CA de toute la co-soirée : en barème,
+    sa rémunération EST un pourcentage de ce total.
+  - RPC d'analyse pro : jamais `anon` (`20260925189000`).
 
 ## Backend Supabase — gotchas critiques
 
