@@ -559,17 +559,27 @@ const SETTINGS_TTL_MS = 60_000;
 export async function isAutoPushEnabled(admin: SupabaseClient, key: string): Promise<boolean> {
   const cached = settingsCache.get(key);
   if (cached && Date.now() - cached.at < SETTINGS_TTL_MS) return cached.enabled;
+  // Registre illisible (supabase-js RENVOIE l'erreur, il ne la lève pas) :
+  // une transactionnelle part quand même — un reçu ou un QR ne se retient
+  // pas —, tout le reste se tait. Un interrupteur coupé par le super admin ne
+  // doit jamais se rouvrir sur une panne. Rien n'est mis en cache : le
+  // prochain appel relit.
+  const failSafe = AUTO_PUSH[key]?.logType === "transactional";
   try {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("platform_notification_settings")
       .select("enabled")
       .eq("notification_key", key)
       .maybeSingle();
+    if (error) {
+      console.error(`[AUTO-PUSH] registry read failed for ${key}:`, error.message);
+      return failSafe;
+    }
     const enabled = data ? data.enabled === true : true; // absent = activé
     settingsCache.set(key, { enabled, at: Date.now() });
     return enabled;
   } catch {
-    return true; // fail-open : ne jamais bloquer une transactionnelle sur une erreur DB
+    return failSafe;
   }
 }
 
