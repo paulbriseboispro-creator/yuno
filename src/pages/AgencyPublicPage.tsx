@@ -17,7 +17,7 @@ import { shareContent } from '@/lib/share';
 import { publicUrl } from '@/lib/native';
 import { smartOpenEvent } from '@/lib/appDeepLink';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
-import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
+import { useAffiliateVisitorTracking } from '@/hooks/useAffiliateVisitorTracking';
 import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
@@ -436,10 +436,9 @@ export default function AgencyPublicPage() {
   };
 
   const openEvent = (ev: RpEvent) => {
-    // Le clic (FK affiliate_event_id) ne se compte que sur les soirées externes.
-    if (!ev.yuno_event_id && profile) {
-      trackAffiliateClick({ affiliateId: profile.id, affiliateEventId: ev.id, isInternal: isOwner });
-    }
+    // Pas de clic billetterie ici : on ouvre la fiche de la soirée, et c'est
+    // elle qui compte le clic quand le visiteur part vraiment vers la
+    // billetterie. Le compter aussi à l'ouverture doublait chaque clic.
     if (ev.yuno_event_id) { smartOpenEvent(`/event/${ev.yuno_event_id}`, navigate); return; }
     // On reste dans Yuno : la fiche affiliée porte le contexte + l'interstitiel
     // de sortie vers la billetterie externe.

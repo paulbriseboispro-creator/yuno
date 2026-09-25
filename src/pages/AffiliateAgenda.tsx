@@ -294,22 +294,21 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
   const midday = (d: string) => new Date(`${d}T12:00:00`);
 
   const openEvent = (event: AgendaItem) => {
-    // Même règle que le linktree : le tracking de clic (FK affiliate_event_id)
-    // ne s'applique qu'aux soirées externes.
-    if (!event.yuno_event_id) {
-      trackAffiliateClick({
-        affiliateId: identity?.affiliateId ?? '',
-        affiliateEventId: event.id,
-        affiliateMemberId: mode === 'member' ? identity?.memberId ?? undefined : undefined,
-        isInternal: isOwner,
-      });
-    }
     if (event.yuno_event_id) {
       smartOpenEvent(`/event/${event.yuno_event_id}`, navigate);
       return;
     }
     const directUrl = event.promo_link || event.external_ticket_url;
     if (directUrl) {
+      // Même règle que le linktree : un clic billetterie ne se compte que sur
+      // une soirée externe, et seulement quand on part vers la billetterie —
+      // sans lien, la fiche de la soirée comptera le vrai clic (sinon doublé).
+      trackAffiliateClick({
+        affiliateId: identity?.affiliateId ?? '',
+        affiliateEventId: event.id,
+        affiliateMemberId: mode === 'member' ? identity?.memberId ?? undefined : undefined,
+        isInternal: isOwner,
+      });
       // Navigateur in-app en natif (pas d'éjection vers Safari).
       openExternal(directUrl);
       return;

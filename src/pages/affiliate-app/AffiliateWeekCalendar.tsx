@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, addDays, startOfDay, isToday, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fetchPausedTemplateIds, isPausedOccurrence } from '@/lib/affiliateRecurring';
 import { CheckCircle, Pencil, FileText, ChevronLeft, ChevronRight, Link2, Loader2, X } from 'lucide-react';
 import {
   AffPage, AffHeading, AffSpinner, AffButton, DarkInput,
@@ -21,6 +22,7 @@ type EventRow = {
   is_sold_out: boolean;
   external_ticket_url: string | null;
   flyer_url: string | null;
+  recurring_template_id: string | null;
 };
 
 type DayStatus = 'soldout' | 'missing_url' | 'ok' | 'draft';
@@ -103,14 +105,19 @@ export default function AffiliateWeekCalendar() {
 
   const fetchEvents = useCallback(async (id: string, from: Date, to: Date) => {
     setLoading(true);
-    const { data } = await supabase
-      .from('affiliate_events')
-      .select('id, name, event_date, status, is_sold_out, external_ticket_url, flyer_url')
-      .eq('affiliate_id', id)
-      .gte('event_date', format(from, 'yyyy-MM-dd'))
-      .lte('event_date', format(to, 'yyyy-MM-dd'))
-      .order('event_date');
-    setEvents(data ?? []);
+    const [{ data }, paused] = await Promise.all([
+      supabase
+        .from('affiliate_events')
+        .select('id, name, event_date, status, is_sold_out, external_ticket_url, flyer_url, recurring_template_id')
+        .eq('affiliate_id', id)
+        .gte('event_date', format(from, 'yyyy-MM-dd'))
+        .lte('event_date', format(to, 'yyyy-MM-dd'))
+        .order('event_date'),
+      fetchPausedTemplateIds(id),
+    ]);
+    // Une série en pause n'a plus de dates à préparer : ses brouillons ne
+    // sont pas au planning (y coller un lien la remettait en ligne).
+    setEvents((data ?? []).filter((e) => !isPausedOccurrence(e, paused)));
     setLoading(false);
   }, []);
 
@@ -151,7 +158,7 @@ export default function AffiliateWeekCalendar() {
       .from('affiliate_events')
       .update({ external_ticket_url: url })
       .eq('id', ev.id)
-      .select('id, name, event_date, status, is_sold_out, external_ticket_url, flyer_url')
+      .select('id, name, event_date, status, is_sold_out, external_ticket_url, flyer_url, recurring_template_id')
       .single();
     setSavingId(null);
     if (error || !data) {

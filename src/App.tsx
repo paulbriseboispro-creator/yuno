@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
@@ -79,6 +79,7 @@ import { PreviewModeBanner } from "@/components/PreviewModeBanner";
 import { SupportSessionBanner } from "@/components/SupportSessionBanner";
 import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
 import { pruneExpiredDrafts } from "@/lib/formDraft";
+import { recordRoute } from "@/lib/affiliateOrigin";
 import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
 
 // Lazy load all pages including VenuePage
@@ -474,6 +475,18 @@ function DraftPruner() {
   return null;
 }
 
+/**
+ * Mémorise la page précédente de l'app : c'est elle qui dit si un visiteur
+ * des pages d'agence a été amené par Yuno (src/lib/affiliateOrigin.ts).
+ * useLayoutEffect : la route est enregistrée avant que la page ne lance son
+ * suivi de visite.
+ */
+function RouteHistoryRecorder() {
+  const { pathname } = useLocation();
+  useLayoutEffect(() => { recordRoute(pathname); }, [pathname]);
+  return null;
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -559,6 +572,7 @@ const App = () => (
             {/* Assistance Yuno : rappel permanent qu'un admin agit dans le compte
                 d'un pro consentant, avec sortie immédiate. Auto-gaté. */}
             <SupportSessionBanner />
+            <RouteHistoryRecorder />
             <ScrollToTop />
             <SsrHeroGuard />
             {!isProApp() && <CartCleanup />}

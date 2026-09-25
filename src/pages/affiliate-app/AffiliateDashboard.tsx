@@ -18,6 +18,7 @@ import {
   RED, POS, NEG, T1, T2, T3, C_HI, BORDER, F_BORDER, C_FAINT, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW,
 } from '@/components/affiliate/affiliate-ui';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { fetchPausedTemplateIds, notPausedDraftFilter } from '@/lib/affiliateRecurring';
 
 type NextEvent = {
   id: string;
@@ -82,6 +83,11 @@ export default function AffiliateDashboard() {
       const since30 = subDays(new Date(), 30).toISOString();
       const since60 = subDays(new Date(), 60).toISOString();
 
+      // Les brouillons d'une série en pause ne sont ni des soirées à venir ni
+      // des liens à poser (cf. src/lib/affiliateRecurring.ts).
+      const pausedFilter = notPausedDraftFilter(await fetchPausedTemplateIds(affRow.id));
+      const upcomingQ = <Q extends { or: (f: string) => Q }>(q: Q): Q => (pausedFilter ? q.or(pausedFilter) : q);
+
       const [
         { count: venueC },
         { count: eventC },
@@ -91,14 +97,15 @@ export default function AffiliateDashboard() {
         { data: upcomingEvents },
       ] = await Promise.all([
         supabase.from('affiliate_venues').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).eq('is_active', true),
-        supabase.from('affiliate_events').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).gte('event_date', today),
-        supabase.from('affiliate_events').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).gte('event_date', today).is('external_ticket_url', null),
-        supabase.from('affiliate_clicks').select('clicked_at').eq('affiliate_id', affRow.id).gte('clicked_at', since60).limit(20000),
+        upcomingQ(supabase.from('affiliate_events').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).gte('event_date', today)),
+        upcomingQ(supabase.from('affiliate_events').select('*', { count: 'exact', head: true }).eq('affiliate_id', affRow.id).gte('event_date', today).is('external_ticket_url', null)),
+        // Les clics de l'agence elle-même ne comptent pas (comme les vues, et comme la page Analytics).
+        supabase.from('affiliate_clicks').select('clicked_at').eq('affiliate_id', affRow.id).eq('is_internal', false).gte('clicked_at', since60).limit(20000),
         (supabase.from('affiliate_visitor_sessions') as any).select('visited_at').eq('affiliate_id', affRow.id).eq('is_internal', false).gte('visited_at', since60).limit(20000),
-        supabase.from('affiliate_events')
+        upcomingQ(supabase.from('affiliate_events')
           .select('id, name, event_date, flyer_url, external_ticket_url, status, affiliate_venues(name)')
           .eq('affiliate_id', affRow.id)
-          .gte('event_date', today)
+          .gte('event_date', today))
           .order('event_date', { ascending: true })
           .limit(6),
       ]);

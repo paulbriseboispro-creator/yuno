@@ -414,13 +414,15 @@ function EventCard({
 
   const handleClick = () => {
     if (isSoldOut) return;
-    trackAffiliateClick({
-      affiliateId,
-      affiliateEventId: event.affiliate_event_id,
-      affiliateMemberId: memberId,
-      isInternal: isOwner,
-    });
     if (ctaHref) {
+      // Clic compté seulement quand on part vers la billetterie : sans lien,
+      // la fiche de la soirée comptera elle-même le vrai clic (sinon doublé).
+      trackAffiliateClick({
+        affiliateId,
+        affiliateEventId: event.affiliate_event_id,
+        affiliateMemberId: memberId,
+        isInternal: isOwner,
+      });
       // Navigateur in-app en natif (pas d'éjection vers Safari).
       openExternal(ctaHref);
     } else {

@@ -458,8 +458,10 @@ function EventCard({
   const handleClick = () => {
     if (isSoldOut) return;
     // Les soirées Yuno n'ont pas de ligne affiliate_events : le tracking de
-    // clic (FK affiliate_event_id) ne s'applique qu'aux soirées externes.
-    if (!event.yuno_event_id) {
+    // clic (FK affiliate_event_id) ne s'applique qu'aux soirées externes. Et
+    // seulement quand on part vers la billetterie : sans lien, on ouvre la
+    // fiche de la soirée, qui comptera elle-même le vrai clic (sinon doublé).
+    if (!event.yuno_event_id && event.external_ticket_url) {
       trackAffiliateClick({
         affiliateId,
         affiliateEventId: event.id,

@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Pencil, Trash2, AlertTriangle, ExternalLink, Flame, CheckCircle, FileText, CalendarOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, ExternalLink, Flame, CheckCircle, FileText, CalendarOff, PauseCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fetchPausedTemplateIds, isPausedOccurrence } from '@/lib/affiliateRecurring';
 import { format, isPast, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
@@ -22,6 +23,7 @@ type EventRow = {
   is_sold_out: boolean;
   flyer_url: string | null;
   gallery_urls: string[] | null;
+  recurring_template_id: string | null;
   affiliate_venues: { name: string } | null;
 };
 
@@ -48,6 +50,7 @@ export default function AffiliateEvents() {
   const [loading, setLoading] = useState(true);
   const [purging, setPurging] = useState(false);
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
+  const [paused, setPaused] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) fetchEvents();
@@ -60,13 +63,17 @@ export default function AffiliateEvents() {
     if (!aff) { setLoading(false); return; }
     setAffiliateId(aff.id);
 
-    const { data } = await supabase
-      .from('affiliate_events')
-      .select('id, name, event_date, status, external_ticket_url, is_sold_out, flyer_url, gallery_urls, affiliate_venues(name)')
-      .eq('affiliate_id', aff.id)
-      .order('event_date', { ascending: false });
+    const [{ data }, pausedIds] = await Promise.all([
+      supabase
+        .from('affiliate_events')
+        .select('id, name, event_date, status, external_ticket_url, is_sold_out, flyer_url, gallery_urls, recurring_template_id, affiliate_venues(name)')
+        .eq('affiliate_id', aff.id)
+        .order('event_date', { ascending: false }),
+      fetchPausedTemplateIds(aff.id),
+    ]);
 
     setEvents(data ?? []);
+    setPaused(pausedIds);
     setLoading(false);
   };
 
@@ -154,7 +161,9 @@ export default function AffiliateEvents() {
   const pastCount = events.filter((e) => isPast(parseISO(e.event_date))).length;
   const upcomingCount = events.filter((e) => !isPast(parseISO(e.event_date))).length;
   const filtered = filter === 'all' ? events : events.filter((e) => e.status === filter);
-  const missingLink = events.filter((e) => !e.external_ticket_url && !isPast(parseISO(e.event_date))).length;
+  // Une date d'une série en pause n'attend aucun lien : elle reste listée
+  // (pastille « Série en pause »), mais n'entre pas dans l'alerte.
+  const missingLink = events.filter((e) => !e.external_ticket_url && !isPast(parseISO(e.event_date)) && !isPausedOccurrence(e, paused)).length;
 
   // Groupement par date : chaque jour a son en-tête, les soirées à venir en
   // premier (plus proche → plus lointaine), le passé ensuite (plus récent
@@ -275,7 +284,11 @@ export default function AffiliateEvents() {
 
                           {/* Ticket URL indicator */}
                           <div className="flex-none hidden md:block">
-                            {event.external_ticket_url ? (
+                            {isPausedOccurrence(event, paused) ? (
+                              <span className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: T3 }}>
+                                <PauseCircle className="h-3 w-3" /> {t('aff.events.seriesPaused')}
+                              </span>
+                            ) : event.external_ticket_url ? (
                               <a href={event.external_ticket_url} target="_blank" rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: POS }}>
                                 <ExternalLink className="h-3 w-3" /> {t('aff.events.linkActive')}

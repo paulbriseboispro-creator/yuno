@@ -356,47 +356,64 @@ export default function AffiliateAnalytics() {
     const fiveMinAgo = subMinutes(new Date(), 5).toISOString();
 
     try {
-      let sessQuery = supabase
-        .from('affiliate_visitor_sessions')
-        .select('visited_at, visitor_id, is_returning, duration_seconds, scroll_depth_max, referrer_category, device_type, affiliate_event_id, entry_page_type, utm_source, utm_medium, utm_campaign')
-        .eq('affiliate_id', identity.affiliateId)
-        .eq('is_internal', false)
-        .gte('visited_at', from || '2000-01-01')
-        .limit(10000);
+      const isMember = identity.role === 'member' && Boolean(identity.memberId);
 
-      if (identity.role === 'member' && identity.memberId) {
-        sessQuery = sessQuery.eq('affiliate_member_id', identity.memberId);
-      }
+      // PostgREST plafonne chaque réponse à 1 000 lignes (max_rows du projet) :
+      // au-delà, « Depuis le début » se serait arrêté en silence. On lit donc
+      // par pages, dans un ordre stable.
+      const sessPage = (lo: number, hi: number) => {
+        let q = supabase
+          .from('affiliate_visitor_sessions')
+          .select('visited_at, visitor_id, is_returning, duration_seconds, scroll_depth_max, referrer_category, device_type, affiliate_event_id, entry_page_type, utm_source, utm_medium, utm_campaign')
+          .eq('affiliate_id', identity.affiliateId)
+          .eq('is_internal', false)
+          .gte('visited_at', from || '2000-01-01');
+        if (isMember) q = q.eq('affiliate_member_id', identity.memberId!);
+        return q.order('visited_at').range(lo, hi);
+      };
+      const clickPage = (lo: number, hi: number) => {
+        let q = supabase
+          .from('affiliate_clicks')
+          .select('clicked_at, affiliate_event_id, referrer_category, device_type, utm_source, utm_medium, utm_campaign')
+          .eq('affiliate_id', identity.affiliateId)
+          .eq('is_internal', false)
+          .gte('clicked_at', from || '2000-01-01');
+        if (isMember) q = q.eq('affiliate_member_id', identity.memberId!);
+        return q.order('clicked_at').range(lo, hi);
+      };
+      const readAll = async <T,>(page: (lo: number, hi: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> => {
+        const out: T[] = [];
+        for (let lo = 0; lo < 50_000; lo += 1000) {
+          const { data } = await page(lo, lo + 999);
+          out.push(...(data ?? []));
+          if (!data || data.length < 1000) break;
+        }
+        return out;
+      };
 
-      let clickQuery = supabase
-        .from('affiliate_clicks')
-        .select('clicked_at, affiliate_event_id, referrer_category, device_type, utm_source, utm_medium, utm_campaign')
-        .eq('affiliate_id', identity.affiliateId)
-        .eq('is_internal', false)
-        .gte('clicked_at', from || '2000-01-01')
-        .limit(10000);
-
-      if (identity.role === 'member' && identity.memberId) {
-        clickQuery = clickQuery.eq('affiliate_member_id', identity.memberId);
-      }
-
-      const [
-        { data: sessions },
-        { data: clicks },
-        { data: livePings },
-        { data: eventsRaw },
-      ] = await Promise.all([
-        sessQuery,
-        clickQuery,
-        (identity.role === 'member' && identity.memberId
-          ? supabase.from('affiliate_live_pings').select('session_id').eq('affiliate_id', identity.affiliateId).eq('affiliate_member_id', identity.memberId).gte('last_seen', fiveMinAgo)
+      const [sessions, clicks, { data: livePings }] = await Promise.all([
+        readAll(sessPage),
+        readAll(clickPage),
+        (isMember
+          ? supabase.from('affiliate_live_pings').select('session_id').eq('affiliate_id', identity.affiliateId).eq('affiliate_member_id', identity.memberId!).gte('last_seen', fiveMinAgo)
           : supabase.from('affiliate_live_pings').select('session_id').eq('affiliate_id', identity.affiliateId).gte('last_seen', fiveMinAgo)),
-        supabase.from('affiliate_events').select('id, name, event_date, affiliate_venues(name)').eq('affiliate_id', identity.affiliateId).limit(200),
       ]);
 
       const rows: RawSession[]      = (sessions ?? []) as RawSession[];
       const clickRows: RawClick[]   = (clicks ?? []) as RawClick[];
-      const evts                    = eventsRaw ?? [];
+
+      // Noms des soirées vues ou cliquées sur la période — et seulement
+      // elles : les 200 premières soirées de l'agence (sur ~900, sans ordre)
+      // laissaient tomber du classement des soirées pourtant visitées.
+      const eventIds = [...new Set([...rows, ...clickRows].map((r) => r.affiliate_event_id).filter(Boolean))] as string[];
+      const evts: { id: string; name: string; event_date: string; affiliate_venues: { name: string } | null }[] = [];
+      for (let i = 0; i < eventIds.length; i += 150) {
+        const { data } = await supabase
+          .from('affiliate_events')
+          .select('id, name, event_date, affiliate_venues(name)')
+          .in('id', eventIds.slice(i, i + 150));
+        evts.push(...((data ?? []) as typeof evts));
+      }
 
       setAllSessions(rows);
 
@@ -413,8 +430,9 @@ export default function AffiliateAnalytics() {
       const returningVids     = new Set(rows.filter(r => r.is_returning && r.visitor_id).map(r => r.visitor_id));
       const returningVisitors = [...uniqueVids].filter(v => returningVids.has(v)).length;
       const newVisitors       = uniqueVids.size - returningVisitors;
-      // Trafic apporté par Yuno : sessions arrivées depuis yunoapp.eu
-      // (marketplace, app, pages Yuno) — l'argument « revenu passif ».
+      // Trafic apporté par Yuno : sessions arrivées depuis une page Yuno
+      // (Explore, recherche, carte, app native… cf. src/lib/affiliateOrigin.ts)
+      // — l'argument « revenu passif ».
       const yunoViews         = rows.filter(r => r.referrer_category === 'internal').length;
 
       setKpis({

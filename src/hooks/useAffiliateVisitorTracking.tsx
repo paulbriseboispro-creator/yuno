@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { getBrowserId } from '@/lib/browserId';
 import { useConsent } from '@/lib/consent';
+import { cameFromYuno } from '@/lib/affiliateOrigin';
+import { useAuth } from '@/hooks/useAuth';
 
 const SESSION_KEY       = 'yuno_aff_session_id';
 const SESSION_START_KEY = 'yuno_aff_session_start';
@@ -18,7 +20,9 @@ function detectDevice(): string {
 
 function detectEntryType(path: string): string {
   if (/\/promo\//.test(path)) return 'member_linktree';
-  if (/\/p\//.test(path)) return 'linktree';
+  // /rp/ = la page de l'agence dans Yuno : même rôle que le linktree /p/.
+  // Sans ce cas, ses visites tombaient dans « page soirée ».
+  if (/\/(p|rp)\//.test(path)) return 'linktree';
   if (/\/affiliate-event\//.test(path)) return 'event_page';
   if (/\/affiliate-venue\//.test(path)) return 'venue_page';
   return 'event_page';
@@ -30,6 +34,9 @@ function extractDomain(url: string): string | null {
 }
 
 function categorizeReferrer(referrer: string, utmMedium: string | null, params: URLSearchParams): string {
+  // Amené par Yuno (Explore, recherche, carte, app native…) : voir
+  // src/lib/affiliateOrigin.ts — c'est le chiffre « trafic apporté par Yuno ».
+  if (cameFromYuno()) return 'internal';
   if (params.get('from') === 'qr' || params.get('utm_medium') === 'qr') return 'qr';
   if (utmMedium === 'email' || params.get('from') === 'email') return 'email';
   if (params.get('gclid')) return 'paid_search';
@@ -86,10 +93,13 @@ export function useAffiliateVisitorTracking({
   // d'une conversion (?via=) est un mécanisme SÉPARÉ, résolu en amont, et reste
   // hors périmètre de ce gate (code argent intouché).
   const { analytics: analyticsConsent } = useConsent();
+  // Tant que la session n'est pas relue, on ne sait pas si le visiteur est
+  // l'agence elle-même : sa visite partait comptée comme trafic extérieur.
+  const { loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (!analyticsConsent) return;
-    if (!affiliateId) return;
+    if (!affiliateId || authLoading) return;
 
     let sessionId = sessionStorage.getItem(SESSION_KEY);
     const scopeKey = [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId].filter(Boolean).join('-');
@@ -180,7 +190,7 @@ export function useAffiliateVisitorTracking({
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       flushDuration(false);
     };
-  }, [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, analyticsConsent]);
+  }, [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, analyticsConsent, authLoading]);
 }
 
 async function trackPageView(

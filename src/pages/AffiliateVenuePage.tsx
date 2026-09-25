@@ -173,7 +173,9 @@ export default function AffiliateVenuePage() {
   }, [loading]);
 
   useAffiliateVisitorTracking({
-    affiliateId: viaResolved ? (venue?.affiliate_id ?? '') : '',
+    // L'agence doit être chargée avant la 1re visite : c'est elle qui dit si
+    // le visiteur est l'agence elle-même (isOwner), jamais comptée en trafic.
+    affiliateId: viaResolved && affiliate ? (venue?.affiliate_id ?? '') : '',
     affiliateMemberId: viaMemberId ?? undefined,
     affiliateVenueId: venue?.id,
     isOwner,

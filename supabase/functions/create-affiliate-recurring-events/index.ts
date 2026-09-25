@@ -7,7 +7,9 @@ import { restrictedCorsHeaders } from "../_shared/cors.ts";
 // dans son cockpit (page Events groupée par jour) et peut poser le lien de
 // chacune quand il veut. Les occurrences au-delà de la plus proche restent en
 // brouillon (cachées du public) tant qu'aucun lien n'est posé — le verrou
-// link_gate s'en assure. Aucun cron ne purge ces brouillons.
+// link_gate s'en assure. Aucun cron ne purge ces brouillons. Un modèle en
+// pause (is_active = false) n'est plus lu ici : ses brouillons restent en base
+// mais la console les masque (src/lib/affiliateRecurring.ts).
 const OCCURRENCE_HORIZON = 10;
 
 // Returns the next `count` occurrences of dayOfWeek from today (inclusive).
@@ -148,34 +150,39 @@ serve(async (req) => {
           // Check if an event for this template+date already exists
           const { data: existing } = await supabaseAdmin
             .from("affiliate_events")
-            .select("id, external_ticket_url, flyer_url, status, ticket_url_overridden")
+            .select("id, external_ticket_url, ticket_url_overridden")
             .eq("recurring_template_id", tpl.id)
             .eq("event_date", eventDate)
             .maybeSingle();
 
           if (existing) {
-            // Sync publication_url, flyer, and status from template — template is
-            // source of truth, SAUF si un humain a posé le lien sur cette
-            // occurrence (ticket_url_overridden, posé par trigger côté DB) :
-            // son lien et le statut qui en découle ne sont alors plus touchés.
+            // Sur une soirée DÉJÀ créée, le générateur ne tient plus qu'une
+            // chose : le lien du modèle, et seulement tant qu'aucun humain n'a
+            // posé le sien (ticket_url_overridden, posé par trigger côté DB).
             // Un lien de modèle expiré (posé il y a plus d'un cycle) vaut null :
-            // l'occurrence qui le portait est dépubliée et nettoyée ici même.
-            const tplTicketUrl = templateLinkFor(tpl, eventDate);
-            const tplFlyerUrl = (tpl as { flyer_url?: string | null }).flyer_url ?? null;
+            // l'occurrence qui le portait repasse en brouillon.
+            //
+            // Il ne touche NI au statut NI au flyer (2026-09-25) :
+            //  - le statut suit le lien par le verrou link_gate (un lien qui
+            //    change publie, un lien retiré dépublie) ; le réécrire ici
+            //    remettait en ligne chaque matin une soirée que l'agence avait
+            //    dépubliée à la main en gardant son lien ;
+            //  - le flyer (comme le nom, le prix, les horaires…) se reporte
+            //    depuis le formulaire du modèle, sur les dates PAS ENCORE
+            //    publiées, et sur les dates en ligne seulement si l'agence le
+            //    demande. Le resynchroniser ici changeait l'affiche d'une
+            //    soirée déjà partagée en story, et écrasait l'affiche posée à la
+            //    main sur une date précise.
             const overridden = (existing as { ticket_url_overridden?: boolean }).ticket_url_overridden === true;
-            const targetUrl = overridden ? existing.external_ticket_url : tplTicketUrl;
-            const correctStatus = targetUrl ? existing.status === "featured" ? "featured" : "published" : "draft";
-            const needsUpdate =
-              existing.external_ticket_url !== targetUrl ||
-              existing.flyer_url !== tplFlyerUrl ||
-              existing.status !== correctStatus;
-
-            if (needsUpdate) {
-              await supabaseAdmin
-                .from("affiliate_events")
-                .update({ external_ticket_url: targetUrl, flyer_url: tplFlyerUrl, status: correctStatus })
-                .eq("id", existing.id);
-              updated++;
+            if (!overridden) {
+              const tplTicketUrl = templateLinkFor(tpl, eventDate);
+              if (existing.external_ticket_url !== tplTicketUrl) {
+                await supabaseAdmin
+                  .from("affiliate_events")
+                  .update({ external_ticket_url: tplTicketUrl })
+                  .eq("id", existing.id);
+                updated++;
+              }
             }
             continue;
           }
