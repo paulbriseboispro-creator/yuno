@@ -6,20 +6,18 @@
  */
 import { Crown, Ticket, Users, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { FillBar } from '@/components/analytics/kit';
+import type { ReactNode } from 'react';
+import { BulletBar, FillBar, MetricHint, TodayDelta } from '@/components/analytics/kit';
 import { KIT, useNumberFormat } from '@/components/analytics/kitFormat';
 import { fillPct, type PillarKey } from '@/lib/eventsSales';
-import { conversionPct, type EventReport, type LineStatus, type ReportLine } from '@/lib/eventReport';
-import { CardTitle, EmptyNote, ReportCard, StatCard } from './ui';
+import { referenceFor, type EventReport, type LineStatus, type ReportLine } from '@/lib/eventReport';
+import { CardTitle, EmptyNote, ReportCard } from './ui';
 
 const PILLAR: Record<PillarKey, { icon: LucideIcon; color: string }> = {
   tickets: { icon: Ticket, color: 'var(--acc-ff7a82)' },
   tables: { icon: Crown, color: 'var(--acc-fcd34d)' },
   guestList: { icon: Users, color: 'var(--acc-34d399)' },
 };
-
-// Autant de colonnes que de cartes : jamais une case vide au bout de la rangée.
-const LG_COLS: Record<number, string> = { 1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5' };
 
 const STATUS_STYLE: Record<LineStatus, { bg: string; fg: string }> = {
   on_sale: { bg: 'rgba(52,211,153,0.12)', fg: 'var(--acc-34d399)' },
@@ -34,49 +32,43 @@ function lineName(line: ReportLine, t: (k: string) => string): string {
   return '—';
 }
 
-export function ReportSales({ report }: { report: EventReport }) {
+export function ReportSales({ report, compare = null, projection }: {
+  report: EventReport;
+  /** Soirée de référence : son niveau devient le repère de chaque jauge. */
+  compare?: EventReport | null;
+  /** La ligne de prévision (club, avant la soirée). */
+  projection?: ReactNode;
+}) {
   const { t } = useLanguage();
   const { n, eur } = useNumberFormat();
   const { totals } = report;
-  const conv = conversionPct(totals.visits.withOrder, totals.visits.total);
   // Après la soirée, « aujourd'hui » ne dit plus rien, et une ligne n'est plus
   // « en vente » : elle a fini complète ou fermée.
   const after = report.event.phase === 'after';
-  const today = (v: number, total: number) => (after || total === 0 ? undefined : v);
   const lineStatus = (st: LineStatus): LineStatus => (after && st !== 'sold_out' ? 'closed' : st);
   // Une réservation hors formule (walk-in, placement) peut dépasser le nombre
   // de tables des formules : on n'affiche pas « 5 / 4 ».
-  const ofCap = (done: number, cap: number | null | undefined) => (cap && done <= cap ? `${n(done)} / ${n(cap)}` : n(done));
 
-  const cards = [
-    totals.revenue && (totals.revenue.total > 0 || totals.tickets.enabled || totals.tables.enabled) && (
-      <StatCard key="rev" label={t('er.stat.revenue')} hint={t('gl.revenue')} value={eur(totals.revenue.total)}
-        sub={totals.drinks && totals.revenue.drinks > 0
-          ? t('er.stat.revenueSplit').replace('{tickets}', eur(totals.revenue.tickets)).replace('{tables}', eur(totals.revenue.tables)).replace('{drinks}', eur(totals.revenue.drinks))
-          : undefined}
-        today={today(totals.revenue.today, totals.revenue.total)} todayDisplay={eur(totals.revenue.today)} />
-    ),
-    (totals.tickets.enabled || totals.tickets.sold > 0) && (
-      <StatCard key="tk" label={t('evs.tickets')} hint={t('gl.tickets')}
-        value={ofCap(totals.tickets.sold, totals.tickets.capacity)}
-        sub={t('er.stat.orders').replace('{n}', n(totals.tickets.orders))}
-        today={today(totals.tickets.today, totals.tickets.sold)} pct={fillPct(totals.tickets.sold, totals.tickets.capacity)} soldOut={totals.tickets.soldOut} />
-    ),
-    (totals.tables.enabled || totals.tables.booked > 0) && (
-      <StatCard key="tb" label={t('evs.tables')} hint={t('gl.tables')}
-        value={ofCap(totals.tables.booked, totals.tables.capacity)}
-        sub={t('er.stat.guests').replace('{n}', n(totals.tables.guests))}
-        today={today(totals.tables.today, totals.tables.booked)} pct={fillPct(totals.tables.booked, totals.tables.capacity)} soldOut={totals.tables.soldOut} />
-    ),
-    (totals.guestList.enabled || totals.guestList.registered > 0) && (
-      <StatCard key="gl" label={t('evs.guestList')} hint={t('gl.guestList')}
-        value={ofCap(totals.guestList.registered, totals.guestList.capacity)}
-        today={today(totals.guestList.today, totals.guestList.registered)} pct={fillPct(totals.guestList.registered, totals.guestList.capacity)} soldOut={totals.guestList.soldOut} />
-    ),
-    <StatCard key="vis" label={t('evs.visits')} hint={t('gl.visits')} value={n(totals.visits.total)}
-      sub={conv !== null ? t('er.stat.conversion').replace('{pct}', String(conv).replace('.', t('er.decimal'))) : undefined}
-      today={today(totals.visits.today, totals.visits.total)} />,
-  ].filter(Boolean);
+  // Les jauges : vendu / capacité, avec le repère « où en était la soirée de
+  // référence » (au même J-N avant la soirée, son total après). Remplace cinq
+  // cartes qui redisaient chacune un morceau du tableau juste en dessous.
+  const refLabel = compare ? t(after ? 'er.fill.refLabelAfter' : 'er.fill.refLabel').replace('{title}', compare.event.title) : undefined;
+  const gauges = [
+    (totals.tickets.enabled || totals.tickets.sold > 0) && {
+      key: 'tk', label: t('evs.tickets'), value: totals.tickets.sold, cap: totals.tickets.capacity,
+      ref: referenceFor(report, compare, 'tickets'), soldOut: totals.tickets.soldOut, today: totals.tickets.today,
+    },
+    (totals.tables.enabled || totals.tables.booked > 0) && {
+      key: 'tb', label: t('evs.tables'), value: totals.tables.booked,
+      cap: totals.tables.capacity && totals.tables.booked <= totals.tables.capacity ? totals.tables.capacity : null,
+      ref: referenceFor(report, compare, 'tables'), soldOut: totals.tables.soldOut, today: totals.tables.today,
+    },
+    (totals.guestList.enabled || totals.guestList.registered > 0) && {
+      key: 'gl', label: t('evs.guestList'), value: totals.guestList.registered, cap: totals.guestList.capacity,
+      ref: referenceFor(report, compare, 'guests'), soldOut: totals.guestList.soldOut, today: totals.guestList.today,
+    },
+  ].filter(Boolean) as { key: string; label: string; value: number; cap: number | null; ref: number | null; soldOut: boolean; today: number }[];
+  const rev = totals.revenue;
 
   const byPillar: Record<PillarKey, ReportLine[]> = { tickets: [], tables: [], guestList: [] };
   // Un pilier éteint sur la soirée n'étale pas ses formules à zéro (les packs
@@ -91,7 +83,54 @@ export function ReportSales({ report }: { report: EventReport }) {
 
   return (
     <div className="space-y-3">
-      <div className={`grid grid-cols-2 gap-3 ${LG_COLS[cards.length] ?? 'lg:grid-cols-5'}`}>{cards}</div>
+      <ReportCard>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
+          {rev && (rev.total > 0 || totals.tickets.enabled || totals.tables.enabled) && (
+            <div className="min-w-[180px] lg:w-[220px]">
+              <span className="inline-flex items-center gap-1" style={{ color: KIT.T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                {t('er.stat.revenue')}<MetricHint text={t('gl.revenue')} label={t('er.stat.revenue')} />
+              </span>
+              <div className="mt-1.5 tabular-nums" style={{ color: KIT.T1, fontSize: 'clamp(26px,2.8vw,34px)', fontWeight: 650, letterSpacing: '-0.025em', lineHeight: 1 }}>
+                {eur(rev.total)}
+              </div>
+              <div className="mt-2 flex flex-col gap-1" style={{ fontSize: 12, color: KIT.T3 }}>
+                {!after && rev.total > 0 && <TodayDelta value={rev.today} display={eur(rev.today)} />}
+                {(rev.tables > 0 || rev.drinks > 0) && (
+                  <span>
+                    {[
+                      rev.tickets > 0 && `${t('evs.tickets')} ${eur(rev.tickets)}`,
+                      rev.tables > 0 && `${t('evs.tables')} ${eur(rev.tables)}`,
+                      rev.drinks > 0 && `${t('owner.drinksTab')} ${eur(rev.drinks)}`,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {gauges.length > 0 && (
+            <div className="flex min-w-0 flex-1 flex-col gap-3.5">
+              {gauges.map((g) => (
+                <div key={g.key} className="flex flex-col gap-1">
+                  <BulletBar label={g.label} value={g.value} display={n(g.value)} capacity={g.cap}
+                    reference={g.ref} referenceLabel={refLabel} soldOut={g.soldOut} />
+                  {!after && g.today > 0 && (
+                    <span className="pl-[96px] text-[11.5px]" style={{ color: KIT.POS }}>
+                      {t('ak.today').replace('{value}', `+${n(g.today)}`)}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {compare && gauges.some((g) => g.ref !== null && g.cap) && (
+                <span className="inline-flex items-center gap-1.5 text-[11.5px]" style={{ color: KIT.T3 }}>
+                  <span className="inline-block h-3 w-[2px] rounded-full" style={{ background: KIT.T1 }} aria-hidden />
+                  {refLabel}
+                </span>
+              )}
+              {projection}
+            </div>
+          )}
+        </div>
+      </ReportCard>
 
       <ReportCard>
         <CardTitle title={t('er.lines.title')} hint={t('er.lines.hint')} />

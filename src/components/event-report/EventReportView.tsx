@@ -14,16 +14,17 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { UpdatedAt } from '@/components/analytics/kit';
+import { EmptyAnswer, MoreDetail, UpdatedAt } from '@/components/analytics/kit';
 import { KIT } from '@/components/analytics/kitFormat';
 import { CountdownTile } from '@/components/events-sales/EventSalesParts';
 import { useEventReport } from '@/hooks/useEventReport';
 import type { EventSales } from '@/lib/eventsSales';
-import type { EventReport } from '@/lib/eventReport';
+import { reportHasActivity, type EventReport } from '@/lib/eventReport';
 import { ReportSales } from './ReportSales';
 import { ReportTrend, type ScopeEventOption } from './ReportTrend';
 import { ReportAudience, ReportDrivers, ReportTraffic } from './ReportReach';
 import { EmptyNote, Question, ReportCard } from './ui';
+import { ReportAnswer } from './ReportAnswer';
 
 interface Props {
   eventId: string;
@@ -34,8 +35,10 @@ interface Props {
   verdict?: ReactNode;
   /** L'âge / le sexe / les villes du public (`EventAudienceDemographics`). */
   demographics?: ReactNode;
-  /** La prévision avant la soirée (Hype Score, club), rendue tant que la soirée n'est pas passée. */
+  /** La prévision avant la soirée (Hype Score, club) : détail replié. */
   forecast?: ReactNode;
+  /** La même prévision en une ligne, posée sous les jauges. */
+  projection?: ReactNode;
 }
 
 /** Les soirées de la portée, pour changer de soirée et pour comparer. */
@@ -89,7 +92,7 @@ function asSales(r: EventReport): EventSales {
   };
 }
 
-export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast }: Props) {
+export function EventReportView({ eventId, onEventChange, onBack, scope, verdict, demographics, forecast, projection }: Props) {
   const { t, language } = useLanguage();
   const { data: report, loading, error, fetchedAt } = useEventReport(eventId);
   const events = useScopeEvents(scope);
@@ -169,42 +172,56 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
             </div>
           </ReportCard>
 
-          {/* Après la soirée, la première question est « a-t-elle marché ? ». */}
-          {report.event.phase === 'after' && verdict && (
+          {!reportHasActivity(report) ? (
+            // Une soirée sans aucune vente ni entrée ne se note pas et n'étale
+            // pas dix cartes à zéro : une phrase suffit.
+            <EmptyAnswer
+              title={t(report.event.phase === 'after' ? 'er.empty.after' : 'er.empty.before')}
+              body={t(report.event.phase === 'after' ? 'er.empty.afterBody' : 'er.empty.beforeBody')}
+            />
+          ) : (
             <>
-              <Question title={t('er.q.verdict')} sub={t('er.q.verdictSub')} />
-              {verdict}
+              {/* La réponse d'abord, en une phrase. */}
+              <ReportAnswer report={report} compare={compareId ? compare : null} />
+
+              {/* Après la soirée, le bilan détaillé (note, à retenir, déroulé)
+                  est replié : la phrase et les jauges disent déjà l'essentiel. */}
+              {report.event.phase === 'after' && verdict && (
+                <MoreDetail label={t('er.more.verdict')}>{verdict}</MoreDetail>
+              )}
+
+              <Question id="er-sales"
+                title={t(report.event.phase === 'after' ? 'er.q.salesAfter' : 'er.q.sales')}
+                sub={t(report.event.phase === 'after' ? 'er.q.salesAfterSub' : 'er.q.salesSub')} />
+              <ReportSales
+                report={report}
+                compare={compareId ? compare : null}
+                projection={report.event.phase !== 'after' ? projection : undefined}
+              />
+
+              <Question id="er-trend" title={t('er.q.trend')} sub={t('er.q.trendSub')} />
+              <ReportTrend
+                report={report}
+                compare={compareId ? compare : null}
+                compareId={compareId}
+                onCompare={(id) => setCompareChoice(id)}
+                options={events}
+                compareLoading={!!compareId && compareLoading}
+              />
+
+              {/* Trafic et canaux : une seule question, « d'où viennent les ventes ? ». */}
+              <Question id="er-reach" title={t('er.q.reach2')} sub={t('er.q.reach2Sub')} />
+              <ReportTraffic report={report} />
+              <ReportDrivers report={report} />
+
+              <Question id="er-who" title={t('er.q.who')} sub={t('er.q.whoSub')} />
+              <ReportAudience report={report} demographics={demographics} />
+
+              {report.event.phase !== 'after' && forecast && (
+                <MoreDetail label={t('er.more.forecast')}>{forecast}</MoreDetail>
+              )}
             </>
           )}
-
-          <Question id="er-sales" title={t('er.q.sales')} sub={t('er.q.salesSub')} />
-          <ReportSales report={report} />
-
-          <Question id="er-trend" title={t('er.q.trend')} sub={t('er.q.trendSub')} />
-          <ReportTrend
-            report={report}
-            compare={compareId ? compare : null}
-            compareId={compareId}
-            onCompare={(id) => setCompareChoice(id)}
-            options={events}
-            compareLoading={!!compareId && compareLoading}
-          />
-
-          {report.event.phase !== 'after' && forecast && (
-            <>
-              <Question id="er-forecast" title={t('er.q.forecast')} sub={t('er.q.forecastSub')} />
-              {forecast}
-            </>
-          )}
-
-          <Question id="er-reach" title={t('er.q.reach')} sub={t('er.q.reachSub')} />
-          <ReportTraffic report={report} />
-
-          <Question id="er-who" title={t('er.q.who')} sub={t('er.q.whoSub')} />
-          <ReportAudience report={report} demographics={demographics} />
-
-          <Question id="er-what" title={t('er.q.what')} sub={t('er.q.whatSub')} />
-          <ReportDrivers report={report} />
         </>
       )}
       {loading && report && <span className="sr-only">{t('er.loading')}</span>}

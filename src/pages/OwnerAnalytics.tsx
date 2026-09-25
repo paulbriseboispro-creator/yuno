@@ -32,7 +32,7 @@ import { CommunityOverviewView } from '@/components/analytics/families/Community
 import { CommunityTastesView } from '@/components/analytics/families/CommunityTastesView';
 import { TrafficView } from '@/components/analytics/families/TrafficView';
 import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
-import { HypeEventForecast } from '@/components/hype/HypeEventForecast';
+import { HypeEventForecast, HypeProjectionLine } from '@/components/hype/HypeEventForecast';
 import { EmptyNote, ReportCard } from '@/components/event-report/ui';
 import { useEventParam } from '@/hooks/useEventParam';
 import { EventReportView } from '@/components/event-report/EventReportView';
@@ -470,9 +470,10 @@ export default function OwnerAnalytics() {
             onEventChange={(id) => setSelectedEventId(id)}
             onBack={() => setSelectedEventId(null)}
             scope={{ venueId }}
-            verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} layout="summary" /> : undefined}
+            verdict={venueId ? <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} layout="report" /> : undefined}
             demographics={venueId ? <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} /> : undefined}
             forecast={venueId && hasFeature('hype_analysis') ? <HypeEventForecast venueId={venueId} eventId={selectedEventId} /> : undefined}
+            projection={venueId && hasFeature('hype_analysis') ? <HypeProjectionLine venueId={venueId} eventId={selectedEventId} /> : undefined}
           />
         )}
 

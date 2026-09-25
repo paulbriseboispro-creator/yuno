@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availableMetrics, buildCurve, compareAtSameD, conversionPct, share, todayD, type EventReport } from '../eventReport';
+import { availableMetrics, buildCurve, compareAtSameD, conversionPct, referenceFor, reportHasActivity, reportHeadline, share, todayD, type EventReport } from '../eventReport';
 
 function report(over: Partial<EventReport> & { series: EventReport['series'] }, startAt = '2026-09-26T21:00:00Z', now = '2026-09-24T10:00:00Z'): EventReport {
   return {
@@ -82,5 +82,38 @@ describe('share / conversionPct', () => {
     expect(share(1, 0)).toBeNull();
     expect(conversionPct(6, 60)).toBe(10);
     expect(conversionPct(1, 0)).toBeNull();
+  });
+});
+
+describe('reportHeadline', () => {
+  it('une soirée sans aucune activité ne se note pas : elle est vide', () => {
+    const r = report({
+      series: [],
+      totals: {
+        tickets: { sold: 0, today: 0, orders: 0, capacity: 650, enabled: true, soldOut: false },
+        tables: { booked: 0, today: 0, guests: 0, capacity: 4, enabled: true, soldOut: false },
+        guestList: { registered: 0, today: 0, capacity: 127, enabled: true, soldOut: false },
+        drinks: null, revenue: { total: 0, today: 0, tickets: 0, tables: 0, drinks: 0 },
+        visits: { total: 0, today: 0, withOrder: 0 },
+      },
+    });
+    expect(reportHasActivity(r)).toBe(false);
+    expect(reportHeadline(r, null).kind).toBe('empty');
+  });
+
+  it('pendant la vente : billets vendus et référence au même J-N', () => {
+    const main = report({ series: [day(5, 2), day(2, 6)] });
+    const cmp = report({ series: [day(6, 1), day(4, 3), day(1, 10)] }, '2026-09-12T21:00:00Z', '2026-09-20T10:00:00Z');
+    const h = reportHeadline(main, cmp);
+    expect(h).toMatchObject({ kind: 'selling', pillar: 'tickets', sold: 9, daysBefore: 2, reference: 4 });
+  });
+
+  it('après la soirée : la porte, et les entrées de la référence', () => {
+    const after = { ...report({ series: [] }, '2026-09-20T21:00:00Z', '2026-09-24T10:00:00Z') };
+    after.event = { ...after.event, phase: 'after' };
+    after.totals = { ...after.totals, door: { entered: 80, expected: 100 } };
+    const ref = { ...after, totals: { ...after.totals, door: { entered: 60, expected: 90 } } };
+    expect(reportHeadline(after, ref)).toMatchObject({ kind: 'after', entered: 80, expected: 100, reference: 60 });
+    expect(referenceFor(after, ref, 'tickets')).toBe(9);
   });
 });

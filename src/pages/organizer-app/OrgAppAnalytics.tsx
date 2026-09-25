@@ -403,7 +403,7 @@ export default function OrgAppAnalytics() {
             onEventChange={(id) => setSelectedEventId(id)}
             onBack={() => setSelectedEventId(null)}
             scope={{ organizerUserId: organizerId }}
-            verdict={<EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={null} organizerUserId={organizerId} layout="summary" />}
+            verdict={<EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={null} organizerUserId={organizerId} layout="report" />}
             demographics={organizerId ? <EventAudienceDemographics scope={{ kind: 'organizer', id: organizerId }} eventId={selectedEventId} /> : undefined}
           />
         )}

@@ -65,6 +65,8 @@ export interface EventReport {
     drinks: { orders: number; today: number } | null;
     revenue: { total: number; today: number; tickets: number; tables: number; drinks: number } | null;
     visits: { total: number; today: number; withOrder: number };
+    /** La porte : personnes scannées (tous piliers) et attendus (migration 20260925140000). */
+    door?: { entered: number; expected: number };
   };
   lines: ReportLine[];
   series: ReportDay[];
@@ -185,4 +187,74 @@ const KNOWN_VISIT_SOURCES = ['direct', 'social', 'search', 'email', 'qr', 'paid_
 /** Nom lisible d'une source de visite (`visitor_sessions.referrer_category`). */
 export function visitSourceLabel(source: string, t: (k: string) => string): string {
   return KNOWN_VISIT_SOURCES.includes(source) ? t(`er.vsrc.${source}`) : source.charAt(0).toUpperCase() + source.slice(1);
+}
+
+// ── La phrase-réponse (plan de simplification, lot 4) ───────────────────────
+
+/** A-t-on quoi que ce soit à dire sur cette soirée ? Sinon : une phrase, pas dix cartes à zéro. */
+export function reportHasActivity(r: EventReport): boolean {
+  const t = r.totals;
+  return t.tickets.sold > 0 || t.tables.booked > 0 || t.guestList.registered > 0
+    || (t.revenue?.total ?? 0) > 0 || (t.drinks?.orders ?? 0) > 0 || (t.door?.entered ?? 0) > 0;
+}
+
+export type ReportHeadline =
+  | { kind: 'empty'; phase: ReportPhase }
+  | {
+      kind: 'selling';
+      /** Le pilier qui porte la soirée : billets s'il y a une billetterie, sinon guest list. */
+      pillar: 'tickets' | 'guestList';
+      sold: number;
+      capacity: number | null;
+      daysBefore: number;
+      /** Même pilier, soirée de référence, au même J-N (null sans référence). */
+      reference: number | null;
+    }
+  | {
+      kind: 'after';
+      entered: number;
+      expected: number;
+      revenue: number | null;
+      /** Entrées de la soirée de référence (null sans référence ou sans scan). */
+      reference: number | null;
+    };
+
+/** Ce que dit la première phrase du rapport. */
+export function reportHeadline(r: EventReport, compare: EventReport | null): ReportHeadline {
+  if (!reportHasActivity(r)) return { kind: 'empty', phase: r.event.phase };
+  if (r.event.phase === 'after') {
+    const ref = compare && compare.event.phase === 'after' ? compare.totals.door?.entered ?? null : null;
+    return {
+      kind: 'after',
+      entered: r.totals.door?.entered ?? 0,
+      expected: r.totals.door?.expected ?? 0,
+      revenue: r.totals.revenue?.total ?? null,
+      reference: ref && ref > 0 ? ref : null,
+    };
+  }
+  const useTickets = r.totals.tickets.enabled || r.totals.tickets.sold > 0;
+  const pillar = useTickets ? 'tickets' : 'guestList';
+  const metric: SeriesMetric = useTickets ? 'tickets' : 'guests';
+  const cmp = compare ? compareAtSameD(r, compare, metric) : null;
+  return {
+    kind: 'selling',
+    pillar,
+    sold: useTickets ? r.totals.tickets.sold : r.totals.guestList.registered,
+    capacity: useTickets ? r.totals.tickets.capacity : r.totals.guestList.capacity,
+    daysBefore: Math.max(0, todayD(r)),
+    reference: cmp ? cmp.compare : null,
+  };
+}
+
+/**
+ * Repère d'une jauge : où en était la soirée de référence. Avant la soirée,
+ * au même J-N ; après, son total final.
+ */
+export function referenceFor(r: EventReport, compare: EventReport | null, metric: 'tickets' | 'tables' | 'guests'): number | null {
+  if (!compare) return null;
+  if (r.event.phase === 'after') {
+    return metric === 'tickets' ? compare.totals.tickets.sold
+      : metric === 'tables' ? compare.totals.tables.booked : compare.totals.guestList.registered;
+  }
+  return compareAtSameD(r, compare, metric)?.compare ?? null;
 }
