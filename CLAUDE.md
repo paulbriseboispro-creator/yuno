@@ -248,6 +248,14 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   = linktree AUTOMATIQUE d'avant (8 externes + `get_agency_linktree_yuno_events`) ;
   dès qu'une soirée est choisie, `/p/:slug` n'affiche QUE la sélection, rangée
   par date sauf en tri `custom`.
+  **Linktrees publics (`/p/`, `/promo/`) — 2026-09-25** : le bouton d'une
+  soirée dit ce qu'on obtient (`linktreeCtaLabel`,
+  `src/components/linktree/linktreeShared.tsx`) : Complet › Tables (tables
+  uniquement) › Guest list (gratuit) › Billets. Barre flottante
+  `PoweredByYunoBar` → Instagram de Yuno de la langue du visiteur
+  (`instagramFor`, réglé dans `/admin/links`). Aucune étape d'accueil
+  (`OnboardingGate`) sur `isPublicLinktreePath` : langue du téléphone si Yuno
+  la parle, anglais sinon, jamais la carte « Select Language ».
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
