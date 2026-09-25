@@ -19,14 +19,14 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSalesOverview } from '@/hooks/useSalesOverview';
 import {
-  AnalyticsLoading, AnswerLine, ChoicePills, DeltaBadge, EmptyAnswer, KpiRow, KpiTile, MoreDetail, RankedList,
+  AnalyticsLoading, AnswerLine, ChoicePills, Takeaways, DeltaBadge, EmptyAnswer, KpiRow, KpiTile, MoreDetail, RankedList,
   StackBar, UpdatedAt,
 } from '@/components/analytics/kit';
 import { KIT, useKpiFormat, useNumberFormat } from '@/components/analytics/kitFormat';
 import { ReportCard, CardTitle } from '@/components/event-report/ui';
 import {
   SALES_PERIODS, bestNight, chartSeries, metricValue, nightDeltas, pillarHasActivity, pillarKpis, pillarsFor,
-  type SalesKpi, type SalesMetricKey, type SalesNight, type SalesOverview, type SalesPeriod, type SalesPillar,
+  type SalesKpi, type SalesMetricKey, type SalesNight, type SalesOverview, type SalesPeriod, type SalesPillar, type SalesTakeaway,
 } from '@/lib/salesOverview';
 
 // Couleurs en hex : recharts les pose en attributs SVG (pas de var()).
@@ -60,7 +60,7 @@ export function SalesOverviewView({
   const { t } = useLanguage();
   const [period, setPeriod] = useState<SalesPeriod>(() => readPref('period', SALES_PERIODS, 'last4'));
   const [pillar, setPillar] = useState<SalesPillar>('all');
-  const { data, loading, error, fetchedAt } = useSalesOverview({ venueId, organizerUserId }, period);
+  const { data, loading, error, fetchedAt } = useSalesOverview({ venueId, organizerUserId }, period, true, true);
 
   const changePeriod = (p: SalesPeriod) => { setPeriod(p); writePref('period', p); };
 
@@ -107,6 +107,7 @@ export function SalesOverviewView({
           key={activePillar}
           data={data}
           pillar={activePillar}
+          onPillar={setPillar}
           eventHref={eventHref}
           eventsHref={eventsHref}
           accountingHref={accountingHref}
@@ -117,8 +118,8 @@ export function SalesOverviewView({
   );
 }
 
-function PillarBody({ data, pillar, eventHref, eventsHref, accountingHref, renderDetail }: {
-  data: SalesOverview; pillar: SalesPillar;
+function PillarBody({ data, pillar, onPillar, eventHref, eventsHref, accountingHref, renderDetail }: {
+  data: SalesOverview; pillar: SalesPillar; onPillar: (p: SalesPillar) => void;
   eventHref: (id: string) => string; eventsHref: string; accountingHref?: string;
   renderDetail?: (pillar: SalesPillar) => ReactNode;
 }) {
@@ -155,6 +156,7 @@ function PillarBody({ data, pillar, eventHref, eventsHref, accountingHref, rende
   return (
     <div className="space-y-4">
       <AnswerLine><Answer data={data} pillar={pillar} /></AnswerLine>
+      <SalesTakeaways data={data} pillar={pillar} onPillar={onPillar} />
 
       <KpiRow>
         {kpis.map((k) => (
@@ -197,6 +199,39 @@ function PillarBody({ data, pillar, eventHref, eventsHref, accountingHref, rende
 
 function nightsWord(t: (k: string) => string, n: number) {
   return n === 1 ? t('so.nights.one') : t('so.nights.n').replace('{n}', String(n));
+}
+
+/**
+ * « À retenir » (`get_sales_takeaways`) : sur « Tout », tous les constats ;
+ * sur un pilier, les siens et ceux de la période. Un constat d'un autre
+ * pilier y mène d'un clic.
+ */
+function SalesTakeaways({ data, pillar, onPillar }: { data: SalesOverview; pillar: SalesPillar; onPillar: (p: SalesPillar) => void }) {
+  const { t } = useLanguage();
+  const fmt = useKpiFormat();
+  const items = (data.takeaways ?? []).filter((tk) => pillar === 'all' || tk.pillar === pillar || tk.pillar === 'all');
+  const num = (v: string | number | null | undefined) => (typeof v === 'number' ? v : Number(v ?? 0));
+  const text = (tk: SalesTakeaway): string => {
+    const p = tk.params;
+    const key = tk.key === 'mix_shift' ? `so.tk.mix_shift.${p.pillar}` : `so.tk.${tk.key}`;
+    return t(key)
+      .replace('{pct}', fmt(num(p.pct), 'pct'))
+      .replace('{prev}', tk.key === 'mix_shift' ? fmt(num(p.prev), 'pct') : fmt(num(p.prev), 'eur'))
+      .replace('{now}', fmt(num(p.now), 'eur'))
+      .replace('{missing}', fmt(num(p.missing), 'n'));
+  };
+  return (
+    <Takeaways
+      title={t('ak.takeaways')}
+      openLabel={t('ak.takeawayOpen')}
+      items={items.map((tk) => ({
+        key: tk.key,
+        tone: tk.tone,
+        text: text(tk),
+        onOpen: tk.pillar !== 'all' && tk.pillar !== pillar ? () => onPillar(tk.pillar) : undefined,
+      }))}
+    />
+  );
 }
 
 function Answer({ data, pillar }: { data: SalesOverview; pillar: SalesPillar }) {

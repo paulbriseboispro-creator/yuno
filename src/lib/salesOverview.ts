@@ -46,6 +46,16 @@ export interface SalesOverview {
   bar_service_min: number | null;
   holders: { name: string; kind: string; registered: number; entered: number }[];
   upcoming: { nights: number; amount: number | null } | null;
+  /** « À retenir » (`get_sales_takeaways`, migration 20260925170000) : 0 à 3 constats. */
+  takeaways?: SalesTakeaway[];
+}
+
+/** Un constat calculé serveur, avec son seuil ; texte `so.tk.<key>`, `pillar` = la preuve. */
+export interface SalesTakeaway {
+  key: 'gl_no_show' | 'presence_low' | 'spend_up' | 'spend_down' | 'mix_shift' | 'day_of' | string;
+  tone: 'good' | 'bad' | 'info';
+  pillar: SalesPillar;
+  params: Record<string, string | number | null>;
 }
 
 export type KpiFormat = 'eur' | 'n' | 'pct' | 'min';

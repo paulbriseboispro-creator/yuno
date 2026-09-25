@@ -25,6 +25,7 @@ import { ReportTrend, type ScopeEventOption } from './ReportTrend';
 import { ReportAudience, ReportDrivers, ReportTraffic } from './ReportReach';
 import { EmptyNote, Question, ReportCard } from './ui';
 import { ReportAnswer } from './ReportAnswer';
+import { ReportTakeaways } from './ReportTakeaways';
 
 interface Props {
   eventId: string;
@@ -183,6 +184,7 @@ export function EventReportView({ eventId, onEventChange, onBack, scope, verdict
             <>
               {/* La réponse d'abord, en une phrase. */}
               <ReportAnswer report={report} compare={compareId ? compare : null} />
+              <ReportTakeaways report={report} />
 
               {/* Après la soirée, le bilan détaillé (note, à retenir, déroulé)
                   est replié : la phrase et les jauges disent déjà l'essentiel. */}

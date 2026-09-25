@@ -101,6 +101,26 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
       },
     },
   },
+  // Bilan du lendemain (plan de simplification de l'analyse, lot 7) : trois
+  // chiffres, un constat, un lien — le Rapport de soirée. {compare} est vide ou
+  // porte déjà sa ponctuation (« , +12 % d'entrées vs Amore Night »).
+  night_recap: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Le bilan de {event} 🌙", body: "{entered} entrées sur {expected} attendus{compare}. {revenue} de CA, {spend} par tête." },
+        en: { title: "{event}: last night in numbers 🌙", body: "{entered} entries out of {expected} expected{compare}. {revenue} revenue, {spend} per head." },
+        es: { title: "El balance de {event} 🌙", body: "{entered} accesos de {expected} esperados{compare}. {revenue} de facturación, {spend} por persona." },
+      },
+      // Soirée gratuite (guest list seule) : pas de CA à annoncer.
+      free: {
+        fr: { title: "Le bilan de {event} 🌙", body: "{entered} entrées sur {expected} attendus{compare}. Le rapport complet est prêt." },
+        en: { title: "{event}: last night in numbers 🌙", body: "{entered} entries out of {expected} expected{compare}. The full report is ready." },
+        es: { title: "El balance de {event} 🌙", body: "{entered} accesos de {expected} esperados{compare}. El informe completo está listo." },
+      },
+    },
+  },
   // Récap hebdo poussé au pro : l'habitude qui donne une raison de faire plus d'events.
   audience_weekly_recap: {
     logType: "reminder",

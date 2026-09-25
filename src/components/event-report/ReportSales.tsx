@@ -12,6 +12,7 @@ import { KIT, useNumberFormat } from '@/components/analytics/kitFormat';
 import { fillPct, type PillarKey } from '@/lib/eventsSales';
 import { referenceFor, type EventReport, type LineStatus, type ReportLine } from '@/lib/eventReport';
 import { CardTitle, EmptyNote, ReportCard } from './ui';
+import { ReportTarget } from './ReportTarget';
 
 const PILLAR: Record<PillarKey, { icon: LucideIcon; color: string }> = {
   tickets: { icon: Ticket, color: 'var(--acc-ff7a82)' },
@@ -126,7 +127,7 @@ export function ReportSales({ report, compare = null, projection }: {
                   {refLabel}
                 </span>
               )}
-              {projection}
+              <ReportTarget report={report} compare={compare} projection={projection} />
             </div>
           )}
         </div>

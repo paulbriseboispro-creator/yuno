@@ -7325,6 +7325,7 @@ export type Database = {
           description: string | null
           discovery_status: Database["public"]["Enums"]["discovery_status"]
           end_at: string
+          entry_target: number | null
           event_kind: Database["public"]["Enums"]["event_kind"]
           event_mode: Database["public"]["Enums"]["event_mode"] | null
           event_type: string
@@ -7400,6 +7401,7 @@ export type Database = {
           description?: string | null
           discovery_status?: Database["public"]["Enums"]["discovery_status"]
           end_at: string
+          entry_target?: number | null
           event_kind?: Database["public"]["Enums"]["event_kind"]
           event_mode?: Database["public"]["Enums"]["event_mode"] | null
           event_type?: string
@@ -7475,6 +7477,7 @@ export type Database = {
           description?: string | null
           discovery_status?: Database["public"]["Enums"]["discovery_status"]
           end_at?: string
+          entry_target?: number | null
           event_kind?: Database["public"]["Enums"]["event_kind"]
           event_mode?: Database["public"]["Enums"]["event_mode"] | null
           event_type?: string
@@ -20423,6 +20426,14 @@ export type Database = {
       get_reservation_venue_id: {
         Args: { _reservation_id: string }
         Returns: string
+      }
+      get_sales_takeaways: {
+        Args: {
+          p_organizer_user_id?: string
+          p_period?: string
+          p_venue_id?: string
+        }
+        Returns: Json
       }
       get_sales_overview: {
         Args: {

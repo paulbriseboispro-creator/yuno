@@ -52,6 +52,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 📅 Events
   event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
   event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
+  night_recap:     { icon: BarChart3, category: 'events', label: 'notif.type.night_recap' },
   lineup_reminder: { icon: Music,     category: 'events', label: 'notif.type.lineup_reminder' },
   // 🎧 Bookings (organizer-facing)
   dj_booking_accepted: { icon: Music, category: 'bookings', label: 'notif.type.dj_booking_accepted' },
@@ -403,6 +404,11 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'lineup_reminder':
       if (isOrganizer && eventId) return `${basePath}/events/${eventId}`;
       return `${basePath}/events`;
+
+    // Bilan du lendemain → le Rapport de soirée.
+    case 'night_recap':
+      if (isManager) return null;
+      return eventId ? `${basePath}/analytics?tab=sales&view=event&event=${eventId}` : `${basePath}/analytics`;
 
     // Event lifecycle.
     case 'event_starting':

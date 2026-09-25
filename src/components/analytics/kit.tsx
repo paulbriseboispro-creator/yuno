@@ -12,7 +12,7 @@
  * jamais un blanc en dur, pour suivre le thème clair.
  */
 import { useState } from 'react';
-import { ArrowUp, ChevronDown, Clock, Info } from 'lucide-react';
+import { ArrowRight, ArrowUp, ChevronDown, Clock, Info } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KIT, useNumberFormat, type DeltaFormat } from './kitFormat';
@@ -142,6 +142,53 @@ export function AnswerLine({ children }: { children: React.ReactNode }) {
     <p className="px-1" style={{ color: KIT.T1, fontSize: 15.5, lineHeight: 1.5, maxWidth: '72ch', textWrap: 'pretty' }}>
       {children}
     </p>
+  );
+}
+
+/**
+ * « À retenir » : 0 à 3 constats calculés SERVEUR (chacun avec son seuil de
+ * volume), posés sous la phrase-réponse. Un constat mène à sa preuve (une
+ * section, un pilier) ; la pastille dit le sens, le texte le redit — jamais
+ * la couleur seule. Rien à dire : le bloc disparaît.
+ */
+export interface TakeawayItem {
+  key: string;
+  tone: 'good' | 'bad' | 'info';
+  text: React.ReactNode;
+  onOpen?: () => void;
+}
+
+export function Takeaways({ title, items, openLabel }: { title: string; items: TakeawayItem[]; openLabel: string }) {
+  if (items.length === 0) return null;
+  const dot = { good: KIT.POS, bad: 'var(--acc-f59e0b)', info: KIT.T3 } as const;
+  return (
+    <section className="px-1" aria-label={title}>
+      <h3 className="mb-1.5" style={{ color: KIT.T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{title}</h3>
+      <ul className="flex flex-col gap-1">
+        {items.map((it) => {
+          const body = (
+            <>
+              <span className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full" style={{ background: dot[it.tone] }} aria-hidden />
+              <span className="min-w-0 flex-1" style={{ color: KIT.T2, fontSize: 13.5, lineHeight: 1.5 }}>{it.text}</span>
+              {it.onOpen && <ArrowRight className="mt-1 h-3.5 w-3.5 flex-none opacity-60" aria-hidden />}
+            </>
+          );
+          return (
+            <li key={it.key}>
+              {it.onOpen ? (
+                <button type="button" onClick={it.onOpen} title={openLabel}
+                  className="flex w-full items-start gap-2.5 rounded-lg py-0.5 text-left transition-opacity hover:opacity-80"
+                  style={{ color: KIT.T3 }}>
+                  {body}
+                </button>
+              ) : (
+                <div className="flex items-start gap-2.5 py-0.5">{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

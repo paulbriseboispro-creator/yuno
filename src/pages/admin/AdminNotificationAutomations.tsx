@@ -65,6 +65,7 @@ const CATALOG: { key: string; category: Category; dormant?: boolean }[] = [
   { key: 'inactivity_reminder', category: 'marketing' },
   { key: 'taste_discovery', category: 'marketing' },
   { key: 'audience_weekly_recap', category: 'engagement' },
+  { key: 'night_recap', category: 'engagement' },
   // Clés encore semées en base mais qu'aucune fonction n'envoie plus : gardées
   // visibles (et éteignables) plutôt que masquées.
   { key: 'weekly_digest', category: 'marketing', dormant: true },

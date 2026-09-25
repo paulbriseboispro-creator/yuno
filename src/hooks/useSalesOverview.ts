@@ -5,11 +5,14 @@ import type { SalesOverview, SalesPeriod } from '@/lib/salesOverview';
 /**
  * Bilan des soirées passées (`get_sales_overview`) : un aller-retour pour la
  * vue d'ensemble ET les quatre piliers. La période se compte en soirées.
+ * `withTakeaways` passe par `get_sales_takeaways`, qui rend la même vue
+ * d'ensemble complétée de ses constats « À retenir » (un seul calcul).
  */
 export function useSalesOverview(
   scope: { venueId?: string | null; organizerUserId?: string | null },
   period: SalesPeriod,
   enabled = true,
+  withTakeaways = false,
 ) {
   const venueId = scope.venueId ?? null;
   const organizerUserId = scope.organizerUserId ?? null;
@@ -24,7 +27,7 @@ export function useSalesOverview(
     if (!enabled || (!venueId && !organizerUserId)) return;
     setLoading(true);
     try {
-      const { data: raw, error: rpcError } = await supabase.rpc('get_sales_overview', {
+      const { data: raw, error: rpcError } = await supabase.rpc(withTakeaways ? 'get_sales_takeaways' : 'get_sales_overview', {
         p_venue_id: organizerUserId ? undefined : venueId ?? undefined,
         p_organizer_user_id: organizerUserId ?? undefined,
         p_period: period,
@@ -46,7 +49,7 @@ export function useSalesOverview(
     } finally {
       setLoading(false);
     }
-  }, [venueId, organizerUserId, period, enabled]);
+  }, [venueId, organizerUserId, period, enabled, withTakeaways]);
 
   useEffect(() => { load(); }, [load]);
 

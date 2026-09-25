@@ -29,6 +29,25 @@ export interface ReportDay {
   guests: number;
   amount: number | null;
   visits: number;
+  /** Attendus du jour : billets en quantité + convives de table + inscrits guest list (migration 20260925170000). */
+  people?: number;
+}
+
+/** Un repère de la courbe J-N (migration 20260925170000). */
+export interface ReportMarker {
+  kind: 'published' | 'round' | 'email' | 'push';
+  d: number;
+  at: string;
+  label: string | null;
+}
+
+/** Un constat « À retenir », calculé serveur avec son seuil ; le texte est `er.tk.<key>`. */
+export interface ReportTakeaway {
+  key: string;
+  tone: 'good' | 'bad' | 'info';
+  /** La section du rapport qui le prouve. */
+  section?: 'sales' | 'curve' | 'reach' | 'who';
+  params: Record<string, string | number | null>;
 }
 
 export interface ReportMessage {
@@ -57,6 +76,8 @@ export interface EventReport {
     id: string; title: string; startAt: string; endAt: string; poster: string | null;
     status: string; cancelled: boolean; publishedAt: string | null; createdAt: string;
     venueName: string | null; phase: ReportPhase;
+    /** Objectif d'entrées posé par le pro (`events.entry_target`). */
+    entryTarget?: number | null;
   };
   totals: {
     tickets: { sold: number; today: number; orders: number; capacity: number | null; enabled: boolean; soldOut: boolean };
@@ -75,6 +96,13 @@ export interface EventReport {
   channels: { source: string; n: number; amount: number | null }[];
   links: { id: string; label: string; code: string; clicks: number; n: number; entries: number; amount: number | null }[];
   messages: ReportMessage[];
+  markers?: ReportMarker[];
+  takeaways?: ReportTakeaway[];
+  /**
+   * Avant la soirée : la dernière soirée TERMINÉE de la portée (≥ 20 attendus)
+   * et ses attendus au même J-N / au final (migration 20260925170000).
+   */
+  pace?: { refId: string; refTitle: string; d: number; final: number; atSameD: number } | null;
 }
 
 // ── Courbe ──────────────────────────────────────────────────────────────────
@@ -257,4 +285,74 @@ export function referenceFor(r: EventReport, compare: EventReport | null, metric
       : metric === 'tables' ? compare.totals.tables.booked : compare.totals.guestList.registered;
   }
   return compareAtSameD(r, compare, metric)?.compare ?? null;
+}
+
+// ── Objectif et rythme (plan de simplification, lot 7) ──────────────────────
+
+/** Attendus de la soirée à ce jour (même définition que `totals.door.expected`). */
+export function expectedSoFar(r: EventReport): number {
+  if (r.totals.door) return r.totals.door.expected;
+  return r.series.reduce((acc, s) => acc + (s.people ?? 0), 0);
+}
+
+export interface PaceProjection {
+  projected: number;
+  /** La soirée dont on prend le rythme. */
+  refTitle: string;
+}
+
+/**
+ * Où finirait la soirée au rythme d'une soirée de référence : la part de ses
+ * attendus qu'elle avait déjà au même J-N, appliquée aux attendus d'aujourd'hui.
+ * La soirée comparée à l'écran si elle est terminée, sinon la dernière soirée
+ * terminée de la portée (`report.pace`, choisie serveur). `null` quand ça ne dit
+ * rien : soirée passée ou en cours, référence trop mince (< 20 attendus) ou
+ * encore presque vide à ce J-N (< 5 % de son total).
+ */
+export function paceProjection(r: EventReport, compare: EventReport | null): PaceProjection | null {
+  if (r.event.phase !== 'before') return null;
+  const d = todayD(r);
+  if (d < 0) return null;
+  let refFinal: number;
+  let refAt: number;
+  let refTitle: string;
+  if (compare && compare.event.phase === 'after') {
+    const people = (s: ReportDay) => s.people ?? 0;
+    refFinal = compare.series.reduce((acc, s) => acc + people(s), 0);
+    refAt = compare.series.filter((s) => s.d >= d).reduce((acc, s) => acc + people(s), 0);
+    refTitle = compare.event.title;
+  } else if (r.pace) {
+    refFinal = r.pace.final;
+    refAt = r.pace.atSameD;
+    refTitle = r.pace.refTitle;
+  } else {
+    return null;
+  }
+  if (refFinal < 20 || refAt <= 0 || refAt / refFinal < 0.05) return null;
+  return { projected: Math.round(expectedSoFar(r) / (refAt / refFinal)), refTitle };
+}
+
+export type TargetStatus =
+  | { kind: 'none' }
+  | {
+      kind: 'progress';
+      target: number;
+      /** Avant et pendant : les attendus ; après : les entrées scannées. */
+      current: number;
+      measure: 'expected' | 'entered';
+      /** Projection au rythme d'une soirée de référence (avant la soirée seulement). */
+      pace: PaceProjection | null;
+    };
+
+/** Où en est la soirée face à son objectif. */
+export function targetStatus(r: EventReport, compare: EventReport | null, target: number | null | undefined): TargetStatus {
+  if (!target || target <= 0) return { kind: 'none' };
+  const after = r.event.phase === 'after';
+  return {
+    kind: 'progress',
+    target,
+    current: after ? r.totals.door?.entered ?? 0 : expectedSoFar(r),
+    measure: after ? 'entered' : 'expected',
+    pace: paceProjection(r, compare),
+  };
 }
