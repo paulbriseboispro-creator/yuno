@@ -8,6 +8,7 @@
  * décidée par le serveur au paiement (`claim_promo_code`).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OwnerHeader } from '@/components/OwnerHeader';
 import { Check, Copy, Link2, Loader2, Plus, Tag, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -133,15 +134,20 @@ export default function PromoCodes() {
 
   return (
     <div className="min-h-screen pb-16" style={{ background: 'var(--sf-000000)' }}>
+      {/* Club : l'en-tête collant de ses autres pages (titre, cloche, langue,
+          profil). L'organisateur a déjà la barre de son layout. */}
+      {!isOrg && <OwnerHeader title={t('pc.title')} />}
       <div className="relative z-10 mx-auto max-w-[1340px] space-y-5 px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
-              <Tag className="h-4 w-4" style={{ color: KIT.RED }} />
-            </div>
+            {isOrg && (
+              <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+                <Tag className="h-4 w-4" style={{ color: KIT.RED }} />
+              </div>
+            )}
             <div>
-              <h1 style={{ color: KIT.T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>{t('pc.title')}</h1>
-              <p style={{ color: KIT.T3, fontSize: 12.5, marginTop: 3 }}>{t('pc.subtitle')}</p>
+              {isOrg && <h1 style={{ color: KIT.T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>{t('pc.title')}</h1>}
+              <p style={{ color: KIT.T3, fontSize: 12.5, marginTop: isOrg ? 3 : 0 }}>{t('pc.subtitle')}</p>
             </div>
           </div>
           <button

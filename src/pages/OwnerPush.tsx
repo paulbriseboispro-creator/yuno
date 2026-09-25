@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { OwnerHeader } from '@/components/OwnerHeader';
 import { useSearchParams } from 'react-router-dom';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { Bell, Send, Loader2, Users, Zap, Sparkles, CalendarClock } from 'lucide-react';
@@ -463,23 +464,31 @@ export default function OwnerPush() {
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
+      {/* Club : l'en-tête collant de ses autres pages (titre, cloche, langue,
+          profil). L'organisateur a déjà la barre de son layout. */}
+      {!isOrg && <OwnerHeader title={t('ownerPush.title')} />}
+
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
 
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl flex-none"
-            style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-          >
-            <Bell className="h-4 w-4" style={{ color: RED }} />
+        {isOrg ? (
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-xl flex-none"
+              style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
+            >
+              <Bell className="h-4 w-4" style={{ color: RED }} />
+            </div>
+            <div>
+              <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
+                {t('ownerPush.title')}
+              </h1>
+              <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>{t('ph.orgSubtitle')}</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
-              {t('ownerPush.title')}
-            </h1>
-            <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>{isOrg ? t('ph.orgSubtitle') : t('ownerPush.subtitle')}</p>
-          </div>
-        </div>
+        ) : (
+          <p style={{ color: T3, fontSize: 12.5 }}>{t('ownerPush.subtitle')}</p>
+        )}
 
         {history.data && (
           <FollowersNudge
