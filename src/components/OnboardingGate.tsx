@@ -12,6 +12,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { OnboardingTasteQuiz } from '@/components/onboarding/OnboardingTasteQuiz';
 import { LAUNCH_TASTE_QUIZ_EVENT } from '@/lib/demoQuiz';
+import { useLocation } from 'react-router-dom';
+import { isPublicLinktreePath } from '@/lib/linktreePaths';
 
 const PUSH_ANSWERED_KEY = 'onboarding_push_answered';
 const LANG_ANSWERED_KEY = 'onboarding_language_answered';
@@ -25,7 +27,18 @@ const languages = [
   { code: 'fr' as const, name: 'Français', flag: '🇫🇷' },
 ];
 
+/**
+ * Un visiteur qui arrive d'une bio Instagram sur un linktree ne passe par
+ * aucune étape d'accueil : pas de carte de langue (la page parle la langue du
+ * téléphone, l'anglais sinon), pas de push, pas de quiz.
+ */
 export function OnboardingGate() {
+  const { pathname } = useLocation();
+  if (isPublicLinktreePath(pathname)) return null;
+  return <OnboardingGateSteps />;
+}
+
+function OnboardingGateSteps() {
   const { language, setLanguage, t } = useLanguage();
   const { isSupported, isSubscribed, permission, subscribe, isiOS, isPWA, ready: pushReady } = usePushNotifications();
   const [step, setStep] = useState<Step>('done');

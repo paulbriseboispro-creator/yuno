@@ -13,6 +13,7 @@ import { openExternal } from '@/lib/native';
 import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { PoweredByYunoBar, linktreeCtaLabel } from '@/components/linktree/linktreeShared';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -447,13 +448,12 @@ function EventCard({
 }) {
   const { t } = useLanguage();
   const isSoldOut = event.is_sold_out;
-  const isFree = event.is_free;
   // Porte unique du prix : une soirée « tables uniquement » n'a pas de prix
   // d'entrée, et un price_from à zéro n'est pas un gratuit.
   const priceLabel = isSoldOut
     ? t('promoterLinktree.soldOut')
     : eventPriceLabel({ minPrice: affiliateMinPrice(event), tablesOnly: event.tables_only }, t, { withFromPrefix: false }) || null;
-  const ctaLabel = isSoldOut ? t('promoterLinktree.soldOut') : isFree ? t('promoterLinktree.join') : t('promoterLinktree.tickets');
+  const ctaLabel = linktreeCtaLabel(event, t);
 
   const handleClick = () => {
     if (isSoldOut) return;
@@ -1002,7 +1002,7 @@ export default function AffiliateLinktree() {
           }}
         />
 
-        <main style={{ position: 'relative', zIndex: 1, maxWidth: '480px', margin: '0 auto', paddingBottom: '120px' }}>
+        <main style={{ position: 'relative', zIndex: 1, maxWidth: '480px', margin: '0 auto', paddingBottom: 'calc(120px + env(safe-area-inset-bottom, 0px))' }}>
 
           {/* ══ HEADER ══════════════════════════════════════════════ */}
           <header
@@ -1299,18 +1299,10 @@ export default function AffiliateLinktree() {
             </button>
           </div>
 
-          {/* Powered by — texte discret, plus de bulle flottante */}
-          <p
-            style={{
-              textAlign: 'center', padding: '36px 20px 0', margin: 0,
-              fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px',
-              color: 'rgba(255,255,255,0.40)', letterSpacing: '0.02em',
-            }}
-          >
-            Powered by{' '}
-            <Wordmark height={13} alt="Yuno" style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 2, opacity: 0.75 }} />
-          </p>
         </main>
+
+        {/* Barre flottante « Powered by Yuno » → Instagram de Yuno */}
+        <PoweredByYunoBar />
 
       </div>
 
