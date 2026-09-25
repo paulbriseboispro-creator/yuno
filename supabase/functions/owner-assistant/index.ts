@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
 
@@ -1042,9 +1043,156 @@ function hasPlanAccess(currentPlan: string, requiredPlan: string): boolean {
   return (PLAN_RANK[currentPlan] || 0) >= (PLAN_RANK[requiredPlan] || 0);
 }
 
-function log(type: string, data: Record<string, any>) {
+function log(type: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), type, ...data }));
 }
+
+// ═══════════════════════════════════════════
+// LOCAL TYPES (tool args, rows read from the database, request bodies)
+// ═══════════════════════════════════════════
+
+// Arguments des tools, tels que déclarés dans TOOLS (JSON produit par le modèle).
+interface ToolArgs {
+  activate?: boolean;
+  active?: boolean;
+  body?: string;
+  delay_hours?: number;
+  description?: string;
+  drink_id?: string;
+  enabled?: boolean;
+  event_id?: string;
+  filter?: string;
+  kind?: string;
+  limit?: number;
+  music_genres?: string[];
+  period?: string;
+  price?: number;
+  promo_price?: number;
+  query?: string;
+  round_id?: string;
+  threshold_pct?: number;
+  title?: string;
+}
+
+type Amount = number | null;
+type IdRow = { id: string };
+type RoleRow = { role: string };
+interface OrderAmounts { total: Amount; service_fee: Amount }
+interface TicketAmounts { total_price: Amount; service_fee: Amount; insurance_fee: Amount }
+interface TableAmounts { total_price: Amount; service_fee: Amount; management_fee: Amount }
+// Ligne d'`orders.items` (jsonb) : les deux nommages coexistent.
+interface OrderItem {
+  name?: string;
+  drink_name?: string;
+  qty?: number;
+  quantity?: number;
+  price?: number;
+  unit_price?: number;
+}
+interface EventListRow {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string;
+  is_active: boolean;
+  ticketing_enabled: boolean;
+  tables_enabled: boolean;
+  music_genres: string[] | null;
+  event_type: string | null;
+  ticket_selling_mode: string | null;
+}
+interface PendingOrderRow { order_number: string | number | null; total: Amount; items: unknown; created_at: string }
+interface LiveOrderRow {
+  id: string;
+  order_number: string | number | null;
+  status: string;
+  prep_status: string | null;
+  created_at: string;
+  ready_at: string | null;
+  refunded_at: string | null;
+}
+interface LiveTableRow {
+  id: string;
+  full_name: string | null;
+  status: string;
+  checked_in_at: string | null;
+  entry_scanned: boolean | null;
+  minimum_spend: Amount;
+}
+interface NightOpsRow { kind: string; note: string | null; created_at: string }
+interface StaffProfileRow { id: string; first_name: string | null; last_name: string | null; email: string | null }
+interface PushCampaignRow {
+  title: string | null;
+  source: string | null;
+  status: string | null;
+  scheduledAt: string | null;
+  createdAt: string | null;
+  eventTitle: string | null;
+  targeted: number | null;
+  sent: number | null;
+  taps: number | null;
+  buyers: number | null;
+  entries: number | null;
+  revenue: number | null;
+}
+interface EmailAutomationStatRow {
+  kind: string;
+  enabled: boolean;
+  delay_hours: number | null;
+  threshold_pct: number | null;
+  template_id: string | null;
+  subject: string | null;
+  pending: number;
+  in_flight: number;
+  queued: number;
+  sent: number;
+  opens: number;
+  clickers: number;
+  unsubscribes: number;
+  campaigns: number;
+  skipped: number;
+}
+interface EmailAutomationPreview { eligible: number; base: number; next_event_title: string | null; next_due_at: string | null }
+interface VenueCustomerRow {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  total_spent: Amount;
+  order_count: number | null;
+  ticket_count: number | null;
+  table_count: number | null;
+}
+interface PromoterRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  pending_amount: Amount;
+  total_paid: Amount;
+  is_active: boolean;
+}
+interface TicketRoundRow { name: string; price: number; tickets_sold: number | null; max_tickets: number | null; is_active: boolean }
+
+// Corps JSON des actions hors chat (le client n'envoie que des préférences).
+interface ActionBody {
+  channel?: unknown;
+  eventId?: unknown;
+  segment?: unknown;
+  tone?: unknown;
+  customInstructions?: unknown;
+  language?: string;
+  stats?: unknown;
+  scope?: string;
+  messages?: unknown;
+  docs?: unknown;
+  currentArticle?: unknown;
+}
+type ContentFields = { title?: unknown; preheader?: unknown; body?: unknown };
+type ContentVariant = { en?: ContentFields; fr?: ContentFields; es?: ContentFields };
+interface NightReport { headline?: string; insights?: unknown[]; actions?: unknown[] }
+interface NextBestAction { title?: string; why?: string; category?: string; path?: string }
+type HelpChatMessage = { role?: unknown; content?: unknown };
+interface OpenAiToolCall { id: string; type?: string; function: { name: string; arguments?: string } }
+interface OpenAiChatMessage { role: string; content?: string | null; tool_call_id?: string; tool_calls?: OpenAiToolCall[] }
 
 // ═══════════════════════════════════════════
 // PERIOD HELPERS
@@ -1087,7 +1235,7 @@ function getParisOffsetMs(date: Date): number {
 // REVENUE CALCULATION HELPERS
 // ═══════════════════════════════════════════
 
-function calcOrdersRevenue(orders: any[]): { caClub: number; caNet: number } {
+function calcOrdersRevenue(orders: OrderAmounts[]): { caClub: number; caNet: number } {
   let caClub = 0, caNet = 0;
   for (const o of orders) {
     const total = o.total || 0;
@@ -1101,7 +1249,7 @@ function calcOrdersRevenue(orders: any[]): { caClub: number; caNet: number } {
   return { caClub, caNet };
 }
 
-function calcTicketsRevenue(tickets: any[]): { caClub: number; caNet: number } {
+function calcTicketsRevenue(tickets: TicketAmounts[]): { caClub: number; caNet: number } {
   let caClub = 0, caNet = 0;
   for (const t of tickets) {
     const tp = t.total_price || 0;
@@ -1114,7 +1262,7 @@ function calcTicketsRevenue(tickets: any[]): { caClub: number; caNet: number } {
   return { caClub, caNet };
 }
 
-function calcTablesRevenue(tables: any[]): { caClub: number; caNet: number } {
+function calcTablesRevenue(tables: TableAmounts[]): { caClub: number; caNet: number } {
   let caClub = 0, caNet = 0;
   for (const t of tables) {
     const tp = t.total_price || 0;
@@ -1135,12 +1283,12 @@ function r2(n: number): number { return Math.round(n * 100) / 100; }
 
 async function executeTool(
   toolName: string,
-  args: Record<string, any>,
-  supabase: any,
+  args: ToolArgs,
+  supabase: SupabaseClient,
   venueId: string,
   // Client au JWT de l'appelant : les RPC d'analyse (lot G) décident de la
   // portée et de l'argent sur auth.uid(), jamais le service role.
-  userClient?: any,
+  userClient?: SupabaseClient,
 ): Promise<string> {
   try {
     switch (toolName) {
@@ -1190,7 +1338,7 @@ async function executeTool(
           summary_30_days: data.summary,
           followers: data.followers,
           total_campaigns: data.total,
-          latest: (data.campaigns || []).map((c: any) => ({
+          latest: (data.campaigns || []).map((c: PushCampaignRow) => ({
             title: c.title, source: c.source, status: c.status, at: c.scheduledAt || c.createdAt, event: c.eventTitle,
             targeted: c.targeted, sent: c.sent, opened: c.taps, buyers: c.buyers, guest_list_entries: c.entries, revenue: c.revenue,
           })),
@@ -1205,15 +1353,15 @@ async function executeTool(
         const periodEnd = getPeriodEnd(args.period || "30d");
 
         const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
-        const eventIds = (venueEvents || []).map((e: any) => e.id);
+        const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (venueZones || []).map((z: any) => z.id);
+        const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
 
         let oq = supabase.from("orders").select("total, service_fee", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
         if (periodEnd) oq = oq.lt("created_at", periodEnd);
         const ordersRes = await oq;
 
-        let ticketsData: any[] = [];
+        let ticketsData: TicketAmounts[] = [];
         let ticketsCount = 0;
         if (eventIds.length > 0) {
           let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("status", "paid").in("event_id", eventIds).gte("created_at", since);
@@ -1223,7 +1371,7 @@ async function executeTool(
           ticketsCount = tr.count || 0;
         }
 
-        let tablesData: any[] = [];
+        let tablesData: TableAmounts[] = [];
         let tablesCount = 0;
         if (zoneIds.length > 0) {
           let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee", { count: "exact" }).eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since);
@@ -1255,22 +1403,22 @@ async function executeTool(
         const periodEnd = getPeriodEnd(args.period || "30d");
 
         const { data: venueEvts } = await supabase.from("events").select("id").eq("venue_id", venueId);
-        const evtIds = (venueEvts || []).map((e: any) => e.id);
+        const evtIds = (venueEvts || []).map((e: IdRow) => e.id);
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const znIds = (venueZns || []).map((z: any) => z.id);
+        const znIds = (venueZns || []).map((z: IdRow) => z.id);
 
         let oq = supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
         if (periodEnd) oq = oq.lt("created_at", periodEnd);
         const ordersRes = await oq;
 
-        let ticketsData: any[] = [];
+        let ticketsData: TicketAmounts[] = [];
         if (evtIds.length > 0) {
           let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("status", "paid").in("event_id", evtIds).gte("created_at", since);
           if (periodEnd) tq = tq.lt("created_at", periodEnd);
           ticketsData = (await tq).data || [];
         }
 
-        let tablesData: any[] = [];
+        let tablesData: TableAmounts[] = [];
         if (znIds.length > 0) {
           let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", znIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
@@ -1335,7 +1483,7 @@ async function executeTool(
 
         const { data } = await query;
 
-        const enriched = await Promise.all((data || []).map(async (e: any) => {
+        const enriched = await Promise.all((data || []).map(async (e: EventListRow) => {
           const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("event_id", e.id).eq("status", "paid");
           let status = "🔜 À venir";
           if (e.end_at < now) status = "✅ Passée";
@@ -1405,22 +1553,22 @@ async function executeTool(
         const until = new Date(tonightEndParis.getTime() - parisOffset).toISOString();
 
         const { data: venueEvents } = await supabase.from("events").select("id").eq("venue_id", venueId);
-        const eventIds = (venueEvents || []).map((e: any) => e.id);
+        const eventIds = (venueEvents || []).map((e: IdRow) => e.id);
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (venueZones || []).map((z: any) => z.id);
+        const zoneIds = (venueZones || []).map((z: IdRow) => z.id);
 
         const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since).lt("created_at", until);
         const pendingRes = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("status", "paid").is("served_at", null).gte("created_at", since).lt("created_at", until);
 
-        let ticketsData: any[] = [];
+        let ticketsData: (TicketAmounts & { entry_scanned: boolean | null })[] = [];
         let ticketsScanned = 0;
         if (eventIds.length > 0) {
           const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, entry_scanned").eq("status", "paid").in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
           ticketsData = tr.data || [];
-          ticketsScanned = ticketsData.filter((t: any) => t.entry_scanned).length;
+          ticketsScanned = ticketsData.filter((t) => t.entry_scanned).length;
         }
 
-        let tablesData: any[] = [];
+        let tablesData: TableAmounts[] = [];
         if (zoneIds.length > 0) {
           const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
           tablesData = tres.data || [];
@@ -1452,9 +1600,9 @@ async function executeTool(
 
         return JSON.stringify({
           pending_count: count || 0,
-          orders: (data || []).map((o: any) => {
-            const items = Array.isArray(o.items) ? o.items : [];
-            const itemNames = items.map((i: any) => {
+          orders: (data || []).map((o: PendingOrderRow) => {
+            const items: OrderItem[] = Array.isArray(o.items) ? o.items : [];
+            const itemNames = items.map((i) => {
               const name = i.name || i.drink_name || "?";
               const qty = i.qty || i.quantity || 1;
               return qty > 1 ? `${name} x${qty}` : name;
@@ -1511,8 +1659,8 @@ async function executeTool(
             .select("retrieved").eq("venue_id", venueId).gte("created_at", since),
         ]);
 
-        const orders: any[] = ordersRes.data || [];
-        const tables: any[] = (tablesRes as any).data || [];
+        const orders: LiveOrderRow[] = ordersRes.data || [];
+        const tables: LiveTableRow[] = tablesRes.data || [];
         const backlog = orders.filter((o) => o.status === "paid" && !o.refunded_at && (!o.prep_status || o.prep_status === "queue" || o.prep_status === "preparing"));
         const oldestWaiting = backlog.reduce<string | null>((min, o) => (min === null || o.created_at < min ? o.created_at : min), null);
 
@@ -1524,7 +1672,7 @@ async function executeTool(
             .select("entry_scanned_at").eq("event_id", activeEvt.id)
             .eq("status", "paid").eq("entry_scanned", true);
           scannedEntries = (scans || []).length;
-          recentEntries = (scans || []).filter((t: any) => t.entry_scanned_at && t.entry_scanned_at >= tenMinAgo).length;
+          recentEntries = (scans || []).filter((t: { entry_scanned_at: string | null }) => t.entry_scanned_at && t.entry_scanned_at >= tenMinAgo).length;
         }
 
         let vipSpend: Record<string, number> = {};
@@ -1532,7 +1680,7 @@ async function executeTool(
           const { data: cons } = await supabase.from("vip_consumptions")
             .select("table_reservation_id, total_price")
             .eq("venue_id", venueId).gte("served_at", since);
-          vipSpend = (cons || []).reduce((acc: Record<string, number>, c: any) => {
+          vipSpend = (cons || []).reduce((acc: Record<string, number>, c: { table_reservation_id: string; total_price: Amount }) => {
             acc[c.table_reservation_id] = (acc[c.table_reservation_id] || 0) + Number(c.total_price || 0);
             return acc;
           }, {});
@@ -1542,8 +1690,8 @@ async function executeTool(
           .filter((t) => Number(t.minimum_spend || 0) > 0 && (vipSpend[t.id] || 0) < Number(t.minimum_spend) * 0.6)
           .map((t) => ({ name: t.full_name || "VIP", spent: r2(vipSpend[t.id] || 0), minimum: r2(Number(t.minimum_spend)) }));
 
-        const ops: any[] = opsRes.data || [];
-        const cloak: any[] = cloakRes.data || [];
+        const ops: NightOpsRow[] = opsRes.data || [];
+        const cloak: { retrieved: boolean | null }[] = cloakRes.data || [];
 
         return JSON.stringify({
           active_event: activeEvt ? { title: activeEvt.title, start_at: activeEvt.start_at, end_at: activeEvt.end_at } : null,
@@ -1555,7 +1703,7 @@ async function executeTool(
           bar: {
             backlog: backlog.length,
             oldest_waiting_minutes: oldestWaiting ? Math.floor((now.getTime() - new Date(oldestWaiting).getTime()) / 60_000) : null,
-            out_of_stock: (stockRes.data || []).map((d: any) => d.name),
+            out_of_stock: (stockRes.data || []).map((d: { name: string }) => d.name),
           },
           vip: {
             tables_total: tables.length,
@@ -1565,7 +1713,7 @@ async function executeTool(
           cloakroom: { active: cloak.filter((c) => !c.retrieved).length, retrieved: cloak.filter((c) => c.retrieved).length },
           staff_shift_starts: ops.filter((e) => e.kind === "shift_start").map((e) => e.note).filter(Boolean),
           incidents: ops.filter((e) => e.kind !== "shift_start").map((e) => ({ kind: e.kind, at: e.created_at })),
-          alerts_tonight: (alertsRes.data || []).map((a: any) => ({ type: a.notification_type, title: a.title, at: a.created_at })),
+          alerts_tonight: (alertsRes.data || []).map((a: { notification_type: string; title: string; created_at: string }) => ({ type: a.notification_type, title: a.title, at: a.created_at })),
         });
       }
 
@@ -1604,7 +1752,7 @@ async function executeTool(
       case "update_drink_price": {
         const { data: drink } = await supabase.from("drinks").select("id, name, price").eq("id", args.drink_id).eq("venue_id", venueId).maybeSingle();
         if (!drink) return JSON.stringify({ error: "Drink not found for this venue" });
-        const updates: any = { price: args.price };
+        const updates: { price: number; promo_price?: number } = { price: args.price };
         if (args.promo_price !== undefined) updates.promo_price = args.promo_price;
         const { error } = await supabase.from("drinks").update(updates).eq("id", args.drink_id);
         if (error) return JSON.stringify({ error: error.message });
@@ -1622,9 +1770,9 @@ async function executeTool(
       case "get_staff_list": {
         const { data } = await supabase.from("profiles").select("id, first_name, last_name, email").eq("venue_id", venueId);
         if (!data || data.length === 0) return JSON.stringify([]);
-        const userIds = data.map((p: any) => p.id);
+        const userIds = data.map((p: StaffProfileRow) => p.id);
         const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", userIds).in("role", ["barman", "bouncer", "vip_host", "cloakroom", "manager"]);
-        const staffWithRoles = data.map((p: any) => ({ ...p, roles: (roles || []).filter((r: any) => r.user_id === p.id).map((r: any) => r.role) })).filter((p: any) => p.roles.length > 0);
+        const staffWithRoles = data.map((p: StaffProfileRow) => ({ ...p, roles: (roles || []).filter((r: RoleRow & { user_id: string }) => r.user_id === p.id).map((r: RoleRow) => r.role) })).filter((p) => p.roles.length > 0);
         return JSON.stringify(staffWithRoles);
       }
 
@@ -1638,7 +1786,7 @@ async function executeTool(
         if (!eventId) return JSON.stringify({ message: "No upcoming event found" });
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         if (!zones || zones.length === 0) return JSON.stringify([]);
-        const zoneIds = zones.map((z: any) => z.id);
+        const zoneIds = zones.map((z: IdRow) => z.id);
         const { data } = await supabase.from("table_reservations").select("id, full_name, status, total_price, zone_id, created_at").in("zone_id", zoneIds).eq("event_id", eventId).order("created_at", { ascending: false });
         return JSON.stringify(data || []);
       }
@@ -1655,14 +1803,14 @@ async function executeTool(
             .eq("event_id", args.event_id).order("position"),
         ]);
 
-        const djIds = (djLinksRes.data || []).map((d: any) => d.dj_id).filter(Boolean);
+        const djIds = (djLinksRes.data || []).map((d: { dj_id: string | null }) => d.dj_id).filter(Boolean);
         let djNames: string[] = [];
         if (djIds.length > 0) {
           const { data: djRows } = await supabase.from("djs").select("id, stage_name, first_name, last_name").in("id", djIds);
-          djNames = (djRows || []).map((d: any) => d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`.trim()).filter(Boolean);
+          djNames = (djRows || []).map((d: { stage_name: string | null; first_name: string | null; last_name: string | null }) => d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`.trim()).filter(Boolean);
         }
 
-        const guests = (guestsRes.data || []).map((g: any) => ({
+        const guests = (guestsRes.data || []).map((g: { name: string; instagram_handle: string | null; instagram_clicks: number | null }) => ({
           name: g.name,
           instagram: g.instagram_handle ? `@${g.instagram_handle}` : null,
           instagram_clicks: g.instagram_clicks ?? 0,
@@ -1672,7 +1820,7 @@ async function executeTool(
           event: evt.title,
           yuno_djs: djNames,
           guest_artists: guests,
-          total_instagram_clicks: guests.reduce((sum: number, g: any) => sum + g.instagram_clicks, 0),
+          total_instagram_clicks: guests.reduce((sum: number, g: { instagram_clicks: number }) => sum + g.instagram_clicks, 0),
           note: "guest_artists = artistes sans compte Yuno, ajoutés à la main sur la fiche de la soirée. instagram_clicks = clics sortants depuis l'affiche publique, dédupliqués par visiteur sur 30 minutes.",
         });
       }
@@ -1683,7 +1831,7 @@ async function executeTool(
 
         // Fetch ticket rounds, tickets data, orders, and table zones in parallel
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (zones || []).map((z: any) => z.id);
+        const zoneIds = (zones || []).map((z: IdRow) => z.id);
 
         const [roundsRes, ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
           supabase.from("ticket_rounds").select("id, name, price, max_tickets, tickets_sold, is_active").eq("event_id", args.event_id).order("position"),
@@ -1729,7 +1877,7 @@ async function executeTool(
         if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
 
         const { data: zones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
-        const zoneIds = (zones || []).map((z: any) => z.id);
+        const zoneIds = (zones || []).map((z: IdRow) => z.id);
 
         const [ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
           supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid"),
@@ -1774,7 +1922,7 @@ async function executeTool(
       case "update_event": {
         const { data: evt } = await supabase.from("events").select("id, title").eq("id", args.event_id).eq("venue_id", venueId).maybeSingle();
         if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
-        const updates: any = {};
+        const updates: { title?: string; description?: string; music_genres?: string[]; music_genre?: string } = {};
         if (args.title) updates.title = args.title;
         if (args.description !== undefined) updates.description = args.description;
         if (args.music_genres && Array.isArray(args.music_genres)) {
@@ -1792,9 +1940,9 @@ async function executeTool(
       case "list_email_automations": {
         const { data: stats, error } = await supabase.rpc("get_email_automation_stats", { p_venue_id: venueId, p_organizer_user_id: null });
         if (error) return JSON.stringify({ error: error.message });
-        const rows = (stats || []) as any[];
+        const rows = (stats || []) as EmailAutomationStatRow[];
         const KINDS = ["new_event", "abandoned_checkout", "tier_closing", "last_call", "table_upsell", "post_event_thanks", "post_event_missed", "welcome", "win_back"];
-        const byKind: Record<string, any> = {};
+        const byKind: Record<string, EmailAutomationStatRow> = {};
         for (const r of rows) byKind[r.kind] = r;
         // Qui Yuno cible maintenant (compte, jamais de liste) + suggestions.
         const [previews, { data: suggestions }] = await Promise.all([
@@ -1804,7 +1952,7 @@ async function executeTool(
           })),
           supabase.rpc("get_email_automation_suggestions", { p_venue_id: venueId, p_organizer_user_id: null }),
         ]);
-        const previewByKind: Record<string, any> = Object.fromEntries(previews);
+        const previewByKind: Record<string, EmailAutomationPreview | null> = Object.fromEntries(previews);
         const out = KINDS.map((kind) => {
           const r = byKind[kind];
           const pv = previewByKind[kind] || null;
@@ -1946,20 +2094,20 @@ async function executeTool(
           supabase.from("venue_customers").select("total_spent").eq("venue_id", venueId),
         ]);
         const customers = totalCustomers.data || [];
-        const totalSpent = customers.reduce((s: number, c: any) => s + (c.total_spent || 0), 0);
+        const totalSpent = customers.reduce((s: number, c: { total_spent: Amount }) => s + (c.total_spent || 0), 0);
         const avgSpent = customers.length > 0 ? totalSpent / customers.length : 0;
         const segments = {
-          platinum: customers.filter((c: any) => (c.total_spent || 0) >= 1000).length,
-          gold: customers.filter((c: any) => (c.total_spent || 0) >= 500 && (c.total_spent || 0) < 1000).length,
-          silver: customers.filter((c: any) => (c.total_spent || 0) >= 200 && (c.total_spent || 0) < 500).length,
-          bronze: customers.filter((c: any) => (c.total_spent || 0) < 200).length,
+          platinum: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) >= 1000).length,
+          gold: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) >= 500 && (c.total_spent || 0) < 1000).length,
+          silver: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) >= 200 && (c.total_spent || 0) < 500).length,
+          bronze: customers.filter((c: { total_spent: Amount }) => (c.total_spent || 0) < 200).length,
         };
         return JSON.stringify({
           total_customers: customers.length,
           total_revenue: r2(totalSpent),
           average_spend: r2(avgSpent),
           segments,
-          top_customers: (topCustomers.data || []).map((c: any) => ({
+          top_customers: (topCustomers.data || []).map((c: VenueCustomerRow) => ({
             name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email,
             total_spent: c.total_spent,
             orders: c.order_count,
@@ -1976,7 +2124,7 @@ async function executeTool(
         if (!orders || orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
         const drinkSales: Record<string, { name: string; qty: number; revenue: number }> = {};
         for (const order of orders) {
-          const items = order.items as any[];
+          const items = order.items as OrderItem[];
           if (!items) continue;
           for (const item of items) {
             const name = item.name || item.drink_name || "Unknown";
@@ -2030,19 +2178,19 @@ async function executeTool(
         // Un compte exact par promoteur (une requête « head » chacun) : une
         // liste de lignes serait tronquée à 1 000 par PostgREST.
         const convCount = new Map<string, number>();
-        await Promise.all(promoters.map(async (p: any) => {
+        await Promise.all(promoters.map(async (p: PromoterRow) => {
           const { count } = await supabase
             .from("promoter_conversions")
             .select("id", { count: "exact", head: true })
             .eq("promoter_id", p.id);
           convCount.set(p.id, count ?? 0);
         }));
-        promoters.sort((a: any, b: any) => (convCount.get(b.id) ?? 0) - (convCount.get(a.id) ?? 0));
+        promoters.sort((a: PromoterRow, b: PromoterRow) => (convCount.get(b.id) ?? 0) - (convCount.get(a.id) ?? 0));
 
         return JSON.stringify({
           total_promoters: promoters.length,
-          active: promoters.filter((p: any) => p.is_active).length,
-          promoters: promoters.map((p: any) => ({
+          active: promoters.filter((p: PromoterRow) => p.is_active).length,
+          promoters: promoters.map((p: PromoterRow) => ({
             name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
             conversions: convCount.get(p.id) ?? 0,
             pending: r2(p.pending_amount || 0),
@@ -2114,8 +2262,8 @@ const CONTENT_SCHEMA = {
 };
 
 async function handleGenerateContent(
-  body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
@@ -2154,12 +2302,12 @@ async function handleGenerateContent(
       .select("name, price, tickets_sold, max_tickets, is_active")
       .eq("event_id", eventId)
       .order("position");
-    const activeRound = (rounds || []).find((r: any) => r.is_active);
+    const activeRound = (rounds || []).find((r: TicketRoundRow) => r.is_active);
     if (activeRound) {
       contextLines.push(`- Prix billet actuel : ${activeRound.price}€ (round « ${activeRound.name} »)`);
     }
-    const sold = (rounds || []).reduce((s: number, r: any) => s + (r.tickets_sold || 0), 0);
-    const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: any) => s + (r.max_tickets || 0), 0);
+    const sold = (rounds || []).reduce((s: number, r: TicketRoundRow) => s + (r.tickets_sold || 0), 0);
+    const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: TicketRoundRow) => s + (r.max_tickets || 0), 0);
     if (cap > 0) contextLines.push(`- Remplissage : ${sold}/${cap} billets vendus`);
   }
   if (segment) contextLines.push(`- Audience ciblée : ${segment}`);
@@ -2206,11 +2354,11 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
 
   const aiData = await aiResponse.json();
   logAiUsage(supabase, { ...contentUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: any = null;
+  let parsed: { variants?: ContentVariant[] } | null = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch { /* empty */ }
   const limits = CHANNEL_LIMITS[channel];
-  const variants = (parsed?.variants || []).slice(0, 3).map((v: any) => {
-    const clamp = (l: any) => ({
+  const variants = (parsed?.variants || []).slice(0, 3).map((v: ContentVariant) => {
+    const clamp = (l: ContentFields | undefined) => ({
       title: String(l?.title || "").substring(0, limits.title),
       preheader: String(l?.preheader || "").substring(0, limits.preheader),
       body: String(l?.body || "").substring(0, limits.body),
@@ -2285,8 +2433,8 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 async function handleGenerateNightReport(
-  body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
@@ -2367,7 +2515,7 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
 
   const aiData = await aiResponse.json();
   logAiUsage(supabase, { ...reportUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let report: any = null;
+  let report: NightReport | null = null;
   try { report = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   if (!report?.headline || !Array.isArray(report?.insights) || !Array.isArray(report?.actions)) {
     log("report_empty", { event_id: eventId });
@@ -2445,8 +2593,8 @@ const NBA_SCHEMA = {
 const ACTIONS_CACHE_TAG = `${ACTIONS_MODEL}#sales-rows-v2`;
 
 async function handleNextBestActions(
-  body: Record<string, any>,
-  ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; venueId: string; userId: string; usage?: AiUsageEvent },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const { supabase, venueId, userId } = ctx;
@@ -2498,11 +2646,11 @@ async function handleNextBestActions(
     // vente), jamais le compteur `ticket_rounds.tickets_sold` — il n'est
     // incrémenté que par le checkout et a déjà fait écrire « 0 billet vendu »
     // à l'IA au-dessus d'une soirée affichée à 84 / 650.
-    const ids = events.map((e: any) => e.id);
+    const ids = events.map((e: IdRow) => e.id);
     // PostgREST rend au plus 1 000 lignes par requête : on pagine, sinon une
     // grosse guest list serait comptée à 1 000 et l'IA contredirait l'écran.
-    const allRows = async (build: (from: number, to: number) => any): Promise<{ data: any[] }> => {
-      const out: any[] = [];
+    const allRows = async <T,>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<{ data: T[] }> => {
+      const out: T[] = [];
       for (let from = 0; from < 50_000; from += 1000) {
         const { data, error } = await build(from, from + 999);
         if (error || !data?.length) break;
@@ -2517,14 +2665,17 @@ async function handleNextBestActions(
       allRows((f, t) => supabase.from("table_reservations").select("event_id").in("event_id", ids).in("status", ["paid", "confirmed"]).order("id").range(f, t)),
       allRows((f, t) => supabase.from("guest_list_entries").select("id, guest_lists!inner(event_id)").in("guest_lists.event_id", ids).neq("status", "cancelled").order("id").range(f, t)),
     ]);
-    const sumBy = (rows: any[] | null, key: (r: any) => string, val: (r: any) => number) => {
+    const sumBy = <R,>(rows: R[] | null, key: (r: R) => string, val: (r: R) => number) => {
       const m = new Map<string, number>();
       for (const r of rows || []) m.set(key(r), (m.get(key(r)) || 0) + val(r));
       return m;
     };
     const soldBy = sumBy(ticketsRes.data, (r) => r.event_id, (r) => r.quantity || 1);
     const tablesBy = sumBy(tablesRes.data, (r) => r.event_id, () => 1);
-    const glBy = sumBy(glRes.data, (r) => r.guest_lists?.event_id, () => 1);
+    // guest_lists est une relation « vers un » : PostgREST l'embarque en objet,
+    // pas en tableau (le typage sans schéma suppose un tableau).
+    const glRows = glRes.data as unknown as { guest_lists: { event_id: string } | null }[];
+    const glBy = sumBy(glRows, (r) => r.guest_lists?.event_id, () => 1);
     const capBy = sumBy(roundsRes.data, (r) => r.event_id, (r) => r.max_tickets || 0);
     for (const evt of events) {
       const sold = soldBy.get(evt.id) || 0;
@@ -2543,7 +2694,7 @@ async function handleNextBestActions(
 
   const customers = customersRes.data || [];
   if (customers.length > 0) {
-    const bucket = (lo: number, hi: number | null) => customers.filter((c: any) => {
+    const bucket = (lo: number, hi: number | null) => customers.filter((c: { last_visit_at: string | null }) => {
       const d = daysSince(c.last_visit_at);
       return d !== null && d >= lo && (hi === null || d < hi);
     }).length;
@@ -2553,7 +2704,7 @@ async function handleNextBestActions(
   }
 
   const autos = automationsRes.data || [];
-  const autosOn = autos.filter((a: any) => a.enabled).length;
+  const autosOn = autos.filter((a: { enabled: boolean }) => a.enabled).length;
   lines.push(`Notifications automatiques : ${autosOn}/4 activées.`);
 
   const systemPrompt = `Tu es le conseiller opérationnel quotidien d'un club sur Yuno. On te donne l'état réel du club ce matin.
@@ -2592,10 +2743,10 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
 
   const aiData = await aiResponse.json();
   logAiUsage(supabase, { ...nbaUsage, ...sumUsage(aiData?.usage as OpenAiUsage), latencyMs: Date.now() - handlerStart });
-  let parsed: any = null;
+  let parsed: { actions?: NextBestAction[] } | null = null;
   try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
   const actions = (parsed?.actions || []).slice(0, 3)
-    .filter((a: any) => ACTION_PATHS.includes(a?.path));
+    .filter((a: NextBestAction) => (ACTION_PATHS as readonly string[]).includes(a?.path));
   if (!actions.length) {
     log("nba_empty", { venue_id: venueId });
     return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
@@ -2669,15 +2820,15 @@ ${excerpts}`;
 }
 
 async function handleHelpChat(
-  body: any,
-  ctx: { supabase: any; userId: string; userEmail: string | null; startedAt: number },
+  body: ActionBody,
+  ctx: { supabase: SupabaseClient; userId: string; userEmail: string | null; startedAt: number },
 ): Promise<Response> {
   const language = ["fr", "en", "es"].includes(body?.language) ? body.language : "fr";
   const scope = ["owner", "manager", "organizer", "agency"].includes(body?.scope) ? body.scope : "owner";
   const messages = (Array.isArray(body?.messages) ? body.messages : [])
-    .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .filter((m: HelpChatMessage) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-12)
-    .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+    .map((m: HelpChatMessage) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
   if (messages.length === 0 || messages[messages.length - 1].role !== "user") {
     return new Response(JSON.stringify({ error: "A user message is required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -2685,7 +2836,7 @@ async function handleHelpChat(
   }
   const docs: HelpDoc[] = (Array.isArray(body?.docs) ? body.docs : [])
     .slice(0, 6)
-    .map((d: any) => ({
+    .map((d: { title?: unknown; path?: unknown; text?: unknown }) => ({
       title: String(d?.title ?? "").slice(0, 200),
       path: String(d?.path ?? "").slice(0, 300),
       text: String(d?.text ?? "").slice(0, 7000),
@@ -2777,7 +2928,7 @@ serve(async (req) => {
         supabase.from("profiles").select("profile_type").eq("id", user.id).maybeSingle(),
         supabase.from("org_members").select("id").eq("member_user_id", user.id).limit(1).maybeSingle(),
       ]);
-      const isPro = (proRoles ?? []).some((r: any) => r.role && r.role !== "client")
+      const isPro = (proRoles ?? []).some((r: RoleRow) => r.role && r.role !== "client")
         || proProfile?.profile_type === "organizer"
         || Boolean(membership);
       if (!isPro) {
@@ -2790,7 +2941,7 @@ serve(async (req) => {
 
     // Verify owner role
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    const isOwner = roles?.some((r: any) => r.role === "owner");
+    const isOwner = roles?.some((r: RoleRow) => r.role === "owner");
     if (!isOwner) {
       return new Response(JSON.stringify({ error: "Owner role required" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -2880,7 +3031,7 @@ serve(async (req) => {
     // MULTI-ROUND TOOL CALLING (max 3 rounds)
     // ═══════════════════════════════════════
 
-    const conversationMessages: any[] = [
+    const conversationMessages: OpenAiChatMessage[] = [
       { role: "system", content: systemPrompt },
       ...messages,
     ];
@@ -2946,7 +3097,7 @@ serve(async (req) => {
 
       // Execute tool calls
       const toolCalls = choice.message.tool_calls;
-      log("tool_calls", { round, tools: toolCalls.map((tc: any) => tc.function.name) });
+      log("tool_calls", { round, tools: toolCalls.map((tc: OpenAiToolCall) => tc.function.name) });
       for (const tc of toolCalls) if (tc?.function?.name) calledTools.push(String(tc.function.name));
 
       // Add assistant message with tool calls
@@ -2954,7 +3105,7 @@ serve(async (req) => {
 
       for (const tc of toolCalls) {
         const fnName = tc.function.name;
-        let fnArgs: Record<string, any> = {};
+        let fnArgs: ToolArgs = {};
         try { fnArgs = JSON.parse(tc.function.arguments || "{}"); } catch { /* empty */ }
 
         // Plan gating — désactivé pendant le lancement (SUBSCRIPTIONS_ENABLED=false) :
