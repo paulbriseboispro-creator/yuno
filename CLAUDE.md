@@ -952,10 +952,17 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
 `src/lib/posthog.ts` (porte unique) + `src/components/PosthogTracker.tsx`
 (monté dans `App.tsx`, à côté de `PlatformTrafficTracker`). Règles :
 
-- **Aucune clé, aucun effet** : `VITE_POSTHOG_KEY` (clé projet `phc_…`,
-  publique) absente ⇒ rien n'est chargé. `VITE_POSTHOG_HOST` = instance EU par
-  défaut. La clé doit figurer dans les variables Cloudflare ET dans
-  `scripts/ci-web-env.sh` pour les binaires (sinon natif muet).
+- **Projet EUROPÉEN `284316` sur eu.posthog.com (2026-09-25).** Le premier
+  projet avait été créé par erreur sur le cloud AMÉRICAIN : l'hôte EU refusait
+  sa clé, aucun événement n'est jamais arrivé — et la politique de
+  confidentialité promet un hébergement UE. La clé projet `phc_` (publique) du
+  projet EU vit dans le CODE (`EU_PROJECT_KEY`, app et landing) : un build de
+  production ne dépend d'aucune variable Cloudflare, et l'ancienne clé US est
+  ignorée si une variable la porte encore (`DEAD_KEYS`). En dev, rien sans
+  `VITE_POSTHOG_KEY` explicite. Même clé dans `scripts/ci-web-env.sh` et dans
+  le secret Supabase `POSTHOG_PROJECT_KEY`. Vérifier une clé avant de la
+  poser : `POST https://eu.posthog.com/flags/?v=2 {token}` doit répondre des
+  flags, pas `authentication_failed`.
 - **Consentement = `hasAnalyticsConsent()`**, la même case que la mesure
   maison : sur le web rien ne se charge avant l'acceptation ; un retrait
   coupe la capture, efface l'identité et purge `ph_*` (cookie compris, domaine
