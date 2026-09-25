@@ -2415,6 +2415,9 @@ const NBA_SCHEMA = {
   },
 };
 
+// Change à chaque fois que les chiffres lus par les actions changent de source.
+const ACTIONS_CACHE_TAG = `${ACTIONS_MODEL}#sales-rows-v2`;
+
 async function handleNextBestActions(
   body: Record<string, any>,
   ctx: { supabase: any; venueId: string; userId: string; usage?: AiUsageEvent },
@@ -2432,6 +2435,9 @@ async function handleNextBestActions(
     .eq("venue_id", venueId)
     .eq("day", today)
     .eq("language", language)
+    // Le tag de version invalide le cache du jour quand les données lues
+    // changent de source (sinon les actions fausses restent jusqu'à minuit).
+    .eq("model", ACTIONS_CACHE_TAG)
     .maybeSingle();
   if (cached) {
     return new Response(JSON.stringify({ actions: cached.actions, cached: true }), { headers: jsonHeaders });
@@ -2461,16 +2467,33 @@ async function handleNextBestActions(
   if (events.length === 0) {
     lines.push("Aucune soirée programmée dans les 14 prochains jours.");
   } else {
+    // Les MÊMES chiffres que le bloc « Vos prochaines soirées » juste en
+    // dessous des actions : billets et tables réellement vendus (lignes de
+    // vente), jamais le compteur `ticket_rounds.tickets_sold` — il n'est
+    // incrémenté que par le checkout et a déjà fait écrire « 0 billet vendu »
+    // à l'IA au-dessus d'une soirée affichée à 84 / 650.
+    const ids = events.map((e: any) => e.id);
+    const [roundsRes, ticketsRes, tablesRes, glRes] = await Promise.all([
+      supabase.from("ticket_rounds").select("event_id, max_tickets").in("event_id", ids),
+      supabase.from("tickets").select("event_id, quantity").in("event_id", ids).in("status", ["paid", "used"]),
+      supabase.from("table_reservations").select("event_id").in("event_id", ids).in("status", ["paid", "confirmed"]),
+      supabase.from("guest_list_entries").select("id, guest_lists!inner(event_id)").in("guest_lists.event_id", ids).neq("status", "cancelled"),
+    ]);
+    const sumBy = (rows: any[] | null, key: (r: any) => string, val: (r: any) => number) => {
+      const m = new Map<string, number>();
+      for (const r of rows || []) m.set(key(r), (m.get(key(r)) || 0) + val(r));
+      return m;
+    };
+    const soldBy = sumBy(ticketsRes.data, (r) => r.event_id, (r) => r.quantity || 1);
+    const tablesBy = sumBy(tablesRes.data, (r) => r.event_id, () => 1);
+    const glBy = sumBy(glRes.data, (r) => r.guest_lists?.event_id, () => 1);
+    const capBy = sumBy(roundsRes.data, (r) => r.event_id, (r) => r.max_tickets || 0);
     for (const evt of events) {
-      const { data: rounds } = await supabase
-        .from("ticket_rounds")
-        .select("price, tickets_sold, max_tickets, is_active")
-        .eq("event_id", evt.id);
-      const sold = (rounds || []).reduce((s: number, r: any) => s + (r.tickets_sold || 0), 0);
-      const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: any) => s + (r.max_tickets || 0), 0);
+      const sold = soldBy.get(evt.id) || 0;
+      const cap = evt.max_tickets || capBy.get(evt.id) || 0;
       const daysOut = Math.max(0, Math.round((new Date(evt.start_at).getTime() - now.getTime()) / 86400000));
       const fill = cap > 0 ? Math.round((sold / cap) * 100) : null;
-      lines.push(`Soirée « ${evt.title} » dans ${daysOut} j : ${sold} billets vendus${cap ? ` / ${cap} (${fill}%)` : ""}${evt.ticketing_enabled ? "" : " — billetterie DÉSACTIVÉE"}${evt.tables_enabled ? "" : " — tables désactivées"}.`);
+      lines.push(`Soirée « ${evt.title} » dans ${daysOut} j : ${sold} billets vendus${cap ? ` / ${cap} (${fill}%)` : ""}, ${tablesBy.get(evt.id) || 0} tables réservées, ${glBy.get(evt.id) || 0} inscrits guest list${evt.ticketing_enabled ? "" : " — billetterie DÉSACTIVÉE"}${evt.tables_enabled ? "" : " — tables désactivées"}.`);
     }
   }
 
@@ -2546,7 +2569,7 @@ RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, p
       day: today,
       language,
       actions,
-      model: ACTIONS_MODEL,
+      model: ACTIONS_CACHE_TAG,
     }, { onConflict: "venue_id,day,language" });
   } catch { /* ignore */ }
 

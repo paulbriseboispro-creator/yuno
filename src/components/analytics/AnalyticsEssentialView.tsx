@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, Ticket, Package, Users, Wine, RotateCcw } from 'lucide-react';
+import { DollarSign, TrendingUp, Ticket, Package, Wine, RotateCcw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnalyticsMetricCard } from './AnalyticsMetricCard';
 import { Card } from '@/components/ui/card';
@@ -44,7 +44,8 @@ export function AnalyticsEssentialView({ drinkAnalytics, ticketAnalytics, tableA
     { label: t('owner.totalRevenue') + ' (' + t('owner.drinks') + ')', value: fmtPrice(drinkAnalytics.totalRevenue), icon: Wine },
     { label: t('owner.ticketsSold'), value: totalTicketsSold, icon: Ticket },
     { label: t('owner.avgTicketPrice'), value: fmtPrice(avgTicketPrice), icon: Package },
-    { label: t('owner.uniqueCustomers'), value: drinkAnalytics.uniqueCustomers + ticketAnalytics.uniqueCustomers, icon: Users },
+    // Pas de « clients uniques » ici : bar + billets additionnés comptaient deux
+    // fois quiconque avait acheté les deux (la vraie union vit dans Communauté).
     ...(hasRefunds ? [{ label: t('refund.analytics.totalRefunded'), value: fmtPrice(refundAnalytics!.totalRefunded), icon: RotateCcw, note: { text: `${refundAnalytics!.refundRate.toFixed(1)}% ${t('refund.analytics.ofTransactions')}`, color: 'text-red-400' } }] : []),
   ];
 

@@ -455,7 +455,7 @@ export default function OwnerAccounting() {
             <Kpi label={t('acct.kpiVat')} value={eur(totals.vat)} />
             <Kpi label={t('acct.kpiTtc')} value={eur(totals.ttc)} />
             <Kpi label={t('acct.kpiNet')} value={eur(totals.net)} accent={POS} />
-            <Kpi label={t('acct.kpiYuno')} value={`- ${eur(totals.yuno)}`} muted />
+            <Kpi label={t('acct.kpiYuno')} value={eur(totals.yuno)} muted />
             <Kpi label={t('acct.kpiStripe')} value={`- ${eur(totals.stripe)}`} muted />
             <Kpi label={t('acct.kpiRefunds')} value={`- ${eur(totals.refund)}`} muted />
             <div className="flex items-end">

@@ -98,9 +98,9 @@ export function DrinkOpsInsights({ data }: Props) {
         <Tile icon={CheckCheck} label={tt('Taux servi', 'Served rate', 'Tasa servida')}
           value={`${servedRate.toFixed(0)}%`}
           sub={`${prepFunnel.served}/${prepFunnel.paid} ${tt('commandes', 'orders', 'pedidos')}`} />
-        <Tile icon={Package} label={tt('Panier moyen', 'Avg basket', 'Cesta media')}
+        <Tile icon={Package} label={tt('Articles / commande', 'Items / order', 'Artículos / pedido')}
           value={avgItemsPerOrder.toFixed(1)}
-          sub={tt('articles / commande', 'items / order', 'artículos / pedido')} />
+          sub={tt('en moyenne', 'on average', 'de media')} />
         <Tile icon={Store} label={tt('Bars actifs', 'Active bars', 'Barras activas')}
           value={`${byBar.length}`}
           sub={tt('points de service', 'service points', 'puntos de servicio')} />

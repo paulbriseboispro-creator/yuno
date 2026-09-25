@@ -184,11 +184,14 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
 
   // CA club = montant payé par le client − frais Yuno (service + gestion). Les frais
   // Yuno transitent par Stripe mais ne sont jamais du revenu club — ne pas afficher le TTC.
-  const totalRevenue = filteredReservations.reduce(
+  // Totaux sur les réservations VENDUES seulement : la liste montre aussi les
+  // annulées et remboursées (filtre « Tous »), les totaux jamais.
+  const soldReservations = filteredReservations.filter((r) => r.status === 'paid' || r.status === 'confirmed');
+  const totalRevenue = soldReservations.reduce(
     (s, r) => s + tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee }).gross,
     0,
   );
-  const totalGuests = filteredReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
+  const totalGuests = soldReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
 
   // Soirées présentes dans le jeu chargé — la page club est multi-soirées, mais
   // une feuille de service n'a de sens que pour UNE nuit.

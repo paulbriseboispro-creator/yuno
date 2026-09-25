@@ -108,7 +108,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const genderExceedsQuota = isClub && enableGenderQuota && genderSum > quota;
 
   const activeEntries = entries.filter(e => e.status !== 'cancelled');
-  const scannedCount  = entries.filter(e => e.entry_scanned).length;
+  const scannedCount  = activeEntries.filter(e => e.entry_scanned).length;
   const femaleCount   = activeEntries.filter(e => e.gender === 'female').length;
   const maleCount     = activeEntries.filter(e => e.gender === 'male').length;
   // Une part illimitée (quota NULL) n'est jamais pleine.

@@ -189,8 +189,11 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
     );
 
   // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
-  const totalRevenue = filteredTickets.reduce((s, t) => s + (t.totalPrice - t.serviceFee - (t.insuranceFee ?? 0)), 0);
-  const totalQty = filteredTickets.reduce((s, t) => s + t.quantity, 0);
+  // « Vendus » et « CA » ne comptent que les billets VENDUS : la liste montre
+  // aussi les annulés et remboursés (filtre « Tous »), les totaux jamais.
+  const soldTickets = filteredTickets.filter((t) => t.status === 'paid');
+  const totalRevenue = soldTickets.reduce((s, t) => s + (t.totalPrice - t.serviceFee - (t.insuranceFee ?? 0)), 0);
+  const totalQty = soldTickets.reduce((s, t) => s + t.quantity, 0);
 
   // Une liste de porte se tire pour UNE soirée : les soirées présentes dans le
   // jeu chargé deviennent le sélecteur du dialogue d'export.

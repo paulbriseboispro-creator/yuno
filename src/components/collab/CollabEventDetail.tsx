@@ -261,7 +261,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         // status 'paid' : c'est la seule valeur écrite par le checkout —
         // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
         supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'paid'),
-        supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
+        supabase.from('guest_list_entries').select('id, entry_scanned, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId).neq('status', 'cancelled'),
         isVenue
           ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
           : Promise.resolve({ data: null as Pick<Tables<'orders'>, 'total' | 'service_fee' | 'refund_amount'>[] | null }),
@@ -287,7 +287,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         ticketsSold: ticketsSoldQty,
         caSoiree: ticketCA + tableCA + drinksCA,
         myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
-        checkins: tk.filter((x) => x.entry_scanned).length,
+        // Entrées = tout ce que la porte a scanné : billets ET guest list
+        // (un invité inscrit est une entrée comme une autre).
+        checkins: tk.filter((x) => x.entry_scanned).length + entries.filter((x) => x.entry_scanned).length,
         tableGuests: tr.reduce((s, x) => s + (x.guest_count || 0), 0),
         glEntries: entries.length,
         ticketPillar: { count: ticketsSoldQty, ca: ticketCA },
