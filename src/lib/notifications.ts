@@ -13,6 +13,7 @@ import {
   KeyRound, CalendarClock, Hourglass, ListChecks, Building2, UserPlus,
   Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren, UserX,
 } from 'lucide-react';
+import { analyticsHref, eventReportHref } from '@/lib/analyticsNav';
 
 export interface AppNotif {
   id: string;
@@ -53,9 +54,15 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
   event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
   lineup_reminder: { icon: Music,     category: 'events', label: 'notif.type.lineup_reminder' },
+  // Bilan du lendemain (cloche de la Console, émis par _shared/night-recap.ts).
+  night_recap:     { icon: BarChart3,     category: 'events', label: 'notif.type.night_recap' },
+  // « Ce soir dans ~6 h » (event-reminder, target_role = all_staff).
+  event_prep_6h:   { icon: CalendarClock, category: 'events', label: 'notif.type.event_prep_6h' },
   // 🎧 Bookings (organizer-facing)
   dj_booking_accepted: { icon: Music, category: 'bookings', label: 'notif.type.dj_booking_accepted' },
   dj_booking_declined: { icon: Music, category: 'bookings', label: 'notif.type.dj_booking_declined' },
+  // Un DJ relance son cachet impayé (dj_remind_unpaid_fee, metadata.dj_id).
+  dj_fee_reminder:     { icon: Banknote, category: 'bookings', label: 'notif.type.dj_fee_reminder' },
   // 🤝 People
   partner_request:     { icon: Handshake, category: 'people', label: 'notif.type.partner_request' },
   partner_accepted:    { icon: Handshake, category: 'people', label: 'notif.type.partner_accepted' },
@@ -74,6 +81,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   collab_message:          { icon: MessageSquare, category: 'people', label: 'notif.type.collab_message' },
   collab_tables_online:    { icon: Crown,          category: 'people', label: 'notif.type.collab_tables_online' },
   collab_tickets_online:   { icon: Ticket,         category: 'people', label: 'notif.type.collab_tickets_online' },
+  collab_terminated:       { icon: Handshake,      category: 'people', label: 'notif.type.collab_terminated' },
   // Allocation guest list : l'orga demande, le club tranche.
   guest_list_allocation_request: { icon: Users,      category: 'people', label: 'notif.type.guest_list_allocation_request' },
   guest_list_allocation_granted: { icon: UserCheck,  category: 'people', label: 'notif.type.guest_list_allocation_granted' },
@@ -97,6 +105,14 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   liveops_refund_spike:   { icon: Receipt,       category: 'liveops', label: 'notif.type.liveops_refund_spike' },
   liveops_revenue_goal:   { icon: Target,        category: 'liveops', label: 'notif.type.liveops_revenue_goal' },
   liveops_incident:       { icon: ShieldAlert,   category: 'liveops', label: 'notif.type.liveops_incident' },
+  // Service de la nuit — émis pour un poste du staff (app Pro), lus aussi dans
+  // la cloche du club, qui ne filtre pas par rôle.
+  bar_order_new:          { icon: Martini,       category: 'liveops', label: 'notif.type.bar_order_new' },
+  vip_entry:              { icon: Crown,         category: 'liveops', label: 'notif.type.vip_entry' },
+  vip_order_request:      { icon: Crown,         category: 'liveops', label: 'notif.type.vip_order_request' },
+  door_incident:          { icon: DoorOpen,      category: 'liveops', label: 'notif.type.door_incident' },
+  station_call:           { icon: Siren,         category: 'liveops', label: 'notif.type.station_call' },
+  night_brief:            { icon: MessageSquare, category: 'liveops', label: 'notif.type.night_brief' },
 
   // ── 🤝 Espace affilié (agences ville + promoteurs) ─────────────────────────
   aff_new_assignment:     { icon: Calendar,      category: 'people', label: 'notif.type.aff_new_assignment' },
@@ -301,34 +317,79 @@ export function getFeedConfig(params: {
 }
 
 // ─── Click-through routing ────────────────────────────────────────────────────
-// Maps a notification to the most relevant in-app destination for the scope it
-// belongs to. Scope-aware because the same notification type lives behind
-// different routes for an owner (`/owner`), a manager (`/manager`) and an
-// organizer (`/organizer-app`) — e.g. only owners have a per-event collab
-// dashboard. Returns `null` when there is no good destination for this scope,
-// in which case a click just marks the notification as read without navigating.
+// Une notification est un OBJECTIF, et la page où elle mène est la FONCTION
+// qui le remplit : cliquer ouvre l'écran où l'on fait l'action annoncée — le
+// bilan ouvre le Rapport de la soirée, un billet vendu ouvre la commande, une
+// relance de cachet ouvre la fiche du DJ où on le marque payé. Aucune
+// notification n'est « juste du texte » : `notifLink` rend TOUJOURS une
+// adresse, pour chaque type et chaque dashboard (club, manager, organisateur,
+// agence, super admin). Un type inconnu retombe sur la soirée qu'il porte,
+// sinon sur l'accueil du dashboard — jamais sur rien. Garanti par
+// `src/lib/__tests__/notifications.test.ts` : tout type ajouté au catalogue
+// doit y trouver sa page, dans chaque portée.
+//
+// Scope-aware because the same type lives behind different routes for an owner
+// (`/owner`), a manager (`/manager`, no collab / campaigns / integrations) and
+// an organizer (`/organizer-app`, one page per event at `/events/:id`).
+//
+// Une adresse qui ne commence pas par `/` (un `mailto:` pour un lead pro) sort
+// de l'app : l'ouvrir avec `followNotifLink`, jamais `navigate` directement.
 
-export function notifLink(n: AppNotif, config: FeedConfig): string | null {
-  const basePath = config.basePath;
-  const isOrganizer = config.table === 'organizer_notifications';
-  const isOwner = basePath === '/owner';
-  const isManager = basePath === '/manager';
+const metaStr = (n: AppNotif, key: string): string | null => {
+  const v = n.metadata?.[key];
+  return typeof v === 'string' && v ? v : null;
+};
 
-  // The platform feed shares nothing with the two dashboard feeds — different
+export function notifLink(n: AppNotif, config: FeedConfig): string {
+  // The platform feed shares nothing with the dashboard feeds — different
   // types, different routes — so it branches out before the shared switch.
   if (config.table === 'admin_notifications') return adminNotifLink(n);
   // Même logique pour le flux affilié : types et routes qui lui sont propres.
-  if (config.table === 'affiliate_app_notifications') return affiliateNotifLink(n);
-  const metaEventId = typeof n.metadata?.event_id === 'string' ? n.metadata.event_id : null;
-  const eventId = n.event_id ?? metaEventId;
+  if (config.table === 'affiliate_app_notifications') return affiliateNotifLink(n, config);
+
+  const base = config.basePath;
+  const isOrganizer = config.table === 'organizer_notifications';
+  const isOwner = !isOrganizer && base === '/owner';
+  const isManager = !isOrganizer && base === '/manager';
+  const home = `${base}/dashboard`;
+
+  const eventId = n.event_id ?? metaStr(n, 'event_id')
+    ?? (n.reference_type === 'event' ? n.reference_id : null);
   // Sale notifications carry the order/ticket/reservation id in reference_id, so
   // the orders page can auto-open that exact order's detail (the one just placed).
   const orderFocus = n.reference_id ? `&focus=${n.reference_id}` : '';
 
+  // Les pages d'une soirée, selon le dashboard.
+  // - fiche : le formulaire de la soirée (infos, affiche, line-up). Le club et
+  //   le manager l'ouvrent par `?edit=` sur la liste ; l'organisateur a une page
+  //   par soirée.
+  const eventForm = eventId ? `${base}/events?edit=${eventId}` : `${base}/events`;
+  const eventPage = isOrganizer
+    ? (eventId ? `${base}/events/${eventId}` : `${base}/events`)
+    : eventForm;
+  // - bilan : le Rapport de soirée (Analytics › Ventes › Par soirée).
+  const eventReport = eventId
+    ? eventReportHref(`${base}/analytics`, eventId)
+    : analyticsHref(`${base}/analytics`, 'sales');
+  // - pendant la soirée : le centre de commandement (club) / le live de la
+  //   soirée (organisateur).
+  const eventLive = isOrganizer
+    ? (eventId ? `${base}/events/${eventId}/live` : `${base}/events`)
+    : `${base}/live`;
+  // - co-soirée : le tableau de bord partagé (club), la page de la soirée
+  //   (organisateur, c'est la même page « travail partagé »). Le manager n'a
+  //   pas de surface collab : il atterrit sur la fiche de la soirée.
+  const collabPage = isOwner
+    ? (eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations')
+    : isOrganizer
+      ? (eventId ? `${base}/events/${eventId}` : `${base}/collaborations`)
+      : eventForm;
+
   switch (n.notification_type) {
-    // Co-event collaboration (per-night). Owners get the per-event collab
-    // dashboard; organizers only have the collaborations list; managers have
-    // no collab surface.
+    // ── Co-soirées ──────────────────────────────────────────────────────────
+    // Proposition, signature, demandes, messages, décompte de fin de soirée
+    // (déclaré / accepté / contesté, émis en `collab_request`) : tout se règle
+    // sur la page partagée de la soirée.
     case 'collab_request':
     case 'collab_accepted':
     case 'collab_action_request':
@@ -336,102 +397,99 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'collab_action_done':
     case 'collab_action_rejected':
     case 'collab_message':
-      if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
-      if (isOrganizer) return `${basePath}/collaborations`;
-      return null;
-
-    // Co-event ops going live (tables / ticketing). Point each party straight at
-    // the relevant event surface: owners to the per-event collab dashboard,
-    // organizers to their event detail page.
     case 'collab_tables_online':
     case 'collab_tickets_online':
-      if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
-      if (isOrganizer) return eventId ? `${basePath}/events/${eventId}` : `${basePath}/collaborations`;
-      return null;
+      return collabPage;
+    // Fin d'une série récurrente : la liste des collaborations.
+    case 'collab_terminated':
+      if (isOwner) return '/owner/collaborations';
+      if (isOrganizer) return `${base}/collaborations`;
+      return `${base}/events`;
 
     // Allocation guest list : on ouvre la page Guest list SUR la bonne soirée
-    // (sans ?event= elle retombe sur la 1re de la liste). Le manager gère aussi
-    // la guest list, il a donc droit au même lien.
+    // (sans ?event= elle retombe sur la 1re de la liste).
     case 'guest_list_allocation_request':
     case 'guest_list_allocation_granted':
     case 'guest_list_allocation_denied':
-      if (isOwner || isManager || isOrganizer) {
-        return eventId ? `${basePath}/guest-list?event=${eventId}` : `${basePath}/guest-list`;
-      }
-      return null;
+      return eventId ? `${base}/guest-list?event=${eventId}` : `${base}/guest-list`;
 
-    // Account-level partnerships.
+    // ── Partenaires ─────────────────────────────────────────────────────────
     case 'partner_request':
     case 'partner_accepted':
-    case 'connection_accepted':
-      if (isOrganizer) return `${basePath}/partners`;
+      if (isOrganizer) return `${base}/partners`;
       if (isOwner) return '/owner/collaborations';
-      return null;
+      return home;
 
-    // DJ booking responses (owner + organizer book DJs).
+    // ── DJ ──────────────────────────────────────────────────────────────────
+    // Un DJ a accepté l'invitation : il est dans « Mes DJ ».
+    case 'connection_accepted':
+      return `${base}/djs?tab=djs`;
     case 'dj_booking_accepted':
     case 'dj_booking_declined':
-      return isManager ? null : `${basePath}/book-dj`;
+      return isManager ? `${base}/djs` : `${base}/book-dj`;
+    // « X attend son cachet » : la fiche du DJ, où l'on marque le cachet payé.
+    case 'dj_fee_reminder': {
+      const djId = metaStr(n, 'dj_id');
+      return djId ? `${base}/djs/${djId}` : `${base}/djs?tab=djs`;
+    }
+    case 'lineup_reminder':
+      return eventForm;
 
+    // ── Ventes ──────────────────────────────────────────────────────────────
     // Ticket sale → the orders page, tickets tab, opened on the sale just made.
     case 'ticket_sale':
-      return `${basePath}/orders?tab=tickets${orderFocus}`;
-    // Ticketing capacity alerts stay on the ticketing management page.
-    case 'ticket_round_warning':
-    case 'ticket_round_sold_out':
-      return `${basePath}/ticketing`;
-
+      return `${base}/orders?tab=tickets${orderFocus}`;
     // VIP table booked → the orders page, VIP tab, opened on the new reservation.
     case 'table_booked':
-      return `${basePath}/orders?tab=vip${orderFocus}`;
-    // VIP capacity alerts (owner has a tables page; organizer has no such surface).
+      return `${base}/orders?tab=vip${orderFocus}`;
+    // Drink order → the orders page, drinks tab (l'organisateur ne tient pas de bar).
+    case 'new_order':
+    case 'bar_order_new':
+    case 'liveops_order_stuck':
+      return isOrganizer ? `${base}/orders` : `${base}/orders?tab=drinks${orderFocus}`;
+    case 'refund_issued':
+      return `${base}/refunds`;
+    case 'promoter_sale':
+      return eventId ? `${base}/promoters/event/${eventId}` : `${base}/promoters`;
+
+    // ── Jauges ──────────────────────────────────────────────────────────────
+    case 'ticket_round_warning':
+    case 'ticket_round_sold_out':
+      return `${base}/ticketing`;
     case 'tables_warning':
     case 'tables_sold_out':
-      return isOrganizer ? null : `${basePath}/tables`;
+      return isOrganizer
+        ? (eventId ? `${base}/tables?event=${eventId}` : `${base}/tables`)
+        : `${base}/tables`;
 
-    // Drink order (venue scope only) → the orders page, drinks tab.
-    case 'new_order':
-      return isOrganizer ? null : `${basePath}/orders?tab=drinks${orderFocus}`;
-    case 'refund_issued':
-      return `${basePath}/refunds`;
-
-    // Promoter conversions.
-    case 'promoter_sale':
-      return eventId ? `${basePath}/promoters/event/${eventId}` : `${basePath}/guest-list`;
-
-    // Line-up reminder.
-    case 'lineup_reminder':
-      if (isOrganizer && eventId) return `${basePath}/events/${eventId}`;
-      return `${basePath}/events`;
-
-    // Event lifecycle.
+    // ── Cycle d'une soirée ──────────────────────────────────────────────────
+    // « Ce soir dans ~6 h » : préparer l'équipe = la consigne du soir.
+    case 'event_prep_6h':
+      return isOrganizer ? eventPage : `${base}/staff?tab=briefing`;
+    // « Soirée dans 30 min » : le centre de commandement de la nuit.
     case 'event_starting':
+      return eventLive;
+    // Le bilan du lendemain et la fin de soirée : le Rapport de la soirée.
     case 'event_ended':
-      if (isOrganizer && eventId) return `${basePath}/events/${eventId}`;
-      return `${basePath}/analytics`;
+    case 'night_recap':
+      return eventReport;
 
-    // Marketing.
-    case 'campaign_sent':
-      return isManager ? null : `${basePath}/campaigns`;
-    case 'automation_suggested':
-      return isManager ? null : `${basePath}/campaigns/automations`;
-
-    // CRM.
-    case 'favorite_added':
-      return `${basePath}/customers`;
-
-    // Staff (owner/manager only).
-    case 'staff_login':
-      return isOrganizer ? null : `${basePath}/staff`;
-
-    // Live ops (owner/manager). La commande oubliée et la table à risque
-    // ouvrent la commande/réservation exacte ; le reste ramène au centre de
-    // commandement.
-    case 'liveops_order_stuck':
-      return isOrganizer ? null : `${basePath}/orders?tab=drinks${orderFocus}`;
+    // ── Service de la nuit (émis pour le staff, lus aussi par le club) ──────
+    // Arrivée VIP, commande passée depuis une table : le service VIP du soir.
+    case 'vip_entry':
+    case 'vip_order_request':
+      return `${base}/vip-service`;
+    // Table pas arrivée / minimum de conso en danger : la réservation exacte.
     case 'liveops_vip_no_show':
     case 'liveops_min_spend_risk':
-      return isOrganizer ? null : `${basePath}/orders?tab=vip${orderFocus}`;
+      return isOrganizer ? `${base}/vip-service` : `${base}/orders?tab=vip${orderFocus}`;
+    case 'night_brief':
+      return isOrganizer ? eventPage : `${base}/staff?tab=briefing`;
+    case 'staff_login':
+      return isOrganizer ? `${base}/team` : `${base}/staff?tab=activity`;
+    // Incident à la porte, appel de poste, alertes live : le centre de commandement.
+    case 'door_incident':
+    case 'station_call':
     case 'liveops_bar_backlog':
     case 'liveops_door_slow':
     case 'liveops_capacity_80':
@@ -439,25 +497,55 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'liveops_refund_spike':
     case 'liveops_revenue_goal':
     case 'liveops_incident':
-      return isOrganizer ? null : `${basePath}/live`;
+      return eventLive;
+
+    // ── Marketing ───────────────────────────────────────────────────────────
+    // Campagne partie : son rapport (le manager n'a pas de page Campagnes).
+    case 'campaign_sent':
+      if (isManager) return analyticsHref(`${base}/analytics`, 'community');
+      return n.reference_id ? `${base}/campaigns/${n.reference_id}/report` : `${base}/campaigns`;
+    case 'automation_suggested':
+      return isManager ? analyticsHref(`${base}/analytics`, 'community') : `${base}/campaigns/automations`;
+    // Nouvel abonné : Communauté › Abonnés.
+    case 'favorite_added':
+      return analyticsHref(`${base}/analytics`, 'community', 'subscribers');
+
+    // ── Intégrations ────────────────────────────────────────────────────────
+    // Jeton Meta invalide / bientôt expiré : Réglages › Intégrations, là où
+    // l'on reconnecte (le manager n'y a pas accès).
+    case 'meta_token_invalid':
+    case 'meta_token_expiring':
+      return isManager ? home : `${base}/integrations`;
 
     // Accès assisté Yuno : toujours vers le panneau de consentement, quel que
     // soit le dashboard — c'est là que le pro accepte, révoque et lit le journal.
     case 'support_access_requested':
     case 'support_access_session':
     case 'support_access_ended':
-      return isOrganizer ? '/organizer-app/support-access' : `${basePath}/support-access`;
+      return `${base}/support-access`;
 
+    // Type pas encore routé : la soirée qu'il porte, sinon l'accueil. Jamais rien.
     default:
-      return null;
+      return eventId ? eventPage : home;
   }
+}
+
+/**
+ * Ouvre l'adresse d'une notification : route interne par `navigate`, adresse
+ * externe (`mailto:`) par le navigateur.
+ */
+export function followNotifLink(link: string, navigate: (to: string) => void): void {
+  if (link.startsWith('/')) navigate(link);
+  else window.location.href = link;
 }
 
 /**
  * Affiliate-feed routing. Admin-feed types point at the agency surface where
  * the decision gets made; member-feed types point at the promoter's own space.
  */
-function affiliateNotifLink(n: AppNotif): string | null {
+function affiliateNotifLink(n: AppNotif, config: FeedConfig): string {
+  const isMemberFeed = config.filterValue.startsWith('member:');
+  const inAgencyApp = config.pagePath.startsWith('/agency-app');
   switch (n.notification_type) {
     case 'aff_new_assignment':
       return '/affiliate/promoteur';
@@ -473,12 +561,17 @@ function affiliateNotifLink(n: AppNotif): string | null {
       return '/agency-app/clubs';
     case 'aff_missing_ticket_url':
       return '/affiliate/events';
+    // Message d'équipe : son lien d'action s'il en porte un (relance, J-2,
+    // linktree, stats), sinon l'espace promoteur pour un membre, la page des
+    // annonces pour le chef d'agence.
     case 'aff_team_message': {
-      const actionUrl = typeof n.metadata?.action_url === 'string' ? n.metadata.action_url : null;
-      return actionUrl && actionUrl.startsWith('/') ? actionUrl : '/affiliate/inbox';
+      const actionUrl = metaStr(n, 'action_url');
+      if (actionUrl && actionUrl.startsWith('/')) return actionUrl;
+      return isMemberFeed ? '/affiliate/promoteur' : '/affiliate/notifications';
     }
     default:
-      return null;
+      if (isMemberFeed) return '/affiliate/promoteur';
+      return inAgencyApp ? '/agency-app' : '/affiliate';
   }
 }
 
@@ -488,7 +581,7 @@ function affiliateNotifLink(n: AppNotif): string | null {
  * from a search. Deadline alerts land back on the alerts page itself, where the
  * registry and its "renewed today" button live.
  */
-function adminNotifLink(n: AppNotif): string | null {
+function adminNotifLink(n: AppNotif): string {
   const ref = n.reference_id;
 
   switch (n.notification_type) {
@@ -535,10 +628,16 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_agency_club_lead':
       return '/admin/agencies';
 
-    // Lead pro « Ouvrir un club » : les coordonnées vivent dans le corps de
-    // l'alerte elle-même — on reste sur la page des alertes.
-    case 'admin_pro_lead':
-      return '/admin/alerts';
+    // Lead pro « Ouvrir un club » (sans compte) : ses coordonnées sont dans
+    // l'alerte (metadata.email / phone).
+    // L'objectif est de rappeler ce pro : l'email part pré-rempli vers lui.
+    case 'admin_pro_lead': {
+      const email = metaStr(n, 'email');
+      if (!email) return '/admin/signups';
+      const club = metaStr(n, 'club_name');
+      const subject = club ? `Yuno × ${club}` : 'Yuno';
+      return `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+    }
 
     // Demande d'activation d'un compte vitrine : la section « Demandes
     // d'activation » et le bouton Inviter vivent sur la page des accès démo.
@@ -560,7 +659,7 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_security_onboarding_link': {
       const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
-      return v ? `/admin/venues/${v}` : '/admin/alerts';
+      return v ? `/admin/venues/${v}` : '/admin/audit';
     }
 
     // Le rapport de la campagne, pas la liste : l'alerte annonce un resultat.
@@ -606,7 +705,8 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_orphan_profiles':
       return '/admin/people';
 
+    // Alerte pas encore routée : le cockpit, jamais rien.
     default:
-      return null;
+      return '/admin';
   }
 }

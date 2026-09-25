@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 import {
   BellOff, CheckCheck, RefreshCw,
-  Zap, AlertCircle, ChevronRight,
+  Zap, AlertCircle, Check,
 } from 'lucide-react';
 
 import { OwnerHeader } from '@/components/OwnerHeader';
@@ -18,7 +18,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  type AppNotif, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig, notifLink,
+  type AppNotif, CATEGORY_META, PRIORITY_CONFIG, followNotifLink, getNotifDef, getFeedConfig, notifLink,
 } from '@/lib/notifications';
 
 type TabFilter = 'all' | 'unread' | 'urgent';
@@ -139,8 +139,9 @@ function NotifCard({ notif, onMarkRead, onOpen }: { notif: AppNotif; onMarkRead:
           onClick={(e) => { e.stopPropagation(); onMarkRead(notif.id); }}
           className="flex-shrink-0 self-start opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-white/[0.08] text-white/30 hover:text-white/60 cursor-pointer"
           title={t('notif.markRead')}
+          aria-label={t('notif.markRead')}
         >
-          <ChevronRight className="h-3.5 w-3.5" />
+          <Check className="h-3.5 w-3.5" />
         </button>
       )}
     </motion.div>
@@ -261,8 +262,7 @@ export default function OwnerNotifications() {
   const handleOpen = useCallback((n: AppNotif) => {
     if (!n.read_at) markAsRead(n.id);
     if (!config) return;
-    const link = notifLink(n, config);
-    if (link) navigate(link);
+    followNotifLink(notifLink(n, config), navigate);
   }, [config, markAsRead, navigate]);
 
   const markAllAsRead = useCallback(async () => {

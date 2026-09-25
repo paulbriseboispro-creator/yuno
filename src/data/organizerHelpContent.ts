@@ -84,13 +84,14 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'LayoutDashboard',
         actionLink: { labelKey: OPEN, path: '/' },
         relatedArticleIds: ['org-analytics', 'org-events', 'org-payments'],
-        keywords: ['dashboard', 'bannière', 'banner', 'couverture', 'cover', 'photo', 'tableau de bord', 'kpi', 'revenue', 'revenu', 'next event', 'panel', 'prochaine soirée', 'próximo evento', 'prochaines soirées', 'upcoming nights', 'aujourd\'hui', 'today', 'hoy', 'j-2', 'compte à rebours', 'countdown', 'remplissage', 'jauge'],
+        keywords: ['dashboard', 'bannière', 'banner', 'couverture', 'cover', 'photo', 'tableau de bord', 'kpi', 'revenue', 'revenu', 'next event', 'panel', 'prochaine soirée', 'próximo evento', 'prochaines soirées', 'upcoming nights', 'aujourd\'hui', 'today', 'hoy', 'j-2', 'compte à rebours', 'countdown', 'remplissage', 'jauge', 'notifications', 'cloche', 'bell', 'campana'],
         sections: [
           { headingKey: 'ohelp.org.dashboard.s1h', bodyKey: 'ohelp.org.dashboard.s1b' },
           { headingKey: 'ohelp.org.dashboard.s2h', bodyKey: 'ohelp.org.dashboard.s2b', screenshotUrl: '/help/org-dashboard.webp' },
           { headingKey: 'ohelp.org.dashboard.s3h', bodyKey: 'ohelp.org.dashboard.s3b' },
           { headingKey: 'ohelp.org.dashboard.s4h', bodyKey: 'ohelp.org.dashboard.s4b', type: 'tip' },
           { headingKey: 'ohelp.org.dashboard.s5h', bodyKey: 'ohelp.org.dashboard.s5b', type: 'steps' },
+          { headingKey: 'ohelp.org.dashboard.s6h', bodyKey: 'ohelp.org.dashboard.s6b' },
         ],
       },
       {

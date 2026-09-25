@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { type AppNotif, type FeedConfig, getNotifDef, notifLink, PRIORITY_CONFIG } from '@/lib/notifications';
+import { type AppNotif, type FeedConfig, followNotifLink, getNotifDef, notifLink, PRIORITY_CONFIG } from '@/lib/notifications';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 const PREVIEW_LIMIT = 6;
@@ -135,11 +135,8 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
   const handleRowClick = useCallback((n: AppNotif) => {
     if (!config) return;
     if (!n.read_at) markOneRead(n.id);
-    const link = notifLink(n, config);
-    if (link) {
-      setOpen(false);
-      navigate(link);
-    }
+    setOpen(false);
+    followNotifLink(notifLink(n, config), navigate);
   }, [config, markOneRead, navigate]);
 
   // No feed available for this scope (e.g. owner without a venue yet).

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,6 +39,16 @@ const KIND_META: Record<Kind, { icon: typeof Bell; color: string }> = {
   booking:  { icon: Inbox,         color: RED },
 };
 
+// Chaque notification mène à la page où l'on fait ce qu'elle annonce : la
+// carte entière est cliquable, les boutons en ligne restent des raccourcis.
+const KIND_LINK: Record<Kind, string> = {
+  profile:  '/dj/profile',
+  unpaid:   '/dj/payments',
+  upcoming: '/dj/planning',
+  paid:     '/dj/payments',
+  booking:  '/dj/bookings',
+};
+
 const readKey = (uid: string) => `dj_notif_read_${uid}`;
 const loadRead = (uid: string): Set<string> => {
   try { return new Set(JSON.parse(localStorage.getItem(readKey(uid)) || '[]')); }
@@ -58,6 +68,7 @@ export default function DJNotifications() {
   const [read, setRead] = useState<Set<string>>(() => loadRead(uid));
   const [remindingId, setRemindingId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('all');
+  const navigate = useNavigate();
 
   // Build the inbox purely from real, owned DJ state — no synthetic content.
   const notifs = useMemo<DJNotif[]>(() => {
@@ -259,7 +270,13 @@ export default function DJNotifications() {
                 <motion.div key={n.id} layout
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.16 }}
-                  className="group relative flex gap-3 rounded-xl p-3.5"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => { markRead(n.id); navigate(KIND_LINK[n.kind]); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); markRead(n.id); navigate(KIND_LINK[n.kind]); }
+                  }}
+                  className="group relative flex gap-3 rounded-xl p-3.5 cursor-pointer transition-colors hover:bg-white/[0.03]"
                   style={{
                     background: isUnread ? 'rgb(var(--ink)/0.04)' : 'transparent',
                     border: `1px solid ${isUnread ? BORDER : 'rgb(var(--ink)/0.04)'}`,
@@ -281,7 +298,7 @@ export default function DJNotifications() {
                     {/* Inline actions */}
                     <div className="mt-1.5 flex items-center gap-2">
                       {n.kind === 'unpaid' && n.setId && n.venueId && (
-                        <button onClick={() => handleRemind(n.setId!)} disabled={remindingId === n.setId}
+                        <button onClick={(e) => { e.stopPropagation(); handleRemind(n.setId!); }} disabled={remindingId === n.setId}
                           className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06] disabled:opacity-50"
                           style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                           <Bell className="h-3.5 w-3.5" />
@@ -289,21 +306,21 @@ export default function DJNotifications() {
                         </button>
                       )}
                       {n.kind === 'profile' && (
-                        <Link to="/dj/profile"
+                        <Link to="/dj/profile" onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
                           style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}>
                           {tt('Compléter', 'Complete', 'Completar')} <ChevronRight className="h-3.5 w-3.5" />
                         </Link>
                       )}
                       {n.kind === 'booking' && (
-                        <Link to="/dj/bookings"
+                        <Link to="/dj/bookings" onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
                           style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}>
                           {tt('Voir la demande', 'View request', 'Ver solicitud')} <ChevronRight className="h-3.5 w-3.5" />
                         </Link>
                       )}
                       {n.kind === 'upcoming' && (
-                        <Link to="/dj/planning"
+                        <Link to="/dj/planning" onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
                           style={{ background: 'rgb(var(--ink)/0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
                           {tt('Voir le planning', 'View schedule', 'Ver agenda')} <ChevronRight className="h-3.5 w-3.5" />
@@ -313,7 +330,7 @@ export default function DJNotifications() {
                   </div>
 
                   {isUnread && (
-                    <button onClick={() => markRead(n.id)} title={tt('Marquer lu', 'Mark read', 'Marcar leído')}
+                    <button onClick={(e) => { e.stopPropagation(); markRead(n.id); }} title={tt('Marquer lu', 'Mark read', 'Marcar leído')}
                       className="flex-none self-start opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-white/[0.08]"
                       style={{ color: T3 }}>
                       <CheckCheck className="h-3.5 w-3.5" />

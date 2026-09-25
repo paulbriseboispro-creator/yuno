@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAffiliateShell } from '@/contexts/AffiliateShellContext';
 import {
-  type AppNotif, getNotifDef, notifLink, PRIORITY_CONFIG,
+  type AppNotif, followNotifLink, getNotifDef, notifLink, PRIORITY_CONFIG,
 } from '@/lib/notifications';
 import {
   AffPage, AffHeading, AffCard, AffSpinner, RED, T1, T2, T3, BORDER, C_FAINT,
@@ -94,8 +94,7 @@ export default function AffiliateInbox() {
   const handleRowClick = useCallback((n: AppNotif) => {
     if (!config) return;
     if (!n.read_at) markOneRead(n.id);
-    const link = notifLink(n, config);
-    if (link) navigate(link);
+    followNotifLink(notifLink(n, config), navigate);
   }, [config, markOneRead, navigate]);
 
   if (loading) return <AffSpinner />;

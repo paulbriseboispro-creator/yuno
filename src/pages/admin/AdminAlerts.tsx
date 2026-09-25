@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   type AppNotif, ADMIN_FEED_CONFIG, CATEGORY_META, PRIORITY_CONFIG,
-  getNotifDef, notifLink,
+  followNotifLink, getNotifDef, notifLink,
 } from '@/lib/notifications';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -197,9 +197,16 @@ export default function AdminAlerts() {
   const openNotif = useCallback((n: AppNotif) => {
     if (!n.read_at) markRead(n.id);
     const link = notifLink(n, cfg);
-    // Une alerte d'échéance renvoie sur cette page : inutile de naviguer sur
-    // place, on laisse juste le clic marquer comme lu.
-    if (link && link !== cfg.pagePath) navigate(link);
+    // Une alerte d'échéance renvoie sur cette page : son action (« Renouvelé
+    // aujourd'hui ») vit dans le registre, on amène donc sa ligne à l'écran.
+    if (link === cfg.pagePath) {
+      const row = n.reference_type === 'credential_deadline' && n.reference_id
+        ? document.getElementById(`deadline-${n.reference_id}`)
+        : null;
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    followNotifLink(link, navigate);
   }, [cfg, markRead, navigate]);
 
   // ── Actions registre ───────────────────────────────────────────────────────
@@ -375,7 +382,7 @@ export default function AdminAlerts() {
                   const tone = deadlineTone(days);
                   const busy = busyKey === d.key;
                   return (
-                    <div key={d.key} className="rounded-xl p-3.5"
+                    <div key={d.key} id={`deadline-${d.key}`} className="rounded-xl p-3.5 scroll-mt-24"
                       style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, opacity: d.is_active ? 1 : 0.5 }}>
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-[240px]">

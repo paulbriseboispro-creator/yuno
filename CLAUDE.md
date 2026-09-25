@@ -1215,6 +1215,27 @@ proposé par défaut) et `csv` (BOM UTF-8 + `;`, sur demande de l'appelant).
   ou `promoter_conversions.status` doit passer par une fonction `SECURITY DEFINER`.
   `settle_promoter_payout` (l'ancien règlement en un clic) lève désormais
   `use_two_step_flow` : ne pas le ressusciter.
+- **Une notification = un objectif, sa page = la fonction qui le remplit**
+  (2026-09-25). Dans TOUTES les cloches pro (club, manager, organisateur,
+  agence / affilié, super admin) et l'inbox DJ, cliquer une notification ouvre
+  la page où l'on fait l'action annoncée : le bilan (`night_recap`) ouvre le
+  Rapport de la soirée, le line-up `…/events?edit=<id>`, une vente la commande
+  (`&focus=`), une co-soirée sa page partagée, « Ce soir dans ~6 h »
+  `…/staff?tab=briefing`, la relance de cachet la fiche du DJ
+  (`metadata.dj_id`), un lead pro un `mailto:`. `notifLink`
+  (`src/lib/notifications.ts`) rend TOUJOURS une adresse — jamais `null` — et
+  la suit par `followNotifLink` (route interne ou lien externe). **La cloche du
+  club ne filtre pas par `target_role`** : les notifications du staff
+  (`vip_entry`, `bar_order_new`, `door_incident`, `station_call`,
+  `night_brief`, `event_prep_6h`) y passent aussi et ont leur page. Tout
+  nouveau type (staff, organisateur, affilié, admin) : entrée au
+  `NOTIF_CATALOGUE` + `notif.type.<clé>` ×3 + un `case` dans `notifLink` — le
+  test `src/lib/__tests__/notifications.test.ts` échoue sinon s'il retombe sur
+  l'inbox ou sur une route qui n'existe pas dans le dashboard. Un type émis en
+  base mais absent du catalogue s'affiche avec l'icône « i » et retombe sur sa
+  soirée ou l'accueil : c'était le cas du bilan du lendemain, déployé depuis une
+  autre branche sans son routage. Vérifier avec `SELECT DISTINCT
+  notification_type` sur les quatre tables.
 - **Alertes super admin : passer par `emit_admin_notification`, jamais par un
   INSERT direct.** Le flux plateforme (`admin_notifications`, page
   `/admin/alerts`, cloche du layout admin) est le troisième du même modèle que
