@@ -108,13 +108,16 @@ begin
       end if;
     end if;
 
-    -- 2b. Tables (club seulement : ses formules, pack et zone renseignés)
-    if v_ev.tables and v_ev.venue_id is not null and v_days <= 14 then
+    -- 2b. Tables : les formules du club (venue-scopées), ou celles de la
+    -- soirée quand l'organisateur vend seul (event-scopées, sans club).
+    if v_ev.tables and v_days <= 30 then
       v_i := 0;
       for v_pack in
         select p.id, p.zone_id, p.base_price
         from public.table_packs p
-        where p.venue_id = v_ev.venue_id and p.is_active and p.event_id is null and coalesce(p.payment_mode, 'online') = 'online'
+        where p.is_active and coalesce(p.payment_mode, 'online') = 'online'
+          and ((v_ev.venue_id is not null and p.venue_id = v_ev.venue_id and p.event_id is null)
+               or p.event_id = v_ev.id)
         order by p.base_price
         limit case when v_days <= 2 then 3 when v_days <= 6 then 2 else 1 end
       loop
