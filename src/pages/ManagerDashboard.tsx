@@ -65,7 +65,9 @@ export default function ManagerDashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const [ordersRes, ticketsRes, revenueRes] = await Promise.all([
+      // Le CA du jour était calculé ici toutes les minutes sans jamais être
+      // affiché : retiré (plan de simplification, 25/09).
+      const [ordersRes, ticketsRes] = await Promise.all([
         // Pending orders count
         supabase
           .from('orders')
@@ -82,20 +84,11 @@ export default function ManagerDashboard() {
             (await supabase.from('events').select('id').eq('venue_id', venue.id)).data?.map(e => e.id) || []
           )
           .gte('created_at', today.toISOString()),
-        // Revenue today (orders)
-        supabase
-          .from('orders')
-          .select('total, service_fee')
-          .eq('venue_id', venue.id)
-          .eq('status', 'paid')
-          .gte('created_at', today.toISOString()),
       ]);
 
       const stats: Record<string, number> = {};
       if (ordersRes.count !== null) stats.orders = ordersRes.count;
       if (ticketsRes.count !== null) stats.tickets = ticketsRes.count;
-      // Club revenue excludes the Yuno service fee — never count Yuno's cut.
-      if (revenueRes.data) stats.revenue = revenueRes.data.reduce((sum, o) => sum + (Number(o.total || 0) - Number(o.service_fee || 0)), 0);
       
       setQuickStats(stats);
     };

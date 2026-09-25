@@ -10651,7 +10651,7 @@ const fr: Record<string, string> = {
 
   // ─── Next-best-action quotidien (dashboard owner) ───
   'nba.title': "À faire aujourd'hui",
-  'nba.footnote': "3 actions priorisées par l'IA à partir de l'état réel de ton club, recalculées chaque jour.",
+  'nba.footnote': "2 actions priorisées par l'IA à partir de l'état réel de ton club, recalculées chaque jour.",
 
   // ─── Mode d'emploi owner : outils IA ───
 
@@ -15168,6 +15168,9 @@ const fr: Record<string, string> = {
   'so.h.glPresence': 'Part des inscrits qui ont été scannés à la porte.',
   'so.h.glPerNight': 'Inscrits divisés par le nombre de soirées.',
   'so.export': 'Exporter',
+  'rn.title': 'Tes {n} dernières soirées',
+  'rn.titleOne': 'Ta dernière soirée',
+  'rn.seeSales': 'Voir les ventes',
   'so.detail.window30': 'Achats des 30 derniers jours.',
   'so.detail.windowAll': 'Tous les achats depuis le début.',
   'so.detail.noRefunds': 'Aucun remboursement sur cette période.',
@@ -15190,6 +15193,7 @@ const fr: Record<string, string> = {
   'evs.board.all': 'Toutes les soirées',
   'evs.board.empty': 'Aucune soirée à venir.',
   'evs.board.more': '+ {n} autres soirées',
+  'evs.board.moreOne': '+ 1 autre soirée',
 
   // ── Rapport de soirée (2026-09-24) ──
   'er.pickEvent': 'Soirée',

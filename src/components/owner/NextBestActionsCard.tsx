@@ -67,13 +67,14 @@ export function NextBestActionsCard() {
 
       {!actions ? (
         <div className="space-y-2">
-          {[0, 1, 2].map((i) => (
+          {[0, 1].map((i) => (
             <div key={i} className="animate-pulse rounded-lg" style={{ height: 52, background: INNER_BG }} />
           ))}
         </div>
       ) : (
         <div className="space-y-2">
-          {actions.map((a, i) => (
+          {/* Deux actions, pas trois : la plus utile d'abord, l'accueil reste court. */}
+          {actions.slice(0, 2).map((a, i) => (
             <Link
               key={i}
               to={a.path}

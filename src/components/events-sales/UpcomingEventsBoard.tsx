@@ -94,7 +94,7 @@ export function UpcomingEventsBoard({ scope, statsHref, allHref, liveHref, limit
           {upcoming.length > shown.length && (
             <li className="pt-1 text-center">
               <Link to={allHref} className="text-[12px] font-medium" style={{ color: KIT.T3 }}>
-                {t('evs.board.more').replace('{n}', String(upcoming.length - shown.length))}
+                {upcoming.length - shown.length === 1 ? t('evs.board.moreOne') : t('evs.board.more').replace('{n}', String(upcoming.length - shown.length))}
               </Link>
             </li>
           )}

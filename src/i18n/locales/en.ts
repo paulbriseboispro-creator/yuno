@@ -10677,7 +10677,7 @@ const en: Record<string, string> = {
 
   // ─── Daily next-best-action (owner dashboard) ───
   'nba.title': 'Do this today',
-  'nba.footnote': '3 actions prioritized by AI from the real state of your club, refreshed every day.',
+  'nba.footnote': '2 actions prioritized by AI from the real state of your club, refreshed every day.',
 
   // ─── Owner help guide: AI tools ───
 
@@ -15194,6 +15194,9 @@ const en: Record<string, string> = {
   'so.h.glPresence': 'Share of sign-ups who were scanned at the door.',
   'so.h.glPerNight': 'Sign-ups divided by the number of nights.',
   'so.export': 'Export',
+  'rn.title': 'Your last {n} nights',
+  'rn.titleOne': 'Your last night',
+  'rn.seeSales': 'See sales',
   'so.detail.window30': 'Purchases from the last 30 days.',
   'so.detail.windowAll': 'Every purchase since the start.',
   'so.detail.noRefunds': 'No refund in this period.',
@@ -15216,6 +15219,7 @@ const en: Record<string, string> = {
   'evs.board.all': 'All nights',
   'evs.board.empty': 'No upcoming night.',
   'evs.board.more': '+ {n} more nights',
+  'evs.board.moreOne': '+ 1 more night',
 
   // ── Rapport de soirée (2026-09-24) ──
   'er.pickEvent': 'Night',
