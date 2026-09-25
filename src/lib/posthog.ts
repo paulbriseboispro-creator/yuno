@@ -34,7 +34,32 @@ let client: PostHog | null = null;
 let loading: Promise<PostHog | null> | null = null;
 let listening = false;
 // Dernier utilisateur voulu : rejoué si l'identité arrive avant le chargement.
-let wantedUserId: string | null = null;
+let wantedUser: PosthogUser | null = null;
+// Événements tirés (avec consentement) avant la fin du chargement du SDK.
+const queue: Array<[YunoEvent, Record<string, unknown> | undefined]> = [];
+const MAX_QUEUE = 50;
+
+/**
+ * Plan de marquage Yuno — la liste COMPLÈTE des événements métier. Un nouvel
+ * événement s'ajoute ici d'abord (nom en snake_case, au passé), jamais en
+ * chaîne libre dans une page : c'est ce qui garde les funnels PostHog lisibles.
+ * Propriétés communes : `event_id`, `venue_id`, `pillar`
+ * (`tickets` | `tables` | `guest_list` | `drinks`), `value` (euros), `currency`.
+ */
+export type YunoEvent =
+  // Client
+  | 'event_viewed'
+  | 'checkout_started'
+  | 'purchase_completed'
+  | 'guest_list_joined'
+  | 'user_signed_up'
+  | 'user_signed_in'
+  // Pro
+  | 'pro_event_created'
+  | 'email_campaign_sent'
+  | 'push_campaign_sent';
+
+export type PosthogUser = { id: string; createdAt?: string | null; roles?: readonly string[]; email?: string | null };
 
 export function posthogEnabled(): boolean {
   return KEY.length > 0;
@@ -97,7 +122,8 @@ async function load(): Promise<PostHog | null> {
         app: isProApp() ? 'pro' : 'client',
       });
       client = posthog;
-      if (wantedUserId) posthog.identify(wantedUserId);
+      if (wantedUser) applyIdentity(posthog, wantedUser);
+      for (const [event, props] of queue.splice(0)) posthog.capture(event, props);
       return posthog;
     })
     .catch(() => {
@@ -135,20 +161,54 @@ export function initPosthog() {
   if (hasAnalyticsConsent()) void load();
 }
 
-/** Relie les événements au compte connecté (id Supabase seul) ; `null` = déconnexion. */
-export function identifyPosthogUser(userId: string | null) {
-  if (!posthogEnabled()) return;
-  const previous = wantedUserId;
-  wantedUserId = userId;
-  if (!client) return;
-  if (userId) {
-    if (userId !== client.get_distinct_id()) client.identify(userId);
-  } else if (previous) {
-    client.reset();
+const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
+
+function applyIdentity(ph: PostHog, user: PosthogUser) {
+  const roles = [...(user.roles ?? [])].sort();
+  // Démo @womber.fr : jamais un chiffre (cf. CLAUDE.md « la démo n'est pas un
+  // chiffre ») — marquée pour pouvoir l'exclure de chaque insight PostHog.
+  const isDemo = /@womber\.fr$/i.test(user.email ?? '');
+  ph.register({ is_demo: isDemo });
+  if (user.id !== ph.get_distinct_id()) {
+    ph.identify(user.id, { roles, is_pro: roles.some((r) => r !== 'client'), is_demo: isDemo });
+  } else {
+    ph.setPersonProperties({ roles, is_pro: roles.some((r) => r !== 'client'), is_demo: isDemo });
+  }
+  // Inscription : le compte a moins de 15 min. Une fois par compte et par onglet.
+  const created = user.createdAt ? Date.parse(user.createdAt) : NaN;
+  if (Number.isFinite(created) && Date.now() - created < SIGNUP_WINDOW_MS) {
+    const flag = `yuno_ph_su_${user.id}`;
+    try {
+      if (sessionStorage.getItem(flag)) return;
+      sessionStorage.setItem(flag, '1');
+    } catch {
+      // Storage indispo : au pire un doublon, jamais bloquant.
+    }
+    ph.capture('user_signed_up', { roles });
   }
 }
 
-/** Événement métier. Silencieux tant que PostHog n'est pas chargé (pas de consentement). */
-export function capturePosthog(event: string, properties?: Record<string, unknown>) {
-  client?.capture(event, properties);
+/** Relie les événements au compte connecté (id Supabase seul) ; `null` = déconnexion. */
+export function identifyPosthogUser(user: PosthogUser | null) {
+  if (!posthogEnabled()) return;
+  const previous = wantedUser;
+  wantedUser = user;
+  if (!client) return;
+  if (user) applyIdentity(client, user);
+  else if (previous) client.reset();
+}
+
+/**
+ * Événement métier du plan de marquage. Sans consentement : rien. Avec
+ * consentement mais SDK encore en chargement : mis en file, envoyé au chargement.
+ */
+export function capturePosthog(event: YunoEvent, properties?: Record<string, unknown>) {
+  if (!posthogEnabled()) return;
+  if (client) {
+    client.capture(event, properties);
+    return;
+  }
+  if (!hasAnalyticsConsent() || queue.length >= MAX_QUEUE) return;
+  queue.push([event, properties]);
+  void load();
 }

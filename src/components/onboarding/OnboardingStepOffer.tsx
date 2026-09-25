@@ -8,6 +8,7 @@ import { DrinkCatalogSearch } from '@/components/DrinkCatalogSearch';
 import { Wine, Ticket, Sofa, Check, Plus, ArrowRight, CalendarPlus, ExternalLink } from 'lucide-react';
 import type { Pillar } from '@/hooks/useOwnerOnboarding';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, FieldLabel, POS, T1, T2, T3 } from './onboardingUI';
+import { capturePosthog } from '@/lib/posthog';
 
 interface Props {
   venueId: string;
@@ -58,6 +59,7 @@ export function OnboardingStepOffer({ venueId, pillars, onComplete }: Props) {
         tables_enabled: pillars.includes('tables'),
       } as any);
       if (error) throw error;
+      capturePosthog('pro_event_created', { scope: 'venue', venue_id: venueId, source: 'onboarding' });
       setTitle('');
       setDate('');
       toast.success(t('onboarding.eventCreatedToast'));

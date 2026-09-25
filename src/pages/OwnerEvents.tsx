@@ -55,6 +55,7 @@ import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useEventsSalesSummary } from '@/hooks/useEventsSalesSummary';
 import { EventSalesStrip } from '@/components/events-sales/EventSalesStrip';
 import type { EventSales } from '@/lib/eventsSales';
+import { capturePosthog } from '@/lib/posthog';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
 type PresetRound = {
@@ -463,6 +464,7 @@ export default function OwnerEvents() {
       const { data, error } = await supabase.from('events').insert(payload).select('id').single();
       if (error) throw error;
       savedId = data.id;
+      capturePosthog('pro_event_created', { scope: isOrganizerScope ? 'organizer' : 'venue', event_id: data.id, source: 'events_page' });
     }
     // La soirée pointe maintenant sur ces fichiers : `resetForm()` ne doit plus
     // les retirer du bucket comme il retire un envoi abandonné.
@@ -659,6 +661,7 @@ export default function OwnerEvents() {
         video.commit(); // le fichier a servi : plus un envoi abandonné à nettoyer
         bump(3);
         savedId = newEvent?.id;
+        capturePosthog('pro_event_created', { scope: 'venue', event_id: newEvent?.id ?? null, venue_id: venueId, source: 'events_page' });
         await Promise.all([
           (newEvent && (lineupEntries.length > 0 || guestArtists.length > 0))
             ? persistLineup(newEvent.id)
