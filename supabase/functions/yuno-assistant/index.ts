@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { lastUserPrompt, logAiUsage, messagesChars, trackOpenAiStream, type AiUsageEvent } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
@@ -275,37 +276,132 @@ function getNowTz(tz: string): string {
   return `${days[local.getDay()]} ${local.getDate()} ${months[local.getMonth()]} ${local.getFullYear()}, ${local.getHours()}h${String(local.getMinutes()).padStart(2, '0')}`;
 }
 
+// Formes des lignes lues pour le contexte (seuls les champs réellement utilisés).
+interface VenueRow {
+  id: string;
+  name: string;
+  city: string | null;
+  address: string | null;
+  instagram_url: string | null;
+  logo_url: string | null;
+  cover_url: string | null;
+}
+interface EventRow {
+  id: string;
+  venue_id: string | null;
+  title: string;
+  slug: string | null;
+  start_at: string;
+  end_at: string;
+  music_genre: string | null;
+  music_genres: string[] | null;
+  ticketing_enabled: boolean | null;
+  poster_url: string | null;
+  organizer_user_id: string | null;
+  location_name: string | null;
+  location_city: string | null;
+  location_address: string | null;
+}
+interface TicketRoundRow {
+  event_id: string;
+  name: string;
+  price: number;
+  max_tickets: number;
+  tickets_sold: number;
+}
+interface DrinkRow {
+  venue_id: string;
+  name: string;
+  price: number;
+  promo_price: number | null;
+  collection: string | null;
+  img_url: string | null;
+}
+interface TablePackRow {
+  venue_id: string | null;
+  event_id: string | null;
+  name: string;
+  base_price: number;
+  base_capacity: number;
+  minimum_spend: number | null;
+  payment_mode: string | null;
+}
+interface GuestListRow {
+  event_id: string;
+  free_before_time: string | null;
+  includes_drink: boolean | null;
+  quota: number | null;
+}
+interface DjRow {
+  id: string;
+  venue_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  stage_name: string | null;
+  slug: string | null;
+  music_genres: string[] | null;
+  profile_image_url: string | null;
+  instagram_url: string | null;
+}
+interface DjSetRow {
+  event_id: string;
+  dj_id: string;
+}
+interface UserStatsRow {
+  nights_attended: number | null;
+  drinks_ordered: number | null;
+  favorite_club_name: string | null;
+  favorite_club_id: string | null;
+  favorite_drink: string | null;
+  next_event_title: string | null;
+  next_event_id: string | null;
+  next_event_venue_id: string | null;
+  next_event_date: string;
+  last_event_title: string | null;
+  total_spent: number | null;
+}
+interface LoyaltyRow {
+  venue_id: string;
+  tier: string | null;
+  current_balance: number | null;
+}
+interface OrganizerRow {
+  user_id: string;
+  display_name: string | null;
+  slug: string | null;
+}
+
 function buildRealDataContext(
-  venues: any[],
-  events: any[],
-  ticketRounds: any[],
-  drinks: any[],
-  tablePacks: any[],
-  guestLists: any[],
-  djs: any[],
-  djSets: any[],
-  userStats: any,
-  loyalty: any[],
-  organizers: any[],
+  venues: VenueRow[],
+  events: EventRow[],
+  ticketRounds: TicketRoundRow[],
+  drinks: DrinkRow[],
+  tablePacks: TablePackRow[],
+  guestLists: GuestListRow[],
+  djs: DjRow[],
+  djSets: DjSetRow[],
+  userStats: UserStatsRow | null,
+  loyalty: LoyaltyRow[],
+  organizers: OrganizerRow[],
   tz: string,
   cards: boolean,
 ): string {
   // Défense en profondeur : n'exposer que les données rattachées à un club visible.
   // (Les requêtes tournent en service role — un venue_id caché ne doit jamais fuiter ici.)
-  const visibleVenueIds = new Set(venues.map((v: any) => v.id));
+  const visibleVenueIds = new Set(venues.map((v) => v.id));
   // Une soirée d'organisateur SEUL n'a pas de club (venue_id NULL) : son lieu et
   // sa ville vivent sur l'event. La filtrer sur la visibilité d'un club la faisait
   // disparaître du catalogue de l'assistant — c'est ce qui lui faisait répondre
   // « je ne trouve pas de soirées à Paris » alors qu'il y en avait une.
-  events = events.filter((e: any) => e.venue_id === null || visibleVenueIds.has(e.venue_id));
-  const visibleEventIds = new Set(events.map((e: any) => e.id));
-  drinks = drinks.filter((d: any) => visibleVenueIds.has(d.venue_id));
+  events = events.filter((e) => e.venue_id === null || visibleVenueIds.has(e.venue_id));
+  const visibleEventIds = new Set(events.map((e) => e.id));
+  drinks = drinks.filter((d) => visibleVenueIds.has(d.venue_id));
   // Les formules d'une soirée sans club sont event-scopées (venue_id NULL).
-  tablePacks = tablePacks.filter((tp: any) =>
+  tablePacks = tablePacks.filter((tp) =>
     tp.event_id ? visibleEventIds.has(tp.event_id) : visibleVenueIds.has(tp.venue_id));
-  djs = djs.filter((dj: any) => !dj.venue_id || visibleVenueIds.has(dj.venue_id));
-  guestLists = guestLists.filter((g: any) => visibleEventIds.has(g.event_id));
-  ticketRounds = ticketRounds.filter((r: any) => visibleEventIds.has(r.event_id));
+  djs = djs.filter((dj) => !dj.venue_id || visibleVenueIds.has(dj.venue_id));
+  guestLists = guestLists.filter((g) => visibleEventIds.has(g.event_id));
+  ticketRounds = ticketRounds.filter((r) => visibleEventIds.has(r.event_id));
 
   let ctx = "\n\n═══ DONNÉES RÉELLES YUNO ═══\n";
 
@@ -327,7 +423,7 @@ function buildRealDataContext(
   if (djs.length > 0) {
     ctx += "\n🎧 DJs :\n";
     for (const dj of djs) {
-      const venue = venues.find((v: any) => v.id === dj.venue_id);
+      const venue = venues.find((v) => v.id === dj.venue_id);
       const djName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
       const link = dj.slug ? `${APP_BASE_URL}/dj/${dj.slug}` : null;
       ctx += `- **${djName}**`;
@@ -346,7 +442,7 @@ function buildRealDataContext(
     // dans quelles villes, sinon il conclut trop vite qu'une ville est vide.
     const byCity: Record<string, number> = {};
     for (const e of events) {
-      const v = venues.find((vv: any) => vv.id === e.venue_id);
+      const v = venues.find((vv) => vv.id === e.venue_id);
       const c = v?.city || e.location_city || 'ville non précisée';
       byCity[c] = (byCity[c] || 0) + 1;
     }
@@ -361,9 +457,9 @@ function buildRealDataContext(
     const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
 
     for (const e of events) {
-      const venue = venues.find((v: any) => v.id === e.venue_id);
+      const venue = venues.find((v) => v.id === e.venue_id);
       const org = e.organizer_user_id
-        ? organizers.find((o: any) => o.user_id === e.organizer_user_id)
+        ? organizers.find((o) => o.user_id === e.organizer_user_id)
         : null;
       // Sans club, le lieu de la soirée est porté par l'event lui-même.
       const venueName = venue?.name || e.location_name || org?.display_name || 'Lieu à confirmer';
@@ -404,9 +500,9 @@ function buildRealDataContext(
         : `\nlien= ${eventLink}${e.poster_url ? `\naffiche= ${e.poster_url}` : ''}`;
 
       // Ticket rounds
-      const rounds = ticketRounds.filter((r: any) => r.event_id === e.id);
+      const rounds = ticketRounds.filter((r) => r.event_id === e.id);
       if (rounds.length > 0) {
-        const roundTexts = rounds.map((r: any) => {
+        const roundTexts = rounds.map((r) => {
           const remaining = r.max_tickets - r.tickets_sold;
           let txt = `${r.name} **${r.price}€**`;
           if (remaining <= 0) txt += ' (COMPLET)';
@@ -420,17 +516,17 @@ function buildRealDataContext(
       }
 
       // DJs playing at this event
-      const eventDjSets = djSets.filter((ds: any) => ds.event_id === e.id);
+      const eventDjSets = djSets.filter((ds) => ds.event_id === e.id);
       if (eventDjSets.length > 0) {
-        const djNames = eventDjSets.map((ds: any) => {
-          const dj = djs.find((d: any) => d.id === ds.dj_id);
+        const djNames = eventDjSets.map((ds) => {
+          const dj = djs.find((d) => d.id === ds.dj_id);
           return dj ? (dj.stage_name || dj.first_name) : null;
         }).filter(Boolean);
         if (djNames.length > 0) ctx += `\nline-up= ${djNames.join(', ')}`;
       }
 
       // Guest list
-      const gl = guestLists.find((g: any) => g.event_id === e.id);
+      const gl = guestLists.find((g) => g.event_id === e.id);
       if (gl) {
         ctx += `\nguest-list= entrée gratuite avant ${String(gl.free_before_time).slice(0, 5)}`;
         if (gl.includes_drink) ctx += ' + boisson offerte';
@@ -443,18 +539,18 @@ function buildRealDataContext(
   // Drinks grouped by venue with images
   if (drinks.length > 0) {
     ctx += "\n🍸 CARTE DES BOISSONS :\n";
-    const byVenue: Record<string, any[]> = {};
+    const byVenue: Record<string, DrinkRow[]> = {};
     for (const d of drinks) {
       if (!byVenue[d.venue_id]) byVenue[d.venue_id] = [];
       byVenue[d.venue_id].push(d);
     }
     for (const [venueId, venueDrinks] of Object.entries(byVenue)) {
-      const venue = venues.find((v: any) => v.id === venueId);
+      const venue = venues.find((v) => v.id === venueId);
       const venueName = venue?.name || venueId;
       ctx += `\n### ${venueName}\n`;
 
-      const byCollection: Record<string, any[]> = {};
-      for (const d of venueDrinks as any[]) {
+      const byCollection: Record<string, DrinkRow[]> = {};
+      for (const d of venueDrinks) {
         const col = d.collection || 'autre';
         if (!byCollection[col]) byCollection[col] = [];
         byCollection[col].push(d);
@@ -462,7 +558,7 @@ function buildRealDataContext(
       const collectionLabels: Record<string, string> = { drink: '🍺 Boissons', shot: '🥃 Shots', soft: '🥤 Softs' };
       for (const [col, items] of Object.entries(byCollection)) {
         ctx += `${collectionLabels[col] || col} :\n`;
-        for (const d of items as any[]) {
+        for (const d of items) {
           ctx += `- ${d.name} — **${d.price}€**`;
           if (d.promo_price) ctx += ` ~~${d.price}€~~ **${d.promo_price}€ promo**`;
           if (d.img_url) ctx += ` (image: ${d.img_url})`;
@@ -477,7 +573,7 @@ function buildRealDataContext(
     ctx += "\n🍾 TABLES VIP :\n";
     // Une formule appartient soit à un club, soit à UNE soirée précise
     // (soirée d'organisateur sans club) : deux regroupements, pas un.
-    const groups: Record<string, any[]> = {};
+    const groups: Record<string, TablePackRow[]> = {};
     for (const tp of tablePacks) {
       const key = tp.event_id ? `event:${tp.event_id}` : `venue:${tp.venue_id}`;
       if (!groups[key]) groups[key] = [];
@@ -486,13 +582,13 @@ function buildRealDataContext(
     for (const [key, packs] of Object.entries(groups)) {
       let label = key.slice(key.indexOf(':') + 1);
       if (key.startsWith('event:')) {
-        const ev = events.find((e: any) => e.id === key.slice(6));
+        const ev = events.find((e) => e.id === key.slice(6));
         label = ev ? `Soirée "${ev.title}"` : 'Soirée';
       } else {
-        label = venues.find((v: any) => v.id === key.slice(6))?.name || label;
+        label = venues.find((v) => v.id === key.slice(6))?.name || label;
       }
       ctx += `### ${label}\n`;
-      for (const p of packs as any[]) {
+      for (const p of packs) {
         ctx += `- **${p.name}** : ${p.base_price}€, ${p.base_capacity} pers.`;
         if (p.minimum_spend > 0) ctx += `, minimum conso **${p.minimum_spend}€**`;
         if (p.payment_mode === 'on_site') ctx += ` — réservation SANS paiement en ligne (tout se règle sur place)`;
@@ -522,7 +618,7 @@ function buildRealDataContext(
   if (loyalty.length > 0) {
     ctx += "\n🏆 FIDÉLITÉ :\n";
     for (const l of loyalty) {
-      const venue = venues.find((v: any) => v.id === l.venue_id);
+      const venue = venues.find((v) => v.id === l.venue_id);
       const tierLabel = (l.tier || 'bronze').charAt(0).toUpperCase() + (l.tier || 'bronze').slice(1);
       ctx += `- **${venue?.name || l.venue_id}** : ${tierLabel} (**${l.current_balance || 0}** points)\n`;
     }
@@ -549,12 +645,10 @@ const EMBEDDING_MODEL = "text-embedding-3-small";
  */
 async function handleSemanticSearch(
   query: string,
-  // deno-lint-ignore no-explicit-any
-  supabaseAuth: any,
+  supabaseAuth: SupabaseClient,
   openaiKey: string,
   corsHeaders: Record<string, string>,
-  // deno-lint-ignore no-explicit-any
-  usage: { supabase: any; base: AiUsageEvent; startedAt: number },
+  usage: { supabase: SupabaseClient; base: AiUsageEvent; startedAt: number },
 ): Promise<Response> {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const q = query.trim().slice(0, 200);
@@ -715,14 +809,14 @@ serve(async (req) => {
     // Une requête « toute la table » plafonnée arrivait tronquée (120 guest lists,
     // 220 rounds) : les tarifs et l'entrée gratuite d'une soirée à venir pouvaient
     // manquer sans le moindre signe. On ne demande que ce qui s'y rattache.
-    const upcomingEvents = eventsRes.data || [];
-    const eventIds = upcomingEvents.map((e: any) => e.id);
-    const venueIds = (venuesRes.data || []).map((v: any) => v.id);
+    const upcomingEvents: EventRow[] = eventsRes.data || [];
+    const eventIds = upcomingEvents.map((e) => e.id);
+    const venueIds = ((venuesRes.data || []) as VenueRow[]).map((v) => v.id);
     const organizerUserIds = Array.from(new Set(
-      upcomingEvents.map((e: any) => e.organizer_user_id).filter(Boolean),
+      upcomingEvents.map((e) => e.organizer_user_id).filter(Boolean),
     )) as string[];
 
-    const empty = { data: [] as any[] };
+    const empty = { data: [] as never[] };
     const [ticketRoundsRes, guestListsRes, djSetsRes, eventPacksRes, venuePacksRes, organizersRes] = await Promise.all([
       eventIds.length
         ? supabase.from("ticket_rounds")
