@@ -4,6 +4,7 @@ import { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildPreNightChecklist, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -71,12 +72,21 @@ serve(async (req) => {
     const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
     const fourHoursFromNow = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
 
-    const { data: upcomingEvents } = await supabaseAdmin
+    const demoIds = await loadDemoEventIds(supabaseAdmin);
+    if (!demoIds) {
+      return new Response(
+        JSON.stringify({ success: false, sent: 0, message: "demo scope unavailable" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: allUpcoming } = await supabaseAdmin
       .from('events')
       .select('id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address)')
       .eq('is_active', true)
       .gte('start_at', twoHoursFromNow)
       .lte('start_at', fourHoursFromNow);
+    // Jamais la démo (comptes @womber.fr, invités semés @demo.womber.fr).
+    const upcomingEvents = (allUpcoming ?? []).filter((e) => !demoIds.has(e.id));
 
     if (!upcomingEvents || upcomingEvents.length === 0) {
       return new Response(
@@ -115,6 +125,7 @@ serve(async (req) => {
       logStep("Processing event", { eventId: event.id, recipients: recipientMap.size });
 
       for (const [email, { userId, qrCode }] of recipientMap) {
+        if (isDemoEmail(email)) continue;
         try {
           const recipientId = userId || emailToUuid(email);
           const alreadySent = await wasAlreadySent(supabaseAdmin, recipientId, 'checklist', event.id);

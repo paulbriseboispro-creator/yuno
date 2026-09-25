@@ -8,6 +8,7 @@ import { emailSendPolicy, logMarketingEmail, automationCoversEvent } from "../_s
 import { formatEventDate } from "../_shared/event-time.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -70,11 +71,20 @@ serve(async (req) => {
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 
-    const { data: recentEvents } = await supabaseAdmin
+    const demoIds = await loadDemoEventIds(supabaseAdmin);
+    if (!demoIds) {
+      return new Response(
+        JSON.stringify({ success: false, sent: 0, message: "demo scope unavailable" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: recentRaw } = await supabaseAdmin
       .from('events')
       .select('id, title, start_at, venue_id, organizer_user_id, poster_url, venues!events_venue_id_fkey(name)')
       .lte('end_at', twelveHoursAgo)
       .gte('end_at', fortyEightHoursAgo);
+    // Jamais la démo (comptes @womber.fr, invités semés @demo.womber.fr).
+    const recentEvents = (recentRaw ?? []).filter((e) => !demoIds.has(e.id));
 
     if (!recentEvents || recentEvents.length === 0) {
       return new Response(
@@ -132,6 +142,7 @@ serve(async (req) => {
       const seen = new Set<string>();
       for (const ticket of noShowTickets) {
         if (!ticket.user_email || !ticket.user_id || seen.has(ticket.user_email)) continue;
+        if (isDemoEmail(ticket.user_email)) continue;
         if (attendedUserIds.has(ticket.user_id) || attendedEmails.has(ticket.user_email)) continue;
         // Marketing: send ONLY to recipients who opted in for this venue/organizer.
         const unsubToken = optInToken(optins, ticket.user_email, { venueId: event.venue_id, organizerUserId: (event as any).organizer_user_id });

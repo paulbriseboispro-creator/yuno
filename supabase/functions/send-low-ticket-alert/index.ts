@@ -4,6 +4,7 @@ import { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildLowTicketAlert, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -71,13 +72,22 @@ serve(async (req) => {
 
     // Find active future events
     const now = new Date().toISOString();
-    const { data: events } = await supabaseAdmin
+    const demoIds = await loadDemoEventIds(supabaseAdmin);
+    if (!demoIds) {
+      return new Response(
+        JSON.stringify({ success: false, sent: 0, message: "demo scope unavailable" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: eventsRaw } = await supabaseAdmin
       .from('events')
       .select('id, title, venue_id, max_tickets, start_at, venues!events_venue_id_fkey(name, owner_id)')
       .eq('is_active', true)
       .eq('ticketing_enabled', true)
       .gt('start_at', now)
       .not('max_tickets', 'is', null);
+    // Jamais la démo.
+    const events = (eventsRaw ?? []).filter((e) => !demoIds.has(e.id));
 
     if (!events || events.length === 0) {
       return new Response(
@@ -158,6 +168,7 @@ serve(async (req) => {
 
       for (const member of waitlistMembers) {
         if (ticketEmails.has(member.email)) continue;
+        if (isDemoEmail(member.email)) continue;
 
         // Dedup: use user_id if available, otherwise generate from email
         const recipientId = member.user_id || emailToUuid(member.email);

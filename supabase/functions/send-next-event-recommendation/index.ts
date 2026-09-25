@@ -6,6 +6,7 @@ import { buildNextEventRec, fmtDateParts } from "../_shared/email-templates.ts";
 import { formatEventDate } from "../_shared/event-time.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 import { isAutoPushEnabled } from "../_shared/auto-push.ts";
 import { emailSendPolicy, logMarketingEmail } from "../_shared/email-policy.ts";
 const corsHeaders = {
@@ -75,14 +76,24 @@ serve(async (req) => {
     const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + yearStart.getDay() + 1) / 7);
     const weekKey = `${d.getFullYear()}-W${weekNum}`;
 
-    const { data: upcomingEvents } = await supabaseAdmin
+    const demoIds = await loadDemoEventIds(supabaseAdmin);
+    if (!demoIds) {
+      return new Response(
+        JSON.stringify({ success: false, sent: 0, message: "demo scope unavailable" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // Les soirées démo passent devant les vraies dans l'ordre des dates : on en
+    // lit large, on retire la démo, PUIS on garde les 20 premières.
+    const { data: upcomingRaw } = await supabaseAdmin
       .from('events')
       .select('id, title, start_at, venue_id, organizer_user_id, music_genre, music_genres, poster_url, ticketing_enabled, timezone, venues!events_venue_id_fkey(name)')
       .eq('is_active', true)
       .gt('start_at', now)
       .lt('start_at', twoWeeksFromNow)
       .order('start_at', { ascending: true })
-      .limit(20);
+      .limit(300);
+    const upcomingEvents = (upcomingRaw ?? []).filter((e) => !demoIds.has(e.id)).slice(0, 20);
 
     if (!upcomingEvents || upcomingEvents.length === 0) {
       return new Response(
@@ -92,14 +103,17 @@ serve(async (req) => {
     }
 
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentAttendees } = await supabaseAdmin
+    const { data: recentAttendeesRaw } = await supabaseAdmin
       .from('tickets')
       .select('user_id, user_email, event_id')
       .in('status', ['used', 'paid'])
       .gte('created_at', sixtyDaysAgo)
       .not('user_id', 'is', null);
+    const recentAttendees = (recentAttendeesRaw ?? []).filter(
+      (a) => !demoIds.has(a.event_id) && !isDemoEmail(a.user_email),
+    );
 
-    if (!recentAttendees || recentAttendees.length === 0) {
+    if (recentAttendees.length === 0) {
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: "No recent attendees" }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
