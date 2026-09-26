@@ -60,20 +60,21 @@ BEGIN
   -- Events portés par un organisateur (avec ou sans club partenaire),
   -- association comprise.
   IF NEW.organizer_user_id IS NOT NULL THEN
+    -- Une décision de Yuno (discovery_status = 'rejected') ne se lève que par
+    -- le super admin. Vérifié AVANT le type de soirée : passer la soirée en
+    -- privée puis de nouveau en publique ne doit pas la blanchir.
+    IF TG_OP = 'UPDATE' AND OLD.discovery_status = 'rejected' AND NOT public.is_super_admin() THEN
+      NEW.discovery_status := 'rejected';
+    END IF;
+
     IF NEW.event_kind = 'private_event' THEN
       -- Privé : jamais découvrable.
       NEW.is_discoverable := false;
 
     ELSIF NEW.event_kind = 'public_event' THEN
-      IF public.is_super_admin() AND NEW.discovery_status = 'rejected' THEN
-        -- Yuno dépublie / refuse : rien ne la remet dans Explore.
+      IF NEW.discovery_status = 'rejected' THEN
+        -- Yuno a dépublié / refusé : rien ne la remet dans Explore.
         NEW.is_discoverable := false;
-      ELSIF NOT public.is_super_admin()
-            AND TG_OP = 'UPDATE' AND OLD.discovery_status = 'rejected' THEN
-        -- L'organisateur ne lève pas une décision de Yuno en retouchant sa
-        -- soirée : seul le super admin la republie.
-        NEW.discovery_status := 'rejected';
-        NEW.is_discoverable  := false;
       ELSIF EXISTS (
         SELECT 1 FROM public.profiles p
          WHERE p.id = NEW.organizer_user_id AND public.is_demo_email(p.email)
@@ -187,11 +188,11 @@ BEGIN
   IF v_override IS NOT NULL THEN
     RETURN v_override;
   END IF;
-  IF p_scope_key LIKE 'org:%' THEN
+  IF p_scope_key ~ '^org:[0-9a-fA-F-]{36}$' THEN
     v_org := substr(p_scope_key, 5);
     IF EXISTS (
       SELECT 1 FROM public.organizer_profiles
-       WHERE user_id::text = v_org AND bde_verified = true
+       WHERE user_id = v_org::uuid AND bde_verified = true
     ) THEN
       RETURN 2000;                        -- offert par compte association
     END IF;
@@ -199,3 +200,53 @@ BEGIN
   RETURN 15000;                           -- offert par compte pro
 END;
 $function$;
+
+-- ── 3. Les soirées démo déjà découvrables sortent d'Explore tout de suite ────
+-- (le trigger ne les aurait retirées qu'à leur prochaine modification).
+UPDATE public.events e
+   SET is_discoverable = false
+  FROM public.profiles p
+ WHERE p.id = e.organizer_user_id
+   AND public.is_demo_email(p.email)
+   AND e.is_discoverable;
+
+-- ── 4. Poser / retirer le statut Association restampe les soirées À VENIR ───
+-- events.is_bde n'était recalculé qu'à la prochaine édition de chaque soirée :
+-- une association vérifiée payait encore le plancher de 0,99 € sur ses soirées
+-- déjà créées. Les soirées passées gardent le tarif sous lequel elles ont vendu.
+CREATE OR REPLACE FUNCTION public.admin_set_organizer_bde_verified(
+  p_organizer_user_id uuid,
+  p_verified          boolean,
+  p_reason            text DEFAULT NULL
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: admin role required';
+  END IF;
+
+  UPDATE public.organizer_profiles
+  SET bde_verified    = p_verified,
+      bde_verified_at = CASE WHEN p_verified THEN now() ELSE NULL END
+  WHERE user_id = p_organizer_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Organizer not found: %', p_organizer_user_id;
+  END IF;
+
+  -- No-op qui relance evaluate_event_discoverability (stamp de is_bde).
+  UPDATE public.events
+     SET is_bde = is_bde
+   WHERE organizer_user_id = p_organizer_user_id
+     AND COALESCE(end_at, start_at) > now()
+     AND is_bde IS DISTINCT FROM p_verified;
+
+  PERFORM public.log_admin_action(
+    CASE WHEN p_verified THEN 'organizer_bde_verified' ELSE 'organizer_bde_unverified' END,
+    'organizer', p_organizer_user_id::text, jsonb_build_object('reason', p_reason)
+  );
+END;
+$$;

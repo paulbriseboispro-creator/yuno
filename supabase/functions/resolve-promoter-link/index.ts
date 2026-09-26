@@ -76,9 +76,12 @@ Deno.serve(async (req) => {
       : { data: [] };
     const venueMap = new Map((venues || []).map(v => [v.id, v]));
 
-    // Fetch organizer profiles for org-scoped promoters
+    // Fetch organizer profiles for org-scoped promoters. Le logo d'un
+    // organisateur vit dans `avatar_url` : `logo_url` n'existe pas sur
+    // organizer_profiles et faisait échouer toute la requête (42703) en silence
+    // — aucun nom ni logo d'orga sur le hub de ses promoteurs.
     const { data: organizers } = organizerIds.length > 0
-      ? await supabase.from("organizer_profiles").select("user_id, display_name, logo_url, slug").in("user_id", organizerIds)
+      ? await supabase.from("organizer_profiles").select("user_id, display_name, avatar_url, slug").in("user_id", organizerIds)
       : { data: [] };
     const organizerMap = new Map((organizers || []).map(o => [o.user_id, o]));
 
@@ -177,7 +180,7 @@ Deno.serve(async (req) => {
       return {
         organizer_id: oid,
         organizer_name: o?.display_name || null,
-        organizer_logo_url: o?.logo_url || null,
+        organizer_logo_url: o?.avatar_url || null,
         organizer_slug: o?.slug || null,
         events: evts,
       };

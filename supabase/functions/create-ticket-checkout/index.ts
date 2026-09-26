@@ -547,6 +547,7 @@ serve(async (req) => {
           .or(scopeOr.join(","))
           .ilike("promo_code", promoCode.trim())
           .eq("is_active", true)
+          .order("created_at", { ascending: true })
           .limit(1)
         : { data: [] as Array<{ id: string; ticket_discount_type: string | null; ticket_discount_value: number | null }> };
       const promoterByCode = promoterRows?.[0] ?? null;

@@ -772,9 +772,10 @@ export default function OrderConfirmation() {
     setDownloadingReceipt(true);
     try {
       const orderNumber = await ensureInvoiceNumber();
-      // Soirée sans club (organisateur / association seul) : le vendeur est
-      // l'organisateur, jamais « Yuno ». Lu par RPC — l'acheteur invité n'a pas
-      // accès aux colonnes légales d'organizer_profiles.
+      // Soirée sans club hôte : le vendeur est l'organisateur (ou le club
+      // partenaire d'une co-soirée), jamais « Yuno ». Lu par RPC, sur preuve
+      // d'achat (le QR) : l'acheteur, invité compris, n'a pas accès aux
+      // colonnes légales.
       let seller = {
         name: data.venueLegalName || data.venueName || 'Yuno',
         address: data.venueLegalAddress || data.venueAddress,
@@ -784,8 +785,8 @@ export default function OrderConfirmation() {
         logoUrl: data.venueLogoUrl,
       };
       let itemVat = sellerVat('subject');
-      if (!data.venueId && data.eventId) {
-        const { data: rows } = await supabase.rpc('get_event_seller', { p_event_id: data.eventId });
+      if (!data.venueId && data.eventId && data.qrCode && data.type !== 'order') {
+        const { data: rows } = await supabase.rpc('get_event_seller', { p_event_id: data.eventId, p_qr_code: data.qrCode });
         const org = (Array.isArray(rows) ? rows[0] : rows) as {
           name: string | null; legal_address: string | null; siret: string | null; rna_number: string | null;
           vat_number: string | null; vat_regime: string | null; bde_verified: boolean | null; logo_url: string | null;

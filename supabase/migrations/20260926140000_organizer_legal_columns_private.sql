@@ -16,8 +16,11 @@
 -- Les lectures légitimes passent par get_organizer_legal_identity() :
 --   • l'organisateur lui-même, son équipe (admin / éditeur : factures,
 --     contrats) ;
---   • un club qui a un contrat, un avenant ou une co-soirée avec lui (le PDF du
---     contrat porte l'identité légale des deux parties) ;
+--   • un club lié à lui par un contrat que l'ORGANISATEUR a engagé (signé par
+--     lui, créé par lui ou son équipe, ou actif) — le PDF du contrat porte
+--     l'identité légale des deux parties — ou par une soirée que l'organisateur
+--     mène chez ce club. Un club ne peut pas s'ouvrir l'accès seul en créant un
+--     brouillon qui nomme n'importe quel organisateur ;
 --   • le super admin.
 -- Les reçus lisent déjà le vendeur par get_event_seller() (20260926130000).
 -- Les edge functions lisent en service_role : non concernées.
@@ -59,24 +62,26 @@ BEGIN
       SELECT 1 FROM public.event_collab_contracts c
        WHERE c.organizer_user_id = p_organizer_user_id
          AND public.can_manage_venue(v_uid, c.venue_id)
+         AND (c.status IN ('active', 'locked')
+              OR c.org_signed_at IS NOT NULL
+              OR c.created_by = p_organizer_user_id
+              OR public.is_org_team_member(c.created_by, p_organizer_user_id, 'editor'))
     )
     OR EXISTS (
       SELECT 1 FROM public.event_collab_series_contracts c
        WHERE c.organizer_user_id = p_organizer_user_id
          AND public.can_manage_venue(v_uid, c.venue_id)
+         AND (c.status = 'active'
+              OR c.org_signed_at IS NOT NULL
+              OR c.created_by = p_organizer_user_id
+              OR public.is_org_team_member(c.created_by, p_organizer_user_id, 'editor'))
     )
     OR EXISTS (
-      SELECT 1 FROM public.event_collab_amendments a
-       WHERE a.organizer_user_id = p_organizer_user_id
-         AND public.can_manage_venue(v_uid, a.venue_id)
-    )
-    OR EXISTS (
+      -- Soirée menée par l'organisateur chez ce club : c'est lui qui l'a choisi.
       SELECT 1 FROM public.events e
-       WHERE p_organizer_user_id IN (e.organizer_user_id, e.partner_organizer_id)
-         AND (
-           (e.venue_id IS NOT NULL AND public.can_manage_venue(v_uid, e.venue_id))
-           OR (e.partner_venue_id IS NOT NULL AND public.can_manage_venue(v_uid, e.partner_venue_id))
-         )
+       WHERE e.organizer_user_id = p_organizer_user_id
+         AND e.partner_venue_id IS NOT NULL
+         AND public.can_manage_venue(v_uid, e.partner_venue_id)
     )
   ) THEN
     RETURN;

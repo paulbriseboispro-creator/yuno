@@ -244,12 +244,16 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `sellerVat` (`_shared/pdf-documents.ts`, importé par le front) = miroir SQL
   `organizer_vat_rate()` (trigger `save_invoice_on_creation`). Frais Yuno et
   assurance toujours à 20 %. Un club n'est pas concerné. Le reçu d'une soirée
-  SANS club lit son vendeur par `get_event_seller(event)` (anon OK) — jamais
-  « Yuno ». Contrat collab : version `2026-09-26` (« tarif Association
+  SANS club hôte lit son vendeur par `get_event_seller(event, qr)` — preuve
+  d'achat obligatoire (QR du billet ou de la table, invité compris), jamais
+  « Yuno » : l'organisateur s'il vend seul (`sole_seller`, son régime de TVA),
+  le CLUB PARTENAIRE d'une co-soirée (20 %, comme la facture stockée et
+  l'email). Contrat collab : version `2026-09-26` (« tarif Association
   vérifiée ») ; les contrats signés avant gardent « BDE ».
   **La décision de Yuno tient** : « Dépublier » / « Rejeter » (`/admin/events`)
   posent `discovery_status = 'rejected'` sur une soirée d'organisateur, et le
-  trigger ne laisse plus l'orga la remettre dans Explore en la retouchant (avant,
+  trigger ne laisse plus l'orga la remettre dans Explore en la retouchant, ni
+  en la passant privée puis publique (avant,
   « Dépublier » était sans effet sur toute soirée d'organisateur). Une soirée
   d'un compte DÉMO n'est jamais découvrable (`is_demo_email`), même enregistrée
   publique depuis le formulaire. Démo Association : `scripts/demo/seed-association.sql`
@@ -260,7 +264,10 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   GRANT PAR COLONNE sans `legal_name`, `legal_address`, `siret`, `vat_number`,
   `billing_email`, `rna_number`, `vat_regime` (même modèle que anon). Lecture
   par `get_organizer_legal_identity(org)` (l'orga, son équipe admin/éditeur, un
-  club lié par contrat / avenant / co-soirée, super admin). Deux pièges : une
+  club lié par un contrat que l'orga a ENGAGÉ — signé, créé par lui, actif — ou
+  chez qui il mène une soirée, super admin ; jamais un brouillon ouvert par le
+  club seul). `rna_number` et `vat_regime` sont gardés en mode support comme
+  `siret`. Deux pièges : une
   colonne AJOUTÉE à `organizer_profiles` doit être GRANT explicitement à
   authenticated (et anon si publique), sinon tout select qui la nomme tombe ;
   et jamais d'`upsert` client sur cette table (`ON CONFLICT … EXCLUDED` exige

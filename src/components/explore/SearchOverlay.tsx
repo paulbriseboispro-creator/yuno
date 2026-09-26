@@ -355,24 +355,26 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       // ── Build event queries ──────────────────────────────────
       // Helper to apply common constraints to an event query
       const applyEventConstraints = (baseQ: SearchQuery<EventRow>) => {
-        // A PRIVATE soirée (club or organizer, association included) is reachable by
-        // its link only: it never surfaces in public search.
-        let q2 = baseQ.eq('is_active', true).eq('visibility', 'public');
+        // Same gate as Explore (lib/explore/catalog.ts): a PRIVATE soirée is
+        // reachable by its link only, and a soirée Yuno removed, a demo soirée or
+        // one below the quality bar (is_discoverable = false) never surfaces.
+        let q2 = baseQ.eq('is_active', true).eq('visibility', 'public').eq('is_discoverable', true);
         if (dateRange) {
           q2 = q2.gte('start_at', dateRange.start).lte('start_at', dateRange.end);
         } else {
           q2 = q2.gte('end_at', now);
         }
-        if (cityVenueIds.length > 0) {
-          // Soirées d'un club du coin, y compris une co-soirée où le club est
-          // partenaire ; soirées d'un organisateur SANS club (lieu hors Yuno) :
-          // elles n'ont pas de venue_id, on les rattache par la ville saisie.
-          const ids = cityVenueIds.join(',');
-          const orgCity = (city || '').replace(/[,()*%]/g, ' ').trim();
-          const clauses = [`venue_id.in.(${ids})`, `partner_venue_id.in.(${ids})`];
-          if (orgCity) clauses.push(`and(venue_id.is.null,partner_venue_id.is.null,location_city.ilike.*${orgCity}*)`);
-          q2 = q2.or(clauses.join(','));
-        }
+        // Soirées d'un club du coin, y compris une co-soirée où le club est
+        // partenaire ; soirées d'un organisateur SANS club (lieu hors Yuno) :
+        // elles n'ont pas de venue_id, on les rattache par la ville. Une ville
+        // sans aucun club Yuno (Amiens pour une association) filtre quand même
+        // sur ses soirées d'organisateur au lieu de tout renvoyer.
+        const ids = cityVenueIds.join(',');
+        const orgCity = (city || '').replace(/[,()*%"\\]/g, ' ').replace(/\s+/g, ' ').trim();
+        const clauses: string[] = [];
+        if (ids) clauses.push(`venue_id.in.(${ids})`, `partner_venue_id.in.(${ids})`);
+        if (orgCity) clauses.push(`and(venue_id.is.null,partner_venue_id.is.null,location_city.ilike.*${orgCity}*)`);
+        if (clauses.length > 0) q2 = q2.or(clauses.join(','));
         return q2;
       };
 

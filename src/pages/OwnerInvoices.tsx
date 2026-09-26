@@ -118,6 +118,8 @@ interface Invoice {
   order_id: string | null;
   /** Club de la vente ; NULL = soirée d'un organisateur seul (vendeur = l'orga). */
   venue_id?: string | null;
+  /** Organisateur vendeur résolu par save_invoice_on_creation. */
+  organizer_user_id?: string | null;
 }
 
 export default function OwnerInvoices() {
@@ -439,7 +441,10 @@ export default function OwnerInvoices() {
     // Articles au taux du vendeur (0 % pour une association non assujettie),
     // frais Yuno toujours à 20 % — même règle que le reçu et le trigger
     // save_invoice_on_creation.
+    // Le régime n'est celui du lecteur que s'il est l'organisateur VENDEUR de
+    // cette facture (pas un co-organisateur d'une soirée menée par un autre).
     const orgVat = isOrganizerScope && !invoice.venue_id && orgIssuer?.vatRegime
+      && (!invoice.organizer_user_id || invoice.organizer_user_id === organizerUserId)
       ? sellerVat(orgIssuer.vatRegime, language as 'fr' | 'en' | 'es')
       : { rate: 20 as number, mention: undefined as string | undefined };
     const feesTotal = (serviceFee || 0) + (managementFee || 0) + (insuranceFee || 0);

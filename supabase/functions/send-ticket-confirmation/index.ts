@@ -208,6 +208,25 @@ serve(async (req) => {
           if (!event.partner_venue_id) vatRegime = resolveVatRegime(org);
           organizerName = org.display_name || org.legal_name || organizerName;
         }
+        // Co-soirée menée par l'orga CHEZ un club partenaire : le club encaisse,
+        // c'est lui le vendeur du reçu (comme la facture stockée et le reçu
+        // téléchargé via get_event_seller). L'orga reste « Par … » sur le billet.
+        if (event.partner_venue_id) {
+          const { data: pv } = await supabaseAdmin
+            .from("venues")
+            .select("name, address, legal_name, legal_address, siret, vat_number, logo_url")
+            .eq("id", event.partner_venue_id)
+            .maybeSingle();
+          if (pv) {
+            seller = {
+              name: pv.legal_name || pv.name || seller.name,
+              address: pv.legal_address || pv.address || undefined,
+              siret: pv.siret || undefined,
+              vat: pv.vat_number || undefined,
+              logoUrl: pv.logo_url || undefined,
+            };
+          }
+        }
       }
 
       // Best-effort canonical order number from the invoice row.

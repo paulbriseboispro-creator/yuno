@@ -20007,7 +20007,7 @@ export type Database = {
         }[]
       }
       get_event_seller: {
-        Args: { p_event_id: string }
+        Args: { p_event_id: string; p_qr_code: string }
         Returns: {
           bde_verified: boolean
           legal_address: string

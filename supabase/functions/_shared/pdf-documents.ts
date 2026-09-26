@@ -372,7 +372,8 @@ export function drawReceipt(doc: PdfDoc, data: ReceiptData): void {
   const legal = [
     `${L.paidByCard} ${fmtDate(data.paymentDate, loc)}.`,
     L.proofOfPayment,
-    data.vatMention || L.vatNote,
+    ...(data.vatMention ? [data.vatMention] : []),
+    L.vatNote,
   ];
   for (const lnTxt of legal) { text(doc, lnTxt, M, fy, { size: 7, font: MONO, color: MUTED }); fy += 3.6; }
   fy += 2;

@@ -64,33 +64,136 @@ REVOKE ALL ON FUNCTION public.organizer_vat_rate(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.organizer_vat_rate(uuid) TO authenticated, service_role;
 
 -- ── Vendeur d'une soirée sans club (pour le reçu) ──────────────────────────
--- L'identité du vendeur figure OBLIGATOIREMENT sur un reçu : elle est donc
--- rendue à tout acheteur, invité compris (anon), mais seulement pour une
--- soirée portée par un organisateur SANS club — un club reste lu dans `venues`
--- (même règle que send-ticket-confirmation). `sole_seller` = aucun club
--- partenaire non plus : seul ce cas applique le régime de TVA de l'orga, une
--- co-soirée étant encaissée côté club (20 %, comme la facture stockée).
-CREATE OR REPLACE FUNCTION public.get_event_seller(p_event_id uuid)
+-- L'identité du vendeur figure OBLIGATOIREMENT sur un reçu, mais elle ne se
+-- donne qu'à qui a ACHETÉ : l'appelant prouve son achat par le QR de son
+-- billet ou de sa table (ce que la page de confirmation détient déjà, invité
+-- compris). Sans preuve : rien. Un uuid de soirée est public, l'adresse légale
+-- d'une association est souvent le domicile de son président.
+--   • co-soirée chez un club partenaire → le CLUB (encaissement côté club,
+--     comme la facture stockée), TVA 20 % ;
+--   • soirée d'organisateur sans aucun club → l'organisateur, avec son régime
+--     de TVA (`sole_seller` = true).
+-- Une soirée portée par un club (venue_id) n'est pas concernée : le reçu lit
+-- `venues` comme avant.
+CREATE OR REPLACE FUNCTION public.get_event_seller(p_event_id uuid, p_qr_code text)
 RETURNS TABLE (
   name text, legal_address text, siret text, rna_number text,
   vat_number text, vat_regime text, bde_verified boolean, logo_url text,
   sole_seller boolean
 )
-LANGUAGE sql STABLE SECURITY DEFINER
+LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
+DECLARE
+  v_ev record;
+BEGIN
+  IF p_event_id IS NULL OR NULLIF(btrim(COALESCE(p_qr_code, '')), '') IS NULL THEN
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.tickets t WHERE t.qr_code = p_qr_code AND t.event_id = p_event_id)
+     AND NOT EXISTS (SELECT 1 FROM public.table_reservations r WHERE r.qr_code = p_qr_code AND r.event_id = p_event_id) THEN
+    RETURN;
+  END IF;
+
+  SELECT e.venue_id, e.partner_venue_id, e.organizer_user_id INTO v_ev
+    FROM public.events e WHERE e.id = p_event_id;
+  IF NOT FOUND OR v_ev.venue_id IS NOT NULL THEN
+    RETURN;
+  END IF;
+
+  IF v_ev.partner_venue_id IS NOT NULL THEN
+    RETURN QUERY
+    SELECT COALESCE(NULLIF(v.legal_name, ''), v.name), COALESCE(v.legal_address, v.address), v.siret, NULL::text,
+           v.vat_number, 'subject'::text, false, v.logo_url, false
+      FROM public.venues v WHERE v.id = v_ev.partner_venue_id;
+    RETURN;
+  END IF;
+
+  RETURN QUERY
   SELECT COALESCE(NULLIF(o.legal_name, ''), o.display_name),
          o.legal_address, o.siret, o.rna_number,
          o.vat_number, o.vat_regime, COALESCE(o.bde_verified, false), o.avatar_url,
-         e.partner_venue_id IS NULL
-    FROM public.events e
-    JOIN public.organizer_profiles o ON o.user_id = e.organizer_user_id
-   WHERE e.id = p_event_id
-     AND e.venue_id IS NULL;
+         true
+    FROM public.organizer_profiles o
+   WHERE o.user_id = v_ev.organizer_user_id;
+END;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_event_seller(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_event_seller(uuid) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_event_seller(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_event_seller(uuid, text) TO anon, authenticated, service_role;
+
+-- ── Garde du mode support : les deux nouvelles colonnes sont « légales » ────
+-- vat_regime pilote la TVA des reçus et factures, rna_number l'identité : même
+-- verrou que siret / vat_number (CLAUDE.md, accès assisté).
+-- Corps repris de l'état LIVE (20260830100000) ; seul ajout : rna_number, vat_regime.
+CREATE OR REPLACE FUNCTION public.block_support_sensitive_orgprofile_write()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NOT public.is_support_session() THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'support_session_forbidden: DELETE interdit sur organizer_profiles en mode support'
+      USING ERRCODE = 'P0403';
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    -- Upsert sur un profil existant : ce n'est pas une création. Le diff réel
+    -- sera jugé juste après par la branche UPDATE (ON CONFLICT DO UPDATE).
+    IF EXISTS (SELECT 1 FROM public.organizer_profiles op WHERE op.user_id = NEW.user_id) THEN
+      RETURN NEW;
+    END IF;
+    -- Création véritable : légitime en mode assisté tant que les champs
+    -- légaux/financiers restent vides.
+    IF NULLIF(btrim(COALESCE(NEW.billing_email, '')), '') IS NOT NULL
+       OR NULLIF(btrim(COALESCE(NEW.siret, '')), '') IS NOT NULL
+       OR NULLIF(btrim(COALESCE(NEW.vat_number, '')), '') IS NOT NULL
+       OR NULLIF(btrim(COALESCE(NEW.legal_name, '')), '') IS NOT NULL
+       OR NULLIF(btrim(COALESCE(NEW.legal_address, '')), '') IS NOT NULL
+       OR NULLIF(btrim(COALESCE(NEW.rna_number, '')), '') IS NOT NULL
+       OR NEW.vat_regime IS NOT NULL
+       OR COALESCE(NEW.absorb_yuno_fees, false)
+       OR COALESCE(NEW.can_sell_alcohol, false)
+       OR COALESCE(NEW.minors_allowed, false)
+       OR NEW.minor_auth_doc_url IS NOT NULL
+       OR COALESCE(NEW.bde_verified, false)
+    THEN
+      RAISE EXCEPTION 'support_session_forbidden: champs légaux/financiers en mode support'
+        USING ERRCODE = 'P0403';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- UPDATE : seul un CHANGEMENT réel d'un champ légal/financier bloque.
+  IF NULLIF(btrim(COALESCE(NEW.billing_email, '')), '') IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.billing_email, '')), '')
+     OR NULLIF(btrim(COALESCE(NEW.siret, '')), '')       IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.siret, '')), '')
+     OR NULLIF(btrim(COALESCE(NEW.vat_number, '')), '')  IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.vat_number, '')), '')
+     OR NULLIF(btrim(COALESCE(NEW.legal_name, '')), '')  IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.legal_name, '')), '')
+     OR NULLIF(btrim(COALESCE(NEW.legal_address, '')), '') IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.legal_address, '')), '')
+     OR NULLIF(btrim(COALESCE(NEW.rna_number, '')), '') IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.rna_number, '')), '')
+     OR NEW.vat_regime IS DISTINCT FROM OLD.vat_regime
+     OR COALESCE(NEW.absorb_yuno_fees, false) IS DISTINCT FROM COALESCE(OLD.absorb_yuno_fees, false)
+     OR COALESCE(NEW.can_sell_alcohol, false) IS DISTINCT FROM COALESCE(OLD.can_sell_alcohol, false)
+     OR NEW.can_sell_alcohol_confirmed_at IS DISTINCT FROM OLD.can_sell_alcohol_confirmed_at
+     OR COALESCE(NEW.minors_allowed, false) IS DISTINCT FROM COALESCE(OLD.minors_allowed, false)
+     OR NULLIF(btrim(COALESCE(NEW.minor_auth_doc_url, '')), '')  IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.minor_auth_doc_url, '')), '')
+     OR NULLIF(btrim(COALESCE(NEW.minor_auth_doc_name, '')), '') IS DISTINCT FROM NULLIF(btrim(COALESCE(OLD.minor_auth_doc_name, '')), '')
+     OR COALESCE(NEW.bde_verified, false) IS DISTINCT FROM COALESCE(OLD.bde_verified, false)
+     OR NEW.bde_verified_at IS DISTINCT FROM OLD.bde_verified_at
+  THEN
+    RAISE EXCEPTION 'support_session_forbidden: champs légaux/financiers d''organizer_profiles en mode support'
+      USING ERRCODE = 'P0403';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
 
 -- ── Factures stockées : TVA selon le vendeur ───────────────────────────────
 -- Corps repris de l'état LIVE ; seule différence : total_ht / tva. Une vente
