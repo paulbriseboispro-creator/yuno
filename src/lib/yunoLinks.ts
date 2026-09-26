@@ -12,9 +12,27 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { Language } from '@/i18n/data';
 import { isNative } from '@/lib/native';
+import { PRO_SIGNUP_ORIGIN } from '@/lib/proSignup';
 
 export const LINKS_PATH = '/links';
 export const LINKS_PUBLIC_URL = `https://yunoapp.eu${LINKS_PATH}`;
+
+/**
+ * Bouton « Tu organises des soirées ? Vends-les sur Yuno » : inscription
+ * organisateur en libre-service sur la landing, dans la langue de la page
+ * (yunoapp.fr → /fr/start, yunoapp.eu → /start). UTM fixés pour isoler ce
+ * bouton dans le funnel landing → Console.
+ */
+export function linksOrganizerSignupUrl(language: Language): string {
+  const path = language === 'fr' ? '/fr/start' : language === 'es' ? '/es/start' : '/start';
+  const q = new URLSearchParams({
+    role: 'organizer',
+    utm_source: 'instagram',
+    utm_medium: 'linktree',
+    utm_campaign: 'b2c',
+  });
+  return `${PRO_SIGNUP_ORIGIN}${path}?${q.toString()}`;
+}
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -179,6 +197,7 @@ export type LinksClickTarget =
   | 'whatsapp'
   | 'share'
   | 'featured_all'
+  | 'pro_signup'
   | `event:${string}`;
 
 function trackable(): boolean {

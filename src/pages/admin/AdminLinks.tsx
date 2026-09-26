@@ -137,7 +137,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-const TARGET_KEYS = new Set(['app_store', 'web_app', 'instagram', 'tiktok', 'whatsapp', 'share', 'featured_all', 'event']);
+const TARGET_KEYS = new Set(['app_store', 'web_app', 'instagram', 'tiktok', 'whatsapp', 'share', 'featured_all', 'pro_signup', 'event']);
 const LEAD_TYPES = new Set(['club', 'organizer', 'promoter', 'agency', 'other']);
 
 // ─── Page ────────────────────────────────────────────────────────────────────

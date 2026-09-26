@@ -16,6 +16,7 @@ import {
   fetchLinksConfig,
   fetchLinksStats,
   instagramFor,
+  linksOrganizerSignupUrl,
   trackLinksClickKeepalive,
   trackLinksEvent,
   whatsappUrl,
@@ -459,6 +460,30 @@ export default function YunoLinks() {
             </div>
           </section>
         )}
+
+        {/* ── Organisateurs → inscription libre-service (landing) ── */}
+        <section className="ynl-a" style={{ animationDelay: '.34s', padding: '22px 20px', borderBottom: `1px solid ${HAIR}` }}>
+          <a
+            href={linksOrganizerSignupUrl(language)}
+            onClick={() => trackLinksClickKeepalive('pro_signup', { role: 'organizer' })}
+            className="ynl-press ynl-lift ynl-ghost"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              padding: '18px 20px', background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.12)', borderRadius: 3, color: '#fff',
+            }}
+          >
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, letterSpacing: '-0.01em', textTransform: 'uppercase', lineHeight: 1.05, textWrap: 'balance' }}>
+                {t('links.orgCtaTitle')}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: G2 }}>
+                {t('links.orgCtaSub')}
+              </span>
+            </span>
+            <span style={{ fontFamily: DISPLAY, fontSize: 22, color: RED, lineHeight: 1 }}>→</span>
+          </a>
+        </section>
 
         {/* ── Liste d'attente ── */}
         {config.show_waitlist && (
