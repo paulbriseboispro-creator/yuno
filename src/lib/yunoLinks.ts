@@ -18,15 +18,14 @@ export const LINKS_PATH = '/links';
 export const LINKS_PUBLIC_URL = `https://yunoapp.eu${LINKS_PATH}`;
 
 /**
- * Bouton « Tu organises des soirées ? Vends-les sur Yuno » : inscription
- * organisateur en libre-service sur la landing, dans la langue de la page
- * (yunoapp.fr → /fr/start, yunoapp.eu → /start). UTM fixés pour isoler ce
- * bouton dans le funnel landing → Console.
+ * Bouton « Tu organises des soirées ? Vends-les sur Yuno » : la landing pro
+ * (pas l'inscription directe), dans la langue de la page (yunoapp.fr → /fr,
+ * yunoapp.eu → /). UTM fixés pour isoler ce bouton dans le funnel
+ * landing → inscription → Console.
  */
-export function linksOrganizerSignupUrl(language: Language): string {
-  const path = language === 'fr' ? '/fr/start' : language === 'es' ? '/es/start' : '/start';
+export function linksOrganizerLandingUrl(language: Language): string {
+  const path = language === 'fr' ? '/fr' : language === 'es' ? '/es' : '/';
   const q = new URLSearchParams({
-    role: 'organizer',
     utm_source: 'instagram',
     utm_medium: 'linktree',
     utm_campaign: 'b2c',

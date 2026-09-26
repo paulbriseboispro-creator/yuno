@@ -16,7 +16,7 @@ import {
   fetchLinksConfig,
   fetchLinksStats,
   instagramFor,
-  linksOrganizerSignupUrl,
+  linksOrganizerLandingUrl,
   trackLinksClickKeepalive,
   trackLinksEvent,
   whatsappUrl,
@@ -461,11 +461,11 @@ export default function YunoLinks() {
           </section>
         )}
 
-        {/* ── Organisateurs → inscription libre-service (landing) ── */}
+        {/* ── Organisateurs → landing pro ── */}
         <section className="ynl-a" style={{ animationDelay: '.34s', padding: '22px 20px', borderBottom: `1px solid ${HAIR}` }}>
           <a
-            href={linksOrganizerSignupUrl(language)}
-            onClick={() => trackLinksClickKeepalive('pro_signup', { role: 'organizer' })}
+            href={linksOrganizerLandingUrl(language)}
+            onClick={() => trackLinksClickKeepalive('pro_signup', { dest: 'landing' })}
             className="ynl-press ynl-lift ynl-ghost"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
