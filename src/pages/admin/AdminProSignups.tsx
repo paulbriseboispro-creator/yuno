@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAdminScope } from '@/components/admin/AdminScope';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  Building2, CalendarPlus, Check, ExternalLink, Filter, Mail, MessageCircle, PartyPopper,
+  Building2, CalendarPlus, Check, ExternalLink, Filter, GraduationCap, Mail, MessageCircle, PartyPopper,
   Percent, Phone, RefreshCw, StickyNote, UserPlus, Users,
 } from 'lucide-react';
 import {
@@ -53,7 +53,14 @@ const FUNNEL_STEPS: (keyof Funnel)[] = ['opened', 'role', 'structure', 'email', 
 const SIZE_LABEL: Record<string, string> = {
   lt300: '< 300', '300_800': '300–800', '800_1500': '800–1 500', gt1500: '1 500+',
   lt200: '< 200', '200_500': '200–500', '500_1500': '500–1 500',
+  // Page assos étudiantes de la landing (participants par événement).
+  lt100: '< 100', '100_300': '100–300', gt800: '800+',
 };
+// Une inscription venue de la page assos étudiantes de la landing
+// (/fr/associations, source « asso ») : un compte organisateur dont le super
+// admin vérifie que c'est bien une asso étudiante avant d'activer le tarif BDE
+// (organizer_profiles.bde_verified → plancher 0,49 € + soirées privées).
+const isAssoSignup = (r: { source: string | null }) => !!r.source?.startsWith('asso');
 // wa.me veut un numéro international sans « + ». Un numéro saisi en national
 // (« 06… » en France, « 6… » en Espagne) prend l'indicatif du pays de la ligne.
 function intlPhone(raw: string, country: string | null): string {
@@ -66,7 +73,10 @@ function intlPhone(raw: string, country: string | null): string {
   return cc + d;
 }
 
-const FREQ_LABEL: Record<string, string> = { '1': '1 / mo', '2_4': '2–4 / mo', '5plus': '5+ / mo' };
+const FREQ_LABEL: Record<string, string> = {
+  '1': '1 / mo', '2_4': '2–4 / mo', '5plus': '5+ / mo',
+  y1_3: '1–3 / yr', y4_10: '4–10 / yr', y10plus: '10+ / yr',
+};
 
 export default function AdminProSignups() {
   const { t, language } = useLanguage();
@@ -89,6 +99,30 @@ export default function AdminProSignups() {
   }, [period, includeDemo]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Statut BDE des comptes créés depuis la page assos (lu dans organizer_profiles,
+  // comme /admin/organizers), pour valider le tarif asso sans quitter la page.
+  const [bde, setBde] = useState<Record<string, boolean>>({});
+  const [bdeBusy, setBdeBusy] = useState<string | null>(null);
+  useEffect(() => {
+    const ids = (data?.rows ?? []).filter((r) => r.user_id && isAssoSignup(r)).map((r) => r.user_id as string);
+    if (!ids.length) return;
+    let alive = true;
+    supabase.from('organizer_profiles').select('user_id, bde_verified').in('user_id', ids).then(({ data: rows }) => {
+      if (!alive || !rows) return;
+      setBde(Object.fromEntries(rows.map((o) => [o.user_id, !!o.bde_verified])));
+    });
+    return () => { alive = false; };
+  }, [data]);
+  const setAssoVerified = useCallback(async (userId: string, next: boolean) => {
+    setBdeBusy(userId);
+    const { error: e } = await supabase.rpc('admin_set_organizer_bde_verified', {
+      p_organizer_user_id: userId, p_verified: next, p_reason: 'pro_signup:asso',
+    });
+    setBdeBusy(null);
+    if (e) { setError(e.message); return; }
+    setBde((prev) => ({ ...prev, [userId]: next }));
+  }, []);
 
   const update = useCallback(async (id: string, patch: { p_contacted?: boolean; p_notes?: string }) => {
     const { error: e } = await supabase.rpc('admin_update_pro_signup' as never, { p_id: id, ...patch } as never);
@@ -269,6 +303,7 @@ export default function AdminProSignups() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="truncate" style={{ color: T1, fontSize: 14.5, fontWeight: 650 }}>{org}</span>
                       <Pill size="sm" tone={r.user_id ? 'hot' : 'muted'}>{kindLabel(r.kind)}</Pill>
+                      {isAssoSignup(r) && <Pill size="sm" tone="accent" icon={GraduationCap}>{t('adm.signups.asso')}</Pill>}
                       {r.contacted_at && <Pill size="sm" tone="pos" icon={Check}>{t('adm.signups.contacted')}</Pill>}
                     </div>
                     <div style={{ color: T2, fontSize: 12.5, marginTop: 2 }} className="truncate">
@@ -331,6 +366,16 @@ export default function AdminProSignups() {
                   <Btn size="sm" variant="ghost" icon={StickyNote} onClick={() => { setNotesFor(r); setNotesDraft(r.admin_notes ?? ''); }}>
                     {t('adm.signups.notes')}
                   </Btn>
+                  {r.user_id && isAssoSignup(r) && (
+                    <Btn
+                      size="sm" variant={bde[r.user_id] ? 'primary' : 'subtle'} icon={GraduationCap}
+                      loading={bdeBusy === r.user_id}
+                      onClick={() => setAssoVerified(r.user_id as string, !bde[r.user_id as string])}
+                      title={t('adm.signups.assoVerifyTitle')}
+                    >
+                      {bde[r.user_id] ? t('adm.signups.assoVerified') : t('adm.signups.assoVerify')}
+                    </Btn>
+                  )}
                   {openTo && <Btn size="sm" variant="ghost" icon={ExternalLink} to={openTo}>{t('adm.signups.open')}</Btn>}
                 </div>
               </Card>

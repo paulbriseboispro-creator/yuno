@@ -985,6 +985,12 @@ Un club ou un organisateur ouvre son compte SEUL depuis la landing
   / `admin_new_organizer` pour ces inscriptions (suppression de la ligne non lue
   dans la même transaction). Purge des parcours anonymes sans email à 180 j
   (cron `pro-signups-purge`).
+- **Assos étudiantes** (2026-09-26) : la landing a sa page assos
+  (`/fr/associations`, `/associations`, `/es/asociaciones`) et son propre
+  parcours : compte ORGANISATEUR, `source = 'asso'`. Le tarif BDE n'est jamais
+  auto-attribué : dans `/admin/signups`, ces lignes portent la pastille « Asso
+  étudiante » et le bouton « Valider · tarif 0,49 € » qui appelle
+  `admin_set_organizer_bde_verified` (même RPC que `/admin/organizers`).
 - **Tout lien « créer un compte pro » de l'app passe par `proSignupUrl()`**
   (page de connexion, Explore faible densité). `/auth` crée un compte CLIENT.
 

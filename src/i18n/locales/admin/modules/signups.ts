@@ -82,6 +82,14 @@ const dict: AdminDict = {
   'adm.signups.save': ['Save', 'Enregistrer', 'Guardar'],
   'adm.signups.whatsapp': ['WhatsApp', 'WhatsApp', 'WhatsApp'],
   'adm.signups.open': ['Open', 'Ouvrir', 'Abrir'],
+  'adm.signups.asso': ['Student assoc.', 'Asso étudiante', 'Asoc. estudiantes'],
+  'adm.signups.assoVerify': ['Verify · €0.49 rate', 'Valider · tarif 0,49 €', 'Validar · tarifa 0,49 €'],
+  'adm.signups.assoVerified': ['Association rate on', 'Tarif asso actif', 'Tarifa asociación activa'],
+  'adm.signups.assoVerifyTitle': [
+    'Check it is a student association, then switch on the BDE status: €0.49 minimum fee and private nights by default.',
+    "Vérifier que c'est bien une asso étudiante, puis activer le statut BDE : frais minimum 0,49 € et soirées privées par défaut.",
+    'Comprobar que es una asociación de estudiantes y activar el estado BDE: gasto mínimo 0,49 € y fiestas privadas por defecto.',
+  ],
   'adm.signups.leadsOne': ['{n} person left an email without finishing on this period.', "{n} personne a laissé son email sans aller au bout sur cette période.", '{n} persona dejó su email sin terminar en este periodo.'],
   'adm.signups.leadsMany': ['{n} people left an email without finishing on this period.', "{n} personnes ont laissé leur email sans aller au bout sur cette période.", '{n} personas dejaron su email sin terminar en este periodo.'],
   'adm.signups.waAccount': [
