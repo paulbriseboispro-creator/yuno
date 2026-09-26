@@ -789,6 +789,7 @@ export default function OrderConfirmation() {
         const org = (Array.isArray(rows) ? rows[0] : rows) as {
           name: string | null; legal_address: string | null; siret: string | null; rna_number: string | null;
           vat_number: string | null; vat_regime: string | null; bde_verified: boolean | null; logo_url: string | null;
+          sole_seller: boolean | null;
         } | null | undefined;
         if (org?.name) {
           seller = {
@@ -799,7 +800,8 @@ export default function OrderConfirmation() {
             rna: org.rna_number || undefined,
             logoUrl: org.logo_url || undefined,
           };
-          itemVat = sellerVat(resolveVatRegime(org), language as DocLang);
+          // Co-soirée chez un club partenaire : encaissée côté club, 20 %.
+          if (org.sole_seller) itemVat = sellerVat(resolveVatRegime(org), language as DocLang);
         }
       }
       const blob = await generateReceiptPDF({

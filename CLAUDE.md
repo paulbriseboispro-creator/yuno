@@ -247,6 +247,24 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   SANS club lit son vendeur par `get_event_seller(event)` (anon OK) — jamais
   « Yuno ». Contrat collab : version `2026-09-26` (« tarif Association
   vérifiée ») ; les contrats signés avant gardent « BDE ».
+  **La décision de Yuno tient** : « Dépublier » / « Rejeter » (`/admin/events`)
+  posent `discovery_status = 'rejected'` sur une soirée d'organisateur, et le
+  trigger ne laisse plus l'orga la remettre dans Explore en la retouchant (avant,
+  « Dépublier » était sans effet sur toute soirée d'organisateur). Une soirée
+  d'un compte DÉMO n'est jamais découvrable (`is_demo_email`), même enregistrée
+  publique depuis le formulaire. Démo Association : `scripts/demo/seed-association.sql`
+  (« Asso Yuno », soirée « Nuit de l'Asso » dans un club hors Yuno à Amiens,
+  billets + tables event-scopées), puis `seed-upcoming-sales.sql`.
+  **Identité légale d'un organisateur = privée** (migration `20260926140000`) :
+  `authenticated` n'a plus le SELECT de table sur `organizer_profiles`, mais un
+  GRANT PAR COLONNE sans `legal_name`, `legal_address`, `siret`, `vat_number`,
+  `billing_email`, `rna_number`, `vat_regime` (même modèle que anon). Lecture
+  par `get_organizer_legal_identity(org)` (l'orga, son équipe admin/éditeur, un
+  club lié par contrat / avenant / co-soirée, super admin). Deux pièges : une
+  colonne AJOUTÉE à `organizer_profiles` doit être GRANT explicitement à
+  authenticated (et anon si publique), sinon tout select qui la nomme tombe ;
+  et jamais d'`upsert` client sur cette table (`ON CONFLICT … EXCLUDED` exige
+  la lecture de chaque colonne écrite) — `OrgAppProfile` fait UPDATE puis INSERT.
 - **Agence de promoteurs = entité FUSIONNÉE** (2026-07-27) : `agencies` est
   l'identité maître, `affiliates.agency_id` relie le bras externe (clubs
   non-Yuno, redirection billetterie). Triggers de provisionnement bidirectionnels

@@ -173,22 +173,28 @@ export default function OwnerInvoices() {
         invoiceData = res.data;
         error = res.error;
 
-        // Load the organizer's legal info once for the PDF issuer block.
-        const { data: orgProfile } = await supabase
-          .from('organizer_profiles')
-          .select('display_name, legal_name, legal_address, siret, vat_number, billing_email, rna_number, vat_regime, bde_verified')
-          .eq('user_id', organizerUserId!)
-          .maybeSingle();
+        // Load the organizer's legal info once for the PDF issuer block. The
+        // legal columns are only readable through get_organizer_legal_identity
+        // (owner, team, collab club, super admin — 20260926140000).
+        const [{ data: orgProfile }, { data: legalRows }] = await Promise.all([
+          supabase
+            .from('organizer_profiles')
+            .select('display_name, bde_verified')
+            .eq('user_id', organizerUserId!)
+            .maybeSingle(),
+          supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: organizerUserId! }),
+        ]);
+        const legal = (Array.isArray(legalRows) ? legalRows[0] : legalRows) ?? null;
         if (orgProfile) {
           setOrgIssuer({
-            name: (orgProfile as any).legal_name || (orgProfile as any).display_name || 'Organisateur',
-            legalName: (orgProfile as any).legal_name || (orgProfile as any).display_name || undefined,
-            address: (orgProfile as any).legal_address || undefined,
-            siret: (orgProfile as any).siret || undefined,
-            vatNumber: (orgProfile as any).vat_number || undefined,
-            email: (orgProfile as any).billing_email || undefined,
-            rna: orgProfile.rna_number || undefined,
-            vatRegime: resolveVatRegime(orgProfile),
+            name: legal?.legal_name || orgProfile.display_name || 'Organisateur',
+            legalName: legal?.legal_name || orgProfile.display_name || undefined,
+            address: legal?.legal_address || undefined,
+            siret: legal?.siret || undefined,
+            vatNumber: legal?.vat_number || undefined,
+            email: legal?.billing_email || undefined,
+            rna: legal?.rna_number || undefined,
+            vatRegime: resolveVatRegime({ vat_regime: legal?.vat_regime, bde_verified: orgProfile.bde_verified }),
           });
         }
       } else {

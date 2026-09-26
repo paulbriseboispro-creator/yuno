@@ -14,6 +14,35 @@ const resolveOrgName = (o: OrgProfileName, publicName?: string | null) =>
   publicName || o?.full_name || [o?.first_name, o?.last_name].filter(Boolean).join(' ') || o?.business_name || 'Organisateur';
 
 /**
+ * Profil public + identité légale de l'organisateur d'un contrat. Les colonnes
+ * légales ne se lisent plus en direct (20260926140000) : la RPC ne les rend
+ * qu'aux parties du contrat (l'orga, son équipe, le club) et au super admin.
+ */
+async function fetchOrganizerLegalProfile(organizerUserId: string): Promise<{
+  data: {
+    display_name: string | null; bde_verified: boolean | null;
+    legal_name: string | null; legal_address: string | null; siret: string | null; vat_number: string | null;
+  } | null;
+}> {
+  const [{ data: pub }, { data: legalRows }] = await Promise.all([
+    supabase.from('organizer_profiles').select('display_name, bde_verified').eq('user_id', organizerUserId).maybeSingle(),
+    supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: organizerUserId }),
+  ]);
+  const legal = (Array.isArray(legalRows) ? legalRows[0] : legalRows) ?? null;
+  if (!pub && !legal) return { data: null };
+  return {
+    data: {
+      display_name: pub?.display_name ?? null,
+      bde_verified: pub?.bde_verified ?? null,
+      legal_name: legal?.legal_name ?? null,
+      legal_address: legal?.legal_address ?? null,
+      siret: legal?.siret ?? null,
+      vat_number: legal?.vat_number ?? null,
+    },
+  };
+}
+
+/**
  * Load everything the contract PDF / pre-signature dialog needs from a contract row:
  * party names + legal identity (venues + organizer_profiles), event title/date, split,
  * signatures, and the frozen terms version (terms_snapshot.terms_version). Single source
@@ -27,7 +56,7 @@ export async function loadCollabContractPdfData(
     supabase.from('events').select('title, start_at').eq('id', contract.event_id).maybeSingle(),
     supabase.from('venues').select('name, legal_name, legal_address, siret, vat_number').eq('id', contract.venue_id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    supabase.from('organizer_profiles').select('display_name, legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
+    fetchOrganizerLegalProfile(contract.organizer_user_id),
   ]);
   const orgName = resolveOrgName(org as OrgProfileName, (orgProfile as { display_name?: string | null } | null)?.display_name);
   const ev2 = ev as { title?: string | null; start_at?: string | null } | null;
@@ -89,7 +118,7 @@ export async function loadCollabSeriesContractPdfData(
   const [{ data: venue }, { data: org }, { data: orgProfile }] = await Promise.all([
     supabase.from('venues').select('name, legal_name, legal_address, siret, vat_number').eq('id', contract.venue_id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    supabase.from('organizer_profiles').select('display_name, legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
+    fetchOrganizerLegalProfile(contract.organizer_user_id),
   ]);
   const orgName = resolveOrgName(org as OrgProfileName, (orgProfile as { display_name?: string | null } | null)?.display_name);
   const termsVersion = (contract.terms_snapshot as { terms_version?: string } | null)?.terms_version ?? null;

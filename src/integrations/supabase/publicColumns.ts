@@ -6,7 +6,15 @@
 //   venues:              legal_name, legal_address, siret, vat_number, invoice_prefix,
 //                        stripe_account_id, stripe_charges_enabled,
 //                        stripe_onboarding_complete, stripe_payouts_enabled
-//   organizer_profiles:  billing_email, legal_name, legal_address, siret, vat_number
+//   organizer_profiles:  billing_email, legal_name, legal_address, siret, vat_number,
+//                        rna_number, vat_regime — hidden from `authenticated` too
+//                        since 20260926140000 (column-level GRANT, same model as
+//                        anon). Read them through the RPC
+//                        get_organizer_legal_identity (owner, team, collab club,
+//                        super admin). A NEW organizer_profiles column must be
+//                        granted to authenticated (and anon if public) explicitly,
+//                        and never upsert this table from the client (ON CONFLICT
+//                        … EXCLUDED needs SELECT on every written column).
 //
 // NOTE: minor_auth_doc_url / minor_auth_doc_name stay anon-readable on purpose — they
 // are the venue/organizer's blank minor-authorization TEMPLATE that a guest (minor)

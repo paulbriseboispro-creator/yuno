@@ -199,6 +199,8 @@ export function OrgEventFormDialog({
 
   // Org-specific
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
+  /** Yuno a retiré la soirée d'Explore (/admin/events) : l'orga ne la republie pas lui-même. */
+  const [removedByYuno, setRemovedByYuno] = useState(false);
   const [collabMode, setCollabMode] = useState<CollabMode>('solo');
   const [partnerVenueId, setPartnerVenueId] = useState<string>('');
   /** Club partenaire tel qu'il était au chargement (édition) — sert à détecter un détachement. */
@@ -289,6 +291,7 @@ export function OrgEventFormDialog({
       setGuestArtists([]);
       setInitialLineupEntries([]);
       setEventKind('public_event');
+      setRemovedByYuno(false);
       setCollabMode('solo');
       setPartnerVenueId('');
       setSavedPartnerVenueId('');
@@ -336,6 +339,7 @@ export function OrgEventFormDialog({
         setEventType((ev as any).event_type || 'club');
         const evKind = (ev.event_kind as string) || 'public_event';
         setEventKind(evKind === 'private_event' ? 'private_event' : 'public_event');
+        setRemovedByYuno(ev.discovery_status === 'rejected');
         setPartnerVenueId(ev.partner_venue_id || '');
         setSavedPartnerVenueId(ev.partner_venue_id || '');
         // Statut du contrat de collaboration : un contrat signé (active/locked)
@@ -847,6 +851,15 @@ export function OrgEventFormDialog({
                   )}
                 />
               </div>
+              {removedByYuno && eventKind === 'public_event' && (
+                <p className="mt-2 text-[12px] leading-snug" style={{ color: 'var(--acc-e8a019)' }}>
+                  {t(
+                    "Yuno a retiré cette soirée de la découverte publique. Elle reste accessible par son lien ; contacte le support pour la faire réapparaître dans Explore.",
+                    'Yuno removed this event from public discovery. It stays reachable by its link; contact support to get it back into Explore.',
+                    'Yuno retiró esta fiesta del descubrimiento público. Sigue accesible por su enlace; contacta con soporte para que vuelva a Explore.'
+                  )}
+                </p>
+              )}
             </div>
 
             {/* Collab mode */}

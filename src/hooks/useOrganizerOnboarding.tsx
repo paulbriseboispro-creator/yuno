@@ -41,7 +41,7 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('organization_name, city, organization_logo_url, stripe_connect_account_id')
+    .select('organization_name, city, organization_logo_url, stripe_connect_account_id, stripe_connect_charges_enabled')
     .eq('id', userId)
     .maybeSingle();
 
@@ -79,8 +79,11 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
     .eq('invitation_status', 'accepted');
   result['4'] = (memberCount ?? 0) > 0;
 
-  // Step 5 — Payments: Stripe Connect account exists.
-  result['5'] = !!profile?.stripe_connect_account_id;
+  // Step 5 — Payments: the Stripe account can actually TAKE payments. An
+  // account that merely exists (onboarding abandoned halfway) used to tick the
+  // step, and the organizer only learned at the first checkout that nothing
+  // could be sold (organizerStripeNotActive).
+  result['5'] = !!profile?.stripe_connect_account_id && profile?.stripe_connect_charges_enabled === true;
 
   // Step 6 — Tour: only marked when explicitly finished, never auto-detected.
   result['6'] = false;

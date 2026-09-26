@@ -66,18 +66,23 @@ GRANT EXECUTE ON FUNCTION public.organizer_vat_rate(uuid) TO authenticated, serv
 -- ── Vendeur d'une soirée sans club (pour le reçu) ──────────────────────────
 -- L'identité du vendeur figure OBLIGATOIREMENT sur un reçu : elle est donc
 -- rendue à tout acheteur, invité compris (anon), mais seulement pour une
--- soirée portée par un organisateur SANS club — un club reste lu dans `venues`.
+-- soirée portée par un organisateur SANS club — un club reste lu dans `venues`
+-- (même règle que send-ticket-confirmation). `sole_seller` = aucun club
+-- partenaire non plus : seul ce cas applique le régime de TVA de l'orga, une
+-- co-soirée étant encaissée côté club (20 %, comme la facture stockée).
 CREATE OR REPLACE FUNCTION public.get_event_seller(p_event_id uuid)
 RETURNS TABLE (
   name text, legal_address text, siret text, rna_number text,
-  vat_number text, vat_regime text, bde_verified boolean, logo_url text
+  vat_number text, vat_regime text, bde_verified boolean, logo_url text,
+  sole_seller boolean
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
   SELECT COALESCE(NULLIF(o.legal_name, ''), o.display_name),
          o.legal_address, o.siret, o.rna_number,
-         o.vat_number, o.vat_regime, COALESCE(o.bde_verified, false), o.avatar_url
+         o.vat_number, o.vat_regime, COALESCE(o.bde_verified, false), o.avatar_url,
+         e.partner_venue_id IS NULL
     FROM public.events e
     JOIN public.organizer_profiles o ON o.user_id = e.organizer_user_id
    WHERE e.id = p_event_id

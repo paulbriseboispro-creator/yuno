@@ -19994,6 +19994,18 @@ export type Database = {
         Returns: Json
       }
       get_event_report: { Args: { p_event_id: string }; Returns: Json }
+      get_organizer_legal_identity: {
+        Args: { p_organizer_user_id: string }
+        Returns: {
+          billing_email: string
+          legal_address: string
+          legal_name: string
+          rna_number: string
+          siret: string
+          vat_number: string
+          vat_regime: string
+        }[]
+      }
       get_event_seller: {
         Args: { p_event_id: string }
         Returns: {
@@ -20003,6 +20015,7 @@ export type Database = {
           name: string
           rna_number: string
           siret: string
+          sole_seller: boolean
           vat_number: string
           vat_regime: string
         }[]

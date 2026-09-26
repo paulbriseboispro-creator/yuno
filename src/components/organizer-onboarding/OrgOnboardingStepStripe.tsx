@@ -1,6 +1,7 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
+import { useIsAssociation, commissionFloorLabel } from '@/hooks/useIsAssociation';
 import { CreditCard, ShieldCheck, Zap, ExternalLink, Check, type LucideIcon } from 'lucide-react';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, RED, POS, T1, T2, T3, BORDER } from '@/components/onboarding/onboardingUI';
 
@@ -14,6 +15,7 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const { canSell, status, loading, startOnboarding, openDashboard } = useOrganizerStripe(userId);
+  const floor = commissionFloorLabel(useIsAssociation(userId), language);
 
   return (
     <div className="space-y-6">
@@ -36,9 +38,9 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
       <div className="rounded-xl" style={{ padding: 14, background: 'rgb(var(--ink)/0.03)', border: `1px solid ${BORDER}` }}>
         <p style={{ color: T3, fontSize: 12, lineHeight: 1.5 }}>
           {tt(
-            'Frais Yuno : max(0,99 € ; 4 %) par billet vendu. Frais Stripe : 1,5 % + 0,25 €. Tout est transparent et déduit avant versement.',
-            'Yuno fee: max(€0.99; 4%) per ticket sold. Stripe fee: 1.5% + €0.25. Fully transparent, deducted before payout.',
-            'Comisión Yuno: máx(0,99 € ; 4 %) por entrada vendida. Comisión Stripe: 1,5 % + 0,25 €. Todo transparente y deducido antes del pago.',
+            `Frais Yuno : 4 % par billet ou table (min. ${floor}), ajoutés au prix payé par le client sauf si vous choisissez de les prendre en charge. Frais Stripe : 1,5 % + 0,25 €, déduits avant versement.`,
+            `Yuno fee: 4% per ticket or table (min. ${floor}), added to the price the customer pays unless you choose to cover it. Stripe fee: 1.5% + €0.25, deducted before payout.`,
+            `Comisión Yuno: 4 % por entrada o mesa (mín. ${floor}), añadida al precio que paga el cliente salvo que elijas asumirla. Comisión Stripe: 1,5 % + 0,25 €, deducida antes del pago.`,
           )}
         </p>
       </div>

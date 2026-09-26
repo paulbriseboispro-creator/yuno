@@ -13,7 +13,16 @@
 --      qui vend des billets pour une soirée dans un club hors Yuno doit
 --      apparaître dans Explore comme n'importe quel organisateur, sur les
 --      mêmes critères de qualité (affiche, titre, description, date).
---   2. Emails de campagne offerts : 2 000 par mois pour une association
+--   2. La décision de Yuno tient : « Dépublier » / « Rejeter » dans
+--      /admin/events posent discovery_status = 'rejected', et l'organisateur ne
+--      la lève plus en retouchant sa soirée. Avant, le trigger recalculait tout
+--      depuis les critères de qualité : le bouton « Dépublier » du super admin
+--      était SANS EFFET sur une soirée d'organisateur (il ne tenait que pour les
+--      soirées BDE, par la branche de modération qu'on retire ici).
+--   3. Une soirée d'un compte de DÉMO n'est jamais découvrable : ouvrir et
+--      enregistrer une soirée démo dans le formulaire la passait en
+--      'public_event' et l'envoyait dans l'Explore réel.
+--   4. Emails de campagne offerts : 2 000 par mois pour une association
 --      (15 000 pour un compte pro standard). La surcharge
 --      `email_sender_state.monthly_cap_override` gagne toujours.
 --
@@ -27,8 +36,9 @@ COMMENT ON COLUMN public.events.is_bde IS
   'Soirée portée par une ASSOCIATION vérifiée (organizer_profiles.bde_verified). Stampé par evaluate_event_discoverability, jamais par le client. Sert au plancher de commission réduit.';
 
 -- ── 1. Visibilité : l'association suit la règle de tout organisateur ────────
--- Corps repris de l'état LIVE (20260722180000) ; seule différence : la branche
--- « soirée BDE publique = demande de modération » disparaît.
+-- Corps repris de l'état LIVE (20260722180000). Différences : la branche
+-- « soirée BDE publique = demande de modération » disparaît, et un refus du
+-- super admin (discovery_status = 'rejected') s'impose aux critères de qualité.
 CREATE OR REPLACE FUNCTION public.evaluate_event_discoverability()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -55,11 +65,28 @@ BEGIN
       NEW.is_discoverable := false;
 
     ELSIF NEW.event_kind = 'public_event' THEN
+      IF public.is_super_admin() AND NEW.discovery_status = 'rejected' THEN
+        -- Yuno dépublie / refuse : rien ne la remet dans Explore.
+        NEW.is_discoverable := false;
+      ELSIF NOT public.is_super_admin()
+            AND TG_OP = 'UPDATE' AND OLD.discovery_status = 'rejected' THEN
+        -- L'organisateur ne lève pas une décision de Yuno en retouchant sa
+        -- soirée : seul le super admin la republie.
+        NEW.discovery_status := 'rejected';
+        NEW.is_discoverable  := false;
+      ELSIF EXISTS (
+        SELECT 1 FROM public.profiles p
+         WHERE p.id = NEW.organizer_user_id AND public.is_demo_email(p.email)
+      ) THEN
+        -- Compte de démo (@womber.fr…) : une soirée fictive n'atteint JAMAIS
+        -- l'Explore des vrais clients, même enregistrée « publique » depuis le
+        -- formulaire pendant une démo.
+        NEW.is_discoverable := false;
       -- Auto-approbation sur critères de qualité. Description >= 30 caractères
       -- exigée UNIQUEMENT pour les soirées solo / hors plateforme
       -- (partner_venue_id NULL) : une soirée adossée à un club partenaire porte
       -- déjà le nom et l'adresse d'un lieu vérifié.
-      IF NEW.visibility = 'public'
+      ELSIF NEW.visibility = 'public'
          AND NEW.poster_url IS NOT NULL
          AND LENGTH(COALESCE(NEW.title, '')) >= 5
          AND (
@@ -73,6 +100,11 @@ BEGIN
         NEW.discovery_status := 'approved';
       ELSE
         NEW.is_discoverable := false;
+        -- Plus de file de modération pour un organisateur : 'pending' n'a plus
+        -- de sens ici (seul 'rejected', posé par Yuno, en garde un).
+        IF NEW.discovery_status = 'pending' THEN
+          NEW.discovery_status := 'approved';
+        END IF;
       END IF;
 
     ELSE
@@ -84,13 +116,50 @@ BEGIN
 END;
 $function$;
 
--- Les demandes de publication encore en attente (ancien circuit BDE) sont
--- réévaluées sur les critères communs : un UPDATE no-op relance le trigger.
+-- Les demandes de publication encore en attente (ancien circuit BDE) sortent
+-- de la file de modération et sont réévaluées sur les critères communs par le
+-- trigger ('approved' + is_discoverable selon la qualité, l'état normal d'une
+-- soirée d'organisateur).
 UPDATE public.events
-   SET is_active = is_active
+   SET discovery_status = 'approved'
  WHERE is_bde = true
    AND event_kind = 'public_event'
    AND discovery_status = 'pending';
+
+-- « Dépublier » / « Republier » (/admin/events) : sur une soirée
+-- d'organisateur, la décision passe par discovery_status pour survivre aux
+-- retouches (voir le trigger). Une soirée de club garde le comportement
+-- d'avant : le trigger ne la recalcule pas, is_discoverable suffit.
+CREATE OR REPLACE FUNCTION public.admin_set_event_published(_event_id uuid, _published boolean)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: admin role required';
+  END IF;
+
+  UPDATE public.events
+  SET discovery_status = CASE
+        WHEN organizer_user_id IS NULL THEN discovery_status
+        WHEN _published THEN 'approved'::discovery_status
+        ELSE 'rejected'::discovery_status
+      END,
+      is_discoverable = _published
+  WHERE id = _event_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Event not found: %', _event_id;
+  END IF;
+
+  PERFORM public.log_admin_action(
+    CASE WHEN _published THEN 'event_published' ELSE 'event_depublished' END,
+    'event', _event_id::text, '{}'::jsonb
+  );
+END;
+$function$;
 
 -- ── 2. Emails offerts : 2 000 / mois pour une association ───────────────────
 -- Corps repris de l'état LIVE (20260908210000). La clé d'une portée

@@ -45,6 +45,9 @@ interface OrgProfile {
   can_sell_alcohol_confirmed_at: string | null;
 }
 
+/** Colonnes légales : lues et écrites seulement si get_organizer_legal_identity a répondu. */
+const LEGAL_KEYS: string[] = ['legal_name', 'legal_address', 'siret', 'vat_number', 'rna_number', 'vat_regime', 'billing_email'];
+
 export default function OrgAppProfile() {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -65,6 +68,10 @@ export default function OrgAppProfile() {
 
   // Compte Association (drapeau posé par Yuno, lecture seule ici).
   const [isAssociation, setIsAssociation] = useState(false);
+  // Identité légale réellement lue ? Sinon (RPC indisponible), on ne la
+  // réécrit pas : des champs restés vides effaceraient les vraies valeurs.
+  const legalLoadedRef = useRef(false);
+  const [legalUnavailable, setLegalUnavailable] = useState(false);
 
   const [profile, setProfile] = useState<OrgProfile>({
     user_id: '', display_name: '', slug: null, bio: '', city: '', avatar_url: '', cover_url: '',
@@ -77,11 +84,19 @@ export default function OrgAppProfile() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from('organizer_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Les colonnes légales ne sont plus lisibles en direct (20260926140000) :
+      // elles arrivent par get_organizer_legal_identity, dans la même salve.
+      const [{ data }, { data: legalRows, error: legalErr }] = await Promise.all([
+        supabase
+          .from('organizer_profiles')
+          .select('user_id, display_name, slug, bio, city, avatar_url, cover_url, instagram_url, website_url, is_public, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, absorb_yuno_fees, can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, name_changed_at')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: user.id }),
+      ]);
+      const legal = (Array.isArray(legalRows) ? legalRows[0] : legalRows) ?? null;
+      legalLoadedRef.current = !legalErr;
+      setLegalUnavailable(!!legalErr);
 
       if (data) {
         setProfile({
@@ -95,13 +110,13 @@ export default function OrgAppProfile() {
           instagram_url: data.instagram_url || '',
           website_url: data.website_url || '',
           is_public: data.is_public ?? true,
-          legal_name: (data as any).legal_name || '',
-          legal_address: (data as any).legal_address || '',
-          siret: (data as any).siret || '',
-          vat_number: (data as any).vat_number || '',
-          rna_number: data.rna_number || '',
-          vat_regime: (data.vat_regime || '') as OrgProfile['vat_regime'],
-          billing_email: (data as any).billing_email || '',
+          legal_name: legal?.legal_name || '',
+          legal_address: legal?.legal_address || '',
+          siret: legal?.siret || '',
+          vat_number: legal?.vat_number || '',
+          rna_number: legal?.rna_number || '',
+          vat_regime: (legal?.vat_regime || '') as OrgProfile['vat_regime'],
+          billing_email: legal?.billing_email || '',
           minors_allowed: (data as any).minors_allowed ?? false,
           minor_auth_doc_url: (data as any).minor_auth_doc_url ?? null,
           minor_auth_doc_name: (data as any).minor_auth_doc_name ?? null,
@@ -244,10 +259,25 @@ export default function OrgAppProfile() {
           ? (profile.can_sell_alcohol_confirmed_at ?? new Date().toISOString())
           : null,
       };
-      const { error } = await supabase
+      // Pas d'upsert : `ON CONFLICT … DO UPDATE SET col = EXCLUDED.col` exige le
+      // droit de LECTURE sur chaque colonne écrite, et les colonnes légales ne
+      // sont plus lisibles en direct (20260926140000). UPDATE d'abord (le
+      // RETURNING ne porte que user_id), INSERT seulement si la ligne manque.
+      // Identité légale non lue (RPC indisponible) : on ne l'écrase pas avec
+      // des champs restés vides.
+      const write = legalLoadedRef.current
+        ? payload
+        : (Object.fromEntries(Object.entries(payload).filter(([k]) => !LEGAL_KEYS.includes(k))) as typeof payload);
+      const { data: updated, error: updErr } = await supabase
         .from('organizer_profiles')
-        .upsert(payload, { onConflict: 'user_id' });
-      if (error) throw error;
+        .update(write)
+        .eq('user_id', user.id)
+        .select('user_id');
+      if (updErr) throw updErr;
+      if (!updated || updated.length === 0) {
+        const { error: insErr } = await supabase.from('organizer_profiles').insert(write);
+        if (insErr) throw insErr;
+      }
 
       const { error: profErr } = await supabase
         .from('profiles')
@@ -521,6 +551,15 @@ export default function OrgAppProfile() {
             <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
               {t('Ces informations apparaîtront sur les reçus et factures émis pour vos soirées.', 'These details appear on the receipts and invoices issued for your events.', 'Estos datos aparecen en los recibos y facturas emitidos para tus fiestas.')}
             </p>
+            {legalUnavailable && (
+              <p className="mt-2" style={{ color: RED, fontSize: 12 }}>
+                {t(
+                  'Vos informations de facturation n\'ont pas pu être chargées : elles ne seront pas modifiées à l\'enregistrement. Rechargez la page.',
+                  'Your billing details could not be loaded: they will not be changed when you save. Reload the page.',
+                  'No se pudieron cargar tus datos de facturación: no se modificarán al guardar. Recarga la página.',
+                )}
+              </p>
+            )}
             {isAssociation && (
               <div className="mt-3 rounded-lg px-3 py-2.5" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
                 <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('Compte Association vérifié par Yuno', 'Association account verified by Yuno', 'Cuenta Asociación verificada por Yuno')}</p>

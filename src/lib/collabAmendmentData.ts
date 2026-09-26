@@ -39,16 +39,25 @@ export async function loadAmendmentPdfData(
   const [{ data: venue }, { data: orgProfile }, { data: prof }] = await Promise.all([
     supabase.from('venues')
       .select('name, legal_name, legal_address, siret, vat_number').eq('id', row.venue_id).maybeSingle(),
-    supabase.from('organizer_profiles' as never)
-      .select('display_name, legal_name, legal_address, siret, vat_number')
-      .eq('user_id' as never, row.organizer_user_id as never).maybeSingle(),
+    supabase.from('organizer_profiles')
+      .select('display_name')
+      .eq('user_id', row.organizer_user_id).maybeSingle(),
     supabase.from('profiles').select('first_name, last_name').eq('id', row.organizer_user_id).maybeSingle(),
   ]);
+  // Identité légale : RPC réservée aux parties (20260926140000).
+  const { data: legalRows } = await supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: row.organizer_user_id });
+  const legal = (Array.isArray(legalRows) ? legalRows[0] : legalRows) ?? null;
 
-  const op = orgProfile as unknown as {
+  const op: {
     display_name?: string | null; legal_name?: string | null; legal_address?: string | null;
     siret?: string | null; vat_number?: string | null;
-  } | null;
+  } | null = orgProfile || legal ? {
+    display_name: orgProfile?.display_name ?? null,
+    legal_name: legal?.legal_name ?? null,
+    legal_address: legal?.legal_address ?? null,
+    siret: legal?.siret ?? null,
+    vat_number: legal?.vat_number ?? null,
+  } : null;
   const pr = prof as { first_name?: string | null; last_name?: string | null } | null;
   const orgName = op?.display_name
     || [pr?.first_name, pr?.last_name].filter(Boolean).join(' ')

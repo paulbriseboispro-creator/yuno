@@ -94,7 +94,7 @@ serve(async (req) => {
         id, qr_code, reference_code, quantity, unit_price, total_price, service_fee, insurance_fee, full_name, phone, user_email, user_id, status,
         ticket_round_id, event_id,
         ticket_rounds(name, group_label),
-        events!inner(id, title, start_at, timezone, venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
+        events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
       `)
       .eq("id", ticketId)
       .single();
@@ -202,7 +202,10 @@ serve(async (req) => {
             rna: org.rna_number || undefined,
             logoUrl: org.avatar_url || undefined,
           };
-          vatRegime = resolveVatRegime(org);
+          // Le régime de l'orga ne vaut que s'il est le SEUL vendeur : une
+          // co-soirée chez un club partenaire est encaissée côté club (20 %).
+          // Même règle que le trigger save_invoice_on_creation.
+          if (!event.partner_venue_id) vatRegime = resolveVatRegime(org);
           organizerName = org.display_name || org.legal_name || organizerName;
         }
       }

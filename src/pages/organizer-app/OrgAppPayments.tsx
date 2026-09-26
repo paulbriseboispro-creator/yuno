@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Banknote, Clock, Landmark, Receipt } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { OrgStripeConnectCard } from '@/components/organizer-app/OrgStripeConnectCard';
+import { useIsAssociation, commissionFloorLabel } from '@/hooks/useIsAssociation';
 import { OrgPage, OrgPageHeader, OrgCard, OrgButton, T1, T2, T3, RED, BORDER, INNER_BG } from '@/components/org-ui';
 
 /**
@@ -18,6 +19,7 @@ export default function OrgAppPayments() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  const floor = commissionFloorLabel(useIsAssociation(user?.id), language);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -49,10 +51,11 @@ export default function OrgAppPayments() {
     },
     {
       icon: Receipt,
-      title: t('Frais de service Yuno', 'Yuno service fee'),
+      title: t('Frais de service Yuno', 'Yuno service fee', 'Gastos de servicio Yuno'),
       desc: t(
-        'Yuno applique 4 % de frais de service sur la billetterie (min. 0,99 €), prélevés automatiquement à chaque vente.',
-        'Yuno applies a 4% service fee on ticketing (min. €0.99), deducted automatically on each sale.',
+        `Yuno applique 4 % de frais de service sur les billets et les tables (min. ${floor}), prélevés automatiquement à chaque vente.`,
+        `Yuno applies a 4% service fee on tickets and tables (min. ${floor}), collected automatically on each sale.`,
+        `Yuno aplica un 4 % de gastos de servicio en entradas y mesas (mín. ${floor}), cobrados automáticamente en cada venta.`,
       ),
     },
   ];

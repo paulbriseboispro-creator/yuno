@@ -145,7 +145,7 @@ export function fetchFavoriteCounts(qc: QueryClient, type: FavoriteCountType): P
 // ── Catalogue des soirées d'une fenêtre ──────────────────────────────
 
 const EVENT_COLUMNS =
-  'id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city';
+  'id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city, location_name, location_is_secret';
 
 type EventRow = {
   id: string;
@@ -162,6 +162,8 @@ type EventRow = {
   music_genres: string[] | null;
   event_type: string | null;
   location_city: string | null;
+  location_name: string | null;
+  location_is_secret: boolean | null;
 };
 
 /**
@@ -315,9 +317,12 @@ export async function fetchExploreCatalog(
           ? [e.music_genre]
           : Array.from(genreMap[e.id] || []);
 
+    // Soirée d'organisateur dans un lieu hors Yuno : le nom du lieu saisi
+    // (jamais s'il est secret), comme la page soirée.
+    const placeName = venue?.name || (!e.location_is_secret && e.location_name) || '';
     const venueName =
       isOrganizerLed && organizerInfo
-        ? `${organizerInfo.display_name}${venue ? ` · ${venue.name}` : ''}`
+        ? `${organizerInfo.display_name}${placeName ? ` · ${placeName}` : ''}`
         : venue?.name || '';
 
     return {
