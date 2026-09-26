@@ -14,6 +14,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePreviewMode, disablePreviewMode, setPreviewCurrentRole } from '@/contexts/PreviewModeContext';
 import { clearDemoBypass, switchToDemoRole, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
 import { ShowcaseClaimDialog } from '@/components/showcase/ShowcaseClaimDialog';
+import { openDemoSignupDialog } from '@/components/demo/DemoSignupBar';
+import { DEMO_SIGNUP_COPY, demoLang } from '@/components/demo/demoSignupCopy';
+import { parseDemoSignup } from '@/lib/demoSignup';
 
 const RED = '#E8192C';
 
@@ -27,7 +30,7 @@ const SHOWCASE_COPY: Record<'en' | 'fr' | 'es', {
 };
 
 export function PreviewModeBanner() {
-  const { isPreview, label, roles, current, kind, showcaseTarget, entitySlug, entityName, language } = usePreviewMode();
+  const { isPreview, label, roles, current, kind, showcaseTarget, entitySlug, entityName, language, signup } = usePreviewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -37,6 +40,7 @@ export function PreviewModeBanner() {
   if (!isPreview) return null;
 
   const multi = roles.length > 1;
+  const demoSignup = kind === 'demo' ? parseDemoSignup(signup) : null;
   const currentMeta = DEMO_ACCOUNTS[current as TargetAccount];
 
   const switchTo = async (role: TargetAccount) => {
@@ -56,7 +60,9 @@ export function PreviewModeBanner() {
   const quit = async () => {
     disablePreviewMode();
     clearDemoBypass();
-    try { await supabase.auth.signOut(); } catch { /* ignore */ }
+    // Local seulement : un signOut global révoquerait aussi les sessions de
+    // Paul sur ce même compte démo.
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
     navigate('/', { replace: true });
   };
 
@@ -139,7 +145,8 @@ export function PreviewModeBanner() {
 
   return (
     <div
-      className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-full px-3 py-2 text-white shadow-lg"
+      data-theme-island="dark"
+      className="fixed left-1/2 z-[70] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-full px-3 py-2 text-white shadow-lg"
       style={{
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
         background: 'rgba(10,10,12,0.94)',
@@ -149,7 +156,7 @@ export function PreviewModeBanner() {
       }}
     >
       <Eye className="h-4 w-4 shrink-0" style={{ color: RED }} />
-      <span className="text-[12.5px] font-medium whitespace-nowrap">
+      <span className={`text-[12.5px] font-medium whitespace-nowrap ${demoSignup && !demoSignup.created ? 'hidden sm:inline' : ''}`}>
         Aperçu{label ? <span className="text-white/55"> · {label}</span> : null}
       </span>
 
@@ -194,6 +201,20 @@ export function PreviewModeBanner() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Compte préparé par le super admin : le même bouton que la barre du
+          haut (DemoSignupBar), qui, elle, part au défilement. */}
+      {demoSignup && !demoSignup.created && (
+        <button
+          type="button"
+          onClick={openDemoSignupDialog}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition hover:brightness-110 whitespace-nowrap"
+          style={{ background: RED, boxShadow: `0 0 18px -6px ${RED}` }}
+        >
+          <Rocket className="h-3 w-3" />
+          {DEMO_SIGNUP_COPY[demoLang(language)].pillCta}
+        </button>
       )}
 
       <button

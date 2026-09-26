@@ -15,6 +15,7 @@ import { enablePreviewMode } from '@/contexts/PreviewModeContext';
 import { useLanguage, type Language } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
+import { parseDemoSignup, serializeDemoSignup } from '@/lib/demoSignup';
 
 const RED = '#E8192C';
 
@@ -269,7 +270,13 @@ export default function PreviewGate() {
 
       const meta = DEMO_ACCOUNTS[primary];
       await applyDemoBypass(primary, userId);
-      enablePreviewMode({ label: info?.label ?? '', roles, current: primary, language });
+      // Compte préparé par le super admin : la démo portera la barre
+      // « Crée le compte de <orga> » (DemoSignupBar).
+      const signup = parseDemoSignup((data as { signup?: unknown } | null)?.signup);
+      enablePreviewMode({
+        label: info?.label ?? '', roles, current: primary, language,
+        signup: signup ? serializeDemoSignup(signup) : null,
+      });
       if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
       navigate(meta?.route ?? '/', { replace: true });
     } catch {

@@ -897,6 +897,27 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   rien d'autre (décision du 2026-09-21). Ne pas exécuter
   `scripts/rotate-demo-password.mjs` : les bundles publiés portent le mot de
   passe en dur.
+- **Démo → vrai compte** (2026-09-26, migration `20260926120000`). Sur un lien
+  d'aperçu démo classique (`/admin/demo-access`, icône « Compte à créer »), le
+  super admin PRÉPARE le compte du prospect : club ou organisateur, prénom, nom
+  de la structure, email, ville, piliers, accès assisté proposé. C'est une ligne
+  `pro_signups` (`source = 'demo_preview'`) reliée par
+  `demo_preview_links.signup_id` — le compte n'existe PAS avant le clic du
+  prospect, qui choisit son email et son mot de passe. La démo porte alors la
+  barre `DemoSignupBar` (en tête, DANS le flux : elle publie sa hauteur visible
+  dans `--app-top-offset`, lu par la barre latérale fixe de `ui/sidebar.tsx`)
+  et le bouton « Créer mon compte » de la pastille d'aperçu. La clé du brouillon
+  et l'email ne sortent que de l'edge de redeem, APRÈS le mot de passe du lien
+  (`demo_preview_link_signup`, service_role seul). La création
+  (`src/lib/demoSignup.ts`) se fait dans un client Supabase JETABLE : l'onglet
+  reste sur le compte démo tant que `complete_demo_preview_signup` n'a pas
+  ouvert le club / l'espace orga — enveloppe de `complete_pro_signup` qui
+  refuse tout compte `@womber.fr` et n'ouvre l'accès assisté que si Paul l'a
+  proposé ET que le prospect a coché. Puis la session neuve remplace celle de
+  la démo et la page recharge sur `/get-started`, comme un inscrit de la
+  landing (le funnel se lit aussi dans `/admin/signups`). Jamais un
+  `signOut()` global depuis une session démo : il couperait les sessions de
+  Paul sur le même compte — `scope: 'local'`.
 - **`node scripts/demo/audit.mjs` avant de montrer la démo.** Une démo se
   dégrade seule : les soirées passent, les nouveautés ne sont mises en scène
   nulle part. Le rapport rend un verdict, pas des compteurs.

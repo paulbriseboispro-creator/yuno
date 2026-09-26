@@ -268,7 +268,10 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
+            // `--app-top-offset` : hauteur encore visible d'une barre posée DANS le
+            // flux au-dessus de l'app (barre « Crée ton compte » de la démo,
+            // DemoSignupBar). Absente = 0 : top/bottom 0, comme inset-y-0.
+            "fixed bottom-0 top-[var(--app-top-offset,0px)] z-10 hidden w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",

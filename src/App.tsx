@@ -78,6 +78,7 @@ import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { LiveModeProvider } from "@/contexts/LiveModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
+import { DemoSignupBar } from "@/components/demo/DemoSignupBar";
 import { SupportSessionBanner } from "@/components/SupportSessionBanner";
 import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
 import { pruneExpiredDrafts } from "@/lib/formDraft";
@@ -581,6 +582,10 @@ const App = () => (
             {/* Célébrations (confettis/overlay) des succès rares — écoute
                 l'événement émis par src/lib/celebrate.ts. B2C uniquement. */}
             {!isProApp() && <CelebrationHost />}
+            {/* Démo → vrai compte : barre « Crée le compte de <orga> » en tête
+                de page, dans le flux (auto-gatée : lien d'aperçu démo dont le
+                super admin a préparé le compte, sinon rien). */}
+            <DemoSignupBar />
             <LiveModeProvider>
             <BottomNavVisibilityProvider>
             <MaintenanceWrapper>

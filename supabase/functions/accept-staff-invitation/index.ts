@@ -591,12 +591,23 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
   });
   if (signError || !signIn?.session) return json({ error: 'signin_failed', code: 'server_error' }, 500);
 
+  // 3) Compte préparé par le super admin (migration 20260926120000) : la démo
+  //    porte la barre « Crée le compte de <orga> ». La clé du brouillon et
+  //    l'email pré-rempli ne sortent qu'ICI, après le mot de passe du lien.
+  //    Une panne de cette lecture ne coûte jamais l'entrée dans la démo.
+  let signup: unknown = null;
+  try {
+    const { data: su } = await supabase.rpc('demo_preview_link_signup', { p_token: token });
+    if (su && typeof su === 'object') signup = su;
+  } catch { /* démo sans barre de création, jamais sans démo */ }
+
   return json({
     success: true,
     target_accounts: targets,
     language,
     access_token: signIn.session.access_token,
     refresh_token: signIn.session.refresh_token,
+    signup,
   });
 }
 
