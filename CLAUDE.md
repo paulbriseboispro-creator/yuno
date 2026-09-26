@@ -7,7 +7,7 @@ Dernière revue : 2026-06-14.
 
 SaaS nightlife multi-tenant. **Trois piliers — jamais réduire Yuno aux boissons :**
 **billets d'événements + réservation de tables VIP (bottle service) + commande de boissons**
-(skip the bar queue). Côté pro : dashboards pour clubs (owner), organisateurs/BDE,
+(skip the bar queue). Côté pro : dashboards pour clubs (owner), organisateurs/associations,
 promoteurs, affiliés, et staff opérationnel (barman, bouncer, vestiaire, hôte VIP).
 
 Fondateur solo : Paul. Site public multilingue **EN / FR / ES** (défaut : anglais).
@@ -225,6 +225,28 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `BarmanRoute`, `BouncerRoute`, `CloakroomRoute`, `DJRoute`, `ManagerRoute`, `BrowserRoute`.
 - **Console Organisateur** (`/organizer-app`) : autonome mais réutilise des pages Owner ;
   conventions `org-ui`, gating Stripe via `canSell`.
+- **Compte Association (ex-« BDE », 2026-09-26)** = un organisateur standard +
+  le drapeau super admin `organizer_profiles.bde_verified` (toggle dans
+  `/admin/organizers`). Les noms techniques `bde_verified` / `events.is_bde`
+  RESTENT (lus par les checkouts et les bundles publiés) ; tout libellé visible
+  dit « Association ». Ce que le drapeau change, et rien d'autre : plancher de
+  commission 0,49 € (`_shared/commission.ts`), **2 000 emails de campagne
+  offerts / mois** au lieu de 15 000 (`email_sender_monthly_free`, clé
+  `org:<uuid>`, la surcharge `monthly_cap_override` gagne), TVA des reçus à 0 %
+  par défaut, Stripe Connect pré-rempli `non_profit`. **Une association choisit
+  seule public ou privé** : plus de modération super admin
+  (`evaluate_event_discoverability`, migration `20260926120000`), mêmes
+  critères de qualité que tout organisateur. Une soirée PRIVÉE (asso ou non)
+  n'apparaît ni dans la recherche ni sur le profil public `/o/…`.
+  **TVA du vendeur** (migration `20260926130000`) : `organizer_profiles.vat_regime`
+  (`subject` 20 % | `franchise` 293 B | `exempt_association` 261-7-1°, NULL =
+  asso exonérée sinon 20 %) + `rna_number` ; porte unique `resolveVatRegime` /
+  `sellerVat` (`_shared/pdf-documents.ts`, importé par le front) = miroir SQL
+  `organizer_vat_rate()` (trigger `save_invoice_on_creation`). Frais Yuno et
+  assurance toujours à 20 %. Un club n'est pas concerné. Le reçu d'une soirée
+  SANS club lit son vendeur par `get_event_seller(event)` (anon OK) — jamais
+  « Yuno ». Contrat collab : version `2026-09-26` (« tarif Association
+  vérifiée ») ; les contrats signés avant gardent « BDE ».
 - **Agence de promoteurs = entité FUSIONNÉE** (2026-07-27) : `agencies` est
   l'identité maître, `affiliates.agency_id` relie le bras externe (clubs
   non-Yuno, redirection billetterie). Triggers de provisionnement bidirectionnels

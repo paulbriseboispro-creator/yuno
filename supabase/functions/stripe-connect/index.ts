@@ -104,7 +104,17 @@ serve(async (req) => {
         let accountId = profile.stripe_connect_account_id;
         if (!accountId) {
           log("Creating new organizer Express account");
-          const account = await stripe.accounts.create({
+          // Compte ASSOCIATION (bde_verified) : le formulaire Stripe s'ouvre sur
+          // « Association / organisme à but non lucratif », au nom légal de
+          // l'asso — sinon le président choisit « Particulier » par défaut et
+          // l'argent de l'association part sur son compte personnel.
+          const { data: orgProfile } = await supabaseAdmin
+            .from("organizer_profiles")
+            .select("bde_verified, legal_name, display_name")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          const isAssociation = orgProfile?.bde_verified === true;
+          const baseParams: Stripe.AccountCreateParams = {
             type: "express",
             country: "FR",
             email: profile.email ?? user.email ?? undefined,
@@ -117,8 +127,25 @@ serve(async (req) => {
               product_description: "Vente de billets pour événements",
               mcc: "7929",
             },
-            metadata: { user_id: user.id, profile_type: "organizer", platform: "yuno" },
-          });
+            metadata: { user_id: user.id, profile_type: "organizer", platform: "yuno", association: isAssociation ? "1" : "0" },
+          };
+          let account: Stripe.Account;
+          if (isAssociation) {
+            try {
+              account = await stripe.accounts.create({
+                ...baseParams,
+                business_type: "non_profit",
+                company: { name: orgProfile?.legal_name || orgProfile?.display_name || profile.organization_name || undefined },
+              });
+            } catch (e) {
+              // Jamais bloquer l'onboarding sur le pré-remplissage : le formulaire
+              // Stripe laisse de toute façon choisir le type d'entreprise.
+              log("non_profit prefill refused, falling back", { error: (e as Error).message });
+              account = await stripe.accounts.create(baseParams);
+            }
+          } else {
+            account = await stripe.accounts.create(baseParams);
+          }
           accountId = account.id;
           await supabaseAdmin
             .from("profiles")

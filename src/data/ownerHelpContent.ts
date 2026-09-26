@@ -987,7 +987,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.feeStructure.desc',
         icon: 'Receipt',
         relatedArticleIds: ['stripe-connect', 'refund-management'],
-        keywords: ['frais', 'fee', 'commission', 'tarif', 'stripe fee', 'service fee', 'frais de service', 'comisión', 'tarifa', 'cap', 'plafond', 'bde', 'remboursement', 'refund', 'reembolso'],
+        keywords: ['frais', 'fee', 'commission', 'tarif', 'stripe fee', 'service fee', 'frais de service', 'comisión', 'tarifa', 'cap', 'plafond', 'bde', 'association', 'asso', 'asociación', 'remboursement', 'refund', 'reembolso'],
         sections: [
           { headingKey: 'ohelp.feeStructure.s1h', bodyKey: 'ohelp.feeStructure.s1b' },
           { headingKey: 'ohelp.feeStructure.s2h', bodyKey: 'ohelp.feeStructure.s2b' },

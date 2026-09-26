@@ -168,7 +168,7 @@ const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedir
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
 const AcceptPlatformInvitation = lazyWithRetry(() => import("./pages/AcceptPlatformInvitation"));
 const ClubInvitation = lazyWithRetry(() => import("./pages/ClubInvitation"));
-// New standalone Organizer / BDE app (distinct from the legacy /organizer co-organization flow)
+// New standalone Organizer / Association app (distinct from the legacy /organizer co-organization flow)
 const OrgAppLayout = lazyWithRetry(() => import("./pages/organizer-app/OrgAppLayout"));
 const OrgAppDashboard = lazyWithRetry(() => import("./pages/organizer-app/OrgAppDashboard"));
 const OrgAppEventDetail = lazyWithRetry(() => import("./pages/organizer-app/OrgAppEventDetail"));
@@ -705,7 +705,7 @@ const App = () => (
                     par id. N'y passer qu'un UUID, jamais un slug (sinon 404). */}
                 <Route path="/event/:eventId" element={<EventDetails />} />
 
-                {/* Standalone Organizer / BDE app */}
+                {/* Standalone Organizer / Association app */}
                 {/* Le guide de configuration appartient au fondateur : il pose l'identité,
                     la billetterie et le compte Stripe de l'organisation. */}
                 <Route path="/organizer-app/onboarding" element={

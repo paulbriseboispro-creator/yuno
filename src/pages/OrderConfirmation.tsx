@@ -14,7 +14,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import {
-  generateReceiptPDF, generateBilletPDF, deliverDocument, receiptLineLabels,
+  generateReceiptPDF, generateBilletPDF, deliverDocument, receiptLineLabels, resolveVatRegime, sellerVat,
   type ReceiptLine, type DocLang,
 } from '@/lib/generateDocuments';
 import { shareContent } from '@/lib/share';
@@ -738,9 +738,12 @@ export default function OrderConfirmation() {
 
   // Build the fiscal receipt lines (ticket/table/drinks + Yuno fees), each at its
   // VAT rate. Mirrors the server-side lines in send-ticket-confirmation.
-  const buildReceiptLines = (): ReceiptLine[] => {
+  // `itemVat` = taux de la ligne vendue (billet / table / boissons) : 20 % pour un
+  // club, 0 % pour une association non assujettie. Les frais Yuno restent à 20 %.
+  const buildReceiptLines = (itemVat = 20): ReceiptLine[] => {
     if (!data) return [];
-    const VAT = 20;
+    const VAT = itemVat;
+    const FEE_VAT = 20;
     const lines: ReceiptLine[] = [];
     const fee = receiptLineLabels(language as DocLang);
     if (data.type === 'ticket') {
@@ -757,9 +760,9 @@ export default function OrderConfirmation() {
     } else if (data.type === 'order' && data.items) {
       data.items.forEach(it => lines.push({ label: it.name, qty: it.qty, ttc: it.qty * it.unitPrice, vatRate: VAT }));
     }
-    if (data.serviceFee) lines.push({ label: fee.serviceFee, qty: 1, ttc: data.serviceFee, vatRate: VAT });
-    if (data.managementFee) lines.push({ label: fee.managementFee, qty: 1, ttc: data.managementFee, vatRate: VAT });
-    if (data.insuranceFee) lines.push({ label: fee.insurance, qty: 1, ttc: data.insuranceFee, vatRate: VAT });
+    if (data.serviceFee) lines.push({ label: fee.serviceFee, qty: 1, ttc: data.serviceFee, vatRate: FEE_VAT });
+    if (data.managementFee) lines.push({ label: fee.managementFee, qty: 1, ttc: data.managementFee, vatRate: FEE_VAT });
+    if (data.insuranceFee) lines.push({ label: fee.insurance, qty: 1, ttc: data.insuranceFee, vatRate: FEE_VAT });
     return lines;
   };
 
@@ -769,22 +772,54 @@ export default function OrderConfirmation() {
     setDownloadingReceipt(true);
     try {
       const orderNumber = await ensureInvoiceNumber();
+      // Soirée sans club (organisateur / association seul) : le vendeur est
+      // l'organisateur, jamais « Yuno ». Lu par RPC — l'acheteur invité n'a pas
+      // accès aux colonnes légales d'organizer_profiles.
+      let seller = {
+        name: data.venueLegalName || data.venueName || 'Yuno',
+        address: data.venueLegalAddress || data.venueAddress,
+        siret: data.venueSiret,
+        vat: data.venueVatNumber,
+        rna: undefined as string | undefined,
+        logoUrl: data.venueLogoUrl,
+      };
+      let itemVat = sellerVat('subject');
+      if (!data.venueId && data.eventId) {
+        const { data: rows } = await supabase.rpc('get_event_seller', { p_event_id: data.eventId });
+        const org = (Array.isArray(rows) ? rows[0] : rows) as {
+          name: string | null; legal_address: string | null; siret: string | null; rna_number: string | null;
+          vat_number: string | null; vat_regime: string | null; bde_verified: boolean | null; logo_url: string | null;
+        } | null | undefined;
+        if (org?.name) {
+          seller = {
+            name: org.name,
+            address: org.legal_address || undefined,
+            siret: org.siret || undefined,
+            vat: org.vat_number || undefined,
+            rna: org.rna_number || undefined,
+            logoUrl: org.logo_url || undefined,
+          };
+          itemVat = sellerVat(resolveVatRegime(org), language as DocLang);
+        }
+      }
       const blob = await generateReceiptPDF({
         lang: language as DocLang,
         orderNumber,
         receiptDate: new Date(),
         paymentDate: data.paidAt ? new Date(data.paidAt) : new Date(),
-        sellerName: data.venueLegalName || data.venueName || 'Yuno',
-        sellerAddress: data.venueLegalAddress || data.venueAddress,
-        sellerSiret: data.venueSiret,
-        sellerVatNumber: data.venueVatNumber,
-        sellerLogoUrl: data.venueLogoUrl,
+        sellerName: seller.name,
+        sellerAddress: seller.address,
+        sellerSiret: seller.siret,
+        sellerVatNumber: seller.vat,
+        sellerRna: seller.rna,
+        vatMention: itemVat.mention,
+        sellerLogoUrl: seller.logoUrl,
         customerName: data.customerName || '',
         customerEmail: data.customerEmail || '',
         customerPhone: data.customerPhone,
         eventTitle: data.eventTitle,
         eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
-        lines: buildReceiptLines(),
+        lines: buildReceiptLines(itemVat.rate),
       });
       // Web : téléchargement fichier (toast honnête). Natif WKWebView : feuille de
       // partage iOS (« Enregistrer dans Fichiers » / Mail / Imprimer) — c'est la

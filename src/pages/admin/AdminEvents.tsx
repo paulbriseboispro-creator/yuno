@@ -120,7 +120,7 @@ export default function AdminEvents() {
               const b = busy === ev.id; const s = state(ev);
               return (
                 <tr key={ev.id}>
-                  <Td strong><div className="flex items-center gap-2 max-w-[300px]"><span className="truncate" style={{ color: T1 }}>{ev.title ?? '—'}</span>{demo.has(ev.id) && <Pill size="xs" tone="accent">{t('adm.events.demo')}</Pill>}{ev.is_bde && <Pill size="xs" tone="muted">BDE</Pill>}<a href={`/event/${ev.id}`} target="_blank" rel="noopener noreferrer" title={t('adm.common.seePage')}><ExternalLink className="h-3 w-3" style={{ color: T3 }} /></a></div></Td>
+                  <Td strong><div className="flex items-center gap-2 max-w-[300px]"><span className="truncate" style={{ color: T1 }}>{ev.title ?? '—'}</span>{demo.has(ev.id) && <Pill size="xs" tone="accent">{t('adm.events.demo')}</Pill>}{ev.is_bde && <Pill size="xs" tone="muted">{t('adm.events.assoPill')}</Pill>}<a href={`/event/${ev.id}`} target="_blank" rel="noopener noreferrer" title={t('adm.common.seePage')}><ExternalLink className="h-3 w-3" style={{ color: T3 }} /></a></div></Td>
                   <Td>{where(ev)}</Td>
                   <Td muted style={{ whiteSpace: 'nowrap' }}>{fmtDate(ev.start_at, language, 'datetime')}</Td>
                   <Td>{ev.discovery_status ? <Pill size="xs" tone={ev.discovery_status === 'approved' ? 'pos' : ev.discovery_status === 'rejected' ? 'neg' : 'accent'}>{modLabel(ev.discovery_status)}</Pill> : <span style={{ color: T3 }}>—</span>}</Td>

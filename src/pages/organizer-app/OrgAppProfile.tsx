@@ -13,7 +13,7 @@ import { Instagram } from '@/components/icons/Instagram';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton,
-  FieldLabel, DarkInput, DarkTextarea,
+  FieldLabel, DarkInput, DarkTextarea, DarkSelect,
   RED, T1, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 
@@ -32,6 +32,10 @@ interface OrgProfile {
   legal_address: string | null;
   siret: string | null;
   vat_number: string | null;
+  /** N° RNA (associations loi 1901) — W + 9 chiffres. */
+  rna_number: string | null;
+  /** '' = automatique (association ⇒ non assujettie, sinon 20 %). */
+  vat_regime: '' | 'subject' | 'franchise' | 'exempt_association';
   billing_email: string | null;
   minors_allowed: boolean;
   minor_auth_doc_url: string | null;
@@ -59,10 +63,13 @@ export default function OrgAppProfile() {
   const [renameOpen, setRenameOpen] = useState(false);
   const renameConfirmedRef = useRef(false);
 
+  // Compte Association (drapeau posé par Yuno, lecture seule ici).
+  const [isAssociation, setIsAssociation] = useState(false);
+
   const [profile, setProfile] = useState<OrgProfile>({
     user_id: '', display_name: '', slug: null, bio: '', city: '', avatar_url: '', cover_url: '',
     instagram_url: '', website_url: '', is_public: true,
-    legal_name: '', legal_address: '', siret: '', vat_number: '', billing_email: '', minors_allowed: false,
+    legal_name: '', legal_address: '', siret: '', vat_number: '', rna_number: '', vat_regime: '', billing_email: '', minors_allowed: false,
     minor_auth_doc_url: null, minor_auth_doc_name: null, absorb_yuno_fees: false,
     can_sell_alcohol: false, can_sell_alcohol_confirmed_at: null,
   });
@@ -92,6 +99,8 @@ export default function OrgAppProfile() {
           legal_address: (data as any).legal_address || '',
           siret: (data as any).siret || '',
           vat_number: (data as any).vat_number || '',
+          rna_number: data.rna_number || '',
+          vat_regime: (data.vat_regime || '') as OrgProfile['vat_regime'],
           billing_email: (data as any).billing_email || '',
           minors_allowed: (data as any).minors_allowed ?? false,
           minor_auth_doc_url: (data as any).minor_auth_doc_url ?? null,
@@ -100,6 +109,7 @@ export default function OrgAppProfile() {
           can_sell_alcohol: (data as any).can_sell_alcohol ?? false,
           can_sell_alcohol_confirmed_at: (data as any).can_sell_alcohol_confirmed_at ?? null,
         });
+        setIsAssociation((data as { bde_verified?: boolean }).bde_verified === true);
         setSavedName(data.display_name || '');
         setNameChangedAt((data as { name_changed_at?: string | null }).name_changed_at ?? null);
       } else {
@@ -183,6 +193,11 @@ export default function OrgAppProfile() {
       toast.error(t('Nom requis', 'Name required'));
       return false;
     }
+    const rna = profile.rna_number?.replace(/\s+/g, '').toUpperCase() || '';
+    if (rna && !/^W\d{9}$/.test(rna)) {
+      toast.error(t('N° RNA invalide : W suivi de 9 chiffres (ex. W801234567).', 'Invalid RNA number: W followed by 9 digits (e.g. W801234567).', 'N.º RNA no válido: W seguida de 9 cifras (ej. W801234567).'));
+      return false;
+    }
     // Renommage : le slug public /o/… suit automatiquement (trigger SQL) —
     // double vérification + verrou 30 jours.
     const renaming = savedName !== '' && profile.display_name.trim() !== savedName;
@@ -216,6 +231,8 @@ export default function OrgAppProfile() {
         legal_address: profile.legal_address?.trim() || null,
         siret: profile.siret?.trim() || null,
         vat_number: profile.vat_number?.trim() || null,
+        rna_number: profile.rna_number?.replace(/\s+/g, '').toUpperCase() || null,
+        vat_regime: profile.vat_regime || null,
         billing_email: profile.billing_email?.trim() || null,
         minors_allowed: profile.minors_allowed,
         minor_auth_doc_url: profile.minor_auth_doc_url,
@@ -259,6 +276,8 @@ export default function OrgAppProfile() {
         legal_address: payload.legal_address ?? '',
         siret: payload.siret ?? '',
         vat_number: payload.vat_number ?? '',
+        rna_number: payload.rna_number ?? '',
+        vat_regime: payload.vat_regime ?? '',
         billing_email: payload.billing_email ?? '',
         can_sell_alcohol_confirmed_at: payload.can_sell_alcohol_confirmed_at,
         user_id: user.id,
@@ -500,13 +519,39 @@ export default function OrgAppProfile() {
               <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('Informations de facturation', 'Billing information')}</span>
             </div>
             <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
-              {t('Ces informations apparaîtront sur les factures émises pour vos soirées.', 'These details appear on invoices issued for your events.')}
+              {t('Ces informations apparaîtront sur les reçus et factures émis pour vos soirées.', 'These details appear on the receipts and invoices issued for your events.', 'Estos datos aparecen en los recibos y facturas emitidos para tus fiestas.')}
             </p>
+            {isAssociation && (
+              <div className="mt-3 rounded-lg px-3 py-2.5" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
+                <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('Compte Association vérifié par Yuno', 'Association account verified by Yuno', 'Cuenta Asociación verificada por Yuno')}</p>
+                <p className="mt-0.5" style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                  {t(
+                    'Commission Yuno plancher à 0,49 € par billet ou table (au lieu de 0,99 €), 2 000 emails de campagne offerts chaque mois. Par défaut, vos reçus portent « TVA non applicable, art. 261-7-1° du CGI » : changez le régime ci-dessous si votre association est assujettie.',
+                    'Yuno commission floor of €0.49 per ticket or table (instead of €0.99), 2,000 free campaign emails every month. By default your receipts read “VAT not applicable, art. 261-7-1° CGI”: change the regime below if your association is VAT-registered.',
+                    'Comisión Yuno mínima de 0,49 € por entrada o mesa (en vez de 0,99 €), 2000 emails de campaña gratis cada mes. Por defecto tus recibos indican «IVA no aplicable, art. 261-7-1° del CGI»: cambia el régimen abajo si tu asociación está sujeta al IVA.',
+                  )}
+                </p>
+              </div>
+            )}
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2"><FieldLabel>{t('Raison sociale', 'Legal name')}</FieldLabel><DarkInput value={profile.legal_name || ''} onChange={(v) => setProfile((p) => ({ ...p, legal_name: v }))} placeholder="Ex: VIDA EVENTS SAS" /></div>
-              <div className="sm:col-span-2"><FieldLabel>{t('Adresse complète', 'Full address')}</FieldLabel><DarkTextarea rows={2} value={profile.legal_address || ''} onChange={(v) => setProfile((p) => ({ ...p, legal_address: v }))} placeholder="12 rue Exemple, 75001 Paris, France" /></div>
+              <div className="sm:col-span-2"><FieldLabel>{t('Nom légal (société ou association)', 'Legal name (company or association)', 'Nombre legal (empresa o asociación)')}</FieldLabel><DarkInput value={profile.legal_name || ''} onChange={(v) => setProfile((p) => ({ ...p, legal_name: v }))} placeholder={isAssociation ? t('Ex : Association Nuits Amiénoises', 'e.g. Nuits Amiénoises association', 'Ej.: Asociación Nuits Amiénoises') : 'Ex: VIDA EVENTS SAS'} /></div>
+              <div className="sm:col-span-2"><FieldLabel>{t('Adresse complète', 'Full address', 'Dirección completa')}</FieldLabel><DarkTextarea rows={2} value={profile.legal_address || ''} onChange={(v) => setProfile((p) => ({ ...p, legal_address: v }))} placeholder="12 rue Exemple, 75001 Paris, France" /></div>
               <div><FieldLabel>SIRET</FieldLabel><DarkInput value={profile.siret || ''} onChange={(v) => setProfile((p) => ({ ...p, siret: v }))} placeholder="123 456 789 00010" /></div>
-              <div><FieldLabel>{t('N° TVA', 'VAT number')}</FieldLabel><DarkInput value={profile.vat_number || ''} onChange={(v) => setProfile((p) => ({ ...p, vat_number: v }))} placeholder="FR12345678901" /></div>
+              <div><FieldLabel>{t('N° RNA (association)', 'RNA no. (French association)', 'N.º RNA (asociación)')}</FieldLabel><DarkInput value={profile.rna_number || ''} onChange={(v) => setProfile((p) => ({ ...p, rna_number: v }))} placeholder="W801234567" /></div>
+              <div><FieldLabel>{t('N° TVA', 'VAT number', 'N.º IVA')}</FieldLabel><DarkInput value={profile.vat_number || ''} onChange={(v) => setProfile((p) => ({ ...p, vat_number: v }))} placeholder="FR12345678901" /></div>
+              <div>
+                <FieldLabel>{t('Régime de TVA', 'VAT regime', 'Régimen de IVA')}</FieldLabel>
+                <DarkSelect value={profile.vat_regime || ''} onChange={(v) => setProfile((p) => ({ ...p, vat_regime: v as OrgProfile['vat_regime'] }))}>
+                  <option value="" style={{ background: 'var(--sf-0a0a0c)' }}>
+                    {isAssociation
+                      ? t('Automatique — association non assujettie', 'Automatic — non-VAT-registered association', 'Automático — asociación no sujeta')
+                      : t('Automatique — TVA 20 %', 'Automatic — 20% VAT', 'Automático — IVA 20 %')}
+                  </option>
+                  <option value="subject" style={{ background: 'var(--sf-0a0a0c)' }}>{t('Assujetti — TVA 20 %', 'VAT-registered — 20%', 'Sujeto — IVA 20 %')}</option>
+                  <option value="franchise" style={{ background: 'var(--sf-0a0a0c)' }}>{t('Franchise en base (art. 293 B)', 'VAT franchise (art. 293 B)', 'Franquicia (art. 293 B)')}</option>
+                  <option value="exempt_association" style={{ background: 'var(--sf-0a0a0c)' }}>{t('Association exonérée (art. 261-7-1°)', 'Exempt association (art. 261-7-1°)', 'Asociación exenta (art. 261-7-1°)')}</option>
+                </DarkSelect>
+              </div>
               <div className="sm:col-span-2"><FieldLabel>{t('Email de facturation', 'Billing email')}</FieldLabel><DarkInput type="email" value={profile.billing_email || ''} onChange={(v) => setProfile((p) => ({ ...p, billing_email: v }))} placeholder="billing@votre-orga.com" /></div>
             </div>
           </div>

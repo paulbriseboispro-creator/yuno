@@ -14,7 +14,7 @@ export interface OrgProfile {
 
 /**
  * Returns the user's profile_type and organization info.
- * Used to route between Club dashboard and Organizer/BDE dashboard.
+ * Used to route between Club dashboard and Organizer/Association dashboard.
  */
 /**
  * `enabled: false` monte le hook sans interroger la base. `useVenueContext` le

@@ -136,17 +136,15 @@ export default function OrganizerPublicProfile() {
       // Events I LEAD (organizer_user_id) AND co-events a club leads where I'm the
       // partner (partner_organizer_id) — a co-soirée is public on BOTH sides,
       // symmetrically, whoever launched it.
-      // BDE : leurs soirées sont privées par défaut (publication gatée super admin),
-      // donc filtrer sur visibility='public' viderait leur profil. Le profil BDE est
-      // justement le canal de diffusion vers leurs étudiants → on montre tout l'actif.
-      const isBde = prof.bde_verified === true;
-      let evQuery = supabase
+      // Associations incluses : une soirée PRIVÉE ne s'ouvre que par son lien,
+      // elle ne s'affiche pas sur le profil public (20260926120000).
+      const { data: evs } = await supabase
         .from('events')
         .select('id, slug, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')
         .or(`organizer_user_id.eq.${prof.user_id},partner_organizer_id.eq.${prof.user_id}`)
-        .eq('is_active', true);
-      if (!isBde) evQuery = evQuery.eq('visibility', 'public');
-      const { data: evs } = await evQuery.order('start_at', { ascending: true });
+        .eq('is_active', true)
+        .eq('visibility', 'public')
+        .order('start_at', { ascending: true });
 
       const enriched: OrgEvent[] = (evs ?? []).map((e: any) => ({
         ...e,

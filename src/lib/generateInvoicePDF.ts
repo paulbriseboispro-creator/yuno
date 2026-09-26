@@ -43,6 +43,13 @@ export interface InvoiceData {
   totalHT: number;
   tva: number;
   totalTTC: number;
+  /** Taux de TVA des articles vendus (billet / table). Défaut 20. À 0, la ligne
+   *  TVA ne porte plus que celle des frais Yuno, et `vatMention` remplace la
+   *  mention « TVA applicable » du pied de page. */
+  vatRate?: number;
+  vatMention?: string;
+  /** N° RNA d'une association vendeuse. */
+  venueRna?: string;
 
   // QR Code — the long scannable value encoded in the QR image (door check-in).
   qrCode: string;
@@ -167,7 +174,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     invoice: 'FACTURE', invoiceNo: 'N°', dateLabel: 'Date', issuer: 'ÉMETTEUR', recipient: 'DESTINATAIRE',
     vat: 'TVA', event: 'ÉVÉNEMENT', orderDetails: 'DÉTAIL DE LA COMMANDE', description: 'Description', qty: 'Qté',
     unitPrice: 'Prix U.', total: 'Total', serviceFee: 'Frais de service', managementFee: 'Frais de gestion',
-    cancellationInsurance: 'Assurance annulation', subtotal: 'Sous-total HT', vatLine: 'TVA (20%)', totalTTC: 'TOTAL TTC',
+    cancellationInsurance: 'Assurance annulation', subtotal: 'Sous-total HT', vatLine: 'TVA (20%)', vatLineFees: 'TVA (frais de service, 20%)', totalTTC: 'TOTAL TTC',
     paid: 'PAYÉE', entryPass: "BILLET D'ENTRÉE", claimHint: 'Ajoute-le à ton compte sur yunoapp.eu/claim',
     modeCoEvent: 'Co-événement', modeVenueRental: 'Location de salle', modeOrgHosted: "Soirée hébergée par l'organisateur",
     coEventSplit: 'RÉPARTITION CO-ÉVÉNEMENT', amountCollected: 'Montant TTC encaissé', yunoServiceFee: 'Frais de service Yuno',
@@ -180,7 +187,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     invoice: 'INVOICE', invoiceNo: 'No.', dateLabel: 'Date', issuer: 'FROM', recipient: 'BILL TO',
     vat: 'VAT', event: 'EVENT', orderDetails: 'ORDER DETAILS', description: 'Description', qty: 'Qty',
     unitPrice: 'Unit price', total: 'Total', serviceFee: 'Service fee', managementFee: 'Management fee',
-    cancellationInsurance: 'Cancellation insurance', subtotal: 'Subtotal (excl. tax)', vatLine: 'VAT (20%)', totalTTC: 'TOTAL',
+    cancellationInsurance: 'Cancellation insurance', subtotal: 'Subtotal (excl. tax)', vatLine: 'VAT (20%)', vatLineFees: 'VAT (service fees, 20%)', totalTTC: 'TOTAL',
     paid: 'PAID', entryPass: 'ENTRY PASS', claimHint: 'Add it to your account at yunoapp.eu/claim',
     modeCoEvent: 'Co-event', modeVenueRental: 'Venue rental', modeOrgHosted: 'Hosted by organizer',
     coEventSplit: 'CO-EVENT SPLIT', amountCollected: 'Amount collected (incl. tax)', yunoServiceFee: 'Yuno service fee',
@@ -193,7 +200,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     invoice: 'FACTURA', invoiceNo: 'N.º', dateLabel: 'Fecha', issuer: 'EMISOR', recipient: 'DESTINATARIO',
     vat: 'IVA', event: 'EVENTO', orderDetails: 'DETALLE DEL PEDIDO', description: 'Descripción', qty: 'Cant.',
     unitPrice: 'Precio U.', total: 'Total', serviceFee: 'Gastos de servicio', managementFee: 'Gastos de gestión',
-    cancellationInsurance: 'Seguro de cancelación', subtotal: 'Subtotal (sin IVA)', vatLine: 'IVA (20%)', totalTTC: 'TOTAL',
+    cancellationInsurance: 'Seguro de cancelación', subtotal: 'Subtotal (sin IVA)', vatLine: 'IVA (20%)', vatLineFees: 'IVA (gastos de servicio, 20%)', totalTTC: 'TOTAL',
     paid: 'PAGADA', entryPass: 'ENTRADA', claimHint: 'Añádela a tu cuenta en yunoapp.eu/claim',
     modeCoEvent: 'Co-evento', modeVenueRental: 'Alquiler de sala', modeOrgHosted: 'Organizado por el organizador',
     coEventSplit: 'REPARTO CO-EVENTO', amountCollected: 'Importe cobrado (con IVA)', yunoServiceFee: 'Gastos de servicio Yuno',
@@ -288,6 +295,7 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   const issuerBottom = ISSUER_TOP + logoBlockH + 5 + 5
     + addrLines.length * 4
     + (data.venueSiret ? 4 : 0)
+    + (data.venueRna ? 4 : 0)
     + (data.venueVatNumber ? 4 : 0);
   const titleBottom = 33; // FACTURE(18) → no(26) → date(31)
   const row1Bottom = Math.max(issuerBottom, titleBottom);
@@ -343,6 +351,7 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   T(wrap(issuerName, CW * 0.46, 10.5, DISPLAY, 'bold')[0] || issuerName, LX, iy, { size: 10.5, style: 'bold' }); iy += 5;
   for (const ln of addrLines) { T(ln, LX, iy, { size: 8, font: MONO, color: SUB }); iy += 4; }
   if (data.venueSiret) { T(`SIRET : ${data.venueSiret}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
+  if (data.venueRna) { T(`RNA : ${data.venueRna}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
   if (data.venueVatNumber) { T(`${L.vat} : ${data.venueVatNumber}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
 
   T(L.invoice, RX, 18, { size: 21, style: 'bold', color: RED, align: 'right' });
@@ -446,7 +455,8 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   T(L.subtotal, totLabelX, y, { size: 9, color: SUB });
   T(formatPrice(data.totalHT), RX, y, { size: 9, font: MONO, style: 'bold', align: 'right' });
   y += 5.5;
-  T(L.vatLine, totLabelX, y, { size: 9, color: MUTED });
+  // Vendeur non assujetti : seule la TVA des frais Yuno reste sur la ligne.
+  T((data.vatRate ?? 20) === 20 ? L.vatLine : L.vatLineFees, totLabelX, y, { size: 9, color: MUTED });
   T(formatPrice(data.tva), RX, y, { size: 9, font: MONO, color: MUTED, align: 'right' });
   y += 7;
   fill(RED);
@@ -545,7 +555,7 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   T(L.legalMentions, LX, fy, { size: 7, font: MONO, style: 'bold', color: MUTED }); fy += 4;
   const legalMentions = [
     paidByCardLine(lang, formatDate(data.paymentDate, locale)) + '.',
-    data.venueVatNumber ? L.legalVatApplicable : L.legalVatNotApplicable,
+    data.vatMention || (data.venueVatNumber ? L.legalVatApplicable : L.legalVatNotApplicable),
     L.legalProofOfPayment,
   ];
   for (const m of legalMentions) { T(`• ${m}`, LX, fy, { size: 7, font: MONO, color: MUTED }); fy += 3.5; }

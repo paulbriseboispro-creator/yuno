@@ -10847,7 +10847,9 @@ export type Database = {
           slug: string | null
           updated_at: string
           user_id: string
+          rna_number: string | null
           vat_number: string | null
+          vat_regime: string | null
           website_url: string | null
         }
         Insert: {
@@ -10878,7 +10880,9 @@ export type Database = {
           slug?: string | null
           updated_at?: string
           user_id: string
+          rna_number?: string | null
           vat_number?: string | null
+          vat_regime?: string | null
           website_url?: string | null
         }
         Update: {
@@ -10909,7 +10913,9 @@ export type Database = {
           slug?: string | null
           updated_at?: string
           user_id?: string
+          rna_number?: string | null
           vat_number?: string | null
+          vat_regime?: string | null
           website_url?: string | null
         }
         Relationships: [
@@ -19988,6 +19994,19 @@ export type Database = {
         Returns: Json
       }
       get_event_report: { Args: { p_event_id: string }; Returns: Json }
+      get_event_seller: {
+        Args: { p_event_id: string }
+        Returns: {
+          bde_verified: boolean
+          legal_address: string
+          logo_url: string
+          name: string
+          rna_number: string
+          siret: string
+          vat_number: string
+          vat_regime: string
+        }[]
+      }
       get_events_sales_summary: {
         Args: { p_organizer_user_id?: string; p_venue_id?: string }
         Returns: Json
@@ -20981,6 +21000,10 @@ export type Database = {
           p_reason?: string
         }
         Returns: undefined
+      }
+      organizer_vat_rate: {
+        Args: { p_organizer_user_id: string }
+        Returns: number
       }
       organizer_warn_customer: {
         Args: {

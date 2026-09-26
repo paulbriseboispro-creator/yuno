@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-09-21';
+export const COLLAB_TERMS_VERSION = '2026-09-26';
 
 export interface TermsClause {
   term: L;
@@ -26,7 +26,7 @@ export interface TermsClause {
   /** Alternate body used when the contract's cancellation policy === altWhen. */
   bodyAlt?: L;
   altWhen?: 'no_refund_after_event' | 'pro_rata_refund';
-  /** Alternate body used when the organizer is a verified BDE (student union). */
+  /** Alternate body used when the organizer is a verified ASSOCIATION (ex-« BDE », flag bde_verified). */
   bdeBody?: L;
 }
 
@@ -625,6 +625,29 @@ const TERMS_2026_09_21: CollabTerms = {
   recurringArticle: RECURRING_ARTICLE_2026_06_27,
 };
 
+// ── v2026-09-26 — le « tarif BDE » devient le « tarif Association » ─────────
+// Le drapeau `bde_verified` couvre désormais toute association (loi 1901 : BDE,
+// asso culturelle…). Seul le texte alternatif de la commission change ; le
+// montant (plancher 0,49 €) est identique. Les contrats signés sous 2026-09-21
+// gardent leur mention « BDE ».
+const COMMISSION_ASSOCIATION_BODY_2026_09_26: L = {
+  fr: "4 % sur les billets et les tables (minimum 0,49 € par vente, tarif Association vérifiée) et 3 % sur les boissons. Cette commission est ajoutée au prix et réglée par le client lors de l'achat ; Yuno la conserve intégralement.",
+  en: '4% on tickets and tables (minimum €0.49 per sale, verified Association rate) and 3% on drinks. This commission is added on top of the price and paid by the customer at checkout; Yuno keeps it in full.',
+  es: '4 % en entradas y mesas (mínimo 0,49 € por venta, tarifa Asociación verificada) y 3 % en bebidas. Esta comisión se añade al precio y la paga el cliente en la compra; Yuno la conserva íntegramente.',
+};
+
+const ARTICLES_2026_09_26: TermsArticle[] = ARTICLES_2026_09_21.map((a) =>
+  a.kind === 'static' && (a.clauses ?? []).some((c) => c.bdeBody)
+    ? { ...a, clauses: (a.clauses ?? []).map((c) => (c.bdeBody ? { ...c, bdeBody: COMMISSION_ASSOCIATION_BODY_2026_09_26 } : c)) }
+    : a,
+);
+
+const TERMS_2026_09_26: CollabTerms = {
+  ...TERMS_2026_09_21,
+  version: '2026-09-26',
+  articles: ARTICLES_2026_09_26,
+};
+
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-24': TERMS_2026_06_24,
@@ -633,6 +656,7 @@ const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-29': TERMS_2026_06_29,
   '2026-07-20': TERMS_2026_07_20,
   '2026-09-21': TERMS_2026_09_21,
+  '2026-09-26': TERMS_2026_09_26,
 };
 
 /**
@@ -644,7 +668,7 @@ const REGISTRY: Record<string, CollabTerms> = {
  * signé sous une version récente rend le même texte qu'avant, sans trou.
  */
 export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean; tiered?: boolean }): CollabTerms {
-  const base = (version && REGISTRY[version]) || TERMS_2026_09_21;
+  const base = (version && REGISTRY[version]) || TERMS_2026_09_26;
   const withRecurring = opts?.recurring && base.recurringArticle
     ? [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
     : base.articles;
@@ -653,7 +677,7 @@ export function getCollabTerms(version?: string | null, opts?: { recurring?: boo
   return { ...base, articles: filtered.map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle) };
 }
 
-/** Pick the clause body, honoring the policy- and BDE-dependent alternates when they apply. */
+/** Pick the clause body, honoring the policy- and association-dependent alternates when they apply. */
 export function clauseBody(c: TermsClause, opts?: { cancellationPolicy?: string; isBde?: boolean }): L {
   if (c.altWhen && c.bodyAlt && opts?.cancellationPolicy === c.altWhen) return c.bodyAlt;
   if (c.bdeBody && opts?.isBde) return c.bdeBody;

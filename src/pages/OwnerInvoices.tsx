@@ -11,6 +11,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { Search, Download, FileText, ChevronDown, Ticket, Wine, Sparkles, Loader2, FileSpreadsheet, Files, Archive, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { downloadInvoicePDF, generateInvoicePDF, InvoiceData, InvoiceItem } from '@/lib/generateInvoicePDF';
+import { resolveVatRegime, sellerVat, type VatRegime } from '@/lib/generateDocuments';
 import { PDFDocument } from 'pdf-lib';
 
 type InvoiceType = 'ticket' | 'table' | 'order';
@@ -115,6 +116,8 @@ interface Invoice {
   ticket_id: string | null;
   table_reservation_id: string | null;
   order_id: string | null;
+  /** Club de la vente ; NULL = soirée d'un organisateur seul (vendeur = l'orga). */
+  venue_id?: string | null;
 }
 
 export default function OwnerInvoices() {
@@ -128,6 +131,7 @@ export default function OwnerInvoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [orgIssuer, setOrgIssuer] = useState<{
     name: string; legalName?: string; address?: string; siret?: string; vatNumber?: string; email?: string;
+    rna?: string; vatRegime?: VatRegime;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,7 +176,7 @@ export default function OwnerInvoices() {
         // Load the organizer's legal info once for the PDF issuer block.
         const { data: orgProfile } = await supabase
           .from('organizer_profiles')
-          .select('display_name, legal_name, legal_address, siret, vat_number, billing_email')
+          .select('display_name, legal_name, legal_address, siret, vat_number, billing_email, rna_number, vat_regime, bde_verified')
           .eq('user_id', organizerUserId!)
           .maybeSingle();
         if (orgProfile) {
@@ -183,6 +187,8 @@ export default function OwnerInvoices() {
             siret: (orgProfile as any).siret || undefined,
             vatNumber: (orgProfile as any).vat_number || undefined,
             email: (orgProfile as any).billing_email || undefined,
+            rna: orgProfile.rna_number || undefined,
+            vatRegime: resolveVatRegime(orgProfile),
           });
         }
       } else {
@@ -424,7 +430,17 @@ export default function OwnerInvoices() {
       }
     }
 
-    const totalHT = invoice.amount / 1.2;
+    // Articles au taux du vendeur (0 % pour une association non assujettie),
+    // frais Yuno toujours à 20 % — même règle que le reçu et le trigger
+    // save_invoice_on_creation.
+    const orgVat = isOrganizerScope && !invoice.venue_id && orgIssuer?.vatRegime
+      ? sellerVat(orgIssuer.vatRegime, language as 'fr' | 'en' | 'es')
+      : { rate: 20 as number, mention: undefined as string | undefined };
+    const feesTotal = (serviceFee || 0) + (managementFee || 0) + (insuranceFee || 0);
+    const itemsTotal = Math.max(0, invoice.amount - feesTotal);
+    const totalHT = orgVat.rate === 20
+      ? invoice.amount / 1.2
+      : itemsTotal / (1 + orgVat.rate / 100) + feesTotal / 1.2;
     const tva = invoice.amount - totalHT;
 
     return {
@@ -436,6 +452,9 @@ export default function OwnerInvoices() {
       venueAddress: isOrganizerScope ? orgIssuer?.address : venue?.address,
       venueSiret: isOrganizerScope ? orgIssuer?.siret : venue?.siret,
       venueVatNumber: isOrganizerScope ? orgIssuer?.vatNumber : venue?.vatNumber,
+      venueRna: isOrganizerScope ? orgIssuer?.rna : undefined,
+      vatRate: orgVat.rate,
+      vatMention: orgVat.mention,
       venueLogoUrl: isOrganizerScope ? undefined : venue?.logoUrl,
       customerName: invoice.customer_name || invoice.customer_email,
       customerEmail: invoice.customer_email,

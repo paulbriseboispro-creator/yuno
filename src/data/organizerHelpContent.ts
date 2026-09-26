@@ -28,7 +28,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Lightbulb',
         quickStart: true,
         relatedArticleIds: ['org-onboarding', 'org-dashboard-tour', 'org-payments'],
-        keywords: ['organizer', 'organisateur', 'bde', 'yuno', 'what is', 'qu\'est-ce que', 'c\'est quoi', 'qué es', 'promoteur', 'promoter', 'promotor'],
+        keywords: ['organizer', 'organisateur', 'bde', 'association', 'asso', 'asociación', 'yuno', 'what is', 'qu\'est-ce que', 'c\'est quoi', 'qué es', 'promoteur', 'promoter', 'promotor'],
         sections: [
           { headingKey: 'ohelp.org.whatis.s1h', bodyKey: 'ohelp.org.whatis.s1b' },
           { headingKey: 'ohelp.org.whatis.s2h', bodyKey: 'ohelp.org.whatis.s2b' },

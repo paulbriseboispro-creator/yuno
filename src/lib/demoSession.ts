@@ -29,8 +29,8 @@ export interface DemoAccountMeta {
 // Source de vérité unique : type de compte → email démo → route → bypass.
 export const DEMO_ACCOUNTS: Record<TargetAccount, DemoAccountMeta> = {
   owner:     { email: 'owner@womber.fr',     label: 'Club (Owner)',       route: '/owner/dashboard' },
-  organizer: { email: 'organizer@womber.fr', label: 'Organisateur / BDE', route: '/organizer-app' },
-  bde:       { email: 'bde@womber.fr',       label: 'BDE (étudiants)',    route: '/organizer-app' },
+  organizer: { email: 'organizer@womber.fr', label: 'Organisateur',       route: '/organizer-app' },
+  bde:       { email: 'bde@womber.fr',       label: 'Association',        route: '/organizer-app' },
   promoter:  { email: 'promoter@womber.fr',  label: 'Promoteur',          route: '/promoter',   session: 'pin',   role: 'promoter' },
   agency:    { email: 'agency@womber.fr',    label: 'Agence promoteurs',  route: '/agency-app' },
   dj:        { email: 'dj@womber.fr',        label: 'DJ',                 route: '/dj',         session: 'pin',   role: 'dj' },

@@ -17,8 +17,8 @@ import {
 import { isNative } from './native';
 import { shareContent } from './share';
 
-export { receiptLineLabels } from '../../supabase/functions/_shared/pdf-documents';
-export type { ReceiptLine, BilletData, ReceiptData, DocLang } from '../../supabase/functions/_shared/pdf-documents';
+export { receiptLineLabels, resolveVatRegime, sellerVat } from '../../supabase/functions/_shared/pdf-documents';
+export type { ReceiptLine, BilletData, ReceiptData, DocLang, VatRegime } from '../../supabase/functions/_shared/pdf-documents';
 
 async function loadImage(url?: string): Promise<string | undefined> {
   if (!url) return undefined;

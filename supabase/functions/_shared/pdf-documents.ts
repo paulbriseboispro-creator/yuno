@@ -137,6 +137,43 @@ export function receiptLineLabels(lang: DocLang): { serviceFee: string; manageme
   return { serviceFee: L.serviceFee, managementFee: L.managementFee, insurance: L.insurance };
 }
 
+// ── Régime de TVA du vendeur ─────────────────────────────────────────────────
+// Un vendeur NON assujetti (association, micro-entreprise) ne doit jamais
+// afficher de TVA : une TVA facturée devient due par celui qui l'a facturée,
+// même sans numéro (CGI art. 283-3). `organizer_profiles.vat_regime` le dit ;
+// sans réglage, une ASSOCIATION (bde_verified) est réputée exonérée
+// (art. 261-7-1°), tout autre vendeur garde 20 %. Miroir SQL :
+// `organizer_vat_rate()` (migration 20260926130000). Les frais de service et
+// l'assurance restent à 20 % : ce sont des prestations de Yuno.
+export type VatRegime = 'subject' | 'franchise' | 'exempt_association';
+
+const VAT_MENTION: Record<Exclude<VatRegime, 'subject'>, Record<DocLang, string>> = {
+  franchise: {
+    fr: 'TVA non applicable, art. 293 B du CGI.',
+    en: 'VAT not applicable, art. 293 B of the French tax code (CGI).',
+    es: 'IVA no aplicable, art. 293 B del código tributario francés (CGI).',
+  },
+  exempt_association: {
+    fr: 'TVA non applicable, art. 261-7-1° du CGI.',
+    en: 'VAT not applicable, art. 261-7-1° of the French tax code (CGI).',
+    es: 'IVA no aplicable, art. 261-7-1° del código tributario francés (CGI).',
+  },
+};
+
+export function resolveVatRegime(
+  seller: { vat_regime?: string | null; bde_verified?: boolean | null } | null | undefined,
+): VatRegime {
+  const r = seller?.vat_regime;
+  if (r === 'subject' || r === 'franchise' || r === 'exempt_association') return r;
+  return seller?.bde_verified ? 'exempt_association' : 'subject';
+}
+
+/** Taux appliqué à la ligne « billet / table » d'un vendeur, et sa mention légale. */
+export function sellerVat(regime: VatRegime, lang: DocLang = 'fr'): { rate: number; mention?: string } {
+  if (regime === 'subject') return { rate: 20 };
+  return { rate: 0, mention: VAT_MENTION[regime][lang] || VAT_MENTION[regime].fr };
+}
+
 // ── Data interfaces ──────────────────────────────────────────────────────────
 export interface ReceiptLine {
   label: string;
@@ -157,6 +194,11 @@ export interface ReceiptData {
   sellerAddress?: string;
   sellerSiret?: string;
   sellerVatNumber?: string;
+  /** N° RNA d'une association (W + 9 chiffres), affiché sous le SIRET. */
+  sellerRna?: string;
+  /** Mention légale de TVA du vendeur (« TVA non applicable, art. … du CGI »).
+   *  Présente = le vendeur ne facture pas de TVA : elle remplace la note d'arrondi. */
+  vatMention?: string;
   sellerLogo?: string;   // data URL (PNG/JPEG), pre-loaded
   // Buyer
   customerName: string;
@@ -257,6 +299,7 @@ export function drawReceipt(doc: PdfDoc, data: ReceiptData): void {
     for (const ln of wrap(doc, data.sellerAddress, W / 2 - M - 6, 8.5)) { text(doc, ln, M, y, { size: 8.5, color: SUB }); y += 4.2; }
   }
   if (data.sellerSiret) { text(doc, `${L.siret} : ${data.sellerSiret}`, M, y, { size: 8.5, color: MUTED }); y += 4.2; }
+  if (data.sellerRna) { text(doc, `RNA : ${data.sellerRna}`, M, y, { size: 8.5, color: MUTED }); y += 4.2; }
   if (data.sellerVatNumber) { text(doc, `${L.vatNo} : ${data.sellerVatNumber}`, M, y, { size: 8.5, color: MUTED }); y += 4.2; }
   const leftEnd = y;
 
@@ -329,7 +372,7 @@ export function drawReceipt(doc: PdfDoc, data: ReceiptData): void {
   const legal = [
     `${L.paidByCard} ${fmtDate(data.paymentDate, loc)}.`,
     L.proofOfPayment,
-    L.vatNote,
+    data.vatMention || L.vatNote,
   ];
   for (const lnTxt of legal) { text(doc, lnTxt, M, fy, { size: 7, font: MONO, color: MUTED }); fy += 3.6; }
   fy += 2;

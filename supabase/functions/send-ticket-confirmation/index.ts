@@ -8,8 +8,8 @@ import {
 } from "../_shared/email-branding.ts";
 import { buildTicketConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 import {
-  drawReceipt, drawBillet, receiptLineLabels,
-  type PdfDoc, type DocLang, type ReceiptLine,
+  drawReceipt, drawBillet, receiptLineLabels, resolveVatRegime, sellerVat,
+  type PdfDoc, type DocLang, type ReceiptLine, type VatRegime,
 } from "../_shared/pdf-documents.ts";
 import { handleWalletRequest, ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 
@@ -176,18 +176,21 @@ serve(async (req) => {
       const v = (venue || {}) as any;
       // Seller = merchant of record (Yuno direct-charge model). Venue legal info,
       // else the organizer profile for organizer-led events.
-      let seller = {
+      let seller: { name: string; address?: string; siret?: string; vat?: string; rna?: string; logoUrl?: string } = {
         name: v.legal_name || v.name || event?.location_name || "Yuno",
         address: v.legal_address || v.address || event?.location_address || undefined,
         siret: v.siret || undefined,
         vat: v.vat_number || undefined,
         logoUrl: v.logo_url || undefined,
       };
+      // Régime de TVA du vendeur : un club reste à 20 % ; un organisateur suit
+      // son réglage (association non assujettie ⇒ 0 % + mention légale).
+      let vatRegime: VatRegime = "subject";
       let organizerName: string = v.name || event?.location_name || "";
       if (!event?.venue_id && event?.organizer_user_id) {
         const { data: org } = await supabaseAdmin
           .from("organizer_profiles")
-          .select("legal_name, display_name, legal_address, siret, vat_number, avatar_url")
+          .select("legal_name, display_name, legal_address, siret, vat_number, rna_number, vat_regime, bde_verified, avatar_url")
           .eq("user_id", event.organizer_user_id)
           .maybeSingle();
         if (org) {
@@ -196,8 +199,10 @@ serve(async (req) => {
             address: org.legal_address || undefined,
             siret: org.siret || undefined,
             vat: org.vat_number || undefined,
+            rna: org.rna_number || undefined,
             logoUrl: org.avatar_url || undefined,
           };
+          vatRegime = resolveVatRegime(org);
           organizerName = org.display_name || org.legal_name || organizerName;
         }
       }
@@ -212,8 +217,9 @@ serve(async (req) => {
       const ins = Number(ticket.insurance_fee) || 0;
       const ticketTtc = Math.max(0, (Number(ticket.total_price) || 0) - svc - ins);
       const feeL = receiptLineLabels(docLang);
+      const vat = sellerVat(vatRegime, docLang);
       const lines: ReceiptLine[] = [
-        { label: round?.name || (docLang === "fr" ? "Billet" : docLang === "es" ? "Entrada" : "Ticket"), qty: ticket.quantity || 1, ttc: ticketTtc, vatRate: 20 },
+        { label: round?.name || (docLang === "fr" ? "Billet" : docLang === "es" ? "Entrada" : "Ticket"), qty: ticket.quantity || 1, ttc: ticketTtc, vatRate: vat.rate },
       ];
       if (svc > 0) lines.push({ label: feeL.serviceFee, qty: 1, ttc: svc, vatRate: 20 });
       if (ins > 0) lines.push({ label: feeL.insurance, qty: 1, ttc: ins, vatRate: 20 });
@@ -230,7 +236,7 @@ serve(async (req) => {
       const recuB64 = renderPdfBase64((doc) => drawReceipt(doc, {
         lang: docLang, orderNumber, receiptDate: new Date(), paymentDate: new Date(),
         sellerName: seller.name, sellerAddress: seller.address, sellerSiret: seller.siret,
-        sellerVatNumber: seller.vat, sellerLogo: logoData,
+        sellerVatNumber: seller.vat, sellerRna: seller.rna, vatMention: vat.mention, sellerLogo: logoData,
         customerName: ticket.full_name || "", customerEmail: ticket.user_email || email,
         customerPhone: ticket.phone || undefined,
         eventTitle, eventDate: start, eventTimezone: event?.timezone || undefined, eventCity: event?.location_city || undefined, lines,

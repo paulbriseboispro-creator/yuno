@@ -531,13 +531,25 @@ serve(async (req) => {
     // If promoterId is not provided but we have a promoCode, look up the promoter
     if (!finalPromoterId && promoCode) {
       logStep("Looking up promoter by promoCode", { promoCode, venueId: event.venue_id });
-      const { data: promoterByCode } = await supabaseAdmin
-        .from("promoters")
-        .select("id, ticket_discount_type, ticket_discount_value")
-        .eq("venue_id", event.venue_id)
-        .ilike("promo_code", promoCode.trim())
-        .eq("is_active", true)
-        .single();
+      // Même périmètre que create-table-checkout : club hôte, club partenaire,
+      // organisateur et organisateur partenaire. Avant, seul `venue_id` était lu :
+      // sur une soirée d'organisateur SANS club (association dans un lieu hors
+      // Yuno), aucun code promoteur n'était jamais reconnu.
+      const scopeOr: string[] = [];
+      if (event.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
+      if (event.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
+      if (event.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
+      if (event.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
+      const { data: promoterRows } = scopeOr.length > 0
+        ? await supabaseAdmin
+          .from("promoters")
+          .select("id, ticket_discount_type, ticket_discount_value")
+          .or(scopeOr.join(","))
+          .ilike("promo_code", promoCode.trim())
+          .eq("is_active", true)
+          .limit(1)
+        : { data: [] as Array<{ id: string; ticket_discount_type: string | null; ticket_discount_value: number | null }> };
+      const promoterByCode = promoterRows?.[0] ?? null;
       
       if (promoterByCode) {
         finalPromoterId = promoterByCode.id;

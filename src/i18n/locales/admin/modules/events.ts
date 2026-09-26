@@ -4,7 +4,8 @@ import type { AdminDict } from './types';
 const dict: AdminDict = {
   'adm.events.eyebrow': ['People & places', 'Acteurs', 'Actores'],
   'adm.events.title': ['Events', 'Soirées', 'Eventos'],
-  'adm.events.subtitle': ['Moderate BDE publication requests, unpublish or cancel any event on the platform.', 'Modérer les demandes de publication BDE, dépublier ou annuler n’importe quelle soirée de la plateforme.', 'Moderar las solicitudes de publicación BDE, despublicar o cancelar cualquier evento de la plataforma.'],
+  'adm.events.assoPill': ['Association', 'Association', 'Asociación'],
+  'adm.events.subtitle': ['Unpublish or cancel any event on the platform.', 'Dépublier ou annuler n’importe quelle soirée de la plateforme.', 'Despublicar o cancelar cualquier evento de la plataforma.'],
   'adm.events.total': ['Events', 'Soirées', 'Eventos'],
   'adm.events.upcoming': ['Upcoming', 'À venir', 'Próximos'],
   'adm.events.pending': ['Awaiting moderation', 'En attente de modération', 'Pendientes de moderación'],

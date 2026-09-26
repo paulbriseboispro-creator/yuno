@@ -73,7 +73,7 @@ export default function EventDetails() {
   useResolvePurchaseSource(eventId); // Capture purchase source for collab analytics
   useResolveTrackedLink(eventId); // Capture ?tl= tracked-link attribution (backup after redirect)
 
-  const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; musicGenres?: string[]; locationIsSecret?: boolean; visibility?: string; hideYunoNavigation?: boolean }) | null>(null);
+  const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; musicGenres?: string[]; locationIsSecret?: boolean; locationName?: string; visibility?: string; hideYunoNavigation?: boolean }) | null>(null);
   const [showLeavePrivate, setShowLeavePrivate] = useState(false);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string; address?: string; floorPlanUrl?: string; latitude?: number; longitude?: number; logoUrl?: string } | null>(null);
   // Primary entity: 'organizer' for organizer-led events, 'venue' otherwise
@@ -614,6 +614,7 @@ export default function EventDetails() {
         waitlistEnabled: eventData.waitlist_enabled || false,
         roundsVisibility: (eventData.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open' | null) ?? 'sequential',
         locationIsSecret: !!eventData.location_is_secret,
+        locationName: eventData.location_name || undefined,
         createdAt: eventData.created_at,
         updatedAt: eventData.updated_at,
         eventType: eventData.event_type,
@@ -1021,6 +1022,13 @@ export default function EventDetails() {
               <>
                 <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
                 <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>{venue.name.toUpperCase()}</span>
+              </>
+            )}
+            {/* Soirée d'un organisateur dans un lieu hors Yuno : le nom du lieu saisi. */}
+            {venue && venue.id === primaryOrganizer.user_id && event.locationName && !event.locationIsSecret && (
+              <>
+                <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>@</span>
+                <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>{event.locationName.toUpperCase()}</span>
               </>
             )}
           </div>
@@ -1467,6 +1475,10 @@ export default function EventDetails() {
               // Secret events show a sober "Secret location" value instead of the exact
               // address; the city always shows so the attendee knows where to travel and
               // the event stays city-filtered.
+              // Lieu hors Yuno (soirée d'organisateur sans club) : son nom d'abord.
+              !event.locationIsSecret && event.locationName && venue.id === primaryOrganizer?.user_id
+                ? [t('event.venueName'), event.locationName]
+                : null,
               event.locationIsSecret
                 ? [t('event.address'), t('event.secretValue')]
                 : (venue.address ? [t('event.address'), venue.address] : null),

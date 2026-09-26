@@ -205,9 +205,6 @@ export function OrgEventFormDialog({
   const [savedPartnerVenueId, setSavedPartnerVenueId] = useState<string>('');
   /** Statut du contrat de collaboration de la soirée (event_collab_contracts.status), null si aucun. */
   const [contractStatus, setContractStatus] = useState<string | null>(null);
-  /** BDE account (super-admin flag). BDE soirées are private by default; going public
-   *  is a request validated by a super admin before it appears in Explore. */
-  const [isBde, setIsBde] = useState(false);
 
   // Visuals — events use a single 1:1 square photo (poster).
   //
@@ -256,25 +253,6 @@ export function OrgEventFormDialog({
     toast.error(partnerLockedMsg());
     return true;
   };
-
-  // BDE status of the current organizer. BDE soirées default to private; on a new
-  // event we flip the default once the flag loads (the reset effect sets 'public_event').
-  useEffect(() => {
-    if (!open || !organizerUserId) return;
-    let cancelled = false;
-    supabase
-      .from('organizer_profiles')
-      .select('bde_verified')
-      .eq('user_id', organizerUserId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const bde = (data as { bde_verified?: boolean } | null)?.bde_verified === true;
-        setIsBde(bde);
-        if (bde && !eventId) setEventKind('private_event');
-      });
-    return () => { cancelled = true; };
-  }, [open, organizerUserId, eventId]);
 
   // Défaut de fuseau dérivé de la ville saisie, tant que l'organisateur n'a pas
   // choisi explicitement (et seulement en création).
@@ -499,11 +477,9 @@ export function OrgEventFormDialog({
       // The DB trigger evaluate_event_discoverability() recomputes is_discoverable / discovery_status
       // server-side based on quality criteria (poster + title + description + future date + active).
       // We optimistically mark public events as approved so they appear immediately in Explore once the trigger validates them.
-      // BDE soirées are the exception: going public is a REQUEST → 'pending', kept link-only
-      // until a super admin approves. The trigger enforces this regardless of the payload.
-      const isBdePublicRequest = isBde && eventKind === 'public_event';
-      const isDiscoverable = eventKind === 'public_event' && !isBdePublicRequest;
-      const discoveryStatus = isBdePublicRequest ? 'pending' : 'approved';
+      // Associations follow the same rule since 20260926120000: going public is their own choice.
+      const isDiscoverable = eventKind === 'public_event';
+      const discoveryStatus = 'approved';
 
       const payload: Record<string, any> = {
         organizer_user_id: organizerUserId,
@@ -845,20 +821,17 @@ export function OrgEventFormDialog({
 
             {/* Event kind */}
             <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-              <FieldLabel>{t("Visibilité de l'événement", 'Event visibility')} *</FieldLabel>
+              <FieldLabel>{t("Visibilité de l'événement", 'Event visibility', 'Visibilidad del evento')} *</FieldLabel>
               <div className="space-y-2">
                 <SelectCard
                   selected={eventKind === 'public_event'}
                   onClick={() => setEventKind('public_event')}
                   icon={Eye}
-                  title={isBde ? t('Demander la publication publique', 'Request public publication') : t('Public', 'Public')}
-                  description={isBde ? t(
-                    'Soumis à validation par Yuno avant d\'apparaître dans Explore. En attendant, la soirée reste accessible par lien.',
-                    'Reviewed by Yuno before it appears in Explore. Until then, the event stays accessible by link.',
-                    'Sujeto a validación de Yuno antes de aparecer en Explore. Mientras tanto, la fiesta sigue accesible por enlace.'
-                  ) : t(
-                    'Ouvert à tous, peut apparaître dans Yuno Explore.',
-                    'Open to all, may appear in Yuno Explore.'
+                  title={t('Public', 'Public', 'Pública')}
+                  description={t(
+                    'Ouvert à tous : billets en vente pour tout le monde, la soirée peut apparaître dans Yuno Explore.',
+                    'Open to everyone: tickets on sale to all, the event can appear in Yuno Explore.',
+                    'Abierta a todos: entradas a la venta para cualquiera, la fiesta puede aparecer en Yuno Explore.'
                   )}
                 />
                 <SelectCard
@@ -866,68 +839,64 @@ export function OrgEventFormDialog({
                   // Passer en privé détacherait le club partenaire — interdit sous contrat signé.
                   onClick={() => { if (guardPartnerDetach()) return; setEventKind('private_event'); }}
                   icon={Lock}
-                  title={isBde ? t('Privé (recommandé)', 'Private (recommended)') : t('Privé', 'Private')}
+                  title={t('Privé', 'Private', 'Privada')}
                   description={t(
                     'Accessible uniquement par lien direct, non listé dans Yuno Explore.',
-                    'Accessible by direct link only, not listed in Yuno Explore.'
+                    'Accessible by direct link only, not listed in Yuno Explore.',
+                    'Accesible solo por enlace directo, no aparece en Yuno Explore.'
                   )}
                 />
               </div>
-              {isBde && eventKind === 'public_event' && (
-                <p className="mt-2 text-[12px] leading-snug" style={{ color: T3 }}>
-                  {t(
-                    'Ta demande de publication sera examinée par Yuno. La soirée reste privée (accès par lien) tant qu\'elle n\'est pas approuvée.',
-                    'Your publication request will be reviewed by Yuno. The event stays private (link access) until it is approved.',
-                    'Tu solicitud de publicación será revisada por Yuno. La fiesta permanece privada (acceso por enlace) hasta que se apruebe.'
-                  )}
-                </p>
-              )}
             </div>
 
             {/* Collab mode */}
             {eventKind === 'public_event' && (
               <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                <FieldLabel>{t('Mode de collaboration', 'Collaboration mode')} *</FieldLabel>
+                <FieldLabel>{t('Mode de collaboration', 'Collaboration mode', 'Modo de colaboración')} *</FieldLabel>
                 <div className="space-y-2">
                   <SelectCard
                     selected={collabMode === 'solo'}
                     // Revenir en solo détacherait le club partenaire — interdit sous contrat signé.
                     onClick={() => { if (guardPartnerDetach()) return; setCollabMode('solo'); }}
                     icon={Sparkles}
-                    title={t('Solo orga', 'Solo organizer')}
+                    title={t('Solo orga', 'Solo organizer', 'Organizador solo')}
                     description={t(
-                      "Tu portes l'événement seul·e (lieu loué hors Yuno).",
-                      'You run the event on your own (off-platform venue).'
+                      "Le lieu n'est pas sur Yuno (club, salle, bar…) : tu vends billets et tables seul·e et tu encaisses directement.",
+                      'The venue is not on Yuno (club, hall, bar…): you sell tickets and tables on your own and get paid directly.',
+                      'El local no está en Yuno (club, sala, bar…): vendes entradas y mesas por tu cuenta y cobras directamente.'
                     )}
                   />
                   <SelectCard
                     selected={collabMode === 'co_event'}
                     onClick={() => setCollabMode('co_event')}
                     icon={Users}
-                    title={t('Co-event avec un club', 'Co-event with a club')}
+                    title={t('Co-event avec un club', 'Co-event with a club', 'Co-evento con un club')}
                     description={t(
                       'Co-organisé avec un club partenaire — split revenu personnalisable.',
-                      'Co-organized with a partner club — customizable revenue split.'
+                      'Co-organized with a partner club — customizable revenue split.',
+                      'Coorganizado con un club socio — reparto de ingresos personalizable.'
                     )}
                   />
                   <SelectCard
                     selected={collabMode === 'venue_rental'}
                     onClick={() => setCollabMode('venue_rental')}
                     icon={Building2}
-                    title={t('Location de salle', 'Venue rental')}
+                    title={t('Location de salle', 'Venue rental', 'Alquiler de sala')}
                     description={t(
                       'Tu loues le club, tu encaisses tout (sauf boissons).',
-                      'You rent the club venue and keep all revenue (except drinks).'
+                      'You rent the club venue and keep all revenue (except drinks).',
+                      'Alquilas el club y cobras todo (salvo las bebidas).'
                     )}
                   />
                   <SelectCard
                     selected={collabMode === 'hosted_by_venue'}
                     onClick={() => setCollabMode('hosted_by_venue')}
                     icon={Building2}
-                    title={t('Hébergé par le club', 'Hosted by the club')}
+                    title={t('Hébergé par le club', 'Hosted by the club', 'Alojado por el club')}
                     description={t(
                       'Le club gère la billetterie, tu apportes la programmation.',
-                      'The club runs ticketing, you bring the programming.'
+                      'The club runs ticketing, you bring the programming.',
+                      'El club gestiona la venta de entradas, tú aportas la programación.'
                     )}
                   />
                 </div>
@@ -1206,7 +1175,7 @@ export function OrgEventFormDialog({
                 Exception: co-organized / partner-club events (requiresPartner) inherit a
                 vetted venue, so the 30-char description is optional there — only the poster
                 is required. Keep this in step with evaluate_event_discoverability(). */}
-            {eventKind === 'public_event' && ((!requiresPartner && description.trim().length < 30) || !posterPreview) && (
+            {eventKind === 'public_event' && ((!requiresPartner && description.trim().length < 30) || !posterPreview || title.trim().length < 5 || !isActive) && (
               <div style={{ background: 'rgba(232,160,25,0.08)', border: '1px solid rgba(232,160,25,0.28)', borderRadius: 12, padding: '12px 14px' }}>
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: 'var(--acc-e8a019)', marginTop: 1 }} />
@@ -1223,6 +1192,8 @@ export function OrgEventFormDialog({
                     </p>
                     <ul style={{ color: T2, paddingLeft: 16, listStyleType: 'disc' }}>
                       {!posterPreview && <li>{t('une affiche', 'a poster', 'un cartel')}</li>}
+                      {title.trim().length < 5 && <li>{t('un titre d\'au moins 5 caractères', 'a title of at least 5 characters', 'un título de al menos 5 caracteres')}</li>}
+                      {!isActive && <li>{t('d\'être activé (interrupteur « Événement actif »)', 'to be switched on (“Event active” toggle)', 'estar activado (interruptor «Evento activo»)')}</li>}
                       {!requiresPartner && description.trim().length < 30 && (
                         <li>
                           {t(

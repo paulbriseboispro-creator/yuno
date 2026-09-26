@@ -1,6 +1,6 @@
 // Achat d'emails supplémentaires — au prix coûtant.
 //
-// Le quota mensuel offert (15 000) couvre l'usage normal ; ce dialogue n'existe
+// Le quota mensuel offert (15 000, 2 000 pour une association) couvre l'usage normal ; ce dialogue n'existe
 // que pour le mois où un compte veut aller au-delà. Les packs sont facturés au
 // coût réel de l'infrastructure (overage Resend + frais Stripe), sans marge —
 // et on le DIT dans l'interface : c'est ce qui rend le plafond acceptable.

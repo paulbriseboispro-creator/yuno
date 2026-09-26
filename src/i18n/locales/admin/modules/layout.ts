@@ -44,7 +44,7 @@ const dict: AdminDict = {
   'adm.nav.kw.customers': ['segmentation crm rfm clients customers', 'segmentation crm rfm clients', 'segmentación crm clientes'],
   'adm.nav.kw.links': ['bio instagram tiktok whatsapp leads waitlist', 'bio instagram tiktok whatsapp leads liste d’attente', 'bio instagram leads lista de espera'],
   'adm.nav.kw.venues': ['venues clubs owners stripe onboarding', 'venues clubs propriétaires stripe onboarding', 'clubs propietarios stripe'],
-  'adm.nav.kw.organizers': ['organizers invitations bde showcase', 'organisateurs invitations bde vitrine', 'organizadores invitaciones bde'],
+  'adm.nav.kw.organizers': ['organizers invitations association bde showcase', 'organisateurs invitations association bde vitrine', 'organizadores invitaciones asociación bde'],
   'adm.nav.kw.agencies': ['agencies affiliates madrid promoters', 'agences affiliés madrid promoteurs', 'agencias afiliados promotores'],
   'adm.nav.kw.events': ['events moderation publish cancel discovery', 'soirées modération publication annulation découverte', 'eventos moderación publicar'],
   'adm.nav.kw.people': ['directory users djs promoters staff', 'annuaire utilisateurs djs promoteurs staff', 'directorio usuarios djs promotores personal'],

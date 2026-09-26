@@ -74,7 +74,7 @@ const DEMO_PLAN_TIERS: PlanCode[] = ['core', 'essential', 'pro'];
 const ACCOUNTS: DemoAccount[] = [
   { email: 'owner@womber.fr',     label: 'Club Yuno (Owner)',   sub: 'Club Yuno',      route: '/owner/dashboard', icon: Building2 },
   { email: 'organizer@womber.fr', label: 'Orga Yuno',           sub: 'Yuno Events',    route: '/organizer-app',   icon: CalendarDays },
-  { email: 'bde@womber.fr',       label: 'BDE Démo',            sub: 'Bureau Des Étudiants', route: '/organizer-app', icon: GraduationCap },
+  { email: 'bde@womber.fr',       label: 'Asso Yuno',           sub: 'Association (loi 1901)', route: '/organizer-app', icon: GraduationCap },
   { email: 'promoter@womber.fr',  label: 'Promoteur',           sub: 'Alex Rivière',   route: '/promoter',        icon: Megaphone,   session: 'pin',   role: 'promoter' },
   { email: 'agency@womber.fr',    label: 'Agence promoteurs',   sub: 'Nightlife Collective', route: '/agency-app', icon: Users },
   { email: 'dj@womber.fr',        label: 'DJ',                  sub: 'MARCO V',        route: '/dj',              icon: Disc3,       session: 'pin',   role: 'dj' },

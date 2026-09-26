@@ -90,6 +90,7 @@ interface EventRow {
   start_at: string;
   end_at: string;
   venue_id: string | null;
+  location_name?: string | null;
   is_active: boolean;
   music_genres: string[] | null;
 }
@@ -354,16 +355,24 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       // ── Build event queries ──────────────────────────────────
       // Helper to apply common constraints to an event query
       const applyEventConstraints = (baseQ: SearchQuery<EventRow>) => {
-        // BDE soirées are private by default and must never surface in public search.
-        // Non-BDE events keep their current behavior; BDE events appear only once a
-        // super admin has approved them (is_discoverable = true), like in Explore.
-        let q2 = baseQ.eq('is_active', true).or('is_bde.eq.false,is_discoverable.eq.true');
+        // A PRIVATE soirée (club or organizer, association included) is reachable by
+        // its link only: it never surfaces in public search.
+        let q2 = baseQ.eq('is_active', true).eq('visibility', 'public');
         if (dateRange) {
           q2 = q2.gte('start_at', dateRange.start).lte('start_at', dateRange.end);
         } else {
           q2 = q2.gte('end_at', now);
         }
-        if (cityVenueIds.length > 0) q2 = q2.in('venue_id', cityVenueIds);
+        if (cityVenueIds.length > 0) {
+          // Soirées d'un club du coin, y compris une co-soirée où le club est
+          // partenaire ; soirées d'un organisateur SANS club (lieu hors Yuno) :
+          // elles n'ont pas de venue_id, on les rattache par la ville saisie.
+          const ids = cityVenueIds.join(',');
+          const orgCity = (city || '').replace(/[,()*%]/g, ' ').trim();
+          const clauses = [`venue_id.in.(${ids})`, `partner_venue_id.in.(${ids})`];
+          if (orgCity) clauses.push(`and(venue_id.is.null,partner_venue_id.is.null,location_city.ilike.*${orgCity}*)`);
+          q2 = q2.or(clauses.join(','));
+        }
         return q2;
       };
 
@@ -379,7 +388,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             // schéma) à SearchQuery fait exploser la profondeur de types (TS2589).
             supabase
               .from('events')
-              .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
+              .select('id, title, poster_url, start_at, end_at, venue_id, location_name, is_active, music_genres')
               .order('start_at', { ascending: true })
               .limit(20) as unknown as SearchQuery<EventRow>
           )
@@ -390,7 +399,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
           applyEventConstraints(
             supabase
               .from('events')
-              .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
+              .select('id, title, poster_url, start_at, end_at, venue_id, location_name, is_active, music_genres')
               .ilike('search_title', searchTerm)
               .limit(10) as unknown as SearchQuery<EventRow>
           )
@@ -401,7 +410,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             applyEventConstraints(
               supabase
                 .from('events')
-                .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
+                .select('id, title, poster_url, start_at, end_at, venue_id, location_name, is_active, music_genres')
                 .contains('music_genres', [variant])
                 .limit(10) as unknown as SearchQuery<EventRow>
             )
@@ -513,7 +522,6 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .from('organizer_profiles')
               .select('user_id, display_name, avatar_url, slug')
               .eq('is_public', true)
-              .eq('bde_verified', false) // BDE accounts stay private — never in public search
               .ilike('search_display_name', searchTerm)
               .limit(5)
           : Promise.resolve({ data: [] }),
@@ -554,7 +562,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       const uniqueAffRaw = Array.from(new Map(allAffRaw.map((e) => [e.id, e] as const)).values()).slice(0, 8);
 
       // Venue names for regular events
-      const venueIds = [...new Set(uniqueRawEvents.map((e) => e.venue_id))] as string[];
+      const venueIds = [...new Set(uniqueRawEvents.map((e) => e.venue_id).filter(Boolean))] as string[];
       let venueMap: Record<string, { name: string }> = {};
       if (venueIds.length > 0) {
         const { data: vd } = await supabase
@@ -609,8 +617,9 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         title: e.title,
         poster_url: e.poster_url,
         start_at: e.start_at,
-        venue_name: venueMap[e.venue_id as string]?.name || '',
-        venue_slug: e.venue_id as string,
+        // Soirée sans club : le nom du lieu saisi par l'organisateur.
+        venue_name: (e.venue_id ? venueMap[e.venue_id]?.name : e.location_name) || '',
+        venue_slug: e.venue_id || '',
         interested: favCounts[e.id] || 0,
         music_genres: e.music_genres,
         isAffiliate: false,
@@ -1038,7 +1047,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                           onClick={() => {
                             trackResultClick(e.isAffiliate ? 'affiliate_event' : 'event', i);
                             if (e.isAffiliate && e.affiliateSlug) handleNavigate(`/affiliate-event/${e.affiliateSlug}`);
-                            else handleNavigate(`/club/${e.venue_slug}/event/${e.id}`);
+                            else handleNavigate(e.venue_slug ? `/club/${e.venue_slug}/event/${e.id}` : `/event/${e.id}`);
                           }}
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                           variants={staggerItem}
@@ -1091,7 +1100,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                         {semanticEvents.map((e, i) => (
                           <motion.button
                             key={`sem-${e.id}`}
-                            onClick={() => { trackResultClick('semantic_event', i); handleNavigate(`/club/${e.venue_slug}/event/${e.id}`); }}
+                            onClick={() => { trackResultClick('semantic_event', i); handleNavigate(e.venue_slug ? `/club/${e.venue_slug}/event/${e.id}` : `/event/${e.id}`); }}
                             className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                             variants={staggerItem}
                             whileTap={tapScale}
