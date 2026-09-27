@@ -55,7 +55,7 @@ const dict: AdminDict = {
   'adm.demo.signup.enable': ['Offer account creation', 'Proposer la création du compte', 'Proponer la creación de la cuenta'],
   'adm.demo.signup.kind': ['Account type', 'Type de compte', 'Tipo de cuenta'],
   'adm.demo.signup.club': ['Club', 'Club', 'Club'],
-  'adm.demo.signup.organizer': ['Organizer / BDE', 'Organisateur / BDE', 'Organizador / BDE'],
+  'adm.demo.signup.organizer': ['Organizer / Association', 'Organisateur / Association', 'Organizador / Asociación'],
   'adm.demo.signup.firstName': ['First name', 'Prénom', 'Nombre'],
   'adm.demo.signup.lastName': ['Last name', 'Nom', 'Apellido'],
   'adm.demo.signup.orgClub': ['Club name', 'Nom du club', 'Nombre del club'],
