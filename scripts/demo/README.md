@@ -37,6 +37,11 @@ Ce qui ne se fait jamais, garde ou pas :
   pour le RENDU des écrans, jamais pour un envoi. Décision de Paul, 2026-09-21.
 - **Pas de rotation du mot de passe démo** (`scripts/rotate-demo-password.mjs`) :
   les bundles déjà publiés le portent en dur.
+- **Les liens d'aperçu sont lecture seule CÔTÉ SERVEUR** (2026-09-27, cf.
+  CLAUDE.md « Lien démo = lecture seule imposée par le serveur »). Les sessions
+  de `mintSession` ne sont PAS des aperçus : l'agent garde l'écriture, mais
+  comme tout compte @womber.fr il ne peut ni relier Meta / Stripe, ni acheter,
+  ni toucher aux identifiants du compte (gelés en base).
 
 ## Ce que l'outillage sait faire
 

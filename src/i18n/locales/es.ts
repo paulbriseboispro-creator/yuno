@@ -14491,6 +14491,8 @@ const es: Record<string, string> = {
   "integ.meta.disconnectBody": "El token se destruye y no se envía ningún evento más. Tu historial se queda en Events Manager. Puedes reconectar cuando quieras.",
   "integ.meta.cancel": "Cancelar",
   "integ.meta.err.generic": "Algo ha fallado. Inténtalo de nuevo.",
+  "integ.meta.err.demo_account_locked": "Cuenta de demostración compartida: no se puede conectar ninguna cuenta de Meta.",
+  "integ.meta.err.demo_read_only": "Vista previa de demostración: solo lectura, no se puede conectar ni modificar nada.",
   "integ.meta.err.invalid_pixel_id": "El ID del píxel es un número de 6 a 32 cifras.",
   "integ.meta.err.invalid_token": "El token parece incorrecto (demasiado corto o con espacios).",
   "integ.meta.err.token_invalid": "Meta rechazó este token. Genera uno nuevo en Events Manager → Configuración → API de conversiones.",

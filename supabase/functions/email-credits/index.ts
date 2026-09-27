@@ -15,6 +15,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 import { resolveReturnOrigin } from "../_shared/cors.ts";
+import { demoAccountGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +62,12 @@ serve(async (req) => {
     const user = userData.user;
 
     const body: Body = await req.json();
+
+    // Compte démo partagé : jamais d'achat de crédits avec une vraie carte.
+    {
+      const demoRefusal = await demoAccountGuard(req, corsHeaders);
+      if (demoRefusal) return demoRefusal;
+    }
 
     // ── VERIFY : retour de Stripe ─────────────────────────────────────────────
     if (body.action === "verify") {

@@ -16,6 +16,15 @@
  *   node scripts/rotate-demo-password.mjs          # à blanc : liste les comptes, ne change rien
  *   node scripts/rotate-demo-password.mjs --yes    # applique la rotation
  *
+ * ⚠️ Depuis la migration 20260927161000, les identifiants des comptes @womber.fr
+ * sont GELÉS en base (trigger freeze_demo_account_credentials sur auth.users) :
+ * un updateUserById répond « OK » et ne change RIEN. Ce script refuse donc
+ * d'appliquer. Rotation volontaire = une transaction SQL :
+ *   BEGIN; SET LOCAL yuno.demo_credentials_unlock = 'on';
+ *   UPDATE auth.users SET encrypted_password = extensions.crypt('<nouveau>', extensions.gen_salt('bf'))
+ *    WHERE email = ANY('{owner@womber.fr,…}'); COMMIT;
+ * puis le secret DEMO_LOGIN_PASSWORD, comme ci-dessous.
+ *
  * NB : apple-review@womber.fr / apple-review-pro@womber.fr (comptes reviewer Apple,
  * mot de passe dédié dans les notes ASC) ne sont PAS dans cette liste : leur
  * mot de passe ne bouge pas ici.
@@ -109,6 +118,9 @@ async function main() {
     console.log('\nÀ blanc : rien n\'a été modifié. Relance avec --yes pour appliquer la rotation.\n');
     return;
   }
+
+  die('Identifiants démo gelés en base (migration 20260927161000) : updateUserById ne changerait rien. '
+    + 'Voir l\'en-tête de ce script pour la rotation par SQL.');
 
   const newPassword = generatePassword();
   let ok = 0;

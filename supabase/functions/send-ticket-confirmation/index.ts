@@ -12,6 +12,7 @@ import {
   type PdfDoc, type DocLang, type ReceiptLine, type VatRegime,
 } from "../_shared/pdf-documents.ts";
 import { handleWalletRequest, ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Fetch a remote image into a base64 data URL (jsPDF addImage needs bytes, not a URL).
 async function fetchImageDataUrl(url?: string | null): Promise<string | undefined> {
@@ -62,6 +63,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",

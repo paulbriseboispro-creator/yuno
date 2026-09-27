@@ -44,6 +44,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildSecureLink } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { jwtSessionId } from "../_shared/support-session.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const APP_URL = "https://yunoapp.eu";
 
@@ -76,6 +77,9 @@ const COPY: Record<Lang, { subject: string; title: string; body: string; cta: st
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   const fail = (message: string, status = 400) =>

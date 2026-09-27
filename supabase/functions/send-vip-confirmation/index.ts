@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, escapeHtml } from "../_shared/email-branding.ts";
 import { buildVipConfirmation, buildVipStatus, buildWalkinSummary, fmtDateParts } from "../_shared/email-templates.ts";
 import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,6 +33,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     logStep("Function started");

@@ -19,6 +19,7 @@ import { parseMetaClientContext, metaContextToStripeMetadata, enqueueMetaEvent, 
 import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPaid } from "../_shared/posthog.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -50,6 +51,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   // Usage de code promo retenu (lot F) : rendu si le checkout échoue.
   let promoRedemptionId: string | null = null;

@@ -30,6 +30,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { composeSmsBody, smsSizing, normalizeLang, cleanSenderName } from "../_shared/sms-text.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -447,6 +448,9 @@ async function sendTest(admin: Admin, userId: string, p: TestPayload, cfg: Twili
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const payload = await req.json().catch(() => ({}));

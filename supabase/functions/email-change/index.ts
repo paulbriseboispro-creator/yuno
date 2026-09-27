@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { type EmailLanguage } from "../_shared/email-branding.ts";
 import { buildSecureLink } from "../_shared/email-templates.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Unified email-change dispatcher.
 // Replaces: request-email-change, submit-new-email, verify-email-change.
@@ -51,6 +52,9 @@ function safeEmailOrigin(raw: unknown): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",

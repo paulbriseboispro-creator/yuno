@@ -11,6 +11,14 @@
 //                                            (les lectures passent, sinon le dashboard
 //                                            démo s'afficherait vide).
 // Les lectures (.select) et supabase.auth (setSession/getUser/signOut) sont intactes.
+//
+// ⚠️ Ce fichier n'est PAS la sécurité, seulement le confort (un toast au lieu
+// d'une erreur brute). Depuis le 2026-09-27 la lecture seule est imposée par le
+// SERVEUR (migration 20260927160000 : hook pre-request PostgREST, policies
+// storage, _shared/demo-guard.ts dans les edge functions) sur toute session
+// émise par un lien d'aperçu — y compris dans un autre onglet, où ce drapeau
+// sessionStorage n'existe pas. Garder les deux listes proches : une écriture
+// que le client laisse passer finit en erreur serveur sans toast.
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -39,9 +47,18 @@ const WRITE_RPC_PREFIXES = [
   // Cycle de règlement promoteur : préparer fige un périmètre, déclarer engage
   // le club, contester ouvre un litige. Trois écritures, aucune lecture.
   'prepare_', 'declare_', 'dispute_', 'resolve_',
+  // Écritures qui ne portent pas un verbe de la liste (relevé du 2026-09-27) :
+  // imports / exports de contacts, signatures et avenants de contrat, jeton
+  // push, report de 2FA…
+  'import_', 'export_', 'sign_', 'amend_', 'propose_', 'terminate_', 'respond_',
+  'register_', 'defer_', 'rename_', 'decide_', 'distribute_', 'bump_', 'clear_',
+  'provision_', 'review_', 'withdraw_', 'subscribe_', 'follow_', 'sync_',
+  'manage_', 'organizer_ban', 'organizer_unban', 'organizer_save', 'owner_set_',
+  'staff_', 'dj_',
 ];
 const WRITE_RPC_EXACT = new Set([
-  'demo_set_live', 'staff_ban_customer', 'staff_warn_customer', 'staff_unban_customer',
+  'demo_set_live', 'contact_import_absorb', 'request_event_collab_action',
+  'request_guest_list_allocation', 'request_support_help', 'request_club_yuno_lead',
 ]);
 
 function isWriteRpc(name: string): boolean {
@@ -124,7 +141,10 @@ export function installPreviewWriteGuard(): void {
   (supabase.functions as any).invoke = (name: string, options?: any) => {
     const action = options?.body?.action;
     const isRedeem = name === 'accept-staff-invitation' && action === 'redeem_demo_preview_link';
-    if (isPreviewActive() && !isRedeem) {
+    // Bascule de rôle de la bannière : demo-login rend une session elle-même
+    // marquée « aperçu » côté serveur quand l'appel vient d'un aperçu.
+    const isRoleSwitch = name === 'demo-login';
+    if (isPreviewActive() && !isRedeem && !isRoleSwitch) {
       notifyBlocked();
       return Promise.resolve({ data: null, error: { message: 'read_only_preview', name: 'ReadOnlyPreview' } });
     }
@@ -153,6 +173,22 @@ export function installPreviewWriteGuard(): void {
 
   // 5) Auth : bloquer updateUser (changement de mot de passe / email du compte démo),
   //    sans jamais toucher setSession / getUser / signOut / onAuthStateChange.
+  // 6) Auth MFA : un aperçu n'enrôle ni ne retire jamais de facteur (le serveur
+  //    refuse aussi tout nouveau facteur sur un compte @womber.fr).
+  type MfaFn = (...args: unknown[]) => unknown;
+  const mfa = (supabase.auth as unknown as { mfa?: Record<string, MfaFn> }).mfa;
+  for (const m of ['enroll', 'unenroll', 'challenge', 'verify', 'challengeAndVerify'] as const) {
+    const orig = mfa && typeof mfa[m] === 'function' ? mfa[m].bind(mfa) : null;
+    if (!mfa || !orig) continue;
+    mfa[m] = (...args: unknown[]) => {
+      if (isPreviewActive()) {
+        notifyBlocked();
+        return Promise.resolve({ data: null, error: { message: 'read_only_preview', name: 'ReadOnlyPreview' } });
+      }
+      return orig(...args);
+    };
+  }
+
   const origUpdateUser = supabase.auth.updateUser.bind(supabase.auth);
   (supabase.auth as any).updateUser = (...args: any[]) => {
     if (isPreviewActive()) {

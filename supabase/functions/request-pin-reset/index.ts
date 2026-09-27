@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 import { buildSecureLink } from "../_shared/email-templates.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,6 +72,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     const authHeader = req.headers.get("Authorization");

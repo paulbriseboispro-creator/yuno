@@ -51,6 +51,7 @@ import {
   exchangeCode, exchangeLongLived, discoverAssets, debugToken, datasetQuality,
   graphDelete, parseSignedRequest, type MetaAssets,
 } from "../_shared/meta-oauth.ts";
+import { demoAccountGuard } from "../_shared/demo-guard.ts";
 
 const PIXEL_RE = /^[0-9]{6,32}$/;
 const TEST_CODE_RE = /^[A-Za-z0-9_-]{4,40}$/;
@@ -186,6 +187,10 @@ async function tokenOf(admin: SupabaseClient, connectionId: string): Promise<str
 Deno.serve(async (req) => {
   const cors = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  // Compte démo partagé (@womber.fr) : aucun actif réel relié, aucun achat —
+  // Paul et l'agent compris ; un lien d'aperçu, a fortiori (_shared/demo-guard.ts).
+  const demoRefusal = await demoAccountGuard(req, cors);
+  if (demoRefusal) return demoRefusal;
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
   const admin = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } });

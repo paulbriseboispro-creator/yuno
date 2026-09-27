@@ -13,6 +13,7 @@ import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { isCompleteName } from "../_shared/guest-name.ts";
 import { parseMetaClientContext, enqueueMetaEvent, drainMetaOutboxInBackground } from "../_shared/meta-capi.ts";
 import { parseAnalyticsContext, captureOrderPaid } from "../_shared/posthog.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -96,6 +97,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     logStep("Function started");

@@ -5,6 +5,7 @@ import { type EmailLanguage } from "../_shared/email-branding.ts";
 import { buildRefund } from "../_shared/email-templates.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +29,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     logStep("Function started");

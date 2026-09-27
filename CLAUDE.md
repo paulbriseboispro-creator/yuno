@@ -944,6 +944,53 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   rien d'autre (décision du 2026-09-21). Ne pas exécuter
   `scripts/rotate-demo-password.mjs` : les bundles publiés portent le mot de
   passe en dur.
+- **Lien démo = lecture seule IMPOSÉE PAR LE SERVEUR** (2026-09-27, migrations
+  `20260927160000` + `161000`, `_shared/demo-guard.ts`). Avant, la lecture seule
+  ne vivait que dans l'onglet du prospect (`previewGuard.ts`, drapeau
+  sessionStorage) : un 2ᵉ onglet, la console ou un appel HTTP avec son jeton
+  faisaient tout — un prospect a relié un compte Facebook au club démo. Et
+  `demo-login` était PUBLIQUE : un POST `{email}` sans jeton rendait une
+  session en écriture sur `owner@womber.fr`. Désormais :
+  - Toute session émise par un lien (`/preview/:token`) est enregistrée dans
+    `demo_preview_sessions` (claim JWT `session_id`, même modèle que l'accès
+    assisté) par l'edge de redeem, **fail-closed** (non enregistrée = révoquée).
+    Une bascule de rôle depuis un aperçu passe par `demo-login`, qui MARQUE la
+    nouvelle session (`origin = 'role_switch'`).
+  - **PostgREST** : hook `pgrst.db_pre_request = public.pgrst_demo_preview_guard`
+    posé sur `authenticator` → la transaction d'une session d'aperçu passe en
+    READ ONLY (tables ET RPC, SECURITY DEFINER compris). Refus par défaut :
+    seules les RPC de `demo_preview_writable_rpc()` (mesure, caches d'écrans)
+    écrivent encore ; `export_*` est refusé en plus (le compte orga démo porte
+    des adresses réelles). Une lecture qui écrit en douce lève en aperçu :
+    on l'ajoute à la liste APRÈS l'avoir lue. Le hook tourne sur CHAQUE requête
+    de la prod : il ne doit jamais lever hors de ce cas (sortie de secours :
+    `ALTER ROLE authenticator RESET pgrst.db_pre_request; NOTIFY pgrst, 'reload config';`).
+  - **Storage** : policies RESTRICTIVE `demo_preview_no_*` sur `storage.objects`.
+  - **Edge** : `demoPreviewGuard` en tête de toute fonction à effet de bord
+    appelable par un pro (envois, invitations, remboursements, checkouts,
+    PIN…) ; les assistants IA restent ouverts en aperçu mais SANS leurs outils
+    d'écriture (`READ_ONLY_TOOLS`). `demoAccountGuard` refuse à TOUT compte
+    @womber.fr — Paul et l'agent compris — ce qui relie un actif réel ou coûte
+    de l'argent réel : `meta-connect` (tout), `stripe-connect` (sauf `status`),
+    `club-subscription` (sauf `check`), `email-credits`, `sms-purchase-checkout`,
+    enrôlement / coupure 2FA de `mfa`. Nouvelle fonction appelable par un pro =
+    poser l'un des deux gardes.
+  - **`demo-login` exige une session @womber.fr valide** (DemoSwitcher et
+    bascule d'aperçu en ont une). Ne jamais la rouvrir sans jeton.
+  - **Identifiants @womber.fr gelés** (`freeze_demo_account_credentials` sur
+    `auth.users` : email, mot de passe, téléphone RÉTABLIS en silence ;
+    `block_demo_account_mfa_factor` sur `auth.mfa_factors`) : GoTrue laisse une
+    session de moins de 24 h changer le mot de passe sans réauthentification,
+    ce qui cassait toutes les démos et rendait une session non marquée.
+    Rotation volontaire = SQL avec `SET LOCAL yuno.demo_credentials_unlock = 'on'`
+    (`rotate-demo-password.mjs` refuse désormais).
+  - Front : `PreviewSessionSentinel` réarme la bannière dans un onglet sans
+    drapeau (RPC `is_demo_preview_session`) ; `previewGuard.ts` laisse passer
+    `demo-login` et bloque `auth.mfa.*`. Le front n'est que le confort : la
+    vérité est serveur.
+  - Limite connue : une session ouverte avec le MOT DE PASSE démo (livré en
+    clair dans d'anciens bundles) n'est pas un aperçu — seuls les
+    `demoAccountGuard` s'y appliquent.
 - **Démo → vrai compte** (2026-09-26, migration `20260926120000`). Sur un lien
   d'aperçu démo classique (`/admin/demo-access`, icône « Compte à créer »), le
   super admin PRÉPARE le compte du prospect : club, organisateur OU association

@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 import { resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
+import { demoAccountGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,10 @@ interface CheckoutBody {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Compte démo partagé (@womber.fr) : aucun actif réel relié, aucun achat —
+  // Paul et l'agent compris ; un lien d'aperçu, a fortiori (_shared/demo-guard.ts).
+  const demoRefusal = await demoAccountGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

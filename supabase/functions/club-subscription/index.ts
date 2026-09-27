@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { resolveReturnOrigin } from "../_shared/cors.ts";
+import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -114,6 +115,15 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action: string = body.action;
     logStep("Request", { userId: user.id, action });
+
+    // Compte démo partagé : aucun abonnement Stripe réel (création, portail,
+    // activation). « check » reste lisible, sauf en aperçu.
+    {
+      const demoRefusal = action === "check"
+        ? await demoPreviewGuard(req, corsHeaders)
+        : await demoAccountGuard(req, corsHeaders);
+      if (demoRefusal) return demoRefusal;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // action: "check"  (← check-club-subscription)

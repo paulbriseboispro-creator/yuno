@@ -78,6 +78,7 @@ import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { LiveModeProvider } from "@/contexts/LiveModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
+import { PreviewSessionSentinel } from "@/components/demo/PreviewSessionSentinel";
 import { DemoSignupBar } from "@/components/demo/DemoSignupBar";
 import { SupportSessionBanner } from "@/components/SupportSessionBanner";
 import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
@@ -559,6 +560,7 @@ const App = () => (
                 comptes @womber.fr (return null sinon), donc jamais visible d'un vrai user. */}
             <DemoSwitcher />
             <PreviewModeBanner />
+            <PreviewSessionSentinel />
             {/* Assistance Yuno : rappel permanent qu'un admin agit dans le compte
                 d'un pro consentant, avec sortie immédiate. Auto-gaté. */}
             <SupportSessionBanner />

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { EmailLanguage } from "../_shared/email-branding.ts";
 import { buildOrderConfirmation } from "../_shared/email-templates.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -33,6 +34,9 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     const { orderId, orderNumber, email, firstName, items, total, venueName, venueAddress, isGuest }: OrderConfirmationRequest = await req.json();

@@ -17,6 +17,7 @@ import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
 import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -52,6 +53,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   // Hoisted hors du try : toute sortie en erreur APRÈS la réservation atomique doit
   // rendre la capacité. Sans ça, chaque tentative ratée (club sans Stripe, Stripe

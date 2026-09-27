@@ -5,6 +5,7 @@ import { buildSecureLink, buildSecurityAlert } from "../_shared/email-templates.
 import { generateSecret, generateOTPAuthURL, verifyTOTP } from "../_shared/totp.ts";
 import { encode } from "https://deno.land/std@0.190.0/encoding/hex.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
+import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Unified MFA dispatcher.
 // Replaces: mfa-disable, mfa-generate-secret, mfa-verify-login, mfa-verify-setup.
@@ -80,6 +81,17 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const action: string = body.action;
+
+    // Lien démo : un « web-handoff » minterait une session GoTrue NEUVE, non
+    // marquée « aperçu » — la sortie de secours à fermer. Et sur un compte
+    // démo partagé, personne n'active ni ne coupe une 2FA (elle verrouillerait
+    // le compte pour tous les autres).
+    {
+      const demoRefusal = ["generate-secret", "verify-setup", "disable-request"].includes(action)
+        ? await demoAccountGuard(req, corsHeaders)
+        : await demoPreviewGuard(req, corsHeaders);
+      if (demoRefusal) return demoRefusal;
+    }
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",

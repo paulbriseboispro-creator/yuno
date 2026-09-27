@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
+import { isDemoPreviewRequest } from "../_shared/demo-guard.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -1022,6 +1023,8 @@ const WRITE_TOOLS = new Set([
   "toggle_event_ticketing", "update_event", "toggle_guest_list", "toggle_event_tables",
   "set_night_brief", "set_email_automation",
 ]);
+// Session d'un lien démo : l'IA ne se voit même pas proposer d'écrire.
+const READ_ONLY_TOOLS = TOOLS.filter((t) => !WRITE_TOOLS.has(t.function.name));
 
 const TOOL_MIN_PLAN: Record<string, string> = {
   get_customer_insights: "pro",
@@ -2709,6 +2712,7 @@ serve(async (req) => {
 
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const demoPreview = await isDemoPreviewRequest(req);
 
     const body = await req.json();
 
@@ -2847,7 +2851,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: OPENAI_MODEL,
           messages: conversationMessages,
-          tools: TOOLS,
+          tools: demoPreview ? READ_ONLY_TOOLS : TOOLS,
           tool_choice: "auto",
           stream: false,
         }),
@@ -2921,6 +2925,12 @@ serve(async (req) => {
         }
 
         log("tool_exec", { round, tool: fnName, args: fnArgs });
+        // Lien démo = lecture seule : les outils d'écriture tournent en
+        // service_role, le hook PostgREST ne les verrait pas.
+        if (demoPreview && WRITE_TOOLS.has(fnName)) {
+          conversationMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "demo_read_only", message: "Aperçu de démonstration : lecture seule, aucune modification possible." }) });
+          continue;
+        }
         const result = await executeTool(fnName, fnArgs, supabase, venueId, supabaseAuth);
         log("tool_result", { round, tool: fnName, result_length: result.length });
 

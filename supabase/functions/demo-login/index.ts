@@ -7,17 +7,32 @@
 // côté serveur (client anon supabase-js) et renvoie les tokens de session.
 //
 //   POST { email } → 200 { access_token, refresh_token }
-//                  → 403 { error: "forbidden" }        (email hors allowlist)
+//                  → 403 { error: "forbidden" }        (email hors allowlist,
+//                                                       ou appelant non connecté
+//                                                       à un compte @womber.fr)
 //                  → 500 { error: "not_configured" }   (secret absent)
 //                  → 401 { error: "signin_failed" }    (mdp secret ≠ mdp en base)
 //
-// Ce flux sert AUSSI la démo du reviewer Apple (DemoSwitcher dans l'app native) :
-// il doit rester joignable sans JWT → verify_jwt = false dans config.toml.
+// Ce flux sert AUSSI la démo du reviewer Apple (DemoSwitcher dans l'app native).
+// verify_jwt = false dans config.toml (la passerelle ne filtre pas), MAIS depuis
+// le 2026-09-27 l'appelant doit être DÉJÀ connecté à un compte @womber.fr : la
+// fonction était publique, et n'importe qui obtenait une session en écriture
+// sur owner@womber.fr avec un simple POST {email} — le mot de passe des liens
+// d'aperçu ne protégeait donc rien. Tous les usages légitimes (DemoSwitcher,
+// visible seulement pour un compte démo ; bascule de rôle d'un aperçu) partent
+// d'une session @womber.fr.
+//
+// Une bascule demandée DEPUIS une session d'aperçu (lien /preview) rend une
+// session elle-même marquée aperçu (demo_preview_sessions, origin
+// 'role_switch') : changer de rôle ne rend jamais l'écriture au prospect.
+//
 // Garde anti-abus : allowlist explicite + délai fixe sur chaque réponse pour
 // aplanir le timing (pas d'énumération), et jamais aucun détail d'erreur auth.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { jwtSessionId } from "../_shared/support-session.ts";
+import { isDemoPreviewSessionId } from "../_shared/demo-guard.ts";
 
 // Allowlist stricte — miroir exact de DEMO_ACCOUNTS (src/lib/demoSession.ts).
 // Uniquement des comptes @womber.fr (club masqué, données fictives). Ne JAMAIS
@@ -79,9 +94,22 @@ Deno.serve(async (req) => {
     const demoPassword = Deno.env.get("DEMO_LOGIN_PASSWORD") ?? Deno.env.get("DEMO_ACCOUNT_PASSWORD");
     const url = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    if (!demoPassword || !url || !anonKey) {
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!demoPassword || !url || !anonKey || !serviceKey) {
       return await respond({ error: "not_configured" }, 500);
     }
+
+    // L'appelant doit être une session VALIDE d'un compte @womber.fr.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const callerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!callerToken) return await respond({ error: "forbidden" }, 403);
+    const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const { data: caller, error: callerErr } = await admin.auth.getUser(callerToken);
+    const callerEmail = String(caller?.user?.email ?? "").toLowerCase();
+    if (callerErr || !callerEmail.endsWith("@womber.fr")) {
+      return await respond({ error: "forbidden" }, 403);
+    }
+    const fromPreview = await isDemoPreviewSessionId(jwtSessionId(callerToken));
 
     const authClient = createClient(url, anonKey);
     const { data, error } = await authClient.auth.signInWithPassword({
@@ -90,6 +118,21 @@ Deno.serve(async (req) => {
     });
     if (error || !data?.session) {
       return await respond({ error: "signin_failed" }, 401);
+    }
+
+    // Aperçu → la nouvelle session hérite du marquage (fail-closed : sans
+    // marquage, pas de session).
+    if (fromPreview) {
+      const sid = jwtSessionId(data.session.access_token);
+      const { error: regErr } = sid
+        ? await admin.rpc("register_demo_preview_session", {
+            p_session_id: sid, p_user_id: data.session.user.id, p_token: null, p_origin: "role_switch",
+          })
+        : { error: new Error("no_session_id") };
+      if (regErr) {
+        try { await admin.auth.admin.signOut(data.session.access_token, "local"); } catch { /* best effort */ }
+        return await respond({ error: "server_error" }, 500);
+      }
     }
 
     return await respond(

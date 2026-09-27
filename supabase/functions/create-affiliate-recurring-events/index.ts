@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // On matérialise les OCCURRENCE_HORIZON prochaines soirées de chaque modèle,
 // pas seulement la fenêtre advance_days : le RP voit toutes les dates à venir
@@ -67,6 +68,9 @@ serve(async (req) => {
       "authorization, x-client-info, apikey, content-type, x-cron-secret",
   };
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   // Accept either the cron secret (pg_cron) or a VALIDATED affiliate admin (dashboard button).
   const cronSecret = Deno.env.get("CRON_SECRET");

@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildPasswordSetup } from '../_shared/email-templates.ts';
 import { SUBSCRIPTIONS_ENABLED } from '../_shared/venue-plan.ts';
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { jwtSessionId } from "../_shared/support-session.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -461,6 +463,29 @@ async function handleDescribeInvitation(supabase: SupabaseClient, body: any): Pr
   });
 }
 
+/**
+ * Enregistre la session qu'on s'apprête à remettre au prospect comme session
+ * d'APERÇU (migration 20260927160000) : c'est ce qui la rend lecture seule
+ * côté serveur. Fail-closed : si l'enregistrement échoue, la session est
+ * révoquée et le lien répond une erreur — une session d'aperçu non marquée
+ * aurait tous les droits du compte démo.
+ */
+async function lockPreviewSession(
+  supabase: SupabaseClient,
+  session: { access_token: string; user: { id: string } },
+  token: string,
+): Promise<boolean> {
+  const sid = jwtSessionId(session.access_token);
+  if (sid) {
+    const { error } = await supabase.rpc('register_demo_preview_session', {
+      p_session_id: sid, p_user_id: session.user.id, p_token: token, p_origin: 'redeem',
+    });
+    if (!error) return true;
+  }
+  try { await supabase.auth.admin.signOut(session.access_token, 'local'); } catch { /* best effort */ }
+  return false;
+}
+
 async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any): Promise<Response> {
   const token = String(body?.token ?? '').trim();
   const password = String(body?.password ?? '');
@@ -515,6 +540,9 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
       token_hash: linkData.properties.hashed_token, type: 'magiclink',
     });
     if (verifyOtpError || !verified?.session) return json({ error: 'mint_session_failed', code: 'server_error' }, 500);
+    if (!(await lockPreviewSession(supabase, verified.session, token))) {
+      return json({ error: 'preview_lock_failed', code: 'server_error' }, 500);
+    }
 
     return json({
       success: true,
@@ -559,6 +587,9 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
       token_hash: linkData.properties.hashed_token, type: 'magiclink',
     });
     if (verifyOtpError || !verified?.session) return json({ error: 'mint_session_failed', code: 'server_error' }, 500);
+    if (!(await lockPreviewSession(supabase, verified.session, token))) {
+      return json({ error: 'preview_lock_failed', code: 'server_error' }, 500);
+    }
 
     return json({
       success: true,
@@ -590,6 +621,9 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
     email, password: demoPassword,
   });
   if (signError || !signIn?.session) return json({ error: 'signin_failed', code: 'server_error' }, 500);
+  if (!(await lockPreviewSession(supabase, signIn.session, token))) {
+    return json({ error: 'preview_lock_failed', code: 'server_error' }, 500);
+  }
 
   // 3) Compte préparé par le super admin (migration 20260926120000) : la démo
   //    porte la barre « Crée le compte de <orga> ». La clé du brouillon et
@@ -618,6 +652,13 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     const body = await req.json();
+
+    // Lien démo : seul le redeem du lien lui-même passe. Toute autre action
+    // (liens d'onboarding, acceptation d'invitation) est une écriture.
+    if (body?.action !== 'redeem_demo_preview_link') {
+      const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+      if (demoRefusal) return demoRefusal;
+    }
 
     // Onboarding-link mechanism (folded in — see header note on the edge-fn cap).
     if (body?.action === 'create_onboarding_link') return await handleCreateOnboardingLink(req, supabase, body);

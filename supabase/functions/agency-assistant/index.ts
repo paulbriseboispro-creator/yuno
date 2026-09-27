@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
 import { lastUserPrompt, logAiUsage, messagesChars, sumUsage, trackOpenAiStream, type AiUsageEvent, type OpenAiUsage } from "../_shared/ai-usage.ts";
+import { isDemoPreviewRequest } from "../_shared/demo-guard.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
@@ -362,6 +363,8 @@ const TOOLS = [
 ];
 
 const WRITE_TOOLS = new Set(["send_team_announcement", "update_agency_bio", "set_linktree_sort_mode"]);
+// Session d'un lien démo : l'IA ne se voit même pas proposer d'écrire.
+const READ_ONLY_TOOLS = TOOLS.filter((t) => !WRITE_TOOLS.has(t.function.name));
 
 function log(type: string, data: Record<string, any>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), type, ...data }));
@@ -763,6 +766,7 @@ serve(async (req) => {
 
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const demoPreview = await isDemoPreviewRequest(req);
 
     // Autorisation : rôle agency + propriété de la ligne agencies.
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
@@ -860,7 +864,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: OPENAI_MODEL,
           messages: conversationMessages,
-          tools: TOOLS,
+          tools: demoPreview ? READ_ONLY_TOOLS : TOOLS,
           tool_choice: "auto",
           stream: false,
         }),
@@ -911,6 +915,11 @@ serve(async (req) => {
         try { fnArgs = JSON.parse(tc.function.arguments || "{}"); } catch { /* empty */ }
 
         log("tool_exec", { round, tool: fnName, args: fnArgs });
+        // Lien démo = lecture seule (outils d'écriture en service_role).
+        if (demoPreview && WRITE_TOOLS.has(fnName)) {
+          conversationMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "demo_read_only", message: "Demo preview: read-only, nothing can be changed." }) });
+          continue;
+        }
         const result = await executeTool(fnName, fnArgs, supabase, ctx);
         log("tool_result", { round, tool: fnName, result_length: result.length });
 

@@ -14149,6 +14149,8 @@ const en: Record<string, string> = {
   "integ.meta.disconnectBody": "The token is destroyed and no further event is sent. Your history stays in Events Manager. You can reconnect at any time.",
   "integ.meta.cancel": "Cancel",
   "integ.meta.err.generic": "Something went wrong. Try again.",
+  "integ.meta.err.demo_account_locked": "This is a shared demo account: no Meta account can be connected to it.",
+  "integ.meta.err.demo_read_only": "Demo preview: read-only, nothing can be connected or changed.",
   "integ.meta.err.invalid_pixel_id": "The Pixel ID is a number of 6 to 32 digits.",
   "integ.meta.err.invalid_token": "The token looks wrong (too short, or contains spaces).",
   "integ.meta.err.token_invalid": "Meta refused this token. Generate a new one in Events Manager → Settings → Conversions API.",

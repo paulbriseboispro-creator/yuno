@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { releaseDjBookingBalance, refundDjBookingContract, computeDjEscrowFeeCents } from "../_shared/dj-payout.ts";
 import { resolveReturnOrigin, safeReturnUrl } from "../_shared/cors.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
+import { demoAccountGuard, demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Unified Stripe Connect dispatcher.
 // Replaces: organizer-stripe-connect-onboard, organizer-stripe-connect-status,
@@ -54,6 +55,16 @@ serve(async (req) => {
     // Origin forgée. Voir resolveReturnOrigin dans _shared/cors.ts.
     const { origin } = resolveReturnOrigin(req);
     log("Request", { userId: user.id, action });
+
+    // Compte démo partagé (@womber.fr) : jamais de compte Stripe réel relié,
+    // jamais de lien Express ni d'argent déplacé — Paul et l'agent compris.
+    // Seul le statut (lecture) reste ouvert ; en aperçu, rien du tout.
+    {
+      const demoRefusal = action === "status"
+        ? await demoPreviewGuard(req, corsHeaders)
+        : await demoAccountGuard(req, corsHeaders);
+      if (demoRefusal) return demoRefusal;
+    }
 
     // Mode support (accès admin assisté) : lecture seule sur Stripe. Toute
     // action qui crée/modifie un compte connecté, mint un lien Express (accès

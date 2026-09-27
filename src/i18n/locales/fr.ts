@@ -14123,6 +14123,8 @@ const fr: Record<string, string> = {
   "integ.meta.disconnectBody": "Le jeton est détruit et plus aucun événement ne part. Votre historique reste dans Events Manager. Vous pouvez reconnecter à tout moment.",
   "integ.meta.cancel": "Annuler",
   "integ.meta.err.generic": "Une erreur est survenue. Réessayez.",
+  "integ.meta.err.demo_account_locked": "Compte de démonstration partagé : aucun compte Meta ne peut y être connecté.",
+  "integ.meta.err.demo_read_only": "Aperçu de démonstration : lecture seule, rien ne peut être connecté ni modifié.",
   "integ.meta.err.invalid_pixel_id": "L'identifiant du pixel est un nombre de 6 à 32 chiffres.",
   "integ.meta.err.invalid_token": "Le jeton semble incorrect (trop court, ou contient des espaces).",
   "integ.meta.err.token_invalid": "Meta a refusé ce jeton. Générez-en un nouveau dans Events Manager → Paramètres → API Conversions.",

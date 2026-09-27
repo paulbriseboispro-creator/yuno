@@ -12,6 +12,7 @@ import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CO
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
 import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
+import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -123,6 +124,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
+  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+  if (demoRefusal) return demoRefusal;
 
   try {
     logStep("Function started", { testMode: TEST_MODE });
