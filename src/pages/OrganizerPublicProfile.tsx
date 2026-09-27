@@ -137,7 +137,7 @@ export default function OrganizerPublicProfile() {
       // partner (partner_organizer_id) — a co-soirée is public on BOTH sides,
       // symmetrically, whoever launched it.
       // Associations incluses : une soirée PRIVÉE ne s'ouvre que par son lien,
-      // elle ne s'affiche pas sur le profil public (20260926120000).
+      // elle ne s'affiche pas sur le profil public (20260927100000).
       const { data: evs } = await supabase
         .from('events')
         .select('id, slug, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')

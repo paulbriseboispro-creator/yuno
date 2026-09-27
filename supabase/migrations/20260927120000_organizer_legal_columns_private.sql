@@ -22,7 +22,7 @@
 --     mène chez ce club. Un club ne peut pas s'ouvrir l'accès seul en créant un
 --     brouillon qui nomme n'importe quel organisateur ;
 --   • le super admin.
--- Les reçus lisent déjà le vendeur par get_event_seller() (20260926130000).
+-- Les reçus lisent déjà le vendeur par get_event_seller() (20260927110000).
 -- Les edge functions lisent en service_role : non concernées.
 
 REVOKE SELECT ON public.organizer_profiles FROM authenticated;

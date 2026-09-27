@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveVatRegime, sellerVat } from '../generateDocuments';
 
-// Miroir SQL : organizer_vat_rate() (migration 20260926130000). Mêmes cas.
+// Miroir SQL : organizer_vat_rate() (migration 20260927110000). Mêmes cas.
 describe('resolveVatRegime', () => {
   it('explicit regime wins', () => {
     expect(resolveVatRegime({ vat_regime: 'subject', bde_verified: true })).toBe('subject');

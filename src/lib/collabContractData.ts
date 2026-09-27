@@ -15,7 +15,7 @@ const resolveOrgName = (o: OrgProfileName, publicName?: string | null) =>
 
 /**
  * Profil public + identité légale de l'organisateur d'un contrat. Les colonnes
- * légales ne se lisent plus en direct (20260926140000) : la RPC ne les rend
+ * légales ne se lisent plus en direct (20260927120000) : la RPC ne les rend
  * qu'aux parties du contrat (l'orga, son équipe, le club) et au super admin.
  */
 async function fetchOrganizerLegalProfile(organizerUserId: string): Promise<{

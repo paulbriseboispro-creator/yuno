@@ -84,7 +84,7 @@ export default function OrgAppProfile() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      // Les colonnes légales ne sont plus lisibles en direct (20260926140000) :
+      // Les colonnes légales ne sont plus lisibles en direct (20260927120000) :
       // elles arrivent par get_organizer_legal_identity, dans la même salve.
       const [{ data }, { data: legalRows, error: legalErr }] = await Promise.all([
         supabase
@@ -261,7 +261,7 @@ export default function OrgAppProfile() {
       };
       // Pas d'upsert : `ON CONFLICT … DO UPDATE SET col = EXCLUDED.col` exige le
       // droit de LECTURE sur chaque colonne écrite, et les colonnes légales ne
-      // sont plus lisibles en direct (20260926140000). UPDATE d'abord (le
+      // sont plus lisibles en direct (20260927120000). UPDATE d'abord (le
       // RETURNING ne porte que user_id), INSERT seulement si la ligne manque.
       // Identité légale non lue (RPC indisponible) : on ne l'écrase pas avec
       // des champs restés vides.

@@ -143,7 +143,7 @@ export function receiptLineLabels(lang: DocLang): { serviceFee: string; manageme
 // même sans numéro (CGI art. 283-3). `organizer_profiles.vat_regime` le dit ;
 // sans réglage, une ASSOCIATION (bde_verified) est réputée exonérée
 // (art. 261-7-1°), tout autre vendeur garde 20 %. Miroir SQL :
-// `organizer_vat_rate()` (migration 20260926130000). Les frais de service et
+// `organizer_vat_rate()` (migration 20260927110000). Les frais de service et
 // l'assurance restent à 20 % : ce sont des prestations de Yuno.
 export type VatRegime = 'subject' | 'franchise' | 'exempt_association';
 

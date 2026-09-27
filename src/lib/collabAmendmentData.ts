@@ -44,7 +44,7 @@ export async function loadAmendmentPdfData(
       .eq('user_id', row.organizer_user_id).maybeSingle(),
     supabase.from('profiles').select('first_name, last_name').eq('id', row.organizer_user_id).maybeSingle(),
   ]);
-  // Identité légale : RPC réservée aux parties (20260926140000).
+  // Identité légale : RPC réservée aux parties (20260927120000).
   const { data: legalRows } = await supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: row.organizer_user_id });
   const legal = (Array.isArray(legalRows) ? legalRows[0] : legalRows) ?? null;
 

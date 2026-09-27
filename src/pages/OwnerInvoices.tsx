@@ -177,7 +177,7 @@ export default function OwnerInvoices() {
 
         // Load the organizer's legal info once for the PDF issuer block. The
         // legal columns are only readable through get_organizer_legal_identity
-        // (owner, team, collab club, super admin — 20260926140000).
+        // (owner, team, collab club, super admin — 20260927120000).
         const [{ data: orgProfile }, { data: legalRows }] = await Promise.all([
           supabase
             .from('organizer_profiles')

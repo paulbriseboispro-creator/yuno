@@ -481,7 +481,7 @@ export function OrgEventFormDialog({
       // The DB trigger evaluate_event_discoverability() recomputes is_discoverable / discovery_status
       // server-side based on quality criteria (poster + title + description + future date + active).
       // We optimistically mark public events as approved so they appear immediately in Explore once the trigger validates them.
-      // Associations follow the same rule since 20260926120000: going public is their own choice.
+      // Associations follow the same rule since 20260927100000: going public is their own choice.
       const isDiscoverable = eventKind === 'public_event';
       const discoveryStatus = 'approved';
 

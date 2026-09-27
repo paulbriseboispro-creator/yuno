@@ -235,10 +235,10 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `org:<uuid>`, la surcharge `monthly_cap_override` gagne), TVA des reçus à 0 %
   par défaut, Stripe Connect pré-rempli `non_profit`. **Une association choisit
   seule public ou privé** : plus de modération super admin
-  (`evaluate_event_discoverability`, migration `20260926120000`), mêmes
+  (`evaluate_event_discoverability`, migration `20260927100000`), mêmes
   critères de qualité que tout organisateur. Une soirée PRIVÉE (asso ou non)
   n'apparaît ni dans la recherche ni sur le profil public `/o/…`.
-  **TVA du vendeur** (migration `20260926130000`) : `organizer_profiles.vat_regime`
+  **TVA du vendeur** (migration `20260927110000`) : `organizer_profiles.vat_regime`
   (`subject` 20 % | `franchise` 293 B | `exempt_association` 261-7-1°, NULL =
   asso exonérée sinon 20 %) + `rna_number` ; porte unique `resolveVatRegime` /
   `sellerVat` (`_shared/pdf-documents.ts`, importé par le front) = miroir SQL
@@ -259,7 +259,7 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   publique depuis le formulaire. Démo Association : `scripts/demo/seed-association.sql`
   (« Asso Yuno », soirée « Nuit de l'Asso » dans un club hors Yuno à Amiens,
   billets + tables event-scopées), puis `seed-upcoming-sales.sql`.
-  **Identité légale d'un organisateur = privée** (migration `20260926140000`) :
+  **Identité légale d'un organisateur = privée** (migration `20260927120000`) :
   `authenticated` n'a plus le SELECT de table sur `organizer_profiles`, mais un
   GRANT PAR COLONNE sans `legal_name`, `legal_address`, `siret`, `vat_number`,
   `billing_email`, `rna_number`, `vat_regime` (même modèle que anon). Lecture
