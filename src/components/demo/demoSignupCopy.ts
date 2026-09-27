@@ -11,6 +11,12 @@ export function demoLang(l: string | undefined | null): DemoLang {
   return l === 'fr' || l === 'es' ? l : 'en';
 }
 
+/** « de Amoris » → « d'Amoris » : élision devant une voyelle. Le h reste
+ *  sans élision (un h aspiré est plus courant dans un nom de lieu). */
+export function frDe(org: string): string {
+  return /^[aeiouyàâäéèêëîïôöùûüœæ]/i.test(org.trim()) ? `d'${org}` : `de ${org}`;
+}
+
 interface Copy {
   console: Record<DemoSignupKind, string>;
   orgLabel: Record<DemoSignupKind, string>;
@@ -54,17 +60,17 @@ export const DEMO_SIGNUP_COPY: Record<DemoLang, Copy> = {
     console: { club: 'Console Club', organizer: 'Console Organisateur' },
     orgLabel: { club: 'Nom du club', organizer: "Nom de l'organisation" },
     fallbackOrg: { club: 'ton club', organizer: 'ton organisation' },
-    barTitle: (first, org) => `${first ? `${first}, ` : ''}on a préparé le compte de ${org}.`,
+    barTitle: (first, org) => `${first ? `${first}, on` : 'On'} a préparé le compte ${frDe(org)}.`,
     barSub: (kind) => kind === 'club'
       ? 'Tout ce que tu vois dans cette démo, pour tes soirées : billets, tables VIP, guest list, bar. Ouverture en 1 minute.'
       : 'Tout ce que tu vois dans cette démo, pour tes soirées : billets, tables VIP, guest list. Ouverture en 1 minute.',
-    barCta: (org) => `Ouvrir le compte ${org}`,
+    barCta: (org) => `Ouvrir le compte ${frDe(org)}`,
     barCtaShort: 'Créer mon compte',
     barCreatedTitle: (org) => `Le compte ${org} est ouvert.`,
     barCreatedSub: 'Connecte-toi pour retrouver ta Console.',
     barCreatedCta: 'Aller sur mon compte',
     pillCta: 'Créer mon compte',
-    title: (org) => `Ouvre le compte de ${org}`,
+    title: (org) => `Ouvre le compte ${frDe(org)}`,
     lead: 'Tout est pré-rempli. Choisis ton mot de passe : tu arrives dans ta Console, avec le plan de ta première soirée.',
     firstName: 'Prénom',
     lastName: 'Nom',
@@ -104,7 +110,7 @@ export const DEMO_SIGNUP_COPY: Record<DemoLang, Copy> = {
     console: { club: 'Club Console', organizer: 'Organizer Console' },
     orgLabel: { club: 'Club name', organizer: 'Organization name' },
     fallbackOrg: { club: 'your club', organizer: 'your organization' },
-    barTitle: (first, org) => `${first ? `${first}, ` : ''}we've set up an account for ${org}.`,
+    barTitle: (first, org) => `${first ? `${first}, we` : 'We'}'ve set up an account for ${org}.`,
     barSub: (kind) => kind === 'club'
       ? 'Everything in this demo, for your own nights: tickets, VIP tables, guest list, bar. Ready in 1 minute.'
       : 'Everything in this demo, for your own nights: tickets, VIP tables, guest list. Ready in 1 minute.',
@@ -154,7 +160,7 @@ export const DEMO_SIGNUP_COPY: Record<DemoLang, Copy> = {
     console: { club: 'Consola Club', organizer: 'Consola Organizador' },
     orgLabel: { club: 'Nombre del club', organizer: 'Nombre de la organización' },
     fallbackOrg: { club: 'tu club', organizer: 'tu organización' },
-    barTitle: (first, org) => `${first ? `${first}, ` : ''}hemos preparado la cuenta de ${org}.`,
+    barTitle: (first, org) => `${first ? `${first}, hemos` : 'Hemos'} preparado la cuenta de ${org}.`,
     barSub: (kind) => kind === 'club'
       ? 'Todo lo que ves en esta demo, para tus noches: entradas, mesas VIP, guest list, barra. Lista en 1 minuto.'
       : 'Todo lo que ves en esta demo, para tus noches: entradas, mesas VIP, guest list. Lista en 1 minuto.',
