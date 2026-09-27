@@ -165,3 +165,18 @@ describe('openDemoAccount', () => {
     expect(scratch.auth.signUp).not.toHaveBeenCalled();
   });
 });
+
+describe('demo sign-up copy', () => {
+  it('elides « de » before a vowel in French', async () => {
+    const { DEMO_SIGNUP_COPY, frDe } = await import('@/components/demo/demoSignupCopy');
+    expect(frDe('Amoris')).toBe("d'Amoris");
+    expect(frDe('Écluse')).toBe("d'Écluse");
+    expect(frDe('Womber')).toBe('de Womber');
+    expect(frDe("L'Amoris")).toBe("de L'Amoris");
+    expect(DEMO_SIGNUP_COPY.fr.barTitle('Hugo', 'Amoris')).toBe("Hugo, on a préparé le compte d'Amoris.");
+    expect(DEMO_SIGNUP_COPY.fr.barTitle('', 'Womber')).toBe('On a préparé le compte de Womber.');
+    expect(DEMO_SIGNUP_COPY.en.barTitle('', 'Amoris')).toBe("We've set up an account for Amoris.");
+    expect(DEMO_SIGNUP_COPY.es.barTitle('Hugo', 'Amoris')).toBe('Hugo, hemos preparado la cuenta de Amoris.');
+    expect(DEMO_SIGNUP_COPY.fr.barCta('Amoris')).toBe("Ouvrir le compte d'Amoris");
+  });
+});
