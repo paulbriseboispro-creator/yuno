@@ -32,9 +32,13 @@ Ce qui ne se fait jamais, garde ou pas :
 - **Aucune donnée réelle importée sur un compte démo.** Le mot de passe démo a
   été livré en clair dans des bundles publiés ; tout ce qui vit là est
   consultable par qui l'a lu.
-- **Aucun envoi réel** (campagne email, SMS, push) depuis un compte démo vers
-  des adresses réelles. Les 12 315 contacts de `organizer@womber.fr` sont là
-  pour le RENDU des écrans, jamais pour un envoi. Décision de Paul, 2026-09-21.
+- **Aucun envoi réel** (campagne email, SMS, push) depuis un compte démo : les
+  workers d'envoi le refusent (`demo_no_send`) depuis le 2026-09-27.
+- **Contacts de démo** : `organizer@womber.fr` = vraie base de 12 328 contacts
+  MASQUÉE À LA SOURCE (`restore-masked-contacts.sql`) ; club `womber` = 1 200
+  fictifs (`node scripts/demo/seed-demo-contacts.mjs`). Puis
+  `seed-demo-engagement.sql` (historique d'ouvertures / clics) et « Actualiser »
+  dans Contacts. Jamais une vraie identité importée en clair sur un compte démo.
 - **Pas de rotation du mot de passe démo** (`scripts/rotate-demo-password.mjs`) :
   les bundles déjà publiés le portent en dur.
 - **Les liens d'aperçu sont lecture seule CÔTÉ SERVEUR** (2026-09-27, cf.

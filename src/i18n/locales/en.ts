@@ -12904,6 +12904,7 @@ const en: Record<string, string> = {
   'studio.test.invalidEmail': "Invalid address",
   'studio.test.saveFailed': "Could not save before the test",
   'studio.test.sendFailed': "Test send failed",
+  'studio.demoNoSend': "Demo account: build your email, target and preview it freely — sending is turned off here. In your own account it would go out now.",
   'studio.test.sent': "Test sent to {email}",
   'studio.test.yourAddress': "your address",
   'studio.test.close': "Close",

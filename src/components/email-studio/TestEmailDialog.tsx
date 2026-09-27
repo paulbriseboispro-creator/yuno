@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CheckCircle2, Loader2, SendHorizontal, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { isDemoAccountSession } from '@/lib/demoSession';
 import { BORDER, FONT_UI, PrimaryBtn, RED, SUBTLE, T1, T3, TextInput } from './ui';
 
 /** Modale « Envoyer un test » (prototype) : adresse, envoi réel, confirmation. */
@@ -24,6 +25,10 @@ export default function TestEmailDialog({ open, campaignId, onSave, onClose }: {
     const extra = email.trim();
     if (extra && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extra)) {
       setError(t('studio.test.invalidEmail'));
+      return;
+    }
+    if (await isDemoAccountSession()) {
+      setError(t('studio.demoNoSend'));
       return;
     }
     setSending(true);

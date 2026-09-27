@@ -35,7 +35,7 @@ import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
 import { sendResendBatch, batchIdempotencyKey, sleep, type BatchOutcome, type ResendEmail } from '../_shared/resend-batch.ts';
 import { marketingDomain, senderScopeKey } from '../_shared/email-sender-identity.ts';
 import { supportSessionFor } from '../_shared/support-session.ts';
-import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -841,6 +841,18 @@ Deno.serve(async (req) => {
         .from('email_campaigns').select('*').eq('id', campaign_id).single();
       if (cErr || !row) throw new Error('Campaign not found');
       campaign = row;
+    }
+
+    // Périmètre démo : on compose, on cible, on voit ses segments — on
+    // n'envoie JAMAIS (ni masse, ni test, ni cron). Une campagne que le front
+    // vient de passer en `sending` / `scheduled` retourne en brouillon, sinon
+    // elle resterait « Envoi en cours, 0/0 » (cf. CLAUDE.md, refus du 17/09).
+    if (await isDemoMarketingScope(campaign.venue_id as string | null, campaign.organizer_user_id as string | null)) {
+      if (campaign_id && ['sending', 'scheduled'].includes(String(campaign.status))) {
+        await admin.from('email_campaigns').update({ status: 'draft', scheduled_at: null })
+          .eq('id', campaign_id).in('status', ['sending', 'scheduled']);
+      }
+      return new Response(JSON.stringify({ error: 'demo_no_send', code: 'demo_no_send' }), { status: 409, headers: jsonHeaders });
     }
 
     const sender = await resolveSender(admin, campaign);

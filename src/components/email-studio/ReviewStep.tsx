@@ -12,6 +12,7 @@ import { actionFmt } from '@/components/action/tokens';
 import { useStudio } from './store';
 import { useAudienceCount, type StudioEvent, type StudioScope } from './hooks';
 import { capturePosthog } from '@/lib/posthog';
+import { isDemoAccountSession } from '@/lib/demoSession';
 import {
   BORDER, FlowCard, FONT_UI, GhostBtn, Help, MicroLabel, PANEL_BG, POS, PrimaryBtn,
   RED, T1, T2, T3, WARN,
@@ -108,6 +109,12 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
    * pendant des minutes, parfois des heures.
    */
   const sendNow = async () => {
+    // Compte démo : tout se compose, rien ne part (le serveur refuse aussi).
+    if (await isDemoAccountSession()) {
+      setConfirmOpen(false);
+      toast.info(t('studio.demoNoSend'));
+      return;
+    }
     setSending(true);
     setConfirmOpen(false);
     setRunStage(0);
@@ -181,6 +188,7 @@ export default function ReviewStep({ scope, events, live, onSave, onSent, onEdit
   const alreadyScheduled = campaign.status === 'scheduled';
   const schedule = async () => {
     if (!campaign.scheduledAt) return;
+    if (await isDemoAccountSession()) { toast.info(t('studio.demoNoSend')); return; }
     const id = await onSave('scheduled');
     if (id) {
       toast.success(t(alreadyScheduled ? 'studio.scheduled.updated' : 'em.toast.scheduled'));

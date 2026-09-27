@@ -785,9 +785,9 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
   - **Les automatisations email de la démo sont ALLUMÉES mais n'envoient
     jamais** (migration `20260925110000`) : `collect_email_automations()`
     saute toute recette d'une portée démo (`is_demo_marketing_scope(venue,
-    orga)` : `demo_venue_ids()` ou orga `is_demo_email`). Indispensable : la
-    base de `organizer@womber.fr` contient 12 315 adresses importées,
-    réelles. Toute réécriture de ce moteur garde ce filtre.
+    orga)` : `demo_venue_ids()` ou orga `is_demo_email`). Toute réécriture
+    de ce moteur garde ce filtre (et, depuis le 27/09, les workers d'envoi
+    refusent de toute façon le périmètre démo : `demo_no_send`).
   - **Soirée orga SANS club de la démo = « Rooftop Session »**
     (`c0ffee00-25a9-4d3e-9c1a-0000000000a1`, 17/10, `solo_organizer`) :
     tables basic event-scopées (deux zones, trois formules dont une
@@ -940,8 +940,23 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   attend du texte PUIS la disparition des `.animate-pulse`.
 - **Aucun rôle `admin` sur un compte `@womber.fr`**, aucune donnée réelle
   importée dessus, **aucun envoi réel** (email, SMS, push) depuis un compte démo.
-  Les 12 315 contacts de `organizer@womber.fr` servent au RENDU des écrans, à
-  rien d'autre (décision du 2026-09-21). Ne pas exécuter
+  Les 12 328 contacts de `organizer@womber.fr` sont une copie MASQUÉE À LA
+  SOURCE de la vraie base (27/09, `scripts/demo/restore-masked-contacts.sql` :
+  « Ma••• », « ju•••a3f9c1@g•••.com », numéros de fiction ARCEP 06 39 98 /
+  09 77 42 ; villes, âges, dépenses, fréquence et dates intacts) — jamais une
+  vraie identité sur un compte démo, le jeton d'un prospect lit l'API. Le club
+  démo porte 1 200 contacts fictifs (`seed-demo-contacts.mjs`, @example.*),
+  et `seed-demo-engagement.sql` leur donne un historique d'envois (actifs /
+  passifs / silencieux). **Envoi impossible sur tout le périmètre démo**,
+  quelle que soit la session (Paul, agent, cron, prospect) : `send-campaign`,
+  `send-sms-campaign`, `send-push-campaign` rendent `demo_no_send` (409) via
+  `isDemoMarketingScope` et remettent en brouillon une campagne passée en
+  file ; l'Email Studio le dit avant d'essayer (`studio.demoNoSend`). En
+  aperçu, la COMPOSITION reste ouverte (migration `20260927162000` :
+  INSERT/UPDATE sur `email_campaigns` / `email_campaign_templates`, RPC de
+  segments ; jamais de passage en `sending` / `scheduled`) et toute donnée
+  personnelle affichée est masquée par `previewGuard.ts` (`maskDeep`,
+  appliqué à toute réponse PostgREST sauf les brouillons). Ne pas exécuter
   `scripts/rotate-demo-password.mjs` : les bundles publiés portent le mot de
   passe en dur.
 - **Lien démo = lecture seule IMPOSÉE PAR LE SERVEUR** (2026-09-27, migrations

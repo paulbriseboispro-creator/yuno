@@ -149,3 +149,18 @@ export function clearDemoBypass(): void {
     localStorage.removeItem('staffSession');
   } catch { /* ignore */ }
 }
+
+/**
+ * La session courante est-elle celle d'un compte démo partagé (@womber.fr) ?
+ * Sert aux écrans d'envoi (Email Studio…) : dans la démo on compose, on
+ * cible, on voit ses segments — l'envoi est refusé par le serveur
+ * (`demo_no_send`), l'écran le dit avant de le tenter.
+ */
+export async function isDemoAccountSession(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return String(data.session?.user?.email ?? '').toLowerCase().endsWith('@womber.fr');
+  } catch {
+    return false;
+  }
+}

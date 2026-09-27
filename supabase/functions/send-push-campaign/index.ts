@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -365,6 +365,10 @@ Deno.serve(async (req) => {
       if (!campaign || !['scheduled', 'sending'].includes(campaign.status)) {
         return json(404, { error: 'scheduled campaign not found' });
       }
+      if (await isDemoMarketingScope(campaign.venue_id, campaign.organizer_user_id)) {
+        await supabase.from('push_campaigns').update({ status: 'failed' }).eq('id', campaign.id);
+        return json(409, { error: 'demo_no_send', code: 'demo_no_send' });
+      }
       const stored = (campaign.audience || {}) as CampaignRequest;
       const request: CampaignRequest = {
         title: campaign.title, body: campaign.body, url: campaign.url || '/',
@@ -471,6 +475,11 @@ Deno.serve(async (req) => {
         quiet_hours: quietHours,
         policy: policyKind,
       });
+    }
+
+    // Périmètre démo : l'estimation ci-dessus reste lisible, l'envoi jamais.
+    if (await isDemoMarketingScope(body.venue_id ?? null, body.organizer_user_id ?? null)) {
+      return json(409, { error: 'demo_no_send', code: 'demo_no_send' });
     }
 
     // Heures calmes : on refuse plutôt que de créer une campagne à zéro.

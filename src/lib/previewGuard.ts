@@ -26,6 +26,18 @@ import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
 const WRITE_BUILDER_METHODS = ['insert', 'update', 'upsert', 'delete'] as const;
 
+// Composition d'email ouverte en aperçu (migration 20260927162000, miroir de
+// demo_preview_writable_table / demo_preview_writable_rpc) : le prospect crée
+// un brouillon, l'enregistre comme modèle, cible des segments. Jamais de
+// suppression, et un passage en envoi / planification est refusé par un
+// trigger serveur — puis par les workers d'envoi pour tout compte démo.
+const PREVIEW_WRITABLE_TABLES = new Set(['email_campaigns', 'email_campaign_templates']);
+const PREVIEW_WRITABLE_METHODS = new Set(['insert', 'update', 'upsert']);
+const PREVIEW_WRITABLE_RPCS = new Set([
+  'save_contact_segments', 'bump_email_template_usage',
+  'refresh_contact_engagement', 'refresh_campaign_list_impacts',
+]);
+
 // Verbes d'écriture : une RPC dont le nom commence par l'un d'eux est bloquée.
 // Biais volontaire : ne JAMAIS bloquer une lecture (get_/search_/count_/is_/…).
 //
@@ -114,7 +126,8 @@ export function installPreviewWriteGuard(): void {
       const orig = typeof builder[m] === 'function' ? builder[m].bind(builder) : null;
       if (!orig) continue;
       builder[m] = (...args: any[]) => {
-        if (isPreviewActive()) {
+        const composing = PREVIEW_WRITABLE_TABLES.has(String(table)) && PREVIEW_WRITABLE_METHODS.has(m);
+        if (isPreviewActive() && !composing) {
           notifyBlocked();
           return blockedResult();
         }
@@ -127,7 +140,7 @@ export function installPreviewWriteGuard(): void {
   // 2) .rpc(name) — bloque seulement les RPC d'écriture en aperçu.
   const origRpc = supabase.rpc.bind(supabase);
   (supabase as any).rpc = (fn: string, args?: any, options?: any) => {
-    if (isPreviewActive() && isWriteRpc(fn)) {
+    if (isPreviewActive() && isWriteRpc(fn) && !PREVIEW_WRITABLE_RPCS.has(String(fn).toLowerCase())) {
       notifyBlocked();
       return blockedResult();
     }
@@ -199,5 +212,84 @@ export function installPreviewWriteGuard(): void {
   };
 }
 
+// ─── Mode masqué (aperçu démo) ────────────────────────────────────────────
+// Dans un aperçu, toute donnée personnelle affichée ne montre que ses
+// premières lettres : « Ma••• », « ju•••@g•••.com », « +336 •• •• •• 68 ».
+// Le prospect voit la puissance (volumes, segments, historique) sans lire une
+// seule identité. Filtre d'AFFICHAGE, appliqué à toute réponse PostgREST
+// (tables et RPC) : la base de contacts importée de la démo est, elle, déjà
+// masquée À LA SOURCE (scripts/demo/restore-masked-contacts.sql) — un jeton
+// d'aperçu qui lirait l'API directement n'y trouve rien de réel non plus.
+// Les brouillons de campagne ne sont jamais masqués : l'autosave du Studio
+// réécrirait la version masquée en base.
+const MASK = '•••';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[\d\s().-]{8,20}$/;
+const NAME_KEYS = new Set([
+  'first_name', 'last_name', 'full_name', 'customer_name', 'guest_name', 'buyer_name',
+  'holder_name', 'attendee_name', 'client_name', 'contact_name', 'recipient_name',
+  'invitee_name', 'invited_name', 'booker_name', 'prenom', 'nom',
+]);
+const UNMASKED_PATHS = /\/rest\/v1\/(email_campaigns|email_campaign_templates)$/;
+
+function maskEmail(v: string): string {
+  const at = v.indexOf('@');
+  const local = v.slice(0, at);
+  const domain = v.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return `${local.slice(0, 2)}${MASK}@${domain.slice(0, 1)}${MASK}${dot > 0 ? domain.slice(dot) : ''}`;
+}
+function maskPhone(v: string): string {
+  const compact = v.replace(/[\s().-]/g, '');
+  return `${compact.slice(0, 4)} •• •• •• ${compact.slice(-2)}`;
+}
+function maskValue(key: string, v: string): string {
+  if (!v) return v;
+  const k = key.toLowerCase();
+  // Toujours re-masqué : cache aussi l'empreinte des emails masqués à la source.
+  if (EMAIL_RE.test(v.trim())) return maskEmail(v.trim());
+  if (v.includes('•')) return v;
+  if ((k.includes('phone') || k.includes('mobile') || k === 'tel') && PHONE_RE.test(v.trim())) return maskPhone(v.trim());
+  if (NAME_KEYS.has(k)) return `${v.trim().slice(0, k === 'last_name' || k === 'nom' ? 1 : 2)}${MASK}`;
+  return v;
+}
+function maskDeep(value: unknown, key = '', depth = 0): unknown {
+  if (depth > 8 || value == null) return value;
+  if (typeof value === 'string') return maskValue(key, value);
+  if (Array.isArray(value)) return value.map((v) => maskDeep(v, key, depth + 1));
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = maskDeep(v, k, depth + 1);
+    return out;
+  }
+  return value;
+}
+
+type Thenable = { then: (f?: (v: unknown) => unknown, r?: (e: unknown) => unknown) => unknown; url?: URL };
+let maskInstalled = false;
+function installPreviewMask(): void {
+  if (maskInstalled) return;
+  maskInstalled = true;
+  try {
+    // Le prototype qui porte `then` est celui de tous les builders (tables et RPC).
+    let proto: object | null = Object.getPrototypeOf(supabase.rpc('is_demo_preview_session' as never));
+    while (proto && !Object.prototype.hasOwnProperty.call(proto, 'then')) proto = Object.getPrototypeOf(proto);
+    if (!proto) return;
+    const target = proto as Thenable;
+    const origThen = target.then;
+    target.then = function (this: Thenable, onFulfilled?: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) {
+      if (!isPreviewActive() || UNMASKED_PATHS.test(this.url?.pathname ?? '')) {
+        return origThen.call(this, onFulfilled, onRejected);
+      }
+      return origThen.call(this, (res: unknown) => {
+        const r = res as { data?: unknown } | null;
+        const masked = r && r.data != null ? { ...r, data: maskDeep(r.data) } : res;
+        return onFulfilled ? onFulfilled(masked) : masked;
+      }, onRejected);
+    };
+  } catch { /* sans masque d'affichage : la base démo reste masquée à la source */ }
+}
+
 // Auto-installation à l'import (App.tsx importe ce module pour effet de bord).
 installPreviewWriteGuard();
+installPreviewMask();

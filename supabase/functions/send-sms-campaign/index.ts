@@ -30,7 +30,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { composeSmsBody, smsSizing, normalizeLang, cleanSenderName } from "../_shared/sms-text.ts";
 import { isSupportSessionToken } from "../_shared/support-session.ts";
-import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { demoPreviewGuard, isDemoMarketingScope } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -477,6 +477,11 @@ Deno.serve(async (req) => {
     // ── Test ────────────────────────────────────────────────────────────────
     if (mode === "test") {
       if (!actingUserId) return json({ error: "Unauthorized" }, 401);
+      // Périmètre démo : aucun SMS réel, même de test.
+      const tp = payload as TestPayload;
+      if (await isDemoMarketingScope(tp.venue_id ?? null, tp.organizer_user_id ?? null)) {
+        return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
+      }
       if (!cfg) return json({ error: "SMS_NOT_CONFIGURED" }, 503);
       return await sendTest(admin, actingUserId, payload as TestPayload, cfg);
     }
@@ -487,6 +492,14 @@ Deno.serve(async (req) => {
 
     if (actingUserId && !(await userOwnsScope(admin, actingUserId, campaign.venue_id, campaign.organizer_id))) {
       return json({ error: "Forbidden" }, 403);
+    }
+    // Périmètre démo : on compose, on n'envoie jamais (cron compris). Une
+    // campagne passée en file retourne en brouillon.
+    if (await isDemoMarketingScope(campaign.venue_id as string | null, campaign.organizer_id as string | null)) {
+      if (["sending", "scheduled"].includes(String(campaign.status))) {
+        await admin.from("sms_campaigns").update({ status: "draft" }).eq("id", campaignId).in("status", ["sending", "scheduled"]);
+      }
+      return json({ error: "demo_no_send", code: "demo_no_send" }, 409);
     }
     if (!cfg) return json({ error: "SMS_NOT_CONFIGURED" }, 503);
 

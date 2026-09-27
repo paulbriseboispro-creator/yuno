@@ -12878,6 +12878,7 @@ const fr: Record<string, string> = {
   'studio.test.invalidEmail': "Adresse invalide",
   'studio.test.saveFailed': "Sauvegarde impossible avant le test",
   'studio.test.sendFailed': "L'envoi du test a échoué",
+  'studio.demoNoSend': "Compte de démonstration : compose, cible et prévisualise librement — l'envoi est désactivé ici. Dans ton compte, ta campagne partirait maintenant.",
   'studio.test.sent': "Test envoyé à {email}",
   'studio.test.yourAddress': "ton adresse",
   'studio.test.close': "Fermer",

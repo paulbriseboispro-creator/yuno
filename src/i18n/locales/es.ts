@@ -13246,6 +13246,7 @@ const es: Record<string, string> = {
   'studio.test.invalidEmail': "Dirección no válida",
   'studio.test.saveFailed': "No se pudo guardar antes de la prueba",
   'studio.test.sendFailed': "El envío de prueba falló",
+  'studio.demoNoSend': "Cuenta de demostración: crea, segmenta y previsualiza libremente — el envío está desactivado aquí. En tu cuenta, la campaña saldría ahora.",
   'studio.test.sent': "Prueba enviada a {email}",
   'studio.test.yourAddress': "tu dirección",
   'studio.test.close': "Cerrar",

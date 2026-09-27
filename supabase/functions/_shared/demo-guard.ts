@@ -116,3 +116,32 @@ export async function demoAccountGuard(
   }
   return null;
 }
+
+/**
+ * Le périmètre marketing est-il DÉMO (club démo, ou organisateur @womber.fr…) ?
+ * Miroir de is_demo_marketing_scope() (SQL). Sert aux trois workers d'envoi
+ * (email, SMS, push) : un compte démo peut composer, cibler, voir ses
+ * segments — jamais envoyer, ni en masse ni en test, quelle que soit la
+ * session (Paul, agent, cron, prospect). Fail-open sur panne de lecture :
+ * une panne ne doit pas bloquer les vrais clients.
+ */
+export async function isDemoMarketingScope(
+  venueId: string | null | undefined,
+  organizerUserId: string | null | undefined,
+): Promise<boolean> {
+  if (!venueId && !organizerUserId) return false; // portée plateforme (Yuno)
+  try {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } },
+    );
+    const { data, error } = await admin.rpc("is_demo_marketing_scope", {
+      p_venue_id: venueId ?? null,
+      p_organizer_user_id: organizerUserId ?? null,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
+}
