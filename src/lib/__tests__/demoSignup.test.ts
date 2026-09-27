@@ -69,6 +69,11 @@ describe('parseDemoSignup', () => {
     expect(parseDemoSignup(serializeDemoSignup(p!))).toEqual(p);
   });
 
+  it('knows the association account type', () => {
+    expect(parseDemoSignup({ kind: 'association', key: KEY, org_name: 'BDE Kedge' }))
+      .toMatchObject({ kind: 'association', orgName: 'BDE Kedge' });
+  });
+
   it('keeps an already-created account without its key', () => {
     expect(parseDemoSignup({ created: true, kind: 'club', org_name: 'Amoris', key: KEY }))
       .toMatchObject({ created: true, key: null, orgName: 'Amoris' });
@@ -178,5 +183,7 @@ describe('demo sign-up copy', () => {
     expect(DEMO_SIGNUP_COPY.en.barTitle('', 'Amoris')).toBe("We've set up an account for Amoris.");
     expect(DEMO_SIGNUP_COPY.es.barTitle('Hugo', 'Amoris')).toBe('Hugo, hemos preparado la cuenta de Amoris.');
     expect(DEMO_SIGNUP_COPY.fr.barCta('Amoris')).toBe("Ouvrir le compte d'Amoris");
+    expect(DEMO_SIGNUP_COPY.fr.barSub('association')).toContain('ton association');
+    expect(DEMO_SIGNUP_COPY.es.orgLabel.association).toBe('Nombre de la asociación');
   });
 });

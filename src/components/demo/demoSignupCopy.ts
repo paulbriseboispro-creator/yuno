@@ -57,13 +57,15 @@ interface Copy {
 
 export const DEMO_SIGNUP_COPY: Record<DemoLang, Copy> = {
   fr: {
-    console: { club: 'Console Club', organizer: 'Console Organisateur' },
-    orgLabel: { club: 'Nom du club', organizer: "Nom de l'organisation" },
-    fallbackOrg: { club: 'ton club', organizer: 'ton organisation' },
+    console: { club: 'Console Club', organizer: 'Console Organisateur', association: 'Association' },
+    orgLabel: { club: 'Nom du club', organizer: "Nom de l'organisation", association: "Nom de l'association" },
+    fallbackOrg: { club: 'ton club', organizer: 'ton organisation', association: 'ton association' },
     barTitle: (first, org) => `${first ? `${first}, on` : 'On'} a préparé le compte ${frDe(org)}.`,
     barSub: (kind) => kind === 'club'
       ? 'Tout ce que tu vois dans cette démo, pour tes soirées : billets, tables VIP, guest list, bar. Ouverture en 1 minute.'
-      : 'Tout ce que tu vois dans cette démo, pour tes soirées : billets, tables VIP, guest list. Ouverture en 1 minute.',
+      : kind === 'association'
+        ? 'Tout ce que tu vois dans cette démo, pour les soirées de ton association : billets, guest list, tables VIP. Ouverture en 1 minute.'
+        : 'Tout ce que tu vois dans cette démo, pour tes soirées : billets, tables VIP, guest list. Ouverture en 1 minute.',
     barCta: (org) => `Ouvrir le compte ${frDe(org)}`,
     barCtaShort: 'Créer mon compte',
     barCreatedTitle: (org) => `Le compte ${org} est ouvert.`,
@@ -107,13 +109,15 @@ export const DEMO_SIGNUP_COPY: Record<DemoLang, Copy> = {
     },
   },
   en: {
-    console: { club: 'Club Console', organizer: 'Organizer Console' },
-    orgLabel: { club: 'Club name', organizer: 'Organization name' },
-    fallbackOrg: { club: 'your club', organizer: 'your organization' },
+    console: { club: 'Club Console', organizer: 'Organizer Console', association: 'Association' },
+    orgLabel: { club: 'Club name', organizer: 'Organization name', association: 'Association name' },
+    fallbackOrg: { club: 'your club', organizer: 'your organization', association: 'your association' },
     barTitle: (first, org) => `${first ? `${first}, we` : 'We'}'ve set up an account for ${org}.`,
     barSub: (kind) => kind === 'club'
       ? 'Everything in this demo, for your own nights: tickets, VIP tables, guest list, bar. Ready in 1 minute.'
-      : 'Everything in this demo, for your own nights: tickets, VIP tables, guest list. Ready in 1 minute.',
+      : kind === 'association'
+        ? "Everything in this demo, for your association's nights: tickets, guest list, VIP tables. Ready in 1 minute."
+        : 'Everything in this demo, for your own nights: tickets, VIP tables, guest list. Ready in 1 minute.',
     barCta: (org) => `Open the ${org} account`,
     barCtaShort: 'Create my account',
     barCreatedTitle: (org) => `The ${org} account is open.`,
@@ -157,13 +161,15 @@ export const DEMO_SIGNUP_COPY: Record<DemoLang, Copy> = {
     },
   },
   es: {
-    console: { club: 'Consola Club', organizer: 'Consola Organizador' },
-    orgLabel: { club: 'Nombre del club', organizer: 'Nombre de la organización' },
-    fallbackOrg: { club: 'tu club', organizer: 'tu organización' },
+    console: { club: 'Consola Club', organizer: 'Consola Organizador', association: 'Asociación' },
+    orgLabel: { club: 'Nombre del club', organizer: 'Nombre de la organización', association: 'Nombre de la asociación' },
+    fallbackOrg: { club: 'tu club', organizer: 'tu organización', association: 'tu asociación' },
     barTitle: (first, org) => `${first ? `${first}, hemos` : 'Hemos'} preparado la cuenta de ${org}.`,
     barSub: (kind) => kind === 'club'
       ? 'Todo lo que ves en esta demo, para tus noches: entradas, mesas VIP, guest list, barra. Lista en 1 minuto.'
-      : 'Todo lo que ves en esta demo, para tus noches: entradas, mesas VIP, guest list. Lista en 1 minuto.',
+      : kind === 'association'
+        ? 'Todo lo que ves en esta demo, para las noches de tu asociación: entradas, guest list, mesas VIP. Lista en 1 minuto.'
+        : 'Todo lo que ves en esta demo, para tus noches: entradas, mesas VIP, guest list. Lista en 1 minuto.',
     barCta: (org) => `Abrir la cuenta de ${org}`,
     barCtaShort: 'Crear mi cuenta',
     barCreatedTitle: (org) => `La cuenta de ${org} está abierta.`,

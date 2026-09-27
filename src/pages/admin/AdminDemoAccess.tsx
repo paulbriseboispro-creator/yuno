@@ -113,7 +113,9 @@ interface ClaimRequest {
   venues?: { name: string } | null;
 }
 
-type SignupKind = 'club' | 'organizer';
+// `association` = compte Association (organisateur + statut Association posé
+// à l'ouverture, migrations 20260927140000 → 150000).
+type SignupKind = 'club' | 'organizer' | 'association';
 type Pillar = 'tickets' | 'tables' | 'guest_list' | 'drinks';
 const PILLARS: Pillar[] = ['tickets', 'tables', 'guest_list', 'drinks'];
 
@@ -222,8 +224,8 @@ function SignupFields({ draft, onChange, t }: {
     <div className="space-y-3">
       <div>
         <Label style={{ color: T2 }}>{t('adm.demo.signup.kind')}</Label>
-        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-          {(['club', 'organizer'] as SignupKind[]).map((k) => (
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+          {(['club', 'organizer', 'association'] as SignupKind[]).map((k) => (
             <button key={k} type="button" onClick={() => set('kind', k)}
               className="rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition" style={seg(draft.kind === k)}>
               {t(`adm.demo.signup.${k}`)}
@@ -242,7 +244,7 @@ function SignupFields({ draft, onChange, t }: {
         </div>
       </div>
       <div>
-        <Label style={{ color: T2 }}>{t(draft.kind === 'club' ? 'adm.demo.signup.orgClub' : 'adm.demo.signup.orgOrganizer')}</Label>
+        <Label style={{ color: T2 }}>{t(draft.kind === 'club' ? 'adm.demo.signup.orgClub' : draft.kind === 'association' ? 'adm.demo.signup.orgAssociation' : 'adm.demo.signup.orgOrganizer')}</Label>
         <input value={draft.orgName} onChange={(e) => set('orgName', e.target.value)} maxLength={120} style={{ ...inputStyle, marginTop: 6 }} />
       </div>
       <div>
@@ -271,6 +273,9 @@ function SignupFields({ draft, onChange, t }: {
           ))}
         </div>
       </div>
+      {draft.kind === 'association' && (
+        <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('adm.demo.signup.associationHint')}</p>
+      )}
       <button type="button" onClick={() => set('offerSupport', !draft.offerSupport)} className="flex items-start gap-2.5 w-full text-left">
         <Tickbox on={draft.offerSupport} />
         <span style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
@@ -802,7 +807,7 @@ export default function AdminDemoAccess() {
                   {signups[l.id] && (() => {
                     const su = signups[l.id];
                     const stage = signupStage(su);
-                    const text = t(`adm.demo.signup.st.${stage}`).replace('{org}', su.org_name ?? '');
+                    const text = `${t(`adm.demo.signup.st.${stage}`).replace('{org}', su.org_name ?? '')} · ${t(`adm.demo.signup.${su.kind}`)}`;
                     return (
                       <span className="hidden md:inline-flex max-w-[260px] min-w-0">
                         {stage === 'created'

@@ -22,7 +22,9 @@ import { recordLegalAcceptance } from '@/lib/legal';
 import { publicUrl } from '@/lib/native';
 import { PENDING_SIGNUP_KEY, isValidSignupKey } from '@/lib/proSignup';
 
-export type DemoSignupKind = 'club' | 'organizer';
+/** `association` = compte organisateur formulé pour une association
+ *  (demo_preview_links.signup_association, migration 20260927140000). */
+export type DemoSignupKind = 'club' | 'organizer' | 'association';
 
 /** Brouillon rendu par l'edge de redeem (RPC demo_preview_link_signup). */
 export interface DemoSignupPrefill {
@@ -46,7 +48,7 @@ const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 export function parseDemoSignup(raw: unknown): DemoSignupPrefill | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  const kind = o.kind === 'club' || o.kind === 'organizer' ? o.kind : null;
+  const kind = o.kind === 'club' || o.kind === 'organizer' || o.kind === 'association' ? o.kind : null;
   if (!kind) return null;
   const created = o.created === true;
   const key = isValidSignupKey(str(o.key)) ? str(o.key) : null;

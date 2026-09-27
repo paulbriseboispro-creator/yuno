@@ -946,8 +946,14 @@ Les comptes de démonstration (club `womber`, organisateurs `organizer@` et
   passe en dur.
 - **Démo → vrai compte** (2026-09-26, migration `20260926120000`). Sur un lien
   d'aperçu démo classique (`/admin/demo-access`, icône « Compte à créer »), le
-  super admin PRÉPARE le compte du prospect : club ou organisateur, prénom, nom
-  de la structure, email, ville, piliers, accès assisté proposé. C'est une ligne
+  super admin PRÉPARE le compte du prospect : club, organisateur OU association
+  (trois offres distinctes), prénom, nom de la structure, email, ville, piliers,
+  accès assisté proposé. Une association reste un compte organisateur
+  (`pro_signups.kind = 'organizer'`) : le type vit sur le lien
+  (`signup_association`, migration `20260927140000`) et les RPC le rendent en
+  `kind = 'association'` à la démo ; `complete_demo_preview_signup` pose le
+  statut Association (`bde_verified`, cf. « Compte Association ») dans la même
+  transaction que l'ouverture (migration `20260927150000`). C'est une ligne
   `pro_signups` (`source = 'demo_preview'`) reliée par
   `demo_preview_links.signup_id` — le compte n'existe PAS avant le clic du
   prospect, qui choisit son email et son mot de passe. La démo porte alors la
