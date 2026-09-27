@@ -11,6 +11,12 @@
 // d'activation » liste les prospects qui ont cliqué « Activer mon compte » ;
 // le bouton Inviter déclenche l'invitation propriétaire (invite-owner), dont
 // l'acceptation transfère la venue sans rien perdre du contenu construit.
+//
+// COMPTE À CRÉER (liens démo classiques, migration 20260926120000) : on peut
+// préparer le compte du prospect (club ou organisateur, prénom, nom de la
+// structure, email…). La démo affiche alors la barre « Crée le compte de
+// <orga> » (DemoSignupBar) ; le compte naît au clic du prospect, avec son
+// email et son mot de passe, et le funnel se lit ici comme dans /admin/signups.
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +29,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check, Pencil, Rocket, Store } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check, Pencil, Rocket, Store, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ALL_TARGET_ACCOUNTS, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
@@ -107,6 +113,175 @@ interface ClaimRequest {
   venues?: { name: string } | null;
 }
 
+type SignupKind = 'club' | 'organizer';
+type Pillar = 'tickets' | 'tables' | 'guest_list' | 'drinks';
+const PILLARS: Pillar[] = ['tickets', 'tables', 'guest_list', 'drinks'];
+
+// Brouillon de compte tel que le super admin le saisit.
+interface SignupDraft {
+  enabled: boolean;
+  kind: SignupKind;
+  firstName: string;
+  lastName: string;
+  orgName: string;
+  email: string;
+  phone: string;
+  city: string;
+  pillars: Pillar[];
+  offerSupport: boolean;
+}
+
+const EMPTY_SIGNUP: SignupDraft = {
+  enabled: false, kind: 'organizer', firstName: '', lastName: '', orgName: '',
+  email: '', phone: '', city: '', pillars: ['tickets', 'tables', 'guest_list'], offerSupport: true,
+};
+
+// Ligne rendue par admin_demo_link_signups().
+interface LinkSignup {
+  link_id: string;
+  signup_id: string;
+  kind: SignupKind;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  org_name: string | null;
+  city: string | null;
+  pillars: string[] | null;
+  offer_support: boolean;
+  steps: Record<string, unknown> | null;
+  user_id: string | null;
+  account_created_at: string | null;
+}
+
+function draftFromSignup(s: LinkSignup): SignupDraft {
+  return {
+    enabled: true,
+    kind: s.kind,
+    firstName: s.first_name ?? '',
+    lastName: s.last_name ?? '',
+    orgName: s.org_name ?? '',
+    email: s.email ?? '',
+    phone: s.phone ?? '',
+    city: s.city ?? '',
+    pillars: (s.pillars ?? []).filter((p): p is Pillar => (PILLARS as string[]).includes(p)),
+    offerSupport: s.offer_support,
+  };
+}
+
+function signupPayload(d: SignupDraft) {
+  return {
+    kind: d.kind,
+    first_name: d.firstName.trim(),
+    last_name: d.lastName.trim(),
+    org_name: d.orgName.trim(),
+    email: d.email.trim(),
+    phone: d.phone.trim(),
+    city: d.city.trim(),
+    pillars: d.pillars.filter((p) => d.kind === 'club' || p !== 'drinks'),
+    offer_support: d.offerSupport,
+  };
+}
+
+/** Où en est le prospect : préparé → démo ouverte → inscription commencée → compte créé. */
+function signupStage(s: LinkSignup): 'ready' | 'opened' | 'started' | 'created' {
+  if (s.user_id) return 'created';
+  const steps = s.steps ?? {};
+  if ('account' in steps) return 'started';
+  if ('demo_opened' in steps) return 'opened';
+  return 'ready';
+}
+
+function Tickbox({ on }: { on: boolean }) {
+  return (
+    <span
+      className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
+      style={{ background: on ? RED : 'transparent', borderColor: on ? RED : 'rgb(var(--ink)/var(--ink-a25,0.25))' }}
+    >
+      {on && <Check className="h-3 w-3 text-snow" strokeWidth={3} />}
+    </span>
+  );
+}
+
+// Formulaire du compte à créer — partagé entre la création d'un lien et
+// l'édition d'un lien existant.
+function SignupFields({ draft, onChange, t }: {
+  draft: SignupDraft;
+  onChange: (d: SignupDraft) => void;
+  t: (k: string) => string;
+}) {
+  const set = <K extends keyof SignupDraft>(k: K, v: SignupDraft[K]) => onChange({ ...draft, [k]: v });
+  const togglePillar = (p: Pillar) =>
+    set('pillars', draft.pillars.includes(p) ? draft.pillars.filter((x) => x !== p) : [...draft.pillars, p]);
+  const seg = (active: boolean): React.CSSProperties => ({
+    background: active ? 'rgba(232,25,44,0.12)' : INNER_BG,
+    border: `1px solid ${active ? 'rgba(232,25,44,0.4)' : BORDER}`,
+    color: active ? T1 : T2,
+  });
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label style={{ color: T2 }}>{t('adm.demo.signup.kind')}</Label>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {(['club', 'organizer'] as SignupKind[]).map((k) => (
+            <button key={k} type="button" onClick={() => set('kind', k)}
+              className="rounded-lg px-2.5 py-2 text-[12.5px] font-medium transition" style={seg(draft.kind === k)}>
+              {t(`adm.demo.signup.${k}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label style={{ color: T2 }}>{t('adm.demo.signup.firstName')}</Label>
+          <input value={draft.firstName} onChange={(e) => set('firstName', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
+        </div>
+        <div>
+          <Label style={{ color: T2 }}>{t('adm.demo.signup.lastName')}</Label>
+          <input value={draft.lastName} onChange={(e) => set('lastName', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
+        </div>
+      </div>
+      <div>
+        <Label style={{ color: T2 }}>{t(draft.kind === 'club' ? 'adm.demo.signup.orgClub' : 'adm.demo.signup.orgOrganizer')}</Label>
+        <input value={draft.orgName} onChange={(e) => set('orgName', e.target.value)} maxLength={120} style={{ ...inputStyle, marginTop: 6 }} />
+      </div>
+      <div>
+        <Label style={{ color: T2 }}>{t('adm.demo.signup.email')}</Label>
+        <input type="email" value={draft.email} onChange={(e) => set('email', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label style={{ color: T2 }}>{t('adm.demo.signup.phone')}</Label>
+          <input value={draft.phone} onChange={(e) => set('phone', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
+        </div>
+        <div>
+          <Label style={{ color: T2 }}>{t('adm.demo.signup.city')}</Label>
+          <input value={draft.city} onChange={(e) => set('city', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
+        </div>
+      </div>
+      <div>
+        <Label style={{ color: T2 }}>{t('adm.demo.signup.pillars')}</Label>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {PILLARS.filter((p) => draft.kind === 'club' || p !== 'drinks').map((p) => (
+            <button key={p} type="button" onClick={() => togglePillar(p)}
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition" style={seg(draft.pillars.includes(p))}>
+              <Tickbox on={draft.pillars.includes(p)} />
+              {t(`adm.demo.signup.pillar.${p}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <button type="button" onClick={() => set('offerSupport', !draft.offerSupport)} className="flex items-start gap-2.5 w-full text-left">
+        <Tickbox on={draft.offerSupport} />
+        <span style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
+          {t('adm.demo.signup.support')}
+          <span className="block" style={{ color: T3, fontSize: 11.5 }}>{t('adm.demo.signup.supportHint')}</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
 const LANGUAGES: { code: string; label: string }[] = [
   { code: 'en', label: 'Anglais (EN)' },
   { code: 'fr', label: 'Français (FR)' },
@@ -175,6 +350,14 @@ export default function AdminDemoAccess() {
   const [offerHelp, setOfferHelp] = useState(true);
   const [inviting, setInviting] = useState(false);
 
+  // Compte à créer depuis la démo : état par lien + brouillon du dialogue de
+  // création + dialogue d'édition d'un lien existant.
+  const [signups, setSignups] = useState<Record<string, LinkSignup>>({});
+  const [signupDraft, setSignupDraft] = useState<SignupDraft>(EMPTY_SIGNUP);
+  const [signupTarget, setSignupTarget] = useState<PreviewLink | null>(null);
+  const [signupEdit, setSignupEdit] = useState<SignupDraft>(EMPTY_SIGNUP);
+  const [savingSignup, setSavingSignup] = useState(false);
+
   const toggleAccount = (a: TargetAccount) =>
     setAccounts((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
 
@@ -192,7 +375,7 @@ export default function AdminDemoAccess() {
 
   const load = async () => {
     setLoading(true);
-    const [linksRes, venuesRes, orgsRes, claimsRes] = await Promise.all([
+    const [linksRes, venuesRes, orgsRes, claimsRes, signupsRes] = await Promise.all([
       supabase
         .from('demo_preview_links')
         .select('*, venues(name)')
@@ -212,11 +395,14 @@ export default function AdminDemoAccess() {
         .select('*, venues(name)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false }),
+      supabase.rpc('admin_demo_link_signups' as never),
     ]);
     setLinks((linksRes.data ?? []) as unknown as PreviewLink[]);
     setShowcaseVenues((venuesRes.data ?? []) as unknown as ShowcaseVenue[]);
     setShowcaseOrgs((orgsRes.data ?? []) as unknown as ShowcaseOrganizer[]);
     setClaims((claimsRes.data ?? []) as unknown as ClaimRequest[]);
+    const rows = Array.isArray(signupsRes.data) ? (signupsRes.data as unknown as LinkSignup[]) : [];
+    setSignups(Object.fromEntries(rows.map((r) => [r.link_id, r])));
     setLoading(false);
   };
 
@@ -231,8 +417,14 @@ export default function AdminDemoAccess() {
     }
   };
 
+  const withSignup = !showcaseSel && signupDraft.enabled;
+
   const submit = async () => {
     if (!label || !password || (!showcaseSel && accounts.length === 0)) return;
+    if (withSignup && !signupDraft.orgName.trim()) {
+      toast.error(t('adm.demo.signup.orgRequired'));
+      return;
+    }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc('create_demo_preview_link', {
@@ -247,6 +439,15 @@ export default function AdminDemoAccess() {
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : (data ?? null);
       const token = (row as { token?: string } | null)?.token;
+      const linkId = (row as { id?: string } | null)?.id;
+      if (withSignup && linkId) {
+        const { error: suErr } = await supabase.rpc('admin_set_demo_link_signup' as never, {
+          p_link_id: linkId,
+          p_data: signupPayload(signupDraft),
+        } as never);
+        // Le lien existe déjà : un brouillon refusé se reprend depuis la ligne.
+        if (suErr) toast.error(t('adm.demo.signup.failed').replace('{error}', suErr.message));
+      }
       if (token) {
         try { await navigator.clipboard.writeText(previewUrl(token)); } catch { /* ignore */ }
         toast.success(t('adm.demo.linkCreated').replace('{name}', label));
@@ -255,6 +456,7 @@ export default function AdminDemoAccess() {
       }
       setLabel(''); setPassword(''); setAccounts(['owner']); setLanguage('en'); setExpiresAt('');
       setShowcaseSel('');
+      setSignupDraft(EMPTY_SIGNUP);
       setCreateOpen(false);
       load();
     } catch (e) {
@@ -348,6 +550,35 @@ export default function AdminDemoAccess() {
       toast.error((e as Error)?.message ?? 'Erreur');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const openSignupEdit = (l: PreviewLink) => {
+    const existing = signups[l.id];
+    setSignupEdit(existing ? draftFromSignup(existing) : { ...EMPTY_SIGNUP, enabled: true, firstName: l.label });
+    setSignupTarget(l);
+  };
+
+  const saveSignup = async (remove = false) => {
+    if (!signupTarget || savingSignup) return;
+    if (!remove && !signupEdit.orgName.trim()) {
+      toast.error(t('adm.demo.signup.orgRequired'));
+      return;
+    }
+    setSavingSignup(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_demo_link_signup' as never, {
+        p_link_id: signupTarget.id,
+        p_data: remove ? null : signupPayload(signupEdit),
+      } as never);
+      if (error) throw error;
+      toast.success(t(remove ? 'adm.demo.signup.removed' : 'adm.demo.signup.saved'));
+      setSignupTarget(null);
+      load();
+    } catch (e) {
+      toast.error(t('adm.demo.signup.failed').replace('{error}', (e as Error)?.message ?? ''));
+    } finally {
+      setSavingSignup(false);
     }
   };
 
@@ -447,6 +678,31 @@ export default function AdminDemoAccess() {
                     <AccountPicker selected={accounts} onToggle={toggleAccount} />
                   </div>
                 )}
+
+                {!showcaseSel && (
+                  <div className="rounded-xl p-3" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
+                    <button
+                      type="button"
+                      onClick={() => setSignupDraft((d) => ({ ...d, enabled: !d.enabled, firstName: d.firstName || label }))}
+                      className="flex items-start gap-2.5 w-full text-left"
+                    >
+                      <Tickbox on={signupDraft.enabled} />
+                      <span>
+                        <span className="flex items-center gap-1.5" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
+                          <UserPlus className="h-3.5 w-3.5" style={{ color: RED }} />{t('adm.demo.signup.enable')}
+                        </span>
+                        <span className="block" style={{ color: T3, fontSize: 11.5, marginTop: 3, lineHeight: 1.5 }}>
+                          {t('adm.demo.signup.hint')}
+                        </span>
+                      </span>
+                    </button>
+                    {signupDraft.enabled && (
+                      <div className="mt-3">
+                        <SignupFields draft={signupDraft} onChange={setSignupDraft} t={t} />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div>
                   <Label style={{ color: T2 }}>{t('adm.demo.defaultLanguage')}</Label>
                   <select value={language} onChange={(e) => setLanguage(e.target.value)}
@@ -543,10 +799,28 @@ export default function AdminDemoAccess() {
                     <span style={pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')}>
                       <Store className="h-3 w-3" />{t('adm.demo.showcase')}</span>
                   )}
+                  {signups[l.id] && (() => {
+                    const su = signups[l.id];
+                    const stage = signupStage(su);
+                    const text = t(`adm.demo.signup.st.${stage}`).replace('{org}', su.org_name ?? '');
+                    return (
+                      <span className="hidden md:inline-flex max-w-[260px] min-w-0">
+                        {stage === 'created'
+                          ? <span className="truncate" style={pillStyle(POS, 'rgba(52,211,153,0.1)', 'rgba(52,211,153,0.25)')}><Check className="h-3 w-3 shrink-0" />{text}</span>
+                          : <span className="truncate" style={pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')}><UserPlus className="h-3 w-3 shrink-0" />{text}</span>}
+                      </span>
+                    );
+                  })()}
                   {statusPill(l)}
                   {!l.venue_id && !l.organizer_user_id && (
                     <button onClick={() => openEdit(l)} title={t('adm.demo.editAccess')} style={iconBtn('neutral')}>
                       <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  {!l.venue_id && !l.organizer_user_id && (
+                    <button onClick={() => openSignupEdit(l)} title={t('adm.demo.signup.edit')}
+                      style={{ ...iconBtn('neutral'), color: signups[l.id] ? RED : T3 }}>
+                      <UserPlus className="h-4 w-4" />
                     </button>
                   )}
                   <button onClick={() => copyLink(l.token)} title={t('adm.demo.copyLink')} style={iconBtn('neutral')}>
@@ -641,6 +915,44 @@ export default function AdminDemoAccess() {
                 Envoyer l'invitation
               </button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!signupTarget} onOpenChange={(o) => !o && !savingSignup && setSignupTarget(null)}>
+          <DialogContent style={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, color: T1 }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: T1 }}>
+                {t('adm.demo.signup.editTitle').replace('{name}', signupTarget?.label ?? '')}
+              </DialogTitle>
+            </DialogHeader>
+            {signupTarget && signups[signupTarget.id]?.user_id ? (
+              <p style={{ color: T2, fontSize: 13, lineHeight: 1.6 }}>{t('adm.demo.signup.createdLocked')}</p>
+            ) : (
+              <div className="space-y-4 mt-1">
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                  {t('adm.demo.signup.hint')} {t('adm.demo.signup.reopen')}
+                </p>
+                <SignupFields draft={signupEdit} onChange={setSignupEdit} t={t} />
+                <button
+                  onClick={() => saveSignup(false)}
+                  disabled={savingSignup || !signupEdit.orgName.trim()}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
+                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (savingSignup || !signupEdit.orgName.trim()) ? 'not-allowed' : 'pointer', opacity: (savingSignup || !signupEdit.orgName.trim()) ? 0.5 : 1 }}
+                >
+                  {t('adm.demo.signup.save')}
+                </button>
+                {signupTarget && signups[signupTarget.id] && (
+                  <button
+                    onClick={() => saveSignup(true)}
+                    disabled={savingSignup}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[12.5px] font-semibold transition-all duration-150"
+                    style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: NEG, padding: '9px 16px', cursor: savingSignup ? 'not-allowed' : 'pointer' }}
+                  >
+                    {t('adm.demo.signup.remove')}
+                  </button>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

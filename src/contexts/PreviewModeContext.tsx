@@ -18,6 +18,11 @@
 //                  organisateur (showcaseTarget='organizer'). entityId/Slug/Name
 //                  décrivent l'entité vitrine ; la bannière offre page publique
 //                  ↔ dashboard + le CTA « Activer mon compte ».
+//
+// `signup` (liens démo seulement) : le compte que le super admin a préparé pour
+// ce prospect (brouillon pro_signups, migration 20260926120000). Stocké BRUT
+// ici — c'est `parseDemoSignup` (src/lib/demoSignup.ts) qui le valide à la
+// lecture — et c'est lui qui allume la barre « Crée le compte de <orga> ».
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
@@ -34,12 +39,17 @@ export interface PreviewState {
   entityId: string;
   entitySlug: string;
   entityName: string;
+  signup: Record<string, unknown> | null;
 }
 
 const EMPTY: PreviewState = {
   label: '', roles: [], current: '', language: 'en',
   kind: 'demo', showcaseTarget: 'venue', entityId: '', entitySlug: '', entityName: '',
+  signup: null,
 };
+
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 
 function parse(raw: string | null): PreviewState | null {
   if (!raw) return null;
@@ -58,6 +68,7 @@ function parse(raw: string | null): PreviewState | null {
         entityId: o.entityId ?? o.venueId ?? '',
         entitySlug: o.entitySlug ?? o.venueSlug ?? '',
         entityName: o.entityName ?? o.venueName ?? '',
+        signup: asRecord(o.signup),
       };
     }
   } catch { /* ancien format (string label) : traité comme label seul */
@@ -93,6 +104,7 @@ export function enablePreviewMode(state: {
   label: string; roles: string[]; current?: string; language?: string;
   kind?: 'demo' | 'showcase'; showcaseTarget?: 'venue' | 'organizer';
   entityId?: string; entitySlug?: string; entityName?: string;
+  signup?: Record<string, unknown> | null;
 }): void {
   const value = JSON.stringify({
     label: state.label ?? '',
@@ -104,6 +116,7 @@ export function enablePreviewMode(state: {
     entityId: state.entityId ?? '',
     entitySlug: state.entitySlug ?? '',
     entityName: state.entityName ?? '',
+    signup: asRecord(state.signup),
   });
   try { sessionStorage.setItem(PREVIEW_FLAG, value); } catch { /* storage indispo : ignore */ }
   try { window.dispatchEvent(new Event(PREVIEW_EVENT)); } catch { /* pas de window */ }

@@ -102,6 +102,7 @@ export type YunoEvent =
   | 'pwa_installed'
   | 'user_signed_up'
   | 'user_signed_in'
+  | 'demo_signup_opened' //        { kind: 'club' | 'organizer' } — dialogue « Crée ton compte » d'un lien démo
   // ── Pro ──────────────────────────────────────────────────────────────────
   | 'pro_event_created' //         { scope, source }
   | 'pro_event_published' //       { scope, pillars[] }
