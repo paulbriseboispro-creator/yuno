@@ -21,7 +21,7 @@
 // que le client laisse passer finit en erreur serveur sans toast.
 
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { installDemoToastBridge, markDemoBlocked, showDemoNotice, demoBlockKind } from '@/lib/demoPreviewNotice';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
 const WRITE_BUILDER_METHODS = ['insert', 'update', 'upsert', 'delete'] as const;
@@ -79,14 +79,11 @@ function isWriteRpc(name: string): boolean {
   return WRITE_RPC_PREFIXES.some((p) => n.startsWith(p));
 }
 
-// Anti-spam : un seul toast toutes les 2 s même si la page tente plusieurs écritures.
-let lastToast = 0;
+// Toute écriture refusée affiche l'explication démo (et fait taire, pendant
+// quelques secondes, le message d'erreur générique que la page va afficher).
 function notifyBlocked(): void {
-  const now = Date.now();
-  if (now - lastToast > 2000) {
-    lastToast = now;
-    toast.error('Aperçu en lecture seule — action désactivée');
-  }
+  markDemoBlocked();
+  showDemoNotice();
 }
 
 // Résultat "bloqué" : thenable ET chaînable comme un query builder PostgREST, pour ne
@@ -278,12 +275,14 @@ function installPreviewMask(): void {
     const target = proto as Thenable;
     const origThen = target.then;
     target.then = function (this: Thenable, onFulfilled?: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) {
-      if (!isPreviewActive() || UNMASKED_PATHS.test(this.url?.pathname ?? '')) {
-        return origThen.call(this, onFulfilled, onRejected);
-      }
+      if (!isPreviewActive()) return origThen.call(this, onFulfilled, onRejected);
+      const unmasked = UNMASKED_PATHS.test(this.url?.pathname ?? '');
       return origThen.call(this, (res: unknown) => {
-        const r = res as { data?: unknown } | null;
-        const masked = r && r.data != null ? { ...r, data: maskDeep(r.data) } : res;
+        const r = res as { data?: unknown; error?: unknown } | null;
+        // Refus SERVEUR (transaction en lecture seule, code demo_*) : la page
+        // affichera son erreur générique, l'explication démo la remplace.
+        if (r?.error && demoBlockKind(r.error)) markDemoBlocked();
+        const masked = !unmasked && r && r.data != null ? { ...r, data: maskDeep(r.data) } : res;
         return onFulfilled ? onFulfilled(masked) : masked;
       }, onRejected);
     };
@@ -291,5 +290,6 @@ function installPreviewMask(): void {
 }
 
 // Auto-installation à l'import (App.tsx importe ce module pour effet de bord).
+installDemoToastBridge();
 installPreviewWriteGuard();
 installPreviewMask();

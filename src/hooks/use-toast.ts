@@ -1,4 +1,5 @@
 import * as React from "react";
+import { shouldShowDemoNotice, showDemoNotice } from "@/lib/demoPreviewNotice";
 
 import { haptics } from "@/lib/haptics";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
@@ -136,6 +137,15 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">;
 
 function toast({ ...props }: Toast) {
+  // Aperçu démo : une erreur provoquée par un blocage démo devient
+  // l'explication « action impossible en démo » (src/lib/demoPreviewNotice.ts).
+  if (props.variant === "destructive") {
+    const kind = shouldShowDemoNotice(props.title, props.description);
+    if (kind) {
+      showDemoNotice(kind);
+      return { id: "yuno-demo-notice", dismiss: () => {}, update: () => {} };
+    }
+  }
   const id = genId();
 
   // Une erreur se SENT : petit retour haptique d'échec sur les toasts destructifs.
