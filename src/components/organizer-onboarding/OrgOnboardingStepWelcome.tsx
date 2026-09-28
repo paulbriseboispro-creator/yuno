@@ -32,14 +32,16 @@ export function OrgOnboardingStepWelcome({ userId, onComplete }: Props) {
     })();
   }, [userId]);
 
-  const valid = orgName.trim().length > 0 && city.trim().length > 0;
+  // La ville est une indication facultative : elle ne restreint jamais l'endroit
+  // où l'organisateur publie ses soirées (chacune porte sa propre adresse).
+  const valid = orgName.trim().length > 0;
 
   const save = async () => {
     if (!valid) return;
     setSaving(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ organization_name: orgName.trim(), city: city.trim() })
+      .update({ organization_name: orgName.trim(), city: city.trim() || null })
       .eq('id', userId);
     setSaving(false);
     if (error) {
@@ -84,10 +86,14 @@ export function OrgOnboardingStepWelcome({ userId, onComplete }: Props) {
           </p>
         </div>
         <div>
-          <FieldLabel>{tt("Ville d'opération", 'Operating city', 'Ciudad de operación')} *</FieldLabel>
+          <FieldLabel>{tt("Ville principale (facultatif)", 'Main city (optional)', 'Ciudad principal (opcional)')}</FieldLabel>
           <Input value={city} onChange={e => setCity(e.target.value)} placeholder={tt('Paris', 'Paris', 'Paris')} />
           <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>
-            {tt('Aide vos clients locaux à vous découvrir dans Explore.', 'Helps local customers discover you on Explore.', 'Ayuda a tus clientes locales a descubrirte en Explore.')}
+            {tt(
+              "Simple indication pour votre profil. Vos soirées peuvent avoir lieu dans n'importe quelle ville : chacune a sa propre adresse.",
+              'Just an indication for your profile. Your events can take place in any city: each one has its own address.',
+              'Solo una indicación para tu perfil. Tus eventos pueden celebrarse en cualquier ciudad: cada uno tiene su propia dirección.',
+            )}
           </p>
         </div>
       </div>

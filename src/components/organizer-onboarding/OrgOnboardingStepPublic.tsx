@@ -152,7 +152,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
           <p style={{ color: T3, fontSize: 11, marginTop: 4, textAlign: 'right' }} className="tabular-nums">{bio.length}/280</p>
         </div>
         <div>
-          <FieldLabel>{tt('Ville', 'City', 'Ciudad')}</FieldLabel>
+          <FieldLabel>{tt('Ville (facultatif)', 'City (optional)', 'Ciudad (opcional)')}</FieldLabel>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
               <MapPin className="w-4 h-4" style={{ color: T2 }} />

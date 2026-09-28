@@ -441,10 +441,19 @@ export default function OrgAppProfile() {
             <DarkTextarea value={profile.bio || ''} onChange={(v) => setProfile((p) => ({ ...p, bio: v }))} rows={3} placeholder={t('Présentez votre collectif en quelques mots…', 'Introduce your collective in a few words…')} />
           </div>
 
-          {/* City — shown on your public profile and on followers' favorites cards */}
+          {/* City — optional, indicative only (public profile + followers' favorites
+              cards). It never restricts where events are published: each event
+              carries its own location. */}
           <div>
-            <FieldLabel><MapPin className="mr-1 inline h-3 w-3" /> {t('Ville', 'City', 'Ciudad')}</FieldLabel>
+            <FieldLabel><MapPin className="mr-1 inline h-3 w-3" /> {t('Ville (facultatif)', 'City (optional)', 'Ciudad (opcional)')}</FieldLabel>
             <DarkInput value={profile.city || ''} onChange={(v) => setProfile((p) => ({ ...p, city: v }))} placeholder={t('Ex : Paris', 'e.g. Paris', 'Ej: Madrid')} />
+            <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
+              {t(
+                "Simple indication affichée sur votre profil. Vos soirées peuvent avoir lieu dans n'importe quelle ville.",
+                'Just an indication shown on your profile. Your events can take place in any city.',
+                'Solo una indicación en tu perfil. Tus eventos pueden celebrarse en cualquier ciudad.',
+              )}
+            </p>
           </div>
 
           {/* Social */}

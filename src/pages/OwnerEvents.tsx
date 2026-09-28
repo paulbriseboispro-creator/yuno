@@ -225,6 +225,22 @@ export default function OwnerEvents() {
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo'
     && (isOrganizerScope || !collabReadOnly);
 
+  // La ville du profil organisateur n'est qu'une indication : une soirée d'orga
+  // se tient là où dit SA propre adresse. Tant que le pro n'a pas choisi le
+  // fuseau à la main, celui d'une nouvelle soirée suit donc la ville de la
+  // soirée (ou du club partenaire), et ne retombe sur la ville du profil que
+  // quand la soirée n'en a pas encore.
+  const tzTouchedRef = useRef(false);
+  const partnerCity = requiresPartner
+    ? activePartnerships.find((p) => p.venue_id === partnerVenueId)?.venue?.city ?? ''
+    : '';
+  useEffect(() => {
+    if (!isOrganizerScope || editingEvent || tzTouchedRef.current) return;
+    const eventCity = (requiresPartner ? partnerCity : locationCity).trim();
+    const tz = eventCity ? cityToTimezone(eventCity) : venueTimezone;
+    setFormData((f) => (f.timezone === tz ? f : { ...f, timezone: tz }));
+  }, [isOrganizerScope, editingEvent, requiresPartner, partnerCity, locationCity, venueTimezone]);
+
   useEffect(() => {
     if (!scopeReady) return;
     if (!isOrganizerScope && planLoading) return; // venues wait for the subscription plan
@@ -1021,6 +1037,7 @@ export default function OwnerEvents() {
   };
 
   const resetForm = () => {
+    tzTouchedRef.current = false;
     setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); orgPoster.reset(); video.reset(); setVideoRemoved(false); setLineupEntries([]); setInitialLineupEntries([]); setGuestArtists([]);
     setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
@@ -1445,7 +1462,7 @@ export default function OwnerEvents() {
               <div className="relative">
                 <select
                   value={formData.timezone}
-                  onChange={e => setFormData({ ...formData, timezone: e.target.value })}
+                  onChange={e => { tzTouchedRef.current = true; setFormData({ ...formData, timezone: e.target.value }); }}
                   className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
                 >

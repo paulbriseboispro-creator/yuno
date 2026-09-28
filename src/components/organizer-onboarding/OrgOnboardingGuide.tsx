@@ -37,13 +37,13 @@ const STEPS: StepDef[] = [
     completeOnCta: true,
     title: { fr: 'Bienvenue & votre organisation', en: 'Welcome & your organization', es: 'Bienvenida y tu organización' },
     desc: {
-      fr: "Confirmez le nom de votre organisation et votre ville. Ces informations apparaissent sur toutes vos soirées et votre profil public.",
-      en: "Confirm your organization's name and city. This info appears on all your events and your public profile.",
-      es: "Confirma el nombre de tu organización y tu ciudad. Esta información aparece en todos tus eventos.",
+      fr: "Confirmez le nom de votre organisation. La ville est facultative : une simple indication, vos soirées peuvent avoir lieu partout.",
+      en: "Confirm your organization's name. The city is optional: just an indication, your events can take place anywhere.",
+      es: "Confirma el nombre de tu organización. La ciudad es opcional: solo una indicación, tus eventos pueden celebrarse en cualquier lugar.",
     },
     actions: [
       { fr: "Nom de l'organisation", en: 'Organization name', es: 'Nombre de la organización' },
-      { fr: 'Ville d\'activité principale', en: 'Main city', es: 'Ciudad principal' },
+      { fr: 'Ville principale (facultatif)', en: 'Main city (optional)', es: 'Ciudad principal (opcional)' },
     ],
     ctaLabel: { fr: 'Compléter mon profil', en: 'Complete my profile', es: 'Completar mi perfil' },
   },
