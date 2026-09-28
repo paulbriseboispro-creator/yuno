@@ -220,7 +220,7 @@ async function fetchPreviousTotals(
     .select('total_price, service_fee, insurance_fee, refund_amount, quantity, user_email, events!inner(venue_id)')
     .eq('status', 'paid').gte('created_at', lo).lt('created_at', hi);
   let tablesQ = supabase.from('table_reservations')
-    .select('total_price, service_fee, management_fee, refund_amount, user_email, events!inner(venue_id)')
+    .select('total_price, service_fee, management_fee, fee_absorbed, refund_amount, user_email, events!inner(venue_id)')
     .eq('status', 'paid').gte('created_at', lo).lt('created_at', hi);
   if (byVenue) {
     ticketsQ = ticketsQ.eq('events.venue_id', scope.venueId);
@@ -769,7 +769,7 @@ export function useAnalyticsData({
 
       // ==================== PROCESS TABLE ANALYTICS ====================
       const paidReservations = allTableReservations || [];
-      // Club revenue = total_price − service_fee − management_fee (Yuno fees excluded).
+      // Club revenue = total_price − service_fee − frais de gestion absorbés (fees.ts).
       const gross = (r: any) => tableRevenue(r).gross;
       const tableRev = paidReservations.reduce((acc, r: any) => {
         const x = tableRevenue(r);

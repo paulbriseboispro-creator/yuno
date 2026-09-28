@@ -31,7 +31,17 @@ jour J.
 | 18 | Membre d'équipe orga : « Soirée introuvable » sur la fiche co-soirée | Scope de l'organisation | code |
 | 19 | Virements co-organisation sans suivi | Échéance, relances, escalade, litige auto, arbitrage admin | smoke payment-followup (27 étapes) |
 
-## 2. À faire AVANT la première vraie co-soirée payée (bloquants restants)
+## 1 bis. Corrigé et DÉPLOYÉ le 29/09 (soir)
+
+- Contrat : « Répartir via Stripe ? » Oui / Non ; en Non, une partie encaisse, décompte
+  figé à J+2 et virement suivi (IBAN, J'ai viré, Bien reçu, relances, litige).
+- Point 3 ci-dessous : 1 à 8 corrigés et déployés (`stripe-webhook`, `owner-refund`,
+  `create-ticket-checkout`, `create-table-checkout`) ; le 8 est levé autrement :
+  `reverse_transfer` n'est plus envoyé sur une charge plateforme.
+- CA tables corrigé partout (frais de gestion retirés seulement s'ils sont absorbés).
+- Équipe orga : un admin d'équipe agit sur le collab ; un éditeur le voit sans bouton.
+
+## 2. Historique : les bloquants tels que relevés (corrigés, voir 1 bis)
 
 Aucun de ces correctifs n'a été déployé : ils touchent les fonctions Stripe
 (`stripe-webhook`, `create-ticket-checkout`, `owner-refund`), qui ne se testent pas
@@ -67,7 +77,7 @@ sans le mode test Stripe. Les versions en ligne sont identiques au repo (vérifi
 8. **`reverse_transfer: true` sur une vente retenue** (`owner-refund`) : vérifier en mode
    test que Stripe l'accepte quand aucun transfert n'existe encore.
 
-## 3. Décisions à prendre (Paul)
+## 3. Décisions (tranchées le 29/09 : les deux premières sont appliquées)
 
 - **Frais de gestion des tables dans le CA affiché** : `fees.ts` `tableRevenue` et ~20
   RPC d'analyse retirent `management_fee` de `total_price`, qui ne le contient pas

@@ -191,7 +191,7 @@ export function usePostEventAnalysis(
         .in('status', ['paid', 'served']),
       supabase
         .from('table_reservations')
-        .select('total_price, service_fee, management_fee, guest_count, entry_scanned, refunded_at, refund_amount, event_id')
+        .select('total_price, service_fee, management_fee, fee_absorbed, guest_count, entry_scanned, refunded_at, refund_amount, event_id')
         .in('event_id', ids)
         .eq('status', 'paid'),
       // Guest list entries = free tickets: expected at the door, scanned at the door.
@@ -297,7 +297,7 @@ export function usePostEventAnalysis(
             .in('status', ['paid', 'served']),
           supabase
             .from('table_reservations')
-            .select('total_price, service_fee, management_fee, guest_count, created_at, entry_scanned, refunded_at, refund_amount')
+            .select('total_price, service_fee, management_fee, fee_absorbed, guest_count, created_at, entry_scanned, refunded_at, refund_amount')
             .in('event_id', eventIds)
             .eq('status', 'paid'),
           supabase.from('visitor_sessions').select('session_id').in('event_id', eventIds),

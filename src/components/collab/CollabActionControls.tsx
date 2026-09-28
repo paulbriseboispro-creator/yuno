@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -43,6 +44,8 @@ export function CollabActionControls({
   const [req, setReq] = useState<ActionRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Un éditeur d'équipe voit l'état, jamais un bouton que le serveur refuse.
+  const canAct = useCollabOrgCanAct(myRole);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -125,6 +128,8 @@ export function CollabActionControls({
       </div>
     );
   }
+
+  if (!canAct) return null;
 
   // ── Active request: pending ──────────────────────────────────────────────────
   if (req && req.status === 'pending') {

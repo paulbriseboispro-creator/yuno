@@ -927,7 +927,7 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
         supabase.from('tickets').select('total_price, quantity, service_fee, insurance_fee').eq('status', 'paid').in('event_id', ids),
         // guest_count (sans s) + status 'paid' : guests_count n'existe pas (la
         // requête entière échouait en 400) et 'confirmed' n'est jamais écrit.
-        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee').eq('status', 'paid').in('event_id', ids),
+        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee, fee_absorbed').eq('status', 'paid').in('event_id', ids),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
         supabase.from('orders').select('total, service_fee, refund_amount').eq('status', 'paid').in('event_id', ids),
       ]);

@@ -510,6 +510,39 @@ collaboration. Règles intouchables :
   accord sur une soirée dont le collab est déjà réglé par virement
   (`collab_transfer_unsupported`).
 
+## Revue collab du 29/09 — argent Stripe, CA tables, équipe (points 3 et 4)
+
+Migrations `20260929160000` → `181000`. Règles intouchables :
+
+- **Remboursement d'une vente à jambes = sur le DELTA** (`_shared/refund-legs.ts`,
+  testé) : une jambe retenue est RÉDUITE au prorata (jamais annulée par un
+  partiel), une jambe versée reverse la part du delta. Base = part vendeurs
+  (brut − frais Yuno, que le club ne rembourse jamais). `revenue_distributions.
+  refunded_cents` = cumul appliqué ET verrou (mise à jour conditionnelle). Un
+  remboursement PARTIEL (`owner-refund`) ne passe jamais la vente en
+  `refunded` : le cron annulerait ses jambes et bloquerait le reste sur la
+  plateforme. `reverse_transfer` seulement sur une charge à destination.
+- **Webhook** : grand livre en INSERTION SEULE (`ignoreDuplicates`) — un upsert
+  rejoué remettait une jambe versée en `scheduled` ; erreur d'écriture ⇒ l'erreur
+  remonte et Stripe rejoue. Rétention « décompte » lue dans la métadonnée `hold`
+  posée AU CHECKOUT (repli sur les règles pour les anciennes sessions) ; vente
+  payée après un décompte accepté ⇒ versée au club + `admin_collab_late_sale`.
+  Jambe en échec : `*_fail_count`, alerte `admin_transfer_release_failed` au 3e.
+- **CA tables = total_price − service_fee − frais de gestion SI ABSORBÉS.**
+  `total_price` ne contient PAS les frais de gestion (payés en plus par le
+  client). Porte front `tableRevenue` (`fees.ts`, lit `fee_absorbed` : toute
+  requête qui l'alimente sélectionne la colonne), miroirs `clubRevenue.table`
+  (`_shared/posthog.ts`), `calcTablesRevenue` (owner-assistant) et les 21 RPC
+  réécrites par `20260929170000`. Les données démo semées sont alignées
+  (`scripts/demo/fix-table-fee-demo.sql`, seed corrigé).
+- **Équipe orga dans le collab** : `collab_org_can_act(org)` = fondateur OU
+  admin d'équipe, porte unique des RPC de contrat, avenants, pause /
+  suppression, décompte et réception des virements ; partenariats via
+  `can_access_partnership` (+ policy d'insertion). Front : `useCollabOrgCanAct`
+  (un éditeur voit, sans bouton) et scope `useActingOrganizer` dans tout le hub
+  Collaborations orga ; `invite-club-collab` accepte `organizer_user_id` (admin
+  vérifié côté serveur) et refuse une soirée hors de l'organisation.
+
 ## Co-organisation — N parties sur une soirée (2026-09-28)
 
 Design + analyse : `docs/designs/COORGANIZATION_PLAN.md`. Migrations `20260928100000`

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
@@ -101,6 +103,9 @@ const WEEKDAYS = {
  */
 export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
   const { user } = useAuth();
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
+  const canAct = useCollabOrgCanAct(role);
   const { language } = useLanguage();
   const navigate = useNavigate();
   const tt = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
@@ -135,7 +140,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
       .select('*')
       .in('status' as never, ['pending_signatures', 'active'] as never);
     sq = role === 'organizer'
-      ? sq.eq('organizer_user_id' as never, user.id as never)
+      ? sq.eq('organizer_user_id' as never, orgId as never)
       : sq.eq('venue_id' as never, venueId as never);
     const { data: seriesRows } = await sq;
     const liveSeries = ((seriesRows as unknown as EventCollabSeriesContractRow[]) || []);
@@ -149,7 +154,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
       .select('id, event_id, venue_id, organizer_user_id, org_signed_at, venue_signed_at')
       .eq('status' as never, 'pending_signatures' as never);
     q = role === 'organizer'
-      ? q.eq('organizer_user_id' as never, user.id as never)
+      ? q.eq('organizer_user_id' as never, orgId as never)
       : q.eq('venue_id' as never, venueId as never);
     const { data: contracts } = await q;
 
@@ -273,7 +278,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
     setItems(list);
     setSeries(seriesList);
     setLoading(false);
-  }, [user, role, venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, role, venueId, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -349,7 +354,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
     } finally { setBusyId(null); }
   };
 
-  if (loading || (items.length === 0 && series.length === 0)) return null;
+  if (loading || !canAct || (items.length === 0 && series.length === 0)) return null;
 
   const total = items.length + series.length;
 

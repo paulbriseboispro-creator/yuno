@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Banknote, Check, Copy, HandCoins, Lock, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { translate } from '@/i18n/orgTranslate';
 import { OrgCard, OrgButton, OrgPill, RED, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import {
@@ -34,6 +35,8 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
   const { language, t: tk } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const isVenue = viewerRole === 'venue';
+  // Un éditeur d'équipe orga voit le décompte, jamais un bouton refusé par le serveur.
+  const orgCanAct = useCollabOrgCanAct(isVenue ? 'venue' : 'organizer');
 
   const [data, setData] = useState<ClosingComputeResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -354,7 +357,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
                 )}
 
                 {/* Actions ORGANISATEUR : lui seul accepte. */}
-                {!isVenue && closing.status === 'declared' && (
+                {!isVenue && orgCanAct && closing.status === 'declared' && (
                   <div className="space-y-2 pt-1">
                     <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>
                       {t('Ces chiffres correspondent à ta soirée ?', 'Do these figures match your night?', '¿Estas cifras coinciden con tu noche?')}
@@ -461,6 +464,8 @@ function SepaSteps({ settlement: open, isVenue, bank, busy, run, copy, t, disput
   disputeReason: string;
   setDisputeReason: (v: string) => void;
 }) {
+  // Un éditeur d'équipe orga voit le décompte, jamais un bouton refusé par le serveur.
+  const orgCanAct = useCollabOrgCanAct(isVenue ? 'venue' : 'organizer');
   const dleft = daysUntil(open.confirm_due_at);
   return (
     <div className="space-y-2 rounded-xl p-3" style={{ background: 'rgb(var(--ink)/0.02)', border: `1px solid ${BORDER}` }}>
@@ -514,7 +519,7 @@ function SepaSteps({ settlement: open, isVenue, bank, busy, run, copy, t, disput
           {t('Le virement est bien parti', 'The transfer did go out', 'La transferencia sí salió')}
         </OrgButton>
       )}
-      {!isVenue && (open.status === 'approved' || open.status === 'disputed') && (
+      {!isVenue && orgCanAct && (open.status === 'approved' || open.status === 'disputed') && (
         <div className="space-y-2">
           <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{t('Bien reçu sur ton compte ?', 'Received on your account?', '¿Recibido en tu cuenta?')}</p>
           <div className="flex gap-2">

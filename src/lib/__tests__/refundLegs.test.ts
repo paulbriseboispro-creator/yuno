@@ -57,3 +57,14 @@ describe('jambe VERSÉE', () => {
     expect(releasedLegReversal(CLUB, inp(8400)).reversal).toBe(CLUB);
   });
 });
+
+import { tableRevenue } from '@/utils/fees';
+describe('tableRevenue — frais de gestion retirés seulement s\'ils sont absorbés', () => {
+  it('client paie les frais en plus : CA club = prix de la table', () => {
+    expect(tableRevenue({ total_price: 300, service_fee: 0, management_fee: 12 }).gross).toBe(300);
+    expect(tableRevenue({ total_price: 300, service_fee: 0, management_fee: 12, fee_absorbed: false }).gross).toBe(300);
+  });
+  it('club absorbe : les frais sortent de sa part', () => {
+    expect(tableRevenue({ total_price: 300, service_fee: 0, management_fee: 12, fee_absorbed: true }).gross).toBe(288);
+  });
+});

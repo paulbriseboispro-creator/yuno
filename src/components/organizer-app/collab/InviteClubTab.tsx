@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Mail, Loader2, Info, CalendarClock, Euro } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import {
   DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
 } from '@/components/collab/TieredRemunerationEditor';
@@ -42,6 +44,10 @@ export function InviteClubTab() {
   // accepte. Avant, l'invitation posait un partage par défaut que personne
   // n'avait choisi, et l'organisateur devait revenir proposer le vrai deal.
   const { user } = useAuth();
+  // Scope = l'ORGANISATION : un admin d'équipe invite au nom de l'orga qu'il sert.
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
+  const canAct = useCollabOrgCanAct('organizer');
   const [events, setEvents] = useState<{ id: string; title: string; start_at: string }[]>([]);
   const [eventId, setEventId] = useState('');
   const [remMode, setRemMode] = useState<RemunerationMode>('per_pillar');
@@ -53,14 +59,14 @@ export function InviteClubTab() {
   // l'une des deux parties encaisser seule et payer l'autre après la soirée.
   const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
   useEffect(() => {
-    if (!user?.id) return;
+    if (!orgId) return;
     let active = true;
     supabase.from('events').select('id, title, start_at')
-      .eq('organizer_user_id', user.id).is('venue_id', null).is('partner_venue_id', null)
+      .eq('organizer_user_id', orgId).is('venue_id', null).is('partner_venue_id', null)
       .gte('start_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(50)
       .then(({ data }) => { if (active) setEvents((data ?? []) as { id: string; title: string; start_at: string }[]); });
     return () => { active = false; };
-  }, [user?.id]);
+  }, [orgId]);
   const buildRules = (): PartnershipSplitRules => withSettlement(buildSplit(), settlement);
   const buildSplit = (): PartnershipSplitRules => remMode === 'tiered_total'
     ? { ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } }
@@ -81,7 +87,7 @@ export function InviteClubTab() {
     setInviting(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-club-collab', {
-        body: { ...form, lang: mailLang, event_id: eventId || null, default_split_rules: buildRules(), origin: window.location.origin },
+        body: { ...form, lang: mailLang, event_id: eventId || null, organizer_user_id: orgId, default_split_rules: buildRules(), origin: window.location.origin },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -100,6 +106,20 @@ export function InviteClubTab() {
       setInviting(false);
     }
   };
+
+  if (!canAct) {
+    return (
+      <OrgCard>
+        <p className="p-5" style={{ color: T3, fontSize: 12.5, lineHeight: 1.55 }}>
+          {t(
+            "Inviter un club engage l'organisation sur des conditions financières : seuls le fondateur et les admins de l'équipe peuvent le faire.",
+            'Inviting a club commits the organization to financial terms: only the founder and team admins can do it.',
+            'Invitar a un club compromete a la organización con condiciones financieras: solo el fundador y los administradores del equipo pueden hacerlo.',
+          )}
+        </p>
+      </OrgCard>
+    );
+  }
 
   return (
     <div className="space-y-5">

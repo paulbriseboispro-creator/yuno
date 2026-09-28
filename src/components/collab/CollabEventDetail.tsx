@@ -24,6 +24,7 @@ import { useEventCollabContract } from '@/hooks/useEventCollabContract';
 import { useEventNetGain } from '@/hooks/useEventNetGain';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
@@ -124,6 +125,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // confiée au club seul sur n'importe quelle co-soirée, pas seulement en
   // org_hosted. On lit le domaine, pas le mode.
   const viewerSide: 'venue' | 'organizer' = isVenue ? 'venue' : 'organizer';
+  // Proposer / signer / amender : fondateur ou admin d'équipe côté orga
+  // (miroir de collab_org_can_act). Un éditeur lit le contrat, sans bouton.
+  const collabCanAct = useCollabOrgCanAct(viewerSide);
 
   const [event, setEvent] = useState<CollabEvent | null>(null);
   const [clubName, setClubName] = useState('');
@@ -312,7 +316,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
         // status 'paid' : c'est la seule valeur écrite par le checkout —
         // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'paid'),
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count').eq('event_id', eventId).eq('status', 'paid'),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
         isVenue
           ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
@@ -542,7 +546,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         {/* Contrat pas encore signé : c'est L'action, il reste en pleine largeur.
             Une fois signé, il descend dans la colonne latérale, replié. */}
         {isCollab && !contractAccepted && (
-          <div id="collab-contract"><SplitContractBanner eventId={event.id} side={viewerRole} /></div>
+          <div id="collab-contract"><SplitContractBanner eventId={event.id} side={collabCanAct ? viewerRole : undefined} /></div>
         )}
 
         {/* Une allocation de guest list attend une réponse : on le dit ici, sur la
@@ -833,7 +837,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   partenaire se lisent avant les chiffres, pas après vingt écrans. */}
               <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-4">
                 {isCollab && contractAccepted && (
-                  <div id="collab-contract"><SplitContractBanner eventId={event.id} side={viewerRole} compact /></div>
+                  <div id="collab-contract"><SplitContractBanner eventId={event.id} side={collabCanAct ? viewerRole : undefined} compact /></div>
                 )}
                 {isCollab && (
                   <CollabMessageThread eventId={event.id} authorRole={viewerRole} venueLabel={clubName} organizerLabel={orgName} compact />
