@@ -60,6 +60,26 @@ jour J.
 - **Quota des fonctions edge atteint** : l'email de co-organisation passe par
   `invite-organizer-collab` (`kind: 'coorg'`).
 
+## 1 quater. Revérification A → Z du 29/09 (nuit), contre la vraie base
+
+| Contrôle | Résultat |
+|---|---|
+| `smoke-coorganization.sql` | 74 / 74 étapes OK |
+| `smoke-coorg-payment-followup.sql` | échéance, relances dédoublonnées, escalade J+7 / J+14, litige automatique, arbitrage motivé, soldé — conforme |
+| `smoke-collab-guards.sql` | 12 gardes conformes (domaines, partage, suppression avec ventes, lots) |
+| `smoke-collab-transfer.sql` (3 blocs) | normalisation, verrou, gel, virement collab 982,30 € déclaré puis confirmé, porte « paiements prêts », vendeur des reçus et TVA — conforme |
+| `smoke-night-closing.sql` | 96,68 € retenus → organisateur, 2 205,12 € en SEPA, IBAN exigé — conforme |
+| E2E fonctions déployées : collab sans Stripe | 7 / 7 (billet, table, `collab_split`, mode Stripe) |
+| E2E fonctions déployées : invitations sans compte + liens de vente | 29 / 29 |
+| Front réel (build local, session démo) | « Qui fait vendre », dialogue « Pas encore sur Yuno », `/accept-cohost`, Check-in du co-hôte — aucune erreur console |
+| vitest / tsc / lint / build | 466 tests OK ; tsc et lint sans nouvelle erreur (erreurs préexistantes inchangées) ; build OK |
+
+Deux smokes étaient périmés par l'état de la démo, pas par le code : le contrat
+d'Amore Night s'était verrouillé sur des ventes de test laissées par un E2E du
+point 3 (nettoyées, contrat remis `active`), et l'orga démo a un IBAN depuis le
+21/09. Les deux scripts neutralisent désormais ces états dans leur transaction
+annulée.
+
 ## 2. Historique : les bloquants tels que relevés (corrigés, voir 1 bis)
 
 Aucun de ces correctifs n'a été déployé : ils touchent les fonctions Stripe

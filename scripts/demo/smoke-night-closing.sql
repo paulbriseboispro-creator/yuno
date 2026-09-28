@@ -30,6 +30,9 @@ BEGIN
 
   -- Nettoyer un décompte existant de la soirée (fixture) puis déclarer en tant que CLUB.
   DELETE FROM public.collab_night_closings WHERE event_id = v_event;
+  -- L'orga démo a un IBAN depuis la démo du 21/09 : on le retire (bloc annulé)
+  -- pour rejouer le cas « accepter sans IBAN ».
+  DELETE FROM public.organizer_payout_details WHERE user_id = v_org;
   PERFORM set_config('request.jwt.claims', json_build_object('role','authenticated','sub',v_owner)::text, true);
   PERFORM set_config('role','authenticated', true);
   v_res := public.declare_collab_night_closing(v_event, 5000, 25, 375, 180, 0, NULL, 'smoke', 'Z-42');

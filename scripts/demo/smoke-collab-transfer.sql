@@ -3,6 +3,10 @@
 BEGIN;
 create temp table _r(step int, label text, v text);
 grant all on _r to authenticated;
+-- La démo a peut-être déjà vendu (contrat verrouillé) : on repart d'un contrat
+-- actif, dans cette transaction annulée — sinon tout le bloc lit not_transfer_mode.
+update event_collab_contracts set status = 'active' where event_id = '5b6302d0-aa86-47a3-be7b-62e58677d0b3' and status = 'locked';
+update events set split_locked_at = null where id = '5b6302d0-aa86-47a3-be7b-62e58677d0b3';
 -- 1. normalisation au contrat
 update event_collab_contracts set split_rules = split_rules || '{"settlement":{"mode":"transfer","collector":"organizer","payment_terms_days":"99"}}'::jsonb
  where event_id = '5b6302d0-aa86-47a3-be7b-62e58677d0b3' and status = 'active';
