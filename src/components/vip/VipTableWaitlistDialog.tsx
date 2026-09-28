@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -87,7 +88,7 @@ export function VipTableWaitlistDialog({
         <div className="space-y-2.5 mt-1">
           <Input className={inputCls} placeholder={tt('Nom complet', 'Full name', 'Nombre completo')} value={name} onChange={e => setName(e.target.value)} />
           <Input className={inputCls} placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-          <Input className={inputCls} placeholder={tt('Téléphone', 'Phone', 'Teléfono')} value={phone} onChange={e => setPhone(e.target.value)} />
+          <PhoneInputWithCountry value={phone} onChange={setPhone} />
         </div>
         <button
           type="button"

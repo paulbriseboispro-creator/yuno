@@ -20,6 +20,11 @@ export interface Country {
    *  part (un client de Fort-de-France n'est pas un client parisien), mais le
    *  club veut voir le lien. */
   parentCode?: string;
+  /** Indicatif réellement composé quand il diffère de `dialCode`. Porto Rico
+   *  se reconnaît à « +1 787 » (d'où `dialCode: '+1787'`), mais se compose
+   *  « +1 » suivi des 10 chiffres nord-américains, 787 compris : sans ça le
+   *  champ téléphone écrivait « +1787 (787) … ». */
+  callingCode?: string;
 }
 
 export const COUNTRIES: Country[] = [
@@ -90,7 +95,7 @@ export const COUNTRIES: Country[] = [
   { code: 'FO', dialCode: '+298', flag: '🇫🇴', format: '21 12 34', isoNumeric: 234, parentCode: 'DK', names: { en: 'Faroe Islands', es: 'Islas Feroe', fr: 'Îles Féroé' } },
   { code: 'AW', dialCode: '+297', flag: '🇦🇼', format: '560 1234', isoNumeric: 533, parentCode: 'NL', names: { en: 'Aruba', es: 'Aruba', fr: 'Aruba' } },
   { code: 'CW', dialCode: '+599', flag: '🇨🇼', format: '9 518 1234', isoNumeric: 531, parentCode: 'NL', names: { en: 'Curaçao', es: 'Curazao', fr: 'Curaçao' } },
-  { code: 'PR', dialCode: '+1787', altDialCodes: ['+1939'], flag: '🇵🇷', format: '(787) 555-0123', isoNumeric: 630, parentCode: 'US', names: { en: 'Puerto Rico', es: 'Puerto Rico', fr: 'Porto Rico' } },
+  { code: 'PR', dialCode: '+1787', callingCode: '+1', altDialCodes: ['+1939'], flag: '🇵🇷', format: '(787) 555-0123', isoNumeric: 630, parentCode: 'US', names: { en: 'Puerto Rico', es: 'Puerto Rico', fr: 'Porto Rico' } },
 ];
 
 export function getCountryName(country: Country, language: Language | string): string {
@@ -112,8 +117,10 @@ const BY_DIAL_LEN: { prefix: string; country: Country }[] = COUNTRIES
  */
 export function countryFromPhone(phone: string | null | undefined): Country | null {
   if (!phone) return null;
-  const normalized = phone.replace(/\s+/g, '');
-  if (!normalized.startsWith('+')) return null;
+  const trimmed = phone.trim();
+  if (!trimmed.startsWith('+')) return null;
+  // Chiffres seuls après le « + » : « +1 (787) 555-0123 » doit se lire +1787.
+  const normalized = '+' + trimmed.replace(/\D/g, '');
   for (const { prefix, country } of BY_DIAL_LEN) {
     if (normalized.startsWith(prefix)) return country;
   }
@@ -283,4 +290,60 @@ export function hasPhoneNumber(value: string | null | undefined): boolean {
     ? nationalDigits(value, country)
     : value.replace(/\D/g, '');
   return digits.length >= 5;
+}
+
+/** Indicatif à composer (« +33 », « +1 » pour Porto Rico). */
+export function callingCodeOf(country: Pick<Country, 'dialCode' | 'callingCode'>): string {
+  return country.callingCode ?? country.dialCode;
+}
+
+/** Un numéro E.164 ne dépasse pas 15 chiffres, indicatif compris. */
+const E164_MAX_DIGITS = 15;
+
+/**
+ * Décompose un numéro stocké (« +33 6 12 34 56 78 ») en pays + partie
+ * nationale. Un numéro sans indicatif reconnu (saisie ancienne « 0788849932 »)
+ * reste tel quel sous le pays de repli : on n'invente pas d'origine.
+ */
+export function splitPhone(
+  value: string | null | undefined,
+  fallback: Country,
+): { country: Country; national: string; recognized: boolean } {
+  const raw = (value ?? '').trim();
+  if (!raw) return { country: fallback, national: '', recognized: false };
+  const match = countryFromPhone(raw);
+  if (match) {
+    const cc = callingCodeOf(match);
+    const rest = raw.startsWith(cc) ? raw.slice(cc.length) : raw.replace(/^\+\d+/, '');
+    return { country: match, national: rest.trim(), recognized: true };
+  }
+  return { country: fallback, national: raw.replace(/^\+\d*\s*/, ''), recognized: false };
+}
+
+/**
+ * Pays annoncé par une saisie internationale (« +44 7911… », « 0044 7911… »)
+ * tapée ou collée dans la partie nationale ; null si la saisie est nationale.
+ */
+export function countryFromInternationalInput(raw: string): Country | null {
+  const t = raw.trim();
+  if (t.startsWith('+')) return countryFromPhone(t);
+  if (/^00[1-9]/.test(t.replace(/[\s.\-()]/g, ''))) {
+    return countryFromPhone('+' + t.replace(/\D/g, '').slice(2));
+  }
+  return null;
+}
+
+/**
+ * Compose la valeur stockée : « {indicatif} {numéro mis en forme} », ou ''
+ * quand aucun chiffre n'a été saisi — un indicatif seul n'est pas un numéro,
+ * et un champ facultatif ne doit pas enregistrer « +33 ».
+ */
+export function composePhone(raw: string, country: Country): string {
+  const cc = callingCodeOf(country);
+  const target = { code: country.code, dialCode: cc, format: country.format };
+  let digits = nationalDigits(raw, target);
+  if (!digits) return '';
+  const max = E164_MAX_DIGITS - (cc.length - 1);
+  if (digits.length > max) digits = digits.slice(0, max);
+  return `${cc} ${formatNationalNumber(digits, target)}`;
 }

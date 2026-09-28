@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -819,7 +820,7 @@ function ProSection({ whatsappNumber }: { whatsappNumber: string }) {
                 <input type="text" required className="ynl-input" placeholder={t('links.proName')} value={name} maxLength={150} onChange={(e) => setName(e.target.value)} autoComplete="name" />
                 <input type="text" className="ynl-input" placeholder={t('links.proOrg')} value={org} maxLength={150} onChange={(e) => setOrg(e.target.value)} autoComplete="organization" />
                 <input type="text" className="ynl-input" placeholder={t('links.proCity')} value={city} maxLength={120} onChange={(e) => setCity(e.target.value)} autoComplete="address-level2" />
-                <input type="tel" className="ynl-input" placeholder={t('links.proPhone')} value={phone} maxLength={30} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" inputMode="tel" />
+                <PhoneInputWithCountry value={phone} onChange={setPhone} placeholder={t('links.proPhone')} inputClassName="ynl-input" triggerStyle={{ height: 52, borderRadius: 3, background: INPUT, borderColor: 'rgba(255,255,255,0.10)' }} />
                 {error && (
                   <p role="alert" style={{ margin: 0, fontFamily: MONO, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: RED }}>{error}</p>
                 )}

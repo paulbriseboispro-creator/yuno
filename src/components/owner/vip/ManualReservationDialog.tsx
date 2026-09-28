@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -113,15 +114,14 @@ export function ManualReservationDialog({ open, events, zones, defaultEventId, o
             <VipInput value={name} onChange={setName} placeholder={tt('Optionnel', 'Optional', 'Opcional')} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <VipFieldLabel>{tt('Téléphone', 'Phone', 'Teléfono')}</VipFieldLabel>
-              <VipInput value={phone} onChange={setPhone} type="tel" placeholder={tt('Optionnel', 'Optional', 'Opcional')} />
-            </div>
-            <div>
-              <VipFieldLabel>{tt('Personnes', 'Guests', 'Personas')}</VipFieldLabel>
-              <VipInput value={guests} onChange={setGuests} type="number" />
-            </div>
+          <div>
+            <VipFieldLabel>{tt('Téléphone (optionnel)', 'Phone (optional)', 'Teléfono (opcional)')}</VipFieldLabel>
+            <PhoneInputWithCountry value={phone} onChange={setPhone} size="sm" />
+          </div>
+
+          <div>
+            <VipFieldLabel>{tt('Personnes', 'Guests', 'Personas')}</VipFieldLabel>
+            <VipInput value={guests} onChange={setGuests} type="number" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

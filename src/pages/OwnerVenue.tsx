@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useSearchParams } from 'react-router-dom';
 import {
   Upload, X, MapPin, Loader2, Plus, Trash2, MessageCircle,
@@ -935,7 +936,7 @@ export default function OwnerVenue() {
               <MessageCircle className="w-3 h-3 inline mr-1" style={{ color: 'var(--acc-25d366)' }} />
               WhatsApp ({t('owner.optional')})
             </FieldLabel>
-            <DarkInput value={whatsappNumber} onChange={setWhatsappNumber} placeholder="+33 6 12 34 56 78" />
+            <PhoneInputWithCountry value={whatsappNumber} onChange={setWhatsappNumber} size="sm" />
             <p style={{ color: T3, fontSize: 11.5, marginTop: 4 }}>{t('owner.whatsappDesc')}</p>
           </div>
           <SaveButton onClick={handleSaveSocialMedia} loading={savingSocial} label={t('owner.saveSocialMedia')} />

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import {
@@ -289,14 +290,14 @@ export function WalkinPosSheet({
                     <label className="mb-1 block" style={{ color: T3, fontSize: 11 }}>{t('vippos.walkinName')}</label>
                     <Input value={walkinName} onChange={e => setWalkinName(e.target.value)} placeholder={t('vippos.walkinFallbackName')} className="h-10" />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-3">
                     <div>
                       <label className="mb-1 block" style={{ color: T3, fontSize: 11 }}>{t('vipnight.walkinEmail')}</label>
                       <Input value={walkinEmail} onChange={e => setWalkinEmail(e.target.value)} type="email" inputMode="email" placeholder="client@email.com" className="h-10" />
                     </div>
                     <div>
                       <label className="mb-1 block" style={{ color: T3, fontSize: 11 }}>{t('vipnight.walkinPhone')}</label>
-                      <Input value={walkinPhone} onChange={e => setWalkinPhone(e.target.value)} type="tel" inputMode="tel" placeholder="+33…" className="h-10" />
+                      <PhoneInputWithCountry value={walkinPhone} onChange={setWalkinPhone} size="sm" />
                     </div>
                   </div>
                   <div className="flex items-center justify-between">

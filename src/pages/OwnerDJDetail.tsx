@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -613,9 +614,10 @@ export default function OwnerDJDetail() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>WhatsApp</Label>
-                    <Input
+                    <PhoneInputWithCountry
                       value={editForm.whatsapp}
-                      onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })}
+                      onChange={(v) => setEditForm({ ...editForm, whatsapp: v })}
+                      size="sm"
                     />
                   </div>
                   <div>

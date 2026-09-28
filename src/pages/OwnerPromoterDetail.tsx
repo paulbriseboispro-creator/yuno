@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { translate } from '@/i18n/orgTranslate';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -681,7 +682,7 @@ export default function OwnerPromoterDetail() {
                 </div>
                 <div>
                   <Label>WhatsApp</Label>
-                  <Input value={editForm.whatsappNumber} onChange={e => setEditForm({ ...editForm, whatsappNumber: e.target.value })} placeholder="+33612345678" />
+                  <PhoneInputWithCountry value={editForm.whatsappNumber} onChange={v => setEditForm({ ...editForm, whatsappNumber: v })} size="sm" />
                 </div>
 
                 {templates.length > 0 && (

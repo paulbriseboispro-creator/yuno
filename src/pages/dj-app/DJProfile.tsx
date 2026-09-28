@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { KeyRound, Save, Music, Image as ImageIcon, Trash2, ArrowLeft, ArrowRight, Plus, Euro } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
@@ -502,7 +503,7 @@ export default function DJProfile() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <FieldLabel>WhatsApp</FieldLabel>
-                  <Input className="mt-1.5" value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} placeholder="+33 6 12 34 56 78" />
+                  <PhoneInputWithCountry className="mt-1.5" value={editForm.whatsapp} onChange={(v) => setEditForm({ ...editForm, whatsapp: v })} size="sm" />
                 </div>
                 <div>
                   <FieldLabel>Instagram</FieldLabel>

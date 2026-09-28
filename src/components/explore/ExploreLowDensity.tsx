@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -335,14 +336,11 @@ function ProLeadDialog({
             onChange={e => setEmail(e.target.value)}
             className="text-sm bg-background/90 border-border/50 focus:border-primary"
           />
-          <Input
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder={t('explore.ld.proPhone')}
+          <PhoneInputWithCountry
             value={phone}
-            onChange={e => setPhone(e.target.value)}
-            className="text-sm bg-background/90 border-border/50 focus:border-primary"
+            onChange={setPhone}
+            placeholder={t('explore.ld.proPhone')}
+            size="sm"
           />
           <div className="flex gap-2">
             <Input

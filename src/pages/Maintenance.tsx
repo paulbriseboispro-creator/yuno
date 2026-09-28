@@ -482,7 +482,8 @@ export default function Maintenance() {
                               value={phone}
                               onChange={setPhone}
                               placeholder={t('phone')}
-                              className="h-12 text-base bg-background/50 border-border/50 focus:border-primary"
+                              triggerClassName="h-12"
+                              inputClassName="h-12 text-base"
                             />
                             
                             <div className="relative">

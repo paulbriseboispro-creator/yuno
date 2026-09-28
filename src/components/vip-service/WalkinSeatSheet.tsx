@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,10 +77,8 @@ export function WalkinSeatSheet({ open, floorPlan, reservations, serviceInfo, bu
         {/* Nom + contact (email/tél = CRM marketing) + personnes */}
         <div className="shrink-0 space-y-2.5 px-4 pb-2 sm:px-6">
           <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('vippos.walkinFallbackName')} className="h-10" />
-          <div className="grid grid-cols-2 gap-2">
-            <Input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" placeholder={t('vipnight.walkinEmail')} className="h-10" />
-            <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" inputMode="tel" placeholder={t('vipnight.walkinPhone')} className="h-10" />
-          </div>
+          <Input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" placeholder={t('vipnight.walkinEmail')} className="h-10" />
+          <PhoneInputWithCountry value={phone} onChange={setPhone} size="sm" />
           <div className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
             <span style={{ color: T2, fontSize: 13 }}>{t('vippos.walkinGuests')}</span>
             <div className="flex items-center gap-2">

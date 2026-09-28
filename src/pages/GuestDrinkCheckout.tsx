@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Mail, User, Phone, Wine, ChevronRight, ShoppingBag } from 'lucide-react';
@@ -352,16 +353,7 @@ export default function GuestDrinkCheckout() {
 
             <div className="space-y-1.5">
               <Label className="text-xs">{t('guest.phone')} ({t('guest.optional')})</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="tel"
-                  placeholder="+33 6 12 34 56 78"
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <PhoneInputWithCountry value={guestPhone} onChange={setGuestPhone} size="sm" />
             </div>
           </div>
 

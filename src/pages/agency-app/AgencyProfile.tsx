@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
@@ -374,7 +375,7 @@ export default function AgencyProfile() {
           </div>
           <div>
             <FieldLabel>WhatsApp</FieldLabel>
-            <DarkInput value={whatsapp} onChange={setWhatsapp} placeholder="+34 6 …" />
+            <PhoneInputWithCountry value={whatsapp} onChange={setWhatsapp} size="sm" />
           </div>
           <div>
             <FieldLabel>{tt('Site web', 'Website', 'Sitio web')}</FieldLabel>

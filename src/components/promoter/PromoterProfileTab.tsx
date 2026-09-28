@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -238,7 +239,7 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
             <Label className="text-xs flex items-center gap-1">
               <MessageCircle className="h-3 w-3" /> WhatsApp
             </Label>
-            <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+33612345678" />
+            <PhoneInputWithCountry value={whatsapp} onChange={setWhatsapp} size="sm" />
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="w-full">

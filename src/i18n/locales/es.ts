@@ -15849,6 +15849,10 @@ const es: Record<string, string> = {
   "homeBanner.errFormat": "Formato no compatible: usa una foto JPG, PNG o WebP",
   "homeBanner.errSize": "Foto demasiado pesada (20 MB máx.)",
   "homeBanner.errSave": "No se pudo guardar el banner. Inténtalo de nuevo.",
+  // --- Champ téléphone (indicatif + numéro) ---
+  'phone.searchCountry': 'Buscar un país',
+  'phone.noCountry': 'Ningún país encontrado',
+  'phone.countryCode': 'Prefijo del país',
 };
 
 export default es;
