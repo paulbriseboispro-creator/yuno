@@ -403,6 +403,13 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'coorg_transfer_disputed':
     case 'coorg_transfer_auto_disputed':
     case 'coorg_transfer_resolved':
+      // Même cycle de virement pour un contrat collab réglé SANS Stripe
+      // (source 'collab') : on ouvre la page de la co-soirée, où vit sa carte
+      // « Règlement par virement », pas la page co-organisation.
+      if (n.metadata?.source === 'collab' && eventId) {
+        if (isOwner) return `/owner/collab/event/${eventId}`;
+        if (isOrganizer) return `${basePath}/events/${eventId}`;
+      }
       if (isOwner || isOrganizer) {
         return eventId ? `${basePath}/coorg/${eventId}` : `${basePath}/collaborations?tab=coorg`;
       }

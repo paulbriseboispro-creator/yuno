@@ -89,6 +89,7 @@ export function AdminCoorgTransfersCard() {
               <Link to={`/admin/events?q=${encodeURIComponent(r.event_title ?? '')}`} style={{ color: T2, textDecoration: 'underline' }}>
                 {r.event_title ?? r.event_id}
               </Link>
+              {' · '}{r.source === 'collab' ? L('Contrat collab sans Stripe', 'Collab agreement without Stripe', 'Contrato collab sin Stripe') : L('Co-organisation', 'Co-organisation', 'Coorganización')}
               {' · '}{r.reference}
               {r.sent_reference ? ` · ${L('réf. payeur', 'payer ref.', 'ref. pagador')} ${r.sent_reference}` : ''}
               {r.reminder_count > 0 ? ` · ${r.reminder_count} ${L('relance(s)', 'reminder(s)', 'recordatorio(s)')}` : ''}

@@ -44,11 +44,27 @@ export interface CollabRemuneration {
   tiers_mode?: 'flat' | 'marginal';
 }
 
+/**
+ * Comment l'argent d'un collab club × orga est réparti. `stripe` (défaut) :
+ * Stripe partage chaque vente automatiquement (les deux parties ont un compte
+ * Stripe). `transfer` : UNE partie encaisse tout (`collector`), la répartition
+ * du contrat est suivie vente par vente, puis un décompte est figé après la
+ * soirée et l'encaisseur vire la part de l'autre sous `payment_terms_days`
+ * (cycle IBAN / « J'ai viré » / « Bien reçu », comme les promoteurs).
+ * Barème ou tables au total dépensé ⇒ l'encaisseur est forcément le club.
+ */
+export interface CollabSettlement {
+  mode: 'stripe' | 'transfer';
+  collector?: 'venue' | 'organizer';
+  payment_terms_days?: 7 | 15 | 30;
+}
+
 export interface PartnershipSplitRules {
   tickets: SplitPillarBlock;
   tables: SplitPillarBlock & { basis?: TableSplitBasis };
   drinks: SplitPillarBlock;
   remuneration?: CollabRemuneration;
+  settlement?: CollabSettlement;
 }
 
 export interface VenueOrganizerPartnership {

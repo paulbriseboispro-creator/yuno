@@ -463,6 +463,53 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   REPORTER la 2FA 7 jours, une fois (`20260922080000`) — jamais sur les pages
   d'argent ; le guide de configuration ne s'ouvre pas tout seul chez lui.
 
+## Collab club × orga : « Répartir via Stripe ? » OUI ou NON (2026-09-29)
+
+Migrations `20260929130000` (règlement par virement), `140000` (normalisation
+partout), `150000` (vendeur des reçus). Stripe n'est JAMAIS une condition d'une
+collaboration. Règles intouchables :
+
+- **Le mode vit dans le contrat** : `split_rules.settlement = {mode: 'stripe' |
+  'transfer', collector: 'venue' | 'organizer', payment_terms_days: 7|15|30}`.
+  Absent = Stripe. Barème ou tables `basis = 'total_spend'` ⇒ encaisseur FORCÉ
+  au club. Trois miroirs exacts : `readSettlement` (front, `splitRules.ts`),
+  `collabSettlement` (edge, `payment-split.ts`), `normalize_collab_settlement` +
+  `collab_settlement_collector` (SQL, triggers sur contrats, contrats-cadres ET
+  avenants — `apply_collab_amendment` recopie les règles brutes sur la soirée,
+  donc les lecteurs SQL normalisent aussi). `normalizeSplitRules` PRÉSERVE le
+  bloc. Testé : `collabSettlement.test.ts`, `paymentSplit.test.ts`.
+- **UI = `SettlementModeSwitch`** (Oui / Non + encaisseur + délai) dans le
+  bandeau contrat, « Proposer une soirée » (club), l'invitation d'un club
+  (orga, email compris) et l'avenant ; `SettlementRecap` partout où le deal se lit.
+- **Checkout en virement = charge DIRECTE sur l'encaisseur** (billets, tables ;
+  boissons toujours club) et la vente garde `collab_split` (parts du contrat au
+  moment de l'achat, `venue_direct` = consos d'un billet). La porte « paiements
+  prêts » vérifie les comptes RÉELLEMENT utilisés (`checkPayoutReadiness`,
+  `_shared/payout-readiness.ts`, miroir SQL `event_payments_ready`) : seul
+  l'encaisseur a besoin de Stripe. Le partage se verrouille à la 1re vente PAYÉE.
+- **Décompte** : `_collab_transfer_compute` (net = CA − remboursement − frais
+  Yuno − Stripe estimé 1,5 % + 0,25 €, tables en ligne sur l'acompte, boissons
+  seulement si l'orga a une part), figé par `freeze_collab_transfer_statement`
+  (une partie niveau argent, soirée finie, jamais en accès assisté) ou par le
+  cron `collab-transfer-freeze` à fin + 48 h (`collab_transfer_statements`).
+  Le virement est une ligne `event_coorg_transfers` `source = 'collab'` : MÊME
+  cycle que la co-organisation (IBAN, « J'ai viré », « Bien reçu », relances,
+  litige auto, arbitrage `/admin/alerts`), liste partagée `CoorgTransferList`.
+  Carte `CollabTransferStatementCard` sur la co-soirée ; « Ma part » et le
+  panneau Argent lisent le décompte (les jambes Stripe n'existent pas). Les
+  notifications `source = 'collab'` ouvrent la co-soirée, pas la page coorg.
+  Un barème en virement passe par le décompte de fin de soirée (tout en SEPA).
+- **Reçus** : l'organisateur encaisseur est le VENDEUR (son régime de TVA) dans
+  `get_event_seller`, `save_invoice_on_creation` et l'email de billet — jamais le
+  club, qui n'a rien reçu. Lu sur `collab_split` de la vente.
+- **Contrat v`2026-09-29`** : `getCollabTerms(v, {tiered, settlement})` résout la
+  note de l'article 3 (plus de fuite de `noteTiered` sur un contrat par pilier),
+  les corps `transferBody` et insère l'article « Règlement par virement » (hors
+  barème). Un contrat Stripe garde le texte de `2026-09-26` mot pour mot.
+- **Org × org = co-organisation, jamais Stripe** ; `save_coorg_deal` refuse un
+  accord sur une soirée dont le collab est déjà réglé par virement
+  (`collab_transfer_unsupported`).
+
 ## Co-organisation — N parties sur une soirée (2026-09-28)
 
 Design + analyse : `docs/designs/COORGANIZATION_PLAN.md`. Migrations `20260928100000`

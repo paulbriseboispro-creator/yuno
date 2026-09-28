@@ -362,6 +362,8 @@ export interface CoorgTransferIssue {
   dispute_reason: string | null;
   reminder_count: number;
   days_late: number | null;
+  /** 'collab' = contrat club × orga réglé sans Stripe ; 'coorg' = accord de co-organisation. */
+  source?: 'coorg' | 'collab';
 }
 
 export const adminCoorgTransferIssues = () => call<CoorgTransferIssue[]>('admin_coorg_transfer_issues', {});
@@ -463,3 +465,44 @@ export const eur = (n: number | null | undefined, language = 'fr') =>
   new Intl.NumberFormat(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', {
     style: 'currency', currency: 'EUR',
   }).format(Number(n ?? 0));
+
+// ── Contrat collab club × orga réglé SANS Stripe (20260929130000) ─────────────
+// Une partie encaisse, Yuno suit la part de chacun, fige le décompte 48 h après
+// la soirée, puis le virement suit le même cycle que la co-organisation
+// (`event_coorg_transfers`, source 'collab').
+
+export interface CollabTransferPillar { count: number; net: number; organizer: number; venue: number }
+
+export interface CollabTransferFigures {
+  ok: boolean;
+  reason?: string;
+  collector?: 'venue' | 'organizer';
+  collector_key?: string;
+  venue_key?: string;
+  org_key?: string;
+  payment_terms_days?: number;
+  tables_basis?: 'deposit' | 'total_spend';
+  pillars?: { tickets: CollabTransferPillar; tables: CollabTransferPillar; drinks: CollabTransferPillar };
+  organizer_total?: number;
+  venue_total?: number;
+  transfer?: { from: string; to: string; amount: number } | null;
+}
+
+export interface CollabTransferStatement {
+  ok: boolean;
+  reason?: string;
+  event?: { id: string; title: string; start_at: string; end_at: string | null; ended: boolean; auto_freeze_at: string };
+  my_parties?: string[];
+  names?: Record<string, string | null>;
+  status?: 'live' | 'frozen' | 'settled';
+  frozen_at?: string | null;
+  settled_at?: string | null;
+  figures?: CollabTransferFigures;
+  transfers?: CoorgTransfer[];
+}
+
+export const getCollabTransferStatement = (eventId: string) =>
+  call<CollabTransferStatement>('get_collab_transfer_statement', { p_event_id: eventId });
+
+export const freezeCollabTransferStatement = (eventId: string) =>
+  call<{ status: 'frozen' | 'settled'; figures: CollabTransferFigures }>('freeze_collab_transfer_statement', { p_event_id: eventId });

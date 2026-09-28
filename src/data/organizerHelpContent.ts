@@ -403,7 +403,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: OPEN, path: '/collaborations' },
         relatedArticleIds: ['org-partners', 'org-events', 'org-payments'],
-        keywords: ['collaboration', 'collaborations', 'co-event', 'co-soirée', 'coevento', 'propose', 'proposer', 'proponer', 'contract', 'contrat', 'contrato', 'split', 'partage', 'reparto', 'partner club', 'club partenaire', 'club socio', 'barème', 'paliers', 'tiers', 'escala', 'night closing', 'décompte de soirée', 'cierre de noche', 'fonds retenus', 'held funds', 'fondos retenidos', 'comment je suis payé', 'bar en caisse'],
+        keywords: ['collaboration', 'collaborations', 'co-event', 'co-soirée', 'coevento', 'propose', 'proposer', 'proponer', 'contract', 'contrat', 'contrato', 'split', 'partage', 'reparto', 'partner club', 'club partenaire', 'club socio', 'barème', 'paliers', 'tiers', 'escala', 'night closing', 'décompte de soirée', 'cierre de noche', 'fonds retenus', 'held funds', 'fondos retenidos', 'comment je suis payé', 'bar en caisse', 'stripe', 'sans stripe', 'without stripe', 'sin stripe', 'virement', 'transfer', 'transferencia', 'iban', 'encaisseur'],
         sections: [
           { headingKey: 'ohelp.org.collab.s1h', bodyKey: 'ohelp.org.collab.s1b' },
           { headingKey: 'ohelp.org.collab.s2h', bodyKey: 'ohelp.org.collab.s2b' },
@@ -412,6 +412,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.collab.s5h', bodyKey: 'ohelp.org.collab.s5b' },
           { headingKey: 'ohelp.org.collab.s6h', bodyKey: 'ohelp.org.collab.s6b', type: 'tip' },
           { headingKey: 'ohelp.org.collab.s7h', bodyKey: 'ohelp.org.collab.s7b' },
+          { headingKey: 'ohelp.org.collab.s8h', bodyKey: 'ohelp.org.collab.s8b', type: 'steps' },
         ],
       },
       {

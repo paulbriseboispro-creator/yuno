@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
+import { checkPayoutReadiness, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 // Yuno commission rate — single source of truth (4%, min 0.99€ / 0.49€ BDE, max 25€ on tables).
 import {
@@ -414,19 +415,39 @@ serve(async (req) => {
       throw new Error(t("checkout.pillarTablesOff", lang));
     }
 
-    // Bénéficiaire du paiement : le club quand la soirée en a un, sinon
-    // l'organisateur (charge directe sur SON compte Connect). Miroir exact de
-    // create-ticket-checkout — les deux piliers encaissent au même endroit.
-    const payoutSource: 'venue' | 'organizer' = venue ? 'venue' : 'organizer';
-    const payoutStripeAccountId = payoutSource === 'venue' ? (venue?.stripe_account_id ?? null) : organizerStripeAccountId;
-    const payoutStripeChargesEnabled = payoutSource === 'venue' ? !!venue?.stripe_charges_enabled : organizerStripeChargesEnabled;
+    // Porte Stripe calée sur le split RÉEL (payout-readiness.ts), miroir exact de
+    // create-ticket-checkout : on vérifie les comptes que la charge utilisera —
+    // l'encaisseur d'un contrat réglé par virement, les deux jambes d'un partage
+    // Stripe, le club vendeur de record. Le club quand la soirée en a un, sinon
+    // l'organisateur (charge directe sur SON compte Connect).
+    const readiness = checkPayoutReadiness({
+      itemType: "table",
+      isBde: event.is_bde === true,
+      event: {
+        id: event.id,
+        venue_id: event.venue_id,
+        organizer_user_id: event.organizer_user_id,
+        partner_venue_id: event.partner_venue_id,
+        partner_organizer_id: event.partner_organizer_id,
+        event_mode: event.event_mode,
+        revenue_split_rules: event.revenue_split_rules,
+      },
+      partnershipRules,
+    }, {
+      venueStripeAccountId: venue?.stripe_account_id ?? null,
+      venueChargesEnabled: !!venue?.stripe_charges_enabled,
+      organizerStripeAccountId,
+      organizerChargesEnabled: organizerStripeChargesEnabled,
+    });
+    // Contrat réglé par virement : la part prévue est gardée sur la réservation
+    // (décompte figé à J+2 par collab_transfer_statements).
+    const collabSplit = "split" in readiness ? (readiness.split.transferSplit ?? null) : null;
 
     logStep("Payment targets resolved", {
-      payoutSource,
       venueId: venue?.id ?? null,
       organizerId: effectiveOrganizerId,
-      stripeAccountId: payoutStripeAccountId,
-      chargesEnabled: payoutStripeChargesEnabled,
+      readiness: "split" in readiness ? "ok" : readiness,
+      primary: "split" in readiness ? readiness.split.primary.accountId : null,
     });
 
     // Create or update venue customer (only for authenticated users)
@@ -647,8 +668,8 @@ serve(async (req) => {
         _status: "paid",
         _qr_code: qrCode,
         _full_name: fullName,
-        _phone: phone,
-        _remarks: remarks,
+        _phone: phone ?? null,
+        _remarks: remarks ?? null,
         _newsletter_opt_in: newsletterOptIn,
         _sms_opt_in: !!smsOptIn,
         _requested_table_id: requestedTableId || null,
@@ -819,8 +840,8 @@ serve(async (req) => {
         _status: "paid",
         _qr_code: qrCode,
         _full_name: fullName,
-        _phone: phone,
-        _remarks: remarks,
+        _phone: phone ?? null,
+        _remarks: remarks ?? null,
         _newsletter_opt_in: newsletterOptIn,
         _sms_opt_in: !!smsOptIn,
         _requested_table_id: requestedTableId || null,
@@ -843,6 +864,7 @@ serve(async (req) => {
         await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
       }
       await supabaseAdmin.from("table_reservations").update({
+        collab_split: collabSplit,
         age_declared_at: ageRecord.declaredAt,
         age_declaration_birth_date: ageRecord.birthDate,
         age_declaration_ip: ageRecord.ip,
@@ -1046,20 +1068,20 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    if (!payoutStripeAccountId) {
-      logStep("Checkout refused — payment account not connected", { payoutSource, effectiveVenueId, effectiveOrganizerId });
-      throw new Error(t(payoutSource === 'organizer' ? "checkout.organizerPaymentsNotSetUp" : "checkout.venuePaymentsNotSetUp", lang));
+    if ("missing" in readiness) {
+      logStep("Checkout refused — payment account not connected", { party: readiness.missing, effectiveVenueId, effectiveOrganizerId });
+      throw new Error(t(readiness.missing === 'organizer' ? "checkout.organizerPaymentsNotSetUp" : "checkout.venuePaymentsNotSetUp", lang));
     }
-    if (!payoutStripeChargesEnabled) {
-      logStep("Checkout refused — payment account not active", { payoutSource, effectiveVenueId, effectiveOrganizerId });
-      throw new Error(t(payoutSource === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive", lang));
+    if ("inactive" in readiness) {
+      logStep("Checkout refused — payment account not active", { party: readiness.inactive, effectiveVenueId, effectiveOrganizerId });
+      throw new Error(t(readiness.inactive === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive", lang));
     }
 
     // Sentinelle démo (`acct_demo_…`, seed womber) : compte Stripe FICTIF marqué
     // charges_enabled=true — sans ce refus, Stripe meurt en plein checkout sur
     // « No such account » (l'erreur du rejet App Store 2.1(a)). Refus propre AVANT
     // la réservation ; les comptes démo @womber.fr n'arrivent jamais ici (simulate).
-    const demoStripeAccount = [venue?.stripe_account_id ?? null, organizerStripeAccountId]
+    const demoStripeAccount = accountsUsedBySplit(readiness.split)
       .find((id) => id?.startsWith("acct_demo"));
     if (demoStripeAccount) {
       logStep("Checkout refused — demo Stripe account sentinel", { demoStripeAccount });
@@ -1083,8 +1105,8 @@ serve(async (req) => {
       _status: "pending",
       _qr_code: qrCode,
       _full_name: fullName,
-      _phone: phone,
-      _remarks: remarks,
+      _phone: phone ?? null,
+      _remarks: remarks ?? null,
       _newsletter_opt_in: newsletterOptIn,
       _sms_opt_in: !!smsOptIn,
       _requested_table_id: requestedTableId || null,
@@ -1205,11 +1227,18 @@ serve(async (req) => {
       organizerStripeAccountId,
     });
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
-    if (connectedAccountId) {
-      await supabaseAdmin.from("table_reservations").update({ stripe_connected_account_id: connectedAccountId }).eq('id', reservation.id);
+    if (connectedAccountId || split.transferSplit) {
+      await supabaseAdmin.from("table_reservations").update({
+        ...(connectedAccountId ? { stripe_connected_account_id: connectedAccountId } : {}),
+        collab_split: split.transferSplit ?? null,
+      }).eq('id', reservation.id);
     }
 
     const session = await stripe.checkout.sessions.create({
+      // Une session Stripe vit 24 h par défaut : un paiement tardif arrivait après
+      // la fin de la réservation de places, voire après le décompte de la soirée.
+      // 31 min = le minimum Stripe (30) + une marge d'horloge.
+      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
       line_items: [
         // Only add deposit line if there's a deposit to pay
         ...(discountedDeposit > 0 ? [{ price_data: { currency: "eur", product_data: { name: `${pack.name} - ${event.title}` }, unit_amount: Math.round(discountedDeposit * 100) }, quantity: 1 }] : []),
@@ -1287,7 +1316,6 @@ serve(async (req) => {
     logStep("Stripe session created", {
       sessionId: session.id,
       yunoCommission,
-      payoutSource,
       destination: split.primary.accountId,
     });
 

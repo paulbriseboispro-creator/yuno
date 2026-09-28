@@ -127,6 +127,7 @@ export type YunoEvent =
   | 'coorg_deal_signed' //         { event_id, formal }
   | 'coorg_settlement_approved' // { event_id, parties }
   | 'coorg_transfer_nudged' //     { event_id, days_late }
+  | 'collab_transfer_statement_frozen' // { event_id, manual } — contrat collab réglé sans Stripe
   | 'event_hosts_followed'; //     { event_id, hosts }
 
 // Côté serveur (supabase/functions/_shared/posthog.ts), hors de ce type :

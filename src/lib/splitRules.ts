@@ -1,4 +1,4 @@
-import type { CollabRemuneration, CollabTier, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import type { CollabRemuneration, CollabSettlement, CollabTier, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 
 /**
  * Canonical co-event revenue-split shape:
@@ -74,6 +74,9 @@ export function normalizeSplitRules(raw: unknown): PartnershipSplitRules | null 
   // du contrat re-soumis depuis un état normalisé, et une proposition à barème
   // repartirait en partage par pilier sans que personne ne le voie.
   const remuneration = readRemuneration(r);
+  // Même règle pour le mode de règlement : le perdre ferait repartir un contrat
+  // « par virement » en partage Stripe à la prochaine proposition.
+  const settlement = r.settlement ? readSettlement(r) : null;
 
   if (!tickets && !tables && !remuneration) return null;
 
@@ -82,7 +85,48 @@ export function normalizeSplitRules(raw: unknown): PartnershipSplitRules | null 
     tables: tables ?? { organizer_pct: 0, venue_pct: 100 },
     drinks,
     ...(remuneration ? { remuneration } : {}),
+    ...(settlement ? { settlement } : {}),
   };
+}
+
+// ─── Règlement : partage Stripe automatique OU virement suivi ────────────────
+
+/**
+ * Lit `rules.settlement`. Miroir EXACT de `collabSettlement` (edge,
+ * payment-split.ts) et de `normalize_collab_settlement` (SQL) : absent ou
+ * inconnu = partage Stripe ; en virement, l'encaisseur est le club par défaut,
+ * et FORCÉMENT le club sur un barème ou des tables au total dépensé (le bar en
+ * caisse est chez lui, le décompte part de ses chiffres).
+ */
+export function readSettlement(raw: unknown): Required<CollabSettlement> | { mode: 'stripe' } {
+  if (!raw || typeof raw !== 'object') return { mode: 'stripe' };
+  const r = raw as Record<string, unknown>;
+  const s = r.settlement as Record<string, unknown> | undefined;
+  if (!s || typeof s !== 'object' || s.mode !== 'transfer') return { mode: 'stripe' };
+  const collector = collectorForcedToVenue(r) ? 'venue' : (s.collector === 'organizer' ? 'organizer' : 'venue');
+  const d = Number(s.payment_terms_days);
+  const payment_terms_days = (d === 7 || d === 30 ? d : 15) as 7 | 15 | 30;
+  return { mode: 'transfer', collector, payment_terms_days };
+}
+
+/** Barème ou tables au total dépensé : en virement, seul le club peut encaisser. */
+export function collectorForcedToVenue(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const tables = (raw as { tables?: { basis?: unknown } }).tables;
+  return isTieredRules(raw) || tables?.basis === 'total_spend';
+}
+
+/** Le contrat se règle-t-il par virement (une partie encaisse, l'autre est payée après) ? */
+export function isTransferSettlement(raw: unknown): boolean {
+  return readSettlement(raw).mode === 'transfer';
+}
+
+/** Pose (ou retire) le mode de règlement sur des règles déjà construites. */
+export function withSettlement<T extends object>(rules: T, settlement: CollabSettlement | null | undefined): T {
+  const { settlement: _drop, ...rest } = rules as T & { settlement?: unknown };
+  void _drop;
+  if (!settlement || settlement.mode !== 'transfer') return rest as T;
+  return { ...rest, settlement: readSettlement({ ...rest, settlement }) } as T;
 }
 
 // ─── Barème sur le CA de la soirée ───────────────────────────────────────────

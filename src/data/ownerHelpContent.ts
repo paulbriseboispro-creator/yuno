@@ -422,7 +422,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Handshake',
         actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations' },
         relatedArticleIds: ['events-setup', 'dj-management', 'invoices-management'],
-        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'qui fait quoi', 'who does what', 'design', 'logistique', 'operations', 'double consentement', 'avenant'],
+        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'qui fait quoi', 'who does what', 'design', 'logistique', 'operations', 'double consentement', 'avenant', 'stripe', 'sans stripe', 'without stripe', 'sin stripe', 'virement', 'transfer', 'transferencia', 'encaisseur', 'collector', 'iban'],
         sections: [
           { headingKey: 'ohelp.ev.collab.s1h', bodyKey: 'ohelp.ev.collab.s1b' },
           { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.webp' },
@@ -430,6 +430,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.collab.s4h', bodyKey: 'ohelp.ev.collab.s4b' },
           { headingKey: 'ohelp.ev.collab.s5h', bodyKey: 'ohelp.ev.collab.s5b' },
           { headingKey: 'ohelp.ev.collab.s6h', bodyKey: 'ohelp.ev.collab.s6b' },
+          { headingKey: 'ohelp.ev.collab.s9h', bodyKey: 'ohelp.ev.collab.s9b', type: 'steps' },
           { headingKey: 'ohelp.ev.collab.s7h', bodyKey: 'ohelp.ev.collab.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.collab.s8h', bodyKey: 'ohelp.ev.collab.s8b', type: 'warning' },
         ],

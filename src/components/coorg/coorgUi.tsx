@@ -81,6 +81,10 @@ export function useCoorgErrorText() {
       case 'nudge_too_soon': return t('Tu as déjà relancé aujourd’hui. Réessaie demain.', 'You already sent a reminder today. Try again tomorrow.', 'Ya enviaste un recordatorio hoy. Vuelve a intentarlo mañana.');
       case 'invalid_terms': return t('Délai de paiement invalide.', 'Invalid payment terms.', 'Plazo de pago no válido.');
       case 'invalid_amount': return t('Montant invalide.', 'Invalid amount.', 'Importe no válido.');
+      case 'already_frozen': return t('Le décompte est déjà arrêté.', 'The statement is already closed.', 'La liquidación ya está cerrada.');
+      case 'no_signed_contract': return t('Il faut un contrat signé par les deux parties.', 'Both parties must have signed the agreement.', 'Hace falta un contrato firmado por ambas partes.');
+      case 'not_transfer_mode': return t('Ce contrat est réparti automatiquement par Stripe.', 'This agreement is split automatically by Stripe.', 'Este contrato se reparte automáticamente con Stripe.');
+      case 'collab_transfer_unsupported': return t('Le contrat collab de cette soirée se règle déjà par virement : pas d’accord de co-organisation en plus.', 'This night’s collab agreement is already settled by transfer: no extra co-organization agreement.', 'El contrato collab de esta noche ya se liquida por transferencia: sin acuerdo de coorganización adicional.');
       default: return t('Action impossible pour le moment.', 'Action not possible right now.', 'Acción imposible por ahora.');
     }
   };

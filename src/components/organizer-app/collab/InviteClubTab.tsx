@@ -4,8 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
 } from '@/components/collab/TieredRemunerationEditor';
-import { tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
-import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { tieredPillarBlocks, validateTiers, withSettlement } from '@/lib/splitRules';
+import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
+import type { CollabRemuneration, CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -48,6 +49,9 @@ export function InviteClubTab() {
   const [tablesOrg, setTablesOrg] = useState(0);
   const [tiered, setTiered] = useState<CollabRemuneration>({ mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
   const tiersInvalid = remMode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
+  // Un club qui découvre Yuno n'a souvent pas encore Stripe : « Non » laisse
+  // l'une des deux parties encaisser seule et payer l'autre après la soirée.
+  const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
   useEffect(() => {
     if (!user?.id) return;
     let active = true;
@@ -57,7 +61,8 @@ export function InviteClubTab() {
       .then(({ data }) => { if (active) setEvents((data ?? []) as { id: string; title: string; start_at: string }[]); });
     return () => { active = false; };
   }, [user?.id]);
-  const buildRules = (): PartnershipSplitRules => remMode === 'tiered_total'
+  const buildRules = (): PartnershipSplitRules => withSettlement(buildSplit(), settlement);
+  const buildSplit = (): PartnershipSplitRules => remMode === 'tiered_total'
     ? { ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } }
     : {
       tickets: { organizer_pct: ticketsOrg, venue_pct: 100 - ticketsOrg },
@@ -167,6 +172,7 @@ export function InviteClubTab() {
                   </p>
                 </div>
               )}
+              <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={buildSplit() as unknown as Record<string, unknown>} />
             </div>
             <div className="col-span-2"><FieldLabel>{t('Message personnalisé (optionnel)', 'Custom message (optional)', 'Mensaje personalizado (opcional)')}</FieldLabel><DarkTextarea value={form.invitation_message} onChange={set('invitation_message')} placeholder={t('Présente ton projet, la soirée envisagée, ta communauté…', 'Introduce your project, the event you have in mind, your community…', 'Presenta tu proyecto, el evento previsto, tu comunidad…')} rows={4} /></div>
           </div>

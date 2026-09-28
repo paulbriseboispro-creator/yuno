@@ -27,7 +27,9 @@ import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
-import { CollabMoneyPanel, type PillarStat } from '@/components/collab/CollabMoneyPanel';
+import { CollabMoneyPanel, type PillarStat, type TransferInfo } from '@/components/collab/CollabMoneyPanel';
+import { CollabTransferStatementCard } from '@/components/collab/CollabTransferStatementCard';
+import { getCollabTransferStatement, type CollabTransferStatement } from '@/lib/coorg';
 import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
 import { CollabNightClosingCard } from '@/components/collab/CollabNightClosingCard';
 import { CollabJourney } from '@/components/collab/CollabJourney';
@@ -48,7 +50,7 @@ import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
-import { isTieredRules, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
+import { isTieredRules, isTransferSettlement, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
 import { computeNightClosing, type ClosingComputeResult } from '@/lib/collabNightClosing';
 import {
   OrgPage, OrgCard, OrgPill, OrgButton,
@@ -183,7 +185,51 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       .catch(() => { if (active) setClosingProjection(null); });
     return () => { active = false; };
   }, [eventId, tieredContract, scopeId, refreshKey]);
+  // Contrat réglé SANS Stripe : une partie encaisse, l'autre est payée par
+  // virement. Les jambes Stripe n'existent pas (charge directe) — le gain se lit
+  // dans le décompte (vivant avant l'arrêt, figé ensuite).
+  const transferContract = !tieredContract && isTransferSettlement(event?.revenue_split_rules);
+  const [transferStmt, setTransferStmt] = useState<CollabTransferStatement | null>(null);
+  useEffect(() => {
+    if (!eventId || !transferContract || !scopeId) { setTransferStmt(null); return; }
+    let active = true;
+    getCollabTransferStatement(eventId)
+      .then((r) => { if (active) setTransferStmt(r?.ok ? r : null); })
+      .catch(() => { if (active) setTransferStmt(null); });
+    return () => { active = false; };
+  }, [eventId, transferContract, scopeId, refreshKey]);
+  const transferInfo = useMemo<TransferInfo | null>(() => {
+    const f = transferStmt?.figures;
+    if (!transferContract || !transferStmt?.ok || !f?.ok || !transferStmt.event) return null;
+    const myKey = isVenue ? f.venue_key : f.org_key;
+    const tr = f.transfer ?? null;
+    const received = (transferStmt.transfers ?? []).filter((x) => x.i_receive && x.status === 'received').reduce((a, x) => a + Number(x.amount), 0);
+    return {
+      iCollect: f.collector === (isVenue ? 'venue' : 'organizer'),
+      collectorName: transferStmt.names?.[f.collector_key ?? ''] || (f.collector === 'organizer' ? t("L'organisateur", 'The organizer', 'El organizador') : t('Le club', 'The club', 'El club')),
+      owed: tr && tr.from === myKey ? tr.amount : 0,
+      toReceive: tr && tr.to === myKey ? Math.max(0, tr.amount - received) : 0,
+      frozen: transferStmt.status !== 'live',
+      freezeAt: transferStmt.frozen_at ?? transferStmt.event.auto_freeze_at,
+      termsDays: f.payment_terms_days ?? 15,
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transferContract, transferStmt, isVenue, language]);
   const displayGain = useMemo(() => {
+    const f = transferStmt?.figures;
+    if (transferContract && transferInfo && f?.ok) {
+      const share = Number((isVenue ? f.venue_total : f.organizer_total) ?? 0);
+      const received = (transferStmt?.transfers ?? []).filter((x) => x.i_receive && x.status === 'received').reduce((a, x) => a + Number(x.amount), 0);
+      return {
+        ...netGain,
+        netEuros: share,
+        paidEuros: transferInfo.iCollect ? share : received,
+        pendingEuros: transferInfo.iCollect ? 0 : transferInfo.toReceive,
+        failedEuros: 0,
+        releaseAt: null,
+        loading: false,
+      };
+    }
     const p = closingProjection?.projection;
     if (!tieredContract || !p) return netGain;
     const accepted = closingProjection?.closing?.status === 'accepted';
@@ -197,7 +243,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     }
     const paid = accepted ? netGain.paidEuros : 0;
     return { ...netGain, netEuros: p.due, paidEuros: paid, pendingEuros: Math.max(0, p.due - paid), failedEuros: accepted ? netGain.failedEuros : 0, releaseAt: null };
-  }, [tieredContract, closingProjection, netGain, isVenue]);
+  }, [tieredContract, closingProjection, netGain, isVenue, transferContract, transferInfo, transferStmt]);
 
   useEffect(() => {
     if (!user || !eventId) return;
@@ -573,6 +619,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 {isCollab && (
                   <CollabNightClosingCard eventId={event.id} viewerRole={viewerSide} />
                 )}
+                {isCollab && transferContract && (
+                  <CollabTransferStatementCard eventId={event.id} tiered={tieredContract} />
+                )}
                   </div>
                 )}
 
@@ -611,6 +660,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     drinks={stats.drinkPillar}
                     gain={displayGain}
                     isVenue={isVenue}
+                    transfer={transferInfo}
                   />
                 ) : (
                   <PayoutStatusNote gain={displayGain} className="-mt-1" />

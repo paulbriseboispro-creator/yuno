@@ -115,6 +115,42 @@ export interface SplitResult {
    * depuis les règles de l'événement ; ce drapeau sert au journal et aux tests.
    */
   hold?: "night_closing";
+  /**
+   * Contrat réglé PAR VIREMENT (`revenue_split_rules.settlement.mode = 'transfer'`) :
+   * une seule partie encaisse (charge directe sur SON compte), la part de l'autre
+   * est suivie puis versée par virement après la soirée (décompte figé à J+2,
+   * `collab_transfer_statements`). Écrit tel quel sur la vente (`collab_split`).
+   */
+  transferSplit?: CollabTransferSplit;
+}
+
+export type SettlementCollector = "venue" | "organizer";
+
+export interface CollabTransferSplit {
+  mode: "transfer";
+  collector: SettlementCollector;
+  organizer_pct: number;
+  venue_pct: number;
+  /** Consos / options d'un billet : 100 % club, hors partage (EUR). */
+  venue_direct: number;
+}
+
+/**
+ * Mode de règlement du contrat collab. Miroir de public.collab_settlement_mode /
+ * collab_settlement_collector (SQL) et de readSettlement() (front). Absent =
+ * partage Stripe vente par vente (comportement historique).
+ */
+export function collabSettlement(
+  rules: Record<string, unknown> | null | undefined,
+): { mode: "stripe" } | { mode: "transfer"; collector: SettlementCollector } {
+  const st = rules && typeof rules === "object" ? (rules as { settlement?: unknown }).settlement : null;
+  if (!st || typeof st !== "object" || (st as { mode?: unknown }).mode !== "transfer") return { mode: "stripe" };
+  const collector = (st as { collector?: unknown }).collector === "organizer" ? "organizer" : "venue";
+  // Barème / tables au total dépensé : l'encaisseur est TOUJOURS le club (miroir de
+  // normalize_collab_settlement) — leurs décomptes partent du club.
+  const tablesBasis = (rules as { tables?: { basis?: unknown } }).tables?.basis;
+  if (isTieredCollab(rules) || tablesBasis === "total_spend") return { mode: "transfer", collector: "venue" };
+  return { mode: "transfer", collector };
 }
 
 /**
@@ -287,6 +323,33 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   }
 
   const rules = event.revenue_split_rules ?? partnershipRules ?? null;
+
+  // ── Contrat réglé PAR VIREMENT ──────────────────────────────────────────────
+  // Billets et tables partent en charge DIRECTE sur le compte de l'encaisseur :
+  // il est vendeur de record, paie les frais Stripe, et Yuno prélève sa commission
+  // en application fee. Seul SON compte Stripe est requis. La part de l'autre
+  // partie (mêmes % que le contrat, mêmes bases qu'un partage Stripe) est tracée
+  // sur la vente et versée par virement après la soirée. Les boissons restent en
+  // charge directe club, comme partout.
+  const settlement = collabSettlement(event.revenue_split_rules as Record<string, unknown> | null);
+  if (itemType !== "drink" && settlement.mode === "transfer") {
+    const transferSplitPct = isTieredCollab(rules)
+      ? { organizer_pct: 0, venue_pct: 100 }
+      : (getSplitForItem(rules, itemType) ?? defaultSplitForItem(itemType, event.event_mode));
+    const transferSplit: CollabTransferSplit = {
+      mode: "transfer",
+      collector: settlement.collector,
+      organizer_pct: Math.round(transferSplitPct.organizer_pct * 10000) / 10000,
+      venue_pct: Math.round(transferSplitPct.venue_pct * 10000) / 10000,
+      venue_direct: Math.round(Math.max(0, venueDirectAmount ?? 0) * 100) / 100,
+    };
+    if (settlement.collector === "organizer") {
+      if (!organizerStripeAccountId) throw new Error("Organizer has no Stripe account");
+      return { ...directResult(organizerStripeAccountId, "organizer", null, organizerId, transferSplitPct), transferSplit };
+    }
+    if (!venueStripeAccountId) throw new Error("Venue has no Stripe account");
+    return { ...directResult(venueStripeAccountId, "venue", venueId, null, transferSplitPct), transferSplit };
+  }
 
   // ── Barème sur le CA de la soirée ───────────────────────────────────────────
   // Le taux de l'organisateur dépend du TOTAL de la nuit, inconnu au moment de la
