@@ -246,6 +246,7 @@ const GuestDrinkCheckout = lazyWithRetry(() => import("./pages/GuestDrinkCheckou
 const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"));
 const AcceptStaffInvitation = lazyWithRetry(() => import("./pages/AcceptStaffInvitation"));
 const AcceptOrgMember = lazyWithRetry(() => import("./pages/AcceptOrgMember"));
+const AcceptCohostInvitation = lazyWithRetry(() => import("./pages/AcceptCohostInvitation"));
 const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
@@ -693,6 +694,7 @@ const App = () => (
                     l'adresse que porte le lien de `invite-org-member` : sans cette
                     route, l'email menait droit sur la page 404. */}
                 <Route path="/accept-org-member" element={<AcceptOrgMember />} />
+                <Route path="/accept-cohost" element={<AcceptCohostInvitation />} />
                 <Route path="/join" element={<JoinViaLink />} />
                 {/* Aperçu démo verrouillé par mot de passe (lien de preview) */}
                 <Route path="/preview" element={<PreviewGate />} />

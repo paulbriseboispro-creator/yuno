@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
 import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
 import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
 import { CoorgHubTab } from '@/components/coorg/CoorgHubTab';
+import { ClubInviteDealFields, type ClubInviteDeal } from '@/components/collab/ClubInviteDealFields';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -991,15 +992,27 @@ function InviteTab({ venueId }: { venueId: string }) {
     contact_first_name: '', contact_last_name: '', invitation_message: '',
   });
   const [sending, setSending] = useState(false);
+  // Le deal part AVEC l'invitation : soirée, conditions, Stripe Oui / Non.
+  const [deal, setDeal] = useState<ClubInviteDeal>({ eventId: null, rules: null, lang: 'fr', invalid: false });
+  const onDeal = useCallback((d: ClubInviteDeal) => setDeal(d), []);
 
   const handleSend = async () => {
     if (!form.organizer_email.trim()) { sonnerToast.error(t('collab.external.emailRequired')); return; }
+    if (deal.invalid) return;
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-organizer-collab', {
-        body: { ...form, origin: window.location.origin },
+        body: {
+          ...form, venue_id: venueId, event_id: deal.eventId, default_split_rules: deal.rules,
+          lang: deal.lang, origin: window.location.origin,
+        },
       });
-      if (error) throw error;
+      if (error) {
+        // Un refus serveur (4xx) porte son message dans le corps de la réponse.
+        let msg = error.message;
+        try { msg = (await (error as { context?: Response }).context?.json())?.error ?? msg; } catch { /* corps illisible */ }
+        throw new Error(msg);
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       sonnerToast.success(t('collab.external.inviteSentTitle'), { description: `${t('collab.external.inviteSentDesc')} ${form.organizer_email}.` });
       setForm({ organizer_email: '', organizer_name: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
@@ -1038,6 +1051,9 @@ function InviteTab({ venueId }: { venueId: string }) {
             <YunoInput label={t('collab.external.lastNameLabel')} value={form.contact_last_name}
               onChange={(e) => setForm((f) => ({ ...f, contact_last_name: e.target.value }))} />
             <div className="col-span-2">
+              <ClubInviteDealFields venueId={venueId} onChange={onDeal} />
+            </div>
+            <div className="col-span-2">
               <YunoTextarea rows={4} label={t('collab.external.messageLabel')} value={form.invitation_message}
                 onChange={(e) => setForm((f) => ({ ...f, invitation_message: e.target.value }))}
                 placeholder={t('collab.external.messagePlaceholder')} />
@@ -1045,7 +1061,7 @@ function InviteTab({ venueId }: { venueId: string }) {
           </div>
 
           <button
-            onClick={handleSend} disabled={sending}
+            onClick={handleSend} disabled={sending || deal.invalid}
             className="w-full flex items-center justify-center gap-2 cursor-pointer transition-all duration-150"
             style={{ padding: '11px 20px', borderRadius: 12, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: RED, fontSize: 13.5, fontWeight: 640, opacity: sending ? 0.6 : 1 }}
           >

@@ -8,6 +8,8 @@ import { Loader2, Handshake, Building2, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
+import { SettlementRecap } from '@/components/collab/SettlementModeSwitch';
+import { invalidateOrgMemberships } from '@/hooks/useActingOrganizer';
 
 // Toute la logique vit dans des RPC SECURITY DEFINER (atomiques, vérif email
 // serveur) : l'ancienne version faisait 5 écritures client-side toutes
@@ -26,6 +28,12 @@ interface InvitationView {
   expires_at: string;
   venue: { id: string; name: string; city: string | null; logo_url: string | null } | null;
   event: { id: string; title: string; start_at: string } | null;
+  /** Le deal proposé par le club (soirée + conditions), lu avant d'accepter. */
+  split_rules?: {
+    remuneration?: { mode?: string } | null;
+    tickets?: { organizer_pct?: number } | null;
+    tables?: { organizer_pct?: number } | null;
+  } & Record<string, unknown> | null;
 }
 
 export default function AcceptOrganizerInvitation() {
@@ -54,9 +62,14 @@ export default function AcceptOrganizerInvitation() {
     })();
   }, [token]);
 
+  // Pas de compte : on le crée avec l'adresse INVITÉE (seule à pouvoir accepter).
+  const authUrl = (signup: boolean) =>
+    `/auth?${signup ? 'signup=true&' : ''}email=${encodeURIComponent(invitation?.organizer_email ?? '')}`
+    + `&redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+
   const handleAccept = async () => {
     if (!user) {
-      navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      navigate(authUrl(true));
       return;
     }
     if (!invitation || !token) return;
@@ -81,7 +94,11 @@ export default function AcceptOrganizerInvitation() {
         return;
       }
       toast.success(t('Partenariat activé 🎉', 'Partnership activated 🎉', 'Partenariado activado 🎉'));
-      navigate('/organizer-app/dashboard');
+      // Rechargement complet : la session en mémoire n'a pas encore le rôle
+      // organisateur, OrgAppRoute renverrait sur l'accueil. Avec une soirée,
+      // le contrat pré-signé par le club attend la signature dans le hub.
+      invalidateOrgMemberships();
+      window.location.assign(invitation.event_id ? '/organizer-app/collaborations' : '/organizer-app/dashboard');
     } catch (err: any) {
       toast.error(err.message || t('Erreur', 'Error', 'Error'));
     } finally {
@@ -91,6 +108,12 @@ export default function AcceptOrganizerInvitation() {
 
   const handleDecline = async () => {
     if (!invitation || !token) return;
+    // Refuser exige d'être le destinataire : un lien transféré ne fait pas
+    // disparaître la proposition d'un club.
+    if (!user) {
+      navigate(authUrl(false));
+      return;
+    }
     const { error } = await supabase.rpc('decline_organizer_claim_invitation' as any, { p_token: token });
     if (error) {
       toast.error(error.message || t('Erreur', 'Error', 'Error'));
@@ -164,8 +187,27 @@ export default function AcceptOrganizerInvitation() {
           )}
 
           {event && (
-            <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
-              🎟️ {t('Soirée associée :', 'Linked event:', 'Evento asociado:')} <strong>{event.title}</strong>
+            <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-sm space-y-1.5">
+              <div>🎟️ {t('Soirée associée :', 'Linked event:', 'Evento asociado:')} <strong>{event.title}</strong></div>
+              {invitation.split_rules && (
+                <>
+                  <div className="text-xs text-muted-foreground">
+                    {invitation.split_rules.remuneration?.mode === 'tiered_total'
+                      ? t('Barème sur le CA de la soirée.', 'Tiers on the night’s total revenue.', 'Escala sobre la facturación de la noche.')
+                      : t(
+                        `Billets ${Number(invitation.split_rules.tickets?.organizer_pct ?? 0)} % orga · tables ${Number(invitation.split_rules.tables?.organizer_pct ?? 0)} % orga · boissons 100 % club.`,
+                        `Tickets ${Number(invitation.split_rules.tickets?.organizer_pct ?? 0)}% organizer · tables ${Number(invitation.split_rules.tables?.organizer_pct ?? 0)}% organizer · drinks 100% club.`,
+                        `Entradas ${Number(invitation.split_rules.tickets?.organizer_pct ?? 0)} % orga · mesas ${Number(invitation.split_rules.tables?.organizer_pct ?? 0)} % orga · bebidas 100 % club.`,
+                      )}
+                  </div>
+                  <SettlementRecap rules={invitation.split_rules} />
+                  <div className="text-xs text-muted-foreground">
+                    {t('Le contrat s’ouvre pré-signé par le club : il ne te reste qu’à le relire et le signer.',
+                      'The contract opens pre-signed by the club: you only have to read and sign it.',
+                      'El contrato se abre prefirmado por el club: solo te queda leerlo y firmarlo.')}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -190,9 +232,14 @@ export default function AcceptOrganizerInvitation() {
               <X className="h-4 w-4 mr-2" /> {t('Refuser', 'Decline', 'Rechazar')}
             </Button>
             <Button onClick={handleAccept} disabled={submitting} className="flex-1">
-              <Check className="h-4 w-4 mr-2" /> {submitting ? '…' : (user ? t('Accepter', 'Accept', 'Aceptar') : t('Se connecter & accepter', 'Sign in & accept', 'Iniciar sesión y aceptar'))}
+              <Check className="h-4 w-4 mr-2" /> {submitting ? '…' : (user ? t('Accepter', 'Accept', 'Aceptar') : t('Créer mon compte & accepter', 'Create my account & accept', 'Crear mi cuenta y aceptar'))}
             </Button>
           </div>
+          {!user && (
+            <button type="button" className="w-full text-center text-xs text-muted-foreground underline" onClick={() => navigate(authUrl(false))}>
+              {t(`J'ai déjà un compte avec ${invitation.organizer_email}`, `I already have an account with ${invitation.organizer_email}`, `Ya tengo una cuenta con ${invitation.organizer_email}`)}
+            </button>
+          )}
         </CardContent>
       </Card>
     </div>

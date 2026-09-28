@@ -543,6 +543,57 @@ Migrations `20260929160000` → `181000`. Règles intouchables :
   Collaborations orga ; `invite-club-collab` accepte `organizer_user_id` (admin
   vérifié côté serveur) et refuse une soirée hors de l'organisation.
 
+## Collab & co-organisation — porte, lien de vente, invitation SANS compte (point 5, 29/09)
+
+Migrations `20260929190000` (porte), `200000` (liens), `210000` (invitations). Règles :
+
+- **Porte : un co-hôte ÉDITEUR scanne.** `is_event_door_staff` (porte unique du
+  manifeste, des billets, tables, guest list, sync hors ligne, conversion
+  promoteur) ouvre la soirée au co-hôte `access = 'editor'` accepté : fondateur,
+  membres d'équipe (admin/éditeur/scanneur) et staff videur d'un orga co-hôte,
+  owner / `can_manage_venue` d'un club co-hôte. Un co-hôte `viewer` ne scanne
+  pas. `OrgAppCheckin` liste les soirées par `orgEventsOr()`.
+- **Un lien de vente suivi PAR PARTIE** (`ensure_event_party_link`,
+  `get_event_party_links`, carte `CoorgSalesLinksCard` « Qui fait vendre ») :
+  `tracked_links` ordinaire, `utm_medium = 'party_link'`, `utm_campaign = <clé
+  de partie>`, possédé par la portée de la partie (visible aussi dans ses
+  « Liens »). Compteurs visibles de toutes les parties, CA club (fees.ts, même
+  formule qu'`_coorg_yuno_legs` sans Stripe) seulement pour qui voit l'argent
+  (`coorg_sees_event_money`), le CODE seulement à sa partie. Attribution,
+  JAMAIS un partage d'argent. Trigger `cohost_party_link_off` : un co-hôte qui
+  part voit son lien éteint.
+- **Co-organisation par email** (`event_cohost_email_invites`, RLS sans policy,
+  tout par RPC) : `create_cohost_email_invite` (mêmes gardes
+  qu'`invite_event_cohost` + démo ↔ démo sur l'ADRESSE), `get_cohost_email_invite`
+  (anon : lecture du lien ; connecté avec la bonne adresse : options « au nom
+  de »), `accept_cohost_email_invite(token, party)` (email identique, jamais en
+  accès assisté ; `org:<moi>` crée l'espace organisateur à la volée — jamais un
+  changement de `profile_type` d'un compte déjà pro —, sinon club possédé ou orga
+  administrée ; passe ensuite par `respond_event_cohost_invitation`),
+  `decline_…` (destinataire seul), `cancel_…` (partie principale niveau ≥ 2).
+  `get_event_coorg.email_invitations` pour les parties principales. Page
+  publique `/accept-cohost?token=` (`AcceptCohostInvitation`, DA publique,
+  rechargement complet après acceptation).
+- **Quota de fonctions edge ATTEINT (402, 29/09)** : l'email de co-organisation
+  part par `invite-organizer-collab` avec `kind: 'coorg'`
+  (`_shared/coorg-invite.ts`). Ne pas créer de nouvelle fonction : ajouter une
+  action à une fonction existante.
+- **Collab club → organisateur sans compte** (`organizer_claim_invitations`,
+  onglet Inviter du club, `ClubInviteDealFields`) : l'invitation PORTE le deal
+  comme dans l'autre sens (soirée du club encore sans orga, conditions par
+  pilier ou barème, `SettlementModeSwitch`, langue de l'email) ;
+  `accept_organizer_claim_invitation` crée l'identité `organizer_profiles` (elle
+  manquait : « Un organisateur » côté club, `organizer_not_found` à
+  l'invitation co-hôte) et ouvre le contrat PRÉ-SIGNÉ par le club (boissons
+  100 % club, settlement normalisé par le trigger du contrat). Refuser exige
+  d'être le destinataire. Emails : `buildOrganizerCollabInvitation`,
+  `buildCoorgInvitation`, et `buildClubCollabInvitation` dit « pas besoin de
+  Stripe » quand l'autre partie encaisse (`needsStripe`,
+  `_shared/collab-invite-text.ts`).
+- **Garde démo des invitations** : un compte `@womber.fr` n'invite qu'une
+  adresse démo (collab dans les deux sens, co-organisation), et aucun email
+  n'est envoyé à une adresse démo.
+
 ## Co-organisation — N parties sur une soirée (2026-09-28)
 
 Design + analyse : `docs/designs/COORGANIZATION_PLAN.md`. Migrations `20260928100000`

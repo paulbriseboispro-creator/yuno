@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  CalendarClock, Check, CheckCircle2, Clock, Download, FileSignature, HandCoins, Info, Loader2, Plus, Receipt,
+  CalendarClock, Check, CheckCircle2, Clock, Download, FileSignature, HandCoins, Info, Loader2, Mail, Plus, Receipt,
   ShieldCheck, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -12,7 +12,7 @@ import {
 import {
   getEventCoorg, respondCohostInvitation, updateEventCohost, endEventCohost,
   saveCoorgDeal, signCoorgDeal, addCoorgLedgerLine, voidCoorgLedgerLine, approveCoorgSettlement,
-  coorgErrorCode, eur, PAYMENT_TERMS_DAYS,
+  coorgErrorCode, eur, PAYMENT_TERMS_DAYS, cancelCohostEmailInvite,
   type CoorgState, type CoorgParty, type CohostAccess, type PaymentTermsDays,
 } from '@/lib/coorg';
 import { COORG_ARTICLES, COORG_TERMS_VERSION, generateCoorgAgreementPDF } from '@/lib/coorgAgreement';
@@ -20,6 +20,7 @@ import { capturePosthog } from '@/lib/posthog';
 import { PartyAvatar, PartyRolePill, useCoorgT, useCoorgErrorText } from './coorgUi';
 import { CoorgInviteDialog } from './CoorgInviteDialog';
 import { CoorgTransferList } from './CoorgTransferList';
+import { CoorgSalesLinksCard } from './CoorgSalesLinksCard';
 
 /**
  * La co-organisation d'UNE soirée, vue depuis n'importe laquelle de ses
@@ -84,7 +85,8 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
   const isPrincipal = state.me?.role === 'lead' || state.me?.role === 'partner';
   const pendingMine = state.invitations.filter((i) => i.status === 'pending' && i.mine);
   const pendingOthers = state.invitations.filter((i) => i.status === 'pending' && !i.mine);
-  const cohostCount = state.parties.filter((p) => p.role === 'cohost').length;
+  const cohostCount = state.parties.filter((p) => p.role === 'cohost').length
+    + pendingOthers.length + (state.email_invitations ?? []).length;
 
   return (
     <div className="space-y-4">
@@ -174,6 +176,25 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
               )}
             </div>
           ))}
+          {(state.email_invitations ?? []).map((inv) => (
+            <div key={inv.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ border: `1px dashed ${BORDER}` }}>
+              <PartyAvatar name={inv.name ?? inv.email} kind="org" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate" style={{ color: T2, fontSize: 13.5, fontWeight: 600 }}>{inv.name || inv.email}</p>
+                <p className="truncate" style={{ color: T3, fontSize: 11.5 }}>
+                  <Mail className="mr-1 inline h-3 w-3" />
+                  {inv.name ? `${inv.email} · ` : ''}
+                  {t('Invitation par email, pas encore sur Yuno', 'Email invitation, not on Yuno yet', 'Invitación por email, aún no en Yuno')}
+                </p>
+              </div>
+              {isPrincipal && (
+                <OrgButton size="sm" variant="ghost" disabled={!!busy}
+                  onClick={() => run(`cancelmail:${inv.id}`, () => cancelCohostEmailInvite(inv.id), t('Invitation annulée', 'Invitation cancelled', 'Invitación cancelada'))}>
+                  <X className="h-3.5 w-3.5" /> {t('Annuler', 'Cancel', 'Cancelar')}
+                </OrgButton>
+              )}
+            </div>
+          ))}
         </div>
 
         <div className="mt-4 flex items-start gap-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
@@ -193,6 +214,9 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
           </p>
         </div>
       </OrgCard>
+
+      {/* Qui fait vendre : un lien de vente suivi par partie */}
+      {state.me && <CoorgSalesLinksCard eventId={eventId} canCreate={(state.me.level ?? 0) >= 1} />}
 
       {/* 2. Accord */}
       {state.deal !== undefined && (state.deal || state.can_deal) && state.parties.length >= 2 && (

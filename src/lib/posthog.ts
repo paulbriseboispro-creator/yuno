@@ -121,8 +121,9 @@ export type YunoEvent =
   | 'event_report_opened' //       { scope }
   | 'ai_assistant_used' //         { assistant: 'owner' | 'agency' | 'help' | 'client' }
   // ── Co-organisation (N parties) ──────────────────────────────────────────
-  | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue', access }
-  | 'coorg_cohost_responded' //    { event_id, accepted }
+  | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue' | 'email', access }
+  | 'coorg_cohost_responded' //    { event_id, accepted, via?: 'email' }
+  | 'coorg_party_link_created' //  { event_id } — lien de vente suivi d'une partie
   | 'coorg_deal_saved' //          { event_id, parties, formal, payment_terms_days }
   | 'coorg_deal_signed' //         { event_id, formal }
   | 'coorg_settlement_approved' // { event_id, parties }

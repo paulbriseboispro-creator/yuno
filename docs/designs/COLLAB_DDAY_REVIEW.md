@@ -41,6 +41,25 @@ jour J.
 - CA tables corrigé partout (frais de gestion retirés seulement s'ils sont absorbés).
 - Équipe orga : un admin d'équipe agit sur le collab ; un éditeur le voit sans bouton.
 
+## 1 ter. Point 5 — créé et DÉPLOYÉ le 29/09 (nuit)
+
+- **Porte co-hôte** (`20260929190000`) : un co-hôte « Édition » scanne (manifeste,
+  scan, sync hors ligne, conversion promoteur). Testé : éditeur 0 → 4 lignes
+  scannables, lecteur et inconnu refusés, hôte inchangé.
+- **Lien de vente par partie** (`20260929200000`) : « Qui fait vendre » sur la page
+  de co-organisation. Testé : lien unique et idempotent, ventes attribuées
+  (CA 285 € = 10 + 25 après remboursement de 5 + table 250), code caché aux autres
+  parties, inconnu refusé, lien éteint au départ du co-hôte, `/l/<code>` résout la
+  soirée (fonctions en ligne).
+- **Invitation sans compte** (`20260929210000`) : co-organisation par email
+  (`/accept-cohost`) et collab club → organisateur avec le deal (contrat pré-signé
+  par le club). Testé en transaction annulée (acceptation, identité orga créée,
+  contrat `pending_signatures` signé club, règlement par virement conservé,
+  boissons forcées 100 % club, mauvais compte refusé) et en ligne (29/29 :
+  création, doublon, garde démo, droits, lecture du lien, annulation, refus).
+- **Quota des fonctions edge atteint** : l'email de co-organisation passe par
+  `invite-organizer-collab` (`kind: 'coorg'`).
+
 ## 2. Historique : les bloquants tels que relevés (corrigés, voir 1 bis)
 
 Aucun de ces correctifs n'a été déployé : ils touchent les fonctions Stripe
@@ -136,7 +155,7 @@ la libération, décompte accepté puis vente tardive. Chaque cas : lignes
   l'ouverture de la vente (le consentement n'est jamais rétroactif).
 - **Pendant la vente** : Live View des deux côtés ; `/admin/alerts` ; les ventes de
   collab doivent créer une ligne `revenue_distributions` chacune.
-- **Nuit** : porte scannée par l'équipe de l'hôte (un co-hôte n'a pas le manifeste de scan).
+- **Nuit** : porte scannée par l'équipe de l'hôte ET par tout co-hôte « Édition » (fondateur, équipe, staff videur — `is_event_door_staff`, depuis le 29/09) ; un co-hôte « Lecture » ne scanne pas.
 - **Lendemain** : décompte (barème) déclaré par le club, accepté par l'orga ; décompte
   co-organisation validé par toutes les parties.
 - **J+1 → J+30** : cron `coorg-transfer-followup` (09:47 UTC) et

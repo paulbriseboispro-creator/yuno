@@ -442,7 +442,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Handshake',
         actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations?tab=coorg' },
         relatedArticleIds: ['organizers-system', 'events-setup'],
-        keywords: ['co-organisation', 'co-organization', 'coorganización', 'co-hôte', 'co-host', 'coanfitrión', 'cohost', 'plusieurs organisateurs', 'several organizers', 'orga orga', 'deux orgas', 'asso', 'collectif', 'partage', 'parts', 'shares', 'décompte', 'statement', 'liquidación', 'virement', 'transfer', 'transferencia', 'contrat', 'contract', 'crm partagé', 'shared crm', 'présenté par', 'presented by'],
+        keywords: ['co-organisation', 'co-organization', 'coorganización', 'co-hôte', 'co-host', 'coanfitrión', 'cohost', 'plusieurs organisateurs', 'several organizers', 'orga orga', 'deux orgas', 'asso', 'collectif', 'partage', 'parts', 'shares', 'décompte', 'statement', 'liquidación', 'virement', 'transfer', 'transferencia', 'contrat', 'contract', 'crm partagé', 'shared crm', 'présenté par', 'presented by', 'sans compte', 'without account', 'sin cuenta', 'par email', 'by email', 'lien de vente', 'sales link', 'enlace de venta', 'qui fait vendre', 'scan', 'porte', 'door', 'puerta'],
         sections: [
           { headingKey: 'ohelp.coorg.s1h', bodyKey: 'ohelp.coorg.s1b' },
           { headingKey: 'ohelp.coorg.s2h', bodyKey: 'ohelp.coorg.s2b', type: 'steps' },
@@ -450,6 +450,9 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.coorg.s4h', bodyKey: 'ohelp.coorg.s4b', type: 'steps' },
           { headingKey: 'ohelp.coorg.s5h', bodyKey: 'ohelp.coorg.s5b' },
           { headingKey: 'ohelp.coorg.s6h', bodyKey: 'ohelp.coorg.s6b', type: 'steps' },
+          { headingKey: 'ohelp.coorg.s9h', bodyKey: 'ohelp.coorg.s9b', type: 'steps' },
+          { headingKey: 'ohelp.coorg.s10h', bodyKey: 'ohelp.coorg.s10b' },
+          { headingKey: 'ohelp.coorg.s11h', bodyKey: 'ohelp.coorg.s11b' },
           { headingKey: 'ohelp.coorg.s7h', bodyKey: 'ohelp.coorg.s7b', type: 'tip' },
           { headingKey: 'ohelp.coorg.s8h', bodyKey: 'ohelp.coorg.s8b', type: 'warning' },
         ],

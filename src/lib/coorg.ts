@@ -156,6 +156,8 @@ export interface CoorgState {
   can_deal: boolean;
   parties: CoorgParty[];
   invitations: CoorgInvitation[];
+  /** Invitations par email (structures sans compte), pour les parties principales. */
+  email_invitations?: CoorgEmailInvitation[];
   deal: CoorgDeal | null;
   ledger: CoorgLedgerLine[] | null;
   settlement: {
@@ -298,6 +300,76 @@ export const getMyCohostInvitations = (scope: CoorgScope) =>
 export const getMyCoorgEvents = (scope: CoorgScope) => call<CoorgEventRow[]>('get_my_coorg_events', scopeArgs(scope));
 
 export const getMyCoorgPartners = (scope: CoorgScope) => call<CoorgPartnerRow[]>('get_my_coorg_partners', scopeArgs(scope));
+
+// ── Invitation par email (structure sans compte Yuno) ─────────────────────────
+export interface CoorgEmailInvitation {
+  id: string; email: string; name: string | null; access: CohostAccess; invited_at: string; expires_at: string;
+}
+
+/** Envoie l'invitation (edge invite-organizer-collab, kind « coorg » : RPC create_cohost_email_invite + email). */
+export async function inviteCohostByEmail(p: {
+  eventId: string; email: string; name?: string | null; access: CohostAccess; shareCrm: boolean;
+  message?: string | null; lang: 'fr' | 'en' | 'es';
+}): Promise<{ email_sent: boolean }> {
+  const { data, error } = await supabase.functions.invoke('invite-organizer-collab', {
+    body: {
+      kind: 'coorg', event_id: p.eventId, email: p.email, name: p.name ?? null, access: p.access, share_crm: p.shareCrm,
+      message: p.message ?? null, lang: p.lang, origin: window.location.origin,
+    },
+  });
+  // Un 4xx arrive en `error` (FunctionsHttpError) avec le code dans le corps.
+  if (error) {
+    let code = 'error';
+    try { code = (await (error as { context?: Response }).context?.json())?.error ?? code; } catch { /* corps illisible */ }
+    throw new Error(code);
+  }
+  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+  return { email_sent: !!(data as { email_sent?: boolean })?.email_sent };
+}
+
+export const cancelCohostEmailInvite = (inviteId: string) =>
+  call<void>('cancel_cohost_email_invite', { p_invite_id: inviteId });
+
+export interface CohostEmailInviteView {
+  ok: boolean; reason?: string;
+  status?: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+  email?: string; name?: string | null; access?: CohostAccess; share_crm?: boolean; message?: string | null;
+  lang?: 'fr' | 'en' | 'es'; expires_at?: string; inviter_name?: string | null;
+  event?: { id: string; title: string; start_at: string; cover: string | null; venue_name: string | null; city: string | null; closed: boolean };
+  signed_in?: boolean; email_matches?: boolean;
+  options?: { party: string; kind: PartyKind; name: string; exists: boolean }[];
+  accepted_party?: string | null;
+}
+
+export const getCohostEmailInvite = (token: string) =>
+  call<CohostEmailInviteView>('get_cohost_email_invite', { p_token: token });
+
+export const acceptCohostEmailInvite = (token: string, party?: string | null) =>
+  call<{ ok: boolean; reason?: string; event_id?: string; party?: string }>('accept_cohost_email_invite', {
+    p_token: token, p_party: party ?? null,
+  });
+
+export const declineCohostEmailInvite = (token: string) =>
+  call<void>('decline_cohost_email_invite', { p_token: token });
+
+// ── Lien de vente suivi par partie ────────────────────────────────────────────
+/** Une partie de la soirée et ce que SON lien /l/<code> a fait vendre. */
+export interface PartyLinkRow {
+  party: string; name: string; kind: PartyKind; role: PartyRole; access?: string; avatar_url: string | null;
+  mine: boolean; has_link: boolean; code: string | null; active: boolean;
+  clicks: number; sales: number; tickets: number; tables: number; guests: number;
+  /** CA club (fees.ts) — null pour qui ne voit pas l'argent de la soirée. */
+  revenue: number | null;
+}
+export interface PartyLinksState { ok: boolean; reason?: string; money?: boolean; parties?: PartyLinkRow[] }
+
+export const getEventPartyLinks = (eventId: string) =>
+  call<PartyLinksState>('get_event_party_links', { p_event_id: eventId });
+
+export const ensureEventPartyLink = (eventId: string, party?: string | null) =>
+  call<{ ok: boolean; reason?: string; party?: string; code?: string }>('ensure_event_party_link', {
+    p_event_id: eventId, p_party: party ?? null,
+  });
 
 export const saveCoorgDeal = (
   eventId: string, shares: Record<string, number>, formal: boolean, clauses?: string, paymentTermsDays: PaymentTermsDays = 15,

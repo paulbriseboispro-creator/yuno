@@ -85,6 +85,13 @@ export function useCoorgErrorText() {
       case 'no_signed_contract': return t('Il faut un contrat signé par les deux parties.', 'Both parties must have signed the agreement.', 'Hace falta un contrato firmado por ambas partes.');
       case 'not_transfer_mode': return t('Ce contrat est réparti automatiquement par Stripe.', 'This agreement is split automatically by Stripe.', 'Este contrato se reparte automáticamente con Stripe.');
       case 'collab_transfer_unsupported': return t('Le contrat collab de cette soirée se règle déjà par virement : pas d’accord de co-organisation en plus.', 'This night’s collab agreement is already settled by transfer: no extra co-organization agreement.', 'El contrato collab de esta noche ya se liquida por transferencia: sin acuerdo de coorganización adicional.');
+      case 'invalid_email': return t('Adresse email invalide.', 'Invalid email address.', 'Dirección de email no válida.');
+      case 'email_mismatch': return t('Cette invitation est réservée à une autre adresse email : connecte-toi avec celle qui a reçu l’email.', 'This invitation is for another email address: sign in with the one that received it.', 'Esta invitación es para otra dirección: inicia sesión con la que la recibió.');
+      case 'invitation_not_found': return t('Invitation introuvable.', 'Invitation not found.', 'Invitación no encontrada.');
+      case 'invitation_not_pending': return t('Cette invitation a déjà été traitée.', 'This invitation was already handled.', 'Esta invitación ya fue tratada.');
+      case 'invitation_expired': return t('Cette invitation est expirée : demande-en une nouvelle.', 'This invitation has expired: ask for a new one.', 'Esta invitación caducó: pide una nueva.');
+      case 'invalid_party': return t('Choisis au titre de quelle structure tu rejoins la soirée.', 'Choose which organization joins the event.', 'Elige con qué estructura te unes al evento.');
+      case 'not_authenticated': return t('Connecte-toi pour continuer.', 'Sign in to continue.', 'Inicia sesión para continuar.');
       default: return t('Action impossible pour le moment.', 'Action not possible right now.', 'Acción imposible por ahora.');
     }
   };
