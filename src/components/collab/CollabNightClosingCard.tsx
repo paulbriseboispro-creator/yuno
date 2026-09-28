@@ -119,6 +119,8 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
       event_not_ended: t('La soirée doit être terminée pour déclarer le chiffre.', 'The night must be over before declaring the figures.', 'La noche debe haber terminado para declarar las cifras.'),
       closing_already_accepted: t('Ce décompte est déjà accepté : il ne bouge plus.', 'This closing is already accepted: it no longer changes.', 'Este cierre ya está aceptado: ya no cambia.'),
       closing_not_declared: t('La déclaration a changé entre-temps, recharge la carte.', 'The declaration changed meanwhile, reload the card.', 'La declaración cambió mientras tanto, recarga la tarjeta.'),
+      closing_revised: t('Le club a modifié sa déclaration pendant ta lecture : relis les nouveaux chiffres avant d’accepter.', 'The club changed its declaration while you were reading: review the new figures before accepting.', 'El club cambió su declaración mientras la leías: revisa las nuevas cifras antes de aceptar.'),
+      night_closing_settlement_locked: t('Ce règlement vient d’un décompte accepté : seul le support Yuno peut l’annuler.', 'This settlement comes from an accepted closing: only Yuno support can cancel it.', 'Esta liquidación viene de un cierre aceptado: solo el soporte de Yuno puede anularla.'),
       support_session_forbidden: t('Interdit en accès assisté.', 'Not allowed in assisted access.', 'No permitido en acceso asistido.'),
     };
     toast.error(msg[code] ?? msg[code2] ?? (e as { message?: string })?.message ?? t('Erreur', 'Error', 'Error'));
@@ -140,14 +142,14 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
    * voir, ce que `accept_collab_night_closing` rend déjà (`due`, `online`,
    * `sepa`) et que personne ne lui montrait.
    */
-  const acceptClosing = async (closingId: string) => {
+  const acceptClosing = async (closingId: string, revision?: number | null) => {
     if (busy) return;
     setBusy(true);
     setRunStage(0);
     setRunResult(null);
     setRunOpen(true);
     try {
-      const res = await acceptNightClosing(closingId);
+      const res = await acceptNightClosing(closingId, revision);
       await refresh();
       setRunResult({
         due: Number(res.due) || 0,
@@ -365,7 +367,7 @@ export function CollabNightClosingCard({ eventId, viewerRole }: {
                     )}
                     <div className="flex flex-wrap gap-2">
                       <OrgButton variant="primary" size="sm" disabled={busy}
-                        onClick={() => { void acceptClosing(closing.id); }}>
+                        onClick={() => { void acceptClosing(closing.id, closing.revision); }}>
                         <Check className="h-4 w-4" /> {t('Oui, j\'accepte le décompte', 'Yes, I accept the closing', 'Sí, acepto el cierre')}
                       </OrgButton>
                       <OrgButton variant="ghost" size="sm" disabled={busy}

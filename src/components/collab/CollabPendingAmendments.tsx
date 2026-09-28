@@ -187,7 +187,12 @@ export function CollabPendingAmendments({
       setRows(prev => prev.filter(x => x.row.id !== a.id));
       onChanged?.();
     } catch (e) {
-      toast.error((e as { message?: string }).message || tt('Erreur', 'Error', 'Error'));
+      const msg = (e as { message?: string }).message ?? '';
+      toast.error(msg.includes('AMENDMENT_SPLIT_LOCKED')
+        ? tt('Le partage est figé depuis la première vente : cet avenant ne peut plus le changer. Proposez un avenant sur les seules responsabilités.',
+          'The split is locked since the first sale: this amendment can no longer change it. Propose an amendment on responsibilities only.',
+          'El reparto está fijado desde la primera venta: esta adenda ya no puede cambiarlo. Propón una adenda solo sobre las responsabilidades.')
+        : msg || tt('Erreur', 'Error', 'Error'));
     } finally { setBusyId(null); }
   };
 

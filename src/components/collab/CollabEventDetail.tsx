@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -113,6 +114,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const isVenue = viewerRole === 'venue';
   const isOrganizer = viewerRole === 'organizer';
+  // Côté organisateur, le scope est l'ORGANISATION (fondateur ou équipe),
+  // jamais le compte : un membre d'équipe voyait « Soirée introuvable ».
+  const { organizerId: actingOrganizerId } = useActingOrganizer({ enabled: isOrganizer });
+  const orgScopeId = actingOrganizerId ?? user?.id ?? null;
   // Côté du spectateur pour l'axe RESPONSABILITÉS : la billetterie peut être
   // confiée au club seul sur n'importe quelle co-soirée, pas seulement en
   // org_hosted. On lit le domaine, pas le mode.
@@ -135,7 +140,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const [notFound, setNotFound] = useState(false);
   const [billetterieOpen, setBilletterieOpen] = useState(false);
 
-  const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
+  const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(orgScopeId ?? undefined);
   const { isReadOnly } = useCollabReadOnly();
   // Le chargement de la soirée est un effet anonyme : plutôt que de l'extraire,
   // une clé qu'on incrémente le relance après une édition.
@@ -156,10 +161,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     prevContractStatus.current = contractStatus;
   }, [contractStatus]);
 
-  const scopeId = isVenue ? myVenue?.id : user?.id;
+  const scopeId = isVenue ? myVenue?.id : orgScopeId;
   const gainScope = isVenue
     ? { kind: 'venue' as const, venueId: myVenue?.id || '' }
-    : { kind: 'organizer' as const, organizerUserId: user?.id || '' };
+    : { kind: 'organizer' as const, organizerUserId: orgScopeId || '' };
   const netGain = useEventNetGain(scopeId ? eventId ?? null : null, gainScope);
 
   // Contrat à BARÈME : pendant la vente, tout est retenu au nom du club et la
@@ -199,6 +204,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setNotFound(false);
 
       // Venue viewer: resolve the club this owner runs (for scope + framing).
       // Les drapeaux Stripe du club sont réservés à la RPC privée owner
@@ -224,7 +230,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       let evQuery = supabase.from('events')
         .select('id, title, description, poster_url, start_at, end_at, is_active, visibility, discovery_status, ticketing_enabled, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, collab_responsibilities, revenue_split_rules, split_locked_at, collab_goal_type, collab_goal_value')
         .eq('id', eventId);
-      if (isOrganizer) evQuery = evQuery.or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
+      if (isOrganizer) evQuery = evQuery.or(`organizer_user_id.eq.${orgScopeId},partner_organizer_id.eq.${orgScopeId}`);
       const { data: ev } = await evQuery.maybeSingle();
       if (cancelled) return;
       if (!ev) { setNotFound(true); setLoading(false); return; }
@@ -297,7 +303,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user, eventId, viewerRole, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, eventId, viewerRole, refreshKey, orgScopeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const phase = useMemo<Phase>(() => (event ? computePhase(event.start_at, event.end_at) : 'before'), [event]);
 
@@ -340,7 +346,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   }
 
   // ── Access / role derived flags ────────────────────────────────────────────
-  const isOwner = isOrganizer && !!user && event.organizer_user_id === user.id;
+  const isOwner = isOrganizer && !!orgScopeId && event.organizer_user_id === orgScopeId;
   if (isOrganizer && !isOwner && contractLoading) {
     return (
       <Chrome isVenue={isVenue} title={t('Collaboration', 'Collaboration', 'Colaboración')}>
@@ -584,7 +590,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     sub={t('Score de la soirée, présence, revenu, public — avant répartition.', 'Night score, attendance, revenue, crowd — before the split.', 'Puntuación de la noche, asistencia, ingresos, público, antes del reparto.')}>
                     <EventPostAnalysisView key={event.id} eventId={event.id}
                       venueId={isVenue ? (myVenue?.id ?? null) : null}
-                      organizerUserId={isOrganizer ? user?.id : null} />
+                      organizerUserId={isOrganizer ? orgScopeId : null} />
                   </Foldable>
                 )}
 
@@ -712,7 +718,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
                     {/* Résumé seulement : l'atelier (zones, packs, plan) vit sur
                         /organizer-app/tables, le service du soir sur /organizer-app/vip-service. */}
-                    {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
+                    {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={orgScopeId ?? user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
                     {/* La carte du bar est celle du club, 100 % club : elle se
                         consulte, elle ne se gère pas d'ici. Repliée, sinon dix-sept
                         boissons occupaient la moitié de la page de l'organisateur. */}
@@ -858,7 +864,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         <OrgEventFormDialog
           open={editOpen}
           onOpenChange={setEditOpen}
-          organizerUserId={user.id}
+          organizerUserId={orgScopeId ?? user.id}
           eventId={eventId}
           onSaved={() => { setEditOpen(false); setRefreshKey(k => k + 1); }}
         />

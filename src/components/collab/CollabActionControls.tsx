@@ -79,6 +79,7 @@ export function CollabActionControls({
       const msg = String((e as { message?: string })?.message ?? '');
       toast.error(
         msg.includes('COLLAB_ACTION_PENDING') ? tt('Une demande est déjà en cours.', 'A request is already in progress.', 'Ya hay una solicitud en curso.')
+          : msg.includes('COLLAB_DELETE_HAS_SALES') ? tt('Cette soirée a déjà vendu : elle ne se supprime plus. Mettez-la en pause ou annulez-la (les clients sont remboursés).', 'This event has already sold: it can no longer be deleted. Pause or cancel it (customers get refunded).', 'Este evento ya vendió: ya no se puede eliminar. Pausa o cancélalo (se reembolsa a los clientes).')
           : msg.includes('COLLAB_ACTION_RESOLVED') ? tt('Cette demande est déjà traitée.', 'This request was already handled.', 'Esta solicitud ya fue tratada.')
             : (msg || tt('Erreur', 'Error', 'Error')),
       );

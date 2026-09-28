@@ -332,7 +332,10 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
       const { data: contracts } = await supabase
         .from('event_collab_contracts' as never)
         .select('event_id, status')
-        .in('event_id' as never, eventIds as never);
+        .in('event_id' as never, eventIds as never)
+        // Le contrat VIVANT seulement : un contrat refusé puis refait ne doit
+        // pas écraser le bon statut dans la carte.
+        .neq('status' as never, 'cancelled' as never);
       ((contracts as unknown as Array<{ event_id: string; status: string }>) || [])
         .forEach((c) => contractMap.set(c.event_id, c.status));
     }

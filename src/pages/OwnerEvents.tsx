@@ -153,7 +153,7 @@ export default function OwnerEvents() {
   const [guestPresets, setGuestPresets] = useState<GuestPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editingEvent, setEditingEvent] = useState<OwnerEventRow | null>(null);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string>('');
   // Affiche et logo de lieu d'un ORGANISATEUR : envoyés tels quels jusqu'ici,
@@ -290,6 +290,13 @@ export default function OwnerEvents() {
         isCohosted: isOrganizerScope
           ? event.organizer_user_id !== organizerUserId && event.partner_organizer_id !== organizerUserId
           : event.venue_id !== venueId && event.partner_venue_id !== venueId,
+        orgPartnerDomains: isOrganizerScope && event.venue_id && event.organizer_user_id !== organizerUserId
+          ? (() => {
+              const resp = (event.collab_responsibilities as Record<string, string> | null) ?? {};
+              const holds = (d: string) => ['organizer', 'both'].includes(resp[d] ?? 'both');
+              return { design: holds('design'), operations: holds('operations') };
+            })()
+          : null,
         isPrivate: isOrganizerScope && (event.event_kind === 'private_event' || event.visibility === 'private'),
         organizerUserId: event.organizer_user_id ?? null,
         ticketingEnabled: event.ticketing_enabled ?? false,
@@ -478,6 +485,17 @@ export default function OwnerEvents() {
       payload.event_mode = 'solo_organizer';
     }
 
+    // Partenaire d'une soirée menée par le club : seulement ses domaines —
+    // organizer_user_id / event_mode / lieu y feraient refuser la sauvegarde.
+    const partnerDomains = editingEvent?.orgPartnerDomains ?? null;
+    if (editingEvent && partnerDomains) {
+      const allowed = new Set<string>([
+        ...(partnerDomains.design ? ['title', 'description', 'poster_url', 'video_url', 'poster_position', 'music_genres', 'event_type'] : []),
+        ...(partnerDomains.operations ? ['start_at', 'end_at', 'minors_disabled'] : []),
+      ]);
+      for (const k of Object.keys(payload)) if (!allowed.has(k)) delete (payload as Record<string, unknown>)[k];
+    }
+
     let savedId = editingEvent?.id;
     const orgMarket = (id: string) => phMarket(id, payload.timezone, payload.location_city);
     if (editingEvent) {
@@ -590,7 +608,7 @@ export default function OwnerEvents() {
     }
     // Organizer events that define their own location must be placeable in a city
     // (kept even when the location is secret — the city is what filters the event).
-    if (isOrganizerScope && !requiresPartner && (!locationName.trim() || !locationCity.trim() || !locationAddress.trim())) {
+    if (isOrganizerScope && !requiresPartner && !editingEvent?.orgPartnerDomains && (!locationName.trim() || !locationCity.trim() || !locationAddress.trim())) {
       toast.error(t('owner.ev.locationRequired')); return;
     }
     setIsSaving(true);
@@ -1967,7 +1985,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
       )}
 
       {/* Quick publishing — tickets, tables & guest list online, no tab navigation needed */}
-      {!event.isPartnerHosted && !event.isCohosted && !isPast && (
+      {!event.isPartnerHosted && !event.isCohosted && !event.orgPartnerDomains && !isPast && (
         <div className="px-5 pb-1">
           <div className="grid grid-cols-3 gap-2.5">
             {/* Ticketing */}
@@ -2234,6 +2252,8 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <Pencil className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t('owner.edit')}</span>
             </button>
+            {!event.orgPartnerDomains && (
+              <>
             <button
               onClick={onToggle}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
@@ -2249,6 +2269,8 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <Trash2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t('owner.deleteEvent')}</span>
             </button>
+              </>
+            )}
             {onDetails && (
               <button
                 onClick={onDetails}

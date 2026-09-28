@@ -128,7 +128,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       if (orgScope && eventIds!.length === 0) { setReservations([]); return; }
       let query = supabase
         .from('table_reservations')
-        .select(`*, events!inner(title, start_at, venue_id, timezone, venues(name)), table_zones(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name), partner_venue:venues!events_partner_venue_id_fkey(name)), table_zones(name)`)
         .in('status', ['paid', 'confirmed', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
@@ -159,7 +159,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
         eventTitle: r.events.title,
         eventStartAt: r.events.start_at,
         eventTimezone: r.events.timezone ?? null,
-        venueName: r.events.venues?.name ?? null,
+        venueName: r.events.venues?.name ?? r.events.partner_venue?.name ?? null,
         zoneName: r.table_zones?.name || null,
       }));
       setReservations(mapped);
