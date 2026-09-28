@@ -1317,6 +1317,7 @@ export type Database = {
         Row: {
           account_slug: string
           affiliate_id: string
+          create_one_offs: boolean
           created_at: string
           id: string
           is_active: boolean
@@ -1327,6 +1328,7 @@ export type Database = {
         Insert: {
           account_slug: string
           affiliate_id: string
+          create_one_offs?: boolean
           created_at?: string
           id?: string
           is_active?: boolean
@@ -1337,6 +1339,7 @@ export type Database = {
         Update: {
           account_slug?: string
           affiliate_id?: string
+          create_one_offs?: boolean
           created_at?: string
           id?: string
           is_active?: boolean
@@ -1354,6 +1357,7 @@ export type Database = {
           images_set: number
           links_filled: number
           names_set: number
+          one_offs_created: number
           ran_at: string
           todo: Json
           trigger: string
@@ -1366,6 +1370,7 @@ export type Database = {
           images_set?: number
           links_filled?: number
           names_set?: number
+          one_offs_created?: number
           ran_at?: string
           todo?: Json
           trigger?: string
@@ -1378,6 +1383,7 @@ export type Database = {
           images_set?: number
           links_filled?: number
           names_set?: number
+          one_offs_created?: number
           ran_at?: string
           todo?: Json
           trigger?: string
@@ -18006,6 +18012,10 @@ export type Database = {
       }
     }
     Functions: {
+      set_affiliate_ticket_one_offs: {
+        Args: { p_enabled: boolean }
+        Returns: number
+      }
       _admin_customer_activity: {
         Args: never
         Returns: {

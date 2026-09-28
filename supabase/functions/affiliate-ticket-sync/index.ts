@@ -41,6 +41,7 @@ type WhanEvent = {
   clubName: string;
   mainImage: string | null;
   account: string; // compte prioritaire qui la vend
+  accounts: string[]; // tous les comptes qui la listent
   night: string; // YYYY-MM-DD
   band: "night" | "day";
   base: string;
@@ -159,7 +160,7 @@ function madridParts(d = new Date()): { date: string; hour: number } {
 const currentNight = () => madridParts(new Date(Date.now() - 8 * 3600_000)).date;
 
 // ── Whan ────────────────────────────────────────────────────────────────────
-async function fetchWhanAccount(slug: string): Promise<Array<Omit<WhanEvent, "account" | "night" | "band" | "base">>> {
+async function fetchWhanAccount(slug: string): Promise<Array<Omit<WhanEvent, "account" | "accounts" | "night" | "band" | "base">>> {
   const res = await fetch(`${WHAN}/api/v1/public/rrpp/${encodeURIComponent(slug)}`, {
     headers: { Accept: "application/json", "User-Agent": UA },
   });
@@ -274,7 +275,7 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
 
   const { data: sources } = await admin
     .from("affiliate_ticket_sources")
-    .select("account_slug, priority")
+    .select("account_slug, priority, create_one_offs")
     .eq("affiliate_id", affiliateId)
     .eq("provider", "whan")
     .eq("is_active", true)
@@ -286,9 +287,10 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
   for (const s of sources) {
     try {
       for (const raw of await fetchWhanAccount(s.account_slug)) {
-        if (events.has(raw.id)) continue;
+        const known = events.get(raw.id);
+        if (known) { known.accounts.push(s.account_slug); continue; }
         const t = nightOf(raw.start);
-        events.set(raw.id, { ...raw, account: s.account_slug, night: t.night, band: t.band, base: baseName(raw.name) });
+        events.set(raw.id, { ...raw, account: s.account_slug, accounts: [s.account_slug], night: t.night, band: t.band, base: baseName(raw.name) });
       }
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
@@ -379,7 +381,7 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
     .select("external_ticket_url, external_event_ref")
     .eq("affiliate_id", affiliateId)
     .gte("event_date", addDays(today, -1))
-    .not("external_ticket_url", "is", null);
+    .or("external_ticket_url.not.is.null,external_event_ref.not.is.null");
   const claimedText = (linked ?? []).map((l) => `${l.external_ticket_url ?? ""} ${l.external_event_ref ?? ""}`).join("\n");
   const isClaimed = (e: WhanEvent) =>
     claimedText.includes(e.id) || claimedText.includes(`/event/${slugify(e.name)}-${e.start.slice(0, 10)}`);
@@ -475,6 +477,23 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
   });
   const writes = rows.filter((r) => Object.keys(r).length > 1);
 
+  // Soirées ponctuelles déjà créées sans affiche (Whan n'en avait pas encore) :
+  // l'affiche arrive dès que Whan la publie. Jamais une affiche existante remplacée.
+  const { data: bareOneOffs } = await admin
+    .from("affiliate_events")
+    .select("id, external_event_ref")
+    .eq("affiliate_id", affiliateId)
+    .is("recurring_template_id", null)
+    .is("flyer_url", null)
+    .like("external_event_ref", "whan:%")
+    .gte("event_date", today);
+  for (const o of bareOneOffs ?? []) {
+    const ev = events.get((o.external_event_ref as string).slice(5));
+    if (!ev?.mainImage) continue;
+    const url = opts.apply ? await ensureImage(admin, affiliateId, ev) : `(whan image ${ev.mainImage})`;
+    if (url) writes.push({ id: o.id as string, flyer_url: url });
+  }
+
   let applied = { links: 0, flyers: 0, names: 0 };
   if (opts.apply && writes.length > 0) {
     const { data, error } = await admin.rpc("affiliate_ticket_sync_apply", {
@@ -487,6 +506,49 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
     else applied = data as typeof applied;
   }
 
+  // 5. Soirées ponctuelles : une soirée Whan de nuit qui n'appartient à aucune
+  // série et tombe une nuit que AUCUN modèle actif du club ne couvre (sinon
+  // c'est au modèle de la prendre : série ou édition spéciale) est créée seule.
+  const oneOffAccounts = new Set(sources.filter((s) => s.create_one_offs).map((s) => s.account_slug));
+  const covered = (e: WhanEvent) => templates.some((t) =>
+    t.is_active && t.affiliate_venue_id === e.venueId && t.day_of_week === dowOf(e.night)
+    && bandOfTime(t.start_time) === "night");
+  const oneOffs = oneOffAccounts.size === 0 ? [] : upcoming.filter((e) =>
+    e.band === "night" && !used.has(e.id) && !isClaimed(e) && !covered(e)
+    && e.accounts.some((a) => oneOffAccounts.has(a)));
+  const oneOffRows = await mapLimit(oneOffs, 4, async (e) => {
+    const { lowPrice } = await fetchWhanPage(e.id);
+    const genres = templates
+      .filter((t) => t.affiliate_venue_id === e.venueId && bandOfTime(t.start_time) === "night")
+      .flatMap((t) => t.genres ?? []);
+    const counts = new Map<string, number>();
+    for (const g of genres) counts.set(g, (counts.get(g) ?? 0) + 1);
+    const topGenre = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return {
+      ref: `whan:${e.id}`,
+      venue_id: e.venueId,
+      name: displayName(e.name) || e.name,
+      event_date: e.night,
+      start_time: `${nightOf(e.start).hhmm}:00`,
+      end_time: e.end ? `${e.end.slice(11, 16)}:00` : "",
+      price_from: lowPrice != null && lowPrice > 0 ? String(lowPrice) : "",
+      is_free: lowPrice === 0,
+      flyer_url: opts.apply ? (await ensureImage(admin, affiliateId, e)) ?? "" : (e.mainImage ? `(whan image ${e.mainImage})` : ""),
+      url: await ticketUrlFor(e),
+      genres: topGenre ? [topGenre] : [],
+    };
+  });
+  let oneOffsCreated = 0;
+  if (opts.apply && oneOffRows.length > 0) {
+    const { data, error } = await admin.rpc("affiliate_ticket_sync_create_one_offs", {
+      p_affiliate_id: affiliateId,
+      p_rows: oneOffRows,
+    });
+    if (error) errors.push(error.message);
+    else oneOffsCreated = (data as { created: number }).created;
+  }
+  for (const e of oneOffs) used.add(e.id);
+
   const unmatched = upcoming
     .filter((e) => !used.has(e.id) && !isClaimed(e) && e.night <= addDays(today, UNMATCHED_HORIZON_DAYS))
     .sort((a, b) => a.night.localeCompare(b.night))
@@ -498,6 +560,7 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
       trigger: opts.trigger,
       links_filled: applied.links,
       images_set: applied.flyers,
+      one_offs_created: oneOffsCreated,
       names_set: applied.names,
       todo,
       unmatched,
@@ -507,7 +570,8 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
 
   return {
     whan_events: events.size,
-    applied: opts.apply ? applied : undefined,
+    applied: opts.apply ? { ...applied, one_offs: oneOffsCreated } : undefined,
+    one_offs: opts.apply ? undefined : oneOffRows,
     preview: opts.apply ? undefined : writes,
     todo,
     unmatched,

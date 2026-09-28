@@ -365,7 +365,14 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   à la main départage (PRYZM le 01/10). Chaque date prend le nom et l'affiche
   de SA soirée Whan ; `force: true` (secret cron seul, `p_force` de la RPC)
   réaligne aussi les dates personnalisées à la main — joué le 28/09 : les 20
-  modèles portent le nom Whan exact.
+  modèles portent le nom Whan exact. **Soirées ponctuelles** (migration
+  `20260928220000`, interrupteur `create_one_offs` par compte, réglé depuis le
+  bandeau par `set_affiliate_ticket_one_offs`) : une soirée Whan de nuit hors
+  série, une nuit qu'AUCUN modèle actif du club ne couvre, est créée seule
+  (`affiliate_ticket_sync_create_one_offs`, lien + affiche + horaires + prix).
+  `affiliate_ticket_sync_seen` retient chaque soirée Whan créée : supprimée
+  par le pro, elle n'est jamais recréée. Affiche absente sur Whan = posée
+  plus tard, jamais remplacée.
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
