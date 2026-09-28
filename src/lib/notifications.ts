@@ -161,6 +161,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Co-organisation : virement impayé à J+14 ou contesté (à trancher).
   admin_coorg_transfer_overdue:  { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_coorg_transfer_overdue' },
   admin_coorg_transfer_disputed: { icon: ShieldAlert, category: 'billing', label: 'notif.type.admin_coorg_transfer_disputed' },
+  admin_transfer_release_failed: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_transfer_release_failed' },
+  admin_collab_late_sale:        { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_collab_late_sale' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
   admin_payout_disputed:     { icon: Banknote,      category: 'compliance', label: 'notif.type.admin_payout_disputed' },
   admin_feedback_new:        { icon: MessageSquare, category: 'compliance', label: 'notif.type.admin_feedback_new' },
@@ -609,6 +611,12 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_coorg_transfer_overdue':
     case 'admin_coorg_transfer_disputed':
       return '/admin/alerts#coorg';
+
+    // Exploitation Stripe des co-soirées : jambe qui ne part pas, vente payée
+    // après le décompte. On ouvre la soirée dans l'admin.
+    case 'admin_transfer_release_failed':
+    case 'admin_collab_late_sale':
+      return n.event_id ? `/admin/events?q=${n.event_id}` : '/admin/orders';
 
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':

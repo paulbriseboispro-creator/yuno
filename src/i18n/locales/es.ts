@@ -1414,6 +1414,8 @@ const es: Record<string, string> = {
   'notif.type.coorg_transfer_resolved': "Transferencia resuelta por Yuno",
   'notif.type.admin_coorg_transfer_overdue': "Transferencia de coorganización impagada",
   'notif.type.admin_coorg_transfer_disputed': "Transferencia de coorganización en litigio",
+  'notif.type.admin_transfer_release_failed': 'Pago de coevento bloqueado',
+  'notif.type.admin_collab_late_sale': 'Venta de coevento pagada tras el cierre',
   'notif.type.collab_request': "Propuesta de coevento",
   'notif.type.collab_accepted': "Colaboración confirmada",
   'notif.type.collab_action_request': "Solicitud sobre coevento",

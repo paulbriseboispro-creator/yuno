@@ -1312,6 +1312,10 @@ serve(async (req) => {
           venue_pct_applied: split.effectiveSplit ? String(split.effectiveSplit.venue_pct) : "",
           organizer_pct_applied: split.effectiveSplit ? String(split.effectiveSplit.organizer_pct) : "",
           partnership_id: partnershipId ?? "",
+          // Décision de rétention FIGÉE au checkout (contrat à barème) : le webhook
+          // la lit ici au lieu de relire les règles au paiement — un avenant signé
+          // entre le checkout et le paiement ne peut plus l'inverser.
+          hold: split.hold ?? "",
         };
         // SEPARATE mode (co-event split): charge stays on the platform, webhook fires
         // a transfer to each connected account. `on_behalf_of` = the venue → the venue
