@@ -129,7 +129,6 @@ export function TicketAttendeeForm({
           id={`phone-${index}`}
           value={attendee.phone}
           onChange={(value) => onChange(index, 'phone', value)}
-          placeholder="6 12 34 56 78"
           defaultCountry={defaultCountry}
         />
       </div>

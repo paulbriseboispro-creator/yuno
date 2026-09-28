@@ -1,4 +1,5 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useStore } from '@/store/useStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -937,17 +938,13 @@ export default function Cart() {
                   <Label className="font-mono text-[10px] uppercase" style={{ color: 'var(--yuno-gray-2)', letterSpacing: '0.08em' }}>
                     {t('guest.phone') || 'Téléphone'} ({t('guest.optional') || 'optionnel'})
                   </Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--yuno-gray-3)' }} />
-                    <Input
-                      type="tel"
-                      placeholder="+33 6 12 34 56 78"
-                      value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
-                      className="pl-10"
-                      style={{ background: 'var(--yuno-input)' }}
-                    />
-                  </div>
+                  <PhoneInputWithCountry
+                    value={guestPhone}
+                    onChange={setGuestPhone}
+                    size="sm"
+                    inputStyle={{ background: 'var(--yuno-input)' }}
+                    triggerStyle={{ background: 'var(--yuno-input)' }}
+                  />
                 </div>
               </div>
               <div className="mt-4 text-center">

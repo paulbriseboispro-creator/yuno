@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -260,7 +261,10 @@ export default function DJOnboarding() {
                   <Field label="Instagram" value={form.instagram_url} onChange={v => set('instagram_url', v)} placeholder="instagram.com/…" />
                   <Field label="SoundCloud" value={form.soundcloud_url} onChange={v => set('soundcloud_url', v)} placeholder="soundcloud.com/…" />
                   <Field label="Spotify" value={form.spotify_url} onChange={v => set('spotify_url', v)} placeholder="open.spotify.com/…" />
-                  <Field label="WhatsApp" value={form.whatsapp_number} onChange={v => set('whatsapp_number', v)} placeholder="+33…" />
+                  <div>
+                    <label className="block text-[12.5px] font-medium mb-1.5" style={{ color: T2 }}>WhatsApp</label>
+                    <PhoneInputWithCountry value={form.whatsapp_number} onChange={v => set('whatsapp_number', v)} />
+                  </div>
                 </div>
               )}
 

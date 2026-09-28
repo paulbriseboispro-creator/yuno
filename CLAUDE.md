@@ -83,6 +83,16 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   s'estime pas : le storyboard contraint l'imageView à 805 pt pour un PNG de 2732 px,
   soit 3,3938 px/pt sur tous les iPhone. Le splash de l'app Pro n'est pas concerné :
   c'est l'icône rendue en volume, pas un wordmark à plat.
+- **Tout champ téléphone = `PhoneInputWithCountry`** (2026-09-28,
+  `src/components/PhoneInputWithCountry.tsx`) — public, Console, app Pro, super
+  admin. À gauche le pays (drapeau + indicatif, liste cherchable), à droite le
+  numéro mis en forme au format de CE pays ; un numéro international collé
+  (« +44 … », « 0032 … ») fait basculer le pays. Valeur rendue : « +33 6 12 34
+  56 78 », ou `''` sans chiffre (jamais « +33 » seul). Pays par défaut :
+  `defaultCountry` (pays de la soirée), sinon fuseau du navigateur, sinon France.
+  Helpers purs `composePhone` / `splitPhone` / `countryFromInternationalInput`
+  dans `src/lib/countries.ts` (testés). Ne JAMAIS reposer un `<input type="tel">`
+  nu : un client étranger y laisse un numéro sans indicatif, donc injoignable.
 - **Les dashboards pro s'appellent la Yuno Console** (2026-09-23). Un seul nom
   parapluie pour les quatre surfaces de gestion web, décliné par rôle :
   **Console Club** (`/owner`), **Console Manager** (`/manager`), **Console

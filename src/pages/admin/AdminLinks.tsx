@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSearchParams } from 'react-router-dom';
@@ -122,18 +123,25 @@ function CountTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
+// Le champ téléphone commun (indicatif + numéro), aux couleurs du super admin.
+const phoneFieldStyle: React.CSSProperties = {
+  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13,
+};
 const inputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13,
   padding: '9px 12px', outline: 'none', width: '100%',
 };
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+// `group` : un champ à plusieurs contrôles (le téléphone : indicatif + numéro)
+// ne vit pas dans un <label>, sinon un clic sur le titre ouvre la liste des pays.
+function Field({ label, hint, children, group }: { label: string; hint?: string; children: React.ReactNode; group?: boolean }) {
+  const Tag = group ? 'div' : 'label';
   return (
-    <label className="block">
+    <Tag className="block">
       <span style={{ display: 'block', color: T2, fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{label}</span>
       {children}
       {hint && <span style={{ display: 'block', color: T3, fontSize: 11.5, marginTop: 5, lineHeight: 1.5 }}>{hint}</span>}
-    </label>
+    </Tag>
   );
 }
 
@@ -487,8 +495,8 @@ export default function AdminLinks() {
                 <Field label={t('adminLinks.setTiktok')} hint={t('adminLinks.setTiktokHint')}>
                   <input style={inputStyle} value={config.tiktok} onChange={(e) => setConfig({ ...config, tiktok: e.target.value })} placeholder="https://www.tiktok.com/@…" />
                 </Field>
-                <Field label={t('adminLinks.setWhatsapp')} hint={t('adminLinks.setWhatsappHint')}>
-                  <input style={inputStyle} value={config.whatsapp_number} onChange={(e) => setConfig({ ...config, whatsapp_number: e.target.value })} placeholder="+33612345678" inputMode="tel" />
+                <Field group label={t('adminLinks.setWhatsapp')} hint={t('adminLinks.setWhatsappHint')}>
+                  <PhoneInputWithCountry value={config.whatsapp_number} onChange={(v) => setConfig({ ...config, whatsapp_number: v })} size="sm" inputStyle={phoneFieldStyle} triggerStyle={phoneFieldStyle} />
                 </Field>
                 <Field label={t('adminLinks.setAppStore')}>
                   <input style={inputStyle} value={config.app_store_url} onChange={(e) => setConfig({ ...config, app_store_url: e.target.value })} />

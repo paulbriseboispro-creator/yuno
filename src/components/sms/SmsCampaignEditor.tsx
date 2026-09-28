@@ -6,6 +6,7 @@
 // annonce est ce que le compte débite.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import {
   AlertTriangle, CalendarClock, CalendarDays, Crown, FileSpreadsheet, Link2, Loader2, Lock, MoonStar, Send, Smartphone, Sparkles, UserX, Users, Wallet,
 } from 'lucide-react';
@@ -586,7 +587,7 @@ export default function SmsCampaignEditor({ open, onClose, scope, campaign, even
                 </div>
               </div>
               {showTestPhone && (
-                <Input type="tel" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="+33 6 12 34 56 78" className="border-white/[0.08] bg-surface/40" />
+                <PhoneInputWithCountry value={testPhone} onChange={setTestPhone} size="sm" />
               )}
             </div>
 

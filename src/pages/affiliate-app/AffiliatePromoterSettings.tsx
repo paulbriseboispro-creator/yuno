@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -423,7 +424,7 @@ export default function AffiliatePromoterSettings() {
             </div>
             <div>
               <FieldLabel>WhatsApp</FieldLabel>
-              <DarkInput value={form.whatsapp} onChange={(v) => setForm(f => ({ ...f, whatsapp: v }))} placeholder="+34 600 000 000" />
+              <PhoneInputWithCountry value={form.whatsapp} onChange={(v) => setForm(f => ({ ...f, whatsapp: v }))} size="sm" />
             </div>
             <div>
               <FieldLabel>{t('aff.pset.website')}</FieldLabel>

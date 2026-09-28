@@ -19,6 +19,7 @@
 // email et son mot de passe, et le funnel se lit ici comme dans /admin/signups.
 
 import { useEffect, useState } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Label } from '@/components/ui/label';
@@ -49,6 +50,10 @@ const TILE_BG    = 'rgb(var(--ink)/0.025)';
 const CARD_BG    = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb(var(--sheen)/.008) 100%),var(--sf-0a0a0c)';
 const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
+// Le champ téléphone commun (indicatif + numéro), aux couleurs du super admin.
+const phoneFieldStyle: React.CSSProperties = {
+  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13,
+};
 const inputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
   color: T1, fontSize: 13, padding: '9px 12px', width: '100%', outline: 'none',
@@ -251,15 +256,13 @@ function SignupFields({ draft, onChange, t }: {
         <Label style={{ color: T2 }}>{t('adm.demo.signup.email')}</Label>
         <input type="email" value={draft.email} onChange={(e) => set('email', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label style={{ color: T2 }}>{t('adm.demo.signup.phone')}</Label>
-          <input value={draft.phone} onChange={(e) => set('phone', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
-        </div>
-        <div>
-          <Label style={{ color: T2 }}>{t('adm.demo.signup.city')}</Label>
-          <input value={draft.city} onChange={(e) => set('city', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
-        </div>
+      <div>
+        <Label style={{ color: T2 }}>{t('adm.demo.signup.phone')}</Label>
+        <PhoneInputWithCountry value={draft.phone} onChange={(v) => set('phone', v)} size="sm" className="mt-1.5" inputStyle={phoneFieldStyle} triggerStyle={phoneFieldStyle} />
+      </div>
+      <div>
+        <Label style={{ color: T2 }}>{t('adm.demo.signup.city')}</Label>
+        <input value={draft.city} onChange={(e) => set('city', e.target.value)} style={{ ...inputStyle, marginTop: 6 }} />
       </div>
       <div>
         <Label style={{ color: T2 }}>{t('adm.demo.signup.pillars')}</Label>
