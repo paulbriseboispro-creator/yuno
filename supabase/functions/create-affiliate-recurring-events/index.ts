@@ -168,13 +168,18 @@ serve(async (req) => {
       id: string; recurring_template_id: string; event_date: string;
       external_ticket_url: string | null; flyer_url: string | null;
       status: string; ticket_url_overridden: boolean | null;
+      flyer_overridden?: boolean | null;
     };
     const existingByKey = new Map<string, Existing>();
     for (const ids of chunk(templates.map((t) => t.id), 100)) {
       for (let from = 0; ; from += 1000) {
+        // `*` et non une liste : flyer_overridden (migration 20260928100000)
+        // peut ne pas encore exister si la fonction est déployée avant la
+        // migration — une colonne nommée absente ferait tomber TOUTE la
+        // génération, et plus aucune soirée ne pourrait être publiée.
         const { data, error } = await supabaseAdmin
           .from("affiliate_events")
-          .select("id, recurring_template_id, event_date, external_ticket_url, flyer_url, status, ticket_url_overridden")
+          .select("*")
           .in("recurring_template_id", ids)
           .gte("event_date", today)
           .order("id")
@@ -210,12 +215,15 @@ serve(async (req) => {
           const overridden = existing.ticket_url_overridden === true;
           const targetUrl = overridden ? existing.external_ticket_url : tplTicketUrl;
           const correctStatus = targetUrl ? existing.status === "featured" ? "featured" : "published" : "draft";
+          // Affiche posée à la main sur CETTE date (flyer_overridden, posé par
+          // trigger) : elle prime sur celle du modèle, comme le lien.
+          const targetFlyer = existing.flyer_overridden === true ? existing.flyer_url : tplFlyerUrl;
           if (
             existing.external_ticket_url !== targetUrl ||
-            existing.flyer_url !== tplFlyerUrl ||
+            existing.flyer_url !== targetFlyer ||
             existing.status !== correctStatus
           ) {
-            updates.push({ id: existing.id, external_ticket_url: targetUrl, flyer_url: tplFlyerUrl, status: correctStatus });
+            updates.push({ id: existing.id, external_ticket_url: targetUrl, flyer_url: targetFlyer, status: correctStatus });
           }
           continue;
         }

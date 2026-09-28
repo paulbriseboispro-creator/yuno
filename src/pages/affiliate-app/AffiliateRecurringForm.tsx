@@ -159,6 +159,9 @@ type PropagatePrompt = {
   values: Partial<OccValues>;
   draftIds: string[];
   liveIds: string[];
+  // Soirées dont le titre a été changé à la main pour CETTE date
+  // (affiliate_events.name_overridden) : le report ne touche jamais leur titre.
+  customNameIds: string[];
 };
 
 // Aperçu lecture seule (mode création) : le modèle n'existe pas encore, on
@@ -598,18 +601,21 @@ export default function AffiliateRecurringForm() {
       // Le générateur vient de tourner : les soirées relues ici incluent celles
       // qu'il vient de créer (déjà à jour — les réécrire ne coûte rien).
       if (askPropagate && isEdit && id && changed.length > 0) {
+        // `*` : name_overridden peut manquer tant que la migration
+        // 20260928100000 n'est pas poussée — absent, il vaut « non ».
         const { data: occ } = await supabase
           .from('affiliate_events')
-          .select('id, status')
+          .select('*')
           .eq('recurring_template_id', id)
           .gte('event_date', toDateStr(new Date()));
-        const rows = occ ?? [];
+        const rows = (occ ?? []) as Array<{ id: string; status: string; name_overridden?: boolean | null }>;
         if (rows.length > 0) {
           setPropagate({
             fields: changed,
             values: pickFields(after, changed),
             draftIds: rows.filter((r) => r.status === 'draft').map((r) => r.id),
             liveIds: rows.filter((r) => r.status !== 'draft').map((r) => r.id),
+            customNameIds: rows.filter((r) => r.name_overridden === true).map((r) => r.id),
           });
         }
       }
@@ -636,11 +642,26 @@ export default function AffiliateRecurringForm() {
     if (ids.length === 0) { setPropagate(null); return; }
     setPropagating(scope);
     try {
-      const { error } = await supabase
-        .from('affiliate_events')
-        .update(propagate.values)
-        .in('id', ids);
-      if (error) throw error;
+      // Un titre personnalisé sur une date précise n'est jamais écrasé : ces
+      // soirées reçoivent le reste du report, sans le titre.
+      const custom = new Set(propagate.customNameIds);
+      const { name: _name, ...withoutName } = propagate.values;
+      const keepNameIds = 'name' in propagate.values ? ids.filter((i) => custom.has(i)) : [];
+      const fullIds = ids.filter((i) => !keepNameIds.includes(i));
+      if (fullIds.length > 0) {
+        const { error } = await supabase
+          .from('affiliate_events')
+          .update(propagate.values)
+          .in('id', fullIds);
+        if (error) throw error;
+      }
+      if (keepNameIds.length > 0 && Object.keys(withoutName).length > 0) {
+        const { error } = await supabase
+          .from('affiliate_events')
+          .update(withoutName)
+          .in('id', keepNameIds);
+        if (error) throw error;
+      }
       toast({ title: t('aff.recurringForm.propDoneToast').replace('{count}', String(ids.length)) });
       setPropagate(null);
     } catch (err) {

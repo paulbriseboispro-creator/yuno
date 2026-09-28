@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
-import { ExternalLink, Loader2, CalendarDays, Ticket, ImageIcon, ListMusic } from 'lucide-react';
+import { ExternalLink, Loader2, CalendarDays, Ticket, ImageIcon, ListMusic, RefreshCw } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
 import { AffiliateDraggableGallery } from '@/components/affiliate/AffiliateDraggableGallery';
 import {
   AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, AffSpinner,
   FieldLabel, DarkInput, DarkSelect, DarkTextarea,
-  RED, T2, T3, BORDER, INNER_BG,
+  RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
 import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
@@ -74,6 +74,10 @@ export default function AffiliateEventForm() {
   const [form, setForm] = useState<FormData>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  // Occurrence d'un modèle récurrent : ce formulaire ne modifie QUE cette
+  // date (titre et affiche compris — le générateur les respecte ensuite,
+  // cf. name_overridden / flyer_overridden). Le modèle se modifie ailleurs.
+  const [templateId, setTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) init();
@@ -108,6 +112,7 @@ export default function AffiliateEventForm() {
         .eq('affiliate_id', aff.id)
         .single();
       if (data) {
+        setTemplateId((data as { recurring_template_id?: string | null }).recurring_template_id ?? null);
         setForm({
           affiliate_venue_id: data.affiliate_venue_id ?? '',
           name: data.name ?? '',
@@ -230,6 +235,22 @@ export default function AffiliateEventForm() {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffBackHeader title={isEdit ? t('aff.eventForm.editTitle') : t('aff.eventForm.newTitle')} onBack={() => guardedNavigate('/affiliate/events')} />
       </motion.div>
+
+      {isEdit && templateId && (
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-3.5"
+          style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+          <RefreshCw className="h-4 w-4 flex-none mt-0.5" style={{ color: T2 }} />
+          <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+            <p style={{ color: T1, fontWeight: 600 }}>{t('aff.eventForm.occurrenceTitle')}</p>
+            <p style={{ color: T2, marginTop: 2 }}>{t('aff.eventForm.occurrenceDesc')}</p>
+            <Link to={`/affiliate/recurring/${templateId}/edit`}
+              onClick={(e) => { e.preventDefault(); guardedNavigate(`/affiliate/recurring/${templateId}/edit`); }}
+              className="inline-block mt-1.5 font-medium" style={{ color: RED }}>
+              {t('aff.eventForm.occurrenceTemplateLink')}
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Infos de base */}
       <AffCard padding={20}>

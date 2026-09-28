@@ -650,6 +650,8 @@ export type Database = {
           status: string
           tables_only: boolean
           ticket_url_overridden: boolean
+          name_overridden: boolean
+          flyer_overridden: boolean
           updated_at: string
         }
         Insert: {
@@ -679,6 +681,8 @@ export type Database = {
           status?: string
           tables_only?: boolean
           ticket_url_overridden?: boolean
+          name_overridden?: boolean
+          flyer_overridden?: boolean
           updated_at?: string
         }
         Update: {
@@ -708,6 +712,8 @@ export type Database = {
           status?: string
           tables_only?: boolean
           ticket_url_overridden?: boolean
+          name_overridden?: boolean
+          flyer_overridden?: boolean
           updated_at?: string
         }
         Relationships: [

@@ -323,6 +323,13 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   mène) ; une visite = un onglet (source d'arrivée gardée en sessionStorage) ;
   les lectures de trafic passent par `fetchAllRows` (PostgREST plafonne à
   ~1 000 lignes). Le générateur de récurrents lit et écrit EN LOT.
+  **Une occurrence récurrente se personnalise seule** (2026-09-28, migration
+  `20260928100000`) : le crayon (`/affiliate/events/:id/edit`) ne modifie que
+  cette date. Titre et affiche différents du modèle posent `name_overridden` /
+  `flyer_overridden` (trigger, par COMPARAISON au modèle — vider l'affiche rend
+  la main au modèle) ; le générateur ne resynchronise plus une affiche marquée,
+  le report « appliquer aux soirées » du modèle saute un titre marqué. Même
+  modèle que `ticket_url_overridden`.
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
