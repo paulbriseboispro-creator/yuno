@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -239,7 +240,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgb(var(--ink)/0.04)', border: `1px solid ${BORDER}` }}>
               <MessageCircle className="w-4 h-4" style={{ color: T2 }} />
             </div>
-            <Input value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} placeholder="+33 6 12 34 56 78" />
+            <PhoneInputWithCountry value={whatsappNumber} onChange={setWhatsappNumber} size="sm" className="flex-1" />
           </div>
         </div>
       </div>

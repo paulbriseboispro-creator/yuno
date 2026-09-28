@@ -15478,6 +15478,10 @@ const fr: Record<string, string> = {
   "homeBanner.errFormat": "Format non pris en charge : utilisez une photo JPG, PNG ou WebP",
   "homeBanner.errSize": "Photo trop lourde (20 Mo max)",
   "homeBanner.errSave": "La bannière n'a pas pu être enregistrée. Réessayez.",
+  // --- Champ téléphone (indicatif + numéro) ---
+  'phone.searchCountry': 'Rechercher un pays',
+  'phone.noCountry': 'Aucun pays trouvé',
+  'phone.countryCode': 'Indicatif du pays',
 };
 
 export default fr;
