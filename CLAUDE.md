@@ -324,7 +324,7 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   les lectures de trafic passent par `fetchAllRows` (PostgREST plafonne à
   ~1 000 lignes). Le générateur de récurrents lit et écrit EN LOT.
   **Une occurrence récurrente se personnalise seule** (2026-09-28, migration
-  `20260928100000`) : le crayon (`/affiliate/events/:id/edit`) ne modifie que
+  `20260928190000`) : le crayon (`/affiliate/events/:id/edit`) ne modifie que
   cette date. Titre et affiche différents du modèle posent `name_overridden` /
   `flyer_overridden` (trigger, par COMPARAISON au modèle — vider l'affiche rend
   la main au modèle) ; le générateur ne resynchronise plus une affiche marquée,

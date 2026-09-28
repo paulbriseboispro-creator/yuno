@@ -173,7 +173,7 @@ serve(async (req) => {
     const existingByKey = new Map<string, Existing>();
     for (const ids of chunk(templates.map((t) => t.id), 100)) {
       for (let from = 0; ; from += 1000) {
-        // `*` et non une liste : flyer_overridden (migration 20260928100000)
+        // `*` et non une liste : flyer_overridden (migration 20260928190000)
         // peut ne pas encore exister si la fonction est déployée avant la
         // migration — une colonne nommée absente ferait tomber TOUTE la
         // génération, et plus aucune soirée ne pourrait être publiée.

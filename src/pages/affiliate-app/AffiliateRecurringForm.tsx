@@ -602,7 +602,7 @@ export default function AffiliateRecurringForm() {
       // qu'il vient de créer (déjà à jour — les réécrire ne coûte rien).
       if (askPropagate && isEdit && id && changed.length > 0) {
         // `*` : name_overridden peut manquer tant que la migration
-        // 20260928100000 n'est pas poussée — absent, il vaut « non ».
+        // 20260928190000 n'est pas poussée — absent, il vaut « non ».
         const { data: occ } = await supabase
           .from('affiliate_events')
           .select('*')
