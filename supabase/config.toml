@@ -21,6 +21,9 @@ verify_jwt = true
 [functions.create-affiliate-recurring-events]
 verify_jwt = false
 
+[functions.affiliate-ticket-sync]
+verify_jwt = false
+
 [functions.create-owner-recurring-events]
 verify_jwt = false
 

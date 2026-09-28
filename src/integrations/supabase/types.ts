@@ -652,6 +652,7 @@ export type Database = {
           ticket_url_overridden: boolean
           name_overridden: boolean
           flyer_overridden: boolean
+          external_event_ref: string | null
           updated_at: string
         }
         Insert: {
@@ -683,6 +684,7 @@ export type Database = {
           ticket_url_overridden?: boolean
           name_overridden?: boolean
           flyer_overridden?: boolean
+          external_event_ref?: string | null
           updated_at?: string
         }
         Update: {
@@ -714,6 +716,7 @@ export type Database = {
           ticket_url_overridden?: boolean
           name_overridden?: boolean
           flyer_overridden?: boolean
+          external_event_ref?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1110,6 +1113,7 @@ export type Database = {
           publication_url: string | null
           publication_url_is_permanent: boolean
           publication_url_set_at: string | null
+          external_series_key: string | null
           slug: string | null
           start_time: string | null
           tables_only: boolean
@@ -1135,6 +1139,7 @@ export type Database = {
           publication_url?: string | null
           publication_url_is_permanent?: boolean
           publication_url_set_at?: string | null
+          external_series_key?: string | null
           slug?: string | null
           start_time?: string | null
           tables_only?: boolean
@@ -1160,6 +1165,7 @@ export type Database = {
           publication_url?: string | null
           publication_url_is_permanent?: boolean
           publication_url_set_at?: string | null
+          external_series_key?: string | null
           slug?: string | null
           start_time?: string | null
           tables_only?: boolean
@@ -1306,6 +1312,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      affiliate_ticket_sources: {
+        Row: {
+          account_slug: string
+          affiliate_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string | null
+          priority: number
+          provider: string
+        }
+        Insert: {
+          account_slug: string
+          affiliate_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          priority?: number
+          provider?: string
+        }
+        Update: {
+          account_slug?: string
+          affiliate_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          priority?: number
+          provider?: string
+        }
+        Relationships: []
+      }
+      affiliate_ticket_sync_runs: {
+        Row: {
+          affiliate_id: string
+          errors: Json
+          id: string
+          images_set: number
+          links_filled: number
+          names_set: number
+          ran_at: string
+          todo: Json
+          trigger: string
+          unmatched: Json
+        }
+        Insert: {
+          affiliate_id: string
+          errors?: Json
+          id?: string
+          images_set?: number
+          links_filled?: number
+          names_set?: number
+          ran_at?: string
+          todo?: Json
+          trigger?: string
+          unmatched?: Json
+        }
+        Update: {
+          affiliate_id?: string
+          errors?: Json
+          id?: string
+          images_set?: number
+          links_filled?: number
+          names_set?: number
+          ran_at?: string
+          todo?: Json
+          trigger?: string
+          unmatched?: Json
+        }
+        Relationships: []
       }
       affiliate_venues: {
         Row: {

@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format, parseISO } from 'date-fns';
 import { isAffiliateEventOver } from '@/lib/affiliateEventTime';
+import { TicketSyncCard } from '@/components/affiliate/TicketSyncCard';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, Pill, AffButton, AffLinkButton, AffSpinner, AffEmpty,
@@ -46,6 +47,7 @@ export default function AffiliateEvents() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [loading, setLoading] = useState(true);
+  const [affiliateId, setAffiliateId] = useState<string | null>(null);
   // Les soirées terminées sont MASQUÉES, jamais supprimées : les effacer
   // emportait en cascade les ventes déclarées, les commissions, les
   // assignations promoteurs et le rattachement des vues/clics (25/09/2026,
@@ -61,6 +63,7 @@ export default function AffiliateEvents() {
     setLoading(true);
     const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user.id).single();
     if (!aff) { setLoading(false); return; }
+    setAffiliateId(aff.id);
 
     const { data } = await supabase
       .from('affiliate_events')
@@ -142,6 +145,8 @@ export default function AffiliateEvents() {
           }
         />
       </motion.div>
+
+      {affiliateId && <TicketSyncCard affiliateId={affiliateId} onSynced={fetchEvents} />}
 
       {/* Alert */}
       {missingLink > 0 && (

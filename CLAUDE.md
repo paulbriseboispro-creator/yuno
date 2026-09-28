@@ -330,6 +330,25 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   la main au modèle) ; le générateur ne resynchronise plus une affiche marquée,
   le report « appliquer aux soirées » du modèle saute un titre marqué. Même
   modèle que `ticket_url_overridden`.
+  **Liens Whan posés tout seuls** (2026-09-28, migration `20260928200000`,
+  edge `affiliate-ticket-sync`, `TicketSyncCard` en tête de la page Soirées) :
+  `affiliate_ticket_sources` liste les comptes promoteur Whan d'un affilié par
+  PRIORITÉ (Mad by Night seul : `paul-brisebois-2` puis `milo-madbynight`) ;
+  l'edge lit l'API publique `app.whan.es/api/v1/public/rrpp/<slug>` (Fourvenues
+  = mur anti-robot, abandonné), relie chaque occurrence d'un modèle à sa série
+  (`affiliate_recurring_templates.external_series_key` = `whan:<club>:<nom>`,
+  nuit = début − 8 h, tardeo 12-20 h ≠ soirée) et pose l'URL canonique +
+  `?ref=<compte>` du compte prioritaire qui la vend. Autre nom Whan ce soir-là =
+  édition spéciale (Thanksgiving, Halloween…) : titre et affiche posés sur CETTE
+  date. Seule écriture : `affiliate_ticket_sync_apply` (service_role) — jamais
+  un lien remplacé, `ticket_url_overridden = true` (sinon le générateur de 06 h
+  l'effacerait), jamais une affiche / un titre marqués à la main. Cron
+  `0 16,17 * * *` UTC, la fonction ne travaille qu'à 18 h Madrid ; journal
+  `affiliate_ticket_sync_runs`. `mode: 'import'` (à blanc sauf `apply: true`)
+  détecte les séries (≥ 3 dates) et crée / corrige les modèles (affiche copiée
+  dans `affiliate-media/<aff>/whan/`, horaires, prix) ; il publie en silence
+  (`yuno.silent_publish`, lu par `auto_notify_event_published`) pour ne pas
+  envoyer 100 « Nouvelle soirée » à l'équipe.
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
