@@ -63,6 +63,7 @@ type Template = {
 type Occurrence = {
   id: string;
   name: string;
+  flyer_url: string | null;
   event_date: string;
   external_ticket_url: string | null;
   flyer_overridden: boolean | null;
@@ -250,7 +251,23 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 }
 
 // ── Cœur ────────────────────────────────────────────────────────────────────
-type RunOpts = { mode: "sync" | "import"; apply: boolean; trigger: "cron" | "manual" | "import" };
+type RunOpts = { mode: "sync" | "import"; apply: boolean; trigger: "cron" | "manual" | "import"; force?: boolean };
+
+function latestPerNight(list: WhanEvent[]): WhanEvent[] {
+  const groups = new Map<string, WhanEvent[]>();
+  for (const e of list) {
+    const k = `${e.venueId}|${e.night}`;
+    groups.set(k, [...(groups.get(k) ?? []), e]);
+  }
+  const out: WhanEvent[] = [];
+  for (const g of groups.values()) {
+    const start = Math.max(...g.map((e) => Date.parse(e.start)));
+    const late = g.filter((e) => Date.parse(e.start) === start);
+    const end = Math.max(...late.map((e) => Date.parse(e.end) || 0));
+    out.push(...late.filter((e) => (Date.parse(e.end) || 0) === end));
+  }
+  return out;
+}
 
 async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts: RunOpts) {
   const errors: string[] = [];
@@ -299,7 +316,12 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
     e.venueId = venueFor.get(e.clubSlug) || undefined;
   }
   const today = currentNight();
-  const upcoming = [...events.values()].filter((e) => e.venueId && e.night >= today);
+  const allUpcoming = [...events.values()].filter((e) => e.venueId && e.night >= today);
+  // Deux soirées Whan dans le même club la même nuit (un tardeo à 18 h puis la
+  // soirée, deux salles…) : Yuno ne garde que la PLUS TARDIVE — début le plus
+  // tard, puis fin la plus tard. Règle de Paul (2026-09-28). Les ex-aequo
+  // restent tous candidats : un lien posé à la main les départage.
+  const upcoming = latestPerNight(allUpcoming);
 
   // 3. Modèles de l'affilié.
   const loadTemplates = async () => {
@@ -339,7 +361,7 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
   for (let from = 0; keyedIds.length > 0; from += 1000) {
     const { data, error } = await admin
       .from("affiliate_events")
-      .select("id, name, event_date, external_ticket_url, flyer_overridden, name_overridden, recurring_template_id, external_event_ref")
+      .select("id, name, event_date, external_ticket_url, flyer_url, flyer_overridden, name_overridden, recurring_template_id, external_event_ref")
       .eq("affiliate_id", affiliateId)
       .in("recurring_template_id", keyedIds)
       .gte("event_date", today)
@@ -362,11 +384,27 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
   const isClaimed = (e: WhanEvent) =>
     claimedText.includes(e.id) || claimedText.includes(`/event/${slugify(e.name)}-${e.start.slice(0, 10)}`);
 
-  const byVenueNight = new Map<string, WhanEvent[]>();
-  for (const e of upcoming) {
-    const k = `${e.venueId}|${e.night}`;
-    byVenueNight.set(k, [...(byVenueNight.get(k) ?? []), e]);
-  }
+  const groupByVenueNight = (list: WhanEvent[]) => {
+    const m = new Map<string, WhanEvent[]>();
+    for (const e of list) {
+      const k = `${e.venueId}|${e.night}`;
+      m.set(k, [...(m.get(k) ?? []), e]);
+    }
+    return m;
+  };
+  const byVenueNight = groupByVenueNight(upcoming);
+  const allByVenueNight = groupByVenueNight(allUpcoming);
+
+  // La soirée Whan qu'un lien déjà posé désigne (id ou slug canonique
+  // « nom-date »), parmi TOUTES celles du club cette nuit-là.
+  const linkedEventOf = (occ: Occurrence, venueId: string): WhanEvent | undefined => {
+    const url = occ.external_ticket_url ?? "";
+    const refId = occ.external_event_ref?.startsWith("whan:") ? occ.external_event_ref.slice(5) : null;
+    const path = url.includes("whan.es/event/") ? url.split("/event/")[1].split("?")[0] : "";
+    if (!refId && !path) return undefined;
+    return (allByVenueNight.get(`${venueId}|${occ.event_date}`) ?? []).find((e) =>
+      e.id === refId || path === e.id || path.startsWith(`${slugify(e.name)}-${e.start.slice(0, 10)}`));
+  };
   const keyBase = (t: Template) => (t.external_series_key ?? "").split(":").slice(2).join(":");
   const seriesBasesOfVenue = new Map<string, Set<string>>();
   for (const t of keyed) {
@@ -375,7 +413,7 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
     seriesBasesOfVenue.set(t.affiliate_venue_id!, set);
   }
 
-  type Pending = { occ: Occurrence; tpl: Template; ev: WhanEvent; special: boolean };
+  type Pending = { occ: Occurrence; tpl: Template; ev: WhanEvent; setLink: boolean; replaceLink: boolean };
   const pending: Pending[] = [];
   const todo: Array<Record<string, unknown>> = [];
   const used = new Set<string>();
@@ -386,38 +424,53 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
       .filter((e) => e.band === bandOfTime(tpl.start_time));
     const exact = cands.filter((e) => e.base === keyBase(tpl));
     let ev: WhanEvent | undefined;
-    let special = false;
     let reason: string | null = null;
     if (exact.length === 1) ev = exact[0];
     else if (exact.length > 1) reason = "ambiguous";
     else {
       const others = cands.filter((e) => !seriesBasesOfVenue.get(tpl.affiliate_venue_id!)?.has(e.base));
-      if (others.length === 1) { ev = others[0]; special = true; }
+      if (others.length === 1) ev = others[0]; // édition spéciale de la série
       else reason = others.length > 1 ? "ambiguous" : "not_on_whan";
     }
 
+    // Un lien déjà posé qui désigne une soirée Whan de ce club cette nuit-là
+    // est le choix du pro : on s'aligne dessus, on ne le remplace jamais.
+    const linkedEv = linkedEventOf(occ, tpl.affiliate_venue_id!);
+    if (linkedEv) {
+      used.add(linkedEv.id);
+      pending.push({ occ, tpl, ev: linkedEv, setLink: false, replaceLink: false });
+      continue;
+    }
     if (ev) used.add(ev.id);
-    const alreadyThis = !!ev && !!occ.external_event_ref && occ.external_event_ref === `whan:${ev.id}`;
-    if (ev && !occ.external_ticket_url && !isClaimed(ev)) pending.push({ occ, tpl, ev, special });
-    else if (ev && alreadyThis) pending.push({ occ, tpl, ev, special });
-    else if (!occ.external_ticket_url && occ.event_date <= addDays(today, TODO_HORIZON_DAYS)) {
+    const isWhanLink = !!occ.external_ticket_url && occ.external_ticket_url.includes("whan.es/");
+    if (ev && !occ.external_ticket_url && !isClaimed(ev)) {
+      pending.push({ occ, tpl, ev, setLink: true, replaceLink: false });
+    } else if (ev && opts.force && isWhanLink && !isClaimed(ev)) {
+      // Lien Whan qui ne désigne aucune soirée de cette nuit (périmé, mauvais
+      // club) : remplacé, seulement en alignement forcé.
+      pending.push({ occ, tpl, ev, setLink: true, replaceLink: true });
+    } else if (!occ.external_ticket_url && occ.event_date <= addDays(today, TODO_HORIZON_DAYS)) {
       todo.push({ id: occ.id, date: occ.event_date, name: occ.name, reason: reason ?? "already_linked_elsewhere" });
     }
   }
 
-  const rows = await mapLimit(pending, 4, async ({ occ, tpl, ev, special }) => {
+  const rows = await mapLimit(pending, 4, async ({ occ, tpl, ev, setLink, replaceLink }) => {
     const row: Record<string, string> = { id: occ.id };
-    if (!occ.external_ticket_url) {
+    if (setLink) {
       row.url = await ticketUrlFor(ev);
       row.ref = `whan:${ev.id}`;
+      if (replaceLink) row.replace = "true";
     }
-    // L'affiche de l'édition, seulement sur un modèle dont l'affiche vient de
-    // Whan (sinon chaque date prendrait l'image Whan au lieu de celle du pro).
-    if (!occ.flyer_overridden && ev.mainImage && tpl.flyer_url?.includes("/whan/") && !isWhanImage(tpl.flyer_url, ev)) {
+    // Chaque date porte le nom et l'affiche de SA soirée Whan (édition
+    // spéciale comprise). Hors alignement forcé : jamais sur une date
+    // personnalisée à la main, et l'affiche seulement si le modèle suit Whan.
+    const name = displayName(ev.name) || ev.name;
+    if (name && name !== occ.name && (opts.force || !occ.name_overridden)) row.name = name;
+    if (ev.mainImage && !isWhanImage(occ.flyer_url, ev)
+      && (opts.force || (!occ.flyer_overridden && tpl.flyer_url?.includes("/whan/")))) {
       const url = opts.apply ? await ensureImage(admin, affiliateId, ev) : `(whan image ${ev.mainImage})`;
       if (url) row.flyer_url = url;
     }
-    if (special && !occ.name_overridden && ev.name) row.name = displayName(ev.name) || ev.name;
     return row;
   });
   const writes = rows.filter((r) => Object.keys(r).length > 1);
@@ -428,6 +481,7 @@ async function runForAffiliate(admin: SupabaseClient, affiliateId: string, opts:
       p_affiliate_id: affiliateId,
       p_rows: writes,
       p_silent: opts.trigger === "import",
+      p_force: !!opts.force,
     });
     if (error) errors.push(error.message);
     else applied = data as typeof applied;
@@ -477,8 +531,11 @@ async function importSeries(
     const k = `${e.venueId}|${dowOf(e.night)}|${e.band}|${e.base}`;
     groups.set(k, [...(groups.get(k) ?? []), e]);
   }
+  // Seules les soirées de NUIT deviennent des modèles : un tardeo de fin
+  // d'après-midi n'est jamais repris sur Yuno (règle de Paul, 2026-09-28),
+  // même les jours où il est seul.
   const series = [...groups.values()]
-    .filter((g) => g.length >= SERIES_MIN)
+    .filter((g) => g.length >= SERIES_MIN && g[0].band === "night")
     .map((g) => g.sort((a, b) => a.night.localeCompare(b.night)));
 
   // Ce que les liens déjà posés à la main disent de chaque modèle
@@ -566,6 +623,7 @@ async function importSeries(
     const f = await seriesFacts(s);
     const key = `whan:${s[0].clubSlug}:${s[0].base}`;
     const patch: Record<string, unknown> = {
+      name: displayName(mostCommon(s.map((e) => e.name))) || t.name,
       external_series_key: key,
       start_time: `${f.start}:00`,
       end_time: f.end ? `${f.end}:00` : t.end_time,
@@ -582,6 +640,17 @@ async function importSeries(
     if (apply) {
       const { error } = await admin.from("affiliate_recurring_templates").update(patch).eq("id", t.id);
       if (error) errors.push(`update ${t.name}: ${error.message}`);
+      // Les dates déjà générées qui portaient l'ancien nom du modèle suivent
+      // (celles que Whan n'a pas encore publiées ; les autres prennent le nom
+      // de leur soirée Whan à la synchro).
+      else if (patch.name !== t.name) {
+        const { error: e2 } = await admin.from("affiliate_events")
+          .update({ name: patch.name as string })
+          .eq("recurring_template_id", t.id)
+          .eq("name", t.name)
+          .gte("event_date", currentNight());
+        if (e2) errors.push(`rename ${t.name}: ${e2.message}`);
+      }
     }
   }
 
@@ -646,7 +715,7 @@ serve(async (req) => {
     new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    const body = await req.json().catch(() => ({})) as { mode?: string; apply?: boolean; trigger?: string; affiliate_id?: string };
+    const body = await req.json().catch(() => ({})) as { mode?: string; apply?: boolean; trigger?: string; affiliate_id?: string; force?: boolean };
     const cronSecret = Deno.env.get("CRON_SECRET");
     const isCron = !!cronSecret && req.headers.get("x-cron-secret") === cronSecret;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -682,7 +751,9 @@ serve(async (req) => {
 
     const results: Record<string, unknown> = {};
     for (const id of affiliateIds) {
-      results[id] = await runForAffiliate(admin, id, { mode, apply, trigger });
+      // L'alignement forcé (écrase titres / affiches personnalisés) n'est
+      // ouvert qu'au serveur, jamais au bouton de la Console.
+      results[id] = await runForAffiliate(admin, id, { mode, apply, trigger, force: isCron && body.force === true });
     }
     return json({ success: true, mode, apply, results });
   } catch (error: unknown) {

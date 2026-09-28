@@ -358,7 +358,14 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   détecte les séries (≥ 3 dates) et crée / corrige les modèles (affiche copiée
   dans `affiliate-media/<aff>/whan/`, horaires, prix) ; il publie en silence
   (`yuno.silent_publish`, lu par `auto_notify_event_published`) pour ne pas
-  envoyer 100 « Nouvelle soirée » à l'équipe.
+  envoyer 100 « Nouvelle soirée » à l'équipe. **Deux soirées Whan le même
+  jour dans un club = Yuno garde la PLUS TARDIVE** (début le plus tard, puis
+  fin la plus tard ; `latestPerNight`) : les tardeos de 18 h ne deviennent
+  jamais des modèles, même un jour où ils sont seuls. Ex-aequo = le lien posé
+  à la main départage (PRYZM le 01/10). Chaque date prend le nom et l'affiche
+  de SA soirée Whan ; `force: true` (secret cron seul, `p_force` de la RPC)
+  réaligne aussi les dates personnalisées à la main — joué le 28/09 : les 20
+  modèles portent le nom Whan exact.
 - **Tables VIP d'un organisateur SEUL (soirée sans club, 2026-09-04)** : même
   système que le club, event-scopé. `table_zones` / `table_packs` /
   `venue_floor_plans` acceptent `venue_id NULL` (CHECK : venue OU event),
