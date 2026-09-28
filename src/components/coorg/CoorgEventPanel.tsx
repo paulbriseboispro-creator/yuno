@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Check, CheckCircle2, Clock, Download, FileSignature, HandCoins, Info, Loader2, Plus, Receipt,
+  BellRing, CalendarClock, Check, CheckCircle2, Clock, Download, FileSignature, HandCoins, Info, Loader2, Plus, Receipt,
   ShieldCheck, Trash2, TriangleAlert, UserPlus, Users, X,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -12,8 +12,9 @@ import {
 import {
   getEventCoorg, respondCohostInvitation, updateEventCohost, endEventCohost,
   saveCoorgDeal, signCoorgDeal, addCoorgLedgerLine, voidCoorgLedgerLine, approveCoorgSettlement,
-  setCoorgTransferIban, declareCoorgTransferSent, confirmCoorgTransfer, coorgErrorCode, eur,
-  type CoorgState, type CoorgParty, type CohostAccess,
+  setCoorgTransferIban, declareCoorgTransferSent, confirmCoorgTransfer, nudgeCoorgTransfer, coorgErrorCode, eur,
+  transferDaysLate, canNudgeTransfer, PAYMENT_TERMS_DAYS,
+  type CoorgState, type CoorgParty, type CohostAccess, type PaymentTermsDays,
 } from '@/lib/coorg';
 import { COORG_ARTICLES, COORG_TERMS_VERSION, generateCoorgAgreementPDF } from '@/lib/coorgAgreement';
 import { capturePosthog } from '@/lib/posthog';
@@ -280,6 +281,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
   const [shares, setShares] = useState<Record<string, string>>({});
   const [formal, setFormal] = useState(false);
   const [clauses, setClauses] = useState('');
+  const [terms, setTerms] = useState<PaymentTermsDays>(15);
   const [showTerms, setShowTerms] = useState(false);
 
   const openEditor = () => {
@@ -293,6 +295,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
     setShares(init);
     setFormal(deal?.formal ?? false);
     setClauses(deal?.clauses ?? '');
+    setTerms(deal?.payment_terms_days ?? 15);
     setEditing(true);
   };
 
@@ -308,8 +311,8 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
       if (v.trim() !== '' && n > 0) out[k] = Math.round(n * 100) / 100;
     }
     void run('deal', async () => {
-      await saveCoorgDeal(eventId, out, formal, clauses);
-      capturePosthog('coorg_deal_saved', { event_id: eventId, parties: Object.keys(out).length, formal });
+      await saveCoorgDeal(eventId, out, formal, clauses, terms);
+      capturePosthog('coorg_deal_saved', { event_id: eventId, parties: Object.keys(out).length, formal, payment_terms_days: terms });
       setEditing(false);
     }, t('Accord envoyé aux parties', 'Agreement sent to the parties', 'Acuerdo enviado a las partes'));
   };
@@ -363,6 +366,11 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
               </div>
             );
           })}
+          <p className="flex items-center gap-1.5 px-1" style={{ color: T2, fontSize: 12 }}>
+            <CalendarClock className="h-3.5 w-3.5" style={{ color: T3 }} />
+            {t('Soldes à virer sous', 'Balances paid within', 'Saldos a transferir en')} <b style={{ color: T1 }}>{deal.payment_terms_days ?? 15} {t('jours', 'days', 'días')}</b>
+            {' '}{t('après la validation du décompte · relances automatiques', 'of the statement’s approval · automatic reminders', 'tras validar la liquidación · recordatorios automáticos')}
+          </p>
           {deal.clauses && (
             <p className="rounded-xl p-3" style={{ background: INNER_BG, color: T2, fontSize: 12.5, whiteSpace: 'pre-wrap' }}>{deal.clauses}</p>
           )}
@@ -460,6 +468,20 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
                 : t('Chaque partie clique « Valider » : même décompte, sans contrat formel.',
                   'Each party clicks “Approve”: same statement, no formal contract.',
                   'Cada parte pulsa «Validar»: misma liquidación, sin contrato formal.')}
+            </p>
+          </div>
+          <div>
+            <FieldLabel>{t('Délai de paiement', 'Payment terms', 'Plazo de pago')}</FieldLabel>
+            <OrgTabs
+              size="sm"
+              value={String(terms)}
+              onChange={(v) => setTerms(Number(v) as PaymentTermsDays)}
+              tabs={PAYMENT_TERMS_DAYS.map((d) => ({ value: String(d), label: `${d} ${t('jours', 'days', 'días')}` }))}
+            />
+            <p className="mt-1.5" style={{ color: T3, fontSize: 11.5 }}>
+              {t('Après la validation du décompte, chaque payeur a ce délai pour virer. Yuno relance avant l’échéance, puis tous les 3 jours de retard ; à 7 jours toutes les parties sont prévenues.',
+                'Once the statement is approved, each payer has this long to transfer. Yuno reminds before the due date, then every 3 days late; at 7 days every party is told.',
+                'Tras validar la liquidación, cada pagador tiene este plazo para transferir. Yuno recuerda antes del vencimiento y cada 3 días de retraso; a los 7 días se avisa a todas las partes.')}
             </p>
           </div>
           <div>
@@ -694,27 +716,32 @@ function SettlementCard({ state, eventId, busy, run, nameOf, language }: {
               'De banco a banco. El pagador declara, solo el beneficiario confirma.')}
           </p>
           <div className="mt-3 space-y-2">
-            {(state.transfers ?? []).map((tr) => (
+            {(state.transfers ?? []).map((tr) => { const late = transferDaysLate(tr); return (
               <div key={tr.id} className="rounded-xl p-3" style={{ border: `1px solid ${BORDER}` }}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 flex-1" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
                     {nameOf(tr.from)} → {nameOf(tr.to)}
                   </span>
                   <span style={{ color: T1, fontSize: 15, fontWeight: 700 }}>{eur(tr.amount, language)}</span>
-                  <OrgPill tone={tr.status === 'received' ? 'success' : tr.status === 'disputed' ? 'danger' : tr.status === 'sent' ? 'info' : 'warn'}>
+                  <OrgPill tone={tr.status === 'received' ? 'success' : tr.status === 'disputed' ? 'danger' : tr.status === 'sent' ? 'info' : tr.status === 'cancelled' ? 'muted' : late !== null ? 'danger' : 'warn'}>
                     {tr.status === 'received' ? t('Reçu', 'Received', 'Recibido')
                       : tr.status === 'sent' ? t('Annoncé', 'Announced', 'Anunciado')
                         : tr.status === 'disputed' ? t('Contesté', 'Disputed', 'Impugnado')
-                          : t('À faire', 'To do', 'Pendiente')}
+                          : tr.status === 'cancelled' ? t('Annulé', 'Cancelled', 'Cancelado')
+                            : late !== null ? (late === 0 ? t('Dû aujourd’hui', 'Due today', 'Vence hoy') : t(`En retard · ${late} j`, `Late · ${late} d`, `Con retraso · ${late} d`))
+                              : t('À faire', 'To do', 'Pendiente')}
                   </OrgPill>
                 </div>
                 <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
                   {t('Référence', 'Reference', 'Referencia')} <b style={{ color: T2 }}>{tr.reference}</b>
                   {tr.payee_iban ? ` · IBAN ${tr.payee_iban.replace(/(.{4})/g, '$1 ').trim()}` : ''}
-                  {tr.dispute_reason ? ` · ${t('Motif', 'Reason', 'Motivo')} : ${tr.dispute_reason}` : ''}
+                  {tr.dispute_reason ? ` · ${t('Motif', 'Reason', 'Motivo')} : ${tr.dispute_reason === 'auto:no_acknowledgement'
+                    ? t('réception non confirmée dans les 7 jours', 'receipt not confirmed within 7 days', 'recepción no confirmada en 7 días')
+                    : tr.dispute_reason}` : ''}
                 </p>
+                <TransferTimeline tr={tr} language={language} />
 
-                {tr.i_receive && !tr.payee_iban && tr.status === 'pending' && (
+                {tr.i_receive && !tr.payee_iban && (tr.status === 'pending' || tr.status === 'disputed') && (
                   <div className="mt-2 flex gap-2">
                     <DarkInput value={ibans[tr.id] ?? ''} onChange={(v) => setIbans((m) => ({ ...m, [tr.id]: v }))} placeholder="FR76 …" />
                     <OrgButton size="sm" variant="secondary" disabled={!!busy}
@@ -734,8 +761,17 @@ function SettlementCard({ state, eventId, busy, run, nameOf, language }: {
                     </OrgButton>
                   </div>
                 )}
-                {tr.i_receive && (tr.status === 'sent' || tr.status === 'pending') && (
+                {tr.i_receive && (tr.status === 'sent' || tr.status === 'pending' || tr.status === 'disputed') && (
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {canNudgeTransfer(tr) && tr.status !== 'sent' && (
+                      <OrgButton size="sm" variant="secondary" disabled={!!busy}
+                        onClick={() => run(`nudge:${tr.id}`, async () => {
+                          await nudgeCoorgTransfer(tr.id);
+                          capturePosthog('coorg_transfer_nudged', { event_id: eventId, days_late: late ?? 0 });
+                        }, t('Relance envoyée', 'Reminder sent', 'Recordatorio enviado'))}>
+                        <BellRing className="h-3.5 w-3.5" /> {t('Relancer', 'Send a reminder', 'Recordar')}
+                      </OrgButton>
+                    )}
                     <OrgButton size="sm" variant="primary" disabled={!!busy}
                       onClick={() => run(`recv:${tr.id}`, () => confirmCoorgTransfer(tr.id, true),
                         t('Réception confirmée', 'Receipt confirmed', 'Recepción confirmada'))}>
@@ -753,11 +789,39 @@ function SettlementCard({ state, eventId, busy, run, nameOf, language }: {
                     )}
                   </div>
                 )}
+                {tr.resolved_by_admin && tr.admin_note && (
+                  <p className="mt-2 rounded-lg px-2.5 py-1.5" style={{ background: INNER_BG, color: T2, fontSize: 11.5 }}>
+                    {t('Tranché par Yuno', 'Resolved by Yuno', 'Resuelto por Yuno')} · {tr.admin_note}
+                  </p>
+                )}
               </div>
-            ))}
+            ); })}
           </div>
         </OrgCard>
       )}
     </>
+  );
+}
+
+/** Échéance, relances, délai de confirmation : ce que Yuno surveille pour ce virement. */
+function TransferTimeline({ tr, language }: { tr: NonNullable<CoorgState['transfers']>[number]; language: string }) {
+  const { t } = useCoorgT();
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', {
+    day: 'numeric', month: 'short', timeZone: 'Europe/Paris',
+  });
+  const bits: string[] = [];
+  if (tr.status === 'pending' && tr.due_at) bits.push(`${t('À virer avant le', 'Due by', 'Pagar antes del')} ${fmt(tr.due_at)}`);
+  if (tr.status === 'sent' && tr.confirm_due_at) bits.push(`${t('Réception à confirmer avant le', 'Receipt to confirm by', 'Confirmar recepción antes del')} ${fmt(tr.confirm_due_at)}`);
+  if ((tr.reminder_count ?? 0) > 0 && tr.status !== 'received' && tr.status !== 'cancelled') {
+    const n = tr.reminder_count ?? 0;
+    bits.push(n === 1 ? t('1 relance envoyée', '1 reminder sent', '1 recordatorio enviado') : t(`${n} relances envoyées`, `${n} reminders sent`, `${n} recordatorios enviados`));
+  }
+  if (tr.escalated_at && tr.status === 'pending') bits.push(t('toutes les parties prévenues', 'every party notified', 'todas las partes avisadas'));
+  if (tr.status === 'received' && tr.received_at) bits.push(`${t('Reçu le', 'Received on', 'Recibido el')} ${fmt(tr.received_at)}`);
+  if (!bits.length) return null;
+  return (
+    <p className="mt-1 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
+      <CalendarClock className="h-3 w-3 shrink-0" /> {bits.join(' · ')}
+    </p>
   );
 }

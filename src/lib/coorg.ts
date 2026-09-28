@@ -56,7 +56,12 @@ export interface CoorgDeal {
   signatures: Record<string, { at: string; by: string; ip?: string | null; ua?: string; version: number }>;
   status: 'pending' | 'active' | 'cancelled';
   activated_at: string | null;
+  /** Délai de paiement convenu après l'arrêté du décompte (7, 15 ou 30 jours). */
+  payment_terms_days?: PaymentTermsDays;
 }
+
+export const PAYMENT_TERMS_DAYS = [7, 15, 30] as const;
+export type PaymentTermsDays = (typeof PAYMENT_TERMS_DAYS)[number];
 
 export interface CoorgLedgerLine {
   id: string;
@@ -106,7 +111,7 @@ export interface CoorgTransfer {
   to: string;
   amount: number;
   reference: string;
-  status: 'pending' | 'sent' | 'received' | 'disputed';
+  status: 'pending' | 'sent' | 'received' | 'disputed' | 'cancelled';
   payee_iban: string | null;
   sent_at: string | null;
   sent_reference: string | null;
@@ -115,6 +120,30 @@ export interface CoorgTransfer {
   dispute_reason: string | null;
   i_pay: boolean;
   i_receive: boolean;
+  /** À payer avant (posé à l'arrêté du décompte). */
+  due_at?: string | null;
+  /** Le bénéficiaire confirme avant (7 j après l'annonce), sinon litige automatique. */
+  confirm_due_at?: string | null;
+  reminder_count?: number;
+  escalated_at?: string | null;
+  last_nudged_at?: string | null;
+  resolved_by_admin?: boolean;
+  admin_note?: string | null;
+}
+
+/** Jours de retard d'un virement encore à faire (0 = échéance aujourd'hui), null s'il n'est pas en retard. */
+export function transferDaysLate(t: Pick<CoorgTransfer, 'status' | 'due_at'>, now: Date = new Date()): number | null {
+  if (t.status !== 'pending' || !t.due_at) return null;
+  const ms = now.getTime() - new Date(t.due_at).getTime();
+  if (ms < 0) return null;
+  return Math.floor(ms / 86_400_000);
+}
+
+/** Le bénéficiaire peut relancer une fois par 24 h un virement pas encore annoncé. */
+export function canNudgeTransfer(t: Pick<CoorgTransfer, 'status' | 'i_receive' | 'last_nudged_at'>, now: Date = new Date()): boolean {
+  if (!t.i_receive || (t.status !== 'pending' && t.status !== 'disputed')) return false;
+  if (!t.last_nudged_at) return true;
+  return now.getTime() - new Date(t.last_nudged_at).getTime() >= 86_400_000;
 }
 
 export interface CoorgState {
@@ -268,8 +297,13 @@ export const getMyCoorgEvents = (scope: CoorgScope) => call<CoorgEventRow[]>('ge
 
 export const getMyCoorgPartners = (scope: CoorgScope) => call<CoorgPartnerRow[]>('get_my_coorg_partners', scopeArgs(scope));
 
-export const saveCoorgDeal = (eventId: string, shares: Record<string, number>, formal: boolean, clauses?: string) =>
-  call<CoorgDeal>('save_coorg_deal', { p_event_id: eventId, p_shares: shares, p_formal: formal, p_clauses: clauses ?? null });
+export const saveCoorgDeal = (
+  eventId: string, shares: Record<string, number>, formal: boolean, clauses?: string, paymentTermsDays: PaymentTermsDays = 15,
+) =>
+  call<CoorgDeal>('save_coorg_deal', {
+    p_event_id: eventId, p_shares: shares, p_formal: formal, p_clauses: clauses ?? null,
+    p_payment_terms_days: paymentTermsDays,
+  });
 
 export const signCoorgDeal = (eventId: string, party: string) =>
   call<CoorgDeal>('sign_coorg_deal', {
@@ -296,6 +330,37 @@ export const setCoorgTransferIban = (transferId: string, iban: string) =>
 
 export const declareCoorgTransferSent = (transferId: string, reference?: string) =>
   call<void>('declare_coorg_transfer_sent', { p_transfer_id: transferId, p_reference: reference ?? null });
+
+export const nudgeCoorgTransfer = (transferId: string) =>
+  call<void>('nudge_coorg_transfer', { p_transfer_id: transferId });
+
+// ── Super admin : virements en retard ou contestés ─────────────────────────
+
+export interface CoorgTransferIssue {
+  id: string;
+  event_id: string;
+  event_title: string | null;
+  event_date: string | null;
+  from: string;
+  to: string;
+  from_name: string | null;
+  to_name: string | null;
+  amount: number;
+  reference: string;
+  status: 'pending' | 'disputed';
+  due_at: string | null;
+  sent_at: string | null;
+  sent_reference: string | null;
+  disputed_at: string | null;
+  dispute_reason: string | null;
+  reminder_count: number;
+  days_late: number | null;
+}
+
+export const adminCoorgTransferIssues = () => call<CoorgTransferIssue[]>('admin_coorg_transfer_issues', {});
+
+export const adminResolveCoorgTransfer = (transferId: string, outcome: 'received' | 'cancelled', note: string) =>
+  call<void>('admin_resolve_coorg_transfer', { p_transfer_id: transferId, p_outcome: outcome, p_note: note });
 
 export const confirmCoorgTransfer = (transferId: string, received: boolean, reason?: string) =>
   call<void>('confirm_coorg_transfer', { p_transfer_id: transferId, p_received: received, p_reason: reason ?? null });

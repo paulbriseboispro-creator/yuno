@@ -123,9 +123,10 @@ export type YunoEvent =
   // ── Co-organisation (N parties) ──────────────────────────────────────────
   | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue', access }
   | 'coorg_cohost_responded' //    { event_id, accepted }
-  | 'coorg_deal_saved' //          { event_id, parties, formal }
+  | 'coorg_deal_saved' //          { event_id, parties, formal, payment_terms_days }
   | 'coorg_deal_signed' //         { event_id, formal }
   | 'coorg_settlement_approved' // { event_id, parties }
+  | 'coorg_transfer_nudged' //     { event_id, days_late }
   | 'event_hosts_followed'; //     { event_id, hosts }
 
 // Côté serveur (supabase/functions/_shared/posthog.ts), hors de ce type :

@@ -78,6 +78,26 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   guest_list_allocation_request: { icon: Users,      category: 'people', label: 'notif.type.guest_list_allocation_request' },
   guest_list_allocation_granted: { icon: UserCheck,  category: 'people', label: 'notif.type.guest_list_allocation_granted' },
   guest_list_allocation_denied:  { icon: AlertCircle, category: 'people', label: 'notif.type.guest_list_allocation_denied' },
+  // Co-organisation (N parties) : invitations, accord, décompte, virements suivis.
+  cohost_invited:               { icon: Handshake,     category: 'people',  label: 'notif.type.cohost_invited' },
+  cohost_accepted:              { icon: UserCheck,     category: 'people',  label: 'notif.type.cohost_accepted' },
+  cohost_declined:              { icon: AlertCircle,   category: 'people',  label: 'notif.type.cohost_declined' },
+  cohost_removed:               { icon: UserX,         category: 'people',  label: 'notif.type.cohost_removed' },
+  coorg_deal_to_sign:           { icon: Handshake,     category: 'people',  label: 'notif.type.coorg_deal_to_sign' },
+  coorg_deal_active:            { icon: Handshake,     category: 'people',  label: 'notif.type.coorg_deal_active' },
+  coorg_settlement_to_approve:  { icon: Receipt,       category: 'revenue', label: 'notif.type.coorg_settlement_to_approve' },
+  coorg_transfer_due:           { icon: Banknote,      category: 'revenue', label: 'notif.type.coorg_transfer_due' },
+  coorg_transfer_due_soon:      { icon: CalendarClock, category: 'revenue', label: 'notif.type.coorg_transfer_due_soon' },
+  coorg_transfer_overdue:       { icon: AlertTriangle, category: 'revenue', label: 'notif.type.coorg_transfer_overdue' },
+  coorg_transfer_escalated:     { icon: Siren,         category: 'revenue', label: 'notif.type.coorg_transfer_escalated' },
+  coorg_transfer_nudge:         { icon: Clock,         category: 'revenue', label: 'notif.type.coorg_transfer_nudge' },
+  coorg_iban_needed:            { icon: Banknote,      category: 'revenue', label: 'notif.type.coorg_iban_needed' },
+  coorg_transfer_sent:          { icon: Banknote,      category: 'revenue', label: 'notif.type.coorg_transfer_sent' },
+  coorg_confirm_reminder:       { icon: Hourglass,     category: 'revenue', label: 'notif.type.coorg_confirm_reminder' },
+  coorg_transfer_received:      { icon: UserCheck,     category: 'revenue', label: 'notif.type.coorg_transfer_received' },
+  coorg_transfer_disputed:      { icon: ShieldAlert,   category: 'revenue', label: 'notif.type.coorg_transfer_disputed' },
+  coorg_transfer_auto_disputed: { icon: ShieldAlert,   category: 'revenue', label: 'notif.type.coorg_transfer_auto_disputed' },
+  coorg_transfer_resolved:      { icon: LifeBuoy,      category: 'revenue', label: 'notif.type.coorg_transfer_resolved' },
   connection_accepted: { icon: UserCheck, category: 'people', label: 'notif.type.connection_accepted' },
   staff_login:         { icon: Users,     category: 'people', label: 'notif.type.staff_login' },
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
@@ -138,6 +158,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_stripe_onboarding_stuck: { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_stripe_onboarding_stuck' },
   admin_subscription_changed:    { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_subscription_changed' },
   admin_refund_spike:            { icon: Receipt,    category: 'billing',  label: 'notif.type.admin_refund_spike' },
+  // Co-organisation : virement impayé à J+14 ou contesté (à trancher).
+  admin_coorg_transfer_overdue:  { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_coorg_transfer_overdue' },
+  admin_coorg_transfer_disputed: { icon: ShieldAlert, category: 'billing', label: 'notif.type.admin_coorg_transfer_disputed' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
   admin_payout_disputed:     { icon: Banknote,      category: 'compliance', label: 'notif.type.admin_payout_disputed' },
   admin_feedback_new:        { icon: MessageSquare, category: 'compliance', label: 'notif.type.admin_feedback_new' },
@@ -360,6 +383,31 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
       }
       return null;
 
+    // Co-organisation : tout mène à la page co-organisation de la soirée.
+    case 'cohost_invited':
+    case 'cohost_accepted':
+    case 'cohost_declined':
+    case 'cohost_removed':
+    case 'coorg_deal_to_sign':
+    case 'coorg_deal_active':
+    case 'coorg_settlement_to_approve':
+    case 'coorg_transfer_due':
+    case 'coorg_transfer_due_soon':
+    case 'coorg_transfer_overdue':
+    case 'coorg_transfer_escalated':
+    case 'coorg_transfer_nudge':
+    case 'coorg_iban_needed':
+    case 'coorg_transfer_sent':
+    case 'coorg_confirm_reminder':
+    case 'coorg_transfer_received':
+    case 'coorg_transfer_disputed':
+    case 'coorg_transfer_auto_disputed':
+    case 'coorg_transfer_resolved':
+      if (isOwner || isOrganizer) {
+        return eventId ? `${basePath}/coorg/${eventId}` : `${basePath}/collaborations?tab=coorg`;
+      }
+      return null;
+
     // Account-level partnerships.
     case 'partner_request':
     case 'partner_accepted':
@@ -550,6 +598,10 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_links_pro_lead':
       return '/admin/links';
+
+    case 'admin_coorg_transfer_overdue':
+    case 'admin_coorg_transfer_disputed':
+      return '/admin/alerts#coorg';
 
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':

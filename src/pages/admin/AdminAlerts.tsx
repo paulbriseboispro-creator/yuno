@@ -20,6 +20,7 @@ import {
   type AppNotif, ADMIN_FEED_CONFIG, CATEGORY_META, PRIORITY_CONFIG,
   getNotifDef, notifLink,
 } from '@/lib/notifications';
+import { AdminCoorgTransfersCard } from '@/components/admin/AdminCoorgTransfersCard';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
@@ -469,6 +470,8 @@ export default function AdminAlerts() {
                 })}
               </div>
             </div>
+
+            <AdminCoorgTransfersCard />
 
             {/* ── Flux ─────────────────────────────────────────────────────── */}
             <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>

@@ -74,6 +74,8 @@ export function useCoorgErrorText() {
       case 'invalid_iban': return t('IBAN invalide.', 'Invalid IBAN.', 'IBAN no válido.');
       case 'reason_required': return t('Explique ce qui ne va pas.', 'Say what is wrong.', 'Explica qué no va.');
       case 'support_session_forbidden': return t('Action d’argent impossible en accès assisté.', 'Money actions are blocked in assisted access.', 'Acción de dinero bloqueada en acceso asistido.');
+      case 'nudge_too_soon': return t('Tu as déjà relancé aujourd’hui. Réessaie demain.', 'You already sent a reminder today. Try again tomorrow.', 'Ya enviaste un recordatorio hoy. Vuelve a intentarlo mañana.');
+      case 'invalid_terms': return t('Délai de paiement invalide.', 'Invalid payment terms.', 'Plazo de pago no válido.');
       case 'invalid_amount': return t('Montant invalide.', 'Invalid amount.', 'Importe no válido.');
       default: return t('Action impossible pour le moment.', 'Action not possible right now.', 'Acción imposible por ahora.');
     }
