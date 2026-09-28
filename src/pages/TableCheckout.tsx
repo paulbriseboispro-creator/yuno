@@ -891,6 +891,7 @@ export default function TableCheckout() {
         await shareCheckoutConsent({
           eventId, email: email.trim(), wording: emailConsentWording,
           locale: language, source: 'table_checkout', hostKeys: coorgHosts.cohostKeys,
+          proof: data?.sessionId ?? data?.reservationId ?? null,
         });
       }
 

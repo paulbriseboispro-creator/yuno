@@ -317,7 +317,9 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
     }, t('Accord envoyé aux parties', 'Agreement sent to the parties', 'Acuerdo enviado a las partes'));
   };
 
-  const locked = state.settlement && state.settlement.status !== 'open';
+  // Soirée commencée + accord actif : l'accord signé tient (serveur : deal_locked).
+  const frozen = deal?.status === 'active' && new Date(state.event.start_at).getTime() <= Date.now();
+  const locked = (state.settlement && state.settlement.status !== 'open') || frozen;
   const mySigning = deal ? state.my_parties.filter((k) => deal.shares[k] !== undefined && !deal.signatures[k]) : [];
 
   return (
@@ -410,7 +412,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
             {mySigning.map((k) => (
               <OrgButton key={k} size="sm" variant="primary" disabled={!!busy}
                 onClick={() => run(`sign:${k}`, async () => {
-                  await signCoorgDeal(eventId, k);
+                  await signCoorgDeal(eventId, k, deal.version);
                   capturePosthog('coorg_deal_signed', { event_id: eventId, formal: deal.formal });
                 }, deal.formal ? t('Contrat signé', 'Contract signed', 'Contrato firmado') : t('Accord validé', 'Agreement approved', 'Acuerdo validado'))}>
                 <FileSignature className="h-4 w-4" />
@@ -531,7 +533,9 @@ function SettlementCard({ state, eventId, busy, run, nameOf, language }: {
     return t(c.fr, c.en, c.es);
   };
 
-  const approvalsFresh = (k: string) => s.approvals[k] && s.approvals[k].version === s.version;
+  // Une validation compte si elle porte sur la version ET les chiffres affichés.
+  const approvalsFresh = (k: string) => !!s.approvals[k] && s.approvals[k].version === s.version
+    && (!s.fingerprint || !s.approvals[k].fp || s.approvals[k].fp === s.fingerprint);
   const myToApprove = myPool.filter((k) => !approvalsFresh(k));
 
   return (
@@ -615,6 +619,11 @@ function SettlementCard({ state, eventId, busy, run, nameOf, language }: {
         {/* Lignes déclarées */}
         <div className="mt-4">
           <OrgSectionLabel>{t('Frais et recettes déclarés', 'Declared costs and revenue', 'Gastos e ingresos declarados')}</OrgSectionLabel>
+          <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
+            {t('Ne déclare que l’argent qui n’est PAS passé par Yuno : bar en caisse, entrées à la porte, solde des tables réglé sur place, tables saisies à la main.',
+              'Only declare money that did NOT go through Yuno: bar till, door entries, table balances paid on site, manually entered tables.',
+              'Declara solo el dinero que NO pasó por Yuno: caja de barra, entradas en puerta, saldo de mesas pagado en el local, mesas introducidas a mano.')}
+          </p>
           <div className="mt-2 space-y-1.5">
             {(state.ledger ?? []).length === 0 && (
               <p style={{ color: T3, fontSize: 12 }}>{t('Aucune ligne pour l’instant.', 'No line yet.', 'Ninguna línea por ahora.')}</p>
@@ -696,7 +705,7 @@ function SettlementCard({ state, eventId, busy, run, nameOf, language }: {
             {state.event.ended && myToApprove.map((k) => (
               <OrgButton key={k} size="sm" variant="primary" disabled={!!busy}
                 onClick={() => run(`approve:${k}`, async () => {
-                  await approveCoorgSettlement(eventId, k, s.version);
+                  await approveCoorgSettlement(eventId, k, s.version, s.fingerprint);
                   capturePosthog('coorg_settlement_approved', { event_id: eventId, parties: Object.keys(deal.shares).length });
                 }, t('Décompte validé', 'Statement approved', 'Liquidación validada'))}>
                 <ShieldCheck className="h-4 w-4" /> {t('Valider le décompte', 'Approve statement', 'Validar liquidación')}

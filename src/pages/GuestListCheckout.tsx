@@ -523,6 +523,7 @@ export default function GuestListCheckout() {
         await shareCheckoutConsent({
           eventId: eventId, email: consentEmail, wording: emailWording,
           locale: language, source: 'guestlist_checkout', hostKeys: coorgHosts.cohostKeys,
+          proof: data?.entry?.id ?? data?.entry?.qrCode ?? null,
         });
       }
 

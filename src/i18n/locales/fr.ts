@@ -10461,6 +10461,7 @@ const fr: Record<string, string> = {
   'collab.tab.invite': 'Inviter',
   'collab.tab.coorg': 'Co-organisation',
   'coorg.badge.cohost': 'Co-hôte',
+  'coorg.card.open': 'Co-organisation',
   'coorg.card.cta': 'Co-organiser',
   'collab.events.subtitle': 'Toutes tes soirées partagées avec un organisateur, chronologiquement.',
   'collab.events.proposeEvent': 'Proposer une soirée',

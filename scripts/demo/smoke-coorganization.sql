@@ -70,8 +70,12 @@ insert into _r(step, ok, info) select '14 bande de ventes (portée asso) inclut 
   left(public.get_events_sales_summary(null, '2462e2f2-661c-491e-a5a9-9330f1d47503')::text, 120);
 insert into _r(step, ok, info) select '15 rapport de soirée ouvert au co-hôte', (public.get_event_report('c0ffee00-25a9-4d3e-9c1a-0000000000a1')->>'ok') is distinct from 'false', left(public.get_event_report('c0ffee00-25a9-4d3e-9c1a-0000000000a1')::text, 120);
 reset role;
-insert into _r(step, ok, info) select '16 CRM asso : acheteurs de la soirée', count(*) > 0, count(*)::text
-  from public.contact_scope_customers(null, '2462e2f2-661c-491e-a5a9-9330f1d47503') ;
+insert into _r(step, ok, info) select '16 CRM asso : les acheteurs de la soirée co-hébergée n''y entrent pas sans consentement', count(*) = 0, count(*)::text
+  from public.contact_scope_customers(null, '2462e2f2-661c-491e-a5a9-9330f1d47503') c
+ where lower(c.email) in (select lower(t.user_email) from tickets t where t.event_id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1')
+   and lower(c.email) not in (select lower(t.user_email) from tickets t join events e on e.id = t.event_id
+                               where e.id <> 'c0ffee00-25a9-4d3e-9c1a-0000000000a1'
+                                 and (e.organizer_user_id = '2462e2f2-661c-491e-a5a9-9330f1d47503' or e.partner_organizer_id = '2462e2f2-661c-491e-a5a9-9330f1d47503'));
 set local role authenticated;
 do $$ begin
   perform public.invite_event_cohost('c0ffee00-25a9-4d3e-9c1a-0000000000a1', null, 'womber', 'editor', true, null);
@@ -138,17 +142,44 @@ insert into _r(step, ok, info) select '31 pot = revenus - frais',
   ((v::jsonb)->'figures'->>'pot')::numeric = ((v::jsonb)->'figures'->>'revenue')::numeric - ((v::jsonb)->'figures'->>'expenses')::numeric,
   'rev=' || ((v::jsonb)->'figures'->>'revenue') || ' exp=' || ((v::jsonb)->'figures'->>'expenses') || ' transfers=' || ((v::jsonb)->'figures'->'transfers')::text
   from _ids where k='fig';
+insert into _r(step, ok, info) select '31b empreinte des chiffres exposée', ((v::jsonb)->>'fingerprint') is not null, '' from _ids where k='fig';
+do $$ begin
+  perform public.approve_coorg_settlement('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9',
+    (select ((v::jsonb)->>'version')::int from _ids where k='fig'), 'autre-empreinte');
+  insert into _r(step, ok, info) values ('31c chiffres différents de ceux lus : refusé', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('31c chiffres différents de ceux lus : refusé', sqlerrm = 'figures_changed', sqlerrm); end $$;
+do $$ begin
+  perform public.cancel_coorg_deal('c0ffee00-25a9-4d3e-9c1a-0000000000a1');
+  insert into _r(step, ok, info) values ('31d soirée commencée : accord non annulable', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('31d soirée commencée : accord non annulable', sqlerrm = 'deal_locked', sqlerrm); end $$;
+do $$ begin
+  perform public.save_coorg_deal('c0ffee00-25a9-4d3e-9c1a-0000000000a1', '{"org:ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9":90,"org:2462e2f2-661c-491e-a5a9-9330f1d47503":10}'::jsonb, true, null);
+  insert into _r(step, ok, info) values ('31e soirée commencée : parts non rouvertes', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('31e soirée commencée : parts non rouvertes', sqlerrm = 'deal_locked', sqlerrm); end $$;
 do $$ begin
   perform public.approve_coorg_settlement('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9', 999);
   insert into _r(step, ok, info) values ('32 version périmée refusée', false, 'passé');
 exception when others then insert into _r(step, ok, info) values ('32 version périmée refusée', sqlerrm = 'stale_version', sqlerrm); end $$;
-insert into _r(step, ok, info) select '33 orga valide', (public.approve_coorg_settlement('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9',
-   ((v::jsonb)->>'version')::int)->>'status') = 'open', '' from _ids where k='fig';
+insert into _r(step, ok, info) select '33 orga valide (empreinte)', (public.approve_coorg_settlement('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9',
+   ((v::jsonb)->>'version')::int, (v::jsonb)->>'fingerprint')->>'status') = 'open', '' from _ids where k='fig';
 reset role;
+-- Un remboursement arrive entre deux validations : les chiffres changent.
+update tickets set refund_amount = coalesce(refund_amount, 0) + 1
+ where id = (select id from tickets where event_id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1' and status in ('paid','used') and total_price > 5 order by created_at limit 1);
 select set_config('request.jwt.claims', '{"sub":"2462e2f2-661c-491e-a5a9-9330f1d47503","role":"authenticated"}', true);
 set local role authenticated;
 insert into _r(step, ok, info) select '34 asso valide', (public.approve_coorg_settlement('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:2462e2f2-661c-491e-a5a9-9330f1d47503',
    ((v::jsonb)->>'version')::int)->>'status') = 'open', '' from _ids where k='fig';
+insert into _r(step, ok, info) select '34b validation de l''orga sur les anciens chiffres tombée',
+  (select count(*) from jsonb_object_keys(public.get_event_coorg('c0ffee00-25a9-4d3e-9c1a-0000000000a1')->'settlement'->'approvals')) = 1,
+  (public.get_event_coorg('c0ffee00-25a9-4d3e-9c1a-0000000000a1')->'settlement'->'approvals')::text;
+reset role;
+select set_config('request.jwt.claims', '{"sub":"ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9","role":"authenticated"}', true);
+set local role authenticated;
+insert into _r(step, ok, info) select '34c orga revalide les nouveaux chiffres',
+  (public.approve_coorg_settlement('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9',
+     (public.get_event_coorg('c0ffee00-25a9-4d3e-9c1a-0000000000a1')->'settlement'->>'version')::int,
+     public.get_event_coorg('c0ffee00-25a9-4d3e-9c1a-0000000000a1')->'settlement'->>'fingerprint')->>'status') = 'open', '';
 reset role;
 select set_config('request.jwt.claims', '{"sub":"a810aed8-1b10-4e41-b325-4bf07f657d72","role":"authenticated"}', true);
 set local role authenticated;
@@ -200,19 +231,32 @@ reset role;
 -- 7. CRM partagé par consentement nommé
 insert into tickets (event_id, ticket_round_id, user_email, status, quantity, unit_price, total_price, newsletter_opt_in, qr_code)
 select 'c0ffee00-25a9-4d3e-9c1a-0000000000a1', (select id from ticket_rounds where event_id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1' limit 1),
-       'smoke.cohost@example.com', 'pending', 1, 10, 10, true, 'SMOKE-COORG-' || gen_random_uuid();
+       'smoke.cohost@example.com', 'pending', 1, 10, 10, true, 'SMOKE-COORG-PROOF';
+-- Une vente Stripe pas encore payée (la session n'est reliée qu'au paiement).
+insert into tickets (event_id, ticket_round_id, user_email, status, quantity, unit_price, total_price, newsletter_opt_in, qr_code)
+select 'c0ffee00-25a9-4d3e-9c1a-0000000000a1', (select id from ticket_rounds where event_id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1' limit 1),
+       'smoke.stripe@example.com', 'pending', 1, 10, 10, true, 'SMOKE-COORG-STRIPE';
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
 insert into _r(step, ok, info) select '43 hôtes nommés au checkout (anon)', jsonb_array_length(public.get_event_marketing_hosts('c0ffee00-25a9-4d3e-9c1a-0000000000a1')) = 3,
   (select string_agg(h->>'name', ', ') from jsonb_array_elements(public.get_event_marketing_hosts('c0ffee00-25a9-4d3e-9c1a-0000000000a1')) h);
-insert into _r(step, ok, info) select '44 consentement versé aux 2 co-hôtes', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'smoke.cohost@example.com', 'Recevoir les offres de A, B et C', 'fr', 'ticket_checkout') = 2, '';
-insert into _r(step, ok, info) select '45 adresse sans achat : rien', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'nobody@example.com', 'x', 'fr', 'ticket_checkout') = 0, '';
+insert into _r(step, ok, info) select '44a sans preuve d''achat : rien (plus de falsification)', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'smoke.cohost@example.com', 'Recevoir les offres de A, B et C', 'fr', 'ticket_checkout', array['org:2462e2f2-661c-491e-a5a9-9330f1d47503','venue:womber']) = 0, '';
+insert into _r(step, ok, info) select '44b hôtes non nommés : rien', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'smoke.cohost@example.com', 'Recevoir les offres de A, B et C', 'fr', 'ticket_checkout', null, 'SMOKE-COORG-PROOF') = 0, '';
+insert into _r(step, ok, info) select '44 consentement versé aux 2 co-hôtes (preuve = QR)', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'smoke.cohost@example.com', 'Recevoir les offres de A, B et C', 'fr', 'ticket_checkout', array['org:2462e2f2-661c-491e-a5a9-9330f1d47503','venue:womber'], 'SMOKE-COORG-PROOF') = 2, '';
+insert into _r(step, ok, info) select '45 adresse sans achat : rien', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'nobody@example.com', 'x', 'fr', 'ticket_checkout', array['venue:womber'], 'SMOKE-COORG-PROOF') = 0, '';
+insert into _r(step, ok, info) select '45b session Stripe impayée : intention en attente', public.share_event_marketing_consent('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'smoke.stripe@example.com', 'Recevoir les offres de A et B', 'fr', 'ticket_checkout', array['org:2462e2f2-661c-491e-a5a9-9330f1d47503'], 'cs_test_smoke_coorg') = 0, '';
 insert into _r(step, ok, info) select '46 page publique : présentateurs', jsonb_array_length(public.get_event_presenters('c0ffee00-25a9-4d3e-9c1a-0000000000a1')) = 3, '';
 do $$ begin
   perform public.get_event_host_followers('c0ffee00-25a9-4d3e-9c1a-0000000000a1');
   insert into _r(step, ok, info) values ('47 audience push fermée à anon', false, 'passé');
 exception when others then insert into _r(step, ok, info) values ('47 audience push fermée à anon', true, sqlerrm); end $$;
 reset role;
+-- Le paiement relie la session à la vente : l'intention se consomme.
+update tickets set stripe_session_id = 'cs_test_smoke_coorg', status = 'paid' where qr_code = 'SMOKE-COORG-STRIPE';
+insert into _r(step, ok, info) select '45c paiement : intention consommée, asso abonnée', count(*) = 1, count(*)::text from newsletter_subscriptions
+ where lower(email) = 'smoke.stripe@example.com' and organizer_user_id = '2462e2f2-661c-491e-a5a9-9330f1d47503' and opted_in;
+insert into _r(step, ok, info) select '45d club non nommé : pas abonné par l''intention', count(*) = 0, count(*)::text from newsletter_subscriptions
+ where lower(email) = 'smoke.stripe@example.com' and venue_id = 'womber' and source = 'cohost_purchase';
 insert into _r(step, ok, info) select '48 registre asso contient l''adresse', count(*) = 1, count(*)::text from newsletter_subscriptions
  where lower(email) = 'smoke.cohost@example.com' and organizer_user_id = '2462e2f2-661c-491e-a5a9-9330f1d47503' and opted_in;
 insert into _r(step, ok, info) select '49 registre club contient l''adresse', count(*) = 1, count(*)::text from newsletter_subscriptions
@@ -220,8 +264,41 @@ insert into _r(step, ok, info) select '49 registre club contient l''adresse', co
 insert into _r(step, ok, info) select '50 preuve de consentement ×2', count(*) = 2, count(*)::text from marketing_consent_events where email = 'smoke.cohost@example.com' and source like '%:cohost';
 insert into _r(step, ok, info) select '51 audience push = abonnés des 3 hôtes', (public.get_event_host_followers('c0ffee00-25a9-4d3e-9c1a-0000000000a1')->>'host_names') is not null,
   left(public.get_event_host_followers('c0ffee00-25a9-4d3e-9c1a-0000000000a1')::text, 200);
-insert into _r(step, ok, info) select '52 recettes marketing : soirée co-hébergée dans la portée asso',
-  'c0ffee00-25a9-4d3e-9c1a-0000000000a1'::uuid in (select public.coorg_marketing_event_ids(null, '2462e2f2-661c-491e-a5a9-9330f1d47503')), '';
+insert into _r(step, ok, info) select '52 recettes marketing : une soirée DÉMO n''entre jamais dans la portée d''un compte',
+  'c0ffee00-25a9-4d3e-9c1a-0000000000a1'::uuid not in (select public.coorg_marketing_event_ids(null, '2462e2f2-661c-491e-a5a9-9330f1d47503')), '';
+-- 7 bis. corrections de la revue du 29/09
+select set_config('request.jwt.claims', '{"sub":"a810aed8-1b10-4e41-b325-4bf07f657d72","role":"authenticated"}', true);
+set local role authenticated;
+insert into _r(step, ok, info) select '60 club LECTEUR : aucune ligne de vente lisible', count(*) = 0, count(*)::text from tickets where event_id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1';
+reset role;
+select set_config('request.jwt.claims', '{"sub":"2462e2f2-661c-491e-a5a9-9330f1d47503","role":"authenticated"}', true);
+set local role authenticated;
+do $$ begin
+  update events set event_mode = 'co_event' where id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1';
+  insert into _r(step, ok, info) values ('61 éditeur : event_mode intouchable', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('61 éditeur : event_mode intouchable', sqlerrm = 'cohost_structural_change', sqlerrm); end $$;
+do $$ begin
+  update events set discovery_status = 'rejected' where id = 'c0ffee00-25a9-4d3e-9c1a-0000000000a1';
+  insert into _r(step, ok, info) values ('62 éditeur : pas de rejet de découverte', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('62 éditeur : pas de rejet de découverte', sqlerrm = 'cohost_structural_change', sqlerrm); end $$;
+reset role;
+insert into _ids select 'real_org', op.user_id::text from organizer_profiles op join auth.users u on u.id = op.user_id where not public.is_demo_email(u.email) limit 1;
+insert into _r(step, ok, info) select '63 argent : l''asso a une part → CA visible', public.coorg_sees_event_money('c0ffee00-25a9-4d3e-9c1a-0000000000a1', 'org:2462e2f2-661c-491e-a5a9-9330f1d47503'), '';
+select set_config('request.jwt.claims', '{"sub":"ef75f0ee-5c1a-4c6b-9659-81aa63d9fce9","role":"authenticated"}', true);
+set local role authenticated;
+do $$ begin
+  perform public.invite_event_cohost('6b583db7-1a4f-4a51-ad48-cf5ce3a1a3b7',
+    (select v::uuid from _ids where k = 'real_org'), null, 'viewer', true, null);
+  insert into _r(step, ok, info) values ('64 démo → vrai organisateur refusé', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('64 démo → vrai organisateur refusé', sqlerrm in ('demo_mismatch', 'event_closed'), sqlerrm); end $$;
+do $$ begin
+  update events set start_at = now() + interval '5 days', end_at = now() + interval '6 days' where id = '6b583db7-1a4f-4a51-ad48-cf5ce3a1a3b7';
+  perform public.invite_event_cohost('6b583db7-1a4f-4a51-ad48-cf5ce3a1a3b7',
+    (select v::uuid from _ids where k = 'real_org'), null, 'viewer', true, null);
+  insert into _r(step, ok, info) values ('64b démo → vrai club refusé (soirée ouverte)', false, 'passé');
+exception when others then insert into _r(step, ok, info) values ('64b démo → vrai club refusé (soirée ouverte)', sqlerrm = 'demo_mismatch', sqlerrm); end $$;
+reset role;
+
 -- 8. un étranger ne voit rien
 select set_config('request.jwt.claims', '{"sub":"156a48cb-16d8-4eab-9ae7-e92a9fc6f766","role":"authenticated"}', true);
 set local role authenticated;

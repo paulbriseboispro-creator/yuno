@@ -74,6 +74,10 @@ export function useCoorgErrorText() {
       case 'invalid_iban': return t('IBAN invalide.', 'Invalid IBAN.', 'IBAN no válido.');
       case 'reason_required': return t('Explique ce qui ne va pas.', 'Say what is wrong.', 'Explica qué no va.');
       case 'support_session_forbidden': return t('Action d’argent impossible en accès assisté.', 'Money actions are blocked in assisted access.', 'Acción de dinero bloqueada en acceso asistido.');
+      case 'deal_locked': return t('La soirée a commencé : l’accord signé tient, les parts ne se rouvrent plus.', 'The event has started: the signed agreement stands, shares can no longer change.', 'El evento empezó: el acuerdo firmado se mantiene, las partes ya no cambian.');
+      case 'figures_changed': return t('Les chiffres ont bougé (vente, remboursement…) : relis le décompte puis valide.', 'The figures changed (sale, refund…): review the statement, then approve.', 'Las cifras cambiaron (venta, reembolso…): revisa la liquidación y valida.');
+      case 'tiered_collab_unsupported': return t('Soirée en collab à barème : l’argent se règle par le décompte de fin de soirée, pas par un accord de co-organisation.', 'Tiered collab night: money is settled by the end-of-night closing, not a co-organization agreement.', 'Colaboración con baremo: el dinero se liquida con el cierre de la noche, no con un acuerdo de coorganización.');
+      case 'demo_mismatch': return t('Un compte de démonstration ne co-organise qu’avec la démo.', 'A demo account can only co-host with demo accounts.', 'Una cuenta demo solo coorganiza con la demo.');
       case 'nudge_too_soon': return t('Tu as déjà relancé aujourd’hui. Réessaie demain.', 'You already sent a reminder today. Try again tomorrow.', 'Ya enviaste un recordatorio hoy. Vuelve a intentarlo mañana.');
       case 'invalid_terms': return t('Délai de paiement invalide.', 'Invalid payment terms.', 'Plazo de pago no válido.');
       case 'invalid_amount': return t('Montant invalide.', 'Invalid amount.', 'Importe no válido.');

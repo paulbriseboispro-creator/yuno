@@ -161,10 +161,12 @@ export interface CoorgState {
   settlement: {
     status: 'open' | 'approved' | 'settled';
     version: number;
-    approvals: Record<string, { at: string; by: string; version: number }>;
+    approvals: Record<string, { at: string; by: string; version: number; fp?: string }>;
     approved_at: string | null;
     settled_at: string | null;
     figures: CoorgFigures;
+    /** Empreinte des chiffres affichés (décompte ouvert) : on valide ce qu'on a lu. */
+    fingerprint?: string | null;
   } | null;
   transfers: CoorgTransfer[] | null;
 }
@@ -305,10 +307,12 @@ export const saveCoorgDeal = (
     p_payment_terms_days: paymentTermsDays,
   });
 
-export const signCoorgDeal = (eventId: string, party: string) =>
+/** On signe la version LUE : une proposition arrivée entre-temps lève `stale_version`. */
+export const signCoorgDeal = (eventId: string, party: string, version?: number) =>
   call<CoorgDeal>('sign_coorg_deal', {
     p_event_id: eventId, p_party: party, p_ip: null,
     p_ua: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    p_version: version ?? null,
   });
 
 export const cancelCoorgDeal = (eventId: string) => call<void>('cancel_coorg_deal', { p_event_id: eventId });
@@ -322,8 +326,11 @@ export const addCoorgLedgerLine = (p: {
 
 export const voidCoorgLedgerLine = (lineId: string) => call<void>('void_coorg_ledger_line', { p_line_id: lineId });
 
-export const approveCoorgSettlement = (eventId: string, party: string, version: number) =>
-  call<{ status: string }>('approve_coorg_settlement', { p_event_id: eventId, p_party: party, p_version: version });
+/** On valide les chiffres LUS (empreinte) : s'ils ont bougé, `figures_changed`. */
+export const approveCoorgSettlement = (eventId: string, party: string, version: number, fingerprint?: string | null) =>
+  call<{ status: string }>('approve_coorg_settlement', {
+    p_event_id: eventId, p_party: party, p_version: version, p_fingerprint: fingerprint ?? null,
+  });
 
 export const setCoorgTransferIban = (transferId: string, iban: string) =>
   call<void>('set_coorg_transfer_iban', { p_transfer_id: transferId, p_iban: iban });
@@ -420,9 +427,17 @@ export function joinHostNames(names: string[], language: string): string {
  * serveur n'agit que si une ligne récente de cette adresse sur cette soirée
  * porte la case cochée. Best-effort : ne bloque jamais un achat.
  */
+/**
+ * Verse l'accord coché aux co-hôtes NOMMÉS. `proof` = ce que le checkout vient
+ * de rendre à CE navigateur (session Stripe `cs_…`, id ou QR de la vente) : le
+ * serveur ne verse rien sans elle. Une session pas encore payée laisse une
+ * intention, consommée au paiement.
+ */
 export async function shareCheckoutConsent(p: {
-  eventId: string; email: string; wording: string; locale: string; source: string; hostKeys?: string[];
+  eventId: string; email: string; wording: string; locale: string; source: string; hostKeys: string[];
+  proof: string | null | undefined;
 }): Promise<void> {
+  if (!p.proof || p.hostKeys.length === 0) return;
   try {
     await rpc('share_event_marketing_consent', {
       p_event_id: p.eventId,
@@ -430,7 +445,8 @@ export async function shareCheckoutConsent(p: {
       p_wording: p.wording,
       p_locale: p.locale,
       p_source: p.source,
-      p_host_keys: p.hostKeys ?? null,
+      p_host_keys: p.hostKeys,
+      p_proof: p.proof,
     });
   } catch (err) {
     console.error('[coorg] consentement co-hôtes non versé', err);

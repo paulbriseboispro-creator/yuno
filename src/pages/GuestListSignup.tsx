@@ -762,6 +762,7 @@ export default function GuestListSignup() {
         await shareCheckoutConsent({
           eventId: guestList?.eventId, email: consentEmail, wording: emailWording,
           locale: language, source: 'guestlist_signup', hostKeys: coorgHosts.cohostKeys,
+          proof: data?.entry?.id ?? data?.entry?.qrCode ?? null,
         });
       }
 

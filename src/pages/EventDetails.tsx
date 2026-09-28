@@ -1,7 +1,7 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
-import { getEventPresenters, followEventHosts, type EventPresenter } from '@/lib/coorg';
+import { getEventPresenters, followEventHosts, followsAllEventHosts, type EventPresenter } from '@/lib/coorg';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
@@ -69,7 +69,7 @@ export default function EventDetails() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
-  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   usePromoterTracking(undefined, eventId); // Capture promoter ref + bind tracking to this event
   useResolvePurchaseSource(eventId); // Capture purchase source for collab analytics
   useResolveTrackedLink(eventId); // Capture ?tl= tracked-link attribution (backup after redirect)
@@ -124,6 +124,18 @@ export default function EventDetails() {
   const [cohostVenues, setCohostVenues] = useState<{ id: string; name: string; logo_url: string | null; slug: string | null }[]>([]);
   const [hostCount, setHostCount] = useState(0);
   const [followingAllHosts, setFollowingAllHosts] = useState(false);
+  // Le bouton « Suivre tous les hôtes » dit la vérité dès l'ouverture.
+  useEffect(() => {
+    if (hostCount < 2 || !eventId) return;
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || cancelled) return;
+      followsAllEventHosts(eventId as string)
+        .then((v) => { if (!cancelled) setFollowingAllHosts(!!v); })
+        .catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [hostCount, eventId]);
   const [interestedCount, setInterestedCount] = useState(0);
 
   // Pas de carte « RP » sur une soirée Yuno : l'événement est géré en direct par
@@ -1659,6 +1671,7 @@ export default function EventDetails() {
                     try {
                       await followEventHosts(event!.id);
                       setFollowingAllHosts(true);
+                      void refetchFavorites?.();
                       setOrgFollowing(prev => Object.fromEntries([...Object.keys(prev), ...eventOrganizers.map(o => o.id)].map(k => [k, true])));
                       capturePosthog('event_hosts_followed', { event_id: event!.id, hosts: hostCount });
                       toast.success(t('event.followedAllHosts'));

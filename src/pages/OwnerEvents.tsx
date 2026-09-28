@@ -2189,7 +2189,24 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
 
       {/* Actions */}
       <div className="flex items-center gap-2 px-5 pb-4 flex-wrap" style={{ borderTop: `1px solid rgb(var(--ink)/0.04)`, paddingTop: 12, marginTop: 12 }}>
-        {event.isPartnerHosted ? (
+        {event.isCohosted ? (
+          // Soirée CO-HÉBERGÉE : la structure reste aux parties principales
+          // (le serveur refuserait modifier / activer / supprimer, et une RLS
+          // muette ferait croire au succès). On mène à la co-organisation.
+          <>
+            <a href={`${basePath}/coorg/${event.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
+              style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}>
+              <Network className="w-3.5 h-3.5" />
+              {t('coorg.card.open')}
+            </a>
+            <a href={`/event/${event.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 ml-auto"
+              style={{ color: T3_C }}>
+              {t('owner.ev.viewDetails')}
+            </a>
+          </>
+        ) : event.isPartnerHosted ? (
           <>
             <a href={`/owner/ticketing?eventId=${event.id}`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"

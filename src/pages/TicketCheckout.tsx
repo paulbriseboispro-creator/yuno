@@ -903,6 +903,7 @@ export default function TicketCheckout() {
         await shareCheckoutConsent({
           eventId: event.id, email: consentEmail, wording: emailConsentWording,
           locale: language, source: 'ticket_checkout', hostKeys: coorgHosts.cohostKeys,
+          proof: data?.sessionId ?? data?.ticketId ?? null,
         });
       }
 
