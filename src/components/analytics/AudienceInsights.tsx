@@ -4,6 +4,7 @@ import { Users, Crown, Trophy, Award, Repeat, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -62,10 +63,10 @@ export function AudienceInsights({ scope, from, to }: Props) {
       setLoading(true);
       let eventIds: string[] = [];
       if (scope.kind === 'organizer') {
-        const { data: events } = await supabase.from('events').select('id').or(`organizer_user_id.eq.${scope.id},partner_organizer_id.eq.${scope.id}`);
+        const { data: events } = await supabase.from('events').select('id').or(orgEventsOr(scope.id));
         eventIds = (events ?? []).map((e: any) => e.id);
       } else {
-        const { data: vEvents } = await supabase.from('events').select('id').or(`venue_id.eq.${scope.id},partner_venue_id.eq.${scope.id}`);
+        const { data: vEvents } = await supabase.from('events').select('id').or(venueEventsOr(scope.id));
         eventIds = (vEvents ?? []).map((e: any) => e.id);
       }
 

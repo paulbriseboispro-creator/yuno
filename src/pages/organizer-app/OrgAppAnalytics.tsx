@@ -54,6 +54,7 @@ import { useEventParam } from '@/hooks/useEventParam';
 import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
+import { orgEventsOr } from '@/lib/coorg';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -477,7 +478,7 @@ export default function OrgAppAnalytics() {
         let eventQuery = supabase
           .from('events')
           .select('id, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
-          .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
+          .or(orgEventsOr(organizerId));
         if (mode === 'event' && selectedEventId) eventQuery = eventQuery.eq('id', selectedEventId);
         const { data: scopedEvents } = await eventQuery;
         const ids = (scopedEvents ?? []).map(e => e.id);

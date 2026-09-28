@@ -23,6 +23,7 @@ import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/mi
 import { OrgPageHeader } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
 import { exportContactBase } from '@/lib/contactBaseExport';
+import { orgEventsOr } from '@/lib/coorg';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -147,7 +148,7 @@ export default function OrgAppCustomers() {
     if (!organizerId) return;
     const { data: events } = await supabase
       .from('events').select('id')
-      .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`);
+      .or(orgEventsOr(organizerId));
     const eventIds = (events ?? []).map((e: any) => e.id);
     setMinorByEmail(await fetchMinorDocsByEmail(eventIds));
   };

@@ -198,6 +198,7 @@ const OrganizerPublicProfile = lazyWithRetry(() => import("./pages/OrganizerPubl
 const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"));
 const OwnerCollaborations = lazyWithRetry(() => import("./pages/OwnerCollaborations"));
 const OwnerCollabEventDashboard = lazyWithRetry(() => import("./pages/OwnerCollabEventDashboard"));
+const CoorgEventPage = lazyWithRetry(() => import("./pages/CoorgEventPage"));
 const AcceptOrganizerInvitation = lazyWithRetry(() => import("./pages/AcceptOrganizerInvitation"));
 const DJLayout = lazyWithRetry(() => import("./pages/dj-app/DJLayout"));
 const DJOverview = lazyWithRetry(() => import("./pages/dj-app/DJOverview"));
@@ -745,6 +746,7 @@ const App = () => (
                   {/* Legacy split partner-clubs page → unified Collaborations hub (Partner clubs tab) */}
                   <Route path="partners" element={<Navigate to="/organizer-app/collaborations?tab=partners" replace />} />
                   <Route path="collaborations" element={<OrgAppRoute requires="editEvents"><OrgAppCollabHub /></OrgAppRoute>} />
+                  <Route path="coorg/:eventId" element={<OrgAppRoute requires="editEvents"><CoorgEventPage /></OrgAppRoute>} />
                   <Route path="profile" element={<OrgAppRoute requires="manageOrganization"><OrgAppProfile /></OrgAppRoute>} />
                   <Route path="team" element={<OrgAppRoute requires="manageStaff"><OrgAppTeam /></OrgAppRoute>} />
                   <Route path="customers" element={<OrgAppRoute requires="viewInsights"><OrgAppCustomers /></OrgAppRoute>} />
@@ -936,6 +938,7 @@ const App = () => (
                   <Route path="book-dj" element={<PlanGuard feature="djs_connect"><BookDJPage /></PlanGuard>} />
                   <Route path="collaborations" element={<OwnerCollaborations />} />
                   <Route path="collab/event/:eventId" element={<OwnerCollabEventDashboard />} />
+                  <Route path="coorg/:eventId" element={<CoorgEventPage />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
                   <Route path="customers" element={<PlanGuard feature="clients_basic"><OwnerCustomers /></PlanGuard>} />
                   <Route path="audience" element={<Navigate to="/owner/analytics?tab=community&view=subscribers" replace />} />

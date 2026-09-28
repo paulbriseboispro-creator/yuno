@@ -119,7 +119,14 @@ export type YunoEvent =
   | 'team_member_invited' //       { scope, role }
   | 'live_view_opened' //          { scope }
   | 'event_report_opened' //       { scope }
-  | 'ai_assistant_used'; //        { assistant: 'owner' | 'agency' | 'help' | 'client' }
+  | 'ai_assistant_used' //         { assistant: 'owner' | 'agency' | 'help' | 'client' }
+  // ── Co-organisation (N parties) ──────────────────────────────────────────
+  | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue', access }
+  | 'coorg_cohost_responded' //    { event_id, accepted }
+  | 'coorg_deal_saved' //          { event_id, parties, formal }
+  | 'coorg_deal_signed' //         { event_id, formal }
+  | 'coorg_settlement_approved' // { event_id, parties }
+  | 'event_hosts_followed'; //     { event_id, hosts }
 
 // Côté serveur (supabase/functions/_shared/posthog.ts), hors de ce type :
 // `order_paid_server` — la vérité sur l'argent, capturée sous la transition

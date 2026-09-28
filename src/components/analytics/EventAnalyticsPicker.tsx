@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format, isToday } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
+import { orgEventsOr } from '@/lib/coorg';
 
 // ─── Yuno pro-dashboard design tokens ─────────────────────────────────────────
 const RED = '#E8192C';
@@ -65,7 +66,7 @@ export function EventAnalyticsPicker({ venueId, organizerUserId, onSelect }: Pro
         .select('id, title, start_at, end_at, poster_url, max_tickets');
       q = venueId
         ? q.eq('venue_id', venueId)
-        : q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+        : q.or(orgEventsOr(organizerUserId));
       const { data: evs } = await q
         .order('start_at', { ascending: false })
         .limit(60);

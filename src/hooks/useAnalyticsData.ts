@@ -5,6 +5,7 @@ import { subDays, subHours, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { orderRevenue, ticketRevenue, tableRevenue } from '@/utils/fees';
+import { orgEventsOr } from '@/lib/coorg';
 
 export type AnalyticsMode = 'global' | 'event';
 export type DateRange = '24h' | '48h' | '72h' | '7days' | '30days' | 'alltime';
@@ -285,7 +286,7 @@ export function useAnalyticsData({
     if (isOrganizerScope) {
       if (!organizerUserId) return;
       // Events where the user is the lead organizer OR the partner organizer.
-      query = query.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+      query = query.or(orgEventsOr(organizerUserId));
     } else {
       if (!venueId) return;
       query = query.eq('venue_id', venueId);
@@ -325,7 +326,7 @@ export function useAnalyticsData({
         const { data: orgEvents } = await supabase
           .from('events')
           .select('id')
-          .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+          .or(orgEventsOr(organizerUserId));
         scopedEventIds = (orgEvents ?? []).map(e => e.id);
         // No events yet → return empty analytics gracefully
         if (scopedEventIds.length === 0) {

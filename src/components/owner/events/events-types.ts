@@ -9,6 +9,8 @@ export type OwnerEventRow = Event & {
    *  physique quand venueId est NULL. */
   partnerVenueId?: string | null;
   isPartnerHosted?: boolean;
+  /** Soirée où la portée n'est que CO-HÔTE (co-organisation) : ni menée, ni partenaire. */
+  isCohosted?: boolean;
   organizerUserId?: string | null;
   ticketingEnabled?: boolean;
   tablesEnabled?: boolean;

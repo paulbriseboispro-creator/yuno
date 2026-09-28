@@ -463,6 +463,62 @@ cassait toute mise à jour du cycle `collab_table_settlements`). Règles intouch
   REPORTER la 2FA 7 jours, une fois (`20260922080000`) — jamais sur les pages
   d'argent ; le guide de configuration ne s'ouvre pas tout seul chez lui.
 
+## Co-organisation — N parties sur une soirée (2026-09-28)
+
+Design + analyse : `docs/designs/COORGANIZATION_PLAN.md`. Migrations `20260928100000`
+→ `100400`, front `src/lib/coorg.ts`, `src/components/coorg/*`, page
+`/owner/coorg/:eventId` et `/organizer-app/coorg/:eventId`, onglet « Co-organisation »
+des deux hubs Collaborations. Règles intouchables :
+
+- **Deux étages, jamais mélangés.** Le collab contractuel reste à DEUX (1 club + 1 orga,
+  partage Stripe automatique) : un paiement Stripe n'a que deux jambes chez Yuno. Les
+  CO-HÔTES (`event_cohosts`, orgas OU clubs, `editor` / `viewer`, `share_crm`, 8 max) ne
+  sont JAMAIS ajoutés au split ni au contrat collab. Au-delà de deux parties, l'argent
+  passe par l'accord + décompte + virements — c'est la réponse à « on ne vend pas ce que
+  le logiciel n'assume pas ».
+- **Une partie = une clé** `venue:<id>` / `org:<uuid>` ; `event_parties(event)` rend
+  principales (colonnes de l'événement) + co-hôtes acceptés, principal d'abord.
+  `coorg_party_level(uid, clé)` : 3 = fondateur / admin d'équipe / owner / manager finance
+  (argent), 2 = gestion, 1 = lecture. Seules les parties PRINCIPALES invitent.
+- **Scope** : toute nouvelle RPC « soirées de la portée » ajoute
+  `OR e.id IN (SELECT cohost_event_ids_org|venue(X))` au prédicat écrit à la main ; côté
+  PostgREST, `orgEventsOr()` / `venueEventsOr()` (champs calculés `cohost_org_ids` /
+  `cohost_venue_ids`, filtrables dans un `or=`). Les fonctions du CONTRAT collab (split,
+  avenants, allocation guest list, fil de messages) n'en font pas partie.
+- **Un co-hôte éditeur ne touche jamais la structure** : `protect_event_columns_from_cohost`
+  (INVOKER, liste BLANCHE de colonnes design + vente au quotidien). Ajouter une colonne à
+  `events` = décider si elle entre dans cette liste. Les portes
+  `can_manage_event_design/tables/guestlist_house` s'ouvrent au co-hôte éditeur.
+- **CRM = consentement NOMMÉ.** La case email du checkout (billets, tables, guest list ×2)
+  nomme tous les hôtes `share_crm` (`useEventMarketingHosts`, `Intl.ListFormat`), et
+  `shareCheckoutConsent` verse le contact à chacun APRÈS la création de la vente, avec la
+  preuve (`marketing_consent_events`, source `…:cohost`). Jamais sur le seul accord hérité de
+  la portée principale : « déjà abonné à l'hôte » ne vaut pas accord pour les co-hôtes (la case
+  se représente). Le SMS reste à la portée principale (`smsScopeName`). Le serveur n'agit que
+  si une vente / inscription de < 3 h de CETTE adresse porte la case cochée.
+- **Marketing** : `collect_email_automations` — recettes `new_event` et `last_call`
+  seulement — couvre les soirées co-hébergées (`coorg_marketing_event_ids`) ; R5 garde une
+  annonce par personne. Push de lancement : `get_event_host_followers` (abonnés de tous les
+  hôtes, noms « A × B ») — code prêt dans `push-automations.ts`, à déployer avec
+  `process-scheduled-campaigns` (non déployé le 28/09 : la version en ligne diffère du repo
+  sur d'autres fichiers `_shared`).
+- **Argent** : accord (`event_coorg_deals`, parts %, simple accord ou contrat signé, termes
+  `coorgAgreement.ts`), décompte `_coorg_compute` (ventes Yuno NETTES au nom de qui les a
+  reçues + lignes déclarées par chaque partie POUR ELLE-MÊME), validé par toutes les parties
+  dans la même `version` (toute ligne / modif de parts la remet à zéro), puis virements
+  (payeur déclare, SEUL le bénéficiaire confirme, référence `YCO-…`). Actions d'argent
+  refusées en accès assisté. Un décompte validé est figé et verrouille ses parties.
+- **Tables sans policy** (`event_coorg_*`) : tout passe par les RPC ; un smoke qui lit
+  `event_coorg_transfers` en direct comme un pro doit rendre 0. Smoke rejouable :
+  `scripts/demo/smoke-coorganization.sql` (57 étapes, annulé). Vitrine démo : « Yuno Rooftop
+  Sunset » (décompte validé, virements) et « Rooftop Session » (contrat actif).
+- **Garde partenaire collab rallumé** (`20260928100300`) : `protect_event_columns_from_partner`
+  et `protect_recurring_template_from_partner` étaient SECURITY DEFINER avec un test
+  `current_user`, donc ÉTEINTS, et `v_is_lead` valait NULL sur une soirée menée par le club —
+  l'orga partenaire réécrivait `revenue_split_rules`. Désormais INVOKER ; ne jamais les
+  repasser DEFINER, et ne jamais y comparer une colonne GÉNÉRÉE ou recalculée par un autre
+  trigger (`search_title`, `is_discoverable`, `discovery_status`).
+
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
 Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`

@@ -13,6 +13,8 @@ import { ZoneUpsellSheet } from '@/components/vip/ZoneUpsellSheet';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
+import { shareCheckoutConsent } from '@/lib/coorg';
 import {
   useMarketingConsent, usePlatformMarketingConsent,
   recordConsentGrant, recordPlatformConsentGrant, marketingConsentWording,
@@ -160,6 +162,14 @@ export default function TableCheckout() {
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
   const platformConsent = usePlatformMarketingConsent(true);
   const scopeName = venue?.name ?? organizer?.display_name ?? undefined;
+  // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
+  const coorgHosts = useEventMarketingHosts(
+    eventId,
+    venue?.id
+      ? { venueId: venue.id, organizerUserId: null, scopeName: venue.name ?? '' }
+      : organizer ? { venueId: null, organizerUserId: organizer.user_id, scopeName: organizer.display_name ?? '' } : null,
+    language,
+  );
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
   // Self-declared birth date (honor system) — recorded server-side at checkout.
@@ -768,10 +778,10 @@ export default function TableCheckout() {
       // Preuve d'un consentement nouveau seulement (art. 7(1) RGPD ; EDPB
       // 05/2020 §108 pour le libellé exact, §106 pour ne pas journaliser plus
       // que nécessaire).
-      const { email: emailConsentWording, sms: smsConsentWording } =
-        marketingConsentWording(t, scopeName);
+      const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName || scopeName);
+      const { sms: smsConsentWording } = marketingConsentWording(t, scopeName);
       const consentOrganizerId = venue?.id ? null : (organizer?.user_id ?? null);
-      if (newsletterOptIn && !marketingConsent.emailGranted) {
+      if (newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
         void recordConsentGrant({
           channel: 'email',
           wordingText: emailConsentWording,
@@ -875,6 +885,14 @@ export default function TableCheckout() {
         throw new Error(data.error);
       }
       if (error) throw error;
+
+      // Soirée co-organisée : la case cochée nommait chaque hôte.
+      if (newsletterOptIn && coorgHosts.hasCohosts && eventId) {
+        await shareCheckoutConsent({
+          eventId, email: email.trim(), wording: emailConsentWording,
+          locale: language, source: 'table_checkout', hostKeys: coorgHosts.cohostKeys,
+        });
+      }
 
       if (user && phone.trim()) {
         await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', user.id).is('phone', null);
@@ -1282,8 +1300,9 @@ export default function TableCheckout() {
                     onNewsletterChange={setNewsletterOptIn}
                     smsOptIn={smsOptIn}
                     onSmsChange={handleSmsOptInChange}
-                    scopeName={scopeName}
-                    emailAlreadyGranted={marketingConsent.emailGranted}
+                    scopeName={coorgHosts.emailScopeName || scopeName}
+                    smsScopeName={scopeName}
+                    emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
                     smsAlreadyGranted={marketingConsent.smsGranted}
                     pending={marketingConsent.pending || platformConsent.pending}
                     onWithdraw={handleWithdrawConsent}

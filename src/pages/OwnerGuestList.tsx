@@ -29,6 +29,7 @@ import { GuestListRequestsInbox } from '@/components/owner/guest-list/GuestListR
 import { AgencyEnvelopeGrant } from '@/components/owner/guest-list/AgencyEnvelopeGrant';
 import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
 import { useTabParam } from '@/hooks/useTabParam';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 interface EventOption { id: string; title: string; startAt: string; endAt: string; timezone: string | null }
 
@@ -148,8 +149,8 @@ export default function OwnerGuestList() {
     // (venue_id NULL) — sinon la soirée du 11/09 n'apparaît pas dans le sélecteur
     // et le club ne peut pas suivre sa guest list.
     const { data } = isOrganizerScope
-      ? await base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
-      : await base.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
+      ? await base.or(orgEventsOr(organizerUserId))
+      : await base.or(venueEventsOr(venueId));
     if (data) {
       setEvents(data.map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at, timezone: e.timezone ?? null })));
       if (data.length > 0 && !selectedEventId) setSelectedEventId(data[0].id);

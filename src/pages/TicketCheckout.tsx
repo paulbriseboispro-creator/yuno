@@ -26,6 +26,8 @@ import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/Ticket
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { MinorAuthGate } from '@/components/MinorAuthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
+import { shareCheckoutConsent } from '@/lib/coorg';
 import { useCommunityAccess, CommunityCta, communityStatus } from '@/components/ticketing/CommunityTicketGate';
 import { normalizeTicketAudience } from '@/types/ticketing';
 import {
@@ -124,6 +126,8 @@ export default function TicketCheckout() {
   usePosthogEvent('checkout_started', event?.id, { pillar: 'tickets', ...ticketMarket });
   // « A-t-elle déjà dit oui à CE club ? » — la seule question qui vaille.
   const marketingConsent = useMarketingConsent(consentScope);
+  // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
+  const coorgHosts = useEventMarketingHosts(eventId, consentScope, language);
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
   const platformConsent = usePlatformMarketingConsent(true);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
@@ -309,12 +313,18 @@ export default function TicketCheckout() {
       if (!eventData.venue_id) {
         let orgName = eventData.location_name || 'Organisateur';
         if (eventData.organizer_user_id) {
-          const { data: orgProfile } = await supabase
-            .from('profiles')
-            .select('organization_name')
-            .eq('id', eventData.organizer_user_id)
-            .maybeSingle();
-          if (orgProfile?.organization_name) orgName = orgProfile.organization_name;
+          // Le destinataire du consentement est l'ORGANISATEUR : son nom public
+          // (organizer_profiles) d'abord, le nom hérité ensuite, le lieu en
+          // dernier recours seulement — la case nommait sinon le rooftop qui
+          // accueille la soirée, pas celui qui écrira au client.
+          const [{ data: orgPublic }, { data: orgProfile }] = await Promise.all([
+            supabase.from('organizer_profiles').select('display_name')
+              .eq('user_id', eventData.organizer_user_id).maybeSingle(),
+            supabase.from('profiles').select('organization_name')
+              .eq('id', eventData.organizer_user_id).maybeSingle(),
+          ]);
+          if (orgPublic?.display_name) orgName = orgPublic.display_name;
+          else if (orgProfile?.organization_name) orgName = orgProfile.organization_name;
         }
         setVenue({
           id: eventData.organizer_user_id || eventData.id,
@@ -770,9 +780,9 @@ export default function TicketCheckout() {
       // achat gonflerait la preuve sans rien prouver de plus (EDPB §106).
       const consentEmail = (user?.email ?? attendees[0].email).trim();
       const consentPhone = attendees[0].phone.trim();
-      const { email: emailConsentWording, sms: smsConsentWording } =
-        marketingConsentWording(t, consentScope?.scopeName);
-      if (newsletterOptIn && !marketingConsent.emailGranted) {
+      const { email: emailConsentWording } = marketingConsentWording(t, coorgHosts.emailScopeName);
+      const { sms: smsConsentWording } = marketingConsentWording(t, consentScope?.scopeName);
+      if (newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
         void recordConsentGrant({
           channel: 'email',
           wordingText: emailConsentWording,
@@ -885,6 +895,16 @@ export default function TicketCheckout() {
         throw new Error(data.error);
       }
       if (error) throw error;
+
+      // Soirée co-organisée : la case cochée NOMMAIT chaque hôte — son accord
+      // est versé au registre de chacun (la vente existe maintenant, le serveur
+      // le vérifie). Jamais sur le seul accord hérité de la portée principale.
+      if (newsletterOptIn && coorgHosts.hasCohosts && event) {
+        await shareCheckoutConsent({
+          eventId: event.id, email: consentEmail, wording: emailConsentWording,
+          locale: language, source: 'ticket_checkout', hostKeys: coorgHosts.cohostKeys,
+        });
+      }
 
       // Update user's phone if they were logged in and phone was missing
       if (user && attendees[0].phone.trim()) {
@@ -1233,8 +1253,11 @@ export default function TicketCheckout() {
               onNewsletterChange={setNewsletterOptIn}
               smsOptIn={smsOptIn}
               onSmsChange={handleSmsOptInChange}
-              scopeName={consentScope?.scopeName}
-              emailAlreadyGranted={marketingConsent.emailGranted}
+              scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
+              smsScopeName={consentScope?.scopeName}
+              // Déjà abonné à l'hôte principal ne vaut pas accord pour les
+              // co-hôtes : la case se représente, nommant tout le monde.
+              emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
               smsAlreadyGranted={marketingConsent.smsGranted}
               pending={marketingConsent.pending || platformConsent.pending}
               onWithdraw={handleWithdrawConsent}

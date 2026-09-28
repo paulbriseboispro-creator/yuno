@@ -12,6 +12,7 @@ import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
 import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
 import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
+import { CoorgHubTab } from '@/components/coorg/CoorgHubTab';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,6 +20,7 @@ import {
   Handshake, User, Send, Check, X, Trash2, Inbox, Search, Settings2,
   Building2, Mail, UserPlus, Calendar, Sparkles, Clock, ExternalLink,
   ChevronDown, ChevronUp, Lock, FileText, BarChart3, Ticket, Wine, Pause, Play,
+  Network,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -173,6 +175,7 @@ export default function OwnerCollaborations() {
     { value: 'events',     label: t('collab.tab.events'),     Icon: Calendar  },
     { value: 'organizers', label: t('collab.tab.organizers'), Icon: User      },
     { value: 'invite',     label: t('collab.tab.invite'),     Icon: UserPlus  },
+    { value: 'coorg',      label: t('collab.tab.coorg'),      Icon: Network   },
   ];
 
   const [venueId, setVenueId]   = useState<string | undefined>(undefined);
@@ -268,6 +271,7 @@ export default function OwnerCollaborations() {
             {tab === 'events'     && <CollabEventsTab venueId={venueId} canPropose={!isCollab} />}
             {tab === 'organizers' && <OrganizersTab venueId={venueId} />}
             {tab === 'invite'     && <InviteTab venueId={venueId} />}
+            {tab === 'coorg'      && <CoorgHubTab scope={{ venueId }} basePath="/owner" />}
           </motion.div>
         </AnimatePresence>
 

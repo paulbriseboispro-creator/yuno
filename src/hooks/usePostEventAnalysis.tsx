@@ -14,6 +14,7 @@ import {
   type VenueBenchmark,
 } from '@/lib/hypePostEvent';
 import { orderRevenue, ticketRevenue, tableRevenue } from '@/utils/fees';
+import { orgEventsOr } from '@/lib/coorg';
 
 export interface PostEventKPI {
   label: string;
@@ -152,7 +153,7 @@ export function usePostEventAnalysis(
       .order('start_at', { ascending: false })
       .limit(50);
     q = isOrg
-      ? q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+      ? q.or(orgEventsOr(organizerUserId))
       : q.eq('venue_id', venueId!);
     const { data } = await q;
     if (data) {

@@ -1,12 +1,14 @@
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Handshake, Calendar, Building2, UserPlus } from 'lucide-react';
+import { Handshake, Calendar, Building2, UserPlus, Network } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { OrgPage, RED, T1, T3, F_BORDER } from '@/components/org-ui';
 import { CollabEventsTab } from '@/components/organizer-app/collab/CollabEventsTab';
 import { PartnerClubsTab } from '@/components/organizer-app/collab/PartnerClubsTab';
 import { InviteClubTab } from '@/components/organizer-app/collab/InviteClubTab';
+import { CoorgHubTab } from '@/components/coorg/CoorgHubTab';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 
 /**
  * Organizer Collaborations hub — single tabbed page mirroring the club's
@@ -20,11 +22,13 @@ export default function OrgAppCollabHub() {
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') || 'events';
+  const { organizerId } = useActingOrganizer();
 
   const TABS = [
     { value: 'events', label: t('Soirées', 'Events', 'Eventos'), Icon: Calendar },
     { value: 'partners', label: t('Clubs partenaires', 'Partner clubs', 'Clubes asociados'), Icon: Building2 },
     { value: 'invite', label: t('Inviter', 'Invite', 'Invitar'), Icon: UserPlus },
+    { value: 'coorg', label: t('Co-organisation', 'Co-organization', 'Coorganización'), Icon: Network },
   ];
 
   return (
@@ -37,9 +41,9 @@ export default function OrgAppCollabHub() {
         </h1>
         <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>
           {t(
-            'Gère tes clubs partenaires et les soirées co-organisées.',
-            'Manage your partner clubs and co-hosted events.',
-            'Gestiona tus clubes asociados y los eventos coorganizados.',
+            'Gère tes clubs partenaires, les soirées co-organisées et tes co-organisateurs.',
+            'Manage your partner clubs, co-hosted events and co-organizers.',
+            'Gestiona tus clubes asociados, los eventos coorganizados y tus coorganizadores.',
           )}
         </p>
       </motion.div>
@@ -84,6 +88,7 @@ export default function OrgAppCollabHub() {
             {tab === 'events' && <CollabEventsTab />}
             {tab === 'partners' && <PartnerClubsTab />}
             {tab === 'invite' && <InviteClubTab />}
+            {tab === 'coorg' && organizerId && <CoorgHubTab scope={{ organizerUserId: organizerId }} basePath="/organizer-app" />}
           </motion.div>
         </AnimatePresence>
       </div>

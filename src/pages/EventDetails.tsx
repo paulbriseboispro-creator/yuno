@@ -1,6 +1,7 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
+import { getEventPresenters, followEventHosts, type EventPresenter } from '@/lib/coorg';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
@@ -119,6 +120,10 @@ export default function EventDetails() {
   const [orgFollowers, setOrgFollowers] = useState<Record<string, number>>({});
   const [orgEventsCount, setOrgEventsCount] = useState<Record<string, number>>({});
   const [orgFollowing, setOrgFollowing] = useState<Record<string, boolean>>({});
+  // Co-organisation : clubs co-hôtes et nombre total d'hôtes (« tout suivre »).
+  const [cohostVenues, setCohostVenues] = useState<{ id: string; name: string; logo_url: string | null; slug: string | null }[]>([]);
+  const [hostCount, setHostCount] = useState(0);
+  const [followingAllHosts, setFollowingAllHosts] = useState(false);
   const [interestedCount, setInterestedCount] = useState(0);
 
   // Pas de carte « RP » sur une soirée Yuno : l'événement est géré en direct par
@@ -358,6 +363,7 @@ export default function EventDetails() {
          périmètre des tables) et des ids de DJs. Une seule salve. ══ */
       const [
         venueRes, orgProfileRes, legacyProfileRes, coOrgRes, djRowsRes, zonesRes, packsRes, presetRes, waitlistRes,
+        presentersRes,
       ] = await Promise.all([
         hostVenueId
           ? supabase.from('venues').select('id, name, city, address, floor_plan_url, latitude, longitude, logo_url').eq('id', hostVenueId).maybeSingle()
@@ -399,12 +405,15 @@ export default function EventDetails() {
               .limit(1)
               .maybeSingle()
           : Promise.resolve({ data: null }),
+        // Co-organisation : tous les hôtes publics (principaux + co-hôtes).
+        // Une panne ne coûte que la liste des co-hôtes, jamais la page.
+        getEventPresenters(eventId as string).then((data) => ({ data })).catch(() => ({ data: [] as EventPresenter[] })),
       ]);
 
       return {
         eventData, user, eventSettingsData, djIds, isOrganizerLed, hostVenueId, partnerOrgId,
         venueRes, orgProfileRes, legacyProfileRes, coOrgRes, djRowsRes, zonesRes, packsRes,
-        presetRes, waitlistRes, roundsRes,
+        presetRes, waitlistRes, roundsRes, presentersRes,
       };
   }
 
@@ -422,7 +431,7 @@ export default function EventDetails() {
     const {
       eventData, user, eventSettingsData, djIds, isOrganizerLed, hostVenueId, partnerOrgId,
       venueRes, orgProfileRes, legacyProfileRes, coOrgRes, djRowsRes, zonesRes, packsRes,
-      presetRes, waitlistRes, roundsRes,
+      presetRes, waitlistRes, roundsRes, presentersRes,
     } = eventDetailsQuery.data;
 
       // ── Organisateurs (primaire + co-orga) ──
@@ -455,6 +464,19 @@ export default function EventDetails() {
         organizers.push({ id: coOrg.user_id, name: coOrg.display_name, slug: coOrg.slug, logo_url: coOrg.avatar_url });
         orgIds.push(coOrg.user_id);
       }
+
+      // Co-hôtes (co-organisation) : organisateurs à suivre comme les autres,
+      // clubs affichés à part. L'ordre vient du serveur (principal d'abord).
+      const presenters = ((presentersRes?.data ?? []) as EventPresenter[]);
+      for (const p of presenters) {
+        if (p.kind === 'org' && p.organizer_user_id && !organizers.some(o => o.id === p.organizer_user_id)) {
+          organizers.push({ id: p.organizer_user_id, name: p.name, slug: p.slug, logo_url: p.avatar_url });
+          orgIds.push(p.organizer_user_id);
+        }
+      }
+      setCohostVenues(presenters.filter(p => p.kind === 'venue' && p.role === 'cohost' && p.venue_id)
+        .map(p => ({ id: p.venue_id as string, name: p.name, logo_url: p.avatar_url, slug: p.slug })));
+      setHostCount(presenters.length);
 
       setPrimaryOrganizer(loadedOrganizer);
       setEventOrganizers(organizers);
@@ -1623,8 +1645,36 @@ export default function EventDetails() {
         {(eventOrganizers.length > 0 || venue) && (
           <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
             <p className="section-label-ruled mb-6">
-              {primaryEntity === 'organizer' ? t('event.organizedBy') : 'Venue'}
+              {hostCount > 1 ? t('event.presentedBy') : primaryEntity === 'organizer' ? t('event.organizedBy') : 'Venue'}
             </p>
+            {hostCount > 1 && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="font-mono" style={{ fontSize: '11px', color: 'var(--tx-9a9a9a)', letterSpacing: '0.04em' }}>
+                  {t('event.coorgHint')}
+                </p>
+                <button
+                  onClick={async () => {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) { toast.info(t('event.loginToFollow')); return; }
+                    try {
+                      await followEventHosts(event!.id);
+                      setFollowingAllHosts(true);
+                      setOrgFollowing(prev => Object.fromEntries([...Object.keys(prev), ...eventOrganizers.map(o => o.id)].map(k => [k, true])));
+                      capturePosthog('event_hosts_followed', { event_id: event!.id, hosts: hostCount });
+                      toast.success(t('event.followedAllHosts'));
+                    } catch {
+                      toast.error(t('common.error'));
+                    }
+                  }}
+                  disabled={followingAllHosts}
+                  className="inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase"
+                  style={{ fontSize: '10px', height: '30px', padding: '0 14px', borderRadius: '2px', border: '1px solid', borderColor: followingAllHosts ? 'rgba(232,25,44,0.4)' : 'var(--sf-2a2a2a)', background: followingAllHosts ? 'rgba(232,25,44,0.08)' : 'transparent', color: followingAllHosts ? '#E8192C' : 'var(--tx-e5e5e5)', cursor: followingAllHosts ? 'default' : 'pointer' }}
+                >
+                  <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: followingAllHosts ? '#E8192C' : 'transparent' }} />
+                  {followingAllHosts ? t('subscribe.active') : t('event.followAllHosts')}
+                </button>
+              </div>
+            )}
             <div className="space-y-2">
               {/* Organizer cards */}
               {eventOrganizers.map((org) => {
@@ -1673,6 +1723,28 @@ export default function EventDetails() {
                   </div>
                 );
               })}
+
+              {/* Clubs co-hôtes (co-organisation) : carte compacte, suivi par favori. */}
+              {cohostVenues.filter(cv => cv.id !== venue?.id).map((cv) => (
+                <div key={cv.id} className="flex items-center" style={{ border: '1px solid rgb(var(--ink)/0.06)', borderRadius: '4px', padding: '12px 16px' }}>
+                  <button onClick={() => navigate(`/club/${cv.slug || cv.id}`)} className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left">
+                    <div className="shrink-0 overflow-hidden" style={{ width: 40, height: 40, borderRadius: '4px', border: '1px solid rgb(var(--ink)/0.08)', background: 'var(--sf-191919)' }}>
+                      {cv.logo_url
+                        ? <img src={getOptimizedImageUrl(cv.logo_url, { width: 96, height: 96, resize: 'contain' })} alt={cv.name} loading="lazy" className="w-full h-full object-contain" />
+                        : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '11px', color: 'var(--tx-5a5a5e)' }}>{cv.name.slice(0, 2).toUpperCase()}</div>}
+                    </div>
+                    <p className="font-mono truncate" style={{ fontSize: '12.5px', color: 'var(--tx-e5e5e5)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>{cv.name}</p>
+                  </button>
+                  <button
+                    onClick={() => toggleFavorite('club', cv.id, 'event_page')}
+                    className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
+                    style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFavorite('club', cv.id) ? 'rgba(232,25,44,0.4)' : 'var(--sf-2a2a2a)', background: isFavorite('club', cv.id) ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFavorite('club', cv.id) ? '#E8192C' : 'var(--tx-9a9a9a)', cursor: 'pointer' }}
+                  >
+                    <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: isFavorite('club', cv.id) ? '#E8192C' : 'transparent' }} />
+                    {isFavorite('club', cv.id) ? t('subscribe.active') : t('subscribe.action')}
+                  </button>
+                </div>
+              ))}
 
               {/* Venue card — secondary. Hidden when `venue` is just the organizer placeholder
                   (pure org event), otherwise it duplicates the organizer card above and links

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { PlanGuard } from '@/components/PlanGuard';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { OrgPage, OrgPageHeader } from '@/components/org-ui';
+import { orgEventsOr } from '@/lib/coorg';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -178,7 +179,7 @@ export default function OwnerScarcity() {
     // Organisateur : ses soirées (solo ou en collab), exactement le périmètre
     // de /organizer-app/tables. Club : les soirées de son lieu.
     const scoped = isOrganizerScope
-      ? base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+      ? base.or(orgEventsOr(organizerUserId))
       : base.eq('venue_id', venueId as string);
     scoped
       .order('start_at', { ascending: true })

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, Rocket, type LucideIcon } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, Ban, Rocket, Network, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,7 @@ import { EventSalesStrip } from '@/components/events-sales/EventSalesStrip';
 import type { EventSales } from '@/lib/eventsSales';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 // Shape of one round stored in a ticket preset's JSON `rounds` column.
 type PresetRound = {
@@ -263,11 +264,11 @@ export default function OwnerEvents() {
     try {
       let query;
       if (isOrganizerScope) {
-        query = supabase.from('events').select('*').or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`).order('start_at', { ascending: false });
+        query = supabase.from('events').select('*').or(orgEventsOr(organizerUserId)).order('start_at', { ascending: false });
       } else {
         const includePartnerLed = !planLoading && !isCollabPlan(plan);
         query = includePartnerLed
-          ? supabase.from('events').select('*').or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`).order('start_at', { ascending: false })
+          ? supabase.from('events').select('*').or(venueEventsOr(venueId)).order('start_at', { ascending: false })
           : supabase.from('events').select('*').eq('venue_id', venueId).order('start_at', { ascending: false });
       }
       const { data, error } = await query;
@@ -284,6 +285,11 @@ export default function OwnerEvents() {
         musicGenres: event.music_genres || [event.music_genre || 'Open Format'],
         eventType: event.event_type || 'club',
         isPartnerHosted: isOrganizerScope ? false : (event.partner_venue_id === venueId && event.venue_id !== venueId && !!event.organizer_user_id),
+        // Présente parce que la portée CO-HÉBERGE la soirée : ses interrupteurs
+        // de pilier restent aux parties principales (le serveur les refuserait).
+        isCohosted: isOrganizerScope
+          ? event.organizer_user_id !== organizerUserId && event.partner_organizer_id !== organizerUserId
+          : event.venue_id !== venueId && event.partner_venue_id !== venueId,
         isPrivate: isOrganizerScope && (event.event_kind === 'private_event' || event.visibility === 'private'),
         organizerUserId: event.organizer_user_id ?? null,
         ticketingEnabled: event.ticketing_enabled ?? false,
@@ -1914,6 +1920,12 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 {t('owner.ev.coHosted')}
               </span>
             )}
+            {event.isCohosted && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)', color: 'var(--acc-93c5fd)' }}>
+                <Network className="w-3 h-3" />{t('coorg.badge.cohost')}
+              </span>
+            )}
           </div>
           {event.description && (
             <p style={{ color: T3_C, fontSize: 12 }} className="line-clamp-2 mb-2">{event.description}</p>
@@ -1955,7 +1967,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
       )}
 
       {/* Quick publishing — tickets, tables & guest list online, no tab navigation needed */}
-      {!event.isPartnerHosted && !isPast && (
+      {!event.isPartnerHosted && !event.isCohosted && !isPast && (
         <div className="px-5 pb-1">
           <div className="grid grid-cols-3 gap-2.5">
             {/* Ticketing */}
@@ -2036,7 +2048,17 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
 
           {/* Booster : une pub Instagram / Facebook pour cette soirée, créée et
               suivie depuis Yuno (page Publicité). */}
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap gap-2">
+            {/* Co-organisation : inviter d'autres organisateurs / clubs, parts,
+                décompte. Ouvert à toutes les soirées, co-hébergées comprises. */}
+            <button
+              type="button"
+              onClick={() => onNavigate(`${basePath}/coorg/${event.id}`)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-150"
+              style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T3_C, fontSize: 11.5, fontWeight: 600 }}
+            >
+              <Network className="w-3 h-3" />{t('coorg.card.cta')}
+            </button>
             <button
               type="button"
               onClick={() => onNavigate(`${basePath}/ads?event=${event.id}`)}

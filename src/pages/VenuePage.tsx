@@ -38,6 +38,7 @@ import { Wordmark } from '@/components/brand/Wordmark';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { usePosthogEvent } from '@/hooks/usePosthogEvent';
 import { marketProps } from '@/lib/geo';
+import { venueEventsOr } from '@/lib/coorg';
 
 interface VenueData extends Venue {
   description?: string;
@@ -469,7 +470,7 @@ export default function VenuePage() {
         const { data, error } = await supabase
           .from('events')
           .select('*')
-          .or(`venue_id.eq.${slug},partner_venue_id.eq.${slug}`)
+          .or(venueEventsOr(slug))
           .eq('is_active', true)
           .gte('end_at', now)
           .order('start_at', { ascending: true });

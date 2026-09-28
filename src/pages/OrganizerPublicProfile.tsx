@@ -31,6 +31,7 @@ import { PublicPage } from '@/components/PublicPage';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
 import { CartButton } from '@/components/CartButton';
 import { OrganizerProfileSkeleton } from '@/components/skeletons/OrganizerProfileSkeleton';
+import { orgEventsOr } from '@/lib/coorg';
 
 interface OrgProfile {
   user_id: string;
@@ -141,7 +142,7 @@ export default function OrganizerPublicProfile() {
       const { data: evs } = await supabase
         .from('events')
         .select('id, slug, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')
-        .or(`organizer_user_id.eq.${prof.user_id},partner_organizer_id.eq.${prof.user_id}`)
+        .or(orgEventsOr(prof.user_id))
         .eq('is_active', true)
         .eq('visibility', 'public')
         .order('start_at', { ascending: true });
