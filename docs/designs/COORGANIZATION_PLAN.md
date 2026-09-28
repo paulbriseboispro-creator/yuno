@@ -74,6 +74,24 @@ le split, et la page le dit en clair. À la place :
    le bénéficiaire confirme ou conteste. Même doctrine que le règlement promoteur. Toute action
    d'argent est refusée en session d'accès assisté.
 
+## 4 bis. Suivi des virements (29/09)
+
+Même doctrine que le règlement promoteur : délai de paiement signé dans l'accord (7/15/30 j),
+échéance par virement, relances automatiques (J-3, puis tous les 3 jours de retard, 6 max),
+toutes les parties prévenues à J+7, super admin à J+14, 7 jours au bénéficiaire pour confirmer
+(silence = litige), relance manuelle par le bénéficiaire (1/24 h), arbitrage super admin avec
+motif. Smoke : `scripts/demo/smoke-coorg-payment-followup.sql`.
+
+## 4 ter. Revue adverse (29/09) — ce qui a été corrigé
+
+CRM réservé au consentement nommé (plus de base vivante / export / segments nourris par les
+soirées co-hébergées, lignes de vente réservées aux éditeurs), preuve d'achat pour verser le
+consentement, argent visible seulement avec une part, garde co-hôte étendue (mode, date de
+publication, rejet de découverte), accord figé dès le début de la soirée, signature et
+validation liées à ce qu'on a lu (version, empreinte), tables hors Yuno exclues du décompte,
+refus sur un collab à barème, garde démo. Smoke : `scripts/demo/smoke-coorganization.sql`
+(74 étapes).
+
 ## 5. Tests joués
 
 - Smoke SQL rejouable (`scripts/demo/smoke-coorganization.sql`, transaction annulée) : 54 étapes,

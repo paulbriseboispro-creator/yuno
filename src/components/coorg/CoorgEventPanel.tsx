@@ -399,6 +399,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
                 language, eventTitle: state.event.title, version: deal.version,
                 eventDate: new Date(state.event.start_at).toLocaleDateString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR'),
                 termsVersion: deal.terms_version || COORG_TERMS_VERSION, clauses: deal.clauses,
+                paymentTermsDays: deal.payment_terms_days ?? 15,
                 parties: Object.entries(deal.shares).map(([k, pct]) => ({
                   key: k, name: nameOf(k), pct, signedAt: deal.signatures[k]?.at ?? null,
                 })),

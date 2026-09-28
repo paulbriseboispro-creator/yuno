@@ -508,6 +508,29 @@ des deux hubs Collaborations. Règles intouchables :
   dans la même `version` (toute ligne / modif de parts la remet à zéro), puis virements
   (payeur déclare, SEUL le bénéficiaire confirme, référence `YCO-…`). Actions d'argent
   refusées en accès assisté. Un décompte validé est figé et verrouille ses parties.
+- **Virements suivis comme le règlement promoteur** (`20260929100000`) : l'accord porte
+  `payment_terms_days` (7/15/30, signé avec les parts) ; chaque virement a `due_at` puis,
+  une fois annoncé, `confirm_due_at` (+7 j). Cron quotidien `coorg-transfer-followup`
+  (`coorg_transfer_followup_sweep`) : IBAN manquant (bénéficiaire, /3 j), échéance proche,
+  retard tous les 3 j (6 max), TOUTES les parties à J+7, super admin à J+14
+  (`admin_coorg_transfer_overdue`), silence du bénéficiaire ⇒ litige `auto:no_acknowledgement`,
+  jamais « reçu ». Le bénéficiaire relance (`nudge_coorg_transfer`, 1/24 h). Litige tranché
+  par le super admin dans `/admin/alerts` (`admin_resolve_coorg_transfer`, motif obligatoire,
+  `received` | `cancelled`) ; `_coorg_maybe_settle` solde le décompte.
+- **Revue du 29/09** (`20260929110000`, `120000`) : un co-hôte ne reçoit un client QUE par la
+  case qui le nomme — `contact_scope_customers`, RFM, segments orga, audiences pub, P&L et
+  vue d'ensemble ne lisent PAS les soirées co-hébergées (ne jamais les y remettre) ; lignes
+  de vente lisibles d'un co-hôte ÉDITEUR seulement ; CA d'une co-soirée visible avec une
+  part dans un accord actif (`coorg_sees_event_money`). `share_event_marketing_consent` exige
+  une PREUVE d'achat (session `cs_…`, id ou QR < 15 min) et les clés NOMMÉES ; une session
+  impayée laisse une intention (`event_cohost_consent_intents`) consommée au paiement par
+  trigger. Accord FIGÉ dès le début de la soirée (`coorg_deal_frozen` : ni annulation, ni
+  parts, ni départ d'une partie qui a une part) ; inviter ne remet plus les signatures à
+  zéro ; `sign_coorg_deal(p_version)` et `approve_coorg_settlement(p_fingerprint)` —
+  une validation donnée sur d'autres chiffres tombe. Refusé sur un collab à barème. Le
+  décompte ne compte que les tables EN LIGNE, sur l'acompte. Garde démo à l'invitation et
+  au marketing. `coorg_party_level` / `is_event_cohost` ne renseignent que sur soi depuis
+  l'API (`session_user = 'authenticator'`).
 - **Tables sans policy** (`event_coorg_*`) : tout passe par les RPC ; un smoke qui lit
   `event_coorg_transfers` en direct comme un pro doit rendre 0. Smoke rejouable :
   `scripts/demo/smoke-coorganization.sql` (57 étapes, annulé). Vitrine démo : « Yuno Rooftop

@@ -54,9 +54,9 @@ export const COORG_ARTICLES: { title: L; body: L }[] = [
   {
     title: { fr: 'Règlement', en: 'Payment', es: 'Pago' },
     body: {
-      fr: 'Les soldes se règlent par virement bancaire entre les parties, avec la référence indiquée par Yuno, sous 15 jours après l’arrêté du décompte. Le payeur déclare le virement ; seul le bénéficiaire en confirme la réception ou le conteste. Yuno horodate chaque étape et ne touche jamais aux fonds.',
-      en: 'Balances are paid by bank transfer between the parties, with the reference shown by Yuno, within 15 days of the final statement. The payer declares the transfer; only the payee confirms receipt or disputes it. Yuno timestamps each step and never handles the funds.',
-      es: 'Los saldos se pagan por transferencia entre las partes, con la referencia indicada por Yuno, en 15 días tras la liquidación. El pagador declara la transferencia; solo el beneficiario confirma la recepción o la impugna. Yuno fecha cada paso y nunca toca los fondos.',
+      fr: 'Les soldes se règlent par virement bancaire entre les parties, avec la référence indiquée par Yuno, dans le délai de paiement fixé ci-dessus après l’arrêté du décompte (15 jours à défaut). Le payeur déclare le virement ; seul le bénéficiaire en confirme la réception ou le conteste, sous 7 jours — son silence vaut contestation, jamais réception. Yuno horodate chaque étape, relance les retards, prévient toutes les parties d’un impayé et ne touche jamais aux fonds.',
+      en: 'Balances are paid by bank transfer between the parties, with the reference shown by Yuno, within the payment terms set above after the final statement (15 days by default). The payer declares the transfer; only the payee confirms receipt or disputes it, within 7 days — silence counts as a dispute, never as receipt. Yuno timestamps each step, chases late payments, tells every party about an unpaid balance and never handles the funds.',
+      es: 'Los saldos se pagan por transferencia entre las partes, con la referencia indicada por Yuno, en el plazo de pago fijado arriba tras la liquidación (15 días por defecto). El pagador declara la transferencia; solo el beneficiario confirma la recepción o la impugna, en 7 días — su silencio vale impugnación, nunca recepción. Yuno fecha cada paso, reclama los retrasos, avisa a todas las partes de un impago y nunca toca los fondos.',
     },
   },
   {
@@ -87,6 +87,8 @@ export interface CoorgAgreementPDFData {
   clauses?: string | null;
   version: number;
   termsVersion: string;
+  /** Délai de paiement convenu (jours après l'arrêté du décompte). */
+  paymentTermsDays?: number;
 }
 
 export async function generateCoorgAgreementPDF(d: CoorgAgreementPDFData): Promise<void> {
@@ -115,6 +117,9 @@ export async function generateCoorgAgreementPDF(d: CoorgAgreementPDFData): Promi
       ? L(`Accepté le ${new Date(p.signedAt).toLocaleString('fr-FR')}`, `Accepted on ${new Date(p.signedAt).toLocaleString('en-GB')}`, `Aceptado el ${new Date(p.signedAt).toLocaleString('es-ES')}`)
       : L('En attente d’acceptation', 'Awaiting acceptance', 'Pendiente de aceptación'), 8.5);
   }
+  para(L(`Délai de paiement : ${d.paymentTermsDays ?? 15} jours après l’arrêté du décompte`,
+    `Payment terms: ${d.paymentTermsDays ?? 15} days after the final statement`,
+    `Plazo de pago: ${d.paymentTermsDays ?? 15} días tras la liquidación`), 9.5, true);
   line(4);
 
   COORG_ARTICLES.forEach((a, i) => {
