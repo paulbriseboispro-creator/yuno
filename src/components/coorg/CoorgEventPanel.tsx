@@ -18,6 +18,7 @@ import {
 } from '@/lib/coorg';
 import { COORG_TERMS_VERSION, coorgArticles, generateCoorgAgreementPDF } from '@/lib/coorgAgreement';
 import { capturePosthog } from '@/lib/posthog';
+import { STRIPE_AUTO_SPLIT_ENABLED } from '@/lib/splitRules';
 import { PartyAvatar, PartyRolePill, useCoorgT, useCoorgErrorText } from './coorgUi';
 import { CoorgInviteDialog } from './CoorgInviteDialog';
 import { CoorgTransferList } from './CoorgTransferList';
@@ -480,7 +481,9 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
   }, [shares]);
   // « Répartir via Stripe ? » : seulement entre DEUX organisations, sans club.
   const stripeBlocker = coorgStripeSplitBlocker(state, numericShares);
-  const stripeOn = stripeSplit && !stripeBlocker;
+  // Partage Stripe éteint tant que seules les charges directes sont admises
+  // (STRIPE_AUTO_SPLIT_ENABLED) : l'hôte encaisse, le décompte règle le reste.
+  const stripeOn = STRIPE_AUTO_SPLIT_ENABLED && stripeSplit && !stripeBlocker;
 
   const save = () => {
     const out = numericShares;
@@ -668,7 +671,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
                   'Cada parte pulsa «Validar»: misma liquidación, sin contrato formal.')}
             </p>
           </div>
-          {!stripeBlocker && (
+          {STRIPE_AUTO_SPLIT_ENABLED && !stripeBlocker && (
             <div>
               <FieldLabel>{t('Répartir l’argent automatiquement via Stripe ?', 'Split the money automatically through Stripe?', '¿Repartir el dinero automáticamente con Stripe?')}</FieldLabel>
               <OrgTabs
