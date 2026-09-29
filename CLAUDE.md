@@ -1238,9 +1238,19 @@ base avec le compte démo. Règles qui en sortent :
   base (7 785 appels, 1 169 s cumulées), payé par chaque pro toutes les 5 min.
 - **Un calcul lourd ne bloque pas une page qui n'en affiche qu'un détail** :
   `get_contact_intelligence_overview` (base vivante, 1 à 6 s sur 12 000
-  contacts) est lu à part sur la page SMS. Reste à faire côté base : ce calcul
-  et `list_contact_base` reconstruisent chacun la base vivante (`_cr`) à chaque
-  appel — les deux partent ensemble sur Contacts.
+  contacts) est lu à part sur la page SMS.
+- **La base vivante est mise en cache 2 min par portée** (migration
+  `20260929260000`, `contact_base_cache` + `_state`, RLS sans policy, aucun
+  droit client) : `contact_build_rows` ne reconstruit `contact_rows()` que si le
+  cache est périmé, sous verrou consultatif par portée (la vue d'ensemble et la
+  liste partent ensemble : une seule reconstruction). Mesuré : 4 s → 0,14 s en
+  cache, résultats identiques. Le CONSENTEMENT (`email_ok`, `phone_ok`) reste
+  calculé en direct à chaque appel ; les ENVOIS n'y passent jamais
+  (`resolve_contact_segment_def` lit `contact_rows()`). Invalidation immédiate
+  par triggers d'INSTRUCTION (tables de transition) sur `imported_contacts`,
+  `contact_engagement`, `contact_list_imports`. Toute réécriture de
+  `contact_build_rows` garde ce cache ; toute colonne ajoutée à `contact_rows()`
+  oblige à recréer `contact_base_cache` (même forme) dans la même migration.
 - **Pleine largeur** : conteneur de page = `PRO_PAGE` (`src/lib/proLayout.ts`),
   jamais un `mx-auto max-w-*` centré. Un formulaire se range en grille
   (`xl:grid-cols-2`, colonne latérale), il ne rétrécit pas la page. Détail :
