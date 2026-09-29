@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CalendarClock, Check, CheckCircle2, Clock, Download, FileSignature, HandCoins, Info, Loader2, Mail, Plus, Receipt,
-  ShieldCheck, Trash2, UserPlus, Users, X,
+  ShieldCheck, Trash2, UserPlus, Users, X, Zap,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -12,10 +12,10 @@ import {
 import {
   getEventCoorg, respondCohostInvitation, updateEventCohost, endEventCohost,
   saveCoorgDeal, signCoorgDeal, addCoorgLedgerLine, voidCoorgLedgerLine, approveCoorgSettlement,
-  coorgErrorCode, eur, PAYMENT_TERMS_DAYS, cancelCohostEmailInvite,
+  coorgErrorCode, eur, PAYMENT_TERMS_DAYS, cancelCohostEmailInvite, coorgStripeSplitBlocker,
   type CoorgState, type CoorgParty, type CohostAccess, type PaymentTermsDays,
 } from '@/lib/coorg';
-import { COORG_ARTICLES, COORG_TERMS_VERSION, generateCoorgAgreementPDF } from '@/lib/coorgAgreement';
+import { COORG_TERMS_VERSION, coorgArticles, generateCoorgAgreementPDF } from '@/lib/coorgAgreement';
 import { capturePosthog } from '@/lib/posthog';
 import { PartyAvatar, PartyRolePill, useCoorgT, useCoorgErrorText } from './coorgUi';
 import { CoorgInviteDialog } from './CoorgInviteDialog';
@@ -207,9 +207,9 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
                 'El contrato collab club × organizador reparte el dinero entre sus DOS firmantes, con Stripe o por transferencia según su elección. Los coanfitriones nunca se añaden: su parte se liquida con el acuerdo de abajo, por transferencia.',
               )
               : t(
-                'Les ventes en ligne sont encaissées par l’hôte principal, comme d’habitude. Entre organisateurs, ou à plus de deux, Yuno ne répartit jamais rien sur Stripe et aucun compte Stripe n’est exigé des co-hôtes : Yuno calcule le décompte, le fait valider par tous et suit les virements.',
-                'Online sales are collected by the main host, as usual. Between organizers, or with more than two parties, Yuno never splits anything on Stripe and co-hosts need no Stripe account: Yuno computes the statement, has everyone approve it and tracks the transfers.',
-                'Las ventas online las cobra el anfitrión principal, como siempre. Entre organizadores, o con más de dos partes, Yuno nunca reparte nada en Stripe y los coanfitriones no necesitan cuenta de Stripe: calcula la liquidación, la hace validar por todos y sigue las transferencias.',
+                'Les ventes en ligne sont encaissées par l’hôte principal, comme d’habitude. Entre DEUX organisations, l’accord peut répartir chaque vente par Stripe (« Répartir via Stripe ? » → Oui). Sinon — et toujours à plus de deux — aucun compte Stripe n’est exigé des co-hôtes : Yuno calcule le décompte, le fait valider par tous et suit les virements.',
+                'Online sales are collected by the main host, as usual. Between TWO organizations, the agreement can split every sale through Stripe (“Split through Stripe?” → Yes). Otherwise — and always with more than two — co-hosts need no Stripe account: Yuno computes the statement, has everyone approve it and tracks the transfers.',
+                'Las ventas online las cobra el anfitrión principal, como siempre. Entre DOS organizaciones, el acuerdo puede repartir cada venta con Stripe («¿Repartir con Stripe?» → Sí). Si no — y siempre con más de dos —, los coanfitriones no necesitan cuenta de Stripe: Yuno calcula la liquidación, la hace validar por todos y sigue las transferencias.',
               )}
           </p>
         </div>
@@ -306,6 +306,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
   const [formal, setFormal] = useState(false);
   const [clauses, setClauses] = useState('');
   const [terms, setTerms] = useState<PaymentTermsDays>(15);
+  const [stripeSplit, setStripeSplit] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
   const openEditor = () => {
@@ -320,6 +321,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
     setFormal(deal?.formal ?? false);
     setClauses(deal?.clauses ?? '');
     setTerms(deal?.payment_terms_days ?? 15);
+    setStripeSplit(deal?.stripe_split ?? false);
     setEditing(true);
   };
 
@@ -328,15 +330,23 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
     [shares],
   );
 
-  const save = () => {
+  const numericShares = useMemo(() => {
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(shares)) {
       const n = Number(v.replace(',', '.'));
       if (v.trim() !== '' && n > 0) out[k] = Math.round(n * 100) / 100;
     }
+    return out;
+  }, [shares]);
+  // « Répartir via Stripe ? » : seulement entre DEUX organisations, sans club.
+  const stripeBlocker = coorgStripeSplitBlocker(state, numericShares);
+  const stripeOn = stripeSplit && !stripeBlocker;
+
+  const save = () => {
+    const out = numericShares;
     void run('deal', async () => {
-      await saveCoorgDeal(eventId, out, formal, clauses, terms);
-      capturePosthog('coorg_deal_saved', { event_id: eventId, parties: Object.keys(out).length, formal, payment_terms_days: terms });
+      await saveCoorgDeal(eventId, out, formal, clauses, terms, stripeOn);
+      capturePosthog('coorg_deal_saved', { event_id: eventId, parties: Object.keys(out).length, formal, payment_terms_days: terms, stripe_split: stripeOn });
       setEditing(false);
     }, t('Accord envoyé aux parties', 'Agreement sent to the parties', 'Acuerdo enviado a las partes'));
   };
@@ -397,6 +407,26 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
             {t('Soldes à virer sous', 'Balances paid within', 'Saldos a transferir en')} <b style={{ color: T1 }}>{deal.payment_terms_days ?? 15} {t('jours', 'days', 'días')}</b>
             {' '}{t('après la validation du décompte · relances automatiques', 'of the statement’s approval · automatic reminders', 'tras validar la liquidación · recordatorios automáticos')}
           </p>
+          {deal.stripe_split && (
+            <div className="rounded-xl p-3" style={{ background: INNER_BG }}>
+              <p className="flex items-center gap-1.5" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+                <Zap className="h-3.5 w-3.5" style={{ color: POS }} />
+                {t('Chaque vente en ligne est répartie par Stripe', 'Every online sale is split through Stripe', 'Cada venta online se reparte con Stripe')}
+              </p>
+              <p className="mt-1" style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                {t('Chacun reçoit sa part sur son compte Stripe 48 h après la soirée. Le décompte ne règle plus que le reste : frais avancés, recettes hors Yuno.',
+                  'Each party gets its share on its Stripe account 48 h after the event. The statement only settles the rest: advanced costs, off-Yuno revenue.',
+                  'Cada parte recibe su parte en su cuenta de Stripe 48 h después del evento. La liquidación solo salda el resto: gastos adelantados, ingresos fuera de Yuno.')}
+              </p>
+              {state.parties.filter((p) => deal.shares[p.key] !== undefined && p.stripe_ready === false).map((p) => (
+                <p key={p.key} className="mt-1.5" style={{ color: RED, fontSize: 11.5, lineHeight: 1.5 }}>
+                  {t(`${p.name} n’a pas encore activé Stripe : tant que c’est le cas, les ventes vont à l’hôte et sa part se règle par le décompte.`,
+                    `${p.name} has not activated Stripe yet: until then, sales go to the host and its share is settled through the statement.`,
+                    `${p.name} aún no ha activado Stripe: mientras tanto, las ventas van al anfitrión y su parte se liquida con la liquidación.`)}
+                </p>
+              ))}
+            </div>
+          )}
           {deal.clauses && (
             <p className="rounded-xl p-3" style={{ background: INNER_BG, color: T2, fontSize: 12.5, whiteSpace: 'pre-wrap' }}>{deal.clauses}</p>
           )}
@@ -408,7 +438,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
           )}
           {showTerms && (
             <div className="space-y-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-              {COORG_ARTICLES.map((a, i) => (
+              {coorgArticles({ stripeSplit: deal.stripe_split }).map((a, i) => (
                 <div key={i}>
                   <p style={{ color: T1, fontSize: 12.5, fontWeight: 650 }}>{i + 1}. {a.title[language as 'fr' | 'en' | 'es'] ?? a.title.en}</p>
                   <p style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>{a.body[language as 'fr' | 'en' | 'es'] ?? a.body.en}</p>
@@ -424,6 +454,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
                 eventDate: new Date(state.event.start_at).toLocaleDateString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR'),
                 termsVersion: deal.terms_version || COORG_TERMS_VERSION, clauses: deal.clauses,
                 paymentTermsDays: deal.payment_terms_days ?? 15,
+                stripeSplit: deal.stripe_split,
                 parties: Object.entries(deal.shares).map(([k, pct]) => ({
                   key: k, name: nameOf(k), pct, signedAt: deal.signatures[k]?.at ?? null,
                 })),
@@ -497,6 +528,34 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
                   'Cada parte pulsa «Validar»: misma liquidación, sin contrato formal.')}
             </p>
           </div>
+          {!stripeBlocker && (
+            <div>
+              <FieldLabel>{t('Répartir l’argent automatiquement via Stripe ?', 'Split the money automatically through Stripe?', '¿Repartir el dinero automáticamente con Stripe?')}</FieldLabel>
+              <OrgTabs
+                size="sm"
+                value={stripeSplit ? 'yes' : 'no'}
+                onChange={(v) => setStripeSplit(v === 'yes')}
+                tabs={[
+                  { value: 'no', label: t('Non', 'No', 'No') },
+                  { value: 'yes', label: t('Oui', 'Yes', 'Sí') },
+                ]}
+              />
+              <p className="mt-1.5" style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+                {stripeSplit
+                  ? t('Chaque vente en ligne est coupée par Stripe selon les parts, et chacun reçoit la sienne sur son compte 48 h après la soirée. Les deux organisations ont besoin d’un compte Stripe actif ; sinon la vente va à l’hôte et se règle par le décompte.',
+                    'Every online sale is split by Stripe per the shares, and each party gets its own on its account 48 h after the event. Both organizations need an active Stripe account; otherwise the sale goes to the host and is settled through the statement.',
+                    'Cada venta online se divide con Stripe según las partes y cada una recibe la suya en su cuenta 48 h después del evento. Ambas organizaciones necesitan una cuenta de Stripe activa; si no, la venta va al anfitrión y se liquida con la liquidación.')
+                  : t('L’hôte encaisse les ventes ; Yuno calcule le décompte après la soirée et suit le virement de la part de l’autre. Aucun compte Stripe exigé du partenaire.',
+                    'The host collects the sales; Yuno computes the statement after the event and tracks the transfer of the other party’s share. No Stripe account required from the partner.',
+                    'El anfitrión cobra las ventas; Yuno calcula la liquidación tras el evento y sigue la transferencia de la parte del otro. No se exige cuenta de Stripe al socio.')}
+              </p>
+              {stripeSplit && state.parties.filter((p) => numericShares[p.key] !== undefined && p.stripe_ready === false).map((p) => (
+                <p key={p.key} className="mt-1" style={{ color: RED, fontSize: 11.5 }}>
+                  {t(`${p.name} n’a pas encore de compte Stripe actif.`, `${p.name} has no active Stripe account yet.`, `${p.name} aún no tiene una cuenta de Stripe activa.`)}
+                </p>
+              ))}
+            </div>
+          )}
           <div>
             <FieldLabel>{t('Délai de paiement', 'Payment terms', 'Plazo de pago')}</FieldLabel>
             <OrgTabs

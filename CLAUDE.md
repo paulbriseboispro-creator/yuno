@@ -506,9 +506,10 @@ collaboration. Règles intouchables :
   note de l'article 3 (plus de fuite de `noteTiered` sur un contrat par pilier),
   les corps `transferBody` et insère l'article « Règlement par virement » (hors
   barème). Un contrat Stripe garde le texte de `2026-09-26` mot pour mot.
-- **Org × org = co-organisation, jamais Stripe** ; `save_coorg_deal` refuse un
-  accord sur une soirée dont le collab est déjà réglé par virement
-  (`collab_transfer_unsupported`).
+- **Org × org = co-organisation** (et non le contrat collab) ; `save_coorg_deal`
+  refuse un accord sur une soirée dont le collab est déjà réglé par virement
+  (`collab_transfer_unsupported`). Entre DEUX organisations, l'accord peut lui
+  aussi répartir par Stripe — voir « Co-organisation » ci-dessous.
 
 ## Revue collab du 29/09 — argent Stripe, CA tables, équipe (points 3 et 4)
 
@@ -662,6 +663,21 @@ des deux hubs Collaborations. Règles intouchables :
   décompte ne compte que les tables EN LIGNE, sur l'acompte. Garde démo à l'invitation et
   au marketing. `coorg_party_level` / `is_event_cohost` ne renseignent que sur soi depuis
   l'API (`session_user = 'authenticator'`).
+- **Deux organisations : « Répartir via Stripe ? » Oui / Non** (29/09, migration
+  `20260929220000`). `event_coorg_deals.stripe_split`, porte d'éligibilité
+  `coorg_stripe_split_blocker` (miroir front `coorgStripeSplitBlocker`, testé) :
+  exactement deux parts > 0, deux `org:`, l'hôte parmi elles, aucun club sur la
+  soirée ni contrat collab. Les checkouts billets et tables lisent
+  `coorg_stripe_split_config` (service_role : accord ACTIF + compte Stripe du
+  partenaire activé) via `loadCoorgStripeSplit` (`_shared/coorg-stripe.ts`) et
+  le passent au résolveur (`SplitInput.coorgStripe`) : charge plateforme au nom
+  de l'hôte (`on_behalf_of`), deux jambes `organizer` versées à fin + 48 h par
+  le cron existant. Toute absence / panne = charge directe chez l'hôte comme
+  avant : **jamais une vente bloquée** par ce choix. Le décompte ne change pas
+  (il lit déjà les jambes au nom de qui les a reçues) et ne règle plus que le
+  reste. Article « Encaissement » remplacé par `coorgArticles({stripeSplit})`.
+  Changer le choix = nouvelle version de l'accord. Au-delà de deux parties :
+  toujours décompte + virements.
 - **Tables sans policy** (`event_coorg_*`) : tout passe par les RPC ; un smoke qui lit
   `event_coorg_transfers` en direct comme un pro doit rendre 0. Smoke rejouable :
   `scripts/demo/smoke-coorganization.sql` (57 étapes, annulé). Vitrine démo : « Yuno Rooftop

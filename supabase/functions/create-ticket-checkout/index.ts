@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
+import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
 import { checkPayoutReadiness, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
@@ -443,6 +444,9 @@ serve(async (req) => {
     // Porte Stripe calée sur le split RÉEL (payout-readiness.ts) : on vérifie les
     // comptes que la charge utilisera — l'encaisseur d'un contrat par virement,
     // les deux jambes d'un partage Stripe, le club vendeur de record.
+    // Accord de co-organisation entre deux organisations réparti par Stripe :
+    // null = charge directe chez l'hôte (le décompte règle le partenaire).
+    const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
     const readiness = checkPayoutReadiness({
       itemType: "ticket",
       isBde: event.is_bde === true,
@@ -456,6 +460,7 @@ serve(async (req) => {
         revenue_split_rules: event.revenue_split_rules,
       },
       partnershipRules,
+      coorgStripe,
     }, {
       venueStripeAccountId,
       venueChargesEnabled: venueStripeChargesEnabled,
@@ -1087,6 +1092,7 @@ serve(async (req) => {
         event_mode: event.event_mode,
         revenue_split_rules: event.revenue_split_rules,
       },
+      coorgStripe,
       partnershipRules,
       venueStripeAccountId,
       organizerStripeAccountId,

@@ -31,6 +31,8 @@ export interface CoorgParty {
   slug: string | null;
   avatar_url: string | null;
   city: string | null;
+  /** Compte Stripe activé (rendu seulement à qui tient l'argent, sinon absent / null). */
+  stripe_ready?: boolean | null;
 }
 
 export interface CoorgInvitation {
@@ -58,6 +60,8 @@ export interface CoorgDeal {
   activated_at: string | null;
   /** Délai de paiement convenu après l'arrêté du décompte (7, 15 ou 30 jours). */
   payment_terms_days?: PaymentTermsDays;
+  /** « Répartir via Stripe ? » → Oui (deux organisations seulement, sans club). */
+  stripe_split?: boolean;
 }
 
 export const PAYMENT_TERMS_DAYS = [7, 15, 30] as const;
@@ -149,7 +153,7 @@ export function canNudgeTransfer(t: Pick<CoorgTransfer, 'status' | 'i_receive' |
 export interface CoorgState {
   ok: boolean;
   reason?: string;
-  event: { id: string; title: string; start_at: string; end_at: string; ended: boolean; has_stripe_collab: boolean };
+  event: { id: string; title: string; start_at: string; end_at: string; ended: boolean; has_stripe_collab: boolean; has_venue?: boolean };
   me: { party: string; role: PartyRole; access: string; level: number } | null;
   my_parties: string[];
   can_invite: boolean;
@@ -373,11 +377,32 @@ export const ensureEventPartyLink = (eventId: string, party?: string | null) =>
 
 export const saveCoorgDeal = (
   eventId: string, shares: Record<string, number>, formal: boolean, clauses?: string, paymentTermsDays: PaymentTermsDays = 15,
+  stripeSplit = false,
 ) =>
   call<CoorgDeal>('save_coorg_deal', {
     p_event_id: eventId, p_shares: shares, p_formal: formal, p_clauses: clauses ?? null,
-    p_payment_terms_days: paymentTermsDays,
+    p_payment_terms_days: paymentTermsDays, p_stripe_split: stripeSplit,
   });
+
+/**
+ * Pourquoi un accord NE PEUT PAS être réparti par Stripe (null = il le peut).
+ * Miroir exact de `coorg_stripe_split_blocker` (SQL) : exactement deux parties à
+ * part > 0, deux organisations, l'hôte parmi elles, aucun club sur la soirée et
+ * aucun contrat collab (club × orga = contrat collab, qui a son propre choix).
+ */
+export type CoorgStripeBlocker = 'venue_on_event' | 'collab_contract' | 'two_orgs_only' | 'lead_must_share';
+export function coorgStripeSplitBlocker(
+  state: Pick<CoorgState, 'event' | 'parties'>,
+  shares: Record<string, number>,
+): CoorgStripeBlocker | null {
+  if (state.event.has_venue) return 'venue_on_event';
+  if (state.event.has_stripe_collab) return 'collab_contract';
+  const keys = Object.entries(shares).filter(([, v]) => Number(v) > 0).map(([k]) => k);
+  if (keys.length !== 2 || keys.some((k) => !k.startsWith('org:'))) return 'two_orgs_only';
+  const lead = state.parties.find((p) => p.role === 'lead');
+  if (!lead || !keys.includes(lead.key)) return 'lead_must_share';
+  return null;
+}
 
 /** On signe la version LUE : une proposition arrivée entre-temps lève `stale_version`. */
 export const signCoorgDeal = (eventId: string, party: string, version?: number) =>

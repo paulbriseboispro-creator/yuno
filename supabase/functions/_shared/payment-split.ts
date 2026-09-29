@@ -56,6 +56,21 @@ export interface SplitInput {
    * Omit in the default (client-pays) flow to keep the existing computation untouched.
    */
   yunoFeeCentsOverride?: number;
+  /**
+   * Accord de CO-ORGANISATION entre DEUX organisations, réparti par Stripe
+   * (« Répartir via Stripe ? » → Oui). Fourni par le checkout SEULEMENT quand
+   * l'accord est actif, qu'il ne porte que ces deux organisations et que le
+   * compte Stripe du partenaire est activé (`coorg_stripe_split_config`). Sinon
+   * null : la vente part en charge directe chez l'hôte et le décompte de
+   * co-organisation règle la part du partenaire par virement.
+   * Billets et tables seulement (une soirée sans club ne vend pas de boissons).
+   */
+  coorgStripe?: {
+    partnerOrganizerId: string;
+    partnerAccountId: string;
+    /** Part du partenaire, en %, strictement entre 0 et 100. */
+    partnerPct: number;
+  } | null;
 }
 
 export type SplitMode = "direct" | "separate";
@@ -122,6 +137,8 @@ export interface SplitResult {
    * `collab_transfer_statements`). Écrit tel quel sur la vente (`collab_split`).
    */
   transferSplit?: CollabTransferSplit;
+  /** Vente coupée entre deux organisations par un accord de co-organisation. */
+  coorg?: boolean;
 }
 
 export type SettlementCollector = "venue" | "organizer";
@@ -291,6 +308,46 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
     effectiveSplit: effective,
   });
 
+  // Deux ORGANISATIONS réparties par Stripe (accord de co-organisation) : la
+  // charge reste sur la plateforme au nom de l'hôte (vendeur de record, comme
+  // un organisateur seul), et le webhook verse chaque jambe après la fenêtre de
+  // remboursement — même mécanique que le partage club × orga. Les frais Stripe
+  // estimés sont déduits au prorata, Yuno garde exactement sa commission.
+  const coorgOrganizerSplit = (
+    leadAccountId: string,
+    leadOrganizerId: string,
+    co: NonNullable<SplitInput["coorgStripe"]>,
+  ): SplitResult => {
+    const partnerShareBeforeFee = Math.round((netCents * co.partnerPct) / 100);
+    const leadShareBeforeFee = netCents - partnerShareBeforeFee;
+    const partnerFeeShare = netCents > 0 ? Math.round((stripeFeeEstimatedCents * partnerShareBeforeFee) / netCents) : 0;
+    const leadFeeShare = stripeFeeEstimatedCents - partnerFeeShare;
+    return {
+      grossAmountCents: grossCents,
+      yunoFeeCents,
+      stripeFeeEstimatedCents,
+      splitMode: "separate",
+      onBehalfOf: leadAccountId,
+      primary: {
+        accountId: leadAccountId,
+        amountCents: Math.max(0, leadShareBeforeFee - leadFeeShare),
+        kind: "organizer",
+        venueId: null,
+        organizerId: leadOrganizerId,
+      },
+      secondary: {
+        accountId: co.partnerAccountId,
+        amountCents: Math.max(0, partnerShareBeforeFee - partnerFeeShare),
+        kind: "organizer",
+        venueId: null,
+        organizerId: co.partnerOrganizerId,
+      },
+      // Lecture « lead / partenaire » : organizer_pct = part du PARTENAIRE.
+      effectiveSplit: { organizer_pct: co.partnerPct, venue_pct: 0 },
+      coorg: true,
+    };
+  };
+
   // Determine if this is a co-event
   const isCoEvent =
     event.event_mode === "co_event" ||
@@ -307,6 +364,11 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
     }
     if (event.organizer_user_id) {
       if (!organizerStripeAccountId) throw new Error("Organizer has no Stripe account");
+      const co = input.coorgStripe;
+      if (co && itemType !== "drink" && co.partnerAccountId && co.partnerAccountId !== organizerStripeAccountId
+          && co.partnerPct > 0 && co.partnerPct < 100) {
+        return coorgOrganizerSplit(organizerStripeAccountId, event.organizer_user_id, co);
+      }
       return directResult(organizerStripeAccountId, "organizer", null, event.organizer_user_id, null);
     }
     throw new Error("Event has no recipient (venue or organizer)");

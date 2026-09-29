@@ -2,7 +2,8 @@ import jsPDF from 'jspdf';
 import { deliverDocument } from '@/lib/generateDocuments';
 
 /**
- * Accord de co-organisation — N parties, SANS Stripe.
+ * Accord de co-organisation — N parties, sans Stripe… sauf entre DEUX
+ * organisations qui répondent Oui à « Répartir via Stripe ? » (`coorgArticles`).
  *
  * Ce texte est la vérité de ce que Yuno fait et ne fait pas : Yuno n'encaisse
  * pas pour les co-hôtes et ne leur verse rien. Il calcule un décompte à partir
@@ -77,6 +78,23 @@ export const COORG_ARTICLES: { title: L; body: L }[] = [
   },
 ];
 
+/**
+ * « Répartir via Stripe ? » → Oui (deux organisations, `event_coorg_deals.stripe_split`) :
+ * l'article Encaissement change, le reste de l'accord est identique — le décompte
+ * lit les ventes au nom de qui les a reçues et ne règle plus que le reste.
+ */
+const STRIPE_COLLECTION: L = {
+  fr: 'Chaque vente en ligne (billets, tables) est encaissée au nom de l’hôte principal et répartie automatiquement par Stripe entre les deux parties, selon les parts ci-dessus : chacune reçoit sa part sur son propre compte Stripe à la fin de la fenêtre de remboursement (48 h après la soirée). Yuno prélève sa commission et ne garde les fonds que pendant cette fenêtre. Si le compte Stripe d’une partie n’est pas actif au moment d’une vente, cette vente est encaissée par l’hôte principal et la part de l’autre se règle par le décompte.',
+  en: 'Each online sale (tickets, tables) is collected in the main host’s name and split automatically by Stripe between the two parties, per the shares above: each receives its share on its own Stripe account at the end of the refund window (48 h after the event). Yuno takes its commission and only holds the funds during that window. If a party’s Stripe account is not active when a sale happens, that sale is collected by the main host and the other party’s share is settled through the statement.',
+  es: 'Cada venta online (entradas, mesas) se cobra a nombre del anfitrión principal y Stripe la reparte automáticamente entre las dos partes, según las partes de arriba: cada una recibe su parte en su propia cuenta de Stripe al final del periodo de reembolso (48 h después del evento). Yuno cobra su comisión y solo retiene los fondos durante ese periodo. Si la cuenta de Stripe de una parte no está activa en el momento de una venta, esa venta la cobra el anfitrión principal y la parte de la otra se liquida con la liquidación.',
+};
+
+/** Les articles de l'accord tel qu'il a été proposé (Stripe ou non). */
+export function coorgArticles(opts: { stripeSplit?: boolean } = {}): { title: L; body: L }[] {
+  if (!opts.stripeSplit) return COORG_ARTICLES;
+  return COORG_ARTICLES.map((a) => (a.title.fr === 'Encaissement' ? { ...a, body: STRIPE_COLLECTION } : a));
+}
+
 const pick = (l: L, lang: string): string => l[(['fr', 'en', 'es'].includes(lang) ? lang : 'en') as Lang];
 
 export interface CoorgAgreementPDFData {
@@ -89,6 +107,8 @@ export interface CoorgAgreementPDFData {
   termsVersion: string;
   /** Délai de paiement convenu (jours après l'arrêté du décompte). */
   paymentTermsDays?: number;
+  /** « Répartir via Stripe ? » → Oui : chaque vente coupée par Stripe entre les deux parties. */
+  stripeSplit?: boolean;
 }
 
 export async function generateCoorgAgreementPDF(d: CoorgAgreementPDFData): Promise<void> {
@@ -120,15 +140,21 @@ export async function generateCoorgAgreementPDF(d: CoorgAgreementPDFData): Promi
   para(L(`Délai de paiement : ${d.paymentTermsDays ?? 15} jours après l’arrêté du décompte`,
     `Payment terms: ${d.paymentTermsDays ?? 15} days after the final statement`,
     `Plazo de pago: ${d.paymentTermsDays ?? 15} días tras la liquidación`), 9.5, true);
+  if (d.stripeSplit) {
+    para(L('Répartition des ventes en ligne : automatique par Stripe, à chaque vente',
+      'Online sales split: automatic through Stripe, on every sale',
+      'Reparto de las ventas online: automático con Stripe, en cada venta'), 9.5, true);
+  }
   line(4);
 
-  COORG_ARTICLES.forEach((a, i) => {
+  const articles = coorgArticles({ stripeSplit: d.stripeSplit });
+  articles.forEach((a, i) => {
     para(`${i + 1}. ${pick(a.title, d.language)}`, 10.5, true);
     para(pick(a.body, d.language));
     line(2);
   });
   if (d.clauses && d.clauses.trim()) {
-    para(`${COORG_ARTICLES.length + 1}. ${L('Clauses particulières', 'Specific clauses', 'Cláusulas particulares')}`, 10.5, true);
+    para(`${articles.length + 1}. ${L('Clauses particulières', 'Specific clauses', 'Cláusulas particulares')}`, 10.5, true);
     para(d.clauses.trim());
   }
   line(4);

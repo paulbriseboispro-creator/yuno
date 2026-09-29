@@ -129,3 +129,72 @@ describe('checkPayoutReadiness — la porte vérifie les comptes réellement uti
     expect(accountsUsedBySplit(r.split).sort()).toEqual(['acct_club', 'acct_org']);
   });
 });
+
+describe('co-organisation entre deux organisations — « Répartir via Stripe ? » Oui', () => {
+  const soloOrg: SplitInput['event'] = {
+    id: 'ev', venue_id: null, organizer_user_id: 'orgA', partner_venue_id: null,
+    partner_organizer_id: null, event_mode: 'solo_organizer', revenue_split_rules: null,
+  };
+  const co = { partnerOrganizerId: 'orgB', partnerAccountId: 'acct_B', partnerPct: 40 };
+  const input = (over: Partial<SplitInput> = {}): SplitInput => ({
+    itemType: 'ticket', grossAmount: 52, event: soloOrg, organizerStripeAccountId: 'acct_A', coorgStripe: co, ...over,
+  });
+
+  it('charge plateforme au nom de l\'hôte, deux jambes organisateur', () => {
+    const r = resolvePaymentSplit(input());
+    expect(r.splitMode).toBe('separate');
+    expect(r.onBehalfOf).toBe('acct_A');
+    expect(r.coorg).toBe(true);
+    expect(r.primary).toMatchObject({ accountId: 'acct_A', kind: 'organizer', organizerId: 'orgA', venueId: null });
+    expect(r.secondary).toMatchObject({ accountId: 'acct_B', kind: 'organizer', organizerId: 'orgB', venueId: null });
+  });
+
+  it('Yuno garde exactement sa commission, les jambes absorbent les frais Stripe au prorata', () => {
+    const r = resolvePaymentSplit(input());
+    const legs = r.primary.amountCents + (r.secondary?.amountCents ?? 0);
+    expect(legs + r.yunoFeeCents + r.stripeFeeEstimatedCents).toBe(r.grossAmountCents);
+    const net = r.grossAmountCents - r.yunoFeeCents;
+    // 40 % du net au partenaire, moins sa quote-part des frais Stripe
+    const partnerBefore = Math.round(net * 0.4);
+    const partnerFee = Math.round((r.stripeFeeEstimatedCents * partnerBefore) / net);
+    expect(r.secondary?.amountCents).toBe(partnerBefore - partnerFee);
+  });
+
+  it('frais absorbés (commission imposée) : la même commission part en application', () => {
+    const r = resolvePaymentSplit(input({ yunoFeeCentsOverride: 150 }));
+    expect(r.yunoFeeCents).toBe(150);
+    expect(r.primary.amountCents + (r.secondary?.amountCents ?? 0) + 150 + r.stripeFeeEstimatedCents).toBe(r.grossAmountCents);
+  });
+
+  it('tables : même partage', () => {
+    const r = resolvePaymentSplit(input({ itemType: 'table', grossAmount: 200 }));
+    expect(r.splitMode).toBe('separate');
+    expect(r.secondary?.organizerId).toBe('orgB');
+  });
+
+  it('sans accord Stripe (ou compte partenaire indisponible) : charge directe chez l\'hôte', () => {
+    for (const bad of [null, { ...co, partnerPct: 0 }, { ...co, partnerPct: 100 }, { ...co, partnerAccountId: '' }, { ...co, partnerAccountId: 'acct_A' }]) {
+      const r = resolvePaymentSplit(input({ coorgStripe: bad }));
+      expect(r.splitMode).toBe('direct');
+      expect(r.primary.accountId).toBe('acct_A');
+      expect(r.secondary).toBeNull();
+    }
+  });
+
+  it('jamais sur une soirée avec club : le contrat collab garde la main', () => {
+    const r = resolvePaymentSplit(input({
+      event: { ...soloOrg, partner_venue_id: 'club', event_mode: 'co_event', revenue_split_rules: PILLARS_30 },
+      venueStripeAccountId: 'acct_club',
+    }));
+    expect(r.coorg).toBeUndefined();
+    expect([r.primary.kind, r.secondary?.kind].sort()).toEqual(['organizer', 'venue']);
+  });
+
+  it('la porte « paiements prêts » compte les deux comptes utilisés', () => {
+    const r = checkPayoutReadiness({ itemType: 'ticket', event: soloOrg, coorgStripe: co }, {
+      venueStripeAccountId: null, venueChargesEnabled: false, organizerStripeAccountId: 'acct_A', organizerChargesEnabled: true,
+    });
+    if (!('split' in r)) throw new Error('attendu split');
+    expect(accountsUsedBySplit(r.split).sort()).toEqual(['acct_A', 'acct_B']);
+  });
+});
