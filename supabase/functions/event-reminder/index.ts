@@ -1,45 +1,19 @@
 // Version ÉPINGLÉE, comme les helpers _shared (auto-push) et 59 autres
 // fonctions : l'import flottant "@2" résolvait une version dont les types
 // divergeaient de ceux de sendAutoPush, laissant ce fichier non vérifiable.
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
-import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
 import { formatEventTime } from "../_shared/event-time.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-/**
- * Détenteurs d'un compte Yuno attendus à une soirée : acheteurs de billets ET
- * inscrits sur la guest list. Sans la seconde source, une soirée sans
- * billetterie (guest list seule) ne rappelait RIEN à personne — le cas de
- * toutes les soirées d'organisateur en entrée libre.
- * Les inscrits sans compte (user_id NULL) sont hors périmètre du push : c'est
- * l'email de confirmation qui les couvre.
- */
-async function eventAudience(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<{ userIds: string[]; ticketHolders: Set<string> }> {
-  const [{ data: tickets }, { data: guests }] = await Promise.all([
-    supabase.from('tickets').select('user_id').eq('event_id', eventId).eq('status', 'paid'),
-    supabase
-      .from('guest_list_entries')
-      .select('user_id, guest_lists!inner(event_id)')
-      .eq('guest_lists.event_id', eventId)
-      .neq('status', 'cancelled')
-      .not('user_id', 'is', null),
-  ]);
-  const ticketHolders = new Set<string>(
-    (tickets || []).map((t: { user_id: string | null }) => t.user_id).filter(Boolean) as string[],
-  );
-  const guestUserIds = (guests || [])
-    .map((g: { user_id: string | null }) => g.user_id)
-    .filter(Boolean) as string[];
-  return { userIds: [...new Set([...ticketHolders, ...guestUserIds])], ticketHolders };
-}
+// Rappels d'EXPLOITATION seulement (owner à T-30 min, staff à ~6 h). Les
+// rappels CLIENTS (jour J, ouverture des portes) sont des règles du moteur de
+// notifications (_shared/push-engine.ts, event_day_reminder / doors_open) :
+// rattachés à la soirée, arbitrés, et visibles par le club et l'organisateur.
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -63,10 +37,6 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
-    // T-4h window: events starting between 3.5h and 4.5h from now
-    const t4hStart = new Date(now.getTime() + 3.5 * 60 * 60 * 1000).toISOString();
-    const t4hEnd = new Date(now.getTime() + 4.5 * 60 * 60 * 1000).toISOString();
-
     // T-30min window: events starting between 15min and 45min from now
     const t30mStart = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
     const t30mEnd = new Date(now.getTime() + 45 * 60 * 1000).toISOString();
@@ -77,90 +47,12 @@ Deno.serve(async (req) => {
     const t6hStart = new Date(now.getTime() + 5.5 * 60 * 60 * 1000).toISOString();
     const t6hEnd = new Date(now.getTime() + 6.5 * 60 * 60 * 1000).toISOString();
 
-    let totalSent = 0;
-
-    // Kill switches plateforme (/admin/notifications) — lus une fois par run.
-    const reminder4hEnabled = await isAutoPushEnabled(supabase, 'event_reminder_4h');
-    const reminder30mEnabled = await isAutoPushEnabled(supabase, 'event_reminder_30m');
-
-    // --- T-4h Reminders ---
-    const { data: events4h } = await supabase
-      .from('events')
-      .select('id, title, start_at, venue_id, timezone')
-      .gte('start_at', t4hStart)
-      .lte('start_at', t4hEnd)
-      .eq('is_active', true);
-
-    for (const event of reminder4hEnabled ? (events4h || []) : []) {
-      // Acheteurs de billets + inscrits guest list disposant d'un compte.
-      const { userIds } = await eventAudience(supabase, event.id);
-
-      const startTime = formatEventTime(event.start_at, event.timezone);
-
-      for (const userId of userIds) {
-        // Anti-spam: check if already notified for this event
-        const { data: existing } = await supabase
-          .from('notification_log')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('notification_type', 'reminder')
-          .gte('sent_at', new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString())
-          .limit(1);
-
-        if (existing && existing.length > 0) continue;
-
-        // Registre auto (clé 'event_reminder_4h') : langue du client + tracking
-        // ?an=. Le helper journalise aussi notification_log type 'reminder'
-        // (même sémantique anti-spam que l'insert manuel qu'il remplace).
-        try {
-          const res = await sendAutoPush(supabase, {
-            key: 'event_reminder_4h',
-            userId,
-            url: `/club/venue/event/${event.id}`,
-            vars: { event: event.title || '', time: startTime },
-          });
-          if (res.sent > 0) totalSent++;
-        } catch (e) { console.error('[REMINDER] T-4h error:', e); }
-      }
-    }
-
-    // --- T-30min Reminders ---
     const { data: events30m } = await supabase
       .from('events')
       .select('id, title, start_at, venue_id, timezone')
       .gte('start_at', t30mStart)
       .lte('start_at', t30mEnd)
       .eq('is_active', true);
-
-    for (const event of reminder30mEnabled ? (events30m || []) : []) {
-      const { userIds, ticketHolders } = await eventAudience(supabase, event.id);
-
-      for (const userId of userIds) {
-        // Check if T-30min already sent
-        const { data: existing } = await supabase
-          .from('notification_log')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('notification_type', 'reminder')
-          .gte('sent_at', new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString())
-          .limit(1);
-
-        if (existing && existing.length > 0) continue;
-
-        // Registre auto (clé 'event_reminder_30m') : langue + tracking ?an=.
-        try {
-          const res = await sendAutoPush(supabase, {
-            key: 'event_reminder_30m',
-            userId,
-            // Un inscrit guest list n'a pas de billet : on l'envoie sur ses
-            // commandes sans présélectionner l'onglet billetterie.
-            url: ticketHolders.has(userId) ? `/my-orders?tab=tickets` : `/my-orders`,
-            vars: { event: event.title || '' },
-          });
-          if (res.sent > 0) totalSent++;
-        } catch (e) { console.error('[REMINDER] T-30m error:', e); }
-      }
-    }
 
     // ── Owner notifications: event starting (T-30min) ────────────────────
     // Fire once per event — dedup by checking staff_notifications in last 2h
@@ -245,9 +137,7 @@ Deno.serve(async (req) => {
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    console.log(`[EVENT-REMINDER] Sent ${totalSent} reminders`);
-
-    return new Response(JSON.stringify({ success: true, sent: totalSent }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error: unknown) {

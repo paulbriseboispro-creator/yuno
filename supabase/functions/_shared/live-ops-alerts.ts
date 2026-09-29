@@ -7,7 +7,7 @@
 // d'incidents), persiste chaque alerte en staff_notifications (cloche owner,
 // realtime, deep-link /owner/live) et pousse sur le téléphone de l'owner pour
 // les seules priorités urgent — dans sa langue (miroir inline FR/EN/ES, même
-// pattern que push-automations.ts).
+// pattern que push-engine.ts).
 //
 // La granularité 5 min est assumée : toutes ces règles tolèrent ce délai, le
 // front affiche déjà l'état instantané dans les stations. L'anti-spam passe

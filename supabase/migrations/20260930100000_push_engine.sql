@@ -1,4 +1,3 @@
--- BROUILLON NON VALIDÉ — ne pas appliquer. Deviendra supabase/migrations/<timestamp>_push_engine.sql après validation du plan (docs/designs/NOTIFICATION_ENGINE_PLAN.md).
 -- =============================================================================
 -- Moteur de notifications Yuno — Yuno envoie, les pros lisent (2026-09-30)
 -- =============================================================================
@@ -697,12 +696,15 @@ DECLARE
 BEGIN
   IF NOT public.push_rule_enabled('last_tickets') THEN RETURN 0; END IF;
   FOR r IN
-    SELECT m.event_id, m.start_at, x.variant
+    SELECT m.event_id, m.start_at, x.variant,
+           GREATEST(now(), COALESCE(ps.announce_at, now())) AS nb
       FROM public._push_marketable_events() m
+      LEFT JOIN public.push_event_settings ps ON ps.event_id = m.event_id
       CROSS JOIN LATERAL (SELECT public._push_scarcity_variant(m.event_id, v_threshold) AS variant) x
      WHERE m.start_at > now() + interval '6 hours'
        AND m.start_at < now() + make_interval(days => v_max_days)
        AND x.variant IS NOT NULL
+       AND GREATEST(now(), COALESCE(ps.announce_at, now())) < m.start_at - interval '4 hours'
        AND NOT EXISTS (SELECT 1 FROM public.push_rule_runs rr WHERE rr.rule_key = 'last_tickets' AND rr.event_id = m.event_id)
        AND NOT public._push_legacy_sent(m.event_id, ARRAY['almost_sold_out'])
   LOOP
@@ -721,7 +723,7 @@ BEGIN
       (dedup_key, user_id, rule_key, variant, family, event_id, reason, reason_party, score, vars, not_before, expires_at)
     SELECT 'last_tickets:' || r.event_id::text || ':' || b.user_id::text, b.user_id, 'last_tickets', r.variant, 'marketing',
            r.event_id, b.reason, b.party, public._push_score(30, b.reason, r.start_at), '{}'::jsonb,
-           now(), LEAST(r.start_at - interval '3 hours', now() + interval '72 hours')
+           r.nb, LEAST(r.start_at - interval '3 hours', r.nb + interval '72 hours')
       FROM best b
      WHERE public._push_reachable(b.user_id)
        AND NOT public._push_has_bought(b.user_id, r.event_id)
@@ -1186,11 +1188,20 @@ BEGIN
        AND c.status IN ('sent', 'claimed') AND c.family IN ('marketing', 'urgent')
      GROUP BY c.user_id, c.event_id
   ),
+  -- Annonce programmée par le pro et pas encore due : aucune relance marketing
+  -- de la même soirée ne la double (pas de « dernières places » avant l'annonce).
+  scheduled_ann AS MATERIALIZED (
+    SELECT DISTINCT c.user_id, c.event_id
+      FROM public.push_candidates c
+     WHERE c.user_id IN (SELECT u.user_id FROM users u)
+       AND c.rule_key = 'new_event' AND c.status = 'pending' AND c.not_before > now()
+  ),
   judged AS MATERIALIZED (
     SELECT d.id, d.user_id, d.family, d.score, d.event_id, d.hold_reason AS prev_hold,
       CASE
         WHEN d.family = 'reminder' THEN NULL
         WHEN v_quiet THEN 'quiet_hours'
+        WHEN d.family = 'marketing' AND d.rule_key <> 'new_event' AND sa.user_id IS NOT NULL THEN 'awaiting_announcement'
         WHEN d.family IN ('marketing', 'urgent') AND COALESCE(b.n, 0) >= v_per_event THEN 'event_budget'
         WHEN d.family = 'urgent' AND p.n24 >= v_urgent THEN 'daily_cap'
         WHEN d.family = 'marketing' AND p.n24 >= v_daily THEN 'daily_cap'
@@ -1203,6 +1214,7 @@ BEGIN
       FROM due d
       JOIN pressure p ON p.user_id = d.user_id
       LEFT JOIN budget b ON b.user_id = d.user_id AND b.event_id IS NOT DISTINCT FROM d.event_id
+      LEFT JOIN scheduled_ann sa ON sa.user_id = d.user_id AND sa.event_id = d.event_id
   ),
   ranked AS MATERIALIZED (
     SELECT j.id, j.score, j.prev_hold,
@@ -1326,11 +1338,22 @@ BEGIN
     UPDATE public.push_candidates c
        SET status = 'sent', decided_at = now(), campaign_id = p_campaign_id, hold_reason = NULL
      WHERE c.id = ANY (COALESCE(p_sent, ARRAY[]::bigint[])) AND c.status = 'claimed'
-    RETURNING c.user_id
+    RETURNING c.user_id, c.event_id, c.rule_key
+  ),
+  -- « Dernières places » ou « c'est ce soir » reçu : l'annonce encore en
+  -- attente pour la même personne et la même soirée n'a plus lieu d'être.
+  sup AS (
+    UPDATE public.push_candidates c
+       SET status = 'skipped', hold_reason = 'superseded', decided_at = now()
+      FROM s
+     WHERE s.rule_key IN ('sales_open', 'last_tickets', 'last_call')
+       AND c.rule_key = 'new_event' AND c.status = 'pending'
+       AND c.user_id = s.user_id AND c.event_id = s.event_id
+    RETURNING c.id
   ),
   ev AS (
     INSERT INTO public.push_campaign_events (campaign_id, user_id, event_type, platform)
-    SELECT p_campaign_id, s.user_id, 'sent', 'ios' FROM s
+    SELECT p_campaign_id, s.user_id, 'sent', 'ios' FROM s WHERE p_campaign_id IS NOT NULL
     ON CONFLICT (campaign_id, user_id, event_type) DO NOTHING
     RETURNING 1
   ),
@@ -1349,7 +1372,7 @@ BEGIN
   ),
   ev AS (
     INSERT INTO public.push_campaign_events (campaign_id, user_id, event_type, platform)
-    SELECT p_campaign_id, f.user_id, 'failed', 'ios' FROM f
+    SELECT p_campaign_id, f.user_id, 'failed', 'ios' FROM f WHERE p_campaign_id IS NOT NULL
     ON CONFLICT (campaign_id, user_id, event_type) DO NOTHING
     RETURNING 1
   )
@@ -1846,6 +1869,10 @@ REVOKE ALL ON FUNCTION public.client_push_policy(uuid, text) FROM PUBLIC, anon, 
 GRANT EXECUTE ON FUNCTION public.client_push_policy(uuid, text) TO service_role;
 
 -- ── 10. Ce que voit le pro ───────────────────────────────────────────────────
+-- « Protégées » = ce que la POLITIQUE a retenu (plafonds, heures calmes,
+-- fatigue, budget par soirée, priorité) jusqu'à la fin de la fenêtre. Pas un
+-- désabonnement (le choix du client), pas un « déjà acheté » (une bonne
+-- nouvelle, comptée à part), pas une annonce remplacée par « dernières places ».
 -- Toutes les notifications automatiques des soirées de la portée (menées,
 -- partenaires, co-hébergées), par soirée et par règle. Attribution « dernier
 -- tap » : une vente revient à la dernière notification touchée dans les 72 h
@@ -2001,8 +2028,8 @@ BEGIN
                AND x.status = 'pending') AS next_at,
            (SELECT count(*) FROM cand x WHERE x.event_id = k.event_id AND x.rule_key = k.rule
                AND x.status IN ('skipped', 'expired')
-               AND x.hold NOT IN ('already_bought', 'no_longer_relevant', 'event_cancelled', 'rule_off',
-                                  'no_device', 'no_profile', 'sold_out')) AS held,
+               AND x.hold IN ('daily_cap', 'weekly_cap', 'fatigue', 'quiet_hours', 'event_budget',
+                                  'lower_priority', 'awaiting_announcement', 'window_passed')) AS held,
            (SELECT count(*) FROM cand x WHERE x.event_id = k.event_id AND x.rule_key = k.rule
                AND x.hold = 'already_bought') AS bought_before
       FROM (SELECT DISTINCT camp.event_id, camp.rule FROM camp
@@ -2176,8 +2203,8 @@ BEGIN
       'buyers',  (SELECT count(DISTINCT t.user_id) FROM touch t),
       'revenue', round((SELECT COALESCE(sum(t.amount), 0) FROM touch t)::numeric, 2),
       'held',    (SELECT count(*) FROM q WHERE q.status IN ('skipped', 'expired')
-                    AND q.hold NOT IN ('already_bought', 'no_longer_relevant', 'event_cancelled', 'rule_off',
-                                       'no_device', 'no_profile', 'sold_out')),
+                    AND q.hold IN ('daily_cap', 'weekly_cap', 'fatigue', 'quiet_hours', 'event_budget',
+                                       'lower_priority', 'awaiting_announcement', 'window_passed')),
       'boughtBefore', (SELECT count(*) FROM q WHERE q.hold = 'already_bought')
     ),
     'queue', jsonb_build_object(
@@ -2197,8 +2224,8 @@ BEGIN
                'revenue', round((SELECT COALESCE(sum(t.amount), 0) FROM touch t WHERE t.rule = s.notification_key)::numeric, 2),
                'queued',  (SELECT count(*) FROM q WHERE q.rule_key = s.notification_key AND q.status IN ('pending', 'claimed')),
                'held',    (SELECT count(*) FROM q WHERE q.rule_key = s.notification_key AND q.status IN ('skipped', 'expired')
-                             AND q.hold NOT IN ('already_bought', 'no_longer_relevant', 'event_cancelled', 'rule_off',
-                                                'no_device', 'no_profile', 'sold_out')),
+                             AND q.hold IN ('daily_cap', 'weekly_cap', 'fatigue', 'quiet_hours', 'event_budget',
+                                                'lower_priority', 'awaiting_announcement', 'window_passed')),
                'heldBy',  COALESCE((SELECT jsonb_object_agg(h.hold, h.n) FROM (
                              SELECT q.hold, count(*) AS n FROM q
                               WHERE q.rule_key = s.notification_key AND q.status IN ('skipped', 'expired') AND q.hold <> ''

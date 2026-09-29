@@ -143,7 +143,7 @@ crédits des pros (allocation, bonus, demandes).
 
 ## 4. Migration et déploiement
 
-Migration `push_engine.sql` (brouillon : `docs/designs/notification-engine/push_engine_migration.draft.sql`), puis déployer ENSEMBLE :
+Migration `20260930100000_push_engine.sql`, puis déployer ENSEMBLE :
 `process-scheduled-campaigns`, `send-push-campaign`, `send-push-notification`,
 `event-reminder`, `cart-abandonment-check`.
 
@@ -164,15 +164,36 @@ fenêtre entre la migration et le déploiement.
 | 4 | Super admin | `/admin/notifications` refait avec `admin/ui.tsx` : moteur, règles + textes, système, crédits |
 | 5 | Autour | i18n ×3, mode d'emploi (`ohelp.*`), `owner-assistant`, alerte `admin_push_credit_request`, CLAUDE.md, tests des helpers front, lint / build / test, commit + push |
 
-## 6. Décisions à valider avant de coder
+## 6. Décisions prises (30/09, déléguées par le fondateur)
 
-1. **Crédit = 1 campagne** (pas 1 notification) — 4 / mois club, 4 organisateur, 2 agence, bonus par le super admin, **pas d'achat**.
-2. **Info soirée gratuite** (2 par soirée et par partie) pour les détenteurs de place.
-3. **Anciens clients** (12 mois) inclus dans l'annonce, en plus des abonnés.
-4. **Anniversaire et reconquête supprimés** comme automatisations séparées (la reconquête devient la raison « ancien client » de l'annonce).
-5. **Plafonds par défaut** : 1 marketing / 24 h, 3 / 7 j (4 engagé, 1 fatigué), 2 par soirée, heures calmes 22 h → 10 h.
-6. **Deux rappels le jour J** pour un acheteur (jour J + ouverture des portes), plus l'upsell VIP à J-3/J-1.
-7. **Seules les parties principales** (club, organisateur, partenaire du collab) peuvent programmer l'annonce ; un co-hôte voit tout mais ne décide pas.
+1. **Crédit = 1 campagne marketing, pas 1 notification.** Un push ne coûte rien
+   à envoyer ; ce qui est rare, c'est l'attention du client, et elle est déjà
+   protégée personne par personne. Le pro compte en campagnes, comme il pense.
+   4 / mois pour un club, 4 pour un organisateur (association comprise), 2 pour
+   une agence ; réglable globalement et par compte ; bonus attribués à la main,
+   sans expiration ; le mois non consommé ne se reporte pas. **Pas d'achat** :
+   vendre de la pression push dégraderait le canal qui fait vendre tout le monde.
+2. **Info soirée gratuite, 2 par soirée et par partie**, aux seuls détenteurs
+   d'une place de CETTE soirée (le « pratique » de Shotgun) ; hors plafonds,
+   mais l'opt-out marketing reste respecté.
+3. **Anciens clients inclus dans l'annonce** (12 mois, billet / table / guest
+   list chez une partie de la soirée), même sans abonnement : c'est l'audience
+   qui rachète le plus. Ils obéissent à la préférence « marketing » (pas à
+   « clubs suivis »), et la raison est gardée : le pro voit ce qu'ils rapportent.
+4. **Anniversaire et reconquête supprimés** comme automatisations séparées.
+   La reconquête devient la raison « ancien client » de l'annonce suivante —
+   un message avec une vraie soirée à la clé ; l'anniversaire sans offre était
+   du bruit.
+5. **Plafonds par défaut** : 1 marketing / 24 h, 3 / 7 j (4 pour un engagé,
+   1 pour un fatigué), 2 par soirée, panier abandonné 2 / 24 h, heures calmes
+   22 h → 10 h Paris. Tous réglables depuis le super admin, et lus aussi par les
+   campagnes manuelles et les crons plateforme (une seule politique).
+6. **Deux rappels le jour J** pour un détenteur de place (le rappel du jour,
+   puis l'ouverture des portes, sautée pour qui est déjà entré), plus l'upsell
+   VIP à J-3/J-1 : ce sont des messages sur une soirée ACHETÉE, hors plafonds.
+7. **Seules les parties principales** (club, organisateur, partenaire du
+   collab) de niveau gestion programment l'annonce ; un co-hôte voit tout, ses
+   chiffres « via ton audience » compris, mais ne décide pas pour la soirée.
 
 ## 7. Plus tard
 

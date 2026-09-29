@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendApns, apnsConfigured, APNS_TOPIC, APNS_TOPIC_PRO } from "../_shared/apns.ts";
 import { isAutoPushEnabled, autoTrackUrl, renderAutoTpl, resolveUserLang, logAutoPushOutcome } from "../_shared/auto-push.ts";
+import { enqueueLineupAnnouncement } from "../_shared/push-engine.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 
 const corsHeaders = {
@@ -313,15 +314,17 @@ function buildDjLineupEmail(opts: {
 }
 
 /**
- * A2 — fan out a "your followed DJ just got added to a line-up" push to a DJ's
- * followers. Geo-filtered + opt-in + dedup all live in the RPC; this only sends.
- * Only the event's owner (venue owner or organizer) may trigger it.
+ * A2 — un DJ suivi rejoint un line-up. Le PUSH passe par le moteur de
+ * notifications (les fans entrent dans l'annonce de la soirée, arbitrée comme
+ * toutes les autres) ; l'email de repli ne part qu'aux fans sans l'app.
+ * Déclenché par le club, l'organisateur, le partenaire du collab ou le DJ
+ * lui-même (sa propre présence à l'affiche).
  */
 async function handleDjLineup(
   req: Request,
   supabase: SupabaseClient,
-  vapidPublicKey: string,
-  vapidPrivateKey: string,
+  _vapidPublicKey: string,
+  _vapidPrivateKey: string,
   body: { event_id?: string; dj_ids?: string[]; dj_id?: string },
 ) {
   const eventId: string | undefined = body.event_id;
@@ -343,7 +346,7 @@ async function handleDjLineup(
 
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, start_at, venue_id, organizer_user_id, location_city')
+    .select('id, title, start_at, venue_id, organizer_user_id, partner_organizer_id, location_city')
     .eq('id', eventId)
     .maybeSingle();
   if (!event) {
@@ -354,9 +357,10 @@ async function handleDjLineup(
   if (event.venue_id) {
     const { data: venue } = await supabase.from('venues').select('owner_id').eq('id', event.venue_id).maybeSingle();
     owns = venue?.owner_id === callerId;
-  } else if (event.organizer_user_id) {
-    owns = event.organizer_user_id === callerId;
   }
+  // L'organisateur d'une soirée (menée chez un club comprise) et le
+  // partenaire d'un collab composent aussi le line-up.
+  if (!owns) owns = event.organizer_user_id === callerId || event.partner_organizer_id === callerId;
   if (!owns) {
     // Un DJ peut annoncer SA propre présence à l'affiche (cas : il vient
     // d'accepter une demande de booking liée à la soirée — le RPC d'acceptation
@@ -383,79 +387,35 @@ async function handleDjLineup(
   let dateStr = '';
   if (event.start_at) {
     try {
-      dateStr = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(event.start_at));
+      dateStr = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }).format(new Date(event.start_at));
     } catch { /* leave empty */ }
   }
 
-  let totalSent = 0;
-  let totalTargeted = 0;
+  // PUSH : les fans de ces DJ entrent dans l'ANNONCE de la soirée, tenue par le
+  // moteur de notifications (zone, grain personne, une annonce par personne et
+  // par soirée, heures calmes, plafonds). Plus jamais un push immédiat à 2 h du
+  // matin, ni une deuxième notification pour quelqu'un déjà prévenu.
+  const queued = await enqueueLineupAnnouncement(supabase, eventId, djIds);
+  const totalSent = 0;
+  let totalTargeted = queued;
 
-  for (const djId of djIds) {
-    // Recipients: geo-filtered + opt-in + not-already-notified (all in the RPC).
-    const { data: targets, error: tErr } = await supabase.rpc('get_dj_lineup_notification_targets', {
-      p_event_id: eventId,
-      p_dj_id: djId,
-    });
-    if (tErr) { console.error('[Push] targets RPC error:', tErr); continue; }
-    if (!targets?.length) continue;
-
-    // DJ display name + their event tracked link (so notif-driven sales are attributed to them).
-    const { data: dj } = await supabase.from('djs').select('stage_name, first_name, last_name').eq('id', djId).maybeSingle();
-    const djName = (dj?.stage_name || `${dj?.first_name || ''} ${dj?.last_name || ''}`.trim() || 'DJ');
-    const { data: link } = await supabase
-      .from('tracked_links')
-      .select('code')
-      .eq('event_id', eventId).eq('dj_id', djId).eq('owner_kind', 'dj')
-      .maybeSingle();
-    // ?an=dj_lineup → attribution du clic dans auto_push_events (PushClickTracker).
-    const url = autoTrackUrl(link?.code ? `${APP_BASE_URL}/l/${link.code}` : `${APP_BASE_URL}/event/${eventId}`, 'dj_lineup');
-
-    const notificationPayload = JSON.stringify({
-      title: `🎧 ${djName}`,
-      body: `${event.title || ''}${dateStr ? ' · ' + dateStr : ''}`.trim() || djName,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      url,
-    });
-
-    const targetedUserIds = new Set<string>();
-    const sentUserIds = new Set<string>();
-    for (const sub of targets as (Subscription & { user_id: string })[]) {
-      // Annonce de line-up : contenu client, app Yuno uniquement. Les lignes
-      // 'web' héritées de la PWA et les tokens Yuno Pro sont ignorés.
-      if (sub.platform !== 'ios') continue;
-      targetedUserIds.add(sub.user_id);
-      const res = await sendToSubscription(supabase, sub, notificationPayload, vapidPublicKey, vapidPrivateKey);
-      if (res === 'ok') { totalSent++; sentUserIds.add(sub.user_id); }
-    }
-
-    // On ne marque « notifié » que les push RÉUSSIS. Un échec ne doit jamais entrer
-    // dans dj_lineup_notifications : le RPC (filtre not-already-notified) exclurait ce
-    // follower à jamais — ni retry au prochain enregistrement du line-up, ni email
-    // fallback (même table de dédup). auto_push_events, lui, garde la trace de CHAQUE
-    // tentative (sent/failed) pour le registre /admin/notifications.
-    if (targetedUserIds.size > 0) {
-      const targetedIds = [...targetedUserIds];
-      totalTargeted += targetedIds.length;
-      const sentIds = [...sentUserIds];
-      if (sentIds.length > 0) {
-        await supabase.from('dj_lineup_notifications').upsert(
-          sentIds.map((uid) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
-          { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
-        );
-        await supabase.from('notification_log').insert(
-          sentIds.map((uid) => ({ user_id: uid, notification_type: 'dj_lineup', title: djName })),
-        );
-      }
-      // Tracking du registre auto (/admin/notifications) : sent/failed par follower.
-      await supabase.from('auto_push_events').insert(
-        targetedIds.map((uid) => ({
-          notification_key: 'dj_lineup',
-          user_id: uid,
-          event_type: sentUserIds.has(uid) ? 'sent' : 'failed',
-          platform: 'ios',
-        })),
-      );
+  // Qui recevra le push (app Yuno installée) ne reçoit pas l'email de repli.
+  const pushReachable = new Set<string>();
+  {
+    // Grain PERSONNE : un fan suit le DJ par n'importe laquelle de ses fiches.
+    const { data: persons } = await supabase.from('djs').select('user_id').in('id', djIds);
+    const personIds = [...new Set((persons || []).map((d: { user_id: string | null }) => d.user_id).filter(Boolean) as string[])];
+    const { data: fiches } = personIds.length
+      ? await supabase.from('djs').select('id').in('user_id', personIds)
+      : { data: [] as Array<{ id: string }> };
+    const ficheIds = [...new Set([...djIds, ...(fiches || []).map((d: { id: string }) => d.id)])];
+    const { data: fans } = await supabase
+      .from('favorites').select('user_id').eq('favorite_type', 'dj').in('dj_id', ficheIds);
+    const fanIds = [...new Set((fans || []).map((f: { user_id: string | null }) => f.user_id).filter(Boolean) as string[])];
+    for (let i = 0; i < fanIds.length; i += 500) {
+      const { data: subs } = await supabase
+        .from('push_subscriptions').select('user_id').eq('platform', 'ios').in('user_id', fanIds.slice(i, i + 500));
+      (subs || []).forEach((r: { user_id: string }) => pushReachable.add(r.user_id));
     }
   }
 
@@ -469,7 +429,8 @@ async function handleDjLineup(
         p_dj_id: djId,
       });
       if (eErr) { console.error('[Email] targets RPC error:', eErr); continue; }
-      if (!emailTargets?.length) continue;
+      const emailOnly = ((emailTargets || []) as Array<{ user_id: string }>).filter((r) => !pushReachable.has(r.user_id));
+      if (!emailOnly.length) continue;
 
       const { data: dj } = await supabase
         .from('djs').select('stage_name, first_name, last_name, profile_image_url')
@@ -489,7 +450,7 @@ async function handleDjLineup(
         preferred_language: string | null;
         unsubscribe_token: string | null;
       };
-      const batch = (emailTargets as DjLineupEmailTarget[]).map((r) => {
+      const batch = (emailOnly as DjLineupEmailTarget[]).map((r) => {
         const lang = r.preferred_language === 'fr' ? 'fr' : r.preferred_language === 'es' ? 'es' : 'en';
         const city: string = event.location_city || '';
         const subject = lang === 'fr'
@@ -523,7 +484,7 @@ async function handleDjLineup(
       }
 
       // Mark emailed users as notified so they don't receive push next time.
-      const emailUserIds = (emailTargets as { user_id: string }[]).map((r) => r.user_id);
+      const emailUserIds = emailOnly.map((r) => r.user_id);
       await supabase.from('dj_lineup_notifications').upsert(
         emailUserIds.map((uid: string) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
         { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
