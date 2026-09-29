@@ -32,12 +32,20 @@ interface ActionRequest {
  * state (waiting / to-approve / scheduled) reads identically on both sides.
  */
 export function CollabActionControls({
-  eventId, myRole, isPaused, onChanged,
+  eventId, myRole, isPaused, onChanged, requestsOnly = false, buttonsOnly = false,
 }: {
   eventId: string;
   myRole: Role;
   isPaused: boolean;
   onChanged?: () => void;
+  /**
+   * Carte du hub : seulement une DEMANDE en cours (à approuver, en attente,
+   * programmée) — jamais les boutons pause / suppression, qui vivent repliés
+   * dans « Gérer la collaboration » sur la page de la soirée.
+   */
+  requestsOnly?: boolean;
+  /** Le pendant de `requestsOnly` : seulement les boutons, la demande en cours s'affichant ailleurs. */
+  buttonsOnly?: boolean;
 }) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -112,6 +120,8 @@ export function CollabActionControls({
   const btn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5, fontWeight: 560, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 };
   const banner: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 11 };
 
+  if (buttonsOnly && req) return null;
+
   // ── Active request: scheduled (deferred to after the live event) ─────────────
   if (req && req.status === 'scheduled') {
     return (
@@ -166,6 +176,7 @@ export function CollabActionControls({
   }
 
   // ── No active request: default controls ──────────────────────────────────────
+  if (requestsOnly) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {isPaused ? (

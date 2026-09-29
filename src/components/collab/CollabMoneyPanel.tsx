@@ -68,7 +68,9 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
   const t = (f: string, e: string, s?: string) => translate(language, f, e, s);
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const fmtDay = (iso: string) => formatInTimeZone(new Date(iso), PARIS_TIMEZONE, 'EEE d MMM', { locale });
-  const eur = (v: number) => `${v.toFixed(2)} €`;
+  // Au centime (c'est de l'argent réparti) et au format de la langue : « 552,00 € », jamais « 552.00 € ».
+  const eurFmt = new Intl.NumberFormat(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const eur = (v: number) => eurFmt.format(v);
 
   const shareKey = isVenue ? 'venue_pct' : 'organizer_pct';
   const norm = normalizeSplitRules(event.revenue_split_rules);

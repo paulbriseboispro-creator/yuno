@@ -836,7 +836,7 @@ const App = () => (
                 {/* Public organizer profile (slug-based) */}
                 <Route path="/o/:slug" element={<OrganizerPublicProfile />} />
 
-                <Route path="/owner/partnerships" element={<Navigate to="/owner/collaborations?tab=organizers" replace />} />
+                <Route path="/owner/partnerships" element={<Navigate to="/owner/collaborations?tab=partners" replace />} />
                 <Route path="/accept-organizer-invitation" element={<AcceptOrganizerInvitation />} />
 
                 {/* Public routes accessible to all authenticated users */}

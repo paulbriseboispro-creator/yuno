@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { useOrganizerPartnerships, type VenueOrganizerPartnership, type PartnershipSplitRules, getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Building2, Send, Check, X, Trash2, Inbox, Search, Settings2, Loader2 } from 'lucide-react';
+import { Building2, Send, Check, X, Trash2, Inbox, Search, Settings2, Loader2, Sparkles, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -37,7 +39,7 @@ const dialogStyle = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDE
 
 /**
  * "Clubs partenaires" tab of the organizer Collaborations hub — parity with the
- * club's /owner/collaborations?tab=organizers. Manage partnerships with Yuno clubs:
+ * club's /owner/collaborations?tab=partners. Manage partnerships with Yuno clubs:
  * received invitations, active partnerships (with editable revenue splits), pending
  * requests, and history. Inviting a brand-new club not yet on Yuno lives in the
  * separate "Inviter" tab.
@@ -49,6 +51,21 @@ export function PartnerClubsTab() {
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [editSplitFor, setEditSplitFor] = useState<VenueOrganizerPartnership | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
+  const [showPast, setShowPast] = useState(false);
+  const canAct = useCollabOrgCanAct('organizer');
+  // « Nouvelle collaboration › Ajouter un club déjà sur Yuno » arrive ici avec
+  // `?request=1` : on ouvre la recherche, puis on nettoie l'adresse.
+  const [params, setParams] = useSearchParams();
+  const requestParam = params.get('request');
+  useEffect(() => {
+    if (requestParam !== '1') return;
+    if (canAct) setRequestOpen(true);
+    const next = new URLSearchParams(params);
+    next.delete('request');
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestParam, canAct]);
+  const proposeTo = (venueId: string) => setParams({ tab: 'nights', propose: venueId });
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<VenueSearchResult[]>([]);
   const [selectedVenue, setSelectedVenue] = useState<VenueSearchResult | null>(null);
@@ -88,19 +105,6 @@ export function PartnerClubsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p style={{ color: T3, fontSize: 13 }}>
-          {t(
-            'Connecte-toi à des clubs Yuno et gère vos partenariats et règles de partage.',
-            'Connect with Yuno clubs and manage your partnerships and split rules.',
-            'Conéctate con clubes Yuno y gestiona vuestros partenariados y reglas de reparto.',
-          )}
-        </p>
-        <OrgButton variant="primary" size="sm" onClick={() => setRequestOpen(true)}>
-          <Send className="h-4 w-4" /> {t('Demander un partenariat', 'Request a partnership', 'Solicitar un partenariado')}
-        </OrgButton>
-      </div>
-
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
       ) : (
@@ -113,7 +117,7 @@ export function PartnerClubsTab() {
               </div>
               <div className="grid gap-3">
                 {incoming.map((p) => (
-                  <PartnershipCard key={p.id} partnership={p} showAccept
+                  <PartnershipCard key={p.id} partnership={p} showAccept={canAct}
                     onAccept={() => respond.mutate({ id: p.id, accept: true })}
                     onDecline={() => respond.mutate({ id: p.id, accept: false })} />
                 ))}
@@ -122,20 +126,32 @@ export function PartnerClubsTab() {
           )}
 
           <section>
-            <div className="mb-3"><OrgSectionLabel>{t('Partenariats actifs', 'Active partnerships', 'Partenariados activos')} ({active.length})</OrgSectionLabel></div>
+            <div className="mb-3"><OrgSectionLabel>{t('Tes clubs partenaires', 'Your partner clubs', 'Tus clubes socios')} ({active.length})</OrgSectionLabel></div>
             {active.length === 0 ? (
-              <OrgEmptyState icon={Building2} title={t('Aucun partenariat actif pour le moment.', 'No active partnerships yet.', 'Aún no hay partenariados activos.')} />
+              <OrgEmptyState icon={Building2}
+                title={t('Aucun club partenaire pour le moment.', 'No partner club yet.', 'Aún no hay clubes socios.')}
+                description={t(
+                  'Un club partenaire accepte une fois ; ensuite vous vous proposez des soirées en un clic, avec vos conditions habituelles.',
+                  'A partner club accepts once; then you propose events to each other in one click, with your usual terms.',
+                  'Un club socio acepta una vez; luego os proponéis eventos en un clic, con vuestras condiciones habituales.',
+                )}
+                action={canAct ? (
+                  <OrgButton variant="secondary" size="sm" onClick={() => setRequestOpen(true)}>
+                    <Search className="h-4 w-4" /> {t('Trouver un club sur Yuno', 'Find a club on Yuno', 'Buscar un club en Yuno')}
+                  </OrgButton>
+                ) : undefined} />
             ) : (
               <div className="grid gap-3">
                 {active.map((p) => (
                   <PartnershipCard
                     key={p.id}
                     partnership={p}
-                    onEditSplit={() => setEditSplitFor(p)}
+                    onProposeEvent={canAct ? () => proposeTo(p.venue_id) : undefined}
+                    onEditSplit={canAct ? () => setEditSplitFor(p) : undefined}
                     onAcceptProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: true })}
                     onDeclineProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: false })}
                     proposalPending={respondToSplitProposal.isPending}
-                    onRevoke={() => { if (confirm(t('Révoquer ce partenariat ? Cette action est définitive.', 'Revoke this partnership? This action is permanent.', '¿Revocar este partenariado? Esta acción es definitiva.'))) revoke.mutate(p.id); }}
+                    onRevoke={!canAct ? undefined : () => { if (confirm(t('Révoquer ce partenariat ? Cette action est définitive.', 'Revoke this partnership? This action is permanent.', '¿Revocar este partenariado? Esta acción es definitiva.'))) revoke.mutate(p.id); }}
                   />
                 ))}
               </div>
@@ -146,17 +162,22 @@ export function PartnerClubsTab() {
             <section>
               <div className="mb-3"><OrgSectionLabel>{t('Demandes en attente', 'Pending requests', 'Solicitudes pendientes')} ({outgoing.length})</OrgSectionLabel></div>
               <div className="grid gap-3">
-                {outgoing.map((p) => <PartnershipCard key={p.id} partnership={p} onRevoke={() => revoke.mutate(p.id)} />)}
+                {outgoing.map((p) => <PartnershipCard key={p.id} partnership={p} onRevoke={canAct ? () => revoke.mutate(p.id) : undefined} />)}
               </div>
             </section>
           )}
 
           {past.length > 0 && (
             <section>
-              <div className="mb-3"><OrgSectionLabel>{t('Historique', 'History', 'Historial')}</OrgSectionLabel></div>
-              <div className="grid gap-3 opacity-70">
-                {past.map((p) => <PartnershipCard key={p.id} partnership={p} />)}
-              </div>
+              <button type="button" onClick={() => setShowPast((v) => !v)} className="mb-3 flex cursor-pointer items-center gap-1.5">
+                <OrgSectionLabel>{t('Historique', 'History', 'Historial')} ({past.length})</OrgSectionLabel>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPast ? 'rotate-180' : ''}`} style={{ color: T3 }} />
+              </button>
+              {showPast && (
+                <div className="grid gap-3 opacity-70">
+                  {past.map((p) => <PartnershipCard key={p.id} partnership={p} />)}
+                </div>
+              )}
             </section>
           )}
         </div>
@@ -253,9 +274,10 @@ export function PartnerClubsTab() {
 }
 
 function PartnershipCard({
-  partnership, showAccept, onAccept, onDecline, onRevoke, onEditSplit, onAcceptProposal, onDeclineProposal, proposalPending,
+  partnership, showAccept, onAccept, onDecline, onRevoke, onEditSplit, onProposeEvent, onAcceptProposal, onDeclineProposal, proposalPending,
 }: {
   partnership: VenueOrganizerPartnership;
+  onProposeEvent?: () => void;
   showAccept?: boolean;
   onAccept?: () => void;
   onDecline?: () => void;
@@ -282,8 +304,7 @@ function PartnershipCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 560 }}>{partnership.venue?.name ?? t('Club', 'Club', 'Club')}</h3>
-            {status && <OrgPill tone={status.tone}>{t(status.fr, status.en, status.es)}</OrgPill>}
-            <OrgPill tone="muted">{partnership.initiated_by === 'venue' ? t('Initié par le club', 'Initiated by the club', 'Iniciado por el club') : t('Initié par toi', 'Initiated by you', 'Iniciado por ti')}</OrgPill>
+            {status && partnership.status !== 'active' && <OrgPill tone={status.tone}>{t(status.fr, status.en, status.es)}</OrgPill>}
           </div>
           {partnership.venue?.city && <div className="mt-0.5" style={{ color: T3, fontSize: 11.5 }}>{partnership.venue.city}</div>}
           {partnership.invitation_message && (
@@ -320,6 +341,9 @@ function PartnershipCard({
         </div>
 
         <div className="flex shrink-0 flex-col gap-2">
+          {onProposeEvent && (
+            <OrgButton size="sm" variant="primary" onClick={onProposeEvent}><Sparkles className="h-3.5 w-3.5" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}</OrgButton>
+          )}
           {showAccept && (
             <>
               <OrgButton size="sm" variant="primary" onClick={onAccept}><Check className="h-3.5 w-3.5" /> {t('Accepter', 'Accept', 'Aceptar')}</OrgButton>

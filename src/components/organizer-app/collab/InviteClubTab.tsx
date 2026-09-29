@@ -19,12 +19,12 @@ import {
 } from '@/components/org-ui';
 
 /**
- * "Inviter" tab of the organizer Collaborations hub — parity with the club's
- * /owner/collaborations?tab=invite. Email-invite a venue that isn't on Yuno yet;
- * they get a link to create a free Yuno Collaboration account and partner with you.
- * Connecting to a club that already has a Yuno account lives in "Clubs partenaires".
+ * Invitation par email d'un club qui n'est pas encore sur Yuno — ouverte depuis
+ * « Nouvelle collaboration › Inviter quelqu'un qui n'est pas sur Yuno » (ce
+ * n'est plus un onglet). Il reçoit un lien pour créer son compte gratuit Yuno
+ * Collaboration, avec la soirée et les conditions déjà posées.
  */
-export function InviteClubTab() {
+export function InviteClubTab({ onSent }: { onSent?: () => void } = {}) {
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -90,7 +90,7 @@ export function InviteClubTab() {
         body: { ...form, lang: mailLang, event_id: eventId || null, organizer_user_id: orgId, default_split_rules: buildRules(), origin: window.location.origin },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error: string }).error);
       toast({
         title: t('Invitation envoyée 📧', 'Invitation sent 📧', 'Invitación enviada 📧'),
         description: t(
@@ -100,8 +100,9 @@ export function InviteClubTab() {
         ),
       });
       setForm({ club_name: '', club_email: '', club_city: '', club_address: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
-    } catch (err: any) {
-      toast({ title: t('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' });
+      onSent?.();
+    } catch (err) {
+      toast({ title: t('Erreur', 'Error', 'Error'), description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
     } finally {
       setInviting(false);
     }
@@ -211,9 +212,9 @@ export function InviteClubTab() {
           <Info className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#E8192C' }} />
           <p style={{ color: T3, fontSize: 12, lineHeight: 1.55 }}>
             {t('Le club recevra un accès', 'The club will get a', 'El club recibirá un acceso')} <strong style={{ color: T1 }}>Yuno Collaboration</strong> {t(
-              'gratuit (page publique, stats, paiements). Il pourra activer un plan complet plus tard. Un club déjà sur Yuno ? Utilise plutôt l’onglet « Clubs partenaires ».',
-              'free access (public page, stats, payments). They can activate a full plan later. Already on Yuno? Use the "Partner clubs" tab instead.',
-              'gratuito (página pública, estadísticas, pagos). Podrá activar un plan completo más tarde. ¿Ya está en Yuno? Usa la pestaña «Clubes asociados».',
+              'gratuit (page publique, stats, paiements). Il pourra activer un plan complet plus tard.',
+              'free access (public page, stats, payments). They can activate a full plan later.',
+              'gratuito (página pública, estadísticas, pagos). Podrá activar un plan completo más tarde.',
             )}
           </p>
         </div>

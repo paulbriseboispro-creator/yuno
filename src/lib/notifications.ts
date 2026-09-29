@@ -413,7 +413,7 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
         if (isOrganizer) return `${basePath}/events/${eventId}`;
       }
       if (isOwner || isOrganizer) {
-        return eventId ? `${basePath}/coorg/${eventId}` : `${basePath}/collaborations?tab=coorg`;
+        return eventId ? `${basePath}/coorg/${eventId}` : `${basePath}/collaborations?tab=nights`;
       }
       return null;
 

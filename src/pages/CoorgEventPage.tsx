@@ -30,7 +30,7 @@ export default function CoorgEventPage() {
       .then(({ data }) => setEvent(data as typeof event));
   }, [eventId]);
 
-  const back = `${basePath}/collaborations?tab=coorg`;
+  const back = `${basePath}/collaborations?tab=nights`;
   const title = t('Co-organisation', 'Co-organization', 'Coorganización');
 
   return (
