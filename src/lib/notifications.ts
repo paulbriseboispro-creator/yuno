@@ -11,7 +11,7 @@ import {
   UserCheck, AlertTriangle, Receipt, Music, Handshake, MessageSquare,
   Martini, DoorOpen, Gauge, Target, ShieldAlert, Clock,
   KeyRound, CalendarClock, Hourglass, ListChecks, Building2, UserPlus,
-  Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren, UserX,
+  Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren, UserX, Bell,
 } from 'lucide-react';
 
 export interface AppNotif {
@@ -153,6 +153,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // Sécurité : comptes passés organisateur sans chemin serveur (migration 20260924140000).
   admin_security_self_organizer: { icon: ShieldAlert, category: 'system', label: 'notif.type.admin_security_self_organizer' },
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
+  // Un pro demande des crédits de campagnes push (moteur de notifications).
+  admin_push_credit_request: { icon: Bell,          category: 'growth',    label: 'notif.type.admin_push_credit_request' },
   // Accuse de fin d'envoi d'une campagne Yuno (portee plateforme).
   admin_platform_campaign_sent: { icon: Mail,      category: 'growth',    label: 'notif.type.admin_platform_campaign_sent' },
   admin_campaign_closed_early: { icon: AlertTriangle, category: 'capacity', label: 'notif.type.admin_campaign_closed_early' },
@@ -640,6 +642,13 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
       return '/admin/signups';
+
+    // Demande de crédits push : l'onglet Crédits du moteur de notifications,
+    // cherché sur le compte demandeur (reference_id = 'venue:…' / 'org:…').
+    case 'admin_push_credit_request': {
+      const name = typeof n.metadata?.name === 'string' ? n.metadata.name : '';
+      return `/admin/notifications?tab=credits${name ? `&q=${encodeURIComponent(name)}` : ''}`;
+    }
 
     // Stripe a refusé d'ouvrir le compte connecté d'un pro : on ouvre sa fiche.
     case 'admin_stripe_connect_failed':

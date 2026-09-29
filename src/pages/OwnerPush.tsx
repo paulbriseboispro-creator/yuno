@@ -2,19 +2,17 @@ import { useState, useEffect, useMemo } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useSearchParams } from 'react-router-dom';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { Bell, Send, Loader2, Users, Zap, Sparkles, CalendarClock } from 'lucide-react';
+import { Bell, Send, Loader2, Users, Sparkles, CalendarClock, Coins } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
-import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
-  PUSH_TEMPLATES, PUSH_AUTOMATIONS, renderPushTemplate,
-  type PushTemplate, type PushAutomation,
+  PUSH_TEMPLATES, renderPushTemplate,
+  type PushTemplate,
 } from '@/lib/pushTemplates';
 import { eventPath } from '@/lib/eventUrl';
 import AIContentGenerator from '@/components/campaigns/AIContentGenerator';
@@ -24,6 +22,12 @@ import { usePushCampaigns } from '@/hooks/usePushCampaigns';
 import type { PushFilter } from '@/lib/pushHistory';
 import { PUBLIC_BASE_URL } from '@/lib/native';
 import { capturePosthog } from '@/lib/posthog';
+import { useTabParam } from '@/hooks/useTabParam';
+import { Segmented } from '@/components/event-report/ui';
+import PushCenterView from '@/components/push/PushCenterView';
+import PushCreditsCard from '@/components/push/PushCreditsCard';
+import { usePushCredits } from '@/hooks/usePushCenter';
+import { campaignCost, type PushCredits } from '@/lib/pushEngine';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
 const RED        = '#E8192C';
@@ -75,8 +79,9 @@ export default function OwnerPush() {
   const isOrg = dashScope === 'organizer';
   const ready = isOrg ? !!organizerUserId : !!venueId;
   const scopeBody = isOrg ? { organizer_user_id: organizerUserId } : { venue_id: venueId };
-  const { hasFeature } = useSubscriptionPlan();
-  const hasAdvancedCrm = hasFeature('personalization_advanced');
+  // Deux onglets adressables (barre latérale) : ce que Yuno envoie pour toi,
+  // et tes propres campagnes (crédits).
+  const [tab, setTab] = useTabParam<'auto' | 'campaigns'>('auto', ['auto', 'campaigns'] as const);
 
   const [template, setTemplate] = useState<PushTemplate | null>(null);
   const [title, setTitle] = useState('');
@@ -102,15 +107,17 @@ export default function OwnerPush() {
   const [policyKind, setPolicyKind] = useState<'marketing' | 'event' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<PushFilter>('all');
+  const [historyFilter, setHistoryFilter] = useState<PushFilter>('manual');
   const [historyPage, setHistoryPage] = useState(0);
   const [orgProfile, setOrgProfile] = useState<{ name: string; slug: string | null } | null>(null);
   const [savedSegments, setSavedSegments] = useState<Array<{ id: string; name: string }>>([]);
   const [scheduledAt, setScheduledAt] = useState<string>(''); // datetime-local ; vide = envoi immédiat
   const [bestSlot, setBestSlot] = useState<{ dow: number; hour: number } | null>(null);
-  const [automations, setAutomations] = useState<Record<string, boolean>>({});
-  const [automationParams, setAutomationParams] = useState<Record<string, { days?: number }>>({});
-  const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  // Ce que l'envoi coûtera (réponse du dry_run) : 1 crédit pour une campagne
+  // marketing, gratuit pour un message aux détenteurs d'une soirée.
+  const [dryCredits, setDryCredits] = useState<PushCredits | null>(null);
+  const [eventInfoLeft, setEventInfoLeft] = useState<number | null>(null);
+  const [marketingLast24h, setMarketingLast24h] = useState(0);
 
   const scope = audience === 'rfm' ? `rfm:${rfmSegment}` : audience;
   const needsEvent = audience === 'event_tickets' || audience === 'checked_in';
@@ -157,6 +164,8 @@ export default function OwnerPush() {
     HISTORY_PAGE_SIZE,
   );
   const reloadHistory = history.reload;
+  const creditsScope = isOrg ? { organizerUserId } : { venueId };
+  const { credits, loading: creditsLoading, reload: reloadCredits } = usePushCredits(creditsScope);
 
   // Meilleur créneau d'envoi (user_send_profiles agrégés par get_audience_notifications).
   // Best-effort : sans données, le hint ne s'affiche pas.
@@ -173,71 +182,7 @@ export default function OwnerPush() {
     })();
   }, [ready, isOrg, venueId, organizerUserId]);
 
-  // État des automatisations du club (toggles opt-in, désactivés par défaut).
-  useEffect(() => {
-    if (!venueId) return;
-    supabase
-      .from('venue_push_automations' as never)
-      .select('automation_key, enabled, params')
-      .eq('venue_id', venueId)
-      .then(({ data }) => {
-        const map: Record<string, boolean> = {};
-        const params: Record<string, { days?: number }> = {};
-        (((data as unknown) as Array<{ automation_key: string; enabled: boolean; params?: { days?: number } | null }>) || [])
-          .forEach((r) => { map[r.automation_key] = r.enabled; if (r.params) params[r.automation_key] = r.params; });
-        setAutomations(map);
-        setAutomationParams(params);
-      });
-  }, [venueId]);
-
-  const toggleAutomation = async (key: string) => {
-    if (!venueId || togglingKey) return;
-    setTogglingKey(key);
-    const next = !automations[key];
-    // Optimiste : la carte réagit tout de suite, on revient en arrière si erreur.
-    setAutomations((p) => ({ ...p, [key]: next }));
-    try {
-      const { error } = await supabase
-        .from('venue_push_automations' as never)
-        .upsert(
-          { venue_id: venueId, automation_key: key, enabled: next, updated_at: new Date().toISOString() } as never,
-          { onConflict: 'venue_id,automation_key' },
-        );
-      if (error) throw error;
-      toast.success(next ? t('ownerPush.autoEnabled') : t('ownerPush.autoDisabled'));
-    } catch {
-      setAutomations((p) => ({ ...p, [key]: !next }));
-      toast.error(t('ownerPush.autoError'));
-    } finally {
-      setTogglingKey(null);
-    }
-  };
-
-  // Paramètre { days } du win_back — upsert sans toucher au toggle.
-  const setAutomationDays = async (key: string, days: number) => {
-    if (!venueId) return;
-    const prev = automationParams[key];
-    setAutomationParams((p) => ({ ...p, [key]: { ...p[key], days } }));
-    try {
-      const { error } = await supabase
-        .from('venue_push_automations' as never)
-        .upsert(
-          { venue_id: venueId, automation_key: key, enabled: !!automations[key], params: { days }, updated_at: new Date().toISOString() } as never,
-          { onConflict: 'venue_id,automation_key' },
-        );
-      if (error) throw error;
-    } catch {
-      setAutomationParams((p) => ({ ...p, [key]: prev || {} }));
-      toast.error(t('ownerPush.autoError'));
-    }
-  };
-
-  // Valeurs d'aperçu pour les cartes d'automatisation (soirée à venir la plus proche).
   const hostName = isOrg ? (orgProfile?.name || '') : (venue?.name || '');
-  const autoPreviewValues = useMemo(() => ({
-    venue: venue?.name || '',
-    event: events[0]?.title || t('ownerPush.autoSampleEvent'),
-  }), [venue?.name, events, t]);
 
   // Interpolation live du template tant que l'owner n'a pas édité à la main.
   const templateValues = useMemo(() => ({
@@ -265,6 +210,10 @@ export default function OwnerPush() {
   // Pré-sélection de modèle via ?prefill=<templateKey> — utilisée par les
   // alertes live ops (« Push flash drinks » quand le bar peut absorber plus).
   const [searchParams] = useSearchParams();
+  // Un lien « Push » depuis un segment ou une alerte ouvre directement l'envoi.
+  useEffect(() => {
+    if (searchParams.get('prefill') || searchParams.get('segment')) setTab('campaigns');
+  }, [searchParams, setTab]);
   useEffect(() => {
     const prefill = searchParams.get('prefill');
     if (!prefill) return;
@@ -340,6 +289,9 @@ export default function OwnerPush() {
         setQuietHours(!!data?.quiet_hours);
         setHeldBack(typeof data?.held_back === 'number' ? data.held_back : 0);
         setPolicyKind(data?.policy === 'event' || data?.policy === 'marketing' ? data.policy : null);
+        setDryCredits(data?.credits ?? null);
+        setEventInfoLeft(typeof data?.event_info_left === 'number' ? data.event_info_left : null);
+        setMarketingLast24h(typeof data?.marketing_last_24h === 'number' ? data.marketing_last_24h : 0);
         if (data?.error) setReachError(String(data.error));
       } catch (e) {
         console.error('[Push] dry_run failed:', e);
@@ -409,7 +361,16 @@ export default function OwnerPush() {
           if (errAny.context?.json) {
             const bodyJson = await errAny.context.json();
             if (bodyJson?.error === 'campaign_rate_limited') {
-              toast.error(t('ownerPush.rateLimited'));
+              toast.error(t('pe.send.rateLimited'));
+              return;
+            }
+            if (bodyJson?.error === 'no_credits') {
+              toast.error(t('pe.send.noCredits'));
+              reloadCredits();
+              return;
+            }
+            if (bodyJson?.error === 'event_info_limit') {
+              toast.error(t('pe.send.eventInfoLimit'));
               return;
             }
             if (bodyJson?.error === 'quiet_hours') {
@@ -442,6 +403,7 @@ export default function OwnerPush() {
       setScheduledAt('');
       setHistoryPage(0);
       reloadHistory();
+      reloadCredits();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('ownerPush.sendError'));
     } finally {
@@ -450,6 +412,15 @@ export default function OwnerPush() {
   };
 
   if (venueLoading || !ready) return <OwnerPageSkeleton />;
+
+  // Garde-fous des campagnes manuelles, lus dans le dry_run (le serveur tranche).
+  const isMarketing = campaignCost(scope) === 1;
+  const liveCredits = dryCredits ?? credits;
+  const blockedKey = isMarketing
+    ? ((liveCredits?.remaining ?? 1) <= 0 ? 'pe.send.noCreditsShort'
+      : (liveCredits && marketingLast24h >= liveCredits.marketingPer24h ? 'pe.send.rateLimitedShort' : ''))
+    : (eventInfoLeft === 0 ? 'pe.send.eventInfoLimitShort' : '');
+  const blocked = blockedKey !== '';
 
   const audienceOptions = isOrg
     ? [
@@ -481,24 +452,35 @@ export default function OwnerPush() {
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
 
         {/* Header */}
-        {isOrg ? (
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl flex-none"
-              style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-            >
-              <Bell className="h-4 w-4" style={{ color: RED }} />
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          {isOrg ? (
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-xl flex-none"
+                style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
+              >
+                <Bell className="h-4 w-4" style={{ color: RED }} />
+              </div>
+              <div>
+                <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
+                  {t('ownerPush.title')}
+                </h1>
+                <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>{t('pe.subtitle')}</p>
+              </div>
             </div>
-            <div>
-              <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
-                {t('ownerPush.title')}
-              </h1>
-              <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>{t('ph.orgSubtitle')}</p>
-            </div>
-          </div>
-        ) : (
-          <p style={{ color: T3, fontSize: 12.5 }}>{t('ownerPush.subtitle')}</p>
-        )}
+          ) : (
+            <p style={{ color: T3, fontSize: 12.5 }}>{t('pe.subtitle')}</p>
+          )}
+          <Segmented<'auto' | 'campaigns'>
+            label={t('pe.tabs.label')}
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'auto', label: t('pe.tabs.auto') },
+              { value: 'campaigns', label: t('pe.tabs.campaigns') },
+            ]}
+          />
+        </div>
 
         {history.data && (
           <FollowersNudge
@@ -508,88 +490,13 @@ export default function OwnerPush() {
           />
         )}
 
-        {/* ─── Notifications AUTOMATIQUES ──────────────────────────────── */}
-        {isOrg ? (
-          <div className="flex items-start gap-2.5" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18 }}>
-            <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
-            <div>
-              <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('ph.orgAutoTitle')}</p>
-              <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('ph.orgAutoBody')}</p>
-            </div>
-          </div>
-        ) : (
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
-          <div className="flex items-start gap-2.5 mb-1">
-            <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
-            <div>
-              <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
-                {t('ownerPush.autoSectionTitle')}
-              </h3>
-              <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('ownerPush.autoSectionSubtitle')}</p>
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3 mt-4">
-            {PUSH_AUTOMATIONS
-              .filter((auto: PushAutomation) => hasAdvancedCrm || !['vip_upsell', 'win_back', 'birthday'].includes(auto.key))
-              .map((auto: PushAutomation) => {
-              const on = !!automations[auto.key];
-              const previewTitle = renderPushTemplate(t(auto.titleKey), autoPreviewValues);
-              const previewBody = renderPushTemplate(t(auto.bodyKey), autoPreviewValues);
-              return (
-                <div
-                  key={auto.key}
-                  className="p-4 rounded-xl transition-all duration-150"
-                  style={{
-                    background: on ? 'rgba(232,25,44,0.07)' : TILE_BG,
-                    border: `1px solid ${on ? 'rgba(232,25,44,0.28)' : F_BORDER}`,
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <span style={{ fontSize: 20, lineHeight: 1 }}>{auto.emoji}</span>
-                      <div className="min-w-0">
-                        <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t(`ownerPush.autoName.${auto.key}`)}</p>
-                        <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>{t(`ownerPush.autoWhen.${auto.key}`)}</p>
-                      </div>
-                    </div>
-                    <Switch checked={on} onCheckedChange={() => toggleAutomation(auto.key)} disabled={togglingKey === auto.key} />
-                  </div>
-
-                  {/* Aperçu du message envoyé automatiquement */}
-                  <div className="rounded-lg p-2.5 mt-3" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                    <p className="truncate" style={{ color: T2, fontSize: 11.5, fontWeight: 600 }}>{previewTitle}</p>
-                    <p style={{ color: T3, fontSize: 11, lineHeight: 1.4, marginTop: 2 }}>{previewBody}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1.5 mt-2.5">
-                    <span className="flex items-center gap-1.5">
-                      <Users className="h-3 w-3" style={{ color: T3 }} />
-                      <span style={{ color: T3, fontSize: 10.5 }}>{t(auto.audienceKey)}</span>
-                    </span>
-                    {auto.key === 'win_back' && on && (
-                      <span className="flex items-center gap-1.5">
-                        <span style={{ color: T3, fontSize: 10.5 }}>{t('ownerPush.winBackAfter')}</span>
-                        <select
-                          value={String(automationParams.win_back?.days ?? 45)}
-                          onChange={(e) => setAutomationDays('win_back', Number(e.target.value))}
-                          className="rounded-md cursor-pointer"
-                          style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 10.5, padding: '2px 6px' }}
-                        >
-                          {[30, 45, 60, 90].map((d) => (
-                            <option key={d} value={d}>{t('ownerPush.winBackDays').replace('{days}', String(d))}</option>
-                          ))}
-                        </select>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p style={{ color: T3, fontSize: 11, marginTop: 14, lineHeight: 1.5 }}>{t('ownerPush.autoFootnote')}</p>
-        </div>
+        {/* ─── Automatiques : ce que Yuno envoie pour les soirées ─────────── */}
+        {tab === 'auto' && (
+          <PushCenterView scope={isOrg ? { organizerUserId } : { venueId }} />
         )}
+
+        {tab === 'campaigns' && (<>
+        <PushCreditsCard credits={credits} loading={creditsLoading} scope={creditsScope} onChanged={reloadCredits} />
 
         {/* ─── Notifications MANUELLES ─────────────────────────────────── */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
@@ -783,6 +690,21 @@ export default function OwnerPush() {
                 )}
               </div>
 
+              {/* Ce que coûte l'envoi : 1 crédit (marketing) ou gratuit (info soirée) */}
+              {(() => {
+                const cost = campaignCost(scope);
+                const left = dryCredits?.remaining ?? credits?.remaining ?? null;
+                const text = cost === 0
+                  ? (eventInfoLeft == null ? t('pe.cost.eventInfo') : t('pe.cost.eventInfoLeft').replace('{n}', String(eventInfoLeft)))
+                  : (left == null ? t('pe.cost.oneCredit') : (left === 1 ? t('pe.cost.oneCreditLeftOne') : t('pe.cost.oneCreditLeft')).replace('{n}', String(left)));
+                return (
+                  <p className="flex items-center gap-2" style={{ color: blocked ? RED : T2, fontSize: 12 }}>
+                    <Coins className="h-3.5 w-3.5 flex-none" />{text}
+                    {blocked && <span style={{ color: RED }}> · {t(blockedKey)}</span>}
+                  </p>
+                );
+              })()}
+
               {/* Portée + envoi */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <span className="flex items-center gap-2 tabular-nums" style={{ color: T2, fontSize: 12.5 }}>
@@ -795,12 +717,12 @@ export default function OwnerPush() {
                 </span>
                 <button
                   onClick={() => setConfirmOpen(true)}
-                  disabled={sending || quietHours || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0}
+                  disabled={sending || quietHours || blocked || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0}
                   className="inline-flex items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
                   style={{
                     background: RED, color: '#fff', padding: '11px 18px',
                     boxShadow: `0 0 18px -6px ${RED}88`,
-                    opacity: (sending || quietHours || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
+                    opacity: (sending || quietHours || blocked || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
                   }}
                 >
                   {scheduledAt ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
@@ -868,7 +790,7 @@ export default function OwnerPush() {
                   </div>
                 </div>
               </div>
-              <p style={{ color: T3, fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>{t('ownerPush.rateNote')}</p>
+              <p style={{ color: T3, fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>{t('pe.rateNote')}</p>
             </div>
           </div>
         )}
@@ -884,8 +806,9 @@ export default function OwnerPush() {
           page={historyPage}
           onPage={setHistoryPage}
           pageSize={HISTORY_PAGE_SIZE}
-          onChanged={reloadHistory}
+          onChanged={() => { reloadHistory(); reloadCredits(); }}
         />
+        </>)}
       </div>
 
       {/* Confirmation d'envoi */}

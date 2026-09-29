@@ -154,7 +154,13 @@ automatisations club, `agency_new_event`) et toutes les lignes
 déploiement, rien ne part deux fois ; au pire un rappel manque pendant la
 fenêtre entre la migration et le déploiement.
 
-## 5. Plan de réalisation (à lancer après validation)
+## 5. Plan de réalisation — livré le 30/09
+
+Les cinq lots sont dans le dépôt. Rien n'a encore tourné contre la base de
+production : la migration a été jouée sur un Postgres 16 local (avec des smoke
+tests d'arbitrage), les fonctions edge vérifiées par `deno check`, le front par
+les tests unitaires, le lint et le build. Reste à pousser la migration puis à
+déployer les cinq fonctions ensemble (§4).
 
 | # | Lot | Contenu |
 |---|---|---|

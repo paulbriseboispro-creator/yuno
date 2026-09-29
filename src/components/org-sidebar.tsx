@@ -208,7 +208,15 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 					],
 				},
 				{ title: t('sidebar.smsMarketing'), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },
-				{ title: t('sidebar.push'), path: "/organizer-app/push", icon: <BellIcon /> },
+				{
+					title: t('sidebar.push'),
+					path: "/organizer-app/push",
+					icon: <BellIcon />,
+					subItems: [
+						{ title: t('pe.tabs.auto'), path: "/organizer-app/push?tab=auto", icon: <ZapIcon />, isDefault: true },
+						{ title: t('pe.tabs.campaigns'), path: "/organizer-app/push?tab=campaigns", icon: <MegaphoneIcon /> },
+					],
+				},
 				{ title: t('sidebar.ads'), path: "/organizer-app/ads", icon: <RocketIcon />, badge: metaLive ? undefined : t('integ.buildingBadge') },
 				{
 					// Les quatre pages du programme promoteur n'étaient atteignables

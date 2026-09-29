@@ -171,8 +171,8 @@ export function renderEngineText(text: string, vars: Record<string, string>, max
   for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(v ?? "");
   out = out
     .replace(/\{[a-z_]+\}/g, "")
-    .replace(/\s+([,.])/g, "$1")
     .replace(/(—|-)\s*([,.])/g, "$2")
+    .replace(/\s+([,.])/g, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
   return clamp(out, max);
