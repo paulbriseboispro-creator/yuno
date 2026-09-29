@@ -404,6 +404,31 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   (PDF porte / détail / Excel) depuis le Service VIP orga, avec paiement,
   email, remarques, référence.
 - **Revenu club** : « CA Club / Net », fee Stripe 1.5 %, helpers dans `utils/fees.ts`. Refund côté club.
+- **Un revenu affiché = net des frais Yuno ; la dépense client est une autre
+  grandeur** (2026-09-29, migration `20260929230000`). Tout chiffre présenté à un
+  club, un organisateur, une agence ou un promoteur comme CA, revenu, gain ou
+  « ce que tu touches » est le CA club de `fees.ts` : billets `total_price −
+  service_fee − insurance_fee`, tables `total_price − service_fee −
+  (fee_absorbed ? management_fee : 0)`, boissons `total − service_fee`,
+  remboursement déduit, statuts de la compta (billets `paid/used`, tables
+  `paid/confirmed`, commandes `paid/served`). Miroirs : `clubRevenue`
+  (`_shared/posthog.ts`), `calc*Revenue` (owner-assistant), les RPC d'analyse,
+  `analytics_wh.*.club_revenue`. Un `sum(total_price)` ou `sum(o.total)` nu dans
+  une RPC ou un écran pro est un bug. La **dépense** d'un client (CRM, RFM,
+  `venue_customers.total_spent`, panier, seuil de panier) reste ce qu'il a payé,
+  frais compris — légitime pour segmenter, mais son libellé dit « dépense »,
+  jamais « CA » ni « revenu ». Les commissions promoteur se calculent sur la
+  valeur faciale hors frais Yuno ; `agency_conversions.gross_amount` est une
+  commission due (promoteur + marge), jamais un volume de ventes. Le GMV et le
+  revenu Yuno du super admin sont des chiffres Yuno, libellés comme tels.
+  **Le net (Stripe déduit) ne vit que sous « Net versé » / « Gain net »** : toute
+  attribution (email, push, liens, SMS, pubs) et tout récap rend le CA club
+  (`20260929231000`). La bande « Volume brut − Stripe − Remboursements = Net
+  versé » passe par `payoutStrip` (`fees.ts`) : une vente remboursée en totalité
+  n'est plus `paid`, elle revient dans le brut et dans Stripe, puis chaque
+  remboursement sort UNE fois. Ventes promoteur affichées = conversions non
+  `cancelled` (le remboursement change le statut sans remettre `amount` à
+  zéro), libellées « Ventes attribuées », jamais « CA ».
 - **« Complet » posé à la main = porte unique `src/lib/soldOut.ts`** (2026-09-11,
   migration `20260911210000`). Fermer la vente d'un pilier SANS dépublier la
   soirée : `events.tickets_sold_out` / `tables_sold_out` / `guest_list_sold_out`

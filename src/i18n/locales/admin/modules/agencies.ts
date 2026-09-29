@@ -22,7 +22,9 @@ const dict: AdminDict = {
   'adm.ag.col.external': ['External clubs', 'Clubs externes', 'Clubs externos'],
   'adm.ag.col.events': ['Partner events', 'Soirées partenaires', 'Eventos asociados'],
   'adm.ag.col.clicks': ['Clicks', 'Clics', 'Clics'],
-  'adm.ag.col.gross': ['Gross sales', 'Ventes brutes', 'Ventas brutas'],
+  // Somme d'agency_conversions.gross_amount = commissions dues par les clubs
+  // (promoteur + marge agence), jamais un volume de ventes.
+  'adm.ag.col.gross': ['Commissions billed', 'Commissions facturées', 'Comisiones facturadas'],
   'adm.ag.col.status': ['Status', 'Statut', 'Estado'],
   'adm.ag.noArm': ['no affiliate arm', 'sans bras affilié', 'sin brazo afiliado'],
   'adm.ag.linktree': ['Link tree', 'Linktree', 'Linktree'],

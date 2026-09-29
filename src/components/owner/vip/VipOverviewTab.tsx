@@ -24,7 +24,8 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
 
   // ─── KPI Stats ───
   const stats = useMemo(() => {
-    const totalDeposits = reservations.reduce((s, r) => s + r.deposit, 0);
+    // Part du club : acompte moins les frais de gestion Yuno qu'il absorbe.
+    const totalDeposits = reservations.reduce((s, r) => s + r.deposit - (r.absorbedFee || 0), 0);
     const totalConsumption = consumptions.reduce((s, c) => s + c.totalPrice, 0);
     const totalRevenue = totalDeposits + totalConsumption;
     const totalGuests = reservations.reduce((s, r) => s + r.guestCount, 0);
@@ -95,7 +96,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
     reservations.forEach(r => {
       const existing = map.get(r.zoneId) || { name: r.zoneName, color: r.zoneColor, revenue: 0, count: 0 };
       const consumed = consumptions.filter(c => c.reservationId === r.id).reduce((s, c) => s + c.totalPrice, 0);
-      existing.revenue += r.deposit + consumed;
+      existing.revenue += r.deposit - (r.absorbedFee || 0) + consumed;
       existing.count += 1;
       map.set(r.zoneId, existing);
     });
@@ -164,7 +165,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
       const key = r.eventId;
       const existing = map.get(key) || { title: r.eventTitle || 'Event', revenue: 0, tables: 0 };
       const consumed = consumptions.filter(c => c.reservationId === r.id).reduce((s, c) => s + c.totalPrice, 0);
-      existing.revenue += r.deposit + consumed;
+      existing.revenue += r.deposit - (r.absorbedFee || 0) + consumed;
       existing.tables += 1;
       map.set(key, existing);
     });

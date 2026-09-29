@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { clubAmount, orderRevenue, ticketRevenue } from '@/utils/fees';
 import { subDays, subHours, differenceInDays, startOfDay, format } from 'date-fns';
 import {
   computeForecast,
@@ -84,6 +85,9 @@ type TicketRow = {
   created_at: string;
   quantity: number;
   total_price: number | null;
+  service_fee: number | null;
+  insurance_fee: number | null;
+  refund_amount: number | null;
   user_email: string | null;
 };
 type SessionRow = {
@@ -202,7 +206,7 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
       // Paid tickets for the target event (full history for pace curve).
       let ticketsQ = supabase
         .from('tickets')
-        .select('created_at, quantity, total_price, user_email, events!inner(venue_id)')
+        .select('created_at, quantity, total_price, service_fee, insurance_fee, refund_amount, user_email, events!inner(venue_id)')
         .eq('events.venue_id', venueId)
         .eq('status', 'paid');
       ticketsQ = eventId
@@ -329,7 +333,8 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
         return { t: new Date(tk.created_at).getTime(), cum };
       });
       const totalTicketsSold = cum;
-      const totalTicketRevenue = tickets.reduce((s, t) => s + (t.total_price || 0), 0);
+      // CA club (fees.ts) : frais Yuno et remboursement déduits.
+      const totalTicketRevenue = tickets.reduce((s, t) => s + clubAmount(ticketRevenue(t)), 0);
       const firstTicketAt = ticketsSorted.length
         ? new Date(ticketsSorted[0].created_at).getTime()
         : null;
@@ -410,7 +415,7 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
 
       // ── Orders (drink) for engagement display ──
       const paidOrders24 = (orders24 || []).filter((o) => o.status === 'paid' || o.status === 'served');
-      const orderRevenue24 = paidOrders24.reduce((s, o) => s + (o.total || 0), 0);
+      const orderRevenue24 = paidOrders24.reduce((s, o) => s + clubAmount(orderRevenue(o)), 0);
 
       // ════════════════════════════════════════════════
       //  HISTORICAL CURVE LEARNING (past completed events)
@@ -560,12 +565,12 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
             const sameStageBefore = subDays(new Date(prevEvent.start_at), daysUntil);
             const { data: prevTickets } = await supabase
               .from('tickets')
-              .select('quantity, total_price')
+              .select('quantity, total_price, service_fee, insurance_fee, refund_amount')
               .eq('event_id', prevEvent.id)
               .eq('status', 'paid')
               .lte('created_at', sameStageBefore.toISOString());
             const prevTicketCount = (prevTickets || []).reduce((s: number, t) => s + (t.quantity || 0), 0);
-            const prevRevenue = (prevTickets || []).reduce((s: number, t) => s + (t.total_price || 0), 0);
+            const prevRevenue = (prevTickets || []).reduce((s: number, t) => s + clubAmount(ticketRevenue(t)), 0);
             const { count: prevVisitorCount } = await supabase
               .from('visitor_sessions')
               .select('session_id', { count: 'exact', head: true })

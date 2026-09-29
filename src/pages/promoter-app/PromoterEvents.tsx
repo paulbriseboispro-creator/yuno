@@ -81,7 +81,7 @@ export default function PromoterEvents() {
       const live = c.status !== 'cancelled';
       if (live && c.conversion_type === 'ticket' && (c.amount || 0) > 0) convMap[c.event_id].tickets++;
       else if (live && c.conversion_type === 'table' && (c.amount || 0) > 0) convMap[c.event_id].tables++;
-      convMap[c.event_id].revenue += c.amount || 0;
+      if (live) convMap[c.event_id].revenue += c.amount || 0;
       convMap[c.event_id].commission += c.commission || 0;
     });
 

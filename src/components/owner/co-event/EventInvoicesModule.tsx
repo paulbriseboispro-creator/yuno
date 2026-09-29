@@ -14,7 +14,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/generateInvoicePDF';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { resolveYunoFee, getEffectiveSplit, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
+import { resolveYunoFee, getEffectiveSplit, storedYunoFee, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
 import type { Json } from '@/integrations/supabase/types';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
@@ -142,21 +142,26 @@ export function EventInvoicesModule({ eventId }: Props) {
       setLoading(false);
       return;
     }
-    // Pull the commission actually billed on each table reservation. Without this the
-    // fee gets re-derived from the current rate card, which misreports any booking
-    // made under a previous one.
+    // Frais Yuno LUS sur chaque vente (service, assurance, frais de gestion
+    // absorbés) : la part de chacun n'inclut jamais l'argent de Yuno, et une
+    // vente facturée sous une ancienne grille garde ses vrais frais.
+    type FeeRow = { id: string; service_fee?: number | null; insurance_fee?: number | null; management_fee?: number | null; fee_absorbed?: boolean | null };
     const rows = data || [];
-    const resIds = [...new Set(rows.map(r => r.table_reservation_id).filter(Boolean))] as string[];
+    const idsOf = (k: 'ticket_id' | 'table_reservation_id' | 'order_id') =>
+      [...new Set(rows.map(r => r[k]).filter(Boolean))] as string[];
+    const [tkIds, tbIds, odIds] = [idsOf('ticket_id'), idsOf('table_reservation_id'), idsOf('order_id')];
+    const [tkRes, tbRes, odRes] = await Promise.all([
+      tkIds.length ? supabase.from('tickets').select('id, service_fee, insurance_fee').in('id', tkIds) : Promise.resolve({ data: [] as FeeRow[] }),
+      tbIds.length ? supabase.from('table_reservations').select('id, service_fee, management_fee, fee_absorbed').in('id', tbIds) : Promise.resolve({ data: [] as FeeRow[] }),
+      odIds.length ? supabase.from('orders').select('id, service_fee').in('id', odIds) : Promise.resolve({ data: [] as FeeRow[] }),
+    ]);
     const storedFees = new Map<string, number>();
-    if (resIds.length) {
-      const { data: resRows } = await supabase
-        .from('table_reservations').select('id, management_fee').in('id', resIds);
-      (resRows || []).forEach(r => {
-        if (r.management_fee !== null && r.management_fee !== undefined) {
-          storedFees.set(r.id, Number(r.management_fee));
-        }
+    ([['ticket', tkRes.data], ['table', tbRes.data], ['order', odRes.data]] as const).forEach(([type, list]) => {
+      ((list || []) as FeeRow[]).forEach((r) => {
+        const fee = storedYunoFee(type, r);
+        if (fee !== null) storedFees.set(r.id, fee);
       });
-    }
+    });
 
     setInvoices(rows.map(inv => ({
       id: inv.id,
@@ -174,7 +179,7 @@ export function EventInvoicesModule({ eventId }: Props) {
       ticket_id: inv.ticket_id,
       table_reservation_id: inv.table_reservation_id,
       order_id: inv.order_id,
-      stored_yuno_fee: inv.table_reservation_id ? storedFees.get(inv.table_reservation_id) ?? null : null,
+      stored_yuno_fee: storedFees.get(inv.ticket_id || inv.table_reservation_id || inv.order_id || '') ?? null,
     })));
     setLoading(false);
   }

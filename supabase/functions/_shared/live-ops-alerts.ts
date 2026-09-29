@@ -66,9 +66,10 @@ const TEXTS: Record<string, AlertRuleText> = {
     es: { title: 'Ola de reembolsos', body: '{n} reembolsos en los últimos 30 minutos. Mira qué pasa en el bar.' },
   },
   liveops_revenue_goal: {
-    fr: { title: 'Objectif CA atteint', body: 'Le CA de ce soir ({n} €) dépasse déjà celui de la soirée comparable ({ref} €).' },
-    en: { title: 'Revenue goal reached', body: 'Tonight’s revenue ({n} €) already beats the comparable night ({ref} €).' },
-    es: { title: 'Objetivo de ingresos alcanzado', body: 'Los ingresos de esta noche ({n} €) ya superan la noche comparable ({ref} €).' },
+    // Le bar seul, CA club (frais Yuno exclus) : le titre le dit.
+    fr: { title: 'Objectif CA bar atteint', body: 'Le CA bar de ce soir ({n} €) dépasse déjà celui de la soirée comparable ({ref} €).' },
+    en: { title: 'Bar revenue goal reached', body: 'Tonight’s bar revenue ({n} €) already beats the comparable night ({ref} €).' },
+    es: { title: 'Objetivo de ingresos de barra alcanzado', body: 'Los ingresos de barra de esta noche ({n} €) ya superan la noche comparable ({ref} €).' },
   },
   liveops_incident: {
     fr: { title: 'Plusieurs incidents à la porte', body: '{n} incidents signalés par ton staff en 30 minutes.' },

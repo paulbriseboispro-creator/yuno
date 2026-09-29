@@ -37,7 +37,8 @@ export default function PromoterOverview() {
       const { data: convs } = await supabase.from('promoter_conversions')
         .select('amount, commission, conversion_type')
         .eq('promoter_id', promoter.id)
-        .eq('event_id', liveEvent.id);
+        .eq('event_id', liveEvent.id)
+        .neq('status', 'cancelled');
       const tickets = convs?.filter(c => c.conversion_type === 'ticket' && (c.amount || 0) > 0).length || 0;
       const revenue = convs?.reduce((s, c) => s + (c.amount || 0), 0) || 0;
       const commission = convs?.reduce((s, c) => s + (c.commission || 0), 0) || 0;

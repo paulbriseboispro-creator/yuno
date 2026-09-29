@@ -136,7 +136,7 @@ export function useEventNetGain(eventId: string | null | undefined, perspective:
               .eq('status', 'paid'),
             supabase
               .from('table_reservations')
-              .select('total_price, deposit, service_fee')
+              .select('total_price, deposit, service_fee, management_fee, fee_absorbed')
               .eq('event_id', eventId)
               .in('status', ['confirmed', 'paid']),
           ]);
@@ -149,7 +149,9 @@ export function useEventNetGain(eventId: string | null | undefined, perspective:
           }, 0);
           const tableNet = (tr.data || []).reduce((s: number, r: any) => {
             const base = Number(r.deposit || r.total_price || 0);
-            const yunoFee = Number(r.service_fee || 0);
+            // Frais de gestion : retirés seulement si le club / l'orga les absorbe
+            // (sinon le client les paie en plus, ils ne sont pas dans `base`).
+            const yunoFee = Number(r.service_fee || 0) + (r.fee_absorbed ? Number(r.management_fee || 0) : 0);
             return s + Math.max(0, base - yunoFee - calcStripeFee(base));
           }, 0);
           const est = ticketNet + tableNet;

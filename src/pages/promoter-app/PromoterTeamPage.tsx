@@ -61,7 +61,7 @@ export default function PromoterTeamPage() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-3 gap-3">
             <StatTile value={totals.sales} label={tt('Ventes', 'Sales', 'Ventas')} />
-            <StatTile value={`${totals.revenue.toFixed(0)}€`} label={tt('CA total', 'Total revenue', 'Ingresos totales')} />
+            <StatTile value={`${totals.revenue.toFixed(0)}€`} label={tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)')} />
             <StatTile value={`${totals.commission.toFixed(0)}€`} label={tt('Commission', 'Commission', 'Comisión')} accent />
           </motion.div>
 

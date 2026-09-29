@@ -196,7 +196,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_agency_overview",
-      description: "KPIs de l'agence : à recevoir des clubs, à reverser aux promoteurs, marge, volume total, taille du roster, contrats actifs, taille du bras externe. À utiliser pour toute question générale de performance ou d'état.",
+      description: "KPIs de l'agence : à recevoir des clubs, à reverser aux promoteurs, marge, commissions facturées aux clubs (total), taille du roster, contrats actifs, taille du bras externe. À utiliser pour toute question générale de performance ou d'état.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -204,7 +204,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_top_promoters",
-      description: "Classement des promoteurs par volume de ventes (brut) sur une période. À utiliser pour 'meilleur promoteur', 'qui vend', 'classement'.",
+      description: "Classement des promoteurs par commissions générées (commission promoteur + marge agence, dues par les clubs) sur une période — ce n'est pas un chiffre de ventes ni le CA d'un club. À utiliser pour 'meilleur promoteur', 'qui vend', 'classement'.",
       parameters: {
         type: "object",
         properties: {
@@ -426,7 +426,9 @@ async function executeTool(
           receivable_from_clubs_eur: r2(conversions.filter((c: any) => c.club_status === "pending").reduce((s: number, c: any) => s + Number(c.gross_amount || 0), 0)),
           payable_to_promoters_eur: r2(promoters.reduce((s: number, p: any) => s + Number(p.pending_amount || 0), 0)),
           agency_margin_eur: r2(conversions.reduce((s: number, c: any) => s + Number(c.margin_amount || 0), 0)),
-          gross_volume_eur: r2(conversions.reduce((s: number, c: any) => s + Number(c.gross_amount || 0), 0)),
+          // gross_amount = commission promoteur + marge agence : ce que les clubs
+          // doivent à l'agence, PAS un volume de ventes (qui, lui, appartient au club).
+          commissions_billed_to_clubs_eur: r2(conversions.reduce((s: number, c: any) => s + Number(c.gross_amount || 0), 0)),
           roster_count: promoters.length,
           active_promoters: promoters.filter((p: any) => p.is_active).length,
           active_contracts: contracts.filter((c: any) => c.status === "active").length,
@@ -457,9 +459,9 @@ async function executeTool(
             name: promoterDisplayName(p),
             promo_code: p.promo_code,
             venue: p.venues?.name ?? null,
-            gross_eur: r2(byPromoter.get(p.id) || 0),
+            commissions_generated_eur: r2(byPromoter.get(p.id) || 0),
           }))
-          .sort((a: any, b: any) => b.gross_eur - a.gross_eur)
+          .sort((a: any, b: any) => b.commissions_generated_eur - a.commissions_generated_eur)
           .slice(0, limit);
         return JSON.stringify({ period: args.period || "30d", top: ranked });
       }

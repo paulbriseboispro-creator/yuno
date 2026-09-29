@@ -18,6 +18,8 @@ import { HomeBannerBackdrop } from '@/components/home-banner/HomeBannerBackdrop'
 import { HomeBannerEditButton } from '@/components/home-banner/HomeBannerEditButton';
 import { HomeBannerEditor } from '@/components/home-banner/HomeBannerEditor';
 import { orgEventsOr } from '@/lib/coorg';
+import { ticketRevenue } from '@/utils/fees';
+import { useNumberFormat } from '@/components/analytics/kitFormat';
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED       = '#E8192C';
@@ -73,6 +75,7 @@ export default function OrgAppDashboard() {
   const [topEvents, setTopEvents] = useState<{ id: string; title: string; revenue: number; tickets: number }[]>([]);
 
   const tt = (frTxt: string, en: string, es?: string) => translate(language, frTxt, en, es);
+  const { eur } = useNumberFormat();
   const locale = language === 'fr' ? fr : enUS;
 
   useEffect(() => {
@@ -119,13 +122,15 @@ export default function OrgAppDashboard() {
         if (eventIds.length > 0) {
           const { data: t30 } = await supabase
             .from('tickets')
-            .select('total_price, quantity, user_email, created_at, event_id')
+            .select('total_price, service_fee, insurance_fee, refund_amount, quantity, user_email, created_at, event_id')
             .in('event_id', eventIds)
-            .eq('status', 'paid')
+            .in('status', ['paid', 'used'])
             .gte('created_at', since.toISOString());
           const buyers = new Set<string>();
           (t30 ?? []).forEach((t: any) => {
-            const amt = Number(t.total_price ?? 0);
+            // CA club (fees.ts) : frais de service, assurance et remboursement déduits.
+            const r = ticketRevenue(t);
+            const amt = r.gross - r.refunded;
             ca30 += amt;
             tickets30 += t.quantity ?? 1;
             if (t.user_email) buyers.add(t.user_email);
@@ -311,7 +316,7 @@ export default function OrgAppDashboard() {
             tableau de bord de lui annoncer le chiffre d'affaires. */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {can.viewFinance && (
-            <KpiTile label={tt('CA brut', 'Gross revenue')} value={`${globals.ca30.toFixed(0)} €`} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
+            <KpiTile label={tt('CA billets', 'Ticket revenue', 'Ingresos de entradas')} value={eur(globals.ca30)} subtitle={tt('30 derniers jours, hors frais Yuno', 'Last 30 days, excl. Yuno fees', 'Últimos 30 días, sin gastos de Yuno')} loading={loading} />
           )}
           <KpiTile label={tt('Billets vendus', 'Tickets sold')} value={globals.tickets30} subtitle={tt('30 derniers jours', 'Last 30 days')} loading={loading} />
           {can.viewInsights && (
@@ -325,8 +330,8 @@ export default function OrgAppDashboard() {
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
           <div className="flex items-center justify-between px-5 pt-4">
             <div>
-              <h2 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{tt('Revenus', 'Revenue')}</h2>
-              <p style={{ color: T3, fontSize: 11, marginTop: 1 }}>{tt('Ventes de billets', 'Ticket sales')}</p>
+              <h2 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{tt('CA billets', 'Ticket revenue', 'Ingresos de entradas')}</h2>
+              <p style={{ color: T3, fontSize: 11, marginTop: 1 }}>{tt('Ventes de billets, hors frais Yuno', 'Ticket sales, excl. Yuno fees', 'Venta de entradas, sin gastos de Yuno')}</p>
             </div>
             <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               {([7, 14, 30] as PeriodDays[]).map((p) => (
@@ -355,7 +360,7 @@ export default function OrgAppDashboard() {
                 <Tooltip
                   contentStyle={{ background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 12, color: T1 }}
                   labelStyle={{ color: T3 }}
-                  formatter={(v: any) => [`${Number(v).toFixed(2)} €`, tt('Revenu', 'Revenue')]}
+                  formatter={(v: any) => [eur(Number(v)), tt('CA billets', 'Ticket revenue', 'Ingresos de entradas')]}
                 />
                 <Area type="monotone" dataKey="revenue" stroke={RED} strokeWidth={2} fill="url(#orgRev)" dot={false} />
               </AreaChart>
@@ -395,7 +400,7 @@ export default function OrgAppDashboard() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{e.title}</div>
                         <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{e.tickets} {tt('billets', 'tickets')}</div>
-                        <div style={{ color: T1, fontSize: 17, fontWeight: 700, marginTop: 4 }}>{e.revenue.toFixed(0)} €</div>
+                        <div style={{ color: T1, fontSize: 17, fontWeight: 700, marginTop: 4 }}>{eur(e.revenue)}</div>
                       </div>
                     </div>
                   </div>

@@ -54,8 +54,9 @@ AVANT d'exécuter une action qui MODIFIE des données :
 
 ═══ MÉTRIQUES DE REVENUS ═══
 Quand tu donnes des chiffres de revenus, présente TOUJOURS :
-- **CA Club** = Total payé - Frais Yuno (service_fee + insurance_fee)
+- **CA Club** = Total payé - Frais Yuno (frais de service, assurance annulation, frais de gestion des tables quand le club les absorbe) - remboursements
 - **CA Net** = CA Club - Frais Stripe (1.5% + 0.25€)
+Un revenu, un CA ou un gain n'inclut JAMAIS l'argent de Yuno. La DÉPENSE d'un client (get_customer_insights : total_customer_spend, average_customer_spend) est une autre grandeur, frais Yuno compris : appelle-la « dépense client », jamais « CA » ni « revenu ».
 
 Formate en tableau Markdown :
 | Source | CA Club | CA Net |
@@ -112,7 +113,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Abonnés — suivre son audience",
     keywords: ["audience", "abonnés", "abonnes", "subscribers", "followers", "suivis", "fans", "statistiques abonnés", "démographie", "demographics", "portée", "reachable", "joignables", "croissance", "growth", "segmentation", "notifications", "efficacité notifs", "revenu abonnés", "clients fidèles", "valeur par abonné", "ltv", "combien rapporte un abonné", "entonnoir", "funnel", "conversion", "ré-acheteurs", "attribution", "revenu par push", "combien a rapporté mon push", "benchmark", "médiane ville", "comparaison", "percentile", "source d'acquisition", "d'où viennent mes abonnés", "cohorte", "rétention", "récap hebdo", "audience partagée", "chevauchement", "collab", "net-new"],
     path: "/owner/analytics?tab=community&view=subscribers",
-    snippet: "La vue Abonnés (Analytics → Communauté → Abonnés, anciennement la page « Audience ») montre qui suit ton club et ce que ça rapporte. La couche argent est en tête : (0) Valeur de l'audience — combien vaut chaque abonné (revenu net qu'ils génèrent ÷ leur nombre, sur 90j) avec taux de conversion et panier moyen ; un entonnoir Abonnés → Joignables → Engagés → Acheteurs → Ré-acheteurs ; et l'attribution push→vente qui chiffre chaque campagne (« ton dernier push a rapporté X€ » = abonnés qui ont cliqué puis acheté dans les 72h). Puis : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic + revenu attribué de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et combien de ton chiffre vient de tes abonnés vs des non-abonnés. (5) Comparaison, sources & récap — ta position face aux autres clubs de ta ville (percentiles anonymes, « ta portée mieux que 60% »), d'où viennent tes abonnés (quelle surface les déclenche), la rétention par cohorte, et chaque lundi un récap de ta semaine (abonnés, push, ventes) poussé sur ton app Pro. Sur une soirée en collab, une carte « Audience partagée » montre les abonnés communs avec le co-organisateur et le net-new que la collab débloque. Une zone « Performance marketing » compare les canaux côte à côte : revenus attribués du push, de l'email et des liens trackés sur 90 j. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné. (Valeur/entonnoir/attribution = clubs uniquement ; côté DJ/organisateur, l'audience reste démographie + portée.)",
+    snippet: "La vue Abonnés (Analytics → Communauté → Abonnés, anciennement la page « Audience ») montre qui suit ton club et ce que ça rapporte. La couche argent est en tête : (0) Valeur de l'audience — combien vaut chaque abonné (CA club, hors frais Yuno, qu'ils génèrent ÷ leur nombre, sur 90j) avec taux de conversion et panier moyen ; un entonnoir Abonnés → Joignables → Engagés → Acheteurs → Ré-acheteurs ; et l'attribution push→vente qui chiffre chaque campagne (« ton dernier push a rapporté X€ » = abonnés qui ont cliqué puis acheté dans les 72h). Puis : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic + revenu attribué de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et combien de ton chiffre vient de tes abonnés vs des non-abonnés. (5) Comparaison, sources & récap — ta position face aux autres clubs de ta ville (percentiles anonymes, « ta portée mieux que 60% »), d'où viennent tes abonnés (quelle surface les déclenche), la rétention par cohorte, et chaque lundi un récap de ta semaine (abonnés, push, ventes) poussé sur ton app Pro. Sur une soirée en collab, une carte « Audience partagée » montre les abonnés communs avec le co-organisateur et le net-new que la collab débloque. Une zone « Performance marketing » compare les canaux côte à côte : revenus attribués du push, de l'email et des liens trackés sur 90 j. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné. (Valeur/entonnoir/attribution = clubs uniquement ; côté DJ/organisateur, l'audience reste démographie + portée.)",
   },
   "staff-push-notifications": {
     title: "Alertes push du staff (app Yuno Pro)",
@@ -220,7 +221,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Structure des frais",
     keywords: ["frais", "fee", "commission", "service", "pourcentage", "coût", "stripe"],
     path: "/owner/help",
-    snippet: "Frais Yuno : 3% sur commandes boissons, max(0.99€, 4%) sur billets. Sur les acomptes VIP c'est aussi max(0.99€, 4%) mais plafonné à 25€ : le frais est calculé sur le montant réellement débité (l'acompte, pas le prix total de la table), et il ne dépasse jamais 25€ même sur une très grosse table. Le club paie les frais Stripe (1.5% + 0.25€ par transaction). CA Club = Total - Frais Yuno. CA Net = CA Club - Frais Stripe.",
+    snippet: "Frais Yuno : 3% sur commandes boissons, max(0.99€, 4%) sur billets. Sur les acomptes VIP c'est aussi max(0.99€, 4%) mais plafonné à 25€ : le frais est calculé sur le montant réellement débité (l'acompte, pas le prix total de la table), et il ne dépasse jamais 25€ même sur une très grosse table. Le club paie les frais Stripe (1.5% + 0.25€ par transaction). CA Club = Total payé - Frais Yuno (service, assurance annulation, frais de gestion absorbés) - remboursements : un revenu affiché dans Yuno n'inclut jamais l'argent de Yuno. CA Net = CA Club - Frais Stripe. La « dépense » d'un client (fiche client, CRM, segments) est ce qu'il a payé, frais compris : ce n'est pas du CA.",
   },
   "loyalty": {
     title: "Programme de fidélité",
@@ -334,7 +335,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Campagnes email",
     keywords: ["email", "campagne", "campaign", "newsletter", "mailing", "éditeur", "studio", "email studio", "bloc", "blocs yuno", "a/b", "objet b", "compte à rebours", "exclusions", "nuit", "quiet", "débit", "throttle", "lisser", "lissage", "vagues", "étaler", "heure optimale", "purger", "purge", "nettoyer ma liste", "liste propre", "adresses mortes", "exporter la liste", "désabonnés", "relance", "relancer", "follow-up", "ont cliqué", "cliqué sans acheter", "second email", "24h après", "bloc guest list", "bloc liste invités", "bloc événement", "bloc soirée", "carte soirée", "côte à côte", "mise en page du bloc", "modifier un modèle", "où sont mes modèles", "powered by", "envoi", "ouvertures", "désabonnement", "revenu campagne", "combien a rapporté", "segment personnalisé", "envoi de masse", "masse", "bulk", "spam", "délivrabilité", "delivrabilite", "warm-up", "plafond", "quota", "bounce", "rebond", "plainte", "pause automatique", "envoi bloqué", "envoi en cours", "5000 emails", "modèle", "template", "supprimer", "brouillon"],
     path: "/owner/campaigns",
-    snippet: "CLICS : le rapport affiche les CLICS UNIQUES (personnes) et, en dessous, le nombre total de clics — une même personne qui ouvre trois liens compte trois clics, et certaines messageries pré-chargent les liens. Un taux de clic se lit donc toujours sur les personnes, jamais sur les clics. ATTRIBUTION : sous les chiffres du rapport, la carte « Ce que l'email a produit » détaille CE QUI a été réservé dans les 72 h après un clic, pas seulement l'euro : billets (avec le nombre de commandes), tables VIP (avec les convives), inscriptions en liste invités, commandes au bar — chaque ligne avec son net encaissé. Les « revenus attribués » restent des ventes PAYÉES (billets, tables, boissons) ; la liste invités est comptée en INSCRIPTIONS et affichée « Entrée offerte », parce qu'une entrée gagnée n'est pas 0 €. Une soirée en liste invités seule se lit donc directement dans le rapport (et aussi sur la page Guest list, ligne « newsletter » des liens du canal — le bouton des blocs Yuno part automatiquement sur ce lien suivi). Crée des campagnes email dans l'Email Studio : un parcours en cinq écrans (Studio → Audience → Planification → Récap → Envoi). Le Studio compose l'email par blocs avec aperçu fidèle desktop/mobile, 4 thèmes et des variables ({{prénom}}, {{ville}}, {{nom_club}}…). Dans un bloc texte, sélectionne une partie du texte puis utilise la barre de mise en forme : gras, italique, barré, souligné, couleur, taille, lien. Chaque bloc règle ses marges internes (0 = blocs collés, sans espace), chaque bouton peut avoir sa propre couleur (le texte s'adapte automatiquement), les images peuvent avoir des coins arrondis, et le compte à rebours accepte une date précise même sans événement relié. Le bloc En-tête reprend automatiquement le nom et le logo de ton compte (club ou organisateur) : tu ne téléverses une image que si tu veux un logo différent pour CET email, et le petit « x » sur l'aperçu te ramène au logo du compte. Sa couleur de fond suit le thème par défaut ; pour la changer sur CET email, sélectionne le bloc En-tête et pose une couleur dans « Fond du bloc » / « Fond personnalisé » — le nom repasse tout seul en noir ou en blanc selon la couleur. Pour la changer sur TOUS les emails, c'est l'onglet Thème (« Fond en-tête »). Le PIED DE PAGE se clique directement dans l'aperçu (ou depuis l'onglet Structure) : ça ouvre ses réglages — les réseaux sociaux (interrupteur pour les couper + les liens Instagram, TikTok, Facebook, X, site) et les deux couleurs de la bande. Coupe les réseaux si tu poses déjà un bloc « Réseaux » dans le corps, sinon les pastilles apparaissent deux fois (la checklist pré-envoi te prévient dans ce cas). En revanche les mentions légales du pied de page — nom de l'expéditeur, raison de réception, copyright, lien de désinscription — sont affichées mais NON MODIFIABLES, et le pied de page ne peut être ni déplacé ni supprimé : ce sont des obligations légales, Yuno les écrit à chaque envoi. Le pied de page se termine par une signature « Powered by Yuno » : elle prend la couleur de ton thème pour rester discrète, et elle n'est pas retirable pendant la période de lancement (c'est ce qui garde l'outil gratuit). Les blocs Yuno à données live — Événement, Billetterie, Table VIP, Compte à rebours — sont branchés sur une soirée réelle et rafraîchis AU MOMENT de l'envoi (prix courant, épuisé, décompte juste). Le bloc BILLETTERIE a exactement les mêmes réglages de présentation que le bloc Table VIP (les deux partagent leur carte) : mise en page Vitrine / Bandeau / Épuré, alignement gauche-centre-droite, sur-titre, titre et sous-titre, arguments de vente à coche, visuel placé avant ou après les tarifs, libellé de bouton, bouton pleine largeur ou non, note de réassurance, couleur d'accent. Deux réglages lui sont propres : DÉTAIL DES TARIFS — « Tranches » liste chaque tarif (montre que la prévente monte), « À partir de » n'affiche que le prix d'appel en gros (parfait pour une relance courte) — et TRANCHES AFFICHÉES, qui décroche une tranche précise qu'on ne veut pas montrer. Laissé vide, le sur-titre dit « Billetterie » (ou « Entrée » en liste invités seule) et le bouton se déduit de l'offre ; le bloc Billetterie liste AUSSI la liste invités publique de la soirée — une soirée en guest list seule affiche « Liste invités · Gratuit » avec son heure limite (et la boisson offerte si elle est prévue), et son bouton devient « M'inscrire à la liste » au lieu de « Prendre mes billets » ; seule une soirée sans AUCUNE entrée ouverte n'affiche pas le bloc, rien n'est inventé. Audience : cumule plusieurs segments (fidèles, inactifs, VIP… ou un segment sauvegardé de la page Clients — toujours croisé avec l'opt-in newsletter) et exclus les contacts touchés récemment ou déjà acheteurs de la soirée ; le compteur montre le net réel après dédoublonnage et liste de suppression. Tu peux tester deux objets (A/B) : envoyés à un échantillon, le gagnant à l'ouverture part au reste. Options d'envoi : programmation, lissage du débit, pas d'envoi la nuit (23 h → 9 h). Chaque bloc peut porter une règle de visibilité (carte « Qui voit ce bloc » de l'inspecteur : « A déjà pris une table », « N'a jamais pris de table », « A déjà acheté un billet », « N'a jamais acheté de billet », « Nouveaux abonnés ») vérifiée à l'envoi, destinataire par destinataire ; les deux formes inverses se complètent exactement — un bloc Table VIP réservé à ceux qui ont déjà pris une table et un bloc Liste invités pour les autres, dans le même email : un envoi, deux messages. Les blocs Yuno respectent aussi le « Complet » posé à la main sur la fiche soirée : une formule marquée complète disparaît du bloc Table VIP, une billetterie fermée se lit « épuisé », une liste invités fermée dit « complet » sans bouton. Une checklist pré-envoi vérifie objet, preheader, bouton d'action, alt des images, poids Gmail, désinscription et domaine authentifié. Puis suis le rapport : ouvertures, clics, désabonnements, les revenus attribués — les ventes des destinataires qui ont cliqué l'email puis acheté sous 72 h, net de frais (colonne Revenu directement dans la liste des campagnes) — ET la ventilation « Ce que l'email a produit » (billets, tables VIP, inscriptions guest list, commandes au bar). Le rapport montre aussi le duel A/B (taux d'ouverture de chaque objet sur l'échantillon, gagnant marqué) et les liens les plus cliqués de l'email — tu vois où ton audience est vraiment allée. Les destinataires désabonnés sont exclus automatiquement des envois suivants. Un gros envoi ne part pas d'un bloc : le premier envoi de masse est plafonné à 300 emails par jour puis monte (600, 1200, 2500, 5000, 10000) — quand le plafond du jour est atteint l'envoi reprend TOUT SEUL le lendemain, ce n'est pas un échec. Le compteur de rodage démarre au PREMIER envoi de masse et court en jours calendaires, qu'on envoie ou non : un petit envoi de test aujourd'hui fait gagner des jours sur la grosse campagne de la semaine prochaine. Au bout d'une semaine il n'y a plus de plafond de rodage. S'ajoute un QUOTA MENSUEL : 15 000 emails de campagne offerts par mois et par compte (2 000 pour un compte Association). La jauge est affichée EN HAUT DE LA PAGE CAMPAGNES (emails restants, envoyés sur inclus, date de remise à zéro, crédits achetés) et à l'étape Planification : le pro connaît son reste avant d'écrire, pas au moment d'envoyer. Elle passe en ambre sous 20 % de la capacité du mois et en rouge une fois le quota atteint, avec le bouton d'achat juste à côté. Au-delà, des packs s'achètent en deux clics au PRIX COÛTANT de l'infrastructure (aucune marge Yuno) et ne périment pas. Quota atteint en pleine campagne = l'envoi ATTEND et repart tout seul le 1er du mois (ou dès l'ajout d'emails), rien n'échoue. Les emails de service (confirmations de billets, reçus, MFA) ne comptent jamais dans ce quota. La barre de progression sur la page Campagnes montre en temps réel les envoyés et les reçus, et permet de mettre en pause ou d'annuler. Si plus de 0,2 % des destinataires signalent l'email comme indésirable, ou si plus de 5 % des adresses n'existent plus, la campagne se met en pause automatiquement : c'est une protection, au-delà de 0,3 % de plaintes Gmail bloque tous les emails du club, y compris les confirmations de billets. LISSAGE (écran Planification) : « Lisser le débit » étale l'envoi en vagues selon un cadre — sur une heure (4 vagues), sur la journée (une vague par heure pendant 24 h à partir du départ, la nuit sautée si elle est coupée) ou sur plusieurs jours (2 à 7) — et affiche le plan AVANT l'envoi : combien d'emails partent à quelle heure, jour par jour, plafond du jour compris. Yuno propose le cadre selon l'audience (une heure sous 500 contacts, la journée jusqu'à 2 500, plusieurs jours au-delà) ; le nombre d'emails par vague reste modifiable. Pourquoi lisser : les boîtes mail (Gmail, Outlook) surveillent les pics de volume, un débit régulier construit la réputation, et les premières vagues servent de test — le disjoncteur coupe avant que toute la liste soit partie. Risques : un message urgent arrive tard pour les derniers contacts (rester sur une heure), un objet peut se périmer sur plusieurs jours. « Heure optimale par contact » n'est pas encore disponible : elle demande un historique d'ouvertures par contact que la plateforme n'a pas encore. CAMPAGNE PLANIFIÉE : elle reste modifiable jusqu'au départ (bandeau en haut du studio avec la date ; chaque changement enregistré est la version qui partira). « Annuler la programmation » (bandeau ou Récap) la remet en brouillon, la date est conservée pour la reprogrammer. Sous 30 min du départ, annuler d'abord puis retoucher, sinon une version à moitié modifiée peut partir. PENDANT L'ENVOI : le rapport de la campagne s'ouvre en cliquant dessus (ou « Voir les stats en direct » sous la barre de progression) et se rafraîchit toutes les 5 s : envoyés, livrés, ouvertures, clics, rebonds, plaintes, avec pause / reprise / annulation. LISTES IMPORTÉES PROPRES : dans l'écran Audience, chaque liste importée affiche sa santé (actifs, désabonnés, injoignables). « Purger » supprime définitivement les désabonnés et les adresses mortes (rebond dur, plainte) — ils restent mémorisés dans un repoussoir pour ne JAMAIS être réimportés, même en réimportant le même fichier — et « Exporter la liste propre » télécharge un Excel des seuls contacts actifs. Sans purge, ces contacts sont déjà exclus de tout envoi ; la purge sert à garder un fichier propre. RELANCE CIBLÉE APRÈS CLIC (écran Planification, campagne marketing reliée à une soirée) : Yuno renvoie automatiquement, 6 à 48 h après leur PREMIER clic sur un lien de la soirée, un second email à ceux qui n'ont pas réservé. Garanties : un seul message par personne et par soirée (toutes campagnes confondues), jamais aux acheteurs de billet/table (vérifié au moment de l'envoi), ni aux inscrits guest list, ni aux désabonnés/injoignables, ni si la soirée a commencé ; « pas d'envoi la nuit » respecté. Le modèle « Relance après clic » se crée d'un clic depuis l'écran et se personnalise comme tout modèle (Nouvelle campagne → ce modèle → retouche → Remplacer un modèle) ; il se compose à l'envoi (billets restants, tables VIP, compte à rebours). Avant d'activer, « Aperçu et test de la relance » (écran Planification ou rapport de la campagne) montre l'email exactement tel qu'il partira POUR CETTE SOIRÉE — vrais tarifs, vraies places restantes, vrai compte à rebours — et l'envoie en test à ton adresse (aucun quota consommé, aucune relance déclenchée). Le bilan est dans le rapport de la campagne mère : clics repérés sur la soirée, relances envoyées (et combien restent en file), ouvertures, clics, revenus attribués à la relance, désabonnements, et les exclus avec leur raison. BLOC LISTE INVITÉS (2026-09-10) : la liste invités a son propre bloc Yuno, distinct de Billetterie (qui ne montre que les billets) ; son bouton ouvre le formulaire d'inscription de la part (lien privé, suivi sur le canal) ; sans part publique, il ne part pas. Le bouton Table VIP et la signature « Powered by Yuno » mènent à la page de la soirée : aucun lien de l'email ne sort de la soirée. MODIFIER UN MODÈLE : Nouvelle campagne → vignette du modèle → « Modifier le design » : il s'ouvre dans le studio (écran Studio seul) et s'enregistre tout seul ; depuis la relance après clic, « Modifier ce modèle dans le studio » y mène directement. RENVOYER AUX NON-OUVREURS (écran Planification ou rapport d'une campagne partie) : le même email, sous un autre objet, 24/48/72 h après la fin de l'envoi, à ceux qui ne l'ont pas ouvert — jamais aux acheteurs/inscrits de la soirée, ni après son début, ni la nuit ; bilan dans le rapport de la mère. MEILLEURE HEURE DE LA BASE (écran Planification) : ouvertures des 120 derniers jours par heure et par jour, heure de Paris ; muette sous 30 ouvertures. AUTOMATISATIONS (Campagnes → Automatisations) : six recettes qui partent seules — panier abandonné, dernier appel, merci d'être venu, on t'a manqué, bienvenue, reconquête — voir l'article « Automatisations email ».",
+    snippet: "CLICS : le rapport affiche les CLICS UNIQUES (personnes) et, en dessous, le nombre total de clics — une même personne qui ouvre trois liens compte trois clics, et certaines messageries pré-chargent les liens. Un taux de clic se lit donc toujours sur les personnes, jamais sur les clics. ATTRIBUTION : sous les chiffres du rapport, la carte « Ce que l'email a produit » détaille CE QUI a été réservé dans les 72 h après un clic, pas seulement l'euro : billets (avec le nombre de commandes), tables VIP (avec les convives), inscriptions en liste invités, commandes au bar — chaque ligne avec son net encaissé. Les « revenus attribués » restent des ventes PAYÉES (billets, tables, boissons) ; la liste invités est comptée en INSCRIPTIONS et affichée « Entrée offerte », parce qu'une entrée gagnée n'est pas 0 €. Une soirée en liste invités seule se lit donc directement dans le rapport (et aussi sur la page Guest list, ligne « newsletter » des liens du canal — le bouton des blocs Yuno part automatiquement sur ce lien suivi). Crée des campagnes email dans l'Email Studio : un parcours en cinq écrans (Studio → Audience → Planification → Récap → Envoi). Le Studio compose l'email par blocs avec aperçu fidèle desktop/mobile, 4 thèmes et des variables ({{prénom}}, {{ville}}, {{nom_club}}…). Dans un bloc texte, sélectionne une partie du texte puis utilise la barre de mise en forme : gras, italique, barré, souligné, couleur, taille, lien. Chaque bloc règle ses marges internes (0 = blocs collés, sans espace), chaque bouton peut avoir sa propre couleur (le texte s'adapte automatiquement), les images peuvent avoir des coins arrondis, et le compte à rebours accepte une date précise même sans événement relié. Le bloc En-tête reprend automatiquement le nom et le logo de ton compte (club ou organisateur) : tu ne téléverses une image que si tu veux un logo différent pour CET email, et le petit « x » sur l'aperçu te ramène au logo du compte. Sa couleur de fond suit le thème par défaut ; pour la changer sur CET email, sélectionne le bloc En-tête et pose une couleur dans « Fond du bloc » / « Fond personnalisé » — le nom repasse tout seul en noir ou en blanc selon la couleur. Pour la changer sur TOUS les emails, c'est l'onglet Thème (« Fond en-tête »). Le PIED DE PAGE se clique directement dans l'aperçu (ou depuis l'onglet Structure) : ça ouvre ses réglages — les réseaux sociaux (interrupteur pour les couper + les liens Instagram, TikTok, Facebook, X, site) et les deux couleurs de la bande. Coupe les réseaux si tu poses déjà un bloc « Réseaux » dans le corps, sinon les pastilles apparaissent deux fois (la checklist pré-envoi te prévient dans ce cas). En revanche les mentions légales du pied de page — nom de l'expéditeur, raison de réception, copyright, lien de désinscription — sont affichées mais NON MODIFIABLES, et le pied de page ne peut être ni déplacé ni supprimé : ce sont des obligations légales, Yuno les écrit à chaque envoi. Le pied de page se termine par une signature « Powered by Yuno » : elle prend la couleur de ton thème pour rester discrète, et elle n'est pas retirable pendant la période de lancement (c'est ce qui garde l'outil gratuit). Les blocs Yuno à données live — Événement, Billetterie, Table VIP, Compte à rebours — sont branchés sur une soirée réelle et rafraîchis AU MOMENT de l'envoi (prix courant, épuisé, décompte juste). Le bloc BILLETTERIE a exactement les mêmes réglages de présentation que le bloc Table VIP (les deux partagent leur carte) : mise en page Vitrine / Bandeau / Épuré, alignement gauche-centre-droite, sur-titre, titre et sous-titre, arguments de vente à coche, visuel placé avant ou après les tarifs, libellé de bouton, bouton pleine largeur ou non, note de réassurance, couleur d'accent. Deux réglages lui sont propres : DÉTAIL DES TARIFS — « Tranches » liste chaque tarif (montre que la prévente monte), « À partir de » n'affiche que le prix d'appel en gros (parfait pour une relance courte) — et TRANCHES AFFICHÉES, qui décroche une tranche précise qu'on ne veut pas montrer. Laissé vide, le sur-titre dit « Billetterie » (ou « Entrée » en liste invités seule) et le bouton se déduit de l'offre ; le bloc Billetterie liste AUSSI la liste invités publique de la soirée — une soirée en guest list seule affiche « Liste invités · Gratuit » avec son heure limite (et la boisson offerte si elle est prévue), et son bouton devient « M'inscrire à la liste » au lieu de « Prendre mes billets » ; seule une soirée sans AUCUNE entrée ouverte n'affiche pas le bloc, rien n'est inventé. Audience : cumule plusieurs segments (fidèles, inactifs, VIP… ou un segment sauvegardé de la page Clients — toujours croisé avec l'opt-in newsletter) et exclus les contacts touchés récemment ou déjà acheteurs de la soirée ; le compteur montre le net réel après dédoublonnage et liste de suppression. Tu peux tester deux objets (A/B) : envoyés à un échantillon, le gagnant à l'ouverture part au reste. Options d'envoi : programmation, lissage du débit, pas d'envoi la nuit (23 h → 9 h). Chaque bloc peut porter une règle de visibilité (carte « Qui voit ce bloc » de l'inspecteur : « A déjà pris une table », « N'a jamais pris de table », « A déjà acheté un billet », « N'a jamais acheté de billet », « Nouveaux abonnés ») vérifiée à l'envoi, destinataire par destinataire ; les deux formes inverses se complètent exactement — un bloc Table VIP réservé à ceux qui ont déjà pris une table et un bloc Liste invités pour les autres, dans le même email : un envoi, deux messages. Les blocs Yuno respectent aussi le « Complet » posé à la main sur la fiche soirée : une formule marquée complète disparaît du bloc Table VIP, une billetterie fermée se lit « épuisé », une liste invités fermée dit « complet » sans bouton. Une checklist pré-envoi vérifie objet, preheader, bouton d'action, alt des images, poids Gmail, désinscription et domaine authentifié. Puis suis le rapport : ouvertures, clics, désabonnements, les revenus attribués — les ventes des destinataires qui ont cliqué l'email puis acheté sous 72 h, en CA club : frais Yuno et remboursements déduits (colonne Revenu directement dans la liste des campagnes) — ET la ventilation « Ce que l'email a produit » (billets, tables VIP, inscriptions guest list, commandes au bar). Le rapport montre aussi le duel A/B (taux d'ouverture de chaque objet sur l'échantillon, gagnant marqué) et les liens les plus cliqués de l'email — tu vois où ton audience est vraiment allée. Les destinataires désabonnés sont exclus automatiquement des envois suivants. Un gros envoi ne part pas d'un bloc : le premier envoi de masse est plafonné à 300 emails par jour puis monte (600, 1200, 2500, 5000, 10000) — quand le plafond du jour est atteint l'envoi reprend TOUT SEUL le lendemain, ce n'est pas un échec. Le compteur de rodage démarre au PREMIER envoi de masse et court en jours calendaires, qu'on envoie ou non : un petit envoi de test aujourd'hui fait gagner des jours sur la grosse campagne de la semaine prochaine. Au bout d'une semaine il n'y a plus de plafond de rodage. S'ajoute un QUOTA MENSUEL : 15 000 emails de campagne offerts par mois et par compte (2 000 pour un compte Association). La jauge est affichée EN HAUT DE LA PAGE CAMPAGNES (emails restants, envoyés sur inclus, date de remise à zéro, crédits achetés) et à l'étape Planification : le pro connaît son reste avant d'écrire, pas au moment d'envoyer. Elle passe en ambre sous 20 % de la capacité du mois et en rouge une fois le quota atteint, avec le bouton d'achat juste à côté. Au-delà, des packs s'achètent en deux clics au PRIX COÛTANT de l'infrastructure (aucune marge Yuno) et ne périment pas. Quota atteint en pleine campagne = l'envoi ATTEND et repart tout seul le 1er du mois (ou dès l'ajout d'emails), rien n'échoue. Les emails de service (confirmations de billets, reçus, MFA) ne comptent jamais dans ce quota. La barre de progression sur la page Campagnes montre en temps réel les envoyés et les reçus, et permet de mettre en pause ou d'annuler. Si plus de 0,2 % des destinataires signalent l'email comme indésirable, ou si plus de 5 % des adresses n'existent plus, la campagne se met en pause automatiquement : c'est une protection, au-delà de 0,3 % de plaintes Gmail bloque tous les emails du club, y compris les confirmations de billets. LISSAGE (écran Planification) : « Lisser le débit » étale l'envoi en vagues selon un cadre — sur une heure (4 vagues), sur la journée (une vague par heure pendant 24 h à partir du départ, la nuit sautée si elle est coupée) ou sur plusieurs jours (2 à 7) — et affiche le plan AVANT l'envoi : combien d'emails partent à quelle heure, jour par jour, plafond du jour compris. Yuno propose le cadre selon l'audience (une heure sous 500 contacts, la journée jusqu'à 2 500, plusieurs jours au-delà) ; le nombre d'emails par vague reste modifiable. Pourquoi lisser : les boîtes mail (Gmail, Outlook) surveillent les pics de volume, un débit régulier construit la réputation, et les premières vagues servent de test — le disjoncteur coupe avant que toute la liste soit partie. Risques : un message urgent arrive tard pour les derniers contacts (rester sur une heure), un objet peut se périmer sur plusieurs jours. « Heure optimale par contact » n'est pas encore disponible : elle demande un historique d'ouvertures par contact que la plateforme n'a pas encore. CAMPAGNE PLANIFIÉE : elle reste modifiable jusqu'au départ (bandeau en haut du studio avec la date ; chaque changement enregistré est la version qui partira). « Annuler la programmation » (bandeau ou Récap) la remet en brouillon, la date est conservée pour la reprogrammer. Sous 30 min du départ, annuler d'abord puis retoucher, sinon une version à moitié modifiée peut partir. PENDANT L'ENVOI : le rapport de la campagne s'ouvre en cliquant dessus (ou « Voir les stats en direct » sous la barre de progression) et se rafraîchit toutes les 5 s : envoyés, livrés, ouvertures, clics, rebonds, plaintes, avec pause / reprise / annulation. LISTES IMPORTÉES PROPRES : dans l'écran Audience, chaque liste importée affiche sa santé (actifs, désabonnés, injoignables). « Purger » supprime définitivement les désabonnés et les adresses mortes (rebond dur, plainte) — ils restent mémorisés dans un repoussoir pour ne JAMAIS être réimportés, même en réimportant le même fichier — et « Exporter la liste propre » télécharge un Excel des seuls contacts actifs. Sans purge, ces contacts sont déjà exclus de tout envoi ; la purge sert à garder un fichier propre. RELANCE CIBLÉE APRÈS CLIC (écran Planification, campagne marketing reliée à une soirée) : Yuno renvoie automatiquement, 6 à 48 h après leur PREMIER clic sur un lien de la soirée, un second email à ceux qui n'ont pas réservé. Garanties : un seul message par personne et par soirée (toutes campagnes confondues), jamais aux acheteurs de billet/table (vérifié au moment de l'envoi), ni aux inscrits guest list, ni aux désabonnés/injoignables, ni si la soirée a commencé ; « pas d'envoi la nuit » respecté. Le modèle « Relance après clic » se crée d'un clic depuis l'écran et se personnalise comme tout modèle (Nouvelle campagne → ce modèle → retouche → Remplacer un modèle) ; il se compose à l'envoi (billets restants, tables VIP, compte à rebours). Avant d'activer, « Aperçu et test de la relance » (écran Planification ou rapport de la campagne) montre l'email exactement tel qu'il partira POUR CETTE SOIRÉE — vrais tarifs, vraies places restantes, vrai compte à rebours — et l'envoie en test à ton adresse (aucun quota consommé, aucune relance déclenchée). Le bilan est dans le rapport de la campagne mère : clics repérés sur la soirée, relances envoyées (et combien restent en file), ouvertures, clics, revenus attribués à la relance, désabonnements, et les exclus avec leur raison. BLOC LISTE INVITÉS (2026-09-10) : la liste invités a son propre bloc Yuno, distinct de Billetterie (qui ne montre que les billets) ; son bouton ouvre le formulaire d'inscription de la part (lien privé, suivi sur le canal) ; sans part publique, il ne part pas. Le bouton Table VIP et la signature « Powered by Yuno » mènent à la page de la soirée : aucun lien de l'email ne sort de la soirée. MODIFIER UN MODÈLE : Nouvelle campagne → vignette du modèle → « Modifier le design » : il s'ouvre dans le studio (écran Studio seul) et s'enregistre tout seul ; depuis la relance après clic, « Modifier ce modèle dans le studio » y mène directement. RENVOYER AUX NON-OUVREURS (écran Planification ou rapport d'une campagne partie) : le même email, sous un autre objet, 24/48/72 h après la fin de l'envoi, à ceux qui ne l'ont pas ouvert — jamais aux acheteurs/inscrits de la soirée, ni après son début, ni la nuit ; bilan dans le rapport de la mère. MEILLEURE HEURE DE LA BASE (écran Planification) : ouvertures des 120 derniers jours par heure et par jour, heure de Paris ; muette sous 30 ouvertures. AUTOMATISATIONS (Campagnes → Automatisations) : six recettes qui partent seules — panier abandonné, dernier appel, merci d'être venu, on t'a manqué, bienvenue, reconquête — voir l'article « Automatisations email ».",
   },
   "email-event-block": {
     title: "Annoncer une soirée dans un email",
@@ -966,7 +967,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_customer_insights",
-      description: "Get top customers, segments, spending stats. Requires Pro plan.",
+      description: "Get top customers, segments and customer SPENDING (what customers paid, Yuno fees included — not club revenue). Requires Pro plan.",
       parameters: {
         type: "object",
         properties: {
@@ -1096,46 +1097,51 @@ function getParisOffsetMs(date: Date): number {
 // REVENUE CALCULATION HELPERS
 // ═══════════════════════════════════════════
 
+// Statuts d'une vente comptée dans le CA : ceux des RPC d'analyse
+// (get_events_sales_summary, get_event_report…). Une commande servie reste une
+// vente, une table confirmée aussi.
+const ORDER_SALE_STATUSES = ["paid", "served"];
+const TICKET_SALE_STATUSES = ["paid", "used"];
+const TABLE_SALE_STATUSES = ["paid", "confirmed"];
+
+// Miroirs de src/utils/fees.ts : CA Club = part du club, frais Yuno exclus
+// (service, assurance, frais de gestion absorbés), remboursement déduit
+// (plafonné à la part du club) ; CA Net = CA Club − frais Stripe, que Stripe
+// prélève sur le montant TOTAL payé (frais Yuno compris).
+function addRow(acc: { caClub: number; caNet: number }, gross: number, charged: number, refund: unknown) {
+  const refunded = Math.min(Math.max(Number(refund) || 0, 0), Math.max(gross, 0));
+  acc.caClub += gross - refunded;
+  acc.caNet += gross - refunded - calcStripeFee(charged);
+}
+
 function calcOrdersRevenue(orders: any[]): { caClub: number; caNet: number } {
-  let caClub = 0, caNet = 0;
+  const acc = { caClub: 0, caNet: 0 };
   for (const o of orders) {
     const total = o.total || 0;
-    const sf = o.service_fee || 0;
-    // CA Club = what the club earns = total paid by client minus Yuno service fee
-    const club = total - sf;
-    caClub += club;
-    // CA Net = CA Club minus Stripe fee (Stripe charges on the full amount including Yuno fee)
-    caNet += club - calcStripeFee(total);
+    addRow(acc, total - (o.service_fee || 0), total, o.refund_amount);
   }
-  return { caClub, caNet };
+  return acc;
 }
 
 function calcTicketsRevenue(tickets: any[]): { caClub: number; caNet: number } {
-  let caClub = 0, caNet = 0;
+  const acc = { caClub: 0, caNet: 0 };
   for (const t of tickets) {
     const tp = t.total_price || 0;
-    const sf = t.service_fee || 0;
-    const inf = t.insurance_fee || 0;
-    const club = tp - sf - inf;
-    caClub += club;
-    caNet += club - calcStripeFee(tp);
+    addRow(acc, tp - (t.service_fee || 0) - (t.insurance_fee || 0), tp, t.refund_amount);
   }
-  return { caClub, caNet };
+  return acc;
 }
 
 function calcTablesRevenue(tables: any[]): { caClub: number; caNet: number } {
-  let caClub = 0, caNet = 0;
+  const acc = { caClub: 0, caNet: 0 };
   for (const t of tables) {
     const tp = t.total_price || 0;
-    const sf = t.service_fee || 0;
     // Frais de gestion : payés EN PLUS par le client, ils ne sortent de la
     // part du club que s'il les absorbe (miroir de tableRevenue, fees.ts).
     const mf = t.fee_absorbed ? (t.management_fee || 0) : 0;
-    const club = tp - sf - mf;
-    caClub += club;
-    caNet += club - calcStripeFee(tp);
+    addRow(acc, tp - (t.service_fee || 0) - mf, tp, t.refund_amount);
   }
-  return { caClub, caNet };
+  return acc;
 }
 
 function r2(n: number): number { return Math.round(n * 100) / 100; }
@@ -1220,14 +1226,14 @@ async function executeTool(
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: any) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+        let oq = supabase.from("orders").select("total, service_fee, refund_amount", { count: "exact" }).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
         if (periodEnd) oq = oq.lt("created_at", periodEnd);
         const ordersRes = await oq;
 
         let ticketsData: any[] = [];
         let ticketsCount = 0;
         if (eventIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("status", "paid").in("event_id", eventIds).gte("created_at", since);
+          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount", { count: "exact" }).in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since);
           if (periodEnd) tq = tq.lt("created_at", periodEnd);
           const tr = await tq;
           ticketsData = tr.data || [];
@@ -1237,7 +1243,7 @@ async function executeTool(
         let tablesData: any[] = [];
         let tablesCount = 0;
         if (zoneIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed", { count: "exact" }).eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since);
+          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount", { count: "exact" }).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
           const tres = await trq;
           tablesData = tres.data || [];
@@ -1270,20 +1276,20 @@ async function executeTool(
         const { data: venueZns } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const znIds = (venueZns || []).map((z: any) => z.id);
 
-        let oq = supabase.from("orders").select("total, service_fee").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+        let oq = supabase.from("orders").select("total, service_fee, refund_amount").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
         if (periodEnd) oq = oq.lt("created_at", periodEnd);
         const ordersRes = await oq;
 
         let ticketsData: any[] = [];
         if (evtIds.length > 0) {
-          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("status", "paid").in("event_id", evtIds).gte("created_at", since);
+          let tq = supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").in("status", TICKET_SALE_STATUSES).in("event_id", evtIds).gte("created_at", since);
           if (periodEnd) tq = tq.lt("created_at", periodEnd);
           ticketsData = (await tq).data || [];
         }
 
         let tablesData: any[] = [];
         if (znIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("status", "paid").in("zone_id", znIds).gte("created_at", since);
+          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", znIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
           tablesData = (await trq).data || [];
         }
@@ -1347,7 +1353,7 @@ async function executeTool(
         const { data } = await query;
 
         const enriched = await Promise.all((data || []).map(async (e: any) => {
-          const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("event_id", e.id).eq("status", "paid");
+          const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("event_id", e.id).in("status", TICKET_SALE_STATUSES);
           let status = "🔜 À venir";
           if (e.end_at < now) status = "✅ Passée";
           else if (e.start_at <= now && e.end_at >= now) status = "🟢 En cours";
@@ -1420,20 +1426,20 @@ async function executeTool(
         const { data: venueZones } = await supabase.from("table_zones").select("id").eq("venue_id", venueId);
         const zoneIds = (venueZones || []).map((z: any) => z.id);
 
-        const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).eq("status", "paid").gte("created_at", since).lt("created_at", until);
+        const ordersRes = await supabase.from("orders").select("total, service_fee, status", { count: "exact" }).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since).lt("created_at", until);
         const pendingRes = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("venue_id", venueId).eq("status", "paid").is("served_at", null).gte("created_at", since).lt("created_at", until);
 
         let ticketsData: any[] = [];
         let ticketsScanned = 0;
         if (eventIds.length > 0) {
-          const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, entry_scanned").eq("status", "paid").in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
+          const tr = await supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount, entry_scanned").in("status", TICKET_SALE_STATUSES).in("event_id", eventIds).gte("created_at", since).lt("created_at", until);
           ticketsData = tr.data || [];
           ticketsScanned = ticketsData.filter((t: any) => t.entry_scanned).length;
         }
 
         let tablesData: any[] = [];
         if (zoneIds.length > 0) {
-          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
+          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
           tablesData = tres.data || [];
         }
 
@@ -1698,10 +1704,10 @@ async function executeTool(
 
         const [roundsRes, ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
           supabase.from("ticket_rounds").select("id, name, price, max_tickets, tickets_sold, is_active").eq("event_id", args.event_id).order("position"),
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("event_id", args.event_id).eq("status", "paid"),
-          supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
+          supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount", { count: "exact" }).eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES),
+          supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
+            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -1743,10 +1749,10 @@ async function executeTool(
         const zoneIds = (zones || []).map((z: any) => z.id);
 
         const [ticketsDataRes, ordersDataRes, tablesDataRes] = await Promise.all([
-          supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid"),
-          supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
+          supabase.from("tickets").select("total_price, service_fee, insurance_fee, refund_amount").eq("event_id", args.event_id).in("status", TICKET_SALE_STATUSES),
+          supabase.from("orders").select("total, service_fee, refund_amount").eq("event_id", args.event_id).eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
+            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee, fee_absorbed, refund_amount").eq("event_id", args.event_id).in("status", TABLE_SALE_STATUSES).in("zone_id", zoneIds)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -1965,8 +1971,10 @@ async function executeTool(
         };
         return JSON.stringify({
           total_customers: customers.length,
-          total_revenue: r2(totalSpent),
-          average_spend: r2(avgSpent),
+          // Dépense cumulée des clients (ce qu'ils ont payé, frais Yuno compris) :
+          // une grandeur CRM, jamais le CA du club.
+          total_customer_spend: r2(totalSpent),
+          average_customer_spend: r2(avgSpent),
           segments,
           top_customers: (topCustomers.data || []).map((c: any) => ({
             name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email,
@@ -1981,7 +1989,7 @@ async function executeTool(
       // ─── TOP DRINKS ───
       case "get_top_drinks": {
         const since = getPeriodFilter(args.period || "30d");
-        const { data: orders } = await supabase.from("orders").select("items").eq("venue_id", venueId).eq("status", "paid").gte("created_at", since);
+        const { data: orders } = await supabase.from("orders").select("items").eq("venue_id", venueId).in("status", ORDER_SALE_STATUSES).gte("created_at", since);
         if (!orders || orders.length === 0) return JSON.stringify({ message: "Aucune commande pour cette période", top_drinks: [] });
         const drinkSales: Record<string, { name: string; qty: number; revenue: number }> = {};
         for (const order of orders) {

@@ -172,8 +172,9 @@ export function PromoterDataProvider({ children }: { children: ReactNode }) {
     try {
       const { count: totalClicks } = await supabase.from('promoter_clicks')
         .select('*', { count: 'exact', head: true }).eq('promoter_id', promoterId);
+      // Ventes remboursées ('cancelled') hors des ventes attribuées affichées.
       const { data: conversions } = await supabase.from('promoter_conversions')
-        .select('*').eq('promoter_id', promoterId);
+        .select('*').eq('promoter_id', promoterId).neq('status', 'cancelled');
       const totalConversions = conversions?.length || 0;
       const ticketsSold = conversions?.filter(c => c.conversion_type === 'ticket' && (c.amount || 0) > 0).length || 0;
       const tablesReserved = conversions?.filter(c => c.conversion_type === 'table' && (c.amount || 0) > 0).length || 0;
@@ -399,7 +400,7 @@ export function PromoterDataProvider({ children }: { children: ReactNode }) {
         if (!members) return;
         const memberIds = members.map(m => m.id);
         const { data: convs } = await supabase.from('promoter_conversions')
-          .select('promoter_id, amount, commission').in('promoter_id', memberIds);
+          .select('promoter_id, amount, commission').in('promoter_id', memberIds).neq('status', 'cancelled');
         const { data: clicks } = await supabase.from('promoter_clicks')
           .select('promoter_id').in('promoter_id', memberIds);
         const convMap: Record<string, { c: number; r: number; co: number }> = {};

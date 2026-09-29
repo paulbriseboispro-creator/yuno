@@ -137,7 +137,7 @@ export default function OwnerDashboard() {
 
   const [orders, setOrders] = useState<(Order & { serviceFee: number })[]>([]);
   const [tickets, setTickets] = useState<{ total_price: number; service_fee: number; insurance_fee: number; created_at: string; event_id: string | null }[]>([]);
-  const [tableReservations, setTableReservations] = useState<{ deposit: number; created_at: string; event_id: string | null }[]>([]);
+  const [tableReservations, setTableReservations] = useState<{ deposit: number; absorbedFee: number; created_at: string; event_id: string | null }[]>([]);
   const [visitors, setVisitors] = useState({ current: 0, previous: 0 });
   const [loading, setLoading] = useState(true);
   const [periodDays, setPeriodDays] = useState<PeriodDays>(30);
@@ -200,11 +200,15 @@ export default function OwnerDashboard() {
     try {
       const since = subDays(new Date(), 31).toISOString();
       const { data, error } = await supabase.from('table_reservations')
-        .select('deposit, created_at, event_id, table_zones!inner(venue_id)')
+        .select('deposit, management_fee, fee_absorbed, created_at, event_id, table_zones!inner(venue_id)')
         .eq('table_zones.venue_id', venueId).in('status', ['confirmed', 'paid']).gte('created_at', since);
       if (error) throw error;
       setTableReservations((data || []).map((r: any) => ({
-        deposit: Number(r.deposit || 0), created_at: r.created_at, event_id: r.event_id ?? null,
+        deposit: Number(r.deposit || 0),
+        // Frais de gestion absorbés par le club : ils sortent de sa part de l'acompte
+        // (sinon le client les paie en plus et ils ne sont jamais au club).
+        absorbedFee: r.fee_absorbed ? Number(r.management_fee || 0) : 0,
+        created_at: r.created_at, event_id: r.event_id ?? null,
       })));
     } catch (e) { console.error(e); }
   };
@@ -248,10 +252,10 @@ export default function OwnerDashboard() {
   };
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const netRevenue = (item: { total?: number; serviceFee?: number; total_price?: number; service_fee?: number; insurance_fee?: number; deposit?: number }) => {
+  const netRevenue = (item: { total?: number; serviceFee?: number; total_price?: number; service_fee?: number; insurance_fee?: number; deposit?: number; absorbedFee?: number }) => {
     if ('total' in item && item.total !== undefined) return item.total! - (item.serviceFee || 0) - calcStripeFee(item.total!);
     if ('total_price' in item && item.total_price !== undefined) return item.total_price! - (item.service_fee || 0) - (item.insurance_fee || 0) - calcStripeFee(item.total_price!);
-    if ('deposit' in item && item.deposit !== undefined) return item.deposit! - calcStripeFee(item.deposit!);
+    if ('deposit' in item && item.deposit !== undefined) return item.deposit! - (item.absorbedFee || 0) - calcStripeFee(item.deposit!);
     return 0;
   };
 
