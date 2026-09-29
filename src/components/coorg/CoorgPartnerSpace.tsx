@@ -7,7 +7,7 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { fetchPartyBreakdown, type PartyBreakdown } from '@/lib/collabPartyBreakdown';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
-import { ensureEventPartyLink, type CoorgState } from '@/lib/coorg';
+import { ensureEventPartyLink, type CoorgState, type PartnerVisibility } from '@/lib/coorg';
 import { useCoorgT } from './coorgUi';
 
 /**
@@ -23,7 +23,12 @@ import { useCoorgT } from './coorgUi';
  * son propre marketing — ses liens sont à son nom, ses emails partent sur ses
  * liens, et « Qui fait vendre ? » lui rend ce qu'il a amené.
  */
-export function CoorgPartnerSpace({ eventId, state }: { eventId: string; state: CoorgState }) {
+export function CoorgPartnerSpace({ eventId, state, partnerVisibility = 'full' }: {
+  eventId: string;
+  state: CoorgState;
+  /** Réglé par l'organisateur principal : « Tout » (défaut) ou « Volumes seulement ». */
+  partnerVisibility?: PartnerVisibility;
+}) {
   const { t } = useCoorgT();
   const { n, eur } = useNumberFormat();
   const { basePath } = useDashboardMode();
@@ -134,6 +139,14 @@ export function CoorgPartnerSpace({ eventId, state }: { eventId: string; state: 
             {mineLine && (
               <p className="mt-2.5" style={{ color: T2, fontSize: 12.5 }}>
                 <span style={{ color: T1, fontWeight: 600 }}>{t('Tes ventes', 'Your sales', 'Tus ventas')} ({myParty?.name ?? ''})</span> · {mineLine}
+              </p>
+            )}
+            {/* Pas de montant à l'écran : on dit POURQUOI, jamais un « 0 € » muet. */}
+            {bd && !bd.money && me.role === 'cohost' && (
+              <p className="mt-1.5" style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+                {partnerVisibility === 'volumes'
+                  ? t('L’organisateur principal partage les ventes, pas les montants.', 'The main organizer shares sales, not amounts.', 'El organizador principal comparte las ventas, no los importes.')
+                  : t('Les montants sont visibles du fondateur et des accès finances de ton organisation.', 'Amounts are visible to your organization’s founder and finance access.', 'Los importes son visibles para el fundador y los accesos de finanzas de tu organización.')}
               </p>
             )}
           </div>

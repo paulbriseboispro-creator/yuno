@@ -61,6 +61,7 @@ export function useCoorgErrorText() {
   return (code: string): string => {
     switch (code) {
       case 'forbidden': return t("Tu n'as pas les droits pour cette action.", "You don't have permission for this.", 'No tienes permiso para esta acción.');
+      case 'not_lead': return t('Seul l’organisateur principal (fondateur ou admin) règle ce point.', 'Only the main organizer (founder or admin) can change this.', 'Solo el organizador principal (fundador o admin) puede cambiar esto.');
       case 'already_party': return t('Cette structure est déjà sur la soirée.', 'This account is already on the event.', 'Esta cuenta ya está en el evento.');
       case 'already_invited': return t('Une invitation est déjà en attente.', 'An invitation is already pending.', 'Ya hay una invitación pendiente.');
       case 'too_many_cohosts': return t('8 co-hôtes maximum par soirée.', '8 co-hosts max per event.', 'Máximo 8 coanfitriones por evento.');

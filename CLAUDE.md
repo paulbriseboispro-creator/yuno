@@ -729,6 +729,16 @@ rattrapage des liens). Règles intouchables :
   n'est résolue que pour une partie PRINCIPALE
   (`campaign_scope_is_event_principal`) : un co-hôte n'écrit qu'aux clients qui
   l'ont nommé.
+- **Transparence par défaut** (`20260929290000`) : `events.partner_visibility`
+  (`full` défaut | `volumes`), écrit par la seule RPC `set_event_partner_visibility`
+  (organisateur principal, niveau argent ; garde INVOKER `guard_event_partner_visibility`
+  qui refuse l'écriture directe). `coorg_cohost_sees_money` ouvre les montants à tout
+  co-hôte accepté en `full` — via `coorg_sees_event_money` (breakdown, liens de partie,
+  rapport, bande de ventes) et, pour un club co-hôte, dans `get_event_report` et
+  `get_events_sales_summary`. La règle d'équipe tient (montants au niveau argent de
+  CHAQUE partie), un club qui ne fait qu'accueillir ne gagne rien, et aucun réglage ne
+  partage l'identité des acheteurs. UI : `PartnerVisibilityRow` (page Co-organisation),
+  choix dans le formulaire de création, note côté partenaire quand un montant manque.
 - **Espace partenaire** (`CoorgPartnerSpace`, en tête de `/…/coorg/:id`) : rôle
   et qui mène, « Où en est la soirée » (`get_collab_party_breakdown.totals`),
   « Tes ventes » (sa ligne), « Tes liens de la soirée », « Écrire à ma base »
@@ -794,8 +804,9 @@ des deux hubs Collaborations. Règles intouchables :
 - **Revue du 29/09** (`20260929110000`, `120000`) : un co-hôte ne reçoit un client QUE par la
   case qui le nomme — `contact_scope_customers`, RFM, segments orga, audiences pub, P&L et
   vue d'ensemble ne lisent PAS les soirées co-hébergées (ne jamais les y remettre) ; lignes
-  de vente lisibles d'un co-hôte ÉDITEUR seulement ; CA d'une co-soirée visible avec une
-  part dans un accord actif (`coorg_sees_event_money`). `share_event_marketing_consent` exige
+  de vente lisibles d'un co-hôte ÉDITEUR seulement ; CA d'une co-soirée visible par
+  `coorg_sees_event_money` : partie principale, part dans un accord actif, OU co-hôte
+  quand `events.partner_visibility = 'full'` (défaut depuis `20260929290000`). `share_event_marketing_consent` exige
   une PREUVE d'achat (session `cs_…`, id ou QR < 15 min) et les clés NOMMÉES ; une session
   impayée laisse une intention (`event_cohost_consent_intents`) consommée au paiement par
   trigger. Accord FIGÉ dès le début de la soirée (`coorg_deal_frozen` : ni annulation, ni
