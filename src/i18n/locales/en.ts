@@ -4,6 +4,7 @@
 const en: Record<string, string> = {
   // --- Tracked links (per-channel attribution) ---
   'tlink.title': 'Links',
+  'tlink.directLink': 'Direct link',
   'tlink.create': 'Create a link',
   'tlink.empty': 'No tracked links yet. Create one to track clicks and sales per channel.',
   'tlink.loadError': 'Could not load links',
@@ -1150,6 +1151,7 @@ const en: Record<string, string> = {
   'notif.type.admin_transfer_release_failed': 'Co-event payout stuck',
   'notif.type.admin_collab_late_sale': 'Co-event sale paid after the closing',
   'notif.type.collab_request': "Co-event proposal",
+  'notif.type.collab_external_added': "Added to a co-event",
   'notif.type.collab_accepted': "Collaboration confirmed",
   'notif.type.collab_action_request': "Co-event action request",
   'notif.type.collab_action_scheduled': "Co-event action scheduled",

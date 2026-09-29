@@ -121,7 +121,8 @@ export type YunoEvent =
   | 'event_report_opened' //       { scope }
   | 'ai_assistant_used' //         { assistant: 'owner' | 'agency' | 'help' | 'client' }
   // ── Co-organisation (N parties) ──────────────────────────────────────────
-  | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue' | 'email', access }
+  | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue' | 'email', access, source?: 'event_form' }
+  | 'collab_money_agreement_chosen' // { event_id, agreement: 'external' | 'yuno', club_partner, cohosts }
   | 'coorg_cohost_responded' //    { event_id, accepted, via?: 'email' }
   | 'coorg_party_link_created' //  { event_id } — lien de vente suivi d'une partie
   | 'coorg_deal_saved' //          { event_id, parties, formal, payment_terms_days }

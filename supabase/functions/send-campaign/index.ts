@@ -292,6 +292,7 @@ async function makeStudioHtmlBuilder(
   const live = await fetchStudioLiveData(
     admin, blocks, (campaign.event_id as string) || null, PUBLIC_URL,
     opts.trackedLinks === false ? null : 'newsletter',
+    { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
   );
 
   return (r: Recipient) => renderStudioEmailHtml(blocks, campaign.theme_json, {

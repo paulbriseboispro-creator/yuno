@@ -28,6 +28,7 @@ import { useEventNetGain } from '@/hooks/useEventNetGain';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
+import { ExternalAgreementCard } from '@/components/collab/ExternalAgreementCard';
 import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
@@ -47,7 +48,7 @@ import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnal
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
-import { isTieredRules, isTransferSettlement, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
+import { isTieredRules, isExternalAgreement, isTransferSettlement, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
 import { computeNightClosing, type ClosingComputeResult } from '@/lib/collabNightClosing';
 import {
   OrgPage, OrgCard, OrgPill, OrgButton,
@@ -449,7 +450,11 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       </Chrome>
     );
   }
-  const contractAccepted = contractStatus === 'active' || contractStatus === 'locked' || contractStatus === 'closed';
+  // « Réglé entre vous » : pas de contrat Yuno, la soirée vend tout de suite.
+  // Un contrat proposé ensuite reprend la main (en attente, puis signé).
+  const externalAgreement = isExternalAgreement(event.revenue_split_rules)
+    && (contractStatus === 'no_contract' || contractStatus === 'cancelled' || contractStatus === 'draft');
+  const contractAccepted = contractStatus === 'active' || contractStatus === 'locked' || contractStatus === 'closed' || externalAgreement;
   // The club always manages its own surfaces; the organizer unlocks once the
   // contract is signed (otherwise a partner could reshape the deal before agreeing).
   const canManage = isVenue || isOwner || contractAccepted;
@@ -591,6 +596,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
             side={viewerSide}
             partnerName={isVenue ? (orgName || t("l'organisateur", 'the organizer', 'el organizador')) : (clubName || t('le club', 'the club', 'el club'))}
             contractStatus={contractStatus}
+            external={externalAgreement}
             iSigned={iSigned}
             partnerSigned={partnerSigned}
             phase={phase}
@@ -911,8 +917,22 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
               {/* Sur mobile la colonne latérale passe DEVANT : le contrat signé et le fil
                   partenaire se lisent avant les chiffres, pas après vingt écrans. */}
               <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-4">
-                {isCollab && contractAccepted && (
+                {isCollab && contractAccepted && !externalAgreement && (
                   <div id="collab-contract"><SplitContractBanner eventId={event.id} side={collabCanAct ? viewerRole : undefined} compact /></div>
+                )}
+                {isCollab && externalAgreement && (
+                  <div id="collab-contract">
+                    <ExternalAgreementCard
+                      eventId={event.id}
+                      rules={event.revenue_split_rules}
+                      isVenue={isVenue}
+                      canAct={collabCanAct && (isVenue ? venueRole === 'lead_venue' : isOwner)}
+                      hasSales={!!event.split_locked_at}
+                      side={collabCanAct ? viewerRole : undefined}
+                      clubName={clubName || t('le club', 'the club', 'el club')}
+                      orgName={orgName || t("l'organisateur", 'the organizer', 'el organizador')}
+                    />
+                  </div>
                 )}
                 {isCollab && (
                   <CollabMessageThread eventId={event.id} authorRole={viewerRole} venueLabel={clubName} organizerLabel={orgName} compact />

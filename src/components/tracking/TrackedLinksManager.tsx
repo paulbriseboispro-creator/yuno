@@ -56,6 +56,11 @@ interface LinkRow {
 }
 
 const CHANNEL_PRESETS = ['instagram', 'tiktok', 'newsletter', 'facebook', 'whatsapp', 'flyer', 'snapchat'];
+/** Nom affiché d'un canal semé (le libellé stocké reste en minuscules : il sert de clé). */
+const CHANNEL_NAMES: Record<string, string> = {
+  instagram: 'Instagram', tiktok: 'TikTok', newsletter: 'Newsletter', facebook: 'Facebook',
+  whatsapp: 'WhatsApp', flyer: 'Flyer', snapchat: 'Snapchat',
+};
 
 /**
  * Origine PUBLIQUE des liens partagés. Jamais `window.location.origin` : dans
@@ -121,14 +126,25 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
     }
     let result = (data ?? []) as LinkRow[];
     // No links for an event the owner controls → seed the defaults once, then refetch.
+    // Le lien direct d'une partie (« coorg ») ne compte pas : sans canal
+    // Instagram / TikTok / Newsletter / WhatsApp, on les sème quand même.
     if (
-      result.length === 0 &&
+      result.filter((r) => r.label !== 'coorg').length === 0 &&
       targetKind === 'event' && eventId &&
       ownerKind !== 'promoter' &&
       autoSeededRef.current !== eventId
     ) {
       autoSeededRef.current = eventId;
-      const { error: seedErr } = await supabase.rpc('seed_event_tracked_links', { p_event_id: eventId });
+      // Les canaux naissent au nom de CETTE portée : l'hôte garde son semis
+      // historique, un partenaire ou un co-hôte reçoit les siens (jamais ceux
+      // de l'hôte, qu'il ne verrait pas et qui lui voleraient ses ventes).
+      const { error: seedErr } = (ownerKind === 'venue' || ownerKind === 'organizer')
+        ? await supabase.rpc('seed_event_party_tracked_links' as never, {
+            p_event_id: eventId,
+            p_venue_id: ownerKind === 'venue' ? venueId ?? null : null,
+            p_organizer_user_id: ownerKind === 'organizer' ? organizerUserId ?? null : null,
+          } as never)
+        : await supabase.rpc('seed_event_tracked_links', { p_event_id: eventId });
       if (!seedErr) {
         const { data: seeded, error: refetchErr } = await fetchStats();
         if (!refetchErr) result = (seeded ?? []) as LinkRow[];
@@ -163,7 +179,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
     }
     setRows(result);
     setLoading(false);
-  }, [fetchStats, ownerKind, targetKind, eventId, venueId, guestListId, t]);
+  }, [fetchStats, ownerKind, targetKind, eventId, venueId, organizerUserId, guestListId, t]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -273,7 +289,8 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
               className={`group rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent px-4 py-3.5 transition-colors hover:border-white/20 ${row.is_active ? '' : 'opacity-50'}`}
             >
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <span className="max-w-full truncate font-semibold text-white">{row.label}</span>
+                {/* Le lien de vente d'une partie (co-organisation) est son lien DIRECT. */}
+                <span className="max-w-full truncate font-semibold text-white">{row.label === 'coorg' ? t('tlink.directLink') : (CHANNEL_NAMES[row.label.toLowerCase()] ?? row.label)}</span>
 
                 {/* flex-wrap : à 390px, 4 stats d'affilée (dont un montant à 4 chiffres)
                     dépassaient la carte — la ligne doit pouvoir casser. */}

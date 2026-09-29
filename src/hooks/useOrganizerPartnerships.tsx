@@ -66,6 +66,8 @@ export interface PartnershipSplitRules {
   drinks: SplitPillarBlock;
   remuneration?: CollabRemuneration;
   settlement?: CollabSettlement;
+  /** « Réglé entre vous » : pas de contrat Yuno, chaque pilier encaissé en direct. */
+  agreement?: 'external';
 }
 
 export interface VenueOrganizerPartnership {

@@ -116,3 +116,21 @@ refus sur un collab à barème, garde démo. Smoke : `scripts/demo/smoke-coorgan
   l'hôte (qui peut ajouter les gens du co-hôte à son staff).
 - Codes promo d'un co-hôte sur la soirée (portée promo non élargie).
 - Invitation d'une structure SANS compte Yuno (aujourd'hui : elle crée d'abord son compte pro).
+
+## 7. Première soirée à plusieurs organisations (29/09 soir)
+
+Décision CEO : l'argent n'est jamais une condition d'une collaboration.
+- Formulaire de soirée : « Organisations partenaires » (invitées à l'enregistrement,
+  rôle « Partenaire » par défaut, « Co-gestion » en option) et « Contrat & partage de
+  l'argent » (« Réglé entre vous » par défaut / « Encadré par Yuno »). Même choix dans
+  les deux « Proposer une soirée » club × orga.
+- Club × orga « Réglé entre vous » : partage 100/0 par pilier, charge directe chez qui
+  encaisse, aucun contrat (`set_event_collab_external_agreement`).
+- Espace partenaire en tête de la page Co-organisation : où en est la soirée, ses
+  ventes, SES liens (direct + 4 canaux semés à son nom), « Écrire à ma base ».
+- Emails d'un partenaire sur SES liens (attribution juste dans « Qui fait vendre ? »),
+  audience informative « acheteurs de la soirée » réservée aux parties principales.
+- Reste : push d'un partenaire sur la soirée (le sélecteur de `OwnerPush` n'inclut pas
+  encore les soirées co-hébergées), porte pour un « Partenaire » (réservée à la
+  Co-gestion), statistiques de liens pour un membre d'équipe (`get_tracked_link_stats`
+  ne connaît que le fondateur).

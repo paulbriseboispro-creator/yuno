@@ -20,6 +20,7 @@ export function useNightStepLabel() {
       case 'ended': return t('Terminée', 'Ended', 'Terminada');
       case 'invite_pending': return t('Invitation envoyée', 'Invitation sent', 'Invitación enviada');
       case 'signed': return t('Contrat signé', 'Agreement signed', 'Contrato firmado');
+      case 'external': return t('Réglée entre vous', 'Settled between you', 'Entre vosotros');
       case 'coorganized': return t('Co-organisée', 'Co-organized', 'Coorganizada');
       default: return t('En préparation', 'Draft', 'En preparación');
     }

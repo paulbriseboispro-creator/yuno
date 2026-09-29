@@ -4,6 +4,7 @@
 const fr: Record<string, string> = {
   // --- Tracked links (per-channel attribution) ---
   'tlink.title': 'Liens',
+  'tlink.directLink': 'Lien direct',
   'tlink.create': 'Créer un lien',
   'tlink.empty': 'Aucun lien tracké. Créez-en un pour suivre les clics et les ventes par canal.',
   'tlink.loadError': 'Impossible de charger les liens',
@@ -1185,6 +1186,7 @@ const fr: Record<string, string> = {
   'notif.type.admin_transfer_release_failed': 'Versement de co-soirée bloqué',
   'notif.type.admin_collab_late_sale': "Vente payée après le décompte d'une co-soirée",
   'notif.type.collab_request': "Proposition de co-soirée",
+  'notif.type.collab_external_added': "Ajouté à une co-soirée",
   'notif.type.collab_accepted': "Collaboration confirmée",
   'notif.type.collab_action_request': "Demande sur une co-soirée",
   'notif.type.collab_action_scheduled': "Action de co-soirée programmée",

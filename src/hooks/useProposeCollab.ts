@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { CollabResponsibilities, CollabSide } from '@/utils/collabResponsibilities';
+import { externalCollectors, type ExternalCollector } from '@/lib/splitRules';
 
 /**
  * Séquence canonique « proposer une collaboration sur une soirée », partagée par
@@ -94,7 +95,53 @@ export function useProposeCollab(side: CollabSide, scopeId: string | null | unde
     }
   }, [side, scopeId, ownCol, partnerCol]);
 
-  return { propose, proposing };
+  /**
+   * « Réglé entre vous » : même rattachement, puis `set_event_collab_external_agreement`
+   * au lieu d'un contrat. Aucune signature : la vente ouvre tout de suite, chaque
+   * pilier est encaissé en direct par la partie choisie (bar toujours au club).
+   * Un échec défait le rattachement, comme pour un contrat.
+   */
+  const proposeExternal = useCallback(async (args: Omit<ProposeCollabArgs, 'cancellationPolicy'> & {
+    tickets: ExternalCollector;
+    tables: ExternalCollector;
+  }) => {
+    if (!scopeId) throw new Error('No scope');
+    setProposing(true);
+    try {
+      const { error: linkErr } = await supabase
+        .from('events')
+        .update({
+          [partnerCol]: args.partnerId,
+          event_mode: args.mode,
+          collab_responsibilities: args.responsibilities,
+        } as never)
+        .eq('id', args.eventId)
+        .eq(ownCol, scopeId);
+      if (linkErr) throw linkErr;
+
+      const { error: agreeErr } = await supabase.rpc('set_event_collab_external_agreement' as never, {
+        p_event_id: args.eventId,
+        p_tickets: args.tickets,
+        p_tables: args.tables,
+      } as never);
+      if (agreeErr) {
+        await supabase
+          .from('events')
+          .update({
+            [partnerCol]: args.previousPartnerId ?? null,
+            event_mode: args.previousMode ?? null,
+            collab_responsibilities: null,
+          } as never)
+          .eq('id', args.eventId)
+          .eq(ownCol, scopeId);
+        throw agreeErr;
+      }
+    } finally {
+      setProposing(false);
+    }
+  }, [scopeId, ownCol, partnerCol]);
+
+  return { propose, proposeExternal, proposing };
 }
 
 /**
@@ -109,4 +156,23 @@ export async function fetchLiveEventContract(eventId: string) {
     .neq('status' as never, 'cancelled' as never)
     .maybeSingle();
   return (data as unknown as { id: string; status: string } | null) ?? null;
+}
+
+/**
+ * L'accord vivant d'une soirée : un contrat Yuno (signé ou en attente) OU un
+ * accord « réglé entre vous » posé sur les règles de la soirée. Tant que l'un
+ * existe, le partenaire et le mode sont engagés.
+ */
+export type LiveEventAgreement =
+  | { kind: 'contract'; id: string; status: string }
+  | { kind: 'external'; tickets: ExternalCollector; tables: ExternalCollector };
+
+export async function fetchLiveEventAgreement(eventId: string): Promise<LiveEventAgreement | null> {
+  const [contract, { data: ev }] = await Promise.all([
+    fetchLiveEventContract(eventId),
+    supabase.from('events').select('revenue_split_rules').eq('id', eventId).maybeSingle(),
+  ]);
+  if (contract) return { kind: 'contract', ...contract };
+  const ext = externalCollectors((ev as { revenue_split_rules?: unknown } | null)?.revenue_split_rules);
+  return ext ? { kind: 'external', ...ext } : null;
 }

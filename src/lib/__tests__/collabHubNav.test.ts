@@ -51,6 +51,15 @@ describe('hub Collaborations — l’étape d’une soirée', () => {
     expect(collabNightStep(night({ ...past, collab: contract('closed') }), NOW)).toBe('settled');
     expect(collabNightStep(night({ ...past, collab: contract('active') }), NOW)).toBe('ended');
   });
+  it('accord « réglé entre vous » : pas de contrat, pastille propre', () => {
+    expect(collabNightStep(night({ collab: contract(null, { external: true }) }), NOW)).toBe('external');
+    expect(collabNightStep(night({ collab: contract(null, { external: true, isActive: false }) }), NOW)).toBe('external');
+    // une demande Yuno annulée puis « entre vous » : jamais « Contrat annulé »
+    expect(collabNightStep(night({ collab: contract('cancelled', { external: true }) }), NOW)).toBe('external');
+    // un contrat Yuno proposé ensuite reprend la main
+    expect(collabNightStep(night({ collab: contract('pending_signatures', { external: true }) }), NOW)).toBe('to_sign');
+    expect(collabNightStep(night({ ...past, collab: contract(null, { external: true }) }), NOW)).toBe('ended');
+  });
   it('co-soirée héritée sans contrat : la publication tient lieu d’état', () => {
     expect(collabNightStep(night({ collab: contract(null) }), NOW)).toBe('signed');
     expect(collabNightStep(night({ collab: contract(null, { isActive: false }) }), NOW)).toBe('draft');

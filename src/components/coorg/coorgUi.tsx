@@ -49,8 +49,8 @@ export function PartyRolePill({ role, access, kind }: { role: PartyRole; access?
   return (
     <OrgPill tone={access === 'editor' ? 'success' : 'muted'}>
       {access === 'editor'
-        ? t('Co-hôte · édition', 'Co-host · editor', 'Coanfitrión · edición')
-        : t('Co-hôte · lecture', 'Co-host · viewer', 'Coanfitrión · lectura')}
+        ? t('Co-gestion', 'Co-manager', 'Cogestión')
+        : t('Partenaire', 'Partner', 'Socio')}
     </OrgPill>
   );
 }

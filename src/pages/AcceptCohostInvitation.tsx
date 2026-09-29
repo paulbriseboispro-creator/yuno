@@ -162,15 +162,15 @@ export default function AcceptCohostInvitation() {
         <Panel>
           <p style={{ color: GRAY_1, fontSize: 15, lineHeight: 1.6 }}>
             {t(
-              `${inv.inviter_name ?? 'Un organisateur'} t’invite à co-organiser cette soirée sur Yuno : elle apparaîtra dans ta Console, tu auras ton propre lien de vente, et l’argent se répartit selon un accord que vous validez tous.`,
-              `${inv.inviter_name ?? 'An organizer'} invites you to co-organize this event on Yuno: it will appear in your Console, you get your own sales link, and the money is split by an agreement you all approve.`,
-              `${inv.inviter_name ?? 'Un organizador'} te invita a coorganizar este evento en Yuno: aparecerá en tu Consola, tendrás tu propio enlace de venta y el dinero se reparte según un acuerdo que validáis todos.`,
+              `${inv.inviter_name ?? 'Un organisateur'} t’invite à co-organiser cette soirée sur Yuno : elle apparaîtra dans ta Console, avec tes propres liens (lien direct, Instagram, WhatsApp…), tes ventes et tes emails à ta base. L’argent se règle entre vous, ou par un accord Yuno si vous le choisissez.`,
+              `${inv.inviter_name ?? 'An organizer'} invites you to co-organize this event on Yuno: it will appear in your Console, with your own links (direct link, Instagram, WhatsApp…), your sales and your emails to your list. Money is settled between you, or through a Yuno agreement if you choose.`,
+              `${inv.inviter_name ?? 'Un organizador'} te invita a coorganizar este evento en Yuno: aparecerá en tu Consola, con tus propios enlaces (enlace directo, Instagram, WhatsApp…), tus ventas y tus emails a tu base. El dinero lo arregláis entre vosotros, o con un acuerdo Yuno si lo elegís.`,
             )}
           </p>
           {inv.message && <p className="mt-3" style={{ color: GRAY_2, fontSize: 14, fontStyle: 'italic' }}>« {inv.message} »</p>}
           <div className="mt-5" style={{ border: '1px solid rgba(232,25,44,0.28)', borderRadius: 4, padding: '14px 16px', background: 'rgba(232,25,44,0.04)' }}>
             <p className="font-mono uppercase" style={{ fontSize: 9, color: RED, letterSpacing: '0.14em', fontWeight: 600 }}>
-              {inv.access === 'editor' ? t('Accès édition', 'Editor access', 'Acceso edición') : t('Accès lecture', 'Viewer access', 'Acceso lectura')}
+              {inv.access === 'editor' ? t('Co-gestion', 'Co-manager', 'Cogestión') : t('Partenaire', 'Partner', 'Socio')}
             </p>
             <p className="font-mono" style={{ fontSize: 11, color: GRAY_2, marginTop: 8, wordBreak: 'break-all' }}>{inv.email}</p>
           </div>

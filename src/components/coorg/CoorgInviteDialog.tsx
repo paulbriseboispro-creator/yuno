@@ -33,7 +33,7 @@ export function CoorgInviteDialog({ open, onOpenChange, eventId, onInvited, pref
   const [results, setResults] = useState<CoorgPartnerCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [picked, setPicked] = useState<CoorgPartnerCandidate | null>(null);
-  const [access, setAccess] = useState<CohostAccess>('editor');
+  const [access, setAccess] = useState<CohostAccess>('viewer');
   const [shareCrm, setShareCrm] = useState(true);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -47,7 +47,7 @@ export function CoorgInviteDialog({ open, onOpenChange, eventId, onInvited, pref
     setPicked(prefill ?? null);
     setQuery('');
     setResults([]);
-    setAccess('editor');
+    setAccess('viewer');
     setShareCrm(true);
     setMessage('');
     setMode('search');
@@ -242,27 +242,27 @@ export function CoorgInviteDialog({ open, onOpenChange, eventId, onInvited, pref
             )}
 
             <div>
-              <FieldLabel>{t('Accès à la soirée', 'Access to the event', 'Acceso al evento')}</FieldLabel>
+              <FieldLabel>{t('Rôle sur la soirée', 'Role on the event', 'Rol en el evento')}</FieldLabel>
               <OrgTabs
                 size="sm"
                 value={access}
                 onChange={(v) => setAccess(v as CohostAccess)}
                 tabs={[
-                  { value: 'editor', label: t('Édition', 'Editor', 'Edición') },
-                  { value: 'viewer', label: t('Lecture', 'Viewer', 'Lectura') },
+                  { value: 'viewer', label: t('Partenaire', 'Partner', 'Socio') },
+                  { value: 'editor', label: t('Co-gestion', 'Co-manager', 'Cogestión') },
                 ]}
               />
               <p className="mt-1.5" style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
                 {access === 'editor'
                   ? t(
-                    'Habille la soirée, gère billets, tables et guest list, voit ventes et analyses. Ne touche jamais aux parties, au partage d’argent ni à la visibilité.',
-                    'Dresses the event, runs tickets, tables and guest list, sees sales and analytics. Never touches parties, money split or visibility.',
-                    'Viste el evento, gestiona entradas, mesas y lista, ve ventas y análisis. Nunca toca las partes, el reparto ni la visibilidad.',
+                    'Tout ce que fait un partenaire, plus : habille la soirée, gère billets, tables et guest list, scanne à la porte. Ne touche jamais aux parties, au partage d’argent ni à la visibilité.',
+                    'Everything a partner does, plus: dresses the event, runs tickets, tables and guest list, scans at the door. Never touches parties, money split or visibility.',
+                    'Todo lo que hace un socio, y además: viste el evento, gestiona entradas, mesas y lista, escanea en la puerta. Nunca toca las partes, el reparto ni la visibilidad.',
                   )
                   : t(
-                    'Voit la soirée, ses ventes et ses analyses dans sa Console, sans rien modifier.',
-                    'Sees the event, its sales and analytics in their Console, without changing anything.',
-                    'Ve el evento, sus ventas y análisis en su Consola, sin modificar nada.',
+                    'Suit la soirée depuis sa Console : ventes, analyses, SES ventes et SES liens (lien direct, Instagram, WhatsApp…), emails à sa base. Billets, tables et guest list restent à toi.',
+                    'Follows the event from their Console: sales, analytics, THEIR sales and THEIR links (direct link, Instagram, WhatsApp…), emails to their list. Tickets, tables and guest list stay with you.',
+                    'Sigue el evento desde su Consola: ventas, análisis, SUS ventas y SUS enlaces (enlace directo, Instagram, WhatsApp…), emails a su base. Entradas, mesas y lista siguen contigo.',
                   )}
               </p>
             </div>

@@ -86,7 +86,44 @@ export function normalizeSplitRules(raw: unknown): PartnershipSplitRules | null 
     drinks,
     ...(remuneration ? { remuneration } : {}),
     ...(settlement ? { settlement } : {}),
+    // « Réglé entre vous » : le perdre ferait passer un accord hors Yuno pour
+    // un contrat signé.
+    ...(isExternalAgreement(r) ? { agreement: 'external' as const } : {}),
   };
+}
+
+// ─── Accord financier : via Yuno (contrat) OU réglé entre les parties ────────
+
+/** Qui encaisse un pilier quand l'accord est réglé entre vous. */
+export type ExternalCollector = 'organizer' | 'venue';
+
+/**
+ * La soirée vend-elle SANS contrat Yuno (« Réglé entre vous ») ? Miroir exact
+ * de `collab_agreement_is_external(jsonb)` (SQL). Les règles posées par
+ * `set_event_collab_external_agreement` sont un partage 100/0 par pilier :
+ * chaque vente part en charge directe sur la seule partie qui l'encaisse.
+ */
+export function isExternalAgreement(raw: unknown): boolean {
+  return !!raw && typeof raw === 'object' && (raw as { agreement?: unknown }).agreement === 'external';
+}
+
+/** Qui encaisse billets et tables sous un accord « réglé entre vous » (null sinon). */
+export function externalCollectors(raw: unknown): { tickets: ExternalCollector; tables: ExternalCollector } | null {
+  if (!isExternalAgreement(raw)) return null;
+  const r = raw as Record<string, { organizer_pct?: unknown } | undefined>;
+  const side = (b: { organizer_pct?: unknown } | undefined): ExternalCollector =>
+    Number(b?.organizer_pct ?? 0) >= 100 ? 'organizer' : 'venue';
+  return { tickets: side(r.tickets), tables: side(r.tables) };
+}
+
+/**
+ * Collecteurs par défaut d'un accord « réglé entre vous » : la billetterie à
+ * l'organisateur, les tables au club — sauf la soirée de l'organisateur
+ * (`org_hosted`), où il tient aussi les tables. Miroir des défauts de
+ * `set_event_collab_external_agreement`.
+ */
+export function defaultExternalCollectors(mode: string | null | undefined): { tickets: ExternalCollector; tables: ExternalCollector } {
+  return { tickets: 'organizer', tables: mode === 'org_hosted' ? 'organizer' : 'venue' };
 }
 
 // ─── Règlement : partage Stripe automatique OU virement suivi ────────────────

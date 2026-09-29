@@ -67,6 +67,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // co-event collaboration (per-night)
   collab_request:          { icon: Handshake,     category: 'people', label: 'notif.type.collab_request' },
   collab_accepted:         { icon: Handshake,     category: 'people', label: 'notif.type.collab_accepted' },
+  // Ajouté à une co-soirée « réglée entre vous » (pas de contrat à signer).
+  collab_external_added:   { icon: Handshake,     category: 'people', label: 'notif.type.collab_external_added' },
   collab_action_request:   { icon: AlertTriangle, category: 'people', label: 'notif.type.collab_action_request' },
   collab_action_scheduled: { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_scheduled' },
   collab_action_done:      { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_done' },
@@ -363,6 +365,10 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'collab_message':
       if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
       if (isOrganizer) return `${basePath}/collaborations`;
+      return null;
+    case 'collab_external_added':
+      if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
+      if (isOrganizer) return eventId ? `${basePath}/events/${eventId}` : `${basePath}/collaborations`;
       return null;
 
     // Co-event ops going live (tables / ticketing). Point each party straight at
