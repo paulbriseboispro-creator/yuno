@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
 import { retrySupabaseAction } from '@/utils/retryAction';
@@ -297,6 +298,14 @@ export default function Bouncer() {
   // Flux classique : les frames suivantes du même QR arrivent avant que la
   // caméra ne soit démontée — un seul traitement à la fois.
   const classicLockRef = useRef(false);
+  /**
+   * Billet HORS CRÉNEAU scanné mais PAS encore consommé : le videur décide
+   * (Accepter = l'entrée est validée maintenant ; Refuser = remboursement).
+   * Avant, le billet était consommé dès le scan, et « Refuser + rembourser »
+   * échouait toujours (staff-cancel refuse un billet déjà scanné).
+   */
+  const pendingLateRef = useRef<{ kind: 'ticket_attendee' | 'ticket'; id: string; qr: string } | null>(null);
+  const [lateDecisionBusy, setLateDecisionBusy] = useState(false);
   const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
   const offline = useOfflineScanning(offlineEventId, doorScope);
   
@@ -521,6 +530,33 @@ export default function Bouncer() {
       && Date.now() - new Date(row.entry_scanned_at).getTime() < 60_000;
   };
 
+  /** Consomme un billet hors créneau accepté par le videur. */
+  const commitLateEntry = async (): Promise<'ok' | 'already' | 'none'> => {
+    const pending = pendingLateRef.current;
+    if (!pending) return 'none';
+    const table = pending.kind === 'ticket_attendee' ? 'ticket_attendees' : 'tickets';
+    const me = await myUserId();
+    const { data: rows } = await retrySupabaseAction(async () => {
+      const res = await supabase
+        .from(table)
+        .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: me })
+        .eq('id', pending.id)
+        .eq('entry_scanned', false)
+        .select('id');
+      if (res.error) throw res.error;
+      return res;
+    });
+    pendingLateRef.current = null;
+    if ((!rows || rows.length === 0) && !(await scannedByMeJustNow(table, pending.id))) return 'already';
+    void offline.markScannedOnline(pending.qr, pending.kind, pending.id);
+    fetchStats();
+    return 'ok';
+  };
+
+  /** Le billet dépasse-t-il l'heure limite d'entrée de son tarif ? */
+  const isLateNow = (deadline: string | null | undefined): boolean =>
+    !!deadline && computeLateness(deadline.substring(0, 5), nowInParis()).isPast;
+
   const fetchStats = async () => {
     if (!hasDoorScope) return;
     const seq = ++statsSeqRef.current;
@@ -548,37 +584,15 @@ export default function Bouncer() {
       // que la base a bien voulu rendre.
       setOfflineEventId(eventIds[0] ?? null);
 
-      const { data: tickets } = await supabase
-        .from('tickets')
-        .select('id, entry_scanned, quantity')
-        .in('event_id', eventIds)
-        .eq('status', 'paid');
-
-      let total = (tickets ?? []).reduce((sum, t) => sum + t.quantity, 0);
-      let scanned = (tickets ?? [])
-        .filter(t => t.entry_scanned)
-        .reduce((sum, t) => sum + t.quantity, 0);
-
-      // Aucune billetterie sur cette soirée : le compteur doit alors parler de
-      // la guest list, sinon la porte affiche 0/0 toute la nuit — c'est le cas
-      // d'une soirée entièrement en entrée libre. Une soirée qui vend des
-      // billets garde exactement le compteur d'avant.
-      if (total === 0) {
-        const { data: lists } = await supabase
-          .from('guest_lists')
-          .select('id')
-          .in('event_id', eventIds);
-        const listIds = (lists ?? []).map(l => l.id);
-        if (listIds.length > 0) {
-          const { data: entries } = await supabase
-            .from('guest_list_entries')
-            .select('id, entry_scanned, status')
-            .in('guest_list_id', listIds)
-            .neq('status', 'cancelled');
-          total = (entries ?? []).length;
-          scanned = (entries ?? []).filter(e => e.entry_scanned).length;
-        }
-      }
+      // Une seule définition des entrées, en PERSONNES, calculée en base et
+      // partagée avec le panneau « Ce soir » (_door_headcount) : billets,
+      // nominatifs, convives des tables, invités guest list. Plus de plafond
+      // de lignes PostgREST ni de deux compteurs qui se contredisent.
+      const { data: counters, error: countersError } = await (supabase as unknown as SupabaseClient)
+        .rpc('get_door_counters', { p_event_ids: eventIds });
+      if (countersError) throw countersError;
+      const scanned = Number((counters as { entered?: number } | null)?.entered ?? 0);
+      const total = Number((counters as { expected?: number } | null)?.expected ?? 0);
 
       if (seq !== statsSeqRef.current) return;
       setStats({ scanned, total });
@@ -677,7 +691,8 @@ export default function Bouncer() {
     scanResultRef.current = null;
     await onScanSuccess(qr);
     const outcome = scanResultRef.current;
-    const ok = outcome === 'success' || outcome === 'vip_success';
+    // Un retard en attente de décision n'est PAS une entrée : la carte reste.
+    const ok = (outcome === 'success' && !pendingLateRef.current) || outcome === 'vip_success';
     // Une entrée acceptée se voit sur la ligne elle-même (elle passe au vert) :
     // on efface la carte de verdict pour que la liste reste lisible. Un REFUS
     // reste affiché — c'est la seule façon pour le videur de savoir pourquoi.
@@ -930,6 +945,34 @@ export default function Bouncer() {
           return;
         }
 
+        // Hors créneau : on montre le billet SANS le consommer, le videur tranche.
+        if (isLateNow(ticket.ticket_rounds.entry_deadline)) {
+          pendingLateRef.current = { kind: 'ticket_attendee', id: attendee.id, qr: qrCode };
+          setScanResult('success');
+          setOverlayResult(null);
+          setOverlayName(attendee.full_name || ticket.full_name || undefined);
+          setScannedTicket({
+            id: ticket.id,
+            userEmail: ticket.user_email,
+            fullName: attendee.full_name || ticket.full_name,
+            quantity: ticket.quantity,
+            eventTitle: ticket.events.title,
+            roundName: ticket.ticket_rounds.name,
+            status: ticket.status,
+            entryScanned: false,
+            entryScannedAt: null,
+            includesDrink: ticket.ticket_rounds.includes_drink,
+            alcoholFree: ticket.events.alcohol_free ?? false,
+            drinkRedeemed: ticket.drink_redeemed,
+            drinkName: ticket.drink_name,
+            totalPrice: ticket.total_price,
+            serviceFee: Number(ticket.service_fee) || 0,
+            userId: ticket.user_id,
+            entryDeadline: ticket.ticket_rounds.entry_deadline.substring(0, 5),
+          });
+          return;
+        }
+
         const user = { id: await myUserId() };
 
         // Mark the attendee as scanned (optimistic lock: only if not already scanned)
@@ -1115,6 +1158,33 @@ export default function Bouncer() {
 
         if (ticketVerdict.status === 'not_paid') {
           denyScan(t('bouncer.ticketNotPaid'), ticketContext);
+          return;
+        }
+
+        if (isLateNow(ticket.ticket_rounds.entry_deadline)) {
+          pendingLateRef.current = { kind: 'ticket', id: ticket.id, qr: qrCode };
+          setScanResult('success');
+          setOverlayResult(null);
+          setOverlayName(ticket.full_name || undefined);
+          setScannedTicket({
+            id: ticket.id,
+            userEmail: ticket.user_email,
+            fullName: ticket.full_name,
+            quantity: ticket.quantity,
+            eventTitle: ticket.events.title,
+            roundName: ticket.ticket_rounds.name,
+            status: ticket.status,
+            entryScanned: false,
+            entryScannedAt: null,
+            includesDrink: ticket.ticket_rounds.includes_drink,
+            alcoholFree: ticket.events.alcohol_free ?? false,
+            drinkRedeemed: ticket.drink_redeemed,
+            drinkName: ticket.drink_name,
+            totalPrice: ticket.total_price,
+            serviceFee: Number(ticket.service_fee) || 0,
+            userId: ticket.user_id,
+            entryDeadline: ticket.ticket_rounds.entry_deadline.substring(0, 5),
+          });
           return;
         }
 
@@ -1505,6 +1575,8 @@ export default function Bouncer() {
   };
 
   const resetScan = () => {
+    // Retard non tranché : rien n'a été consommé, le billet reste valable.
+    pendingLateRef.current = null;
     setScannedTicket(null);
     setScannedVipReservation(null);
     setScanResult(null);
@@ -1842,6 +1914,11 @@ export default function Bouncer() {
           <div className="flex-none tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>
             {/* Compte approximatif quand des scans offline attendent la synchro */}
             {offline.pending > 0 ? `≈ ${stats.scanned + offline.pending}` : stats.scanned}
+            {/* Attendus : billets, convives des tables, invités — même base que
+                le panneau « Ce soir ». */}
+            {stats.total > 0 && (
+              <span style={{ color: T3, fontSize: 14, fontWeight: 500 }}> / {stats.total}</span>
+            )}
           </div>
         </div>
 
@@ -2177,20 +2254,23 @@ export default function Bouncer() {
                                       className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
                                       disabled={isCancelling}
                                       onClick={async () => {
-                                        // Auto-refund at 90% for late arrival
+                                        // Refus : le billet n'a pas été consommé au scan, le
+                                        // remboursement net peut donc passer.
                                         setIsCancelling(true);
                                         try {
-                                          const { data: { user: staffUser } } = await supabase.auth.getUser();
+                                          const staffId = await myUserId();
                                           const { data, error } = await supabase.functions.invoke('staff-cancel', {
                                             body: {
                                               type: 'ticket',
                                               id: scannedTicket.id,
-                                              reason: `Arrivée hors créneau (+${lateLabel})`,
+                                              reason: t('bouncer.lateRefundReason').replace('{late}', lateLabel),
                                               banCustomer: false,
-                                              staffId: staffUser?.id,
+                                              staffId,
                                             }
                                           });
                                           if (error) throw error;
+                                          if (data && data.success === false) throw new Error(data.error || t('bouncer.cancelError'));
+                                          pendingLateRef.current = null;
                                           toast({
                                             title: t('bouncer.entryDenied'),
                                             description: `${scannedTicket.fullName || scannedTicket.userEmail} — ${t('bouncer.refundAmount')} ${data.refundAmount?.toFixed(2)}€`,
@@ -2210,11 +2290,28 @@ export default function Bouncer() {
                                     </Button>
                                     <Button
                                       className="h-auto min-h-[48px] whitespace-normal bg-green-600 py-3 leading-tight text-snow hover:bg-green-700"
-                                      onClick={() => {
-                                        toast({
-                                          title: t('bouncer.entryApproved'),
-                                          description: `${scannedTicket.fullName || scannedTicket.userEmail} — ${t('bouncer.despiteLate')} ${lateLabel}`,
-                                        });
+                                      disabled={lateDecisionBusy || isCancelling || scannedTicket.entryScanned}
+                                      onClick={async () => {
+                                        // Accepter = l'entrée est validée MAINTENANT (même
+                                        // verrou « premier scan gagne » que le scan normal).
+                                        setLateDecisionBusy(true);
+                                        try {
+                                          const res = await commitLateEntry();
+                                          if (res === 'already') {
+                                            setScanResult('already');
+                                            toast({ title: t('bouncer.alreadyScanned'), variant: 'destructive' });
+                                            return;
+                                          }
+                                          setScannedTicket(prev => prev ? { ...prev, entryScanned: true, entryScannedAt: new Date().toISOString() } : prev);
+                                          toast({
+                                            title: t('bouncer.entryApproved'),
+                                            description: `${scannedTicket.fullName || scannedTicket.userEmail} — ${t('bouncer.despiteLate')} ${lateLabel}`,
+                                          });
+                                        } catch (err: any) {
+                                          toast({ title: t('bouncer.cancelError'), description: err.message, variant: 'destructive' });
+                                        } finally {
+                                          setLateDecisionBusy(false);
+                                        }
                                       }}
                                     >
                                       <CheckCircle className="h-4 w-4 mr-2 flex-none" />
@@ -2580,7 +2677,7 @@ export default function Bouncer() {
               const isLate = !!late?.isPast;
               /* Ambre/jaune : texte sombre, sinon le verdict est illisible */
               const dark = scanResult === 'vip_success' || scanResult === 'already';
-              const cardBg = scanResult === 'success' ? '#16A34A'
+              const cardBg = scanResult === 'success' ? (isLate ? '#C2410C' : '#16A34A')
                 : scanResult === 'vip_success' ? '#F59E0B'
                 : scanResult === 'already' ? '#EAB308'
                 : '#DC2626';
