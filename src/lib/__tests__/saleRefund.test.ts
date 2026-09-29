@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   alreadyRefundedCents, fullRefundPatch, planChargeRefund, planRefund, refundAllowed,
-  refundCapCents, remainingRefundableCents, type RefundActor,
+  refundCapCents, remainingRefundableCents, saleCollector, saleParties, type CollectorRights,
 } from '../../../supabase/functions/_shared/sale-refund.ts';
 
 describe('refundCapCents — plafond côté club', () => {
@@ -99,23 +99,65 @@ describe('fullRefundPatch', () => {
   });
 });
 
-describe('refundAllowed — miroir de l\'écran', () => {
-  const none: RefundActor = { isAdmin: false, ownsVenue: false, managesRefunds: false, isOrganizer: false, orgMemberCanRefund: false };
-  it('personne : refusé partout', () => {
-    for (const k of ['order', 'ticket', 'table_reservation'] as const) expect(refundAllowed(k, none)).toBe(false);
+const accounts = {
+  venues: { womber: 'acct_club' },
+  organizers: { org1: 'acct_org', org2: 'acct_org2' },
+};
+
+describe('saleParties — la partie principale d\'abord', () => {
+  it('soirée du club : le club, puis l\'organisateur partenaire', () => {
+    expect(saleParties({ venue_id: 'womber', partner_organizer_id: 'org1' }, accounts).map((p) => p.id)).toEqual(['womber', 'org1']);
   });
-  it('super admin, propriétaire, manager autorisé : tout ce qui se vend au club', () => {
-    for (const who of ['isAdmin', 'ownsVenue', 'managesRefunds'] as const) {
-      for (const k of ['order', 'ticket', 'table_reservation'] as const) {
-        expect(refundAllowed(k, { ...none, [who]: true })).toBe(true);
-      }
-    }
+  it('soirée de l\'organisateur chez un club : l\'organisateur, puis le club partenaire', () => {
+    const parties = saleParties({ venue_id: null, organizer_user_id: 'org1', partner_venue_id: 'womber' }, accounts);
+    expect(parties).toEqual([
+      { party: 'organizer', id: 'org1', accountId: 'acct_org' },
+      { party: 'venue', id: 'womber', accountId: 'acct_club' },
+    ]);
   });
-  it('organisateur et équipe autorisée : billets et tables, jamais le bar du club', () => {
-    for (const who of ['isOrganizer', 'orgMemberCanRefund'] as const) {
-      expect(refundAllowed('ticket', { ...none, [who]: true })).toBe(true);
-      expect(refundAllowed('table_reservation', { ...none, [who]: true })).toBe(true);
-      expect(refundAllowed('order', { ...none, [who]: true })).toBe(false);
-    }
+  it('une partie sans compte Stripe garde accountId null', () => {
+    expect(saleParties({ organizer_user_id: 'org9' }, accounts)[0].accountId).toBeNull();
+  });
+});
+
+describe('saleCollector — qui a encaissé rembourse', () => {
+  const orgLed = saleParties({ organizer_user_id: 'org1', partner_venue_id: 'womber' }, accounts);
+  const clubLed = saleParties({ venue_id: 'womber', partner_organizer_id: 'org1' }, accounts);
+  it('le compte de la vente désigne la partie, même partenaire', () => {
+    expect(saleCollector('ticket', 'acct_club', orgLed)).toEqual({ party: 'venue', id: 'womber' });
+    expect(saleCollector('table_reservation', 'acct_org', clubLed)).toEqual({ party: 'organizer', id: 'org1' });
+  });
+  it('sans compte ou compte inconnu : la partie principale', () => {
+    expect(saleCollector('ticket', null, orgLed)).toEqual({ party: 'organizer', id: 'org1' });
+    expect(saleCollector('ticket', 'acct_ancien', clubLed)).toEqual({ party: 'venue', id: 'womber' });
+  });
+  it('une commande de boissons revient au club du bar', () => {
+    expect(saleCollector('order', 'acct_org', orgLed)).toEqual({ party: 'venue', id: 'womber' });
+    expect(saleCollector('order', null, saleParties({ organizer_user_id: 'org1' }, accounts))).toBeNull();
+  });
+  it('soirée sans aucune partie : personne', () => {
+    expect(saleCollector('ticket', null, [])).toBeNull();
+  });
+});
+
+describe('refundAllowed — seul l\'encaisseur rembourse', () => {
+  const none: CollectorRights = { isAdmin: false, clubRefunder: false, orgRefunder: false };
+  const club = { party: 'venue' as const, id: 'womber' };
+  const org = { party: 'organizer' as const, id: 'org1' };
+  it('personne : refusé', () => {
+    expect(refundAllowed(club, none)).toBe(false);
+    expect(refundAllowed(org, none)).toBe(false);
+  });
+  it('le club rembourse ce que le club a encaissé, pas ce que l\'organisateur a encaissé', () => {
+    expect(refundAllowed(club, { ...none, clubRefunder: true })).toBe(true);
+    expect(refundAllowed(org, { ...none, clubRefunder: true })).toBe(false);
+  });
+  it('l\'organisateur rembourse ce qu\'il a encaissé, jamais la vente du club partenaire', () => {
+    expect(refundAllowed(org, { ...none, orgRefunder: true })).toBe(true);
+    expect(refundAllowed(club, { ...none, orgRefunder: true })).toBe(false);
+  });
+  it('super admin : toujours ; encaisseur inconnu : personne d\'autre', () => {
+    expect(refundAllowed(null, { ...none, isAdmin: true })).toBe(true);
+    expect(refundAllowed(null, { isAdmin: false, clubRefunder: true, orgRefunder: true })).toBe(false);
   });
 });

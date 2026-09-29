@@ -6,7 +6,8 @@ import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import {
   alreadyRefundedCents, fromCents, isSaleKind, planRefund, refundAllowed, refundCapCents,
-  SALE_TABLE, toCents, type SaleAmounts,
+  saleCollector, saleParties, SALE_TABLE, toCents,
+  type CollectorRights, type SaleAmounts, type SaleCollector, type SaleKind, type SaleParty,
 } from "../_shared/sale-refund.ts";
 import {
   applyFullRefundEffects, applyRefundAmountEffects, markSaleFullyRefunded, refundSaleOnStripe,
@@ -18,18 +19,17 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[OWNER-REFUND] ${step}${detailsStr}`);
 };
 
-interface RefundRequestItem { type: string; id: string; amount: number }
+interface RefundRequestItem { type: string; id: string; amount?: number }
 
 interface ItemResult { id: string; type: string; success: boolean; error?: string; amount?: number }
 
-interface EventJoin {
+interface EventRow {
   id: string;
   title: string | null;
   venue_id: string | null;
   partner_venue_id: string | null;
   organizer_user_id: string | null;
   partner_organizer_id: string | null;
-  venues: { id: string; owner_id: string | null; name: string | null } | null;
 }
 
 /** Colonnes de la vente lues ici (`select *`) : plafond, paiement Stripe, client, état à rétablir. */
@@ -46,22 +46,34 @@ interface SaleRecord extends SaleAmounts {
   refund_reason: string | null;
   refunded_by: string | null;
   refunded_at: string | null;
-  venues?: { id: string; owner_id: string | null; name: string | null } | null;
-  events?: EventJoin | null;
 }
+
+/** Ce que l'écran demande pour une vente : puis-je la rembourser, et sinon qui l'a encaissée. */
+interface SaleRight { allowed: boolean; collector: string | null }
+
+const json = (cors: Record<string, string>, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { headers: { ...cors, "Content-Type": "application/json" }, status });
 
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const body = (await req.json().catch(() => ({}))) as {
+    action?: string; event_id?: unknown; items?: unknown; reason?: unknown;
+  };
+  // `rights` ne fait que LIRE (qui peut rembourser quoi) : l'écran s'en sert pour
+  // ne proposer que ce que le serveur acceptera. Tout le reste rembourse.
+  const action: "rights" | "refund" = body?.action === "rights" ? "rights" : "refund";
+
   // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
-  const demoRefusal = await demoPreviewGuard(req, corsHeaders);
-  if (demoRefusal) return demoRefusal;
+  if (action === "refund") {
+    const demoRefusal = await demoPreviewGuard(req, corsHeaders);
+    if (demoRefusal) return demoRefusal;
+  }
 
   try {
-    logStep("Function started");
-
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -78,15 +90,13 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Not authenticated");
 
     // Accès assisté Yuno : un remboursement sort de l'argent du compte Stripe du
-    // club. Cette fonction écrit en service_role, donc les triggers de garde de
+    // pro. Cette fonction écrit en service_role, donc les triggers de garde de
     // la base ne la voient jamais — le refus doit être posé ici.
     if (await isSupportSessionToken(supabaseAdmin, (req.headers.get("Authorization") ?? "").replace("Bearer ", ""))) {
-      return new Response(JSON.stringify({ error: "support_session_forbidden" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403,
-      });
+      return action === "rights"
+        ? json(corsHeaders, { rights: {}, blocked: "support_session" })
+        : json(corsHeaders, { error: "support_session_forbidden" }, 403);
     }
-
-    logStep("User authenticated", { userId: user.id });
 
     // Super admin peut rembourser n'importe quelle transaction (support plateforme).
     const { data: adminRole } = await supabaseAdmin
@@ -96,10 +106,143 @@ serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
     const isAdmin = !!adminRole;
-    if (isAdmin) logStep("Caller is super admin — ownership checks bypassed");
 
-    const { items, reason } = await req.json() as { items?: RefundRequestItem[]; reason?: string };
+    // ── Qui a encaissé, et qui peut rembourser ─────────────────────────────
+    // Seul l'ENCAISSEUR rembourse (`saleCollector`) : en charge directe l'argent
+    // est arrivé sur SON compte Stripe, c'est de là qu'il repart. Chez lui,
+    // peuvent rembourser : le propriétaire du club ou un manager à qui il a donné
+    // « Remboursements » (`manager_permissions.can_manage_refunds`, ce que lit
+    // /manager/refunds) ; l'organisateur ou un membre de son équipe autorisé
+    // (`org_member_has_permission(…, 'refund')`, ce que rend
+    // `get_my_org_memberships`). Un partenaire de collab ou un co-hôte ne
+    // rembourse jamais une vente encaissée par un autre.
+    const venueCache = new Map<string, { accountId: string | null; ownerId: string | null; name: string }>();
+    const venueInfo = async (id: string) => {
+      if (!venueCache.has(id)) {
+        const { data } = await supabaseAdmin.from("venues")
+          .select("owner_id, name, stripe_account_id").eq("id", id).maybeSingle();
+        venueCache.set(id, { accountId: data?.stripe_account_id ?? null, ownerId: data?.owner_id ?? null, name: data?.name || "" });
+      }
+      return venueCache.get(id)!;
+    };
+    const orgInfoCache = new Map<string, { accountId: string | null; name: string }>();
+    const organizerInfo = async (id: string) => {
+      if (!orgInfoCache.has(id)) {
+        const { data } = await supabaseAdmin.from("profiles")
+          .select("stripe_connect_account_id, organization_name").eq("id", id).maybeSingle();
+        orgInfoCache.set(id, { accountId: data?.stripe_connect_account_id ?? null, name: data?.organization_name || "" });
+      }
+      return orgInfoCache.get(id)!;
+    };
+    const eventCache = new Map<string, EventRow | null>();
+    const loadEvent = async (id: string | null | undefined): Promise<EventRow | null> => {
+      if (!id) return null;
+      if (!eventCache.has(id)) {
+        const { data } = await supabaseAdmin.from("events")
+          .select("id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id")
+          .eq("id", id).maybeSingle();
+        eventCache.set(id, (data as EventRow | null) ?? null);
+      }
+      return eventCache.get(id)!;
+    };
 
+    const partiesOf = async (kind: SaleKind, sale: { venue_id?: string | null }, ev: EventRow | null): Promise<SaleParty[]> => {
+      const shape = kind === "order"
+        ? { venue_id: sale.venue_id ?? null }
+        : {
+          venue_id: ev?.venue_id ?? null,
+          partner_venue_id: ev?.partner_venue_id ?? null,
+          organizer_user_id: ev?.organizer_user_id ?? null,
+          partner_organizer_id: ev?.partner_organizer_id ?? null,
+        };
+      const venues: Record<string, string | null> = {};
+      const organizers: Record<string, string | null> = {};
+      for (const id of [shape.venue_id, "partner_venue_id" in shape ? shape.partner_venue_id : null]) {
+        if (id) venues[id] = (await venueInfo(id)).accountId;
+      }
+      if (kind !== "order") {
+        const s = shape as { organizer_user_id: string | null; partner_organizer_id: string | null };
+        for (const id of [s.organizer_user_id, s.partner_organizer_id]) {
+          if (id) organizers[id] = (await organizerInfo(id)).accountId;
+        }
+      }
+      return saleParties(shape, { venues, organizers });
+    };
+
+    const rightsCache = new Map<string, boolean>();
+    const collectorRights = async (collector: SaleCollector | null): Promise<CollectorRights> => {
+      const r: CollectorRights = { isAdmin, clubRefunder: false, orgRefunder: false };
+      if (isAdmin || !collector) return r;
+      const key = `${collector.party}:${collector.id}`;
+      if (!rightsCache.has(key)) {
+        let ok = false;
+        if (collector.party === "venue") {
+          ok = (await venueInfo(collector.id)).ownerId === user.id;
+          if (!ok) {
+            const { data } = await supabaseAdmin.from("manager_permissions")
+              .select("can_manage_refunds").eq("user_id", user.id).eq("venue_id", collector.id).maybeSingle();
+            ok = data?.can_manage_refunds === true;
+          }
+        } else {
+          ok = collector.id === user.id;
+          if (!ok) {
+            const { data } = await supabaseAdmin.rpc("org_member_has_permission", {
+              _user_id: user.id, _organizer_user_id: collector.id, _permission: "refund",
+            });
+            ok = data === true;
+          }
+        }
+        rightsCache.set(key, ok);
+      }
+      const ok = rightsCache.get(key)!;
+      return collector.party === "venue" ? { ...r, clubRefunder: ok } : { ...r, orgRefunder: ok };
+    };
+
+    const decide = async (
+      kind: SaleKind,
+      sale: { venue_id?: string | null; stripe_connected_account_id: string | null },
+      ev: EventRow | null,
+    ): Promise<{ allowed: boolean; collector: SaleCollector | null; collectorName: string | null }> => {
+      const collector = saleCollector(kind, sale.stripe_connected_account_id, await partiesOf(kind, sale, ev));
+      const allowed = refundAllowed(collector, await collectorRights(collector));
+      const collectorName = !collector
+        ? null
+        : collector.party === "venue" ? (await venueInfo(collector.id)).name : (await organizerInfo(collector.id)).name;
+      return { allowed, collector, collectorName };
+    };
+
+    // ── Lecture des droits (écran Remboursements, service VIP) ─────────────
+    if (action === "rights") {
+      const rows: { kind: SaleKind; id: string; venue_id?: string | null; event_id?: string | null; stripe_connected_account_id: string | null }[] = [];
+      const cols: Record<SaleKind, string> = {
+        order: "id, venue_id, event_id, stripe_connected_account_id",
+        ticket: "id, event_id, stripe_connected_account_id",
+        table_reservation: "id, event_id, stripe_connected_account_id",
+      };
+      const eventId = typeof body.event_id === "string" ? body.event_id : null;
+      const wanted = Array.isArray(body.items) ? (body.items as RefundRequestItem[]).filter((i) => isSaleKind(i?.type) && typeof i?.id === "string") : [];
+      for (const kind of ["order", "ticket", "table_reservation"] as const) {
+        const ids = wanted.filter((i) => i.type === kind).map((i) => i.id);
+        if (!eventId && ids.length === 0) continue;
+        let q = supabaseAdmin.from(SALE_TABLE[kind]).select(cols[kind]);
+        q = eventId ? q.eq("event_id", eventId) : q.in("id", ids.slice(0, 500));
+        const { data, error } = await q;
+        if (error) throw error;
+        for (const row of (data ?? []) as unknown as { id: string; venue_id?: string | null; event_id?: string | null; stripe_connected_account_id: string | null }[]) {
+          rows.push({ kind, ...row });
+        }
+      }
+      const rights: Record<string, SaleRight> = {};
+      for (const row of rows) {
+        const d = await decide(row.kind, row, await loadEvent(row.event_id));
+        rights[row.id] = { allowed: d.allowed, collector: d.collectorName };
+      }
+      return json(corsHeaders, { rights });
+    }
+
+    // ── Remboursement ──────────────────────────────────────────────────────
+    const items = body.items as RefundRequestItem[] | undefined;
+    const reason = body.reason;
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new Error("No items to refund");
     }
@@ -107,56 +250,11 @@ serve(async (req) => {
       throw new Error("Reason is required");
     }
     const cleanReason = reason.trim();
+    logStep("Refund requested", { userId: user.id, count: items.length, isAdmin });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
-
-    // ── Qui peut rembourser ────────────────────────────────────────────────
-    // Les droits suivent EXACTEMENT ce que la Console propose (`refundAllowed`) :
-    // le propriétaire du club, un manager à qui il a donné « Remboursements »
-    // (`manager_permissions.can_manage_refunds`, ce que lit /manager/refunds),
-    // l'organisateur de la soirée et un membre de son équipe autorisé à
-    // rembourser (`org_member_has_permission(…, 'refund')`, la même règle que
-    // `get_my_org_memberships` rend au front). Avant, seuls le propriétaire et
-    // l'organisateur passaient : un manager ou un admin d'équipe voyaient la page
-    // et recevaient « Unauthorized » à chaque remboursement.
-    const managerCache = new Map<string, boolean>();
-    const managesRefunds = async (venueId: string | null | undefined): Promise<boolean> => {
-      if (!venueId) return false;
-      if (!managerCache.has(venueId)) {
-        const { data } = await supabaseAdmin.from("manager_permissions")
-          .select("can_manage_refunds").eq("user_id", user.id).eq("venue_id", venueId).maybeSingle();
-        managerCache.set(venueId, data?.can_manage_refunds === true);
-      }
-      return managerCache.get(venueId)!;
-    };
-    const orgCache = new Map<string, boolean>();
-    const orgMemberCanRefund = async (organizerIds: (string | null | undefined)[]): Promise<boolean> => {
-      for (const orgId of organizerIds) {
-        if (!orgId) continue;
-        if (!orgCache.has(orgId)) {
-          const { data } = await supabaseAdmin.rpc("org_member_has_permission", {
-            _user_id: user.id, _organizer_user_id: orgId, _permission: "refund",
-          });
-          orgCache.set(orgId, data === true);
-        }
-        if (orgCache.get(orgId)) return true;
-      }
-      return false;
-    };
-
-    // Co-soirée menée par un organisateur : events.venue_id est NULL et le club
-    // hôte vit dans partner_venue_id. Club EFFECTIF de la soirée.
-    const resolveEventVenue = async (ev: EventJoin | null | undefined): Promise<{ id: string; owner_id: string | null; name: string } | null> => {
-      if (ev?.venues) return { id: ev.venues.id, owner_id: ev.venues.owner_id, name: ev.venues.name || "" };
-      if (ev?.partner_venue_id) {
-        const { data: pv } = await supabaseAdmin
-          .from("venues").select("id, owner_id, name").eq("id", ev.partner_venue_id).maybeSingle();
-        if (pv) return { id: pv.id, owner_id: pv.owner_id, name: pv.name || "" };
-      }
-      return null;
-    };
 
     const results: ItemResult[] = [];
 
@@ -168,64 +266,31 @@ serve(async (req) => {
       }
       try {
         const table = SALE_TABLE[kind];
-        let record: SaleRecord | null = null;
-        let ctx: SaleRefundContext;
-        let allowed = false;
+        const { data } = await supabaseAdmin.from(table).select("*").eq("id", item.id).maybeSingle();
+        const record = data as unknown as SaleRecord | null;
+        if (!record) { results.push({ id: item.id, type: kind, success: false, error: "Not found" }); continue; }
 
-        if (kind === "order") {
-          const { data } = await supabaseAdmin
-            .from("orders").select("*, venues!inner(id, owner_id, name)").eq("id", item.id).maybeSingle();
-          record = data as unknown as SaleRecord | null;
-          if (!record) { results.push({ id: item.id, type: kind, success: false, error: "Not found" }); continue; }
-          const base = { isAdmin, ownsVenue: !!record.venues?.owner_id && record.venues.owner_id === user.id, isOrganizer: false, orgMemberCanRefund: false };
-          allowed = refundAllowed(kind, { ...base, managesRefunds: false })
-            || refundAllowed(kind, { ...base, managesRefunds: await managesRefunds(record.venue_id) });
-          let eventTitle = "";
-          if (record.event_id) {
-            const { data: evt } = await supabaseAdmin.from("events").select("title").eq("id", record.event_id).maybeSingle();
-            eventTitle = evt?.title || "";
-          }
-          ctx = {
-            kind, id: record.id, venueId: record.venue_id || "", venueName: record.venues?.name || "",
-            eventTitle, customerEmail: record.user_email || "", customerUserId: record.user_id || "",
-          };
-        } else {
-          const { data } = await supabaseAdmin
-            .from(table)
-            .select("*, events!inner(id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
-            .eq("id", item.id)
-            .maybeSingle();
-          record = data as unknown as SaleRecord | null;
-          if (!record) { results.push({ id: item.id, type: kind, success: false, error: "Not found" }); continue; }
-          const ev = record.events ?? null;
-          const eventVenue = await resolveEventVenue(ev);
-          const organizers = [ev?.organizer_user_id, ev?.partner_organizer_id];
-          const base = {
-            isAdmin,
-            ownsVenue: !!eventVenue?.owner_id && eventVenue.owner_id === user.id,
-            isOrganizer: organizers.some((o) => !!o && o === user.id),
-          };
-          // Les droits délégués (manager, équipe) ne sont lus que s'il le faut.
-          allowed = refundAllowed(kind, { ...base, managesRefunds: false, orgMemberCanRefund: false })
-            || refundAllowed(kind, {
-              ...base,
-              managesRefunds: await managesRefunds(eventVenue?.id),
-              orgMemberCanRefund: await orgMemberCanRefund(organizers),
-            });
-          ctx = {
-            kind, id: record.id, venueId: eventVenue?.id || "", venueName: eventVenue?.name || "",
-            eventTitle: ev?.title || "", customerEmail: record.user_email || "", customerUserId: record.user_id || "",
-          };
-        }
-
+        const ev = await loadEvent(record.event_id);
+        const { allowed, collector, collectorName } = await decide(kind, record, ev);
         if (!allowed) {
-          results.push({ id: item.id, type: kind, success: false, error: "Unauthorized" });
+          results.push({
+            id: item.id, type: kind, success: false,
+            error: collectorName ? `Collected by ${collectorName}: only they can refund it` : "Unauthorized",
+          });
           continue;
         }
         if (record.status === "refunded") {
           results.push({ id: item.id, type: kind, success: false, error: "Already refunded" });
           continue;
         }
+
+        // Club de la soirée (stats client, fidélité, notification) : celui de la
+        // commande, sinon le club de la soirée ou le club partenaire.
+        const clubId = kind === "order" ? record.venue_id || "" : ev?.venue_id || ev?.partner_venue_id || "";
+        const ctx: SaleRefundContext = {
+          kind, id: record.id, venueId: clubId, venueName: clubId ? (await venueInfo(clubId)).name : "",
+          eventTitle: ev?.title || "", customerEmail: record.user_email || "", customerUserId: record.user_id || "",
+        };
 
         // Remboursements PARTIELS cumulables, plafonnés côté club (frais Yuno
         // jamais rendus) : `planRefund` ramène la demande à ce qui reste, et seul
@@ -240,7 +305,7 @@ serve(async (req) => {
           });
           continue;
         }
-        logStep("Refund planned", { id: item.id, kind, capCents, prevCents, plan });
+        logStep("Refund planned", { id: item.id, kind, collector, capCents, prevCents, plan });
 
         let paymentIntentId: string | null = record.stripe_payment_intent_id || null;
         if (!paymentIntentId && record.stripe_session_id) {
@@ -273,7 +338,7 @@ serve(async (req) => {
         // s'arrête ici, avant d'avoir touché à l'argent. Le webhook
         // `charge.refunded` que ce remboursement va provoquer trouvera le cumul
         // déjà posé et ne le rejouera pas.
-        const prevRaw = record.refund_amount as number | string | null;
+        const prevRaw = record.refund_amount ?? null;
         let claim = supabaseAdmin.from(table)
           .update({
             refund_amount: fromCents(plan.cumulativeCents),
@@ -283,7 +348,7 @@ serve(async (req) => {
           })
           .eq("id", item.id)
           .neq("status", "refunded");
-        claim = prevRaw === null || prevRaw === undefined ? claim.is("refund_amount", null) : claim.eq("refund_amount", prevRaw);
+        claim = prevRaw === null ? claim.is("refund_amount", null) : claim.eq("refund_amount", prevRaw);
         const { data: claimed, error: claimError } = await claim.select("id");
         if (claimError) throw claimError;
         if (!claimed || claimed.length === 0) {
@@ -291,7 +356,7 @@ serve(async (req) => {
           continue;
         }
 
-        const connectedAccountId = (record.stripe_connected_account_id as string | null) || null;
+        const connectedAccountId = record.stripe_connected_account_id || null;
         const refund = await refundSaleOnStripe(stripe, supabaseAdmin, {
           paymentIntentId,
           amountCents: plan.amountCents,
@@ -303,7 +368,7 @@ serve(async (req) => {
           // Rien n'est parti : le verrou est défait, la vente redevient remboursable.
           await supabaseAdmin.from(table)
             .update({
-              refund_amount: prevRaw ?? null,
+              refund_amount: prevRaw,
               refund_reason: record.refund_reason ?? null,
               refunded_by: record.refunded_by ?? null,
               refunded_at: record.refunded_at ?? null,
@@ -343,7 +408,7 @@ serve(async (req) => {
               action: "refund_issued",
               entity_type: kind,
               entity_id: item.id,
-              metadata: { amount: fromCents(plan.amountCents), reason: cleanReason, venue_id: ctx.venueId },
+              metadata: { amount: fromCents(plan.amountCents), reason: cleanReason, venue_id: ctx.venueId, collector },
             });
           } catch (auditErr) {
             console.error("Admin audit log error (refund):", auditErr);
@@ -354,16 +419,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
-
+    return json(corsHeaders, { success: true, results });
   } catch (error) {
     console.error("[OWNER-REFUND] Error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-    );
+    return json(corsHeaders, { error: error instanceof Error ? error.message : "Unknown error" }, 400);
   }
 });

@@ -144,28 +144,85 @@ export function fullRefundPatch(kind: SaleKind): Record<string, unknown> {
     : { status: "refunded" };
 }
 
-/** Ce qu'on sait de l'appelant, vérifié côté serveur. */
-export interface RefundActor {
-  /** Super admin (support plateforme). */
-  isAdmin: boolean;
-  /** Propriétaire du club de la vente (club de la soirée, ou club partenaire). */
-  ownsVenue: boolean;
-  /** Manager de ce club avec le droit « Remboursements » (`can_manage_refunds`). */
-  managesRefunds: boolean;
-  /** Organisateur ou organisateur partenaire de la soirée. */
-  isOrganizer: boolean;
-  /** Membre de l'équipe de cet organisateur avec le droit de rembourser (admin, ou `can_refund`). */
-  orgMemberCanRefund: boolean;
+/** Une partie de la soirée qui a pu ENCAISSER une vente. */
+export interface SaleParty {
+  party: "venue" | "organizer";
+  id: string;
+  /** Son compte Stripe Connect (`venues.stripe_account_id`, `profiles.stripe_connect_account_id`). */
+  accountId: string | null;
+}
+
+export type SaleCollector = Pick<SaleParty, "party" | "id">;
+
+/**
+ * Les parties d'une soirée, la PRINCIPALE d'abord : le club qui la mène
+ * (`venue_id`), sinon l'organisateur qui la mène (`organizer_user_id`), puis
+ * les partenaires. C'est l'ordre du checkout (club effectif, puis
+ * organisateur effectif).
+ */
+export function saleParties(
+  ev: {
+    venue_id?: string | null;
+    partner_venue_id?: string | null;
+    organizer_user_id?: string | null;
+    partner_organizer_id?: string | null;
+  },
+  accounts: { venues: Record<string, string | null>; organizers: Record<string, string | null> },
+): SaleParty[] {
+  const out: SaleParty[] = [];
+  const add = (party: SaleParty["party"], id: string | null | undefined) => {
+    if (!id || out.some((p) => p.party === party && p.id === id)) return;
+    out.push({ party, id, accountId: (party === "venue" ? accounts.venues[id] : accounts.organizers[id]) ?? null });
+  };
+  add("venue", ev.venue_id);
+  add("organizer", ev.organizer_user_id);
+  add("venue", ev.partner_venue_id);
+  add("organizer", ev.partner_organizer_id);
+  return out;
 }
 
 /**
- * Qui peut rembourser quoi. Miroir exact de ce que l'écran propose : le club
- * (propriétaire, manager autorisé) rembourse tout ce qui se vend chez lui ;
- * l'organisateur et son équipe autorisée remboursent billets et tables de
- * leurs soirées — jamais une commande de boissons, le bar est celui du club.
+ * Qui a ENCAISSÉ la vente — et donc qui la rembourse. En charge directe,
+ * l'argent arrive sur le compte Stripe d'une partie et c'est de ce compte
+ * qu'il repart : seule cette partie décide de le rendre (décision de Paul,
+ * 30/09 : « c'est l'organisateur principal qui les gère, c'est sur son compte
+ * que tout l'argent est viré »). Un partenaire de collab ou un co-hôte ne
+ * rembourse jamais avec l'argent d'un autre.
+ *
+ * Le compte de la vente (`stripe_connected_account_id`) désigne la partie ;
+ * sans compte (ancienne charge plateforme) ou sans correspondance, c'est la
+ * partie PRINCIPALE. Une commande de boissons revient toujours au club du bar.
  */
-export function refundAllowed(kind: SaleKind, a: RefundActor): boolean {
-  if (a.isAdmin || a.ownsVenue || a.managesRefunds) return true;
-  if (kind === "order") return false;
-  return a.isOrganizer || a.orgMemberCanRefund;
+export function saleCollector(
+  kind: SaleKind,
+  connectedAccountId: string | null | undefined,
+  parties: SaleParty[],
+): SaleCollector | null {
+  const pick = (p: SaleParty | undefined): SaleCollector | null => (p ? { party: p.party, id: p.id } : null);
+  if (kind === "order") return pick(parties.find((p) => p.party === "venue"));
+  if (connectedAccountId) {
+    const match = parties.find((p) => p.accountId && p.accountId === connectedAccountId);
+    if (match) return pick(match);
+  }
+  return pick(parties[0]);
+}
+
+/** Les droits de l'appelant sur l'ENCAISSEUR de la vente, vérifiés côté serveur. */
+export interface CollectorRights {
+  /** Super admin (support plateforme). */
+  isAdmin: boolean;
+  /** Propriétaire du club encaisseur, ou manager avec le droit « Remboursements » (`can_manage_refunds`). */
+  clubRefunder: boolean;
+  /** L'organisateur encaisseur lui-même, ou un membre de son équipe autorisé à rembourser (admin, ou `can_refund`). */
+  orgRefunder: boolean;
+}
+
+/**
+ * Qui peut rembourser une vente : son encaisseur (et ceux à qui il a délégué ce
+ * droit), et le super admin. Miroir exact de ce que la Console propose.
+ */
+export function refundAllowed(collector: SaleCollector | null, r: CollectorRights): boolean {
+  if (r.isAdmin) return true;
+  if (!collector) return false;
+  return collector.party === "venue" ? r.clubRefunder : r.orgRefunder;
 }
