@@ -306,47 +306,53 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       if (!ev) { setNotFound(true); setLoading(false); return; }
       setEvent(ev);
 
-      // Club name: organizer sees the partner club; venue is the club itself.
+      // Tout ce qui suit ne dépend que de la soirée : une seule vague de lectures
+      // en parallèle. Enchaînées, elles faisaient attendre 6 à 15 s la page.
       const clubVenueId = ev.partner_venue_id ?? ev.venue_id;
-      if (isVenue) {
-        setClubName(venueRow?.name ?? '');
-      } else if (clubVenueId) {
-        const { data: v } = await supabase.from('venues').select('name').eq('id', clubVenueId).maybeSingle();
-        if (!cancelled && v) setClubName(v.name);
-      }
-
-      // Partner organizer identity (name + public slug).
       const orgId = ev.organizer_user_id ?? ev.partner_organizer_id;
-      if (orgId) {
-        const { data: prof } = await supabase
-          .from('organizer_profiles')
-          .select('display_name, slug')
-          .eq('user_id', orgId)
-          .maybeSingle();
-        if (!cancelled && prof) { setOrgName(prof.display_name ?? ''); setOrgSlug(prof.slug ?? null); }
-      }
-
-      // Revenue stats — shared night revenue + the viewer's own share.
-      // Boissons : lues côté CLUB uniquement (RLS orders = owner du venue ; et le
-      // bar est 100 % club par défaut). Sans elles, un club qui vit du bar voyait
-      // un « CA de la soirée » qui ignorait sa recette principale.
-      const [{ data: tickets }, { data: reservations }, { data: gl }, { data: drinkOrders }] = await Promise.all([
-        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).eq('status', 'paid'),
+      // Inscrits guest list : par les listes de la soirée, jamais par une jointure
+      // `guest_lists!inner(event_id)` — la RLS s'évaluait sur toutes les entrées
+      // avant le filtre (8 s sur la démo).
+      const glCount = async () => {
+        const { data: lists } = await supabase.from('guest_lists').select('id').eq('event_id', eventId);
+        const ids = (lists ?? []).map((l) => l.id);
+        if (ids.length === 0) return 0;
+        const { count } = await supabase.from('guest_list_entries')
+          .select('id', { count: 'exact', head: true })
+          .in('guest_list_id', ids)
+          .neq('status', 'cancelled');
+        return count ?? 0;
+      };
+      const [clubRow, prof, { data: tickets }, { data: reservations }, glEntries, { data: drinkOrders }] = await Promise.all([
+        // Club name: organizer sees the partner club; venue is the club itself.
+        !isVenue && clubVenueId
+          ? supabase.from('venues').select('name').eq('id', clubVenueId).maybeSingle().then((r) => r.data)
+          : Promise.resolve(null),
+        // Partner organizer identity (name + public slug).
+        orgId
+          ? supabase.from('organizer_profiles').select('display_name, slug').eq('user_id', orgId).maybeSingle().then((r) => r.data)
+          : Promise.resolve(null),
+        // Revenue stats — shared night revenue + the viewer's own share. Statuts
+        // de la compta : un billet scanné passe en `used` et restait hors du CA.
+        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).in('status', ['paid', 'used']),
         // `guest_count` (sans s) : l'ancien `guests_count` n'existait pas → la requête
         // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
-        // status 'paid' : c'est la seule valeur écrite par le checkout —
-        // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count').eq('event_id', eventId).eq('status', 'paid'),
-        supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count').eq('event_id', eventId).in('status', ['paid', 'confirmed']),
+        glCount(),
+        // Boissons : lues côté CLUB uniquement (RLS orders = owner du venue ; et le
+        // bar est 100 % club par défaut). Sans elles, un club qui vit du bar voyait
+        // un « CA de la soirée » qui ignorait sa recette principale.
         isVenue
-          ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
+          ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).in('status', ['paid', 'served'])
           : Promise.resolve({ data: null as Pick<Tables<'orders'>, 'total' | 'service_fee' | 'refund_amount'>[] | null }),
       ]);
+      if (isVenue) setClubName(venueRow?.name ?? '');
+      else if (clubRow) setClubName(clubRow.name);
+      if (prof) { setOrgName(prof.display_name ?? ''); setOrgSlug(prof.slug ?? null); }
       if (cancelled) return;
 
       const tk = tickets ?? [];
       const tr = reservations ?? [];
-      const entries = gl ?? [];
       const dr = drinkOrders ?? [];
       // CA hors frais Yuno (les frais Yuno ne sont jamais du revenu).
       const ticketCA = tk.reduce((s, x) => s + ticketRevenue(x).gross, 0);
@@ -365,7 +371,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
         checkins: tk.filter((x) => x.entry_scanned).length,
         tableGuests: tr.reduce((s, x) => s + (x.guest_count || 0), 0),
-        glEntries: entries.length,
+        glEntries,
         ticketPillar: { count: ticketsSoldQty, ca: ticketCA },
         tablePillar: { count: tr.length, ca: tableCA },
         drinkPillar: isVenue ? { count: dr.length, ca: drinksCA } : null,
