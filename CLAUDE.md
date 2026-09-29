@@ -1250,9 +1250,12 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
 - **Front** : tout appel à `stripe-connect` passe par `invokeEdgeFunction` (vrai
   message serveur), le formulaire s'ouvre dans la page (un `window.open` après
   un `await` est bloqué par Safari), le tableau de bord par `openPendingTab`.
-- **À faire côté Stripe (hors code)** : endpoint webhook « Connected accounts »
-  (`account.updated`, `checkout.session.completed`…) dont le secret va dans
-  `STRIPE_WEBHOOK_SECRET_CONNECT` — absent au 29/09, d'où l'auto-réparation.
+- **Endpoint webhook « Comptes connectés » OBLIGATOIRE avant toute vente
+  directe** (pas à pas : `docs/STRIPE_CONNECT_WEBHOOK.md`) : une charge directe
+  naît sur le compte du pro, ses événements (`checkout.session.completed`,
+  `payment_intent.succeeded`, `charge.refunded`, `account.updated`…) n'arrivent
+  QUE par cet endpoint, dont le secret va dans `STRIPE_WEBHOOK_SECRET_CONNECT`.
+  Sans lui, un acheteur qui ferme l'onglet avant le retour paie sans billet.
 
 ## Backend Supabase — gotchas critiques
 
