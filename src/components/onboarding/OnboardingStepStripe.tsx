@@ -49,32 +49,22 @@ export function OnboardingStepStripe({
   checkSubscription,
 }: Props) {
   const { t } = useLanguage();
-  const [collabInvitation, setCollabInvitation] = useState<{
-    organizer_name: string | null;
-    event_title: string | null;
-  } | null>(null);
+  const [isCollabAccount, setIsCollabAccount] = useState(false);
 
-  // Detect whether this venue was created via an organizer collab invitation.
+  // Club créé depuis l'invitation d'un organisateur : la carte « compte collab »
+  // ne dit que ça, elle n'affiche ni l'organisateur ni la soirée. (Elle lisait
+  // `profiles` de l'organisateur, que la RLS refuse au club, pour n'en rien faire.)
   useEffect(() => {
     if (!venueId) return;
     let cancelled = false;
     (async () => {
       const { data: inv } = await supabase
         .from('venue_claim_invitations')
-        .select('id, event_id, organizer_user_id')
+        .select('id')
         .eq('created_venue_id', venueId)
         .eq('status', 'accepted')
         .maybeSingle();
-      if (!inv || cancelled) return;
-      const [eventRes, profileRes] = await Promise.all([
-        inv.event_id ? supabase.from('events').select('title').eq('id', inv.event_id).maybeSingle() : Promise.resolve({ data: null }),
-        inv.organizer_user_id ? supabase.from('profiles').select('full_name').eq('id', inv.organizer_user_id).maybeSingle() : Promise.resolve({ data: null }),
-      ]);
-      if (cancelled) return;
-      setCollabInvitation({
-        organizer_name: (profileRes.data as any)?.full_name ?? null,
-        event_title: (eventRes.data as any)?.title ?? null,
-      });
+      if (!cancelled) setIsCollabAccount(!!inv);
     })();
     return () => { cancelled = true; };
   }, [venueId]);
@@ -113,7 +103,7 @@ export function OnboardingStepStripe({
       <StepHeader icon={CreditCard} title={t('onboarding.step3Title')} subtitle={t('onboarding.step3Desc')} />
 
       {/* Collab account info */}
-      {collabInvitation && (
+      {isCollabAccount && (
         <InnerCard style={{ border: '1px solid rgba(168,85,247,0.28)', background: 'rgba(168,85,247,0.05)' }}>
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(168,85,247,0.15)' }}>

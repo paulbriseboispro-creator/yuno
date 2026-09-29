@@ -136,7 +136,9 @@ export default function OwnerBilling() {
       toast.info(t('plan.subscriptionCanceled'));
       searchParams.delete('subscription'); setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+    // Sans paramètre de retour Stripe dans l'URL, l'effet ne fait rien : le
+    // relancer quand `t` ou un rafraîchisseur change est sans effet.
+  }, [searchParams, setSearchParams, t, refreshStatus, refreshPlan]);
 
   const handleSubscribe = async (planCode: PlanCode) => {
     if (!venueId) return;
