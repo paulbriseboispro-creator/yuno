@@ -31,6 +31,13 @@
 // un 429 ou un 5xx n'enchaîne JAMAIS : le compte a pu naître, en créer un second
 // laisserait un doublon.
 //
+// PAYS (2026-09-29) : le pays d'un compte Stripe ne change JAMAIS après sa
+// création, et c'est lui qui décide de ce que le formulaire réclame (identité,
+// adresse, IBAN du pays). Tous les comptes naissaient en France : un club de
+// Madrid se voyait demander une adresse et un IBAN français. Le pays vient donc
+// du pro (`NewConnectedAccount.country`, choisi dans la Console avant la
+// création) et ne se devine plus ici.
+//
 // Aucun import du SDK ni d'URL : le module est testé tel quel par vitest
 // (src/lib/__tests__/stripeConnectAccounts.test.ts).
 
@@ -40,6 +47,70 @@ export const STRIPE_V2_API_VERSION = "2026-08-26.dahlia";
 export const STRIPE_FULL_DASHBOARD_URL = "https://dashboard.stripe.com/";
 
 const API_BASE = "https://api.stripe.com";
+
+// ─── Pays d'immatriculation ─────────────────────────────────────────────────
+//
+// Les pays où Yuno ouvre un compte connecté, avec la devise par défaut que
+// Stripe donne à un compte de ce pays (tableau « Supported currencies by
+// country » de la doc Connect). C'est l'Europe où Stripe opère : UE, EEE,
+// Royaume-Uni, Suisse. Trois raisons de s'y tenir :
+//   • Yuno vend en euros partout (fees.ts, checkouts) ; une charge directe en
+//     EUR sur un compte GBP/CHF/DKK… est convertie par Stripe, rien de plus ;
+//   • les cachets DJ sont des TRANSFERTS de la plateforme (France) vers le
+//     compte du DJ, que Stripe n'ouvre qu'entre Europe, Royaume-Uni, Suisse,
+//     États-Unis et Canada ;
+//   • hors de cette liste, Stripe n'est souvent pas disponible du tout (Maroc,
+//     Algérie, Tunisie : aucun compte Stripe possible).
+// Un pays absent = PAS de création : le front le dit avant le clic, et
+// `createConnectedAccount` refuse de toute façon (rien n'est envoyé à Stripe).
+// Miroir front : src/lib/stripeConnectCountry.ts (même liste, testée).
+export const STRIPE_CONNECT_COUNTRY_CURRENCIES: Readonly<Record<string, string>> = {
+  AT: "eur", BE: "eur", BG: "eur", CY: "eur", DE: "eur", EE: "eur", ES: "eur",
+  FI: "eur", FR: "eur", GR: "eur", HR: "eur", IE: "eur", IT: "eur", LT: "eur",
+  LU: "eur", LV: "eur", MT: "eur", NL: "eur", PT: "eur", SI: "eur", SK: "eur",
+  CZ: "czk", DK: "dkk", HU: "huf", PL: "pln", RO: "ron", SE: "sek",
+  NO: "nok", LI: "chf", CH: "chf", GB: "gbp", GI: "gbp",
+};
+
+/** Codes ISO alpha-2 (majuscules) où Yuno ouvre un compte Stripe connecté. */
+export const STRIPE_CONNECT_COUNTRIES: readonly string[] = Object.keys(STRIPE_CONNECT_COUNTRY_CURRENCIES).sort();
+
+/** Pays retenu quand l'appelant n'en envoie aucun (anciens bundles de la Console). */
+export const DEFAULT_CONNECT_COUNTRY = "FR";
+
+/** Code ISO alpha-2 normalisé s'il est pris en charge, sinon null. */
+export function normalizeConnectCountry(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const code = raw.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) && code in STRIPE_CONNECT_COUNTRY_CURRENCIES ? code : null;
+}
+
+export function isSupportedConnectCountry(raw: unknown): boolean {
+  return normalizeConnectCountry(raw) !== null;
+}
+
+/** Devise par défaut du compte (v2 `defaults.currency`), jamais « eur » imposé à un compte GBP ou CHF. */
+export function connectCurrencyFor(country: string): string {
+  return STRIPE_CONNECT_COUNTRY_CURRENCIES[country.trim().toUpperCase()] ?? "eur";
+}
+
+export type ConnectLanguage = "fr" | "en" | "es";
+
+/**
+ * Langue des emails Stripe du compte (v2 `defaults.locales`) : celle de la
+ * Console du pro quand on la connaît, sinon celle du pays pour la France et
+ * l'Espagne, l'anglais ailleurs. Un club de Madrid ne reçoit plus ses emails
+ * Stripe en français.
+ */
+export function connectLocaleFor(language: ConnectLanguage | null | undefined, country: string): string {
+  if (language === "fr") return "fr-FR";
+  if (language === "es") return "es-ES";
+  if (language === "en") return "en-GB";
+  const c = country.trim().toUpperCase();
+  if (c === "FR") return "fr-FR";
+  if (c === "ES") return "es-ES";
+  return "en-GB";
+}
 
 export type ConnectPurpose = "seller" | "payee";
 export type ConnectApi = "v1" | "v2";
@@ -54,6 +125,14 @@ export interface ConnectContext {
 export interface NewConnectedAccount {
   /** seller = club / organisateur (vend en direct, reçoit les jambes d'une co-soirée) ; payee = DJ (reçoit un cachet). */
   purpose: ConnectPurpose;
+  /**
+   * Pays d'immatriculation, ISO alpha-2 (« ES », « fr »…) : envoyé en minuscules
+   * en v2, en majuscules en v1. Définitif chez Stripe ; doit figurer dans
+   * STRIPE_CONNECT_COUNTRIES, sinon rien n'est créé.
+   */
+  country: string;
+  /** Langue de la Console du pro : fixe la langue des emails Stripe. */
+  language?: ConnectLanguage | null;
   email?: string | null;
   displayName?: string | null;
   /** Pré-remplissage du formulaire Stripe. Jamais bloquant : retiré si Stripe le refuse. */
@@ -79,6 +158,8 @@ export interface ConnectAccountState {
   hasRequirements: boolean;
   requirements: { currently_due: string[]; past_due: string[] };
   dashboard: DashboardType | null;
+  /** Pays du compte chez Stripe (ISO alpha-2 majuscules), null quand la lecture ne le rend pas. */
+  country: string | null;
   source: ConnectApi;
 }
 
@@ -102,6 +183,14 @@ export class ConnectAccountCreateError extends Error {
   constructor(message: string, readonly attempts: { shape: string; message: string }[]) {
     super(message);
     this.name = "ConnectAccountCreateError";
+  }
+}
+
+/** Pays hors de STRIPE_CONNECT_COUNTRIES : refusé AVANT tout appel à Stripe. */
+export class UnsupportedConnectCountryError extends Error {
+  constructor(readonly country: string) {
+    super(`Stripe connected accounts are not available for country "${country}"`);
+    this.name = "UnsupportedConnectCountryError";
   }
 }
 
@@ -218,12 +307,13 @@ export function v2AccountBody(
   prefill: boolean,
 ): Record<string, unknown> {
   const mcc = spec.mcc ?? "7929";
+  const country = spec.country.trim().toUpperCase();
   return compact({
     contact_email: spec.email ?? undefined,
     display_name: spec.displayName ?? undefined,
     dashboard: "full",
     identity: {
-      country: "fr",
+      country: country.toLowerCase(),
       entity_type: prefill ? spec.entityType ?? undefined : undefined,
       business_details: prefill && spec.registeredName && spec.entityType !== "individual"
         ? { registered_name: spec.registeredName }
@@ -238,8 +328,8 @@ export function v2AccountBody(
         : undefined,
     },
     defaults: {
-      currency: "eur",
-      locales: ["fr-FR"],
+      currency: connectCurrencyFor(country),
+      locales: [connectLocaleFor(spec.language, country)],
       responsibilities: { fees_collector: "stripe", losses_collector: "stripe" },
       profile: {
         product_description: spec.productDescription,
@@ -257,7 +347,7 @@ export function v1ControllerAccountBody(
 ): Record<string, unknown> {
   const prefill = opts.prefill && !!spec.entityType;
   return {
-    country: "FR",
+    country: spec.country.trim().toUpperCase(),
     email: spec.email ?? undefined,
     controller: {
       fees: { payer: "account" },
@@ -289,6 +379,11 @@ export async function createConnectedAccount(
   ctx: ConnectContext,
   spec: NewConnectedAccount,
 ): Promise<CreatedConnectedAccount> {
+  // Le pays est définitif chez Stripe : un code inconnu ou hors liste ne part
+  // jamais, même par un appelant qui aurait sauté la validation de l'edge.
+  const country = normalizeConnectCountry(spec.country);
+  if (!country) throw new UnsupportedConnectCountryError(String(spec.country ?? ""));
+  spec = { ...spec, country };
   const configs: V2Configuration[] = spec.purpose === "seller" ? ["merchant", "recipient"] : ["recipient"];
   const hasPrefill = !!spec.entityType || !!spec.registeredName;
 
@@ -371,6 +466,7 @@ export async function createOnboardingLink(
 
 interface V1AccountLike {
   type?: string;
+  country?: string | null;
   charges_enabled?: boolean;
   payouts_enabled?: boolean;
   details_submitted?: boolean;
@@ -391,6 +487,7 @@ export function stateFromV1Account(a: V1AccountLike): ConnectAccountState {
     hasRequirements: currently_due.length > 0 || past_due.length > 0,
     requirements: { currently_due, past_due },
     dashboard: dash === "express" || dash === "full" || dash === "none" ? dash : legacy[a.type ?? ""] ?? null,
+    country: a.country ? a.country.toUpperCase() : null,
     source: "v1",
   };
 }
@@ -398,6 +495,7 @@ export function stateFromV1Account(a: V1AccountLike): ConnectAccountState {
 type CapabilityLike = { status?: string } | undefined;
 interface V2AccountLike {
   dashboard?: string;
+  identity?: { country?: string | null } | null;
   configuration?: {
     merchant?: { capabilities?: { card_payments?: CapabilityLike; stripe_balance?: { payouts?: CapabilityLike } } };
     recipient?: { capabilities?: { stripe_balance?: { payouts?: CapabilityLike; stripe_transfers?: CapabilityLike } } };
@@ -430,6 +528,7 @@ export function stateFromV2Account(a: V2AccountLike): ConnectAccountState {
     hasRequirements: currently_due.length > 0 || past_due.length > 0,
     requirements: { currently_due, past_due },
     dashboard: dash === "express" || dash === "full" || dash === "none" ? dash : null,
+    country: a.identity?.country ? a.identity.country.toUpperCase() : null,
     source: "v2",
   };
 }
