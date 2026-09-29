@@ -25,6 +25,12 @@ interface TicketRoundEmbed {
   price: number;
 }
 
+// Une jointure plusieurs-à-un arrive en OBJET à l'exécution, mais le client non
+// typé la déclare en tableau : on accepte les deux formes au lieu de forcer le type.
+function embedOne<T>(v: T | T[] | null | undefined): T | null {
+  return Array.isArray(v) ? v[0] ?? null : v ?? null;
+}
+
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === 'OPTIONS') {
@@ -813,11 +819,13 @@ serve(async (req) => {
             .eq('id', ticketId)
             .single();
 
-          if (fullTicket) {
+          const ticketEvent = embedOne(fullTicket?.events as unknown as TicketEventEmbed | TicketEventEmbed[] | null);
+          const ticketRound = embedOne(fullTicket?.ticket_rounds as unknown as TicketRoundEmbed | TicketRoundEmbed[] | null);
+          if (fullTicket && ticketEvent && ticketRound) {
             // Standalone organizer events have no venue_id — skip the venue lookup
             // entirely instead of querying `.eq('id', null)` (which errors and would
             // leave the guest confirmation page without an issuer name).
-            const ticketVenueId = (fullTicket.events as TicketEventEmbed).venue_id;
+            const ticketVenueId = ticketEvent.venue_id;
             const { data: venue } = ticketVenueId
               ? await supabaseAdmin
                   .from('venues')
@@ -835,11 +843,11 @@ serve(async (req) => {
             ticketDetails = {
               id: fullTicket.id,
               qrCode: fullTicket.qr_code,
-              eventTitle: (fullTicket.events as TicketEventEmbed).title,
-              eventDate: (fullTicket.events as TicketEventEmbed).start_at,
-              eventPosterUrl: (fullTicket.events as TicketEventEmbed).poster_url,
-              roundName: (fullTicket.ticket_rounds as TicketRoundEmbed).name,
-              roundPrice: (fullTicket.ticket_rounds as TicketRoundEmbed).price,
+              eventTitle: ticketEvent.title,
+              eventDate: ticketEvent.start_at,
+              eventPosterUrl: ticketEvent.poster_url,
+              roundName: ticketRound.name,
+              roundPrice: ticketRound.price,
               quantity: fullTicket.quantity,
               totalPrice: fullTicket.total_price,
               serviceFee: fullTicket.service_fee,
