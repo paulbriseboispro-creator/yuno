@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Banknote, Check, Copy, HandCoins, TriangleAlert } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { translate } from '@/i18n/orgTranslate';
 import { OrgCard, OrgButton, OrgPill, RED, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import {
@@ -32,6 +33,8 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
   const [disputeReason, setDisputeReason] = useState('');
 
   const isVenue = viewerRole === 'venue';
+  // Un éditeur d'équipe orga voit le décompte, jamais un bouton refusé par le serveur.
+  const orgCanAct = useCollabOrgCanAct(isVenue ? 'venue' : 'organizer');
 
   const refresh = useCallback(async () => {
     try {
@@ -219,7 +222,7 @@ export function CollabTableSettlementCard({ eventId, viewerRole }: {
 
             {/* Actions côté ORGANISATEUR : lui seul solde. Un litige reste
                 confirmable — l'argent a pu arriver en retard. */}
-            {!isVenue && (open.status === 'approved' || open.status === 'disputed') && (
+            {!isVenue && orgCanAct && (open.status === 'approved' || open.status === 'disputed') && (
               <div className="space-y-2 pt-1">
                 <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>
                   {t('Bien reçu sur ton compte ?', 'Received on your account?', '¿Recibido en tu cuenta?')}

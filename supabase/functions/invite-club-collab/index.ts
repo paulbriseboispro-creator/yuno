@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildClubCollabInvitation } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { summarizeTerms, needsStripe } from "../_shared/collab-invite-text.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -20,33 +21,13 @@ interface Payload {
   contact_first_name?: string;
   contact_last_name?: string;
   event_id?: string | null;
+  /** Organisation au nom de laquelle on invite (fondateur ou admin d'équipe). */
+  organizer_user_id?: string | null;
   invitation_message?: string;
   default_split_rules?: any;
   origin?: string;
   /** Langue de l'email reçu par le club (fr par défaut). */
   lang?: string;
-}
-
-/** « Billets 100 % orga · tables 100 % club » ou « barème sur le CA : 0 % < 3 500 €, 7 % … ». */
-function summarizeTerms(rules: any, lang: "fr" | "en" | "es"): string | null {
-  if (!rules || typeof rules !== "object") return null;
-  const orga = lang === "en" ? "organizer" : lang === "es" ? "orga" : "orga";
-  const rem = rules.remuneration;
-  if (rem && rem.mode === "tiered_total" && Array.isArray(rem.tiers) && rem.tiers.length) {
-    const tiers = [...rem.tiers].sort((a: any, b: any) => Number(a.from) - Number(b.from));
-    const parts = tiers.map((t: any, i: number) => {
-      const next = tiers[i + 1];
-      const range = next ? `${Number(t.from).toLocaleString("fr-FR")}–${Number(next.from).toLocaleString("fr-FR")} €` : `≥ ${Number(t.from).toLocaleString("fr-FR")} €`;
-      return `${range} : ${t.pct} %`;
-    });
-    const head = lang === "en" ? "Tiers on the night's total revenue" : lang === "es" ? "Escala sobre la facturación de la noche" : "Barème sur le CA de la soirée";
-    return `${head} (${orga}) — ${parts.join(" · ")}`;
-  }
-  const pct = (b: any) => Number(b?.organizer_pct ?? 0);
-  const tk = lang === "en" ? "Tickets" : lang === "es" ? "Entradas" : "Billets";
-  const tb = lang === "en" ? "tables" : lang === "es" ? "mesas" : "tables";
-  const dr = lang === "en" ? "drinks" : lang === "es" ? "bebidas" : "boissons";
-  return `${tk} ${pct(rules.tickets)} % ${orga} · ${tb} ${pct(rules.tables)} % ${orga} · ${dr} ${pct(rules.drinks)} % ${orga}`;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -72,18 +53,6 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) throw new Error("Not authenticated");
 
-    // Only organizers may invite a partner club. Without this, any logged-in account
-    // could seed venue_claim_invitations that the accept flow turns into a real venue
-    // + owner role.
-    const { data: inviterProfile } = await supabaseAdmin
-      .from("profiles").select("profile_type").eq("id", user.id).maybeSingle();
-    if (inviterProfile?.profile_type !== "organizer") {
-      return new Response(JSON.stringify({ error: "Seuls les organisateurs peuvent inviter un club partenaire." }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = (await req.json()) as Payload;
     const {
       club_name,
@@ -98,6 +67,35 @@ const handler = async (req: Request): Promise<Response> => {
       origin,
       lang,
     } = body;
+
+    // Scope = l'ORGANISATION : le fondateur, ou un ADMIN de son équipe qui
+    // invite en son nom (même règle que collab_org_can_act côté SQL). Jamais un
+    // éditeur ni un scanner : l'invitation porte des conditions financières.
+    const orgId = body.organizer_user_id && body.organizer_user_id !== user.id ? body.organizer_user_id : user.id;
+    if (orgId !== user.id) {
+      const { data: isAdmin } = await supabaseAdmin.rpc("is_org_team_member", {
+        _user_id: user.id, _organizer_user_id: orgId, _min_role: "admin",
+      });
+      if (isAdmin !== true) {
+        return new Response(JSON.stringify({ error: "Seuls le fondateur et les admins de l'équipe peuvent inviter un club." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Only organizers may invite a partner club. Without this, any logged-in account
+    // could seed venue_claim_invitations that the accept flow turns into a real venue
+    // + owner role.
+    const { data: inviterProfile } = await supabaseAdmin
+      .from("profiles").select("profile_type").eq("id", orgId).maybeSingle();
+    if (inviterProfile?.profile_type !== "organizer") {
+      return new Response(JSON.stringify({ error: "Seuls les organisateurs peuvent inviter un club partenaire." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
 
     if (!club_name?.trim() || !club_email?.trim()) {
       return new Response(JSON.stringify({ error: "club_name et club_email requis" }), {
@@ -115,6 +113,22 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // La soirée jointe doit être une soirée de l'organisation, encore sans club
+    // (l'acceptation le revérifie en base ; ici on refuse tôt et clairement).
+    if (event_id) {
+      const { data: ownEvent } = await supabaseAdmin
+        .from("events").select("id")
+        .eq("id", event_id).eq("organizer_user_id", orgId)
+        .is("venue_id", null).is("partner_venue_id", null)
+        .maybeSingle();
+      if (!ownEvent) {
+        return new Response(JSON.stringify({ error: "Cette soirée n'appartient pas à ton organisation ou a déjà un club." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Check if a venue with this email already exists in Yuno
     const { data: existingVenue } = await supabaseAdmin
       .from("venues")
@@ -130,11 +144,24 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // La démo n'écrit jamais à une vraie boîte mail : un compte démo n'invite
+    // qu'une adresse démo, et cet email-là n'est pas envoyé (boîte fictive).
+    const [{ data: inviterDemo }, { data: targetDemo }] = await Promise.all([
+      supabaseAdmin.rpc("is_demo_email", { p_email: user.email ?? "" }),
+      supabaseAdmin.rpc("is_demo_email", { p_email: normalizedEmail }),
+    ]);
+    if (inviterDemo === true && targetDemo !== true) {
+      return new Response(JSON.stringify({ error: "Un compte de démonstration ne peut inviter qu'une adresse de démonstration." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Check pending invitation by this organizer for this email
     const { data: existingInv } = await supabaseAdmin
       .from("venue_claim_invitations")
       .select("id, expires_at")
-      .eq("organizer_user_id", user.id)
+      .eq("organizer_user_id", orgId)
       .eq("club_email", normalizedEmail)
       .eq("status", "pending")
       .maybeSingle();
@@ -149,7 +176,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: orgProfile } = await supabaseAdmin
       .from("profiles")
       .select("first_name, last_name, organization_name")
-      .eq("id", user.id)
+      .eq("id", orgId)
       .maybeSingle();
     const organizerLabel =
       orgProfile?.organization_name ||
@@ -160,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: invitation, error: insErr } = await supabaseAdmin
       .from("venue_claim_invitations")
       .insert({
-        organizer_user_id: user.id,
+        organizer_user_id: orgId,
         club_name: club_name.trim(),
         club_email: normalizedEmail,
         club_city: club_city?.trim() || null,
@@ -183,13 +210,13 @@ const handler = async (req: Request): Promise<Response> => {
     // Nom PUBLIC de l'organisateur (le club ne connaît pas Yuno : il doit
     // reconnaître qui l'invite), la soirée visée, et les conditions en clair.
     const { data: orgPublic } = await supabaseAdmin
-      .from("organizer_profiles").select("display_name").eq("user_id", user.id).maybeSingle();
+      .from("organizer_profiles").select("display_name").eq("user_id", orgId).maybeSingle();
     const inviterPublic = orgPublic?.display_name || organizerLabel;
     let eventTitle: string | null = null;
     let eventDateLabel: string | null = null;
     if (event_id) {
       const { data: ev } = await supabaseAdmin
-        .from("events").select("title, start_at, timezone").eq("id", event_id).eq("organizer_user_id", user.id).maybeSingle();
+        .from("events").select("title, start_at, timezone").eq("id", event_id).eq("organizer_user_id", orgId).maybeSingle();
       if (ev) {
         eventTitle = ev.title;
         const locale = mailLang === "es" ? "es-ES" : mailLang === "en" ? "en-GB" : "fr-FR";
@@ -215,6 +242,7 @@ const handler = async (req: Request): Promise<Response> => {
       message: invitation_message?.trim() || null,
       acceptUrl,
       expiresLabel,
+      clubNeedsStripe: needsStripe(default_split_rules, "venue"),
     });
 
     const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
@@ -222,7 +250,7 @@ const handler = async (req: Request): Promise<Response> => {
       ? rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`
       : "Yuno <noreply@yunoapp.eu>";
 
-    if (RESEND_API_KEY) {
+    if (RESEND_API_KEY && targetDemo !== true) {
       const emailRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {

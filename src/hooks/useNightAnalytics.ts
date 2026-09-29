@@ -4,6 +4,7 @@ import { subDays, subHours, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import type { AnalyticsMode, DateRange } from '@/hooks/useAnalyticsData';
+import { orgEventsOr } from '@/lib/coorg';
 
 /**
  * "The night" analytics — what happened at the door, not just online.
@@ -82,7 +83,7 @@ export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, s
         const { data: evs } = await supabase
           .from('events')
           .select('id')
-          .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+          .or(orgEventsOr(organizerUserId));
         orgEventIds = (evs ?? []).map(e => e.id);
         if (orgEventIds.length === 0) { setData(EMPTY); return; }
       }

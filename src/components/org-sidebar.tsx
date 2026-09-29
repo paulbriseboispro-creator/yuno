@@ -285,6 +285,7 @@ const PATH_CAPABILITY: { prefix: string; needs: keyof OrgCapabilities }[] = [
 	{ prefix: "/organizer-app/team", needs: "manageStaff" },
 	{ prefix: "/organizer-app/events", needs: "editEvents" },
 	{ prefix: "/organizer-app/collaborations", needs: "editEvents" },
+	{ prefix: "/organizer-app/coorg", needs: "editEvents" },
 	{ prefix: "/organizer-app/scarcity", needs: "editEvents" },
 	{ prefix: "/organizer-app/ticketing", needs: "editEvents" },
 	{ prefix: "/organizer-app/guest-list", needs: "editEvents" },

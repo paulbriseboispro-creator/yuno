@@ -785,7 +785,10 @@ export default function OrderConfirmation() {
         logoUrl: data.venueLogoUrl,
       };
       let itemVat = sellerVat('subject');
-      if (!data.venueId && data.eventId && data.qrCode && data.type !== 'order') {
+      // Aussi quand la soirée a un club : sur un contrat collab réglé sans Stripe
+      // encaissé par l'organisateur, c'est lui le vendeur (la RPC ne rend rien
+      // dans les autres cas, et le club reste le vendeur).
+      if (data.eventId && data.qrCode && data.type !== 'order') {
         const { data: rows } = await supabase.rpc('get_event_seller', { p_event_id: data.eventId, p_qr_code: data.qrCode });
         const org = (Array.isArray(rows) ? rows[0] : rows) as {
           name: string | null; legal_address: string | null; siret: string | null; rna_number: string | null;
@@ -801,7 +804,8 @@ export default function OrderConfirmation() {
             rna: org.rna_number || undefined,
             logoUrl: org.logo_url || undefined,
           };
-          // Co-soirée chez un club partenaire : encaissée côté club, 20 %.
+          // Co-soirée encaissée côté club : 20 %. Vendeur seul (organisateur
+          // solo, ou encaisseur d'un contrat sans Stripe) : son régime.
           if (org.sole_seller) itemVat = sellerVat(resolveVatRegime(org), language as DocLang);
         }
       }

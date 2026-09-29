@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder, OwnerVipOrderItem, VipEvent } from './useOwnerVipData';
+import { orgEventsOr } from '@/lib/coorg';
 
 /**
  * Données du service VIP vues par un ORGANISATEUR : les soirées qu'il mène (ou
@@ -23,7 +24,7 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
       const { data: eventsData } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, timezone, location_name')
-        .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+        .or(orgEventsOr(organizerUserId))
         .eq('tables_enabled', true)
         .order('start_at', { ascending: false });
 

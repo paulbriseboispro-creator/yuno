@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-09-26';
+export const COLLAB_TERMS_VERSION = '2026-09-29';
 
 export interface TermsClause {
   term: L;
@@ -28,12 +28,17 @@ export interface TermsClause {
   altWhen?: 'no_refund_after_event' | 'pro_rata_refund';
   /** Alternate body used when the organizer is a verified ASSOCIATION (ex-« BDE », flag bde_verified). */
   bdeBody?: L;
+  /**
+   * Corps utilisé quand les parties ont répondu NON à « répartir via Stripe »
+   * (v2026-09-29+). Jetons remplacés par getCollabTerms : {collector}, {days}.
+   */
+  transferBody?: L;
 }
 
 export type TermsArticle =
   | { num: number; kind: 'parties'; title: L }
   /** `noteTiered` remplace `note` quand le contrat rémunère par barème (v2026-09-21+). */
-  | { num: number; kind: 'split'; title: L; note: L; noteTiered?: L }
+  | { num: number; kind: 'split'; title: L; note: L; noteTiered?: L; noteTransfer?: L }
   | { num: number; kind: 'static'; title: L; intro?: L; clauses?: TermsClause[] }
   /**
    * Décompte de soirée et barème : rendu UNIQUEMENT quand le contrat porte
@@ -96,6 +101,12 @@ export interface CollabTerms {
    * A per-event contract (no recurring opt) never sees it → its text is unchanged.
    */
   recurringArticle?: TermsArticle;
+  /**
+   * Article « Règlement par virement » (v2026-09-29+), inséré après la
+   * répartition des responsabilités quand le contrat se règle SANS partage
+   * Stripe et n'est pas à barème (le barème a déjà son décompte).
+   */
+  transferArticle?: TermsArticle;
 }
 
 // ── v2026-06-24 — first fully-articled contract ──────────────────────────────
@@ -648,6 +659,107 @@ const TERMS_2026_09_26: CollabTerms = {
   articles: ARTICLES_2026_09_26,
 };
 
+// ── v2026-09-29 — « Répartir via Stripe ? » OUI ou NON ──────────────────────
+// Stripe n'est plus une condition de la collaboration. NON = une partie
+// (l'encaisseur) reçoit toutes les ventes sur SON compte de paiement ; Yuno
+// note la part de chacun vente par vente, arrête le décompte 48 h après la
+// soirée, puis l'encaisseur vire la part de l'autre (IBAN, référence, accusé de
+// réception, relances, arbitrage). Un contrat réglé par Stripe garde le texte
+// de 2026-09-26 mot pour mot.
+const SPLIT_NOTE_TRANSFER_2026_09_29: L = {
+  fr: "Les parties ont choisi de ne pas faire répartir les ventes par Stripe. {collector} encaisse l'ensemble des ventes de billets et de tables / VIP réalisées via Yuno, sur son propre compte de paiement, et règle à l'autre partie la part qui lui revient selon les pourcentages ci-dessus, par virement, selon l'article « Règlement par virement ». La vente et le service des boissons restent le fait du Club, titulaire de la licence ; les boissons lui reviennent, sauf attestation par l'Organisateur de ses propres documents de vente d'alcool.",
+  en: "The parties have chosen not to have sales split by Stripe. {collector} collects all ticket and table / VIP sales made through Yuno on its own payment account, and pays the other party the share owed to it under the percentages above, by bank transfer, per the article \"Settlement by bank transfer\". The sale and service of drinks remain the Club's, as licence holder; drinks belong to the Club unless the Organizer has attested their own alcohol-sale documents.",
+  es: "Las partes han elegido no repartir las ventas con Stripe. {collector} cobra todas las ventas de entradas y mesas / VIP realizadas a través de Yuno en su propia cuenta de pago, y abona a la otra parte la parte que le corresponde según los porcentajes anteriores, por transferencia, según el artículo «Liquidación por transferencia». La venta y el servicio de bebidas siguen siendo del Club, titular de la licencia; las bebidas le corresponden salvo que el Organizador haya acreditado sus propios documentos de venta de alcohol.",
+};
+
+const PAYOUT_TRANSFER_BODY_2026_09_29: L = {
+  fr: "Les ventes de la soirée sont encaissées directement sur le compte de paiement (Stripe Connect) de l'encaisseur désigné à l'article 3 ({collector}), via Stripe, prestataire de services de paiement agréé. Yuno ne détient aucun fonds pour le compte des parties et ne procède à aucun versement entre elles. Seul l'encaisseur doit disposer d'un compte de paiement actif ; la part de l'autre partie lui est réglée par virement bancaire selon l'article « Règlement par virement ».",
+  en: "Sales for the event are collected directly on the payment account (Stripe Connect) of the collector designated in Article 3 ({collector}), through Stripe, a licensed payment service provider. Yuno holds no funds on behalf of the parties and makes no payout between them. Only the collector needs an active payment account; the other party's share is paid by bank transfer per the article \"Settlement by bank transfer\".",
+  es: "Las ventas del evento se cobran directamente en la cuenta de pago (Stripe Connect) del cobrador designado en el artículo 3 ({collector}), a través de Stripe, proveedor de servicios de pago autorizado. Yuno no retiene fondos por cuenta de las partes ni realiza abonos entre ellas. Solo el cobrador necesita una cuenta de pago activa; la parte de la otra parte se abona por transferencia bancaria según el artículo «Liquidación por transferencia».",
+};
+
+const TRANSFER_ARTICLE_2026_09_29: TermsArticle = {
+  num: 0, // renuméroté à l'insertion
+  kind: 'static',
+  title: { fr: 'Règlement par virement', en: 'Settlement by bank transfer', es: 'Liquidación por transferencia' },
+  intro: {
+    fr: "Le présent article s'applique lorsque les parties ont choisi de ne pas faire répartir les ventes par Stripe (article 3). Il prévaut sur les délais de versement de l'article relatif à l'encaissement.",
+    en: 'This article applies when the parties have chosen not to have sales split by Stripe (Article 3). It prevails over the payout timing of the collection article.',
+    es: 'Este artículo se aplica cuando las partes han elegido no repartir las ventas con Stripe (artículo 3). Prevalece sobre los plazos de abono del artículo relativo al cobro.',
+  },
+  clauses: [
+    {
+      term: { fr: 'Suivi des ventes', en: 'Sales tracking', es: 'Seguimiento de las ventas' },
+      body: {
+        fr: "Chaque vente réalisée via Yuno enregistre, au moment de l'achat, la part prévue à l'article 3 pour chaque partie. Les consommations et options incluses dans un billet reviennent au Club. Les boissons commandées via Yuno sont encaissées par le Club ; la part éventuelle de l'Organisateur est ajoutée au décompte.",
+        en: "Each sale made through Yuno records, at the time of purchase, the share set in Article 3 for each party. Drinks and options included in a ticket belong to the Club. Drinks ordered through Yuno are collected by the Club; any Organizer share is added to the statement.",
+        es: 'Cada venta realizada a través de Yuno registra, en el momento de la compra, la parte prevista en el artículo 3 para cada parte. Las consumiciones y opciones incluidas en una entrada corresponden al Club. Las bebidas pedidas a través de Yuno las cobra el Club; la parte eventual del Organizador se añade a la liquidación.',
+      },
+    },
+    {
+      term: { fr: 'Décompte', en: 'Statement', es: 'Liquidación' },
+      body: {
+        fr: "Yuno arrête le décompte 48 heures après la fin de la soirée, ou plus tôt à la demande d'une partie une fois la soirée terminée. Il retient les ventes payées, remboursements déduits, nettes des frais de service Yuno et des frais de paiement estimés (1,5 % du montant + 0,25 € par vente). Le montant dû par une partie à l'autre, compensation faite des sommes éventuellement dues en sens inverse, est figé, horodaté, et fait foi entre les parties.",
+        en: 'Yuno closes the statement 48 hours after the event ends, or earlier at either party\'s request once the event is over. It counts paid sales, refunds deducted, net of Yuno service fees and estimated payment fees (1.5% of the amount + €0.25 per sale). The amount owed by one party to the other, after offsetting any amounts owed the other way, is frozen, timestamped, and binding between the parties.',
+        es: 'Yuno cierra la liquidación 48 horas después del final de la noche, o antes a petición de una parte una vez terminada la noche. Tiene en cuenta las ventas pagadas, reembolsos deducidos, netas de las comisiones de servicio Yuno y de los costes de pago estimados (1,5 % del importe + 0,25 € por venta). El importe debido por una parte a la otra, compensadas las sumas debidas en sentido inverso, queda fijado, con marca de tiempo, y es vinculante entre las partes.',
+      },
+    },
+    {
+      term: { fr: 'Virement et accusé de réception', en: 'Transfer and acknowledgement', es: 'Transferencia y acuse de recibo' },
+      body: {
+        fr: "La partie débitrice vire le montant dû sous {days} jours à compter du décompte, sur l'IBAN renseigné dans Yuno par la partie bénéficiaire, en reportant la référence fournie par Yuno, puis le déclare dans Yuno. La partie bénéficiaire en confirme la réception. Yuno envoie des rappels avant et après l'échéance ; sans confirmation dans les 7 jours suivant la déclaration, le virement est signalé en litige et Yuno peut être saisi pour arbitrer. Yuno n'est ni dépositaire ni garant des sommes dues.",
+        en: 'The owing party transfers the amount due within {days} days of the statement, to the IBAN entered in Yuno by the receiving party, quoting the reference provided by Yuno, then declares it in Yuno. The receiving party confirms receipt. Yuno sends reminders before and after the due date; without confirmation within 7 days of the declaration, the transfer is flagged as disputed and Yuno may be asked to arbitrate. Yuno neither holds nor guarantees the amounts owed.',
+        es: 'La parte deudora transfiere el importe debido en {days} días desde la liquidación, al IBAN indicado en Yuno por la parte beneficiaria, con la referencia facilitada por Yuno, y lo declara en Yuno. La parte beneficiaria confirma la recepción. Yuno envía recordatorios antes y después del vencimiento; sin confirmación en los 7 días siguientes a la declaración, la transferencia se marca como litigio y se puede pedir a Yuno que arbitre. Yuno no es depositario ni garante de los importes debidos.',
+      },
+    },
+    {
+      term: { fr: 'Remboursements après le décompte', en: 'Refunds after the statement', es: 'Reembolsos tras la liquidación' },
+      body: {
+        fr: "Un remboursement intervenu après le décompte est supporté par les parties au prorata de leurs parts sur la vente concernée ; la partie qui l'a supporté seule peut en réclamer la part de l'autre.",
+        en: 'A refund made after the statement is borne by the parties pro-rata to their shares of the sale concerned; the party that bore it alone may claim the other party\'s share.',
+        es: 'Un reembolso realizado tras la liquidación lo soportan las partes a prorrata de sus partes en la venta afectada; la parte que lo haya soportado sola puede reclamar la parte de la otra.',
+      },
+    },
+  ],
+};
+
+// Barème réglé sans Stripe : le club encaisse tout, rien n'est retenu, la
+// rémunération entière part par virement.
+const NIGHT_HOLD_TRANSFER_BODY_2026_09_29: L = {
+  fr: "Les parties ayant choisi de ne pas faire répartir les ventes par Stripe, les billets et tables / VIP vendus via Yuno sont encaissés directement sur le compte de paiement du Club ; rien n'est retenu par la plateforme.",
+  en: 'As the parties have chosen not to have sales split by Stripe, tickets and tables / VIP sold through Yuno are collected directly on the Club\'s payment account; nothing is held by the platform.',
+  es: 'Al haber elegido las partes no repartir las ventas con Stripe, las entradas y mesas / VIP vendidas a través de Yuno se cobran directamente en la cuenta de pago del Club; la plataforma no retiene nada.',
+};
+const NIGHT_SETTLEMENT_TRANSFER_BODY_2026_09_29: L = {
+  fr: "À l'acceptation, le Club vire à l'Organisateur la totalité de sa rémunération par virement bancaire, en reportant la référence fournie par Yuno, et l'Organisateur en confirme la réception dans Yuno ; sans confirmation dans le délai indiqué, le règlement est signalé en litige.",
+  en: "Upon acceptance, the Club wires the Organizer's whole remuneration by bank transfer, quoting the reference provided by Yuno, and the Organizer confirms receipt in Yuno; without confirmation within the stated period, the settlement is flagged as disputed.",
+  es: 'En la aceptación, el Club transfiere al Organizador toda su remuneración por transferencia bancaria, indicando la referencia facilitada por Yuno, y el Organizador confirma la recepción en Yuno; sin confirmación en el plazo indicado, la liquidación se marca como litigio.',
+};
+
+const ARTICLES_2026_09_29: TermsArticle[] = ARTICLES_2026_09_26.map((a) => {
+  if (a.kind === 'split') return { ...a, noteTransfer: SPLIT_NOTE_TRANSFER_2026_09_29 };
+  if (a.kind === 'static' && (a.clauses ?? []).some((c) => c.term.fr === PAYOUT_TIMING_CLAUSE.term.fr)) {
+    return { ...a, clauses: (a.clauses ?? []).map((c) => (c.term.fr === PAYOUT_TIMING_CLAUSE.term.fr ? { ...c, transferBody: PAYOUT_TRANSFER_BODY_2026_09_29 } : c)) };
+  }
+  if (a.kind === 'night_closing') {
+    return {
+      ...a,
+      clauses: (a.clauses ?? []).map((c) => (
+        c.term.fr === 'Retenue des ventes Yuno' ? { ...c, transferBody: NIGHT_HOLD_TRANSFER_BODY_2026_09_29 }
+          : c.term.fr === 'Règlement' ? { ...c, transferBody: NIGHT_SETTLEMENT_TRANSFER_BODY_2026_09_29 }
+            : c)),
+    };
+  }
+  return a;
+});
+
+const TERMS_2026_09_29: CollabTerms = {
+  ...TERMS_2026_09_26,
+  version: '2026-09-29',
+  articles: ARTICLES_2026_09_29,
+  transferArticle: TRANSFER_ARTICLE_2026_09_29,
+};
+
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-24': TERMS_2026_06_24,
@@ -657,7 +769,30 @@ const REGISTRY: Record<string, CollabTerms> = {
   '2026-07-20': TERMS_2026_07_20,
   '2026-09-21': TERMS_2026_09_21,
   '2026-09-26': TERMS_2026_09_26,
+  '2026-09-29': TERMS_2026_09_29,
 };
+
+export interface TermsSettlement {
+  mode: 'stripe' | 'transfer';
+  collector?: 'venue' | 'organizer';
+  payment_terms_days?: number;
+}
+
+const COLLECTOR_NAME: Record<'venue' | 'organizer', L> = {
+  venue: { fr: 'Le Club', en: 'The Club', es: 'El Club' },
+  organizer: { fr: "L'Organisateur", en: 'The Organizer', es: 'El Organizador' },
+};
+
+/** Remplace {collector} (en tête de phrase ou non) et {days} dans les trois langues. */
+function fillTransfer(l: L, st: TermsSettlement): L {
+  const who = COLLECTOR_NAME[st.collector === 'organizer' ? 'organizer' : 'venue'];
+  const days = String([7, 15, 30].includes(Number(st.payment_terms_days)) ? Number(st.payment_terms_days) : 15);
+  const one = (txt: string, name: string) => txt
+    .replace(/(^|[.!?]\s+)\{collector\}/g, (_m, p: string) => p + name)
+    .replace(/\{collector\}/g, name.charAt(0).toLowerCase() + name.slice(1))
+    .replace(/\{days\}/g, days);
+  return { fr: one(l.fr, who.fr), en: one(l.en, who.en), es: one(l.es, who.es) };
+}
 
 /**
  * Resolve the terms for a frozen version; unknown / legacy-null falls back to latest.
@@ -666,15 +801,49 @@ const REGISTRY: Record<string, CollabTerms> = {
  * `opts.tiered` keeps the « Décompte de soirée » article ; without it (contrat par
  * pilier) l'article est retiré et la numérotation resserrée — un contrat par pilier
  * signé sous une version récente rend le même texte qu'avant, sans trou.
+ * `opts.settlement` (v2026-09-29+) : en virement, les corps `transferBody` et la
+ * note `noteTransfer` remplacent le texte Stripe, et l'article « Règlement par
+ * virement » est inséré (sauf barème, qui a déjà son décompte).
+ *
+ * La note de l'article 3 est RÉSOLUE ici : l'article rendu ne porte plus que
+ * `note` (la variante barème ne fuit plus sur un contrat par pilier).
  */
-export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean; tiered?: boolean }): CollabTerms {
-  const base = (version && REGISTRY[version]) || TERMS_2026_09_26;
-  const withRecurring = opts?.recurring && base.recurringArticle
+export function getCollabTerms(
+  version?: string | null,
+  opts?: { recurring?: boolean; tiered?: boolean; settlement?: TermsSettlement | null },
+): CollabTerms {
+  const base = (version && REGISTRY[version]) || TERMS_2026_09_29;
+  const tiered = !!opts?.tiered;
+  const st = opts?.settlement?.mode === 'transfer' ? opts.settlement : null;
+  let articles = opts?.recurring && base.recurringArticle
     ? [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
-    : base.articles;
-  const filtered = opts?.tiered ? withRecurring : withRecurring.filter((a) => a.kind !== 'night_closing');
-  if (filtered === base.articles) return base;
-  return { ...base, articles: filtered.map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle) };
+    : [...base.articles];
+  if (!tiered) articles = articles.filter((a) => a.kind !== 'night_closing');
+  if (st && !tiered && base.transferArticle) {
+    const at = articles.findIndex((a) => a.kind === 'responsibilities');
+    articles.splice(at >= 0 ? at + 1 : articles.length, 0, base.transferArticle);
+  }
+  articles = articles.map((a) => {
+    if (a.kind === 'split') {
+      const note = tiered ? (a.noteTiered ?? a.note) : st && a.noteTransfer ? fillTransfer(a.noteTransfer, st) : a.note;
+      return { num: a.num, kind: 'split', title: a.title, note };
+    }
+    if ((a.kind === 'static' || a.kind === 'night_closing') && a.clauses) {
+      return {
+        ...a,
+        clauses: a.clauses.map((c) => {
+          const out: TermsClause = st && c.transferBody
+            ? { term: c.term, body: fillTransfer(c.transferBody, st) }
+            : { ...c };
+          if (st) out.body = fillTransfer(out.body, st);
+          delete out.transferBody;
+          return out;
+        }),
+      };
+    }
+    return a;
+  });
+  return { ...base, articles: articles.map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle) };
 }
 
 /** Pick the clause body, honoring the policy- and association-dependent alternates when they apply. */

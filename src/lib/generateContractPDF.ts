@@ -1,3 +1,4 @@
+import { readSettlement } from './splitRules';
 import jsPDF from 'jspdf';
 import { getCollabTerms, pickL, clauseBody, type Lang, type L } from './collabContractTerms';
 import type { CollabRemuneration } from '@/hooks/useOrganizerPartnerships';
@@ -46,7 +47,7 @@ export interface CollabContractPDFData {
   organizerName: string;
   eventTitle?: string;
   eventDate?: Date | null;
-  splitRules: { tickets: SplitPct; tables: SplitPct; drinks: SplitPct };
+  splitRules: { tickets: SplitPct; tables: SplitPct; drinks: SplitPct; settlement?: unknown };
   /**
    * Barème sur le CA total de la soirée (remuneration.mode = 'tiered_total').
    * Présent → l'article 3 rend les paliers au lieu des % par pilier et l'article
@@ -93,7 +94,7 @@ const fmtDateTime = (d?: Date | null) =>
 
 export function generateContractPDF(data: CollabContractPDFData): Blob {
   const lang: Lang = data.language ?? 'fr';
-  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration });
+  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring, tiered: !!data.remuneration, settlement: readSettlement(data.splitRules) });
   const labels = terms.labels;
   const pick = (l: L) => pickL(lang, l);
 
@@ -270,7 +271,7 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
         const modeLabel = data.remuneration.tiers_mode === 'marginal' ? labels.tieredModeMarginal : labels.tieredModeFlat;
         if (modeLabel) { y += 1; para(modeLabel); }
         y += 1.5;
-        para(article.noteTiered ?? article.note);
+        para(article.note);
       } else {
         splitRow(labels.ticketsRow, data.splitRules.tickets);
         splitRow(labels.tablesRow, data.splitRules.tables);

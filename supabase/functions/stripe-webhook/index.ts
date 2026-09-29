@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { fundDjBookingContract, releaseDjBookingBalance, type DjContract } from "../_shared/dj-payout.ts";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { isTieredCollab } from "../_shared/payment-split.ts";
+import { heldLegAfterRefund, refundContext, releasedLegReversal } from "../_shared/refund-legs.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -94,7 +95,7 @@ async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof cre
   // qu'un retry ne peut pas créer un second transfer pour la même jambe.
   const { data: due } = await admin
     .from("revenue_distributions")
-    .select("id, payment_intent_id, transfer_group_id, event_id, item_type, ticket_id, table_reservation_id, order_id, primary_account_id, primary_amount_cents, primary_transfer_status, secondary_account_id, secondary_amount_cents, secondary_transfer_status")
+    .select("id, payment_intent_id, transfer_group_id, event_id, item_type, ticket_id, table_reservation_id, order_id, primary_account_id, primary_amount_cents, primary_transfer_status, primary_fail_count, secondary_account_id, secondary_amount_cents, secondary_transfer_status, secondary_fail_count")
     .lte("transfers_release_at", nowIso)
     .or("primary_transfer_status.in.(scheduled,failed),secondary_transfer_status.in.(scheduled,failed)")
     .limit(500);
@@ -121,6 +122,8 @@ async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof cre
     secondary_account_id: string | null;
     secondary_amount_cents: number | null;
     secondary_transfer_status: string;
+    primary_fail_count: number | null;
+    secondary_fail_count: number | null;
   }
   for (const row of (due ?? []) as Array<HeldDistributionRow>) {
     // Refunded before release → cancel any still-pending legs, never pay out.
@@ -172,18 +175,37 @@ async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof cre
             role,
             released: "1",
           },
-        }, { idempotencyKey: `release_${row.id}_${role}` });
+        }, { idempotencyKey: `release_${row.id}_${role}_${amountCents}` });
         await admin.from("revenue_distributions").update({
           [idCol]: transfer.id,
           [statusCol]: "succeeded",
           [errCol]: null,
         }).eq("id", row.id);
       } catch (e) {
+        const failCol = role === "primary" ? "primary_fail_count" : "secondary_fail_count";
+        const fails = (Number(role === "primary" ? row.primary_fail_count : row.secondary_fail_count) || 0) + 1;
         await admin.from("revenue_distributions").update({
           [statusCol]: "failed",
           [errCol]: (e as Error).message,
+          [failCol]: fails,
         }).eq("id", row.id);
-        logStep("release: transfer failed", { role, pi: row.payment_intent_id, error: (e as Error).message });
+        logStep("release: transfer failed", { role, pi: row.payment_intent_id, error: (e as Error).message, fails });
+        // Réessayée à chaque passage du cron, mais plus jamais en silence : au 3e
+        // échec (compte Connect restreint, IBAN refusé…), une alerte super admin,
+        // une seule fois par jambe.
+        if (fails === 3) {
+          await admin.rpc("emit_admin_notification", {
+            p_type: "admin_transfer_release_failed",
+            p_title: "Versement d'une co-soirée bloqué",
+            p_message: `${(amountCents / 100).toFixed(2)} € ne partent pas vers ${accountId} (3 échecs) : ${(e as Error).message}`.slice(0, 480),
+            p_priority: "high",
+            p_reference_type: "revenue_distribution",
+            p_reference_id: row.id,
+            p_metadata: { role, account_id: accountId, payment_intent_id: row.payment_intent_id, amount_cents: amountCents },
+            p_dedup_key: `release_failed:${row.id}:${role}`,
+            p_event_id: row.event_id,
+          }).then(() => undefined, () => undefined);
+        }
       }
     };
 
@@ -679,6 +701,10 @@ serve(async (req) => {
         const REFUND_WINDOW_DAYS = 2;
         let transfersReleaseAt: string | null = null;
         let heldForNightClosing = false;
+        let lateAfterClosing = false;
+        // Décision de rétention posée AU CHECKOUT (métadonnée `hold`). Les
+        // sessions créées avant ce champ n'en ont pas : on relit alors les règles.
+        const mdHold = typeof md.hold === "string" ? md.hold : undefined;
         if (needsPrimaryTransfer || needsSecondary) {
           let endIso: string | null = null;
           if (md.event_id) {
@@ -691,7 +717,19 @@ serve(async (req) => {
             // Le contrat est verrouillé dès la première vente : les règles lues ici
             // sont celles qui s'appliquaient au checkout.
             heldForNightClosing = (itemType === "ticket" || itemType === "table")
-              && isTieredCollab((evRow?.revenue_split_rules as Record<string, unknown> | null) ?? null);
+              && (mdHold !== undefined
+                ? mdHold === "night_closing"
+                : isTieredCollab((evRow?.revenue_split_rules as Record<string, unknown> | null) ?? null));
+            // Vente payée APRÈS l'acceptation du décompte (session ouverte avant) :
+            // plus aucun décompte ne la libérera. Elle part au club (100 % pendant
+            // la vente en barème) à la date normale, et le super admin est prévenu
+            // pour que la part de l'organisateur soit régularisée.
+            if (heldForNightClosing) {
+              const { data: accepted } = await supabaseClient
+                .from("collab_night_closings").select("id")
+                .eq("event_id", md.event_id).eq("status", "accepted").limit(1);
+              if ((accepted?.length ?? 0) > 0) { heldForNightClosing = false; lateAfterClosing = true; }
+            }
           }
           if (!heldForNightClosing) {
             const nowMs = Date.now();
@@ -700,7 +738,10 @@ serve(async (req) => {
           }
         }
 
-        // Insert ledger row (idempotent on payment_intent_id)
+        // Insert ledger row — INSERTION SEULE, idempotente sur payment_intent_id.
+        // Un upsert réécrivait la ligne au rejeu du webhook (« Resend » dans
+        // Stripe) : une jambe déjà libérée repassait en 'scheduled', et passé 24 h
+        // la clé d'idempotence Stripe était oubliée → second virement.
         const { error: ledgerErr } = await supabaseClient
           .from("revenue_distributions")
           .upsert({
@@ -733,10 +774,26 @@ serve(async (req) => {
             organizer_pct_applied: organizerPctApplied,
             partnership_id: partnershipId,
             stripe_fee_estimated_cents: stripeFeeEstimatedCents,
-          }, { onConflict: "payment_intent_id" });
+          }, { onConflict: "payment_intent_id", ignoreDuplicates: true });
 
         if (ledgerErr) {
-          logStep("Ledger upsert error", { error: ledgerErr.message });
+          // Jamais 200 sur une vente sans grand livre : ses jambes ne partiraient
+          // jamais. L'erreur remonte, Stripe rejoue l'événement.
+          logStep("Ledger insert error", { error: ledgerErr.message });
+          throw new Error(`ledger_insert_failed: ${ledgerErr.message}`);
+        }
+        if (lateAfterClosing) {
+          await supabaseClient.rpc("emit_admin_notification", {
+            p_type: "admin_collab_late_sale",
+            p_title: "Vente après le décompte d'une co-soirée",
+            p_message: `${(grossCents / 100).toFixed(2)} € payés après l'acceptation du décompte : versés au club, part de l'organisateur à régulariser.`,
+            p_priority: "high",
+            p_reference_type: "payment_intent",
+            p_reference_id: pi.id,
+            p_metadata: { item_type: itemType, gross_cents: grossCents },
+            p_dedup_key: `collab_late_sale:${pi.id}`,
+            p_event_id: md.event_id || null,
+          }).then(() => undefined, () => undefined);
         }
 
         // P0-6 — transfers are NOT fired here anymore. They are held ('scheduled') and
@@ -855,21 +912,46 @@ serve(async (req) => {
           try {
             const { data: dist } = await supabaseClient
               .from("revenue_distributions")
-              .select("id, split_mode, primary_transfer_id, primary_transfer_status, primary_amount_cents, primary_account_id, secondary_transfer_id, secondary_transfer_status, secondary_amount_cents, secondary_account_id, gross_amount_cents")
+              .select("id, split_mode, refunded_cents, yuno_fee_cents, primary_transfer_id, primary_transfer_status, primary_amount_cents, primary_account_id, secondary_transfer_id, secondary_transfer_status, secondary_amount_cents, secondary_account_id, gross_amount_cents")
               .eq("payment_intent_id", piId)
               .maybeSingle();
 
-            if (dist) {
-              const refundedCents = charge.amount_refunded;
-              const grossCents = dist.gross_amount_cents || charge.amount;
-              const isFull = refundedCents >= grossCents;
+            // `amount_refunded` est CUMULÉ ; `refunded_cents` dit ce qui a déjà été
+            // appliqué aux jambes. Seul le DELTA est traité, et la mise à jour
+            // conditionnelle sert de verrou : une seconde livraison du même
+            // événement (ou deux remboursements concurrents) ne l'applique qu'une fois.
+            const refundedTotal = charge.amount_refunded;
+            const prevRefunded = Number(dist?.refunded_cents) || 0;
+            const deltaCents = refundedTotal - prevRefunded;
+            let claimed = false;
+            if (dist && deltaCents > 0) {
+              const { data: claim } = await supabaseClient.from("revenue_distributions")
+                .update({ refunded_cents: refundedTotal })
+                .eq("id", dist.id).eq("refunded_cents", prevRefunded)
+                .select("id");
+              claimed = (claim?.length ?? 0) > 0;
+              if (!claimed) logStep("Refund delta already applied by a concurrent delivery", { piId, refundedTotal });
+            } else if (dist) {
+              logStep("Refund already applied to the legs", { piId, refundedTotal, prevRefunded });
+            }
 
-              // Reverse one leg.
-              //  - 'scheduled' (held, never fired) → just cancel: no money left the
-              //    platform, nothing to claw back. This is the safe-by-design path when
-              //    the refund happens before the release window closes.
-              //  - 'succeeded' (already paid out) → attempt the reversal; on failure
-              //    record a clawback (tracked debt) instead of losing money silently.
+            if (dist && claimed) {
+              // Part VENDEURS (brut − frais Yuno) : voir _shared/refund-legs.ts.
+              const refundInput = {
+                grossCents: dist.gross_amount_cents || charge.amount,
+                yunoFeeCents: Number(dist.yuno_fee_cents) || 0,
+                refundedTotal,
+                prevRefunded,
+              };
+              const { isFull } = refundContext(refundInput);
+
+              // Une jambe :
+              //  - retenue ('scheduled') ou jamais partie ('failed') : rien n'a quitté
+              //    la plateforme. Remboursement total → annulée ; PARTIEL → réduite au
+              //    prorata de ce qui reste de la vente (avant, un partiel annulait
+              //    toute la jambe et le reste de la vente sortait du partage).
+              //  - déjà versée ('succeeded' ou déjà 'partially_refunded') : on reverse
+              //    la part du DELTA ; un échec devient une dette suivie, jamais une perte.
               const handleLeg = async (
                 role: "primary" | "secondary",
                 transferId: string | null,
@@ -878,49 +960,53 @@ serve(async (req) => {
                 amountCents: number,
               ) => {
                 const statusCol = role === "primary" ? "primary_transfer_status" : "secondary_transfer_status";
-                // 'scheduled' (jamais parti) ET 'failed' (jamais parti non plus) :
-                // simple annulation, l'argent n'a pas quitté la plateforme.
+                const amountCol = role === "primary" ? "primary_amount_cents" : "secondary_amount_cents";
                 if (status === "scheduled" || status === "failed") {
-                  await supabaseClient.from("revenue_distributions")
-                    .update({ [statusCol]: "cancelled" }).eq("id", dist.id);
-                  logStep(`${role} transfer cancelled (was held, never fired)`, { piId, was: status });
+                  const kept = heldLegAfterRefund(amountCents, refundInput);
+                  if (kept <= 0) {
+                    await supabaseClient.from("revenue_distributions")
+                      .update({ [statusCol]: "cancelled", [amountCol]: 0 }).eq("id", dist.id);
+                    logStep(`${role} transfer cancelled (was held, never fired)`, { piId, was: status });
+                  } else {
+                    await supabaseClient.from("revenue_distributions")
+                      .update({ [amountCol]: kept }).eq("id", dist.id);
+                    logStep(`${role} held transfer reduced (partial refund)`, { piId, from: amountCents, to: kept });
+                  }
                   return;
                 }
-                if (!transferId || status !== "succeeded") return;
-                const reversalAmount = grossCents > 0
-                  ? Math.min(amountCents, Math.round((amountCents * refundedCents) / grossCents))
-                  : 0;
+                if (!transferId || (status !== "succeeded" && status !== "partially_refunded")) return;
+                // Cumul attendu après ce remboursement : sert aussi à reconnaître une
+                // reversal déjà faite ailleurs (reverse_transfer d'une charge à
+                // destination) sans créer de dette fantôme.
+                const { reversal: reversalAmount, expectedCumulative } = releasedLegReversal(amountCents, refundInput);
                 if (reversalAmount <= 0) return;
+                try {
+                  const tr0 = await stripe.transfers.retrieve(transferId);
+                  if ((tr0.amount_reversed ?? 0) >= expectedCumulative) {
+                    await supabaseClient.from("revenue_distributions")
+                      .update({ [statusCol]: isFull ? "refunded" : "partially_refunded" })
+                      .eq("id", dist.id);
+                    logStep(`${role} transfer already reversed elsewhere — no clawback`, { transferId, amountReversed: tr0.amount_reversed });
+                    return;
+                  }
+                } catch { /* retrieve failed → on tente la reversal, Stripe tranchera */ }
                 try {
                   const reversal = await stripe.transfers.createReversal(transferId, {
                     amount: reversalAmount,
                     metadata: {
                       payment_intent_id: piId,
-                      refund_amount_cents: String(refundedCents),
+                      refund_amount_cents: String(refundedTotal),
+                      refund_delta_cents: String(deltaCents),
                       reason: "client_refund_symmetric",
                       role,
                     },
-                  });
+                  }, { idempotencyKey: `refund_${dist.id}_${role}_${refundedTotal}` });
                   await supabaseClient.from("revenue_distributions")
                     .update({ [statusCol]: isFull ? "refunded" : "partially_refunded" })
                     .eq("id", dist.id);
                   logStep(`${role} transfer reversed`, { transferId, reversalId: reversal.id, amount: reversalAmount, full: isFull });
                 } catch (revErr) {
                   const errMsg = (revErr as Error).message;
-                  // Faux positif classique : owner-refund a posé reverse_transfer:true,
-                  // Stripe a DÉJÀ reversé ce transfer, et notre createReversal échoue en
-                  // « already reversed ». Vérifier l'état réel avant d'enregistrer une
-                  // dette — sinon chaque refund post-libération crée un clawback fantôme.
-                  try {
-                    const tr = await stripe.transfers.retrieve(transferId);
-                    if ((tr.amount_reversed ?? 0) >= reversalAmount) {
-                      await supabaseClient.from("revenue_distributions")
-                        .update({ [statusCol]: isFull ? "refunded" : "partially_refunded" })
-                        .eq("id", dist.id);
-                      logStep(`${role} transfer already reversed elsewhere — no clawback`, { transferId, amountReversed: tr.amount_reversed });
-                      return;
-                    }
-                  } catch { /* retrieve failed → fall through to the clawback record */ }
                   // Money is OUT and could not be clawed back → record the debt, never lose it silently.
                   await supabaseClient.from("transfer_clawbacks").insert({
                     payment_intent_id: piId,

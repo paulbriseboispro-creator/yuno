@@ -64,6 +64,10 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
         .from('event_collab_contracts' as never)
         .select('*')
         .eq('event_id', eventId!)
+        // Un contrat refusé reste en base (cancelled) : sans ce filtre, une
+        // proposition refaite donne DEUX lignes, maybeSingle échoue et la
+        // soirée ne peut plus jamais être signée.
+        .neq('status', 'cancelled')
         .maybeSingle();
       if (error) throw error;
       return (data as unknown as EventCollabContractRow) ?? null;

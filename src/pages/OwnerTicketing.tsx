@@ -44,6 +44,7 @@ import { EventRoundsVisibility } from '@/components/owner/ticketing/EventRoundsV
 import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCapacity';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
+import { venueEventsOr } from '@/lib/coorg';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -214,8 +215,8 @@ export default function OwnerTicketing() {
       // up in the organizer's ticketing tab.
       // Venue scope: include co-events where the venue is partner_venue_id.
       const { data, error } = isOrganizerScope
-        ? await baseQuery.or(`organizer_user_id.eq.${organizerUserId},and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted)`)
-        : await baseQuery.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
+        ? await baseQuery.or(`organizer_user_id.eq.${organizerUserId},and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted),cohost_org_ids.cs.{${organizerUserId}}`)
+        : await baseQuery.or(venueEventsOr(venueId));
 
       if (error) throw error;
 

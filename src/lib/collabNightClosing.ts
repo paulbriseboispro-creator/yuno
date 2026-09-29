@@ -124,10 +124,11 @@ export const declareNightClosing = (eventId: string, d: ClosingDeclaration) =>
     },
   );
 
-export const acceptNightClosing = (closingId: string) =>
+/** On accepte la révision LUE : une redéclaration du club entre-temps lève `closing_revised`. */
+export const acceptNightClosing = (closingId: string, revision?: number | null) =>
   callRpc<{ accepted: boolean; total: number; pct: number; due: number; held: number; online: number; sepa: number; settlement_id: string | null }>(
     'accept_collab_night_closing',
-    { p_closing_id: closingId },
+    { p_closing_id: closingId, p_expected_revision: revision ?? null },
   );
 
 export const disputeNightClosing = (closingId: string, reason?: string) =>

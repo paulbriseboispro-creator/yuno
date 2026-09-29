@@ -14,6 +14,13 @@ interface MarketingOptInsProps {
    * destinataire, sinon il ne couvre personne (EDPB 05/2020 §65).
    */
   scopeName?: string;
+  /**
+   * Destinataire de la ligne SMS quand il diffère de l'email. Soirée
+   * co-organisée : l'email nomme TOUS les hôtes (le consentement leur est
+   * versé à chacun), le SMS ne part qu'à la portée principale — sa case ne
+   * nomme donc qu'elle. Absent = `scopeName`.
+   */
+  smsScopeName?: string;
   /** Consentement email déjà actif pour CE club → statut + retrait, pas de case. */
   emailAlreadyGranted?: boolean;
   /** Idem pour le SMS. */
@@ -83,6 +90,7 @@ export function MarketingOptIns({
   smsOptIn,
   onSmsChange,
   scopeName,
+  smsScopeName,
   emailAlreadyGranted = false,
   smsAlreadyGranted = false,
   onWithdraw,
@@ -100,7 +108,8 @@ export function MarketingOptIns({
   // qui a l'air de redemander. « Gérer » ouvre le retrait à la demande.
   const [manageOpen, setManageOpen] = useState(false);
 
-  const { email: emailLabel, sms: smsLabel } = marketingConsentWording(t, scopeName);
+  const { email: emailLabel } = marketingConsentWording(t, scopeName);
+  const { sms: smsLabel } = marketingConsentWording(t, smsScopeName ?? scopeName);
   const yunoLabel = t('consent.yunoOffers');
 
   // Le repli « une seule ligne, tout est déjà accepté » ne vaut que si TOUT

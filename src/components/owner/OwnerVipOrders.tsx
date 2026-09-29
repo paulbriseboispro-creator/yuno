@@ -49,6 +49,7 @@ interface VipOrder {
   totalPrice: number;
   serviceFee: number;
   managementFee: number | null;
+  feeAbsorbed?: boolean;
   minimumSpend: number | null;
   status: string;
   vipStatus: string | null;
@@ -128,7 +129,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       if (orgScope && eventIds!.length === 0) { setReservations([]); return; }
       let query = supabase
         .from('table_reservations')
-        .select(`*, events!inner(title, start_at, venue_id, timezone, venues(name)), table_zones(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name), partner_venue:venues!events_partner_venue_id_fkey(name)), table_zones(name)`)
         .in('status', ['paid', 'confirmed', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
@@ -150,6 +151,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
         totalPrice: r.total_price,
         serviceFee: r.service_fee,
         managementFee: r.management_fee,
+        feeAbsorbed: !!r.fee_absorbed,
         minimumSpend: r.minimum_spend,
         status: r.status,
         vipStatus: r.vip_status,
@@ -159,7 +161,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
         eventTitle: r.events.title,
         eventStartAt: r.events.start_at,
         eventTimezone: r.events.timezone ?? null,
-        venueName: r.events.venues?.name ?? null,
+        venueName: r.events.venues?.name ?? r.events.partner_venue?.name ?? null,
         zoneName: r.table_zones?.name || null,
       }));
       setReservations(mapped);
@@ -185,7 +187,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
   // CA club = montant payé par le client − frais Yuno (service + gestion). Les frais
   // Yuno transitent par Stripe mais ne sont jamais du revenu club — ne pas afficher le TTC.
   const totalRevenue = filteredReservations.reduce(
-    (s, r) => s + tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee }).gross,
+    (s, r) => s + tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee, fee_absorbed: r.feeAbsorbed }).gross,
     0,
   );
   const totalGuests = filteredReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);

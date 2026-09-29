@@ -14,6 +14,7 @@ import {
   type VenueBenchmark,
 } from '@/lib/hypePostEvent';
 import { orderRevenue, ticketRevenue, tableRevenue } from '@/utils/fees';
+import { orgEventsOr } from '@/lib/coorg';
 
 export interface PostEventKPI {
   label: string;
@@ -152,7 +153,7 @@ export function usePostEventAnalysis(
       .order('start_at', { ascending: false })
       .limit(50);
     q = isOrg
-      ? q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+      ? q.or(orgEventsOr(organizerUserId))
       : q.eq('venue_id', venueId!);
     const { data } = await q;
     if (data) {
@@ -190,7 +191,7 @@ export function usePostEventAnalysis(
         .in('status', ['paid', 'served']),
       supabase
         .from('table_reservations')
-        .select('total_price, service_fee, management_fee, guest_count, entry_scanned, refunded_at, refund_amount, event_id')
+        .select('total_price, service_fee, management_fee, fee_absorbed, guest_count, entry_scanned, refunded_at, refund_amount, event_id')
         .in('event_id', ids)
         .eq('status', 'paid'),
       // Guest list entries = free tickets: expected at the door, scanned at the door.
@@ -296,7 +297,7 @@ export function usePostEventAnalysis(
             .in('status', ['paid', 'served']),
           supabase
             .from('table_reservations')
-            .select('total_price, service_fee, management_fee, guest_count, created_at, entry_scanned, refunded_at, refund_amount')
+            .select('total_price, service_fee, management_fee, fee_absorbed, guest_count, created_at, entry_scanned, refunded_at, refund_amount')
             .in('event_id', eventIds)
             .eq('status', 'paid'),
           supabase.from('visitor_sessions').select('session_id').in('event_id', eventIds),

@@ -26,6 +26,7 @@ import { ReportSales } from './ReportSales';
 import { ReportTrend, type ScopeEventOption } from './ReportTrend';
 import { ReportAudience, ReportDrivers, ReportTraffic } from './ReportReach';
 import { EmptyNote, Question, ReportCard } from './ui';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 interface Props {
   eventId: string;
@@ -50,8 +51,8 @@ function useScopeEvents(scope: Props['scope']) {
     let cancelled = false;
     (async () => {
       const filter = venueId
-        ? `venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`
-        : `organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`;
+        ? venueEventsOr(venueId)
+        : orgEventsOr(organizerUserId);
       const { data } = await supabase
         .from('events')
         .select('id, title, start_at')

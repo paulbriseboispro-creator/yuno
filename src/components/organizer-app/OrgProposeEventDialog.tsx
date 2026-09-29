@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
+import { normalizeSplitRules, readSettlement, withSettlement } from '@/lib/splitRules';
+import type { CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerPartnerships } from '@/hooks/useOrganizerPartnerships';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -56,6 +60,9 @@ const dialogStyle = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDE
  */
 export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, onCreated }: Props) {
   const { user } = useAuth();
+  // Scope = l'ORGANISATION : un admin d'équipe propose au nom de l'orga qu'il sert.
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
   const { language } = useLanguage();
   const t = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
   const navigate = useNavigate();
@@ -76,14 +83,28 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
         .from('venue_organizer_partnerships')
         .select('default_responsibilities')
         .eq('venue_id', venueId)
-        .eq('organizer_user_id', user!.id)
+        .eq('organizer_user_id', orgId!)
         .eq('status', 'active')
         .maybeSingle();
       const raw = (data as { default_responsibilities?: unknown } | null)?.default_responsibilities;
       if (active && raw) setResponsibilities(normalizeResponsibilities(raw, mode));
     })();
+    // Le mode de règlement convenu avec ce club (Stripe ou virement) se reprend.
+    const p = activePartners.find((x) => x.venue_id === venueId);
+    setSettlement(readSettlement(p?.default_split_rules));
     return () => { active = false; };
   }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // « Répartir automatiquement via Stripe ? » — oui par défaut ; non = une partie
+  // encaisse et vire la part de l'autre après la soirée (règlement suivi).
+  const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
+  const splitBase = (): PartnershipSplitRules => {
+    const p = activePartners.find((x) => x.venue_id === venueId);
+    return normalizeSplitRules(p?.default_split_rules) ?? {
+      tickets: { organizer_pct: 50, venue_pct: 50 },
+      tables: { organizer_pct: 0, venue_pct: 100 },
+      drinks: { organizer_pct: 0, venue_pct: 100 },
+    };
+  };
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -101,7 +122,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
   // dead end: invisible here, impossible to propose the split agreement.
   // Nights that already carry a live contract are excluded.
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open || !user || !orgId) return;
     let cancelled = false;
     setLoadingOptions(true);
     setEventId('');
@@ -109,7 +130,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       const base = supabase
         .from('events')
         .select('id, title, description, poster_url, start_at, end_at, is_active, partner_venue_id')
-        .eq('organizer_user_id', user.id)
+        .eq('organizer_user_id', orgId!)
         .gte('end_at', new Date().toISOString())
         .order('start_at', { ascending: true });
       const { data } = venueId
@@ -137,7 +158,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       setLoadingOptions(false);
     })();
     return () => { cancelled = true; };
-  }, [open, user, venueId]);
+  }, [open, user, orgId, venueId]);
 
   const selectedEvent = options.find((d) => d.id === eventId) || null;
   const hasOptions = options.length > 0;
@@ -168,7 +189,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
         .from('events')
         .update({ partner_venue_id: venueId, event_mode: mode, collab_responsibilities: responsibilities })
         .eq('id', eventId)
-        .eq('organizer_user_id', user.id);
+        .eq('organizer_user_id', orgId!);
       if (error) throw error;
 
       // 2. Open a PENDING collaboration contract. create_event_collab_contract
@@ -180,6 +201,9 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
         'create_event_collab_contract' as never,
         {
           p_event_id: eventId,
+          // NULL = partage du partenariat (SQL) ; en virement, les règles partent
+          // explicitement avec le mode de règlement choisi.
+          p_split_rules: settlement.mode === 'transfer' ? withSettlement(splitBase(), settlement) : null,
           p_cancellation_policy: 'pro_rata_refund',
           p_responsibilities: responsibilities,
         } as never,
@@ -191,7 +215,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
         if (!wasPreAttached) {
           await supabase.from('events')
             .update({ partner_venue_id: null, event_mode: null, collab_responsibilities: null })
-            .eq('id', eventId).eq('organizer_user_id', user.id);
+            .eq('id', eventId).eq('organizer_user_id', orgId!);
         }
         throw contractErr;
       }
@@ -371,6 +395,8 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 })}
               </div>
             </div>
+
+            <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={splitBase() as unknown as Record<string, unknown>} />
 
             {/* Qui fait quoi — axe distinct du mode et du partage des revenus. */}
             <ResponsibilitiesPicker

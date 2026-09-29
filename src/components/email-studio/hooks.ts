@@ -10,6 +10,7 @@ import {
   type GuestListOffer, type LiveSoldOut, type TablePackOffer, type TableZoneOffer,
 } from '@/lib/email';
 import { eventPathFromHost } from '@/lib/eventUrl';
+import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 
 /** Origine publique des liens de l'email — jamais window.location (WebView). */
 const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
@@ -55,8 +56,8 @@ export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | nul
       .order('start_at', { ascending: true }).limit(80);
     // Portée plateforme : Yuno peut mettre N'IMPORTE QUELLE soirée à venir dans
     // sa newsletter — c'est tout l'intérêt d'un « à l'affiche cette semaine ».
-    if (scope.kind === 'venue') q = q.or(`venue_id.eq.${scopeId},partner_venue_id.eq.${scopeId}`);
-    else if (scope.kind === 'organizer') q = q.or(`organizer_user_id.eq.${scopeId},partner_organizer_id.eq.${scopeId}`);
+    if (scope.kind === 'venue') q = q.or(venueEventsOr(scopeId));
+    else if (scope.kind === 'organizer') q = q.or(orgEventsOr(scopeId));
     q.then(({ data }) => setEvents((data || []) as StudioEvent[]));
   }, [scope.kind, scopeId]);
 

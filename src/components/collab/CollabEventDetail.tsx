@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -23,10 +24,13 @@ import { useEventCollabContract } from '@/hooks/useEventCollabContract';
 import { useEventNetGain } from '@/hooks/useEventNetGain';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
-import { CollabMoneyPanel, type PillarStat } from '@/components/collab/CollabMoneyPanel';
+import { CollabMoneyPanel, type PillarStat, type TransferInfo } from '@/components/collab/CollabMoneyPanel';
+import { CollabTransferStatementCard } from '@/components/collab/CollabTransferStatementCard';
+import { getCollabTransferStatement, type CollabTransferStatement } from '@/lib/coorg';
 import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
 import { CollabNightClosingCard } from '@/components/collab/CollabNightClosingCard';
 import { CollabJourney } from '@/components/collab/CollabJourney';
@@ -47,7 +51,7 @@ import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
-import { isTieredRules, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
+import { isTieredRules, isTransferSettlement, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
 import { computeNightClosing, type ClosingComputeResult } from '@/lib/collabNightClosing';
 import {
   OrgPage, OrgCard, OrgPill, OrgButton,
@@ -113,10 +117,17 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const isVenue = viewerRole === 'venue';
   const isOrganizer = viewerRole === 'organizer';
+  // Côté organisateur, le scope est l'ORGANISATION (fondateur ou équipe),
+  // jamais le compte : un membre d'équipe voyait « Soirée introuvable ».
+  const { organizerId: actingOrganizerId } = useActingOrganizer({ enabled: isOrganizer });
+  const orgScopeId = actingOrganizerId ?? user?.id ?? null;
   // Côté du spectateur pour l'axe RESPONSABILITÉS : la billetterie peut être
   // confiée au club seul sur n'importe quelle co-soirée, pas seulement en
   // org_hosted. On lit le domaine, pas le mode.
   const viewerSide: 'venue' | 'organizer' = isVenue ? 'venue' : 'organizer';
+  // Proposer / signer / amender : fondateur ou admin d'équipe côté orga
+  // (miroir de collab_org_can_act). Un éditeur lit le contrat, sans bouton.
+  const collabCanAct = useCollabOrgCanAct(viewerSide);
 
   const [event, setEvent] = useState<CollabEvent | null>(null);
   const [clubName, setClubName] = useState('');
@@ -135,7 +146,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const [notFound, setNotFound] = useState(false);
   const [billetterieOpen, setBilletterieOpen] = useState(false);
 
-  const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
+  const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(orgScopeId ?? undefined);
   const { isReadOnly } = useCollabReadOnly();
   // Le chargement de la soirée est un effet anonyme : plutôt que de l'extraire,
   // une clé qu'on incrémente le relance après une édition.
@@ -156,10 +167,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     prevContractStatus.current = contractStatus;
   }, [contractStatus]);
 
-  const scopeId = isVenue ? myVenue?.id : user?.id;
+  const scopeId = isVenue ? myVenue?.id : orgScopeId;
   const gainScope = isVenue
     ? { kind: 'venue' as const, venueId: myVenue?.id || '' }
-    : { kind: 'organizer' as const, organizerUserId: user?.id || '' };
+    : { kind: 'organizer' as const, organizerUserId: orgScopeId || '' };
   const netGain = useEventNetGain(scopeId ? eventId ?? null : null, gainScope);
 
   // Contrat à BARÈME : pendant la vente, tout est retenu au nom du club et la
@@ -178,7 +189,51 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       .catch(() => { if (active) setClosingProjection(null); });
     return () => { active = false; };
   }, [eventId, tieredContract, scopeId, refreshKey]);
+  // Contrat réglé SANS Stripe : une partie encaisse, l'autre est payée par
+  // virement. Les jambes Stripe n'existent pas (charge directe) — le gain se lit
+  // dans le décompte (vivant avant l'arrêt, figé ensuite).
+  const transferContract = !tieredContract && isTransferSettlement(event?.revenue_split_rules);
+  const [transferStmt, setTransferStmt] = useState<CollabTransferStatement | null>(null);
+  useEffect(() => {
+    if (!eventId || !transferContract || !scopeId) { setTransferStmt(null); return; }
+    let active = true;
+    getCollabTransferStatement(eventId)
+      .then((r) => { if (active) setTransferStmt(r?.ok ? r : null); })
+      .catch(() => { if (active) setTransferStmt(null); });
+    return () => { active = false; };
+  }, [eventId, transferContract, scopeId, refreshKey]);
+  const transferInfo = useMemo<TransferInfo | null>(() => {
+    const f = transferStmt?.figures;
+    if (!transferContract || !transferStmt?.ok || !f?.ok || !transferStmt.event) return null;
+    const myKey = isVenue ? f.venue_key : f.org_key;
+    const tr = f.transfer ?? null;
+    const received = (transferStmt.transfers ?? []).filter((x) => x.i_receive && x.status === 'received').reduce((a, x) => a + Number(x.amount), 0);
+    return {
+      iCollect: f.collector === (isVenue ? 'venue' : 'organizer'),
+      collectorName: transferStmt.names?.[f.collector_key ?? ''] || (f.collector === 'organizer' ? t("L'organisateur", 'The organizer', 'El organizador') : t('Le club', 'The club', 'El club')),
+      owed: tr && tr.from === myKey ? tr.amount : 0,
+      toReceive: tr && tr.to === myKey ? Math.max(0, tr.amount - received) : 0,
+      frozen: transferStmt.status !== 'live',
+      freezeAt: transferStmt.frozen_at ?? transferStmt.event.auto_freeze_at,
+      termsDays: f.payment_terms_days ?? 15,
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transferContract, transferStmt, isVenue, language]);
   const displayGain = useMemo(() => {
+    const f = transferStmt?.figures;
+    if (transferContract && transferInfo && f?.ok) {
+      const share = Number((isVenue ? f.venue_total : f.organizer_total) ?? 0);
+      const received = (transferStmt?.transfers ?? []).filter((x) => x.i_receive && x.status === 'received').reduce((a, x) => a + Number(x.amount), 0);
+      return {
+        ...netGain,
+        netEuros: share,
+        paidEuros: transferInfo.iCollect ? share : received,
+        pendingEuros: transferInfo.iCollect ? 0 : transferInfo.toReceive,
+        failedEuros: 0,
+        releaseAt: null,
+        loading: false,
+      };
+    }
     const p = closingProjection?.projection;
     if (!tieredContract || !p) return netGain;
     const accepted = closingProjection?.closing?.status === 'accepted';
@@ -192,13 +247,14 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     }
     const paid = accepted ? netGain.paidEuros : 0;
     return { ...netGain, netEuros: p.due, paidEuros: paid, pendingEuros: Math.max(0, p.due - paid), failedEuros: accepted ? netGain.failedEuros : 0, releaseAt: null };
-  }, [tieredContract, closingProjection, netGain, isVenue]);
+  }, [tieredContract, closingProjection, netGain, isVenue, transferContract, transferInfo, transferStmt]);
 
   useEffect(() => {
     if (!user || !eventId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setNotFound(false);
 
       // Venue viewer: resolve the club this owner runs (for scope + framing).
       // Les drapeaux Stripe du club sont réservés à la RPC privée owner
@@ -224,7 +280,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       let evQuery = supabase.from('events')
         .select('id, title, description, poster_url, start_at, end_at, is_active, visibility, discovery_status, ticketing_enabled, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, collab_responsibilities, revenue_split_rules, split_locked_at, collab_goal_type, collab_goal_value')
         .eq('id', eventId);
-      if (isOrganizer) evQuery = evQuery.or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
+      if (isOrganizer) evQuery = evQuery.or(`organizer_user_id.eq.${orgScopeId},partner_organizer_id.eq.${orgScopeId}`);
       const { data: ev } = await evQuery.maybeSingle();
       if (cancelled) return;
       if (!ev) { setNotFound(true); setLoading(false); return; }
@@ -260,7 +316,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
         // status 'paid' : c'est la seule valeur écrite par le checkout —
         // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'paid'),
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count').eq('event_id', eventId).eq('status', 'paid'),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
         isVenue
           ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
@@ -297,7 +353,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user, eventId, viewerRole, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, eventId, viewerRole, refreshKey, orgScopeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const phase = useMemo<Phase>(() => (event ? computePhase(event.start_at, event.end_at) : 'before'), [event]);
 
@@ -340,7 +396,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   }
 
   // ── Access / role derived flags ────────────────────────────────────────────
-  const isOwner = isOrganizer && !!user && event.organizer_user_id === user.id;
+  const isOwner = isOrganizer && !!orgScopeId && event.organizer_user_id === orgScopeId;
   if (isOrganizer && !isOwner && contractLoading) {
     return (
       <Chrome isVenue={isVenue} title={t('Collaboration', 'Collaboration', 'Colaboración')}>
@@ -490,7 +546,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         {/* Contrat pas encore signé : c'est L'action, il reste en pleine largeur.
             Une fois signé, il descend dans la colonne latérale, replié. */}
         {isCollab && !contractAccepted && (
-          <div id="collab-contract"><SplitContractBanner eventId={event.id} side={viewerRole} /></div>
+          <div id="collab-contract"><SplitContractBanner eventId={event.id} side={collabCanAct ? viewerRole : undefined} /></div>
         )}
 
         {/* Une allocation de guest list attend une réponse : on le dit ici, sur la
@@ -567,6 +623,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 {isCollab && (
                   <CollabNightClosingCard eventId={event.id} viewerRole={viewerSide} />
                 )}
+                {isCollab && transferContract && (
+                  <CollabTransferStatementCard eventId={event.id} tiered={tieredContract} />
+                )}
                   </div>
                 )}
 
@@ -584,7 +643,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     sub={t('Score de la soirée, présence, revenu, public — avant répartition.', 'Night score, attendance, revenue, crowd — before the split.', 'Puntuación de la noche, asistencia, ingresos, público, antes del reparto.')}>
                     <EventPostAnalysisView key={event.id} eventId={event.id}
                       venueId={isVenue ? (myVenue?.id ?? null) : null}
-                      organizerUserId={isOrganizer ? user?.id : null} />
+                      organizerUserId={isOrganizer ? orgScopeId : null} />
                   </Foldable>
                 )}
 
@@ -605,6 +664,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     drinks={stats.drinkPillar}
                     gain={displayGain}
                     isVenue={isVenue}
+                    transfer={transferInfo}
                   />
                 ) : (
                   <PayoutStatusNote gain={displayGain} className="-mt-1" />
@@ -712,7 +772,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
                     {/* Résumé seulement : l'atelier (zones, packs, plan) vit sur
                         /organizer-app/tables, le service du soir sur /organizer-app/vip-service. */}
-                    {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
+                    {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={orgScopeId ?? user.id} variant="summary" onChanged={() => setRefreshKey(k => k + 1)} />}
                     {/* La carte du bar est celle du club, 100 % club : elle se
                         consulte, elle ne se gère pas d'ici. Repliée, sinon dix-sept
                         boissons occupaient la moitié de la page de l'organisateur. */}
@@ -777,7 +837,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   partenaire se lisent avant les chiffres, pas après vingt écrans. */}
               <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-4">
                 {isCollab && contractAccepted && (
-                  <div id="collab-contract"><SplitContractBanner eventId={event.id} side={viewerRole} compact /></div>
+                  <div id="collab-contract"><SplitContractBanner eventId={event.id} side={collabCanAct ? viewerRole : undefined} compact /></div>
                 )}
                 {isCollab && (
                   <CollabMessageThread eventId={event.id} authorRole={viewerRole} venueLabel={clubName} organizerLabel={orgName} compact />
@@ -858,7 +918,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         <OrgEventFormDialog
           open={editOpen}
           onOpenChange={setEditOpen}
-          organizerUserId={user.id}
+          organizerUserId={orgScopeId ?? user.id}
           eventId={eventId}
           onSaved={() => { setEditOpen(false); setRefreshKey(k => k + 1); }}
         />
