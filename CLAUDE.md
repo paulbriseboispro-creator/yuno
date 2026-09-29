@@ -713,6 +713,14 @@ rattrapage des liens). Règles intouchables :
   (trigger) et par `TrackedLinksManager` (portée de l'écran). Le « Lien direct »
   = le lien de partie (`label 'coorg'`, `ensure_event_party_link`). Ne jamais
   re-semer au nom de l'hôte pour un partenaire : ses ventes partiraient à l'hôte.
+  **Toute l'équipe voit et gère les liens de SA structure** (`20260929280000`) :
+  porte unique `tracked_link_team_can_read` (fondateur / admin / éditeur d'orga,
+  owner / manager de club — jamais un scanneur), reprise par
+  `get_tracked_link_stats` et par la policy `tracked_links_team_all` ; le CA
+  d'un lien ne part qu'à `tracked_link_team_sees_money` (fondateur, membre
+  `view_finance`, owner, manager finance / analytique), sinon `revenue = NULL`
+  et l'écran le tait. Les chiffres des AUTRES parties vivent dans « Qui fait
+  vendre ? » (`get_collab_party_breakdown`, niveau ≥ 1), jamais dans les liens.
 - **Un email part sur les liens de QUI l'envoie** :
   `resolve_campaign_tracked_links(ids, channel, p_venue_id, p_organizer_user_id)`
   (portée de l'expéditeur passée par `send-campaign` → `fetchStudioLiveData`).
