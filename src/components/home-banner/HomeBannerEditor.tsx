@@ -7,14 +7,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OrgButton, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { HomeBannerBackdrop } from './HomeBannerBackdrop';
 import {
-  HOME_BANNER_MAX_ZOOM, HOME_BANNER_MIN_WIDTH, HOME_BANNER_MIN_ZOOM,
+  HOME_BANNER_DESKTOP_RATIO, HOME_BANNER_MAX_ZOOM, HOME_BANNER_MIN_WIDTH, HOME_BANNER_MIN_ZOOM,
+  HOME_BANNER_MOBILE_RATIO,
   panHomeBanner, saveHomeBanner, uploadHomeBanner,
   type HomeBanner, type HomeBannerDim, type HomeBannerScope,
 } from '@/lib/homeBanner';
 
-// Proportions réelles du héros : ~1100 × 250 sur ordinateur, 390 × 256 sur téléphone.
-const DESKTOP_RATIO = 1100 / 250;
-const MOBILE_RATIO = 390 / 256;
+// Proportions du héros (partagées avec l'accueil, `homeBannerHeroSize`).
+const DESKTOP_RATIO = HOME_BANNER_DESKTOP_RATIO;
+const MOBILE_RATIO = HOME_BANNER_MOBILE_RATIO;
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 
 interface Identity {

@@ -223,7 +223,9 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   est un POINT FOCAL + zoom (`object-position` + `transform-origin` au même
   point), jamais un rectangle figé : le héros change de proportions avec la
   largeur. Même `HomeBannerBackdrop` dans le héros et l'aperçu. Sans bannière =
-  dégradé Yuno. Lecture dans une requête À PART (`fetchHomeBanner`) : une
+  dégradé Yuno. Le héros a les PROPORTIONS de l'aperçu (`homeBannerHeroSize` : ratio
+  4,4:1, plancher 256 px au téléphone), jamais une hauteur fixe — étiré en ~7:1 sur
+  grand écran, il ne montrait qu'une tranche du cadrage choisi. Lecture dans une requête À PART (`fetchHomeBanner`) : une
   colonne absente ne doit jamais faire tomber `useOwnerVenue`. Orga : fondateur
   seul (`can.manageOrganization`, policy UPDATE d'`organizer_profiles`).
 - **Deux design systems séparés** :

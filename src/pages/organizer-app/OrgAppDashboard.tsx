@@ -17,6 +17,7 @@ import { useHomeBanner } from '@/hooks/useHomeBanner';
 import { HomeBannerBackdrop } from '@/components/home-banner/HomeBannerBackdrop';
 import { HomeBannerEditButton } from '@/components/home-banner/HomeBannerEditButton';
 import { HomeBannerEditor } from '@/components/home-banner/HomeBannerEditor';
+import { homeBannerHeroSize } from '@/lib/homeBanner';
 import { orgEventsOr } from '@/lib/coorg';
 import { ticketRevenue } from '@/utils/fees';
 import { useNumberFormat } from '@/components/analytics/kitFormat';
@@ -182,7 +183,7 @@ export default function OrgAppDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="relative -mx-4 overflow-hidden"
-        style={{ height: 240, borderRadius: '0 0 22px 22px' }}
+        style={{ ...homeBannerHeroSize, borderRadius: '0 0 22px 22px' }}
         // Bannière cinéma (photo + voile) : sombre dans les deux thèmes.
         data-theme-island="dark"
       >

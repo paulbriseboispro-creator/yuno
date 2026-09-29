@@ -43,6 +43,24 @@ export const HOME_BANNER_MIN_WIDTH = 1400;
 /** Largeur d'export : un héros plein écran sur un écran Retina. */
 export const HOME_BANNER_EXPORT_WIDTH = 2400;
 
+/**
+ * Proportions du héros d'accueil — les MÊMES que les aperçus de l'éditeur.
+ * Sur ordinateur le héros garde le ratio de l'aperçu « Ordinateur » (4,4:1) à
+ * toute largeur ; sur téléphone, où ce ratio donnerait un bandeau de 90 px, la
+ * hauteur plancher reprend l'aperçu « Téléphone » (390 × 256). Un héros à
+ * hauteur fixe s'étirait en ~7:1 sur un grand écran et ne montrait plus qu'une
+ * tranche de ce que le pro avait cadré.
+ */
+export const HOME_BANNER_DESKTOP_RATIO = 1100 / 250;
+export const HOME_BANNER_MOBILE_HEIGHT = 256;
+export const HOME_BANNER_MOBILE_RATIO = 390 / HOME_BANNER_MOBILE_HEIGHT;
+
+/** Taille du conteneur du héros : ratio de l'aperçu, plancher téléphone. */
+export const homeBannerHeroSize: CSSProperties = {
+  aspectRatio: `${HOME_BANNER_DESKTOP_RATIO}`,
+  minHeight: HOME_BANNER_MOBILE_HEIGHT,
+};
+
 const DIM_FILTER: Record<HomeBannerDim, string> = {
   light: 'brightness(0.78) saturate(1.15)',
   medium: 'brightness(0.6) saturate(1.25)',
