@@ -63,17 +63,25 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
   const [contactSegments, setContactSegments] = useState<ContactSegment[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // Segments sur la base importée (email + SMS) : seuls ceux avec des numéros
+  // joignables servent ici. Lus À PART : `get_contact_intelligence_overview`
+  // reconstruit toute la base vivante (1 à 6 s sur 12 000 contacts). La page
+  // n'attend plus ce calcul pour s'afficher, et le rafraîchissement d'une
+  // campagne en cours d'envoi (toutes les 6 s) ne le relance plus.
+  const loadSegments = useCallback(async () => {
+    const { data: ci } = await supabase.rpc('get_contact_intelligence_overview' as never, scopeRpcArgs(scope) as never);
+    setContactSegments((((ci as unknown) as ContactIntelligenceOverview | null)?.segments ?? []).filter((s) => s.counts.phones > 0));
+  }, [scope]);
+  useEffect(() => { void loadSegments(); }, [loadSegments]);
+
   const load = useCallback(async () => {
     const f = scopeFilter(scope);
-    const [{ data: rows }, evs, bal, { data: ov }, { data: ci }] = await Promise.all([
+    const [{ data: rows }, evs, bal, { data: ov }] = await Promise.all([
       supabase.from('sms_campaigns').select(SMS_CAMPAIGN_COLUMNS).eq(f.column, f.value).order('created_at', { ascending: false }).limit(100),
       fetchScopeEvents(scope),
       fetchSmsBalance(scope),
       supabase.rpc('get_sms_contacts_overview', scopeRpcArgs(scope)),
-      // Segments sur la base importée (email + SMS) : seuls ceux avec des numéros joignables servent ici.
-      supabase.rpc('get_contact_intelligence_overview' as never, scopeRpcArgs(scope) as never),
     ]);
-    setContactSegments((((ci as unknown) as ContactIntelligenceOverview | null)?.segments ?? []).filter((s) => s.counts.phones > 0));
     setCampaigns((rows ?? []) as unknown as SmsCampaignRow[]);
     setEvents(evs);
     setBalance(bal);
@@ -345,8 +353,8 @@ export default function SmsCampaignsPanel({ scope, basePath, selectedId, presetE
         presetEventId={editing ? null : presetEventId}
       />
       <SmsCreditsDialog open={creditsOpen} onClose={() => setCreditsOpen(false)} scope={scope} missing={creditsMissing} onCredited={() => void load()} />
-      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => void load()} />
-      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => void load()} />
+      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={importScope} onChanged={() => { void load(); void loadSegments(); }} />
+      <ContactImportDialog open={segmentsOpen} mode="analyze" onClose={() => setSegmentsOpen(false)} scope={importScope} onChanged={() => { void load(); void loadSegments(); }} />
     </div>
   );
 }

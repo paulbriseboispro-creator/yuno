@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchGuestListEntries } from '@/lib/guestListEntries';
 import { supabase } from '@/integrations/supabase/client';
 import { subDays, subHours, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -113,12 +114,16 @@ export function useNightAnalytics({ venueId, organizerUserId, dateRange, mode, s
       const { data: tables } = await rq;
 
       // Guestlist entries (joined through guest_lists for venue/organizer/event scope).
-      let gq = supabase
-        .from('guest_list_entries')
-        .select('entry_scanned, entry_scanned_at, guest_lists!inner(venue_id, event_id)');
-      if (eventFilter) gq = gq.eq('guest_lists.event_id', eventFilter);
-      else gq = orgEventIds ? gq.in('guest_lists.event_id', orgEventIds) : gq.eq('guest_lists.venue_id', venueId!);
-      const { data: guestlist } = await gq;
+      // Listes d'abord, inscrits ensuite (src/lib/guestListEntries.ts) : la
+      // jointure guest_lists!inner balayait toute la table sous RLS.
+      const { data: guestlist } = await fetchGuestListEntries<
+        { entry_scanned: boolean | null; entry_scanned_at: string | null },
+        { venue_id: string | null; event_id: string }
+      >({
+        ...(eventFilter ? { eventIds: [eventFilter] } : orgEventIds ? { eventIds: orgEventIds } : { venueId: venueId! }),
+        listColumns: 'venue_id, event_id',
+        entryColumns: 'entry_scanned, entry_scanned_at',
+      });
 
       const tk = tickets || [];
       const ticketsSold = tk.reduce((s, t) => s + (t.quantity || 0), 0);

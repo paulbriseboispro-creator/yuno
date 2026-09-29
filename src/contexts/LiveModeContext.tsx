@@ -42,6 +42,7 @@ import { LiveModeBanner } from '@/components/livemode/LiveModeBanner';
 import { isDemoEmail } from '@/lib/demoPlan';
 import { isDemoLiveForced, DEMO_LIVE_EVENT } from '@/lib/demoLive';
 import { celebrateOnce } from '@/lib/celebrate';
+import { isConsolePath } from '@/lib/proLayout';
 
 export interface LiveSession {
   state: 'live' | 'pending_scan';
@@ -176,6 +177,12 @@ function LiveModeRedirect({ value }: { value: LiveModeValue }) {
 
 export function LiveModeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  // La Console (club, manager, organisateur, agence) n'a pas de Mode Live :
+  // la redirection ne s'y fait jamais. Sans ce garde, chaque pro payait
+  // `get_live_session()` au montage, au retour d'onglet et toutes les 5 min —
+  // premier consommateur de la base (pg_stat_statements, 29/09).
+  const { pathname } = useLocation();
+  const onConsole = isConsolePath(pathname);
   const [session, setSession] = useState<LiveSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [exited, setExited] = useState(false);
@@ -183,7 +190,7 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
   sessionRef.current = session;
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!user || onConsole) {
       setSession(null);
       setLoading(false);
       return;
@@ -209,7 +216,7 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, onConsole]);
 
   // Check à l'ouverture + retour foreground + poll de sécurité.
   // Le switch Explore ↔ Live du DemoSwitcher notifie via DEMO_LIVE_EVENT.

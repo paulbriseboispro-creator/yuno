@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fetchGuestListEntries } from '@/lib/guestListEntries';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -625,7 +626,7 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
         // guest_count (sans s) + status 'paid' : guests_count n'existe pas (la
         // requête entière échouait en 400) et 'confirmed' n'est jamais écrit.
         supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee, fee_absorbed').eq('status', 'paid').in('event_id', ids),
-        supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
+        fetchGuestListEntries({ eventIds: ids, listColumns: 'event_id', entryColumns: 'id' }),
         supabase.from('orders').select('total, service_fee, refund_amount').eq('status', 'paid').in('event_id', ids),
       ]);
       if (cancelled) return;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { fetchGuestListEntries } from '@/lib/guestListEntries';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -195,11 +196,9 @@ export function usePostEventAnalysis(
         .in('event_id', ids)
         .eq('status', 'paid'),
       // Guest list entries = free tickets: expected at the door, scanned at the door.
-      supabase
-        .from('guest_list_entries')
-        .select('entry_scanned, guest_lists!inner(event_id)')
-        .in('guest_lists.event_id', ids)
-        .neq('status', 'cancelled'),
+      fetchGuestListEntries<{ entry_scanned: boolean | null }, { event_id: string }>({
+        eventIds: ids, listColumns: 'event_id', entryColumns: 'entry_scanned', excludeStatus: 'cancelled',
+      }),
     ]);
 
     // Per-event accumulators.
@@ -303,11 +302,9 @@ export function usePostEventAnalysis(
           supabase.from('visitor_sessions').select('session_id').in('event_id', eventIds),
           // Guest list entries are FREE TICKETS: same head count, same door scan.
           // On a night without ticketing they are the only trace of who came.
-          supabase
-            .from('guest_list_entries')
-            .select('created_at, entry_scanned, entry_scanned_at, email, guest_lists!inner(event_id)')
-            .in('guest_lists.event_id', eventIds)
-            .neq('status', 'cancelled'),
+          fetchGuestListEntries<{ created_at: string; entry_scanned: boolean | null; entry_scanned_at: string | null; email: string | null }, { event_id: string }>({
+            eventIds, listColumns: 'event_id', entryColumns: 'created_at, entry_scanned, entry_scanned_at, email', excludeStatus: 'cancelled',
+          }),
         ]);
 
       const evList = evRows || [];
@@ -408,7 +405,7 @@ export function usePostEventAnalysis(
           const [{ data: priorT }, { data: priorTab }, { data: priorGl }] = await Promise.all([
             supabase.from('tickets').select('user_email').in('event_id', otherIds).eq('status', 'paid').in('user_email', buyerEmails),
             supabase.from('table_reservations').select('user_email').in('event_id', otherIds).eq('status', 'paid').in('user_email', buyerEmails),
-            supabase.from('guest_list_entries').select('email, guest_lists!inner(event_id)').in('guest_lists.event_id', otherIds).neq('status', 'cancelled').in('email', buyerEmails),
+            fetchGuestListEntries<{ email: string | null }, { event_id: string }>({ eventIds: otherIds, listColumns: 'event_id', entryColumns: 'email', excludeStatus: 'cancelled', emailIn: buyerEmails }),
           ]);
           const seen = new Set<string>();
           for (const r of [...(priorT || []), ...(priorTab || [])]) if (r.user_email) seen.add(r.user_email.toLowerCase());

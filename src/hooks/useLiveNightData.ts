@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { fetchGuestListEntries } from '@/lib/guestListEntries';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { uniqueChannel } from '@/lib/realtime';
@@ -427,11 +428,11 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       if (extendedOpt) {
         const extraQueries = [
           eventId
-            ? supabase
-                .from('guest_list_entries')
-                .select('id, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, guest_list_id, guest_lists!inner(event_id, quota)')
-                .eq('guest_lists.event_id', eventId)
-                .returns<LiveGlRow[]>()
+            ? fetchGuestListEntries<Omit<LiveGlRow, 'guest_lists'>, NonNullable<LiveGlRow['guest_lists']>>({
+                eventIds: [eventId],
+                listColumns: 'event_id, quota',
+                entryColumns: 'id, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, guest_list_id',
+              })
             : Promise.resolve({ data: [] as LiveGlRow[] }),
           supabase
             .from('vip_consumptions')

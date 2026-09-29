@@ -1,4 +1,5 @@
 import { canSideEdit, type CollabDomain } from '@/utils/collabResponsibilities';
+import { fetchGuestListEntries } from '@/lib/guestListEntries';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabPreviewDialog } from './CollabPreviewDialog';
@@ -321,7 +322,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         // status 'paid' : c'est la seule valeur écrite par le checkout —
         // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
         supabase.from('table_reservations').select('total_price, service_fee, management_fee, fee_absorbed, guest_count').eq('event_id', eventId).eq('status', 'paid'),
-        supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
+        fetchGuestListEntries({ eventIds: [eventId], listColumns: 'event_id', entryColumns: 'id' }),
         isVenue
           ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
           : Promise.resolve({ data: null as Pick<Tables<'orders'>, 'total' | 'service_fee' | 'refund_amount'>[] | null }),

@@ -1178,6 +1178,21 @@ base avec le compte démo. Règles qui en sortent :
   base (les requêtes y prennent 10-80 ms) mais le VOLUME : 20 à 45 requêtes par
   page saturent le pool PostgREST et font tomber des 500 sur des requêtes
   triviales. Une nouvelle page ne relance pas ce qu'un hook partagé a déjà lu.
+- **Jamais `guest_list_entries?…guest_lists!inner(…)&guest_lists.event_id=…`**
+  dans une surface pro : la RLS de `guest_list_entries` n'est pas leakproof, le
+  planificateur balaie toute la table et évalue la politique ligne par ligne
+  (1,3 s mesurées, 500 sous charge). Passer par `fetchGuestListEntries`
+  (`src/lib/guestListEntries.ts` : listes d'abord, inscrits par
+  `guest_list_id` ensuite, même forme de résultat). Le scan de porte par QR
+  (index `qr_code`) n'est pas concerné.
+- **Le Mode Live client ne tourne pas dans la Console** (`LiveModeProvider`,
+  `isConsolePath`) : `get_live_session()` était le premier consommateur de la
+  base (7 785 appels, 1 169 s cumulées), payé par chaque pro toutes les 5 min.
+- **Un calcul lourd ne bloque pas une page qui n'en affiche qu'un détail** :
+  `get_contact_intelligence_overview` (base vivante, 1 à 6 s sur 12 000
+  contacts) est lu à part sur la page SMS. Reste à faire côté base : ce calcul
+  et `list_contact_base` reconstruisent chacun la base vivante (`_cr`) à chaque
+  appel — les deux partent ensemble sur Contacts.
 - **Pleine largeur** : conteneur de page = `PRO_PAGE` (`src/lib/proLayout.ts`),
   jamais un `mx-auto max-w-*` centré. Un formulaire se range en grille
   (`xl:grid-cols-2`, colonne latérale), il ne rétrécit pas la page. Détail :

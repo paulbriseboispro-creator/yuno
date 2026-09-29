@@ -86,14 +86,17 @@ export default function OwnerPromoters() {
 
     const listByEvent = new Map((lists || []).map(l => [l.event_id, l]));
     const placedMap: Record<string, number> = {};
-    // On ne lit plus les lignes d'inscription : un comptage par liste, en parallèle
-    // (≤ 6 soirées, donc peu de listes).
-    const counts = await Promise.all((lists || []).map(async (l) => {
-      const { count } = await supabase.from('guest_list_entries')
-        .select('id', { count: 'exact', head: true }).eq('guest_list_id', l.id);
-      return { eventId: l.event_id, count: count ?? 0 };
-    }));
-    counts.forEach(({ eventId, count }) => { placedMap[eventId] = (placedMap[eventId] || 0) + count; });
+    // Une seule lecture indexée (`guest_list_id` = index) : un comptage par
+    // liste multipliait les requêtes (12 de plus sur la page) pour rien.
+    const listToEvent = new Map((lists || []).map(l => [l.id, l.event_id]));
+    if (listToEvent.size > 0) {
+      const { data: entries } = await supabase.from('guest_list_entries')
+        .select('guest_list_id').in('guest_list_id', [...listToEvent.keys()]);
+      (entries || []).forEach(e => {
+        const evId = listToEvent.get(e.guest_list_id);
+        if (evId) placedMap[evId] = (placedMap[evId] || 0) + 1;
+      });
+    }
 
     setUpcomingEvents(evts.map(e => ({
       id: e.id, title: e.title, start_at: e.start_at,
