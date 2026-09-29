@@ -411,9 +411,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "refund-management": {
     title: "Remboursements",
-    keywords: ["remboursement", "refund", "rembourser", "annulation", "cancel", "litige", "client mécontent"],
+    keywords: ["remboursement", "refund", "rembourser", "annulation", "cancel", "litige", "client mécontent", "partiel", "partial", "remboursement partiel", "stripe", "manager", "droit rembourser"],
     path: "/owner/refunds",
-    snippet: "Les remboursements sont à l'initiative du club : depuis Remboursements, retrouve la commande ou le billet (par référence, email ou nom) et rembourse en un clic — le client est recrédité via Stripe sous 5 à 10 jours ouvrés. En cas d'annulation d'événement, rembourse les billets depuis la même page.",
+    snippet: "Remboursements (Ventes & finances → Commandes → Remboursements) : choisis la soirée, coche billets, tables ou commandes, fixe le montant et saisis un motif, envoyé au client par email ; l'argent repart via Stripe sous 5 à 10 jours ouvrés. Plafond = ce que le client a payé hors frais Yuno (l'acompte pour une table), moins ce qui a déjà été rendu ; le montant proposé déduit les frais Stripe payés par le club. Un remboursement partiel laisse la vente valable (le billet passe toujours à la porte) ; un billet remboursé en entier rend ses places à la jauge et perd ses consos. Un remboursement fait directement depuis le tableau de bord Stripe est aussi enregistré dans Yuno (« Remboursé depuis Stripe ») et le client est prévenu. Qui peut rembourser : le propriétaire et les managers qui ont le droit « Remboursements » ; côté organisateur, le fondateur et les membres d'équipe admin ou autorisés à rembourser. En cas d'annulation d'événement, rembourse les billets depuis la même page.",
   },
   "invoices-accounting": {
     title: "Comptabilité & factures",

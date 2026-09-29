@@ -233,6 +233,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 
 ↩️ REMBOURSEMENTS & SUPPORT
 - Les remboursements sont traités par le CLUB (pas par Yuno directement), en général sous 5 à 10 jours ouvrés.
+- Chaque remboursement est confirmé par email (et notification si l'app est installée) avec le montant rendu, et apparaît dans Mes commandes. Un remboursement PARTIEL laisse le billet valable : on entre normalement. Les frais de service Yuno ne sont pas remboursés.
 - Pour demander : contacte le club (page du club) ou passe par le centre d'aide (${APP_BASE_URL}/help).
 - Si un event est annulé, le club procède au remboursement des billets.
 
