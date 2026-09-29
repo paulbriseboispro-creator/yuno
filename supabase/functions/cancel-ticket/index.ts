@@ -2,19 +2,16 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { alreadyRefundedCents, fromCents, planRefund, refundCapCents } from "../_shared/sale-refund.ts";
+import {
+  applyFullRefundEffects, applyRefundAmountEffects, loadSaleRefundContext, markSaleFullyRefunded,
+  refundSaleOnStripe,
+} from "../_shared/sale-refund-effects.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-// Stripe fee calculation: 1.5% + 0.25€
-const STRIPE_PERCENT = 0.015;
-const STRIPE_FIXED_CENTS = 25;
-
-function calcStripeFee(totalPriceCents: number): number {
-  return (Math.round(totalPriceCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS) / 100;
-}
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -62,7 +59,7 @@ serve(async (req) => {
 
     const { data: ticket, error: ticketError } = await supabaseClient
       .from('tickets')
-      .select('*, ticket_rounds(id, tickets_sold, event_id), events(id, title, start_at)')
+      .select('*, events(id, title, start_at)')
       .eq('id', ticketId)
       .eq('user_id', user.id)
       .single();
@@ -95,77 +92,82 @@ serve(async (req) => {
 
     logStep("Validation passed", { hoursUntilEvent });
 
-    // Insurance cancellation: full refund minus Yuno service fee only
-    // Client paid: ticket price + insurance fee + service fee
-    // Refund = totalPrice - serviceFee (i.e. ticket + insurance fee refunded, only Yuno keeps its cut)
-    const totalPrice = Number(ticket.total_price);
-    // If the club absorbed the commission, the fan paid no separate fee → fully refundable.
-    const serviceFee = ticket.fee_absorbed ? 0 : Number(ticket.service_fee || 0);
-    const refundAmount = Math.round(Math.max(0, totalPrice - serviceFee) * 100) / 100;
+    // Annulation assurée : le client récupère ce qu'il a payé moins les frais
+    // Yuno — frais de service ET assurance, consommée par l'annulation. C'est le
+    // montant que « Mes commandes » lui annonce, et le plafond de la Console
+    // (`refundCapCents`). Avant, l'assurance lui était rendue en plus, prise sur
+    // le compte du club qui ne l'avait jamais encaissée.
+    const plan = planRefund(refundCapCents('ticket', ticket), alreadyRefundedCents(ticket), Number.MAX_SAFE_INTEGER);
+    const refundAmount = plan ? fromCents(plan.amountCents) : 0;
+    logStep("Refund calculation", { totalPrice: ticket.total_price, refundAmount });
 
-    logStep("Refund calculation", { 
-      totalPrice,
-      serviceFee,
-      refundAmount 
-    });
-
-    // Process Stripe refund
-    const paymentIntentId = ticket.stripe_payment_intent_id;
-    if (paymentIntentId && refundAmount > 0) {
+    if (plan) {
       const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-      if (stripeKey) {
-        const stripe = new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' });
+      if (!stripeKey) throw new Error('Refunds are unavailable right now');
+      const stripe = new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' });
+      const connectedAccountId = (ticket.stripe_connected_account_id as string | null) || null;
+
+      let paymentIntentId: string | null = ticket.stripe_payment_intent_id || null;
+      if (!paymentIntentId && ticket.stripe_session_id) {
         try {
-          const refundAmountCents = Math.round(refundAmount * 100);
-          // DIRECT charge → refund on the connected account (no transfer to reverse).
-          // SEPARATE/platform charge → refund on the platform and reverse the transfers.
-          const connectedAccount = ticket.stripe_connected_account_id as string | null;
-          await stripe.refunds.create({
-            payment_intent: paymentIntentId,
-            amount: refundAmountCents,
-            ...(connectedAccount ? {} : { reverse_transfer: true }),
-            refund_application_fee: false,
-          }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
-          logStep("Stripe refund processed", { paymentIntentId, refundAmountCents, direct: !!connectedAccount });
-        } catch (stripeError) {
-          logStep("Stripe refund error", { error: (stripeError as Error).message });
+          const session = await stripe.checkout.sessions.retrieve(
+            ticket.stripe_session_id, undefined,
+            connectedAccountId ? { stripeAccount: connectedAccountId } : undefined,
+          );
+          paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null;
+        } catch (sessionError) {
+          logStep("Could not read the Stripe session", { error: (sessionError as Error).message });
         }
       }
-    } else {
-      logStep("No payment intent - skipping Stripe refund");
+      // Sans paiement retrouvé, on ne marque RIEN remboursé : le client garderait
+      // un billet annulé sans avoir revu son argent.
+      if (!paymentIntentId) throw new Error('Payment not found — please contact support');
+
+      // Verrou AVANT Stripe (même mécanique que owner-refund) : un double appel
+      // ne rembourse qu'une fois, et le webhook `charge.refunded` trouvera le
+      // montant déjà enregistré.
+      const prevRaw = ticket.refund_amount as number | string | null;
+      let claim = adminClient.from('tickets')
+        .update({
+          refund_amount: fromCents(plan.cumulativeCents),
+          refunded_by: user.id,
+          refunded_at: now.toISOString(),
+          cancelled_at: now.toISOString(),
+        })
+        .eq('id', ticketId)
+        .eq('status', 'paid');
+      claim = prevRaw === null || prevRaw === undefined ? claim.is('refund_amount', null) : claim.eq('refund_amount', prevRaw);
+      const { data: claimed, error: claimError } = await claim.select('id');
+      if (claimError) throw claimError;
+      if (!claimed || claimed.length === 0) throw new Error('This ticket is already being cancelled');
+
+      const refund = await refundSaleOnStripe(stripe, adminClient, {
+        paymentIntentId,
+        amountCents: plan.amountCents,
+        connectedAccountId,
+        idempotencyKey: `cancel-ticket:${ticketId}:${plan.cumulativeCents}`,
+        expectedCumulativeCents: plan.cumulativeCents,
+      });
+      if (!refund.ok) {
+        // Avant, l'échec était journalisé puis le billet passait « remboursé » :
+        // le client perdait son entrée ET son argent. Il garde son billet.
+        await adminClient.from('tickets')
+          .update({ refund_amount: prevRaw ?? null, refunded_by: null, refunded_at: null, cancelled_at: null })
+          .eq('id', ticketId)
+          .eq('refund_amount', fromCents(plan.cumulativeCents));
+        logStep("Stripe refund error — ticket kept", { error: refund.error });
+        throw new Error('The refund could not be processed — your ticket is still valid. Please try again later.');
+      }
+      logStep("Stripe refund processed", { paymentIntentId, amountCents: plan.amountCents, direct: !!connectedAccountId });
     }
 
-    // Update ticket status
-    const { error: updateError } = await adminClient
-      .from('tickets')
-      .update({
-        status: 'refunded',
-        cancelled_at: now.toISOString(),
-        refund_amount: refundAmount,
-      })
-      .eq('id', ticketId);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    // Delete drink credits
-    try {
-      await adminClient.from('order_pack_credits').delete().eq('ticket_order_id', ticketId);
-      await adminClient.from('ticket_upsell_selections').update({ status: 'cancelled' }).eq('ticket_id', ticketId);
-      logStep("Deleted drink credits for ticket", { ticketId });
-    } catch (e) { console.error("Error deleting drink credits:", e); }
-
-    // Decrement tickets_sold
-    const { error: roundUpdateError } = await adminClient
-      .from('ticket_rounds')
-      .update({ 
-        tickets_sold: Math.max(0, ticket.ticket_rounds.tickets_sold - ticket.quantity) 
-      })
-      .eq('id', ticket.ticket_round_id);
-
-    if (roundUpdateError) {
-      console.error('Error updating round tickets_sold:', roundUpdateError);
+    // Passage unique à « refunded » : places rendues à la jauge et crédits
+    // boissons supprimés par le trigger `trg_release_refunded_ticket`.
+    const ctx = await loadSaleRefundContext(adminClient, 'ticket', ticket);
+    if (plan) await applyRefundAmountEffects(adminClient, ctx, plan.amountCents, { source: 'yuno' });
+    if (await markSaleFullyRefunded(adminClient, 'ticket', ticketId)) {
+      if (!plan) await adminClient.from('tickets').update({ cancelled_at: now.toISOString(), refunded_by: user.id }).eq('id', ticketId);
+      await applyFullRefundEffects(adminClient, ctx);
     }
 
     logStep("Ticket cancelled, notifying waitlist");
