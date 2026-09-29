@@ -440,7 +440,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.coorg.title',
         descKey: 'ohelp.coorg.desc',
         icon: 'Handshake',
-        actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations?tab=coorg' },
+        actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations?tab=nights' },
         relatedArticleIds: ['organizers-system', 'events-setup'],
         keywords: ['co-organisation', 'co-organization', 'coorganización', 'co-hôte', 'co-host', 'coanfitrión', 'cohost', 'plusieurs organisateurs', 'several organizers', 'orga orga', 'deux orgas', 'asso', 'collectif', 'partage', 'parts', 'shares', 'décompte', 'statement', 'liquidación', 'virement', 'transfer', 'transferencia', 'contrat', 'contract', 'crm partagé', 'shared crm', 'présenté par', 'presented by', 'sans compte', 'without account', 'sin cuenta', 'par email', 'by email', 'lien de vente', 'sales link', 'enlace de venta', 'qui fait vendre', 'scan', 'porte', 'door', 'puerta'],
         sections: [

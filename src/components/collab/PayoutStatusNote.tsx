@@ -25,6 +25,7 @@ interface NetGainLike {
 export function PayoutStatusNote({ gain, className }: { gain: NetGainLike; className?: string }) {
   const { language } = useLanguage();
   const tt = (f: string, e: string, s?: string) => translate(language, f, e, s);
+  const eur = (v: number) => new Intl.NumberFormat(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(v);
 
   if (gain.loading) return null;
   const hasPending = gain.pendingEuros > 0.005;
@@ -47,7 +48,7 @@ export function PayoutStatusNote({ gain, className }: { gain: NetGainLike; class
           )}
         >
           <Clock className="h-3 w-3 flex-none" />
-          <span className="tabular-nums font-semibold">{gain.pendingEuros.toFixed(2)} €</span>
+          <span className="tabular-nums font-semibold">{eur(gain.pendingEuros)}</span>
           <span>
             {tt('en attente', 'pending', 'pendiente')}
             {releaseLabel ? ` · ${tt('versée le', 'released', 'pagado el')} ${releaseLabel}` : ''}
@@ -57,7 +58,7 @@ export function PayoutStatusNote({ gain, className }: { gain: NetGainLike; class
       {hasFailed && (
         <div className="flex items-center gap-1.5 text-[11px] text-red-400/90 mt-1">
           <AlertTriangle className="h-3 w-3 flex-none" />
-          <span className="tabular-nums font-semibold">{gain.failedEuros.toFixed(2)} €</span>
+          <span className="tabular-nums font-semibold">{eur(gain.failedEuros)}</span>
           <span>{tt('versement échoué — vérifie ton compte Stripe', 'payout failed — check your Stripe account', 'pago fallido — revisa tu cuenta Stripe')}</span>
         </div>
       )}

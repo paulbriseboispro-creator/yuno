@@ -383,7 +383,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.org.partners.desc',
         icon: 'Handshake',
         quickStart: true,
-        actionLink: { labelKey: OPEN, path: '/partners' },
+        actionLink: { labelKey: OPEN, path: '/collaborations?tab=partners' },
         relatedArticleIds: ['org-events', 'org-payments'],
         keywords: ['partners', 'partenaires', 'clubs', 'venue', 'lieu', 'co-event', 'split', 'socios', 'collaborations', 'colaboraciones', 'invite', 'inviter'],
         sections: [
@@ -420,7 +420,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.coorg.title',
         descKey: 'ohelp.coorg.desc',
         icon: 'Handshake',
-        actionLink: { labelKey: OPEN, path: '/collaborations?tab=coorg' },
+        actionLink: { labelKey: OPEN, path: '/collaborations?tab=nights' },
         relatedArticleIds: ['org-collaborations', 'org-events'],
         keywords: ['co-organisation', 'co-organization', 'coorganización', 'co-hôte', 'co-host', 'coanfitrión', 'cohost', 'plusieurs organisateurs', 'several organizers', 'orga orga', 'deux orgas', 'asso', 'collectif', 'partage', 'parts', 'shares', 'décompte', 'statement', 'liquidación', 'virement', 'transfer', 'transferencia', 'contrat', 'contract', 'crm partagé', 'shared crm', 'présenté par', 'presented by', 'sans compte', 'without account', 'sin cuenta', 'par email', 'by email', 'lien de vente', 'sales link', 'enlace de venta', 'qui fait vendre', 'scan', 'porte', 'door', 'puerta'],
         sections: [

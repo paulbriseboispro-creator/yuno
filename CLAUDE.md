@@ -739,6 +739,47 @@ des deux hubs Collaborations. Règles intouchables :
   repasser DEFINER, et ne jamais y comparer une colonne GÉNÉRÉE ou recalculée par un autre
   trigger (`search_title`, `is_discoverable`, `discovery_status`).
 
+## Hub Collaborations — deux onglets, une action, une liste (2026-09-29)
+
+Plan : `docs/designs/COLLAB_SIMPLIFICATION_PLAN.md` (skill `simplification`).
+Le système (contrat club × orga, co-organisation à N parties, barème,
+virements) se présentait comme deux produits côte à côte, chacun avec sa liste,
+sa boîte de réception, son carnet et sa façon d'inviter. Règles :
+
+- **Un seul hub pour les deux consoles** : `CollabHub`
+  (`src/components/collab-hub/`), monté par `OwnerCollaborations` et
+  `OrgAppCollabHub`. Deux onglets `?tab=nights|partners` ; les anciens
+  (`events`, `coorg`, `organizers`, `invite`) sont traduits par
+  `resolveCollabHubTab` (`src/lib/collabHubNav.ts`, testé) et l'URL réécrite.
+  Ne jamais rouvrir un troisième onglet : une nouveauté se range dans l'un des deux.
+- **Une seule porte d'entrée : « Nouvelle collaboration »** (`NewCollabDialog`)
+  → proposer une soirée à un partenaire / ajouter un partenaire Yuno
+  (`?tab=partners&request=1`) / inviter hors Yuno (dialogue, `&invite=1`) /
+  co-organiser à plusieurs (`EventPickerThenInvite`). Un chemin fermé dit
+  pourquoi (plan Collaboration, pas encore de partenaire). Seuls les boutons
+  « Proposer une soirée » des cartes partenaires (`&propose=<id>`) doublent le
+  premier chemin, en contexte.
+- **Soirées = « à traiter » puis UNE liste** : propositions, avenants,
+  invitations de co-organisation (chaque boîte se tait vide), puis
+  `useCollabNights` fusionne contrats (`events` + `event_collab_contracts`,
+  contrat VIVANT prioritaire) et co-organisations (`get_my_coorg_events`) par
+  soirée (`mergeCollabNights`). Carte = affiche, date, « Avec … », UNE pastille
+  d'étape (`collabNightStep`, ordre d'urgence), lien vers la page qui répond
+  (`collabNightHref` : contrat sinon co-organisation). La carte ne montre
+  qu'une DEMANDE de pause / suppression en cours (`CollabActionControls
+  requestsOnly`) ; les boutons vivent sur la page de la soirée, repliés sous
+  « Gérer la collaboration » (`buttonsOnly`). Pas de chiffres ni de liens
+  d'outils sur la carte : la page de la soirée les porte.
+- **Partenaires = une personne, une ligne** : partenariats club × orga, puis
+  contrats-cadres, puis `CoorgPartnersSection` qui écarte les clés déjà
+  partenaires (`excludeKeys`). Historique replié.
+- **Page de co-soirée** : l'outil « Co-organisateurs » mène à
+  `/…/coorg/:id` (un 3ᵉ organisateur sur une collab) ; plus de tuile « Page
+  publique » (l'en-tête a « Voir ») ; club = une tuile « Porte & live » ; la
+  carte Billetterie orga ne s'affiche sur une co-soirée que si elle informe
+  (le club tient la billetterie, ou Stripe manque) ; montants par
+  `useNumberFormat`.
+
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 
 Migrations `20260921140000` (appartenances + acceptation) et `20260921141000`
