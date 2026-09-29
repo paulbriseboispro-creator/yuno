@@ -14,7 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import {
   ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard,
-  Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users,
+  Sparkles, Radio, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users,
   LayoutGrid, TrendingUp, Wine, UserPlus, Trophy, UsersRound, Target, Pencil, Check, X,
   ChevronDown, FileText, MessageSquare, Euro, Settings2,
 } from 'lucide-react';
@@ -51,6 +51,7 @@ import { OwnerTicketOrders } from '@/components/owner/OwnerTicketOrders';
 import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
 import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
 import { isTieredRules, isTransferSettlement, normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
@@ -379,7 +380,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   if (loading) {
     return (
       <Chrome isVenue={isVenue} title={t('Collaboration', 'Collaboration', 'Colaboración')}>
-        <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
+        <DetailBodySkeleton />
       </Chrome>
     );
   }
@@ -403,7 +404,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   if (isOrganizer && !isOwner && contractLoading) {
     return (
       <Chrome isVenue={isVenue} title={t('Collaboration', 'Collaboration', 'Colaboración')}>
-        <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
+        <DetailBodySkeleton />
       </Chrome>
     );
   }
@@ -618,7 +619,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   : t('Après frais Stripe & Yuno', 'After Stripe & Yuno fees', 'Tras comisiones Stripe y Yuno')} accent />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
               {/* Colonne principale : le travail de la phase, dans l'ordre où il se fait. */}
               <div className="min-w-0 space-y-4">
                 {/* Après la soirée, le décompte passe devant tout le reste. */}
@@ -978,11 +979,46 @@ function Chrome({ isVenue, title, children }: { isVenue: boolean; title: string;
     return (
       <div className="min-h-screen dashboard-gradient-bg">
         <OwnerHeader title={title} />
-        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-5xl">{children}</div>
+        <div className={`${PRO_PAGE} py-4 sm:py-6`}>{children}</div>
       </div>
     );
   }
-  return <OrgPage className="mx-auto max-w-5xl">{children}</OrgPage>;
+  return <OrgPage className={PRO_PAGE}>{children}</OrgPage>;
+}
+
+/* ── Chargement : l'en-tête est là, le corps a la forme de la page (feuille de
+   route, trois chiffres, deux colonnes travail | contrat). ─────────────────── */
+function DetailBodySkeleton() {
+  const bone = 'animate-pulse rounded-md bg-white/5';
+  const card = 'rounded-2xl border border-white/[0.06] bg-card p-4 sm:p-5';
+  return (
+    <div className="space-y-4" aria-busy="true">
+      <div className={`${card} flex items-center gap-4`}>
+        <div className={`h-20 w-14 flex-none rounded-xl ${bone}`} />
+        <div className="flex-1 space-y-2">
+          <div className={`h-5 w-64 max-w-full ${bone}`} />
+          <div className={`h-3 w-40 ${bone}`} />
+        </div>
+        <div className={`hidden h-9 w-32 rounded-lg sm:block ${bone}`} />
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className={`${card} space-y-3`}>
+            <div className={`h-3 w-20 ${bone}`} />
+            <div className={`h-7 w-24 ${bone}`} />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <div className={`${card} space-y-3`}>
+          {Array.from({ length: 5 }).map((_, i) => <div key={i} className={`h-12 w-full rounded-lg ${bone}`} />)}
+        </div>
+        <div className={`${card} space-y-3`}>
+          {Array.from({ length: 4 }).map((_, i) => <div key={i} className={`h-10 w-full rounded-lg ${bone}`} />)}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ── Section wrapper — chapter header (icon + title + subtitle) ─────────────── */

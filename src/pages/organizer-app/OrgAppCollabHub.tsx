@@ -4,6 +4,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { useOrganizerPartnerships } from '@/hooks/useOrganizerPartnerships';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { OrgPage } from '@/components/org-ui';
 import { CollabHub } from '@/components/collab-hub/CollabHub';
 import { PartnerClubsTab } from '@/components/organizer-app/collab/PartnerClubsTab';
@@ -33,7 +34,7 @@ export default function OrgAppCollabHub() {
   const covered = new Set(active.map((p) => `venue:${p.venue_id}`));
 
   return (
-    <OrgPage className="mx-auto max-w-[1100px]">
+    <OrgPage className={PRO_PAGE}>
       <CollabHub
         side="organizer"
         scope={scope}

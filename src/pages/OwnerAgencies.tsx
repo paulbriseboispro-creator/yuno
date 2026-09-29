@@ -5,6 +5,7 @@ import { getScopeFilter, scopeReady } from '@/lib/promoterScopeHelpers';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Building2, PenLine, Wallet, Clock, ClipboardList, Layers, Waves, Check } from 'lucide-react';
 import {
   PromoPage, PromoHeader, PromoCard, PromoButton, PromoEmpty, PromoPill, SectionLabel,
@@ -172,14 +173,26 @@ export default function OwnerAgencies() {
   };
 
   return (
+    <>
+    <PromoHeader title={tt('Agences partenaires', 'Partner agencies')} subtitle={tt('Agences de promoteurs qui travaillent avec vous', 'Promoter agencies working with you')} />
     <PromoPage>
-      <PromoHeader title={tt('Agences partenaires', 'Partner agencies')} subtitle={tt('Agences de promoteurs qui travaillent avec vous', 'Promoter agencies working with you')} />
       {loading ? (
-        <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
+        // En-tête déjà rendu : seul le corps est en squelette, à la forme des cartes contrat.
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3" aria-busy="true" aria-label={tt('Chargement…', 'Loading…')}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <PromoCard key={i} style={{ padding: 12 }}>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-1/2 bg-white/5" />
+                <Skeleton className="h-3 w-3/4 bg-white/5" />
+                <div className="flex justify-end pt-1"><Skeleton className="h-8 w-28 rounded-lg bg-white/5" /></div>
+              </div>
+            </PromoCard>
+          ))}
+        </div>
       ) : contracts.length === 0 ? (
         <PromoEmpty icon={Building2} title={tt('Aucune agence', 'No agencies')} description={tt('Les propositions de contrat des agences apparaîtront ici.', 'Agency contract proposals will appear here.')} />
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
           {contracts.map((c) => {
             const awaitingClub = c.status === 'pending_signatures' && !c.club_signed_at;
             const awaitingAgency = c.status === 'pending_signatures' && c.club_signed_at && !c.agency_signed_at;
@@ -230,5 +243,6 @@ export default function OwnerAgencies() {
         </div>
       )}
     </PromoPage>
+    </>
   );
 }

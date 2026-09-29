@@ -6,6 +6,7 @@ import { useVenuePartnerships, DEFAULT_PARTNERSHIP_SPLIT, type PartnershipSplitR
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { PartnershipResponsibilitiesDialog } from '@/components/collab/PartnershipResponsibilitiesDialog';
 import { Card } from '@/components/ui/card';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -109,7 +110,7 @@ export default function OwnerPartnerships() {
 
   if (!venueId && !isLoading) {
     return (
-      <div className="container mx-auto p-6 max-w-3xl">
+      <div className={`${PRO_PAGE} py-6`}>
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">{t('partnerships.noClub')}</p>
         </Card>
@@ -118,7 +119,7 @@ export default function OwnerPartnerships() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-5xl">
+    <div className={`${PRO_PAGE} py-4 md:py-6 space-y-6`}>
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/owner/dashboard')}>
           <ArrowLeft className="h-5 w-5" />
@@ -138,7 +139,21 @@ export default function OwnerPartnerships() {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">{t('common.loading')}</div>
+        // En-tête déjà rendu : seul le corps est en squelette, à la forme des cartes partenaires.
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3" aria-busy="true" aria-label={t('common.loading')}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="space-y-3 p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 flex-none animate-pulse rounded-full bg-white/5" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-1/2 animate-pulse rounded-md bg-white/5" />
+                  <div className="h-2.5 w-1/3 animate-pulse rounded-md bg-white/5" />
+                </div>
+              </div>
+              <div className="h-14 w-full animate-pulse rounded-lg bg-white/5" />
+            </Card>
+          ))}
+        </div>
       ) : (
         <div className="space-y-6">
           {incoming.length > 0 && (
@@ -146,7 +161,7 @@ export default function OwnerPartnerships() {
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                 <Inbox className="h-4 w-4" /> {t('partnerships.incomingRequests')} ({incoming.length})
               </h2>
-              <div className="grid gap-3">
+              <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
                 {incoming.map((p) => (
                   <PartnershipCard
                     key={p.id}
@@ -172,7 +187,7 @@ export default function OwnerPartnerships() {
                 </p>
               </Card>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
                 {active.map((p) => (
                   <PartnershipCard
                     key={p.id}
@@ -198,7 +213,7 @@ export default function OwnerPartnerships() {
               <h2 className="text-sm font-semibold text-muted-foreground mb-3">
                 {t('partnerships.outgoingInvites')} ({outgoing.length})
               </h2>
-              <div className="grid gap-3">
+              <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
                 {outgoing.map((p) => (
                   <PartnershipCard key={p.id} partnership={p} onRevoke={() => revoke.mutate(p.id)} />
                 ))}
@@ -209,7 +224,7 @@ export default function OwnerPartnerships() {
           {past.length > 0 && (
             <section>
               <h2 className="text-sm font-semibold text-muted-foreground mb-3">{t('partnerships.history')}</h2>
-              <div className="grid gap-3 opacity-70">
+              <div className="grid gap-3 opacity-70 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
                 {past.map((p) => <PartnershipCard key={p.id} partnership={p} />)}
               </div>
             </section>

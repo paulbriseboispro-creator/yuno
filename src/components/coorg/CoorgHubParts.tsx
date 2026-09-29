@@ -67,7 +67,7 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
   return (
     <div>
       <OrgSectionLabel>{t('On t’invite à co-organiser', 'You are invited to co-organize', 'Te invitan a coorganizar')}</OrgSectionLabel>
-      <div className="mt-2 space-y-2">
+      <div className="mt-2 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
         {invites.map((inv) => (
           <OrgCard key={inv.id} className="p-4" style={{ borderColor: 'rgba(232,25,44,0.3)' }}>
             <div className="flex flex-wrap items-center gap-3">
@@ -133,7 +133,7 @@ export function CoorgPartnersSection({ scope, basePath, excludeKeys }: {
   return (
     <section>
       <OrgSectionLabel>{t('Déjà co-organisé avec', 'Co-organized with', 'Ya coorganizado con')} ({shown.length})</OrgSectionLabel>
-      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
         {shown.map((p) => (
           <OrgCard key={p.key} className="p-4">
             <div className="flex items-center gap-3">

@@ -5,6 +5,7 @@ import { fr, enUS, es } from 'date-fns/locale';
 import { ArrowLeft, Handshake } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { OrgPage, RED, T1, T3 } from '@/components/org-ui';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -36,7 +37,7 @@ export default function CoorgEventPage() {
   return (
     <>
       {!isOrg && <OwnerHeader title={title} backTo={back} />}
-      <OrgPage className="mx-auto max-w-[1100px] pt-4">
+      <OrgPage className={`${PRO_PAGE} pt-4`}>
         {isOrg && (
           <Link to={back} className="mb-3 inline-flex items-center gap-1.5" style={{ color: T3, fontSize: 12.5 }}>
             <ArrowLeft className="h-3.5 w-3.5" /> {t('Collaborations', 'Collaborations', 'Colaboraciones')}

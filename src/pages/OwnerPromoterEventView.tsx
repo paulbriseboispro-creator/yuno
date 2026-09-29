@@ -7,7 +7,7 @@ import { promoterConversionRate } from '@/lib/promoterMetrics';
 import { getScopeFilter, scopeReady, scopeId } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -249,7 +249,7 @@ export default function OwnerPromoterEventView() {
 
   const chartTooltip = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12 };
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="analytics" title={t('promoterEvent.title')} />;
 
   return (
     <>
@@ -269,6 +269,8 @@ export default function OwnerPromoterEventView() {
           <StatTile value={`${totalCommission.toFixed(0)}€`} label="Commission" accent />
         </div>
 
+        {/* Grand écran : répartition + classement côte à côte */}
+        <div className={`grid gap-4 xl:items-start ${top3.length > 0 ? 'xl:grid-cols-2' : ''}`}>
         {/* Commission split */}
         <PromoCard style={{ padding: 14 }}>
           <div className="grid grid-cols-3 gap-2 text-center">
@@ -299,6 +301,11 @@ export default function OwnerPromoterEventView() {
           </PromoCard>
         )}
 
+        </div>
+
+        {/* Grand écran : les deux graphiques côte à côte */}
+        {(revenueChartData.length > 0 || clicksConvData.length > 0) && (
+        <div className={`grid gap-4 ${revenueChartData.length > 0 && clicksConvData.length > 0 ? 'xl:grid-cols-2' : ''}`}>
         {/* Revenue chart */}
         {revenueChartData.length > 0 && (
           <PromoCard>
@@ -338,6 +345,9 @@ export default function OwnerPromoterEventView() {
           </PromoCard>
         )}
 
+        </div>
+        )}
+
         {/* Sort */}
         <div className="flex items-center justify-between">
           <SectionLabel>{tt('Promoteurs', 'Promoters')} ({performers.length})</SectionLabel>
@@ -355,7 +365,7 @@ export default function OwnerPromoterEventView() {
         {sortedPerformers.length === 0 ? (
           <PromoEmpty icon={Ticket} title={t('promoterEvent.noPromoters')} />
         ) : (
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
             {sortedPerformers.map(p => (
               <PromoCard key={p.promoterId} onClick={() => navigate(`${basePath}/promoters/${p.promoterId}`)}>
                 <div className="flex items-center gap-3 mb-3">

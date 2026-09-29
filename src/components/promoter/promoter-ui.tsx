@@ -1,6 +1,7 @@
 import { ReactNode, CSSProperties, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Copy } from 'lucide-react';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * Shared design primitives for the owner/organizer/manager Promoter module.
@@ -41,7 +42,7 @@ export function PromoHeader({
         paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0.25rem))',
       }}
     >
-      <div className="mx-auto flex items-center gap-3 px-4" style={{ height: 56, maxWidth: 960 }}>
+      <div className={`${PRO_PAGE} flex items-center gap-3`} style={{ height: 56 }}>
         {backTo !== undefined && (
           <button
             onClick={() => navigate(backTo)}
@@ -62,10 +63,15 @@ export function PromoHeader({
   );
 }
 
-export function PromoPage({ children, maxWidth = 960 }: { children: ReactNode; maxWidth?: number }) {
+// Console : pleine largeur (`PRO_PAGE`) par défaut — une page qui ne doit pas
+// s'étirer range son contenu en grille. `maxWidth` ne sert plus qu'aux écrans
+// d'accueil centrés (AgencyStart).
+export function PromoPage({ children, maxWidth }: { children: ReactNode; maxWidth?: number }) {
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--sf-000000)' }}>
-      <div className="p-4 space-y-4 mx-auto" style={{ maxWidth }}>{children}</div>
+      {maxWidth
+        ? <div className="p-4 space-y-4 mx-auto" style={{ maxWidth }}>{children}</div>
+        : <div className={`${PRO_PAGE} py-4 space-y-4`}>{children}</div>}
     </div>
   );
 }

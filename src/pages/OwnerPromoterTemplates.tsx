@@ -4,7 +4,7 @@ import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -280,7 +280,7 @@ export default function OwnerPromoterTemplates() {
     return parts.join(' · ') || t('owner.promo.noRules');
   }
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="cards" title={t('promoterTemplates.title')} />;
 
   return (
     <>
@@ -291,7 +291,7 @@ export default function OwnerPromoterTemplates() {
         right={<PromoButton size="sm" onClick={openCreate}><Plus className="h-4 w-4" />{t('promoterTemplates.create')}</PromoButton>}
       />
 
-      <PromoPage maxWidth={640}>
+      <PromoPage>
         {templates.length === 0 ? (
           <PromoEmpty
             icon={Gift}
@@ -300,7 +300,7 @@ export default function OwnerPromoterTemplates() {
             action={<PromoButton onClick={openCreate}><Plus className="h-4 w-4" />{t('promoterTemplates.create')}</PromoButton>}
           />
         ) : (
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
             {templates.map(tpl => {
               const s = sectionsOf(tpl.rules);
               return (

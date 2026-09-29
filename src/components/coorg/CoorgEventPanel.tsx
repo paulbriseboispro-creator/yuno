@@ -68,7 +68,18 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-5 w-5 animate-spin" style={{ color: T3 }} /></div>;
+    // L'en-tête de la page est déjà là : le corps en squelette, à la forme des cartes (parties | accord).
+    return (
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start" aria-busy="true">
+        {[4, 5].map((rows, i) => (
+          <div key={i} className="space-y-3 rounded-2xl border border-white/[0.06] bg-card p-5">
+            <div className="h-4 w-40 animate-pulse rounded-md bg-white/5" />
+            <div className="h-3 w-64 max-w-full animate-pulse rounded-md bg-white/5" />
+            {Array.from({ length: rows }).map((_, j) => <div key={j} className="h-11 w-full animate-pulse rounded-xl bg-white/5" />)}
+          </div>
+        ))}
+      </div>
+    );
   }
   if (!state || !state.ok) {
     return (
@@ -87,6 +98,10 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
   const pendingOthers = state.invitations.filter((i) => i.status === 'pending' && !i.mine);
   const cohostCount = state.parties.filter((p) => p.role === 'cohost').length
     + pendingOthers.length + (state.email_invitations ?? []).length;
+  const showDeal = state.deal !== undefined && (state.deal || state.can_deal) && state.parties.length >= 2;
+  const showSettlement = state.deal?.status === 'active' && !!state.settlement;
+  // Grand écran : les parties (et leurs liens de vente) à gauche, l'argent à droite.
+  const hasMoneyColumn = !!showDeal || showSettlement;
 
   return (
     <div className="space-y-4">
@@ -123,6 +138,8 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
         </OrgCard>
       ))}
 
+      <div className={hasMoneyColumn ? 'grid gap-4 xl:grid-cols-2 xl:items-start' : 'space-y-4'}>
+      <div className="space-y-4">
       {/* 1. Parties */}
       <OrgCard className="p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -217,16 +234,22 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
 
       {/* Qui fait vendre : un lien de vente suivi par partie */}
       {state.me && <CoorgSalesLinksCard eventId={eventId} canCreate={(state.me.level ?? 0) >= 1} />}
+      </div>
 
+      {hasMoneyColumn && (
+      <div className="space-y-4">
       {/* 2. Accord */}
-      {state.deal !== undefined && (state.deal || state.can_deal) && state.parties.length >= 2 && (
+      {showDeal && (
         <DealCard state={state} eventId={eventId} busy={busy} run={run} nameOf={nameOf} />
       )}
 
       {/* 3. Décompte + 4. Virements */}
-      {state.deal?.status === 'active' && state.settlement && (
+      {showSettlement && state.settlement && (
         <SettlementCard state={state} eventId={eventId} busy={busy} run={run} nameOf={nameOf} language={language} />
       )}
+      </div>
+      )}
+      </div>
 
       <CoorgInviteDialog open={inviteOpen} onOpenChange={setInviteOpen} eventId={eventId} onInvited={load} />
     </div>

@@ -6,6 +6,8 @@ import { useVenuePartnerships, type VenueOrganizerPartnership } from '@/hooks/us
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { isCollabPlan } from '@/lib/planFeatures';
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { ClubProposeEventDialog } from '@/components/owner/ClubProposeEventDialog';
 import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
 import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
@@ -174,11 +176,14 @@ export default function OwnerCollaborations() {
   // Un organisateur déjà partenaire n'apparaît qu'une fois : dans la liste des partenariats.
   const covered = new Set(active.map((p) => `org:${p.organizer_user_id}`));
 
+  // Chargement du club : le squelette de la page (en-tête réel + cartes).
+  if (!venueId && !venueLookupError) return <ProPageSkeleton variant="cards" title="Collaborations" />;
+
   if (!venueId) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
         <OwnerHeader title="Collaborations" />
-        <div className="container mx-auto p-6">
+        <div className={`${PRO_PAGE} py-6`}>
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, padding: '32px', textAlign: 'center' }}>
             <p style={{ color: T3, fontSize: 13 }}>
               {venueLookupError ? t('collab.loadError') : t('collab.loading')}
@@ -202,7 +207,7 @@ export default function OwnerCollaborations() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--sf-000000)' }}>
       <OwnerHeader title="Collaborations" />
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-5xl">
+      <div className={`${PRO_PAGE} py-4 sm:py-8`}>
         <CollabHub
           side="venue"
           scope={scope}
@@ -304,7 +309,7 @@ function OrganizersTab({ venueId, canPropose }: { venueId: string; canPropose: b
           <h3 className="flex items-center gap-1.5 mb-3" style={{ color: T3, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             <Inbox className="h-4 w-4" /> {t('collab.organizers.incoming')} ({incoming.length})
           </h3>
-          <div className="grid gap-3">
+          <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
             {incoming.map((p) => (
               <PartnershipCard key={p.id} partnership={p} showAccept
                 onAccept={() => respond.mutate({ id: p.id, accept: true })}
@@ -327,7 +332,7 @@ function OrganizersTab({ venueId, canPropose }: { venueId: string; canPropose: b
             </div>
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
             {active.map((p) => (
               <PartnershipCard key={p.id} partnership={p} venueId={venueId}
                 onEditSplit={() => setSplitDialog(p)}
@@ -344,7 +349,7 @@ function OrganizersTab({ venueId, canPropose }: { venueId: string; canPropose: b
       {outgoing.length > 0 && (
         <section>
           <h3 className="mb-3" style={{ color: T3, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('collab.organizers.outgoing')} ({outgoing.length})</h3>
-          <div className="grid gap-3">
+          <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
             {outgoing.map((p) => <PartnershipCard key={p.id} partnership={p} onRevoke={() => revoke.mutate(p.id)} />)}
           </div>
         </section>
@@ -357,7 +362,7 @@ function OrganizersTab({ venueId, canPropose }: { venueId: string; canPropose: b
             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
           </button>
           {showHistory && (
-            <div className="grid gap-3" style={{ opacity: 0.65 }}>
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start" style={{ opacity: 0.65 }}>
               {past.map((p) => <PartnershipCard key={p.id} partnership={p} />)}
             </div>
           )}

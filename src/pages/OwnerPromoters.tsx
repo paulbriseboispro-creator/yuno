@@ -10,7 +10,7 @@ import { scopeId, scopeReady, scopeEventsOr } from '@/lib/promoterScopeHelpers';
 import { usePromoterOwnerData } from '@/hooks/usePromoterOwnerData';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { DateRangeFilter } from '@/components/promoter/DateRangeFilter';
 import { toast } from 'sonner';
 import {
@@ -71,28 +71,29 @@ export default function OwnerPromoters() {
     if (!evts || evts.length === 0) { setUpcomingEvents([]); return; }
 
     const eventIds = evts.map(e => e.id);
-    // Active promoter assignments per event
-    const { data: assignments } = await supabase.from('promoter_event_assignments')
-      .select('event_id').in('event_id', eventIds).eq('status', 'active');
+    // Assignations et listes ne dépendent que des ids de soirées : en parallèle.
+    const [{ data: assignments }, { data: lists }] = await Promise.all([
+      // Active promoter assignments per event
+      supabase.from('promoter_event_assignments')
+        .select('event_id').in('event_id', eventIds).eq('status', 'active'),
+      // Guest list fill (entries placed / quota) per event
+      supabase.from('guest_lists')
+        .select('id, event_id, quota').in('event_id', eventIds),
+    ]);
     const countMap: Record<string, number> = {};
     (assignments || []).forEach(a => { countMap[a.event_id] = (countMap[a.event_id] || 0) + 1; });
     setActivationCount((assignments || []).length);
 
-    // Guest list fill (entries placed / quota) per event
-    const { data: lists } = await supabase.from('guest_lists')
-      .select('id, event_id, quota').in('event_id', eventIds);
     const listByEvent = new Map((lists || []).map(l => [l.event_id, l]));
-    const listIds = (lists || []).map(l => l.id);
     const placedMap: Record<string, number> = {};
-    if (listIds.length > 0) {
-      const { data: entries } = await supabase.from('guest_list_entries')
-        .select('guest_list_id').in('guest_list_id', listIds);
-      const listToEvent = new Map((lists || []).map(l => [l.id, l.event_id]));
-      (entries || []).forEach(e => {
-        const evId = listToEvent.get(e.guest_list_id);
-        if (evId) placedMap[evId] = (placedMap[evId] || 0) + 1;
-      });
-    }
+    // On ne lit plus les lignes d'inscription : un comptage par liste, en parallèle
+    // (≤ 6 soirées, donc peu de listes).
+    const counts = await Promise.all((lists || []).map(async (l) => {
+      const { count } = await supabase.from('guest_list_entries')
+        .select('id', { count: 'exact', head: true }).eq('guest_list_id', l.id);
+      return { eventId: l.event_id, count: count ?? 0 };
+    }));
+    counts.forEach(({ eventId, count }) => { placedMap[eventId] = (placedMap[eventId] || 0) + count; });
 
     setUpcomingEvents(evts.map(e => ({
       id: e.id, title: e.title, start_at: e.start_at,
@@ -138,12 +139,13 @@ export default function OwnerPromoters() {
   const leaderboard = [...promoters].filter(p => p.revenue > 0 || p.conversions > 0)
     .sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
+  const hasSide = upcomingEvents.length > 0 || leaderboard.length > 0;
   const owedCount = promoters.filter(p => p.pendingAmount > 0).length;
   const nextEvent = upcomingEvents[0];
   const displayName = (n: string | null | undefined, code: string, email: string) =>
     n ? n : (email || `@${code}`);
 
-  if (scope.loading || loading) return <OwnerPageSkeleton />;
+  if (scope.loading || loading) return <ProPageSkeleton variant="list" title={t('promoterProgram.title')} />;
 
   const inviteBtn = (
     <PromoButton
@@ -216,6 +218,8 @@ export default function OwnerPromoters() {
           </PromoCard>
         )}
 
+        {/* ── Argent dû + chiffres de la période : côte à côte sur grand écran ─ */}
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:items-start">
         {/* ── Money strip: what you owe + pay CTA ───────────────────────── */}
         <PromoCard
           onClick={owedCount > 0 ? () => navigate(`${basePath}/promoters/finance`) : undefined}
@@ -247,11 +251,14 @@ export default function OwnerPromoters() {
         </PromoCard>
 
         {/* ── Period stats ──────────────────────────────────────────────── */}
+        <div className="space-y-4">
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <div className="grid grid-cols-3 gap-3">
           <StatTile icon={Ticket} value={kpis.ticketsSold} label={t('promoterProgram.ticketsSold')} />
           <StatTile icon={CreditCard} value={`${kpis.revenue.toFixed(0)}€`} label={t('promoterProgram.revenue')} />
           <StatTile icon={Percent} value={`${kpis.conversionRate.toFixed(1)}%`} label={t('promoterProgram.convRate')} />
+        </div>
+        </div>
         </div>
 
         {/* ── Configuration : gérer les promoteurs (mis en avant, plus caché) ─ */}
@@ -275,6 +282,9 @@ export default function OwnerPromoters() {
           ))}
         </div>
 
+        {/* ── Grand écran : annuaire à gauche, soirées + classement à droite ─ */}
+        <div className={hasSide ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start' : 'space-y-4'}>
+        {hasSide && <div className="space-y-4 xl:order-2">
         {/* ── Next nights: activate promoters ───────────────────────────── */}
         {upcomingEvents.length > 0 && (
           <>
@@ -347,11 +357,14 @@ export default function OwnerPromoters() {
           </PromoCard>
         )}
 
+        </div>}
+
+        <div className="space-y-4 xl:order-1">
         {/* ── Directory ─────────────────────────────────────────────────── */}
         <SectionLabel action={<span style={{ color: T3, fontSize: 11.5 }}>{promoters.length}</span>}>{t('owner.promo.directory')}</SectionLabel>
         <DarkInput value={searchTerm} onChange={setSearchTerm} placeholder={t('owner.searchPromoter')} icon={Search} />
 
-        <div className="space-y-2.5">
+        <div className={filtered.length > 0 ? 'grid gap-2.5 lg:grid-cols-2 min-[1700px]:grid-cols-3' : 'space-y-2.5'}>
           {filtered.length === 0 ? (
             promoters.length === 0 ? (
               <PromoEmpty
@@ -397,6 +410,8 @@ export default function OwnerPromoters() {
               </PromoCard>
             ))
           )}
+        </div>
+        </div>
         </div>
 
       </PromoPage>

@@ -6,7 +6,7 @@ import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -217,7 +217,7 @@ export default function OwnerPromoterTeams() {
   const availablePromoters = promoters.filter(p => !p.teamId || p.teamId === editing?.id || selectedMembers.includes(p.id));
   const getSortedMembers = (teamId: string) => [...(memberDetails[teamId] || [])].sort((a, b) => b[sortBy] - a[sortBy]);
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="cards" title={t('promoterTeams.title')} />;
 
   return (
     <>
@@ -228,7 +228,7 @@ export default function OwnerPromoterTeams() {
         right={<PromoButton size="sm" onClick={openCreate}><Plus className="h-4 w-4" />{t('promoterTeams.create')}</PromoButton>}
       />
 
-      <PromoPage maxWidth={720}>
+      <PromoPage>
         {teams.length === 0 ? (
           <PromoEmpty
             icon={Users}
@@ -237,7 +237,7 @@ export default function OwnerPromoterTeams() {
             action={<PromoButton onClick={openCreate}><Plus className="h-4 w-4" />{t('promoterTeams.create')}</PromoButton>}
           />
         ) : (
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
             {teams.map(team => {
               const isExpanded = expandedTeam === team.id;
               const goalProgress = team.maxSales ? Math.min(100, (team.totalConversions / team.maxSales) * 100) : null;

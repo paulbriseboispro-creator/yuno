@@ -4,7 +4,7 @@ import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId, scopeEventsOr } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -131,7 +131,7 @@ export default function OwnerPromoterAnnouncements() {
     return events.find(e => e.id === eventId)?.title;
   };
 
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="cards" title={t('promoAnnounce.title')} />;
 
   return (
     <>
@@ -142,7 +142,7 @@ export default function OwnerPromoterAnnouncements() {
         right={<PromoButton size="sm" onClick={() => { resetForm(); setDialogOpen(true); }}><Plus className="h-4 w-4" />{t('promoAnnounce.newShort')}</PromoButton>}
       />
 
-      <PromoPage maxWidth={720}>
+      <PromoPage>
         {announcements.length === 0 ? (
           <PromoEmpty
             icon={Megaphone}
@@ -153,7 +153,7 @@ export default function OwnerPromoterAnnouncements() {
         ) : (
           <>
             <SectionLabel action={<span style={{ color: T3, fontSize: 11.5 }}>{announcements.length}</span>}>{t('promoAnnounce.title')}</SectionLabel>
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
               {announcements.map((a) => (
                 <PromoCard key={a.id}>
                   <div className="flex items-start justify-between gap-3">

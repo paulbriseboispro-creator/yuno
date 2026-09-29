@@ -9,6 +9,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { FileSignature, ArrowRight, Clock, Repeat, CalendarDays, FileText } from 'lucide-react';
 import { COLLAB_DOMAINS, normalizeResponsibilities, type CollabDomain, type DomainHolder } from '@/utils/collabResponsibilities';
 import { normalizeSplitRules } from '@/lib/splitRules';
+import { fetchOrganizerDisplayNames } from '@/lib/organizerDisplayNames';
 import { COLLAB_TERMS_VERSION } from '@/lib/collabContractTerms';
 import { previewAmendmentPDF, type AmendmentPDFData } from '@/lib/generateAmendmentPDF';
 import { loadAmendmentPdfData, type CollabAmendmentRow as AmendmentRow } from '@/lib/collabAmendmentData';
@@ -132,10 +133,9 @@ export function CollabPendingAmendments({
         .in('id', Array.from(new Set(mine.map(a => a.venue_id))));
       for (const v of ((venues as { id: string; name: string }[] | null) || [])) nameById.set(v.id, v.name);
     } else {
-      const { data: profs } = await supabase.from('organizer_profiles' as never)
-        .select('user_id, display_name')
-        .in('user_id' as never, Array.from(new Set(mine.map(a => a.organizer_user_id))) as never);
-      for (const p of ((profs as unknown as { user_id: string; display_name: string | null }[]) || [])) {
+      // Lecture partagée avec la liste des soirées et la boîte des propositions.
+      const profs = await fetchOrganizerDisplayNames(mine.map(a => a.organizer_user_id));
+      for (const p of profs) {
         if (p.display_name) nameById.set(p.user_id, p.display_name);
       }
     }

@@ -7,7 +7,7 @@ import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId, scopeEventsOr } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { DateRangeFilter, type DateRange } from '@/components/promoter/DateRangeFilter';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -352,7 +352,7 @@ export default function OwnerPromoterDetail() {
 
   const promoterLink = `https://yunoapp.eu/promoteur/${editForm.promoCode}`;
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="detail" title={t('promoterDetail.title')} />;
 
   if (!promoter) {
     return (
@@ -415,15 +415,17 @@ export default function OwnerPromoterDetail() {
           </div>
         </PromoCard>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-3 gap-2.5">
+        {/* KPIs — une seule rangée de cinq sur grand écran */}
+        <div className="grid gap-x-2.5 gap-y-4 lg:grid-cols-5 lg:gap-y-2.5">
+        <div className="grid grid-cols-3 gap-2.5 lg:contents">
           <StatTile icon={MousePointerClick} value={stats.totalClicks} label={t('promoterProgram.clicks')} />
           <StatTile icon={Ticket} value={stats.ticketsSold} label={tt('Ventes', 'Sales')} />
           <StatTile icon={Calendar} value={stats.tablesReserved} label="Tables" />
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5 lg:contents">
           <StatTile value={`${stats.totalRevenue.toFixed(0)}€`} label={t('promoterProgram.revenue')} />
           <StatTile value={`${stats.pendingCommission.toFixed(0)}€`} label={t('promoterProgram.pendingComm')} accent />
+        </div>
         </div>
 
         {/* Tabs */}
@@ -435,7 +437,7 @@ export default function OwnerPromoterDetail() {
           </TabsList>
 
           {/* Assigned events */}
-          <TabsContent value="events" className="space-y-2.5 mt-4">
+          <TabsContent value="events" className={assignedEvents.length > 0 ? 'mt-4 grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3' : 'space-y-2.5 mt-4'}>
             {assignedEvents.length === 0 ? (
               <PromoEmpty icon={Calendar} title={t('promoterDetail.noAssignedEvents')} />
             ) : (
@@ -462,7 +464,7 @@ export default function OwnerPromoterDetail() {
           {/* Conversions */}
           <TabsContent value="conversions" className="space-y-3 mt-4">
             <Select value={eventFilter || 'all'} onValueChange={(v) => setEventFilter(v === 'all' ? null : v)}>
-              <SelectTrigger className="w-full h-9 text-sm" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+              <SelectTrigger className="w-full xl:max-w-sm h-9 text-sm" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
                 <SelectValue placeholder={t('promoterProgram.allEvents')} />
               </SelectTrigger>
               <SelectContent>
@@ -484,6 +486,9 @@ export default function OwnerPromoterDetail() {
               </SelectContent>
             </Select>
 
+            {/* Grand écran : entonnoir + récompenses à gauche, historique à droite */}
+            <div className="grid gap-3 xl:grid-cols-2 xl:gap-4 xl:items-start">
+            <div className="space-y-3">
             {/* Conversion funnel */}
             <PromoCard>
               <h3 style={{ color: T1, fontSize: 13.5, fontWeight: 620, margin: 0, marginBottom: 14 }}>{tt('Funnel de conversion', 'Conversion funnel')}</h3>
@@ -624,6 +629,9 @@ export default function OwnerPromoterDetail() {
               <StatTile value={`${stats.totalConversions > 0 ? (stats.totalRevenue / stats.totalConversions).toFixed(0) : 0}€`} label={tt('Panier moyen', 'Avg basket')} />
             </div>
 
+            </div>
+
+            <div className="space-y-3">
             {/* History */}
             <SectionLabel>{tt('Historique', 'History')}</SectionLabel>
             {conversions.length === 0 ? (
@@ -649,12 +657,15 @@ export default function OwnerPromoterDetail() {
                 ))}
               </div>
             )}
+            </div>
+            </div>
           </TabsContent>
 
-          {/* Settings */}
-          <TabsContent value="settings" className="space-y-3 mt-4">
+          {/* Settings — réglages à gauche (champs en deux colonnes), banque à droite */}
+          <TabsContent value="settings" className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
             <PromoCard>
               <div className="space-y-4">
+                <div className="grid gap-4 xl:grid-cols-2 xl:gap-x-8">
                 <div className="flex items-center justify-between">
                   <Label>{t('promoterDetail.activeToggle')}</Label>
                   <Switch checked={editForm.isActive} onCheckedChange={v => setEditForm({ ...editForm, isActive: v })} />
@@ -684,6 +695,7 @@ export default function OwnerPromoterDetail() {
                 <div>
                   <Label>WhatsApp</Label>
                   <PhoneInputWithCountry value={editForm.whatsappNumber} onChange={v => setEditForm({ ...editForm, whatsappNumber: v })} size="sm" />
+                </div>
                 </div>
 
                 {templates.length > 0 && (
@@ -725,7 +737,7 @@ export default function OwnerPromoterDetail() {
                 )}
 
                 {!editForm.defaultCommissionTemplateId && (
-                  <>
+                  <div className="grid gap-4 xl:grid-cols-2 xl:gap-x-8">
                     <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 16 }}>
                       <h4 style={{ color: T1, fontSize: 13.5, fontWeight: 600, marginBottom: 12 }}>{t('promoterDetail.ticketComm')}</h4>
                       <div className="grid grid-cols-2 gap-3">
@@ -758,9 +770,10 @@ export default function OwnerPromoterDetail() {
                         </div>
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
 
+                <div className="grid gap-4 xl:grid-cols-2">
                 <PromoButton full onClick={handleSave} disabled={saving}>{saving ? '...' : t('promoterDetail.save')}</PromoButton>
 
                 <AlertDialog>
@@ -778,6 +791,7 @@ export default function OwnerPromoterDetail() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                </div>
               </div>
             </PromoCard>
 

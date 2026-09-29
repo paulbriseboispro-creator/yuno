@@ -16,6 +16,7 @@ import { COLLAB_TERMS_VERSION } from '@/lib/collabContractTerms';
 import type { CollabContractPDFData } from '@/lib/generateContractPDF';
 import type { EventCollabSeriesContractRow } from '@/hooks/useEventCollabSeriesContract';
 import { normalizeSplitRules } from '@/lib/splitRules';
+import { fetchOrganizerDisplayNames } from '@/lib/organizerDisplayNames';
 
 // ─── Yuno DA tokens (aligned with the Org dashboard) ───────────────────────────
 const AMBER = 'var(--acc-f5a623)';
@@ -214,9 +215,9 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
       const { data: venues } = await supabase.from('venues').select('id, name').in('id', Array.from(venueIds));
       for (const v of (venues as { id: string; name: string }[] | null) || []) nameMap.set(v.id, v.name);
     } else {
-      const { data: profs } = await supabase
-        .from('organizer_profiles' as never).select('user_id, display_name').in('user_id' as never, Array.from(orgIds) as never);
-      for (const p of ((profs as unknown as { user_id: string; display_name: string | null }[]) || [])) nameMap.set(p.user_id, p.display_name || '');
+      // Lecture partagée (et sautée sans id) : la liste des soirées lit les mêmes noms au même moment.
+      const profs = await fetchOrganizerDisplayNames(orgIds);
+      for (const p of profs) nameMap.set(p.user_id, p.display_name || '');
     }
     const partnerOf = (s: { venue_id: string; organizer_user_id: string }) =>
       nameMap.get(role === 'organizer' ? s.venue_id : s.organizer_user_id) || (role === 'organizer'

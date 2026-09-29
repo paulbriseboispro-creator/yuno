@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building2, Calendar, ChevronDown, Clock, Handshake, Loader2, Plus, User } from 'lucide-react';
+import { Building2, Calendar, ChevronDown, Clock, Handshake, Plus, User } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -13,6 +13,9 @@ import { CollabNightCard } from './CollabNightCard';
 import { NewCollabDialog, type NewCollabChoice } from './NewCollabDialog';
 
 type Side = 'venue' | 'organizer';
+
+/** Cartes soirées : une colonne au téléphone, plusieurs sur grand écran (page pleine largeur). */
+const NIGHT_GRID = 'grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start';
 
 export interface ProposeSlotProps {
   open: boolean;
@@ -150,7 +153,20 @@ export function CollabHub({
           {todo(() => { void reload(); })}
 
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
+            // En-tête et onglets déjà là : seule la liste est en squelette, à la forme des cartes.
+            <div className={NIGHT_GRID} aria-busy="true">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-card p-4">
+                  <div className="h-16 w-12 flex-none animate-pulse rounded-lg bg-white/5" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3.5 w-3/5 animate-pulse rounded-md bg-white/5" />
+                    <div className="h-2.5 w-2/5 animate-pulse rounded-md bg-white/5" />
+                    <div className="h-2.5 w-1/3 animate-pulse rounded-md bg-white/5" />
+                  </div>
+                  <div className="h-6 w-20 flex-none animate-pulse rounded-full bg-white/5" />
+                </div>
+              ))}
+            </div>
           ) : nights.length === 0 ? (
             <OrgEmptyState
               icon={Handshake}
@@ -173,7 +189,7 @@ export function CollabHub({
                 {upcoming.length === 0 ? (
                   <p style={{ color: T3, fontSize: 12.5 }}>{t('Aucune soirée à venir.', 'No upcoming event.', 'Ningún evento próximo.')}</p>
                 ) : (
-                  <div className="grid gap-2.5">
+                  <div className={NIGHT_GRID}>
                     {upcoming.map((n) => <CollabNightCard key={n.eventId} night={n} side={side} onChanged={reload} />)}
                   </div>
                 )}
@@ -194,7 +210,7 @@ export function CollabHub({
                     <ChevronDown className={`h-4 w-4 transition-transform ${showPast ? 'rotate-180' : ''}`} style={{ color: T3 }} />
                   </button>
                   {showPast && (
-                    <div className="mt-2.5 grid gap-2.5">
+                    <div className={`mt-2.5 ${NIGHT_GRID}`}>
                       {past.map((n) => <CollabNightCard key={n.eventId} night={n} side={side} onChanged={reload} />)}
                     </div>
                   )}

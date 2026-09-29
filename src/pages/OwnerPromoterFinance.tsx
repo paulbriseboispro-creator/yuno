@@ -6,7 +6,7 @@ import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { toast } from 'sonner';
 import {
   Clock, CheckCircle2, ShieldCheck, Download, Wallet, Landmark,
@@ -349,7 +349,7 @@ export default function OwnerPromoterFinance() {
 
   const maskIban = (iban: string) => `${iban.slice(0, 4)}···${iban.slice(-4)}`;
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('promoterPayouts.title')} />;
 
   return (
     <>
@@ -365,7 +365,7 @@ export default function OwnerPromoterFinance() {
         }
       />
 
-      <PromoPage maxWidth={640}>
+      <PromoPage>
         {/* Summary */}
         <div className="grid grid-cols-3 gap-3">
           <StatTile icon={Clock} value={euro(totalDebt)} label={tt('À payer', 'To pay')} tone="red" />
@@ -377,7 +377,7 @@ export default function OwnerPromoterFinance() {
         {openPayouts.length > 0 && (
           <>
             <SectionLabel>{t('promoterSettlement.inProgress')}</SectionLabel>
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
               {openPayouts.map(payout => {
                 const left = daysUntil(payout.confirm_due_at);
                 return (
@@ -485,7 +485,7 @@ export default function OwnerPromoterFinance() {
         {debts.length > 0 && (
           <>
             <SectionLabel>{tt('Commissions dues', 'Commissions owed')}</SectionLabel>
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
               {debts.map(debt => (
                 <PromoCard key={debt.promoterId}>
                   <div className="flex items-center justify-between mb-3">
@@ -513,7 +513,7 @@ export default function OwnerPromoterFinance() {
         {historyPayouts.length > 0 && (
           <>
             <SectionLabel>{tt('Historique des paiements', 'Payout history')}</SectionLabel>
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
               {historyPayouts.map(payout => (
                 <PromoCard key={payout.id}>
                   <div className="flex items-center justify-between mb-2">

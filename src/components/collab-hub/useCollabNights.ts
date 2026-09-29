@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getMyCoorgEvents, partyKeyOf, type CoorgScope } from '@/lib/coorg';
 import { mergeCollabNights, type CollabNight } from '@/lib/collabHubNav';
+import { fetchOrganizerDisplayNames } from '@/lib/organizerDisplayNames';
 
 type Side = 'venue' | 'organizer';
 
@@ -45,7 +46,8 @@ export function useCollabNights(side: Side, scope: CoorgScope | null) {
     const venueIds = [...new Set(events.map((e) => e.venue_id ?? e.partner_venue_id).filter(Boolean) as string[])];
     const [orgs, venues, contracts] = await Promise.all([
       side === 'venue' && orgIds.length
-        ? supabase.from('organizer_profiles').select('user_id, display_name').in('user_id', orgIds)
+        // Lecture partagée avec les boîtes « à traiter » montées en même temps.
+        ? fetchOrganizerDisplayNames(orgIds).then((data) => ({ data }))
         : Promise.resolve({ data: [] as { user_id: string; display_name: string | null }[] }),
       side === 'organizer' && venueIds.length
         ? supabase.from('venues').select('id, name').in('id', venueIds)
