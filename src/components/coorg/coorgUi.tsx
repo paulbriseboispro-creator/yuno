@@ -61,6 +61,7 @@ export function useCoorgErrorText() {
   return (code: string): string => {
     switch (code) {
       case 'forbidden': return t("Tu n'as pas les droits pour cette action.", "You don't have permission for this.", 'No tienes permiso para esta acción.');
+      case 'not_lead': return t('Seul l’organisateur principal (fondateur ou admin) règle ce point.', 'Only the main organizer (founder or admin) can change this.', 'Solo el organizador principal (fundador o admin) puede cambiar esto.');
       case 'already_party': return t('Cette structure est déjà sur la soirée.', 'This account is already on the event.', 'Esta cuenta ya está en el evento.');
       case 'already_invited': return t('Une invitation est déjà en attente.', 'An invitation is already pending.', 'Ya hay una invitación pendiente.');
       case 'too_many_cohosts': return t('8 co-hôtes maximum par soirée.', '8 co-hosts max per event.', 'Máximo 8 coanfitriones por evento.');
@@ -78,6 +79,7 @@ export function useCoorgErrorText() {
       case 'figures_changed': return t('Les chiffres ont bougé (vente, remboursement…) : relis le décompte puis valide.', 'The figures changed (sale, refund…): review the statement, then approve.', 'Las cifras cambiaron (venta, reembolso…): revisa la liquidación y valida.');
       case 'tiered_collab_unsupported': return t('Soirée en collab à barème : l’argent se règle par le décompte de fin de soirée, pas par un accord de co-organisation.', 'Tiered collab night: money is settled by the end-of-night closing, not a co-organization agreement.', 'Colaboración con baremo: el dinero se liquida con el cierre de la noche, no con un acuerdo de coorganización.');
       case 'demo_mismatch': return t('Un compte de démonstration ne co-organise qu’avec la démo.', 'A demo account can only co-host with demo accounts.', 'Una cuenta demo solo coorganiza con la demo.');
+      case 'demo_sandbox_private_only': return t('Un compte démo ne s’invite que sur une soirée en lien privé.', 'A demo account can only be invited to a private-link event.', 'Una cuenta demo solo se invita a un evento con enlace privado.');
       case 'nudge_too_soon': return t('Tu as déjà relancé aujourd’hui. Réessaie demain.', 'You already sent a reminder today. Try again tomorrow.', 'Ya enviaste un recordatorio hoy. Vuelve a intentarlo mañana.');
       case 'invalid_terms': return t('Délai de paiement invalide.', 'Invalid payment terms.', 'Plazo de pago no válido.');
       case 'invalid_amount': return t('Montant invalide.', 'Invalid amount.', 'Importe no válido.');

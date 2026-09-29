@@ -126,6 +126,7 @@ export type YunoEvent =
   | 'coorg_cohost_responded' //    { event_id, accepted, via?: 'email' }
   | 'coorg_party_link_created' //  { event_id } — lien de vente suivi d'une partie
   | 'coorg_deal_saved' //          { event_id, parties, formal, payment_terms_days }
+  | 'coorg_partner_visibility_set' // { event_id, mode: 'full' | 'volumes' }
   | 'coorg_deal_signed' //         { event_id, formal }
   | 'coorg_settlement_approved' // { event_id, parties }
   | 'coorg_transfer_nudged' //     { event_id, days_late }

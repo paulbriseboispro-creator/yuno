@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowLeftRight, Banknote, Zap } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { collectorForcedToVenue, readSettlement } from '@/lib/splitRules';
+import { STRIPE_AUTO_SPLIT_ENABLED, collectorForcedToVenue, readSettlement } from '@/lib/splitRules';
 import type { CollabSettlement } from '@/hooks/useOrganizerPartnerships';
 
 /**
@@ -38,10 +38,23 @@ export function SettlementModeSwitch({ value, onChange, rules, disabled }: {
   const setTransfer = (patch: Partial<CollabSettlement>) =>
     onChange({ mode: 'transfer', collector, payment_terms_days: terms, ...patch });
 
-  const choice = (active: boolean, onClick: () => void, icon: ReactNode, label: string, hint: string, testId: string) => (
+  // Partage Stripe automatique éteint (STRIPE_AUTO_SPLIT_ENABLED) : un contrat
+  // en cours d'édition bascule de lui-même en virement, pour qu'aucune soirée ne
+  // signe un mode que les checkouts refuseraient ensuite.
+  // Le parent passe souvent une fonction recréée à chaque rendu : on la garde
+  // dans une ref pour que la bascule ne se déclenche qu'une fois par état.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    if (!STRIPE_AUTO_SPLIT_ENABLED && !disabled && !isTransfer) {
+      onChangeRef.current({ mode: 'transfer', collector, payment_terms_days: terms });
+    }
+  }, [disabled, isTransfer, collector, terms]);
+
+  const choice = (active: boolean, onClick: () => void, icon: ReactNode, label: string, hint: string, testId: string, off = false) => (
     <button
-      type="button" disabled={disabled} onClick={onClick} data-testid={testId} aria-pressed={active}
-      className={`rounded-xl border p-3 text-left transition-colors ${active ? 'border-primary bg-primary/10' : 'border-border/60 hover:bg-muted/40'} ${disabled ? 'opacity-60' : ''}`}
+      type="button" disabled={disabled || off} onClick={onClick} data-testid={testId} aria-pressed={active}
+      className={`rounded-xl border p-3 text-left transition-colors ${active ? 'border-primary bg-primary/10' : 'border-border/60 hover:bg-muted/40'} ${disabled || off ? 'opacity-60' : ''} ${off ? 'cursor-not-allowed' : ''}`}
     >
       <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">{icon}{label}</p>
       <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{hint}</p>
@@ -65,10 +78,14 @@ export function SettlementModeSwitch({ value, onChange, rules, disabled }: {
       <div className="grid gap-2 sm:grid-cols-2">
         {choice(!isTransfer, () => onChange({ mode: 'stripe' }), <Zap className="h-3.5 w-3.5" />,
           t('Oui, Stripe partage chaque vente', 'Yes, Stripe splits every sale', 'Sí, Stripe reparte cada venta'),
-          t('Chacun reçoit sa part sur son compte Stripe, sans rien faire. Les deux parties doivent avoir un compte Stripe actif.',
-            'Each party gets their share on their Stripe account, hands-free. Both parties need an active Stripe account.',
-            'Cada parte recibe su parte en su cuenta de Stripe, sin hacer nada. Ambas partes necesitan una cuenta de Stripe activa.'),
-          'settlement-stripe')}
+          STRIPE_AUTO_SPLIT_ENABLED
+            ? t('Chacun reçoit sa part sur son compte Stripe, sans rien faire. Les deux parties doivent avoir un compte Stripe actif.',
+              'Each party gets their share on their Stripe account, hands-free. Both parties need an active Stripe account.',
+              'Cada parte recibe su parte en su cuenta de Stripe, sin hacer nada. Ambas partes necesitan una cuenta de Stripe activa.')
+            : t('Pas encore disponible : chaque vente est encaissée par une seule partie, sur son propre compte Stripe.',
+              'Not available yet: each sale is collected by a single party, on its own Stripe account.',
+              'Aún no disponible: cada venta la cobra una sola parte, en su propia cuenta de Stripe.'),
+          'settlement-stripe', !STRIPE_AUTO_SPLIT_ENABLED)}
         {choice(isTransfer, () => setTransfer({}), <ArrowLeftRight className="h-3.5 w-3.5" />,
           t("Non, une partie encaisse et paie l'autre", 'No, one party collects and pays the other', 'No, una parte cobra y paga a la otra'),
           t("Seul l'encaisseur a besoin de Stripe. Yuno suit la part de chacun et prépare le virement de fin de soirée.",

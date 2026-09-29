@@ -370,6 +370,16 @@ export interface PartyLinksState { ok: boolean; reason?: string; money?: boolean
 export const getEventPartyLinks = (eventId: string) =>
   call<PartyLinksState>('get_event_party_links', { p_event_id: eventId });
 
+/**
+ * « Ce que voient les partenaires » (migration 20260929290000) : `full` = ventes
+ * ET montants (défaut, transparence), `volumes` = ventes sans montants. Réglé
+ * par l'organisateur principal seul, niveau argent ; jamais les identités
+ * d'acheteurs, quel que soit le réglage.
+ */
+export type PartnerVisibility = 'full' | 'volumes';
+export const setEventPartnerVisibility = (eventId: string, mode: PartnerVisibility) =>
+  call<string>('set_event_partner_visibility', { p_event_id: eventId, p_mode: mode });
+
 export const ensureEventPartyLink = (eventId: string, party?: string | null) =>
   call<{ ok: boolean; reason?: string; party?: string; code?: string }>('ensure_event_party_link', {
     p_event_id: eventId, p_party: party ?? null,

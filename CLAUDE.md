@@ -671,6 +671,21 @@ Migrations `20260929190000` (porte), `200000` (liens), `210000` (invitations). R
 - **Garde démo des invitations** : un compte `@womber.fr` n'invite qu'une
   adresse démo (collab dans les deux sens, co-organisation), et aucun email
   n'est envoyé à une adresse démo.
+- **Bac à sable de test réel → démo** (migration `20260929300000`, décision de
+  Paul pour tester avec Stripe live, **à REFERMER après les tests** :
+  `DELETE FROM coorg_demo_sandbox_orgs`). `coorg_demo_sandbox_orgs` (RLS sans
+  policy, une ligne = Amoris) laisse une organisation RÉELLE inviter un compte
+  démo en co-hôte sur une de SES soirées en lien PRIVÉ
+  (`coorg_demo_sandbox_status` : `ok` | `not_private` →
+  `demo_sandbox_private_only`) ; sa recherche montre aussi la démo
+  (`coorg_demo_sandbox_caller`, fondateur ou équipe). Jamais l'inverse, jamais
+  par email. Deux verrous valent pour TOUTE soirée réelle, exception ou non
+  (`coorg_party_is_demo`) : la case email du checkout ne nomme jamais une partie
+  démo et le consentement ne s'y verse jamais (`get_event_marketing_hosts`,
+  `_coorg_apply_cohost_consent`) ; le push de lancement ignore ses abonnés et
+  son nom (`get_event_host_followers`). Reste visible : la soirée réelle et ses
+  chiffres dans la Console démo, que les prospects ouvrent par les liens
+  d'aperçu — retirer le partenaire démo à la fin du test.
 
 ## Collaboration : l'accord d'argent n'est JAMAIS une condition (2026-09-29 soir)
 
@@ -713,6 +728,14 @@ rattrapage des liens). Règles intouchables :
   (trigger) et par `TrackedLinksManager` (portée de l'écran). Le « Lien direct »
   = le lien de partie (`label 'coorg'`, `ensure_event_party_link`). Ne jamais
   re-semer au nom de l'hôte pour un partenaire : ses ventes partiraient à l'hôte.
+  **Toute l'équipe voit et gère les liens de SA structure** (`20260929280000`) :
+  porte unique `tracked_link_team_can_read` (fondateur / admin / éditeur d'orga,
+  owner / manager de club — jamais un scanneur), reprise par
+  `get_tracked_link_stats` et par la policy `tracked_links_team_all` ; le CA
+  d'un lien ne part qu'à `tracked_link_team_sees_money` (fondateur, membre
+  `view_finance`, owner, manager finance / analytique), sinon `revenue = NULL`
+  et l'écran le tait. Les chiffres des AUTRES parties vivent dans « Qui fait
+  vendre ? » (`get_collab_party_breakdown`, niveau ≥ 1), jamais dans les liens.
 - **Un email part sur les liens de QUI l'envoie** :
   `resolve_campaign_tracked_links(ids, channel, p_venue_id, p_organizer_user_id)`
   (portée de l'expéditeur passée par `send-campaign` → `fetchStudioLiveData`).
@@ -721,6 +744,16 @@ rattrapage des liens). Règles intouchables :
   n'est résolue que pour une partie PRINCIPALE
   (`campaign_scope_is_event_principal`) : un co-hôte n'écrit qu'aux clients qui
   l'ont nommé.
+- **Transparence par défaut** (`20260929290000`) : `events.partner_visibility`
+  (`full` défaut | `volumes`), écrit par la seule RPC `set_event_partner_visibility`
+  (organisateur principal, niveau argent ; garde INVOKER `guard_event_partner_visibility`
+  qui refuse l'écriture directe). `coorg_cohost_sees_money` ouvre les montants à tout
+  co-hôte accepté en `full` — via `coorg_sees_event_money` (breakdown, liens de partie,
+  rapport, bande de ventes) et, pour un club co-hôte, dans `get_event_report` et
+  `get_events_sales_summary`. La règle d'équipe tient (montants au niveau argent de
+  CHAQUE partie), un club qui ne fait qu'accueillir ne gagne rien, et aucun réglage ne
+  partage l'identité des acheteurs. UI : `PartnerVisibilityRow` (page Co-organisation),
+  choix dans le formulaire de création, note côté partenaire quand un montant manque.
 - **Espace partenaire** (`CoorgPartnerSpace`, en tête de `/…/coorg/:id`) : rôle
   et qui mène, « Où en est la soirée » (`get_collab_party_breakdown.totals`),
   « Tes ventes » (sa ligne), « Tes liens de la soirée », « Écrire à ma base »
@@ -786,8 +819,9 @@ des deux hubs Collaborations. Règles intouchables :
 - **Revue du 29/09** (`20260929110000`, `120000`) : un co-hôte ne reçoit un client QUE par la
   case qui le nomme — `contact_scope_customers`, RFM, segments orga, audiences pub, P&L et
   vue d'ensemble ne lisent PAS les soirées co-hébergées (ne jamais les y remettre) ; lignes
-  de vente lisibles d'un co-hôte ÉDITEUR seulement ; CA d'une co-soirée visible avec une
-  part dans un accord actif (`coorg_sees_event_money`). `share_event_marketing_consent` exige
+  de vente lisibles d'un co-hôte ÉDITEUR seulement ; CA d'une co-soirée visible par
+  `coorg_sees_event_money` : partie principale, part dans un accord actif, OU co-hôte
+  quand `events.partner_visibility = 'full'` (défaut depuis `20260929290000`). `share_event_marketing_consent` exige
   une PREUVE d'achat (session `cs_…`, id ou QR < 15 min) et les clés NOMMÉES ; une session
   impayée laisse une intention (`event_cohost_consent_intents`) consommée au paiement par
   trigger. Accord FIGÉ dès le début de la soirée (`coorg_deal_frozen` : ni annulation, ni
@@ -1270,6 +1304,92 @@ Plan complet et état des lots : `docs/designs/SHOTGUN_COMPETITIVE_PLAN.md`
     dans `~/.pki/nssdb` (`certutil`), sinon ERR_CERT_AUTHORITY_INVALID. Le club
     démo est caché : une page publique de soirée se teste avec un compte
     `@womber.fr`, jamais en anonyme (« Événement introuvable »).
+
+## Stripe Connect — comptes connectés en Accounts v2 (2026-09-29)
+
+Le premier organisateur réel (Amoris) n'a pas pu relier Stripe : la plateforme
+refuse désormais tout compte créé avec le champ hérité `type: "express"`
+(« Use Accounts v2, remove `type`, and set `losses_collector` to `stripe` »).
+Porte unique : `supabase/functions/_shared/stripe-connect-accounts.ts` (sans SDK,
+testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
+
+- **Création = `POST /v2/core/accounts`** avec `losses_collector: stripe`,
+  `fees_collector: stripe` (le VENDEUR paie ses frais Stripe : c'est le modèle
+  de `payment-split.ts` et de `fees.ts` en vente directe — avec `application`,
+  Yuno les paierait sur sa commission) et `dashboard: full`. Club et organisateur
+  = `merchant` + `recipient` (vente directe + jambes de co-soirée), DJ =
+  `recipient`. Ne JAMAIS réintroduire `type` ni `stripe.accounts.create` direct.
+- **Filets** : une forme REFUSÉE (400/403/404, rien créé) passe à la suivante —
+  v2 sans pré-remplissage, v2 vendeur seul, puis v1 par `controller` (mêmes
+  responsabilités). Réseau, 429 ou 5xx n'enchaînent jamais (doublon possible).
+  Tout échec final = code `stripe_account_create_failed` (traduit côté front par
+  `stripeConnectErrorMessage`) + alerte super admin `admin_stripe_connect_failed`.
+- **Onboarding** = lien v2 (`/v2/core/account_links`, configurations lues sur le
+  compte), repli v1. **État** = lecture v1 d'abord (mêmes drapeaux que le webhook
+  `account.updated`), repli v2. Colonnes écrites par `venueConnectColumns` /
+  `organizerConnectColumns` — webhook, Console et checkouts écrivent pareil.
+- **Tableau de bord** : un compte `full` n'a pas de lien de connexion Express :
+  le bouton ouvre dashboard.stripe.com, le pro s'y connecte avec SES identifiants.
+- **Le drapeau `charges_enabled` en base n'est qu'un miroir.** Les checkouts
+  (billets, tables, boissons) revérifient chez Stripe un compte « inactif »
+  (`checkPayoutReadinessHealing`, `healChargesEnabled`) avant de refuser un
+  acheteur : Stripe active souvent l'encaissement quelques minutes après le
+  formulaire, pendant que personne n'a la Console ouverte.
+- **Link refusé sur un compte neuf = session recréée carte seule**
+  (`createSessionWithPaymentMethodFallback`, Apple Pay / Google Pay compris) :
+  en vente directe la session naît sur le compte du pro.
+- **Front** : tout appel à `stripe-connect` passe par `invokeEdgeFunction` (vrai
+  message serveur), le formulaire s'ouvre dans la page (un `window.open` après
+  un `await` est bloqué par Safari), le tableau de bord par `openPendingTab`.
+- **Endpoint webhook « Comptes connectés » OBLIGATOIRE avant toute vente
+  directe** (pas à pas : `docs/STRIPE_CONNECT_WEBHOOK.md`) : une charge directe
+  naît sur le compte du pro, ses événements (`checkout.session.completed`,
+  `payment_intent.succeeded`, `charge.refunded`, `account.updated`…) n'arrivent
+  QUE par cet endpoint, dont le secret va dans `STRIPE_WEBHOOK_SECRET_CONNECT`.
+  Sans lui, un acheteur qui ferme l'onglet avant le retour paie sans billet.
+
+## Stripe : CHARGES DIRECTES seulement (2026-09-29, avant la 1re collab réelle — WOH)
+
+Vérifié sur le compte live « Yuno 360 » avec le MCP Stripe : les comptes connectés
+naissent en « Managed Risk » (`losses_collector = stripe`), la seule forme que
+Stripe accepte d'une plateforme qui n'a pas signé l'engagement de pertes. Contrepartie
+écrite par Stripe : **charges directes uniquement**. Règles intouchables :
+
+- **`splitMode: "separate"` est éteint** (`_shared/charge-policy.ts`,
+  `STRIPE_INDIRECT_CHARGES_ENABLED` absent) : collab réparti par Stripe, barème
+  retenu par la plateforme, co-organisation répartie par Stripe. Les trois
+  checkouts refusent une telle vente AVANT toute réservation (message acheteur
+  `checkout.collabStripeSplitUnavailable`, alerte `admin_indirect_charge_refused`),
+  et `loadCoorgStripeSplit` n'est plus appelé (l'hôte encaisse, le décompte règle).
+  Front : `STRIPE_AUTO_SPLIT_ENABLED = false` (`splitRules.ts`) grise « Oui » dans
+  `SettlementModeSwitch` (qui bascule tout contrat en édition en virement) et masque
+  le choix de la co-organisation. Les deux interrupteurs se rallument ENSEMBLE, et
+  seulement après l'engagement de pertes signé chez Stripe ET des comptes créés en
+  `losses_collector = application` (qui imposerait aussi `fees_collector =
+  application` : tout le modèle de frais serait à refaire).
+- **Une collab club × orga se règle donc par virement** (une partie encaisse en
+  charge directe, `collab_split` suivi, décompte figé à J+2) ou « réglée entre
+  vous ». Un billet de collab avec une conso du club fait toucher les deux
+  parties : c'est pourquoi le mode Stripe 100/0 n'est pas non plus proposé.
+- **La commission prélevée = les frais de service AFFICHÉS**, pour les trois
+  piliers (`yunoFeeCentsOverride` toujours passé). Recalculée par
+  `resolvePaymentSplit` sur le total, elle dépassait l'affiché dès 24,75 € de
+  billet et sur chaque commande de boissons.
+- **Webhook `checkout.session.completed`** : un échec passager de verify-* fait
+  rejouer Stripe (le webhook ne rend plus 200 en silence) ; un échec définitif
+  (ligne introuvable, montant incohérent) alerte `admin_paid_sale_unfulfilled`.
+  Un litige alerte `admin_payment_disputed`. `stripe_fee_real_cents` ne compte
+  que les lignes `stripe_fee` (sur une charge directe, `bt.fee` inclut la
+  commission Yuno).
+- **Achats en attente supprimés à 45 min** (session Stripe = 31 min après la
+  ligne), et un billet payé compte toujours ses places même si sa réservation de
+  10 min a expiré (`confirm_ticket_reservation`, migration `20260929290000`).
+- **Refus de remboursement Stripe à la porte** (`staff-cancel`) : jamais écrit
+  « remboursé » pour une commande liée, alerte `admin_refund_failed`.
+- Virements de la plateforme en MANUEL : la balance Yuno ne contient que ses
+  commissions (charges directes). État live au 29/09 : 0 compte connecté,
+  endpoints « Yuno live » (`@self`) et « Connected accounts » (`@accounts`,
+  5 événements, snapshot, clover) actifs.
 
 ## Backend Supabase — gotchas critiques
 

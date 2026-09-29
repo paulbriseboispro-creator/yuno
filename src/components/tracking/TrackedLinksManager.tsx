@@ -52,7 +52,8 @@ interface LinkRow {
   created_at: string;
   clicks: number;
   conversions: number;
-  revenue: number;
+  /** NULL pour un membre d'équipe qui ne voit pas l'argent (get_tracked_link_stats). */
+  revenue: number | null;
 }
 
 const CHANNEL_PRESETS = ['instagram', 'tiktok', 'newsletter', 'facebook', 'whatsapp', 'flyer', 'snapchat'];
@@ -300,7 +301,8 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
                     <span className="text-white/85 font-medium">{row.conversions}</span>{' '}
                     {isGuestList ? t('tlink.signups') : t('tlink.sales')}
                   </span>
-                  {!isGuestList && (
+                  {/* Le CA ne s'affiche qu'à qui voit l'argent : jamais un « 0 € » faux. */}
+                  {!isGuestList && row.revenue !== null && row.revenue !== undefined && (
                     <span><span className="text-white/85 font-medium">{currency.format(Number(row.revenue) || 0)}</span> {t('tlink.revenue')}</span>
                   )}
                   <span className="text-white/35">{row.clicks > 0 ? Math.round((row.conversions / row.clicks) * 100) : 0}% {t('tlink.convRate')}</span>

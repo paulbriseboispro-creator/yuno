@@ -28,19 +28,27 @@ export function jwtSessionId(token: string): string | null {
   }
 }
 
+/**
+ * Le client service_role des appelants. Seul `from` est exigé : comparer toute
+ * la chaîne PostgREST au `SupabaseClient` générique fait abandonner le
+ * vérificateur de types (TS2589), et chaque fonction garde sa propre version
+ * du client (`@2`, `@2.57.2`). La chaîne lue ici est typée par SessionQuery.
+ */
 interface MinimalAdminClient {
-  from(table: string): {
-    select(cols: string): {
+  from(table: string): unknown;
+}
+
+type SessionQuery = {
+  select(cols: string): {
+    eq(col: string, val: string): {
       eq(col: string, val: string): {
-        eq(col: string, val: string): {
-          gt(col: string, val: string): {
-            maybeSingle(): Promise<{ data: unknown; error: unknown }>;
-          };
+        gt(col: string, val: string): {
+          maybeSingle(): PromiseLike<{ data: unknown; error: unknown }>;
         };
       };
     };
   };
-}
+};
 
 /** La session support derrière ce JWT — de quoi écrire une ligne d'audit. */
 export interface SupportSessionRow {
@@ -64,8 +72,7 @@ export async function supportSessionFor(
   const sid = jwtSessionId(accessToken);
   if (!sid) return null;
   try {
-    const { data, error } = await supabaseAdmin
-      .from("admin_support_sessions")
+    const { data, error } = await (supabaseAdmin.from("admin_support_sessions") as SessionQuery)
       .select("id, grant_id, target_user_id, admin_id")
       .eq("auth_session_id", sid)
       .eq("status", "active")

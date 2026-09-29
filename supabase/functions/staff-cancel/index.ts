@@ -123,12 +123,15 @@ serve(async (req) => {
     let paymentIntentId = '';
     let ticketId: string | null = null;
     let orderId: string | null = null;
+    let cancelledTicketId: string | null = null;
     let scopeEventId: string | null = null;
     // Hors du bloc ticket : ces totaux sont relus après (email, push, réponse).
     // Déclarés dans le bloc, leur lecture en aval levait une ReferenceError sur
     // toute annulation de billet.
     let linkedOrdersCancelled = 0;
     let linkedOrdersRefundTotal = 0;
+    // Remboursements Stripe refusés : jamais écrits « remboursé » en silence.
+    const refundFailures: { kind: 'ticket' | 'order'; id: string; amount: number; error: string }[] = [];
     let orderLocked = false;
 
     /**
@@ -185,6 +188,7 @@ serve(async (req) => {
       else if (qrCode) ticketQuery = ticketQuery.eq('qr_code', qrCode);
       
       const { data: ticket, error: ticketError } = await ticketQuery.single();
+      cancelledTicketId = ticket?.id ?? null;
       if (ticketError || !ticket) throw new Error('Ticket not found');
       if (ticket.status !== 'paid') throw new Error('Only paid tickets can be cancelled');
       if (ticket.entry_scanned) throw new Error('Cannot cancel: ticket already scanned for entry');
@@ -258,6 +262,7 @@ serve(async (req) => {
             const orderRefund = Math.round(Math.max(0, orderTotal - orderServiceFee - orderStripeFee) * 100) / 100;
 
             // Stripe refund for linked order
+            let linkedRefundOk = true;
             if (linkedOrder.stripe_payment_intent_id && orderRefund > 0) {
               try {
                 const linkedAccount = (linkedOrder.stripe_connected_account_id as string | null) || null;
@@ -270,8 +275,13 @@ serve(async (req) => {
                 logStep("Linked order Stripe refund", { orderId: linkedOrder.id, amount: orderRefund, direct: !!linkedAccount });
               } catch (stripeErr: any) {
                 logStep("Linked order Stripe refund error", { orderId: linkedOrder.id, error: stripeErr.message });
+                linkedRefundOk = false;
+                refundFailures.push({ kind: 'order', id: linkedOrder.id, amount: orderRefund, error: String(stripeErr.message) });
               }
             }
+            // Stripe a refusé : la commande reste payée (et servable) plutôt que
+            // d'afficher « remboursée » à un client qui n'a rien reçu.
+            if (!linkedRefundOk) continue;
 
             // Update order status
             await adminClient.from('orders').update({
@@ -390,8 +400,10 @@ serve(async (req) => {
           }
           throw new Error(`Stripe refund failed, cancellation aborted: ${stripeError.message}`);
         }
-        // Ticket path keeps its existing (pre-write) behaviour to avoid
-        // destabilising the entry-refusal + linked-orders flow.
+        // Billet : l'entrée est déjà refusée et le billet invalidé (verrou posé
+        // plus haut), on ne le ranime pas. Mais l'argent n'est PAS rendu : on le
+        // dit au staff et au super admin, qui rembourse à la main.
+        refundFailures.push({ kind: 'ticket', id: cancelledTicketId ?? String(id ?? qrCode ?? ''), amount: refundAmount, error: String(stripeError.message) });
       }
     } else {
       logStep("No payment intent - skipping Stripe refund", { paymentIntentId, refundAmount });
@@ -578,6 +590,21 @@ serve(async (req) => {
 
     logStep("Cancellation complete", { type, id, refundAmount, serviceFee, stripeFee, reason, banCustomer, linkedCancelled, linkedRefundTotal });
 
+    if (refundFailures.length > 0) {
+      const total = refundFailures.reduce((sum, f) => sum + f.amount, 0);
+      await adminClient.rpc('emit_admin_notification', {
+        p_type: 'admin_refund_failed',
+        p_title: 'Remboursement Stripe refusé',
+        p_message: `${total.toFixed(2)} € n'ont pas pu être remboursés par Stripe lors d'une annulation à la porte (${refundFailures.map((f) => `${f.kind} ${f.id}`).join(', ')}) : ${refundFailures[0].error}. À rembourser à la main.`.slice(0, 480),
+        p_priority: 'high',
+        p_reference_type: refundFailures[0].kind,
+        p_reference_id: refundFailures[0].id,
+        p_metadata: { failures: refundFailures, cancelled_by: user.id },
+        p_dedup_key: `refund_failed:${type}:${refundFailures[0].id}`,
+        p_event_id: null,
+      }).then(() => undefined, () => undefined);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, refundAmount, serviceFee, stripeFee, originalAmount,
@@ -585,6 +612,7 @@ serve(async (req) => {
         linkedOrdersCancelled: linkedCancelled,
         linkedOrdersRefundTotal: linkedRefundTotal,
         totalRefundWithLinked,
+        refundFailed: refundFailures.length > 0,
         message: `${type === 'ticket' ? 'Billet' : 'Commande'} annulé(e). Remboursement de ${refundAmount.toFixed(2)}€${linkedCancelled > 0 ? ` + ${linkedCancelled} commande(s) liée(s): ${linkedRefundTotal.toFixed(2)}€` : ''} (frais de service: ${serviceFee.toFixed(2)}€, frais Stripe: ${stripeFee.toFixed(2)}€)` 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

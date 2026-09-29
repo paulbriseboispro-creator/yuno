@@ -30,6 +30,9 @@ import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useProposeCollab, fetchLiveEventAgreement, type LiveEventAgreement } from '@/hooks/useProposeCollab';
 import { MoneyAgreementPicker, type MoneyAgreement } from '@/components/collab/MoneyAgreementPicker';
 import { CohostDraftPicker, sendCohostDrafts, type CohostDraft } from '@/components/coorg/CohostDraftPicker';
+import { useCoorgErrorText } from '@/components/coorg/coorgUi';
+import { OrgTabs } from '@/components/org-ui';
+import { setEventPartnerVisibility, type PartnerVisibility } from '@/lib/coorg';
 import { defaultExternalCollectors, type ExternalCollector } from '@/lib/splitRules';
 import { ProposedTermsRecap } from '@/components/collab/ProposedTermsRecap';
 import { defaultResponsibilities, normalizeResponsibilities } from '@/utils/collabResponsibilities';
@@ -97,6 +100,7 @@ export default function OwnerEvents() {
   // des cles maintenant creerait un conflit pour rien.
   const tl = (frTxt: string, en: string, esTxt: string) =>
     (language === 'en' ? en : language === 'es' ? esTxt : frTxt);
+  const coorgErrorText = useCoorgErrorText();
   const navigate = useNavigate();
   const { venueId, organizerUserId, scope, loading: venueLoading } = useVenueContext();
   const { basePath, mode: dashboardMode } = useDashboardMode();
@@ -233,6 +237,8 @@ export default function OwnerEvents() {
   const setCollectors = (c: { tickets: ExternalCollector; tables: ExternalCollector }) => { setCollectorsState(c); setCollectorsTouched(true); };
   // Organisations partenaires (co-organisation) choisies dès la création.
   const [cohostDrafts, setCohostDrafts] = useState<CohostDraft[]>([]);
+  // Transparence envers les partenaires : « Tout » par défaut (ventes + montants).
+  const [partnerVisibility, setPartnerVisibilityChoice] = useState<PartnerVisibility>('full');
 
   const partnerId = isOrganizerScope ? partnerVenueId : partnerOrganizerId;
   const setPartnerId = isOrganizerScope ? setPartnerVenueId : setPartnerOrganizerId;
@@ -626,7 +632,12 @@ export default function OwnerEvents() {
         ) });
       }
       for (const e of res.errors) {
-        toast.error(tl(`Invitation impossible pour ${e.name}`, `Could not invite ${e.name}`, `No se pudo invitar a ${e.name}`), { description: e.code });
+        toast.error(tl(`Invitation impossible pour ${e.name}`, `Could not invite ${e.name}`, `No se pudo invitar a ${e.name}`), { description: coorgErrorText(e.code) });
+      }
+      // « Tout » est le défaut en base : on n'écrit que la restriction.
+      if (partnerVisibility === 'volumes') {
+        try { await setEventPartnerVisibility(eventId, 'volumes'); }
+        catch (err) { console.warn('[coorg] partner_visibility', err); }
       }
     })());
     await Promise.all(tasks);
@@ -1086,7 +1097,7 @@ export default function OwnerEvents() {
     // collab APRÈS coup (rouvrir la soirée et choisir un partenaire) tout en
     // verrouillant l'édition dès qu'un contrat est engagé.
     setLiveContract(await fetchLiveEventAgreement(event.id));
-    setCohostDrafts([]); setMoneyTouched(false); setCollectorsTouched(false);
+    setCohostDrafts([]); setMoneyTouched(false); setCollectorsTouched(false); setPartnerVisibilityChoice('full');
     if (!isOrganizerScope) {
       const { data: ev } = await supabase
         .from('events')
@@ -1130,7 +1141,7 @@ export default function OwnerEvents() {
     setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setLiveContract(null);
-    setCohostDrafts([]); setMoneyTouched(false); setCollectorsTouched(false);
+    setCohostDrafts([]); setMoneyTouched(false); setCollectorsTouched(false); setPartnerVisibilityChoice('full');
     setLocationName(''); setLocationCity(''); setLocationAddress(''); locationLogo.reset(); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
   };
 
@@ -1735,6 +1746,34 @@ export default function OwnerEvents() {
                       ...(partnerId ? [isOrganizerScope ? `venue:${partnerId}` : `org:${partnerId}`] : []),
                     ]}
                   />
+                )}
+                {/* Transparence : tout le monde voit les mêmes chiffres, sauf choix contraire. */}
+                {!editingEvent && cohostDrafts.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="min-w-0">
+                      <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+                        {tl('Ce que voient tes partenaires', 'What your partners see', 'Lo que ven tus socios')}
+                      </p>
+                      <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+                        {partnerVisibility === 'full'
+                          ? tl('Les mêmes chiffres que toi : ventes, CA et ce que chacun a amené. Jamais les noms des acheteurs.',
+                            'The same figures as you: sales, revenue and what each one brought. Never buyers’ names.',
+                            'Las mismas cifras que tú: ventas, ingresos y lo que aportó cada uno. Nunca los nombres de los compradores.')
+                          : tl('Les ventes et ce que chacun a amené, sans les montants.',
+                            'Sales and what each one brought, without amounts.',
+                            'Las ventas y lo que aportó cada uno, sin importes.')}
+                      </p>
+                    </div>
+                    <OrgTabs
+                      size="sm"
+                      value={partnerVisibility}
+                      onChange={(v) => setPartnerVisibilityChoice(v as PartnerVisibility)}
+                      tabs={[
+                        { value: 'full', label: tl('Tout', 'Everything', 'Todo') },
+                        { value: 'volumes', label: tl('Volumes seulement', 'Volumes only', 'Solo volúmenes') },
+                      ]}
+                    />
+                  </div>
                 )}
               </div>
             )}

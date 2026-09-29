@@ -111,9 +111,9 @@ export function MoneyAgreementPicker({
       {value === 'external' && !hasClubPartner && (
         <p className="px-1" style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
           {t(
-            'Les ventes en ligne sont encaissées par toi, l’organisateur principal. Chaque partenaire suit la soirée, SES ventes et SES liens depuis sa Console.',
-            'Online sales are collected by you, the main organizer. Each partner follows the night, THEIR sales and THEIR links from their Console.',
-            'Las ventas online las cobras tú, el organizador principal. Cada socio sigue la noche, SUS ventas y SUS enlaces desde su Consola.',
+            'Les ventes en ligne sont encaissées par toi, l’organisateur principal. Chaque partenaire voit les mêmes chiffres que toi (ventes, CA, ce que chacun a amené) pour régler en confiance.',
+            'Online sales are collected by you, the main organizer. Each partner sees the same figures as you (sales, revenue, what each one brought) to settle with confidence.',
+            'Las ventas online las cobras tú, el organizador principal. Cada socio ve las mismas cifras que tú (ventas, ingresos, lo que aportó cada uno) para liquidar con confianza.',
           )}
         </p>
       )}

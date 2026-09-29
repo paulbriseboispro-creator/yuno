@@ -29,6 +29,8 @@ interface MapboxFeature {
   place_type: string[];
   properties?: { address?: string };
   context?: MapboxContext[];
+  /** Coordonnées du résultat, [longitude, latitude] (Geocoding v5). */
+  center?: [number, number];
 }
 
 export interface AddressPick {
@@ -73,8 +75,8 @@ function secondaryLine(feature: MapboxFeature, primary: string): string {
 }
 
 function toPick(feature: MapboxFeature, language: string): AddressPick {
-  const [lng, lat] = Array.isArray((feature as { center?: number[] }).center)
-    ? ((feature as { center: number[] }).center as [number, number])
+  const [lng, lat] = Array.isArray(feature.center) && feature.center.length >= 2
+    ? feature.center
     : [null, null];
   return {
     address: streetLine(feature),

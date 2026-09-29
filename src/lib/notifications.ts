@@ -164,7 +164,13 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_coorg_transfer_overdue:  { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_coorg_transfer_overdue' },
   admin_coorg_transfer_disputed: { icon: ShieldAlert, category: 'billing', label: 'notif.type.admin_coorg_transfer_disputed' },
   admin_transfer_release_failed: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_transfer_release_failed' },
+  admin_stripe_connect_failed: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_stripe_connect_failed' },
   admin_collab_late_sale:        { icon: Banknote,   category: 'billing',  label: 'notif.type.admin_collab_late_sale' },
+  // Argent encaissé que Yuno doit traiter à la main (webhook, porte, litiges).
+  admin_paid_sale_unfulfilled:   { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_paid_sale_unfulfilled' },
+  admin_refund_failed:           { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_refund_failed' },
+  admin_payment_disputed:        { icon: ShieldAlert, category: 'billing',  label: 'notif.type.admin_payment_disputed' },
+  admin_indirect_charge_refused: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_indirect_charge_refused' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
   admin_payout_disputed:     { icon: Banknote,      category: 'compliance', label: 'notif.type.admin_payout_disputed' },
   admin_feedback_new:        { icon: MessageSquare, category: 'compliance', label: 'notif.type.admin_feedback_new' },
@@ -622,11 +628,23 @@ function adminNotifLink(n: AppNotif): string | null {
     // après le décompte. On ouvre la soirée dans l'admin.
     case 'admin_transfer_release_failed':
     case 'admin_collab_late_sale':
+    case 'admin_indirect_charge_refused':
       return n.event_id ? `/admin/events?q=${n.event_id}` : '/admin/orders';
+
+    // Une vente payée à traiter à la main : la liste des commandes.
+    case 'admin_paid_sale_unfulfilled':
+    case 'admin_refund_failed':
+    case 'admin_payment_disputed':
+      return '/admin/orders';
 
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
       return '/admin/signups';
+
+    // Stripe a refusé d'ouvrir le compte connecté d'un pro : on ouvre sa fiche.
+    case 'admin_stripe_connect_failed':
+      if (!n.reference_id) return '/admin/alerts';
+      return n.reference_type === 'venue' ? `/admin/venues/${n.reference_id}` : `/admin/people/${n.reference_id}`;
 
     case 'admin_security_self_organizer':
       return '/admin/organizers';

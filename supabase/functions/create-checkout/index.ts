@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
+import { alertIndirectChargeRefused, isBlockedIndirectCharge } from "../_shared/charge-policy.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -13,6 +14,7 @@ import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 import { parseMetaClientContext, metaContextToStripeMetadata } from "../_shared/meta-capi.ts";
 import { parseAnalyticsContext, analyticsContextToStripeMetadata } from "../_shared/posthog.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { createSessionWithPaymentMethodFallback, healChargesEnabled, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -128,6 +130,14 @@ serve(async (req) => {
   const demoRefusal = await demoPreviewGuard(req, corsHeaders);
   if (demoRefusal) return demoRefusal;
 
+  // Commande « pending » créée pour la session Stripe : supprimée si le checkout
+  // échoue avant que la session existe (sinon elle traînait sans jamais être payée).
+  let pendingOrderId: string | null = null;
+  const pendingOrderClient = () => createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
+  );
   try {
     logStep("Function started", { testMode: TEST_MODE });
 
@@ -583,6 +593,18 @@ serve(async (req) => {
       throw new Error(t("checkout.venuePaymentsNotSetUp", lang));
     }
 
+    // Drapeau en retard sur Stripe ? On redemande avant de refuser l'acheteur
+    // (miroir rafraîchi seulement par la Console ou le webhook Connect).
+    if (!venue.stripe_charges_enabled) {
+      venue.stripe_charges_enabled = await healChargesEnabled(
+        { secretKey: stripeKey, log: logStep },
+        venue.stripe_account_id,
+        false,
+        async (state) => {
+          await supabaseAdmin.from("venues").update(venueConnectColumns(state)).eq("id", venue.id);
+        },
+      );
+    }
     if (!venue.stripe_charges_enabled) {
       throw new Error(t("checkout.venueStripeNotActive", lang));
     }
@@ -607,6 +629,7 @@ serve(async (req) => {
       logStep("Error creating pending order", { error: orderError.message });
       throw new Error("Failed to create order");
     }
+    pendingOrderId = order.id;
 
     logStep("Pending order created", {
       orderId: order.id,
@@ -660,8 +683,11 @@ serve(async (req) => {
     const split = resolvePaymentSplit({
       itemType: "drink",
       grossAmount: clientTotal,
-      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
-      yunoFeeCentsOverride: feeAbsorbed ? Math.round(serviceFee * 100) : undefined,
+      // La commission prélevée = EXACTEMENT la ligne « Frais de service (3 %) »
+      // (ou, en absorption, la commission que le club prend à sa charge).
+      // Recalculée sur le total frais compris, elle prélevait 3 % de plus que
+      // l'affiché sur chaque commande (même règle que create-table-checkout).
+      yunoFeeCentsOverride: Math.round(serviceFee * 100),
       event: eventForSplit ?? {
         id: "",
         venue_id: venueId,
@@ -675,6 +701,13 @@ serve(async (req) => {
       venueStripeAccountId: venue.stripe_account_id,
       organizerStripeAccountId,
     });
+    // Partage des boissons avec l'organisateur = charge plateforme : hors du cadre
+    // Managed Risk des comptes connectés (charge-policy.ts).
+    if (isBlockedIndirectCharge(split)) {
+      logStep("Checkout refused — indirect charge disabled", { eventId: eventForSplit?.id ?? null });
+      if (eventForSplit?.id) await alertIndirectChargeRefused(supabaseAdmin, { eventId: eventForSplit.id, itemType: "drink" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
     // Direct charges run ON the connected account, so coupons + the Checkout Session
     // must be created with the same stripeAccount context.
@@ -818,13 +851,25 @@ serve(async (req) => {
           amountOff: Math.round(totalDiscount * 100),
         });
       } catch (couponError) {
-        logStep("Failed to create coupon, proceeding without", {
+        // Continuer sans coupon faisait payer le PLEIN tarif alors que la commande
+        // porte le total remisé : verify-payment refusait ensuite le montant et la
+        // commande restait « pending », client débité. On s'arrête ici.
+        logStep("Failed to create coupon, checkout aborted", {
           error: String(couponError),
         });
+        throw new Error(t("checkout.discountFailed", lang));
       }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams, stripeRequestOptions);
+    // Charge directe sur le compte du club : si Link n'y est pas activé, Stripe
+    // refuse la liste → nouvelle tentative carte seule (Apple Pay compris).
+    const session: Stripe.Checkout.Session = await createSessionWithPaymentMethodFallback(
+      (params) => stripe.checkout.sessions.create(params, stripeRequestOptions),
+      sessionParams,
+      logStep,
+    );
+    // La session existe : l'acheteur peut payer, la commande ne se supprime plus.
+    pendingOrderId = null;
 
     logStep("Stripe session created", {
       sessionId: session.id,
@@ -849,6 +894,11 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
+    if (pendingOrderId) {
+      const { error: dropErr } = await pendingOrderClient().from("orders")
+        .delete().eq("id", pendingOrderId).eq("status", "pending");
+      if (dropErr) logStep("Pending order cleanup failed", { orderId: pendingOrderId, error: dropErr.message });
+    }
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,

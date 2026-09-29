@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  CalendarClock, Check, CheckCircle2, Clock, Download, FileSignature, HandCoins, Info, Loader2, Mail, Plus, Receipt,
+  CalendarClock, Check, CheckCircle2, Clock, Download, Eye, FileSignature, HandCoins, Info, Loader2, Mail, Plus, Receipt,
   ShieldCheck, Trash2, UserPlus, Users, X, Zap,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -13,10 +13,12 @@ import {
   getEventCoorg, respondCohostInvitation, updateEventCohost, endEventCohost,
   saveCoorgDeal, signCoorgDeal, addCoorgLedgerLine, voidCoorgLedgerLine, approveCoorgSettlement,
   coorgErrorCode, eur, PAYMENT_TERMS_DAYS, cancelCohostEmailInvite, coorgStripeSplitBlocker,
+  setEventPartnerVisibility, type PartnerVisibility,
   type CoorgState, type CoorgParty, type CohostAccess, type PaymentTermsDays,
 } from '@/lib/coorg';
 import { COORG_TERMS_VERSION, coorgArticles, generateCoorgAgreementPDF } from '@/lib/coorgAgreement';
 import { capturePosthog } from '@/lib/posthog';
+import { STRIPE_AUTO_SPLIT_ENABLED } from '@/lib/splitRules';
 import { PartyAvatar, PartyRolePill, useCoorgT, useCoorgErrorText } from './coorgUi';
 import { CoorgInviteDialog } from './CoorgInviteDialog';
 import { CoorgTransferList } from './CoorgTransferList';
@@ -44,11 +46,18 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
   // Le choix d'argent fait à la création (« réglé entre vous » / « Yuno »).
   const [moneyAgreement, setMoneyAgreement] = useState<'yuno' | 'external' | null>(null);
   const [showDeal, setShowDeal] = useState(false);
+  // Transparence : ce que voient les partenaires (défaut « Tout »).
+  const [partnerVisibility, setPartnerVisibility] = useState<PartnerVisibility>('full');
 
-  useEffect(() => {
-    supabase.from('events').select('money_agreement' as never).eq('id', eventId).maybeSingle()
-      .then(({ data }) => setMoneyAgreement(((data as { money_agreement?: string } | null)?.money_agreement as 'yuno' | 'external' | undefined) ?? null));
+  const loadEventSettings = useCallback(() => {
+    supabase.from('events').select('money_agreement, partner_visibility' as never).eq('id', eventId).maybeSingle()
+      .then(({ data }) => {
+        const row = data as { money_agreement?: string | null; partner_visibility?: string | null } | null;
+        setMoneyAgreement((row?.money_agreement as 'yuno' | 'external' | undefined) ?? null);
+        setPartnerVisibility(row?.partner_visibility === 'volumes' ? 'volumes' : 'full');
+      });
   }, [eventId]);
+  useEffect(() => { loadEventSettings(); }, [loadEventSettings]);
 
   const load = useCallback(async () => {
     try {
@@ -134,7 +143,7 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
       ))}
 
       {/* 0. Mon rôle, où en est la soirée, mes liens et mes emails */}
-      <CoorgPartnerSpace eventId={eventId} state={state} />
+      <CoorgPartnerSpace eventId={eventId} state={state} partnerVisibility={partnerVisibility} />
 
       {/* 1. Parties */}
       <OrgCard className="p-5">
@@ -209,6 +218,21 @@ export function CoorgEventPanel({ eventId }: { eventId: string }) {
             </div>
           ))}
         </div>
+
+        {/* Transparence : tout le monde voit les mêmes chiffres par défaut ;
+            l'organisateur principal peut réduire à « Volumes seulement ». */}
+        <PartnerVisibilityRow
+          value={partnerVisibility}
+          canEdit={state.me?.role === 'lead' && (state.me?.level ?? 0) >= 3}
+          busy={busy === 'visibility'}
+          onChange={(v) => run('visibility', async () => {
+            await setEventPartnerVisibility(eventId, v);
+            setPartnerVisibility(v);
+            capturePosthog('coorg_partner_visibility_set', { event_id: eventId, mode: v });
+          }, v === 'full'
+            ? t('Tes partenaires voient tous les chiffres', 'Your partners see every figure', 'Tus socios ven todas las cifras')
+            : t('Tes partenaires voient les ventes, sans les montants', 'Your partners see sales, without amounts', 'Tus socios ven las ventas, sin importes'))}
+        />
 
         {state.event.has_stripe_collab && (
           <div className="mt-4 flex items-start gap-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
@@ -317,6 +341,58 @@ function PartyRow({ party, isMe, canManage, busy, onAccess, onCrm, onRemove, onL
 type Runner = (key: string, fn: () => Promise<unknown>, ok?: string) => Promise<void>;
 
 /**
+ * « Ce que voient les partenaires » : TOUT par défaut (ventes, CA de la soirée,
+ * ce que chacun a amené), ou « Volumes seulement ». L'organisateur principal
+ * règle ; les autres lisent la règle en clair. Les identités d'acheteurs ne se
+ * partagent jamais, quel que soit le réglage (consentement nommé).
+ */
+function PartnerVisibilityRow({ value, canEdit, busy, onChange }: {
+  value: PartnerVisibility; canEdit: boolean; busy: boolean; onChange: (v: PartnerVisibility) => void;
+}) {
+  const { t } = useCoorgT();
+  return (
+    <div className="mt-4 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
+          <Eye className="h-3.5 w-3.5" /> {t('Ce que voient les partenaires', 'What partners see', 'Lo que ven los socios')}
+        </span>
+        {canEdit ? (
+          <div className="flex items-center gap-2">
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: T3 }} />}
+            <OrgTabs
+              size="sm"
+              value={value}
+              onChange={(v) => { if (!busy && v !== value) onChange(v as PartnerVisibility); }}
+              tabs={[
+                { value: 'full', label: t('Tout', 'Everything', 'Todo') },
+                { value: 'volumes', label: t('Volumes seulement', 'Volumes only', 'Solo volúmenes') },
+              ]}
+            />
+          </div>
+        ) : (
+          <OrgPill tone={value === 'full' ? 'success' : 'muted'}>
+            {value === 'full' ? t('Tout', 'Everything', 'Todo') : t('Volumes seulement', 'Volumes only', 'Solo volúmenes')}
+          </OrgPill>
+        )}
+      </div>
+      <p className="mt-1.5" style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+        {value === 'full'
+          ? t(
+            'Tout le monde voit les mêmes chiffres : ventes, CA de la soirée et ce que chaque organisation a amené. Jamais les noms ni les emails des acheteurs.',
+            'Everyone sees the same figures: sales, the event’s revenue and what each organization brought. Never buyers’ names or emails.',
+            'Todos ven las mismas cifras: ventas, ingresos del evento y lo que aportó cada organización. Nunca los nombres ni emails de los compradores.',
+          )
+          : t(
+            'Les partenaires voient les ventes et ce que chacun a amené, sans les montants. Une organisation qui a une part dans un accord Yuno voit toujours les montants.',
+            'Partners see sales and what each party brought, without amounts. An organization with a share in a Yuno agreement always sees amounts.',
+            'Los socios ven las ventas y lo que aportó cada uno, sin importes. Una organización con una parte en un acuerdo Yuno siempre ve los importes.',
+          )}
+      </p>
+    </div>
+  );
+}
+
+/**
  * « Contrat & partage de l'argent » quand aucun accord n'existe : réglé entre
  * vous par défaut (Yuno ne suit pas l'argent, chacun garde ce qu'il encaisse),
  * et l'accord Yuno à un clic pour le principal.
@@ -405,7 +481,9 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
   }, [shares]);
   // « Répartir via Stripe ? » : seulement entre DEUX organisations, sans club.
   const stripeBlocker = coorgStripeSplitBlocker(state, numericShares);
-  const stripeOn = stripeSplit && !stripeBlocker;
+  // Partage Stripe éteint tant que seules les charges directes sont admises
+  // (STRIPE_AUTO_SPLIT_ENABLED) : l'hôte encaisse, le décompte règle le reste.
+  const stripeOn = STRIPE_AUTO_SPLIT_ENABLED && stripeSplit && !stripeBlocker;
 
   const save = () => {
     const out = numericShares;
@@ -593,7 +671,7 @@ function DealCard({ state, eventId, busy, run, nameOf }: {
                   'Cada parte pulsa «Validar»: misma liquidación, sin contrato formal.')}
             </p>
           </div>
-          {!stripeBlocker && (
+          {STRIPE_AUTO_SPLIT_ENABLED && !stripeBlocker && (
             <div>
               <FieldLabel>{t('Répartir l’argent automatiquement via Stripe ?', 'Split the money automatically through Stripe?', '¿Repartir el dinero automáticamente con Stripe?')}</FieldLabel>
               <OrgTabs
