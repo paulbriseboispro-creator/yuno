@@ -11,6 +11,8 @@ import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, PromoProgress, SectionLabel,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { AffBodySkeleton } from '@/components/affiliate/affiliate-ui';
 
 type TT = (fr: string, en: string, es?: string) => string;
 
@@ -349,11 +351,11 @@ export default function AgencyGuestList() {
   const { envelopes, loading, reload } = useAgencyGuestList(agency?.id ?? null);
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <SectionLabel>{tt('Guest list — répartition', 'Guest list — distribution')}</SectionLabel>
 
       <PromoCard style={{ padding: '12px 14px' }}>
-        <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
+        <p className="max-w-[90ch]" style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
           {tt(
             'Le club accorde à votre agence une enveloppe de places par soirée. Vous la répartissez entre vos promoteurs : en partition (un quota fixe chacun) ou en pool (libre accès jusqu\'à épuisement).',
             'The club grants your agency an envelope of spots per event. You distribute it among your promoters: partition (a fixed quota each) or pool (free access until it runs out).',
@@ -362,7 +364,7 @@ export default function AgencyGuestList() {
       </PromoCard>
 
       {loading ? (
-        <div className="py-14 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
+        <AffBodySkeleton variant="list" rows={4} />
       ) : envelopes.length === 0 ? (
         <PromoEmpty
           icon={ClipboardList}
@@ -373,7 +375,7 @@ export default function AgencyGuestList() {
           )}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
           {envelopes.map(env => (
             <EnvelopeCard key={env.guest_list_id} env={env} reload={reload} tt={tt} lang={language} />
           ))}

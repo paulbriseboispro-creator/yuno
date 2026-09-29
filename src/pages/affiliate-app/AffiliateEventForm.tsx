@@ -9,8 +9,9 @@ import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { ExternalLink, Loader2, CalendarDays, Ticket, ImageIcon, ListMusic, RefreshCw } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
 import { AffiliateDraggableGallery } from '@/components/affiliate/AffiliateDraggableGallery';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import {
-  AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, AffSpinner,
+  AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, 
   FieldLabel, DarkInput, DarkSelect, DarkTextarea,
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
@@ -224,14 +225,14 @@ export default function AffiliateEventForm() {
     onSave: handleSave,
   });
 
-  if (loadingData) return <AffSpinner />;
+  if (loadingData) return <ProPageSkeleton variant="form" title={isEdit ? t('aff.eventForm.editTitle') : t('aff.eventForm.newTitle')} />;
 
   if (!affiliateId) {
-    return <AffPage maxWidth={760}><p style={{ color: T2 }}>{t('aff.eventForm.profileNotFound')}</p></AffPage>;
+    return <AffPage><p style={{ color: T2 }}>{t('aff.eventForm.profileNotFound')}</p></AffPage>;
   }
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffBackHeader title={isEdit ? t('aff.eventForm.editTitle') : t('aff.eventForm.newTitle')} onBack={() => guardedNavigate('/affiliate/events')} />
       </motion.div>
@@ -252,6 +253,10 @@ export default function AffiliateEventForm() {
         </div>
       )}
 
+      {/* Grand écran : infos + billetterie à gauche, médias + détails à droite
+          (même ordre de lecture au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+      <div className="space-y-4">
       {/* Infos de base */}
       <AffCard padding={20}>
         <AffCardHeader icon={CalendarDays} title={t('aff.eventForm.basicInfo')} />
@@ -340,6 +345,8 @@ export default function AffiliateEventForm() {
         </div>
       </AffCard>
 
+      </div>
+      <div className="space-y-4">
       {/* Médias */}
       <AffCard padding={20}>
         <AffCardHeader icon={ImageIcon} title={t('aff.eventForm.media')} />
@@ -371,6 +378,8 @@ export default function AffiliateEventForm() {
           </div>
         </div>
       </AffCard>
+      </div>
+      </div>
 
       <div className="flex gap-3 pb-8">
         <AffButton onClick={handleSave} disabled={saving}>

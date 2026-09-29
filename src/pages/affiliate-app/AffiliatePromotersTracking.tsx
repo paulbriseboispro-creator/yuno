@@ -13,9 +13,9 @@ import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
-  AffPage, AffHeading, AffCard, KpiCard, Pill, AffAvatar, AffSpinner,
-  RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, C_HI, C_MID, TILE_BG,
+  AffPage, AffHeading, AffCard, KpiCard, Pill, AffAvatar, RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, C_HI, C_MID, TILE_BG,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 type Period = '24h' | '48h' | '7d' | '30d' | '90d' | 'all';
 type SortBy = 'views' | 'clicks' | 'ctr' | 'duration';
@@ -348,7 +348,7 @@ export default function AffiliatePromotersTracking() {
 
   const COLS = '40px 1fr 100px 100px 72px 96px 88px 32px';
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="table" title={t('aff.suivi.title')} />;
 
   return (
     <AffPage>

@@ -8,9 +8,9 @@ import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  AffPage, AffHeading, AffCard, AffButton, AffLinkButton, SectionLabel, AffSpinner,
-  RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG,
+  AffPage, AffHeading, AffCard, AffButton, AffLinkButton, SectionLabel, RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { currentNightDate } from '@/lib/affiliateEventTime';
 
 const MAX_EVENTS = 15;
@@ -217,7 +217,7 @@ export default function AffiliatePromoterLinktree() {
     setRequestingReview(false);
   }
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('aff.plink.title')} />;
 
   const linktreeUrl = linktreeSlug ? `${window.location.origin}/promo/${linktreeSlug}` : null;
 
@@ -228,7 +228,7 @@ export default function AffiliatePromoterLinktree() {
   );
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
           title={t('aff.plink.title')}
@@ -283,6 +283,8 @@ export default function AffiliatePromoterLinktree() {
         </AffButton>
       </div>
 
+      {/* Grand écran : « sur mon linktree » à gauche, « ajouter » à droite. */}
+      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
       {/* Selected events */}
       <div>
         <div className="mb-3">
@@ -370,7 +372,7 @@ export default function AffiliatePromoterLinktree() {
           style={{ height: 38, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '0 12px', color: T1, fontSize: 13.5 }}
           onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')} onBlur={(e) => (e.target.style.borderColor = BORDER)} />
 
-        <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-96 overflow-y-auto pr-1 xl:max-h-[70vh]">
           {filteredAvailable.length === 0 ? (
             <p className="text-center py-8" style={{ color: T3, fontSize: 13 }}>
               {search ? t('aff.plink.noSearchResults')
@@ -399,6 +401,7 @@ export default function AffiliatePromoterLinktree() {
             })
           )}
         </div>
+      </div>
       </div>
     </AffPage>
   );

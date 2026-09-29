@@ -104,7 +104,7 @@ function ArticleCard({ article, defaultOpen }: { article: ManualArticle; default
       </button>
       {open && (
         <div style={{ padding: '0 16px 16px 60px' }}>
-          <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.65, whiteSpace: 'pre-line', margin: 0 }}>
+          <p className="max-w-[75ch]" style={{ color: T2, fontSize: 12.5, lineHeight: 1.65, whiteSpace: 'pre-line', margin: 0 }}>
             {t(article.bodyKey)}
           </p>
         </div>
@@ -135,11 +135,11 @@ export default function AffiliateHelp() {
 
   if (isTeamView) {
     return (
-      <AffPage maxWidth={760}>
+      <AffPage>
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <AffHeading title={t('aff.help.title')} subtitle={t('aff.help.subtitle')} />
         </motion.div>
-        <div className="space-y-3">
+        <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
           {MEMBER_SECTIONS.map((s, i) => (
             <motion.div key={s.id}
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}>
@@ -156,13 +156,13 @@ export default function AffiliateHelp() {
   }
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading title={t('aff.manual.title')} subtitle={t('aff.manual.subtitle')} />
       </motion.div>
 
       {/* Recherche */}
-      <div className="relative">
+      <div className="relative xl:max-w-xl">
         <Search className="h-4 w-4 absolute" style={{ color: T3, left: 14, top: '50%', transform: 'translateY(-50%)' }} />
         <input
           value={query}
@@ -196,9 +196,13 @@ export default function AffiliateHelp() {
                 {t(ch.labelKey)}
               </p>
             </motion.div>
-            {ch.articles.map(a => (
-              <ArticleCard key={a.id} article={a} defaultOpen={!!query.trim()} />
-            ))}
+            {/* Grand écran : les articles d'un chapitre sur deux colonnes, jamais
+                une ligne de texte étirée sur toute la largeur. */}
+            <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
+              {ch.articles.map(a => (
+                <ArticleCard key={a.id} article={a} defaultOpen={!!query.trim()} />
+              ))}
+            </div>
           </div>
         ))
       )}

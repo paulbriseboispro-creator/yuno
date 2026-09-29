@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 // ─── Yuno Design Tokens (pro dashboard) — alignés sur OwnerPush ───────────────
 const RED = '#E8192C';
@@ -214,7 +216,7 @@ export default function AgencyPush() {
   }), [agency?.name, language]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (agencyLoading || !agencyId) {
-    return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: T3 }} /></div>;
+    return <ProPageSkeleton variant="form" title={t('Notifications', 'Notifications', 'Notificaciones')} />;
   }
 
   const labelForCampaign = (c: Campaign): string | null => {
@@ -225,7 +227,7 @@ export default function AgencyPush() {
 
   return (
     <div className="min-h-screen pb-16" style={{ background: 'transparent' }}>
-      <div className="relative z-10 mx-auto max-w-[1100px] px-1 sm:px-2 py-6 space-y-6">
+      <div className={`relative z-10 ${PRO_PAGE} py-6 space-y-6`}>
 
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -243,6 +245,9 @@ export default function AgencyPush() {
           </div>
         </div>
 
+        {/* Très grand écran : l'automatique à gauche, l'envoi manuel (et son
+            aperçu) à droite, sur une seule rangée. */}
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] 2xl:items-start">
         {/* ─── Notification AUTOMATIQUE ─────────────────────────────────── */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
           <div className="flex items-start gap-2.5 mb-1">
@@ -384,6 +389,8 @@ export default function AgencyPush() {
           </div>
         </div>
 
+        </div>
+
         {/* Historique */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
           <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 18 }}>
@@ -397,7 +404,7 @@ export default function AgencyPush() {
               <p className="text-xs" style={{ color: T3 }}>{t('Aucune notification envoyée.', 'No notifications sent.', 'Sin notificaciones enviadas.')}</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 xl:grid-cols-2 xl:items-start">
               {campaigns.map((c) => {
                 const label = labelForCampaign(c);
                 return (

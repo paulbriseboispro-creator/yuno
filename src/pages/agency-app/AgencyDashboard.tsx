@@ -20,6 +20,8 @@ import {
   T1, T2, T3, RED, POS, WARN,
 } from '@/components/promoter/promoter-ui';
 import { currentNightDate, addDaysToDate } from '@/lib/affiliateEventTime';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -141,11 +143,13 @@ export default function AgencyDashboard() {
   };
 
   if (loading) {
-    return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+    return <ProPageSkeleton variant="list" />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
+      {/* Grand écran : l'argent et les compteurs sur une seule rangée */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
       {/* Money strip */}
       <div className="grid grid-cols-2 gap-3">
         <PromoCard>
@@ -174,6 +178,7 @@ export default function AgencyDashboard() {
         <StatTile icon={Users} value={totals.rosterCount} label={tt('Promoteurs', 'Promoters')} />
         <StatTile icon={Building2} value={totals.activeClubs} label={tt('Clubs actifs', 'Active clubs')} />
       </div>
+      </div>
 
       {/* Quick actions */}
       <div className="flex gap-2 flex-wrap">
@@ -197,9 +202,12 @@ export default function AgencyDashboard() {
         )}
       </div>
 
+      {/* Grand écran : la semaine à gauche, le classement à droite, les clubs
+          externes en dessous (même ordre de lecture au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
       {/* Les 7 prochains jours, tous modes confondus : la semaine en un regard */}
       {weekAhead.length > 0 && (
-        <>
+        <div className="space-y-4 xl:col-start-1 xl:row-start-1">
           <SectionLabel>{tt('7 prochains jours', 'Next 7 days')}</SectionLabel>
           <PromoCard style={{ padding: 8 }}>
             {weekAhead.map((ev, i) => (
@@ -234,12 +242,12 @@ export default function AgencyDashboard() {
               </button>
             ))}
           </PromoCard>
-        </>
+        </div>
       )}
 
       {/* Bras externe : les clubs hors Yuno, trafic redirigé vers leur billetterie */}
       {ext && (ext.venues > 0 || ext.views > 0 || ext.events > 0) && (
-        <>
+        <div className="space-y-4 xl:col-span-2 xl:row-start-2">
           <SectionLabel>{tt('Clubs externes · 30 derniers jours', 'External clubs · last 30 days')}</SectionLabel>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile icon={Eye} value={ext.views.toLocaleString()} label={tt('Vues', 'Views')} tone="pos" />
@@ -255,10 +263,11 @@ export default function AgencyDashboard() {
               <MapPin className="h-4 w-4" /> {tt('Gérer les clubs externes', 'Manage external clubs')}
             </PromoButton>
           </div>
-        </>
+        </div>
       )}
 
       {/* Leaderboard */}
+      <div className={`space-y-4 ${weekAhead.length > 0 ? 'xl:col-start-2 xl:row-start-1' : 'xl:col-span-2 xl:row-start-1'}`}>
       <SectionLabel>{tt('Classement promoteurs', 'Promoter leaderboard')}</SectionLabel>
       {leaderboard.length === 0 || leaderboard.every(l => l.gross === 0) ? (
         <PromoEmpty
@@ -289,6 +298,8 @@ export default function AgencyDashboard() {
           ))}
         </PromoCard>
       )}
+      </div>
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   PromoCard, PromoButton, PromoPill, SectionLabel, CopyField,
 } from '@/components/promoter/promoter-ui';
 import { currentNightDate } from '@/lib/affiliateEventTime';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * « Ma vitrine » — le hub de la présence publique de l'agence.
@@ -118,7 +119,7 @@ export default function AgencyShowcase() {
   if (!agency) return null;
 
   return (
-    <div className="py-4 space-y-4">
+    <div className={`${PRO_PAGE} py-4 space-y-4`}>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center flex-none"
@@ -213,6 +214,9 @@ export default function AgencyShowcase() {
         </PromoCard>
       )}
 
+      {/* Grand écran : la check-list à gauche, « où éditer quoi » à droite. */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+      <div className="space-y-4">
       {/* Check-list de complétude */}
       <SectionLabel
         action={
@@ -244,7 +248,9 @@ export default function AgencyShowcase() {
           </button>
         ))}
       </PromoCard>
+      </div>
 
+      <div className="space-y-4">
       {/* Répartition : où éditer quoi */}
       <SectionLabel>{tt('Où éditer quoi', 'Where to edit what', 'Dónde editar cada cosa')}</SectionLabel>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -307,6 +313,8 @@ export default function AgencyShowcase() {
             </div>
           </Link>
         ))}
+      </div>
+      </div>
       </div>
     </div>
   );

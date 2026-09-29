@@ -10,10 +10,10 @@ import { Loader2, Zap, RefreshCw, Sparkles, ImageIcon, CopyCheck } from 'lucide-
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, Toggle, AffSpinner,
-  FieldLabel, DarkInput, DarkSelect,
+  AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, Toggle, FieldLabel, DarkInput, DarkSelect,
   RED, POS, WARN, T1, T2, T3, BORDER, INNER_BG, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
 // DAYS reste en français : ces libellés sont ÉCRITS EN BASE (nom + slug des
@@ -684,14 +684,14 @@ export default function AffiliateRecurringForm() {
     onSave: () => handleSave(),
   });
 
-  if (loadingData) return <AffSpinner />;
+  if (loadingData) return <ProPageSkeleton variant="form" title={isEdit ? t('aff.recurringForm.editTitle') : t('aff.recurringForm.newTitle')} />;
 
   if (!affiliateId) {
-    return <AffPage maxWidth={760}><p style={{ color: T2 }}>{t('aff.recurringForm.profileNotFound')}</p></AffPage>;
+    return <AffPage><p style={{ color: T2 }}>{t('aff.recurringForm.profileNotFound')}</p></AffPage>;
   }
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffBackHeader title={isEdit ? t('aff.recurringForm.editTitle') : t('aff.recurringForm.newTitle')} onBack={() => guardedNavigate('/affiliate/recurring')} />
       </motion.div>
@@ -712,6 +712,9 @@ export default function AffiliateRecurringForm() {
         </AffCard>
       )}
 
+      {/* Grand écran : le modèle à gauche ; genres, affiche et prochaines dates à
+          droite (même ordre de lecture au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
       {/* Template info */}
       <AffCard padding={20}>
         <AffCardHeader icon={RefreshCw} title={t('aff.recurringForm.templateCard')} />
@@ -827,6 +830,7 @@ export default function AffiliateRecurringForm() {
         </div>
       </AffCard>
 
+      <div className="space-y-4">
       {/* Genres */}
       <AffCard padding={20}>
         <AffCardHeader title={t('aff.recurringForm.genresLabel')} />
@@ -870,6 +874,8 @@ export default function AffiliateRecurringForm() {
           <NextOccurrencesPreview dayOfWeek={form.day_of_week} />
         )
       )}
+      </div>
+      </div>
 
       <div className="flex gap-3 pb-8">
         <AffButton onClick={() => handleSave({ askPropagate: true })} disabled={saving}>

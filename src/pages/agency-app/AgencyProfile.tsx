@@ -17,6 +17,8 @@ import RenameConfirmDialog from '@/components/RenameConfirmDialog';
 import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 /**
  * Profil de l'agence — l'identité maître, et le SEUL endroit où elle s'édite.
@@ -214,12 +216,14 @@ export default function AgencyProfile() {
     toast.success(tt('Bannière retirée — retour à l\'affiche automatique', 'Banner removed — back to the automatic flyer', 'Banner quitado: vuelta al cartel automático'));
   };
 
-  if (loading || !agency) return null;
+  if (loading || !agency) {
+    return <ProPageSkeleton variant="form" title={tt("Profil de l'agence", 'Agency profile', 'Perfil de la agencia')} />;
+  }
 
   const origin = window.location.origin;
 
   return (
-    <div className="py-4 space-y-4">
+    <div className={`${PRO_PAGE} py-4 space-y-4`}>
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center flex-none"
           style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.22)' }}>
@@ -237,6 +241,10 @@ export default function AgencyProfile() {
         </div>
       </div>
 
+      {/* Grand écran : logo + bannière à gauche, identité + pages publiques à
+          droite (même ordre de lecture au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+      <div className="space-y-4">
       {/* Logo — synchronisé vers l'avatar public des deux pages */}
       <PromoCard>
         <div className="flex items-center gap-5">
@@ -335,6 +343,9 @@ export default function AgencyProfile() {
         </div>
       </PromoCard>
 
+      </div>
+
+      <div className="space-y-4">
       {/* Identité + réseaux */}
       <PromoCard>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -443,6 +454,9 @@ export default function AgencyProfile() {
           </Link>
         </div>
       </PromoCard>
+
+      </div>
+      </div>
 
       {/* Recadrage logo/bannière — cadre carré (rect) pour que l'aperçu
           corresponde au rendu final (les deux s'affichent en carré arrondi). */}

@@ -5,6 +5,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
 import { errorToast } from '@/lib/errorToast';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { AffBodySkeleton } from '@/components/affiliate/affiliate-ui';
 import { Megaphone, Plus, Trash2, X, Send } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, SectionLabel, FieldLabel,
@@ -67,7 +69,7 @@ export default function AgencyAnnouncements() {
     { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Annonces à l\'équipe', 'Team announcements')}</SectionLabel>
         <PromoButton size="sm" onClick={() => setOpen(o => !o)} disabled={open}>
@@ -75,6 +77,10 @@ export default function AgencyAnnouncements() {
         </PromoButton>
       </div>
 
+      {/* Grand écran : les annonces envoyées à gauche, l'explication et la
+          rédaction en colonne à droite (même ordre au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
+      <div className="space-y-4 xl:col-start-2 xl:row-start-1 xl:sticky xl:top-20">
       <PromoCard style={{ padding: '11px 13px' }}>
         <p style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>
           {tt('Un message envoyé ici part en notification à tous vos promoteurs (app Yuno Pro) et s\'affiche dans leur fil. Idéal pour un brief avant une soirée.',
@@ -105,14 +111,16 @@ export default function AgencyAnnouncements() {
           </div>
         </PromoCard>
       )}
+      </div>
 
+      <div className="xl:col-start-1 xl:row-start-1">
       {loading ? (
-        <div className="py-12 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
+        <AffBodySkeleton variant="list" rows={4} />
       ) : items.length === 0 && !open ? (
         <PromoEmpty icon={Megaphone} title={tt('Aucune annonce', 'No announcements')}
           description={tt('Envoyez un brief ou une consigne à tous vos promoteurs en un message.', 'Send a brief or instruction to all your promoters in one message.')} />
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 2xl:grid-cols-2 2xl:items-start">
           {items.map(a => (
             <PromoCard key={a.id} style={{ padding: '12px 14px' }}>
               <div className="flex items-start gap-3">
@@ -135,6 +143,8 @@ export default function AgencyAnnouncements() {
           ))}
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 }

@@ -13,8 +13,9 @@ import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import {
-  AffPage, AffHeading, AffCard, AffCardHeader, KpiCard, TabBar, AffSpinner, AffEmpty,
+  AffPage, AffHeading, AffCard, AffCardHeader, KpiCard, TabBar, AffBodySkeleton, AffEmpty,
   RED, POS, NEG, WARN, T1, T2, T3, BORDER, F_BORDER, C_HI, C_MID, TILE_BG,
 } from '@/components/affiliate/affiliate-ui';
 import { tint } from '@/lib/proTheme';
@@ -583,7 +584,7 @@ export default function AffiliateAnalytics() {
     return () => clearInterval(interval);
   }, [identity]);
 
-  if (identityLoading) return <AffSpinner />;
+  if (identityLoading) return <ProPageSkeleton variant="analytics" title="Analytics" />;
 
   if (!identity) {
     return (
@@ -648,11 +649,11 @@ export default function AffiliateAnalytics() {
       </div>
 
       {dataLoading ? (
-        <AffSpinner />
+        <AffBodySkeleton variant="analytics" />
       ) : (
         <>
           {/* KPI grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8 gap-3">
             <KpiCard icon={Eye} label={t('aff.ana.totalViews')} value={kpis.totalViews.toLocaleString()} tone="red" />
             <KpiCard icon={Users} label={t('aff.ana.uniqueVisitors')} value={kpis.uniqueVisitors.toLocaleString()} />
             <KpiCard icon={MousePointerClick} label={t('aff.ana.ticketClicks')} value={kpis.totalClicks.toLocaleString()} />
@@ -744,7 +745,7 @@ export default function AffiliateAnalytics() {
 
           {/* ── Overview ── */}
           {pillar === 'overview' && (
-            <div className="space-y-4">
+            <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.acquisitionSources')}</h2>
@@ -813,7 +814,7 @@ export default function AffiliateAnalytics() {
                 )}
               </AffCard>
 
-              <AffCard padding={20}>
+              <AffCard padding={20} className="xl:col-span-2">
                 <div className="flex items-center justify-between mb-4">
                   <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.peakHours')}</h2>
                   <div className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11 }}>
@@ -833,8 +834,8 @@ export default function AffiliateAnalytics() {
 
           {/* ── Audience ── */}
           {pillar === 'audience' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+              <div className="grid grid-cols-2 gap-3 xl:col-span-2">
                 <KpiCard icon={Users} label={t('aff.ana.newVisitors')} value={kpis.newVisitors.toLocaleString()} />
                 <KpiCard icon={Repeat2} label={t('aff.ana.returningVisitors')} value={kpis.returningVisitors.toLocaleString()} tone="red" />
               </div>
@@ -858,7 +859,7 @@ export default function AffiliateAnalytics() {
                 ) : <DurationHistogram sessions={allSessions} />}
               </AffCard>
 
-              <AffCard padding={0}>
+              <AffCard padding={0} className="xl:col-span-2">
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.pagesVisited')}</h2>
                 </div>
@@ -895,7 +896,7 @@ export default function AffiliateAnalytics() {
 
           {/* ── Events ── */}
           {pillar === 'events' && (
-            <div className="space-y-4">
+            <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.eventPerfTitle')}</h2>
@@ -957,7 +958,7 @@ export default function AffiliateAnalytics() {
               )}
 
               {identity.role === 'admin' && topEvents.length > 0 && (
-                <div className="rounded-2xl p-4" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                <div className="rounded-2xl p-4 xl:col-span-2" style={{ background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.2)' }}>
                   <div className="flex items-start gap-2">
                     <Info className="h-4 w-4 flex-none mt-0.5" style={{ color: WARN }} />
                     <div>
@@ -974,8 +975,10 @@ export default function AffiliateAnalytics() {
 
           {/* ── Campaigns ── */}
           {pillar === 'campaigns' && (
-            <div className="space-y-4">
-              <AffCard padding={16}>
+            // Grand écran : le tableau à gauche, les deux conseils en colonne à
+            // droite. Même ordre de lecture au téléphone.
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+              <AffCard padding={16} className="xl:col-start-2 xl:row-start-1">
                 <div className="mb-2">{sectionLabel(t('aff.ana.howToUse'))}</div>
                 <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('aff.ana.utmIntro')}</p>
                 <div className="mt-2 rounded-lg px-3 py-2 break-all" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, fontFamily: 'monospace', fontSize: 11.5, color: T2 }}>
@@ -983,7 +986,7 @@ export default function AffiliateAnalytics() {
                 </div>
               </AffCard>
 
-              <AffCard padding={0}>
+              <AffCard padding={0} className="xl:col-start-1 xl:row-start-1 xl:row-span-2">
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.utmTableTitle')}</h2>
                   <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('aff.ana.utmTableSubtitle')}</p>
@@ -1025,7 +1028,7 @@ export default function AffiliateAnalytics() {
                 )}
               </AffCard>
 
-              <AffCard padding={16}>
+              <AffCard padding={16} className="xl:col-start-2 xl:row-start-2">
                 <div className="mb-2">{sectionLabel(t('aff.ana.trackQr'))}</div>
                 <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
                   {t('aff.ana.qrTipBefore')} <code style={{ color: RED }}>?utm_medium=qr&utm_source=flyer</code> {t('aff.ana.qrTipAfter')}
@@ -1055,7 +1058,7 @@ export default function AffiliateAnalytics() {
               { label: t('aff.ana.clicksTotal'), curr: thisMonth.clicks, prev: prevMonth.clicks },
             ];
 
-            if (rapportLoading) return <AffSpinner />;
+            if (rapportLoading) return <AffBodySkeleton variant="list" rows={4} />;
 
             const deltaRow = (label: string, curr: number, prev: number, currLabel: string, prevLabel: string, up: boolean) => (
               <div className="flex items-center justify-between py-3">
@@ -1072,7 +1075,7 @@ export default function AffiliateAnalytics() {
             );
 
             return (
-              <div className="space-y-4">
+              <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
                 <AffCard padding={20}>
                   <h2 className="capitalize" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{thisMonthLabel}</h2>
                   <p style={{ color: T3, fontSize: 11.5 }}>vs {prevMonthLabel}</p>
@@ -1103,7 +1106,7 @@ export default function AffiliateAnalytics() {
                 )}
 
                 {thisMonth.views === 0 && (
-                  <AffEmpty icon={FileBarChart} title={t('aff.ana.noDataMonth')} />
+                  <div className="xl:col-span-2"><AffEmpty icon={FileBarChart} title={t('aff.ana.noDataMonth')} /></div>
                 )}
               </div>
             );

@@ -8,10 +8,11 @@ import { format, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Coins, Pencil, Check, RotateCcw, MousePointerClick, Ticket } from 'lucide-react';
 import {
-  AffPage, AffHeading, AffCard, StatTile, SectionLabel, Pill, AffButton, AffSpinner, AffEmpty,
+  AffPage, AffHeading, AffCard, StatTile, SectionLabel, Pill, AffButton, AffEmpty,
   DarkInput, FieldLabel,
   RED, POS, WARN, T1, T2, T3, BORDER, C_FAINT, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 // Le grand livre de l'agence : la vente réelle vit sur la billetterie externe,
 // mais les chiffres reviennent des clubs — on les rapproche des clics tracés.
@@ -251,10 +252,10 @@ export default function AffiliateCommissions() {
     );
   };
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('aff.comm.title')} />;
 
   return (
-    <AffPage maxWidth={860}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading title={t('aff.comm.title')} subtitle={t('aff.comm.subtitle')} />
       </motion.div>
@@ -269,7 +270,7 @@ export default function AffiliateCommissions() {
       {toReport.length > 0 && (
         <div className="space-y-3">
           <SectionLabel>{t('aff.comm.toReport')} ({toReport.length})</SectionLabel>
-          <div className="space-y-2">
+          <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
             {toReport.map(ev => (
               <AffCard key={ev.id} padding={14}>
                 <div className="flex items-center gap-3">
@@ -306,7 +307,7 @@ export default function AffiliateCommissions() {
                 </span>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
               {club.rows.map(r => {
                 const late = isLate(r, r.affiliate_events?.event_date);
                 return (

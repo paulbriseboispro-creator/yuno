@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { LogOut, Building2 as AgencyIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAgency } from '@/hooks/useAgency';
+import { useAgency, AgencyProvider } from '@/hooks/useAgency';
+import { DashboardModeProvider } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -22,7 +23,8 @@ import { T1, T3, RED, PromoButton } from '@/components/promoter/promoter-ui';
  * provisionnement a échoué.
  */
 export default function AgencyAppLayout() {
-  const { agency, loading } = useAgency();
+  const agencyState = useAgency();
+  const { agency, loading } = agencyState;
   const { language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const navigate = useNavigate();
@@ -109,8 +111,17 @@ export default function AgencyAppLayout() {
         <AgencyAppSidebar agency={{ name: agency.name, logo_url: agency.logo_url, city: agency.city }} />
         <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
           <AffiliateAppHeader />
-          <main className="mx-auto w-full px-4 pb-8" style={{ maxWidth: 1040 }}>
-            <Outlet />
+          {/* Pleine largeur : chaque page pose ses gouttières (`PRO_PAGE`,
+              src/lib/proLayout.ts) — le centre d'aide, le support et la boîte
+              de réception, partagés avec d'autres consoles, portent déjà les
+              leurs. Le mode 'agency' dit aux squelettes que la barre du haut
+              existe déjà ; l'agence résolue ici est partagée (useAgency). */}
+          <main className="w-full pb-8">
+            <DashboardModeProvider mode="agency">
+              <AgencyProvider value={agencyState}>
+                <Outlet />
+              </AgencyProvider>
+            </DashboardModeProvider>
           </main>
         </SidebarInset>
         <AgencyAssistant />

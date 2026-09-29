@@ -8,7 +8,7 @@ import { Bell, Send, History, Settings2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
-  AffPage, AffHeading, AffCard, AffButton, AffSpinner, AffEmpty, TabBar, Toggle,
+  AffPage, AffHeading, AffCard, AffButton, AffBodySkeleton, AffEmpty, TabBar, Toggle,
   FieldLabel, DarkInput, DarkSelect, DarkTextarea, SegToggle,
   POS, T1, T3, BORDER,
 } from '@/components/affiliate/affiliate-ui';
@@ -168,9 +168,11 @@ export default function AffiliateNotifications() {
 
       {/* ── Manual tab ── */}
       {tab === 'manual' && (
-        <AffCard padding={22} style={{ maxWidth: 540 }}>
-          <div className="space-y-4">
-            <div>
+        <AffCard padding={22}>
+          {/* Grand écran : destinataire, titre et lien à gauche, le message à
+              droite. Même ordre au téléphone. */}
+          <div className="grid gap-4 xl:grid-cols-2 xl:items-start xl:gap-x-8">
+            <div className="xl:col-start-1">
               <FieldLabel>{t('aff.comms.recipient')}</FieldLabel>
               <SegToggle<'all' | 'one'>
                 value={targetAll ? 'all' : 'one'}
@@ -187,31 +189,33 @@ export default function AffiliateNotifications() {
               )}
             </div>
 
-            <div>
+            <div className="xl:col-start-1">
               <FieldLabel>{t('aff.comms.titleLabel')}</FieldLabel>
               <DarkInput value={title} onChange={setTitle} placeholder={t('aff.comms.titlePh')} />
             </div>
 
-            <div>
+            <div className="xl:col-start-2 xl:row-start-1 xl:row-span-3">
               <FieldLabel>{t('aff.comms.messageLabel')}</FieldLabel>
               <DarkTextarea value={body} onChange={setBody} placeholder={t('aff.comms.messagePh')} rows={3} />
             </div>
 
-            <div>
+            <div className="xl:col-start-1">
               <FieldLabel hint={t('aff.comms.optional')}>{t('aff.comms.actionLink')}</FieldLabel>
               <DarkInput type="url" value={actionUrl} onChange={setActionUrl} placeholder="https://…" />
             </div>
 
-            <AffButton onClick={sendManual} disabled={sending} full>
-              <Send className="h-4 w-4" /> {sending ? t('aff.comms.sending') : t('aff.comms.sendBtn')}
-            </AffButton>
+            <div className="xl:col-span-2">
+              <AffButton onClick={sendManual} disabled={sending} full>
+                <Send className="h-4 w-4" /> {sending ? t('aff.comms.sending') : t('aff.comms.sendBtn')}
+              </AffButton>
+            </div>
           </div>
         </AffCard>
       )}
 
       {/* ── Automations tab ── */}
       {tab === 'automations' && (
-        loadingAutos ? <AffSpinner /> : (
+        loadingAutos ? <AffBodySkeleton variant="list" rows={4} /> : (
           automations.length === 0 ? (
             <AffEmpty icon={Settings2} title={t('aff.comms.emptyAutomations')} />
           ) : (
@@ -223,7 +227,7 @@ export default function AffiliateNotifications() {
                     <div key={a.id} className="flex items-start gap-4 px-5 py-4">
                       <div className="flex-1 min-w-0">
                         <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{meta ? t(meta.label) : a.automation_type}</p>
-                        <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.5 }}>{meta && t(meta.description)}</p>
+                        <p className="max-w-[75ch]" style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.5 }}>{meta && t(meta.description)}</p>
                       </div>
                       <div className="mt-0.5">
                         <Toggle checked={a.is_enabled} onChange={() => toggleAutomation(a.id, a.is_enabled)} />
@@ -239,7 +243,7 @@ export default function AffiliateNotifications() {
 
       {/* ── History tab ── */}
       {tab === 'history' && (
-        loadingHistory ? <AffSpinner /> : (
+        loadingHistory ? <AffBodySkeleton variant="list" /> : (
           history.length === 0 ? (
             <AffEmpty icon={Bell} title={t('aff.comms.emptyHistory')} />
           ) : (

@@ -14,6 +14,8 @@ import {
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
 import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -269,12 +271,12 @@ export default function AgencyPromoterDetail() {
   };
 
   if (loading) {
-    return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+    return <ProPageSkeleton variant="detail" />;
   }
 
   if (!person) {
     return (
-      <div className="space-y-4">
+      <div className={`${PRO_PAGE} space-y-4`}>
         <button
           onClick={() => navigate('/agency-app/promoters')}
           style={{ color: T3, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
@@ -290,7 +292,7 @@ export default function AgencyPromoterDetail() {
   const currentGroupId = person.agency_group_id ?? '';
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       {/* Back nav */}
       <button
         onClick={() => navigate('/agency-app/promoters')}
@@ -325,6 +327,11 @@ export default function AgencyPromoterDetail() {
       {/* Pages publiques Yuno : linktree (meilleures soirées) + agenda complet.
           Le lien agenda est pensé pour le QR / la bio : il s'ouvre toujours sur
           le web, et chaque soirée bascule vers l'app Yuno si elle est installée. */}
+      {/* Grand écran : pages publiques, clubs externes et fiches club à gauche ;
+          groupe et dernières conversions en colonne à droite (même ordre au
+          téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+      <div className="space-y-4 min-w-0">
       {[...new Set(records.map(r => r.promo_code).filter(Boolean))].length > 0 && (
         <>
           <SectionLabel>{tt('Pages publiques', 'Public pages')}</SectionLabel>
@@ -413,6 +420,7 @@ export default function AgencyPromoterDetail() {
 
       {/* Per-club records */}
       <SectionLabel>{tt('Clubs', 'Clubs')} ({records.length})</SectionLabel>
+      <div className="grid gap-4 2xl:grid-cols-2 2xl:items-start">
       {records.map(r => (
         <ClubRecord
           key={r.id}
@@ -425,7 +433,10 @@ export default function AgencyPromoterDetail() {
           tt={tt}
         />
       ))}
+      </div>
+      </div>
 
+      <div className="space-y-4">
       {/* Group assignment */}
       {groups.length > 0 && (
         <>
@@ -479,6 +490,8 @@ export default function AgencyPromoterDetail() {
           </PromoCard>
         </>
       )}
+      </div>
+      </div>
     </div>
   );
 }

@@ -13,6 +13,8 @@ import {
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
 import { bucketByHour, HOURLY_MAX_HOURS } from '@/lib/shortPeriods';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -126,11 +128,11 @@ export default function AgencyAnalytics() {
   const totalMargin = filtered.reduce((s, c) => s + Number(c.margin_amount || 0), 0);
 
   if (loading) {
-    return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+    return <ProPageSkeleton variant="analytics" title={tt('Analytiques', 'Analytics')} />;
   }
 
   return (
-    <div className="space-y-5">
+    <div className={`${PRO_PAGE} space-y-5`}>
       {/* Range filter */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SectionLabel>{tt('Analytiques', 'Analytics')}</SectionLabel>
@@ -158,6 +160,9 @@ export default function AgencyAnalytics() {
         <StatTile icon={BarChart2} value={eur(totalMargin)} label={tt('Marge agence', 'Agency margin')} />
       </div>
 
+      {/* Grand écran : la courbe et la carte horaire côte à côte */}
+      <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
+      <div className={conversions.length > 0 ? '' : 'xl:col-span-2'}>
       {/* Weekly AreaChart */}
       {weeklyData.length > 0 ? (
         <PromoCard>
@@ -188,6 +193,7 @@ export default function AgencyAnalytics() {
         <PromoEmpty icon={BarChart2} title={tt('Pas encore de données', 'No data yet')}
           description={tt('Les ventes de vos promoteurs apparaîtront ici.', "Your promoters' sales will appear here.")} />
       )}
+      </div>
 
       {/* Heatmap */}
       {conversions.length > 0 && (
@@ -231,10 +237,13 @@ export default function AgencyAnalytics() {
           </div>
         </PromoCard>
       )}
+      </div>
 
+      {/* Grand écran : volume par club et top promoteurs côte à côte */}
+      <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
       {/* Per-club BarChart */}
       {clubData.length > 0 && (
-        <PromoCard>
+        <PromoCard className={promoStats.length > 0 ? undefined : 'xl:col-span-2'}>
           <p style={{ color: T3, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             {tt('Volume par club', 'Volume by club')}
           </p>
@@ -255,7 +264,7 @@ export default function AgencyAnalytics() {
 
       {/* Top promoteurs */}
       {promoStats.length > 0 && (
-        <>
+        <div className={`space-y-5 ${clubData.length > 0 ? '' : 'xl:col-span-2'}`}>
           <SectionLabel>{tt('Top promoteurs', 'Top promoters')}</SectionLabel>
           <div className="space-y-1">
             {promoStats.map(({ p, gross, convs }, i) => {
@@ -300,8 +309,9 @@ export default function AgencyAnalytics() {
               );
             })}
           </div>
-        </>
+        </div>
       )}
+      </div>
     </div>
   );
 }

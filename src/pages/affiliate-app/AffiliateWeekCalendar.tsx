@@ -9,7 +9,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CheckCircle, Pencil, FileText, ChevronLeft, ChevronRight, Link2, Loader2, X } from 'lucide-react';
 import {
-  AffPage, AffHeading, AffSpinner, AffButton, DarkInput,
+  AffPage, AffHeading, AffBodySkeleton, AffButton, DarkInput,
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, CARD_BG, CARD_SHADOW, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
 
@@ -218,9 +218,9 @@ export default function AffiliateWeekCalendar() {
         ))}
       </div>
 
-      {loading ? <AffSpinner /> : (
-      /* Days */
-      <div className="space-y-3">
+      {loading ? <AffBodySkeleton variant="calendar" /> : (
+      /* Days — grand écran : deux jours côte à côte, lus ligne par ligne. */
+      <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
         {days.map((day, di) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEvents = eventsForDay(dateStr);

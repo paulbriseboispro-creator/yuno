@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Send, Loader2 } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { useAgency } from '@/hooks/useAgency';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AudienceDashboard } from '@/components/audience/AudienceDashboard';
 import { AgencyEventBreakdown } from '@/components/audience/AgencyEventBreakdown';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * Abonnés de l'agence RP. Réutilise le dashboard audience polymorphe (subject
@@ -17,12 +19,12 @@ export default function AgencyAudience() {
   const t = (fr: string, en: string, es: string) => (language === 'fr' ? fr : language === 'es' ? es : en);
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'rgb(var(--ink)/var(--ink-a36,0.36))' }} /></div>;
+    return <ProPageSkeleton variant="analytics" />;
   }
   if (!agency?.id) return null;
 
   return (
-    <div className="py-4 space-y-4">
+    <div className={`${PRO_PAGE} py-4 space-y-4`}>
       <AudienceDashboard
         subject={{ type: 'agency', id: agency.id }}
         actions={

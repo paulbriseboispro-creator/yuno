@@ -1,6 +1,7 @@
 import { ReactNode, CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * Shared design primitives for the affiliate app (admin + manager + promoter
@@ -31,9 +32,11 @@ export const CARD_BG     = 'linear-gradient(180deg,rgb(var(--sheen)/.045) 0%,rgb
 export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
-// Lives inside AffiliateLayout's <main>, so no sidebar here — just the ambient
-// vignette + the centred content column.
-export function AffPage({ children, maxWidth = 1100 }: { children: ReactNode; maxWidth?: number }) {
+// Lives inside AffiliateLayout / AgencyAppLayout, so no sidebar here — just the
+// ambient vignette + the content column. Pleine largeur (`PRO_PAGE`,
+// src/lib/proLayout.ts) : une page qui ne doit pas s'étirer range son contenu
+// en grille, elle ne rétrécit pas la page.
+export function AffPage({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen pb-24 relative" style={{ background: 'var(--sf-000000)' }}>
       <div
@@ -41,10 +44,10 @@ export function AffPage({ children, maxWidth = 1100 }: { children: ReactNode; ma
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
       {/* Sidebar toggle bar */}
-      <div className="relative z-10 px-4 sm:px-6 pt-3">
+      <div className={`relative z-10 ${PRO_PAGE} pt-3`}>
         <SidebarTrigger className="text-white/60 hover:text-white -ml-1" />
       </div>
-      <div className="relative z-10 mx-auto px-4 sm:px-6 pt-2 space-y-4" style={{ maxWidth }}>
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
         {children}
       </div>
     </div>
@@ -469,6 +472,78 @@ export function AffSpinner({ label = 'Chargement…' }: { label?: string }) {
         />
         <p className="text-sm" style={{ color: T3 }}>{label}</p>
       </div>
+    </div>
+  );
+}
+
+// ─── Squelette de CORPS (l'en-tête de la page est déjà affiché) ────────────────
+// Pour les zones qui rechargent sous un en-tête ou des filtres déjà visibles
+// (changement de période, d'onglet, de semaine). Pleine largeur, avec la forme
+// du contenu attendu — jamais un spinner plein écran au milieu de la page.
+function AffBone({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <div className={`animate-pulse rounded-xl bg-white/5 ${className ?? ''}`} style={style} />;
+}
+
+export function AffBodySkeleton({ variant = 'list', rows = 6, bare = false }: {
+  variant?: 'list' | 'analytics' | 'calendar';
+  rows?: number;
+  /** Liste déjà DANS une carte : pas de seconde carte autour des lignes. */
+  bare?: boolean;
+}) {
+  const card = { background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW };
+  if (variant === 'analytics') {
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-3 p-4" style={card}>
+              <AffBone className="h-3 w-24" />
+              <AffBone className="h-7 w-20" />
+            </div>
+          ))}
+        </div>
+        <div className="p-5" style={card}><AffBone className="h-56 w-full" /></div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="space-y-3 p-5" style={card}>
+              <AffBone className="h-4 w-40" />
+              <AffBone className="h-32 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (variant === 'calendar') {
+    return (
+      <div className="grid gap-3 xl:grid-cols-2" aria-busy="true">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="space-y-3 p-4" style={card}>
+            <AffBone className="h-4 w-40" />
+            <div className="flex items-center gap-3">
+              <AffBone className="h-9 w-9 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <AffBone className="h-3.5 w-2/5" />
+                <AffBone className="h-2.5 w-1/4" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1 p-4" style={bare ? undefined : card} aria-busy="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 py-2">
+          <AffBone className="h-10 w-10 shrink-0" />
+          <div className="flex-1 space-y-2">
+            <AffBone className="h-3.5 w-2/5" />
+            <AffBone className="h-2.5 w-1/4" />
+          </div>
+          <AffBone className="h-6 w-16 shrink-0 rounded-full" />
+        </div>
+      ))}
     </div>
   );
 }

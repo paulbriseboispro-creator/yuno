@@ -11,6 +11,8 @@ import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, DarkInput, FieldLabel, SectionLabel,
   T1, T2, T3, RED, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 const COLORS = ['#E8192C', '#34D399', '#FBBF24', '#6366F1', '#EC4899', '#14B8A6', '#F97316'];
 
@@ -184,11 +186,11 @@ export default function AgencyGroups() {
   };
 
   if (loading) {
-    return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+    return <ProPageSkeleton variant="list" title={tt('Groupes de promoteurs', 'Promoter groups')} />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Groupes de promoteurs', 'Promoter groups')}</SectionLabel>
         <PromoButton size="sm" onClick={openCreate}>
@@ -210,7 +212,7 @@ export default function AgencyGroups() {
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
             <div>
               <FieldLabel>{tt('Nom du groupe', 'Group name')}</FieldLabel>
               <DarkInput
@@ -223,7 +225,7 @@ export default function AgencyGroups() {
               <FieldLabel>{tt('Couleur', 'Color')}</FieldLabel>
               <ColorPicker value={form.color} onChange={c => setForm(f => ({ ...f, color: c }))} />
             </div>
-            <div>
+            <div className="xl:col-span-2">
               <FieldLabel>{tt('Description (optionnelle)', 'Description (optional)')}</FieldLabel>
               <DarkInput
                 value={form.description}
@@ -231,11 +233,13 @@ export default function AgencyGroups() {
                 placeholder={tt('Description courte…', 'Short description…')}
               />
             </div>
-            <PromoButton onClick={handleSave} disabled={saving} full>
-              {saving
-                ? tt('Enregistrement…', 'Saving…')
-                : editId ? tt('Enregistrer', 'Save') : tt('Créer le groupe', 'Create group')}
-            </PromoButton>
+            <div className="xl:col-span-2">
+              <PromoButton onClick={handleSave} disabled={saving} full>
+                {saving
+                  ? tt('Enregistrement…', 'Saving…')
+                  : editId ? tt('Enregistrer', 'Save') : tt('Créer le groupe', 'Create group')}
+              </PromoButton>
+            </div>
           </div>
         </PromoCard>
       )}
@@ -248,7 +252,7 @@ export default function AgencyGroups() {
           description={tt("Créez des groupes pour organiser vos promoteurs.", 'Create groups to organize your promoters.')}
         />
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
           {groups.map(g => {
             const members = membersByGroup.get(g.id) ?? [];
             const isExpanded = expanded === g.id;
@@ -339,7 +343,7 @@ export default function AgencyGroups() {
       {ungrouped.length > 0 && groups.length > 0 && (
         <>
           <SectionLabel>{tt('Sans groupe', 'No group')} ({ungrouped.length})</SectionLabel>
-          <PromoCard style={{ padding: 8 }}>
+          <PromoCard style={{ padding: 8 }} className="grid xl:grid-cols-2 2xl:grid-cols-3 xl:gap-x-6">
             {ungrouped.map((p, i) => (
               <div
                 key={p.id}

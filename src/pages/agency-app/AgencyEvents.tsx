@@ -12,6 +12,8 @@ import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, SectionLabel,
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { AffBodySkeleton } from '@/components/affiliate/affiliate-ui';
 
 type AssignInfo = { assigned: boolean; goal: string; maxTickets: string; gl: boolean; tables: boolean };
 
@@ -111,7 +113,7 @@ export default function AgencyEvents() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SectionLabel>{tt('Événements à venir', 'Upcoming events')}</SectionLabel>
         <div className="flex gap-1">
@@ -133,7 +135,7 @@ export default function AgencyEvents() {
       </div>
 
       {loading ? (
-        <div className="py-10 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
+        <AffBodySkeleton variant="list" />
       ) : events.length === 0 ? (
         <PromoEmpty
           icon={Calendar}
@@ -150,6 +152,7 @@ export default function AgencyEvents() {
               <p style={{ color: T3, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 {label}
               </p>
+              <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
               {clubEvents.map(ev => (
                 <PromoCard key={ev.event_id} style={{ padding: 12 }}>
                   <div className="flex items-start gap-3">
@@ -173,6 +176,7 @@ export default function AgencyEvents() {
                   </div>
                 </PromoCard>
               ))}
+              </div>
             </div>
           ))}
         </div>

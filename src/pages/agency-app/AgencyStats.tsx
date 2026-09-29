@@ -12,6 +12,8 @@ import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { AffBodySkeleton } from '@/components/affiliate/affiliate-ui';
 
 const eur = (n: number) => `${Number(n || 0).toFixed(2)} €`;
 const pct = (n: number, total: number) => total > 0 ? Math.round((n / total) * 100) : 0;
@@ -371,7 +373,7 @@ export default function AgencyStats() {
   const totalEventGross = eventStats.reduce((s, e) => s + e.total_gross, 0);
 
   return (
-    <div className="space-y-5">
+    <div className={`${PRO_PAGE} space-y-5`}>
       {/* Header + range */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <SectionLabel>{tt('Statistiques', 'Statistics')}</SectionLabel>
@@ -414,9 +416,7 @@ export default function AgencyStats() {
       </div>
 
       {loading ? (
-        <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>
-          {tt('Chargement…', 'Loading…')}
-        </div>
+        <AffBodySkeleton variant="list" />
       ) : tab === 'promoters' ? (
         <>
           {promoterStats.length === 0 ? (
@@ -425,7 +425,7 @@ export default function AgencyStats() {
               description={tt('Les stats apparaîtront dès qu\'un promoteur génère des ventes.', 'Stats will appear once a promoter makes sales.')}
             />
           ) : (
-            <div className="space-y-2">
+            <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
               {promoterStats.map((stat, i) => (
                 <PromoterRow
                   key={stat.promoter_id}
@@ -450,7 +450,7 @@ export default function AgencyStats() {
               description={tt('Les soirées générant des ventes apparaîtront ici.', 'Events with sales will appear here.')}
             />
           ) : (
-            <div className="space-y-2">
+            <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
               {eventStats.map((stat, i) => (
                 <EventRow
                   key={stat.event_id}

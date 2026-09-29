@@ -8,6 +8,7 @@ import { AgencyAppSidebar, type AgencyIdentity } from '@/components/agency/agenc
 import { AffiliateAppHeader } from '@/components/affiliate/affiliate-app-header';
 import { AffiliateShellProvider, type AffiliateShell } from '@/contexts/AffiliateShellContext';
 import { getAffiliateFeedConfig } from '@/lib/notifications';
+import { DashboardModeProvider } from '@/contexts/DashboardModeContext';
 
 export default function AffiliateLayout() {
   const { user } = useAuth();
@@ -105,7 +106,11 @@ export default function AffiliateLayout() {
           : <AffiliateAppSidebar role={shell.role} />}
         <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
           <AffiliateAppHeader />
-          <Outlet />
+          {/* Mode 'agency' : la barre du haut existe déjà, les squelettes de
+              page (ProPageSkeleton) n'y ajoutent que le titre. */}
+          <DashboardModeProvider mode="agency">
+            <Outlet />
+          </DashboardModeProvider>
         </SidebarInset>
       </SidebarProvider>
     </AffiliateShellProvider>

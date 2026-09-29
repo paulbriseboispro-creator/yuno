@@ -8,7 +8,7 @@ import { format, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { UserPlus, ListChecks, ExternalLink } from 'lucide-react';
 import {
-  AffPage, AffHeading, AffCard, Pill, AffButton, AffSpinner, AffEmpty, TabBar,
+  AffPage, AffHeading, AffCard, Pill, AffButton, AffBodySkeleton, AffEmpty, TabBar,
   FieldLabel, DarkSelect, SegToggle,
   RED, POS, T1, T2, T3, BORDER, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
@@ -278,9 +278,11 @@ export default function AffiliateAssignments() {
 
       {/* ── Assign tab ── */}
       {tab === 'assign' && (
-        <AffCard padding={22} style={{ maxWidth: 540 }}>
-          <div className="space-y-5">
-            <div>
+        <AffCard padding={22}>
+          {/* Grand écran : soirée + cible + bouton à gauche, la sélection des
+              promoteurs à droite. Même ordre au téléphone. */}
+          <div className="grid gap-5 xl:grid-cols-2 xl:items-start xl:gap-x-8">
+            <div className="xl:col-start-1">
               <FieldLabel>{t('aff.assign.eventLabel')}</FieldLabel>
               <DarkSelect
                 value={selectedEvent}
@@ -312,7 +314,7 @@ export default function AffiliateAssignments() {
               </DarkSelect>
             </div>
 
-            <div>
+            <div className="xl:col-start-1">
               <FieldLabel>{t('aff.assign.targetLabel')}</FieldLabel>
               <SegToggle<'all' | 'sel'>
                 value={targetAll ? 'all' : 'sel'}
@@ -322,7 +324,7 @@ export default function AffiliateAssignments() {
             </div>
 
             {!targetAll && (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:max-h-72">
                 {/* Soirée Yuno → cibles = promoteurs de l'agence ; soirée
                     externe → membres du bras affilié dont le périmètre couvre
                     le club de la soirée. */}
@@ -349,9 +351,11 @@ export default function AffiliateAssignments() {
               </div>
             )}
 
-            <AffButton onClick={handleAssign} disabled={assigning} full>
-              <UserPlus className="h-4 w-4" /> {assigning ? t('aff.assign.assigning') : t('aff.assign.assignBtn')}
-            </AffButton>
+            <div className="xl:col-start-1">
+              <AffButton onClick={handleAssign} disabled={assigning} full>
+                <UserPlus className="h-4 w-4" /> {assigning ? t('aff.assign.assigning') : t('aff.assign.assignBtn')}
+              </AffButton>
+            </div>
           </div>
         </AffCard>
       )}
@@ -375,7 +379,7 @@ export default function AffiliateAssignments() {
           </div>
 
           {loadingTrack ? (
-            <AffSpinner />
+            <AffBodySkeleton variant="list" />
           ) : filteredAssignments.length === 0 ? (
             <AffEmpty icon={ListChecks} title={t('aff.assign.emptyTitle')} />
           ) : (

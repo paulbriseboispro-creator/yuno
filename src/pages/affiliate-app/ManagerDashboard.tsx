@@ -7,9 +7,10 @@ import { CheckCircle, XCircle, Users, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  AffPage, AffHeading, AffCard, AffCardHeader, AffButton, Pill, AffSpinner, SectionLabel, AffAvatar,
+  AffPage, AffHeading, AffCard, AffCardHeader, AffButton, Pill, SectionLabel, AffAvatar,
   RED, POS, WARN, T1, T3, BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { currentNightDate } from '@/lib/affiliateEventTime';
 
 type TeamMember = {
@@ -103,14 +104,14 @@ export default function ManagerDashboard() {
     toast({ title: status === 'approved' ? t('aff.mgr.linktreeApproved') : t('aff.mgr.changeRequested') });
   };
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('aff.mgr.title')} />;
 
   const pending = members.filter(m => m.linktree_status === 'pending_review');
   const displayName = (m: TeamMember) =>
     [m.first_name, m.last_name].filter(Boolean).join(' ') || m.id.slice(0, 8);
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
           title={t('aff.mgr.title')}
@@ -157,6 +158,8 @@ export default function ManagerDashboard() {
         </motion.div>
       )}
 
+      {/* Grand écran : l'équipe et les briefs côte à côte. */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
       {/* All team members */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <AffCard padding={18}>
@@ -204,6 +207,7 @@ export default function ManagerDashboard() {
           </AffCard>
         </motion.div>
       )}
+      </div>
     </AffPage>
   );
 }

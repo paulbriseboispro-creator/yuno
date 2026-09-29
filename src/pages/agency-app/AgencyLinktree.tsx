@@ -15,6 +15,8 @@ import {
   PromoCard, PromoButton, PromoPill, SectionLabel, CopyField, DarkInput, PromoEmpty,
 } from '@/components/promoter/promoter-ui';
 import { currentNightDate } from '@/lib/affiliateEventTime';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 /**
  * « Mon linktree » — le chef d'agence choisit les soirées de SON /p/:slug.
@@ -250,16 +252,11 @@ export default function AgencyLinktree() {
   ];
 
   if (!affiliateId || loading) {
-    return (
-      <div className="py-16 flex justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2"
-          style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
-      </div>
-    );
+    return <ProPageSkeleton variant="list" title={tt('Mon linktree', 'My linktree', 'Mi linktree')} />;
   }
 
   return (
-    <div className="py-4 space-y-4">
+    <div className={`${PRO_PAGE} py-4 space-y-4`}>
       {/* En-tête */}
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center flex-none"
@@ -278,6 +275,8 @@ export default function AgencyLinktree() {
         </div>
       </div>
 
+      {/* Grand écran : le lien de bio à gauche, le classement à droite. */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
       {/* Le lien à coller dans la bio */}
       {url ? (
         <PromoCard>
@@ -336,6 +335,7 @@ export default function AgencyLinktree() {
       )}
 
       {/* Classement */}
+      <div className="space-y-4">
       <SectionLabel>{tt('Classement sur le linktree', 'Order on the linktree', 'Orden en el linktree')}</SectionLabel>
       <div className="flex flex-wrap gap-2">
         {sortOptions.map(opt => {
@@ -358,7 +358,12 @@ export default function AgencyLinktree() {
           );
         })}
       </div>
+      </div>
+      </div>
 
+      {/* Grand écran : la sélection à gauche, le catalogue à droite. */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+      <div className="space-y-4">
       {/* Sélection */}
       <SectionLabel
         action={
@@ -427,6 +432,9 @@ export default function AgencyLinktree() {
         </PromoCard>
       )}
 
+      </div>
+
+      <div className="space-y-4">
       {/* Catalogue */}
       <SectionLabel action={<span style={{ color: T3, fontSize: 11.5 }}>{available.length}</span>}>
         {tt('Ajouter des soirées', 'Add events', 'Añadir fiestas')}
@@ -521,6 +529,8 @@ export default function AgencyLinktree() {
           </p>
         </PromoCard>
       )}
+      </div>
+      </div>
     </div>
   );
 }

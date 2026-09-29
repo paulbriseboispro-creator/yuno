@@ -15,6 +15,8 @@ import {
   DarkInput, FieldLabel, SectionLabel,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 type TT = (fr: string, en: string, es?: string) => string;
 
@@ -170,8 +172,9 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
 
   return (
     <PromoCard>
-      <div className="space-y-4">
-        <div>
+      {/* Grand écran : les blocs de règles sur deux colonnes */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start xl:gap-x-6">
+        <div className="xl:col-span-2">
           <FieldLabel>{tt('Nom du modèle', 'Template name')}</FieldLabel>
           <DarkInput value={f.name} onChange={v => set('name', v)} placeholder={tt('ex. Rémunération standard', 'e.g. Standard pay')} />
         </div>
@@ -272,7 +275,7 @@ function TemplateForm({ initial, onSave, onCancel, tt }: {
           )}
         </div>
 
-        <div className="flex gap-2 pt-1">
+        <div className="flex gap-2 pt-1 xl:col-span-2">
           <PromoButton onClick={save} disabled={saving} full>{saving ? tt('Enregistrement…', 'Saving…') : tt('Enregistrer le modèle', 'Save template')}</PromoButton>
           <PromoButton variant="ghost" onClick={onCancel}><X className="h-4 w-4" /></PromoButton>
         </div>
@@ -445,10 +448,10 @@ export default function AgencyCommissionTemplates() {
     load(); refetch();
   };
 
-  if (loading) return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+  if (loading) return <ProPageSkeleton variant="list" title={tt('Modèles de rémunération', 'Pay templates')} />;
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Modèles de rémunération', 'Pay templates')}</SectionLabel>
         <PromoButton size="sm" onClick={() => { setEditing(null); setFormOpen(true); }} disabled={formOpen}>
@@ -471,7 +474,7 @@ export default function AgencyCommissionTemplates() {
       )}
 
       {!formOpen && templates.length > 0 && (
-        <div className="space-y-2">
+        <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
           {templates.map(tpl => (
             <TemplateCard key={tpl.id} tpl={tpl} promoters={promoters} groups={groups} agencyId={agency!.id}
               onEdit={t => { setEditing(t); setFormOpen(true); }} onDelete={handleDelete} onChanged={() => { load(); refetch(); }} tt={tt} />

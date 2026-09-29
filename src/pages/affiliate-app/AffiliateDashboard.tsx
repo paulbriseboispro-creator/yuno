@@ -14,9 +14,10 @@ import { format, subDays, parseISO } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  AffPage, AffCard, AffCardHeader, Pill, AffLinkButton, AffSpinner, AffEmpty,
+  AffPage, AffCard, AffCardHeader, Pill, AffLinkButton, AffEmpty,
   RED, POS, NEG, T1, T2, T3, C_HI, BORDER, F_BORDER, C_FAINT, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { currentNightDate } from '@/lib/affiliateEventTime';
 import { fetchAllRows } from '@/lib/fetchAllRows';
@@ -148,7 +149,7 @@ export default function AffiliateDashboard() {
   const calcChange = (c: number, p: number) => (p === 0 ? (c > 0 ? 100 : 0) : ((c - p) / p) * 100);
   const nextEvent = upcoming[0] ?? null;
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="analytics" />;
 
   return (
     <AffPage>

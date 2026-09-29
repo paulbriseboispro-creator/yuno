@@ -7,9 +7,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AlertTriangle, Pencil, Play, Plus, RefreshCw, Trash2, ArrowRight } from 'lucide-react';
 import {
-  AffPage, AffHeading, AffCard, AffButton, AffLinkButton, AffSpinner, AffEmpty, SectionLabel,
+  AffPage, AffHeading, AffCard, AffButton, AffLinkButton, AffEmpty, SectionLabel,
   RED, POS, WARN, T1, T3, BORDER, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 // Jour → suffixe de clé i18n (les libellés vivent dans les locales, aff.recurring.day*.*)
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -86,7 +87,7 @@ export default function AffiliateRecurring() {
     .filter((tpl) => tpl.is_active && !tpl.publication_url)
     .sort((a, b) => daysUntil(a.day_of_week) - daysUntil(b.day_of_week));
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('aff.recurring.title')} />;
 
   return (
     <AffPage>
@@ -116,7 +117,7 @@ export default function AffiliateRecurring() {
               {(missing.length > 1 ? t('aff.recurring.missingLinkMany') : t('aff.recurring.missingLinkOne')).replace('{count}', String(missing.length))}
             </span>
           </SectionLabel>
-          <div className="space-y-2">
+          <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
             {missing.map((tpl) => {
               const dLeft = daysUntil(tpl.day_of_week);
               const label = dLeft === 1 ? t('aff.recurring.tomorrow') : dLeft === 7 ? t('aff.recurring.today') : t('aff.recurring.inDays').replace('{count}', String(dLeft));

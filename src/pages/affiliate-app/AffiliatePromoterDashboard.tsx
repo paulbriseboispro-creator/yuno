@@ -9,9 +9,10 @@ import { downloadLinktreeStory } from '@/lib/storyKit';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import {
   AffPage, AffHeading, AffCard, AffCardHeader, StatTile, SectionLabel, DarkInput,
-  AffButton, AffSpinner, RED, T1, T2, T3, BORDER, C_FAINT,
+  AffButton, RED, T1, T2, T3, BORDER, C_FAINT,
 } from '@/components/affiliate/affiliate-ui';
 import { currentNightDate } from '@/lib/affiliateEventTime';
 
@@ -292,7 +293,7 @@ export default function AffiliatePromoterDashboard() {
     }
   };
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" />;
 
   const displayName = profile?.first_name && profile?.last_name
     ? `${profile.first_name} ${profile.last_name}`
@@ -319,7 +320,7 @@ export default function AffiliatePromoterDashboard() {
   ];
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading title={`${t('aff.pdash.greeting')} ${displayName}`} subtitle={subtitle} />
       </motion.div>
@@ -342,7 +343,7 @@ export default function AffiliatePromoterDashboard() {
       {assignments.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="space-y-3">
           <SectionLabel>{t('aff.pdash.pendingUrl')} ({assignments.length})</SectionLabel>
-          <div className="space-y-3">
+          <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
             {assignments.map(a => (
               <AffCard key={a.id} padding={16}
                 style={{ border: '1px solid rgba(232,25,44,0.22)', background: 'linear-gradient(135deg,rgba(232,25,44,0.06),rgba(232,25,44,0.01)),var(--sf-0a0a0c)' }}>
@@ -390,6 +391,8 @@ export default function AffiliatePromoterDashboard() {
         </motion.div>
       )}
 
+      {/* Grand écran : vitrine, briefs et classement côte à côte. */}
+      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3 xl:items-start">
       {/* Linktree card — toujours visible : c'est LA vitrine du promoteur */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
         <AffCard padding={18}>
@@ -519,11 +522,13 @@ export default function AffiliatePromoterDashboard() {
         </motion.div>
       )}
 
-      {/* Quick links */}
+      </div>
+
+      {/* Quick links — une seule rangée sur grand écran */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="grid grid-cols-2 gap-3">
+        className={`grid grid-cols-2 gap-3 ${QUICK_LINKS.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
         {QUICK_LINKS.map((q, i) => (
-          <Link key={q.to} to={q.to} className={i === QUICK_LINKS.length - 1 && QUICK_LINKS.length % 2 === 1 ? 'col-span-2' : ''}>
+          <Link key={q.to} to={q.to} className={i === QUICK_LINKS.length - 1 && QUICK_LINKS.length % 2 === 1 ? 'col-span-2 xl:col-span-1' : ''}>
             <AffCard interactive padding={16}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-none"

@@ -11,10 +11,10 @@ import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUpl
 import { AffiliateDraggableGallery } from '@/components/affiliate/AffiliateDraggableGallery';
 import { AffiliateAddressSearch } from '@/components/affiliate/AffiliateAddressSearch';
 import {
-  AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, AffSpinner,
-  FieldLabel, DarkInput, DarkTextarea,
+  AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, FieldLabel, DarkInput, DarkTextarea,
   T1, T2, T3, BORDER, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
 const GENRES = MUSIC_GENRES;
@@ -212,18 +212,22 @@ export default function AffiliateVenueForm() {
     onSave: handleSave,
   });
 
-  if (loadingData) return <AffSpinner />;
+  if (loadingData) return <ProPageSkeleton variant="form" title={isEdit ? t('aff.venueForm.editTitle') : t('aff.venueForm.newTitle')} />;
 
   if (!affiliateId) {
-    return <AffPage maxWidth={760}><p style={{ color: T2 }}>{t('aff.venueForm.profileNotFound')}</p></AffPage>;
+    return <AffPage><p style={{ color: T2 }}>{t('aff.venueForm.profileNotFound')}</p></AffPage>;
   }
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffBackHeader title={isEdit ? t('aff.venueForm.editTitle') : t('aff.venueForm.newTitle')} onBack={() => guardedNavigate('/affiliate/venues')} />
       </motion.div>
 
+      {/* Grand écran : identité + photos à gauche, caractéristiques + liens à
+          droite (même ordre de lecture au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+      <div className="space-y-4">
       {/* Identité */}
       <AffCard padding={20}>
         <AffCardHeader icon={Building2} title={t('aff.venueForm.identity')} />
@@ -282,6 +286,8 @@ export default function AffiliateVenueForm() {
         </div>
       </AffCard>
 
+      </div>
+      <div className="space-y-4">
       {/* Caractéristiques */}
       <AffCard padding={20}>
         <AffCardHeader icon={Sliders} title={t('aff.venueForm.characteristics')} />
@@ -332,6 +338,8 @@ export default function AffiliateVenueForm() {
           </div>
         </div>
       </AffCard>
+      </div>
+      </div>
 
       <div className="flex gap-3 pb-8">
         <AffButton onClick={handleSave} disabled={saving}>

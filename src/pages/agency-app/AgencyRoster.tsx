@@ -14,6 +14,8 @@ import {
 import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
 import { tint } from '@/lib/proTheme';
 import { capturePosthog } from '@/lib/posthog';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { AffBodySkeleton } from '@/components/affiliate/affiliate-ui';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -356,7 +358,7 @@ export default function AgencyRoster() {
     || tt('Organisateur', 'Organizer');
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Mes promoteurs', 'My promoters')}</SectionLabel>
         <PromoButton size="sm" onClick={() => setInviteOpen(v => !v)}>
@@ -415,7 +417,10 @@ export default function AgencyRoster() {
         <PromoCard>
           <SectionLabel>{tt('Nouveau promoteur', 'New promoter')}</SectionLabel>
 
-          <div className="mt-3 space-y-3">
+          {/* Grand écran : identité sur une rangée, clubs Yuno / externes côte à
+              côte, commissions côte à côte (même ordre au téléphone). */}
+          <div className="mt-3 grid gap-3 xl:grid-cols-2 xl:items-start xl:gap-x-6">
+            <div className="grid gap-3 xl:col-span-2 xl:grid-cols-3">
             <div>
               <FieldLabel>{tt('Email', 'Email')}</FieldLabel>
               <DarkInput value={email} onChange={setEmail} placeholder="promoteur@email.com" type="email" icon={Mail} />
@@ -430,6 +435,7 @@ export default function AgencyRoster() {
                 <DarkInput value={lastName} onChange={setLastName} placeholder={tt('Nom de famille', 'Last name')} />
               </div>
             )}
+            </div>
 
             {/* Où va-t-il vendre ? Plusieurs clubs Yuno ET des clubs externes,
                 cumulables — un promoteur n'est pas en monopole. Quel que soit
@@ -530,9 +536,11 @@ export default function AgencyRoster() {
               </div>
             </div>
             </>)}
-            <PromoButton onClick={handleInvite} disabled={sending} full>
-              {sending ? tt('Envoi…', 'Sending…') : tt("Envoyer l'invitation", 'Send invitation')}
-            </PromoButton>
+            <div className="xl:col-span-2">
+              <PromoButton onClick={handleInvite} disabled={sending} full>
+                {sending ? tt('Envoi…', 'Sending…') : tt("Envoyer l'invitation", 'Send invitation')}
+              </PromoButton>
+            </div>
           </div>
         </PromoCard>
       )}
@@ -540,6 +548,7 @@ export default function AgencyRoster() {
       {inviteGroups.length > 0 && (
         <div className="space-y-2">
           <SectionLabel>{tt('Invitations en attente', 'Pending invitations')}</SectionLabel>
+          <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
           {inviteGroups.map(group => {
             const inv = group[0];
             const name = [inv.first_name, inv.last_name].filter(Boolean).join(' ').trim();
@@ -593,11 +602,12 @@ export default function AgencyRoster() {
               </PromoCard>
             );
           })}
+          </div>
         </div>
       )}
 
       {loading ? (
-        <div className="py-10 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
+        <AffBodySkeleton variant="list" />
       ) : filtered.length === 0 ? (
         // Une invitation en attente au-dessus = l'équipe arrive : l'état vide
         // « Invitez votre premier promoteur » serait un contresens.
@@ -609,7 +619,7 @@ export default function AgencyRoster() {
           />
         ) : null
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
           {filtered.map(pg => {
             const group = groups.find(g => g.id === pg.groupId);
             return (

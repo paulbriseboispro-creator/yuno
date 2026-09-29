@@ -12,8 +12,9 @@ import {
   type AppNotif, getNotifDef, notifLink, PRIORITY_CONFIG,
 } from '@/lib/notifications';
 import {
-  AffPage, AffHeading, AffCard, AffSpinner, RED, T1, T2, T3, BORDER, C_FAINT,
+  AffPage, AffHeading, AffCard, RED, T1, T2, T3, BORDER, C_FAINT,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -98,10 +99,10 @@ export default function AffiliateInbox() {
     if (link) navigate(link);
   }, [config, markOneRead, navigate]);
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('aff.inbox.title')} />;
 
   return (
-    <AffPage maxWidth={760}>
+    <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <AffHeading
@@ -168,7 +169,7 @@ export default function AffiliateInbox() {
                         </p>
                         {isUnread && <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: RED }} />}
                       </div>
-                      <p style={{ color: isUnread ? T2 : T3, fontSize: 12, lineHeight: 1.45 }}>
+                      <p className="max-w-[80ch]" style={{ color: isUnread ? T2 : T3, fontSize: 12, lineHeight: 1.45 }}>
                         {n.message}
                       </p>
                       <span className="tabular-nums" style={{ color: T3, fontSize: 10.5, marginTop: 3 }}>

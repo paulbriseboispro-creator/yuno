@@ -15,6 +15,8 @@ import {
   DarkInput, FieldLabel, SectionLabel,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type RuleTemplate = {
@@ -165,7 +167,9 @@ function RuleForm({
 
   return (
     <PromoCard>
-      <div className="space-y-4">
+      {/* Grand écran : nom / description / couleur sur une rangée, puis
+          droits, commissions et remise en trois colonnes. */}
+      <div className="grid gap-4 xl:grid-cols-3 xl:items-start xl:gap-x-6">
         {/* Identity */}
         <div>
           <FieldLabel>{tt('Nom du modèle', 'Template name')}</FieldLabel>
@@ -270,7 +274,7 @@ function RuleForm({
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-2 xl:col-span-3">
           <PromoButton onClick={handleSave} disabled={saving} full>
             {saving ? tt('Enregistrement…', 'Saving…') : tt('Enregistrer le modèle', 'Save template')}
           </PromoButton>
@@ -616,11 +620,11 @@ export default function AgencyRules() {
   }, [promoters]);
 
   if (loading) {
-    return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+    return <ProPageSkeleton variant="list" title={tt('Modèles de règles', 'Rule templates')} />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Modèles de règles', 'Rule templates')}</SectionLabel>
         <PromoButton size="sm" onClick={openCreate} disabled={formOpen}>
@@ -652,7 +656,7 @@ export default function AgencyRules() {
 
       {/* Templates list */}
       {templates.length > 0 && !formOpen && (
-        <div className="space-y-2">
+        <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
           {templates.map(tpl => (
             <TemplateCard
               key={tpl.id}
@@ -676,7 +680,7 @@ export default function AgencyRules() {
           return (
             <>
               <SectionLabel>{tt('Sans modèle', 'No template')} ({noTpl.length})</SectionLabel>
-              <PromoCard style={{ padding: 8 }}>
+              <PromoCard style={{ padding: 8 }} className="grid xl:grid-cols-2 2xl:grid-cols-3 xl:gap-x-6">
                 {noTpl.map((p, i) => (
                   <div
                     key={p.id}

@@ -12,6 +12,8 @@ import {
   PromoCard, PromoButton, PromoEmpty, PromoPill, PromoAvatar, DarkInput, FieldLabel, SectionLabel,
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { AffBodySkeleton } from '@/components/affiliate/affiliate-ui';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -123,7 +125,7 @@ export default function AgencyClubs() {
     );
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Clubs partenaires', 'Partner clubs')}</SectionLabel>
         <PromoButton size="sm" onClick={() => setOpen(v => !v)}>
@@ -134,7 +136,8 @@ export default function AgencyClubs() {
       {open && (
         <PromoCard>
           <SectionLabel>{tt('Proposer un contrat', 'Propose a contract')}</SectionLabel>
-          <div className="mt-3 space-y-3">
+          {/* Grand écran : recherche et marge côte à côte */}
+          <div className="mt-3 grid gap-3 xl:grid-cols-2 xl:items-start">
             <div>
               <FieldLabel>{tt('Rechercher un club', 'Search for a club')}</FieldLabel>
               <div className="relative">
@@ -200,15 +203,17 @@ export default function AgencyClubs() {
                 </select>
               </div>
             </div>
-            <PromoButton onClick={propose} disabled={busy || !selectedVenue} full>
-              {busy ? tt('Envoi…', 'Sending…') : tt('Envoyer la proposition', 'Send proposal')}
-            </PromoButton>
+            <div className="xl:col-span-2">
+              <PromoButton onClick={propose} disabled={busy || !selectedVenue} full>
+                {busy ? tt('Envoi…', 'Sending…') : tt('Envoyer la proposition', 'Send proposal')}
+              </PromoButton>
+            </div>
           </div>
         </PromoCard>
       )}
 
       {loading ? (
-        <div className="py-10 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>
+        <AffBodySkeleton variant="list" rows={4} />
       ) : contracts.length === 0 ? (
         <PromoEmpty
           icon={Building2}
@@ -219,7 +224,7 @@ export default function AgencyClubs() {
           )}
         />
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
           {contracts.map((c) => {
             const awaitingAgency = c.status === 'pending_signatures' && !c.agency_signed_at;
             const awaitingClub = c.status === 'pending_signatures' && c.agency_signed_at && !c.club_signed_at;

@@ -8,9 +8,10 @@ import { Instagram } from '@/components/icons/Instagram';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  AffPage, AffHeading, AffCard, Pill, AffLinkButton, AffSpinner, AffEmpty,
+  AffPage, AffHeading, AffCard, Pill, AffLinkButton, AffEmpty,
   RED, POS, T1, T2, T3, BORDER, C_FAINT, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 type VenueRow = {
   id: string;
@@ -105,7 +106,7 @@ export default function AffiliateVenues() {
     toast({ title: t('aff.venues.yunoLeadSent'), description: t('aff.venues.yunoLeadSentDesc') });
   };
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="cards" title={t('aff.venues.title')} />;
 
   return (
     <AffPage>
@@ -129,7 +130,7 @@ export default function AffiliateVenues() {
           action={<AffLinkButton to="/affiliate/venues/new" size="sm"><Plus className="h-4 w-4" /> {t('aff.venues.addClub')}</AffLinkButton>}
         />
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
           {venues.map((venue, i) => (
             <motion.div key={venue.id}
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.03 }}>

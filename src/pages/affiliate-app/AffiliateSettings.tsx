@@ -19,9 +19,9 @@ import RenameConfirmDialog from '@/components/RenameConfirmDialog';
 import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 import {
-  AffPage, AffSpinner,
-  RED, POS, T1, T2, T3, C_FAINT, BORDER, CARD_BG, INNER_BG, TILE_BG, CARD_SHADOW,
+  AffPage, RED, POS, T1, T2, T3, C_FAINT, BORDER, CARD_BG, INNER_BG, TILE_BG, CARD_SHADOW,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 // Inputs (dark premium) ────────────────────────────────────────────────────────
 const fieldStyle: React.CSSProperties = { background: INNER_BG, border: `1px solid ${BORDER}`, color: T1 };
@@ -37,6 +37,9 @@ function SectionCard({ children, delay = 0 }: { children: React.ReactNode; delay
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3 }}
+      // Grand écran : les réglages coulent sur deux colonnes (ordre de lecture
+      // conservé), une carte ne se coupe jamais entre deux colonnes.
+      className="break-inside-avoid xl:mb-4"
       style={{
         background: CARD_BG,
         border: `1px solid ${BORDER}`,
@@ -463,7 +466,7 @@ export default function AffiliateSettings() {
     setTrustStats(s => s.map((stat, idx) => idx === i ? { ...stat, [field]: val } : stat));
   };
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="form" title={t('aff.settings.title')} />;
 
   const TYPE_LABELS: Record<string, string> = {
     yuno_internal: t('aff.settings.typeYunoInternal'),
@@ -474,7 +477,7 @@ export default function AffiliateSettings() {
   const isYunoInternal = profile?.type === 'yuno_internal';
 
   return (
-    <AffPage maxWidth={720}>
+    <AffPage>
       <style>{`@keyframes fadeSlide { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
       <div className="space-y-4">
@@ -489,6 +492,8 @@ export default function AffiliateSettings() {
           </h1>
           <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>{t('aff.settings.subtitle')}</p>
         </motion.div>
+
+        <div className="space-y-4 xl:space-y-0 xl:columns-2 xl:gap-4">
 
         {/* Avatar */}
         <SectionCard delay={0.04}>
@@ -1031,6 +1036,7 @@ export default function AffiliateSettings() {
             />
           </SectionCard>
         )}
+        </div>
       </div>
 
       {/* Compte — App Store 5.1.1(v). Même composant partout : un seul chemin de

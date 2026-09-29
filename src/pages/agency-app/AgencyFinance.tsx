@@ -18,6 +18,8 @@ import {
   notifyPayoutParties, payoutErrorKey, formatIban, euro, daysUntil,
   PAYOUT_COLUMNS, type PayoutStatus, type PromoterPayoutRow,
 } from '@/lib/promoterPayout';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -186,13 +188,13 @@ export default function AgencyFinance() {
   const maskIban = (iban: string) => `${iban.slice(0, 4)}···${iban.slice(-4)}`;
 
   if (loading || payoutsLoading) {
-    return <div className="py-16 text-center" style={{ color: T3, fontSize: 13 }}>{tt('Chargement…', 'Loading…')}</div>;
+    return <ProPageSkeleton variant="list" />;
   }
 
   const totalInFlight = openPayouts.reduce((s, p) => s + Number(p.amount), 0);
 
   return (
-    <div className="space-y-4">
+    <div className={`${PRO_PAGE} space-y-4`}>
       <div className="grid grid-cols-3 gap-3">
         <StatTile icon={ArrowDownLeft} value={eur(totals.receivableFromClubs)} label={tt('Dû par les clubs', 'Owed by clubs')} tone="pos" />
         <StatTile icon={ArrowUpRight} value={eur(totals.payableToPromoters)} label={tt('Dû aux promoteurs', 'Owed to promoters')} tone="warn" />
@@ -208,7 +210,7 @@ export default function AgencyFinance() {
           description={tt('Les clubs sont à jour de leurs règlements.', 'Clubs are settled up.')}
         />
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
           {receivables.map(r => (
             <PromoCard key={r.key} style={{ padding: 0, overflow: 'hidden' }}>
               <button
@@ -276,7 +278,7 @@ export default function AgencyFinance() {
               {eur(totalInFlight)}
             </span>
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2 xl:grid-cols-2 2xl:grid-cols-3 xl:items-start">
             {openPayouts.map(payout => {
               const left = daysUntil(payout.confirm_due_at);
               return (
@@ -393,7 +395,7 @@ export default function AgencyFinance() {
           {tt('Toutes les commissions dues sont dans un règlement en cours.', 'All owed commissions are in a settlement in progress.')}
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
           {payables.map(p => (
             <PromoCard key={p.id}>
               <div className="flex items-center justify-between mb-3">
@@ -423,7 +425,7 @@ export default function AgencyFinance() {
       {historyPayouts.length > 0 && (
         <>
           <SectionLabel>{tt('Historique des paiements', 'Payout history')}</SectionLabel>
-          <div className="space-y-2">
+          <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3 lg:items-start">
             {historyPayouts.map(payout => (
               <PromoCard key={payout.id}>
                 <div className="flex items-center justify-between mb-1">

@@ -12,10 +12,10 @@ import AvatarCropModal from '@/components/AvatarCropModal';
 import RenameConfirmDialog from '@/components/RenameConfirmDialog';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 import {
-  AffPage, AffHeading, AffCard, AffCardHeader, AffButton, AffSpinner,
-  FieldLabel, DarkInput,
+  AffPage, AffHeading, AffCard, AffCardHeader, AffButton, FieldLabel, DarkInput,
   RED, POS, T1, T2, T3, BORDER, INNER_BG, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 type MemberProfile = {
   id: string;
@@ -256,7 +256,7 @@ export default function AffiliatePromoterSettings() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="form" title={t('aff.pset.myProfile')} />;
 
   const displayName = form.first_name || form.last_name
     ? `${form.first_name} ${form.last_name}`.trim()
@@ -265,13 +265,16 @@ export default function AffiliatePromoterSettings() {
   return (
     <>
       {cropFile && <AvatarCropModal file={cropFile} onConfirm={handleCropConfirm} onCancel={() => setCropFile(null)} />}
-      <AffPage maxWidth={760}>
+      <AffPage>
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <AffHeading title={t('aff.pset.myProfile')} subtitle={t('aff.pset.subtitle')} />
         </motion.div>
 
+        {/* Grand écran : les cartes coulent sur deux colonnes (ordre de lecture
+            conservé), une carte ne se coupe jamais entre deux colonnes. */}
+        <div className="space-y-4 xl:space-y-0 xl:columns-2 xl:gap-4">
         {/* Avatar + identity preview */}
-        <AffCard padding={20}>
+        <AffCard padding={20} className="break-inside-avoid xl:mb-4">
           <div className="flex items-center gap-5">
             <div className="relative flex-none">
               {profile?.avatar_url ? (
@@ -305,7 +308,7 @@ export default function AffiliatePromoterSettings() {
         </AffCard>
 
         {/* Profil */}
-        <AffCard padding={20}>
+        <AffCard padding={20} className="break-inside-avoid xl:mb-4">
           <AffCardHeader icon={User} title={t('aff.pset.profileSection')} />
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -341,7 +344,7 @@ export default function AffiliatePromoterSettings() {
         </AffCard>
 
         {/* Linktree / Page publique */}
-        <AffCard padding={20}>
+        <AffCard padding={20} className="break-inside-avoid xl:mb-4">
           <AffCardHeader icon={Link2} title={t('aff.pset.publicPageTitle')} subtitle={t('aff.pset.publicPageSubtitle')} accent />
           <div className="space-y-4">
             <div>
@@ -384,7 +387,7 @@ export default function AffiliatePromoterSettings() {
 
         {/* QR codes */}
         {form.linktree_slug && (
-          <AffCard padding={20}>
+          <AffCard padding={20} className="break-inside-avoid xl:mb-4">
             <AffCardHeader icon={QrCode} title={t('aff.pset.qrTitle')} subtitle={t('aff.pset.qrSubtitle')} />
             <AffiliateQRSection
               items={[{
@@ -401,7 +404,7 @@ export default function AffiliatePromoterSettings() {
         )}
 
         {/* Réseaux sociaux */}
-        <AffCard padding={20}>
+        <AffCard padding={20} className="break-inside-avoid xl:mb-4">
           <AffCardHeader icon={Share2} title={t('aff.pset.socialTitle')} />
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -432,6 +435,7 @@ export default function AffiliatePromoterSettings() {
             </div>
           </div>
         </AffCard>
+        </div>
 
         <AffButton onClick={handleSave} disabled={saving}>
           {saving ? t('aff.pset.savingBtn') : t('aff.pset.saveBtn')}

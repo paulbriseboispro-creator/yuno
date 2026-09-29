@@ -11,9 +11,10 @@ import { isAffiliateEventOver } from '@/lib/affiliateEventTime';
 import { TicketSyncCard } from '@/components/affiliate/TicketSyncCard';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
-  AffPage, AffHeading, AffCard, Pill, AffButton, AffLinkButton, AffSpinner, AffEmpty,
+  AffPage, AffHeading, AffCard, Pill, AffButton, AffLinkButton, AffEmpty,
   RED, POS, WARN, T1, T2, T3, BORDER, C_FAINT,
 } from '@/components/affiliate/affiliate-ui';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 
 type EventRow = {
   id: string;
@@ -122,7 +123,7 @@ export default function AffiliateEvents() {
   const pastDates = [...groups.keys()].filter((d) => isAffiliateEventOver(d, now)).sort().reverse();
   const orderedDates = [...upcomingDates, ...pastDates];
 
-  if (loading) return <AffSpinner />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('aff.events.title')} />;
 
   return (
     <AffPage>
@@ -180,7 +181,9 @@ export default function AffiliateEvents() {
           action={<AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> {t('aff.events.createEvent')}</AffLinkButton>}
         />
       ) : (
-        <div className="space-y-5">
+        // Grand écran : deux nuits côte à côte (lecture ligne par ligne, dans
+        // l'ordre des dates) plutôt qu'une liste étirée sur toute la largeur.
+        <div className="grid gap-5 2xl:grid-cols-2 2xl:items-start">
           {orderedDates.map((dateStr) => {
             const dayEvents = groups.get(dateStr)!;
             const d = parseISO(dateStr);

@@ -15,7 +15,7 @@ import { Plus, Users, UserCheck, UserX, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import {
-  AffPage, AffHeading, AffCard, AffCardHeader, Pill, AffButton, AffAvatar, AffSpinner,
+  AffPage, AffHeading, AffCard, AffCardHeader, Pill, AffButton, AffAvatar, AffBodySkeleton,
   FieldLabel, DarkInput, DarkSelect,
   RED, POS, T1, T2, T3, BORDER, C_FAINT, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
@@ -126,8 +126,11 @@ export default function AffiliateMembers() {
         />
       </motion.div>
 
+      {/* Grand écran : la liste à gauche, l'explication des rôles en colonne à
+          droite (même ordre de lecture au téléphone). */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
       {/* Role explanation */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3 xl:col-start-2 xl:row-start-1 xl:sticky xl:top-20">
         <AffCard padding={16}>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
@@ -153,13 +156,13 @@ export default function AffiliateMembers() {
       </div>
 
       {/* Members list */}
-      <AffCard padding={0}>
+      <AffCard padding={0} className="xl:col-start-1 xl:row-start-1">
         <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <h2 style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{members.length === 1 ? t('aff.members.countOne') : t('aff.members.countOther').replace('{n}', String(members.length))}</h2>
         </div>
 
         {loading ? (
-          <div className="py-12"><AffSpinner /></div>
+          <AffBodySkeleton variant="list" rows={5} bare />
         ) : members.length === 0 ? (
           <div className="text-center py-12">
             <Users className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgb(var(--ink)/0.14)' }} />
@@ -196,6 +199,7 @@ export default function AffiliateMembers() {
           </div>
         )}
       </AffCard>
+      </div>
 
       {/* Invite dialog */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
