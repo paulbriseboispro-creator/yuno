@@ -131,7 +131,7 @@ export default function OwnerPromoterAnnouncements() {
     return events.find(e => e.id === eventId)?.title;
   };
 
-  if (venueLoading || loading) return <ProPageSkeleton variant="cards" title={t('promoAnnounce.title')} />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="cards" title={t('promoAnnounce.title')} header={<PromoHeader title={t('promoAnnounce.title')} subtitle={t('promoAnnounce.subtitle')} backTo={`${basePath}/promoters`} />} />;
 
   return (
     <>

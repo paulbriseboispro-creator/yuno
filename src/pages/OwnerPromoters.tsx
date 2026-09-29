@@ -148,7 +148,7 @@ export default function OwnerPromoters() {
   const displayName = (n: string | null | undefined, code: string, email: string) =>
     n ? n : (email || `@${code}`);
 
-  if (scope.loading || loading) return <ProPageSkeleton variant="list" title={t('promoterProgram.title')} />;
+  if (scope.loading || loading) return <ProPageSkeleton variant="list" title={t('promoterProgram.title')} header={<PromoHeader title={t('promoterProgram.title')} subtitle={venue?.name || undefined} backTo={basePath} />} />;
 
   const inviteBtn = (
     <PromoButton

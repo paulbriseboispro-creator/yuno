@@ -274,13 +274,26 @@ function SkeletonBody({ variant }: { variant: ProSkeletonVariant }) {
   }
 }
 
-export function ProPageSkeleton({ variant = 'list', title }: { variant?: ProSkeletonVariant; title?: string }) {
+export function ProPageSkeleton({ variant = 'list', title, header }: {
+  variant?: ProSkeletonVariant;
+  title?: string;
+  /**
+   * L'en-tête que la page affichera — rendu tel quel pour que rien ne saute
+   * à l'arrivée des données (`<PromoHeader …/>` des pages promoteurs), ou
+   * `'none'` pour une page sans barre collante dont le titre vit dans le corps
+   * (Campagnes, Contacts, Automatisations, Rapport).
+   */
+  header?: React.ReactNode | 'none';
+}) {
   const { mode } = useDashboardMode();
   // Organisateur / agence : le layout porte déjà la barre du haut.
   const layoutHasHeader = mode === 'organizer' || mode === 'agency';
+  const customHeader = header !== undefined && header !== 'none';
+  const titleInBody = header === 'none' || (layoutHasHeader && !customHeader);
   return (
     <div className="min-h-screen pb-24" aria-busy="true">
-      {!layoutHasHeader && (title ? <OwnerHeader title={title} /> : (
+      {customHeader && header}
+      {!layoutHasHeader && header === undefined && (title ? <OwnerHeader title={title} /> : (
         <div className="sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
           <div className="flex h-14 w-full items-center justify-between px-3 sm:h-16 sm:px-6">
             <div className="flex items-center gap-3">
@@ -295,7 +308,7 @@ export function ProPageSkeleton({ variant = 'list', title }: { variant?: ProSkel
         </div>
       ))}
       <div className={cn(PRO_PAGE, "space-y-4 pt-4")}>
-        {layoutHasHeader && (title
+        {titleInBody && (title
           ? <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
           : <Bone className="h-6 w-48 rounded-md" />)}
         <SkeletonBody variant={variant} />
@@ -305,7 +318,7 @@ export function ProPageSkeleton({ variant = 'list', title }: { variant?: ProSkel
 }
 
 /** Ancien nom, gardé pour les pages qui n'ont pas encore choisi leur forme. */
-export function OwnerPageSkeleton(props: { variant?: ProSkeletonVariant; title?: string }) {
+export function OwnerPageSkeleton(props: { variant?: ProSkeletonVariant; title?: string; header?: React.ReactNode | 'none' }) {
   return <ProPageSkeleton {...props} />;
 }
 

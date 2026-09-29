@@ -217,7 +217,7 @@ export default function OwnerPromoterTeams() {
   const availablePromoters = promoters.filter(p => !p.teamId || p.teamId === editing?.id || selectedMembers.includes(p.id));
   const getSortedMembers = (teamId: string) => [...(memberDetails[teamId] || [])].sort((a, b) => b[sortBy] - a[sortBy]);
 
-  if (loading) return <ProPageSkeleton variant="cards" title={t('promoterTeams.title')} />;
+  if (loading) return <ProPageSkeleton variant="cards" title={t('promoterTeams.title')} header={<PromoHeader title={t('promoterTeams.title')} subtitle={tt('Agences & équipes de promoteurs', 'Agencies & promoter teams')} backTo={`${basePath}/promoters`} />} />;
 
   return (
     <>

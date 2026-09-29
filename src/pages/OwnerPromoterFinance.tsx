@@ -349,7 +349,7 @@ export default function OwnerPromoterFinance() {
 
   const maskIban = (iban: string) => `${iban.slice(0, 4)}···${iban.slice(-4)}`;
 
-  if (loading) return <ProPageSkeleton variant="list" title={t('promoterPayouts.title')} />;
+  if (loading) return <ProPageSkeleton variant="list" title={t('promoterPayouts.title')} header={<PromoHeader title={t('promoterPayouts.title')} subtitle={t('promoterSettlement.subtitle')} backTo={`${basePath}/promoters`} />} />;
 
   return (
     <>

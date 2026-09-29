@@ -352,7 +352,7 @@ export default function OwnerPromoterDetail() {
 
   const promoterLink = `https://yunoapp.eu/promoteur/${editForm.promoCode}`;
 
-  if (loading) return <ProPageSkeleton variant="detail" title={t('promoterDetail.title')} />;
+  if (loading) return <ProPageSkeleton variant="detail" title={t('promoterDetail.title')} header={<PromoHeader title={t('promoterDetail.title')} backTo={`${basePath}/promoters`} />} />;
 
   if (!promoter) {
     return (

@@ -249,7 +249,7 @@ export default function OwnerPromoterEventView() {
 
   const chartTooltip = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 12 };
 
-  if (loading) return <ProPageSkeleton variant="analytics" title={t('promoterEvent.title')} />;
+  if (loading) return <ProPageSkeleton variant="analytics" title={t('promoterEvent.title')} header={<PromoHeader title={t('promoterEvent.title')} backTo={filterPromoterId ? `${basePath}/promoters/${filterPromoterId}` : `${basePath}/promoters`} />} />;
 
   return (
     <>

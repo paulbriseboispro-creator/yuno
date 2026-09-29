@@ -280,7 +280,7 @@ export default function OwnerPromoterTemplates() {
     return parts.join(' · ') || t('owner.promo.noRules');
   }
 
-  if (loading) return <ProPageSkeleton variant="cards" title={t('promoterTemplates.title')} />;
+  if (loading) return <ProPageSkeleton variant="cards" title={t('promoterTemplates.title')} header={<PromoHeader title={t('promoterTemplates.title')} subtitle={t('owner.promo.templatesSubtitle')} backTo={`${basePath}/promoters`} />} />;
 
   return (
     <>

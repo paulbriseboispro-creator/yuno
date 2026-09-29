@@ -499,7 +499,7 @@ function KpiCard({ label, value, sub, red }: { label: string; value: string; sub
 
 export function OwnerCampaignEditor({ templateMode = false }: { templateMode?: boolean } = {}) {
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <ProPageSkeleton variant="form" />;
+  if (loading || !venueId) return <ProPageSkeleton variant="form" header="none" />;
   return (
     <StudioShell
       basePath="/owner/campaigns"
@@ -524,7 +524,7 @@ export function OwnerCampaignTemplateEditor() {
 export function OwnerCampaignReport() {
   const { t } = useLanguage();
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <ProPageSkeleton variant="detail" title={t('em.report.title')} />;
+  if (loading || !venueId) return <ProPageSkeleton variant="detail" title={t('em.report.title')} header="none" />;
   return (
     <CampaignReport
       basePath="/owner/campaigns"
@@ -545,7 +545,7 @@ export function OwnerCampaignReport() {
 export function OwnerContactBase() {
   const { t } = useLanguage();
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <ProPageSkeleton variant="table" title={t('cbase.title')} />;
+  if (loading || !venueId) return <ProPageSkeleton variant="table" title={t('cbase.title')} header="none" />;
   return (
     <ContactBasePanel
       basePath="/owner/campaigns"
@@ -557,7 +557,7 @@ export function OwnerContactBase() {
 export function OwnerEmailAutomations() {
   const { t } = useLanguage();
   const { venueId, venue, loading } = useVenueContext();
-  if (loading || !venueId) return <ProPageSkeleton variant="list" title={t('em.auto.title')} />;
+  if (loading || !venueId) return <ProPageSkeleton variant="list" title={t('em.auto.title')} header="none" />;
   return (
     <EmailAutomationsPanel
       basePath="/owner/campaigns"
