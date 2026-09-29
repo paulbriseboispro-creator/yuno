@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
+import { alertIndirectChargeRefused, indirectChargesEnabled, isBlockedIndirectCharge } from "../_shared/charge-policy.ts";
 import { checkPayoutReadiness, checkPayoutReadinessHealing, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { createSessionWithPaymentMethodFallback, healChargesEnabled, organizerConnectColumns, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
@@ -447,7 +448,8 @@ serve(async (req) => {
     // les deux jambes d'un partage Stripe, le club vendeur de record.
     // Accord de co-organisation entre deux organisations réparti par Stripe :
     // null = charge directe chez l'hôte (le décompte règle le partenaire).
-    const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
+    // Éteint tant que seules les charges directes sont admises (charge-policy.ts).
+    const coorgStripe = indirectChargesEnabled() ? await loadCoorgStripeSplit(supabaseAdmin, event) : null;
     const readinessInput = {
       itemType: "ticket" as const,
       isBde: event.is_bde === true,
@@ -525,6 +527,15 @@ serve(async (req) => {
       if (demoStripeAccount) {
         logStep("Checkout refused — demo Stripe account sentinel", { demoStripeAccount });
         throw new Error(t("checkout.demoEventNotPurchasable", lang));
+      }
+
+      // Contrat qui partage chaque vente via Stripe (charge plateforme) : hors du
+      // cadre Managed Risk des comptes connectés (charge-policy.ts). Refusé ICI,
+      // avant toute réservation, plutôt qu'au moment du virement.
+      if (isBlockedIndirectCharge(readiness.split)) {
+        logStep("Checkout refused — indirect charge disabled", { eventId: event.id });
+        await alertIndirectChargeRefused(supabaseAdmin, { eventId: event.id, itemType: "ticket" });
+        throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
       }
     }
 
@@ -1096,8 +1107,12 @@ serve(async (req) => {
     const split = resolvePaymentSplit({
       itemType: "ticket",
       grossAmount: totalPrice,
-      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
-      yunoFeeCentsOverride: feeAbsorbed ? Math.round(serviceFee * 100) : undefined,
+      // La commission prélevée = EXACTEMENT les frais de service de la ligne
+      // « Frais de service » (ou, en absorption, la commission que le club prend
+      // à sa charge). Recalculée sur le total, elle dépassait les frais affichés
+      // dès 24,75 € de billet et touchait aussi les consos ajoutées : le vendeur
+      // payait la différence sans la voir (même règle que create-table-checkout).
+      yunoFeeCentsOverride: Math.round(serviceFee * 100),
       // BDE floor must match the serviceFee floor so application_fee == charged fee.
       isBde: event.is_bde === true,
       event: {
@@ -1115,6 +1130,13 @@ serve(async (req) => {
       organizerStripeAccountId,
       venueDirectAmount: upsellTotal,
     });
+    // Une conso ajoutée à un billet de collab peut faire toucher les DEUX parties
+    // (split « separate ») même quand la porte ci-dessus est passée.
+    if (isBlockedIndirectCharge(split)) {
+      logStep("Checkout refused — indirect charge disabled (resolved split)", { eventId: event.id });
+      await alertIndirectChargeRefused(supabaseAdmin, { eventId: event.id, itemType: "ticket" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
 
     // Create pending ticket

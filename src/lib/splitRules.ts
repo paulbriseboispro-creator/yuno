@@ -129,6 +129,17 @@ export function defaultExternalCollectors(mode: string | null | undefined): { ti
 // ─── Règlement : partage Stripe automatique OU virement suivi ────────────────
 
 /**
+ * Le partage Stripe AUTOMATIQUE (une vente coupée entre deux comptes) passe par
+ * une charge plateforme. Les comptes connectés de Yuno sont en « Managed Risk »
+ * (Stripe couvre leurs pertes), qui n'admet que des charges DIRECTES : le
+ * partage automatique est donc éteint, et un contrat collab se règle par
+ * virement. Miroir de `STRIPE_INDIRECT_CHARGES_ENABLED`
+ * (supabase/functions/_shared/charge-policy.ts) — les deux se rallument
+ * ENSEMBLE, jamais l'un sans l'autre (décision du 2026-09-29).
+ */
+export const STRIPE_AUTO_SPLIT_ENABLED = false;
+
+/**
  * Lit `rules.settlement`. Miroir EXACT de `collabSettlement` (edge,
  * payment-split.ts) et de `normalize_collab_settlement` (SQL) : absent ou
  * inconnu = partage Stripe ; en virement, l'encaisseur est le club par défaut,

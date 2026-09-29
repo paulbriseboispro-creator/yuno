@@ -25,6 +25,12 @@ interface TicketRoundEmbed {
   price: number;
 }
 
+// Une jointure plusieurs-à-un arrive en OBJET à l'exécution, mais le client non
+// typé la déclare en tableau : on accepte les deux formes au lieu de forcer le type.
+function embedOne<T>(v: T | T[] | null | undefined): T | null {
+  return Array.isArray(v) ? v[0] ?? null : v ?? null;
+}
+
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === 'OPTIONS') {
@@ -464,6 +470,14 @@ serve(async (req) => {
             reservationId: ticket.reservation_id,
             error: confirmErr.message,
           });
+          // Compter la capacité TENUE (quantité × taille du groupe), pas la
+          // quantité : un billet « groupe de 4 » occupe 4 places de la jauge.
+          const { data: heldRow } = await supabaseAdmin
+            .from('ticket_reservations')
+            .select('capacity_held')
+            .eq('id', ticket.reservation_id)
+            .maybeSingle();
+          const seats = Number(heldRow?.capacity_held) > 0 ? Number(heldRow?.capacity_held) : (ticket.quantity || 1);
           const { data: roundData } = await supabaseAdmin
             .from('ticket_rounds')
             .select('tickets_sold')
@@ -472,7 +486,7 @@ serve(async (req) => {
           if (roundData) {
             await supabaseAdmin
               .from('ticket_rounds')
-              .update({ tickets_sold: (roundData.tickets_sold || 0) + ticket.quantity })
+              .update({ tickets_sold: (roundData.tickets_sold || 0) + seats })
               .eq('id', ticket.ticket_round_id);
           }
         } else {
@@ -813,11 +827,13 @@ serve(async (req) => {
             .eq('id', ticketId)
             .single();
 
-          if (fullTicket) {
+          const ticketEvent = embedOne(fullTicket?.events as unknown as TicketEventEmbed | TicketEventEmbed[] | null);
+          const ticketRound = embedOne(fullTicket?.ticket_rounds as unknown as TicketRoundEmbed | TicketRoundEmbed[] | null);
+          if (fullTicket && ticketEvent && ticketRound) {
             // Standalone organizer events have no venue_id — skip the venue lookup
             // entirely instead of querying `.eq('id', null)` (which errors and would
             // leave the guest confirmation page without an issuer name).
-            const ticketVenueId = (fullTicket.events as TicketEventEmbed).venue_id;
+            const ticketVenueId = ticketEvent.venue_id;
             const { data: venue } = ticketVenueId
               ? await supabaseAdmin
                   .from('venues')
@@ -835,11 +851,11 @@ serve(async (req) => {
             ticketDetails = {
               id: fullTicket.id,
               qrCode: fullTicket.qr_code,
-              eventTitle: (fullTicket.events as TicketEventEmbed).title,
-              eventDate: (fullTicket.events as TicketEventEmbed).start_at,
-              eventPosterUrl: (fullTicket.events as TicketEventEmbed).poster_url,
-              roundName: (fullTicket.ticket_rounds as TicketRoundEmbed).name,
-              roundPrice: (fullTicket.ticket_rounds as TicketRoundEmbed).price,
+              eventTitle: ticketEvent.title,
+              eventDate: ticketEvent.start_at,
+              eventPosterUrl: ticketEvent.poster_url,
+              roundName: ticketRound.name,
+              roundPrice: ticketRound.price,
               quantity: fullTicket.quantity,
               totalPrice: fullTicket.total_price,
               serviceFee: fullTicket.service_fee,

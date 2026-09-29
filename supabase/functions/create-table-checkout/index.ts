@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { loadCoorgStripeSplit } from "../_shared/coorg-stripe.ts";
+import { alertIndirectChargeRefused, indirectChargesEnabled, isBlockedIndirectCharge } from "../_shared/charge-policy.ts";
 import { checkPayoutReadiness, checkPayoutReadinessHealing, accountsUsedBySplit } from "../_shared/payout-readiness.ts";
 import { createSessionWithPaymentMethodFallback, healChargesEnabled, organizerConnectColumns, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -60,6 +61,9 @@ serve(async (req) => {
 
   // Usage de code promo retenu (lot F) : rendu si le checkout échoue.
   let promoRedemptionId: string | null = null;
+  // Réservation « pending » créée pour la session Stripe : rendue si le checkout
+  // échoue après coup, sinon elle bloquait la zone jusqu'au nettoyage.
+  let pendingReservationId: string | null = null;
   try {
     logStep("Function started", { testMode: TEST_MODE });
 
@@ -424,7 +428,8 @@ serve(async (req) => {
     // l'organisateur (charge directe sur SON compte Connect).
     // Accord de co-organisation entre deux organisations réparti par Stripe :
     // null = charge directe chez l'hôte (le décompte règle le partenaire).
-    const coorgStripe = await loadCoorgStripeSplit(supabaseAdmin, event);
+    // Éteint tant que seules les charges directes sont admises (charge-policy.ts).
+    const coorgStripe = indirectChargesEnabled() ? await loadCoorgStripeSplit(supabaseAdmin, event) : null;
     const readinessInput = {
       itemType: "table" as const,
       isBde: event.is_bde === true,
@@ -1108,6 +1113,15 @@ serve(async (req) => {
       throw new Error(t("checkout.demoEventNotPurchasable", lang));
     }
 
+    // Contrat qui partage chaque vente via Stripe (charge plateforme) : hors du
+    // cadre Managed Risk des comptes connectés (charge-policy.ts). Refusé AVANT
+    // de réserver la table.
+    if (isBlockedIndirectCharge(readiness.split)) {
+      logStep("Checkout refused — indirect charge disabled", { eventId: event.id });
+      await alertIndirectChargeRefused(supabaseAdmin, { eventId: event.id, itemType: "table" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
+
     // Atomic: locks the governing zone, re-counts under the lock, then inserts the
     // pending reservation. See migration 20260616130000_reserve_table_slot_atomic.sql.
     const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
@@ -1141,6 +1155,7 @@ serve(async (req) => {
       throw new Error(reservationError?.message || "Failed to create reservation");
     }
     const reservation = { id: reservationId as string };
+    pendingReservationId = reservation.id;
     if (promoCodeId) {
       await supabaseAdmin.from("table_reservations").update({ promo_code_id: promoCodeId, promo_discount: promoCodeDiscount }).eq('id', reservation.id);
     }
@@ -1247,6 +1262,11 @@ serve(async (req) => {
       venueStripeAccountId: venue?.stripe_account_id ?? null,
       organizerStripeAccountId,
     });
+    if (isBlockedIndirectCharge(split)) {
+      logStep("Checkout refused — indirect charge disabled (resolved split)", { eventId: event.id });
+      await alertIndirectChargeRefused(supabaseAdmin, { eventId: event.id, itemType: "table" });
+      throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
+    }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
     if (connectedAccountId || split.transferSplit) {
       await supabaseAdmin.from("table_reservations").update({
@@ -1342,6 +1362,8 @@ serve(async (req) => {
         };
       })(),
     } as Stripe.Checkout.SessionCreateParams, logStep);
+    // La session existe : l'acheteur peut payer, la réservation ne se rend plus.
+    pendingReservationId = null;
 
     logStep("Stripe session created", {
       sessionId: session.id,
@@ -1355,11 +1377,19 @@ serve(async (req) => {
     logStep("ERROR", { message: errorMessage });
     // Rendre l'usage du code promo retenu pour cette tentative (le client
     // admin du try n'est pas visible ici).
-    if (promoRedemptionId) {
-      await releasePromoRedemption(
-        createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } }),
-        promoRedemptionId,
-      );
+    const cleanupClient = (promoRedemptionId || pendingReservationId)
+      ? createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false } })
+      : null;
+    if (promoRedemptionId && cleanupClient) {
+      await releasePromoRedemption(cleanupClient, promoRedemptionId);
+    }
+    // La session Stripe n'a pas pu naître : la réservation « pending » ne sera
+    // jamais payée. La rendre tout de suite libère la zone (le décompte de
+    // capacité compte les réservations en attente).
+    if (pendingReservationId && cleanupClient) {
+      const { error: releaseErr } = await cleanupClient.from("table_reservations")
+        .delete().eq("id", pendingReservationId).eq("status", "pending");
+      if (releaseErr) logStep("Pending reservation release failed", { id: pendingReservationId, error: releaseErr.message });
     }
     const promo = error instanceof PromoCodeError ? { code: error.code, reason: error.reason } : {};
     return new Response(JSON.stringify({ error: errorMessage, ...promo }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });

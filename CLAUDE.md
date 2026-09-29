@@ -1348,6 +1348,49 @@ testé par `src/lib/__tests__/stripeConnectAccounts.test.ts`). Règles :
   QUE par cet endpoint, dont le secret va dans `STRIPE_WEBHOOK_SECRET_CONNECT`.
   Sans lui, un acheteur qui ferme l'onglet avant le retour paie sans billet.
 
+## Stripe : CHARGES DIRECTES seulement (2026-09-29, avant la 1re collab réelle — WOH)
+
+Vérifié sur le compte live « Yuno 360 » avec le MCP Stripe : les comptes connectés
+naissent en « Managed Risk » (`losses_collector = stripe`), la seule forme que
+Stripe accepte d'une plateforme qui n'a pas signé l'engagement de pertes. Contrepartie
+écrite par Stripe : **charges directes uniquement**. Règles intouchables :
+
+- **`splitMode: "separate"` est éteint** (`_shared/charge-policy.ts`,
+  `STRIPE_INDIRECT_CHARGES_ENABLED` absent) : collab réparti par Stripe, barème
+  retenu par la plateforme, co-organisation répartie par Stripe. Les trois
+  checkouts refusent une telle vente AVANT toute réservation (message acheteur
+  `checkout.collabStripeSplitUnavailable`, alerte `admin_indirect_charge_refused`),
+  et `loadCoorgStripeSplit` n'est plus appelé (l'hôte encaisse, le décompte règle).
+  Front : `STRIPE_AUTO_SPLIT_ENABLED = false` (`splitRules.ts`) grise « Oui » dans
+  `SettlementModeSwitch` (qui bascule tout contrat en édition en virement) et masque
+  le choix de la co-organisation. Les deux interrupteurs se rallument ENSEMBLE, et
+  seulement après l'engagement de pertes signé chez Stripe ET des comptes créés en
+  `losses_collector = application` (qui imposerait aussi `fees_collector =
+  application` : tout le modèle de frais serait à refaire).
+- **Une collab club × orga se règle donc par virement** (une partie encaisse en
+  charge directe, `collab_split` suivi, décompte figé à J+2) ou « réglée entre
+  vous ». Un billet de collab avec une conso du club fait toucher les deux
+  parties : c'est pourquoi le mode Stripe 100/0 n'est pas non plus proposé.
+- **La commission prélevée = les frais de service AFFICHÉS**, pour les trois
+  piliers (`yunoFeeCentsOverride` toujours passé). Recalculée par
+  `resolvePaymentSplit` sur le total, elle dépassait l'affiché dès 24,75 € de
+  billet et sur chaque commande de boissons.
+- **Webhook `checkout.session.completed`** : un échec passager de verify-* fait
+  rejouer Stripe (le webhook ne rend plus 200 en silence) ; un échec définitif
+  (ligne introuvable, montant incohérent) alerte `admin_paid_sale_unfulfilled`.
+  Un litige alerte `admin_payment_disputed`. `stripe_fee_real_cents` ne compte
+  que les lignes `stripe_fee` (sur une charge directe, `bt.fee` inclut la
+  commission Yuno).
+- **Achats en attente supprimés à 45 min** (session Stripe = 31 min après la
+  ligne), et un billet payé compte toujours ses places même si sa réservation de
+  10 min a expiré (`confirm_ticket_reservation`, migration `20260929290000`).
+- **Refus de remboursement Stripe à la porte** (`staff-cancel`) : jamais écrit
+  « remboursé » pour une commande liée, alerte `admin_refund_failed`.
+- Virements de la plateforme en MANUEL : la balance Yuno ne contient que ses
+  commissions (charges directes). État live au 29/09 : 0 compte connecté,
+  endpoints « Yuno live » (`@self`) et « Connected accounts » (`@accounts`,
+  5 événements, snapshot, clover) actifs.
+
 ## Backend Supabase — gotchas critiques
 
 - **Migrations** : pousser via `supabase db push` (le CLI est configuré). Attention aux trous
