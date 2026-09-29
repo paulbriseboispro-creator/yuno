@@ -14,6 +14,8 @@ import {
 import { capturePosthog } from '@/lib/posthog';
 import { PartyAvatar, useCoorgT, useCoorgErrorText } from './coorgUi';
 import { CoorgInviteDialog } from './CoorgInviteDialog';
+import { formatInTimeZone } from 'date-fns-tz';
+import { PARIS_TIMEZONE } from '@/lib/timezone';
 
 const dfLocale = (l: string) => (l === 'fr' ? fr : l === 'es' ? es : enUS);
 
@@ -62,7 +64,7 @@ export function CoorgInvitesInbox({ scope, basePath, onChanged }: {
   };
 
   if (invites.length === 0) return null;
-  const fmtDate = (d: string) => format(new Date(d), 'EEE d MMM · HH:mm', { locale: dfLocale(language) });
+  const fmtDate = (d: string) => formatInTimeZone(new Date(d), PARIS_TIMEZONE, 'EEE d MMM · HH:mm', { locale: dfLocale(language) });
 
   return (
     <div>

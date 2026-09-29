@@ -95,6 +95,17 @@ Ce qui ne se fait jamais, garde ou pas :
 - Un checkout ou une RPC met 2 à 6 s : attendre le changement d'URL ou un
   toast (`[data-sonner-toast]`), jamais un `sleep` fixe.
 
+## Soirée à trois parties jouée le 2026-09-29
+
+« Triple Collab Night » (sam. 03/10, club `womber` × Organisateur Démo × Asso Yuno)
+a été créée de zéro dans le vrai front : soirée club en brouillon → co-event
+proposé à Organisateur Démo (contrat pré-signé par le club) → signature orga →
+billetterie (preset 3 paliers) → Asso Yuno invitée en co-hôte éditeur, accepte →
+un lien de vente par partie → accord 55/35/10 validé par les trois → parts de
+guest list (liste maison tenue par l'orga, part « Asso Yuno ») → tables VIP →
+publication (`published_at` antidaté de 4 j par sécurité). Ventes, inscrits,
+clics et visites : `q.sh scripts/demo/seed-triple-collab.sql` (rejouable).
+
 ## Parcours collab joué le 2026-09-21
 
 Soirée « Goya Thursday » (club `womber` × `organizer@womber.fr`, barème Goya

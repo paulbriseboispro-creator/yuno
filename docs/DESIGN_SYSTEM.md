@@ -849,6 +849,7 @@ Une page que DEUX entreprises lisent, souvent pour la première fois, sans forma
 | **L'ordre suit la phase** : après la soirée, le décompte passe devant l'argent et les outils | La page ne se lit pas dans le même ordre le jour de la signature et le lendemain de la soirée |
 | **Une grille (barème, %) se montre UNE fois**, derrière « Voir le détail » une fois signée | Répétée trois fois (bannière, panneau, carte), elle faisait passer la page pour un contrat |
 | **Analyses, bilan, carte du bar : repliés** (`Foldable`) | Vides avant la soirée, longs après (le bilan empile ses onglets sur mobile). Progressive disclosure : résumé → contexte → détail |
+| **Centre de contrôle, pleine largeur** (29/09) : les listes de ventes et l'analyse par partenaire sont des PAGES FILLES (`…/sales`, `…/partners`, fil d'Ariane), jamais des déplis ; les outils s'ouvrent dans un nouvel onglet avec le bandeau « Retour à la collaboration » | Un long déplié noyait la page d'accueil de la soirée ; un outil ouvert dans le même onglet faisait perdre le chemin du retour |
 | **Pas de panneau argent tant que le contrat n'est pas signé** | Il retombait sur un défaut 50/50 pendant qu'une proposition 40/60 attendait juste au-dessus |
 | **Couleur = statut seulement** : rouge = à faire, vert = fait, gris = en attente de l'autre | Le reste en typographie et opacité (T1/T2/T3) |
 

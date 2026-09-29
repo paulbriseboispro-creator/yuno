@@ -408,6 +408,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.collab.s1h', bodyKey: 'ohelp.org.collab.s1b' },
           { headingKey: 'ohelp.org.collab.s2h', bodyKey: 'ohelp.org.collab.s2b' },
           { headingKey: 'ohelp.org.collab.s3h', bodyKey: 'ohelp.org.collab.s3b', type: 'steps' },
+          { headingKey: 'ohelp.org.collab.s9h', bodyKey: 'ohelp.org.collab.s9b' },
           { headingKey: 'ohelp.org.collab.s4h', bodyKey: 'ohelp.org.collab.s4b', screenshotUrl: '/help/org-partners.webp' },
           { headingKey: 'ohelp.org.collab.s5h', bodyKey: 'ohelp.org.collab.s5b' },
           { headingKey: 'ohelp.org.collab.s6h', bodyKey: 'ohelp.org.collab.s6b', type: 'tip' },

@@ -1041,6 +1041,10 @@ export default function EventDetails() {
     </h1>
   );
 
+  const coOrganizerNames = primaryOrganizer
+    ? eventOrganizers.filter((o) => o.id !== primaryOrganizer.user_id && o.name).map((o) => o.name)
+    : [];
+
   const heroMeta = (
     <div className="flex items-end justify-between gap-4 flex-wrap animate-hero-body">
       <div>
@@ -1052,6 +1056,18 @@ export default function EventDetails() {
             <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
               {primaryOrganizer.display_name.toUpperCase()}
             </span>
+            {/* Co-organisateurs : la soirée est à eux aussi, l'en-tête le dit dès le
+                premier écran (« Presented by » les détaille plus bas). Au-delà de
+                deux, un compteur garde la ligne sur une ligne. */}
+            {coOrganizerNames.slice(0, 2).map((name) => (
+              <span key={name} className="contents">
+                <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
+                <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>{name.toUpperCase()}</span>
+              </span>
+            ))}
+            {coOrganizerNames.length > 2 && (
+              <span className="font-mono text-[var(--tx-9a9a9a)] tracking-[0.08em]" style={{ fontSize: '11px' }}>+{coOrganizerNames.length - 2}</span>
+            )}
             {venue && venue.id !== primaryOrganizer.user_id && (
               <>
                 <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>

@@ -113,17 +113,31 @@ export default function OwnerGuestList() {
   // `operations`. Si le viewer ne le tient pas sur une co-soirée, la part maison
   // passe en lecture seule (le serveur la verrouille de toute façon) ; il garde
   // ses propres parts déléguées éditables.
-  const [eventCollab, setEventCollab] = useState<{ resp: unknown; mode: string | null; isCollab: boolean } | null>(null);
+  const [eventCollab, setEventCollab] = useState<{ resp: unknown; mode: string | null; isCollab: boolean; hostName: string | null } | null>(null);
   useEffect(() => {
     if (!selectedEventId) { setEventCollab(null); return; }
     let active = true;
     (async () => {
       const { data: ev } = await supabase.from('events')
-        .select('collab_responsibilities, event_mode, partner_venue_id, partner_organizer_id')
+        .select('collab_responsibilities, event_mode, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id')
         .eq('id', selectedEventId).maybeSingle();
       if (!active) return;
       const isCollab = !!(ev?.partner_venue_id || ev?.partner_organizer_id || ev?.event_mode === 'co_event');
-      setEventCollab(ev ? { resp: (ev as { collab_responsibilities?: unknown }).collab_responsibilities, mode: ev.event_mode, isCollab } : null);
+      // La liste maison appartient à la SOIRÉE : elle porte le nom de son hôte
+      // (le club, sinon l'organisateur principal), jamais celui du compte qui la
+      // regarde — sur une co-soirée, un co-hôte voyait la liste d'un autre
+      // présentée comme « sa » liste principale.
+      let hostName: string | null = null;
+      const hostVenue = ev?.venue_id ?? ev?.partner_venue_id ?? null;
+      if (hostVenue) {
+        const { data: v } = await supabase.from('venues').select('name').eq('id', hostVenue).maybeSingle();
+        hostName = v?.name ?? null;
+      } else if (ev?.organizer_user_id) {
+        const { data: o } = await supabase.from('organizer_profiles').select('display_name').eq('user_id', ev.organizer_user_id).maybeSingle();
+        hostName = o?.display_name ?? null;
+      }
+      if (!active) return;
+      setEventCollab(ev ? { resp: (ev as { collab_responsibilities?: unknown }).collab_responsibilities, mode: ev.event_mode, isCollab, hostName } : null);
     })();
     return () => { active = false; };
   }, [selectedEventId]);
@@ -184,8 +198,21 @@ export default function OwnerGuestList() {
     .reduce((s, p) => s + (p.is_active ? (p.quota ?? 0) : 0), 0);
   const totalSignups = Object.values(entriesByPart).flat().filter(e => e.status !== 'cancelled').length;
 
+  // La liste maison porte le nom de celui qui la TIENT (l'organisateur qui l'a
+  // ouverte, sinon l'hôte de la soirée) : le même que « Qui fait vendre ? », qui
+  // lui attribue ses inscrits.
+  const [houseHolderName, setHouseHolderName] = useState<string | null>(null);
+  const houseHolderId = clubPart?.organizer_user_id ?? null;
+  useEffect(() => {
+    if (!houseHolderId) { setHouseHolderName(null); return; }
+    let active = true;
+    supabase.from('organizer_profiles').select('display_name').eq('user_id', houseHolderId).maybeSingle()
+      .then(({ data }) => { if (active) setHouseHolderName(data?.display_name ?? null); });
+    return () => { active = false; };
+  }, [houseHolderId]);
+  const eventHouseName = houseHolderName || eventCollab?.hostName || houseName;
   const displayName = (p: Part) =>
-    p.holder_type === 'club' ? houseName
+    p.holder_type === 'club' ? eventHouseName
     : p.holder_type === 'custom' ? (p.holder_label || '')
     : (p.displayName || p.holder_label || '');
 
@@ -275,6 +302,16 @@ export default function OwnerGuestList() {
           }
         </div>
 
+        {/* Les parts arrivent après le sélecteur : sans ce squelette, la page
+            semblait réduite au nom de la soirée pendant le chargement. */}
+        {selectedEventId && loading && (
+          <div className="space-y-3" aria-busy="true">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="animate-pulse" style={{ height: i === 0 ? 64 : 120, borderRadius: 14, background: CARD_BG, border: `1px solid ${BORDER}` }} />
+            ))}
+          </div>
+        )}
+
         {selectedEventId && !loading && (
             /* Totals — modèle parts indépendantes (lecture seule) */
             <div className="flex items-center gap-4" style={{ padding: '12px 16px', borderRadius: 14, background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
@@ -363,7 +400,7 @@ export default function OwnerGuestList() {
               <PartCard
                 part={clubPart}
                 holderType="club"
-                displayName={houseName}
+                displayName={eventHouseName}
                 entries={clubPart ? (entriesByPart[clubPart.id] || []) : []}
                 slug={slug}
                 eventId={selectedEventId}

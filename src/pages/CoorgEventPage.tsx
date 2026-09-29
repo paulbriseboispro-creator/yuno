@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { ArrowLeft, Handshake } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +10,8 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { CoorgEventPanel } from '@/components/coorg/CoorgEventPanel';
 import { useCoorgT } from '@/components/coorg/coorgUi';
+import { formatInTimeZone } from 'date-fns-tz';
+import { PARIS_TIMEZONE } from '@/lib/timezone';
 
 /**
  * /owner/coorg/:eventId et /organizer-app/coorg/:eventId — la co-organisation
@@ -52,7 +53,7 @@ export default function CoorgEventPage() {
             <h1 className="truncate" style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>{event?.title ?? '…'}</h1>
             {event && (
               <p style={{ color: T3, fontSize: 12.5 }}>
-                {format(new Date(event.start_at), 'EEEE d MMMM yyyy · HH:mm', { locale: language === 'fr' ? fr : language === 'es' ? es : enUS })}
+                {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEEE d MMMM yyyy · HH:mm', { locale: language === 'fr' ? fr : language === 'es' ? es : enUS })}
               </p>
             )}
           </div>

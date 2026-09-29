@@ -93,66 +93,80 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   // requête partait deux fois. On ne se dit prêt que pour la soirée chargée.
   const [loadedEventId, setLoadedEventId] = useState<string | null>(null);
   const partIdsRef = useRef<Set<string>>(new Set());
+  // Seule la DERNIÈRE lecture écrit à l'écran : ouvrir la page sur `?event=`
+  // lance d'abord la soirée par défaut, puis la bonne ; la plus lente des deux
+  // gagnait, et le sélecteur disait « Triple » sous les parts d'une autre soirée.
+  const requestRef = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++requestRef.current;
     if (!eventId) { setParts([]); setEntriesByPart({}); setLoading(false); setLoadedEventId(eventId); return; }
     setLoading(true);
+    try {
+      // Cast client : agency_id / agency_distribution_mode ne sont pas encore dans
+      // les types générés (gen types après migration). Comme partout dans le repo.
+      const { data: rows } = await (supabase as any).from('guest_lists').select(PART_COLS).eq('event_id', eventId);
+      const list = ((rows || []) as Part[]).slice().sort(orderParts);
 
-    // Cast client : agency_id / agency_distribution_mode ne sont pas encore dans
-    // les types générés (gen types après migration). Comme partout dans le repo.
-    const { data: rows } = await (supabase as any).from('guest_lists').select(PART_COLS).eq('event_id', eventId);
-    const list = ((rows || []) as Part[]).slice().sort(orderParts);
+      // Noms des DJ, des promoteurs et inscriptions : trois lectures INDÉPENDANTES,
+      // lancées ensemble. En série (5 allers-retours), la page restait vide plusieurs
+      // secondes sur un réseau lent — on croyait la guest list cassée.
+      const djIds = list.filter(p => p.holder_type === 'dj' && p.dj_id).map(p => p.dj_id!) as string[];
+      const promoterIds = list.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
+      const ids = list.map(p => p.id);
 
-    // Resolve holder display names for dj/promoter parts in two batched queries.
-    const djIds = list.filter(p => p.holder_type === 'dj' && p.dj_id).map(p => p.dj_id!) as string[];
-    const promoterIds = list.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
+      const [djNames, promoterNames, entries] = await Promise.all([
+        (async () => {
+          const names: Record<string, string> = {};
+          if (!djIds.length) return names;
+          const { data: djRows } = await supabase.from('djs').select('id, stage_name, first_name, last_name').in('id', djIds);
+          (djRows || []).forEach(d => {
+            names[d.id] = d.stage_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || 'DJ';
+          });
+          return names;
+        })(),
+        (async () => {
+          const names: Record<string, string> = {};
+          if (!promoterIds.length) return names;
+          const { data: promoRows } = await supabase.from('promoters').select('id, user_id').in('id', promoterIds);
+          const userIds = (promoRows || []).map(p => p.user_id);
+          const { data: profiles } = userIds.length
+            ? await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
+            : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
+          const profileMap = new Map((profiles || []).map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
+          (promoRows || []).forEach(p => { names[p.id] = profileMap.get(p.user_id) || ''; });
+          return names;
+        })(),
+        (async () => {
+          if (!ids.length) return [] as PartEntry[];
+          const { data } = await supabase
+            .from('guest_list_entries')
+            .select('id, guest_list_id, full_name, email, gender, status, entry_scanned, entry_type, promoter_id, created_at')
+            .in('guest_list_id', ids)
+            .order('created_at', { ascending: false });
+          return (data || []) as PartEntry[];
+        })(),
+      ]);
 
-    const djNames: Record<string, string> = {};
-    if (djIds.length) {
-      const { data: djRows } = await supabase.from('djs').select('id, stage_name, first_name, last_name').in('id', djIds);
-      (djRows || []).forEach(d => {
-        djNames[d.id] = d.stage_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || 'DJ';
-      });
-    }
-    const promoterNames: Record<string, string> = {};
-    if (promoterIds.length) {
-      const { data: promoRows } = await supabase.from('promoters').select('id, user_id').in('id', promoterIds);
-      const userIds = (promoRows || []).map(p => p.user_id);
-      const { data: profiles } = userIds.length
-        ? await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
-        : { data: [] as { id: string; first_name: string | null; last_name: string | null }[] };
-      const profileMap = new Map((profiles || []).map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
-      (promoRows || []).forEach(p => { promoterNames[p.id] = profileMap.get(p.user_id) || ''; });
-    }
-
-    const resolved = list.map(p => ({
-      ...p,
-      displayName:
-        p.holder_type === 'dj' ? (p.dj_id ? djNames[p.dj_id] : undefined)
-        : p.holder_type === 'promoter' ? (p.promoter_id ? (promoterNames[p.promoter_id] || p.holder_label || undefined) : undefined)
-        : undefined,
-    }));
-    setParts(resolved);
-
-    const ids = resolved.map(p => p.id);
-    partIdsRef.current = new Set(ids);
-    if (ids.length) {
-      const { data: entries } = await supabase
-        .from('guest_list_entries')
-        .select('id, guest_list_id, full_name, email, gender, status, entry_scanned, entry_type, promoter_id, created_at')
-        .in('guest_list_id', ids)
-        .order('created_at', { ascending: false });
+      if (request !== requestRef.current) return;
+      const resolved = list.map(p => ({
+        ...p,
+        displayName:
+          p.holder_type === 'dj' ? (p.dj_id ? djNames[p.dj_id] : undefined)
+          : p.holder_type === 'promoter' ? (p.promoter_id ? (promoterNames[p.promoter_id] || p.holder_label || undefined) : undefined)
+          : undefined,
+      }));
+      setParts(resolved);
+      partIdsRef.current = new Set(ids);
       const grouped: Record<string, PartEntry[]> = {};
-      (entries || []).forEach(e => {
-        const k = e.guest_list_id as string;
-        (grouped[k] ||= []).push(e as PartEntry);
-      });
+      entries.forEach(e => { (grouped[e.guest_list_id as string] ||= []).push(e); });
       setEntriesByPart(grouped);
-    } else {
-      setEntriesByPart({});
+    } finally {
+      // Jamais un chargement éternel : une lecture qui lève rend quand même la page.
+      // « Prêt » seulement pour la soirée réellement chargée (la page ne monte
+      // ses boîtes qu'à ce moment-là, une seule fois).
+      if (request === requestRef.current) { setLoading(false); setLoadedEventId(eventId); }
     }
-    setLoading(false);
-    setLoadedEventId(eventId);
   }, [eventId]);
 
   useEffect(() => { load(); }, [load]);

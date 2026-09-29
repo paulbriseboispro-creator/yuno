@@ -542,7 +542,7 @@ export default function OwnerEvents() {
     try {
       await propose({ eventId, partnerId, mode: dbMode, responsibilities: collabResponsibilities });
       toast.success(
-        tl('Demande de collaboration envoyee', 'Collaboration request sent', 'Solicitud de colaboracion enviada'),
+        tl('Demande de collaboration envoyée', 'Collaboration request sent', 'Solicitud de colaboración enviada'),
         { description: tl(
           'Ton partenaire doit signer le contrat avant que la billetterie ouvre.',
           'Your partner must sign the contract before ticketing opens.',
@@ -553,7 +553,7 @@ export default function OwnerEvents() {
       // Echec bloquant a signaler : la soiree est enregistree mais reste sans
       // contrat, donc sans vente possible. Le taire laisserait un co-event muet.
       toast.error((err as { message?: string })?.message
-        || tl('La demande de collaboration a echoue', 'The collaboration request failed', 'La solicitud de colaboracion fallo'));
+        || tl('La demande de collaboration a échoué', 'The collaboration request failed', 'La solicitud de colaboración falló'));
     }
   };
 
@@ -1536,12 +1536,31 @@ export default function OwnerEvents() {
                   </div>
                 ) : (
                   <div className="space-y-2">
+                    {/* Les libellés parlent à CELUI qui remplit : l'organisateur loue un
+                        club, le club accueille un organisateur. Les mêmes clés servaient
+                        aux deux, et le club lisait « Tu portes l'événement seul·e (lieu
+                        loué hors Yuno) ». */}
                     <EventSelectCard selected={collabMode === 'solo'} onClick={() => setCollabMode('solo')} icon={Sparkles}
-                      title={t('owner.ev.soloTitle')} description={t('owner.ev.soloDesc')} />
+                      title={isOrganizerScope ? t('owner.ev.soloTitle') : tl('Soirée du club', 'Club night', 'Noche del club')}
+                      description={isOrganizerScope ? t('owner.ev.soloDesc') : tl(
+                        'Ton club porte la soirée seul, sans organisateur partenaire.',
+                        'Your club runs the night alone, without a partner organizer.',
+                        'Tu club lleva la noche solo, sin organizador socio.',
+                      )} />
                     <EventSelectCard selected={collabMode === 'co_event'} onClick={() => setCollabMode('co_event')} icon={Users}
-                      title={t('owner.ev.coEventTitle')} description={t('owner.ev.coEventDesc')} />
+                      title={isOrganizerScope ? t('owner.ev.coEventTitle') : tl('Co-soirée avec un organisateur', 'Co-night with an organizer', 'Co-noche con un organizador')}
+                      description={isOrganizerScope ? t('owner.ev.coEventDesc') : tl(
+                        'Vous montez la soirée à deux : un contrat fixe la part de chacun sur les billets, les tables et le bar.',
+                        'You run the night together: a contract sets each side\'s share of tickets, tables and bar.',
+                        'Montáis la noche juntos: un contrato fija la parte de cada uno en entradas, mesas y barra.',
+                      )} />
                     <EventSelectCard selected={collabMode === 'venue_rental'} onClick={() => setCollabMode('venue_rental')} icon={Building2}
-                      title={t('owner.ev.venueRentalTitle')} description={t('owner.ev.venueRentalDesc')} />
+                      title={isOrganizerScope ? t('owner.ev.venueRentalTitle') : tl('Location de salle', 'Venue rental', 'Alquiler de sala')}
+                      description={isOrganizerScope ? t('owner.ev.venueRentalDesc') : tl(
+                        'Un organisateur loue ton club : il encaisse la billetterie, le bar reste à toi.',
+                        'An organizer rents your club: they keep ticketing, the bar stays yours.',
+                        'Un organizador alquila tu club: se queda la taquilla, la barra sigue siendo tuya.',
+                      )} />
                     <EventSelectCard selected={collabMode === 'hosted_by_venue'} onClick={() => setCollabMode('hosted_by_venue')} icon={Building2}
                       title={isOrganizerScope ? t('owner.ev.hostedByVenueTitle') : tl('Soirée de l\'organisateur', 'Organizer-hosted night', 'Noche del organizador')}
                       description={isOrganizerScope ? t('owner.ev.hostedByVenueDesc') : tl(

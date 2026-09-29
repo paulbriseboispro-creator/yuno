@@ -806,6 +806,54 @@ sa boîte de réception, son carnet et sa façon d'inviter. Règles :
   carte Billetterie orga ne s'affiche sur une co-soirée que si elle informe
   (le club tient la billetterie, ou Stripe manque) ; montants par
   `useNumberFormat`.
+- **La page d'une co-soirée est un CENTRE DE CONTRÔLE** (29/09, phase 2 du
+  plan) : pleine largeur (`max-w-[1680px]`, jamais `max-w-5xl`), feuille de
+  route + chiffres + argent, puis deux PAGES FILLES dans le même onglet —
+  `…/sales` « Ventes de la soirée » (`CollabEventSales`, une liste par onglet
+  `?tab=`, seul l'onglet ouvert charge) et `…/partners` « Qui fait vendre ? »
+  (`CollabEventPartners`, RPC `get_collab_party_breakdown`) — sous la coquille
+  `CollabEventSubPage` (fil d'Ariane `CollabBreadcrumb`). Plus AUCUN long
+  déplié d'analyse ou de listes sur la page : l'analyse générale vit dans le
+  rapport de soirée d'Analytics (lien), pas recopiée. Les anciens `?tab=
+  tickets|tables|guestlist|invoices` de la page redirigent vers `…/sales`.
+- **Un outil s'ouvre dans un NOUVEL ONGLET, avec son fil d'Ariane.**
+  `collabToolHref(path, {eventId, title, tool})` (`src/lib/collabTrail.ts`,
+  testé) ajoute `from=collab&ce&cn&ct` ; `CollabTrailBar` (monté dans
+  `OwnerLayout` et `OrgAppLayout`) le lit une fois, le garde pour CET onglet
+  (sessionStorage) et ne s'affiche que tant qu'on reste dans l'outil. Tout
+  outil pointe sur LA soirée : billetterie `?event=` (ouvre et défile),
+  guest list `?event=`, promoteurs `/promoters/event/:id`, infos `?edit=`.
+  Une soirée solo (hors collab) navigue comme avant, sans fil.
+- **« Qui fait vendre ? » = attribution, jamais partage d'argent** : une vente
+  revient à la partie dont le lien suivi (ou un de SES promoteurs) l'a amenée,
+  sinon la conversion d'un de ses promoteurs, sinon (inscription) la part de
+  guest list qui l'a reçue ; le reste = « sans partenaire identifié ». Portes
+  et formules de `get_event_party_links` (CA pour une partie de niveau argent),
+  statuts du rapport de soirée (guest list = toute ligne non annulée). Fonction
+  STABLE en UNE requête (pas de table temporaire : l'aperçu démo est en lecture
+  seule).
+- **Deux instances de `CollabActionControls` sur une même soirée = deux canaux
+  temps réel distincts** (`useId`) : un nom partagé rendait le canal déjà
+  abonné et `.on()` après `subscribe()` levait — « Gérer la collaboration »
+  ouvrait la page d'erreur. Tout composant monté deux fois par page nomme son
+  canal par instance.
+- **Joué en vrai le 29/09 à trois parties** (« Triple Collab Night », club ×
+  Organisateur Démo × Asso Yuno co-hôte, semis `scripts/demo/seed-triple-collab.sql`).
+  Règles qui en sortent : (1) **un co-hôte ÉDITEUR tient ses propres parts de
+  guest list** (policy `Cohost organizers manage own guest lists`, migration
+  `20260929250000`) — avant, « Ajouter une part » échouait en silence ; (2) **la
+  liste maison porte le nom de celui qui la TIENT** (son `organizer_user_id`,
+  sinon l'hôte de la soirée), jamais celui du compte qui regarde — chaque partie
+  croyait que c'était SA liste ; (3) **toute lecture de parts d'une soirée
+  ignore les réponses périmées** (`useGuestListParts`, `requestRef`) : ouvrir
+  sur `?event=` affichait les parts d'une autre soirée ; (4) les co-hôtes sont
+  nommés dans l'en-tête de la co-soirée ET de la page publique ; (5) la carte
+  « Qui fait vendre » de la Co-organisation lit les chiffres de
+  `get_collab_party_breakdown`, comme la page du même nom ; (6)
+  `get_new_events_to_announce()` exclut la démo (`20260929251000`) : publier une
+  soirée démo ne notifie jamais d'abonnés. Reste ouvert (décision produit) : un
+  accord de co-organisation posé sur une soirée qui a DÉJÀ un contrat Stripe
+  redistribue des ventes que Stripe a déjà réparties.
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 

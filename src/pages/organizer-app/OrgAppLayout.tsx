@@ -4,6 +4,7 @@ import { OrgAppSidebar } from '@/components/org-sidebar';
 import { OrgAppHeader } from '@/components/org-app-header';
 import { OrgOnboardingGuide } from '@/components/organizer-onboarding/OrgOnboardingGuide';
 import { LegalConsentGate } from '@/components/LegalConsentGate';
+import { CollabTrailBar } from '@/components/collab/CollabTrail';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function OrgAppLayout() {
@@ -14,6 +15,8 @@ export default function OrgAppLayout() {
       <OrgAppSidebar />
       <SidebarInset className="overflow-y-auto" style={{ background: 'var(--sf-000000)' }}>
         <OrgAppHeader />
+        {/* Outil ouvert depuis la page d'une collaboration : chemin de retour. */}
+        <CollabTrailBar />
         <Outlet />
       </SidebarInset>
       {user && <OrgOnboardingGuide userId={user.id} />}
