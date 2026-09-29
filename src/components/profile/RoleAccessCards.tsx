@@ -139,7 +139,8 @@ export function RoleAccessCards({
 
     const staffRole = role as StaffRole;
     
-    if (hasValidStaffSession([staffRole])) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (hasValidStaffSession([staffRole], sessionData.session?.user?.id ?? null)) {
       navigate(path);
       return;
     }
@@ -165,8 +166,9 @@ export function RoleAccessCards({
     setShowPinDialog(true);
   };
 
-  const handlePinVerified = (venueId: string, role: string) => {
-    storeStaffSession(venueId, role);
+  const handlePinVerified = async (venueId: string, role: string) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    storeStaffSession(venueId, role, sessionData.session?.user?.id ?? null);
     setShowPinDialog(false);
     
     if (pendingNavigation) {

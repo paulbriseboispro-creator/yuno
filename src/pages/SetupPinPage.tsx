@@ -75,7 +75,7 @@ export default function SetupPinPage() {
           // Open a staff session immediately so they aren't re-prompted for the PIN.
           const { data: profile } = await supabase
             .from('profiles').select('venue_id, staff_onboarded_at').eq('id', user!.id).maybeSingle();
-          storeStaffSession(profile?.venue_id ?? '', staffRole);
+          storeStaffSession(profile?.venue_id ?? '', staffRole, user!.id);
           // Premier compte staff terrain : l'onboarding (photo, nom, premiers
           // gestes) passe avant le dashboard. Le manager va droit au sien.
           staffNeedsOnboarding = staffRole !== 'manager' && !profile?.staff_onboarded_at;

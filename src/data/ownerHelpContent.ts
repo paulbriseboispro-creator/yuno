@@ -788,6 +788,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.staff.s6h', bodyKey: 'ohelp.pg.staff.s6b', type: 'tip' },
           { headingKey: 'ohelp.pg.staff.s7h', bodyKey: 'ohelp.pg.staff.s7b', type: 'warning' },
           { headingKey: 'ohelp.pg.staff.s8h', bodyKey: 'ohelp.pg.staff.s8b' },
+          { headingKey: 'ohelp.pg.staff.s9h', bodyKey: 'ohelp.pg.staff.s9b' },
         ],
       },
       {

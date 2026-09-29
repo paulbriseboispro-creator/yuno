@@ -162,6 +162,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/venue",
     snippet: "Si ta page club est encore invisible du public (par exemple l'équipe Yuno a pré-construit ton compte et tu viens de l'activer), une carte « Publier ma page » apparaît en haut de Paramètres > Mon club. Vérifie ta page avec le lien d'aperçu, puis clique « Publier ma page » : elle devient immédiatement visible dans l'app et sur le web. Tu peux publier avant de connecter Stripe — les ventes de billets, tables et boissons restent simplement fermées tant que Stripe n'est pas configuré. Tant que la page est cachée, seuls toi et l'équipe Yuno pouvez la voir.",
   },
+  "staff-team-night": {
+    title: "Plusieurs personnes au même poste (porte, bar, VIP, vestiaire)",
+    keywords: ["plusieurs videurs", "plusieurs barmans", "deux hôtes", "équipe", "team", "même poste", "double scan", "déjà scanné", "already scanned", "reprendre", "take over", "vestiaire", "cloakroom", "table prise", "table promise", "cintre", "numéro"],
+    path: "/owner/staff",
+    snippet: "Chaque membre du staff travaille avec SON compte et voit la même soirée en direct ; c'est la base Yuno qui tranche qui a fait quoi. Porte : le premier scan gagne, un QR déjà entré ailleurs affiche « Déjà scanné », un billet de groupe scanné en entier consomme ses QR nominatifs, un QR d'une autre soirée est refusé. Hôte VIP : une table n'accueille qu'un groupe à la fois ; une table promise à un client pas encore arrivé affiche son prénom et la donner à un autre demande une confirmation ; avant la soirée, « Lui réserver » promet la table sans marquer le client arrivé. Bar : chaque boisson n'est servie qu'une fois même si deux barmans scannent le même QR ; une préparation Click & Collect abandonnée plus de 10 min se « Reprend ». Vestiaire : un numéro et un QR ne servent pas deux fois tant que le vêtement est là, on peut « Rendre » depuis la liste et déposer sans QR. Sur un téléphone partagé, le PIN ne déverrouille que le compte connecté : pour changer de personne, se déconnecter.",
+  },
   "staff-roles": {
     title: "Rôles du staff",
     keywords: ["staff", "employé", "barman", "bouncer", "videur", "manager", "vestiaire", "cloakroom", "rôle", "PIN"],

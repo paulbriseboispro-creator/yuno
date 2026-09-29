@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 
 export interface StaffNotification {
   id: string;
@@ -113,7 +114,7 @@ export function useStaffNotifications({ venueId, targetRole, autoPlay = true }: 
     fetchNotifications();
 
     const channel = supabase
-      .channel(`staff_notifications_${venueId}_${targetRole}`)
+      .channel(uniqueChannel(`staff_notifications_${venueId}_${targetRole}`))
       .on(
         'postgres_changes',
         {
@@ -152,7 +153,35 @@ export function useStaffNotifications({ venueId, targetRole, autoPlay = true }: 
           }
         }
       )
-      .subscribe();
+      // Plusieurs hôtes : une notification traitée (lue) par un collègue
+      // doit s'éteindre ici aussi, sinon chacun croit qu'elle attend encore.
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'staff_notifications',
+          filter: `venue_id=eq.${venueId}`,
+        },
+        (payload) => {
+          const row = payload.new as { id: string; read_at: string | null; read_by: string | null };
+          if (!row?.read_at) return;
+          setNotifications(prev => {
+            let changed = false;
+            const next = prev.map(n => {
+              if (n.id !== row.id || n.readAt) return n;
+              changed = true;
+              return { ...n, readAt: row.read_at ?? undefined, readBy: row.read_by ?? undefined };
+            });
+            if (changed) setUnreadCount(c => Math.max(0, c - 1));
+            return changed ? next : prev;
+          });
+        }
+      )
+      .subscribe(status => {
+        // Reconnexion (écran verrouillé) : on rattrape ce qui est arrivé entre-temps.
+        if (status === 'SUBSCRIBED') fetchNotifications();
+      });
 
     return () => {
       supabase.removeChannel(channel);

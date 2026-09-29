@@ -67,7 +67,7 @@ export function RequireStaffSession({ children, allowedRoles, loginPath }: Requi
       }
 
       // Staff member: check for valid session in localStorage
-      if (hasValidStaffSession(allowedRoles)) {
+      if (hasValidStaffSession(allowedRoles, user.id)) {
         setIsAuthorized(true);
         setIsLoading(false);
         return;
@@ -90,8 +90,9 @@ export function RequireStaffSession({ children, allowedRoles, loginPath }: Requi
     }
   };
 
-  const handlePinVerified = (venueId: string, role: string) => {
-    storeStaffSession(venueId, role);
+  const handlePinVerified = async (venueId: string, role: string) => {
+    const { data } = await supabase.auth.getSession();
+    storeStaffSession(venueId, role, data.session?.user?.id ?? null);
     setShowPinDialog(false);
     setIsAuthorized(true);
   };
@@ -132,8 +133,13 @@ export function RequireStaffSession({ children, allowedRoles, loginPath }: Requi
   return <>{children}</>;
 }
 
-// Helper function to check if staff session is valid (for use in other components)
-export function hasValidStaffSession(allowedRoles?: string[]): boolean {
+/**
+ * Session PIN valide ? Elle appartient à UN compte : sur un téléphone partagé,
+ * le PIN saisi par un collègue ne déverrouille plus l'écran pour le compte
+ * suivant (tout aurait été attribué à la mauvaise personne). Une session sans
+ * propriétaire (versions précédentes) redemande le PIN une fois.
+ */
+export function hasValidStaffSession(allowedRoles?: string[], userId?: string | null): boolean {
   try {
     const sessionStr = localStorage.getItem(STAFF_SESSION_KEY);
     if (!sessionStr) return false;
@@ -146,6 +152,10 @@ export function hasValidStaffSession(allowedRoles?: string[]): boolean {
     }
 
     if (allowedRoles && !allowedRoles.includes(session.role)) {
+      return false;
+    }
+
+    if (userId && session.userId !== userId) {
       return false;
     }
 
@@ -173,11 +183,12 @@ export function readStaffSessionVenueId(): string | null {
 }
 
 // Helper function to store staff session after PIN verification
-export function storeStaffSession(venueId: string, role: string): void {
+export function storeStaffSession(venueId: string, role: string, userId: string | null = null): void {
   const expiresAt = Date.now() + STAFF_SESSION_DURATION;
   localStorage.setItem(STAFF_SESSION_KEY, JSON.stringify({
     venueId,
     role,
+    userId,
     expiresAt,
     verifiedAt: Date.now()
   }));

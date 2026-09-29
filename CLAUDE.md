@@ -1419,6 +1419,61 @@ qui l'embarquent — `send-ticket-confirmation` (elle porte aussi le routeur
   premier appel est embarqué dans les passes déjà ajoutés, ne jamais le faire
   tourner.
 
+## Staff de nuit en équipe — plusieurs personnes au même poste (2026-09-29)
+
+Revue complète des quatre postes avant les premières vraies soirées
+(migrations `20260929233000` VIP, `234000` porte, `235000` vestiaire, `236000`
+bar). Règle unique : **chaque personne a SON compte, la base tranche qui a fait
+quoi, le téléphone ne décide jamais.** Toute écriture d'équipe est soit un
+`UPDATE … WHERE <état attendu>` dont on LIT le nombre de lignes, soit une RPC
+qui verrouille. Un 0-ligne = « un collègue est passé avant » (message, relecture),
+jamais un succès silencieux ni un écrasement. Une réponse perdue sur le wifi du
+club se reconnaît (scan / service à MOI il y a < 60 s = succès, jamais « déjà fait »).
+
+- **Hôte VIP** (`useVipNight`) : transitions de résa conditionnelles à l'état vu
+  (`AlreadyHandledError`) ; une table = un groupe installé (index unique
+  `uq_table_reservations_live_table` + verrou consultatif partagé avec
+  `create_manual_table_reservation`) ; seule une résa qui TIENT la table la
+  bloque (installée, pré-placée en attente, demande ouverte) — une table
+  terminée se refait tourner. Avant la soirée, « placer » = PRÉ-PLACEMENT
+  (table promise, client toujours `waiting`, jamais compté arrivé) ; une table
+  promise s'affiche au prénom (`heldTables`) et se donne à un autre sur
+  confirmation. Commandes et grand livre = RPC atomiques et idempotentes
+  (`vip_create_table_order`, `vip_serve_table_order` qui relit les articles EN
+  BASE, `vip_serve_items`, prix lus dans la carte, `p_request_id` par contenu de
+  panier). `vip_table_orders` accepte enfin `preorder` (les pré-commandes du
+  checkout étaient refusées en silence). Un client ne réécrit plus sa commande.
+- **Porte** : la base signe le scan (`stamp_door_entry_scan` : auth.uid(),
+  now(), jamais de dé-scan) ; le QR du billet ENTIER consomme ses QR nominatifs
+  et un nominatif marque le billet (`door_*` triggers) ; statut / prix d'un
+  billet intouchables côté client (`protect_ticket_immutable_fields`) ;
+  « Arrivée VIP » et commission promoteur guest list = TRIGGERS (un émetteur,
+  hors ligne compris) — ne jamais les réécrire côté client. Le videur refuse un
+  QR d'une autre soirée en ligne (`isOtherNight`, soirées de `resolveDoorEventIds`,
+  qui LÈVE sur erreur réseau). File hors ligne : refus définitifs retirés,
+  réessai toutes les 2 min, déconnexion = rejeu avant purge. `staff-cancel`
+  vérifie la portée AVANT tout remboursement et verrouille billet / commande.
+- **Vestiaire** : `cloakroom_deposit` / `cloakroom_retrieve` (id choisi par le
+  téléphone = idempotence, prix calculé par la base, prépayé utilisable une
+  fois sur billet payé) ; numéro et QR uniques tant que le vêtement est là ;
+  la soirée vient de `get_staff_night_pulse` (jamais « la dernière active ») ;
+  le staff ne supprime plus un dépôt.
+- **Bar** : servir = `bar_redeem_units` (commandes verrouillées, unités servies
+  une à une, QR refusé EN ENTIER si une commande n'est pas payée, jeton / PIN =
+  seulement ce qui reste et, en C&C, ce qui a été préparé, journal
+  `order_unit_redemptions`). Click & Collect : le client n'a AUCUN droit
+  d'écriture sur `orders` — la demande passe par `request_order_prep`
+  (`src/lib/clickCollect.ts`), les transitions barman par `claim_order_prep`
+  (claim / takeover après 10 min / release / ready). Le mode C&C du club =
+  `set_click_collect_mode` : la policy qui ouvrait TOUTES les colonnes du club
+  au « responsable C&C » (drapeau que chacun pouvait se donner) est supprimée,
+  et le drapeau ne s'écrit plus soi-même. Un client ne passe jamais une
+  commande « payée » (`protect_order_immutable_fields`).
+- **PIN** : la session PIN (`staffSession`) porte le `userId` ; elle ne
+  déverrouille plus un autre compte sur un téléphone partagé.
+- **Déploiement** : ces migrations passent AVANT le front (les écrans appellent
+  les nouvelles RPC), puis `staff-cancel`, `create-checkout`, `owner-assistant`.
+
 ## Listes imprimables (guest list, tables VIP, billetterie)
 
 `src/lib/rosterExport.ts` (rendu) + `src/lib/rosterBuilders.ts` (données) + le dialogue
