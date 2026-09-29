@@ -26,6 +26,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -183,7 +185,7 @@ export default function SupportAccessSettings() {
 
   return (
     <div className="min-h-[100dvh] bg-background" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 sm:px-6 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
         <button onClick={() => navigate(basePath || '/')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -191,11 +193,23 @@ export default function SupportAccessSettings() {
         <h1 className="text-sm font-bold">{t('supportAccess.title')}</h1>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 pb-24 space-y-6">
+      <div className={cn(PRO_PAGE, 'py-4 sm:py-6 pb-24')}>
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          // Silhouette du corps : état + contrat à gauche, journal à droite.
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:gap-8" aria-busy="true">
+            <div className="space-y-6">
+              <Skeleton className="h-36 w-full rounded-xl" />
+              <Skeleton className="h-52 w-full rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-32 rounded-md" />
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}
+            </div>
+          </div>
         ) : (
-          <>
+          // Grand écran : l'état et le contrat à gauche, le journal et l'historique à droite.
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start xl:gap-8">
+          <div className="min-w-0 space-y-6">
             {/* État courant */}
             <div className={cn(
               'rounded-xl border p-4 space-y-3',
@@ -293,6 +307,9 @@ export default function SupportAccessSettings() {
               </div>
             </div>
 
+          </div>
+
+          <div className="min-w-0 space-y-6">
             {/* Journal */}
             <div>
               <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -333,7 +350,8 @@ export default function SupportAccessSettings() {
                 </div>
               </div>
             )}
-          </>
+          </div>
+          </div>
         )}
       </div>
 

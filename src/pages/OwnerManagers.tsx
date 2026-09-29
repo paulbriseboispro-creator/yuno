@@ -19,7 +19,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { toast } from 'sonner';
 
 interface ManagerPerms {
@@ -313,13 +314,13 @@ export default function OwnerManagers() {
     return Object.values(manager.permissions).filter(Boolean).length;
   };
 
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loading) return <ProPageSkeleton variant="list" title={t('managers.title')} />;
 
   return (
     <div className="min-h-screen dashboard-gradient-bg pb-24">
       <OwnerHeader title={t('managers.title')} />
 
-      <div className="mx-auto max-w-4xl p-4">
+      <div className={`${PRO_PAGE} py-4`}>
         <div className="flex justify-between items-center mb-6">
           <p className="text-muted-foreground">
             {t('managers.manageAccess')}
@@ -342,7 +343,7 @@ export default function OwnerManagers() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {managers.map((manager, index) => (
               <motion.div
                 key={manager.id}
@@ -352,25 +353,25 @@ export default function OwnerManagers() {
               >
                 <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="h-12 w-12 shrink-0 rounded-full bg-primary/20 flex items-center justify-center">
                           <User className="h-6 w-6 text-primary" />
                         </div>
-                        <div>
-                          <h3 className="font-semibold">
+                        <div className="min-w-0">
+                          <h3 className="truncate font-semibold">
                             {manager.first_name} {manager.last_name}
                           </h3>
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {manager.email}
+                          <p className="text-sm text-muted-foreground flex min-w-0 items-center gap-1">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{manager.email}</span>
                           </p>
                           <Badge variant="secondary" className="mt-1">
                             {getActivePermissionsCount(manager)} {t('managers.permissions').toLowerCase()}
                           </Badge>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex shrink-0 gap-2">
                         <Button
                           variant="outline"
                           size="sm"

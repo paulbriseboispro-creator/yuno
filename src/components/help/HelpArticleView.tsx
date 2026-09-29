@@ -204,9 +204,9 @@ function Screenshot({ src, alt, hint, onZoom, hero }: { src: string; alt: string
 }
 
 // ─── Sommaire (desktop, collant, suivi du défilement) ────────────────────────
-function Toc({ t, headings, active, onGo }: { t: T; headings: string[]; active: number; onGo: (i: number) => void }) {
+function Toc({ t, headings, active, onGo, className = '' }: { t: T; headings: string[]; active: number; onGo: (i: number) => void; className?: string }) {
   return (
-    <nav aria-label={t('ohelp.ui.onThisPage')} className="hidden lg:block sticky" style={{ top: 84 }}>
+    <nav aria-label={t('ohelp.ui.onThisPage')} className={`hidden lg:block sticky ${className}`} style={{ top: 84 }}>
       <div style={{ padding: '16px 14px 16px 16px', borderRadius: 16, background: INNER_BG, border: `1px solid ${BORDER}` }}>
         <Kicker>{t('ohelp.ui.onThisPage')}</Kicker>
         <ul className="mt-3 space-y-0.5" style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }}>
@@ -358,15 +358,19 @@ export function HelpArticleView({
         )}
       </AnimatePresence>
 
+      {/* Grille de l'article :
+          - téléphone : article puis « besoin d'aide ? » empilés, sommaire replié ;
+          - lg / xl : article + sommaire collant à droite, l'aide sous l'article ;
+          - 2xl : sommaire à gauche, colonne de lecture bornée (~72 caractères),
+            l'assistant et le support collants à droite — plus de page centrée. */}
       <motion.div
         key={article.id}
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: 10 }}
         animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
         transition={{ ...transitions.reveal, duration: 0.3 }}
-        className="pt-4 sm:pt-8 lg:grid lg:gap-8 lg:items-start"
-        style={{ gridTemplateColumns: 'minmax(0,1fr) 236px' }}
+        className="pt-4 sm:pt-8 lg:grid lg:gap-x-8 lg:items-start lg:grid-cols-[minmax(0,1fr)_236px] 2xl:grid-cols-[220px_minmax(0,46rem)_minmax(360px,440px)] 2xl:justify-between"
       >
-        <article className="min-w-0">
+        <article className="min-w-0 lg:col-start-1 lg:row-start-1 2xl:col-start-2">
           {/* Fil d'Ariane */}
           <nav aria-label="breadcrumb" className="flex items-center gap-1.5 flex-wrap" style={{ color: T3, fontSize: 12.5 }}>
             <button type="button" onClick={onHome} className="cursor-pointer transition-colors hover:text-white">{t('ohelp.ui.breadcrumbRoot')}</button>
@@ -530,8 +534,10 @@ export function HelpArticleView({
             </div>
           )}
 
-          {/* Une question sur cet article ? */}
-          <div className="mt-8">
+        </article>
+
+        {/* Une question sur cet article ? — sous l'article, ou colonne de droite en 2xl */}
+        <div className="mt-8 min-w-0 lg:col-start-1 lg:row-start-2 2xl:col-start-3 2xl:row-start-1 2xl:mt-0 2xl:sticky 2xl:top-[84px] 2xl:max-h-[calc(100dvh-100px)] 2xl:overflow-y-auto">
             <HCard glow style={{ padding: 20 }}>
               <SectionHead title={t('ohelp.ui.stillNeedHelp')} sub={t('ohelp.ui.stillNeedHelpSub')} />
               <div className="space-y-3">
@@ -545,13 +551,12 @@ export function HelpArticleView({
                   currentArticle={article}
                   chips={chips}
                 />
-                <HelpSupportCards t={t} onContact={onContact} />
+                <HelpSupportCards t={t} onContact={onContact} stackFrom="2xl" />
               </div>
             </HCard>
-          </div>
-        </article>
+        </div>
 
-        <Toc t={t} headings={headings} active={active} onGo={goTo} />
+        <Toc t={t} headings={headings} active={active} onGo={goTo} className="lg:col-start-2 lg:row-start-1 lg:row-span-2 2xl:col-start-1 2xl:row-span-1" />
       </motion.div>
     </TooltipProvider>
   );

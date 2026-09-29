@@ -81,7 +81,7 @@ export function TeamActivityTab({ venueId }: Props) {
     <div className="space-y-3">
       <p style={{ color: T3, fontSize: 11.5 }}>{t('ownerteam.activityHint')}</p>
 
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {members.map((m) => {
           const domains: { icon: typeof ScanLine; label: string; value: number }[] = [
             { icon: ScanLine, label: t('staffme.stat.scans'), value: m.scans },

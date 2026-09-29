@@ -5,7 +5,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import {
   OrgCard, OrgEmptyState, POS, RED, T1, T2, T3, BORDER, INNER_BG, C_FAINT,
 } from '@/components/org-ui';
@@ -412,12 +413,7 @@ export default function OwnerAccounting() {
   }
 
   if (venueLoading || (loading && reports.length === 0)) {
-    return (
-      <div>
-        {!isOrganizerScope && <OwnerHeader title={t('acct.title')} />}
-        <OwnerPageSkeleton />
-      </div>
-    );
+    return <ProPageSkeleton variant="list" title={t('acct.title')} />;
   }
 
   const selectStyle: React.CSSProperties = {
@@ -443,7 +439,7 @@ export default function OwnerAccounting() {
           controls in-body instead of via OwnerHeader to avoid the provider crash. */}
       {!isOrganizerScope && <OwnerHeader title={t('acct.title')} rightContent={periodVatControls} />}
 
-      <div className="mx-auto max-w-5xl px-4 pb-16">
+      <div className={`${PRO_PAGE} pb-16`}>
         {isOrganizerScope && (
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h1 style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>{t('acct.title')}</h1>
@@ -454,7 +450,7 @@ export default function OwnerAccounting() {
 
         {/* Global summary */}
         <OrgCard className="mb-5" style={{ padding: 20 }}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-5 gap-x-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8 gap-y-5 gap-x-3">
             <Kpi label={t('acct.kpiHt')} value={eur(totals.ht)} />
             <Kpi label={t('acct.kpiVat')} value={eur(totals.vat)} />
             <Kpi label={t('acct.kpiTtc')} value={eur(totals.ttc)} />
@@ -480,7 +476,7 @@ export default function OwnerAccounting() {
         {displayReports.length === 0 ? (
           <OrgEmptyState icon={Calculator} title={t('acct.emptyTitle')} description={t('acct.emptyDesc')} />
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
             {displayReports.map(rep => {
               const co = isCoEvent(rep.event);
               return (

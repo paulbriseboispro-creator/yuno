@@ -190,7 +190,7 @@ export function HelpHome({
 
       {searching ? (
         /* ── Résultats ── */
-        <motion.div key="results" {...fade(0)} className="space-y-4">
+        <motion.div key="results" {...fade(0)} className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
           <HCard style={{ padding: 20 }}>
             <SectionHead
               title={results.length === 1 ? fmt(t('ohelp.ui.resultsForOne'), { q: query.trim() }) : fmt(t('ohelp.ui.resultsFor'), { n: results.length, q: query.trim() })}
@@ -246,11 +246,15 @@ export function HelpHome({
             </motion.div>
           )}
 
+          {/* Grand écran : thèmes et articles populaires à gauche, l'assistant et le
+              support dans une colonne collante à droite. Téléphone : empilés, comme avant. */}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
+          <div className="min-w-0 space-y-4">
           {/* ── Parcourir par thème ── */}
           <motion.div {...fade(0.08)}>
             <HCard style={{ padding: 20 }}>
               <SectionHead title={t('ohelp.ui.browseByCategory')} sub={t('ohelp.ui.browseSub')} />
-              <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {categories.map((c, i) => (
                   <CategoryTile key={c.id} t={t} category={c} index={i} reduced={reduced} onClick={() => onOpenCategory(c.id)} />
                 ))}
@@ -284,16 +288,19 @@ export function HelpHome({
             </HCard>
           </motion.div>
 
+          </div>
+
           {/* ── Encore besoin d'aide ? ── */}
-          <motion.div {...fade(0.16)}>
+          <motion.div {...fade(0.16)} className="min-w-0 xl:sticky xl:top-20">
             <HCard glow style={{ padding: 20 }}>
               <SectionHead title={t('ohelp.ui.stillNeedHelp')} sub={t('ohelp.ui.stillNeedHelpSub')} />
               <div className="space-y-3">
                 {chat}
-                <HelpSupportCards t={t} onContact={onContact} />
+                <HelpSupportCards t={t} onContact={onContact} stackFrom="xl" />
               </div>
             </HCard>
           </motion.div>
+          </div>
         </>
       )}
     </div>

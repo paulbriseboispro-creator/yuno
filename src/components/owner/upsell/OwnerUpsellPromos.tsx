@@ -104,7 +104,7 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
             </h3>
             <UPill tone="success">{promoDrinks.length}</UPill>
           </div>
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
             {promoDrinks.map((drink, i) => {
               const saving = Math.round((1 - (drink.promo_price || 0) / drink.price) * 100);
               return (
@@ -155,7 +155,7 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
         {otherDrinks.length === 0 ? (
           <UEmpty icon={Percent} title={t('upsell.catalogDrinks')} />
         ) : (
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
             {otherDrinks.map(drink => (
               <div
                 key={drink.id}

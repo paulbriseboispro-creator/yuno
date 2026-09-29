@@ -10,7 +10,8 @@ import { uniqueChannel } from '@/lib/realtime';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { DrinkCatalogSearch } from '@/components/DrinkCatalogSearch';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ function CategorySection({ title, icon: Icon, drinks, onEdit, onDelete, t }: {
         <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{title}</p>
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: C_FAINT, color: T3 }}>{drinks.length}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7">
         {drinks.map((drink) => (
           <DrinkGridCard key={drink.id} drink={drink} onEdit={onEdit} onDelete={onDelete} t={t} />
         ))}
@@ -410,7 +411,7 @@ export default function OwnerMenu() {
     } catch (error) { toast.error(t('owner.errorSaving')); }
   };
 
-  if (venueLoading) return <OwnerPageSkeleton />;
+  if (venueLoading) return <ProPageSkeleton variant="cards" title={t('owner.menuManagement')} />;
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
@@ -419,7 +420,7 @@ export default function OwnerMenu() {
 
       <OwnerHeader title={t('owner.menuManagement')} />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
         {/* Stats strip */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px' }}>
           <div className="flex items-center justify-between flex-wrap gap-4">

@@ -52,10 +52,15 @@ function ContactCard({ icon, color, title, desc, onClick, href, trailing }: {
   );
 }
 
-/** Les deux voies humaines : formulaire de support (bleu) et email (violet). */
-export function HelpSupportCards({ t, onContact }: { t: (k: string) => string; onContact: () => void }) {
+/**
+ * Les deux voies humaines : formulaire de support (bleu) et email (violet).
+ * `stackFrom` : breakpoint à partir duquel les cartes s'empilent de nouveau,
+ * quand elles vivent dans une colonne latérale étroite (grand écran).
+ */
+export function HelpSupportCards({ t, onContact, stackFrom }: { t: (k: string) => string; onContact: () => void; stackFrom?: 'xl' | '2xl' }) {
+  const stack = stackFrom === 'xl' ? 'xl:grid-cols-1' : stackFrom === '2xl' ? '2xl:grid-cols-1' : '';
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${stack}`}>
       <ContactCard
         icon={<MessageSquare style={{ width: 18, height: 18 }} aria-hidden="true" />}
         color={CONTACT_COLOR}

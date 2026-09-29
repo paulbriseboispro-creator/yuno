@@ -12,7 +12,8 @@ import {
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface WaitlistEntry {
@@ -86,13 +87,13 @@ export default function OwnerWaitlist() {
     notified: entries.filter(e => e.notified_at).length,
   };
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="table" title={t('waitlist.title')} />;
 
   return (
     <div className="min-h-screen dashboard-gradient-bg pb-24">
       <OwnerHeader title={t('waitlist.title')} />
 
-      <div className="mx-auto max-w-7xl p-4 sm:p-6 space-y-6">
+      <div className={`${PRO_PAGE} py-4 sm:py-6 space-y-6`}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <p className="text-muted-foreground">{t('waitlist.preRegistrations')}</p>
           <Button onClick={exportToCsv} className="gap-2">
@@ -133,7 +134,7 @@ export default function OwnerWaitlist() {
                 {search ? t('waitlist.noResults') : t('waitlist.noRegistrations')}
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="grid gap-2 xl:grid-cols-2">
                 {filteredEntries.map((entry, index) => (
                   <motion.div
                     key={entry.id}

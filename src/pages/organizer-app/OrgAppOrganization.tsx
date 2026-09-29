@@ -12,6 +12,7 @@ import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton, OrgSectionLabel,
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 interface OrgIdentity {
   name: string;
@@ -95,7 +96,7 @@ export default function OrgAppOrganization() {
   const initials = identity.name ? identity.name.slice(0, 2).toUpperCase() : 'OR';
 
   return (
-    <OrgPage className="mx-auto max-w-3xl">
+    <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={t('Mon organisation', 'My organization')}
         subtitle={t('Tous les réglages de votre organisation au même endroit.', 'Every setting for your organization in one place.')}
@@ -134,8 +135,8 @@ export default function OrgAppOrganization() {
         </div>
       </OrgCard>
 
-      {/* Settings sections */}
-      <div className="space-y-6">
+      {/* Settings sections — deux colonnes sur grand écran */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
         {sections.map((section) => (
           <div key={section.label}>
             <div className="mb-2 px-1">

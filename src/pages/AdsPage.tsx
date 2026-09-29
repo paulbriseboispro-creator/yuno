@@ -16,7 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { OrgPage, OrgPageHeader } from '@/components/org-ui';
 import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { CampaignWizard } from '@/components/ads/CampaignWizard';
@@ -183,8 +184,11 @@ export default function AdsPage() {
     ? <OrgPageHeader title={t('ads.title')} subtitle={t('ads.subtitle')} />
     : <OwnerHeader title={t('ads.title')} />;
 
+  // Chargement : la silhouette de page entière (elle porte le vrai en-tête côté club),
+  // jamais un squelette avec son propre en-tête glissé sous celui de la page.
+  if (scopeLoading || (loading && !data)) return <ProPageSkeleton variant="cards" title={t('ads.title')} />;
+
   const body = (() => {
-    if (scopeLoading || (loading && !data)) return <OwnerPageSkeleton />;
 
     if (!metaLive) {
       return (
@@ -468,6 +472,8 @@ export default function AdsPage() {
           )}
         </Card>
 
+        {/* Très grand écran : audiences et leads côte à côte. */}
+        <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] 2xl:items-start">
         {/* Audiences */}
         <Card>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
@@ -574,6 +580,7 @@ export default function AdsPage() {
           )}
           <div className="flex items-start gap-2 mt-3"><Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: T3 }} /><p style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>{t('ads.leads.note')}</p></div>
         </Card>
+        </div>
       </>
     );
   })();
@@ -581,12 +588,12 @@ export default function AdsPage() {
   return (
     <>
       {mode === 'organizer' ? (
-        <OrgPage>{header}<div className="space-y-5">{body}</div></OrgPage>
+        <OrgPage className={PRO_PAGE}>{header}<div className="space-y-5">{body}</div></OrgPage>
       ) : (
         <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
           <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }} />
           {header}
-          <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
+          <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-5`}>
             <p style={{ color: T2, fontSize: 13.5, maxWidth: 720 }}>{t('ads.subtitle')}</p>
             {body}
           </div>

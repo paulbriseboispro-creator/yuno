@@ -4,7 +4,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subMonths, startOfYear, endOfYear } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -502,7 +503,7 @@ export default function OwnerInvoices() {
     }
   };
 
-  if (loading || venueLoading) return <OwnerPageSkeleton />;
+  if (loading || venueLoading) return <ProPageSkeleton variant="table" title={t('invoices.title')} />;
 
   const periodLabels: Record<ExportPeriod, string> = {
     week: t('invoices.week'), month: t('invoices.month'),
@@ -520,7 +521,7 @@ export default function OwnerInvoices() {
     <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: 'var(--sf-000000)' }}>
       {!isOrganizerScope && <OwnerHeader title={t('invoices.title')} showBackButton />}
 
-      <div className="mx-auto max-w-7xl p-4">
+      <div className={`${PRO_PAGE} py-4`}>
 
         {/* Organizer scope renders inside the org shell (which already has a header),
             so we surface the page title in-body instead of via OwnerHeader. */}
@@ -638,7 +639,7 @@ export default function OwnerInvoices() {
                     {invoice.customer_name && <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 500, margin: 0 }}>{invoice.customer_name}</p>}
                     <p className="truncate" style={{ color: T3, fontSize: 12, margin: 0 }}>{invoice.customer_email}</p>
                   </div>
-                  <p className="hidden sm:block truncate" style={{ color: T2, fontSize: 12, margin: 0, maxWidth: 140 }}>{invoice.event_name || '—'}</p>
+                  <p className="hidden sm:block truncate sm:max-w-[140px] xl:max-w-[280px]" style={{ color: T2, fontSize: 12, margin: 0 }}>{invoice.event_name || '—'}</p>
                   <button
                     onClick={() => handleDownloadInvoice(invoice)}
                     disabled={downloadingId === invoice.id}

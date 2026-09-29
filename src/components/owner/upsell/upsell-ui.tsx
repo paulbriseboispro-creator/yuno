@@ -1,5 +1,6 @@
 import { ReactNode, CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * Shared design primitives for the owner Upsell module.
@@ -28,14 +29,15 @@ export const TILE_BG  = 'rgb(var(--ink)/0.025)';
 export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0 0 0/calc(.9*var(--pro-shadow-a)))';
 
 // ─── Page shell ──────────────────────────────────────────────────────────────
-export function UPage({ children, maxWidth = 960 }: { children: ReactNode; maxWidth?: number }) {
+// Pleine largeur (PRO_PAGE) : les listes passent en grille sur grand écran.
+export function UPage({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgb(var(--ink)/.025),transparent 55%)' }}
       />
-      <div className="relative z-10 mx-auto px-4 sm:px-6 pt-3 space-y-4" style={{ maxWidth }}>
+      <div className={`relative z-10 ${PRO_PAGE} pt-3 space-y-4`}>
         {children}
       </div>
     </div>
@@ -264,11 +266,25 @@ export function UEmpty({
   );
 }
 
-// ─── Loading spinner ────────────────────────────────────────────────────────────
+// ─── Loading silhouette ─────────────────────────────────────────────────────────
+// Même forme que le corps d'un onglet : bandeau d'info, puis la grille de lignes.
 export function ULoading() {
+  const bone = { background: 'rgb(var(--ink)/0.06)' };
   return (
-    <div className="flex justify-center py-10">
-      <div className="h-9 w-9 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+    <div className="space-y-4" aria-busy="true">
+      <div className="h-12 w-full animate-pulse rounded-xl" style={bone} />
+      <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
+            <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg" style={bone} />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 w-2/5 animate-pulse rounded-md" style={bone} />
+              <div className="h-2.5 w-3/5 animate-pulse rounded-md" style={bone} />
+            </div>
+            <div className="h-5 w-9 shrink-0 animate-pulse rounded-full" style={bone} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

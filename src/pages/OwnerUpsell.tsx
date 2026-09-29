@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
@@ -20,7 +20,7 @@ export default function OwnerUpsell() {
   const { venueId, loading: venueLoading } = useVenueContext();
   const [activeTab, setActiveTab] = useTabParam<TabKey>('ticket', ['ticket', 'cart', 'promos']);
 
-  if (venueLoading) return <OwnerPageSkeleton />;
+  if (venueLoading) return <ProPageSkeleton variant="list" title={t('upsell.title')} />;
 
   if (!venueId) {
     return (
@@ -45,7 +45,7 @@ export default function OwnerUpsell() {
         rightContent={<LanguageSelector />}
       />
 
-      <UPage maxWidth={960}>
+      <UPage>
         <CollabReadOnlyBanner action={t('collab.action.editUpsells')} />
 
         <motion.p

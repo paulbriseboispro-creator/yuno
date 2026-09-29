@@ -6,10 +6,12 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { ownerHelpCategories, type OwnerHelpArticle, type OwnerHelpCategory } from '@/data/ownerHelpContent';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OrgPageHeader } from '@/components/org-ui';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { HelpHome } from '@/components/help/HelpHome';
 import { HelpCategoryView } from '@/components/help/HelpCategoryView';
 import { HelpArticleView } from '@/components/help/HelpArticleView';
-import { BORDER, C_FAINT, CONTACT_COLOR, RED, T1, T2, useRecentArticles } from '@/components/help/helpUi';
+import { BORDER, C_FAINT, CONTACT_COLOR, T1, T2, useRecentArticles } from '@/components/help/helpUi';
 
 /**
  * Centre d'aide des dashboards pro (club, organisateur, agence, manager).
@@ -115,9 +117,21 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
     </button>
   );
 
+  // Textes de l'aide pas encore chargés : silhouette de l'accueil (héros +
+  // recherche, thèmes à gauche, assistant à droite), pas un spinner centré.
   const content = !helpReady ? (
-    <div className="flex min-h-[60vh] items-center justify-center" aria-busy="true">
-      <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+    <div className="space-y-4 pt-4 sm:pt-10" aria-busy="true">
+      <div className="flex flex-col items-center gap-3 pb-2">
+        <Skeleton className="h-9 w-72 max-w-full rounded-lg" />
+        <Skeleton className="h-4 w-96 max-w-full rounded-md" />
+        <Skeleton className="mt-3 h-12 w-full max-w-[600px] rounded-xl" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
+        </div>
+        <Skeleton className="h-72 rounded-2xl" />
+      </div>
     </div>
   ) : view === 'article' ? (
     <HelpArticleView
@@ -182,7 +196,7 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
       {ownerLike ? (
         <OwnerHeader title={t('ohelp.title')} backTo={backTo} rightContent={contactButton} />
       ) : (
-        <div className="relative z-10 mx-auto max-w-[1180px] px-4 sm:px-6 pt-1">
+        <div className={`relative z-10 ${PRO_PAGE} pt-1`}>
           <OrgPageHeader
             title={t('ohelp.title')}
             subtitle={view === 'home' ? undefined : (view === 'article' ? t(located!.category.labelKey) : t('ohelp.ui.breadcrumbRoot'))}
@@ -206,7 +220,7 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
         </div>
       )}
 
-      <div className="relative z-10 mx-auto max-w-[1180px] px-4 sm:px-6">{content}</div>
+      <div className={`relative z-10 ${PRO_PAGE}`}>{content}</div>
     </div>
   );
 }

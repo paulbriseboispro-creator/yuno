@@ -38,7 +38,7 @@ export function HelpCategoryView({
       </div>
 
       <HCard style={{ padding: 20 }}>
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
           {category.articles.map((article, i) => (
             <motion.div
               key={article.id}

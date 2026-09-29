@@ -1,6 +1,7 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
@@ -160,7 +161,7 @@ export default function OwnerBilling() {
     finally { setSubscribing(null); }
   };
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="form" title={t(SUBSCRIPTIONS_ENABLED ? 'plan.billing' : 'plan.payments')} />;
 
   const currentPlanInfo = PLANS[plan];
   const isCore = plan === 'core';
@@ -185,7 +186,7 @@ export default function OwnerBilling() {
       {/* Abonnement coupé (lancement) : la page ne montre que Stripe Connect → titre « Paiements ». */}
       <OwnerHeader title={t(SUBSCRIPTIONS_ENABLED ? 'plan.billing' : 'plan.payments')} showBackButton backTo="/owner/dashboard" />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-5`}>
 
         {/* Banners */}
         {SUBSCRIPTIONS_ENABLED && isPastDue && (
@@ -279,7 +280,9 @@ export default function OwnerBilling() {
         )}
 
         {/* Stripe Connect */}
-        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24 }}>
+        <div className="grid grid-cols-1 xl:grid-cols-2 xl:gap-6" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24 }}>
+          {/* Grand écran : l'état du compte à gauche, « À propos de Stripe » à droite. */}
+          <div className="min-w-0">
           <p style={{ color: T1, fontSize: 14.5, fontWeight: 600, marginBottom: 2 }}>{t('plan.stripeAccount')}</p>
           <p style={{ color: T3, fontSize: 12.5, marginBottom: 16 }}>{t('plan.stripeAccountDesc')}</p>
 
@@ -332,9 +335,10 @@ export default function OwnerBilling() {
               </div>
             </div>
           )}
+          </div>
 
           {/* About Stripe — reassurance for owners new to Stripe */}
-          <div className="mt-4 p-4 rounded-xl space-y-3" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
+          <div className="mt-4 xl:mt-0 p-4 rounded-xl space-y-3 self-start" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg flex-shrink-0" style={{ background: 'rgba(99,91,255,0.14)' }}>
                 <Lock className="w-3.5 h-3.5" style={{ color: 'var(--acc-8b85ff)' }} />

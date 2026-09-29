@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import RenameConfirmDialog from '@/components/RenameConfirmDialog';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
@@ -11,6 +12,8 @@ import { toast } from 'sonner';
 import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2, MapPin } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton,
   FieldLabel, DarkInput, DarkTextarea, DarkSelect,
@@ -49,6 +52,7 @@ interface OrgProfile {
 const LEGAL_KEYS: string[] = ['legal_name', 'legal_address', 'siret', 'vat_number', 'rna_number', 'vat_regime', 'billing_email'];
 
 export default function OrgAppProfile() {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -284,6 +288,8 @@ export default function OrgAppProfile() {
         .update({ organization_name: payload.display_name, organization_logo_url: payload.avatar_url })
         .eq('id', user.id);
       if (profErr) throw profErr;
+      // Nom et logo de la barre latérale : lus par useProfileType (cache partagé).
+      void queryClient.invalidateQueries({ queryKey: ['profile-type'] });
 
       toast.success(t('Profil enregistré', 'Profile saved'));
 
@@ -346,13 +352,13 @@ export default function OrgAppProfile() {
   });
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>;
+    return <ProPageSkeleton variant="form" title={t('Profil public', 'Public profile')} />;
   }
 
   const publicUrl = profile.slug ? `/o/${profile.slug}` : null;
 
   return (
-    <OrgPage className="mx-auto max-w-3xl">
+    <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={t('Profil public', 'Public profile')}
         subtitle={t("Votre vitrine sur Yuno. Visible par tous quand l'option est activée.", 'Your storefront on Yuno. Visible to everyone when enabled.')}
@@ -365,6 +371,10 @@ export default function OrgAppProfile() {
 
       <OrgCard>
         <div className="space-y-5 p-6">
+          {/* Grand écran : la vitrine (image, nom, bio, liens) à gauche, les
+              réglages et la facturation à droite ; un seul « Enregistrer » en pied. */}
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 xl:gap-8">
+          <div className="min-w-0 space-y-5">
           {/* Cover */}
           <div>
             <FieldLabel><ImageIcon className="mr-1 inline h-3 w-3" /> {t('Bannière de couverture', 'Cover banner')}</FieldLabel>
@@ -459,6 +469,9 @@ export default function OrgAppProfile() {
             </div>
           </div>
 
+          </div>
+
+          <div className="min-w-0 space-y-5">
           {/* Visibility */}
           <div className="flex items-center justify-between rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
             <div>
@@ -593,6 +606,9 @@ export default function OrgAppProfile() {
               </div>
               <div className="sm:col-span-2"><FieldLabel>{t('Email de facturation', 'Billing email')}</FieldLabel><DarkInput type="email" value={profile.billing_email || ''} onChange={(v) => setProfile((p) => ({ ...p, billing_email: v }))} placeholder="billing@votre-orga.com" /></div>
             </div>
+          </div>
+
+          </div>
           </div>
 
           <div className="flex justify-end pt-1">

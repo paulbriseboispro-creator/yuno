@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { OrgStripeConnectCard } from '@/components/organizer-app/OrgStripeConnectCard';
 import { useIsAssociation, commissionFloorLabel } from '@/hooks/useIsAssociation';
 import { OrgPage, OrgPageHeader, OrgCard, OrgButton, T1, T2, T3, RED, BORDER, INNER_BG } from '@/components/org-ui';
+import { PRO_PAGE } from '@/lib/proLayout';
 
 /**
  * Dedicated payments page for organizers — manages the Stripe Connect account in isolation
@@ -61,13 +62,17 @@ export default function OrgAppPayments() {
   ];
 
   return (
-    <OrgPage className="mx-auto max-w-2xl">
+    <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={t('Paiements', 'Payments')}
         subtitle={t('Gérez votre compte Stripe et vos virements en toute autonomie.', 'Manage your Stripe account and payouts independently.')}
       />
 
-      <div className="space-y-4">
+      {/* Grand écran : Stripe et « Comment ça marche » (qui renvoie au compte
+          « ci-dessus ») à gauche, l'IBAN des règlements collab à droite.
+          Téléphone : même ordre qu'avant, empilé. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start xl:gap-6">
+        <div className="min-w-0 space-y-4">
         <OrgStripeConnectCard userId={user?.id} />
 
         <OrgCard style={{ padding: 24 }}>
@@ -94,8 +99,11 @@ export default function OrgAppPayments() {
             )}
           </p>
         </OrgCard>
+        </div>
 
-        <CollabIbanCard userId={user?.id} />
+        <div className="min-w-0">
+          <CollabIbanCard userId={user?.id} />
+        </div>
       </div>
     </OrgPage>
   );

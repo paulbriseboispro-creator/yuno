@@ -234,12 +234,15 @@ export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {
 
   return (
     <div className="space-y-4">
-      <UInfoBanner icon={Info}>{t('upsell.ticketContextInfo')}</UInfoBanner>
+      {/* Grand écran : l'explication à gauche, le bouton de création à côté. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-center">
+        <UInfoBanner icon={Info}>{t('upsell.ticketContextInfo')}</UInfoBanner>
 
-      <UButton variant="primary" full onClick={() => { resetForm(); setDialogOpen(true); }}>
-        <Plus className="h-4 w-4" />
-        {t('upsell.ticketCreateOffer')}
-      </UButton>
+        <UButton variant="primary" full onClick={() => { resetForm(); setDialogOpen(true); }}>
+          <Plus className="h-4 w-4" />
+          {t('upsell.ticketCreateOffer')}
+        </UButton>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto" style={DIALOG_STYLE}>
@@ -375,7 +378,7 @@ export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {
       {offers.length === 0 ? (
         <UEmpty icon={Package} title={t('upsell.ticketNoOffers')} />
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {offers.map((offer, i) => (
             <motion.div
               key={offer.id}

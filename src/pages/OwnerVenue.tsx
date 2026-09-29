@@ -33,7 +33,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
@@ -589,7 +590,32 @@ export default function OwnerVenue() {
     finally { setPublishing(false); }
   };
 
-  if (loading) return <OwnerPageSkeleton />;
+  if (loading) return <ProPageSkeleton variant="form" title={t('owner.venueCustomization')} />;
+
+  // Aperçu de la page client : colonne latérale collante sur grand écran,
+  // en tête de la section Apparence sur téléphone.
+  const clientPreview = (
+    <SectionCard title={t('owner.clientPagePreview')}>
+      <div className="relative h-52 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }} data-theme-island="dark">
+        <div className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${coverPreview || 'https://images.unsplash.com/photo-1514933651103-005eec06c04b'})`, backgroundPosition: `${coverPosition.x}% ${coverPosition.y}%` }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.7) 100%)' }} />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+          {logoPreview ? (
+            <img src={logoPreview} alt={venueName} className="h-16 w-16 rounded-full object-cover" style={{ border: '2px solid rgb(var(--ink)/var(--ink-a20,0.2))' }} />
+          ) : (
+            <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ background: RED }}>
+              <span style={{ color: 'rgb(var(--ink))', fontSize: 24, fontWeight: 800 }}>{venueName.charAt(0) || 'C'}</span>
+            </div>
+          )}
+          <h2 style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 20, fontWeight: 700 }}>{venueName}</h2>
+          <p className="flex items-center gap-1" style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12 }}>
+            <MapPin className="h-3.5 w-3.5" />{city || 'Paris'}
+          </p>
+        </div>
+      </div>
+    </SectionCard>
+  );
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
@@ -598,7 +624,9 @@ export default function OwnerVenue() {
 
       <OwnerHeader title={t('owner.venueCustomization')} />
 
-      <div className="relative z-10 mx-auto max-w-[900px] px-4 sm:px-6 pt-2 pb-4 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 pb-4`}>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-6">
+      <div className="min-w-0 space-y-4">
 
         {/* Page encore cachée (compte vitrine réclamé, onboarding) : le geste de
             publication appartient au pro. Les ventes restent gatées par Stripe. */}
@@ -638,27 +666,8 @@ export default function OwnerVenue() {
         ════════════════════════════════════════════════════════════ */}
         <GroupHeader icon={Image} title={t('owner.sectionAppearance')} description={t('owner.sectionAppearanceDesc')} />
 
-        {/* Aperçu de la page client */}
-        <SectionCard title={t('owner.clientPagePreview')}>
-          <div className="relative h-52 rounded-xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }} data-theme-island="dark">
-            <div className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url(${coverPreview || 'https://images.unsplash.com/photo-1514933651103-005eec06c04b'})`, backgroundPosition: `${coverPosition.x}% ${coverPosition.y}%` }} />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.7) 100%)' }} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-              {logoPreview ? (
-                <img src={logoPreview} alt={venueName} className="h-16 w-16 rounded-full object-cover" style={{ border: '2px solid rgb(var(--ink)/var(--ink-a20,0.2))' }} />
-              ) : (
-                <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ background: RED }}>
-                  <span style={{ color: 'rgb(var(--ink))', fontSize: 24, fontWeight: 800 }}>{venueName.charAt(0) || 'C'}</span>
-                </div>
-              )}
-              <h2 style={{ color: 'rgb(var(--ink)/var(--ink-a96,0.96))', fontSize: 20, fontWeight: 700 }}>{venueName}</h2>
-              <p className="flex items-center gap-1" style={{ color: 'rgb(var(--ink)/var(--ink-a58,0.58))', fontSize: 12 }}>
-                <MapPin className="h-3.5 w-3.5" />{city || 'Paris'}
-              </p>
-            </div>
-          </div>
-        </SectionCard>
+        {/* Aperçu de la page client — sur grand écran il vit dans la colonne de droite. */}
+        <div className="xl:hidden">{clientPreview}</div>
 
         {/* Lien général vers la page club — pour la bio (Insta/TikTok) */}
         {venueId && (
@@ -915,6 +924,8 @@ export default function OwnerVenue() {
         {/* ═══════════════════════════════════════════════════════════
             3. RÉSEAUX SOCIAUX
         ════════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+        <div className="min-w-0 space-y-4">
         <GroupHeader icon={Share2} title={t('owner.socialMedia')} description={t('owner.sectionSocialDesc')} />
 
         <SectionCard title={t('owner.socialMedia')} description={t('owner.socialMediaDesc')}>
@@ -945,6 +956,9 @@ export default function OwnerVenue() {
         {/* ═══════════════════════════════════════════════════════════
             4. VISIBILITÉ
         ════════════════════════════════════════════════════════════ */}
+        </div>
+
+        <div className="min-w-0 space-y-4">
         <GroupHeader icon={EyeOff} title={t('owner.sectionVisibility')} description={t('owner.sectionVisibilityDesc')} />
 
         <SectionCard>
@@ -965,11 +979,15 @@ export default function OwnerVenue() {
           </div>
         </SectionCard>
 
+        </div>
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════
             5. CONFIGURATION BAR & MENU
         ════════════════════════════════════════════════════════════ */}
         <GroupHeader icon={Wine} title={t('owner.sectionBarMenu')} description={t('owner.sectionBarMenuDesc')} />
 
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {/* Menu activé */}
         <SectionCard>
           <div className="flex items-start justify-between gap-4">
@@ -1007,6 +1025,8 @@ export default function OwnerVenue() {
             }} />
           </div>
         </SectionCard>
+
+        </div>
 
         {/* Mode boisson offerte */}
         <div style={{ opacity: menuEnabled ? 1 : 0.4, pointerEvents: menuEnabled ? 'auto' : 'none' }}>
@@ -1053,6 +1073,8 @@ export default function OwnerVenue() {
         {/* ═══════════════════════════════════════════════════════════
             DOCUMENTS D'ACCÈS — joints à chaque confirmation de billet
         ════════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+        <div className="min-w-0 space-y-4">
         <GroupHeader icon={FileText} title={t('owner.sectionAccessDocs')} description={t('owner.sectionAccessDocsDesc')} />
 
         <SectionCard title={t('owner.accessDocsTitle')} description={t('owner.accessDocsDescription')}>
@@ -1088,9 +1110,12 @@ export default function OwnerVenue() {
           <p style={{ color: T3, fontSize: 11 }}>{t('owner.accessDocsHint')}</p>
         </SectionCard>
 
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════
             6. INFORMATIONS LÉGALES
         ════════════════════════════════════════════════════════════ */}
+        <div className="min-w-0 space-y-4">
         <GroupHeader icon={Settings} title={t('owner.sectionLegal')} description={t('owner.sectionLegalDesc')} />
 
         <SectionCard title={t('owner.legalInfoTitle')} description={t('owner.legalInfoDescription')}>
@@ -1120,7 +1145,16 @@ export default function OwnerVenue() {
           </div>
           <SaveButton onClick={handleSaveLegalInfo} loading={savingLegal} label={t('owner.saveLegalInfo')} loadingLabel={t('owner.savingLegalInfo')} />
         </SectionCard>
+        </div>
+        </div>
 
+      </div>
+
+      {/* Colonne latérale (grand écran) : l'aperçu reste sous les yeux pendant qu'on règle la page. */}
+      <aside className="hidden xl:block">
+        <div className="sticky top-20 space-y-4">{clientPreview}</div>
+      </aside>
+      </div>
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
@@ -417,7 +419,7 @@ export default function OwnerStaff() {
 
       <OwnerHeader title={t('owner.staffManagement')} />
 
-      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
+      <div className={`relative z-10 ${PRO_PAGE} pt-2 space-y-4`}>
         <CollabReadOnlyBanner action={t('collab.action.addStaff')} />
 
         {/* Header */}
@@ -492,8 +494,21 @@ export default function OwnerStaff() {
           <TabsContent value="team" className="mt-4 space-y-4">
         {/* Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+          // Silhouette de la grille d'employés (même colonnes que la vraie grille).
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-3" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-2/5 rounded-md" />
+                    <Skeleton className="h-2.5 w-1/4 rounded-md" />
+                  </div>
+                </div>
+                <Skeleton className="h-3 w-3/4 rounded-md" />
+                <Skeleton className="h-8 w-full rounded-lg" />
+              </div>
+            ))}
           </div>
         ) : employees.length === 0 ? (
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
@@ -503,7 +518,7 @@ export default function OwnerStaff() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {employees.map((employee, i) => (
               <motion.div key={employee.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
                 <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>

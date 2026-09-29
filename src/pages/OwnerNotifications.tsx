@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 
 import { OwnerHeader } from '@/components/OwnerHeader';
+import { ProPageSkeleton } from '@/components/DashboardSkeleton';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVenueContext } from '@/hooks/useVenueContext';
@@ -298,7 +300,7 @@ export default function OwnerNotifications() {
   })).filter(c => c.count > 0);
 
   if (venueLoading) {
-    return <div className="min-h-screen dashboard-gradient-bg pb-24"><OwnerHeader title="Notifications" showBackButton /></div>;
+    return <ProPageSkeleton variant="list" title="Notifications" />;
   }
 
   return (
@@ -318,7 +320,11 @@ export default function OwnerNotifications() {
         }
       />
 
-      <div className="mx-auto max-w-2xl px-3 sm:px-4 pt-4 space-y-4">
+      <div className={`${PRO_PAGE} pt-4`}>
+      {/* Grand écran : la liste à gauche, le résumé (compteurs + catégories) dans
+          une colonne collante à droite. Téléphone : résumé en tête, comme avant. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-6">
+        <aside className="space-y-4 xl:order-last xl:sticky xl:top-20 xl:self-start">
 
         {/* Top stats */}
         <div className="grid grid-cols-3 gap-2">
@@ -352,6 +358,9 @@ export default function OwnerNotifications() {
           </div>
         )}
 
+        </aside>
+
+        <div className="min-w-0 space-y-4">
         {/* Tabs + refresh */}
         <div className="flex items-center justify-between gap-2">
           <Tabs value={tab} onValueChange={v => setTab(v as TabFilter)} className="flex-1">
@@ -416,6 +425,8 @@ export default function OwnerNotifications() {
             </AnimatePresence>
           </div>
         )}
+        </div>
+      </div>
       </div>
     </div>
   );

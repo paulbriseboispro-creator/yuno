@@ -311,12 +311,15 @@ export function OwnerUpsellCartRules({ venueId }: { venueId: string }) {
 
   return (
     <div className="space-y-4">
-      <UInfoBanner icon={Info}>{t('upsell.cartRulesContextInfo')}</UInfoBanner>
+      {/* Grand écran : l'explication à gauche, le bouton de création à côté. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-center">
+        <UInfoBanner icon={Info}>{t('upsell.cartRulesContextInfo')}</UInfoBanner>
 
-      <UButton variant="primary" full onClick={() => { resetForm(); setDialogOpen(true); }}>
-        <Plus className="h-4 w-4" />
-        {t('upsell.createRule')}
-      </UButton>
+        <UButton variant="primary" full onClick={() => { resetForm(); setDialogOpen(true); }}>
+          <Plus className="h-4 w-4" />
+          {t('upsell.createRule')}
+        </UButton>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto" style={DIALOG_STYLE}>
@@ -431,7 +434,7 @@ export function OwnerUpsellCartRules({ venueId }: { venueId: string }) {
       {rules.length === 0 ? (
         <UEmpty icon={ShoppingCart} title={t('upsell.noRulesYet')} />
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {rules.map((rule, i) => {
             const isFree = rule.discount_percent === 100;
             return (

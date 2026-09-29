@@ -16,6 +16,8 @@ import {
 } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
 import { capturePosthog } from '@/lib/posthog';
+import { PRO_PAGE } from '@/lib/proLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TeamRole = 'admin' | 'editor' | 'scanner';
 type StaffRole = 'barman' | 'bouncer' | 'cloakroom';
@@ -274,7 +276,7 @@ export default function OrgAppTeam() {
   const dialogStyle = { background: 'var(--sf-0a0a0c)', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
 
   return (
-    <OrgPage>
+    <OrgPage className={PRO_PAGE}>
       <OrgPageHeader
         title={t('Équipe & Staff', 'Team & Staff')}
         subtitle={t('Gérez vos collaborateurs administratifs et votre staff opérationnel sur place.', 'Manage your administrative team and on-site operational staff.')}
@@ -309,7 +311,7 @@ export default function OrgAppTeam() {
           ) : members.length === 0 ? (
             <OrgEmptyState icon={Users} title={t('Aucun membre pour le moment.', 'No team members yet.')} />
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
               {members.map((m) => (
                 <OrgCard key={m.id}>
                   <div className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -382,7 +384,7 @@ export default function OrgAppTeam() {
           ) : staff.length === 0 ? (
             <OrgEmptyState icon={Beer} title={t("Aucun staff opérationnel.", 'No operational staff yet.')} description={t('Ajoutez vos barmans, videurs et vestiaires.', 'Add your barmen, bouncers and cloakroom team.')} />
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
               {staff.map((s) => {
                 const hasPin = !!s.user_id && staffPinSet.has(s.user_id);
                 return (
@@ -428,6 +430,7 @@ export default function OrgAppTeam() {
           {pendingStaffInvites.length > 0 && (
             <div className="space-y-2 pt-1">
               <h3 style={{ color: T2, fontSize: 13, fontWeight: 600 }}>{t('Invitations en attente', 'Pending invitations')}</h3>
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
               {pendingStaffInvites.map((inv) => (
                 <OrgCard key={inv.id}>
                   <div className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -445,6 +448,7 @@ export default function OrgAppTeam() {
                   </div>
                 </OrgCard>
               ))}
+              </div>
             </div>
           )}
         </div>
@@ -589,10 +593,20 @@ export default function OrgAppTeam() {
   );
 }
 
+// Silhouette d'une liste de membres (même grille que la vraie liste).
 function Loading() {
   return (
-    <div className="flex justify-center py-12">
-      <Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} />
+    <div className="grid grid-cols-1 gap-2 xl:grid-cols-2" aria-busy="true">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-card p-4">
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-2/5 rounded-md" />
+            <Skeleton className="h-2.5 w-1/4 rounded-md" />
+          </div>
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
+        </div>
+      ))}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -97,7 +98,7 @@ export default function OwnerSupportRequest() {
   return (
     <div className="min-h-[100dvh] bg-background" style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 sm:px-6 py-3 flex items-center gap-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
         <button onClick={() => navigate(`${basePath}/help`)} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -105,7 +106,10 @@ export default function OwnerSupportRequest() {
         <h1 className="text-sm font-bold">{t('support.title')}</h1>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 sm:p-6 pb-24 space-y-6">
+      <div className={cn(PRO_PAGE, 'py-4 sm:py-6 pb-24')}>
+      {/* Grand écran : le formulaire à gauche, l'historique des demandes à droite. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:gap-8">
+      <div className="min-w-0 space-y-6">
         {/* Category chips */}
         <div>
           <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t('support.categoryLabel')}</label>
@@ -151,6 +155,7 @@ export default function OwnerSupportRequest() {
             onChange={e => setDescription(e.target.value)}
             placeholder={t('support.descPlaceholder')}
             rows={4}
+            className="xl:min-h-[200px]"
             maxLength={2000}
           />
         </div>
@@ -165,8 +170,10 @@ export default function OwnerSupportRequest() {
           {t('support.send')}
         </Button>
 
+      </div>
+
         {/* History */}
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('support.history')}</h2>
           {loading ? (
             <div className="flex justify-center py-8">
@@ -200,6 +207,7 @@ export default function OwnerSupportRequest() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
