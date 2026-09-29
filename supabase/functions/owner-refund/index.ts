@@ -206,8 +206,17 @@ serve(async (req) => {
           results.push({ id: item.id, type: item.type, success: false, error: "Already refunded" }); continue;
         }
 
+        // Remboursements PARTIELS cumulables : on ne rend jamais plus que ce qui
+        // reste. Seul le remboursement qui atteint le total passe la vente en
+        // « refunded » — avant, un partiel l'y passait : le cron de libération
+        // annulait alors toutes ses jambes et la part non remboursée restait
+        // bloquée sur la plateforme ; le billet devenait aussi invalide.
+        const prevRefund = Math.max(0, Number(record.refund_amount || 0));
+        const remainingRefundable = Math.max(0, maxRefundable - prevRefund);
+
         // Validate owner-specified amount
-        const refundAmount = Math.min(ownerAmount, maxRefundable);
+        const refundAmount = Math.min(ownerAmount, remainingRefundable);
+        const isFullRefund = prevRefund + refundAmount >= maxRefundable - 0.005;
         if (refundAmount <= 0) {
           results.push({ id: item.id, type: item.type, success: false, error: "Invalid refund amount" }); continue;
         }
@@ -246,10 +255,20 @@ serve(async (req) => {
           // DIRECT charge → refund on the connected account (no transfer to reverse).
           // SEPARATE/platform charge → refund on the platform and reverse the transfers.
           const connectedAccount = (record.stripe_connected_account_id as string | null) || null;
+          // `reverse_transfer` n'a de sens que pour une charge à DESTINATION
+          // (transfer_data, ancien modèle). Une charge plateforme à jambes séparées
+          // n'a aucun transfert attaché : ses jambes sont réduites ou reversées par
+          // le webhook `charge.refunded`, au prorata du montant remboursé.
+          let reverseTransfer = false;
+          if (!connectedAccount) {
+            const { data: dist } = await supabaseAdmin.from("revenue_distributions")
+              .select("split_mode").eq("payment_intent_id", paymentIntentId).maybeSingle();
+            reverseTransfer = dist?.split_mode === "destination";
+          }
           await stripe.refunds.create({
             payment_intent: paymentIntentId,
             amount: refundAmountCents,
-            ...(connectedAccount ? {} : { reverse_transfer: true }),
+            ...(reverseTransfer ? { reverse_transfer: true } : {}),
             refund_application_fee: false,
           }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
           logStep("Stripe refund created", { paymentIntentId, refundAmount, refundAmountCents, direct: !!connectedAccount });
@@ -261,14 +280,14 @@ serve(async (req) => {
         // Update status in DB
         const table = item.type === "order" ? "orders" : item.type === "ticket" ? "tickets" : "table_reservations";
         const updateData: any = {
-          status: "refunded",
+          ...(isFullRefund ? { status: "refunded" } : {}),
           refund_reason: reason.trim(),
-          refund_amount: refundAmount,
+          refund_amount: Math.round((prevRefund + refundAmount) * 100) / 100,
           refunded_by: user.id,
           refunded_at: new Date().toISOString(),
         };
 
-        if (item.type === "order") {
+        if (item.type === "order" && isFullRefund) {
           updateData.archived = true;
           updateData.token_used = true;
         }
@@ -280,8 +299,9 @@ serve(async (req) => {
           continue;
         }
 
-        // Delete drink credits linked to refunded ticket
-        if (item.type === "ticket") {
+        // Delete drink credits linked to refunded ticket (total seulement : un
+        // geste partiel laisse le billet et ses consos valides)
+        if (item.type === "ticket" && isFullRefund) {
           try {
             await supabaseAdmin.from("order_pack_credits").delete().eq("ticket_order_id", item.id);
             await supabaseAdmin.from("ticket_upsell_selections").update({ status: "cancelled" }).eq("ticket_id", item.id);
@@ -292,15 +312,15 @@ serve(async (req) => {
         if (venueId && customerUserId) {
           try {
             const deltas: any = { p_venue_id: venueId, p_user_id: customerUserId, p_order_delta: 0, p_ticket_delta: 0, p_table_delta: 0, p_spent_delta: -refundAmount };
-            if (item.type === "order") deltas.p_order_delta = -1;
-            if (item.type === "ticket") deltas.p_ticket_delta = -1;
-            if (item.type === "table_reservation") deltas.p_table_delta = -1;
+            if (isFullRefund && item.type === "order") deltas.p_order_delta = -1;
+            if (isFullRefund && item.type === "ticket") deltas.p_ticket_delta = -1;
+            if (isFullRefund && item.type === "table_reservation") deltas.p_table_delta = -1;
             await supabaseAdmin.rpc("increment_venue_customer_stats", deltas);
           } catch (e) { console.error("Stats rollback error:", e); }
         }
 
-        // Re-credit loyalty points
-        if (venueId && customerUserId) {
+        // Re-credit loyalty points (total seulement)
+        if (isFullRefund && venueId && customerUserId) {
           try {
             const { data: txns } = await supabaseAdmin
               .from("loyalty_transactions")

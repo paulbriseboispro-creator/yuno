@@ -276,6 +276,10 @@ const handler = async (req: Request): Promise<Response> => {
           .update({ partner_venue_id: slug, event_mode: "co_event" })
           .eq("id", inv.event_id)
           .eq("organizer_user_id", inv.organizer_user_id)
+          // Soirée encore LIBRE seulement : le service role passe outre le garde
+          // « partenaire sous contrat », et une soirée rattachée entre-temps à un
+          // autre club (contrat actif) lui serait retirée en silence.
+          .is("partner_venue_id", null)
           .select("id, title, start_at, end_at")
           .maybeSingle();
         if (ev && inv.default_split_rules) {

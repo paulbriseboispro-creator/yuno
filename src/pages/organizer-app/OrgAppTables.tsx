@@ -17,6 +17,7 @@ import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState, OrgTabs, FieldLabel, DarkInput,
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
+import { orgEventsOr } from '@/lib/coorg';
 
 interface OrgTableEvent {
   id: string;
@@ -143,7 +144,7 @@ export default function OrgAppTables() {
       supabase
         .from('events')
         .select('id, title, start_at, end_at, location_name, tables_enabled, tables_mode, event_mode, venue_id, partner_venue_id')
-        .or(`organizer_user_id.eq.${organizerId},partner_organizer_id.eq.${organizerId}`)
+        .or(orgEventsOr(organizerId))
         .gte('end_at', new Date().toISOString())
         .order('start_at', { ascending: true }),
       supabase

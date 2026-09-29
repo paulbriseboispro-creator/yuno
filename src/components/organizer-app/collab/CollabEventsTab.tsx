@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { useCollabOrgCanAct } from '@/hooks/useCollabOrgCanAct';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { format } from 'date-fns';
@@ -41,6 +43,11 @@ interface CoEvent {
  */
 export function CollabEventsTab() {
   const { user } = useAuth();
+  // Scope = l'ORGANISATION : un membre d'équipe voit les co-soirées de
+  // l'organisation qu'il sert, pas les siennes (il n'en a pas).
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
+  const canAct = useCollabOrgCanAct('organizer');
   const { language } = useLanguage();
   const t = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
   const [events, setEvents] = useState<CoEvent[]>([]);
@@ -49,11 +56,11 @@ export function CollabEventsTab() {
   const [proposeOpen, setProposeOpen] = useState(false);
 
   const load = useCallback(async () => {
-    if (!user) { setLoading(false); return; }
+    if (!user || !orgId) { setLoading(false); return; }
     const { data, error } = await supabase
       .from('events')
       .select('id, title, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, collab_paused_at')
-      .or(`partner_organizer_id.eq.${user.id},and(organizer_user_id.eq.${user.id},partner_venue_id.not.is.null)`)
+      .or(`partner_organizer_id.eq.${orgId},and(organizer_user_id.eq.${orgId},partner_venue_id.not.is.null)`)
       .order('start_at', { ascending: false });
     if (error) { console.error(error); setLoading(false); return; }
 
@@ -74,21 +81,21 @@ export function CollabEventsTab() {
       is_active: e.is_active, collab_paused_at: e.collab_paused_at,
       clubName: vMap.get((e.venue_id ?? e.partner_venue_id) as string) || t('Un club', 'A club', 'Un club'),
       contractStatus: cMap.get(e.id) ?? null,
-      initiatedByMe: e.organizer_user_id === user.id && !!e.partner_venue_id,
+      initiatedByMe: e.organizer_user_id === orgId && !!e.partner_venue_id,
     })));
     setLoading(false);
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, orgId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();
-    if (!user) return;
+    if (!user || !orgId) return;
     const ch = supabase
-      .channel(`org-collab-hub-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `partner_organizer_id=eq.${user.id}` }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `organizer_user_id=eq.${user.id}` }, load)
+      .channel(`org-collab-hub-${orgId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `partner_organizer_id=eq.${orgId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `organizer_user_id=eq.${orgId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [user, load]);
+  }, [user, orgId, load]);
 
   const now = Date.now();
   const upcoming = events.filter((e) => new Date(e.end_at).getTime() >= now);
@@ -104,9 +111,11 @@ export function CollabEventsTab() {
             'Eventos coorganizados con clubes Yuno: propuestas recibidas y coeventos activos.',
           )}
         </p>
-        <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
-          <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
-        </OrgButton>
+        {canAct && (
+          <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
+            <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
+          </OrgButton>
+        )}
       </div>
 
       {/* Incoming proposals to accept/decline (per-event + sign-once recurring framework) */}
@@ -127,7 +136,7 @@ export function CollabEventsTab() {
             'Propose one of your events to a partner club, or wait for a Yuno club to propose one — it shows up here.',
             'Propón uno de tus eventos a un club asociado, o espera a que un club Yuno te proponga uno — aparecerá aquí.',
           )}
-          action={
+          action={canAct &&
             <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
               <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
             </OrgButton>

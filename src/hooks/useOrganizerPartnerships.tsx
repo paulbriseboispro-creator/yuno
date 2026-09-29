@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
+import { useActingOrganizer } from './useActingOrganizer';
 import { useToast } from './use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -44,11 +45,27 @@ export interface CollabRemuneration {
   tiers_mode?: 'flat' | 'marginal';
 }
 
+/**
+ * Comment l'argent d'un collab club × orga est réparti. `stripe` (défaut) :
+ * Stripe partage chaque vente automatiquement (les deux parties ont un compte
+ * Stripe). `transfer` : UNE partie encaisse tout (`collector`), la répartition
+ * du contrat est suivie vente par vente, puis un décompte est figé après la
+ * soirée et l'encaisseur vire la part de l'autre sous `payment_terms_days`
+ * (cycle IBAN / « J'ai viré » / « Bien reçu », comme les promoteurs).
+ * Barème ou tables au total dépensé ⇒ l'encaisseur est forcément le club.
+ */
+export interface CollabSettlement {
+  mode: 'stripe' | 'transfer';
+  collector?: 'venue' | 'organizer';
+  payment_terms_days?: 7 | 15 | 30;
+}
+
 export interface PartnershipSplitRules {
   tickets: SplitPillarBlock;
   tables: SplitPillarBlock & { basis?: TableSplitBasis };
   drinks: SplitPillarBlock;
   remuneration?: CollabRemuneration;
+  settlement?: CollabSettlement;
 }
 
 export interface VenueOrganizerPartnership {
@@ -107,14 +124,17 @@ const DEFAULT_SPLIT: PartnershipSplitRules = {
  */
 export function useOrganizerPartnerships() {
   const { user } = useAuth();
+  // Scope = l'ORGANISATION (fondateur ou admin d'équipe), jamais le compte.
+  const { organizerId: actingOrgId } = useActingOrganizer();
+  const orgId = actingOrgId ?? user?.id ?? null;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const query = useQuery({
-    queryKey: ['organizer-partnerships', user?.id],
-    enabled: !!user?.id,
+    queryKey: ['organizer-partnerships', orgId],
+    enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('venue_organizer_partnerships')
@@ -122,7 +142,7 @@ export function useOrganizerPartnerships() {
           *,
           venue:venues(id, name, logo_url, city)
         `)
-        .eq('organizer_user_id', user!.id)
+        .eq('organizer_user_id', orgId!)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -137,7 +157,7 @@ export function useOrganizerPartnerships() {
         .from('venue_organizer_partnerships')
         .insert({
           venue_id: params.venueId,
-          organizer_user_id: user.id,
+          organizer_user_id: orgId ?? user.id,
           initiated_by: 'organizer' as const,
           invitation_message: params.message ?? null,
           // PartnershipSplitRules est structurellement du JSON ; l'interface n'a pas l'index signature qu'exige le type Json généré.

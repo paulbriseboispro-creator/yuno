@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +12,8 @@ import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
 import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
 import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
+import { CoorgHubTab } from '@/components/coorg/CoorgHubTab';
+import { ClubInviteDealFields, type ClubInviteDeal } from '@/components/collab/ClubInviteDealFields';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,6 +21,7 @@ import {
   Handshake, User, Send, Check, X, Trash2, Inbox, Search, Settings2,
   Building2, Mail, UserPlus, Calendar, Sparkles, Clock, ExternalLink,
   ChevronDown, ChevronUp, Lock, FileText, BarChart3, Ticket, Wine, Pause, Play,
+  Network,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -173,6 +176,7 @@ export default function OwnerCollaborations() {
     { value: 'events',     label: t('collab.tab.events'),     Icon: Calendar  },
     { value: 'organizers', label: t('collab.tab.organizers'), Icon: User      },
     { value: 'invite',     label: t('collab.tab.invite'),     Icon: UserPlus  },
+    { value: 'coorg',      label: t('collab.tab.coorg'),      Icon: Network   },
   ];
 
   const [venueId, setVenueId]   = useState<string | undefined>(undefined);
@@ -268,6 +272,7 @@ export default function OwnerCollaborations() {
             {tab === 'events'     && <CollabEventsTab venueId={venueId} canPropose={!isCollab} />}
             {tab === 'organizers' && <OrganizersTab venueId={venueId} />}
             {tab === 'invite'     && <InviteTab venueId={venueId} />}
+            {tab === 'coorg'      && <CoorgHubTab scope={{ venueId }} basePath="/owner" />}
           </motion.div>
         </AnimatePresence>
 
@@ -328,7 +333,10 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
       const { data: contracts } = await supabase
         .from('event_collab_contracts' as never)
         .select('event_id, status')
-        .in('event_id' as never, eventIds as never);
+        .in('event_id' as never, eventIds as never)
+        // Le contrat VIVANT seulement : un contrat refusé puis refait ne doit
+        // pas écraser le bon statut dans la carte.
+        .neq('status' as never, 'cancelled' as never);
       ((contracts as unknown as Array<{ event_id: string; status: string }>) || [])
         .forEach((c) => contractMap.set(c.event_id, c.status));
     }
@@ -920,7 +928,7 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
         supabase.from('tickets').select('total_price, quantity, service_fee, insurance_fee').eq('status', 'paid').in('event_id', ids),
         // guest_count (sans s) + status 'paid' : guests_count n'existe pas (la
         // requête entière échouait en 400) et 'confirmed' n'est jamais écrit.
-        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee').eq('status', 'paid').in('event_id', ids),
+        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee, fee_absorbed').eq('status', 'paid').in('event_id', ids),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
         supabase.from('orders').select('total, service_fee, refund_amount').eq('status', 'paid').in('event_id', ids),
       ]);
@@ -984,15 +992,27 @@ function InviteTab({ venueId }: { venueId: string }) {
     contact_first_name: '', contact_last_name: '', invitation_message: '',
   });
   const [sending, setSending] = useState(false);
+  // Le deal part AVEC l'invitation : soirée, conditions, Stripe Oui / Non.
+  const [deal, setDeal] = useState<ClubInviteDeal>({ eventId: null, rules: null, lang: 'fr', invalid: false });
+  const onDeal = useCallback((d: ClubInviteDeal) => setDeal(d), []);
 
   const handleSend = async () => {
     if (!form.organizer_email.trim()) { sonnerToast.error(t('collab.external.emailRequired')); return; }
+    if (deal.invalid) return;
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-organizer-collab', {
-        body: { ...form, origin: window.location.origin },
+        body: {
+          ...form, venue_id: venueId, event_id: deal.eventId, default_split_rules: deal.rules,
+          lang: deal.lang, origin: window.location.origin,
+        },
       });
-      if (error) throw error;
+      if (error) {
+        // Un refus serveur (4xx) porte son message dans le corps de la réponse.
+        let msg = error.message;
+        try { msg = (await (error as { context?: Response }).context?.json())?.error ?? msg; } catch { /* corps illisible */ }
+        throw new Error(msg);
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       sonnerToast.success(t('collab.external.inviteSentTitle'), { description: `${t('collab.external.inviteSentDesc')} ${form.organizer_email}.` });
       setForm({ organizer_email: '', organizer_name: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
@@ -1031,6 +1051,9 @@ function InviteTab({ venueId }: { venueId: string }) {
             <YunoInput label={t('collab.external.lastNameLabel')} value={form.contact_last_name}
               onChange={(e) => setForm((f) => ({ ...f, contact_last_name: e.target.value }))} />
             <div className="col-span-2">
+              <ClubInviteDealFields venueId={venueId} onChange={onDeal} />
+            </div>
+            <div className="col-span-2">
               <YunoTextarea rows={4} label={t('collab.external.messageLabel')} value={form.invitation_message}
                 onChange={(e) => setForm((f) => ({ ...f, invitation_message: e.target.value }))}
                 placeholder={t('collab.external.messagePlaceholder')} />
@@ -1038,7 +1061,7 @@ function InviteTab({ venueId }: { venueId: string }) {
           </div>
 
           <button
-            onClick={handleSend} disabled={sending}
+            onClick={handleSend} disabled={sending || deal.invalid}
             className="w-full flex items-center justify-center gap-2 cursor-pointer transition-all duration-150"
             style={{ padding: '11px 20px', borderRadius: 12, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: RED, fontSize: 13.5, fontWeight: 640, opacity: sending ? 0.6 : 1 }}
           >

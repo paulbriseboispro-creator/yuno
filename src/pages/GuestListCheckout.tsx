@@ -31,6 +31,8 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { GuestAccountUnlock } from '@/components/account/GuestAccountUnlock';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
+import { shareCheckoutConsent } from '@/lib/coorg';
 import { composeFullName, isCompleteName } from '@/lib/guestName';
 import {
   useMarketingConsent, usePlatformMarketingConsent, recordConsentGrant,
@@ -150,6 +152,8 @@ export default function GuestListCheckout() {
   } | null>(null);
   const marketingConsent = useMarketingConsent(consentScope);
   const platformConsent = usePlatformMarketingConsent(true);
+  // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
+  const coorgHosts = useEventMarketingHosts(eventId, consentScope, language);
 
   // Retour vers la sélection : on DÉPILE, comme partout ailleurs dans le tunnel
   // (fiche event, billets, checkout billet). Empiler `/billets` d'ici enfermait
@@ -390,8 +394,9 @@ export default function GuestListCheckout() {
       onNewsletterChange={setNewsletterOptIn}
       smsOptIn={smsOptIn}
       onSmsChange={setSmsOptIn}
-      scopeName={consentScope?.scopeName}
-      emailAlreadyGranted={marketingConsent.emailGranted}
+      scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
+      smsScopeName={consentScope?.scopeName}
+      emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
       smsAlreadyGranted={marketingConsent.smsGranted}
       pending={marketingConsent.pending || platformConsent.pending}
       onWithdraw={handleWithdrawConsent}
@@ -444,9 +449,10 @@ export default function GuestListCheckout() {
       const effectiveNewsletter = newsletterOptIn || marketingConsent.emailGranted;
       const effectiveSms = smsOptIn || marketingConsent.smsGranted;
       const effectiveYuno = yunoOptIn || platformConsent.granted;
-      const { email: emailWording, sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
+      const { email: emailWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName);
+      const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
       // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD).
-      if (newsletterOptIn && !marketingConsent.emailGranted) {
+      if (newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
         void recordConsentGrant({
           channel: 'email', wordingText: emailWording, wordingKey: 'consent.emailOffersFrom',
           venueId: consentScope?.venueId ?? null,
@@ -511,6 +517,15 @@ export default function GuestListCheckout() {
       }
       capturePosthog('guest_list_joined', { pillar: 'guest_list', via_invite: false, ...(guestList.market ?? marketProps({ eventId })) });
       joined = true;
+
+      // Soirée co-organisée : la case cochée nommait chaque hôte.
+      if (newsletterOptIn && coorgHosts.hasCohosts && eventId) {
+        await shareCheckoutConsent({
+          eventId: eventId, email: consentEmail, wording: emailWording,
+          locale: language, source: 'guestlist_checkout', hostKeys: coorgHosts.cohostKeys,
+          proof: data?.entry?.id ?? data?.entry?.qrCode ?? null,
+        });
+      }
 
       // Le couple (id, email) de l'inscription : c'est la cle du rattachement au
       // compte propose juste apres. L'email vient de la reponse serveur, pas du

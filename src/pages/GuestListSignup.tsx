@@ -36,6 +36,8 @@ import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
 import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { GuestAccountUnlock } from '@/components/account/GuestAccountUnlock';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
+import { shareCheckoutConsent } from '@/lib/coorg';
 import {
   useMarketingConsent, usePlatformMarketingConsent, recordConsentGrant,
   recordPlatformConsentGrant, marketingConsentWording,
@@ -240,6 +242,8 @@ export default function GuestListSignup() {
   } | null>(null);
   const marketingConsent = useMarketingConsent(consentScope);
   const platformConsent = usePlatformMarketingConsent(true);
+  // Co-organisation : la case email nomme TOUS les hôtes qui partagent le CRM.
+  const coorgHosts = useEventMarketingHosts(guestList?.eventId, consentScope, language);
   // Compte créé depuis l'écran de confirmation : débloque le QR sans attendre
   // que la session se propage jusqu'à `user`.
   const [accountCreated, setAccountCreated] = useState(false);
@@ -611,8 +615,9 @@ export default function GuestListSignup() {
       onNewsletterChange={setNewsletterOptIn}
       smsOptIn={smsOptIn}
       onSmsChange={setSmsOptIn}
-      scopeName={consentScope?.scopeName}
-      emailAlreadyGranted={marketingConsent.emailGranted}
+      scopeName={coorgHosts.emailScopeName || consentScope?.scopeName}
+      smsScopeName={consentScope?.scopeName}
+      emailAlreadyGranted={marketingConsent.emailGranted && !coorgHosts.hasCohosts}
       smsAlreadyGranted={marketingConsent.smsGranted}
       pending={marketingConsent.pending || platformConsent.pending}
       onWithdraw={handleWithdrawConsent}
@@ -676,10 +681,11 @@ export default function GuestListSignup() {
       const effectiveNewsletter = askedConsent && (newsletterOptIn || marketingConsent.emailGranted);
       const effectiveSms = askedConsent && (smsOptIn || marketingConsent.smsGranted);
       const effectiveYuno = askedConsent && (yunoOptIn || platformConsent.granted);
-      const { email: emailWording, sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
+      const { email: emailWording } = marketingConsentWording(t, coorgHosts.emailScopeName || consentScope?.scopeName);
+      const { sms: smsWording } = marketingConsentWording(t, consentScope?.scopeName);
       // Preuve d'un accord NOUVEAU uniquement (art. 7(1) RGPD) : rejouer un
       // accord déjà actif gonflerait le journal sans rien prouver de plus.
-      if (askedConsent && newsletterOptIn && !marketingConsent.emailGranted) {
+      if (askedConsent && newsletterOptIn && (!marketingConsent.emailGranted || coorgHosts.hasCohosts)) {
         void recordConsentGrant({
           channel: 'email', wordingText: emailWording, wordingKey: 'consent.emailOffersFrom',
           venueId: consentScope?.venueId ?? null,
@@ -750,6 +756,15 @@ export default function GuestListSignup() {
       }
       capturePosthog('guest_list_joined', { pillar: 'guest_list', via_invite: !!inviteParam, ...(guestList?.market ?? marketProps({ eventId: guestList?.eventId })) });
       joined = true;
+
+      // Soirée co-organisée : la case cochée nommait chaque hôte.
+      if (askedConsent && newsletterOptIn && coorgHosts.hasCohosts && guestList?.eventId) {
+        await shareCheckoutConsent({
+          eventId: guestList?.eventId, email: consentEmail, wording: emailWording,
+          locale: language, source: 'guestlist_signup', hostKeys: coorgHosts.cohostKeys,
+          proof: data?.entry?.id ?? data?.entry?.qrCode ?? null,
+        });
+      }
 
       // Generate QR image
       if (data.entry?.qrCode) {

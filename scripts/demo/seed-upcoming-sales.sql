@@ -130,7 +130,9 @@ begin
         values (v_ev.id, v_pack.id, v_pack.zone_id, format('seed.%s@demo.womber.fr', v_seq),
                 v_first[1 + floor(random() * 20)::int] || ' ' || v_last[1 + floor(random() * 20)::int],
                 6 + floor(random() * 5)::int,
-                round(v_pack.base_price * 1.04, 2), round(v_pack.base_price * 1.04, 2), 0, round(v_pack.base_price * 0.04, 2),
+                -- Comme un vrai checkout : total_price = le prix de la table, SANS les
+                -- frais de gestion Yuno (payés EN PLUS par le client, 4 %).
+                round(v_pack.base_price, 2), round(v_pack.base_price, 2), 0, round(v_pack.base_price * 0.04, 2),
                 'online', 'paid', v_at, v_at);
       end loop;
     end if;

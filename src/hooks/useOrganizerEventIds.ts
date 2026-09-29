@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orgEventsOr } from '@/lib/coorg';
 
 /**
  * Resolves all event_ids AND venue_ids associated with an organizer
@@ -26,7 +27,7 @@ export function useOrganizerEventIds(organizerUserId?: string | null) {
       const { data } = await supabase
         .from('events')
         .select('id, venue_id, partner_venue_id')
-        .or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`);
+        .or(orgEventsOr(organizerUserId));
       if (!cancelled) {
         const evs = data ?? [];
         setEventIds(evs.map((e: any) => e.id));

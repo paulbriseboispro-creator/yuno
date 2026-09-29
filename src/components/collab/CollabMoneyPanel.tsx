@@ -27,6 +27,22 @@ interface GainLike {
 }
 
 /**
+ * Contrat réglé SANS partage Stripe : une partie encaisse, l'autre est payée par
+ * virement après le décompte (carte « Règlement par virement »).
+ */
+export interface TransferInfo {
+  iCollect: boolean;
+  collectorName: string;
+  /** Ce que je dois virer à l'autre partie (0 si rien). */
+  owed: number;
+  /** Ce que l'autre partie doit me virer (0 si rien). */
+  toReceive: number;
+  frozen: boolean;
+  freezeAt: string;
+  termsDays: number;
+}
+
+/**
  * « L'argent de la soirée » — le panneau de confiance des co-soirées, rendu à
  * l'identique côté club et côté organisateur. Trois étages :
  *  1. Ventes par pilier (billets / tables / bar) : quantités, CA et « ma part »
@@ -37,7 +53,7 @@ interface GainLike {
  * Les données viennent du parent (requêtes déjà faites pour les stat cards) et
  * de useEventNetGain (revenue_distributions) — aucune requête supplémentaire.
  */
-export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, gain, isVenue }: {
+export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, gain, isVenue, transfer = null }: {
   event: { end_at: string; revenue_split_rules: unknown; event_mode: string | null };
   tickets: PillarStat;
   tables: PillarStat;
@@ -46,6 +62,7 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
   drinks: PillarStat | null;
   gain: GainLike;
   isVenue: boolean;
+  transfer?: TransferInfo | null;
 }) {
   const { language } = useLanguage();
   const t = (f: string, e: string, s?: string) => translate(language, f, e, s);
@@ -98,11 +115,52 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
   const hasFailed = gain.failedEuros > 0.005;
 
   type StepStatus = 'done' | 'active' | 'upcoming';
-  const steps: { icon: LucideIcon; title: string; desc: string; when?: string; status: StepStatus }[] = tiered ? [
+  const freezeMs = transfer ? new Date(transfer.freezeAt).getTime() : 0;
+  const transferSteps: { icon: LucideIcon; title: string; desc: string; when?: string; status: StepStatus }[] = transfer ? [
+    {
+      icon: Banknote,
+      title: t(`${transfer.collectorName} encaisse`, `${transfer.collectorName} collects`, `${transfer.collectorName} cobra`),
+      desc: t(
+        'Chaque vente arrive directement sur son compte de paiement. Yuno note la part de chacun, vente par vente, selon le contrat.',
+        'Every sale lands directly on its payment account. Yuno records each share, sale by sale, per the agreement.',
+        'Cada venta llega directamente a su cuenta de pago. Yuno anota la parte de cada uno, venta a venta, según el contrato.',
+      ),
+      status: now < endMs ? 'active' : 'done',
+    },
+    {
+      icon: CalendarClock,
+      title: t('Fin de la soirée', 'Event ends', 'Fin de la noche'),
+      desc: t('Les remboursements des 48 h qui suivent sont déduits du décompte.', 'Refunds in the next 48 h are deducted from the statement.', 'Los reembolsos de las 48 h siguientes se descuentan de la liquidación.'),
+      when: fmtDay(event.end_at),
+      status: now >= endMs ? 'done' : 'upcoming',
+    },
     {
       icon: ShieldCheck,
-      title: t('Ventes Yuno retenues', 'Yuno sales held', 'Ventas Yuno retenidas'),
+      title: t('Décompte arrêté', 'Statement closed', 'Liquidación cerrada'),
+      desc: t('Yuno fige les chiffres et le montant à virer. Une partie peut l\'arrêter plus tôt une fois la soirée finie.', 'Yuno freezes the figures and the amount to transfer. Either party can close it earlier once the night is over.', 'Yuno fija las cifras y el importe a transferir. Una parte puede cerrarla antes una vez terminada la noche.'),
+      when: fmtDay(transfer.freezeAt),
+      status: transfer.frozen ? 'done' : now >= endMs ? 'active' : 'upcoming',
+    },
+    {
+      icon: Banknote,
+      title: t(`Virement sous ${transfer.termsDays} jours`, `Transfer within ${transfer.termsDays} days`, `Transferencia en ${transfer.termsDays} días`),
       desc: t(
+        'IBAN, « J\'ai viré », puis « Bien reçu » par le bénéficiaire. Yuno relance avant et après l\'échéance, et arbitre en cas de litige.',
+        'IBAN, "I have paid", then "Received" by the payee. Yuno sends reminders before and after the due date, and arbitrates any dispute.',
+        'IBAN, «He transferido» y luego «Recibido» por el beneficiario. Yuno recuerda antes y después del vencimiento, y arbitra en caso de disputa.',
+      ),
+      status: !transfer.frozen ? (now >= freezeMs ? 'active' : 'upcoming') : (transfer.owed > 0.005 || gain.pendingEuros > 0.005) ? 'active' : 'done',
+    },
+  ] : [];
+  const steps: { icon: LucideIcon; title: string; desc: string; when?: string; status: StepStatus }[] = transfer && !tiered ? transferSteps : tiered ? [
+    {
+      icon: ShieldCheck,
+      title: transfer ? t('Ventes encaissées par le club', 'Sales collected by the club', 'Ventas cobradas por el club') : t('Ventes Yuno retenues', 'Yuno sales held', 'Ventas Yuno retenidas'),
+      desc: transfer ? t(
+        'Sans partage Stripe : chaque billet et chaque table vendus via Yuno arrivent directement sur le compte du club. La part de l\'organisateur se calcule au décompte, puis le club la lui vire.',
+        'No Stripe split: every ticket and table sold through Yuno lands directly on the club\'s account. The organizer\'s share is computed at the closing, then the club wires it.',
+        'Sin reparto con Stripe: cada entrada y cada mesa vendidas vía Yuno llegan directamente a la cuenta del club. La parte del organizador se calcula en el cierre y el club se la transfiere.',
+      ) : t(
         'Chaque billet et chaque table vendus via Yuno sont encaissés au nom du club et mis de côté sur la plateforme. Personne n\'y touche avant le décompte.',
         'Every ticket and table sold through Yuno is collected under the club and set aside on the platform. Nobody touches it before the closing.',
         'Cada entrada y cada mesa vendidas vía Yuno se cobran a nombre del club y quedan apartadas en la plataforma. Nadie las toca antes del cierre.',
@@ -250,6 +308,26 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
           {/* Montants NET (frais Stripe déduits au prorata), contrairement à
               « Ma part » des piliers qui est avant frais — le dire, sinon
               l'écart 4,80 € vs 4,62 € ressemble à de l'argent disparu. */}
+          {transfer && !tiered ? (<>
+            <MoneyTile
+              color={POS}
+              label={t('Sur votre compte', 'On your account', 'En tu cuenta')}
+              value={gain.loading ? '…' : eur(gain.paidEuros)}
+              sub={transfer.iCollect
+                ? t('Votre part, encaissée directement', 'Your share, collected directly', 'Tu parte, cobrada directamente')
+                : t('Virements reçus', 'Transfers received', 'Transferencias recibidas')}
+              icon={Check}
+            />
+            <MoneyTile
+              color={AMBER}
+              label={transfer.owed > 0.005 ? t('À virer à l\'autre partie', 'To transfer to the other party', 'A transferir a la otra parte') : t('À recevoir par virement', 'To receive by transfer', 'A recibir por transferencia')}
+              value={gain.loading ? '…' : eur(transfer.owed > 0.005 ? transfer.owed : gain.pendingEuros)}
+              sub={transfer.frozen
+                ? t(`Décompte arrêté · sous ${transfer.termsDays} jours`, `Statement closed · within ${transfer.termsDays} days`, `Liquidación cerrada · en ${transfer.termsDays} días`)
+                : t(`Estimation · décompte le ${fmtDay(transfer.freezeAt)}`, `Estimate · statement on ${fmtDay(transfer.freezeAt)}`, `Estimación · liquidación el ${fmtDay(transfer.freezeAt)}`)}
+              icon={Clock}
+            />
+          </>) : (<>
           <MoneyTile
             color={POS}
             label={t('Déjà sur votre Stripe', 'Already on your Stripe', 'Ya en tu Stripe')}
@@ -277,6 +355,7 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
               icon={AlertTriangle}
             />
           )}
+          </>)}
         </div>
 
         {/* ── 3. Le cycle de paiement ──────────────────────────────────────── */}
@@ -319,13 +398,13 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
               );
             })}
           </div>
-          <p style={{ color: T3, fontSize: 11, lineHeight: 1.5 }}>
+          {!transfer && <p style={{ color: T3, fontSize: 11, lineHeight: 1.5 }}>
             {t(
               'Les ventes qui reviennent à 100 % à une seule partie (ex. bar 100 % club) sont créditées directement sur son compte Stripe, sans retenue.',
               'Sales that go 100% to a single side (e.g. bar 100% club) are credited straight to its Stripe account, with no hold.',
               'Las ventas que van al 100 % a una sola parte (p. ej. bar 100 % club) se abonan directamente en su cuenta de Stripe, sin retención.',
             )}
-          </p>
+          </p>}
         </div>
       </div>
     </OrgCard>

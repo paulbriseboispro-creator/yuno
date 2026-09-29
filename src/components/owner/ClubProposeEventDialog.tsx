@@ -18,8 +18,9 @@ import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPick
 import {
   DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
 } from '@/components/collab/TieredRemunerationEditor';
-import { normalizeSplitRules, readRemuneration, tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
-import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { normalizeSplitRules, readRemuneration, readSettlement, tieredPillarBlocks, validateTiers, withSettlement } from '@/lib/splitRules';
+import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
+import type { CollabRemuneration, CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { translate } from '@/i18n/orgTranslate';
 import {
   defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
@@ -77,6 +78,9 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
   const [remMode, setRemMode] = useState<RemunerationMode>('per_pillar');
   const [tiered, setTiered] = useState<CollabRemuneration>({ mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
   const tiersInvalid = remMode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
+  // « Répartir automatiquement via Stripe ? » — oui par défaut, non = une partie
+  // encaisse et vire la part de l'autre après la soirée.
+  const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
   // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
   const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
     () => defaultResponsibilities('co_event'));
@@ -91,6 +95,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
     // Un partenariat déjà convenu au barème rouvre l'éditeur sur ce barème.
     const rem = readRemuneration(p?.default_split_rules);
     if (rem) { setRemMode('tiered_total'); setTiered(rem); }
+    setSettlement(readSettlement(p?.default_split_rules));
   }, [organizerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
@@ -138,6 +143,25 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
     navigate('/owner/events');
   };
 
+  // NULL = répartition par défaut du partenariat (SQL). Dès qu'un barème ou un
+  // règlement par virement est choisi, les règles partent explicitement : le
+  // partage convenu (ou le défaut SQL 50/50 billets) + le mode de règlement.
+  const splitBase = (): PartnershipSplitRules => {
+    if (remMode === 'tiered_total') {
+      return { ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } };
+    }
+    const p = activePartners.find((x) => x.organizer_user_id === organizerId);
+    return normalizeSplitRules(p?.default_split_rules) ?? {
+      tickets: { organizer_pct: 50, venue_pct: 50 },
+      tables: { organizer_pct: 0, venue_pct: 100 },
+      drinks: { organizer_pct: 0, venue_pct: 100 },
+    };
+  };
+  const proposedRules = (): PartnershipSplitRules | null => {
+    if (remMode !== 'tiered_total' && settlement.mode !== 'transfer') return null;
+    return withSettlement(splitBase(), settlement);
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
     if (!organizerId) {
@@ -176,9 +200,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
           p_event_id: eventId,
           // NULL = répartition par défaut du partenariat ; un barème s'envoie
           // explicitement (blocs pilier à 0/100 club + remuneration).
-          p_split_rules: remMode === 'tiered_total'
-            ? ({ ...tieredPillarBlocks(null), remuneration: { ...tiered, tiers: [...tiered.tiers].sort((a, b) => a.from - b.from) } } as PartnershipSplitRules)
-            : null,
+          p_split_rules: proposedRules(),
           p_cancellation_policy: 'pro_rata_refund',
           p_responsibilities: responsibilities,
         } as never,
@@ -404,7 +426,11 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
               <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
                 <TieredRemunerationEditor value={tiered} onChange={setTiered} />
                 <p className="text-xs text-muted-foreground">
-                  {tr(
+                  {settlement.mode === 'transfer' ? tr(
+                    'Pendant la vente, tu encaisses tout sur ton compte Stripe. Après la soirée, tu déclares le chiffre hors Yuno (bar, porte, extras), l\'organisateur valide, Yuno applique le barème et tu lui vires sa part.',
+                    'During sales you collect everything on your Stripe account. After the night, you declare the revenue outside Yuno (bar, door, extras), the organizer validates, Yuno applies the tiers and you transfer their share.',
+                    'Durante la venta cobras todo en tu cuenta de Stripe. Tras la noche, declaras la facturación fuera de Yuno (barra, puerta, extras), el organizador valida, Yuno aplica la escala y le transfieres su parte.',
+                  ) : tr(
                     'Pendant la vente, tout revient au club et les billets et tables vendus via Yuno sont retenus sur la plateforme. Après la soirée, tu déclares le chiffre hors Yuno (bar, porte, extras), l\'organisateur valide, et Yuno applique le barème.',
                     'During sales everything goes to the club and tickets and tables sold through Yuno are held on the platform. After the night, you declare the revenue outside Yuno (bar, door, extras), the organizer validates, and Yuno applies the tiers.',
                     'Durante la venta todo va al club y las entradas y mesas vendidas vía Yuno quedan retenidas en la plataforma. Tras la noche, declaras la facturación fuera de Yuno (barra, puerta, extras), el organizador valida y Yuno aplica la escala.',
@@ -423,6 +449,8 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
               );
             })()}
           </div>
+
+          <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={splitBase() as unknown as Record<string, unknown>} />
 
           {/* Qui fait quoi — axe distinct du mode et du partage des revenus.
               C'est ici qu'on dit « le club tient l'operationnel, l'orga tient le

@@ -57,8 +57,16 @@ export function ticketRevenue(t: { total_price?: number | null; service_fee?: nu
   return row(charged - n(t.service_fee) - n(t.insurance_fee), charged, t.refund_amount);
 }
 
-/** Table reservation: club gross = total_price − service_fee − management_fee; charged = total_price. */
-export function tableRevenue(t: { total_price?: number | null; service_fee?: number | null; management_fee?: number | null; refund_amount?: number | null }): RevenueRow {
+/**
+ * Table reservation: club gross = total_price − service_fee − (management_fee SI
+ * absorbé) ; charged = total_price.
+ *
+ * `total_price` est le prix de la table SANS les frais de gestion Yuno : le client
+ * les paie EN PLUS (create-table-checkout). Ils ne sortent de la part du club que
+ * lorsqu'il les absorbe (`fee_absorbed`). Miroir des RPC d'analyse (migration
+ * 20260929170000) et du décompte collab.
+ */
+export function tableRevenue(t: { total_price?: number | null; service_fee?: number | null; management_fee?: number | null; fee_absorbed?: boolean | null; refund_amount?: number | null }): RevenueRow {
   const charged = n(t.total_price);
-  return row(charged - n(t.service_fee) - n(t.management_fee), charged, t.refund_amount);
+  return row(charged - n(t.service_fee) - (t.fee_absorbed ? n(t.management_fee) : 0), charged, t.refund_amount);
 }

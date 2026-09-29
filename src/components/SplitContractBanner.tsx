@@ -7,8 +7,9 @@ import { downloadContractPDF } from '@/lib/generateContractPDF';
 import { loadCollabContractPdfData } from '@/lib/collabContractData';
 import { CollabContractTermsDialog } from '@/components/CollabContractTermsDialog';
 import { AlertTriangle, CheckCircle2, Lock, PenLine, Download, FileSignature, Pencil, Banknote } from 'lucide-react';
-import type { CollabRemuneration, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
-import { normalizeSplitRules, readRemuneration, tieredPillarBlocks, validateTiers } from '@/lib/splitRules';
+import type { CollabRemuneration, CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { normalizeSplitRules, readRemuneration, readSettlement, tieredPillarBlocks, validateTiers, withSettlement } from '@/lib/splitRules';
+import { SettlementModeSwitch, SettlementRecap } from '@/components/collab/SettlementModeSwitch';
 import { computeYunoFee } from '@/utils/coEventSplit';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -58,6 +59,9 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
   // sur le CA total de la soirée, réglé après la nuit (fonds Yuno retenus).
   const [mode, setMode] = useState<RemunerationMode>('per_pillar');
   const [tiered, setTiered] = useState<CollabRemuneration>({ mode: 'tiered_total', tiers: DEFAULT_TIERS, tiers_mode: 'flat' });
+  // Répartition automatique via Stripe (oui) ou encaissement par une partie +
+  // virement suivi après la soirée (non). Stripe n'est jamais une condition.
+  const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
   // Drinks stay 100% club UNLESS the organizer attested their alcohol-sale licence.
   const [orgCanSellAlcohol, setOrgCanSellAlcohol] = useState(false);
   const [isBde, setIsBde] = useState(false);
@@ -105,7 +109,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
 
   const card = 'rounded-xl border p-4 text-sm';
 
-  const buildRules = (): PartnershipSplitRules => {
+  const buildSplit = (): PartnershipSplitRules => {
     if (mode === 'tiered_total') {
       // Tout au club pendant la vente ; la part de l'organisateur se calcule
       // après la soirée. Le barème vit à côté des blocs pilier.
@@ -119,6 +123,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
         : { organizer_pct: 0, venue_pct: 100 },
     };
   };
+  const buildRules = (): PartnershipSplitRules => withSettlement(buildSplit(), settlement);
   const tiersInvalid = mode === 'tiered_total' && validateTiers(tiered.tiers) !== null;
 
   const handlePropose = () => create.mutate({ rules: buildRules() }, { onSuccess: () => setEditing(false) });
@@ -133,6 +138,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
       const rem = readRemuneration(prefill);
       setMode(rem ? 'tiered_total' : 'per_pillar');
       if (rem) setTiered(rem);
+      setSettlement(readSettlement(prefill));
     }
     setEditing(true);
   };
@@ -155,6 +161,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
         {t('Barème sur le CA total de la soirée', "Tiers on the night's total revenue", 'Escala sobre la facturación total de la noche')}
       </p>
       <TiersRecap rem={rules.remuneration} className="mt-1" />
+      <SettlementRecap rules={rules} className="mt-1.5" />
     </div>
   ) : (
     <ul className="mt-2 text-xs text-muted-foreground space-y-1">
@@ -169,13 +176,26 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
       <li>
         {t('Boissons', 'Drinks', 'Bebidas')} : {rules.drinks.organizer_pct}% {t('orga', 'organizer', 'orga')} / {rules.drinks.venue_pct}% club
       </li>
+      <li className="list-none"><SettlementRecap rules={rules} /></li>
     </ul>
   );
 
-  const payoutNoteFor = (isTiered: boolean) => (
+  const payoutNoteFor = (isTiered: boolean, isTransfer = false) => (
     <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground mt-1">
       <Banknote className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-      {isTiered
+      {isTransfer
+        ? (isTiered
+          ? t(
+            "Sans partage Stripe : le club encaisse toutes les ventes Yuno sur son compte. Après la soirée, il déclare le chiffre hors Yuno, l'organisateur valide, Yuno applique le barème et le club vire la part de l'organisateur avec une référence (relances et suivi comme pour les promoteurs).",
+            "No Stripe split: the club collects every Yuno sale on its own account. After the night it declares the revenue outside Yuno, the organizer validates, Yuno applies the tiers and the club transfers the organizer's share with a reference (reminders and tracking, like promoters).",
+            'Sin reparto con Stripe: el club cobra todas las ventas Yuno en su cuenta. Tras la noche declara la facturación fuera de Yuno, el organizador valida, Yuno aplica la escala y el club transfiere la parte del organizador con una referencia (recordatorios y seguimiento, como los promotores).',
+          )
+          : t(
+            "Sans partage Stripe : l'encaisseur reçoit chaque vente sur son compte, Yuno note la part de l'autre à chaque vente. 48 h après la soirée le décompte est figé, puis l'encaisseur vire la part de l'autre avec une référence ; l'autre confirme la réception.",
+            'No Stripe split: the collecting party receives every sale on its account, Yuno records the other share on each sale. 48 h after the night the statement is frozen, then the collector transfers the other share with a reference; the other party confirms receipt.',
+            'Sin reparto con Stripe: quien cobra recibe cada venta en su cuenta, Yuno anota la parte del otro en cada venta. 48 h después de la noche se congela la liquidación y quien cobra transfiere la parte del otro con una referencia; el otro confirma la recepción.',
+          ))
+        : isTiered
         ? t(
           "Encaissement sécurisé par Yuno : les billets et tables vendus via Yuno sont retenus sur la plateforme jusqu'au décompte de fin de soirée. Le club déclare le chiffre hors Yuno (bar, porte, extras), l'organisateur valide, Yuno applique le barème et verse : la part de l'organisateur part d'abord des fonds retenus, le reste par virement du club avec référence.",
           "Payments are held securely by Yuno: tickets and tables sold through Yuno stay on the platform until the end-of-night closing. The club declares the revenue outside Yuno (bar, door, extras), the organizer validates, Yuno applies the tiers and pays out: the organizer's share comes out of the held funds first, the rest by bank transfer from the club with a reference.",
@@ -188,7 +208,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
         )}
     </p>
   );
-  const payoutNote = payoutNoteFor(false);
+  const payoutNote = payoutNoteFor(false, settlement.mode === 'transfer');
 
   const editorBody = (submitLabel: string, onSubmit: () => void, pending: boolean) => (
     <div className="ml-8 space-y-4">
@@ -203,7 +223,8 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
               'Durante la venta, todo va al club (bebidas incluidas, vendedor de alcohol). La parte del organizador se calcula sobre el total de la noche, después del evento.',
             )}
           </p>
-          {payoutNoteFor(true)}
+          <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={buildSplit() as unknown as Record<string, unknown>} />
+          {payoutNoteFor(true, settlement.mode === 'transfer')}
           <div className="flex gap-2">
             <Button size="sm" onClick={onSubmit} disabled={pending || tiersInvalid}>{pending ? t('Envoi…', 'Sending…', 'Enviando…') : submitLabel}</Button>
             <Button size="sm" variant="outline" onClick={() => setEditing(false)}>{t('Annuler', 'Cancel', 'Cancelar')}</Button>
@@ -235,6 +256,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
           )}
         </p>
       )}
+      <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={buildSplit() as unknown as Record<string, unknown>} />
       {payoutNote}
       <div className="flex gap-2">
         <Button size="sm" onClick={onSubmit} disabled={pending}>{pending ? t('Envoi…', 'Sending…', 'Enviando…') : submitLabel}</Button>
@@ -316,7 +338,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
                     )}
             </p>
             {splitRecap(rules)}
-            {payoutNoteFor(!!rules.remuneration)}
+            {payoutNoteFor(!!rules.remuneration, readSettlement(rules).mode === 'transfer')}
           </div>
         </div>
         {editing ? (
@@ -356,9 +378,10 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
   if (status === 'active' || status === 'locked' || status === 'closed') {
     const locked = status === 'locked' || status === 'closed';
     if (compact && !editing) {
-      const summary = rules.remuneration
+      const summary = (rules.remuneration
         ? `${t('Barème sur le CA de la soirée', "Tiers on the night's revenue", 'Escala sobre la facturación')} · ${rules.remuneration.tiers.length} ${t('paliers', 'tiers', 'tramos')} · ${rules.remuneration.tiers_mode === 'marginal' ? t('par tranche', 'per bracket', 'por tramo') : t('sur tout le total', 'on the whole total', 'sobre todo el total')}`
-        : `${t('Billets', 'Tickets', 'Entradas')} ${rules.tickets.organizer_pct}% ${t('orga', 'organizer', 'orga')} · Tables ${rules.tables.organizer_pct}% · ${t('Boissons', 'Drinks', 'Bebidas')} ${rules.drinks.organizer_pct}%`;
+        : `${t('Billets', 'Tickets', 'Entradas')} ${rules.tickets.organizer_pct}% ${t('orga', 'organizer', 'orga')} · Tables ${rules.tables.organizer_pct}% · ${t('Boissons', 'Drinks', 'Bebidas')} ${rules.drinks.organizer_pct}%`)
+        + (readSettlement(rules).mode === 'transfer' ? ` · ${t('Réglé par virement', 'Settled by transfer', 'Liquidado por transferencia')}` : '');
       return (
         <div className={`${card} ${locked ? 'border-border/40 bg-muted/40' : 'border-emerald-500/30 bg-emerald-500/5'} flex flex-col gap-3`}>
           <div className="flex items-start gap-3">
@@ -371,7 +394,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
               {detailsOpen && (
                 <>
                   {splitRecap(rules)}
-                  {payoutNoteFor(!!rules.remuneration)}
+                  {payoutNoteFor(!!rules.remuneration, readSettlement(rules).mode === 'transfer')}
                   {locked && (
                     <p className="text-[11px] text-muted-foreground mt-1">
                       {t('Une vente a été enregistrée — la répartition ne peut plus changer.', 'A sale has been recorded — the split can no longer change.', 'Se ha registrado una venta: el reparto ya no puede cambiar.')}
@@ -418,6 +441,12 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
                       'Both parties have signed. Yuno sales are held until the end-of-night closing, then split according to the tiers.',
                       'Ambas partes han firmado. Las ventas Yuno quedan retenidas hasta el cierre de fin de noche y luego se reparten según la escala.',
                     )
+                  : readSettlement(rules).mode === 'transfer'
+                  ? t(
+                      'Les deux parties ont signé. La part de chacun est suivie à chaque vente ; le décompte et le virement se font après la soirée.',
+                      'Both parties have signed. Each share is tracked on every sale; the statement and transfer happen after the night.',
+                      'Ambas partes han firmado. La parte de cada uno se sigue en cada venta; la liquidación y la transferencia se hacen después de la noche.',
+                    )
                   : t(
                     'Les deux parties ont signé. La répartition s\'applique automatiquement à chaque vente.',
                     'Both parties have signed. The split is applied automatically to every sale.',
@@ -425,7 +454,7 @@ export function SplitContractBanner({ eventId, side, compact = false }: Props) {
                   )}
             </p>
             {splitRecap(rules)}
-            {payoutNoteFor(!!rules.remuneration)}
+            {payoutNoteFor(!!rules.remuneration, readSettlement(rules).mode === 'transfer')}
           </div>
         </div>
         {editing && !locked ? (

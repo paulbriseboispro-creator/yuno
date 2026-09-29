@@ -119,7 +119,17 @@ export type YunoEvent =
   | 'team_member_invited' //       { scope, role }
   | 'live_view_opened' //          { scope }
   | 'event_report_opened' //       { scope }
-  | 'ai_assistant_used'; //        { assistant: 'owner' | 'agency' | 'help' | 'client' }
+  | 'ai_assistant_used' //         { assistant: 'owner' | 'agency' | 'help' | 'client' }
+  // ── Co-organisation (N parties) ──────────────────────────────────────────
+  | 'coorg_cohost_invited' //      { event_id, cohost_kind: 'org' | 'venue' | 'email', access }
+  | 'coorg_cohost_responded' //    { event_id, accepted, via?: 'email' }
+  | 'coorg_party_link_created' //  { event_id } — lien de vente suivi d'une partie
+  | 'coorg_deal_saved' //          { event_id, parties, formal, payment_terms_days }
+  | 'coorg_deal_signed' //         { event_id, formal }
+  | 'coorg_settlement_approved' // { event_id, parties }
+  | 'coorg_transfer_nudged' //     { event_id, days_late }
+  | 'collab_transfer_statement_frozen' // { event_id, manual } — contrat collab réglé sans Stripe
+  | 'event_hosts_followed'; //     { event_id, hosts }
 
 // Côté serveur (supabase/functions/_shared/posthog.ts), hors de ce type :
 // `order_paid_server` — la vérité sur l'argent, capturée sous la transition

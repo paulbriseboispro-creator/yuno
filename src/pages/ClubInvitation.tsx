@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, Calendar, Check, Loader2, X, Sparkles, MapPin, Euro, UserPlus, PenLine, CreditCard } from 'lucide-react';
 import { translate } from '@/i18n/orgTranslate';
 import { normalizeSplitRules, readRemuneration } from '@/lib/splitRules';
+import { SettlementRecap } from '@/components/collab/SettlementModeSwitch';
 import { TiersRecap } from '@/components/collab/TieredRemunerationEditor';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -268,6 +269,7 @@ export default function ClubInvitationPage() {
                           <li className="flex justify-between"><span className="text-muted-foreground">{tr('Boissons', 'Drinks', 'Bebidas')}</span><span>{tr('Club', 'Club', 'Club')} {rules.drinks.venue_pct} %</span></li>
                         </ul>
                       )}
+                      <SettlementRecap rules={rules} />
                       <p className="text-xs text-muted-foreground">
                         {tr('Rien ne se vend avant votre signature. Vous pourrez proposer une modification avant de signer.', 'Nothing sells before you sign. You can propose changes before signing.', 'Nada se vende antes de vuestra firma. Podéis proponer cambios antes de firmar.')}
                       </p>
