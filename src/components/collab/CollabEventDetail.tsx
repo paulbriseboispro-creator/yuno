@@ -156,6 +156,8 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     ticketPillar: { count: 0, ca: 0 }, tablePillar: { count: 0, ca: 0 }, drinkPillar: null,
   });
   const [loading, setLoading] = useState(true);
+  const loadedOnceRef = useRef(false);
+  useEffect(() => { loadedOnceRef.current = false; }, [eventId]);
   const [notFound, setNotFound] = useState(false);
   const [billetterieOpen, setBilletterieOpen] = useState(false);
 
@@ -284,7 +286,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     if (!user || !eventId) return;
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      // Un rechargement (signature, avenant, édition) met la page à jour EN PLACE :
+      // le spinner plein écran ne sert qu'à la première ouverture. Sinon signer le
+      // contrat renvoyait sur un écran vide une dizaine de secondes.
+      if (!loadedOnceRef.current) setLoading(true);
       setNotFound(false);
 
       // Venue viewer: resolve the club this owner runs (for scope + framing).
@@ -387,6 +392,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         tablePillar: { count: tr.length, ca: tableCA },
         drinkPillar: isVenue ? { count: dr.length, ca: drinksCA } : null,
       });
+      loadedOnceRef.current = true;
       setLoading(false);
     })();
     return () => { cancelled = true; };

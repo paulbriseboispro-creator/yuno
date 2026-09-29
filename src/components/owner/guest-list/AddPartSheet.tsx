@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music, Megaphone, UserPlus, X, ChevronLeft, Check, Ticket, Wine, Crown, Infinity as InfinityIcon } from 'lucide-react';
+import { Music, Megaphone, UserPlus, Users, X, ChevronLeft, Check, Ticket, Wine, Crown, Infinity as InfinityIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { getEventPresenters } from '@/lib/coorg';
 import type { HolderType } from '@/hooks/useGuestListParts';
 import type { GuestListTemplate } from '@/hooks/useGuestListTemplates';
 import { RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW, YunoSwitch } from './ui';
@@ -33,14 +34,20 @@ function presetExtraOf(tpl: GuestListTemplate): Record<string, unknown> {
   };
 }
 
-const TYPE_OPTIONS: { type: Exclude<HolderType, 'club'>; icon: typeof Music; labelKey: string }[] = [
+type Step = Exclude<HolderType, 'club'> | 'party';
+
+const TYPE_OPTIONS: { type: Step; icon: typeof Music; labelKey: string }[] = [
+  // Une partie de la soirée (orga partenaire, co-hôte) : sur une soirée à
+  // plusieurs, c'est la part qu'on veut donner d'abord. Club seulement — seul le
+  // club peut créer une part au nom d'une autre partie (RLS guest_lists).
+  { type: 'party',    icon: Users,     labelKey: 'guestList.holderType.party' },
   { type: 'custom',   icon: UserPlus,  labelKey: 'guestList.holderType.custom' },
   { type: 'dj',       icon: Music,     labelKey: 'guestList.holderType.dj' },
   { type: 'promoter', icon: Megaphone, labelKey: 'guestList.holderType.promoter' },
 ];
 
 export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds, t, onClose, onCreateDj, onCreatePromoter, onCreateCustom, presets }: AddPartSheetProps) {
-  const [step, setStep] = useState<'pick' | Exclude<HolderType, 'club'>>('pick');
+  const [step, setStep] = useState<'pick' | Step>('pick');
   const [loading, setLoading] = useState(false);
   const [list, setList] = useState<Picklist[]>([]);
   const [selected, setSelected] = useState<string>('');
@@ -69,6 +76,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
   useEffect(() => {
     if (step === 'dj') loadDjs();
     if (step === 'promoter') loadPromoters();
+    if (step === 'party') loadParties();
     setSelected('');
     setPresetId('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,6 +93,32 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
     if (!fresh.length) { setList([]); setLoading(false); return; }
     const { data: djRows } = await supabase.from('djs').select('id, stage_name, first_name, last_name').in('id', fresh);
     setList((djRows || []).map(d => ({ id: d.id, name: d.stage_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || 'DJ' })));
+    setLoading(false);
+  };
+
+  // Organisateurs de la soirée (hors soi) qui n'ont pas encore de part à leur nom.
+  const [partiesAvailable, setPartiesAvailable] = useState<boolean>(false);
+  useEffect(() => {
+    if (ctx.isOrganizerScope) { setPartiesAvailable(false); return; }
+    let active = true;
+    getEventPresenters(eventId)
+      .then((rows) => { if (active) setPartiesAvailable((rows ?? []).some((r) => r.kind === 'org' && r.organizer_user_id)); })
+      .catch(() => { if (active) setPartiesAvailable(false); });
+    return () => { active = false; };
+  }, [eventId, ctx.isOrganizerScope]);
+
+  const loadParties = async () => {
+    setLoading(true);
+    try {
+      const [presenters, { data: owned }] = await Promise.all([
+        getEventPresenters(eventId),
+        supabase.from('guest_lists').select('organizer_user_id').eq('event_id', eventId).neq('holder_type', 'club'),
+      ]);
+      const taken = new Set((owned || []).map((r) => r.organizer_user_id).filter(Boolean));
+      setList((presenters ?? [])
+        .filter((r) => r.kind === 'org' && r.organizer_user_id && !taken.has(r.organizer_user_id))
+        .map((r) => ({ id: r.organizer_user_id as string, name: r.name })));
+    } catch { setList([]); }
     setLoading(false);
   };
 
@@ -127,6 +161,11 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
       if (step === 'custom') {
         if (!customName.trim()) { toast.error(t('guestList.parts.customName')); setSaving(false); return; }
         await onCreateCustom(customName.trim(), effQuota, extra);
+      } else if (step === 'party') {
+        // Part au nom de la partie : elle la gère depuis sa Console et « Qui fait
+        // vendre ? » lui attribue ses inscrits (organizer_user_id de la part).
+        const label = list.find(l => l.id === selected)?.name || '';
+        await onCreateCustom(label, effQuota, { ...extra, organizer_user_id: selected, visible_on_club_page: false });
       } else if (step === 'dj') {
         await onCreateDj(selected, effQuota, extra);
       } else if (step === 'promoter') {
@@ -161,7 +200,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
 
           {step === 'pick' && (
             <div className="space-y-2">
-              {TYPE_OPTIONS.map(opt => (
+              {TYPE_OPTIONS.filter(opt => opt.type !== 'party' || partiesAvailable).map(opt => (
                 <button key={opt.type} onClick={() => setStep(opt.type)} className="w-full flex items-center gap-3 text-left"
                   style={{ padding: '14px', borderRadius: 12, background: TILE_BG, border: `1px solid ${F_BORDER}`, cursor: 'pointer' }}>
                   <div className="h-9 w-9 rounded-full flex items-center justify-center flex-none" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
@@ -186,12 +225,12 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
             </div>
           )}
 
-          {(step === 'dj' || step === 'promoter') && (
+          {(step === 'dj' || step === 'promoter' || step === 'party') && (
             <div className="space-y-2">
               {loading ? (
                 <div className="flex justify-center py-6"><div className="h-6 w-6 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} /></div>
               ) : list.length === 0 ? (
-                <p className="text-center py-6" style={{ color: T3, fontSize: 13 }}>{step === 'dj' ? t('guestList.dj.noLineup') : t('guestList.parts.noPromoters')}</p>
+                <p className="text-center py-6" style={{ color: T3, fontSize: 13 }}>{step === 'dj' ? t('guestList.dj.noLineup') : step === 'party' ? t('guestList.parts.noParties') : t('guestList.parts.noPromoters')}</p>
               ) : (
                 <div className="space-y-1.5" style={{ maxHeight: 240, overflowY: 'auto' }}>
                   {list.map(item => (
@@ -207,7 +246,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
           )}
 
           {/* Quota + confirm (any flow except the empty list states) */}
-          {(step === 'custom' || ((step === 'dj' || step === 'promoter') && list.length > 0)) && (
+          {(step === 'custom' || ((step === 'dj' || step === 'promoter' || step === 'party') && list.length > 0)) && (
             <div className="mt-4 space-y-3">
               {(step === 'dj' || step === 'promoter') && stepPresets.length > 0 && (
                 <div>

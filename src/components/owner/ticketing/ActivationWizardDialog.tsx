@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Ticket, Zap, Crown, Wine, Clock, Check, ArrowRight, ArrowLeft, Sparkles, FolderOpen } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 import { TicketSellingMode } from '@/types/ticketing';
 import { RED, POS, GOLD, T1, T2, T3, C_FAINT, BORDER, TILE_BG, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from './ticketing-ui';
 import type { SalesDraft, TicketSalesMode, TicketPreset, WizardCustomRound } from './ticketing-types';
@@ -51,7 +52,8 @@ export function ActivationWizardDialog({
   handleWizardApplyModeChange,
   handleWizardPublish,
 }: ActivationWizardDialogProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tl = (fr: string, en: string, es: string) => translate(language, fr, en, es);
   return (
         <Dialog open={isActivationWizardOpen} onOpenChange={(open) => { setIsActivationWizardOpen(open); if (!open) setWizardModeChange(false); }}>
           <DialogContent className="max-w-lg" style={DIALOG_SURFACE}>
@@ -450,6 +452,40 @@ export function ActivationWizardDialog({
             {/* Step 3: Configure Sales Mode */}
             {wizardStep === 3 && (
               <div className="space-y-4">
+                {/* Ce qui part en vente, relu AVANT « Publier » : l'étape précédente
+                    ne se voit plus, et publier sans revoir paliers et jauges se
+                    faisait à l'aveugle. */}
+                {(() => {
+                  const fromPresets = (['standard', 'vip'] as const)
+                    .map((k) => presets.find((p) => p.id === wizardSelectedPresets[k]))
+                    .filter(Boolean)
+                    .flatMap((p) => p!.rounds.map((r) => ({ name: r.name, price: Number(r.price), max: Number(r.maxTickets) || 0 })));
+                  const rows = fromPresets.length > 0
+                    ? fromPresets
+                    : wizardCustomRounds.filter((r) => r.name || r.price)
+                      .map((r) => ({ name: r.name, price: Number(r.price) || 0, max: Number(r.maxTickets) || 0 }));
+                  if (rows.length === 0) return null;
+                  const total = rows.reduce((a, r) => a + r.max, 0);
+                  return (
+                    <div className="p-3" style={{ ...TILE }}>
+                      <p style={{ ...LABEL, marginBottom: 6 }}>{tl('Ce qui sera publié', 'What will be published', 'Lo que se publicará')}</p>
+                      <div className="space-y-1">
+                        {rows.map((r, i) => (
+                          <div key={`${r.name}-${i}`} className="flex items-center justify-between gap-3" style={{ fontSize: 13 }}>
+                            <span style={{ color: T1 }}>{r.name || tl('Palier', 'Tier', 'Tramo')}</span>
+                            <span className="tabular-nums" style={{ color: T3 }}>
+                              {r.price.toLocaleString(language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 })}
+                              {r.max > 0 ? ` · ${r.max} ${tl('places', 'spots', 'plazas')}` : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {total > 0 && (
+                        <p className="mt-2 tabular-nums" style={{ ...HINT }}>{tl(`${total} places au total`, `${total} spots in total`, `${total} plazas en total`)}</p>
+                      )}
+                    </div>
+                  );
+                })()}
                 <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.step3ConfigureSales')}</p>
                 <p style={HINT}>{t('tickets.step3ConfigureSalesDesc')}</p>
 

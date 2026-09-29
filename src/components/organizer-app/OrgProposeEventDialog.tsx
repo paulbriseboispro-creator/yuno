@@ -20,10 +20,8 @@ import {
   T1, T2, T3, RED, BORDER, INNER_BG,
 } from '@/components/org-ui';
 
-import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
-  defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
-  type CollabResponsibilities,
+  defaultResponsibilities,
 } from '@/utils/collabResponsibilities';
 
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
@@ -71,28 +69,15 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
 
   const [venueId, setVenueId] = useState<string>(preselectedVenueId || '');
   const [mode, setMode] = useState<CollabMode>('co_event');
-  // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
-  const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
-    () => defaultResponsibilities('co_event'));
-  // Répartition convenue par défaut avec CE club, s'il y en a une.
+  // « Qui fait quoi » se DÉDUIT du mode (co-soirée = les deux, soirée de l'orga
+  // = le club) : ce n'est plus une question posée à la proposition. Il ne change
+  // que par avenant. Voir collabResponsibilities.ts.
+  const responsibilities = defaultResponsibilities(mode);
+  // Le mode de règlement convenu avec ce club (Stripe ou virement) se reprend.
   useEffect(() => {
     if (!venueId) return;
-    let active = true;
-    (async () => {
-      const { data } = await supabase
-        .from('venue_organizer_partnerships')
-        .select('default_responsibilities')
-        .eq('venue_id', venueId)
-        .eq('organizer_user_id', orgId!)
-        .eq('status', 'active')
-        .maybeSingle();
-      const raw = (data as { default_responsibilities?: unknown } | null)?.default_responsibilities;
-      if (active && raw) setResponsibilities(normalizeResponsibilities(raw, mode));
-    })();
-    // Le mode de règlement convenu avec ce club (Stripe ou virement) se reprend.
     const p = activePartners.find((x) => x.venue_id === venueId);
     setSettlement(readSettlement(p?.default_split_rules));
-    return () => { active = false; };
   }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
   // « Répartir automatiquement via Stripe ? » — oui par défaut ; non = une partie
   // encaisse et vire la part de l'autre après la soirée (règlement suivi).
@@ -372,14 +357,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 {MODES.map(({ value, icon: Icon, title, desc }) => {
                   const active = mode === value;
                   return (
-                    <button key={value} type="button" onClick={() => {
-                      // Changer de mode reamorce la repartition sur le prereglage du
-                      // nouveau mode, SAUF si elle a ete reglee a la main.
-                      setResponsibilities(prev =>
-                        sameResponsibilities(prev, defaultResponsibilities(mode))
-                          ? defaultResponsibilities(value) : prev);
-                      setMode(value);
-                    }}
+                    <button key={value} type="button" onClick={() => setMode(value)}
                       className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all duration-150"
                       style={{
                         background: active ? 'rgba(232,25,44,0.06)' : INNER_BG,
@@ -397,12 +375,6 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
             </div>
 
             <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={splitBase() as unknown as Record<string, unknown>} />
-
-            {/* Qui fait quoi — axe distinct du mode et du partage des revenus. */}
-            <ResponsibilitiesPicker
-              value={responsibilities}
-              onChange={setResponsibilities}
-            />
 
             <div className="rounded-xl p-3" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.2)', color: T3, fontSize: 11.5 }}>
               {t(

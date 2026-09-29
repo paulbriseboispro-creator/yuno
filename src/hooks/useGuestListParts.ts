@@ -47,6 +47,9 @@ export interface Part {
   created_at: string;
   /** Resolved holder name for dj/promoter parts (club/custom resolve in the UI). */
   displayName?: string;
+  /** Part promoteur née de l'affectation AUTOMATIQUE du promoteur à chaque soirée
+   *  (`promoters.auto_assign_events`) : l'écran le dit, sinon elle surprend. */
+  autoAssigned?: boolean;
 }
 
 export interface PartEntry {
@@ -109,6 +112,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
       const promoterIds = list.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
       const ids = list.map(p => p.id);
 
+      const autoIds = new Set<string>();
       const [djNames, promoterNames, entries] = await Promise.all([
         (async () => {
           const names: Record<string, string> = {};
@@ -122,7 +126,8 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
         (async () => {
           const names: Record<string, string> = {};
           if (!promoterIds.length) return names;
-          const { data: promoRows } = await supabase.from('promoters').select('id, user_id').in('id', promoterIds);
+          const { data: promoRows } = await supabase.from('promoters').select('id, user_id, auto_assign_events').in('id', promoterIds);
+          (promoRows || []).forEach(p => { if ((p as { auto_assign_events?: boolean }).auto_assign_events) autoIds.add(p.id); });
           const userIds = (promoRows || []).map(p => p.user_id);
           const { data: profiles } = userIds.length
             ? await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
@@ -149,6 +154,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
           p.holder_type === 'dj' ? (p.dj_id ? djNames[p.dj_id] : undefined)
           : p.holder_type === 'promoter' ? (p.promoter_id ? (promoterNames[p.promoter_id] || p.holder_label || undefined) : undefined)
           : undefined,
+        autoAssigned: p.holder_type === 'promoter' && !!p.promoter_id && autoIds.has(p.promoter_id),
       }));
       setParts(resolved);
       partIdsRef.current = new Set(ids);

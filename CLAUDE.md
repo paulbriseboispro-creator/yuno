@@ -854,6 +854,17 @@ sa boîte de réception, son carnet et sa façon d'inviter. Règles :
   soirée démo ne notifie jamais d'abonnés. Reste ouvert (décision produit) : un
   accord de co-organisation posé sur une soirée qui a DÉJÀ un contrat Stripe
   redistribue des ventes que Stripe a déjà réparties.
+- **« Qui fait quoi » se DÉDUIT du mode, il ne se choisit plus** (29/09) : co-soirée
+  et location de salle = `both/both`, « soirée de l'organisateur » = `venue/venue`
+  (`defaultResponsibilities(mode)`, miroir `default_collab_responsibilities`). Le
+  sélecteur a quitté le formulaire de soirée, les deux « Proposer une soirée », les
+  séries récurrentes et les partenariats ; il ne vit plus que dans l'AVENANT
+  (`CollabAmendmentDialog`). L'application serveur (trigger de garde, `can_manage_*`,
+  demande de quota guest list) ne change pas. Toute lecture d'une valeur absente
+  passe par `normalizeResponsibilities(valeur, event_mode)`, jamais `?? 'both'`
+  (qui ignorait le préréglage de la soirée de l'organisateur). À la place du
+  sélecteur, le formulaire montre les CONDITIONS D'ARGENT qui partiront dans le
+  contrat (`ProposedTermsRecap`).
 
 ## Équipe d'un organisateur — le scope est l'ORGANISATION, jamais le compte (2026-09-21)
 

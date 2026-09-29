@@ -1087,8 +1087,8 @@ export default function EventDetails() {
           {[
             !primaryOrganizer && venue ? venue.name.toUpperCase() : null,
             formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
-            `OPENS ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}`,
-            `CLOSES ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`,
+            `${t('event.doorsOpen').toUpperCase()} ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}`,
+            `${t('event.doorsClose').toUpperCase()} ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`,
           ].filter(Boolean).join(' · ')}
         </p>
       </div>
@@ -1673,7 +1673,7 @@ export default function EventDetails() {
         {(eventOrganizers.length > 0 || venue) && (
           <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgb(var(--ink)/0.07)' }}>
             <p className="section-label-ruled mb-6">
-              {hostCount > 1 ? t('event.presentedBy') : primaryEntity === 'organizer' ? t('event.organizedBy') : 'Venue'}
+              {hostCount > 1 ? t('event.presentedBy') : primaryEntity === 'organizer' ? t('event.organizedBy') : t('event.venueLabel')}
             </p>
             {hostCount > 1 && (
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

@@ -12,9 +12,8 @@ import { useDeferredMedia } from '@/hooks/useDeferredMedia';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
-import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
-  defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
+  defaultResponsibilities, normalizeResponsibilities,
   type CollabResponsibilities,
 } from '@/utils/collabResponsibilities';
 
@@ -343,7 +342,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
           rules: normalizeSplitRules(s.split_rules),
           policy: s.cancellation_policy ?? 'pro_rata_refund',
           // La répartition SIGNÉE fait foi : le formulaire l'affiche en lecture seule
-          // tant que le cadre vit (voir ResponsibilitiesPicker disabled).
+          // tant que le cadre vit (il ne change que par avenant).
           responsibilities: normalizeResponsibilities(s.responsibilities, 'co_event'),
         }])));
 
@@ -498,15 +497,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const handlePartnerChange = (organizerId: string) => {
     const reuse = organizerId ? (reusableByOrganizer.get(organizerId) ?? []) : [];
     const first = reuse[0];
-    const partnerDefault = organizerId
-      ? (partners.find(pp => pp.id === organizerId)?.defaultResponsibilities ?? null)
-      : null;
     setForm(prev => ({
       ...prev,
       partnerOrganizerId: organizerId,
-      // Répartition convenue avec CE partenaire. Sans défaut enregistré on garde
-      // ce qui est déjà à l'écran : l'owner a pu régler à la main avant de choisir.
-      responsibilities: partnerDefault ?? prev.responsibilities,
+      // « Qui fait quoi » suit le MODE de la série (plus une question posée ici) ;
+      // il ne change que par avenant au contrat-cadre.
+      responsibilities: defaultResponsibilities(prev.collabMode),
       contractMode: first ? 'existing' : 'new',
       contractSourceKey: first?.key ?? '',
       ticketsVenuePct: first?.rules.tickets.venue_pct ?? prev.ticketsVenuePct,
@@ -1054,13 +1050,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                             onClick={() => setForm(prev => ({
                               ...prev,
                               collabMode: opt.m,
-                              // Changer de mode réamorce la répartition sur le préréglage
-                              // du nouveau mode, SAUF si elle a été réglée à la main —
-                              // sinon un aller-retour entre modes effacerait le travail.
-                              responsibilities: sameResponsibilities(
-                                prev.responsibilities, defaultResponsibilities(prev.collabMode))
-                                ? defaultResponsibilities(opt.m)
-                                : prev.responsibilities,
+                              responsibilities: defaultResponsibilities(opt.m),
                             }))}
                             className="w-full rounded-xl px-3 py-2.5 text-left transition-all duration-150"
                             style={{
@@ -1082,18 +1072,6 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                   </div>
                 )}
 
-                {/* ── Qui fait quoi ─────────────────────────────────────────────
-                    Axe distinct du mode et des % : c'est ici que « le club tient
-                    l'opérationnel, l'orga tient le design » devient exprimable. */}
-                {form.partnerOrganizerId && (
-                  <ResponsibilitiesPicker
-                    value={liveSeries?.responsibilities ?? form.responsibilities}
-                    onChange={next => setForm(prev => ({ ...prev, responsibilities: next }))}
-                    disabled={!!liveSeries}
-                    partnerName={selectedPartner?.name}
-                    note={t('collabResp.seriesNote')}
-                  />
-                )}
 
                 {/* ── Étape contrat ─────────────────────────────────────────────
                     Un contrat-cadre existe déjà sur cette série : ses termes sont

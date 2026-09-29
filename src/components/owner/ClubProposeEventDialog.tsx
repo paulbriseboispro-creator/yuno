@@ -14,7 +14,6 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr } from 'date-fns/locale';
 import { Send, Building2, Users, Sparkles, Clock, Image as ImageIcon, User } from 'lucide-react';
-import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
   DEFAULT_TIERS, RemunerationModeSwitch, TieredRemunerationEditor, type RemunerationMode,
 } from '@/components/collab/TieredRemunerationEditor';
@@ -23,8 +22,7 @@ import { SettlementModeSwitch } from '@/components/collab/SettlementModeSwitch';
 import type { CollabRemuneration, CollabSettlement, PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { translate } from '@/i18n/orgTranslate';
 import {
-  defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
-  type CollabResponsibilities,
+  defaultResponsibilities,
 } from '@/utils/collabResponsibilities';
 
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
@@ -81,17 +79,14 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
   // « Répartir automatiquement via Stripe ? » — oui par défaut, non = une partie
   // encaisse et vire la part de l'autre après la soirée.
   const [settlement, setSettlement] = useState<CollabSettlement>({ mode: 'stripe' });
-  // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
-  const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
-    () => defaultResponsibilities('co_event'));
-  // Choisir un organisateur applique la répartition convenue par défaut AVEC LUI
-  // (venue_organizer_partnerships.default_responsibilities) — même logique que
-  // les conditions financières, qui se pré-remplissent déjà depuis le partenariat.
+  // « Qui fait quoi » se DÉDUIT du mode (co-soirée = les deux, soirée de l'orga
+  // = le club) : ce n'est plus une question posée à la proposition. Il ne change
+  // que par avenant. Voir collabResponsibilities.ts.
+  const responsibilities = defaultResponsibilities(mode);
+  // Choisir un organisateur reprend les conditions financières convenues avec lui.
   useEffect(() => {
     if (!organizerId) return;
     const p = activePartners.find(x => x.organizer_user_id === organizerId);
-    const raw = (p as { default_responsibilities?: unknown } | undefined)?.default_responsibilities;
-    if (raw) setResponsibilities(normalizeResponsibilities(raw, mode));
     // Un partenariat déjà convenu au barème rouvre l'éditeur sur ce barème.
     const rem = readRemuneration(p?.default_split_rules);
     if (rem) { setRemMode('tiered_total'); setTiered(rem); }
@@ -370,13 +365,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
           <div className="space-y-2">
             <Label>{t('proposeEvent.collabMode')}</Label>
             <RadioGroup value={mode} onValueChange={(v) => {
-              const next = v as CollabMode;
-              // Changer de mode reamorce la repartition sur le prereglage du
-              // nouveau mode, SAUF si elle a ete reglee a la main.
-              setResponsibilities(prev =>
-                sameResponsibilities(prev, defaultResponsibilities(mode))
-                  ? defaultResponsibilities(next) : prev);
-              setMode(next);
+              setMode(v as CollabMode);
             }} className="space-y-2">
               <Label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-card/40 has-[input:checked]:border-primary has-[input:checked]:bg-primary/5">
                 <RadioGroupItem value="co_event" className="mt-1" />
@@ -452,17 +441,6 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
 
           <SettlementModeSwitch value={settlement} onChange={setSettlement} rules={splitBase() as unknown as Record<string, unknown>} />
 
-          {/* Qui fait quoi — axe distinct du mode et du partage des revenus.
-              C'est ici qu'on dit « le club tient l'operationnel, l'orga tient le
-              design », ce que le mode seul ne savait pas exprimer. */}
-          <ResponsibilitiesPicker
-            value={responsibilities}
-            onChange={setResponsibilities}
-            partnerName={(() => {
-              const p = activePartners.find(x => x.organizer_user_id === organizerId);
-              return p ? orgLabel(p) : null;
-            })()}
-          />
 
           <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-xs text-muted-foreground">
             {t('proposeEvent.footerNote')}

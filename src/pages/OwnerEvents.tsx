@@ -28,8 +28,8 @@ import { useMetaIntegrationLive } from '@/lib/metaIntegration';
 import { useOrganizerPartnerships, useVenuePartnerships } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useProposeCollab, fetchLiveEventContract } from '@/hooks/useProposeCollab';
-import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
-import { defaultResponsibilities, normalizeResponsibilities, type CollabResponsibilities } from '@/utils/collabResponsibilities';
+import { ProposedTermsRecap } from '@/components/collab/ProposedTermsRecap';
+import { defaultResponsibilities, normalizeResponsibilities } from '@/utils/collabResponsibilities';
 import { CollabActivateBanner } from '@/components/collab/CollabActivateBanner';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { OwnerCollaborationsSection } from '@/components/owner/OwnerCollaborationsSection';
@@ -215,8 +215,6 @@ export default function OwnerEvents() {
   // Le même bloc sert à la création ET à l'édition : proposer une collab « après
   // coup » revient à rouvrir la soirée et à y choisir un partenaire.
   const [partnerOrganizerId, setPartnerOrganizerId] = useState<string>('');
-  const [collabResponsibilities, setCollabResponsibilities] = useState<CollabResponsibilities>(
-    () => defaultResponsibilities('co_event'));
   // Contrat vivant de la soirée en cours d'édition : tant qu'il existe, le
   // partenaire et le mode sont engagés et ne se rejouent pas depuis ce formulaire.
   const [liveContract, setLiveContract] = useState<{ id: string; status: string } | null>(null);
@@ -292,8 +290,10 @@ export default function OwnerEvents() {
           : event.venue_id !== venueId && event.partner_venue_id !== venueId,
         orgPartnerDomains: isOrganizerScope && event.venue_id && event.organizer_user_id !== organizerUserId
           ? (() => {
-              const resp = (event.collab_responsibilities as Record<string, string> | null) ?? {};
-              const holds = (d: string) => ['organizer', 'both'].includes(resp[d] ?? 'both');
+              // Valeur absente = préréglage du MODE (miroir de collab_domain_holder) :
+              // une « soirée de l'organisateur » laisse tout au club, pas « les deux ».
+              const resp = normalizeResponsibilities(event.collab_responsibilities, event.event_mode || 'co_event');
+              const holds = (d: 'design' | 'operations') => resp[d] === 'organizer' || resp[d] === 'both';
               return { design: holds('design'), operations: holds('operations') };
             })()
           : null,
@@ -539,7 +539,7 @@ export default function OwnerEvents() {
     const dbMode = collabMode === 'venue_rental' ? 'venue_rental'
       : collabMode === 'hosted_by_venue' ? 'org_hosted' : 'co_event';
     try {
-      await propose({ eventId, partnerId, mode: dbMode, responsibilities: collabResponsibilities });
+      await propose({ eventId, partnerId, mode: dbMode, responsibilities: defaultResponsibilities(dbMode) });
       toast.success(
         tl('Demande de collaboration envoyée', 'Collaboration request sent', 'Solicitud de colaboración enviada'),
         { description: tl(
@@ -792,11 +792,17 @@ export default function OwnerEvents() {
         if (error) throw error;
       } else {
         // Venue events are configured via presets (event_table_settings) or event-scoped packs.
-        const [{ count: packCount }, { count: settingCount }] = await Promise.all([
+        // Les formules du CLUB (venue-scopées) servent toutes ses dates : elles
+        // suffisent, comme sur la page Tables VIP. Sans elles dans ce test, un club
+        // déjà équipé (plan + 4 formules) était renvoyé « configurer d'abord ».
+        const [{ count: packCount }, { count: settingCount }, { count: venuePackCount }] = await Promise.all([
           supabase.from('table_packs').select('id', { count: 'exact', head: true }).eq('event_id', event.id),
           supabase.from('event_table_settings').select('id', { count: 'exact', head: true }).eq('event_id', event.id),
+          venueId
+            ? supabase.from('table_packs').select('id', { count: 'exact', head: true }).eq('venue_id', venueId).is('event_id', null).eq('is_active', true)
+            : Promise.resolve({ count: 0 }),
         ]);
-        if (!packCount && !settingCount) return false; // caller routes to /owner/tables
+        if (!packCount && !settingCount && !venuePackCount) return false; // caller routes to /owner/tables
         const { error } = await supabase.from('events').update({ tables_enabled: true }).eq('id', event.id);
         if (error) throw error;
       }
@@ -1014,7 +1020,6 @@ export default function OwnerEvents() {
       setPartnerOrganizerId(partner);
       const m = ((ev as { event_mode?: string | null } | null)?.event_mode) || '';
       setCollabMode(!partner ? 'solo' : m === 'venue_rental' ? 'venue_rental' : m === 'org_hosted' ? 'hosted_by_venue' : 'co_event');
-      setCollabResponsibilities(normalizeResponsibilities(ev?.collab_responsibilities, m || 'co_event'));
     }
     if (isOrganizerScope) {
       const { data: ev } = await supabase
@@ -1023,7 +1028,6 @@ export default function OwnerEvents() {
         .eq('id', event.id)
         .maybeSingle();
       if (ev) {
-        setCollabResponsibilities(normalizeResponsibilities(ev.collab_responsibilities, (ev.event_mode as string) || 'co_event'));
         setEventKind((ev.event_kind as string) === 'private_event' ? 'private_event' : 'public_event');
         setPartnerVenueId(ev.partner_venue_id || '');
         if (ev.partner_venue_id) {
@@ -1048,7 +1052,7 @@ export default function OwnerEvents() {
     setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); orgPoster.reset(); video.reset(); setVideoRemoved(false); setLineupEntries([]); setInitialLineupEntries([]); setGuestArtists([]);
     setFormData({ title: '', description: '', posterUrl: '', videoUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
-    setCollabResponsibilities(defaultResponsibilities('co_event')); setLiveContract(null);
+    setLiveContract(null);
     setLocationName(''); setLocationCity(''); setLocationAddress(''); locationLogo.reset(); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
   };
 
@@ -1611,13 +1615,25 @@ export default function OwnerEvents() {
                   )}
                 </div>
 
-                {/* Axe responsabilités — qui fait quoi, indépendant du partage des recettes. */}
-                {partnerId && (
-                  <ResponsibilitiesPicker
-                    value={collabResponsibilities}
-                    onChange={setCollabResponsibilities}
-                  />
-                )}
+                {/* Les conditions d'argent qui partiront dans le contrat, lues AVANT
+                    d'envoyer. « Qui fait quoi » n'est plus une question ici : il se
+                    déduit du mode (co-soirée = les deux, soirée de l'orga = le club)
+                    et ne change que par avenant. */}
+                {partnerId && (() => {
+                  const ps = isOrganizerScope
+                    ? activePartnerships.find((p) => p.venue_id === partnerId)
+                    : activeOrgPartners.find((p) => p.organizer_user_id === partnerId);
+                  const name = isOrganizerScope
+                    ? ((ps as { venue?: { name?: string } } | undefined)?.venue?.name ?? tl('le club', 'the club', 'el club'))
+                    : ((ps as { organizer?: { organization_name?: string } } | undefined)?.organizer?.organization_name ?? tl("l'organisateur", 'the organizer', 'el organizador'));
+                  return (
+                    <ProposedTermsRecap
+                      rules={ps?.default_split_rules ?? null}
+                      mode={collabMode === 'venue_rental' ? 'venue_rental' : collabMode === 'hosted_by_venue' ? 'org_hosted' : 'co_event'}
+                      partnerName={name}
+                    />
+                  );
+                })()}
 
                 {partnerId && (
                   <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
@@ -1883,6 +1899,9 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   const [showGuestListPanel, setShowGuestListPanel] = useState(false);
   const [selectedGuestPresetId, setSelectedGuestPresetId] = useState('');
   const isPast = toParisTime(event.endAt) < nowInParis();
+  const { language: cardLanguage } = useLanguage();
+  const tl = (frTxt: string, en: string, esTxt: string) =>
+    (cardLanguage === 'en' ? en : cardLanguage === 'es' ? esTxt : frTxt);
 
   const handleTicketingClick = async () => {
     const handled = await onToggleTicketing();
@@ -1951,6 +1970,15 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 {t('owner.active')}
               </span>
             )}
+            {/* Brouillon : la soirée n'est pas visible des clients. Sans ce badge,
+                seul un bouton « Activer » le laissait deviner, sous des piliers
+                qui disaient « En ligne ». */}
+            {!event.isActive && !isPast && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                style={{ background: 'rgb(var(--ink)/0.06)', border: `1px solid rgb(var(--ink)/0.14)`, color: T2_C }}>
+                {tl('Brouillon · non publiée', 'Draft · not published', 'Borrador · no publicada')}
+              </span>
+            )}
             {event.isPartnerHosted && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
                 style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: 'var(--acc-fcd34d)' }}>
@@ -2015,7 +2043,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 <div className="min-w-0">
                   <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.ticketing')}</p>
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">
-                    {event.ticketingEnabled ? t('owner.ev.online') : (event.roundsCount ? t('owner.ev.ready') : t('owner.ev.toConfigure'))}
+                    {event.ticketingEnabled ? (event.isActive ? t('owner.ev.online') : t('owner.ev.ready')) : (event.roundsCount ? t('owner.ev.ready') : t('owner.ev.toConfigure'))}
                   </p>
                 </div>
               </div>
@@ -2028,7 +2056,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 <Crown className="w-4 h-4 flex-shrink-0" style={{ color: event.tablesEnabled ? 'var(--acc-fcd34d)' : T3_C }} />
                 <div className="min-w-0">
                   <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.tablesVip')}</p>
-                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.tablesEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
+                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.tablesEnabled ? (event.isActive ? t('owner.ev.online') : t('owner.ev.ready')) : t('owner.ev.offline')}</p>
                 </div>
               </div>
               <Switch checked={!!event.tablesEnabled} onCheckedChange={handleTablesClick} />
@@ -2040,7 +2068,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 <Users className="w-4 h-4 flex-shrink-0" style={{ color: event.guestListEnabled ? 'var(--acc-34d399)' : T3_C }} />
                 <div className="min-w-0">
                   <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.guestList')}</p>
-                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.guestListEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
+                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.guestListEnabled ? (event.isActive ? t('owner.ev.online') : t('owner.ev.ready')) : t('owner.ev.offline')}</p>
                 </div>
               </div>
               <Switch checked={!!event.guestListEnabled} onCheckedChange={handleGuestListClick} />

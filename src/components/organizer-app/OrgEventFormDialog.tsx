@@ -43,6 +43,7 @@ import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
 // Libellés RÉELS du filtre public — une seule liste pour toute l'app.
 import { MUSIC_GENRES } from '@/lib/musicGenres';
+import { normalizeResponsibilities } from '@/utils/collabResponsibilities';
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED      = '#E8192C';
@@ -348,11 +349,12 @@ export function OrgEventFormDialog({
         setPartnerVenueId(ev.partner_venue_id || '');
         setSavedPartnerVenueId(ev.partner_venue_id || '');
         {
-          const resp = ((ev as { collab_responsibilities?: Record<string, string> | null }).collab_responsibilities) ?? {};
-          const holds = (d: 'design' | 'operations') => {
-            const h = resp[d] ?? 'both';
-            return h === 'organizer' || h === 'both';
-          };
+          // Valeur absente = préréglage du MODE (miroir de collab_domain_holder).
+          const resp = normalizeResponsibilities(
+            (ev as { collab_responsibilities?: unknown }).collab_responsibilities,
+            ((ev as { event_mode?: string | null }).event_mode) || 'co_event',
+          );
+          const holds = (d: 'design' | 'operations') => resp[d] === 'organizer' || resp[d] === 'both';
           setPartnerEdit(ev.venue_id && ev.organizer_user_id !== organizerUserId
             ? { design: holds('design'), operations: holds('operations') }
             : null);

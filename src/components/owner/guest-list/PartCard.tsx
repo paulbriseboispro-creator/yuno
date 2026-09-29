@@ -209,6 +209,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
             <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{displayName}</p>
             <p style={{ color: T3, fontSize: 11, margin: 0 }}>
               {isClub ? t('guestList.holderType.house') : t(`guestList.holderType.${holderType}`)}
+              {part?.autoAssigned && <span title={t('guestList.parts.autoAssignedHint')}> · {t('guestList.parts.autoAssigned')}</span>}
               {part && <> · {activeEntries.length}/{part.quota ?? '∞'}{full && <span style={{ color: NEG, fontWeight: 600 }}> · {t('guestList.quotaFull')}</span>}{soldOut && <span style={{ color: NEG, fontWeight: 600 }}> · {t('tables.soldOut')}</span>}</>}
             </p>
           </div>
