@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { requestOrderPrep } from '@/lib/clickCollect';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Clock, CheckCircle2, Copy, CheckCircle } from 'lucide-react';
@@ -283,12 +284,7 @@ export function DrinkOrderDetailModal({
         }
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update({ prep_requested: true, prep_status: 'queue' })
-        .eq('id', localOrder.id);
-
-      if (error) throw error;
+      await requestOrderPrep(localOrder.id);
 
       setLocalOrder(prev => ({ ...prev, prep_requested: true, prep_status: 'queue' }));
       toast.success(t('clickCollect.prepRequestSuccess'));

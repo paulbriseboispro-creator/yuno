@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { requestOrderPrep } from '@/lib/clickCollect';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
@@ -960,16 +961,7 @@ export default function MyOrders() {
         return;
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          prep_requested: true,
-          prep_status: 'queue',
-          selected_bar: selectedBar || null
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
+      await requestOrderPrep(orderId, null, selectedBar || null);
 
       toast.success(t('clickCollect.prepRequestSuccess'));
       fetchOrders();
@@ -1012,50 +1004,10 @@ export default function MyOrders() {
         });
 
         for (const [orderId, indices] of Object.entries(perOrder)) {
-          const so = sourceOrders.find(s => s.id === orderId);
-          if (!so) continue;
-          
-          const updatedItems = so.items.map((item: any) => ({
-            ...item,
-            prepUnits: item.prepUnits || Array(item.qty).fill(false),
-          }));
-
-          let expandedIdx = 0;
-          updatedItems.forEach((item: any) => {
-            for (let i = 0; i < item.qty; i++) {
-              if (indices.includes(expandedIdx)) {
-                item.prepUnits[i] = true;
-              }
-              expandedIdx++;
-            }
-          });
-
-          await supabase
-            .from('orders')
-            .update({ items: updatedItems, prep_requested: true, prep_status: 'queue', selected_bar: selectedBar || null })
-            .eq('id', orderId);
+          await requestOrderPrep(orderId, indices, selectedBar || null);
         }
       } else {
-        const items = Array.isArray(order.items) ? (order.items as any[]) : [];
-        const updatedItems = items.map((item: any) => ({
-          ...item,
-          prepUnits: item.prepUnits || Array(item.qty).fill(false),
-        }));
-
-        let expandedIdx = 0;
-        updatedItems.forEach((item: any) => {
-          for (let i = 0; i < item.qty; i++) {
-            if (expandedIndices.includes(expandedIdx)) {
-              item.prepUnits[i] = true;
-            }
-            expandedIdx++;
-          }
-        });
-
-        await supabase
-          .from('orders')
-          .update({ items: updatedItems, prep_requested: true, prep_status: 'queue', selected_bar: selectedBar || null })
-          .eq('id', order.id);
+        await requestOrderPrep(order.id, expandedIndices, selectedBar || null);
       }
 
       toast.success(t('clickCollect.prepRequestSuccess'));

@@ -322,7 +322,7 @@ serve(async (req) => {
       const drinkIds = drinkRequests.map((item: { id: string }) => item.id);
       const { data: drinks, error: drinksError } = await supabaseAdmin
         .from("drinks")
-        .select("id, price, promo_price, presale_price, presale_active, name, active, collection")
+        .select("id, price, promo_price, presale_price, presale_active, name, active, out_of_stock, collection")
         .eq("venue_id", venueId)
         .in("id", drinkIds);
 
@@ -335,6 +335,10 @@ serve(async (req) => {
         if (!drink) throw new Error(`Drink ${item.id} not found in venue`);
         if (!drink.active)
           throw new Error(`Drink ${drink.name} is not available`);
+        // Rupture posée par le bar (StockPanel) pendant qu'un panier était
+        // ouvert : on ne fait pas payer une boisson qu'on ne pourra pas servir.
+        if (drink.out_of_stock)
+          throw new Error(`Drink ${drink.name} is out of stock`);
 
         const quantity = parseInt(item.quantity);
         if (!quantity || quantity < 1 || quantity > 50)

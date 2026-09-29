@@ -129,6 +129,7 @@ serve(async (req) => {
     // toute annulation de billet.
     let linkedOrdersCancelled = 0;
     let linkedOrdersRefundTotal = 0;
+    let orderLocked = false;
 
     /**
      * Portée du staff, vérifiée AVANT toute écriture et tout remboursement.
@@ -314,6 +315,27 @@ serve(async (req) => {
       if (order.status !== 'paid') throw new Error('Only paid orders can be cancelled');
       if (order.served_at || order.token_used) throw new Error('Cannot cancel: order already served');
       await assertInScope(order.event_id || null, [order.venue_id]);
+      // Une seule boisson servie suffit : on ne rembourse pas ici une commande
+      // entamée (le remboursement serait total pour une commande à moitié bue).
+      const orderItems = Array.isArray(order.items) ? order.items as Array<{ served?: boolean; servedUnits?: boolean[] }> : [];
+      if (orderItems.some(it => it?.served === true || (Array.isArray(it?.servedUnits) && it.servedUnits.some(Boolean)))) {
+        throw new Error('Cannot cancel: part of this order was already served');
+      }
+      // Verrou AVANT Stripe : le jeton est consommé, donc aucun barman ne peut
+      // servir cette commande pendant qu'on la rembourse (bar_redeem_units
+      // refuse un jeton consommé). Rendu si Stripe échoue.
+      const { data: locked, error: lockError } = await adminClient
+        .from('orders')
+        .update({ token_used: true })
+        .eq('id', order.id)
+        .eq('status', 'paid')
+        .eq('token_used', false)
+        .select('id');
+      if (lockError) throw lockError;
+      if (!locked || locked.length === 0) {
+        throw new Error('Cannot cancel: order was just served or cancelled on another device');
+      }
+      orderLocked = true;
 
       orderId = order.id;
       scopeEventId = order.event_id || null;
@@ -362,6 +384,10 @@ serve(async (req) => {
         // For drink orders the DB write happens AFTER this, so aborting here
         // leaves the order untouched (still 'paid') — no phantom "refunded".
         if (type === 'order') {
+          // Rien n'a été remboursé : la commande redevient servable.
+          if (orderLocked && orderId) {
+            await adminClient.from('orders').update({ token_used: false }).eq('id', orderId).eq('status', 'paid');
+          }
           throw new Error(`Stripe refund failed, cancellation aborted: ${stripeError.message}`);
         }
         // Ticket path keeps its existing (pre-write) behaviour to avoid

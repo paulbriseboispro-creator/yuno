@@ -4,6 +4,7 @@ import { haptics } from '@/lib/haptics';
 import QRCode from 'qrcode';
 import { Copy, CheckCircle, Clock, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { requestOrderPrep } from '@/lib/clickCollect';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/store/useStore';
 import { format } from 'date-fns';
@@ -265,15 +266,7 @@ export default function OrderQR() {
         }
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          prep_requested: true,
-          prep_status: 'queue'
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
+      await requestOrderPrep(orderId!);
 
       setOrder((prev: any) => ({ ...prev, prep_requested: true, prep_status: 'queue' }));
 

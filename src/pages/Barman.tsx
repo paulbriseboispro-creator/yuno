@@ -10,7 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
+import { retrySupabaseAction } from '@/utils/retryAction';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +40,9 @@ import { BarmanBarSelection } from '@/components/barman/BarmanBarSelection';
 import { ShiftStats } from '@/components/barman/ShiftStats';
 import { StockPanel } from '@/components/barman/StockPanel';
 import { calcStripeFee } from '@/utils/fees';
+
+// RPC du bar (migration 20260929236000) pas encore dans les types générés.
+const untyped = supabase as unknown as SupabaseClient;
 
 
 
@@ -120,6 +126,9 @@ export default function Barman() {
   const [pinSearch, setPinSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [preparingOrder, setPreparingOrder] = useState<Order | null>(null);
+  // Envoi en cours : un double tap sur « Servi » ne part qu'une fois.
+  const [serving, setServing] = useState(false);
+  const [prepBusyId, setPrepBusyId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [clickCollectMode, setClickCollectMode] = useState(false);
   const [togglingMode, setTogglingMode] = useState(false);
@@ -184,50 +193,36 @@ export default function Barman() {
     // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
     // silencieuse en journée).
 
-    // Realtime subscription for orders - filtered updates with sound alert
+    // Temps réel : toute écriture d'une commande du club relance UNE lecture
+    // (rafale regroupée). Le bip ne se décide plus sur le payload — sans
+    // REPLICA IDENTITY FULL, `old` est vide et chaque prise en charge par un
+    // collègue faisait sonner tous les postes : il se décide à la lecture, sur
+    // les commandes ARRIVÉES en file depuis la lecture précédente.
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (refetchTimer) clearTimeout(refetchTimer);
+      refetchTimer = setTimeout(() => fetchClickCollectOrders(), 300);
+    };
     const ordersChannel = supabase
-      .channel(`barman-orders-${staffVenueId}-${Date.now()}`)
+      .channel(uniqueChannel('barman-orders'))
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders',
-          filter: `venue_id=eq.${staffVenueId}`,
-        },
-        (payload) => {
-          const newOrder = payload.new as Tables<'orders'>;
-          if (newOrder.prep_requested && newOrder.status === 'paid') {
-            playNewOrderSound();
-            setNewOrderCount(prev => prev + 1);
-          }
-          fetchClickCollectOrders();
-        }
+        { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${staffVenueId}` },
+        scheduleRefetch,
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `venue_id=eq.${staffVenueId}`,
-        },
-        (payload) => {
-          const updated = payload.new as Tables<'orders'>;
-          const old = payload.old as Partial<Tables<'orders'>>;
-          // Sound when an order is newly prep_requested
-          if (updated.prep_requested && !old.prep_requested && updated.status === 'paid') {
-            playNewOrderSound();
-            setNewOrderCount(prev => prev + 1);
-          }
-          fetchClickCollectOrders();
-        }
-      )
-      .subscribe();
+      .subscribe(status => {
+        // (Re)connexion — écran verrouillé, wifi du bar : on rattrape.
+        if (status === 'SUBSCRIBED') scheduleRefetch();
+      });
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') scheduleRefetch();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const poll = setInterval(() => fetchClickCollectOrders(), 20_000);
 
     // Realtime subscription for venue changes
     const venueChannel = supabase
-      .channel(`venue-changes-barman-${staffVenueId}-${Date.now()}`)
+      .channel(uniqueChannel('venue-changes-barman'))
       .on(
         'postgres_changes',
         {
@@ -243,6 +238,9 @@ export default function Barman() {
       .subscribe();
 
     return () => {
+      if (refetchTimer) clearTimeout(refetchTimer);
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(venueChannel);
     };
@@ -287,27 +285,10 @@ export default function Barman() {
     try {
       const newMode = !clickCollectMode;
       
-      const { error } = await supabase
-        .from('venues')
-        .update({ click_collect_mode: newMode })
-        .eq('id', staffVenueId);
-
+      // Un interrupteur, pas les clés du club : la RPC ne touche que ce champ
+      // (l'ancienne policy ouvrait TOUTES les colonnes du club au responsable).
+      const { error } = await untyped.rpc('set_click_collect_mode', { p_venue_id: staffVenueId, p_on: newMode });
       if (error) throw error;
-
-      // Send push notifications to all users
-      try {
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            title: newMode ? '🥤 Mode Click & Collect activé' : '✅ Mode normal rétabli',
-            body: newMode 
-              ? 'Toutes les commandes doivent maintenant être récupérées via le Click & Collect. Demandez la préparation depuis vos commandes.' 
-              : 'Vous pouvez à nouveau récupérer vos commandes directement au bar avec le QR code.',
-            broadcast: true
-          }
-        });
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-      }
 
       setClickCollectMode(newMode);
       toast.success(newMode ? t('barman.clickCollectModeEnabled') : t('barman.clickCollectModeDisabled'));
@@ -320,8 +301,11 @@ export default function Barman() {
   };
 
   // Fetch only Click & Collect orders for this bar
+  const fetchSeqRef = useRef(0);
+  const queueSeenRef = useRef<Set<string> | null>(null);
   const fetchClickCollectOrders = async () => {
     if (!staffVenueId) return;
+    const seq = ++fetchSeqRef.current;
     try {
       let query = supabase
         .from('orders')
@@ -348,6 +332,9 @@ export default function Barman() {
       const { data, error } = await query;
 
       if (error) throw error;
+      // Deux lectures croisées : seule la plus récente écrit (sinon une commande
+      // prise par un collègue réapparaît « en file »).
+      if (seq !== fetchSeqRef.current) return;
 
       const now = new Date();
       const filteredData = (data || []).filter((order) => {
@@ -381,7 +368,20 @@ export default function Barman() {
         prepStatus: (order.prep_status as 'queue' | 'preparing' | 'ready' | 'served') || undefined,
         selectedBar: order.selected_bar || undefined,
         assignedBar: order.assigned_bar || undefined,
+        prepClaimedBy: order.prep_claimed_by || undefined,
+        prepClaimedAt: order.prep_claimed_at || undefined,
       }));
+
+      // Nouvelles demandes en file depuis la dernière lecture → bip + pastille.
+      const queueIds = new Set(mappedOrders.filter(o => o.prepStatus === 'queue').map(o => o.id));
+      if (queueSeenRef.current) {
+        const fresh = [...queueIds].filter(id => !queueSeenRef.current!.has(id));
+        if (fresh.length > 0) {
+          playNewOrderSound();
+          setNewOrderCount(prev => prev + fresh.length);
+        }
+      }
+      queueSeenRef.current = queueIds;
 
       setClickCollectOrders(mappedOrders);
     } catch (error) {
@@ -476,6 +476,13 @@ export default function Barman() {
           if (now > eventEnd) { toast.error(t('barman.eventEnded')); return; }
         }
 
+        // Toutes les commandes du QR doivent être payées (la base le revérifie
+        // et refuse le QR entier) : un QR se fabrique à la main.
+        if (ordersData.length !== orderIds.length || ordersData.some(o => o.status !== 'paid' || o.token_used)) {
+          toast.error(ordersData.some(o => o.token_used || o.status === 'served') ? t('barman.qrUsed') : t('barman.orderNotPaid'));
+          return;
+        }
+
         // For Click & Collect, verify all orders are ready
         for (const order of ordersData) {
           if (order.prep_requested === true && order.prep_status !== 'ready') {
@@ -518,34 +525,14 @@ export default function Barman() {
             }
           });
 
-          const availableExpandedIndices = expandedItems
-            .filter((entry) => !entry.served)
-            .map((entry) => entry.expandedIdx);
-
           const validDirectIndices = seg.indices.filter(
             (idx) => Number.isInteger(idx) && idx >= 0 && idx < expandedItems.length
           );
 
-          const validOneBasedIndices = seg.indices
-            .map((idx) => idx - 1)
-            .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < expandedItems.length);
-
-          const validAvailableIndices = seg.indices
-            .map((idx) => availableExpandedIndices[idx])
-            .filter((idx): idx is number => Number.isInteger(idx));
-
-          const validAvailableOneBasedIndices = seg.indices
-            .map((idx) => availableExpandedIndices[idx - 1])
-            .filter((idx): idx is number => Number.isInteger(idx));
-
-          const resolvedIndicesRaw =
-            validDirectIndices.length > 0
-              ? validDirectIndices
-              : validOneBasedIndices.length > 0
-                ? validOneBasedIndices
-                : validAvailableIndices.length > 0
-                  ? validAvailableIndices
-                  : validAvailableOneBasedIndices;
+          // Index DÉPLIÉS, base 0 : exactement ceux que la base servira
+          // (bar_redeem_units). Les anciennes « devinettes » (base 1, rang
+          // parmi les non servis) montraient une boisson et en servaient une autre.
+          const resolvedIndicesRaw = validDirectIndices;
 
           const resolvedIndices = Array.from(new Set(resolvedIndicesRaw));
           totalSelectedCount += resolvedIndices.length;
@@ -694,8 +681,11 @@ export default function Barman() {
 
   const handleCancelScan = async (token: string) => {
     try {
-      // Find order with this token
-      const { data: order, error } = await supabase
+      // Le QR que montrent les clients est « idCommande|unités » ; l'ancien QR
+      // est le jeton. Les deux doivent mener à la commande à annuler.
+      const pipe = token.indexOf('|');
+      const byId = pipe > 0 ? token.split(';')[0].substring(0, pipe) : null;
+      const base = supabase
         .from('orders')
         .select(`
           *,
@@ -706,9 +696,8 @@ export default function Barman() {
             end_at,
             is_active
           )
-        `)
-        .eq('token', token)
-        .maybeSingle();
+        `);
+      const { data: order, error } = await (byId ? base.eq('id', byId) : base.eq('token', token)).maybeSingle();
 
       if (error) throw error;
 
@@ -723,7 +712,10 @@ export default function Barman() {
         return;
       }
 
-      if (order.served_at) {
+      // Une boisson déjà servie (même une seule unité) ne se rembourse pas ici.
+      const partlyServed = normalizeOrderItems(order.items).some(it =>
+        it.served === true || (Array.isArray(it.servedUnits) && it.servedUnits.some(Boolean)));
+      if (order.served_at || order.token_used || partlyServed) {
         toast.error(t('barman.orderAlreadyServed'));
         return;
       }
@@ -767,7 +759,7 @@ export default function Barman() {
       const response = await supabase.functions.invoke('staff-cancel', {
         body: {
           type: 'order',
-          qrCode: orderToCancel.token,
+          id: orderToCancel.id,
         },
       });
 
@@ -810,71 +802,49 @@ export default function Barman() {
     }
   };
 
-  const handleMoveToPrep = async (orderId: string) => {
+  /** claim | takeover | release | ready — décidé par la base (claim_order_prep). */
+  const prepAction = async (orderId: string, action: 'claim' | 'takeover' | 'release' | 'ready'): Promise<{ ok: boolean; reason?: string }> => {
+    const { data, error } = await untyped.rpc('claim_order_prep', { p_order_id: orderId, p_action: action, p_bar: selectedBar });
+    if (error) throw error;
+    return (data as { ok: boolean; reason?: string }) ?? { ok: false };
+  };
+
+  const handleMoveToPrep = async (orderId: string, takeover = false) => {
+    if (prepBusyId) return;
+    setPrepBusyId(orderId);
     try {
-      const updateData: TablesUpdate<'orders'> = {
-        prep_status: 'preparing',
-        prep_claimed_at: new Date().toISOString(),
-        prep_claimed_by: user?.id,
-      };
-
-      // If barman has a selected bar, assign it to the order
-      if (selectedBar) {
-        updateData.assigned_bar = selectedBar;
-      }
-
-      const { data: claimed, error } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-        .or('prep_claimed_by.is.null,prep_status.eq.queue')
-        .select();
-
-      if (error) throw error;
-      if (!claimed || claimed.length === 0) {
-        toast.error(t('clickCollect.alreadyClaimed'));
+      const res = await prepAction(orderId, takeover ? 'takeover' : 'claim');
+      if (!res.ok) {
+        toast.error(res.reason === 'too_early' ? t('barman.takeoverTooEarly') : t('clickCollect.alreadyClaimed'));
         fetchClickCollectOrders();
         return;
       }
-
-      // Find and show the order in preparation view
       const order = clickCollectOrders.find(o => o.id === orderId);
-      if (order) {
-        setPreparingOrder(order);
-      }
-
-      toast.success(t('barman.prepRequestSuccess'));
+      if (order) setPreparingOrder(order);
+      toast.success(takeover ? t('barman.takeoverDone') : t('barman.prepRequestSuccess'));
       fetchClickCollectOrders();
     } catch (error) {
       console.error('Error moving to prep:', error);
       toast.error(t('barman.prepRequestError'));
+    } finally {
+      setPrepBusyId(null);
     }
   };
 
   const handleMarkReady = async () => {
     if (!preparingOrder) return;
-
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          prep_status: 'ready',
-          ready_at: new Date().toISOString(),
-          notify_status: 'ready',
-        })
-        .eq('id', preparingOrder.id)
-        .eq('prep_claimed_by', user?.id);
-
-      if (error) throw error;
-
-      // Le push « commande prête » part côté serveur : le trigger DB
-      // notify_order_live_activity détecte ready_at NULL→non-NULL et envoie
-      // l'action 'order_ready' (relay trilingue, gated par le registre). Pas de
-      // push direct ici — c'était un doublon en français seul pour tous.
-
-      // Close preparation view
+      const res = await prepAction(preparingOrder.id, 'ready');
+      if (!res.ok) {
+        // Reprise par un collègue entre-temps : le client ne serait jamais prévenu.
+        toast.error(t('barman.prepTakenByColleague'));
+        setPreparingOrder(null);
+        fetchClickCollectOrders();
+        return;
+      }
+      // Le push « commande prête » part côté serveur (trigger
+      // notify_order_live_activity sur ready_at).
       setPreparingOrder(null);
-      
       toast.success(t('clickCollect.readySuccess'));
       fetchClickCollectOrders();
     } catch (error) {
@@ -883,96 +853,71 @@ export default function Barman() {
     }
   };
 
-  const handleServeOrder = async () => {
-    if (!selectedOrder) return;
+  /** Fermer l'écran de préparation sans avoir fini : la commande retourne en file. */
+  const handleReleasePrep = async () => {
+    if (!preparingOrder) return;
+    const id = preparingOrder.id;
+    setPreparingOrder(null);
+    try {
+      await prepAction(id, 'release');
+    } catch (error) {
+      console.error('Error releasing prep:', error);
+    }
+    fetchClickCollectOrders();
+  };
 
+  const serveReasonMessage = (reason?: string) => {
+    switch (reason) {
+      case 'already_served': return t('barman.qrUsed');
+      case 'not_paid': return t('barman.orderNotPaid');
+      case 'not_ready': return t('barman.orderNotReady');
+      case 'event_not_started': return t('barman.eventNotStarted');
+      case 'event_ended': return t('barman.eventEnded');
+      case 'expired': return t('barman.qrExpired');
+      case 'forbidden': return t('barman.forbidden');
+      default: return t('barman.serveError');
+    }
+  };
+
+  // Le service est décidé par la base (bar_redeem_units) : commandes
+  // verrouillées, unités servies une par une, QR refusé en entier si une de
+  // ses commandes n'est pas payée. Deux barmans sur le même QR → un seul sert.
+  const handleServeOrder = async () => {
+    if (!selectedOrder || serving) return;
+    setServing(true);
     try {
       const multiSegments = (selectedOrder as MultiServeOrder)._multiOrderSegments;
-      const allOrdersData = (selectedOrder as MultiServeOrder)._allOrdersData;
-
-      if (multiSegments && allOrdersData) {
-        // Multi-order serving: update each order separately
-        for (const seg of multiSegments) {
-          const orderData = allOrdersData.find((o) => o.id === seg.orderId);
-          if (!orderData) continue;
-
-          const items = normalizeOrderItems(orderData.items);
-          const updatedItems = items.map((item) => {
-            const qty = Math.max(0, Number(item.qty) || 0);
-            const existingServedUnits = Array.isArray(item.servedUnits) ? item.servedUnits : [];
-            return {
-              ...item,
-              servedUnits: Array.from({ length: qty }, (_, i) => existingServedUnits[i] === true || item.served === true),
-            };
-          });
-
-          let expandedIdx = 0;
-          updatedItems.forEach((item) => {
-            for (let i = 0; i < item.qty; i++) {
-              if (seg.indices.includes(expandedIdx)) {
-                item.servedUnits[i] = true;
-              }
-              expandedIdx++;
-            }
-          });
-
-          const allServed = updatedItems.every((item) =>
-            item.servedUnits.every((s) => s)
-          );
-
-          if (allServed) {
-            // Guard against double-serve: only the first scan that finds the
-            // token unused may close the order (matches the legacy path below).
-            await supabase
-              .from('orders')
-              .update({
-                items: updatedItems,
-                status: 'served',
-                token_used: true,
-                served_at: new Date().toISOString(),
-                served_by: user?.id,
-                prep_status: 'served',
-                archived: true,
-              })
-              .eq('id', seg.orderId)
-              .eq('token_used', false);
-          } else {
-            await supabase
-              .from('orders')
-              .update({ items: updatedItems })
-              .eq('id', seg.orderId);
-          }
-        }
-      } else {
-        // Legacy full-order serving (old QR codes without selection)
-        const { data: servedData, error } = await supabase
-          .from('orders')
-          .update({
-            status: 'served',
-            token_used: true,
-            served_at: new Date().toISOString(),
-            served_by: user?.id,
-            prep_status: 'served',
-          })
-          .eq('id', selectedOrder.id)
-          .eq('token_used', false)
-          .select();
-
-        if (error) throw error;
-        if (!servedData || servedData.length === 0) {
-          toast.error(t('barman.alreadyServed'));
-          setSelectedOrder(null);
-          fetchClickCollectOrders();
-          return;
-        }
+      const segments = multiSegments
+        ? multiSegments.map(seg => ({ order_id: seg.orderId, indices: seg.indices }))
+        // Jeton / PIN : tout ce qui reste (en Click & Collect, ce qui a été préparé).
+        : [{ order_id: selectedOrder.id, indices: null }];
+      const { data, error } = await retrySupabaseAction(async () => {
+        const res = await untyped.rpc('bar_redeem_units', { p_segments: segments });
+        if (res.error) throw res.error;
+        return res;
+      });
+      if (error) throw error;
+      const outcome = data as { ok: boolean; reason?: string; served_count?: number; already?: number } | null;
+      if (!outcome?.ok) {
+        toast.error(serveReasonMessage(outcome?.reason));
+        setSelectedOrder(null);
+        fetchClickCollectOrders();
+        return;
       }
-
-      toast.success(t('barman.serveSuccess'));
+      if (outcome.already && outcome.already > 0) {
+        // Une partie du QR avait déjà été servie ailleurs : on le dit, on ne
+        // sert que le reste.
+        toast.warning(t('barman.partlyServedElsewhere').replace('{n}', String(outcome.already)));
+      } else {
+        toast.success(t('barman.serveSuccess'));
+      }
       setSelectedOrder(null);
       fetchClickCollectOrders();
     } catch (error) {
       console.error('Error serving order:', error);
       toast.error(t('barman.serveError'));
+    } finally {
+      setServing(false);
     }
   };
 
@@ -1327,12 +1272,34 @@ export default function Barman() {
                     {order.prepStatus === 'queue' && (
                       <Button
                         onClick={() => handleMoveToPrep(order.id)}
+                        disabled={prepBusyId === order.id}
                         variant="default"
                         size="sm"
                         className="w-full h-11 sm:h-9"
                       >
                         <ChefHat className="mr-2 h-4 w-4" />
                         {t('barman.moveToPrep')}
+                      </Button>
+                    )}
+                    {/* En préparation : la mienne se reprend ; celle d'un collègue
+                        parti (pause, téléphone mort) se récupère après 10 min —
+                        sinon le client n'est jamais servi. */}
+                    {order.prepStatus === 'preparing' && order.prepClaimedBy === user?.id && (
+                      <Button onClick={() => setPreparingOrder(order)} variant="outline" size="sm" className="w-full h-11 sm:h-9">
+                        <ChefHat className="mr-2 h-4 w-4" />
+                        {t('barman.resumePrep')}
+                      </Button>
+                    )}
+                    {order.prepStatus === 'preparing' && order.prepClaimedBy !== user?.id
+                      && !!order.prepClaimedAt && Date.now() - new Date(order.prepClaimedAt).getTime() > 10 * 60_000 && (
+                      <Button
+                        onClick={() => handleMoveToPrep(order.id, true)}
+                        disabled={prepBusyId === order.id}
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-11 sm:h-9"
+                      >
+                        {t('barman.takeover')}
                       </Button>
                     )}
                   </div>
@@ -1405,6 +1372,7 @@ export default function Barman() {
               {selectedOrder.status === 'paid' && (
                 <Button
                   onClick={handleServeOrder}
+                  disabled={serving}
                   className="w-full h-12 bg-primary shadow-primary"
                 >
                   <CheckCircle className="mr-2 h-5 w-5" />
@@ -1432,7 +1400,7 @@ export default function Barman() {
         <OrderPreparationView
           order={preparingOrder}
           onComplete={handleMarkReady}
-          onCancel={() => setPreparingOrder(null)}
+          onCancel={handleReleasePrep}
         />
       )}
 

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+
 import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -41,6 +43,9 @@ import {
 } from '@/components/ui/dialog';
 import { OrderPreparationView } from '@/components/OrderPreparationView';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
+
+// RPC du bar (migration 20260929236000) pas encore dans les types générés.
+const untyped = supabase as unknown as SupabaseClient;
 
 const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -227,30 +232,34 @@ export default function ClickCollect() {
     }
   };
 
+  // Toutes les transitions passent par la base (claim_order_prep,
+  // bar_redeem_units) : verrou par commande, reprise d'une préparation
+  // abandonnée au bout de 10 min, « servi » signé par la personne connectée.
+  const prepAction = async (id: string, action: 'claim' | 'takeover' | 'release' | 'ready') => {
+    const { data, error } = await untyped.rpc('claim_order_prep', { p_order_id: id, p_action: action, p_bar: null });
+    if (error) throw error;
+    return (data as { ok: boolean; reason?: string }) ?? { ok: false };
+  };
+
   const handleClaimOrder = async (orderId: string) => {
     try {
       const merged = orders.find(o => o.id === orderId);
       const ids = merged?.sourceOrderIds || [orderId];
+      // Une préparation déjà prise (collègue parti) se REPREND : l'ancien
+      // filtre ne matchait jamais et le client n'était jamais servi.
+      const action = merged?.prepStatus === 'preparing' ? 'takeover' : 'claim';
 
+      let refused: string | undefined;
       for (const id of ids) {
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            prep_status: 'preparing',
-            prep_claimed_by: currentUserId,
-            prep_claimed_at: new Date().toISOString(),
-          })
-          .eq('id', id)
-          .or('prep_claimed_by.is.null,prep_status.eq.queue');
-
-        if (error) throw error;
+        const res = await prepAction(id, action);
+        if (!res.ok) refused = res.reason;
       }
 
       const updatedOrders = await fetchOrders();
       const updatedOrder = updatedOrders?.find((o: any) => o.id === orderId);
-      if (updatedOrder?.prepClaimedBy !== currentUserId) {
+      if (refused || updatedOrder?.prepClaimedBy !== currentUserId) {
         const barmanName = getBarmanName(updatedOrder?.prepClaimedBy || '');
-        toast.error(`${t('clickCollect.alreadyClaimed')} ${barmanName}`);
+        toast.error(refused === 'too_early' ? t('barman.takeoverTooEarly') : `${t('clickCollect.alreadyClaimed')} ${barmanName}`);
       } else if (updatedOrder) {
         setPreparingOrder(updatedOrder);
         toast.success(t('clickCollect.claimSuccess'));
@@ -265,19 +274,7 @@ export default function ClickCollect() {
     try {
       const merged = orders.find(o => o.id === orderId);
       const ids = merged?.sourceOrderIds || [orderId];
-
-      for (const id of ids) {
-        await supabase
-          .from('orders')
-          .update({
-            prep_status: 'queue',
-            prep_claimed_by: null,
-            prep_claimed_at: null,
-          })
-          .eq('id', id)
-          .eq('prep_claimed_by', currentUserId);
-      }
-
+      for (const id of ids) await prepAction(id, 'release');
       toast.success(t('clickCollect.releaseSuccess'));
       fetchOrders();
     } catch (error) {
@@ -290,26 +287,16 @@ export default function ClickCollect() {
     try {
       const merged = orders.find(o => o.id === orderId);
       const ids = merged?.sourceOrderIds || [orderId];
-
+      let ok = true;
       for (const id of ids) {
-        await supabase
-          .from('orders')
-          .update({
-            prep_status: 'ready',
-            ready_at: new Date().toISOString(),
-            notify_status: 'ready',
-          })
-          .eq('id', id)
-          .eq('prep_claimed_by', currentUserId);
+        const res = await prepAction(id, 'ready');
+        if (!res.ok) ok = false;
       }
-
-      // Le push « commande prête » part côté serveur : le trigger DB
-      // notify_order_live_activity détecte ready_at NULL→non-NULL et envoie
-      // l'action 'order_ready' (relay trilingue). Pas de push direct ici —
-      // c'était un doublon en français seul pour tous les clients.
-
+      // Le push « commande prête » part côté serveur (trigger
+      // notify_order_live_activity sur ready_at).
       setPreparingOrder(null);
-      toast.success(t('clickCollect.readySuccess'));
+      if (ok) toast.success(t('clickCollect.readySuccess'));
+      else toast.error(t('barman.prepTakenByColleague'));
       fetchOrders();
     } catch (error) {
       console.error('Error marking order as ready:', error);
@@ -321,24 +308,19 @@ export default function ClickCollect() {
     try {
       const merged = orders.find(o => o.id === orderId);
       const ids = merged?.sourceOrderIds || [orderId];
-
-      // Sans `served_by`, une soirée entière servie depuis le Click&Collect
-      // n'est attribuée à personne et n'apparaît pas dans les stats du barman.
-      const { data: { user } } = await supabase.auth.getUser();
-
+      // Chaque commande à part : une commande du même client encore en file
+      // ne se ferme pas avec celle qui est prête (et ses boissons non
+      // préparées restent à servir).
+      let served = 0;
       for (const id of ids) {
-        await supabase
-          .from('orders')
-          .update({
-            status: 'served',
-            prep_status: 'served',
-            served_at: new Date().toISOString(),
-            served_by: user?.id,
-          })
-          .eq('id', id);
+        const { data, error } = await untyped.rpc('bar_redeem_units', {
+          p_segments: [{ order_id: id, indices: null }],
+        });
+        if (error) throw error;
+        if ((data as { ok?: boolean } | null)?.ok) served++;
       }
-
-      toast.success(t('clickCollect.servedSuccess'));
+      if (served > 0) toast.success(t('clickCollect.servedSuccess'));
+      else toast.error(t('barman.qrUsed'));
       fetchOrders();
     } catch (error) {
       console.error('Error marking order as served:', error);
