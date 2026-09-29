@@ -939,13 +939,14 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'CreditCard',
         actionLink: { labelKey: 'ohelp.action.goToBilling', path: '/billing' },
         relatedArticleIds: ['ticketing-setup', 'fee-structure'],
-        keywords: ['stripe', 'paiement', 'payment', 'IBAN', 'virement', 'bank', 'banque', 'connect', 'argent', 'money', 'compte', 'account', 'carte', 'card', 'payer', 'encaisser', 'onboarding', 'charges enabled'],
+        keywords: ['stripe', 'paiement', 'payment', 'IBAN', 'virement', 'bank', 'banque', 'connect', 'argent', 'money', 'compte', 'account', 'carte', 'card', 'payer', 'encaisser', 'onboarding', 'charges enabled', 'pays', 'country', 'país', 'immatriculation', 'registration', 'espagne', 'spain', 'españa', 'maroc'],
         sections: [
           { headingKey: 'ohelp.stripeConnect.s1h', bodyKey: 'ohelp.stripeConnect.s1b' },
           { headingKey: 'ohelp.stripeConnect.s2h', bodyKey: 'ohelp.stripeConnect.s2b', type: 'steps', screenshotUrl: '/help/owner-stripe-connect.webp' },
           { headingKey: 'ohelp.stripeConnect.s3h', bodyKey: 'ohelp.stripeConnect.s3b' },
           { headingKey: 'ohelp.stripeConnect.s4h', bodyKey: 'ohelp.stripeConnect.s4b' },
           { headingKey: 'ohelp.stripeConnect.s5h', bodyKey: 'ohelp.stripeConnect.s5b', type: 'warning' },
+          { headingKey: 'ohelp.stripeConnect.s6h', bodyKey: 'ohelp.stripeConnect.s6b', type: 'warning' },
         ],
       },
       {
