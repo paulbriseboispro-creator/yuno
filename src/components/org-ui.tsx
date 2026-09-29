@@ -1,4 +1,5 @@
 import type { ReactNode, CSSProperties, ComponentType } from 'react';
+import { PRO_PAGE } from '@/lib/proLayout';
 import { Link } from 'react-router-dom';
 
 /**
@@ -24,7 +25,8 @@ export const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28p
 
 // ─── Page scaffolding ─────────────────────────────────────────────────────────
 export function OrgPage({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`px-4 pb-12 ${className}`}>{children}</div>;
+  // Pleine largeur, mêmes gouttières que toute la Console (src/lib/proLayout.ts).
+  return <div className={`${PRO_PAGE} pb-12 ${className}`}>{children}</div>;
 }
 
 export function OrgPageHeader({
