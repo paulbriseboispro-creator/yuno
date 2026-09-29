@@ -11,7 +11,12 @@ export interface RefundableItem {
   amount: number; // total price
   serviceFee: number;
   stripeFee: number;
-  clubReceived: number; // amount - serviceFee
+  /** Plafond côté club : ce que le client a payé moins les frais Yuno (acompte pour une table). */
+  clubReceived: number;
+  /** Déjà rendu au client (remboursements partiels précédents, Console ou Stripe). */
+  alreadyRefunded: number;
+  /** Ce qu'il reste à rendre : le maximum que le serveur acceptera. */
+  refundable: number;
   createdAt: string;
   hasPaymentIntent: boolean;
   details?: string;
@@ -77,9 +82,14 @@ export function RefundItemCard({ item, selected, onToggle }: RefundItemCardProps
             {t('refund.stripeFees')}: <span className="font-medium text-orange-400">{item.stripeFee.toFixed(2)} €</span>
           </span>
         </div>
+        {item.alreadyRefunded > 0 && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {t('refund.alreadyRefunded')}: <span className="font-medium text-foreground">{item.alreadyRefunded.toFixed(2)} €</span>
+          </p>
+        )}
       </div>
       
-      <span className="text-sm font-semibold whitespace-nowrap">{item.clubReceived.toFixed(2)} €</span>
+      <span className="text-sm font-semibold whitespace-nowrap">{item.refundable.toFixed(2)} €</span>
     </div>
   );
 }

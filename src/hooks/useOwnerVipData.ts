@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from './useVenueContext';
+import { alreadyRefundedCents, remainingRefundableCents, type SaleAmounts } from '@/lib/saleRefund';
+
+/** Ce que le service VIP sait du remboursement d'une réservation. */
+export function vipRefundFields(r: SaleAmounts & { stripe_payment_intent_id?: string | null; stripe_session_id?: string | null }) {
+  return {
+    refundedAmount: alreadyRefundedCents(r) / 100,
+    refundRemaining: remainingRefundableCents('table_reservation', r) / 100,
+    hasOnlinePayment: !!(r.stripe_payment_intent_id || r.stripe_session_id),
+  };
+}
 
 export interface OwnerVipReservation {
   id: string;
@@ -11,6 +21,12 @@ export interface OwnerVipReservation {
   deposit: number;
   /** Frais de gestion Yuno absorbés par le club (0 sinon) : sortent de sa part de l'acompte. */
   absorbedFee: number;
+  /** Déjà rendu au client (remboursements partiels précédents). */
+  refundedAmount: number;
+  /** Reste remboursable en ligne — même règle que le serveur (`refundCapCents`). */
+  refundRemaining: number;
+  /** L'acompte a été payé en ligne via Yuno (une table « à régler sur place » n'a rien à rembourser ici). */
+  hasOnlinePayment: boolean;
   totalPrice: number;
   minimumSpend: number;
   vipStatus: 'waiting' | 'placed' | 'active' | 'finished' | 'no_show' | 'denied';
@@ -58,6 +74,100 @@ export interface OwnerVipOrder {
   items: OwnerVipOrderItem[];
 }
 
+/** Ligne `table_reservations` telle que les deux services VIP (club, orga) la lisent. */
+export interface VipReservationRow extends SaleAmounts {
+  id: string;
+  full_name: string | null;
+  user_email: string | null;
+  phone: string | null;
+  guest_count: number | null;
+  minimum_spend: number | null;
+  vip_status: OwnerVipReservation['vipStatus'] | null;
+  zone_id: string;
+  assigned_table_id: string | null;
+  created_at: string;
+  checked_in_at: string | null;
+  placed_at: string | null;
+  finished_at: string | null;
+  event_id: string;
+  placement_status: string | null;
+  requested_table_id: string | null;
+  placement_note: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_session_id?: string | null;
+  table_zones: { name: string | null; color: string | null } | null;
+  events: { title: string | null } | null;
+}
+
+export function mapVipReservation(r: VipReservationRow): OwnerVipReservation {
+  return {
+    id: r.id,
+    fullName: r.full_name || 'Guest',
+    userEmail: r.user_email || '',
+    phone: r.phone ?? undefined,
+    guestCount: r.guest_count || 1,
+    deposit: Number(r.deposit) || 0,
+    absorbedFee: r.fee_absorbed ? Number(r.management_fee || 0) : 0,
+    ...vipRefundFields(r),
+    totalPrice: Number(r.total_price) || 0,
+    minimumSpend: Number(r.minimum_spend) || 0,
+    vipStatus: r.vip_status || 'waiting',
+    zoneName: r.table_zones?.name || '',
+    zoneColor: r.table_zones?.color || '#666',
+    zoneId: r.zone_id,
+    assignedTableId: r.assigned_table_id ?? undefined,
+    createdAt: r.created_at,
+    checkedInAt: r.checked_in_at ?? undefined,
+    placedAt: r.placed_at ?? undefined,
+    finishedAt: r.finished_at ?? undefined,
+    eventId: r.event_id,
+    eventTitle: r.events?.title ?? undefined,
+    placementStatus: r.placement_status ?? undefined,
+    requestedTableId: r.requested_table_id ?? undefined,
+    placementNote: r.placement_note ?? undefined,
+  };
+}
+
+export interface VipConsumptionRow {
+  id: string; item_name: string; item_type: string; quantity: number;
+  unit_price: number; total_price: number; served_at: string; table_reservation_id: string;
+}
+
+export function mapVipConsumption(c: VipConsumptionRow): OwnerVipConsumption {
+  return {
+    id: c.id, itemName: c.item_name, itemType: c.item_type, quantity: c.quantity,
+    unitPrice: c.unit_price, totalPrice: c.total_price, servedAt: c.served_at, reservationId: c.table_reservation_id,
+  };
+}
+
+export interface VipOrderRow {
+  id: string; table_reservation_id: string; status: string; total_amount: number | null;
+  created_at: string; confirmed_at: string | null; served_at: string | null; notes: string | null;
+}
+
+export interface VipOrderItemRow {
+  order_id: string; quantity: number; unit_price: number; vip_menu_items: { name: string | null } | null;
+}
+
+/** Lignes de commande regroupées par commande (bouteilles pré-commandées / commandées). */
+export function groupVipOrderItems(items: VipOrderItemRow[]): Map<string, OwnerVipOrderItem[]> {
+  const byOrder = new Map<string, OwnerVipOrderItem[]>();
+  for (const it of items) {
+    const arr = byOrder.get(it.order_id) || [];
+    arr.push({ name: it.vip_menu_items?.name || 'Bouteille', quantity: it.quantity, unitPrice: it.unit_price });
+    byOrder.set(it.order_id, arr);
+  }
+  return byOrder;
+}
+
+export function mapVipOrder(o: VipOrderRow, itemsByOrder: Map<string, OwnerVipOrderItem[]>): OwnerVipOrder {
+  return {
+    id: o.id, reservationId: o.table_reservation_id, status: o.status, totalAmount: o.total_amount || 0,
+    createdAt: o.created_at, confirmedAt: o.confirmed_at ?? undefined, servedAt: o.served_at ?? undefined,
+    notes: o.notes, items: itemsByOrder.get(o.id) || [],
+  };
+}
+
 export interface VipEvent {
   id: string;
   title: string;
@@ -103,6 +213,7 @@ export function useOwnerVipData() {
         .from('table_reservations')
         .select(`
           id, full_name, user_email, phone, guest_count, deposit, total_price, management_fee, fee_absorbed,
+          service_fee, refund_amount, stripe_payment_intent_id, stripe_session_id,
           minimum_spend, vip_status, zone_id, assigned_table_id,
           created_at, checked_in_at, placed_at, finished_at, event_id,
           placement_status, requested_table_id, placement_note,
@@ -113,31 +224,7 @@ export function useOwnerVipData() {
         .eq('table_zones.venue_id', venueId)
         .order('created_at', { ascending: false });
 
-      const mapped: OwnerVipReservation[] = (resData || []).map((r: any) => ({
-        id: r.id,
-        fullName: r.full_name || 'Guest',
-        userEmail: r.user_email || '',
-        phone: r.phone,
-        guestCount: r.guest_count || 1,
-        deposit: r.deposit || 0,
-        absorbedFee: r.fee_absorbed ? Number(r.management_fee || 0) : 0,
-        totalPrice: r.total_price || 0,
-        minimumSpend: r.minimum_spend || 0,
-        vipStatus: r.vip_status || 'waiting',
-        zoneName: r.table_zones?.name || '',
-        zoneColor: r.table_zones?.color || '#666',
-        zoneId: r.zone_id,
-        assignedTableId: r.assigned_table_id,
-        createdAt: r.created_at,
-        checkedInAt: r.checked_in_at,
-        placedAt: r.placed_at,
-        finishedAt: r.finished_at,
-        eventId: r.event_id,
-        eventTitle: r.events?.title,
-        placementStatus: r.placement_status,
-        requestedTableId: r.requested_table_id,
-        placementNote: r.placement_note,
-      }));
+      const mapped = ((resData ?? []) as unknown as VipReservationRow[]).map(mapVipReservation);
 
       setReservations(mapped);
 
@@ -150,16 +237,7 @@ export function useOwnerVipData() {
           .in('table_reservation_id', resIds)
           .order('served_at', { ascending: false });
 
-        setConsumptions((consData || []).map((c: any) => ({
-          id: c.id,
-          itemName: c.item_name,
-          itemType: c.item_type,
-          quantity: c.quantity,
-          unitPrice: c.unit_price,
-          totalPrice: c.total_price,
-          servedAt: c.served_at,
-          reservationId: c.table_reservation_id,
-        })));
+        setConsumptions(((consData ?? []) as unknown as VipConsumptionRow[]).map(mapVipConsumption));
         // Fetch vip_table_orders (+ leurs lignes) : sert au time-analysis ET à l'affichage
         // des bouteilles pré-commandées / commandées dans le détail d'une réservation.
         const { data: ordersData } = await supabase
@@ -169,35 +247,18 @@ export function useOwnerVipData() {
           .neq('status', 'cancelled')
           .order('created_at', { ascending: true });
 
-        const orderIds = (ordersData || []).map((o: any) => o.id);
-        const itemsByOrder = new Map<string, OwnerVipOrderItem[]>();
+        const orderRows = (ordersData ?? []) as unknown as VipOrderRow[];
+        const orderIds = orderRows.map((o) => o.id);
+        let itemsByOrder = new Map<string, OwnerVipOrderItem[]>();
         if (orderIds.length > 0) {
           const { data: itemsData } = await supabase
             .from('vip_table_order_items')
             .select('order_id, quantity, unit_price, vip_menu_items(name)')
             .in('order_id', orderIds);
-          (itemsData || []).forEach((it: any) => {
-            const arr = itemsByOrder.get(it.order_id) || [];
-            arr.push({
-              name: it.vip_menu_items?.name || 'Bouteille',
-              quantity: it.quantity,
-              unitPrice: it.unit_price,
-            });
-            itemsByOrder.set(it.order_id, arr);
-          });
+          itemsByOrder = groupVipOrderItems((itemsData ?? []) as unknown as VipOrderItemRow[]);
         }
 
-        setOrders((ordersData || []).map((o: any) => ({
-          id: o.id,
-          reservationId: o.table_reservation_id,
-          status: o.status,
-          totalAmount: o.total_amount || 0,
-          createdAt: o.created_at,
-          confirmedAt: o.confirmed_at,
-          servedAt: o.served_at,
-          notes: o.notes,
-          items: itemsByOrder.get(o.id) || [],
-        })));
+        setOrders(orderRows.map((o) => mapVipOrder(o, itemsByOrder)));
       } else {
         setConsumptions([]);
         setOrders([]);

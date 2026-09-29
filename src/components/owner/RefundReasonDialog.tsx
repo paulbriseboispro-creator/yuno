@@ -21,12 +21,14 @@ export function RefundReasonDialog({ open, onClose, onConfirm, items, loading }:
   const [reason, setReason] = useState('');
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
-  // Pre-fill amounts with max (clubReceived - stripeFee)
+  // Suggestion : ce que le club a reçu moins les frais Stripe qu'il a payés et
+  // ne récupère pas, moins ce qui a déjà été rendu — jamais plus que le reste.
   useEffect(() => {
     if (open) {
       const initial: Record<string, number> = {};
       for (const item of items) {
-        initial[item.id] = Math.max(0, Math.round((item.clubReceived - item.stripeFee) * 100) / 100);
+        const suggested = Math.round((item.clubReceived - item.stripeFee - item.alreadyRefunded) * 100) / 100;
+        initial[item.id] = Math.max(0, Math.min(item.refundable, suggested));
       }
       setAmounts(initial);
       setReason('');
@@ -41,7 +43,7 @@ export function RefundReasonDialog({ open, onClose, onConfirm, items, loading }:
 
   const isValid = reason.trim().length > 0 && items.every(item => {
     const amt = amounts[item.id] || 0;
-    return amt >= 0 && amt <= item.clubReceived;
+    return amt >= 0 && amt <= item.refundable;
   });
 
   const handleConfirm = () => {
@@ -67,7 +69,7 @@ export function RefundReasonDialog({ open, onClose, onConfirm, items, loading }:
           {/* Per-item amounts */}
           <div className="space-y-3">
             {items.map(item => {
-              const maxAmount = item.clubReceived;
+              const maxAmount = item.refundable;
               const currentAmount = amounts[item.id] || 0;
               const isOverMax = currentAmount > maxAmount;
 
@@ -83,6 +85,9 @@ export function RefundReasonDialog({ open, onClose, onConfirm, items, loading }:
                   <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                     <div>{t('refund.clubReceived')}: <span className="text-foreground font-medium">{item.clubReceived.toFixed(2)} €</span></div>
                     <div>{t('refund.stripeFees')}: <span className="text-orange-400 font-medium">{item.stripeFee.toFixed(2)} €</span></div>
+                    {item.alreadyRefunded > 0 && (
+                      <div className="col-span-2">{t('refund.alreadyRefunded')}: <span className="text-foreground font-medium">{item.alreadyRefunded.toFixed(2)} €</span></div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
