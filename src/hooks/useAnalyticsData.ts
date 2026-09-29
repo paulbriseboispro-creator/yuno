@@ -4,7 +4,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { subDays, subHours, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
-import { orderRevenue, ticketRevenue, tableRevenue } from '@/utils/fees';
+import { orderRevenue, ticketRevenue, tableRevenue, type RevenueRow } from '@/utils/fees';
 import { orgEventsOr } from '@/lib/coorg';
 
 export type AnalyticsMode = 'global' | 'event';
@@ -98,6 +98,8 @@ export interface RefundAnalytics {
   refundsByReason: { reason: string; count: number; amount: number }[];
   refundRate: number;
   avgRefundAmount: number;
+  /** Ventes remboursées en totalité : part club, Stripe conservé, montant rendu (payoutStrip). */
+  refundedSales?: { gross: number; stripe: number; refund: number }[];
 }
 
 export interface EventInfo {
@@ -335,7 +337,7 @@ export function useAnalyticsData({
           setTableAnalytics(EMPTY_TABLE_ANALYTICS);
           setRefundAnalytics({
             totalRefunded: 0, totalRefundCount: 0, refundsByType: [], refundsByDay: [], refundsByReason: [],
-            refundRate: 0, avgRefundAmount: 0,
+            refundRate: 0, avgRefundAmount: 0, refundedSales: [],
           });
           setCurrentTotals({ revenue: 0, orders: 0, guests: 0 });
           setPreviousTotals(null);
@@ -902,7 +904,7 @@ export function useAnalyticsData({
         await Promise.all([refundOrdersP, refundTicketsQuery, refundTablesQuery]);
 
       // Aggregate all refund items
-      interface RefundItem { type: string; amount: number; reason: string; date: string; }
+      interface RefundItem { type: string; amount: number; reason: string; date: string; sale: RevenueRow; }
       const allRefunds: RefundItem[] = [];
 
       // Fall back to created_at when refunded_at is missing, so no refund is silently
@@ -915,6 +917,7 @@ export function useAnalyticsData({
           amount: Number(o.refund_amount) || orderRevenue(o).gross,
           reason: o.refund_reason || '',
           date: refundDay(o),
+          sale: orderRevenue(o),
         });
       });
       (refundedTickets || []).forEach((tk: any) => {
@@ -923,6 +926,7 @@ export function useAnalyticsData({
           amount: Number(tk.refund_amount) || ticketRevenue(tk).gross,
           reason: tk.refund_reason || '',
           date: refundDay(tk),
+          sale: ticketRevenue(tk),
         });
       });
       (refundedTables || []).forEach((tr: any) => {
@@ -931,6 +935,7 @@ export function useAnalyticsData({
           amount: Number(tr.refund_amount) || tableRevenue(tr).gross,
           reason: tr.refund_reason || '',
           date: refundDay(tr),
+          sale: tableRevenue(tr),
         });
       });
 
@@ -972,6 +977,7 @@ export function useAnalyticsData({
       setRefundAnalytics({
         totalRefunded, totalRefundCount, refundsByType, refundsByDay, refundsByReason,
         refundRate, avgRefundAmount,
+        refundedSales: allRefunds.map(r => ({ gross: r.sale.gross, stripe: r.sale.stripe, refund: r.amount })),
       });
 
     } catch (err) {

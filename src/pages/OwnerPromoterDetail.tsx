@@ -213,7 +213,8 @@ export default function OwnerPromoterDetail() {
     let clicksQ = supabase.from('promoter_clicks').select('id').eq('promoter_id', id);
     if (dateFrom) clicksQ = clicksQ.gte('clicked_at', dateFrom);
     if (eventFilter) clicksQ = clicksQ.eq('event_id', eventFilter);
-    let convsQ = supabase.from('promoter_conversions').select('*').eq('promoter_id', id);
+    // Ventes remboursées ('cancelled') hors des ventes attribuées affichées.
+    let convsQ = supabase.from('promoter_conversions').select('*').eq('promoter_id', id).neq('status', 'cancelled');
     if (dateFrom) convsQ = convsQ.gte('created_at', dateFrom);
     if (eventFilter) convsQ = convsQ.eq('event_id', eventFilter);
     const [clicksRes, convsRes] = await Promise.all([clicksQ, convsQ]);
@@ -261,7 +262,7 @@ export default function OwnerPromoterDetail() {
     }
     if (eventIds.length === 0) { setAssignedEvents([]); return; }
     const { data: evts } = await supabase.from('events').select('id, title').in('id', eventIds);
-    let convsQ = supabase.from('promoter_conversions').select('event_id, amount, commission, conversion_type').eq('promoter_id', id).in('event_id', eventIds);
+    let convsQ = supabase.from('promoter_conversions').select('event_id, amount, commission, conversion_type').eq('promoter_id', id).in('event_id', eventIds).neq('status', 'cancelled');
     if (dateFrom) convsQ = convsQ.gte('created_at', dateFrom);
     const { data: convs } = await convsQ;
     const eventMap = new Map((evts || []).map(e => [e.id, e.title]));
@@ -490,7 +491,7 @@ export default function OwnerPromoterDetail() {
                 {[
                   { label: tt('Clics', 'Clicks'), value: stats.totalClicks, icon: MousePointerClick, pct: 100 },
                   { label: 'Conversions', value: stats.totalConversions, icon: Ticket, pct: stats.totalClicks > 0 ? (stats.totalConversions / stats.totalClicks) * 100 : 0 },
-                  { label: tt('Revenus', 'Revenue'), value: `${stats.totalRevenue.toFixed(0)}€`, icon: Euro, pct: stats.totalClicks > 0 ? (stats.totalConversions / stats.totalClicks) * 100 : 0 },
+                  { label: tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)'), value: `${stats.totalRevenue.toFixed(0)}€`, icon: Euro, pct: stats.totalClicks > 0 ? (stats.totalConversions / stats.totalClicks) * 100 : 0 },
                   { label: 'Commission', value: `${stats.totalCommission.toFixed(0)}€`, icon: TrendingUp, pct: stats.totalRevenue > 0 ? (stats.totalCommission / stats.totalRevenue) * 100 : 0 },
                 ].map((step, i, arr) => (
                   <div key={step.label}>

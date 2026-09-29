@@ -55,7 +55,7 @@ import { EventReportView } from '@/components/event-report/EventReportView';
 import { LiveView } from '@/components/live-view/LiveView';
 import { PurchaseBehaviorView } from '@/components/analytics/PurchaseBehaviorView';
 import { orgEventsOr } from '@/lib/coorg';
-import { ticketRevenue } from '@/utils/fees';
+import { payoutStrip, ticketRevenue } from '@/utils/fees';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -654,7 +654,16 @@ export default function OrgAppAnalytics() {
   const totalStripeFee = ticketAnalytics.stripeFee + tableAnalytics.stripeFee;
   // Refunds line = fully-refunded bookings + partial refunds on still-paid rows.
   const partialRefunded = ticketAnalytics.partialRefunded + tableAnalytics.partialRefunded;
-  const totalRefunded = (refundAnalytics?.totalRefunded || 0) + partialRefunded;
+  // Bande « Volume brut − Stripe − Remboursements = Net versé » : une vente
+  // remboursée en totalité revient dans le volume brut et dans Stripe, puis
+  // TOUS les remboursements sortent une seule fois (payoutStrip, fees.ts).
+  const strip = payoutStrip({
+    keptGross: totalRevenue,
+    keptStripe: totalStripeFee,
+    partialRefunded,
+    refundedSales: refundAnalytics?.refundedSales ?? [],
+  });
+  const totalRefunded = strip.refunds;
   // A guest who bought a ticket AND a table counts once.
   const totalGuests = uniqueGuestsTotal;
 
@@ -735,8 +744,8 @@ export default function OrgAppAnalytics() {
 
   // Finance strip — Gross − Stripe − Refunds, then the organizer's net gain after partnership split.
   const financeData = [
-    { label: t('owner.an.grossVolume'), val: fmt(totalRevenue), desc: `${totalOrders} ${t('owner.an.transactions')}` },
-    { label: 'Stripe', val: totalStripeFee > 0 ? `−${fmt(totalStripeFee)}` : '—', desc: '1.5% + €0.25 / txn' },
+    { label: t('owner.an.grossVolume'), val: fmt(strip.grossVolume), desc: `${totalOrders + (refundAnalytics?.totalRefundCount || 0)} ${t('owner.an.transactions')}` },
+    { label: 'Stripe', val: strip.stripe > 0 ? `−${fmt(strip.stripe)}` : '—', desc: '1.5% + €0.25 / txn' },
     { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmt(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
     { label: tt('Gain net', 'Net gain', 'Ganancia neta'), val: netGain == null ? '—' : fmt(netGain), desc: tt('Après frais & part partenaire', 'After fees & partner split', 'Tras comisiones y parte del socio'), accent: true },
   ];

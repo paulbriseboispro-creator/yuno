@@ -33,7 +33,7 @@ puis après, sur des ventes démo.
 | `get_guest_list_analytics` → « CA généré », bar / VIP, repère « billet payant » | `Σ o.total`, `Σ r.total_price` | **oui** (bar) | (a) | **Corrigé** ; tables `paid/confirmed` |
 | `analytics_wh.table_reservations.club_revenue` | retire `management_fee` même non absorbé | sous-estimé | (a) | **Corrigé** (`CASE WHEN fee_absorbed`) |
 | `get_live_view`, `get_events_sales_summary`, `get_event_report`, `get_events_pnl`, `get_sales_overview`, `get_purchase_behavior`, `get_push_campaigns`, `get_promo_codes`, `get_audience_revenue`, `get_vip_table_analytics`, `night_recap_data`, `get_event_party_links`, `_coorg_yuno_legs`, `collab_night_yuno_figures` | CA club (réécrites par `20260929170000`) | non | ok | — |
-| `get_email_campaign_attribution`, `get_audience_push_attribution`, `audience_weekly_recap_data`, `email_automation_weekly_digest` | CA club **− Stripe** (CA net) | non | ok | Voir la question ouverte n° 1 |
+| `get_email_campaign_attribution`, `get_audience_push_attribution`, `audience_weekly_recap_data`, `email_automation_weekly_digest` | CA club **− Stripe**, remboursement non plafonné (−0,25 € sur une vente gratuite) | non | ok | **Aligné sur le CA club** (`20260929231000`, décision n° 1) : push womber 43,30 € → 45 € = historique Push ; récap hebdo 21 532 € → 22 048 € |
 | `_venue_customer_rfm`, `get_organizer_customer_segments`, `contact_scope_customers`, `_admin_customer_activity`, `count_campaign_recipients_org` (`spent`), `get_vip_guest_profile`, `get_customer_timeline` | dépense client (brut, ou CA club selon la fonction) | oui | (b) | Formule légitime ; libellés front corrigés (§ 3) |
 | `admin_cockpit`, `admin_platform_analytics`, `admin_orders_list`, `admin_activity_feed`, `admin_venue_overview`, `get_platform_traffic` | GMV brut + revenu Yuno séparé | oui (GMV) | (c) | ok, libellés « Volume de ventes / GMV » et « Revenu Yuno » |
 | `get_vip_consumption_analytics`, `get_vip_host_leaderboard` | `Σ vip_consumptions.total_price` | non (aucun frais Yuno sur une conso servie) | ok | — |
@@ -103,9 +103,9 @@ Tous les appels ont été joués sous RLS avec le jeton du propriétaire
   déduit (CA club avant remboursement).
 - **Liens suivis, « Qui fait vendre », push, email, SMS, pubs** : périmètre
   attribué (les ventes passées par CE lien ou ce clic), jamais la soirée entière.
-- **Attribution email / push de la page Audience** : CA **net** (Stripe déduit).
-  L'historique Push et le Rapport de soirée affichent le CA club. Voir la question
-  ouverte n° 1.
+- **Attribution email / push** : même CA club que l'historique Push depuis
+  `20260929231000` (45 € des deux côtés sur womber) ; seule la fenêtre diffère
+  (90 jours, clic → achat 72 h).
 - **Accueil Club, Live Night, Service VIP** : tables comptées à l'**acompte
   encaissé**, alors que les autres écrans comptent le prix de la table
   (`total_price`). Pour une résa à acompte partiel, l'accueil montre donc moins.
@@ -114,9 +114,15 @@ Tous les appels ont été joués sous RLS avec le jeton du propriétaire
 - **Promoteurs** : valeur faciale avant remise (base de la commission),
   différente du CA club après remise.
 
-## 5. Questions ouvertes (non tranchées)
+## 5. Questions ouvertes
 
-1. **Faut-il déduire Stripe (1,5 % + 0,25 €) pour parler de « net » ?**
+Décisions appliquées le 29/09 : **n° 1** (le CA club partout, le net seulement
+sous « Net versé » / « Gain net »), **n° 4** (`payoutStrip`, `fees.ts`) et
+**n° 5** (ventes annulées exclues, libellés « Ventes attribuées »). Restent
+ouvertes : n° 2, 3, 6 et 7.
+
+
+1. ✅ **Faut-il déduire Stripe (1,5 % + 0,25 €) pour parler de « net » ?**
    Aujourd'hui, l'attribution email / push et le récap hebdo retirent Stripe
    (« CA net »), mais pas l'historique Push, le Rapport de soirée ni les liens
    suivis (« CA club »). Recommandation : garder le **CA club (avant Stripe)**
@@ -133,13 +139,13 @@ Tous les appels ont été joués sous RLS avec le jeton du propriétaire
    `verify-*`. Recommandation : afficher le CA club. Non fait ici, car il faut
    toucher et redéployer ensemble les fonctions de paiement (hors périmètre
    demandé).
-4. **Double déduction des remboursements** (Analytics › « Net versé ») : les
+4. ✅ **Double déduction des remboursements** (Analytics › « Net versé ») : les
    ventes remboursées en totalité sont déjà exclues du brut (`status = 'paid'`),
    puis retirées une seconde fois. « Net versé » est donc sous-estimé. Le repli
    des frais est corrigé, pas ce modèle. Recommandation : compter les ventes
    remboursées dans le brut (et leur frais Stripe perdu), puis retirer tous les
    remboursements.
-5. **Promoteurs** : les conversions `cancelled` entrent dans « CA généré » / « CA
+5. ✅ **Promoteurs** : les conversions `cancelled` entrent dans « CA généré » / « CA
    attribué », et les libellés disent « CA » pour une valeur faciale avant
    remise. Côté affichage seulement (code d'argent non touché).
    Recommandation : exclure `cancelled` et libeller « ventes attribuées ».

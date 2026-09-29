@@ -421,6 +421,14 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   valeur faciale hors frais Yuno ; `agency_conversions.gross_amount` est une
   commission due (promoteur + marge), jamais un volume de ventes. Le GMV et le
   revenu Yuno du super admin sont des chiffres Yuno, libellés comme tels.
+  **Le net (Stripe déduit) ne vit que sous « Net versé » / « Gain net »** : toute
+  attribution (email, push, liens, SMS, pubs) et tout récap rend le CA club
+  (`20260929231000`). La bande « Volume brut − Stripe − Remboursements = Net
+  versé » passe par `payoutStrip` (`fees.ts`) : une vente remboursée en totalité
+  n'est plus `paid`, elle revient dans le brut et dans Stripe, puis chaque
+  remboursement sort UNE fois. Ventes promoteur affichées = conversions non
+  `cancelled` (le remboursement change le statut sans remettre `amount` à
+  zéro), libellées « Ventes attribuées », jamais « CA ».
 - **« Complet » posé à la main = porte unique `src/lib/soldOut.ts`** (2026-09-11,
   migration `20260911210000`). Fermer la vente d'un pilier SANS dépublier la
   soirée : `events.tickets_sold_out` / `tables_sold_out` / `guest_list_sold_out`

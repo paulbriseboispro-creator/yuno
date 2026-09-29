@@ -95,6 +95,8 @@ export function EventPromotersModule({ eventId }: Props) {
           const amt = Number(c.amount || 0);
           const com = Number(c.commission || 0);
           const live = c.status !== 'cancelled';
+          // Une vente remboursée ne compte ni dans les ventes attribuées ni dans les commissions.
+          if (!live) return;
           convStats[c.promoter_id].conversions++;
           convStats[c.promoter_id].revenue += amt;
           convStats[c.promoter_id].commission += com;

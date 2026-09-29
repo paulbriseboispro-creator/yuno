@@ -235,7 +235,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState<CampaignRow | null>(null);
   const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0, policySkipped: 0 });
-  // Attribution clic→action 72 h (get_email_campaign_attribution, net de frais).
+  // Attribution clic→action 72 h (get_email_campaign_attribution, CA club : frais Yuno et remboursements déduits, avant Stripe).
   // La ligne porte le CA ET la ventilation par pilier : billets, tables VIP,
   // liste invités, boissons. Un CA seul ne dit pas ce que l'email a rempli.
   const [attribution, setAttribution] = useState<CampaignAttribution | null>(null);

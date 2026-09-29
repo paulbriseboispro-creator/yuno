@@ -78,3 +78,28 @@ export function tableRevenue(t: { total_price?: number | null; service_fee?: num
 export function clubAmount(r: RevenueRow): number {
   return r.gross - r.refunded;
 }
+
+/**
+ * Bande « Volume brut − Stripe − Remboursements = Net versé ».
+ *
+ * Une vente remboursée EN TOTALITÉ n'est plus au statut `paid` : elle sort donc
+ * des totaux de ventes. Pour que la bande tombe juste, on la remet dans le
+ * volume brut (sa part club) et dans Stripe (Stripe garde ses frais), puis on
+ * retire TOUS les remboursements — jamais deux fois le même.
+ */
+export function payoutStrip(input: {
+  /** Part club des ventes encore payées (avant remboursement partiel). */
+  keptGross: number;
+  /** Frais Stripe des ventes encore payées. */
+  keptStripe: number;
+  /** Remboursements partiels sur des ventes encore payées. */
+  partialRefunded: number;
+  /** Ventes remboursées en totalité : leur part club, leur Stripe, et le montant rendu. */
+  refundedSales: { gross: number; stripe: number; refund: number }[];
+}): { grossVolume: number; stripe: number; refunds: number; net: number } {
+  const refunded = input.refundedSales;
+  const grossVolume = input.keptGross + refunded.reduce((s, r) => s + r.gross, 0);
+  const stripe = input.keptStripe + refunded.reduce((s, r) => s + r.stripe, 0);
+  const refunds = input.partialRefunded + refunded.reduce((s, r) => s + r.refund, 0);
+  return { grossVolume, stripe, refunds, net: grossVolume - stripe - refunds };
+}

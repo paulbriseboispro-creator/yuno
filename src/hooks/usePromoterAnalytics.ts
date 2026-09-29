@@ -77,7 +77,8 @@ export function usePromoterAnalytics({ venueId, organizerUserId, dateRange, mode
       const startDate = mode === 'event' ? null : getStartDate(dateRange);
       const eventFilter = mode === 'event' && selectedEventId ? selectedEventId : null;
 
-      let cq = supabase.from('promoter_conversions').select('promoter_id, amount, commission, event_id, created_at, conversion_type, status').in('promoter_id', ids);
+      // Ventes remboursées ('cancelled') hors des ventes attribuées et des commissions.
+      let cq = supabase.from('promoter_conversions').select('promoter_id, amount, commission, event_id, created_at, conversion_type, status').in('promoter_id', ids).neq('status', 'cancelled');
       if (eventFilter) cq = cq.eq('event_id', eventFilter);
       else if (startDate) cq = cq.gte('created_at', startDate.toISOString());
       const { data: conversions } = await cq;

@@ -265,7 +265,7 @@ export default function OwnerPromoterEventView() {
         <div className="grid grid-cols-4 gap-2.5">
           <StatTile icon={MousePointerClick} value={totalClicks} label={tt('Clics', 'Clicks')} />
           <StatTile icon={Ticket} value={totalTickets} label={tt('Ventes', 'Sales')} />
-          <StatTile value={`${totalRevenue.toFixed(0)}€`} label={tt('CA', 'Revenue')} />
+          <StatTile value={`${totalRevenue.toFixed(0)}€`} label={tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)')} />
           <StatTile value={`${totalCommission.toFixed(0)}€`} label="Commission" accent />
         </div>
 

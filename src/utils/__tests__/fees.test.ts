@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcStripeFee, orderRevenue, tableRevenue, ticketRevenue } from '../fees';
+import { calcStripeFee, orderRevenue, payoutStrip, tableRevenue, ticketRevenue } from '../fees';
 
 // Le CA club de fees.ts est la référence de tous les revenus affichés aux pros :
 // jamais les frais de service, l'assurance annulation ni les frais de gestion
@@ -36,5 +36,30 @@ describe('CA club — frais Yuno exclus', () => {
   it('frais Stripe : 1,5 % + 0,25 € sur le montant TOTAL payé, rien sur une vente à 0', () => {
     expect(calcStripeFee(20.99)).toBe(0.56);
     expect(calcStripeFee(0)).toBe(0);
+  });
+});
+
+describe('payoutStrip — un remboursement ne sort qu’une fois', () => {
+  it('vente remboursée en totalité : elle revient dans le brut et dans Stripe, le net ne perd que Stripe', () => {
+    const s = payoutStrip({
+      keptGross: 100, keptStripe: 2, partialRefunded: 0,
+      refundedSales: [{ gross: 20, stripe: 0.56, refund: 20 }],
+    });
+    expect(s.grossVolume).toBe(120);
+    expect(s.stripe).toBeCloseTo(2.56, 2);
+    expect(s.refunds).toBe(20);
+    // 100 − 2 (ventes gardées) − 0,56 (Stripe garde ses frais) ; avant : 100 − 2 − 20.
+    expect(s.net).toBeCloseTo(97.44, 2);
+  });
+
+  it('remboursement partiel sur une vente gardée : déduit une fois', () => {
+    const s = payoutStrip({ keptGross: 100, keptStripe: 2, partialRefunded: 5, refundedSales: [] });
+    expect(s.net).toBe(93);
+  });
+
+  it('annulation remboursée net de frais : la vente ne coûte plus rien au club', () => {
+    // part club 20, Stripe 0,56 ; le staff rend 20 − 0,56.
+    const s = payoutStrip({ keptGross: 0, keptStripe: 0, partialRefunded: 0, refundedSales: [{ gross: 20, stripe: 0.56, refund: 19.44 }] });
+    expect(s.net).toBeCloseTo(0, 2);
   });
 });

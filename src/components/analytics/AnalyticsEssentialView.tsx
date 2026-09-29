@@ -7,6 +7,7 @@ import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cart
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import type { DrinkAnalytics, TicketAnalytics, TableAnalytics, RefundAnalytics } from '@/hooks/useAnalyticsData';
+import { payoutStrip } from '@/utils/fees';
 
 interface Props {
   drinkAnalytics: DrinkAnalytics;
@@ -36,11 +37,21 @@ export function AnalyticsEssentialView({ drinkAnalytics, ticketAnalytics, tableA
   const avgTicketPrice = ticketAnalytics.avgTicketPrice;
 
   const hasRefunds = refundAnalytics && refundAnalytics.totalRefundCount > 0;
+  // Net après remboursements : les ventes remboursées en totalité sont déjà
+  // hors des totaux (statut ≠ paid). On ajoute seulement ce qu'elles coûtent
+  // encore (part rendue au-delà de la part club, Stripe conservé) — jamais une
+  // seconde déduction du même remboursement (payoutStrip, fees.ts).
+  const afterRefunds = payoutStrip({
+    keptGross: totalRevenue,
+    keptStripe: drinkAnalytics.stripeFee + ticketAnalytics.stripeFee + tableAnalytics.stripeFee,
+    partialRefunded: drinkAnalytics.partialRefunded + ticketAnalytics.partialRefunded + tableAnalytics.partialRefunded,
+    refundedSales: refundAnalytics?.refundedSales ?? [],
+  }).net;
   const refundNote = hasRefunds ? { text: `↩ -${fmtPrice(refundAnalytics!.totalRefunded)} ${t('refund.analytics.refunded')}`, color: 'text-red-400' } : undefined;
 
   const kpis = [
     { label: t('owner.totalRevenue'), value: fmtPrice(totalRevenue), icon: DollarSign, note: refundNote },
-    { label: t('owner.netRevenue'), value: fmtPrice(totalNetRevenue), icon: TrendingUp, note: hasRefunds ? { text: `${t('refund.analytics.afterRefunds')}: ${fmtPrice(totalNetRevenue - refundAnalytics!.totalRefunded)}`, color: 'text-muted-foreground' } : undefined },
+    { label: t('owner.netRevenue'), value: fmtPrice(totalNetRevenue), icon: TrendingUp, note: hasRefunds ? { text: `${t('refund.analytics.afterRefunds')}: ${fmtPrice(afterRefunds)}`, color: 'text-muted-foreground' } : undefined },
     { label: t('owner.totalRevenue') + ' (' + t('owner.drinks') + ')', value: fmtPrice(drinkAnalytics.totalRevenue), icon: Wine },
     { label: t('owner.ticketsSold'), value: totalTicketsSold, icon: Ticket },
     { label: t('owner.avgTicketPrice'), value: fmtPrice(avgTicketPrice), icon: Package },

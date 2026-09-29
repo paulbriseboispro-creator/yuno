@@ -179,7 +179,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   <PCard icon={<Euro className="w-4 h-4" />}
                     title={t('Valeur par abonné', 'Value per subscriber', 'Valor por suscriptor')}
-                    sub={t('Revenu net généré ÷ abonnés (90j)', 'Net revenue ÷ subscribers (90d)', 'Ingreso neto ÷ suscriptores (90d)')}>
+                    sub={t('CA club généré ÷ abonnés (90j)', 'Club revenue ÷ subscribers (90d)', 'Ingresos del club ÷ suscriptores (90d)')}>
                     <div className="text-[34px] font-[700] tabular-nums leading-none" style={{ color: ltv > 0 ? POS : T2 }}>{ltvLabel}</div>
                     <p className="text-[12px] mt-2" style={{ color: T3 }}>
                       {ltv > 0
@@ -370,7 +370,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions, embedded = f
             return (
               <PCard style={{ marginTop: 12 }} icon={<BarChart3 className="w-4 h-4" />}
                 title={t('Performance marketing', 'Marketing performance', 'Rendimiento de marketing')}
-                sub={t('Revenus attribués par canal (90j, net de frais)', 'Attributed revenue per channel (90d, net of fees)', 'Ingresos atribuidos por canal (90d, netos)')}>
+                sub={t('CA club attribué par canal (90j, hors frais Yuno)', 'Attributed club revenue per channel (90d, excl. Yuno fees)', 'Ingresos del club atribuidos por canal (90d, sin gastos de Yuno)')}>
                 <div className="space-y-3">
                   {channels.map(ch => (
                     <div key={ch.key} className="flex items-center gap-3">

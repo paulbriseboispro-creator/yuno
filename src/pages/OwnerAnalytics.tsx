@@ -42,7 +42,7 @@ import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSe
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
-import { STRIPE_FEE_LABEL } from '@/utils/fees';
+import { STRIPE_FEE_LABEL, payoutStrip } from '@/utils/fees';
 import { useAnalyticsRoute } from '@/hooks/useAnalyticsRoute';
 import { eventReportHref } from '@/lib/analyticsNav';
 import { AnalyticsFamilyNav } from '@/components/analytics/families/AnalyticsFamilyNav';
@@ -590,9 +590,17 @@ export default function OwnerAnalytics() {
   const totalStripeFee = drinkAnalytics.stripeFee + ticketAnalytics.stripeFee + tableAnalytics.stripeFee;
   // Refunds line = fully-refunded bookings + partial refunds on still-paid rows (both club-side).
   const partialRefunded = drinkAnalytics.partialRefunded + ticketAnalytics.partialRefunded + tableAnalytics.partialRefunded;
-  const totalRefunded = (refundAnalytics?.totalRefunded || 0) + partialRefunded;
-  // Net payout foots exactly: Gross − Stripe − Refunds.
-  const totalNetRevenue = totalRevenue - totalStripeFee - totalRefunded;
+  // Bande « Volume brut − Stripe − Remboursements = Net versé » : une vente
+  // remboursée en totalité revient dans le volume brut et dans Stripe, puis
+  // TOUS les remboursements sortent une seule fois (payoutStrip, fees.ts).
+  const strip = payoutStrip({
+    keptGross: totalRevenue,
+    keptStripe: totalStripeFee,
+    partialRefunded,
+    refundedSales: refundAnalytics?.refundedSales ?? [],
+  });
+  const totalRefunded = strip.refunds;
+  const totalNetRevenue = strip.net;
   const totalGuests = uniqueGuestsTotal;
 
   // Unified day series across all categories (not just drinks) for the KPI sparklines.
@@ -677,8 +685,8 @@ export default function OwnerAnalytics() {
 
   // Finance strip — Gross − Stripe − Refunds = Net Payout (now foots exactly).
   const financeData = [
-    { label: t('owner.an.grossVolume'), val: fmt(totalRevenue), desc: `${totalOrders} ${t('owner.an.transactions')}` },
-    { label: 'Stripe', val: totalStripeFee > 0 ? `−${fmt(totalStripeFee)}` : '—', desc: STRIPE_FEE_LABEL },
+    { label: t('owner.an.grossVolume'), val: fmt(strip.grossVolume), desc: `${totalOrders + (refundAnalytics?.totalRefundCount || 0)} ${t('owner.an.transactions')}` },
+    { label: 'Stripe', val: strip.stripe > 0 ? `−${fmt(strip.stripe)}` : '—', desc: STRIPE_FEE_LABEL },
     { label: t('owner.an.refunds'), val: totalRefunded > 0 ? `−${fmt(totalRefunded)}` : '—', desc: `${refundAnalytics?.totalRefundCount || 0} ${t('owner.an.refundsLower')}` },
     { label: t('owner.an.netPayout'), val: fmt(totalNetRevenue), desc: t('owner.an.settles2days') },
   ];

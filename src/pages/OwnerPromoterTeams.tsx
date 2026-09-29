@@ -114,7 +114,7 @@ export default function OwnerPromoterTeams() {
     const promoterIds = (membersData || []).map(m => m.id);
     const convMap: Record<string, { revenue: number; count: number; commission: number }> = {};
     if (promoterIds.length > 0) {
-      const { data: convs } = await supabase.from('promoter_conversions').select('promoter_id, amount, commission').in('promoter_id', promoterIds);
+      const { data: convs } = await supabase.from('promoter_conversions').select('promoter_id, amount, commission').in('promoter_id', promoterIds).neq('status', 'cancelled');
       (convs || []).forEach((c: any) => {
         if (!convMap[c.promoter_id]) convMap[c.promoter_id] = { revenue: 0, count: 0, commission: 0 };
         convMap[c.promoter_id].revenue += Number(c.amount || 0);
@@ -277,7 +277,7 @@ export default function OwnerPromoterTeams() {
                   <div className="grid grid-cols-3 gap-2" style={{ marginTop: 12 }}>
                     {[
                       { v: team.totalConversions, l: tt('Ventes', 'Sales') },
-                      { v: `${team.totalRevenue.toFixed(0)}€`, l: tt('CA', 'Revenue') },
+                      { v: `${team.totalRevenue.toFixed(0)}€`, l: tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)') },
                       { v: team.memberCount > 0 ? (team.totalConversions / team.memberCount).toFixed(1) : 0, l: tt('Moy/membre', 'Avg/member') },
                     ].map((s, i) => (
                       <div key={i} style={{ background: TILE_BG, borderRadius: 9, padding: '9px 8px', textAlign: 'center' }}>
@@ -305,7 +305,7 @@ export default function OwnerPromoterTeams() {
                         <Select value={sortBy} onValueChange={v => setSortBy(v as any)}>
                           <SelectTrigger className="h-7 text-xs w-28" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="revenue">{tt('CA', 'Revenue')}</SelectItem>
+                            <SelectItem value="revenue">{tt('Ventes attribuées (€)', 'Attributed sales (€)', 'Ventas atribuidas (€)')}</SelectItem>
                             <SelectItem value="conversions">{tt('Ventes', 'Sales')}</SelectItem>
                             <SelectItem value="commission">Commission</SelectItem>
                           </SelectContent>
